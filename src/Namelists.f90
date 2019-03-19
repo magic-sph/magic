@@ -481,6 +481,12 @@ contains
          l_anel=.true.
       end if
 
+      if ( l_centrifuge .and. .not. &
+          &( l_anel .and. (index(interior_model, "None")/=0) .and. .not. l_isothermal ) ) then
+         call abortRun("This case is not implemented ; provide the pressure background.")
+         ! centrifugal acceleration implemented for polytropic background only
+      end if
+
       if ( prmag == 0.0_cp ) then
          l_mag   =.false.
          l_mag_nl=.false.
@@ -841,6 +847,7 @@ contains
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
       write(n_out,'(''  po_diff         ='',ES14.6,'','')') po_diff
       write(n_out,'(''  diff_prec_angle ='',ES14.6,'','')') diff_prec_angle
+      write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  DissNb          ='',ES14.6,'','')') DissNb

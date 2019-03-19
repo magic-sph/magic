@@ -1,13 +1,13 @@
 module general_arrays_mod
- 
+
    implicit none
- 
+
    private
- 
+
    type, public, abstract :: general_arrays_t
- 
+
    end type general_arrays_t
- 
+
 end module general_arrays_mod
 !----------------------------------------------------------------------------
 module grid_space_arrays_mod
@@ -17,25 +17,27 @@ module grid_space_arrays_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
-       &                       lambda, or4, or1, alpha0, temp0
+       &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,  &
-       &                          ThExpNb, ViscHeatFac, oek, po
+        &                         ThExpNb, ViscHeatFac, oek, po,       &
+        &                         dilution_fac, ra, opr, polind, strat, radratio
    use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi 
+   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_diff_prec
+       &            l_diff_prec, l_centrifuge
 
    implicit none
 
    private
 
    type, public, extends(general_arrays_t) :: grid_space_arrays_t
-      !----- Nonlinear terms in phi/theta space: 
+      !----- Nonlinear terms in phi/theta space:
       real(cp), allocatable :: Advr(:,:), Advt(:,:), Advp(:,:)
       real(cp), allocatable :: LFr(:,:), LFt(:,:), LFp(:,:)
       real(cp), allocatable :: PCr(:,:), PCt(:,:), PCp(:,:)
+      real(cp), allocatable :: CAr(:,:), CAt(:,:)
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
@@ -106,6 +108,12 @@ contains
          bytes_allocated=bytes_allocated + 3*nrp*nfs*SIZEOF_DEF_REAL
       end if
 
+      if ( l_centrifuge ) then
+         allocate( this%CAr(nrp,nfs) )
+         allocate( this%CAt(nrp,nfs) )
+         bytes_allocated=bytes_allocated + 2*nrp*nfs*SIZEOF_DEF_REAL
+      end if
+
       if ( l_chemical_conv ) then
          allocate( this%VXir(nrp,nfs) )
          allocate( this%VXit(nrp,nfs) )
@@ -170,6 +178,7 @@ contains
       if ( l_TP_form ) deallocate( this%VPr )
       if ( l_chemical_conv ) deallocate( this%VXir, this%VXit, this%VXip )
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
+      if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       deallocate( this%ViscHeat )
       deallocate( this%OhmLoss )
 
@@ -202,7 +211,7 @@ contains
    subroutine output(this)
 
       class(grid_space_arrays_t) :: this
-   
+
       write(*,"(A,3ES20.12)") "Advr,Advt,Advp = ",sum(this%Advr), &
                                    sum(this%Advt),sum(this%Advp)
 
@@ -211,7 +220,7 @@ contains
    subroutine output_nl_input(this)
 
       class(grid_space_arrays_t) :: this
-   
+
       write(*,"(A,6ES20.12)") "vr,vt,vp = ",sum(this%vrc),sum(this%vtc), &
                                             sum(this%vpc)
 
@@ -435,8 +444,24 @@ contains
             end do
          end do ! theta loop
          !$OMP END PARALLEL DO
-
       end if ! precession term required ?
+
+      if ( l_centrifuge .and. nBc ==0 ) then
+         do nThetaB=1,sizeThetaB
+            nTheta=nTheta+1
+            nThetaNHS=(nTheta+1)/2
+            snt=sinTheta(nTheta)
+            cnt=cosTheta(nTheta)
+            rsnt=r(nR)*snt
+            c1 = (1+radratio)/(1-radratio)**2*(1-(radratio+1)/(radratio*exp(strat/polind)+1))
+            do nPhi=1,n_phi_max
+               this%CAr(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*snt* &
+               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
+               this%CAt(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*cnt* &
+               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
+            end do ! phi loop
+         end do ! theta loop
+      end if ! centrifuge
 
       if ( l_mag_nl ) then
 
@@ -653,7 +678,7 @@ contains
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp
+      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp, c1
 
       nThetaLast=nThetaStart-1
 
@@ -857,6 +882,28 @@ contains
             this%PCp(n_phi_max+2,nThetaB)=0.0_cp
          end do ! theta loop
       end if ! precession term required ?
+
+      if ( l_centrifuge .and. nBc ==0 ) then
+         nTheta=nThetaLast
+         do nThetaB=1,sizeThetaB
+            nTheta=nTheta+1
+            nThetaNHS=(nTheta+1)/2
+            snt=sinTheta(nTheta)
+            cnt=cosTheta(nTheta)
+            rsnt=r(nR)*snt
+            c1 = (1+radratio)/(1-radratio)**2*(1-(radratio+1)/(radratio*exp(strat/polind)+1))
+            do nPhi=1,n_phi_max
+               this%CAr(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*snt* &
+               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
+               this%CAt(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*cnt* &
+               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
+            end do
+            this%CAr(n_phi_max+1,nThetaB)=0.0_cp
+            this%CAr(n_phi_max+2,nThetaB)=0.0_cp
+            this%CAt(n_phi_max+1,nThetaB)=0.0_cp
+            this%CAt(n_phi_max+2,nThetaB)=0.0_cp
+         end do
+      end if ! centrifuge
 
       if ( l_mag_nl ) then
 
