@@ -4,7 +4,7 @@ module logic
    !
 
    implicit none
- 
+
    logical :: l_update_v     ! Switch off velocity field update
    logical :: l_update_b     ! Switch off magnetic field update
    logical :: l_update_s     ! Switch off entropy update
@@ -55,7 +55,7 @@ module logic
    logical :: l_rMagSpec     ! Switch for magnetic spectra at different depths at log times
    logical :: l_DTrMagSpec   ! Switch for magnetic spectra at different depths at movie output times
    logical :: l_TO           ! Switch for TO output in TOnhs.TAG, TOshs.TAG
-   logical :: l_TOmovie      ! Switch for TO movie output 
+   logical :: l_TOmovie      ! Switch for TO movie output
    logical :: l_hel          ! Switch for helicity calculation, output in misc.TAG
    logical :: l_anel         ! Switch for anelastic calculation
    logical :: l_isothermal   ! Switch for isothermal calculation
@@ -94,5 +94,6 @@ module logic
    logical :: l_earth_likeness ! Compute the Earth-likeness of the CMB field following Christensen et al., EPSL, 2010
    logical :: l_precession ! Use precession
    logical :: l_diff_prec  ! Use differential precession
+   logical :: l_centrifuge ! Compute centrifugal acceleration
 
 end module logic

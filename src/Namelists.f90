@@ -22,19 +22,19 @@ module Namelists
    use useful, only: abortRun
 
    implicit none
- 
+
    private
- 
+
    public :: readNamelists, writeNamelists
 
 contains
 
    subroutine readNamelists
       !
-      !                                                                   
-      !  Purpose of this subroutine is to read the input namelists.       
-      !  This program also determins logical parameters that are stored   
-      !  in logic.f90.                                                    
+      !
+      !  Purpose of this subroutine is to read the input namelists.
+      !  This program also determins logical parameters that are stored
+      !  in logic.f90.
       !
 
       !-- Local stuff
@@ -66,7 +66,7 @@ contains
          & runHours,runMinutes,runSeconds,map_function,     &
          & cacheblock_size_in_B,anelastic_flavour,          &
          & thermo_variable,radial_scheme,polo_flow_eq
-      
+
       namelist/phys_param/                                      &
          & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
          & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
@@ -251,7 +251,7 @@ contains
       call MPI_Bcast(log_does_exist,1,MPI_logical,0,MPI_COMM_WORLD,ierr)
 #endif
       if (log_does_exist) then
-         if ( rank == 0 ) then 
+         if ( rank == 0 ) then
             write(*,*)
             write(*,*) '! The log-file exists already !'
             write(*,*) '! I add _BIS to the tag and create new files!'
@@ -356,7 +356,7 @@ contains
          l_heat   =.false.
          l_mag_LF =.false.
       else if ( mode == 10 ) then
-         !-- Super-rotating IC or MA, no convection, no magnetic field, no LF, 
+         !-- Super-rotating IC or MA, no convection, no magnetic field, no LF,
          !-- no advection
          l_heat   =.false.
          l_conv_nl=.false.
@@ -405,7 +405,7 @@ contains
 
       if ( ra == 0.0_cp ) l_heat=.false.
 
-      if ( ek < 0.0_cp ) l_non_rot= .true. 
+      if ( ek < 0.0_cp ) l_non_rot= .true.
       if ( l_non_rot ) then
          l_corr=.false.
          ek=-one ! used as a flag, not used for the calculation
@@ -424,7 +424,7 @@ contains
          l_TP_form=.false.
       end if
 
-      !-- Choose between entropy diffusion and temperature diffusion 
+      !-- Choose between entropy diffusion and temperature diffusion
       call capitalize(anelastic_flavour)
       if ( index(anelastic_flavour, 'LBR') /= 0 .or. &
          & index(anelastic_flavour, 'ENT') /= 0 ) then
@@ -463,7 +463,7 @@ contains
          call abortRun('! Please give either strat or DissNb in the input Namelist!')
       end if
 
-      if ( strat > 0.0_cp .or. DissNb > 0.0_cp ) l_anel= .true. 
+      if ( strat > 0.0_cp .or. DissNb > 0.0_cp ) l_anel= .true.
 
       if ( index(interior_model,'EARTH') /= 0 ) then
          l_anel=.true.
@@ -489,6 +489,13 @@ contains
       if ( .not. l_conv ) then
          l_conv_nl=.false.
          l_mag_LF =.false.
+      end if
+
+      !-- If dilution factor is not zero, then centrifugal force on
+      if (dilution_fac == 0.0_cp) then
+         l_centrifuge = .false.
+      else
+         l_centrifuge = .true.
       end if
 
       !-- If Poincaré number is not zero precession in turned on
@@ -552,7 +559,7 @@ contains
          lMagMem  =0
       end if
 
-      if ( l_corrMov ) l_par= .true. 
+      if ( l_corrMov ) l_par= .true.
 
       !--- Stuff for the radial non-linear mapping
       call capitalize(map_function)
@@ -648,7 +655,7 @@ contains
       !-- Special matrix for z(l=1,m=0) which is the solid body rotation:
       l_z10mat=.false.
       if ( ( l_rot_ma .and. ktopv == 2 ) .or. &
-           ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true. 
+           ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true.
 
       !-- Check Courant criteria at even time steps:
       if ( mod(n_cour_step,2) /= 0 ) n_cour_step=n_cour_step+1
@@ -735,15 +742,15 @@ contains
       runTimeLimit(3)=runSeconds
       runTimeLimit(4)=0
       l_runTimeLimit =.false.
-      if ( runHours+runMinutes+runSeconds > 0 ) l_runTimeLimit= .true. 
+      if ( runHours+runMinutes+runSeconds > 0 ) l_runTimeLimit= .true.
 
    end subroutine readNamelists
 !------------------------------------------------------------------------------
    subroutine writeNamelists(n_out)
       !
-      !  Purpose of this subroutine is to write the namelist to           
-      !  file unit n_out. This file has to be open before calling this    
-      !  routine.                                                         
+      !  Purpose of this subroutine is to write the namelist to
+      !  file unit n_out. This file has to be open before calling this
+      !  routine.
       !
 
       !-- Input variable:
@@ -1124,8 +1131,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine defaultNamelists
       !
-      !  Purpose of this subroutine is to set default parameters          
-      !  for the namelists.                                               
+      !  Purpose of this subroutine is to set default parameters
+      !  for the namelists.
       !
 
       !-- Local variable:
@@ -1140,7 +1147,7 @@ contains
       ! max degree-1 of cheb polynomia
       n_cheb_max    =31
       ! number of longitude grid points
-      ! Possible values: 
+      ! Possible values:
       ! 16,32,48,64,96,128,192,256,288,320,384,
       ! 400,512,576,640,768,864,1024
       n_phi_tot     =192
@@ -1151,7 +1158,7 @@ contains
       n_cheb_ic_max =15
       ! basic wavenumber, longitude symmetry
       minc          =1
-      ! controls dealiasing in latitude and 
+      ! controls dealiasing in latitude and
       ! longitude direction, no aliasing for nalias=20
       !   20 <= nalias <= 30
       nalias        =20
@@ -1179,7 +1186,7 @@ contains
       intfac        =0.15_cp
       n_cour_step   =10
       anelastic_flavour="None" ! Useless in Boussinesq
-      thermo_variable  ="None" 
+      thermo_variable  ="None"
       polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
 
@@ -1226,6 +1233,7 @@ contains
       epsc0      =0.0_cp
       epscxi0    =0.0_cp
       radratio   =0.35_cp
+      dilution_fac=0.0_cp    ! centrifugal acceleration
       !----- Anelatic stuff
       DissNb     =0.0_cp     ! Dissipation number
       ThExpNb    =one        ! Thermal expansion * temperature
@@ -1244,8 +1252,8 @@ contains
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
       g0         =0.0_cp
       g1         =one
-      g2         =0.0_cp        
-      !----- Boundary conditions        
+      g2         =0.0_cp
+      !----- Boundary conditions
       ktops      =1
       kbots      =1
       ktopxi     =1
@@ -1317,7 +1325,7 @@ contains
       !----- Namelist start_field:
       l_start_file  =.false.
       start_file    ="no_start_file"
-      inform        =-1   
+      inform        =-1
       runid         ="MAGIC default run"
       l_reset_t     =.false.
       scale_s       =one
@@ -1505,25 +1513,25 @@ contains
 
       !----- TO output, output times same as for log output:
       l_TO          =.false. ! TO output in TOnhs.TAG, TOshs.TAG
-      l_TOmovie     =.false. ! TO movies 
-      sDens         =one     ! relative s-grid point density 
-      zDens         =one     ! relative z-grid point density 
+      l_TOmovie     =.false. ! TO movies
+      sDens         =one     ! relative s-grid point density
+      zDens         =one     ! relative z-grid point density
 
       !----- Potential vorticity:
       l_PV          =.false.
 
       !----- Different output, output times same as for log outout:
-      l_hel         =.false. ! Helicity in misc.TAG 
-      l_AM          =.false. ! Angular moment in AM.TAG 
+      l_hel         =.false. ! Helicity in misc.TAG
+      l_AM          =.false. ! Angular moment in AM.TAG
       l_power       =.false. ! power budget in power.TAG and dtE.TAG
       l_viscBcCalc  =.false. ! dissipation layer for stress-free BCs
       l_fluxProfs   =.false. ! radial profiles of flux contributions
       l_perpPar     =.false. ! radial profiles and time series of kinetic energy
                              ! perpendicular and parallel to the rotation axi
       l_PressGraph  =.true.  ! store pressure in graphic files
-      l_drift       =.false. ! files for calculating drift rates 
+      l_drift       =.false. ! files for calculating drift rates
       l_iner        =.false. ! files for calculating inertial modes
-      l_RMS         =.false. ! RMS force balance and dynamo term 
+      l_RMS         =.false. ! RMS force balance and dynamo term
                              ! balance in dtVrms.TAG and dtBrms.TAG
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
@@ -1540,7 +1548,7 @@ contains
       omega_ma1     =0.0_cp    ! prescribed rotation rate
       omegaOsz_ma1  =0.0_cp    ! oszillation frequency of mantle rotation rate
       tShift_ma1    =0.0_cp    ! time shift
-      omega_ma2     =0.0_cp    ! second mantle rotation rate 
+      omega_ma2     =0.0_cp    ! second mantle rotation rate
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
       tShift_ma2    =0.0_cp    ! time shift for second rotation
       amp_RiMaAsym  =0.0_cp    ! amplitude of Rieutord forcing (eq anti-symm)
@@ -1551,13 +1559,13 @@ contains
       m_RiMaSym     =0         ! default forcing -> axisymmetric (eq symm)
 
       !----- Inner core name list:
-      sigma_ratio   =0.0_cp    ! no conducting inner core is default 
+      sigma_ratio   =0.0_cp    ! no conducting inner core is default
       nRotIc        =0         ! non rotating inner core is default
       rho_ratio_ic  =one       ! same density as outer core
       omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
       omegaOsz_ic1  =0.0_cp    ! oszillation frequency of IC rotation rate
       tShift_ic1    =0.0_cp    ! time shift
-      omega_ic2     =0.0_cp    ! second prescribed rotation rate 
+      omega_ic2     =0.0_cp    ! second prescribed rotation rate
       omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
