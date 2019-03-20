@@ -77,7 +77,7 @@ contains
          & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
          & nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,    &
-         & po_diff,diff_prec_angle
+         & po_diff,diff_prec_angle, dilution_fac
 
       namelist/B_external/                                    &
          & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -481,12 +481,6 @@ contains
          l_anel=.true.
       end if
 
-      if ( l_centrifuge .and. .not. &
-          &( l_anel .and. (index(interior_model, "None")/=0) .and. .not. l_isothermal ) ) then
-         call abortRun("This case is not implemented ; provide the pressure background.")
-         ! centrifugal acceleration implemented for polytropic background only
-      end if
-
       if ( prmag == 0.0_cp ) then
          l_mag   =.false.
          l_mag_nl=.false.
@@ -502,6 +496,12 @@ contains
          l_centrifuge = .false.
       else
          l_centrifuge = .true.
+      end if
+
+      if (.not. ( l_centrifuge .and. .not. l_isothermal .and. l_anel .and. &
+                &   (index(interior_model, "NONE")/=0)))  then
+         call abortRun("This case is not implemented.")
+         ! centrifugal acceleration implemented for anelastic polytropic background only
       end if
 
       !-- If Poincaré number is not zero precession in turned on

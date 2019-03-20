@@ -622,6 +622,7 @@ contains
       else ! Boussinesq
          rho0(:)     =one
          temp0(:)    =one
+         opressure0(:)=one
          otemp1(:)   =one
          orho1(:)    =one
          orho2(:)    =one
