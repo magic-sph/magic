@@ -397,7 +397,7 @@ contains
          l_Ri   = .true.
       end if
 
-      if ( raxi > 0.0_cp ) then
+      if ( raxi > 0.0_cp .or. raxi < 0.0_cp ) then
          l_chemical_conv = .true.
       else
          l_chemical_conv = .false.
