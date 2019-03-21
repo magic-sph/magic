@@ -18,8 +18,8 @@ module grid_space_arrays_mod
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
-   use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,  &
-        &                         ThExpNb, ViscHeatFac, oek, po,       &
+   use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
+        &                         ThExpNb, ViscHeatFac, oek, po, DissNb, &
         &                         dilution_fac, ra, opr, polind, strat, radratio
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi
@@ -453,12 +453,18 @@ contains
             snt=sinTheta(nTheta)
             cnt=cosTheta(nTheta)
             rsnt=r(nR)*snt
-            c1 = (1+radratio)/(1-radratio)**2*(1-(radratio+1)/(radratio*exp(strat/polind)+1))
             do nPhi=1,n_phi_max
-               this%CAr(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*snt* &
-               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
-               this%CAt(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*cnt* &
-               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
+               if ( l_anel ) then
+                  this%CAr(nPhi,nThetaB) = dilution_fac*rsnt*snt* &
+                       &  ( -ra*opr*this%sc(nPhi,nThetaB) +       &
+                       &    polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
+                  this%CAt(nPhi,nThetaB) = dilution_fac*rsnt*cnt* &
+                       &  ( -ra*opr*this%sc(nPhi,nThetaB) +       &
+                       &    polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
+               else
+                  this%CAr(nPhi,nThetaB) = -dilution_fac*rsnt*snt*ra*opr*this%sc(nPhi,nThetaB)
+                  this%CAt(nPhi,nThetaB) = -dilution_fac*rsnt*cnt*ra*opr*this%sc(nPhi,nThetaB)
+               end if
             end do ! phi loop
          end do ! theta loop
       end if ! centrifuge
@@ -678,7 +684,7 @@ contains
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp, c1
+      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp
 
       nThetaLast=nThetaStart-1
 
@@ -891,12 +897,18 @@ contains
             snt=sinTheta(nTheta)
             cnt=cosTheta(nTheta)
             rsnt=r(nR)*snt
-            c1 = (1+radratio)/(1-radratio)**2*(1-(radratio+1)/(radratio*exp(strat/polind)+1))
             do nPhi=1,n_phi_max
-               this%CAr(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*snt* &
-               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
-               this%CAt(nPhi,nThetaB) = dilution_fac*temp0(nR)*rsnt*cnt* &
-               &    (-ra*opr*this%sc(nPhi,nThetaB) + c1*polind*oek*opressure0(nR)*this%pc(nPhi,nThetaB))
+               if ( l_anel ) then
+                  this%CAr(nPhi,nThetaB) = dilution_fac*rsnt*snt* &
+                       &  ( -ra*opr*this%sc(nPhi,nThetaB) +       &
+                       &    polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
+                  this%CAt(nPhi,nThetaB) = dilution_fac*rsnt*cnt* &
+                       &  ( -ra*opr*this%sc(nPhi,nThetaB) +       &
+                       &    polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
+               else
+                  this%CAr(nPhi,nThetaB) = -dilution_fac*rsnt*snt*ra*opr*this%sc(nPhi,nThetaB)
+                  this%CAt(nPhi,nThetaB) = -dilution_fac*rsnt*cnt*ra*opr*this%sc(nPhi,nThetaB)
+               end if
             end do
             this%CAr(n_phi_max+1,nThetaB)=0.0_cp
             this%CAr(n_phi_max+2,nThetaB)=0.0_cp

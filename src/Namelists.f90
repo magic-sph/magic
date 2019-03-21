@@ -499,9 +499,9 @@ contains
       end if
 
       if (.not. ( l_centrifuge .and. .not. l_isothermal .and. l_anel .and. &
-                &   (index(interior_model, "NONE")/=0)))  then
+                 & (index(interior_model, "NONE")/=0) ) )  then
          call abortRun("This case is not implemented.")
-         ! centrifugal acceleration implemented for anelastic polytropic background only
+         ! centrifugal acceleration implemented for anelastic polytropic background so far
       end if
 
       !-- If Poincaré number is not zero precession in turned on

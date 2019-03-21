@@ -101,5 +101,5 @@ module physical_parameters
    real(cp) :: po_diff        ! Poincaré number for differential precession
    real(cp) :: prec_angle     ! Precession angle
    real(cp) :: diff_prec_angle! Precession angle for differential precession
-   real(cp) :: dilution_fac   ! Omega^2 d^3/GM for centrifugal acceleration
+   real(cp) :: dilution_fac   ! Omega^2 d/g_top for centrifugal acceleration, named after Chandrasekhar (1987)
 end module physical_parameters
