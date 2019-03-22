@@ -289,7 +289,7 @@ class CompSims:
                     data = vr * np.cos(th3D) - vt * np.sin(th3D)
                     label = 'Vz'
                 else:
-                    data, label = selectField(gr, self.field)
+                    data, data_ic, label = selectField(gr, self.field)
             except AttributeError:
                 continue
 
@@ -370,7 +370,7 @@ class CompSims:
                     else:
                         label = 'omega'
                 else:
-                    data, label = selectField(gr, self.field)
+                    data, data_ic, label = selectField(gr, self.field)
             except AttributeError:
                 continue
 
@@ -482,7 +482,7 @@ class CompSims:
                     denom = np.sqrt(np.mean(vs**2, axis=0)* np.mean(vp**2, axis=0))
                     label = r'$\langle v_s v_\phi\rangle$'
                 else:
-                    data, label = selectField(gr, self.field)
+                    data, data_ic, label = selectField(gr, self.field)
             except AttributeError:
                 continue
 
@@ -635,7 +635,7 @@ class CompSims:
                     data = vr * np.cos(th3D) - vt * np.sin(th3D)
                     label = 'Vz'
                 else:
-                    data, label = selectField(gr, self.field)
+                    data, data_ic, label = selectField(gr, self.field)
             except AttributeError:
                 continue
 

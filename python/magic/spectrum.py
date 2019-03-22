@@ -418,7 +418,6 @@ class MagicSpectrum2D(MagicSetup):
     and in the :math:`(r,m)` planes
 
         * Kinetic energy spectra: :ref:`2D_kin_spec_#.TAG <sec2DSpectra>`
-        * Velocity square spectra: :ref:`2D_u2_spec_#.TAG <sec2DSpectra>`
         * Magnetic energy spectra: :ref:`2D_mag_spec_#.TAG <sec2DSpectra>`
 
     >>> # display the content of 2D_kin_spec_1.tag
