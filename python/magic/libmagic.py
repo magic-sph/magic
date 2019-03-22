@@ -5,7 +5,7 @@ import glob, os, re, sys
 from .npfile import *
 
 
-def selectField(obj, field, labTex=True):
+def selectField(obj, field, labTex=True, ic=False):
     """
     This function selects for you which field you want to display. It actually
     allows to avoid possible variables miss-spelling: i.e. 'Bphi'='bp'='Bp'='bphi'
@@ -25,18 +25,30 @@ def selectField(obj, field, labTex=True):
             label = r'$B_{\phi}$'
         else:
             label = 'Bphi'
+        if ic:
+            data_ic = obj.Bphi_ic
+        else:
+            data_ic = None
     elif field in ('Bt', 'bt', 'btheta', 'Btheta'):
         data = obj.Btheta
         if labTex:
             label = r'$B_{\theta}$'
         else:
             label = 'Btheta'
+        if ic:
+            data_ic = obj.Btheta_ic
+        else:
+            data_ic = None
     elif field in ('Br', 'br'):
         data = obj.Br
         if labTex:
             label = r'$B_r$'
         else:
             label = 'Br'
+        if ic:
+            data_ic = obj.Br_ic
+        else:
+            data_ic = None
     elif field in ('pressure', 'pre', 'Pre', 'Pressure', 'press', 'Press'):
         data = obj.pre
         if labTex:
@@ -49,12 +61,14 @@ def selectField(obj, field, labTex=True):
             label = r'$\xi$'
         else:
             label = 'xi'
+        data_ic = None
     elif field in ('Vr', 'vr', 'Ur', 'ur'):
         data = obj.vr
         if labTex:
             label = r'$v_r$'
         else:
             label = 'vr'
+        data_ic = None
     elif field in ('Vtheta', 'vtheta', 'Utheta', 'utheta', 'vt', 'Vt',
                    'Ut', 'ut'):
         data = obj.vtheta
@@ -62,21 +76,25 @@ def selectField(obj, field, labTex=True):
             label = r'$v_{\theta}$'
         else:
             label = 'vtheta'
+        data_ic = None
     elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
         data = obj.vphi
         if labTex:
             label = r'$v_{\phi}$'
         else:
             label = 'vphi'
+        data_ic = None
     elif field in ('entropy', 's', 'S'):
         data = obj.entropy
         label = 'Entropy'
+        data_ic = None
     elif field in ('u2'):
         data = obj.vphi**2+obj.vr**2+obj.vtheta**2
         if labTex:
             label = r'$u^2$'
         else:
             label = 'u2'
+        data_ic = None
     elif field in ('nrj'):
         temp0, rho0, beta = anelprof(obj.radius, obj.strat, obj.polind)
         data = 1./2.*rho0*(obj.vphi**2+obj.vr**2+obj.vtheta**2)
@@ -84,60 +102,79 @@ def selectField(obj, field, labTex=True):
             label = r'$E_{\hbox{kin}}$'
         else:
             label = 'Ekin'
+        data_ic = None
     elif field in ('b2', 'B2'):
-        data = (obj.Bphi**2+obj.Br**2+obj.Btheta**2)
+        data = obj.Bphi**2+obj.Br**2+obj.Btheta**2
         if labTex:
             label = r'$B^2$'
         else:
             label = 'B2'
+        if ic:
+            data_ic = obj.Bphi_ic**2+obj.Br_ic**2+obj.Btheta_ic**2
+        else:
+            data_ic = None
     elif field in ('vrconv', 'vrc'):
         data = obj.vr-obj.vr.mean(axis=0)
         if labTex:
             label = r'$v_{r}$ conv'
         else:
             label = 'vr conv'
+        data_ic = None
     elif field in ('vtconv', 'vtc'):
         data = obj.vtheta-obj.vtheta.mean(axis=0)
         if labTex:
             label = r'$v_{\theta}$ conv'
         else:
             label = 'vt conv'
+        data_ic = None
     elif field in ('vpconv', 'vpc'):
         data = obj.vphi-obj.vphi.mean(axis=0)
         if labTex:
             label = r'$v_{\phi}$ conv'
         else:
             label = 'vp conv'
+        data_ic = None
     elif field in ('bpfluct'):
         data = obj.Bphi-obj.Bphi.mean(axis=0)
         if labTex:
             label = r"$B_{\phi}'$"
         else:
             label = "Bp'"
+        if ic:
+            data_ic = obj.Bphi_ic-obj.Bphi_ic.mean(axis=0)
+        else:
+            data_ic = None
     elif field in ('brfluct'):
         data = obj.Br-obj.Br.mean(axis=0)
         if labTex:
             label = r"$B_r'$"
         else:
             label = "Br'"
+        if ic:
+            data_ic = obj.Br_ic-obj.Br_ic.mean(axis=0)
+        else:
+            data_ic = None
     elif field in ('entropyfluct'):
         data = obj.entropy-obj.entropy.mean(axis=0)
         if labTex:
             label = r"$s'$"
         else:
             label = "s'"
+        data_ic = None
     elif field in ('xifluct'):
         data = obj.xi-obj.xi.mean(axis=0)
         if labTex:
             label = r"$\xi'$"
         else:
             label = "xi'"
+        data_ic = None
     elif field in ('prefluct'):
         data = obj.pre-obj.pre.mean(axis=0)
         if labTex:
             label = r"$p'$"
         else:
             label = "p'"
+        data_ic = None
     elif field in ('vrea'):
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
@@ -146,6 +183,7 @@ def selectField(obj, field, labTex=True):
             label = r'$v_{r}$ ea'
         else:
             label = 'vr ea'
+        data_ic = None
     elif field in ('vra'):
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
@@ -154,6 +192,7 @@ def selectField(obj, field, labTex=True):
             label = r'$v_{r}$ es'
         else:
             label = 'vr es'
+        data_ic = None
     elif field in ('vpea'):
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
@@ -162,6 +201,7 @@ def selectField(obj, field, labTex=True):
             label = r'$v_{\phi}$ ea'
         else:
             label = r'vp ea'
+        data_ic = None
     elif field in ('vpa'):
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
@@ -170,6 +210,7 @@ def selectField(obj, field, labTex=True):
             label = r'$v_{\phi}$ es'
         else:
             label = r'vp es'
+        data_ic = None
     elif field in ('tea'):
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
@@ -178,8 +219,9 @@ def selectField(obj, field, labTex=True):
             label = r'$s$ ea'
         else:
             label = r's ea'
+        data_ic = None
 
-    return data, label
+    return data, data_ic, label
 
 def avgField(time, field, tstart=None, std=False):
     """

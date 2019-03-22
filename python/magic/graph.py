@@ -157,6 +157,12 @@ class MagicGraph(MagicSetup):
                 self.Br = G.br
                 self.Btheta = G.bt
                 self.Bphi = G.bp
+
+            if self.prmag != 0 and self.sigma != 0:
+                self.radius_ic = G.radius_ic
+                self.Br_ic = G.br_ic
+                self.Btheta_ic = G.bt_ic
+                self.Bphi_ic = G.bp_ic
         else:
             #read data
             inline = npfile(filename, endian=endian)
