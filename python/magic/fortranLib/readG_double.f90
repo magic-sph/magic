@@ -5,9 +5,10 @@ module greader_double
    real(kind=8) :: ra,ek,pr,prmag,radratio,sigma
    real(kind=8) :: time
    integer :: nr,nt,np,minc,nric,nThetasBs
-   real(kind=8), allocatable :: radius(:),colat(:)
+   real(kind=8), allocatable :: radius(:),colat(:),radius_ic(:)
    real(kind=8), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
    real(kind=8), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
+   real(kind=8), allocatable :: Br_ic(:,:,:),Bt_ic(:,:,:),Bp_ic(:,:,:)
    real(kind=8), allocatable :: xi(:,:,:)
 
 contains
@@ -19,10 +20,10 @@ contains
       character(len=1), intent(in) :: endian
    
       !-- Local variables
-      integer :: i,j,nth_loc
+      integer :: i,j,nth_loc,nn,n_th,read_ok
       character(len=20) :: version
       character(len=64) :: runid
-      real(kind=8) :: ir,rad,ilat1,ilat2
+      real(kind=8) :: ir,rad,ilat1,ilat2,dumm
       real(kind=8) :: nrF,ntF,npF,mincF,nricF,nThetasBsF
       real(kind=8), allocatable :: dummy(:,:)
    
@@ -35,7 +36,7 @@ contains
       read(10) version
       read(10) runid
       read(10) time,nrF,ntF,npF,nricF,mincF,nThetasBsF,ra,ek,pr,prmag, &
-               radratio,sigma
+      &        radratio,sigma
    
       nr=int(nrF)
       nt=int(ntF)
@@ -59,6 +60,10 @@ contains
             deallocate( Br )
             deallocate( Bt )
             deallocate( Bp )
+         end if
+         if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+            deallocate( radius_ic )
+            deallocate( Br_ic, Bt_ic, Bp_ic )
          end if
       end if
    
@@ -84,7 +89,14 @@ contains
          allocate( Bt(1:np,1:nt,1:nr) )
          allocate( Bp(1:np,1:nt,1:nr) )
       end if
-   
+
+      if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+         allocate( radius_ic(1:nric) )
+         allocate( Br_ic(1:np,1:nt,1:nric) )
+         allocate( Bt_ic(1:np,1:nt,1:nric) )
+         allocate( Bp_ic(1:np,1:nt,1:nric) )
+      end if
+
       read(10) colat
    
       !reading
@@ -110,6 +122,20 @@ contains
                read(10) Bp(:,int(ilat1):int(ilat2),int(ir+1))
             end if
          end do
+
+         if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+            ic_loop1: do i=1,nric
+               read(10, iostat=read_ok) ir, rad, ilat1, ilat2
+               if ( read_ok /= 0 ) then
+                  exit ic_loop1
+               else
+                  radius_ic(int(ir)+1-nr) = rad
+                  read(10) Br_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+                  read(10) Bt_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+                  read(10) Bp_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+               end if
+            end do ic_loop1
+         end if
       else
          do i=1,nr*nThetasBs
             read(10) ir, rad, ilat1, ilat2
@@ -149,6 +175,26 @@ contains
                end do
             end if
          end do
+
+         if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+            ic_loop: do i=1,nric
+               read(10, iostat=read_ok) ir, rad, ilat1, ilat2
+               if ( read_ok /= 0 ) then
+                  exit ic_loop
+               else
+                  radius_ic(int(ir)+1-nr) = rad
+                  do j=int(ilat1),int(ilat2)
+                     read(10) Br_ic(:,j,int(ir+1-nr))
+                  end do
+                  do j=int(ilat1),int(ilat2)
+                     read(10) Bt_ic(:,j,int(ir+1-nr))
+                  end do
+                  do j=int(ilat1),int(ilat2)
+                     read(10) Bp_ic(:,j,int(ir+1-nr))
+                  end do
+               end if
+            end do ic_loop
+         end if
    
       end if
    
@@ -210,10 +256,34 @@ contains
             end do
          end if
       end do
-   
+
+      !rearanging hemispherical data
+      if ( (prmag /= 0) .and. (sigma /= 0)  .and. (read_ok == 0) ) then
+         do i=1,nric
+            dummy(:,:)= Br_ic(:,:,i)
+            do j=1,nt/2
+               Br_ic(:,j,i)     =dummy(:,2*(j-1)+1)
+               Br_ic(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+            end do
+            dummy(:,:) = Bt_ic(:,:,i)
+            do j=1,nt/2
+               Bt_ic(:,j,i)     =dummy(:,2*(j-1)+1)
+               Bt_ic(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+            end do
+            dummy(:,:) = Bp_ic(:,:,i)
+            do j=1,nt/2
+               Bp_ic(:,j,i)     =dummy(:,2*(j-1)+1)
+               Bp_ic(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+            end do
+         end do
+      end if
+
       deallocate(dummy)
    
       radius(:) = radius(:)/(1.-radratio)
+      if ( (prmag /= 0.) .and. (sigma /= 0.) .and. (read_ok==0) ) then
+         radius_ic(:) = radius_ic(:)/(1.-radratio)
+      end if
    
    end subroutine readG
 !----------------------------------------------------------------------------
