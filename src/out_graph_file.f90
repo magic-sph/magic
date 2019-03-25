@@ -25,7 +25,7 @@ module graphOut_mod
    use output_data, only: n_graph_file, runid
 #endif
 #ifdef WITH_SHTNS
-   use shtns
+   use shtns, only: torpol_to_spat, torpol_to_spat_IC
 #else
    use fft
 #endif
@@ -877,6 +877,7 @@ contains
 
       do nR=2,n_r_ic_max  ! nR=1 is ICB
 
+#ifndef WITH_SHTNS
          if ( l_cond_ic ) then
             call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
                  &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
@@ -889,11 +890,10 @@ contains
                  &          r_ICB,.false.,.true.,l_cond_ic,dLhb,bhG,   &
                  &          bhC,dLhj,cbhG,cbhC)
          end if
-
-#ifdef WITH_SHTNS
+#else
          if ( l_cond_ic ) then
-            call torpol_to_spat(b_ic(:, nR), db_ic(:, nR), aj_ic(:, nR), &
-                 &              BrB, BtB, BpB)
+            call torpol_to_spat_IC(r_ic(nR), r_ICB, b_ic(:, nR), db_ic(:, nR), &
+                 &                 aj_ic(:, nR), BrB, BtB, BpB)
          else
             call torpol_to_spat(bICB(:), db_ic(:, 1), aj_ic(:, 1), &
                  &              BrB, BtB, BpB)

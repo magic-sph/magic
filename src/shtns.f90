@@ -1,7 +1,7 @@
 module shtns
 
    use precision_mod, only: cp
-   use constants, only: ci
+   use constants, only: ci, one
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
        &                 minc, lm_max, lmP_max
    use horizontal_data, only: dLh, D_m, O_sin_theta_E2
@@ -16,7 +16,8 @@ module shtns
 
    public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
    &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
-   &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor
+   &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor,               &
+   &         torpol_to_spat_IC
 
 contains
 
@@ -105,6 +106,49 @@ contains
       call shtns_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc)
 
    end subroutine torpol_to_spat
+!------------------------------------------------------------------------------
+   subroutine torpol_to_spat_IC(r, r_ICB, Wlm, dWlm, Zlm, Br, Bt, Bp)
+      !
+      ! This is a QST transform that contains the transform for the 
+      ! inner core.
+      !
+
+      !-- Input variables
+      real(cp),    intent(in) :: r, r_ICB
+      complex(cp), intent(in) :: Wlm(lm_max), dWlm(lm_max), Zlm(lm_max)
+
+      !-- Output variables
+      real(cp), intent(out) :: Br(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: Bt(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: Bp(n_phi_max, n_theta_max)
+
+      !-- Local variables
+      complex(cp) :: Qlm(lm_max), Slm(lm_max), Tlm(lm_max)
+      real(cp) :: rDep(0:l_max), rDep2(0:l_max)
+      real(cp) :: rRatio
+      integer :: lm, l, m
+
+      rRatio = r/r_ICB
+      rDep(0) = rRatio
+      rDep2(0)= one/r_ICB
+      do l=1,l_max
+         rDep(l) =rDep(l-1) *rRatio
+         rDep2(l)=rDep2(l-1)*rRatio
+      end do
+
+      lm = 0
+      do m=0,l_max,minc
+         do l=m,l_max
+            lm = lm+1
+            Qlm(lm) = rDep(l) * dLh(lm) * Wlm(lm)
+            Slm(lm) = rDep2(l) * ((l+1)*Wlm(lm)+r*dWlm(lm))
+            Tlm(lm) = rDep(l) * Zlm(lm)
+         end do
+      end do
+
+      call shtns_qst_to_spat(Qlm, Slm, Tlm, Br, Bt, Bp)
+
+   end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
    subroutine torpol_to_dphspat(dWlm, Zlm, dvtdp, dvpdp)
       !
