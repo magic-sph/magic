@@ -25,7 +25,7 @@ module graphOut_mod
    use output_data, only: n_graph_file, runid
 #endif
 #ifdef WITH_SHTNS
-   use shtns, only: torpol_to_spat, torpol_to_spat_IC
+   use shtns, only: torpol_to_spat_IC
 #else
    use fft
 #endif
@@ -885,25 +885,25 @@ contains
                  &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                  &          cbhG,cbhC)
          else
-            call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),aj_ic(:,1), &
-                 &          dj_ic(:,1),dLh,lm_max,l_max,minc,r_ic(nR), &
-                 &          r_ICB,.false.,.true.,l_cond_ic,dLhb,bhG,   &
-                 &          bhC,dLhj,cbhG,cbhC)
+            call legPrep_IC(bICB(:),db_ic(:,n_r_icb),ddb_ic(:,1),     &
+                 &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,         &
+                 &          l_max,minc,r_ic(nR),r_ICB,.false.,.true., &
+                 &          l_cond_ic,dLhb,bhG,bhC,dLhj,cbhG,cbhC)
          end if
 #else
          if ( l_cond_ic ) then
             call torpol_to_spat_IC(r_ic(nR), r_ICB, b_ic(:, nR), db_ic(:, nR), &
                  &                 aj_ic(:, nR), BrB, BtB, BpB)
          else
-            call torpol_to_spat(bICB(:), db_ic(:, 1), aj_ic(:, 1), &
-                 &              BrB, BtB, BpB)
+            call torpol_to_spat_IC(r_ic(nR), r_ICB, bICB(:),db_ic(:,1), &
+                 &                 aj_ic(:,1), BrB, BtB, BpB)
          end if
 #endif
          do nThetaB=1,nThetaBs
             nThetaStart=(nThetaB-1)*sizeThetaB+1
 
 #ifndef WITH_SHTNS
-            !------ Preform Legendre transform:
+            !------ Perform Legendre transform:
             call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,nThetaStart, &
                  &     sizeThetaB,Plm,dPlm,.true.,.false.,BrB,BtB,BpB,BrB, &
                  &     BrB,BrB)
