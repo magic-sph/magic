@@ -11,7 +11,6 @@ module graphOut_mod
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
        &                 n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
        &                 n_phi_max, nrp, n_r_ic_max, l_axi
-   use radial_data, only: n_r_icb
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
@@ -885,7 +884,7 @@ contains
                  &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                  &          cbhG,cbhC)
          else
-            call legPrep_IC(bICB(:),db_ic(:,n_r_icb),ddb_ic(:,1),     &
+            call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),           &
                  &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,         &
                  &          l_max,minc,r_ic(nR),r_ICB,.false.,.true., &
                  &          l_cond_ic,dLhb,bhG,bhC,dLhj,cbhG,cbhC)
