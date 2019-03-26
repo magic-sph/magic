@@ -401,8 +401,8 @@ contains
                   lm=lm+1
                   if ( lCondIC ) then
                      dLhz(lm)=rDep(l)*dLh(lm)*z(lm)
-                     help1=rDep(l)*( (l+1)*z(lm)/r+dz(lm) )
-                     help2=rDep(l)*(-two*(l+1)/r*dw(lm)-ddw(lm))
+                     help1=rDep2(l)*( (l+1)*z(lm)+r*dz(lm) )
+                     help2=rDep2(l)*(-two*(l+1)*dw(lm)-r*ddw(lm))
                      cvhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=cp)
                      cvhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=cp)
                   else

@@ -352,16 +352,16 @@ contains
 
                   if ( n_store_last >= 0 ) then
                      n_o=n_store_last+(nR-2)*n_phi_max
-                     if ( n_field_type == 1 ) then
+                     if ( n_field_type == 1 ) then !-- Br
                         do nPhi=1,n_phi_max
                            frames(nPhi+n_o)=BrB(nPhi,nThetaR)*O_r_ic2(nR)
                         end do
-                     else if ( n_field_type == 2 ) then
+                     else if ( n_field_type == 2 ) then !-- Btheta
                         help=O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
                            frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
                         end do
-                     else if ( n_field_type == 3 ) then
+                     else if ( n_field_type == 3 ) then !-- Bphi
                         help=O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
                            frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
@@ -371,7 +371,7 @@ contains
                         do nPhi=1,n_phi_max
                            frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
                         end do
-                     else if ( n_field_type == 14 ) then
+                     else if ( n_field_type == 14 ) then !-- jtheta
                         help=-O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
                            frames(nPhi+n_o)=help*cBtB(nPhi,nThetaR)
