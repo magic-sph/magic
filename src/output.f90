@@ -32,7 +32,7 @@ module output_mod
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
-   use spectra, only: spectrum_average, spectrum, spectrum_temp, get_amplitude
+   use spectra, only: spectrum, spectrum_temp, get_amplitude
    use outTO_mod, only: outTO
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
@@ -478,20 +478,15 @@ contains
   
          if ( l_average ) then
             PERFON('out_aver')
-            call spectrum_average(nLogs,l_stop_time,timePassedLog,  &
-                 &                timeNormLog,w_LMloc,z_LMloc,      &
-                 &                dw_LMloc,'V')
+            call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
+              &           timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+              &           aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
 
             if ( l_heat ) then
                call spectrum_temp(n_spec,time,.true.,nLogs,l_stop_time,     &
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
             end if
-  
-            if ( l_mag ) then
-               call spectrum_average(nLogs,l_stop_time,timePassedLog, &
-                    &                timeNormLog,b_LMloc,aj_LMloc,db_LMloc,'B')
-            end if
-  
+            
             call fields_average(time,dt,dtNew,nLogs,l_stop_time,timePassedLog, &
                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
@@ -587,8 +582,9 @@ contains
   
       if ( l_spectrum ) then
          n_spec=n_spec+1
-         call spectrum(time,n_spec,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,  &
-              &        db_LMloc,aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
+         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
+              &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+              &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
          if ( l_heat ) then
             call spectrum_temp(n_spec,time,.false.,nLogs,l_stop_time,     &
                  &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
@@ -785,7 +781,7 @@ contains
   
          call movie_gather_frames_to_rank0()
 
-         if ( l_movie_ic .and. l_store_frame ) then
+         if ( l_movie_ic .and. l_store_frame .and. rank == 0 ) then
             call store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
          end if
 
@@ -812,8 +808,9 @@ contains
   
          !----- Plot out inner core magnetic field, outer core
          !      field has been written in radialLoop !
-         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 )          &
-              &     call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
+         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 ) then
+            call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
+         end if
   
          if ( l_log ) then
             !--- Energies and rotation info and a lot of other stuff 

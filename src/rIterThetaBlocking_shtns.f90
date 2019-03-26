@@ -14,7 +14,7 @@ module rIterThetaBlocking_shtns_mod
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
        &            l_TO, l_chemical_conv, l_TP_form, l_probe,       &
-       &            l_precession
+       &            l_precession, l_centrifuge
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -304,7 +304,7 @@ contains
               &        this%nR,1)
          PERFOFF
       end if
-  
+
       !--------- horizontal velocity :
       if ( this%lViscBcCalc ) then
 
@@ -542,8 +542,8 @@ contains
               &              gsa%brc, gsa%btc, gsa%bpc)
 
          if ( this%lDeriv ) then
-            call torpol_to_curl_spat(b_Rloc(:, nR), ddb_Rloc(:, nR),        &
-                 &                   aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
+            call torpol_to_curl_spat(or2(nR), b_Rloc(:, nR), ddb_Rloc(:, nR), &
+                 &                   aj_Rloc(:, nR), dj_Rloc(:, nR),          &
                  &                   gsa%cbrc, gsa%cbtc, gsa%cbpc)
          end if
       end if
@@ -602,7 +602,15 @@ contains
                   gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%PCp(nPhi, nTheta)
                end do
             end do
+         end if
 
+         if ( l_centrifuge ) then
+            do nTheta=1,this%sizeThetaB
+               do nPhi=1, n_phi_max
+                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%CAr(nPhi, nTheta)
+                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%CAt(nPhi, nTheta)
+               end do
+            end do
          end if
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM)

@@ -502,7 +502,7 @@ subroutine vts_scal(filename,radius,scalars,scalcodes,minc,nscals,np,nt,nr)
    real(kind=4) :: vecs(0,0,0)
    real(kind=4) :: theta(nt)
    real(kind=4) :: phi(np)
-   real(kind=4) :: pi,Bs
+   real(kind=4) :: pi
    integer(kind=8) :: nnos
    integer :: i,j,k,l,iscal
 

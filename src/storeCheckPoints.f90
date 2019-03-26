@@ -28,7 +28,7 @@ module storeCheckPoints
    implicit none
 
    private
- 
+
    public :: store
 
 contains

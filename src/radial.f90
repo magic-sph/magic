@@ -10,7 +10,7 @@ module radial_functions
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
-       &            l_isothermal, l_anel, l_non_adia,              &
+       &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
        &            l_TP_form, l_temperature_diff, l_single_matrix,&
        &            l_finite_diff, l_newmap
    use chebyshev_polynoms_mod ! Everything is needed
@@ -29,7 +29,7 @@ module radial_functions
    implicit none
 
    private
- 
+
    !-- arrays depending on r:
    real(cp), public, allocatable :: r(:)         ! radii
    real(cp), public, allocatable :: r_ic(:)      ! IC radii
@@ -43,7 +43,7 @@ module radial_functions
    real(cp), public, allocatable :: rho0(:)      ! Inverse of background density
    real(cp), public, allocatable :: temp0(:)     ! Background temperature
    real(cp), public, allocatable :: dLtemp0(:)   ! Inverse of temperature scale height
-   real(cp), public, allocatable :: ddLtemp0(:)  ! :math:`d/dr(1/T dT/dr)` 
+   real(cp), public, allocatable :: ddLtemp0(:)  ! :math:`d/dr(1/T dT/dr)`
    real(cp), private, allocatable :: d2temp0(:)  ! Second rad. derivative of background temperature
    real(cp), public, allocatable :: dentropy0(:) ! Radial gradient of background entropy
    real(cp), public, allocatable :: orho1(:)     ! :math:`1/\tilde{\rho}`
@@ -57,16 +57,19 @@ module radial_functions
    real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
    real(cp), public, allocatable :: ogrun(:)     ! :math:`1/\Gamma`
 
+   real(cp), public, allocatable :: opressure0(:) ! Inverse background pressure (for centrifugal acceleration)
+
+
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
    real(cp), public :: r_cmb                     ! OC radius
    real(cp), public :: r_icb                     ! IC radius
    real(cp), public :: r_surface                 ! Surface radius for extrapolation
- 
+
    !-- arrays for buoyancy, depend on Ra and Pr:
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
- 
+
    !-- chebychev polynomials, derivatives and integral:
    real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
    integer, public :: nDd_costf1                    ! Radii for transform
@@ -75,7 +78,7 @@ module radial_functions
 
    !-- Radial scheme
    class(type_rscheme), public, pointer :: rscheme_oc
- 
+
    !-- same for inner core:
    real(cp), public :: cheb_norm_ic                      ! Chebyshev normalisation for IC
    real(cp), public, allocatable :: cheb_ic(:,:)         ! Chebyshev polynomials for IC
@@ -86,7 +89,7 @@ module radial_functions
    integer, public :: nDd_costf1_ic                      ! Radii for transform
    integer, public :: nDi_costf2_ic                      ! Radii for transform
    integer, public :: nDd_costf2_ic                      ! Radii for transform
- 
+
    real(cp), public, allocatable :: lambda(:)     ! Array of magnetic diffusivity
    real(cp), public, allocatable :: dLlambda(:)   ! Derivative of magnetic diffusivity
    real(cp), public, allocatable :: jVarCon(:)    ! Analytical solution for toroidal field potential aj (see init_fields.f90)
@@ -131,6 +134,8 @@ contains
       allocate( kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
+      allocate( opressure0(n_r_max) )
+
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 
       nDi_costf1_ic=2*n_r_ic_max+2
@@ -181,6 +186,7 @@ contains
       deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
+      deallocate( opressure0 )
 
       deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
       call chebt_ic%finalize()
@@ -323,7 +329,7 @@ contains
             allocate( coeffDens(8), coeffTemp(10) )
             coeffDens = [4.46020423_cp, -4.60312999_cp, 37.38863965_cp,       &
                &         -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
-               &         440.86067831_cp, -122.36071577_cp] 
+               &         440.86067831_cp, -122.36071577_cp]
 
             coeffTemp = [0.999735638_cp, 0.0111053831_cp, 2.70889691_cp,  &
                &         -83.5604443_cp, 573.151526_cp, -1959.41844_cp,   &
@@ -336,7 +342,7 @@ contains
 
       else if ( index(interior_model,'SAT') /= 0 ) then
 
-         ! the shell can't be thicker than eta=0.15, because the fit doesn't 
+         ! the shell can't be thicker than eta=0.15, because the fit doesn't
          ! work below that (in Nadine's profile, that's where the IC is anyway)
          ! also r_cut_model maximum is 0.999, because rho is negative beyond
          ! that
@@ -389,7 +395,7 @@ contains
             &         0.70289860_cp,2.59463562_cp,-1.65868190_cp,   &
             &         0.15984718_cp]
 
-         coeffTemp = [1.00299303_cp,-0.33722671_cp,1.71340063_cp,     & 
+         coeffTemp = [1.00299303_cp,-0.33722671_cp,1.71340063_cp,     &
             &         -12.50287121_cp,21.52708693_cp,-14.91959338_cp, &
             &         3.52970611_cp]
 
@@ -438,7 +444,7 @@ contains
          temp0 = (one+GrunNb*(r_icb**2-r**2)/hcomp**2)
          temp0 = temp0/temp0(1)
          dtemp0cond=-cmbHflux/(r**2*hcond)
-          
+
          do k=1,10 ! 10 iterations is enough to converge
             dtemp0ad=-DissNb*alpha0*rgrav*temp0-epsS*temp0(n_r_max)
             n_const=minloc(abs(dtemp0ad-dtemp0cond))
@@ -542,6 +548,8 @@ contains
                   &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb*(g0+half*g1-g2)
                   rho0(:)     =temp0**polind
 
+                  if (l_centrifuge) opressure0(:) = temp0**(-polind-1)
+
                   !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
                   beta(:)     =-polind*DissNb*rgrav(:)/temp0(:)
                   dbeta(:)    =-polind*DissNb/temp0(:)**2 *         &
@@ -614,6 +622,7 @@ contains
       else ! Boussinesq
          rho0(:)     =one
          temp0(:)    =one
+         opressure0(:)=one
          otemp1(:)   =one
          orho1(:)    =one
          orho2(:)    =one
@@ -946,7 +955,7 @@ contains
    subroutine getBackground(input,boundaryVal,output,coeff)
       !
       ! Linear solver of the form: df/dx +coeff*f= input with f(1)=boundaryVal
-      ! 
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: input(n_r_max)

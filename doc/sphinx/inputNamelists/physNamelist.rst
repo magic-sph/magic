@@ -9,12 +9,12 @@ Dimensionless control parameters
 --------------------------------
 
 * **ra** (default :f:var:`ra=0.0 <ra>`) is a real. This the thermal Rayleigh number expressed by
-  
+
   .. math::
      Ra = \frac{\alpha g_o \Delta T d^3}{\kappa\nu}
 
 * **raxi** (default :f:var:`raxi=0.0 <raxi>`) is a real. This the compositional Rayleigh number expressed by
-  
+
   .. math::
      Ra_\xi = \frac{\alpha g_o \Delta \xi d^3}{\kappa_\xi\nu}
 
@@ -81,7 +81,7 @@ Dimensionless control parameters
 
   ..
 
-* **l_isothermal** (default :f:var:`l_isothermal=.false.`) is a logical. When set to ``.true.``, makes the temperature background isothermal (i.e. :math:`\tilde{T}=cst.`). In that case, the dissipation number :math:`Di` vanishes and there is no viscous and Ohmic heating left. The only difference with the Boussinesq set of equations are thus restricted to the density background :math:`\tilde{\rho}` and its radial derivatives that enters the viscous stress. This approximation is also called the **zero Grüneisen parameter** and was extensively explored by Denise Tortorella during her `PhD <http://www.mps.mpg.de/3183008/Dissertation_2005_Tortorella__Denise_Aida1.pdf>`_. 
+* **l_isothermal** (default :f:var:`l_isothermal=.false.`) is a logical. When set to ``.true.``, makes the temperature background isothermal (i.e. :math:`\tilde{T}=cst.`). In that case, the dissipation number :math:`Di` vanishes and there is no viscous and Ohmic heating left. The only difference with the Boussinesq set of equations are thus restricted to the density background :math:`\tilde{\rho}` and its radial derivatives that enters the viscous stress. This approximation is also called the **zero Grüneisen parameter** and was extensively explored by Denise Tortorella during her `PhD <http://www.mps.mpg.de/3183008/Dissertation_2005_Tortorella__Denise_Aida1.pdf>`_.
 
 
 .. _varepsc0:
@@ -157,7 +157,20 @@ The three following parameters are used to set this profile
 * **g1** (default :f:var:`g1=1 <g1>`) is the pre-factor of the linear part of the gravity profile, i.e. :math:`g_1` in equation :eq:`eqGravity`.
 
 * **g2** (default :f:var:`g2=0 <g2>`) is the pre-factor of the :math:`1/r^2` part of the gravity profile, i.e. :math:`g_2` in equation :eq:`eqGravity`.
-     
+
+
+Centrifugal acceleration
+------------------------
+
+The centrifugal acceleration can be computed for a polytropic background
+
+* **dilution_fac** (default :f:var:`dilution_fac=0.0 <dilution_fac>`) is the ratio of the centrifugal acceleration at the equator to the surface gravitational acceleration.
+
+  .. math::
+     m=\frac{\Omega^2 d}{g_o}
+     :label: dilution_fac
+
+  ..
 
 Transport properties
 --------------------
@@ -177,7 +190,7 @@ corresponds to a constant electrical conductivity in the deep interior
 
 .. math::
   \sigma(r)=1+ (\sigma_m-1)\left(\frac{r-r_i}{r_m-r_i}\right)^a \quad \hbox{for}\quad r<r_m, \\
-  \sigma(r)=\sigma_m \exp \left[a \left(\frac{r-r_m}{r_m-r_i}\right)\frac{\sigma_m-1}{\sigma_m}\right] 
+  \sigma(r)=\sigma_m \exp \left[a \left(\frac{r-r_m}{r_m-r_i}\right)\frac{\sigma_m-1}{\sigma_m}\right]
   \quad\hbox{for}\quad r\geq r_m.
   :label: eqElecCond
 
@@ -258,11 +271,11 @@ Viscosity
 Anelastic liquid equations
 --------------------------
 
-.. warning:: This part is still work in progress. The input parameters here are likely to 
+.. warning:: This part is still work in progress. The input parameters here are likely to
              be changed in the future.
 
 * **epsS** (default :f:var:`epsS=0.0 <epss>`) is a real. It controls the deviation to the adiabat. It can be related to the small parameter :math:`\epsilon`:
-   
+
   .. math:: \epsilon \simeq \frac{\Delta T}{T} \simeq \frac{\Delta s}{c_p}
 
 * **cmbHflux** (default :f:var:`cmbHflux=0.0 <cmbhflux>`) is a real. This is the CMB heat flux that enters the calculation of the reference state of the liquid core of the Earth, when the anelastic liquid approximation is employed.
@@ -302,11 +315,11 @@ Thermal boundary conditions
 
   4. Imaginary amplitude (:math:`\sin` contribution)
 
-  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read: 
-  
-  
+  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read:
+
+
   .. code-block:: fortran
-   
+
      s_top = 1, 0, 1.0, 0.0, 2, 1, 0.5, 0.5, ! The comas could be left away.
 
 * **s_bot** (default :f:var:`s_bot=0 0 0.0 0.0 <s_bot>`) is a real array. This is the same as ``s_top`` but for the bottom boundary.
@@ -348,11 +361,11 @@ Boundary conditions for chemical composition
 
   4. Imaginary amplitude (:math:`\sin` contribution)
 
-  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read: 
-  
-  
+  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read:
+
+
   .. code-block:: fortran
-   
+
      xi_top = 1, 0, 1.0, 0.0, 2, 1, 0.5, 0.5, ! The comas could be left away.
 
 * **xi_bot** (default :f:var:`xi_bot=0 0 0.0 0.0 <xi_bot>`) is a real array. This is the same as ``xi_top`` but for the bottom boundary.

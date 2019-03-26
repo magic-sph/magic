@@ -71,9 +71,9 @@ contains
                l =lo_map%lm2l(lm)
                m =lo_map%lm2m(lm)
 
-               e_p= dLh(st_map%lm2(l,m)) *  ( &
-                    dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
-                    & + cc2real(dw(lm,nR),m) )
+               e_p= dLh(st_map%lm2(l,m)) *  (                         &
+               &    dLh(st_map%lm2(l,m))*or2(nR)*cc2real( w(lm,nR),m) &
+               &                               + cc2real(dw(lm,nR),m) )
                e_t=dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
 
                e_lr(nR,l)=e_lr(nR,l) + e_p+e_t
@@ -98,9 +98,9 @@ contains
                l =lo_map%lm2l(lm)
                m =lo_map%lm2m(lm)
 
-               e_p= O_rho * dLh(st_map%lm2(l,m)) *  ( &
-                    dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
-                    & + cc2real(dw(lm,nR),m) )
+               e_p= O_rho * dLh(st_map%lm2(l,m)) *  (                 &
+               &    dLh(st_map%lm2(l,m))*or2(nR)*cc2real( w(lm,nR),m) &
+               &                               + cc2real(dw(lm,nR),m) )
                e_t=O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
                if ( m /= 0 ) then
                   e_lr_c(nR,l)=e_lr_c(nR,l) + e_p+e_t

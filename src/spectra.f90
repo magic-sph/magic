@@ -13,7 +13,7 @@ module spectra
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
    use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, &
-       &            l_energy_modes
+       &            l_energy_modes, l_2D_spectra
    use output_data, only: tag, log_file, n_log_file, m_max_modes
    use LMLoop_data,only: llm, ulm, llmMag, ulmMag
    use useful, only: cc2real, cc22real, abortRun, get_mean_sd
@@ -21,20 +21,31 @@ module spectra
    use constants, only: pi, vol_oc, half, one, four
 
    implicit none
-  
+ 
    private
  
-   real(cp), allocatable :: e_p_l_ave(:), e_p_m_ave(:)
-   real(cp), allocatable :: e_p_l_SD(:), e_p_m_SD(:)
-   real(cp), allocatable :: e_t_l_ave(:), e_t_m_ave(:)
-   real(cp), allocatable :: e_t_l_SD(:), e_t_m_SD(:)
-   real(cp), allocatable :: e_cmb_l_ave(:), e_cmb_m_ave(:)
-   real(cp), allocatable :: e_cmb_l_SD(:), e_cmb_m_SD(:)
- 
-   real(cp), allocatable :: ek_p_l_ave(:), ek_p_m_ave(:)
-   real(cp), allocatable :: ek_p_l_SD(:), ek_p_m_SD(:)
-   real(cp), allocatable :: ek_t_l_ave(:), ek_t_m_ave(:)
-   real(cp), allocatable :: ek_t_l_SD(:), ek_t_m_SD(:)
+   real(cp), allocatable :: e_mag_p_l_ave(:), e_mag_p_m_ave(:)
+   real(cp), allocatable :: e_mag_p_l_SD(:), e_mag_p_m_SD(:)
+   real(cp), allocatable :: e_mag_t_l_ave(:), e_mag_t_m_ave(:)
+   real(cp), allocatable :: e_mag_t_l_SD(:), e_mag_t_m_SD(:)
+   real(cp), allocatable :: e_mag_cmb_l_ave(:), e_mag_cmb_m_ave(:)
+   real(cp), allocatable :: e_mag_cmb_l_SD(:), e_mag_cmb_m_SD(:)
+
+   real(cp), allocatable :: u2_p_l_ave(:), u2_p_m_ave(:)
+   real(cp), allocatable :: u2_p_l_SD(:), u2_p_m_SD(:)
+   real(cp), allocatable :: u2_t_l_ave(:), u2_t_m_ave(:)
+   real(cp), allocatable :: u2_t_l_SD(:), u2_t_m_SD(:)
+
+   real(cp), allocatable :: e_kin_p_l_ave(:), e_kin_p_m_ave(:)
+   real(cp), allocatable :: e_kin_p_l_SD(:), e_kin_p_m_SD(:)
+   real(cp), allocatable :: e_kin_t_l_ave(:), e_kin_t_m_ave(:)
+   real(cp), allocatable :: e_kin_t_l_SD(:), e_kin_t_m_SD(:)
+
+   real(cp), allocatable :: e_mag_p_r_l_ave(:,:), e_mag_p_r_m_ave(:,:)
+   real(cp), allocatable :: e_mag_t_r_l_ave(:,:), e_mag_t_r_m_ave(:,:)
+
+   real(cp), allocatable :: e_kin_p_r_l_ave(:,:), e_kin_p_r_m_ave(:,:)
+   real(cp), allocatable :: e_kin_t_r_l_ave(:,:), e_kin_t_r_m_ave(:,:)
 
    real(cp), allocatable :: T_l_ave(:), T_ICB_l_ave(:), dT_ICB_l_ave(:)
    real(cp), allocatable :: T_l_SD(:), T_ICB_l_SD(:), dT_ICB_l_SD(:)
@@ -49,25 +60,56 @@ module spectra
    character(len=72) :: am_mpol_file, am_mtor_file
 
  
-   public :: initialize_spectra, spectrum, spectrum_average,     &
-   &         spectrum_temp, get_amplitude, finalize_spectra
+   public :: initialize_spectra, spectrum, spectrum_temp, &
+   &         get_amplitude, finalize_spectra
 
 contains
 
    subroutine initialize_spectra
 
-      allocate( e_p_l_ave(0:l_max),e_p_m_ave(0:l_max) )
-      allocate( e_p_l_SD(0:l_max),e_p_m_SD(0:l_max) )
-      allocate( e_t_l_ave(0:l_max),e_t_m_ave(0:l_max) )
-      allocate( e_t_l_SD(0:l_max),e_t_m_SD(0:l_max) )
-      allocate( e_cmb_l_ave(0:l_max),e_cmb_m_ave(0:l_max) )
-      allocate( e_cmb_l_SD(0:l_max),e_cmb_m_SD(0:l_max) )
+      if ( l_mag ) then
+         allocate( e_mag_p_l_ave(0:l_max),e_mag_p_m_ave(0:l_max) )
+         allocate( e_mag_p_l_SD(0:l_max),e_mag_p_m_SD(0:l_max) )
+         allocate( e_mag_t_l_ave(0:l_max),e_mag_t_m_ave(0:l_max) )
+         allocate( e_mag_t_l_SD(0:l_max),e_mag_t_m_SD(0:l_max) )
+         allocate( e_mag_cmb_l_ave(0:l_max),e_mag_cmb_m_ave(0:l_max) )
+         allocate( e_mag_cmb_l_SD(0:l_max),e_mag_cmb_m_SD(0:l_max) )
+         bytes_allocated = bytes_allocated+12*(l_max+1)*SIZEOF_DEF_REAL
+      end if
 
-      allocate( ek_p_l_ave(0:l_max),ek_p_m_ave(0:l_max) )
-      allocate( ek_p_l_SD(0:l_max),ek_p_m_SD(0:l_max) )
-      allocate( ek_t_l_ave(0:l_max),ek_t_m_ave(0:l_max) )
-      allocate( ek_t_l_SD(0:l_max),ek_t_m_SD(0:l_max) )
-      bytes_allocated = bytes_allocated+20*(l_max+1)*SIZEOF_DEF_REAL
+      if ( l_anel ) then
+         allocate( u2_p_l_ave(0:l_max),u2_p_m_ave(0:l_max) )
+         allocate( u2_p_l_SD(0:l_max),u2_p_m_SD(0:l_max) )
+         allocate( u2_t_l_ave(0:l_max),u2_t_m_ave(0:l_max) )
+         allocate( u2_t_l_SD(0:l_max),u2_t_m_SD(0:l_max) )
+         bytes_allocated = bytes_allocated+8*(l_max+1)*SIZEOF_DEF_REAL
+      end if
+
+      allocate( e_kin_p_l_ave(0:l_max),e_kin_p_m_ave(0:l_max) )
+      allocate( e_kin_p_l_SD(0:l_max),e_kin_p_m_SD(0:l_max) )
+      allocate( e_kin_t_l_ave(0:l_max),e_kin_t_m_ave(0:l_max) )
+      allocate( e_kin_t_l_SD(0:l_max),e_kin_t_m_SD(0:l_max) )
+      bytes_allocated = bytes_allocated+8*(l_max+1)*SIZEOF_DEF_REAL
+
+      if ( l_2D_spectra ) then
+
+         if ( l_mag ) then
+            allocate( e_mag_p_r_l_ave(n_r_max,l_max) )
+            allocate( e_mag_p_r_m_ave(n_r_max,0:l_max) )
+            allocate( e_mag_t_r_l_ave(n_r_max,l_max) )
+            allocate( e_mag_t_r_m_ave(n_r_max,0:l_max) )
+            bytes_allocated = bytes_allocated+(4*n_r_max*l_max+2*n_r_max)&
+            &                 *SIZEOF_DEF_REAL
+         end if
+
+         allocate( e_kin_p_r_l_ave(n_r_max,l_max) )
+         allocate( e_kin_p_r_m_ave(n_r_max,0:l_max) )
+         allocate( e_kin_t_r_l_ave(n_r_max,l_max) ) 
+         allocate( e_kin_t_r_m_ave(n_r_max,0:l_max) )
+         bytes_allocated = bytes_allocated+(4*n_r_max*l_max+2*n_r_max)&
+         &                 *SIZEOF_DEF_REAL
+
+      end if
 
       if ( l_heat ) then
          allocate( T_l_ave(l_max+1), T_ICB_l_ave(l_max+1), dT_ICB_l_ave(l_max+1) )
@@ -99,11 +141,32 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_spectra
 
-      deallocate( e_p_l_ave, e_p_m_ave, e_p_l_SD, e_p_m_SD )
-      deallocate( e_t_l_ave, e_t_m_ave, e_t_l_SD, e_t_m_SD )
-      deallocate( e_cmb_l_ave, e_cmb_m_ave, e_cmb_l_SD, e_cmb_m_SD )
-      deallocate( ek_p_l_ave, ek_p_m_ave, ek_p_l_SD, ek_p_m_SD )
-      deallocate( ek_t_l_ave, ek_t_m_ave, ek_t_l_SD, ek_t_m_SD )
+      if ( l_mag ) then
+         deallocate( e_mag_p_l_ave, e_mag_p_m_ave, e_mag_p_l_SD, e_mag_p_m_SD )
+         deallocate( e_mag_t_l_ave, e_mag_t_m_ave, e_mag_t_l_SD, e_mag_t_m_SD )
+         deallocate( e_mag_cmb_l_ave, e_mag_cmb_m_ave, e_mag_cmb_l_SD )
+         deallocate( e_mag_cmb_m_SD )
+      end if
+
+      if ( l_anel ) then
+         deallocate( u2_p_l_ave, u2_p_m_ave, u2_p_l_SD, u2_p_m_SD )
+         deallocate( u2_t_l_ave, u2_t_m_ave, u2_t_l_SD, u2_t_m_SD )
+      end if
+
+      deallocate( e_kin_p_l_ave, e_kin_p_m_ave )
+      deallocate( e_kin_p_l_SD, e_kin_p_m_SD )
+      deallocate( e_kin_t_l_ave, e_kin_t_m_ave )
+      deallocate( e_kin_t_l_SD, e_kin_t_m_SD )
+
+      if ( l_2D_spectra ) then
+         if ( l_mag ) then
+            deallocate( e_mag_p_r_l_ave, e_mag_p_r_m_ave )
+            deallocate( e_mag_t_r_l_ave, e_mag_t_r_m_ave )
+         end if
+
+         deallocate( e_kin_p_r_l_ave, e_kin_p_r_m_ave )
+         deallocate( e_kin_t_r_l_ave, e_kin_t_r_m_ave )
+      end if
 
       if ( l_heat ) then
          deallocate( T_l_ave, T_ICB_l_ave, dT_ICB_l_ave )
@@ -123,202 +186,8 @@ contains
 
    end subroutine finalize_spectra
 !----------------------------------------------------------------------------
-   subroutine spectrum_average(n_time_ave,l_stop_time,time_passed,time_norm, &
-              &                b,aj,db,BV)
-
-      !-- Input variables:
-      integer,          intent(in) :: n_time_ave
-      logical,          intent(in) :: l_stop_time
-      real(cp),         intent(in) :: time_passed
-      real(cp),         intent(in) :: time_norm
-      complex(cp),      intent(in) :: b(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: aj(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: db(llm:ulm,n_r_max)
-      character(len=1), intent(in) :: BV
-
-      !-- Output variables: 
-      real(cp) :: e_p_l(0:l_max),e_t_l(0:l_max)
-      real(cp) :: e_cmb_l(0:l_max)
-      real(cp) :: e_p_m(0:l_max),e_t_m(0:l_max)
-      real(cp) :: e_cmb_m(0:l_max)
-
-      !-- Local variables:
-      character(len=85) :: outFile
-      integer :: nOut
-      integer :: nR,lm,l,m,ierr
-
-      real(cp) :: e_p_temp,e_t_temp
-      real(cp) :: fac
-
-      real(cp) :: e_p_r_l(n_r_max,0:l_max),e_p_r_l_global(n_r_max,0:l_max)
-      real(cp) :: e_t_r_l(n_r_max,0:l_max),e_t_r_l_global(n_r_max,0:l_max)
-      real(cp) :: e_p_r_m(n_r_max,0:l_max),e_p_r_m_global(n_r_max,0:l_max)
-      real(cp) :: e_t_r_m(n_r_max,0:l_max),e_t_r_m_global(n_r_max,0:l_max)
-
-      if ( BV == 'V' ) then ! kinetic spectrum (correction of density)
-
-         do nR=1,n_r_max
-            do l=0,l_max
-               e_p_r_l(nR,l)=0.0_cp
-               e_t_r_l(nR,l)=0.0_cp
-               e_p_r_m(nR,l)=0.0_cp
-               e_t_r_m(nR,l)=0.0_cp
-            end do
-            !do lm=2,lm_max
-            do lm=max(llm,2),ulm
-               l =lo_map%lm2l(lm)
-               m =lo_map%lm2m(lm)
-               e_p_temp= orho1(nR) * dLh(st_map%lm2(l,m)) * (             &
-               &         dLh(st_map%lm2(l,m))*or2(nR)*cc2real(b(lm,nR),m) &
-               &         + cc2real(db(lm,nR),m) )
-               e_t_temp=orho1(nR)*dLh(st_map%lm2(l,m))*cc2real(aj(lm,nR),m)
-               e_p_r_l(nR,l)=e_p_r_l(nR,l)+e_p_temp
-               e_t_r_l(nR,l)=e_t_r_l(nR,l)+e_t_temp
-               e_p_r_m(nR,m)=e_p_r_m(nR,m)+e_p_temp
-               e_t_r_m(nR,m)=e_t_r_m(nR,m)+e_t_temp
-            end do    ! do loop over lms in block 
-         end do    ! radial grid points
-
-      else ! magnetic spectrum
-
-         do nR=1,n_r_max
-            do l=0,l_max
-               e_p_r_l(nR,l)=0.0_cp
-               e_t_r_l(nR,l)=0.0_cp
-               e_p_r_m(nR,l)=0.0_cp
-               e_t_r_m(nR,l)=0.0_cp
-            end do
-            do lm=max(2,llm),ulm
-               l =lo_map%lm2l(lm)
-               m =lo_map%lm2m(lm)
-               e_p_temp=  dLh(st_map%lm2(l,m)) * (                           &
-               &            dLh(st_map%lm2(l,m))*or2(nR)*cc2real(b(lm,nR),m) &
-               &            + cc2real(db(lm,nR),m) )
-               e_t_temp=dLh(st_map%lm2(l,m))*cc2real(aj(lm,nR),m)
-               e_p_r_l(nR,l)=e_p_r_l(nR,l)+e_p_temp
-               e_t_r_l(nR,l)=e_t_r_l(nR,l)+e_t_temp
-               e_p_r_m(nR,m)=e_p_r_m(nR,m)+e_p_temp
-               e_t_r_m(nR,m)=e_t_r_m(nR,m)+e_t_temp
-            end do    ! do loop over lms in block 
-         end do    ! radial grid points
-
-      end if
-
-#ifdef WITH_MPI
-      call MPI_Reduce(e_p_r_l,e_p_r_l_global,n_r_max*(l_max+1),    &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_r_l,e_t_r_l_global,n_r_max*(l_max+1),    &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_r_m,e_p_r_m_global,n_r_max*(l_max+1),    &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_r_m,e_t_r_m_global,n_r_max*(l_max+1),    &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      e_p_r_l_global(:,:)=e_p_r_l(:,:)
-      e_t_r_l_global(:,:)=e_t_r_l(:,:)
-      e_p_r_m_global(:,:)=e_p_r_m(:,:)
-      e_t_r_m_global(:,:)=e_t_r_m(:,:)
-#endif
-
-      if ( rank == 0 ) then
-         !-- Radial Integrals:
-         fac=half*eScale
-         if ( BV == 'B' ) fac=fac*LFfac
-         do l=0,l_max
-            e_p_l(l)  =fac*rInt_R(e_p_r_l_global(:,l),r,rscheme_oc)
-            e_t_l(l)  =fac*rInt_R(e_t_r_l_global(:,l),r,rscheme_oc)
-            e_p_m(l)  =fac*rInt_R(e_p_r_m_global(:,l),r,rscheme_oc)
-            e_t_m(l)  =fac*rInt_R(e_t_r_m_global(:,l),r,rscheme_oc)
-            if ( BV == 'B' ) then 
-               e_cmb_l(l)=fac*e_p_r_l_global(1,l)
-               e_cmb_m(l)=fac*e_p_r_m_global(1,l)
-            end if
-         end do
-
-         !-- Averaging:
-         if ( BV == 'B' ) then
-            call get_mean_sd(e_p_l_ave, e_p_l_SD, e_p_l, n_time_ave, time_passed, &
-                 &           time_norm)
-            call get_mean_sd(e_t_l_ave, e_t_l_SD, e_t_l, n_time_ave, time_passed, &
-                 &           time_norm)
-            call get_mean_sd(e_p_m_ave, e_p_m_SD, e_p_m, n_time_ave, time_passed, &
-                 &           time_norm)
-            call get_mean_sd(e_t_m_ave, e_t_m_SD, e_t_m, n_time_ave, time_passed, &
-                 &           time_norm)
-            call get_mean_sd(e_cmb_l_ave, e_cmb_l_SD, e_cmb_l, n_time_ave, &
-                 &           time_passed, time_norm)
-            call get_mean_sd(e_cmb_m_ave, e_cmb_m_SD, e_cmb_m, n_time_ave, &
-                 &           time_passed, time_norm)
-         else
-            call get_mean_sd(ek_p_l_ave, ek_p_l_SD, e_p_l, n_time_ave, time_passed,&
-                 &           time_norm)
-            call get_mean_sd(ek_t_l_ave, ek_t_l_SD, e_t_l, n_time_ave, time_passed,&
-                 &           time_norm)
-            call get_mean_sd(ek_p_m_ave, ek_p_m_SD, e_p_m, n_time_ave, time_passed,&
-                 &           time_norm)
-            call get_mean_sd(ek_t_m_ave, ek_t_m_SD, e_t_m, n_time_ave, time_passed,&
-                 &           time_norm)
-
-         end if
-
-         !-- Output: every 10th averaging step and at end of run
-         if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
-
-            !------ Output:
-            if ( BV == 'B' ) then
-               outFile='mag_spec_ave.'//tag
-            else if ( BV == 'V' ) then
-               outFile='kin_spec_ave.'//tag
-            else
-               call abortRun('Wrong BV input to spectrum_average!')
-            end if
-
-            open(newunit=nOut, file=outFile, status='unknown')
-            if ( BV == 'B' ) then
-               e_p_l_SD(:)  =sqrt(e_p_l_SD(:)/time_norm)
-               e_t_l_SD(:)  =sqrt(e_t_l_SD(:)/time_norm)
-               e_p_m_SD(:)  =sqrt(e_p_m_SD(:)/time_norm)
-               e_t_m_SD(:)  =sqrt(e_t_m_SD(:)/time_norm)
-               e_cmb_l_SD(:)=sqrt(e_cmb_l_SD(:)/time_norm)
-               e_cmb_m_SD(:)=sqrt(e_cmb_m_SD(:)/time_norm)
-               do l=0,l_max
-                  write(nOut,'(2X,1P,I4,12ES16.8)') l, e_p_l_ave(l), e_p_m_ave(l), &
-                  &                                    e_t_l_ave(l), e_t_m_ave(l), &
-                  &                                e_cmb_l_ave(l), e_cmb_m_ave(l), &
-                  &                                      e_p_l_SD(l), e_p_m_SD(l), &
-                  &                                      e_t_l_SD(l), e_t_m_SD(l), &
-                  &                                  e_cmb_l_SD(l), e_cmb_m_SD(l)
-               end do
-            else
-               do l=0,l_max
-                  write(nOut,'(2X,1P,I4,8ES16.8)') l,ek_p_l_ave(l), ek_p_m_ave(l), &
-                  &                                  ek_t_l_ave(l), ek_t_m_ave(l), &
-                  &                                    ek_p_l_SD(l), ek_p_m_SD(l), &
-                  &                                    ek_t_l_SD(l), ek_t_m_SD(l)
-               end do
-            end if
-            close(nOut)
-
-            if ( l_stop_time ) then
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-               write(n_log_file,"(/,A,A)")                        &
-               &     ' ! TIME AVERAGED SPECTRA STORED IN FILE: ', &
-               &      outFile
-               write(n_log_file,"(A,I5)")                         &
-               &     ' !              No. of averaged spectra: ', &
-               &     n_time_ave
-               if ( l_save_out ) close(n_log_file)
-            end if
-
-         end if
-      end if
-
-   end subroutine spectrum_average
-!----------------------------------------------------------------------------
-   subroutine spectrum(time,n_spec,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
+   subroutine spectrum(n_spec,time,l_avg,n_time_ave,l_stop_time,time_passed, &
+              &        time_norm,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
       !
       !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
       !  integration in theta,phi by summation over harmonic coeffs.
@@ -331,7 +200,10 @@ contains
     
       !-- Input of variables:
       integer,     intent(in) :: n_spec     ! number of spectrum/call, file
+      integer,     intent(in) :: n_time_ave
       real(cp),    intent(in) :: time
+      real(cp),    intent(in) :: time_passed
+      real(cp),    intent(in) :: time_norm
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
@@ -341,7 +213,8 @@ contains
       complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-    
+      logical,     intent(in) :: l_avg, l_stop_time
+
       !-- Output:
       real(cp) :: b_rms
       real(cp) :: e_mag_p_l(l_max),e_mag_t_l(l_max)
@@ -373,6 +246,8 @@ contains
       real(cp) :: O_surface
       real(cp) :: fac_mag,fac_kin
       real(cp) :: nearSurfR
+
+      real(cp) :: sd(l_max+1)
     
       real(cp) :: e_mag_p_r_l(n_r_max,l_max),e_mag_p_r_l_global(n_r_max,l_max)
       real(cp) :: e_mag_t_r_l(n_r_max,l_max),e_mag_t_r_l_global(n_r_max,l_max)
@@ -540,21 +415,20 @@ contains
 #endif
     
       ! now switch to rank 0 for the postprocess
-      
-    
-      ! Getting appropriate radius index for e_kin_nearSurf spectra
-      nearSurfR = r_icb+0.99_cp
-      do n_r=2,n_r_max
-         if ( r(n_r-1) > nearSurfR .and. r(n_r)  <= nearSurfR ) then
-            if ( r(n_r-1)-nearSurfR < nearSurfR-r(n_r) ) then
-               n_const=n_r-1
-            else
-               n_const=n_r
-            end if
-         end if
-      end do
     
       if ( rank == 0 ) then
+         ! Getting appropriate radius index for e_kin_nearSurf spectra
+         nearSurfR = r_icb+0.99_cp
+         do n_r=2,n_r_max
+            if ( r(n_r-1) > nearSurfR .and. r(n_r)  <= nearSurfR ) then
+               if ( r(n_r-1)-nearSurfR < nearSurfR-r(n_r) ) then
+                  n_const=n_r-1
+               else
+                  n_const=n_r
+               end if
+            end if
+         end do
+ 
          !-- Save CMB energy spectra:
          O_surface=one/(four*pi*r(1)*r(1))
     
@@ -609,6 +483,80 @@ contains
             e_kin_t_m(m)   =fac_kin*rInt_R(e_kin_t_r_m_global(:,m),r,rscheme_oc)
             e_kin_nearSurf_m(m)=fac_kin*e_kin_nearSurf_m(m)
          end do
+      end if
+
+      !-- Averaging:
+      if ( l_avg ) then
+         if ( l_mag ) then
+            call get_mean_sd(e_mag_p_l_ave(1:l_max), e_mag_p_l_SD(1:l_max),     &
+                 &           e_mag_p_l, n_time_ave, time_passed, time_norm)
+            call get_mean_sd(e_mag_t_l_ave(1:l_max), e_mag_t_l_SD(1:l_max),     &
+                 &           e_mag_t_l, n_time_ave, time_passed, time_norm)
+            call get_mean_sd(e_mag_p_m_ave, e_mag_p_m_SD, e_mag_p_m, n_time_ave,&
+                 &           time_passed, time_norm)
+            call get_mean_sd(e_mag_t_m_ave, e_mag_t_m_SD, e_mag_t_m, n_time_ave,&
+                 &           time_passed,time_norm)
+            call get_mean_sd(e_mag_cmb_l_ave(1:l_max), e_mag_cmb_l_SD(1:l_max), &
+                 &           e_mag_cmb_l, n_time_ave, time_passed, time_norm)
+            call get_mean_sd(e_mag_cmb_m_ave, e_mag_cmb_m_SD, e_mag_cmb_m,      &
+                 &           n_time_ave, time_passed, time_norm)
+
+            !-- Averaging of 2D spectra
+            if ( l_2D_spectra ) then
+               do n_r=1,n_r_max
+                  call get_mean_sd(e_mag_p_r_l_ave(n_r,:),sd(:l_max),   &
+                       &           e_mag_p_r_l_global(n_r,:),n_time_ave,&
+                       &           time_passed, time_norm)
+                  call get_mean_sd(e_mag_t_r_l_ave(n_r,:),sd(:l_max),   &
+                       &           e_mag_t_r_l_global(n_r,:),n_time_ave,&
+                       &           time_passed, time_norm)
+                  call get_mean_sd(e_mag_p_r_m_ave(n_r,:),sd,           &
+                       &           e_mag_p_r_m_global(n_r,:),n_time_ave,&
+                       &           time_passed, time_norm)
+                  call get_mean_sd(e_mag_t_r_m_ave(n_r,:),sd,           &
+                       &           e_mag_t_r_m_global(n_r,:),n_time_ave,&
+                       &           time_passed, time_norm)
+               end do
+            end if
+         end if
+
+         if ( l_anel ) then
+            call get_mean_sd(u2_p_l_ave(1:l_max), u2_p_l_SD(1:l_max), u2_p_l,&
+                 &           n_time_ave, time_passed, time_norm)
+            call get_mean_sd(u2_t_l_ave(1:l_max), u2_t_l_SD(1:l_max), u2_t_l,&
+                 &           n_time_ave, time_passed, time_norm)
+            call get_mean_sd(u2_p_m_ave, u2_p_m_SD, u2_p_m, n_time_ave,      &
+                 &           time_passed, time_norm)
+            call get_mean_sd(u2_t_m_ave, u2_t_m_SD, u2_t_m, n_time_ave,      &
+                 &           time_passed, time_norm)
+         end if
+
+         call get_mean_sd(e_kin_p_l_ave(1:l_max), e_kin_p_l_SD(1:l_max),     &
+              &           e_kin_p_l, n_time_ave, time_passed, time_norm)
+         call get_mean_sd(e_kin_t_l_ave(1:l_max), e_kin_t_l_SD(1:l_max),     &
+              &           e_kin_t_l, n_time_ave, time_passed, time_norm)
+         call get_mean_sd(e_kin_p_m_ave, e_kin_p_m_SD, e_kin_p_m, n_time_ave,&
+              &           time_passed, time_norm)
+         call get_mean_sd(e_kin_t_m_ave, e_kin_t_m_SD, e_kin_t_m, n_time_ave,&
+              &           time_passed, time_norm)
+
+         !-- Averaging of 2D spectra
+         if ( l_2D_spectra ) then
+            do n_r=1,n_r_max
+               call get_mean_sd(e_kin_p_r_l_ave(n_r,:),sd(:l_max),    &
+                    &           e_kin_p_r_l_global(n_r,:),n_time_ave, &
+                    &           time_passed, time_norm)
+               call get_mean_sd(e_kin_t_r_l_ave(n_r,:), sd(:l_max),   &
+                    &           e_kin_t_r_l_global(n_r,:), n_time_ave,&
+                    &           time_passed, time_norm)
+               call get_mean_sd(e_kin_p_r_m_ave(n_r,:), sd,           &
+                    &           e_kin_p_r_m_global(n_r,:), n_time_ave,&
+                    &           time_passed, time_norm)
+               call get_mean_sd(e_kin_t_r_m_ave(n_r,:), sd,           &
+                    &           e_kin_t_r_m_global(n_r,:), n_time_ave,&
+                    &           time_passed, time_norm)
+            end do
+         end if
       end if
     
       !-- inner core:
@@ -690,7 +638,7 @@ contains
             e_mag_t_ic_m(mc)=0.0_cp
          end do
       end if  ! conducting inner core ?
-    
+
       if ( rank == 0 ) then
          !-- Output into files:
          if ( l_mag ) then
@@ -719,19 +667,71 @@ contains
                &     eCMB_global(ml)
             end do
             close(n_mag_spec_file)
-    
-            mag_spec_file='2D_mag_spec_'//trim(adjustl(string))//'.'//tag
-            open(newunit=n_mag_spec_file, file=mag_spec_file, status='unknown', &
-            &    form='unformatted')
-    
-            write(n_mag_spec_file) time*tScale,n_r_max,l_max,minc
-            write(n_mag_spec_file) r
-            write(n_mag_spec_file) fac_mag*e_mag_p_r_l_global
-            write(n_mag_spec_file) fac_mag*e_mag_p_r_m_global
-            write(n_mag_spec_file) fac_mag*e_mag_t_r_l_global
-            write(n_mag_spec_file) fac_mag*e_mag_t_r_m_global
-    
-            close(n_mag_spec_file)
+
+            if ( l_2D_spectra ) then    
+               mag_spec_file='2D_mag_spec_'//trim(adjustl(string))//'.'//tag
+               open(newunit=n_mag_spec_file, file=mag_spec_file, &
+               &    status='unknown', form='unformatted')
+               write(n_mag_spec_file) time*tScale,n_r_max,l_max,minc
+               write(n_mag_spec_file) r
+               write(n_mag_spec_file) fac_mag*e_mag_p_r_l_global
+               write(n_mag_spec_file) fac_mag*e_mag_p_r_m_global
+               write(n_mag_spec_file) fac_mag*e_mag_t_r_l_global
+               write(n_mag_spec_file) fac_mag*e_mag_t_r_m_global
+               close(n_mag_spec_file)
+            end if
+            
+            if ( l_avg ) then
+               !-- Output: every 10th averaging step and at end of run
+               if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
+                  mag_spec_file='mag_spec_ave.'//tag
+                  open(newunit=n_mag_spec_file, file=mag_spec_file, &
+                  &    status='unknown')
+                  e_mag_p_l_SD(:)  =sqrt(e_mag_p_l_SD(:)/time_norm) 
+                  e_mag_t_l_SD(:)  =sqrt(e_mag_t_l_SD(:)/time_norm)
+                  e_mag_p_m_SD(:)  =sqrt(e_mag_p_m_SD(:)/time_norm)
+                  e_mag_t_m_SD(:)  =sqrt(e_mag_t_m_SD(:)/time_norm)
+                  e_mag_cmb_l_SD(:)=sqrt(e_mag_cmb_l_SD(:)/time_norm)
+                  e_mag_cmb_m_SD(:)=sqrt(e_mag_cmb_m_SD(:)/time_norm)
+                  do l=0,l_max
+                     write(n_mag_spec_file,'(2X,1P,I4,12ES16.8)') l,      &
+                     &            e_mag_p_l_ave(l), e_mag_p_m_ave(l),     &
+                     &            e_mag_t_l_ave(l), e_mag_t_m_ave(l),     &
+                     &            e_mag_cmb_l_ave(l), e_mag_cmb_m_ave(l), &
+                     &            e_mag_p_l_SD(l), e_mag_p_m_SD(l),       &
+                     &            e_mag_t_l_SD(l), e_mag_t_m_SD(l),       &
+                     &            e_mag_cmb_l_SD(l), e_mag_cmb_m_SD(l)
+                  end do
+                  close(n_mag_spec_file)
+
+                  if ( l_stop_time ) then
+                     if ( l_save_out ) then
+                        open(newunit=n_log_file, file=log_file, status='unknown',&
+                        &    position='append')
+                     end if
+                     write(n_log_file,"(/,A,A)")                        &
+                     &     ' ! TIME AVERAGED EMAG SPECTRA STORED IN FILE: ', &
+                     &     mag_spec_file 
+                     write(n_log_file,"(A,I5)")                         &
+                     &     ' !              No. of averaged spectra: ', &
+                     &     n_time_ave
+                     if ( l_save_out ) close(n_log_file)
+                  end if
+                  
+                  if ( l_2D_spectra ) then
+                     mag_spec_file='2D_mag_spec_ave.'//tag
+                     open(newunit=n_mag_spec_file, file=mag_spec_file, &
+                     &    status='unknown', form='unformatted')
+                     write(n_mag_spec_file) n_r_max,l_max,minc
+                     write(n_mag_spec_file) r
+                     write(n_mag_spec_file) fac_mag*e_mag_p_r_l_ave  
+                     write(n_mag_spec_file) fac_mag*e_mag_p_r_m_ave
+                     write(n_mag_spec_file) fac_mag*e_mag_t_r_l_ave
+                     write(n_mag_spec_file) fac_mag*e_mag_t_r_m_ave
+                     close(n_mag_spec_file)
+                  end if
+               end if
+            end if
          end if
     
          if ( l_anel ) then
@@ -754,19 +754,40 @@ contains
             end do
             close(n_u2_spec_file)
     
-            u2_spec_file='2D_u2_spec_'//trim(adjustl(string))//'.'//tag
-            open(newunit=n_u2_spec_file, file=u2_spec_file, status='unknown', &
-            &    form='unformatted')
-    
-            write(n_u2_spec_file) time*tScale,n_r_max,l_max,minc
-            write(n_u2_spec_file) r
-            write(n_u2_spec_file) fac_kin*u2_p_r_l_global
-            write(n_u2_spec_file) fac_kin*u2_p_r_m_global
-            write(n_u2_spec_file) fac_kin*u2_t_r_l_global
-            write(n_u2_spec_file) fac_kin*u2_t_r_m_global
-    
-            close(n_u2_spec_file)
-    
+            if ( l_avg ) then
+               !-- Output: every 10th averaging step and at end of run
+               if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
+                  u2_spec_file='u2_spec_ave.'//tag
+                  open(newunit=n_u2_spec_file, file=u2_spec_file, &
+                  &    status='unknown')
+                  u2_p_l_SD(:)  =sqrt(u2_p_l_SD(:)/time_norm)
+                  u2_t_l_SD(:)  =sqrt(u2_t_l_SD(:)/time_norm)
+                  u2_p_m_SD(:)  =sqrt(u2_p_m_SD(:)/time_norm)
+                  u2_t_m_SD(:)  =sqrt(u2_t_m_SD(:)/time_norm)
+                  do l=0,l_max
+                     write(n_u2_spec_file,'(2X,1P,I4,8ES16.8)') l,   &
+                     &                u2_p_l_ave(l), u2_p_m_ave(l),  &
+                     &                u2_t_l_ave(l), u2_t_m_ave(l),  &
+                     &                u2_p_l_SD(l), u2_p_m_SD(l),    &
+                     &                u2_t_l_SD(l), u2_t_m_SD(l)
+                  end do
+                  close(n_u2_spec_file)
+
+                  if ( l_stop_time ) then
+                     if ( l_save_out ) then
+                        open(newunit=n_log_file, file=log_file, status='unknown',&
+                        &    position='append')
+                     end if
+                     write(n_log_file,"(/,A,A)")                        &
+                     &     ' ! TIME AVERAGED U2 SPECTRA STORED IN FILE: ', &
+                     &     u2_spec_file
+                     write(n_log_file,"(A,I5)")                         &
+                     &     ' !              No. of averaged spectra: ', &
+                     &     n_time_ave
+                     if ( l_save_out ) close(n_log_file)
+                  end if
+               end if
+            end if
          end if
     
          write(string, *) n_spec
@@ -791,24 +812,70 @@ contains
          end do
          close(n_kin_spec_file)
     
-         kin_spec_file='2D_kin_spec_'//trim(adjustl(string))//'.'//tag
-         open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown', &
-         &    form='unformatted')
-    
-         write(n_kin_spec_file) time*tScale,n_r_max,l_max,minc
-         write(n_kin_spec_file) r
-         write(n_kin_spec_file) fac_kin*e_kin_p_r_l_global
-         write(n_kin_spec_file) fac_kin*e_kin_p_r_m_global
-         write(n_kin_spec_file) fac_kin*e_kin_t_r_l_global
-         write(n_kin_spec_file) fac_kin*e_kin_t_r_m_global
-    
-         close(n_kin_spec_file)
-    
+         if ( l_2D_spectra ) then
+            kin_spec_file='2D_kin_spec_'//trim(adjustl(string))//'.'//tag
+            open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown', &
+            &    form='unformatted')
+            write(n_kin_spec_file) time*tScale,n_r_max,l_max,minc
+            write(n_kin_spec_file) r
+            write(n_kin_spec_file) fac_kin*e_kin_p_r_l_global
+            write(n_kin_spec_file) fac_kin*e_kin_p_r_m_global
+            write(n_kin_spec_file) fac_kin*e_kin_t_r_l_global
+            write(n_kin_spec_file) fac_kin*e_kin_t_r_m_global
+            close(n_kin_spec_file)
+         end if
+
+         if ( l_avg ) then
+            !-- Output: every 10th averaging step and at end of run
+            if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
+               kin_spec_file='kin_spec_ave.'//tag
+               open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown')
+               e_kin_p_l_SD(:)  =sqrt(e_kin_p_l_SD(:)/time_norm)
+               e_kin_t_l_SD(:)  =sqrt(e_kin_t_l_SD(:)/time_norm)
+               e_kin_p_m_SD(:)  =sqrt(e_kin_p_m_SD(:)/time_norm)
+               e_kin_t_m_SD(:)  =sqrt(e_kin_t_m_SD(:)/time_norm)
+               do l=0,l_max
+                  write(n_kin_spec_file,'(2X,1P,I4,8ES16.8)') l,    &
+                  &             e_kin_p_l_ave(l), e_kin_p_m_ave(l), &
+                  &             e_kin_t_l_ave(l), e_kin_t_m_ave(l), &
+                  &             e_kin_p_l_SD(l), e_kin_p_m_SD(l),   &
+                  &             e_kin_t_l_SD(l), e_kin_t_m_SD(l)
+               end do
+               close(n_kin_spec_file)
+
+               if ( l_stop_time ) then
+                  if ( l_save_out ) then
+                     open(newunit=n_log_file, file=log_file, status='unknown', &
+                     &    position='append')
+                  end if
+                  write(n_log_file,"(/,A,A)")                        &
+                  &     ' ! TIME AVERAGED EKIN SPECTRA STORED IN FILE: ', &
+                  &     kin_spec_file
+                  write(n_log_file,"(A,I5)")                         &
+                  &     ' !              No. of averaged spectra: ', &
+                  &     n_time_ave
+                  if ( l_save_out ) close(n_log_file)
+               end if
+
+               if ( l_2D_spectra ) then
+                  kin_spec_file='2D_kin_spec_ave.'//tag
+                  open(newunit=n_kin_spec_file, file=kin_spec_file, &
+                  &    status='unknown', form='unformatted')
+                  write(n_kin_spec_file) n_r_max,l_max,minc
+                  write(n_kin_spec_file) r
+                  write(n_kin_spec_file) fac_kin*e_kin_p_r_l_ave 
+                  write(n_kin_spec_file) fac_kin*e_kin_p_r_m_ave
+                  write(n_kin_spec_file) fac_kin*e_kin_t_r_l_ave
+                  write(n_kin_spec_file) fac_kin*e_kin_t_r_m_ave
+                  close(n_kin_spec_file)
+               end if
+            end if
+         end if
       end if
     
    end subroutine spectrum
 !----------------------------------------------------------------------------
-   subroutine spectrum_temp(n_spec,time,l_avg,n_time_ave,l_stop_time,       &
+   subroutine spectrum_temp(n_spec,time,l_avg,n_time_ave,l_stop_time,   &
               &             time_passed,time_norm,s,ds)
 
       !-- Direct input:

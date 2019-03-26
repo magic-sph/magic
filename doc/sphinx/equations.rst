@@ -56,7 +56,7 @@ entropy variations we use the so-called energy or heat equation
 
 .. math::
   \rho T\left(\dfrac{\partial s}{\partial t}+\vec{u}\cdot \vec{\nabla} s \right) = 
-  \vec{\nabla}\cdot (k\vec{\nabla} T) + \Phi_\nu +\lambda\left(\vec{\nabla}\times\vec{B}\right)^2 
+  \vec{\nabla}\cdot (k\vec{\nabla} T) + \Phi_\nu +\dfrac{\lambda}{\mu_0}\left(\vec{\nabla}\times\vec{B}\right)^2 
   + \epsilon,
   :label: eqEntropy
 

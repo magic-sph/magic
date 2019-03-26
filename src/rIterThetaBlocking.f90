@@ -15,7 +15,8 @@ module rIterThetaBlocking_mod
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
-       &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession
+       &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession,  &
+       &            l_centrifuge
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -76,7 +77,7 @@ contains
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+ &
-      &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*& 
+      &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*&
       &                SIZEOF_DEF_REAL
 
    end subroutine allocate_common_arrays
@@ -171,7 +172,7 @@ contains
 
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
-         if ( l_heat ) then 
+         if ( l_heat ) then
             if ( .not. l_axi ) call fft_thetab(gsa%sc,1)
             if ( this%lViscBcCalc ) then
                if ( .not. l_axi ) then
@@ -238,7 +239,7 @@ contains
                   call fft_thetab(gsa%dvpdpc,1)
                end if
             end if
-         else if ( this%nBc == 2 ) then 
+         else if ( this%nBc == 2 ) then
             if ( this%nR == n_r_cmb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
@@ -278,10 +279,10 @@ contains
       integer,intent(in) :: nThetaStart, nThetaStop
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
-      
+
       ! Local variables
       integer :: nTheta,nPhi
-  
+
       if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) .and. &
             ( l_conv_nl .or. l_mag_LF ) ) then
          !PERFON('inner1')
@@ -315,7 +316,7 @@ contains
             end if
          end if
 
-         if ( l_precession ) then 
+         if ( l_precession ) then
             do nTheta=1,this%sizeThetaB
                do nPhi=1,nrp
                   gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta) + gsa%PCr(nPhi,nTheta)
@@ -323,8 +324,16 @@ contains
                   gsa%Advp(nPhi,nTheta)=gsa%Advp(nPhi,nTheta) + gsa%PCp(nPhi,nTheta)
                end do
             end do
-
          end if
+
+         if ( l_centrifuge ) then
+            do nTheta=1,this%sizeThetaB
+               do nPhi=1,nrp
+                  gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta) + gsa%CAr(nPhi,nTheta)
+                  gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta) + gsa%CAt(nPhi,nTheta)
+               end do
+            end do
+         end if ! centrifuge
 
          if ( .not. l_axi ) then
             call fft_thetab(gsa%Advr,-1)
@@ -333,7 +342,7 @@ contains
          end if
          call legTF3(nThetaStart,nl_lm%AdvrLM,nl_lm%AdvtLM,nl_lm%AdvpLM,    &
               &      gsa%Advr,gsa%Advt,gsa%Advp)
-         if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then 
+         if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
             if ( .not. l_axi ) then
                call fft_thetab(gsa%LFr,-1)
@@ -354,7 +363,7 @@ contains
          end if
          call legTF3(nThetaStart,nl_lm%VSrLM,nl_lm%VStLM,nl_lm%VSpLM,       &
               &      gsa%VSr,gsa%VSt,gsa%VSp)
-         if (l_anel) then ! anelastic stuff 
+         if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
                if ( .not. l_axi ) then
                   call fft_thetab(gsa%ViscHeat,-1)

@@ -1,6 +1,6 @@
 module readCheckPoints
    !
-   ! This module contains the functions that can help reading and 
+   ! This module contains the functions that can help reading and
    ! mapping of the restart files
    !
 
@@ -10,7 +10,7 @@ module readCheckPoints
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
-       &                 minc,lMagMem
+       &                 minc,lMagMem,fd_stretch,fd_ratio
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv, l_AB1
    use blocking, only: lo_map,lmStartB,lmStopB,nLMBs,lm2l,lm2m
@@ -21,6 +21,7 @@ module readCheckPoints
        &                  tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,   &
        &                  scale_s,scale_xi
    use radial_functions, only: rscheme_oc, chebt_ic, cheb_norm_ic, r
+   use num_param, only: alph1, alph2
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          kbotv, ktopv, sc, raxi
@@ -43,6 +44,7 @@ module readCheckPoints
    integer :: n_start_file
    integer(lip) :: bytes_allocated=0
    class(type_rscheme), pointer :: rscheme_oc_old
+   real(cp) :: ratio1_old, ratio2_old, ratio1, ratio2
 
    public :: readStartFields_old, readStartFields
 
@@ -102,7 +104,7 @@ contains
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
       character(len=72) :: rscheme_version_old
-      real(cp) :: ratio1, ratio2, r_icb_old, r_cmb_old
+      real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2
 
       complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
@@ -110,16 +112,24 @@ contains
       complex(cp), allocatable :: workD(:,:),workE(:,:)
       real(cp), allocatable :: r_old(:)
 
+      if ( rscheme_oc%version == 'cheb') then
+         ratio1 = alph1
+         ratio2 = alph2
+      else
+         ratio1 = fd_stretch
+         ratio2 = fd_ratio
+      end if
+
       if ( rank == 0 ) then
          inquire(file=start_file, exist=startfile_does_exist)
-       
+
          if ( startfile_does_exist ) then
             open(newunit=n_start_file, file=start_file, status='old', &
             &    form='unformatted')
          else
             call abortRun('! The restart file does not exist !')
          end if
-       
+
          sigma_ratio_old=0.0_cp  ! assume non conducting inner core !
          if ( inform == -1 ) then ! This is default !
             read(n_start_file)                                         &
@@ -145,24 +155,24 @@ contains
             &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
          end if
          if ( inform == -1 ) inform=informOld
-       
+
          !---- Compare parameters:
          if ( ra /= ra_old ) &
-              write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
+         &    write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
          if ( ek /= ek_old ) &
-              write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
+         &    write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
          if ( pr /= pr_old ) &
-              write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+         &    write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
          if ( prmag /= pm_old )                                          &
-              write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
-              pm_old,prmag
+         &    write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
+         &    pm_old,prmag
          if ( radratio /= radratio_old )                                    &
-              write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
-              radratio_old,radratio
+         &    write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
+         &    radratio_old,radratio
          if ( sigma_ratio /= sigma_ratio_old )                             &
-              write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
-              sigma_ratio_old,sigma_ratio
-       
+         &    write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
+         &    sigma_ratio_old,sigma_ratio
+
          if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
             l_max_old=nalias_old*n_theta_max_old/30
             l_axi_old=.true.
@@ -171,18 +181,18 @@ contains
             l_axi_old=.false.
          end if
          l_mag_old=.false.
-         if ( pm_old /= 0.0_cp ) l_mag_old= .true. 
-       
-         if ( n_phi_tot_old /= n_phi_tot) &
-              write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
-         if ( nalias_old /= nalias) &
-              write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
-         if ( l_max_old /= l_max ) &
-              write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+         if ( pm_old /= 0.0_cp ) l_mag_old= .true.
 
-       
+         if ( n_phi_tot_old /= n_phi_tot) &
+         &    write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
+         if ( nalias_old /= nalias) &
+         &    write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
+         if ( l_max_old /= l_max ) &
+         &    write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+
+
          if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
-              inform==13 .or. inform==21 .or. inform==23) then
+         &    inform==13 .or. inform==21 .or. inform==23) then
             lreadS=.false.
          else
             lreadS=.true.
@@ -204,7 +214,8 @@ contains
          allocate( r_old(n_r_max_old) )
 
          if ( lreadR ) then
-            read(n_start_file) rscheme_version_old, n_in, n_in_2, ratio1, ratio2
+            read(n_start_file) rscheme_version_old, n_in, n_in_2, &
+            &                  ratio1_old, ratio2_old
             if ( rscheme_version_old == 'cheb' ) then
                allocate ( type_cheb_odd :: rscheme_oc_old )
             else
@@ -214,8 +225,8 @@ contains
             rscheme_version_old='cheb'
             n_in  =n_r_max_old-2 ! Just a guess here
             n_in_2=0 ! Regular grid
-            ratio1=0.0_cp
-            ratio2=0.0_cp
+            ratio1_old=0.0_cp
+            ratio2_old=0.0_cp
             allocate ( type_cheb_odd :: rscheme_oc_old )
          end if
 
@@ -225,26 +236,26 @@ contains
 
          call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
 
-         call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
-              &                       ratio2, r_old)
+         call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, &
+              &                       ratio1_old, ratio2_old, r_old)
 
-         if ( rscheme_oc%version /= rscheme_oc_old%version ) &
-            & write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
-            & rscheme_oc_old%version, rscheme_oc%version
-       
+         if ( rscheme_oc%version /= rscheme_oc_old%version )         &
+         &    write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
+         &    rscheme_oc_old%version, rscheme_oc%version
+
          allocate( lm2lmo(lm_max) )
-       
+
          call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
               &         m_max,minc,minc_old,inform,lm_max,   &
               &         lm_max_old,n_data_oldP,lm2lmo)
-       
+
          ! allocation of local arrays.
          ! if this becomes a performance bottleneck, one can make a module
          ! and allocate the array only once in the initialization
          allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
          bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
          ! end of allocation
-       
+
          !PERFON('mD_rd')
          if ( lreadXi ) then
             allocate(xio(n_data_oldP))
@@ -294,7 +305,7 @@ contains
       workC(:,:)=zero
       workD(:,:)=zero
       workE(:,:)=zero
-    
+
       if ( rank == 0 ) then
          n_r_maxL = max(n_r_max,n_r_max_old)
 
@@ -329,7 +340,7 @@ contains
       workC(:,:)=zero
       workD(:,:)=zero
       workE(:,:)=zero
-    
+
       !-- Read the d?dt fields
       if ( rank == 0 ) then
          if ( lreadXi ) then
@@ -346,7 +357,7 @@ contains
             end if
          end if
          !PERFOFF
-       
+
          call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
               &             lm_max_old,n_r_maxL,.true.,.true.,.true.,  &
               &             .true.,.true.,workA,workB,workC,workD,workE )
@@ -391,7 +402,7 @@ contains
       workB(:,:)=zero
       workC(:,:)=zero
       workD(:,:)=zero
-    
+
       if ( rank == 0 ) then
          if ( lreadXi ) then
             read(n_start_file) raxi_old, sc_old
@@ -400,10 +411,10 @@ contains
             if ( sc /= sc_old ) &
               write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
          end if
-    
+
          if ( l_mag_old ) then
             read(n_start_file) so,wo,zo,po
-       
+
             if ( l_mag ) then
                call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
                     &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,             &
@@ -426,8 +437,8 @@ contains
       end if
 
       deallocate( workA, workB, workC, workD )
-    
-    
+
+
       !-- If mapping towards reduced symmetry, add thermal perturbation in
       !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
       if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
@@ -449,12 +460,12 @@ contains
             end do
          end if
       end if
-    
+
       !-- If starting from data file with longitudinal symmetry, add
       !   weak non-axisymmetric dipole component if tipdipole  /=  0
       if ( ( l_mag .or. l_mag_LF )                                &
-           &       .and. minc==1 .and. minc_old/=1 .and.          &
-           &       tipdipole>0.0_cp .and. l_mag_old ) then
+      &            .and. minc==1 .and. minc_old/=1 .and.          &
+      &            tipdipole>0.0_cp .and. l_mag_old ) then
          lm=l_max+2
          if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
             do nR=1,n_r_max+1
@@ -471,8 +482,10 @@ contains
          if ( rank == 0 ) then
             allocate( workA(lm_max,n_r_ic_max), workB(lm_max,n_r_ic_max) )
             allocate( workC(lm_max,n_r_ic_max), workD(lm_max,n_r_ic_max) )
-            bytes_allocated = bytes_allocated - 4*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
-            bytes_allocated = bytes_allocated + 4*lm_max*n_r_ic_max*SIZEOF_DEF_COMPLEX
+            bytes_allocated = bytes_allocated - 4*lm_maxMag*n_r_maxMag* &
+            &                 SIZEOF_DEF_COMPLEX
+            bytes_allocated = bytes_allocated + 4*lm_max*n_r_ic_max* &
+            &                 SIZEOF_DEF_COMPLEX
          else
             allocate( workA(1,n_r_ic_max), workB(1,n_r_ic_max) )
             allocate( workC(1,n_r_ic_max), workD(1,n_r_ic_max) )
@@ -483,7 +496,7 @@ contains
          workC(:,:)=zero
          workD(:,:)=zero
       end if
-      
+
       if ( rank == 0 ) then
          ! deallocation of the local arrays
          deallocate( lm2lmo )
@@ -498,18 +511,18 @@ contains
       !-- Inner core fields:
       if ( l_mag .or. l_mag_LF ) then
          if ( l_mag_old ) then
-       
+
             if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
                if ( rank == 0 ) then
                   allocate( lm2lmo(lm_max) )
                   call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
                        &         m_max,minc,minc_old,inform,lm_max,         &
                        &         lm_max_old,n_data_oldP,lm2lmo)
-          
+
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
                             so(n_data_oldP) )
-          
+
                   read(n_start_file) so,wo,zo,po
                   if ( l_mag ) then
                      call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
@@ -517,7 +530,7 @@ contains
                           &           lm2lmo,n_r_ic_maxMag,.true.,workA,        &
                           &           workB,workC,workD )
                   end if
-       
+
                   deallocate( lm2lmo )
                   deallocate( wo,zo,po,so )
                end if
@@ -534,7 +547,7 @@ contains
                !      simple the inner core field decays like r**(l+1) from
                !      the ICB to r=0:
                if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
-       
+
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
                      b_ic(lm,nR)   =b(lm,n_r_CMB)
@@ -562,11 +575,11 @@ contains
       omegaOsz_ma2Old  =0.0_cp
       tOmega_ma2       =0.0_cp
       dt_new           =dt_old
-      
+
       if ( rank == 0 ) then
          deallocate( r_old )
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
-    
+
          !-- Lorentz-torques:
          !   NOTE: If lMagMem=.false. the memory required to read
          !         magnetic field is not available. The code therefore
@@ -585,7 +598,7 @@ contains
             end if
          else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
-                 lorentz_torque_ma,omega_ic,omega_ma
+            &    lorentz_torque_ma,omega_ic,omega_ma
             if( ioerr/=0 ) then
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
@@ -594,11 +607,11 @@ contains
             end if
          else if ( inform == 7 .or. inform == 8 ) then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
-                 lorentz_torque_ma, &
-                 omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
-                 omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
-                 omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
-                 omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
+            &    lorentz_torque_ma,                            &
+            &    omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1,      &
+            &    omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2,      &
+            &    omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1,      &
+            &    omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
             if( ioerr/=0 ) then
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
@@ -607,12 +620,12 @@ contains
             end if
          else if ( inform > 8 ) then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
-                 lorentz_torque_ma,                       &
-                 omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
-                 omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
-                 omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
-                 omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
-                 dt_new
+            &    lorentz_torque_ma,                            &
+            &    omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1,      &
+            &    omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2,      &
+            &    omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1,      &
+            &    omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2,      &
+            &    dt_new
             if( ioerr/=0 ) then
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
@@ -628,34 +641,34 @@ contains
             lorentz_torque_ic=pm_old*lorentz_torque_ic
             lorentz_torque_ma=pm_old*lorentz_torque_ma
          end if
-       
+
          if ( l_SRIC ) then
-            if ( omega_ic1Old /= omega_ic1 )                     &
-                 write(*,*) '! New IC rotation rate 1 (old/new):', &
-                 omega_ic1Old,omega_ic1
-            if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                    &
-                 write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
-                 omegaOsz_ic1Old,omegaOsz_ic1
-            if ( omega_ic2Old /= omega_ic2 )                     &
-                 write(*,*) '! New IC rotation rate 2 (old/new):', &
-                 omega_ic2Old,omega_ic2
-            if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                    &
-                 write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
-                 omegaOsz_ic2Old,omegaOsz_ic2
+            if ( omega_ic1Old /= omega_ic1 )                       &
+            &    write(*,*) '! New IC rotation rate 1 (old/new):', &
+            &    omega_ic1Old,omega_ic1
+            if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
+            &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+            &    omegaOsz_ic1Old,omegaOsz_ic1
+            if ( omega_ic2Old /= omega_ic2 )                       &
+            &    write(*,*) '! New IC rotation rate 2 (old/new):', &
+            &    omega_ic2Old,omega_ic2
+            if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
+            &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+            &    omegaOsz_ic2Old,omegaOsz_ic2
          end if
          if ( l_SRMA ) then
-            if ( omega_ma1Old /= omega_ma1 )                     &
-                 write(*,*) '! New MA rotation rate 1 (old/new):', &
-                 omega_ma1Old,omega_ma1
-            if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                    &
-                 write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
-                 omegaOsz_ma1Old,omegaOsz_ma1
-            if ( omega_ma2Old /= omega_ma2 )                     &
-                 write(*,*) '! New MA rotation rate 2 (old/new):', &
-                 omega_ma2Old,omega_ma2
-            if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                    &
-                 write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
-                 omegaOsz_ma2Old,omegaOsz_ma2
+            if ( omega_ma1Old /= omega_ma1 )                       &
+            &    write(*,*) '! New MA rotation rate 1 (old/new):', &
+            &    omega_ma1Old,omega_ma1
+            if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
+            &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+            &    omegaOsz_ma1Old,omegaOsz_ma1
+            if ( omega_ma2Old /= omega_ma2 )                       &
+            &    write(*,*) '! New MA rotation rate 2 (old/new):', &
+            &    omega_ma2Old,omega_ma2
+            if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
+            &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+            &    omegaOsz_ma2Old,omegaOsz_ma2
          end if
       end if ! rank == 0
 
@@ -668,7 +681,7 @@ contains
       call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(dt_new,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #endif
-       
+
       !----- Set IC and mantle rotation rates:
       !      Following cases are covered:
       !       1) Prescribed inner-core rotation omega_ic_pre
@@ -702,7 +715,7 @@ contains
       else
          omega_ic=0.0_cp
       end if
-       
+
       !----- Mantle rotation, same as for inner core (see above)
       !      exept the l_SRIC case.
       if ( l_rot_ma ) then
@@ -730,7 +743,7 @@ contains
       else
          omega_ma=0.0_cp
       end if
-       
+
       if (rank == 0) close(n_start_file)
 
       ! The broadcast is still needed for old file format
@@ -751,7 +764,7 @@ contains
               &               dt_new,n_time_step)
       !
       ! This subroutine is used to read the restart files produced
-      ! by MagIC. 
+      ! by MagIC.
       !
 
       !-- Output:
@@ -796,16 +809,24 @@ contains
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
       character(len=72) :: rscheme_version_old
-      real(cp) :: ratio1, ratio2, r_icb_old, r_cmb_old
+      real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2, version
 
       complex(cp), allocatable :: workOld(:)
       complex(cp), allocatable :: work(:,:)
       real(cp), allocatable :: r_old(:)
 
+      if ( rscheme_oc%version == 'cheb') then
+         ratio1 = alph1
+         ratio2 = alph2
+      else
+         ratio1 = fd_stretch
+         ratio2 = fd_ratio
+      end if
+
       if ( rank == 0 ) then
          inquire(file=start_file, exist=startfile_does_exist)
-       
+
          if ( startfile_does_exist ) then
             open(newunit=n_start_file, file=start_file, status='old', &
             &    form='unformatted')
@@ -825,7 +846,7 @@ contains
          &                  ek_old,radratio_old,sigma_ratio_old
          read(n_start_file) n_r_max_old,n_theta_max_old,n_phi_tot_old,&
          &                  minc_old,nalias_old,n_r_ic_max_old
-       
+
          !---- Compare parameters:
          if ( ra /= ra_old ) &
               write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
@@ -846,7 +867,7 @@ contains
          if ( sigma_ratio /= sigma_ratio_old )                             &
               write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
               sigma_ratio_old,sigma_ratio
-       
+
          if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
             l_max_old=nalias_old*n_theta_max_old/30
             l_axi_old=.true.
@@ -854,7 +875,7 @@ contains
             l_max_old=nalias_old*n_phi_tot_old/60
             l_axi_old=.false.
          end if
-       
+
          if ( n_phi_tot_old /= n_phi_tot) &
               write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
          if ( nalias_old /= nalias) &
@@ -862,10 +883,11 @@ contains
          if ( l_max_old /= l_max ) &
               write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
 
-       
+
          allocate( r_old(n_r_max_old) )
 
-         read(n_start_file) rscheme_version_old, n_in, n_in_2, ratio1, ratio2
+         read(n_start_file) rscheme_version_old, n_in, n_in_2, &
+         &                  ratio1_old, ratio2_old
          if ( rscheme_version_old == 'cheb' ) then
             allocate ( type_cheb_odd :: rscheme_oc_old )
          else
@@ -877,13 +899,13 @@ contains
 
          call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
 
-         call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
-              &                       ratio2, r_old)
+         call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, &
+              &                       ratio1_old, ratio2_old, r_old)
 
-         if ( rscheme_oc%version /= rscheme_oc_old%version ) &
-            & write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
-            & rscheme_oc_old%version, rscheme_oc%version
-       
+         if ( rscheme_oc%version /= rscheme_oc_old%version )         &
+         &    write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
+         &    rscheme_oc_old%version, rscheme_oc%version
+
          !-- Determine the old mapping
          allocate( lm2lmo(lm_max) )
          call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
@@ -898,39 +920,39 @@ contains
          &                  omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
          &                  omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
          &                  dt_new
-       
+
          if ( l_SRIC ) then
             if ( omega_ic1Old /= omega_ic1 )                       &
-                 write(*,*) '! New IC rotation rate 1 (old/new):', &
-                 omega_ic1Old,omega_ic1
+            &    write(*,*) '! New IC rotation rate 1 (old/new):', &
+            &    omega_ic1Old,omega_ic1
             if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
-                 write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
-                 omegaOsz_ic1Old,omegaOsz_ic1
+            &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+            &    omegaOsz_ic1Old,omegaOsz_ic1
             if ( omega_ic2Old /= omega_ic2 )                       &
-                 write(*,*) '! New IC rotation rate 2 (old/new):', &
-                 omega_ic2Old,omega_ic2
+            &    write(*,*) '! New IC rotation rate 2 (old/new):', &
+            &    omega_ic2Old,omega_ic2
             if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
-                 write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
-                 omegaOsz_ic2Old,omegaOsz_ic2
+            &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+            &    omegaOsz_ic2Old,omegaOsz_ic2
          end if
          if ( l_SRMA ) then
             if ( omega_ma1Old /= omega_ma1 )                       &
-                 write(*,*) '! New MA rotation rate 1 (old/new):', &
-                 omega_ma1Old,omega_ma1
+            &    write(*,*) '! New MA rotation rate 1 (old/new):', &
+            &    omega_ma1Old,omega_ma1
             if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
-                 write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
-                 omegaOsz_ma1Old,omegaOsz_ma1
+            &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+            &    omegaOsz_ma1Old,omegaOsz_ma1
             if ( omega_ma2Old /= omega_ma2 )                       &
-                 write(*,*) '! New MA rotation rate 2 (old/new):', &
-                 omega_ma2Old,omega_ma2
+            &    write(*,*) '! New MA rotation rate 2 (old/new):', &
+            &    omega_ma2Old,omega_ma2
             if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
-                 write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
-                 omegaOsz_ma2Old,omegaOsz_ma2
+            &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+            &    omegaOsz_ma2Old,omegaOsz_ma2
          end if
 
          read(n_start_file) l_heat_old, l_chemical_conv_old, l_mag_old, &
          &                  l_cond_ic_old
-       
+
       end if ! rank == 0
 
 #ifdef WITH_MPI
@@ -1106,8 +1128,8 @@ contains
             if ( rank == 0 ) then
                work(:,:)=zero
                read(n_start_file) workOld
-               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old, &
-               &                 lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+               call mapOneField(workOld,scale_b,r_old,lm2lmo,n_r_max_old, &
+                    &           lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work)
                !-- Cancel the spherically-symmetric part
                work(1,:)=zero
             end if
@@ -1119,8 +1141,8 @@ contains
             if ( rank == 0 ) then
                work(:,:)=zero
                read(n_start_file) workOld
-               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
-                    &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+               call mapOneField(workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
+                    &           lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work)
                !-- Cancel the spherically-symmetric part
                work(1,:)=zero
             end if
@@ -1132,8 +1154,8 @@ contains
             if ( rank == 0 ) then
                work(:,:)=zero
                read(n_start_file) workOld
-               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
-                    &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+               call mapOneField(workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
+                    &           lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work)
                !-- Cancel the spherically-symmetric part
                work(1,:)=zero
             end if
@@ -1145,8 +1167,8 @@ contains
             if ( rank == 0 ) then
                work(:,:)=zero
                read(n_start_file) workOld
-               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
-                    &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+               call mapOneField(workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
+                    &           lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work)
                !-- Cancel the spherically-symmetric part
                work(1,:)=zero
             end if
@@ -1165,7 +1187,7 @@ contains
                      call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
                           &         m_max,minc,minc_old,4,lm_max,              &
                           &         lm_max_old,n_data_oldP,lm2lmo)
-       
+
                      n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                      allocate( work(lm_max,n_r_ic_max) )
                      allocate( workOld(n_data_oldP) )
@@ -1177,8 +1199,9 @@ contains
                   if ( rank == 0 ) then
                      work(:,:)=zero
                      read(n_start_file) workOld
-                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old, &
-                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.false.,   &
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
+                          &            n_r_ic_max_old,lm_max_old,        &
+                          &            n_r_ic_maxL,n_r_ic_max,.false.,   &
                           &            .true.,work )
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
@@ -1191,8 +1214,9 @@ contains
                   if ( rank == 0 ) then
                      work(:,:)=zero
                      read(n_start_file) workOld
-                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old, &
-                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.true.,    &
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
+                          &            n_r_ic_max_old,lm_max_old,       &
+                          &            n_r_ic_maxL,n_r_ic_max,.true.,   &
                           &            .true.,work )
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
@@ -1205,9 +1229,9 @@ contains
                   if ( rank == 0 ) then
                      work(:,:)=zero
                      read(n_start_file) workOld
-                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old, &
-                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.false.,   &
-                          &            .true.,work )
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,         &
+                          &            n_r_ic_max_old,lm_max_old,n_r_ic_maxL,&
+                          &            n_r_ic_max,.false.,.true.,work )
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
@@ -1219,9 +1243,9 @@ contains
                   if ( rank == 0 ) then
                      work(:,:)=zero
                      read(n_start_file) workOld
-                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old,&
-                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.true.,   &
-                          &            .true.,work )
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,         &
+                          &            n_r_ic_max_old,lm_max_old,n_r_ic_maxL,&
+                          &            n_r_ic_max,.true.,.true.,work )
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
@@ -1236,7 +1260,7 @@ contains
                   !   simple the inner core field decays like r**(l+1) from
                   !   the ICB to r=0:
                   if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
-       
+
                   do lm=llm,ulm
                      do nR=1,n_r_ic_max
                         b_ic(lm,nR)   =b(lm,n_r_CMB)
@@ -1259,7 +1283,7 @@ contains
 
       !-- Free memory
       deallocate( work, workOld )
-      
+
       !-- Close file
       if ( rank == 0 ) then
          deallocate( r_old )
@@ -1289,12 +1313,12 @@ contains
             end do
          end if
       end if
-    
+
       !-- If starting from data file with longitudinal symmetry, add
       !   weak non-axisymmetric dipole component if tipdipole  /=  0
       if ( ( l_mag .or. l_mag_LF )                                &
-           &       .and. minc==1 .and. minc_old/=1 .and.          &
-           &       tipdipole>0.0_cp .and. l_mag_old ) then
+      &            .and. minc==1 .and. minc_old/=1 .and.          &
+      &            tipdipole>0.0_cp .and. l_mag_old ) then
          lm=l_max+2
          if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
             do nR=1,n_r_max+1
@@ -1336,7 +1360,7 @@ contains
       else
          omega_ic=0.0_cp
       end if
-       
+
       !----- Mantle rotation, same as for inner core (see above)
       !      exept the l_SRIC case.
       if ( l_rot_ma ) then
@@ -1417,11 +1441,11 @@ contains
          write(*,'(/,'' ! Mapping onto new grid.'')')
 
          if ( mod(minc_old,minc) /= 0 )                                &
-              &     write(6,'('' ! Warning: Incompatible old/new minc= '',2i3)')
+         &     write(6,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
-              &     m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
-              &     l_max_old-m_max_old+1
+         &          m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
+         &          l_max_old-m_max_old+1
 
          n_data_old=lm_max_old*n_r_max_old
          if ( inform>2 ) then
@@ -1432,12 +1456,11 @@ contains
 
          !-- Write info to STdoUT:
          write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
-              &       ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
-              &           l_max_old,l_max,m_max_old,m_max,            &
-              &           minc_old,minc,lm_max_old,lm_max
+         &            ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
+         &                l_max_old,l_max,m_max_old,m_max,            &
+         &                minc_old,minc,lm_max_old,lm_max
          if ( n_r_max_old /= n_r_max )                                &
-              &        write(*,'('' ! Old/New n_r_max='',2i4)')       &
-             &              n_r_max_old,n_r_max
+         &   write(*,'('' ! Old/New n_r_max='',2i4)') n_r_max_old,n_r_max
 
       end if
 
@@ -1501,9 +1524,10 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( dim1 /= n_r_max_old .or.                                        &
-               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary .or. &
-               &    rscheme_oc%version /= rscheme_oc_old%version ) then
+               if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or.        &
+               &    ratio2 /= ratio2_old .or.                                 &
+               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
+               &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
 
                   do nR=1,n_r_max_old  ! copy on help arrays
                      n=lmo+(nR-1)*lm_max_old
@@ -1576,9 +1600,10 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( n_r_max /= n_r_max_old .or. &
-               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary .or. &
-               &    rscheme_oc%version /= rscheme_oc_old%version ) then
+               if ( n_r_max /= n_r_max_old .or. ratio1 /= ratio1_old .or.     &
+               &    ratio2 /= ratio2_old .or.                                 &
+               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
+               &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
 
                   do nR=1,n_r_max_old  ! copy on help arrays
                      n=lmo+(nR-1)*lm_max_old
@@ -1588,14 +1613,19 @@ contains
                      if ( lreadS .and. l_heat ) soR(nR)=so(n)
                      if ( lreadXi .and. l_chemical_conv ) xioR(nR)=xio(n)
                   end do
-                  call mapDataR(woR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc1,.false.)
-                  call mapDataR(zoR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc2,.false.)
-                  call mapDataR(poR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc3,.false.)
+                  call mapDataR(woR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc1, &
+                       &        .false.)
+                  call mapDataR(zoR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc2, &
+                       &        .false.)
+                  call mapDataR(poR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc3, &
+                       &        .false.)
                   if ( lreadS .and. l_heat ) then
-                     call mapDataR(soR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc4,.false.)
+                     call mapDataR(soR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc4,&
+                          &        .false.)
                   end if
                   if ( lreadXi .and. l_chemical_conv ) then
-                     call mapDataR(xioR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc5,.false.)
+                     call mapDataR(xioR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc5,&
+                          &        .false.)
                   end if
                   do nR=1,n_r_max
                      if ( lm > 1 ) then
@@ -1607,7 +1637,8 @@ contains
                      end if
                      p(lm,nR)=scale_v*poR(nR)
                      if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*soR(nR)
-                     if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=scale_xi*xioR(nR)
+                     if ( lreadXi .and. l_chemical_conv ) &
+                     &     xi(lm,nR)=scale_xi*xioR(nR)
                   end do
                else
                   do nR=1,n_r_max
@@ -1621,7 +1652,8 @@ contains
                      end if
                      p(lm,nR)=scale_v*po(n)
                      if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*so(n)
-                     if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=scale_xi*xio(n)
+                     if ( lreadXi .and. l_chemical_conv ) &
+                     &    xi(lm,nR)=scale_xi*xio(n)
                   end do
                end if
             else
@@ -1685,9 +1717,10 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( n_rad_tot /= n_r_max_old .or.                                   &
-               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary .or. &
-               &    rscheme_oc%version /= rscheme_oc_old%version ) then
+               if ( n_rad_tot /= n_r_max_old .or. ratio1 /= ratio1_old .or.    &
+               &    ratio2 /= ratio2_old .or.                                  &
+               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary &
+               &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
                   do nR=1,n_r_max_old  ! copy on help arrays
                      n=lmo+(nR-1)*lm_max_old
                      woR(nR)=wo(n)
@@ -1734,7 +1767,7 @@ contains
    subroutine mapDataR(dataR,r_old,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
       !
       !
-      !  Copy (interpolate) data (read from disc file) from old grid structure 
+      !  Copy (interpolate) data (read from disc file) from old grid structure
       !  to new grid. Linear interploation is used in r if the radial grid
       !  structure differs
       !
@@ -1749,7 +1782,7 @@ contains
       logical,  intent(in) :: lBc,l_IC
 
       !--- Output variables
-      complex(cp), intent(inout) :: dataR(:)  ! old data 
+      complex(cp), intent(inout) :: dataR(:)  ! old data
 
       !-- Local variables
       integer :: nR, nR_old, n_r_index_start
@@ -1762,9 +1795,11 @@ contains
 
       !-- If **both** the old and the new schemes are Chebyshev, we can
       !-- use costf to get the new data
-      !-- Both have also to use the same mapping (order_boundary is a proxy of l_map
+      !-- Both have also to use the same mapping
+      !-- (order_boundary is a proxy of l_map
       if ( rscheme_oc%version == 'cheb' .and. rscheme_oc_old%version == 'cheb' &
-      &   .and. rscheme_oc%order_boundary == rscheme_oc_old%order_boundary  ) then
+      &   .and. rscheme_oc%order_boundary == rscheme_oc_old%order_boundary     &
+      &   .and. ratio1 == ratio1_old .and. ratio2 == ratio2_old ) then
 
          !-- Guess the boundary values, since they have not been stored:
          if ( .not. l_IC .and. lBc ) then
@@ -1786,14 +1821,14 @@ contains
          if ( n_rad_tot>n_r_max_old ) then
             if ( l_IC) then
                n_r_index_start=n_r_max_old
-            else 
+            else
                n_r_index_start=n_r_max_old+1
             end if
             do nR=n_r_index_start,n_rad_tot
                dataR(nR)=zero
             end do
          end if
-       
+
          !----- Now transform to new radial grid points:
          if ( l_IC ) then
             call chebt_ic%costf1(dataR,work)
@@ -1812,7 +1847,7 @@ contains
             dataR(nR)=scale*dataR(nR)
          end do
 
-      !-- If either the old grid or the new grid is FD, we use a 
+      !-- If either the old grid or the new grid is FD, we use a
       !-- polynomial interpolation
       else
 

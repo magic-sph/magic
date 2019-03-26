@@ -160,7 +160,6 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         ax.plot(x, y, 'k-', lw=1.5)
         ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
 
-    print(xx.min())
     eps = 1e-4
     if xx.min() < -eps:
         ax.set_xlim(1.01*xx.min(), 1.01*xx.max())
@@ -265,11 +264,24 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     for c in im.collections:
         c.set_edgecolor("face")
 
+    ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
+    ax.plot((radius[-1])*np.sin(th), (radius[-1])*np.cos(th), 'k-')
+    ax.plot([0., 0.], [radius[-1], radius[0]], 'k-')
+    ax.plot([0., 0.], [-radius[-1], -radius[0]], 'k-')
 
-    ax.plot(radius[0]*np.sin(th), radius[0]*np.cos(th), 'k-')
-    ax.plot(radius[-1]*np.sin(th), radius[-1]*np.cos(th), 'k-')
-    ax.plot([0., 0], [radius[-1], radius[0]], 'k-')
-    ax.plot([0., 0], [-radius[-1], -radius[0]], 'k-')
+    eps = 1e-4
+    if xx.min() < -eps:
+        ax.set_xlim(1.01*xx.min(), 1.01*xx.max())
+    elif abs(xx.min()) < eps :
+        ax.set_xlim(xx.min()-0.01, 1.01*xx.max())
+    else:
+        ax.set_xlim(0.99*xx.min(), 1.01*xx.max())
+    if yy.min() < -eps:
+        ax.set_ylim(1.01*yy.min(), 1.01*yy.max())
+    elif abs(yy.min()) < eps:
+        ax.set_ylim(yy.min()-0.01, 1.01*yy.max())
+    else:
+        ax.set_ylim(0.99*yy.min(), 1.01*yy.max())
     ax.axis('off')
 
     # Add the colorbar at the right place
@@ -356,11 +368,11 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
             else:
                 fig = plt.figure(figsize=(8,4))
                 ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-            tit1 = r'$%.2f R_J$' % rad
-            ax.text(0.12, 0.9, tit1, fontsize=16,
-                  horizontalalignment='right',
-                  verticalalignment='center',
-                  transform = ax.transAxes)
+            #tit1 = r'%.2f Ro' % rad
+            #ax.text(0.12, 0.9, tit1, fontsize=16,
+                  #horizontalalignment='right',
+                  #verticalalignment='center',
+                  #transform = ax.transAxes)
     else:
         if tit and label is not None:
             if cbar:

@@ -136,9 +136,9 @@ contains
    end subroutine finalize_outPar_mod
 !-----------------------------------------------------------------------
    subroutine outPar(timePassed,timeNorm,nLogs,l_stop_time,       &
-                     ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,      &
-                     uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,      &
-                     fviscLMr,fpoynLMr,fresLMr,RmR)
+              &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,      &
+              &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,      &
+              &      fviscLMr,fpoynLMr,fresLMr,RmR)
 
       !--- Input of variables
       real(cp), intent(in) :: timePassed,timeNorm

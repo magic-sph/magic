@@ -310,6 +310,7 @@ class MagicTs(MagicSetup):
             self.zonality = data[:, 3]
             self.flux_concentration = data[:, 4]
             self.chi_square = ((np.log(self.axial_dipole)-np.log(1.4))/np.log(2.))**2+\
+                              ((np.log(self.symmetry)-np.log(1.))/np.log(2.))**2+\
                               ((np.log(self.zonality)-np.log(0.15))/np.log(2.5))**2+\
                               ((np.log(self.flux_concentration)-np.log(1.5))/np.log(1.75))**2
         elif self.field == 'u_square':
@@ -526,8 +527,8 @@ class MagicTs(MagicSetup):
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
             ax1.plot(self.time, self.chi_square)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Chi square')
+            ax1.set_xlabel('Time')
+            ax1.set_ylabel('Chi square')
         elif self.field == 'misc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -1085,11 +1086,12 @@ class AvgField:
                     st_std +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot_std, \
                              self.dipl11_std, self.dipTotl11_std, self.dip3_std)
 
-            st += '%12.5e%12.5e%9.2e' % (self.buoPower, -self.ohmDiss, self.fohm)
+            st += '%12.5e%12.5e%12.5e%9.2e' % (self.buoPower, self.ohmDiss,\
+                                               self.viscDiss, self.fohm)
 
             if self.std:
-                st_std += '%12.5e%12.5e%9.2e' % (self.buoPower_std, \
-                          self.ohmDiss_std, self.fohm_std)
+                st_std += '%12.5e%12.5e%12.5e%9.2e' % (self.buoPower_std, \
+                          self.ohmDiss_std, self.viscDiss_std, self.fohm_std)
 
         else:
             st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \

@@ -6,7 +6,7 @@ module physical_parameters
    use precision_mod
 
    implicit none
- 
+
    !-- Control parameters for boundary conditions:
    integer :: mode         ! Mode of calculation
    integer :: ktops,kbots  ! Entropy boundary condition
@@ -22,7 +22,7 @@ module physical_parameters
    real(cp) :: thetaS(n_impS_max)
    real(cp) :: phiS(n_impS_max)
    real(cp) :: peakS(n_impS_max)
-   real(cp) :: widthS(n_impS_max) 
+   real(cp) :: widthS(n_impS_max)
 
    !-- Parameters for a localized chemical disturbance at CMB
    integer :: impXi
@@ -31,8 +31,8 @@ module physical_parameters
    real(cp) :: thetaXi(n_impXi_max)
    real(cp) :: phiXi(n_impXi_max)
    real(cp) :: peakXi(n_impXi_max)
-   real(cp) :: widthXi(n_impXi_max) 
- 
+   real(cp) :: widthXi(n_impXi_max)
+
    !-- Dimensionless parameters:
    real(cp) :: radratio       ! aspect ratio
    real(cp) :: ra             ! Rayleigh number
@@ -51,7 +51,7 @@ module physical_parameters
    real(cp) :: OhmLossFac     ! Prefactor for Ohmic heating: :math:`Di\,Pr/(Ra\,E\,Pm^2)`
    real(cp) :: DissNb         ! Dissipation number
    real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha_0 T_0`
-   real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T$ 
+   real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T$
    real(cp) :: epsS           ! Deviation from the adiabat
    real(cp) :: cmbHflux       ! stratified Layer
    real(cp) :: slopeStrat     ! stratified Layer
@@ -79,7 +79,7 @@ module physical_parameters
    real(cp) :: O_sr           ! Inverse of sigma_ratio
    real(cp) :: raScaled       ! :math:`Ra\,l^3`
    real(cp) :: ekScaled       ! :math:`E\,l^2`
- 
+
    !-- Variable properties:
    integer :: nVarCond        ! Selection of variable conductivity profile
    real(cp) :: difExp         ! Thermal diffusivity variation
@@ -101,5 +101,5 @@ module physical_parameters
    real(cp) :: po_diff        ! Poincaré number for differential precession
    real(cp) :: prec_angle     ! Precession angle
    real(cp) :: diff_prec_angle! Precession angle for differential precession
-
+   real(cp) :: dilution_fac   ! Omega^2 d/g_top for centrifugal acceleration, named after Chandrasekhar (1987)
 end module physical_parameters

@@ -44,35 +44,36 @@ else: # Default if the PATH is messed up
 # Plots setup
 #
 plt.switch_backend(backend)
-plt.rc('xtick.major', size=7, width=1)
-plt.rc('xtick.minor', size=3.5, width=1)
-plt.rc('ytick.major', size=7, width=1)
-plt.rc('ytick.minor', size=3.5, width=1)
-plt.rc('axes.formatter', limits=(-5,5))
-if mpl.__version__ >= '1.5':
-    from cycler import cycler
-    colors = ['#30a2da', '#6d904f', '#fc4f30', '#e5ae38', '#7a68a6','#ffb5b8',
-              '#8b8b8b', '#988ed5']
-    plt.rc('axes', prop_cycle=(cycler('color', colors)))
-else:
-    plt.rc('axes', color_cycle=('30a2da', '6d904f', 'fc4f30', 'e5ae38', '7a68a6',
-                                'ffb5b8', '8b8b8b', '988ed5'))
-plt.rc('lines', linewidth=1.5)
-plt.rc('figure.subplot', right=0.97, top=0.96, hspace=0.24)
+if int(mpl.__version__[0]) < 2:
+    plt.rc('xtick.major', size=7, width=1)
+    plt.rc('xtick.minor', size=3.5, width=1)
+    plt.rc('ytick.major', size=7, width=1)
+    plt.rc('ytick.minor', size=3.5, width=1)
+    plt.rc('axes.formatter', limits=(-5,5))
+    if mpl.__version__ >= '1.5':
+        from cycler import cycler
+        colors = ['#30a2da', '#6d904f', '#fc4f30', '#e5ae38', '#7a68a6','#ffb5b8',
+                  '#8b8b8b', '#988ed5']
+        plt.rc('axes', prop_cycle=(cycler('color', colors)))
+    else:
+        plt.rc('axes', color_cycle=('30a2da', '6d904f', 'fc4f30', 'e5ae38', '7a68a6',
+                                    'ffb5b8', '8b8b8b', '988ed5'))
+    plt.rc('lines', linewidth=1.5)
+    plt.rc('figure.subplot', right=0.97, top=0.96, hspace=0.24)
 
-if labTex:
-    plt.rc('xtick', labelsize=14)
-    plt.rc('ytick', labelsize=14)
-    plt.rc('legend', fontsize=14)
-    plt.rc('axes', labelsize=20)
-    plt.rc('text', usetex=True)
-    plt.rc('font', size=18, **{'family':'serif','serif':['Computer Modern']})
-else:
-    plt.rc('xtick', labelsize=12)
-    plt.rc('ytick', labelsize=12)
-    plt.rc('legend', fontsize=12)
-    plt.rc('axes', labelsize=16)
-    plt.rc('font', size=14)
+    if labTex:
+        plt.rc('xtick', labelsize=14)
+        plt.rc('ytick', labelsize=14)
+        plt.rc('legend', fontsize=14)
+        plt.rc('axes', labelsize=20)
+        plt.rc('text', usetex=True)
+        plt.rc('font', size=18, **{'family':'serif','serif':['Computer Modern']})
+    else:
+        plt.rc('xtick', labelsize=12)
+        plt.rc('ytick', labelsize=12)
+        plt.rc('legend', fontsize=12)
+        plt.rc('axes', labelsize=16)
+        plt.rc('font', size=14)
 
 #
 # Library setup

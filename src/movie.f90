@@ -80,6 +80,7 @@ contains
          n_MD=maxval(n_movie_field_stop)
          n_frame_work=max(n_MD,1)
          allocate( frames(n_frame_work) )
+         frames(:)=0.0_cp
          bytes_allocated = bytes_allocated+n_frame_work*SIZEOF_DEF_REAL
 
          if ( rank == 0 ) then
@@ -755,7 +756,7 @@ contains
                typeStr=' poloidal Jz '
                file_name='JzTor_'
                lIC=.true.
-               lStore=.false.
+               lStore=.true.
                n_fields=1
                n_field_type(1)=14
             end if

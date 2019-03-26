@@ -2,11 +2,12 @@ module legendre
 
    implicit none
 
-   integer :: lm_max
+   integer :: lm_max, m_max
    integer :: l_max, minc, n_m_max
    integer :: n_theta_max, n_phi_max
    real(kind=8), allocatable :: Plm(:,:)
    real(kind=8), allocatable :: wPlm(:,:)
+   real(kind=8), allocatable :: wdPlm(:,:)
    real(kind=8), allocatable :: dPlm(:,:)
    real(kind=8), allocatable :: dPhi(:,:)
    real(kind=8), allocatable :: sinTh(:)
@@ -26,7 +27,7 @@ contains
 
       !-- Local variables:
       integer ::  lm, lmP, l, m, lmP_max
-      integer :: n_theta, m_max
+      integer :: n_theta
       real(kind=8) :: colat, dpi
       real(kind=8), allocatable ::  gauss(:)
       real(kind=8), allocatable :: plma(:),dtheta_plma(:)
@@ -47,9 +48,10 @@ contains
       allocate(plma(1:lmP_max))
       allocate(dtheta_plma(1:lmP_max))
 
-      if ( allocated(Plm) ) deallocate( Plm, wPlm, dPlm, dPhi, sinTh)
+      if ( allocated(Plm) ) deallocate( Plm, wPlm, dPlm, wdPlm, dPhi, sinTh)
       allocate(Plm(1:lm_max,1:n_theta_max/2))
       allocate(wPlm(1:lm_max,1:n_theta_max/2))
+      allocate(wdPlm(1:lm_max,1:n_theta_max/2))
       allocate(dPlm(1:lm_max,1:n_theta_max/2))
       allocate(dPhi(1:lm_max,1:n_theta_max/2))
       allocate(sinTh(n_theta_max))
@@ -71,11 +73,13 @@ contains
                dPlm(lm,n_theta) = (-1.d0)**(real(m,kind=8))*dtheta_plma(lmP)/sin(colat)
                ! Add the theta dependence in dPhi to simplify the output
                dPhi(lm,n_theta) = real(m,kind=8)/sin(colat)
-               wPlm(lm,n_theta) = 2.d0*dpi*gauss(n_theta)*(-1.d0)**(real(m,kind=8))*plma(lmP)
+               wPlm(lm,n_theta) = 2.d0*dpi*gauss(n_theta)*Plm(lm,n_theta)
+               wdPlm(lm,n_theta) = 2.d0*dpi*gauss(n_theta)*dPlm(lm,n_theta)
             end do
             lmP = lmP+1
          end do
       end do
+
 
       if ( allocated(lStart) ) deallocate( lStart, lStop, lmOdd )
       allocate(lStart(1:n_m_max))
@@ -603,8 +607,8 @@ contains
 
       !-- Local variables
       complex(kind=8) :: work(n_phi_max,n_theta_max)
-      complex(kind=8) :: f1ES(n_phi_max,n_theta_max)
-      complex(kind=8) :: f1EA(n_phi_max,n_theta_max)
+      complex(kind=8) :: f1ES(n_phi_max,n_theta_max/2)
+      complex(kind=8) :: f1EA(n_phi_max,n_theta_max/2)
       complex(kind=8) :: f1ES1,f1ES2,f1EA1,f1EA2
       integer :: nThetaNHS, nThetaN, nThetaS
       integer :: n_m,lms,lm
@@ -673,6 +677,154 @@ contains
       ! enddo
 
    end subroutine spatspec
+!-------------------------------------------------------------------------------
+   subroutine spatspec_sphertor(input1, input2, n_ph, f1LM, f2LM, lm_max)
+
+      !-- Input variables
+      integer :: n_ph, lm_max
+      complex(kind=8), intent(in) :: input1(n_ph,*)
+      complex(kind=8), intent(in) :: input2(n_ph,*)
+
+      !-- Output variables
+      complex(kind=8), intent(out) :: f1LM(lm_max)
+      complex(kind=8), intent(out) :: f2LM(lm_max)
+
+      !-- Local variables
+      complex(kind=8) :: work1(n_phi_max,n_theta_max)
+      complex(kind=8) :: work2(n_phi_max,n_theta_max)
+      complex(kind=8) :: f1ES(n_phi_max,n_theta_max/2)
+      complex(kind=8) :: f1EA(n_phi_max,n_theta_max/2)
+      complex(kind=8) :: f2ES(n_phi_max,n_theta_max/2)
+      complex(kind=8) :: f2EA(n_phi_max,n_theta_max/2)
+      complex(kind=8) :: f1ES1,f1ES2,f1EA1,f1EA2
+      complex(kind=8) :: f2ES1,f2ES2,f2EA1,f2EA2
+      complex(kind=8) :: ci
+      real(kind=8) :: dm
+      integer :: nThetaNHS, nThetaN, nThetaS
+      integer :: n_m,lms,lm,m,l
+      integer :: n_theta_1,n_theta_rel_1,n_theta_rel_2,n_theta_2
+
+      ci = (0.0d0, 1.0d0)
+
+      !-- Scrambling
+      do nThetaN=1,n_theta_max/2
+         work1(:,2*nThetaN-1)=input2(:,nThetaN)
+         work1(:,2*nThetaN)  =input2(:,n_theta_max-nThetaN+1)
+         work2(:,2*nThetaN-1)=input1(:,nThetaN)
+         work2(:,2*nThetaN)  =input1(:,n_theta_max-nThetaN+1)
+      end do
+
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2
+         ! nThetaS=n_theta_max-nThetaN+1
+         nThetaS=nThetaN+1
+         nThetaNHS=nThetaNHS+1
+         do n_m=1,n_m_max
+            f1ES(n_m,nThetaNHS)=work1(n_m,nThetaN)+work1(n_m,nThetaS)
+            f1EA(n_m,nThetaNHS)=work1(n_m,nThetaN)-work1(n_m,nThetaS)
+            f2ES(n_m,nThetaNHS)=work2(n_m,nThetaN)+work2(n_m,nThetaS)
+            f2EA(n_m,nThetaNHS)=work2(n_m,nThetaN)-work2(n_m,nThetaS)
+         end do
+      end do
+
+
+      do n_m=1,n_m_max
+         m = (n_m-1)*minc
+         dm = real(m,kind=8)
+         lms=lStop(n_m)
+         f1ES1=f1ES(n_m,1)
+         f1ES2=f1ES(n_m,2)
+         f2ES1=f2ES(n_m,1)
+         f2ES2=f2ES(n_m,2)
+         f1EA1=f1EA(n_m,1)
+         f1EA2=f1EA(n_m,2)
+         f2EA1=f2EA(n_m,1)
+         f2EA2=f2EA(n_m,2)
+         do lm=lStart(n_m),lms-1,2
+            f1LM(lm)=-ci*dm*f1ES1* wPlm(lm,1)-ci*dm*f1ES2* wPlm(lm,2) &
+            &              +f2EA1*wdPlm(lm,1)+      f2EA2*wdPlm(lm,2)
+            f1LM(lm+1)=-ci*dm*f1EA1* wPlm(lm+1,1)-ci*dm*f1EA2* wPlm(lm+1,2) &
+            &                +f2ES1*wdPlm(lm+1,1)+      f2ES2*wdPlm(lm+1,2)
+            f2LM(lm)=      -f1EA1*wdPlm(lm,1)-      f1EA2*wdPlm(lm,2) &
+            &        -ci*dm*f2ES1* wPlm(lm,1)-ci*dm*f2ES2* wPlm(lm,2)
+            f2LM(lm+1)=      -f1ES1*wdPlm(lm+1,1)-      f1ES2*wdPlm(lm+1,2) &
+            &          -ci*dm*f2EA1* wPlm(lm+1,1)-ci*dm*f2EA2* wPlm(lm+1,2)
+         enddo
+
+         if ( lmOdd(n_m) ) then
+            f1LM(lmS)=-ci*dm*f1ES1* wPlm(lmS,1)-ci*dm*f1ES2* wPlm(lmS,2) &
+            &               +f2EA1*wdPlm(lmS,1)+      f2EA2*wdPlm(lmS,2)
+            f2LM(lmS)=      -f1EA1*wdPlm(lmS,1)-      f1EA2*wdPlm(lmS,2) &
+            &         -ci*dm*f2ES1* wPlm(lmS,1)-ci*dm*f2ES2* wPlm(lmS,2)
+         end if
+      enddo
+
+      n_theta_1=1
+      do n_theta_rel_1=3,n_theta_max/2,2
+         n_theta_rel_2=n_theta_rel_1+1
+         n_theta_1=n_theta_1+2
+         n_theta_2=n_theta_1+1
+         do n_m=1,n_m_max
+            m = (n_m-1)*minc
+            dm = real(m,kind=8)
+            lms=lStop(n_m)
+            f1ES1=f1ES(n_m,n_theta_rel_1)
+            f1ES2=f1ES(n_m,n_theta_rel_2)
+            f2ES1=f2ES(n_m,n_theta_rel_1)
+            f2ES2=f2ES(n_m,n_theta_rel_2)
+            f1EA1=f1EA(n_m,n_theta_rel_1)
+            f1EA2=f1EA(n_m,n_theta_rel_2)
+            f2EA1=f2EA(n_m,n_theta_rel_1)
+            f2EA2=f2EA(n_m,n_theta_rel_2)
+            do lm=lStart(n_m),lms-1,2
+               f1LM(lm)  =f1LM(lm)-ci*dm*f1ES1* wPlm(lm,n_theta_1)      &
+               &                  -ci*dm*f1ES2* wPlm(lm,n_theta_2)      &
+               &                  +      f2EA1*wdPlm(lm,n_theta_1)      &
+               &                  +      f2EA2*wdPlm(lm,n_theta_2)
+               f1LM(lm+1)=f1LM(lm+1)-ci*dm*f1EA1* wPlm(lm+1,n_theta_1)  &
+               &                    -ci*dm*f1EA2* wPlm(lm+1,n_theta_2)  &
+               &                    +      f2ES1*wdPlm(lm+1,n_theta_1)  &
+               &                    +      f2ES2*wdPlm(lm+1,n_theta_2)
+
+               f2LM(lm)  =f2LM(lm)-      f1EA1*wdPlm(lm,n_theta_1) &
+               &                  -      f1EA2*wdPlm(lm,n_theta_2) &
+               &                  -ci*dm*f2ES1* wPlm(lm,n_theta_1) &
+               &                  -ci*dm*f2ES2* wPlm(lm,n_theta_2)
+               f2LM(lm+1)=f2LM(lm+1)-      f1ES1*wdPlm(lm+1,n_theta_1) &
+               &                    -      f1ES2*wdPlm(lm+1,n_theta_2) &
+               &                    -ci*dm*f2EA1* wPlm(lm+1,n_theta_1) &
+               &                    -ci*dm*f2EA2* wPlm(lm+1,n_theta_2)
+
+            enddo
+
+            if ( lmOdd(n_m) ) then
+               f1LM(lmS)=f1LM(lmS)-ci*dm*f1ES1* wPlm(lmS,n_theta_1) &
+               &                  -ci*dm*f1ES2* wPlm(lmS,n_theta_2) &
+               &                  +      f2EA1*wdPlm(lmS,n_theta_1) &
+               &                  +      f2EA2*wdPlm(lmS,n_theta_2)
+
+               f2LM(lmS)=f2LM(lmS)-      f1EA1*wdPlm(lmS,n_theta_1) &
+               &                  -      f1EA2*wdPlm(lmS,n_theta_2) &
+               &                  -ci*dm*f2ES1* wPlm(lmS,n_theta_1) &
+               &                  -ci*dm*f2ES2* wPlm(lmS,n_theta_2)
+            end if
+         enddo
+      enddo
+
+      !-- Normalisation for vector spherical harmonics
+      lm = 0
+      do m=0,m_max,minc
+         do l=m,l_max
+            lm=lm+1
+            if ( lm > 1 ) then
+               f1LM(lm)=f1LM(lm)/real(l*(l+1),kind=8)
+               f2LM(lm)=f2LM(lm)/real(l*(l+1),kind=8)
+            end if
+         end do
+      end do
+
+
+   end subroutine spatspec_sphertor
 !-------------------------------------------------------------------------------
    subroutine getblocks(l_max,minc,n_m_max,lStart,lStop,lmOdd)
 
