@@ -66,7 +66,7 @@ contains
             deallocate( Bt )
             deallocate( Bp )
          end if
-         if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+         if ( (prmag /= 0.) .and. (nric > 1) ) then
             deallocate( radius_ic )
             deallocate( Br_ic, Bt_ic, Bp_ic )
          end if
@@ -95,7 +95,7 @@ contains
          allocate( Bp(1:np,1:nt,1:nr) )
       end if
 
-      if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+      if ( (prmag /= 0.) .and. (nric > 1) ) then
          allocate( radius_ic(1:nric) )
          allocate( Br_ic(1:np,1:nt,1:nric) )
          allocate( Bt_ic(1:np,1:nt,1:nric) )
@@ -128,7 +128,7 @@ contains
             end if
          end do
 
-         if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+         if ( (prmag /= 0.) .and. (nric > 1) ) then
             ic_loop1: do i=1,nric
                read(10, iostat=read_ok) ir, rad, ilat1, ilat2
                if ( read_ok /= 0 ) then
@@ -181,7 +181,7 @@ contains
             end if
          end do
 
-         if ( (prmag /= 0.) .and. (sigma /= 0.) ) then
+         if ( (prmag /= 0.) .and. (nric > 1) ) then
             ic_loop: do i=1,nric
                read(10, iostat=read_ok) ir, rad, ilat1, ilat2
                if ( read_ok /= 0 ) then
@@ -264,7 +264,7 @@ contains
    
 
       !rearanging hemispherical data
-      if ( (prmag /= 0) .and. (sigma /= 0)  .and. (read_ok == 0) ) then
+      if ( (prmag /= 0) .and. (nric > 1)  .and. (read_ok == 0) ) then
          do i=1,nric
             dummy(:,:)= Br_ic(:,:,i)
             do j=1,nt/2
@@ -287,7 +287,7 @@ contains
       deallocate(dummy)
    
       radius(:) = radius(:)/(1.-radratio)
-      if ( (prmag /= 0.) .and. (sigma /= 0.) .and. (read_ok==0) ) then
+      if ( (prmag /= 0.) .and. (nric > 1) .and. (read_ok==0) ) then
          radius_ic(:) = radius_ic(:)/(1.-radratio)
       end if
    

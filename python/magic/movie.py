@@ -155,16 +155,21 @@ class Movie:
         self.minc = int(self.minc)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
+        self.n_r_ic_max = n_r_mov_tot-self.n_r_max
         self.n_theta_max = int(n_theta_max)
         self.n_phi_tot = int(n_phi_tot)
 
         # Grid
         self.radius = infile.fort_read(precision)
+        self.radius_ic = np.zeros((self.n_r_ic_max+2), precision)
+        self.radius_ic[:-1] = self.radius[self.n_r_max-1:]
+
         self.radius = self.radius[:self.n_r_max] # remove inner core
         # Overwrite radius to ensure double-precision of the grid (useful for Cheb der)
         rout = 1./(1.-self.radratio)
         rin = self.radratio/(1.-self.radratio)
         self.radius *= rout
+        self.radius_ic *= rout
         #self.radius = chebgrid(self.n_r_max-1, rout, rin)
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
@@ -207,15 +212,17 @@ class Movie:
                                   self.n_theta_max), precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
-            if self.movtype in [1, 2, 3]: # read inner core
+            if self.movtype in [1, 2, 3, 14]: # read inner core
                 shape = (n_r_mov_tot+2, self.n_phi_tot)
             else:
                 shape = (self.n_r_max, self.n_phi_tot)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                   self.n_r_max), precision)
+            self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                    self.n_r_ic_max+2), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
-            if self.movtype in [1, 2, 3]: # read inner core
+            if self.movtype in [1, 2, 3, 14]: # read inner core
                 shape = (n_r_mov_tot+2, 2*self.n_theta_max)
             elif self.movtype in [8, 9]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
@@ -226,6 +233,8 @@ class Movie:
             # Inner core is not stored here
             self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
                                  self.n_r_max), precision)
+            self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
+                                    self.n_r_ic_max+2), precision)
 
         self.time = np.zeros(self.nvar, precision)
 
@@ -247,17 +256,21 @@ class Movie:
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape)
                 if n_surface == 2:
-                    if self.movtype in [1, 2, 3]:
+                    if self.movtype in [1, 2, 3, 14]:
+                        datic = dat[self.n_r_max:, :].T
                         dat = dat[:self.n_r_max, :].T
                         self.data[ll, k, ...] = dat
+                        self.data_ic[ll, k, ...] = datic
                     else:
                         self.data[ll, k, ...] = dat.T
                 elif n_surface == 3:
-                    if self.movtype in [1, 2, 3]:
+                    if self.movtype in [1, 2, 3, 14]:
                         dat = dat[:self.n_r_max, :self.n_theta_max].T
                         self.data[ll, k, :, ::2] = dat[:, :n_r_max/2+1]
                         self.data[ll, k, :, 1::2] = dat[:, n_r_max/2+1:]
                     elif self.movtype in [8, 9]:
+                        datic = dat[self.n_r_max:, :].T
+                        self.data_ic[ll, k, ...] = datic
                         dat = dat[:self.n_r_max, :].T
                         self.data[ll, k, ...] = dat
                     elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
@@ -308,7 +321,8 @@ class Movie:
             out.var2 = out.nvar
         return out
 
-    def avgStd(self, ifield=0, std=False, cut=0.5, levels=12, cmap='RdYlBu_r'):
+    def avgStd(self, ifield=0, std=False, cut=0.5, levels=12, cmap='RdYlBu_r',
+               ic=False):
         """
         Plot time-average or standard deviation
 
@@ -327,8 +341,12 @@ class Movie:
         """
         if std:
             avg = self.data[ifield, ...].std(axis=0)
+            if ic:
+                avg_ic = self.data_ic[ifield, ...].std(axis=0)
         else:
             avg = self.data[ifield, ...].mean(axis=0)
+            if ic:
+                avg_ic = self.data_ic[ifield, ...].mean(axis=0)
         vmin = - max(abs(avg.max()), abs(avg.min()))
         vmin = cut * vmin
         vmax = -vmin
@@ -343,6 +361,10 @@ class Movie:
             yyout = rr.max() * np.sin(th)
             xxin = rr.min() * np.cos(th)
             yyin = rr.min() * np.sin(th)
+            if ic:
+                rr, tth = np.meshgrid(self.radius_ic, th)
+                xx_ic = rr * np.cos(tth)
+                yy_ic = rr * np.sin(tth)
             fig = plt.figure(figsize=(4, 8))
         elif self.surftype == 'r_constant':
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
@@ -374,13 +396,15 @@ class Movie:
 
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
-        im = ax.contourf(xx, yy, avg, cs, cmap=cmap, extend='both')
+        ax.contourf(xx, yy, avg, cs, cmap=cmap, extend='both')
+        if ic:
+            ax.contourf(xx_ic, yy_ic, avg_ic, cs, cmap=cmap, extend='both')
         ax.plot(xxout, yyout, 'k-', lw=1.5)
         ax.plot(xxin, yyin, 'k-', lw=1.5)
         ax.axis('off')
 
-    def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1,
-             normed=False, dpi=80, bgcolor=None, deminc=True):
+    def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False,
+             step=1, normed=False, dpi=80, bgcolor=None, deminc=True, ic=False):
         """
         Plotting function (it can also write the png files)
 
@@ -426,9 +450,6 @@ class Movie:
             cs = np.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
-            #if self.movtype in [1, 7]:
-                #th = np.linspace(0., 2.*np.pi, 2*self.n_theta_max)
-            #else:
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             rr, tth = np.meshgrid(self.radius, th)
             xx = rr * np.cos(tth)
@@ -438,6 +459,11 @@ class Movie:
             xxin = rr.min() * np.cos(th)
             yyin = rr.min() * np.sin(th)
             fig = plt.figure(figsize=(4, 8))
+
+            if ic:
+                rr, tth = np.meshgrid(self.radius_ic, th)
+                xx_ic = rr * np.cos(tth)
+                yy_ic = rr * np.sin(tth)
         elif self.surftype == 'r_constant':
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             if deminc:
@@ -463,6 +489,10 @@ class Movie:
             yyout = rr.max() * np.sin(pphi)
             xxin = rr.min() * np.cos(pphi)
             yyin = rr.min() * np.sin(pphi)
+            if ic:
+                rr, pphi = np.meshgrid(self.radius_ic, phi)
+                xx_ic = rr * np.cos(pphi)
+                yy_ic = rr * np.sin(pphi)
             fig = plt.figure(figsize=(6, 6))
         elif self.surftype == '3d volume':
             self.data = self.data[ifield, ..., 0]
@@ -488,12 +518,24 @@ class Movie:
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
                         dat = symmetrize(self.data[ifield, k, ...], self.minc)
+                        if ic:
+                            datic = symmetrize(self.data_ic[ifield, k, ...],
+                                               self.minc)
                     else:
                         dat = self.data[ifield, k, ...]
+                        if ic:
+                            datic = self.data_ic[ifield, k, ...]
                     im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                    if ic:
+                        ax.contourf(xx_ic, yy_ic, datic, cs, cmap=cmap,
+                                    extend='both')
                 else:
                     im = ax.contourf(xx, yy, self.data[ifield, k, ...], cs,
                                      cmap=cmap, extend='both')
+                    if ic:
+                        im_ic = ax.contourf(xx_ic, yy_ic,
+                                            self.data_ic[ifield, k, ...], cs,
+                                            cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 ax.axis('off')
@@ -512,12 +554,23 @@ class Movie:
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
                         dat = symmetrize(self.data[ifield, k, ...], self.minc)
+                        if ic:
+                            datic = symmetrize(self.data_ic[ifield, k, ...],
+                                               self.minc)
                     else:
                         dat = self.data[ifield, k, ...]
-                    im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                        if ic:
+                            datic = self.data_ic[ifield, k, ...]
+                    ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                    if ic:
+                        ax.contourf(xx_ic, yy_ic, datic, cs, cmap=cmap,
+                                    extend='both')
                 else:
-                    im = ax.contourf(xx, yy, self.data[ifield, k, ...], cs,
-                                     cmap=cmap, extend='both')
+                    ax.contourf(xx, yy, self.data[ifield, k, ...], cs,
+                                cmap=cmap, extend='both')
+                    if ic:
+                        ax.contourf(xx_ic, yy_ic, self.data_ic[ifield, k, ...],
+                                    cs, cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 ax.axis('off')
@@ -525,7 +578,7 @@ class Movie:
             if png:
                 filename = 'movie/img%05d.png' % k
                 print('write %s' % filename)
-                #st = 'echo %i' % ivar + ' > movie/imgmax'
+                # st = 'echo %i' % ivar + ' > movie/imgmax'
                 if bgcolor is not None:
                     fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
                 else:
