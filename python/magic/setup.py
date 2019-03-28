@@ -91,8 +91,11 @@ if buildSo:
         f90options = '-O3'
 
     # For reading G files
-    t1 = os.stat('greader_single%i.so' % pythonVersion).st_mtime
     t2 = os.stat('fortranLib/readG_single.f90').st_mtime
+    if os.path.exists('greader_single%i.so' % pythonVersion):
+        t1 = os.stat('greader_single%i.so' % pythonVersion).st_mtime
+    else: # in case the file does not exist t2 is set to t1
+        t1 = t2
     if not os.path.exists('greader_single%i.so' % pythonVersion) or t2 > t1:
         os.chdir('fortranLib')
         print("Please wait: building greader_single...")
@@ -111,8 +114,11 @@ if buildSo:
             sp.call(['mv', 'greader_single2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
-    t1 = os.stat('greader_double%i.so' % pythonVersion).st_mtime
     t2 = os.stat('fortranLib/readG_double.f90').st_mtime
+    if os.path.exists('greader_double%i.so' % pythonVersion):
+        t1 = os.stat('greader_double%i.so' % pythonVersion).st_mtime
+    else: # in case the file does not exist t2 is set to t1
+        t1 = t2
     if not os.path.exists('greader_double%i.so' % pythonVersion) or t2 > t1:
         os.chdir('fortranLib')
         print("Please wait: building greader_double...")
@@ -132,8 +138,11 @@ if buildSo:
         os.chdir(magicdir)
 
     # For the reader of the potential files
-    t1 = os.stat('lmrreader_single%i.so' % pythonVersion).st_mtime
     t2 = os.stat('fortranLib/readPot_single.f90').st_mtime
+    if os.path.exists('lmrreader_single%i.so' % pythonVersion):
+        t1 = os.stat('lmrreader_single%i.so' % pythonVersion).st_mtime
+    else: # in case the file does not exist t2 is set to t1
+        t1 = t2
     if not os.path.exists('lmrreader_single%i.so' % pythonVersion) or t2 > t1:
         os.chdir('fortranLib')
         print("Please wait: building lmrreader_single...")
@@ -153,8 +162,11 @@ if buildSo:
         os.chdir(magicdir)
 
     # For the Legendre transforms
-    t1 = os.stat('legendre%i.so' % pythonVersion).st_mtime
     t2 = os.stat('fortranLib/legendre.f90').st_mtime
+    if os.path.exists('legendre%i.so' % pythonVersion):
+        t1 = os.stat('legendre%i.so' % pythonVersion).st_mtime
+    else: # in case the file does not exist t2 is set to t1
+        t1 = t2
     if not os.path.exists('legendre%i.so' % pythonVersion) or t2 > t1:
         os.chdir('fortranLib')
         print("Please wait: building Legendre transforms...")
@@ -174,8 +186,11 @@ if buildSo:
         os.chdir(magicdir)
 
     # For the vtk file format convertion
-    t1 = os.stat('vtklib%i.so' % pythonVersion).st_mtime
     t2 = os.stat('fortranLib/vtkLib.f90').st_mtime
+    if os.path.exists('vtklib%i.so' % pythonVersion):
+        t1 = os.stat('vtklib%i.so' % pythonVersion).st_mtime
+    else: # in case the file does not exist t2 is set to t1
+        t1 = t2
     if not os.path.exists('vtklib%i.so' % pythonVersion) or t2 > t1:
         os.chdir('fortranLib')
         print("Please wait: building vtklib...")
