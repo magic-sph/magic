@@ -137,6 +137,7 @@ class MagicGraph(MagicSetup):
 
             G.readg(filename, endian=endian)
             self.nr = int(G.nr)
+            self.nr_ic = int(G.nric)-1
             self.ntheta = int(G.nt)
             self.npI = int(G.np)
             self.minc = int(G.minc)
@@ -163,7 +164,7 @@ class MagicGraph(MagicSetup):
                 self.Btheta = G.bt
                 self.Bphi = G.bp
 
-            if self.prmag != 0 and self.sigma != 0:
+            if self.prmag != 0 and self.nr_ic > 1:
                 self.radius_ic = G.radius_ic
                 self.Br_ic = G.br_ic
                 self.Btheta_ic = G.bt_ic
@@ -200,7 +201,7 @@ class MagicGraph(MagicSetup):
             self.colatitude = inline.fort_read(self.precision)
             self.radius = np.zeros((self.nr), self.precision)
 
-            if self.prmag != 0 and self.sigma != 0:
+            if self.prmag != 0 and self.nr_ic > 1:
                 self.radius_ic = np.zeros((self.nr_ic), self.precision)
 
             entropy = np.zeros((self.npI, self.ntheta, self.nr),
@@ -356,7 +357,7 @@ class MagicGraph(MagicSetup):
                         if version == b'Graphout_Version_8':
                             pressure[:, ilat1:ilat2+1, ir] = data[4, ...].T
 
-            if self.prmag != 0 and self.sigma != 0:
+            if self.prmag != 0 and self.nr_ic > 1:
                 for k in range(self.nr_ic):
                     # radius and Thetas in this block
                     ir, rad, ilat1, ilat2 = inline.fort_read(self.precision)
@@ -404,7 +405,7 @@ class MagicGraph(MagicSetup):
                 Br = self.rearangeLat(Br)
                 Btheta = self.rearangeLat(Btheta)
                 Bphi = self.rearangeLat(Bphi)
-                if self.sigma != 0:
+                if self.nr_ic > 1:
                     Br_ic = self.rearangeLat(Br_ic)
                     Btheta_ic = self.rearangeLat(Btheta_ic)
                     Bphi_ic = self.rearangeLat(Bphi_ic)
@@ -418,7 +419,7 @@ class MagicGraph(MagicSetup):
 
             # Normalise r
             self.radius = self.radius/(1.-self.radratio)
-            if self.prmag != 0 and self.sigma != 0:
+            if self.prmag != 0 and self.nr_ic > 1:
                 self.radius_ic = self.radius_ic/(1.-self.radratio)
 
             # Full solution by repeating minc times the structure
@@ -431,7 +432,7 @@ class MagicGraph(MagicSetup):
                 self.Br = Br
                 self.Btheta = Btheta
                 self.Bphi = Bphi
-                if self.sigma != 0:
+                if self.nr_ic > 1:
                     self.Br_ic = Br_ic
                     self.Btheta_ic = Btheta_ic
                     self.Bphi_ic = Bphi_ic

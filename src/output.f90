@@ -781,7 +781,7 @@ contains
   
          call movie_gather_frames_to_rank0()
 
-         if ( l_movie_ic .and. l_store_frame ) then
+         if ( l_movie_ic .and. l_store_frame .and. rank == 0 ) then
             call store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
          end if
 
@@ -808,8 +808,9 @@ contains
   
          !----- Plot out inner core magnetic field, outer core
          !      field has been written in radialLoop !
-         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 )          &
-              &     call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
+         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 ) then
+            call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
+         end if
   
          if ( l_log ) then
             !--- Energies and rotation info and a lot of other stuff 

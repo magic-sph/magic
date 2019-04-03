@@ -185,7 +185,7 @@ class SpectralTransforms(object):
 
             return vt, vp
 
-    def spat_spec(self, input):
+    def spat_spec(self, *args):
         """
         This subroutine computes a transfrom from spatial representation
         (n_phi,n_theta) to spectral representation (lm_max). It returns
@@ -198,16 +198,29 @@ class SpectralTransforms(object):
         >>> # Caculation of the poloidal potential from vr:
         >>> wlm = np.zeros_like(vrlm)
         >>> wlm[1:] = vrlm[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*gr.radius[30]**2
+        >>> # Spheroidal/Toroidal transform
+        >>> vtlm, vplm = spec_spat(gr.vtheta, gr.vphi)
 
         :param input: input array in the physical space (n_phi,n_theta)
         :type input: numpy.ndarray
         :returns: output array in the spectral space (lm_max)
         :rtype: numpy.ndarray
         """
-        out = np.fft.fft(input, axis=0)/self.n_phi_max
-        outLM = self._legF90.spatspec(out, self.lm_max)
+        if len(args) == 1:
+            input = args[0]
+            out = np.fft.fft(input, axis=0)/self.n_phi_max
+            outLM = self._legF90.spatspec(out, self.lm_max)
 
-        return outLM
+            return outLM
+        elif len(args) == 2:
+            in1 = args[0]
+            in2 = args[1]
+            out1 = np.fft.fft(in1, axis=0)/self.n_phi_max
+            out2 = np.fft.fft(in2, axis=0)/self.n_phi_max
+
+            utLM, upLM = self._legF90.spatspec_sphertor(out1, out2, self.lm_max)
+            return utLM, upLM
+
 
 if __name__ == '__main__':
     sh = SpectralTransforms( l_max=256, lm_max=33153, n_theta_max=384)

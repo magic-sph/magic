@@ -1,6 +1,9 @@
 # -*- coding: utf8 -*-
-"""Sphinx extensions"""
-# Copyright or © or Copr. Actimar/IFREMER (2014-2015)
+"""Fortran domain and autodoc extensions to Sphinx
+
+
+"""
+# Copyright or © or Copr. Actimar/IFREMER (2010-2015)
 #
 # This software is a computer program whose purpose is to provide
 # utilities for handling oceanographic and atmospheric data,
@@ -31,3 +34,9 @@
 #
 # The fact that you are presently reading this means that you have had
 # knowledge of the CeCILL license and that you accept its terms.
+#
+
+__version__ = '1.0.1'
+__author__ = 'Stephane Raynaud'
+__email__ = 'stephane.raynaud@gmail.com'
+__copyright__ = 'Copyright (c) 2010-2015 Actimar/IFREMER'

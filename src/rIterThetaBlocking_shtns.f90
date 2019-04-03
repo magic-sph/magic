@@ -542,8 +542,8 @@ contains
               &              gsa%brc, gsa%btc, gsa%bpc)
 
          if ( this%lDeriv ) then
-            call torpol_to_curl_spat(b_Rloc(:, nR), ddb_Rloc(:, nR),        &
-                 &                   aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
+            call torpol_to_curl_spat(or2(nR), b_Rloc(:, nR), ddb_Rloc(:, nR), &
+                 &                   aj_Rloc(:, nR), dj_Rloc(:, nR),          &
                  &                   gsa%cbrc, gsa%cbtc, gsa%cbpc)
          end if
       end if

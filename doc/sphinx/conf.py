@@ -21,6 +21,7 @@ import shlex
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('.'))
 
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -34,8 +35,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
-    'sphinxext.fortran_domain',
-    'sphinxext.fortran_autodoc'
+    'sphinxfortran.fortran_domain',
+    'sphinxfortran.fortran_autodoc'
 ]
 
 #autoclass_content='both'
@@ -300,7 +301,8 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 os.system('./cleanPreProc.sh')
-fortran_src = ".fortranCleanSrc/*.f90"
+fortran_ext = ['f90']
+fortran_src = ['.fortranCleanSrc/*.f90']
 fortran_indent = 3
 
 os.system('cp -r galleria .build/html/')

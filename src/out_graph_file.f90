@@ -11,7 +11,6 @@ module graphOut_mod
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
        &                 n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
        &                 n_phi_max, nrp, n_r_ic_max, l_axi
-   use radial_data, only: n_r_icb
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
@@ -25,7 +24,7 @@ module graphOut_mod
    use output_data, only: n_graph_file, runid
 #endif
 #ifdef WITH_SHTNS
-   use shtns
+   use shtns, only: torpol_to_spat_IC
 #else
    use fft
 #endif
@@ -877,6 +876,7 @@ contains
 
       do nR=2,n_r_ic_max  ! nR=1 is ICB
 
+#ifndef WITH_SHTNS
          if ( l_cond_ic ) then
             call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
                  &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
@@ -884,26 +884,25 @@ contains
                  &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                  &          cbhG,cbhC)
          else
-            call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),aj_ic(:,1), &
-                 &          dj_ic(:,1),dLh,lm_max,l_max,minc,r_ic(nR), &
-                 &          r_ICB,.false.,.true.,l_cond_ic,dLhb,bhG,   &
-                 &          bhC,dLhj,cbhG,cbhC)
+            call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),           &
+                 &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,         &
+                 &          l_max,minc,r_ic(nR),r_ICB,.false.,.true., &
+                 &          l_cond_ic,dLhb,bhG,bhC,dLhj,cbhG,cbhC)
          end if
-
-#ifdef WITH_SHTNS
+#else
          if ( l_cond_ic ) then
-            call torpol_to_spat(b_ic(:, nR), db_ic(:, nR), aj_ic(:, nR), &
-                 &              BrB, BtB, BpB)
+            call torpol_to_spat_IC(r_ic(nR), r_ICB, b_ic(:, nR), db_ic(:, nR), &
+                 &                 aj_ic(:, nR), BrB, BtB, BpB)
          else
-            call torpol_to_spat(bICB(:), db_ic(:, 1), aj_ic(:, 1), &
-                 &              BrB, BtB, BpB)
+            call torpol_to_spat_IC(r_ic(nR), r_ICB, bICB(:),db_ic(:,1), &
+                 &                 aj_ic(:,1), BrB, BtB, BpB)
          end if
 #endif
          do nThetaB=1,nThetaBs
             nThetaStart=(nThetaB-1)*sizeThetaB+1
 
 #ifndef WITH_SHTNS
-            !------ Preform Legendre transform:
+            !------ Perform Legendre transform:
             call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,nThetaStart, &
                  &     sizeThetaB,Plm,dPlm,.true.,.false.,BrB,BtB,BpB,BrB, &
                  &     BrB,BrB)
