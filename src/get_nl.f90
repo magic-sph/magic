@@ -447,11 +447,15 @@ contains
       end if ! precession term required ?
 
       if ( l_centrifuge .and. nBc ==0 ) then
+         !$OMP PARALLEL DO default(none) &
+         !$OMP& private(nThetaB, nPhi, nThetaNHS, cnt, snt, rsnt)           &
+         !$OMP& shared(this, sinTheta, cosTheta, sizeThetaB, nR, n_phi_max) &
+         !$OMP& shared(dilution_fac, ra, opr, polind, DissNb, oek)          &
+         !$OMP& shared(r, opressure0)
          do nThetaB=1,sizeThetaB
-            nTheta=nTheta+1
-            nThetaNHS=(nTheta+1)/2
-            snt=sinTheta(nTheta)
-            cnt=cosTheta(nTheta)
+            nThetaNHS=(nThetaB+1)/2
+            snt=sinTheta(nThetaB)
+            cnt=cosTheta(nThetaB)
             rsnt=r(nR)*snt
             do nPhi=1,n_phi_max
                if ( l_anel ) then
@@ -467,6 +471,7 @@ contains
                end if
             end do ! phi loop
          end do ! theta loop
+         !$OMP END PARALLEL DO
       end if ! centrifuge
 
       if ( l_mag_nl ) then
