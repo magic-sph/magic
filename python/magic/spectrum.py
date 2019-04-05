@@ -24,7 +24,7 @@ class MagicSpectrum(MagicSetup):
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
-                 ave=False, gather=False, tag=None):
+                 ave=False, gather=False, normalize=False, tag=None):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -46,7 +46,7 @@ class MagicSpectrum(MagicSetup):
         :type datadir: str
         """
         self.gather = gather
-
+        self.normalize = normalize
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR', 'kin'):
             if ave:
                 self.name = 'kin_spec_ave'
@@ -64,6 +64,8 @@ class MagicSpectrum(MagicSetup):
                 self.name = 'mag_spec_'
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
+        elif field in ('T','temperature','S','entropy'):
+            self.name = 'T_spec_'
 
         if tag is not None:
             if ispec is not None:
@@ -210,7 +212,13 @@ class MagicSpectrum(MagicSetup):
                 self.cia_SD = data[:, 26]
                 self.arc = np.zeros_like(self.cia)
                 self.arc_SD = np.zeros_like(self.cia)
-
+        elif self.name == 'T_spec_':
+            self.T_l = data[:,1]
+            self.T_m = data[:,2]
+            self.T_icb_l = data[:,3]
+            self.T_icb_m = data[:,4]
+            self.dT_icb_l = data[:,5]
+            self.dT_icb_m = data[:,6]
         if iplot:
             self.plot()
 
@@ -246,8 +254,12 @@ class MagicSpectrum(MagicSetup):
             else:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
+                if self.normalize:
+                    y = self.ekin_poll+self.ekin_torl
+                    ax.loglog(self.index, y/y.max(),)
+                else:
+                    ax.loglog(self.index, self.ekin_poll, label='poloidal')
+                    ax.loglog(self.index, self.ekin_torl, label='toroidal')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
                 else:
@@ -258,10 +270,14 @@ class MagicSpectrum(MagicSetup):
 
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                          label='toroidal')
+                if self.normalize:
+                    y = self.ekin_polm[::self.minc]+self.ekin_torm[::self.minc]
+                    ax.loglog(self.index[::self.minc]+1, y/y.max())
+                else:
+                    ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                              label='poloidal')
+                    ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
+                              label='toroidal')
                 if labTex:
                     ax.set_xlabel('$m$ + 1')
                 else:
@@ -411,6 +427,50 @@ class MagicSpectrum(MagicSetup):
             ax.set_xlim(self.index.min(), self.index.max())
             ax.legend(loc='lower right', frameon=False, ncol=2)
 
+        elif self.name == 'T_spec_':
+            if self.gather:
+                fig = plt.figure()
+                ax = fig.add_subplot(211)
+                ax.loglog(self.index, self.T_l/self.T_l.max(),)
+                ax.loglog(self.index, self.T_icb_l/self.T_icb_l.max(),label='ICB')
+                if labTex:
+                    ax.set_xlabel('$\ell$')
+                else:
+                    ax.set_xlabel('l')
+                ax.set_ylabel('degree')
+                ax.legend()
+
+                ax = fig.add_subplot(212)
+                ax.loglog(self.index[::self.minc]+1,
+                          self.T_m[::self.minc]/self.T_m[::self.minc].max(),)
+                ax.loglog(self.index[::self.minc]+1,
+                          self.T_icb_m[::self.minc]/self.T_icb_m[::self.minc].max(),
+                          label='ICB')
+
+                if labTex:
+                    ax.set_xlabel('Order $m+1$')
+                else:
+                    ax.set_xlabel('m+1')
+                ax.set_ylabel('order')
+                ax.legend()
+                fig.tight_layout()
+            else:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index, self.T_l, color='g')
+                if labTex:
+                    ax.set_xlabel('$\ell$')
+                else:
+                    ax.set_xlabel('l')
+
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index[::self.minc]+1,
+                          self.T_m[::self.minc],color='g')
+                if labTex:
+                    ax.set_xlabel('Order $m+1$')
+                else:
+                    ax.set_xlabel('m+1')
 
 class MagicSpectrum2D(MagicSetup):
     """
