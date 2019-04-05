@@ -451,7 +451,7 @@ contains
          !$OMP& private(nThetaB, nPhi, nThetaNHS, cnt, snt, rsnt)           &
          !$OMP& shared(this, sinTheta, cosTheta, sizeThetaB, nR, n_phi_max) &
          !$OMP& shared(dilution_fac, ra, opr, polind, DissNb, oek)          &
-         !$OMP& shared(r, opressure0)
+         !$OMP& shared(r, opressure0, l_anel)
          do nThetaB=1,sizeThetaB
             nThetaNHS=(nThetaB+1)/2
             snt=sinTheta(nThetaB)
