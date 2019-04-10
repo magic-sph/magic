@@ -107,7 +107,7 @@ if buildSo:
                  'greader_single%i' % pythonVersion,
                  'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv greader_single3.cpython-%sm* %s/greader_single3.so" % \
+            cmd = "mv greader_single3.cpython-%sm*.so %s/greader_single3.so" % \
                   (pythonSuffix, magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
@@ -130,7 +130,7 @@ if buildSo:
                  'greader_double%i' % pythonVersion,
                  'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv greader_double3.cpython-%sm* %s/greader_double3.so" % \
+            cmd = "mv greader_double3.cpython-%sm*.so %s/greader_double3.so" % \
                   (pythonSuffix, magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
@@ -154,7 +154,7 @@ if buildSo:
                  'lmrreader_single%i' % pythonVersion,
                  'readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv lmrreader_single3.cpython-%sm* %s/lmrreader_single3.so" % \
+            cmd = "mv lmrreader_single3.cpython-%sm*.so %s/lmrreader_single3.so" % \
                   (pythonSuffix, magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
@@ -178,7 +178,7 @@ if buildSo:
                  'legendre%i' % pythonVersion,
                  'legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv legendre3.cpython-%sm* %s/legendre3.so" % \
+            cmd = "mv legendre3.cpython-%sm*.so %s/legendre3.so" % \
                   (pythonSuffix, magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
@@ -202,7 +202,7 @@ if buildSo:
                  'vtklib%i' % pythonVersion,
                  'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv vtklib3.cpython-%sm* %s/vtklib3.so" % \
+            cmd = "mv vtklib3.cpython-%sm*.so %s/vtklib3.so" % \
                   (pythonSuffix, magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
