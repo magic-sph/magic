@@ -148,7 +148,7 @@ contains
       allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( cheb_int_ic(n_r_ic_max) )
       bytes_allocated = bytes_allocated + &
-                        (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+      &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 
       call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
@@ -273,13 +273,13 @@ contains
 
             allocate ( coeffAlpha(10), coeffTemp(10) )
             coeffAlpha = [ -12.9483344953_cp, 12.7631620079_cp, -60.0717008192_cp, &
-               &           1.41916870466_cp, 755.055391736_cp, -1938.08838168_cp,  &
-               &           952.893688457_cp, 2544.71502695_cp, -3703.20551213_cp,  &
-               &           1440.95591192_cp]
-            coeffTemp = [ 1.24462655e+05_cp, -2.85767595e+06_cp, 3.04794799e+07_cp, &
-               &         -1.72807386e+08_cp, 5.83323621e+08_cp, -1.23322830e+09_cp, &
-               &          1.64950647e+09_cp, -1.35626053e+09_cp, 6.25695974e+08_cp, &
-               &          -1.23976043e+08_cp ]
+            &              1.41916870466_cp, 755.055391736_cp, -1938.08838168_cp,  &
+            &              952.893688457_cp, 2544.71502695_cp, -3703.20551213_cp,  &
+            &              1440.95591192_cp]
+            coeffTemp = [ 1.24462655e+05_cp, -2.85767595e+06_cp, 3.04794799e+07_cp,&
+            &            -1.72807386e+08_cp, 5.83323621e+08_cp, -1.23322830e+09_cp,&
+            &             1.64950647e+09_cp, -1.35626053e+09_cp, 6.25695974e+08_cp,&
+            &             -1.23976043e+08_cp ]
             ! Temperature is only required to estimate ThExpNb
             alpha0(:)=0.0_cp
             temp0(:) =0.0_cp
@@ -305,7 +305,8 @@ contains
             GrunNb = one/ogrun(1)
             ogrun(:) = ogrun(:)/ogrun(1)
 
-            drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb*ogrun*alpha0*rgrav
+            drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb*ogrun* &
+            &      alpha0*rgrav
             call getBackground(drho0,0.0_cp,rho0)
             rho0=exp(rho0) ! this was ln(rho_0)
             beta=drho0
@@ -328,13 +329,13 @@ contains
          else
             allocate( coeffDens(8), coeffTemp(10) )
             coeffDens = [4.46020423_cp, -4.60312999_cp, 37.38863965_cp,       &
-               &         -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
-               &         440.86067831_cp, -122.36071577_cp]
+            &            -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
+            &            440.86067831_cp, -122.36071577_cp]
 
             coeffTemp = [0.999735638_cp, 0.0111053831_cp, 2.70889691_cp,  &
-               &         -83.5604443_cp, 573.151526_cp, -1959.41844_cp,   &
-               &         3774.39367_cp, -4159.56327_cp, 2447.75300_cp,    &
-               &         -596.464198_cp]
+            &            -83.5604443_cp, 573.151526_cp, -1959.41844_cp,   &
+            &            3774.39367_cp, -4159.56327_cp, 2447.75300_cp,    &
+            &            -596.464198_cp]
 
             call polynomialBackground(coeffDens,coeffTemp)
             deallocate( coeffDens, coeffTemp)
@@ -349,11 +350,11 @@ contains
 
          allocate( coeffDens(4), coeffTemp(9) )
          coeffDens = [-0.33233543_cp, 0.90904075_cp, -0.9265371_cp, &
-            &         0.34973134_cp ]
+         &            0.34973134_cp ]
 
          coeffTemp = [1.00294605_cp,-0.44357815_cp,13.9295826_cp,  &
-            &         -137.051347_cp,521.181670_cp,-1044.41528_cp, &
-            &         1166.04926_cp,-683.198387_cp, 162.962632_cp ]
+         &            -137.051347_cp,521.181670_cp,-1044.41528_cp, &
+         &            1166.04926_cp,-683.198387_cp, 162.962632_cp ]
 
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
@@ -365,10 +366,10 @@ contains
 
          allocate( coeffDens(6), coeffTemp(4) )
          coeffDens = [-24.83750402_cp, 231.79029994_cp, -681.72774358_cp, &
-            &         918.30741266_cp,-594.30093367_cp, 150.76802942_cp ]
+         &            918.30741266_cp,-594.30093367_cp, 150.76802942_cp ]
 
          coeffTemp = [5.53715416_cp, -8.10611274_cp, 1.7350452_cp, &
-            &         0.83470843_cp]
+         &            0.83470843_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
@@ -378,11 +379,11 @@ contains
 
          allocate( coeffDens(8), coeffTemp(5) )
          coeffDens = [0.99879163_cp,0.15074601_cp,-4.20328423_cp,   &
-            &         6.43542034_cp,-12.67297113_cp,21.68593078_cp, &
-            &         -17.74832309_cp,5.35405134_cp]
+         &            6.43542034_cp,-12.67297113_cp,21.68593078_cp, &
+         &            -17.74832309_cp,5.35405134_cp]
 
          coeffTemp = [0.99784506_cp,0.16540448_cp,-3.44594354_cp,   &
-            &         3.68189750_cp,-1.39046384_cp]
+         &            3.68189750_cp,-1.39046384_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
@@ -392,12 +393,12 @@ contains
 
          allocate( coeffDens(7), coeffTemp(7) )
          coeffDens = [1.00035987_cp,-0.01294658_cp,-2.78586315_cp,  &
-            &         0.70289860_cp,2.59463562_cp,-1.65868190_cp,   &
-            &         0.15984718_cp]
+         &            0.70289860_cp,2.59463562_cp,-1.65868190_cp,   &
+         &            0.15984718_cp]
 
          coeffTemp = [1.00299303_cp,-0.33722671_cp,1.71340063_cp,     &
-            &         -12.50287121_cp,21.52708693_cp,-14.91959338_cp, &
-            &         3.52970611_cp]
+         &            -12.50287121_cp,21.52708693_cp,-14.91959338_cp, &
+         &            3.52970611_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
@@ -407,10 +408,10 @@ contains
 
          allocate( coeffDens(6), coeffTemp(6) )
          coeffDens = [1.01038678_cp,-0.17615484_cp,-1.50567127_cp,  &
-            &         -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
+         &            -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
 
          coeffTemp = [1.02100249_cp,-0.60750867_cp,3.23371939_cp,   &
-            &         -12.80774142_cp,15.37629271_cp,-6.19288785_cp]
+         &            -12.80774142_cp,15.37629271_cp,-6.19288785_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
@@ -519,14 +520,14 @@ contains
             else !-- Adiabatic reference state
 
                if ( l_isothermal ) then ! Gruneisen is zero in this limit
-                  fac        =strat /( g0+half*g1*(one+radratio) +g2/radratio )
+                  fac        =strat / ( g0+half*g1*(one+radratio)+g2/radratio ) &
+                  &           / (r_cmb-r_icb)
                   DissNb     =0.0_cp
                   GrunNb     =0.0_cp
                   ogrun(:)   =0.0_cp
                   temp0(:)   =one
-                  rho0(:)    =exp(-fac*(g0*(r(:)-r_cmb) +         &
-                  &           g1/(two*r_cmb)*(r(:)**2-r_cmb**2) - &
-                  &           g2*(r_cmb**2/r(:)-r_cmb)))
+                  rho0(:)    =exp(-fac*(g0*r(:)+half*g1*r(:)**2/r_cmb-g2*r_cmb**2/&
+                  &               r(:))+fac*r_cmb*(g0+half*g1-g2))
 
                   beta(:)    =-fac*rgrav(:)
                   dbeta(:)   =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3(:))
@@ -536,16 +537,17 @@ contains
                   ddLtemp0(:)=0.0_cp
                else
                   if ( strat == 0.0_cp .and. DissNb /= 0.0_cp ) then
-                     strat = polind* log(( g0+half*g1*(one+radratio)+g2/radratio )* &
-                                         DissNb+1)
+                     strat = polind* log( (g0+half*g1*(one+radratio)+g2/radratio)*&
+                     &                    (r_cmb-r_icb)*DissNb+1 )
                   else
-                     DissNb=( exp(strat/polind)-one )/ &
+                     DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
                             ( g0+half*g1*(one+radratio) +g2/radratio )
                   end if
                   GrunNb      =one/polind
                   ogrun(:)    =one/GrunNb
                   temp0(:)    =-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb- &
-                  &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb*(g0+half*g1-g2)
+                  &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb* &
+                  &            (g0+half*g1-g2)
                   rho0(:)     =temp0**polind
 
                   if (l_centrifuge) opressure0(:) = temp0**(-polind-1)
@@ -945,6 +947,14 @@ contains
          else
             dentropy0(:) = 0.25_cp*(ampStrat+one)*(one+tanh(slopeStrat*(r(:)-rStrat)))&
             &              *(one-tanh(slopeStrat*(r(:)-rStrat-thickStrat)))           &
+            &              - one
+         end if
+         l_non_adia = .true.
+      else if ( nVarEntropyGrad == 4 ) then ! SSL
+         if ( rStrat <= r_icb ) then
+            dentropy0(:) = -one
+         else
+            dentropy0(:) = half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
             &              - one
          end if
          l_non_adia = .true.

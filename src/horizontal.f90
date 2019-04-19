@@ -1,6 +1,6 @@
 module horizontal_data
    !
-   !  Module containing functions depending on longitude 
+   !  Module containing functions depending on longitude
    !  and latitude plus help arrays depending on degree and order
    !
 
@@ -16,11 +16,11 @@ module horizontal_data
    use constants, only: pi, zero, one, two, half
    use precision_mod
    use mem_alloc, only: bytes_allocated
- 
+
    implicit none
 
    private
- 
+
    !-- Arrays depending on theta (colatitude):
    integer, public, allocatable :: n_theta_cal2ord(:)
    real(cp), public, allocatable :: theta(:)
@@ -33,10 +33,10 @@ module horizontal_data
    real(cp), public, allocatable :: O_sin_theta_E2(:)
    real(cp), public, allocatable :: sinTheta(:)
    real(cp), public, allocatable :: cosTheta(:)
- 
+
    !-- Phi (longitude)
    real(cp), public, allocatable :: phi(:)
- 
+
    !-- Legendres:
    real(cp), public, allocatable :: Plm(:,:)
    real(cp), public, allocatable :: wPlm(:,:)
@@ -44,11 +44,10 @@ module horizontal_data
    real(cp), public, allocatable :: dPlm(:,:)
    real(cp), public, allocatable :: gauss(:)
    real(cp), public, allocatable :: dPl0Eq(:)
- 
+
    !-- Arrays depending on l and m:
    complex(cp), public, allocatable :: dPhi(:)
    complex(cp), public, allocatable :: dPhi0(:)
-   complex(cp), public, allocatable :: dPhi02(:)
    real(cp), public, allocatable :: dLh(:)
    real(cp), public, allocatable :: dTheta1S(:),dTheta1A(:)
    real(cp), public, allocatable :: dTheta2S(:),dTheta2A(:)
@@ -57,7 +56,7 @@ module horizontal_data
    real(cp), public, allocatable :: D_m(:),D_l(:),D_lP1(:)
    real(cp), public, allocatable :: D_mc2m(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
- 
+
    !-- Limiting l for a given m, used in legtf
    integer, public, allocatable :: lStart(:),lStop(:)
    integer, public, allocatable :: lStartP(:),lStopP(:)
@@ -104,7 +103,6 @@ contains
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max) )
       allocate( dPhi0(lm_max) )
-      allocate( dPhi02(lm_max) )
       allocate( dLh(lm_max) )
       allocate( dTheta1S(lm_max),dTheta1A(lm_max) )
       allocate( dTheta2S(lm_max),dTheta2A(lm_max) )
@@ -114,7 +112,7 @@ contains
       allocate( D_mc2m(n_m_max) )
       allocate( hdif_B(lm_max),hdif_V(lm_max),hdif_S(lm_max) )
       allocate( hdif_Xi(lm_max) )
-      bytes_allocated = bytes_allocated+(19*lm_max+n_m_max)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(18*lm_max+n_m_max)*SIZEOF_DEF_REAL
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
@@ -130,7 +128,7 @@ contains
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
       deallocate( Plm, wPlm, dPlm, gauss, dPl0Eq )
       if ( l_RMS ) deallocate( wdPlm )
-      deallocate( dPhi, dPhi0, dPhi02, dLh, dTheta1S, dTheta1A )
+      deallocate( dPhi, dPhi0, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( D_m, D_l, D_lP1, D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
       deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
@@ -206,7 +204,7 @@ contains
          sinTheta(2*n_theta  )      =sin(colat)
          cosTheta(2*n_theta-1)      =cos(colat)
          cosTheta(2*n_theta  )      =-cos(colat)
-                    
+
       end do
 
 
@@ -218,7 +216,7 @@ contains
          theta(2*n_theta-1)          =theta_ord(n_theta)
          theta(2*n_theta)            =theta_ord(n_theta_max-n_theta+1)
       end do
-         
+
 
       !----- Same for longitude output grid:
       fac=two*pi/real(n_phi_max*minc,cp)
@@ -252,11 +250,9 @@ contains
          !-- Phi derivate:
          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
          if ( l < l_max ) then
-            dPhi0(lm)    =cmplx(0.0_cp,real(m,cp),cp)
-            dPhi02(lm)   =dPhi0(lm)*dPhi0(lm)
+            dPhi0(lm)=cmplx(0.0_cp,real(m,cp),cp)
          else
-            dPhi0(lm)    =zero
-            dPhi02(lm)   =zero
+            dPhi0(lm)=zero
          end if
          !-- Negative horizontal Laplacian *r^2
          dLh(lm)     =real(l*(l+1),cp)                 ! = qll1
@@ -311,7 +307,7 @@ contains
                             (one+difkap*real(-ldif,cp)**ldifexp )
                 hdif_Xi(lm)=(one+difchem*real(l,cp)**ldifexp ) / &
                             (one+difchem*real(-ldif,cp)**ldifexp )
-                              
+
              end if
 
          else
@@ -393,28 +389,28 @@ contains
       real(cp), intent(in) :: sinThMin ! lower bound in radiants
       real(cp), intent(in) :: sinThMax ! upper bound in radiants
       integer,  intent(in) :: n_th_max ! desired maximum degree
-    
+
       !-- Output variables:
       real(cp), intent(out) :: theta_ord(n_th_max) ! zeros cos(theta)
       real(cp), intent(out) :: gauss(n_th_max)     ! associated Gauss-Legendre weights
-    
+
       !-- Local variables:
       integer :: m,i,j
       real(cp) :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1
       real(cp), parameter :: eps = 10.0_cp*epsilon(one)
-    
+
       ! use symmetry
       m=(n_th_max+1)/2
-    
+
       !-- Map on symmetric interval:
       sinThMean=half*(sinThMax+sinThMin)
       sinThDiff=half*(sinThMax-sinThMin)
-    
+
       do i=1,m
          !----- Initial guess for zeros:
          z  = cos( pi*( (real(i,cp)-0.25_cp)/(real(n_th_max,cp)+half)) )
          z1 = z+10.0_cp*eps
-     
+
          do while( abs(z-z1) > eps)
             !----- Use recurrence to calulate P(l=n_th_max,z=cos(theta))
             p1=one
@@ -425,21 +421,21 @@ contains
                p2=p1
                p1=( real(2*j-1,cp)*z*p2-real(j-1,cp)*p3 )/real(j,cp)
             end do
-      
+
             !----- Newton method to refine zero: pp is derivative !
             pp=real(n_th_max,cp)*(z*p1-p2)/(z*z-one)
             z1=z
             z=z1-p1/pp
          end do
-     
+
          !----- Another zero found
          theta_ord(i)           =acos(sinThMean+sinThDiff*z)
          theta_ord(n_th_max+1-i)=acos(sinThMean-sinThDiff*z)
          gauss(i)               =two*sinThDiff/((one-z*z)*pp*pp)
          gauss(n_th_max+1-i)    =gauss(i)
-    
+
       end do
-     
+
    end subroutine gauleg
 !------------------------------------------------------------------------------
 end module horizontal_data
