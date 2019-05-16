@@ -686,7 +686,10 @@ class MagicCoeffR(MagicSetup):
         for k, file in enumerate(files):
             if not quiet: print('Reading %s' % file)
             f = npfile(file, endian='B')
-            out = f.fort_read('3i4,%s' % precision)[0]
+            if precision == np.float32:
+                out = f.fort_read('3i4,f4')[0]
+            else:
+                out = f.fort_read('3i4,f8')[0]
             self.l_max_r, self.minc, n_data = out[0]
             self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
             self.radius = out[1]
