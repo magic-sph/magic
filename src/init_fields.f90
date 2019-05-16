@@ -4,6 +4,7 @@ module init_fields
    !
 
    use precision_mod
+   use iso_fortran_env, only: output_unit
    use parallel_mod
    use communications, only: r2lm_type, create_r2lm_type, lm2r_type,  &
        &                     r2lo_redist_start, r2lo_redist_wait,     &
@@ -92,7 +93,7 @@ module init_fields
    logical, public :: l_start_file     ! taking fields from startfile ?
    logical, public :: l_reset_t        ! reset time from startfile ?
    integer, public :: inform           ! format of start_file
-   character(len=72), public :: start_file  ! name of start_file           
+   character(len=72), public :: start_file  ! name of start_file
 
    !-- Scales for input field:
    real(cp), public :: scale_s
@@ -139,16 +140,16 @@ contains
 !------------------------------------------------------------------------------
    subroutine initV(w,z,omega_ic,omega_ma)
       !
-      ! Purpose of this subroutine is to initialize the velocity field   
-      ! So far it is only rudimentary and will be expanded later.        
-      ! Because s is needed for dwdt init_s has to be called before.     
-      !                                                                   
+      ! Purpose of this subroutine is to initialize the velocity field
+      ! So far it is only rudimentary and will be expanded later.
+      ! Because s is needed for dwdt init_s has to be called before.
+      !
 
       !-- Output variables
       complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
       real(cp), intent(out) :: omega_ic,omega_ma
-    
+
       !-- Local variables
       complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
       integer :: lm,l,m,n,st_lmP,l1m0
@@ -158,7 +159,7 @@ contains
       real(cp) :: rDep(n_r_max)
       type(r2lm_type) :: r2lo_initv
       type(lm2r_type) :: lo2r_initv
-    
+
       real(cp) :: ss,ome(nrp,nfs)
       complex(cp) :: omeLM(lmP_max)
 
@@ -172,13 +173,13 @@ contains
          !-- From lo distributed to r distributed
          call lo2r_redist_start(lo2r_initv, z, z_Rloc)
          call lo2r_redist_wait(lo2r_initv)
-    
+
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
-    
+
             nTheta=0
             do n=1,nThetaBs ! loop over the theta blocks
-    
+
                nThetaStart=(n-1)*sizeThetaB+1
                do nThetaB=1,sizeThetaB
                   nTheta=nTheta+1
@@ -219,13 +220,13 @@ contains
                   &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP))   &
                   &   -dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
                else if ( l == m ) then
-                  if ( dLh(lm) /= 0.0_cp ) then 
+                  if ( dLh(lm) /= 0.0_cp ) then
                      z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) *  &
                      &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
                   end if
                end if
             end do
-    
+
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
@@ -235,7 +236,7 @@ contains
          !-- Destroy MPI communicators
          call destroy_r2lm_type(r2lo_initv)
          call destroy_lm2r_type(lo2r_initv)
-    
+
       else if ( init_v1 == 2 ) then
 
          call create_r2lm_type(r2lo_initv,1)
@@ -244,13 +245,13 @@ contains
          !-- From lo distributed to r distributed
          call lo2r_redist_start(lo2r_initv, z, z_Rloc)
          call lo2r_redist_wait(lo2r_initv)
-    
+
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
-    
+
             nTheta=0
             do n=1,nThetaBs ! loop over the theta blocks
-    
+
                nThetaStart=(n-1)*sizeThetaB+1
                do nThetaB=1,sizeThetaB
                   nTheta=nTheta+1
@@ -275,7 +276,7 @@ contains
 #ifdef WITH_SHTNS
             call spat_to_SH(ome, omeLM)
 #endif
-    
+
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
             !             additional application of r**2/(l*(l+1)) then yields
@@ -290,13 +291,13 @@ contains
                   &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP)) &
                   &    - dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
                else if ( l == m ) then
-                  if ( dLh(lm) /= 0.0_cp ) then 
+                  if ( dLh(lm) /= 0.0_cp ) then
                       z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) * &
                       &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
                   end if
                end if
             end do
-    
+
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
@@ -306,15 +307,15 @@ contains
          !-- Destroy MPI communicators
          call destroy_r2lm_type(r2lo_initv)
          call destroy_lm2r_type(lo2r_initv)
-    
-    
+
+
       else if ( init_v1 > 2 ) then
 
          !--- Add random noise toroidal field of all (l,m) modes exept (l=0,m=0):
          !    It decays likes l**(init_v1-1)
          !    Amplitude is chosen so that the (1,0) term resembles amp_v1 *
          !    the 'solid body' rotation set by inner core and mantle rotation.
-    
+
          rExp=4.
          if ( omega_ic1 /= 0 ) then
             amp_r=amp_v1*omega_ic1*r_ICB**(rExp+1.)/y10_norm
@@ -341,7 +342,7 @@ contains
                write(*,"(A,4I4,2ES20.12)") "z = ",nR,lm,l,m,z(lm,nR)
             end do
          end do
-    
+
       else if ( init_v1 < -1 ) then
 
          !--- Add random noise poloidal field of all (l,m) modes exept (l=0,m=0):
@@ -368,7 +369,7 @@ contains
                end if
             end do
          end do
-    
+
       end if
 
       !----- Caring for IC and mantle rotation rates if this
@@ -419,34 +420,34 @@ contains
          if ( nRotMa == 2 ) omega_ma=omega_ma1 + omega_diff
 
       end if
-    
+
    end subroutine initV
 !--------------------------------------------------------------------
    subroutine initS(s,p)
       !
-      ! Purpose of this subroutine is to initialize the entropy field    
-      ! according to the input control parameters.                       
+      ! Purpose of this subroutine is to initialize the entropy field
+      ! according to the input control parameters.
       !
       ! +-----------------+---------------------------------------------+
       ! | Input           | value                                       |
       ! +=================+=============================================+
-      ! | init_s1 < 100:  | random noise initialized                    | 
-      ! |                 | the noise spectrum decays as l ^ (init_s1-1)|    
-      ! |                 | with peak amplitude amp_s1  for l=1         |    
+      ! | init_s1 < 100:  | random noise initialized                    |
+      ! |                 | the noise spectrum decays as l ^ (init_s1-1)|
+      ! |                 | with peak amplitude amp_s1  for l=1         |
       ! +-----------------+---------------------------------------------+
-      ! | init_s1 >=100:  | a specific harmonic mode initialized        |  
-      ! |                 | with amplitude amp_s1.                      |        
-      ! |                 | init_s1 is interpreted as number llmm       |         
-      ! |                 | where ll: harmonic degree,                  | 
-      ! |                 | mm: harmonic order.                         | 
-      ! +-----------------+---------------------------------------------+
-      ! | init_s2 >100 :  | a second harmonic mode initialized          |  
-      ! |                 | with amplitude amp_s2.                      |         
-      ! |                 | init_s2 is again interpreted as number llmm |         
+      ! | init_s1 >=100:  | a specific harmonic mode initialized        |
+      ! |                 | with amplitude amp_s1.                      |
+      ! |                 | init_s1 is interpreted as number llmm       |
       ! |                 | where ll: harmonic degree,                  |
       ! |                 | mm: harmonic order.                         |
       ! +-----------------+---------------------------------------------+
-      !                                                                   
+      ! | init_s2 >100 :  | a second harmonic mode initialized          |
+      ! |                 | with amplitude amp_s2.                      |
+      ! |                 | init_s2 is again interpreted as number llmm |
+      ! |                 | where ll: harmonic degree,                  |
+      ! |                 | mm: harmonic order.                         |
+      ! +-----------------+---------------------------------------------+
+      !
 
       !-- Output variables:
       complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
@@ -527,7 +528,7 @@ contains
       if ( init_s1 < 100 .and. init_s1 > 0 ) then
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
-           
+
          rr=random(one)
          do lm=max(llm,2),ulm
             m1 = lo_map%lm2m(lm)
@@ -544,7 +545,7 @@ contains
                end if
             end do
          end do
-           
+
       else  if ( init_s1 >= 100 ) then
 
       !-- Initialize one or two modes specifically
@@ -604,8 +605,8 @@ contains
                   c_i=s1(n_r)*s_i
                   s(lm,n_r)=s(lm,n_r)+cmplx(c_r,c_i,kind=cp)
                end do
-               write(6,'('' ! Second mode:'', &
-                    &  '' l='',i3,'' m='',i3,'' Ampl='',f8.5/)') l,m,amp_s2
+               write(output_unit,'('' ! Second mode:'', &
+               &       '' l='',i3,'' m='',i3,'' Ampl='',f8.5/)') l,m,amp_s2
             end if
 
          end if
@@ -774,28 +775,28 @@ contains
    subroutine initXi(xi)
       !
       ! Purpose of this subroutine is to initialize the chemical composition
-      ! according to the input control parameters.                       
+      ! according to the input control parameters.
       !
       ! +-----------------+---------------------------------------------+
       ! | Input           | value                                       |
       ! +=================+=============================================+
-      ! | init_xi1 < 100: | random noise initialized                    | 
-      ! |                 | the noise spectrum decays as l^ (init_xi1-1)|    
-      ! |                 | with peak amplitude amp_xi1  for l=1        |    
+      ! | init_xi1 < 100: | random noise initialized                    |
+      ! |                 | the noise spectrum decays as l^ (init_xi1-1)|
+      ! |                 | with peak amplitude amp_xi1  for l=1        |
       ! +-----------------+---------------------------------------------+
-      ! | init_xi1 >=100: | a specific harmonic mode initialized        |  
-      ! |                 | with amplitude amp_xi1.                     |        
-      ! |                 | init_xi1 is interpreted as number llmm      |         
-      ! |                 | where ll: harmonic degree,                  | 
-      ! |                 | mm: harmonic order.                         | 
-      ! +-----------------+---------------------------------------------+
-      ! | init_xi2 >100 : | a second harmonic mode initialized          |  
-      ! |                 | with amplitude amp_xi2.                     |         
-      ! |                 | init_xi2 is again interpreted as number llmm|         
+      ! | init_xi1 >=100: | a specific harmonic mode initialized        |
+      ! |                 | with amplitude amp_xi1.                     |
+      ! |                 | init_xi1 is interpreted as number llmm      |
       ! |                 | where ll: harmonic degree,                  |
       ! |                 | mm: harmonic order.                         |
       ! +-----------------+---------------------------------------------+
-      !                                                                   
+      ! | init_xi2 >100 : | a second harmonic mode initialized          |
+      ! |                 | with amplitude amp_xi2.                     |
+      ! |                 | init_xi2 is again interpreted as number llmm|
+      ! |                 | where ll: harmonic degree,                  |
+      ! |                 | mm: harmonic order.                         |
+      ! +-----------------+---------------------------------------------+
+      !
 
       !-- Output variables:
       complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
@@ -860,7 +861,7 @@ contains
                end if
             end do
          end do
-           
+
       else if ( init_xi1 >= 100 ) then
 
       !-- Initialize one or two modes specifically
@@ -921,8 +922,8 @@ contains
                   c_i=xi1(n_r)*xi_i
                   xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,c_i,kind=cp)
                end do
-               write(6,'('' ! Second mode:'', &
-                    &  '' l='',i3,'' m='',i3,'' Ampl='',f8.5/)') l,m,amp_xi2
+               write(output_unit,'('' ! Second mode:'', &
+               &     '' l='',i3,'' m='',i3,'' Ampl='',f8.5/)') l,m,amp_xi2
             end if
 
          end if
@@ -1088,10 +1089,10 @@ contains
 !---------------------------------------------------------------------------
    subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma)
       !
-      ! Purpose of this subroutine is to initialize the magnetic field  
-      ! according to the control parameters imagcon and init_b1/2.     
-      ! In addition CMB and ICB peak values are calculated for        
-      ! magneto convection.                                          
+      ! Purpose of this subroutine is to initialize the magnetic field
+      ! according to the control parameters imagcon and init_b1/2.
+      ! In addition CMB and ICB peak values are calculated for
+      ! magneto convection.
       !
 
       !-- Output variables:
@@ -1218,7 +1219,7 @@ contains
                end do
             end if
          end if
-           
+
       else if ( init_b1 == 2 ) then  ! l=1,m=0 analytical toroidal field
       ! with a maximum of amp_b1 at mid-radius
       ! between r_icb and r_cmb for an insulating
@@ -1241,8 +1242,8 @@ contains
                end do
             end if
          end if
-           
-      else if ( init_b1 == 3 ) then  
+
+      else if ( init_b1 == 3 ) then
          ! l=2,m=0 toroidal field and l=1,m=0 poloidal field
          ! toroidal field has again its maximum of amp_b1
          ! at mid-radius between r_icb and r_cmb for an
@@ -1549,9 +1550,9 @@ contains
 !-----------------------------------------------------------------------
    subroutine j_cond(lm0, aj0, aj0_ic)
       !
-      ! Purpose of this subroutine is to solve the diffusion equation    
-      ! for an initial toroidal magnetic field.                          
-      !                                                                   
+      ! Purpose of this subroutine is to solve the diffusion equation
+      ! for an initial toroidal magnetic field.
+      !
 
       !-- Input variable:
       integer, intent(in) :: lm0
@@ -1583,7 +1584,7 @@ contains
               &    dLh(lm0)*or2(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
          end do
       end do
-       
+
       !----- boundary conditions:
       !----- CMB:
       do n_r_out=1,rscheme_oc%n_max     ! should be bpeaktop at CMB
@@ -1616,7 +1617,7 @@ contains
          end do
 
       end if
-       
+
       do n_r=1,n_r_max
          jMat(n_r,1)      =rscheme_oc%boundary_fac*jMat(n_r,1)
          jMat(n_r,n_r_max)=rscheme_oc%boundary_fac*jMat(n_r,n_r_max)
@@ -1670,14 +1671,14 @@ contains
       if ( info /= 0 ) then
          call abortRun('Singular matrix jMat in j_cond.')
       end if
-       
+
       !----- zero RHS, except BC's
       do n_r=2,n_r_real-1
          rhs(n_r)=zero
       end do
       rhs(1)= bpeaktop                             ! Outer boundary
       if ( .not. l_cond_ic ) rhs(n_r_max)=bpeakbot  ! Inner boundary
-       
+
       !----- solve linear system:
       call solve_mat(jMat,n_r_tot,n_r_real,jPivot,rhs)
 
@@ -1691,9 +1692,9 @@ contains
 
       !----- transform to radial space:
       call rscheme_oc%costf1(aj0)
-       
+
       if ( l_cond_ic ) then
-           
+
          !----- copy result for IC:
          do n_cheb=1,n_cheb_ic_max
             aj0_ic(n_cheb)=rhs(n_r_max+n_cheb)
@@ -1701,7 +1702,7 @@ contains
          do n_cheb=n_cheb_ic_max+1,n_r_ic_max
             aj0_ic(n_cheb)=zero
          end do
-           
+
          !----- transform to radial space:
          !  Note: this is assuming that aj0_ic is an even function !
          call chebt_ic%costf1(aj0_ic,work_l_ic)
@@ -1710,14 +1711,14 @@ contains
 
       deallocate( jMat )
       deallocate( jPivot )
-    
+
    end subroutine j_cond
 !--------------------------------------------------------------------------------
    subroutine xi_cond(xi0)
       !
-      ! Purpose of this subroutine is to solve the chemical composition equation      
-      ! for an the conductive (l=0,m=0)-mode.                            
-      ! Output is the radial dependence of the solution in s0.           
+      ! Purpose of this subroutine is to solve the chemical composition equation
+      ! for an the conductive (l=0,m=0)-mode.
+      ! Output is the radial dependence of the solution in s0.
       !
 
       real(cp), intent(out) :: xi0(:) ! spherically-symmetric part
@@ -1741,7 +1742,7 @@ contains
             &                             rscheme_oc%drMat(n_r,n_r_out)  )
          end do
       end do
-       
+
 
       !-- Set boundary conditions:
       do n_r_out=1,rscheme_oc%n_max
@@ -1758,7 +1759,7 @@ contains
             &                       rscheme_oc%rnorm
          end if
       end do
-       
+
       !-- Fill with zeros:
       if ( rscheme_oc%n_max < n_r_max ) then
          do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -1766,24 +1767,24 @@ contains
             xi0Mat(n_r_max,n_r_out)=0.0_cp
          end do
       end if
-       
+
       !-- Renormalize:
       do n_r=1,n_r_max
          xi0Mat(n_r,1)      =rscheme_oc%boundary_fac*xi0Mat(n_r,1)
          xi0Mat(n_r,n_r_max)=rscheme_oc%boundary_fac*xi0Mat(n_r,n_r_max)
       end do
-       
+
       !-- Invert matrix:
       call prepare_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix xi0Mat in init_xi!')
       end if
-       
+
       !-- Set source terms in RHS:
       do n_r=2,n_r_max-1
          rhs(n_r)=-epscxi
       end do
-       
+
       !-- Set boundary values:
       if ( ktopxi == 2 .and. kbotxi == 2 ) then
          rhs(1)=0.0_cp
@@ -1791,10 +1792,10 @@ contains
          rhs(1)=real(topxi(0,0))
       end if
       rhs(n_r_max)=real(botxi(0,0))
-       
+
       !-- Solve for s0:
       call solve_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
-       
+
       !-- Copy result to s0:
       do n_r=1,n_r_max
          xi0(n_r)=rhs(n_r)
@@ -1806,7 +1807,7 @@ contains
             xi0(n_r_out)=0.0_cp
          end do
       end if
-       
+
       !-- Transform to radial space:
       call rscheme_oc%costf1(xi0)
 
@@ -1818,8 +1819,8 @@ contains
 !--------------------------------------------------------------------------------
    subroutine pt_cond(t0,p0)
       !
-      ! Purpose of this subroutine is to solve the entropy equation      
-      ! for an the conductive (l=0,m=0)-mode.                            
+      ! Purpose of this subroutine is to solve the entropy equation
+      ! for an the conductive (l=0,m=0)-mode.
       ! Output is the radial dependence of the solution in t0 and p0.
       !
 
@@ -1976,7 +1977,7 @@ contains
          work(1)      =rscheme_oc%boundary_fac*work(1)
          work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
-         work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:) 
+         work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work2)
          work2         =work2*rscheme_oc%rnorm
          work2(1)      =rscheme_oc%boundary_fac*work2(1)
@@ -2001,7 +2002,7 @@ contains
                   end if
                end do
             end do
-         
+
          else
 
             !-- In the finite differences case, we restrict the integral boundary
@@ -2029,7 +2030,7 @@ contains
          end do
 
       end if
-       
+
       !-- Fill with zeros:
       if ( rscheme_oc%n_max < n_r_max ) then
          do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -2043,7 +2044,7 @@ contains
             pt0Mat(n_r_max+1,n_r_out_p)=0.0_cp
          end do
       end if
-       
+
       !-- Renormalize:
       do n_r=1,n_r_max
          n_r_p=n_r+n_r_max
@@ -2073,13 +2074,13 @@ contains
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix pt0Mat in pt_cond!')
       end if
-       
+
       !-- Set source terms in RHS:
       do n_r=1,n_r_max
          rhs(n_r)          =-epsc*epscProf(n_r)*orho1(n_r)
          rhs(n_r+n_r_max)  =0.0_cp
       end do
-       
+
       !-- Set boundary values:
       if ( (ktops==2 .and. kbots==2) .or. (ktops==4 .and. kbots==4) ) then
          rhs(1)=0.0_cp
@@ -2109,7 +2110,7 @@ contains
             p0(n_r_out)=0.0_cp
          end do
       end if
-       
+
       !-- Transform to radial space:
       call rscheme_oc%costf1(t0)
       call rscheme_oc%costf1(p0)
@@ -2122,8 +2123,8 @@ contains
 !--------------------------------------------------------------------------------
    subroutine ps_cond(s0,p0)
       !
-      ! Purpose of this subroutine is to solve the entropy equation      
-      ! for an the conductive (l=0,m=0)-mode.                            
+      ! Purpose of this subroutine is to solve the entropy equation
+      ! for an the conductive (l=0,m=0)-mode.
       ! Output is the radial dependence of the solution in s0 and p0.
       !
 
@@ -2152,11 +2153,11 @@ contains
                ! Delta T = epsc
                ps0Mat(n_r,n_r_out)=rscheme_oc%rnorm*opr*kappa(n_r)* (          &
                &                            rscheme_oc%d2rMat(n_r,n_r_out) +   &
-               &      ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )*& 
+               &      ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )*&
                &                             rscheme_oc%drMat(n_r,n_r_out) +   &
                &      ( ddLtemp0(n_r)+dLtemp0(n_r)*(                           &
                &  two*or1(n_r)+dLkappa(n_r)+dLtemp0(n_r)+beta(n_r) ) ) *       &
-               &                             rscheme_oc%rMat(n_r,n_r_out) ) 
+               &                             rscheme_oc%rMat(n_r,n_r_out) )
 
                ps0Mat(n_r,n_r_out_p)=rscheme_oc%rnorm*opr*kappa(n_r)*          &
                &       alpha0(n_r)*orho1(n_r)*ViscHeatFac*ThExpNb*(            &
@@ -2272,7 +2273,7 @@ contains
          work(1)      =rscheme_oc%boundary_fac*work(1)
          work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
-         work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:) 
+         work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work2)
          work2         =work2*rscheme_oc%rnorm
          work2(1)      =rscheme_oc%boundary_fac*work2(1)
@@ -2325,7 +2326,7 @@ contains
          end do
 
       end if
-       
+
       !-- Fill with zeros:
       if ( rscheme_oc%n_max < n_r_max ) then
          do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -2339,7 +2340,7 @@ contains
             ps0Mat(n_r_max+1,n_r_out_p)=0.0_cp
          end do
       end if
-       
+
       !-- Renormalize:
       do n_r=1,n_r_max
          n_r_p=n_r+n_r_max
@@ -2367,13 +2368,13 @@ contains
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix ps0Mat in ps_cond!')
       end if
-       
+
       !-- Set source terms in RHS:
       do n_r=1,n_r_max
          rhs(n_r)        =-epsc*epscProf(n_r)*orho1(n_r)
          rhs(n_r+n_r_max)=0.0_cp
       end do
-       
+
       !-- Set boundary values:
       if ( (ktops==2 .and. kbots==2) .or. (ktops==4 .and. kbots==4) ) then
          rhs(1)=0.0_cp
@@ -2389,7 +2390,7 @@ contains
 
       !-- Solve for s0 and p0
       call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
-       
+
       !-- Copy result to s0 and p0
       do n_r=1,n_r_max
          s0(n_r)=rhs(n_r)
@@ -2403,7 +2404,7 @@ contains
             p0(n_cheb)=0.0_cp
          end do
       end if
-       
+
       !-- Transform to radial space:
       call rscheme_oc%costf1(s0)
       call rscheme_oc%costf1(p0)

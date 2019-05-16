@@ -471,6 +471,8 @@ contains
          l_anel=.true.
       else if ( index(interior_model, 'SAT') /= 0 ) then
          l_anel=.true.
+     else if ( index(interior_model, 'GRLPLANET') /= 0 ) then
+         l_anel=.true.
       else if ( index(interior_model, 'SUN') /= 0 ) then
          l_anel=.true.
       else if ( index(interior_model, 'GLIESE229B') /= 0 ) then

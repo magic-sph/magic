@@ -1441,7 +1441,7 @@ contains
          write(*,'(/,'' ! Mapping onto new grid.'')')
 
          if ( mod(minc_old,minc) /= 0 )                                &
-         &     write(6,'('' ! Warning: Incompatible old/new minc= '',2i3)')
+         &     write(*,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
          &          m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &

@@ -89,8 +89,10 @@ program magic
    use truncation
    use precision_mod
    use physical_parameters
+   use iso_fortran_env, only: output_unit
    use radial_der, only: initialize_der_arrays, finalize_der_arrays
-   use radial_functions, only: initialize_radial_functions, finalize_radial_functions
+   use radial_functions, only: initialize_radial_functions, &
+       &                       finalize_radial_functions
    use num_param
    use torsional_oscillations
    use init_fields
@@ -196,7 +198,7 @@ program magic
       call date_and_time(values=values)
       write(date, '(i4,''/'',i0.2,''/'',i0.2,'' '', i0.2,'':'',i0.2,'':'',i0.2)') &
       &     values(1), values(2), values(3), values(5), values(6), values(7)
-      write(6, *) '!  Start time:  ', date
+      write(output_unit, *) '!  Start time:  ', date
    end if
 
    !--- Read input parameters:
@@ -318,7 +320,7 @@ program magic
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
       end if
-      call writeNamelists(6)
+      call writeNamelists(output_unit)
       call writeNamelists(n_log_file)
       if ( l_save_out ) close(n_log_file)
    end if
@@ -335,7 +337,7 @@ program magic
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
       end if
-      call writeInfo(6)
+      call writeInfo(output_unit)
       call writeInfo(n_log_file)
       if ( l_save_out ) close(n_log_file)
    end if
@@ -444,7 +446,7 @@ program magic
    call finalize_output
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
-   
+
    PERFOFF
    PERFOUT('main')
    !LIKWID_OFF('main')

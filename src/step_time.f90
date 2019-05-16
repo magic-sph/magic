@@ -5,6 +5,7 @@ module step_time_mod
 #include "likwid_f90.h"
 #endif
 
+   use iso_fortran_env, only: output_unit
    use fields
    use fieldsLast
    use parallel_mod
@@ -65,7 +66,7 @@ module step_time_mod
    use timing ! Everything is needed
    use probe_mod
 
-   implicit none 
+   implicit none
 
    private
 
@@ -166,7 +167,7 @@ contains
 
       ! first touch
       do nR=nRstart,nRstop
-         !$OMP PARALLEL do 
+         !$OMP PARALLEL do
          do lm=1,lm_max
             if ( l_mag ) then
                dbdt_Rloc(lm,nR)=zero
@@ -285,11 +286,11 @@ contains
       !--- Local variables:
 
       !--- Logicals controlling output/calculation:
-      logical :: l_graph          ! 
+      logical :: l_graph          !
       logical :: l_spectrum
       logical :: l_cour           ! Check Courant criteria
       logical :: lCourChecking    ! Ongoing Courant criteria check
-      logical :: l_store          ! Store output in restart file 
+      logical :: l_store          ! Store output in restart file
       logical :: l_new_rst_file   ! Use new rst file
       logical :: l_log            ! Log output
       logical :: l_stop_time      ! Stop time stepping
@@ -323,12 +324,12 @@ contains
       character(len=20) :: string
 
       character(len=255) :: message
-      character(len=76) :: SIG    
+      character(len=76) :: SIG
 
       !--- Courant criteria/diagnosis:
       real(cp) :: dtr,dth
       !-- Saves values for time step
-      real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop) 
+      real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop)
 
       !--- Explicit part of time stepping, calculated in s_radialLoopG.f and
       !    passed to LMLoop.f where the time step is preformed.
@@ -375,8 +376,8 @@ contains
       logical :: l_new_dt        ! causes call of matbuild !
       logical :: l_new_dtNext    ! causes call of matbuild !
       logical :: l_new_dtHit     ! causes call of matbuild !
-      integer :: n_dt_changed    
-      integer :: n_dt_check        
+      integer :: n_dt_changed
+      integer :: n_dt_check
       real(cp) :: timeScaled        ! Scaled time for output.
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
@@ -418,9 +419,9 @@ contains
 #endif
 
       l_log       =.false.
-      l_stop_time =.false. 
+      l_stop_time =.false.
       l_new_dt    =.true.   ! Invokes calculation of t-step matricies
-      l_new_dtNext=.true.  
+      l_new_dtNext=.true.
       w2New       =-half*dtNew/dt
       n_dt_changed=0        ! No of time steps since dt changed
       n_dt_check  =4        ! No of courant checks after dt changed
@@ -477,7 +478,7 @@ contains
       if ( n_time_steps == 1 ) then
          n_time_steps_go=1 ! Output only, for example G-file/movie etc.
       else if ( n_time_steps == 2 ) then
-         n_time_steps_go=2 ! 
+         n_time_steps_go=2 !
       else
          n_time_steps_go=n_time_steps+1  ! Last time step for output only !
       end if
@@ -488,10 +489,10 @@ contains
 
       PERFON('tloop')
       !LIKWID_ON('tloop')
-      outer: do n_time_step=1,n_time_steps_go 
+      outer: do n_time_step=1,n_time_steps_go
          n_time_cour=n_time_cour+1
-         
-         if ( lVerbose .or. DEBUG_OUTPUT ) then 
+
+         if ( lVerbose .or. DEBUG_OUTPUT ) then
             write(*,*)
             write(*,*) '! Starting time step ',n_time_step
          end if
@@ -562,7 +563,7 @@ contains
                old_stop_signal=n_stop_signal
                if ( index(SIG,'END')/=0 ) signals(1)=1  !n_stop_signal=1
                old_graph_signal=n_graph_signal
-               if ( index(SIG,'GRA')/=0 ) then 
+               if ( index(SIG,'GRA')/=0 ) then
                   signals(2)=1
                   open(newunit=sigFile, file=trim(message), status='unknown')
                   write(sigFile,'(A3)') 'NOT'
@@ -669,7 +670,7 @@ contains
          if ( time >= tEND .and. tEND /= 0.0_cp ) l_stop_time=.true.
          PERFOFF
          !PERFON('logics')
-         !-- Checking logic for output: 
+         !-- Checking logic for output:
          l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,       &
               &                  n_graph_step,n_graphs,n_t_graph,t_graph,0) .or. &
               &             n_graph_signal == 1
@@ -685,7 +686,7 @@ contains
               &              n_time_steps_go == 1 )
          if ( l_mag .or. l_mag_LF ) then
             l_dtB=( l_frame .and. l_dtBmovie ) .or.         &
-                 &              ( l_log .and. l_DTrMagSpec ) 
+                 &              ( l_log .and. l_DTrMagSpec )
          end if
          l_HT  = l_frame .and. l_HTmovie
 
@@ -721,7 +722,7 @@ contains
 
          l_cour=.true.
 
-         l_new_rst_file=                                                         & 
+         l_new_rst_file=                                                         &
               &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
               &                       n_rst_step,n_rsts,n_t_rst,t_rst,0) .or.    &
               &        n_rst_signal == 1
@@ -763,7 +764,7 @@ contains
                  &          n_time_steps,n_TOmovie_step,n_TOmovie_frames,   &
                  &                               n_t_TOmovie,t_TOmovie,0)
          end if
-         lTONext      =lTOnext.or.lTOframeNext 
+         lTONext      =lTOnext.or.lTOframeNext
          lTONext2     =.false.
          lTOframeNext2=.false.
          if ( n_time_step+2 <= n_time_steps+1 ) then
@@ -776,11 +777,11 @@ contains
                  &                               n_time_steps,n_TOmovie_step, &
                  &                  n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
          end if
-         lTONext2=lTOnext2.or.lTOframeNext2 
+         lTONext2=lTOnext2.or.lTOframeNext2
          lTOZhelp= n_time_step > 2 .and. l_TO .and.                         &
               &                l_correct_step(n_time_step-1,time,timeLast,  &
               &            n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
-         if ( lTOZhelp ) then 
+         if ( lTOZhelp ) then
             lTOZwrite=.true.
          else
             lTOZwrite=.false.
@@ -794,7 +795,7 @@ contains
 
          if ( l_stop_time ) then                  ! Programm stopped by kill -30
             l_new_rst_file=.true.                 ! Write rst-file and some
-            if ( n_stores > 0 ) l_store=.true.    ! diagnostics before dying ! 
+            if ( n_stores > 0 ) l_store=.true.    ! diagnostics before dying !
             l_log=.true.
             lRmsNext=.false.
          end if
@@ -816,7 +817,7 @@ contains
          if ( l_graph ) then  ! write graphic output !
             PERFON('graph')
             n_graph=n_graph+1     ! increase counter for graphic file
-            if ( l_graph_time ) then 
+            if ( l_graph_time ) then
                call dble2str(time,string)
                graph_file='G_t='//trim(string)//'.'//tag
             else
@@ -872,7 +873,7 @@ contains
                lmStart=lmStartB(nLMB)
                lmStop=lmStopB(nLMB)
                lmStart_00  =max(2,lmStart)
-               
+
                !do nR=1,n_r_max
                !   write(*,"(A,I2,A,2ES20.12)") "dw_LMloc for nR=",nR," is ", &
                !        SUM( dw_LMloc(lmStart:lmStop,nR) )
@@ -910,10 +911,10 @@ contains
                end if
             end do
          end if
-         
+
          !--- Now the real work starts with the radial loop that calculates
          !    the nonlinear terms:
-         if ( lVerbose ) then 
+         if ( lVerbose ) then
             write(*,*)
             write(*,*) '! Starting radial loop!'
          end if
@@ -958,7 +959,7 @@ contains
          !---------------------------------------
          ! we have here the following arrays from radialLoopG:
          !  dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM
-         !  TstrRLM,TadvRLM,TomeRLM, 
+         !  TstrRLM,TadvRLM,TomeRLM,
          !  HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,dtrkc,dthkc
          !
          ! gather in-place, we need allgatherV because auf the unequal
@@ -1041,7 +1042,7 @@ contains
             if ( l_mag ) then
                write(*,"(A,10ES20.12)")                            &
                     &"lo_arr middl: dbdt,b,db,ddb,dbdtLast = ",    &
-                    & GET_GLOBAL_SUM( dbdt_LMloc(:,2:n_r_max-1) ), &              
+                    & GET_GLOBAL_SUM( dbdt_LMloc(:,2:n_r_max-1) ), &
                     & GET_GLOBAL_SUM( b_LMloc ),                   &
                     & GET_GLOBAL_SUM( db_LMloc ),                  &
                     & GET_GLOBAL_SUM( ddb_LMloc ),                 &
@@ -1082,7 +1083,7 @@ contains
               &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
               &      viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
               &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
-              &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,& 
+              &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
               &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
          PERFOFF
          if ( lVerbose ) write(*,*) "! output finished"
@@ -1125,7 +1126,7 @@ contains
 
          PERFON('t_check')
          !---- Time-step check and change if needed (l_new_dtNext=.true.)
-         !     I anticipate the dt change here that is only used in 
+         !     I anticipate the dt change here that is only used in
          !     the next time step cause its needed for coex=(alpha-1)/w2 !
          dtLast=dt
          dt=dtNew        ! Update to new time step
@@ -1320,7 +1321,7 @@ contains
             if ( nTimeT > 0 ) then
                call meanTime(runTimePassed,nTimeT)
                if ( rank == 0 ) then
-                  call writeTime(6,'! Mean wall time for time step:',  &
+                  call writeTime(output_unit,'! Mean wall time for time step:',  &
                   &              runTimePassed)
                   if ( l_save_out ) then
                      open(newunit=n_log_file, file=log_file, status='unknown', &
@@ -1387,15 +1388,15 @@ contains
       call meanTime(runTimeTL,nTimeTL)
       call meanTime(runTimeT,nTimeT)
       if ( rank == 0 ) then
-         call writeTime(6, &
+         call writeTime(output_unit, &
          &    '! Mean wall time for r Loop                 :',runTimeR)
-         call writeTime(6, &
+         call writeTime(output_unit, &
          &   '! Mean wall time for LM Loop                :',runTimeLM)
-         call writeTime(6, &
+         call writeTime(output_unit, &
          &   '! Mean wall time for t-step with matrix calc:',runTimeTM)
-         call writeTime(6, &
+         call writeTime(output_unit, &
          &   '! Mean wall time for t-step with log output :',runTimeTL)
-         call writeTime(6, &
+         call writeTime(output_unit, &
          &   '! Mean wall time for pure t-step            :',runTimeT)
          if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
@@ -1424,14 +1425,14 @@ contains
 !------------------------------------------------------------------------------
    subroutine check_time_hits(l_new_dt,time,dt,dt_new)
       !
-      !  Checks whether a certain dt is required to hit a                 
-      !  specific output-time.                                            
+      !  Checks whether a certain dt is required to hit a
+      !  specific output-time.
       !
 
       !-- Output: ev. modified dt
       logical,  intent(out) :: l_new_dt ! signfies change of dt !
       real(cp), intent(inout) :: time,dt,dt_new
-       
+
       !-- Local variables:
       integer :: n_dt_hit
       integer, parameter :: n_dt_hit_max=10
