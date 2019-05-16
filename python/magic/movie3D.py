@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import glob
-import re,os
+import re
+import os
 import numpy as np
 from magic.libmagic import symmetrize
 from magic import ExtraPot
@@ -22,7 +23,7 @@ class Movie3D:
     """
 
     def __init__(self, file=None, step=1, lastvar=None, nvar='all', nrout=48,
-                 ratio_out=2., potExtra=False, precision='Float32'):
+                 ratio_out=2., potExtra=False, precision=np.float32):
         """
         :param file: file name
         :type file: str
@@ -33,20 +34,22 @@ class Movie3D:
         :type lastvar: int
         :param step: the stepping between two timesteps
         :type step: int
-        :param precision: precision of the input file, Float32 for single precision,
-                          Float64 for double precision
+        :param precision: precision of the input file, np.float32 for single
+                          precision, np.float64 for double precision
         :type precision: str
-        :param potExtra: when set to True, potential extrapolation of the magnetic field
-                         outside the fluid domain is also computed
+        :param potExtra: when set to True, potential extrapolation of the
+                         magnetic field outside the fluid domain is also
+                         computed
         :type potExtra: bool
-        :param ratio_out: ratio of desired external radius to the CMB radius. This is
-                          is only used when potExtra=True
+        :param ratio_out: ratio of desired external radius to the CMB radius.
+                          This is is only used when potExtra=True
         :type ratio_out: float
-        :param nrout: number of additional radial grid points to compute the potential
-                      extrapolation. This is only used when potExtra=True
+        :param nrout: number of additional radial grid points to compute the
+                      potential extrapolation. This is only used when
+                      potExtra=True
         :type nrout: int
         """
-        if file == None:
+        if file is None:
             dat = glob.glob('*_mov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
@@ -68,7 +71,7 @@ class Movie3D:
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         for line in logfile.readlines():
             if mot.match(line):
-                 nlines = int(mot.findall(line)[0])
+                nlines = int(mot.findall(line)[0])
         logfile.close()
         if lastvar is None:
             self.var2 = nlines
@@ -99,7 +102,7 @@ class Movie3D:
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, minc, ra, \
-             ek, pr, prmag, radratio, tScale = infile.fort_read(precision)
+            ek, pr, prmag, radratio, tScale = infile.fort_read(precision)
         minc = int(minc)
         self.n_r_max = int(n_r_max)
         self.n_theta_max = int(n_theta_max)
@@ -108,9 +111,9 @@ class Movie3D:
 
         # GRID
         if potExtra:
-            self.radius = np.zeros((n_r_mov_tot+1+nrout), 'f')
+            self.radius = np.zeros((n_r_mov_tot+1+nrout), np.float32)
         else:
-            self.radius = np.zeros((n_r_mov_tot+2), 'f')
+            self.radius = np.zeros((n_r_mov_tot+2), np.float32)
         tmp = infile.fort_read(precision)/(1.-radratio)
         rcmb = tmp[0]
         self.radius[2:n_r_mov_tot+2] = tmp[::-1]
@@ -122,13 +125,13 @@ class Movie3D:
         self.time = np.zeros(self.nvar, precision)
         if potExtra:
             scals = np.zeros((n_r_mov_tot+1+nrout, self.n_theta_max,
-                             self.n_phi_tot*minc+1,1),'f')
+                              self.n_phi_tot*minc+1, 1), np.float32)
         else:
-            scals = np.zeros((n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot*minc+1,1),'f')
+            scals = np.zeros((n_r_mov_tot+2, self.n_theta_max,
+                              self.n_phi_tot*minc+1, 1), np.float32)
         vecr = np.zeros_like(scals)
         vect = np.zeros_like(scals)
         vecp = np.zeros_like(scals)
-
 
         # Potential extrapolation
         radii = self.radius
@@ -146,37 +149,43 @@ class Movie3D:
                  movieDipLon, movieDipStrength, \
                  movieDipStrengthGeo = infile.fort_read(precision)
             tmp = infile.fort_read(precision, shape=shape)
-            vecr[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
+            vecr[0:n_r_mov_tot+2, :, :, 0] = symmetrize(tmp, minc,
+                                                        reversed=True)
             tmp = infile.fort_read(precision, shape=shape)
-            vect[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
+            vect[0:n_r_mov_tot+2, :, :, 0] = symmetrize(tmp, minc,
+                                                        reversed=True)
             tmp = infile.fort_read(precision, shape=shape)
-            vecp[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
+            vecp[0:n_r_mov_tot+2, :, :, 0] = symmetrize(tmp, minc,
+                                                        reversed=True)
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                  movieDipLon, movieDipStrength, \
                  movieDipStrengthGeo = infile.fort_read(precision)
             self.time[k] = t_movieS
             if k % step == 0:
-                #print(k+self.var2-self.nvar)
+                # print(k+self.var2-self.nvar)
                 tmp = infile.fort_read(precision, shape=shape)
-                brCMB = np.zeros((self.n_theta_max, self.n_phi_tot), 'f')
+                brCMB = np.zeros((self.n_theta_max, self.n_phi_tot), np.float32)
                 brCMB = tmp[0, :, :]
                 brCMB = brCMB.T
                 if potExtra:
-                    vecr[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc,
-                                                                reversed=True)
+                    vecr[nrout-1:nrout+n_r_mov_tot+2, :, :, 0] = \
+                        symmetrize(tmp, minc, reversed=True)
                     tmp = infile.fort_read(precision, shape=shape)
-                    vect[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc,
-                                                                reversed=True)
+                    vect[nrout-1:nrout+n_r_mov_tot+2, :, :, 0] = \
+                        symmetrize(tmp, minc, reversed=True)
                     tmp = infile.fort_read(precision, shape=shape)
-                    vecp[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc,
-                                                                reversed=True)
+                    vecp[nrout-1:nrout+n_r_mov_tot+2, :, :, 0] = \
+                        symmetrize(tmp, minc, reversed=True)
                 else:
-                    vecr[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
+                    vecr[0:n_r_mov_tot+2, :, :, 0] = \
+                        symmetrize(tmp, minc, reversed=True)
                     tmp = infile.fort_read(precision, shape=shape)
-                    vect[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
+                    vect[0:n_r_mov_tot+2, :, :, 0] = \
+                        symmetrize(tmp, minc, reversed=True)
                     tmp = infile.fort_read(precision, shape=shape)
-                    vecp[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
+                    vecp[0:n_r_mov_tot+2, :, :, 0] = \
+                        symmetrize(tmp, minc, reversed=True)
                 filename = 'B3D_%05d' % k
                 vecr = vecr[::-1, ...]
                 vect = vect[::-1, ...]
@@ -195,7 +204,7 @@ class Movie3D:
                     radii = self.radius
                 vts(filename, radii, br, bt, bp, scals, scalNames, vecNames, 1)
                 print('write %s.vts' % filename)
-            else: # Otherwise we read
+            else:  # Otherwise we read
                 vecr = infile.fort_read(precision, shape=shape)
                 vect = infile.fort_read(precision, shape=shape)
                 vecp = infile.fort_read(precision, shape=shape)
@@ -204,6 +213,4 @@ class Movie3D:
 
 
 if __name__ == '__main__':
-    from magic import MagicGraph
-
     t1 = Movie3D(file='B_3D_mov.CJ2')

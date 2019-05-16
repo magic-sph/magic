@@ -9,7 +9,7 @@ from .npfile import *
 from magic.libmagic import symmetrize, chebgrid
 from magic.plotlib import hammer2cart
 
-def getNlines(file_name, endian='B', precision='Float32'):
+def getNlines(file_name, endian='B', precision=np.float32):
     """
     This function determines the number of lines of a binary file.
 
@@ -17,8 +17,8 @@ def getNlines(file_name, endian='B', precision='Float32'):
     :type file_name: str
     :param endian: endianness of the file ('B' or 'l')
     :type endian: str
-    :param precision: precision of the data contained in the input file ('Float32' or
-                      'Float64')
+    :param precision: precision of the data contained in the input file
+                      (np.float32 or np.float64)
     :type endian: str
     :returns: the number of lines
     :rtype: int
@@ -67,7 +67,7 @@ class Movie:
     def __init__(self, file=None, iplot=True, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False,
-                 std=False, dpi=80, normRad=False, precision='Float32',
+                 std=False, dpi=80, normRad=False, precision=np.float32,
                  deminc=True, ifield=0):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
@@ -98,8 +98,8 @@ class Movie:
         :type dpi: int
         :param normRad: if normRad=True, then we normalise for each radial level
         :type normRad: bool
-        :param precision: precision of the input file, Float32 for single precision,
-                          Float64 for double precision
+        :param precision: precision of the input file, np.float32 for single
+                          precision, np.float64 for double precision
         :type precision: str
         :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
@@ -115,7 +115,7 @@ class Movie:
 
         if avg or std:
             iplot = False
-        if file == None:
+        if file is None:
             dat = glob.glob('*[Mm]ov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
@@ -150,8 +150,8 @@ class Movie:
         # Run parameters
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
-             self.ek, self.pr, self.prmag, self.radratio, self.tScale =   \
-                                                    infile.fort_read(precision)
+            self.ek, self.pr, self.prmag, self.radratio, self.tScale =   \
+            infile.fort_read(precision)
         self.minc = int(self.minc)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
@@ -164,13 +164,14 @@ class Movie:
         self.radius_ic = np.zeros((self.n_r_ic_max+2), precision)
         self.radius_ic[:-1] = self.radius[self.n_r_max-1:]
 
-        self.radius = self.radius[:self.n_r_max] # remove inner core
-        # Overwrite radius to ensure double-precision of the grid (useful for Cheb der)
+        self.radius = self.radius[:self.n_r_max]  # remove inner core
+        # Overwrite radius to ensure double-precision of the 
+        # grid (useful for Cheb der)
         rout = 1./(1.-self.radratio)
         rin = self.radratio/(1.-self.radratio)
         self.radius *= rout
         self.radius_ic *= rout
-        #self.radius = chebgrid(self.n_r_max-1, rout, rin)
+        # self.radius = chebgrid(self.n_r_max-1, rout, rin)
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
@@ -189,8 +190,8 @@ class Movie:
         # In case no 'nlines' can be determined from the log file:
         if nlines == 0:
             nlines = getNlines(filename, endian='B', precision=precision)
-            nlines -= 8 # Remove 8 lines of header
-            nlines  /= (self.n_fields+1)
+            nlines -= 8  # Remove 8 lines of header
+            nlines /= (self.n_fields+1)
 
         if lastvar is None:
             self.var2 = nlines
@@ -212,7 +213,7 @@ class Movie:
                                   self.n_theta_max), precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
-            if self.movtype in [1, 2, 3, 14]: # read inner core
+            if self.movtype in [1, 2, 3, 14]:  # read inner core
                 shape = (n_r_mov_tot+2, self.n_phi_tot)
             else:
                 shape = (self.n_r_max, self.n_phi_tot)
@@ -222,7 +223,7 @@ class Movie:
                                     self.n_r_ic_max+2), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
-            if self.movtype in [1, 2, 3, 14]: # read inner core
+            if self.movtype in [1, 2, 3, 14]:  # read inner core
                 shape = (n_r_mov_tot+2, 2*self.n_theta_max)
             elif self.movtype in [8, 9]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
@@ -233,8 +234,9 @@ class Movie:
             # Inner core is not stored here
             self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
                                  self.n_r_max), precision)
-            self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
-                                    self.n_r_ic_max+2), precision)
+            self.data_ic = np.zeros((self.n_fields, self.nvar,
+                                     self.n_theta_max, self.n_r_ic_max+2),
+                                    precision)
 
         self.time = np.zeros(self.nvar, precision)
 
@@ -243,15 +245,15 @@ class Movie:
         # If one skip the beginning, nevertheless read but do not store
         for i in range(self.var2-self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                                   movieDipLon, movieDipStrength, \
-                            movieDipStrengthGeo = infile.fort_read(precision)
+                movieDipLon, movieDipStrength, movieDipStrengthGeo = \
+                infile.fort_read(precision)
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape)
         # then read the remaining requested nvar lines
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                                   movieDipLon, movieDipStrength, \
-                            movieDipStrengthGeo = infile.fort_read(precision)
+                movieDipLon, movieDipStrength, movieDipStrengthGeo = \
+                infile.fort_read(precision)
             self.time[k] = t_movieS
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape)
@@ -290,12 +292,12 @@ class Movie:
             for ll in range(self.n_fields):
                 norm = np.sqrt(np.mean(self.data[ll, ...]**2, axis=1))
                 norm = norm.mean(axis=0)
-                self.data[ll, :, :, norm!=0.] /= norm[norm!=0.]
+                self.data[ll, :, :, norm != 0.] /= norm[norm != 0.]
 
         if iplot:
             cmap = plt.get_cmap(cm)
-            self.plot(ifield, cut, levels, cmap, png, step, normed, dpi, bgcolor,
-                      deminc)
+            self.plot(ifield, cut, levels, cmap, png, step, normed, dpi,
+                      bgcolor, deminc)
         if avg or std:
             cmap = plt.get_cmap(cm)
             self.avgStd(ifield, std, cut, levels, cmap)
@@ -305,13 +307,14 @@ class Movie:
         Built-in function to sum two movies
 
         .. note:: So far this function only works for two movies with the same
-                  grid sizes. At some point, we might introduce grid extrapolation
-                  to allow any summation
+                  grid sizes. At some point, we might introduce grid
+                  extrapolation to allow any summation.
         """
         out = copy.deepcopy(new)
         if new.time[0] == self.time[-1]:
             out.time = np.concatenate((self.time, new.time[1:]), axis=0)
-            out.data = np.concatenate((self.data, new.data[:, 1:, ...]), axis=1)
+            out.data = np.concatenate((self.data, new.data[:, 1:, ...]),
+                                      axis=1)
             out.nvar = self.nvar+new.nvar-1
             out.var2 = out.nvar
         else:
@@ -404,7 +407,8 @@ class Movie:
         ax.axis('off')
 
     def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False,
-             step=1, normed=False, dpi=80, bgcolor=None, deminc=True, ic=False):
+             step=1, normed=False, dpi=80, bgcolor=None, deminc=True,
+             ic=False):
         """
         Plotting function (it can also write the png files)
 
@@ -446,7 +450,7 @@ class Movie:
                          abs(self.data[ifield, ...].min()))
             vmin = cut * vmin
             vmax = -vmin
-            #vmin, vmax = self.data.min(), self.data.max()
+            # vmin, vmax = self.data.min(), self.data.max()
             cs = np.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
@@ -471,7 +475,8 @@ class Movie:
                 xxout, yyout = hammer2cart(th, -np.pi)
                 xxin, yyin = hammer2cart(th, np.pi)
             else:
-                phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, self.n_phi_tot)
+                phi = np.linspace(-np.pi/self.minc, np.pi/self.minc,
+                                  self.n_phi_tot)
                 xxout, yyout = hammer2cart(th, -np.pi/self.minc)
                 xxin, yyin = hammer2cart(th, np.pi/self.minc)
             ttheta, pphi = np.meshgrid(th, phi)
@@ -620,12 +625,13 @@ class Movie:
         if deminc:
             phi = np.linspace(-np.pi, np.pi, self.minc*self.n_phi_tot+1)
         else:
-            phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, self.n_phi_tot)
+            phi = np.linspace(-np.pi/self.minc, np.pi/self.minc,
+                              self.n_phi_tot)
 
         if deminc:
-            dat = np.zeros((self.nvar, self.minc*self.n_phi_tot+1), 'Float64')
+            dat = np.zeros((self.nvar, self.minc*self.n_phi_tot+1), np.float64)
         else:
-            dat = np.zeros((self.nvar, self.n_phi_tot), 'Float64')
+            dat = np.zeros((self.nvar, self.n_phi_tot), np.float64)
 
         for k in range(self.nvar):
             if deminc:
@@ -657,11 +663,8 @@ class Movie:
         ax1 = fig1.add_subplot(111)
         ax1.contourf(ms, omega, np.log10(w2), 65, cmap=plt.get_cmap('jet'))
         ax1.set_yscale('log')
-        #ax1.set_xlim(0,13)
         ax1.set_xlabel(r'Azimuthal wavenumber')
         ax1.set_ylabel(r'Frequency')
-
-
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ class Butterfly:
 
     def __init__(self, file=None, step=1, iplot=True, rad=0.8,
                  lastvar=None, nvar='all', levels=20, cm='RdYlBu_r',
-                 precision='Float32',cut=0.8):
+                 precision=np.float32, cut=0.8):
         """
         :param file: when specified, the constructor reads this file, otherwise
                      a list with the possible options is displayed
@@ -37,8 +37,8 @@ class Butterfly:
         :type rad: float
         :param iplot: display/hide the plots (default is True)
         :type iplot: bool
-        :param nvar: the number of time steps (lines) of the movie file we want to plot
-                     starting from the last line
+        :param nvar: the number of time steps (lines) of the movie file one
+                     wants to plot starting from the last line
         :type nvar: int
         :param lastvar: the number of the last time step to be read
         :type lastvar: int
@@ -50,14 +50,14 @@ class Butterfly:
         :type cm: str
         :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
-        :param precision: precision of the input file, Float32 for single precision,
-                          Float64 for double precision
+        :param precision: precision of the input file, np.float32 for single
+                          precision, np.float64 for double precision
         :type precision: bool
         """
 
         self.precision = precision
 
-        if file == None:
+        if file is None:
             dat = glob.glob('*_mov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):

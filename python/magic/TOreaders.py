@@ -22,7 +22,7 @@ class TOMovie:
     """
 
     def __init__(self, file=None, iplot=True, cm='RdYlBu_r',
-                 cut=0.8, levels=16, avg=True, precision='Float32'):
+                 cut=0.8, levels=16, avg=True, precision=np.float32):
         """
         :param file: the filename of the TO_mov file
         :type file: str
@@ -37,12 +37,12 @@ class TOMovie:
         :type iplot: bool
         :param avg: time average of the different forces
         :type avg: bool
-        :param precision: precision of the input file, Float32 for single precision,
-                          Float64 for double precision
+        :param precision: precision of the input file, np.float32 for single
+                          precision, np.float64 for double precision
         :type precision: str
         """
 
-        if file == None:
+        if file is None:
             dat = glob.glob('TO_mov.*')
             str1 = 'Which TO movie do you want ?\n'
             for k, movie in enumerate(dat):
@@ -83,8 +83,8 @@ class TOMovie:
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
-             self.ek, self.pr, self.prmag, \
-             self.radratio, self.tScale = infile.fort_read(precision)
+            self.ek, self.pr, self.prmag, \
+            self.radratio, self.tScale = infile.fort_read(precision)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
         self.n_theta_max = int(n_theta_max)
@@ -92,7 +92,7 @@ class TOMovie:
 
         # GRID
         self.radius = infile.fort_read(precision)
-        self.radius = self.radius[:self.n_r_max] # remove inner core
+        self.radius = self.radius[:self.n_r_max]  # remove inner core
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
@@ -100,7 +100,8 @@ class TOMovie:
         shape = (self.n_r_max, self.n_theta_max)
 
         self.time = np.zeros(self.nvar, precision)
-        self.asVphi = np.zeros((self.nvar, self.n_theta_max,self.n_r_max), precision)
+        self.asVphi = np.zeros((self.nvar, self.n_theta_max, self.n_r_max),
+                               precision)
         self.rey = np.zeros_like(self.asVphi)
         self.adv = np.zeros_like(self.asVphi)
         self.visc = np.zeros_like(self.asVphi)
@@ -111,8 +112,8 @@ class TOMovie:
         # READ the data
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                                   movieDipLon, movieDipStrength, \
-                           movieDipStrengthGeo = infile.fort_read(precision)
+                movieDipLon, movieDipStrength, movieDipStrengthGeo \
+                = infile.fort_read(precision)
             self.time[k] = t_movieS
             self.asVphi[k, ...] = infile.fort_read(precision, shape=shape).T
             self.rey[k, ...] = infile.fort_read(precision, shape=shape).T
@@ -148,7 +149,8 @@ class TOMovie:
         xxin = rr.min() * np.cos(th)
         yyin = rr.min() * np.sin(th)
         fig = plt.figure(figsize=(20, 5))
-        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01, wspace=0.01)
+        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01,
+                            wspace=0.01)
 
         if avg:
             cor = self.coriolis.mean(axis=0)
@@ -175,42 +177,42 @@ class TOMovie:
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'uphi', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(182)
             ax.axis('off')
             im = ax.contourf(xx, yy, adv, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Adv', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(183)
             ax.axis('off')
             im = ax.contourf(xx, yy, rey, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Rey', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(184)
             ax.axis('off')
             im = ax.contourf(xx, yy, vis, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Visc', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(185)
             ax.axis('off')
             im = ax.contourf(xx, yy, lor, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Lo.', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(186)
             ax.axis('off')
             im = ax.contourf(xx, yy, cor, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Cor.', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(187)
             ax.axis('off')
             balance = adv+cor+vis+lor+rey
@@ -218,14 +220,14 @@ class TOMovie:
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'sum', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    verticalalignment='center')
             ax = fig.add_subplot(188)
             ax.axis('off')
             im = ax.contourf(xx, yy, dt, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
-            ax.text(0.01, 0., 'dvp/dt', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+            ax.text(0.01, 0., 'dvp/dt', fontsize=20,
+                    horizontalalignment='left', verticalalignment='center')
 
         else:
             plt.ion()
@@ -240,100 +242,108 @@ class TOMovie:
             vmax = -vmin
             cs1 = np.linspace(vmin, vmax, levs)
 
-            for k in range(self.nvar-1): # avoid last dvp/dt which is wrong
-                bal = self.asVphi[k, ...]+self.adv[k, ...]+self.rey[k, ...]+\
-                      self.visc[k, ...]+self.lorentz[k, ...]+self.coriolis[k, ...]
+            for k in range(self.nvar-1):  # avoid last dvp/dt which is wrong
+                bal = self.asVphi[k, ...]+self.adv[k, ...]+self.rey[k, ...] + \
+                      self.visc[k, ...]+self.lorentz[k, ...] + \
+                      self.coriolis[k, ...]
                 if k == 0:
                     ax1 = fig.add_subplot(181)
                     ax1.axis('off')
                     im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax1.plot(xxout, yyout, 'k-', lw=1.5)
                     ax1.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax1.text(0.05, 0., 'uphi', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax1.text(0.05, 0., 'uphi', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax2 = fig.add_subplot(182)
                     ax2.axis('off')
                     im = ax2.contourf(xx, yy, self.adv[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax2.plot(xxout, yyout, 'k-', lw=1.5)
                     ax2.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax2.text(0.05, 0., 'Adv', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax2.text(0.05, 0., 'Adv', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax3 = fig.add_subplot(183)
                     ax3.axis('off')
                     im = ax3.contourf(xx, yy, self.rey[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax3.plot(xxout, yyout, 'k-', lw=1.5)
                     ax3.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax3.text(0.05, 0., 'Rey', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax3.text(0.05, 0., 'Rey', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax4 = fig.add_subplot(184)
                     ax4.axis('off')
                     im = ax4.contourf(xx, yy, self.visc[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax4.plot(xxout, yyout, 'k-', lw=1.5)
                     ax4.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax4.text(0.05, 0., 'Visc', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax4.text(0.05, 0., 'Visc', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax5 = fig.add_subplot(185)
                     ax5.axis('off')
                     im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax5.plot(xxout, yyout, 'k-', lw=1.5)
                     ax5.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax5.text(0.05, 0., 'Lo.', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax5.text(0.05, 0., 'Lo.', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax6 = fig.add_subplot(186)
                     ax6.axis('off')
                     im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax6.plot(xxout, yyout, 'k-', lw=1.5)
                     ax6.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax6.text(0.05, 0., 'Cor.', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax6.text(0.05, 0., 'Cor.', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax7 = fig.add_subplot(187)
                     ax7.axis('off')
                     im = ax7.contourf(xx, yy, bal, cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax7.plot(xxout, yyout, 'k-', lw=1.5)
                     ax7.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax7.text(0.05, 0., 'sum', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax7.text(0.05, 0., 'sum', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
                     ax8 = fig.add_subplot(188)
                     ax8.axis('off')
                     im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                                      cmap=cmap, extend='both')
                     ax8.plot(xxout, yyout, 'k-', lw=1.5)
                     ax8.plot(xxin, yyin, 'k-', lw=1.5)
-                    ax8.text(0.05, 0., 'dvp/dt', fontsize=20, horizontalalignment='left',
-                                  verticalalignment='center')
+                    ax8.text(0.05, 0., 'dvp/dt', fontsize=20,
+                             horizontalalignment='left',
+                             verticalalignment='center')
 
                     man = plt.get_current_fig_manager()
                     man.canvas.draw()
                 else:
                     plt.cla()
-                    im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1,
-                                     cmap=cmap, extend='both')
-                    im = ax2.contourf(xx, yy, self.adv[k, ...], cs,
-                                     cmap=cmap, extend='both')
-                    im = ax3.contourf(xx, yy, self.rey[k, ...], cs,
-                                     cmap=cmap, extend='both')
-                    im = ax4.contourf(xx, yy, self.visc[k, ...], cs,
-                                     cmap=cmap, extend='both')
-                    im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs,
-                                     cmap=cmap, extend='both')
-                    im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs,
-                                     cmap=cmap, extend='both')
-                    im = ax7.contourf(xx, yy, bal, cs,
-                                     cmap=cmap, extend='both')
-                    im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs,
-                                     cmap=cmap, extend='both')
+                    ax1.contourf(xx, yy, self.asVphi[k, ...], cs1,
+                                 cmap=cmap, extend='both')
+                    ax2.contourf(xx, yy, self.adv[k, ...], cs,
+                                 cmap=cmap, extend='both')
+                    ax3.contourf(xx, yy, self.rey[k, ...], cs,
+                                 cmap=cmap, extend='both')
+                    ax4.contourf(xx, yy, self.visc[k, ...], cs,
+                                 cmap=cmap, extend='both')
+                    ax5.contourf(xx, yy, self.lorentz[k, ...], cs,
+                                 cmap=cmap, extend='both')
+                    ax6.contourf(xx, yy, self.coriolis[k, ...], cs,
+                                 cmap=cmap, extend='both')
+                    ax7.contourf(xx, yy, bal, cs,
+                                 cmap=cmap, extend='both')
+                    ax8.contourf(xx, yy, self.dtVp[k, ...], cs,
+                                 cmap=cmap, extend='both')
 
                     plt.axis('off')
                     man.canvas.draw()
 
-            #plt.ioff()
 
 class MagicTOZ(MagicSetup):
     """
@@ -346,7 +356,8 @@ class MagicTOZ(MagicSetup):
     >>> toz = MagicTOZ(tag='test', ave=True)
     """
 
-    def __init__(self, datadir='.', itoz=None, tag=None, precision='Float32', ave=False):
+    def __init__(self, datadir='.', itoz=None, tag=None, precision=np.float32,
+                 ave=False):
         """
         :param datadir: current working directory
         :type datadir: str
@@ -355,7 +366,8 @@ class MagicTOZ(MagicSetup):
         :type tag: str
         :param precision: single or double precision
         :type precision: str
-        :param iplot: display the output plot when set to True (default is True)
+        :param iplot: display the output plot when set to True (default is
+                      True)
         :type iplot: bool
         :param ave: plot a time-averaged TOZ file when set to True
         :type ave: bool
@@ -422,9 +434,9 @@ class MagicTOZ(MagicSetup):
         self.LF = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
         self.Cor = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
         self.str = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
-        if ( n_fields == 9 ):
-            self.CL = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
 
+        if n_fields == 9:
+            self.CL = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
 
         for nS in range(self.nSmax):
             nZmaxNS = int(infile.fort_read(precision))
@@ -445,13 +457,7 @@ class MagicTOZ(MagicSetup):
 
         S = np.zeros_like(self.zall)
         for i in range(2*self.nSmax):
-            S[i,:] = self.cylRad
-
-        #plt.contourf(S, self.zall, self.vp)
-        #self.zall -= self.zall.min()
-        #im = plt.contourf(S, self.zall, self.Cor)
-        #plt.colorbar(im)
-        #plt.show()
+            S[i, :] = self.cylRad
 
 
 class MagicTOHemi(MagicSetup):
@@ -462,7 +468,7 @@ class MagicTOHemi(MagicSetup):
     >>> to = MagicTOHemi(hemi='n', iplot=True) # For the Northern hemisphere
     """
 
-    def __init__(self, datadir='.', hemi='n', tag=None, precision='Float32',
+    def __init__(self, datadir='.', hemi='n', tag=None, precision=np.float32,
                  iplot=False):
         """
         :param datadir: current working directory
@@ -474,7 +480,8 @@ class MagicTOHemi(MagicSetup):
         :type tag: str
         :param precision: single or double precision
         :type precision: str
-        :param iplot: display the output plot when set to True (default is True)
+        :param iplot: display the output plot when set to True (default is
+                      True)
         :type iplot: bool
         """
 
@@ -566,22 +573,14 @@ class MagicTOHemi(MagicSetup):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.cylRad, self.rstr.mean(axis=0), label='Reynolds stress')
-        ax.plot(self.cylRad, self.astr.mean(axis=0), label='Axi. Reynolds stress')
+        ax.plot(self.cylRad, self.astr.mean(axis=0),
+                label='Axi. Reynolds stress')
         ax.plot(self.cylRad, self.LF.mean(axis=0), label='Lorentz force')
         ax.plot(self.cylRad, self.viscstr.mean(axis=0), label='Viscous stress')
         ax.set_xlabel('Cylindrical radius')
         ax.set_ylabel('Integrated forces')
         ax.legend(loc='upper left', frameon=False)
         ax.set_xlim(self.cylRad[0], self.cylRad[-1])
-
-        #fig = plt.figure()
-        #ax = fig.add_subplot(111)
-        #ax.plot(self.cylRad, self.tay.mean(axis=0))
-        #ax.set_xlabel('Cylindrical radius')
-        #ax.axhline(linestyle='--', linewidth=1.5, color='k')
-        #ax.set_ylabel('Taylorisation')
-        #ax.set_xlim(self.cylRad[0], self.cylRad[-1])
-
 
 
 class MagicTaySphere(MagicSetup):
@@ -593,7 +592,8 @@ class MagicTaySphere(MagicSetup):
     >>> print(to.time, to.e_kin)
     """
 
-    def __init__(self, datadir='.', tag=None, precision='Float32', iplot=False):
+    def __init__(self, datadir='.', tag=None, precision=np.float32,
+                 iplot=False):
         """
         :param datadir: current working directory
         :type datadir: str
@@ -602,7 +602,8 @@ class MagicTaySphere(MagicSetup):
         :type tag: str
         :param precision: single or double precision
         :type precision: str
-        :param iplot: display the output plot when set to True (default is True)
+        :param iplot: display the output plot when set to True (default is
+                      True)
         :type iplot: bool
         """
 
@@ -706,14 +707,14 @@ class MagicTaySphere(MagicSetup):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.radius, self.rstr.mean(axis=0), label='Reynolds stress')
-        ax.plot(self.radius, self.astr.mean(axis=0), label='Axi. Reynolds stress')
+        ax.plot(self.radius, self.astr.mean(axis=0),
+                label='Axi. Reynolds stress')
         ax.plot(self.radius, self.LF.mean(axis=0), label='Lorentz force')
         ax.plot(self.radius, self.viscstr.mean(axis=0), label='Viscous stress')
         ax.set_xlabel('Radius')
         ax.set_ylabel('Forces')
         ax.legend(loc='upper left', frameon=False)
         ax.set_xlim(self.radius[0], self.radius[-1])
-
 
 
 class MagicPV(MagicSetup):
@@ -726,8 +727,8 @@ class MagicPV(MagicSetup):
     >>> pv = MagicPV(field='PVZ', tag='test', iplot=True)
     """
 
-    def __init__(self, field='PVZ', datadir='.', tag=None, precision='Float32',
-                 iplot=False):
+    def __init__(self, field='PVZ', datadir='.', tag=None, iplot=False,
+                 precision=np.float32):
         """
         :param field: file prefix (either 'Vcy' or 'PVZ')
         :type field: str
@@ -738,7 +739,8 @@ class MagicPV(MagicSetup):
         :type tag: str
         :param precision: single or double precision
         :type precision: str
-        :param iplot: display the output plot when set to True (default is True)
+        :param iplot: display the output plot when set to True (default is
+                      True)
         :type iplot: bool
         """
 
@@ -773,7 +775,8 @@ class MagicPV(MagicSetup):
 
         if field == 'Vcy':
             self.time, self.nSmax, self.nZmax, self.n_phi_max, self.omega_ic, \
-            self.omega_ma, self.radratio, self.minc = infile.fort_read(precision)
+                self.omega_ma, self.radratio, self.minc = \
+                infile.fort_read(precision)
             self.n_phi_max = int(self.n_phi_max)
         elif field == 'PVZ':
             self.time, self.nSmax, self.nZmax, self.omega_ic, self.omega_ma = \
@@ -785,32 +788,38 @@ class MagicPV(MagicSetup):
         self.z = infile.fort_read(precision)
 
         if field == 'Vcy':
-            self.vs = np.zeros((self.nZmax*self.n_phi_max, self.nSmax), dtype=precision)
+            self.vs = np.zeros((self.nZmax*self.n_phi_max, self.nSmax),
+                               dtype=precision)
             self.vphi = np.zeros_like(self.vs)
             self.vz = np.zeros_like(self.vs)
             self.vort = np.zeros_like(self.vs)
             self.dtvort = np.zeros_like(self.vs)
             for i in range(self.nSmax):
                 nZmax = int(infile.fort_read(precision))
-                start = (self.nZmax-nZmax)/2* self.n_phi_max
+                start = (self.nZmax-nZmax)/2 * self.n_phi_max
                 stop = start+nZmax*self.n_phi_max
                 self.vs[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
                 self.vphi[start:stop, i] = infile.fort_read(precision)
                 self.vz[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
-                self.vort[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
-                self.dtvort[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
+                self.vort[:nZmax*self.n_phi_max, i] = \
+                    infile.fort_read(precision)
+                self.dtvort[:nZmax*self.n_phi_max, i] = \
+                    infile.fort_read(precision)
 
             self.vs = self.vs.reshape((self.nZmax, self.n_phi_max, self.nSmax))
             self.vz = self.vz.reshape((self.nZmax, self.n_phi_max, self.nSmax))
-            self.vphi = self.vphi.reshape((self.nZmax, self.n_phi_max, self.nSmax))
-            self.vort = self.vort.reshape((self.nZmax, self.n_phi_max, self.nSmax))
-            self.dtvort = self.dtvort.reshape((self.nZmax, self.n_phi_max, self.nSmax))
+            self.vphi = self.vphi.reshape((self.nZmax, self.n_phi_max,
+                                           self.nSmax))
+            self.vort = self.vort.reshape((self.nZmax, self.n_phi_max,
+                                           self.nSmax))
+            self.dtvort = self.dtvort.reshape((self.nZmax, self.n_phi_max,
+                                               self.nSmax))
 
-            self.vphi = np.transpose(self.vphi, axes=(1,0,2))
-            self.vs = np.transpose(self.vs, axes=(1,0,2))
-            self.vz = np.transpose(self.vz, axes=(1,0,2))
-            self.vort = np.transpose(self.vort, axes=(1,0,2))
-            self.dtvort = np.transpose(self.dtvort, axes=(1,0,2))
+            self.vphi = np.transpose(self.vphi, axes=(1, 0, 2))
+            self.vs = np.transpose(self.vs, axes=(1, 0, 2))
+            self.vz = np.transpose(self.vz, axes=(1, 0, 2))
+            self.vort = np.transpose(self.vort, axes=(1, 0, 2))
+            self.dtvort = np.transpose(self.dtvort, axes=(1, 0, 2))
 
         elif field == 'PVZ':
             self.omS = np.zeros((self.nZmax, self.nSmax), dtype=precision)
@@ -829,12 +838,13 @@ class MagicPV(MagicSetup):
         """
         if field == 'PVZ':
             S, Z = np.meshgrid(self.cyl_rad, self.z)
-            fig = plt.figure(figsize=(4.5,8))
+            fig = plt.figure(figsize=(4.5, 8))
             ax = fig.add_subplot(111)
             vmax = abs(self.omS).max()
             vmin = -vmax
             cs = np.linspace(vmin, vmax, 17)
-            ax.contourf(S, Z, self.omS, cs, cmap=plt.get_cmap('RdYlBu'), extend='both')
+            ax.contourf(S, Z, self.omS, cs, cmap=plt.get_cmap('RdYlBu'),
+                        extend='both')
             theta = np.linspace(np.pi/2, -np.pi/2, 32)
             rcmb = self.z.max()
             ax.plot(rcmb*np.cos(theta), rcmb*np.sin(theta), 'k-', lw=1.5)
@@ -844,12 +854,13 @@ class MagicPV(MagicSetup):
             ricb = self.radratio/(1.-self.radratio)
             for field in [self.vphi]:
                 dat = field.mean(axis=0)
-                fig = plt.figure(figsize=(4.5,8))
+                fig = plt.figure(figsize=(4.5, 8))
                 ax = fig.add_subplot(111)
                 vmax = abs(dat).max()
                 vmin = -vmax
                 cs = np.linspace(vmin, vmax, 17)
-                ax.contourf(S, Z, dat, cs, cmap=plt.get_cmap('RdYlBu'), extend='both')
+                ax.contourf(S, Z, dat, cs, cmap=plt.get_cmap('RdYlBu'),
+                            extend='both')
                 theta = np.linspace(np.pi/2, -np.pi/2, 32)
                 ax.plot(rcmb*np.cos(theta), rcmb*np.sin(theta), 'k-', lw=1.5)
                 ax.plot(ricb*np.cos(theta), ricb*np.sin(theta), 'k-', lw=1.5)
@@ -859,15 +870,17 @@ class MagicPV(MagicSetup):
             xx = S*np.cos(pphi)
             yy = S*np.sin(pphi)
             for field in [self.vs]:
-                dat = field[:,self.nZmax/2,:]
-                fig = plt.figure(figsize=(6,6))
-                fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
+                dat = field[:, self.nZmax/2, :]
+                fig = plt.figure(figsize=(6, 6))
+                fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01,
+                                    left=0.01)
                 ax = fig.add_subplot(111, frameon=False)
 
                 vmax = abs(dat).max()
                 vmin = -vmax
                 cs = np.linspace(vmin, vmax, 17)
-                ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap('RdYlBu'), extend='both')
+                ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap('RdYlBu'),
+                            extend='both')
                 theta = np.linspace(0., 2*np.pi, 32)
                 ax.plot(rcmb*np.cos(theta), rcmb*np.sin(theta), 'k-', lw=1.5)
                 ax.plot(ricb*np.cos(theta), ricb*np.sin(theta), 'k-', lw=1.5)
@@ -875,20 +888,10 @@ class MagicPV(MagicSetup):
 
 
 if __name__ == '__main__':
-    pv = MagicPV(field='PVZ', iplot=True)
-    pv = MagicPV(field='Vcy', iplot=True)
-    plt.show()
-
-
-
-
-
-if __name__ == '__main__':
-
     MagicTOZ(tag='start', itoz=1, ave=False, verbose=True)
 
     MagicTOHemi(hemi='n', iplot=True)
 
-    file ='TO_mov.test'
+    file = 'TO_mov.test'
     TOMovie(file=file)
     plt.show()

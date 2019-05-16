@@ -26,7 +26,8 @@ def getPotEndianness(filename):
 
     :param filename: input of the filename
     :type filename: str
-    :returns: the endianness of the file ('B'='big_endian' or 'l'='little_endian')
+    :returns: the endianness of the file ('B'='big_endian' or
+              'l'='little_endian')
     :rtype: str
     """
     f = npfile(filename, endian='B')
@@ -65,13 +66,15 @@ class MagicPotential(MagicSetup):
     """
 
     def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None,
-                 precision='Float32'):
+                 precision=np.float32):
         """
-        :param field: 'B', 'V' or 'T' (magnetic field, velocity field or temperature)
+        :param field: 'B', 'V' or 'T' (magnetic field, velocity field or
+                      temperature)
         :type field: str
         :param datadir: the working directory
         :type datadir: str
-        :param tag: if you specify a pattern, it tries to read the corresponding files
+        :param tag: if you specify a pattern, it tries to read the
+                    corresponding files
         :type tag: str
         :param ave: plot a time-averaged spectrum when set to True
         :type ave: bool
@@ -150,11 +153,11 @@ class MagicPotential(MagicSetup):
             self.rho0 = dat[self.n_r_max:]
 
             # Read field in the outer core
-            self.pol = infile.fort_read('Complex32')
+            self.pol = infile.fort_read(np.complex64)
             self.pol = self.pol.reshape((self.n_r_max, self.lm_max))
             self.pol = self.pol.T
             if ( field != 'T' and field != 'Xi' ):
-                self.tor = infile.fort_read('Complex32')
+                self.tor = infile.fort_read(np.complex64)
                 self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
                 self.tor = self.tor.T
 
@@ -238,7 +241,7 @@ class MagicPotential(MagicSetup):
         :type normed: bool
         """
 
-        phiavg = np.zeros((self.n_theta_max, self.n_r_max), 'f')
+        phiavg = np.zeros((self.n_theta_max, self.n_r_max), np.float32)
         t1 = time.time()
         if field in ('T', 'temp', 'S', 'entropy'):
             for i in range(self.n_r_max):
@@ -343,7 +346,7 @@ class MagicPotential(MagicSetup):
         :type normed: bool
         """
 
-        equator = np.zeros((self.n_phi_max, self.n_r_max), 'f')
+        equator = np.zeros((self.n_phi_max, self.n_r_max), np.float32)
         t1 = time.time()
         if field in ('temperature', 't', 'T', 'entropy', 's', 'S'):
             for i in range(self.n_r_max):
@@ -474,7 +477,7 @@ class MagicPotential(MagicSetup):
         rad = self.radius[indPlot] * (1.-self.radratio)
 
         t1 = time.time()
-        rprof = np.zeros((self.n_phi_max, self.n_theta_max), 'Complex64')
+        rprof = np.zeros((self.n_phi_max, self.n_theta_max), np.complex64)
         if field in ('T', 'temp', 'S', 'entropy'):
             rprof = self.sh.spec_spat(self.pol[:, indPlot])
             label = 'T'

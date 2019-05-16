@@ -126,7 +126,7 @@ class MagicRadial(MagicSetup):
                     elif self.name == 'powerR':
                         data = fast_read(filename, skiplines=0)*(nml.stop_time-nml.start_time)
                         if data.shape[1] == 8 or data.shape[1] == 4: # in that case insert an extra column
-                            zero = np.zeros(data.shape[0], 'Float64')
+                            zero = np.zeros(data.shape[0], np.float64)
                             data = np.insert(data, 1, zero, axis=1)
 
                     else:
@@ -150,7 +150,7 @@ class MagicRadial(MagicSetup):
                         if os.path.exists(filename):
                             dat = fast_read(filename, skiplines=0)
                             if dat.shape[1] == 8 or da.shape[1] == 4: # in that case insert an extra column
-                                zero = np.zeros(dat.shape[0], 'Float64')
+                                zero = np.zeros(dat.shape[0], np.float64)
                                 dat = np.insert(dat, 1, zero, axis=1)
                             data += dat*(nml.stop_time-nml.start_time)
                     elif self.name == 'eKinR':

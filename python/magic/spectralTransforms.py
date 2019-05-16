@@ -165,7 +165,7 @@ class SpectralTransforms(object):
         """
         if len(args) == 1:
             polo = args[0]
-            out = np.zeros((self.n_phi_max), 'Complex64')
+            out = np.zeros((self.n_phi_max), np.complex64)
             self._legF90.specspat_equat_scal(polo, out)
             out = np.fft.ifft(out)*self.n_phi_max
             out = out.real
@@ -175,8 +175,8 @@ class SpectralTransforms(object):
         elif len(args) == 2:
             polo = args[0]
             toro = args[1]
-            vt = np.zeros((self.n_phi_max), 'Complex64')
-            vp = np.zeros((self.n_phi_max), 'Complex64')
+            vt = np.zeros((self.n_phi_max), np.complex64)
+            vp = np.zeros((self.n_phi_max), np.complex64)
             self._legF90.specspat_equat_vec(polo, toro, vt, vp)
             vt = np.fft.ifft(vt)*self.n_phi_max
             vp = np.fft.ifft(vp)*self.n_phi_max

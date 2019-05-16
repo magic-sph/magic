@@ -63,11 +63,11 @@ class MagicGraph(MagicSetup):
     >>> print(gr.ek) # print ekman number
     >>> print(gr.minc) # azimuthal symmetry
     >>> # Averaged G file with double precision
-    >>> gr = MagicGraph(ave=True, tag='N0m2', precision='Float64')
+    >>> gr = MagicGraph(ave=True, tag='N0m2', precision=np.float64)
     """
 
     def __init__(self, ivar=None, datadir='.', quiet=True,
-                 ave=False, tag=None, precision='Float32'):
+                 ave=False, tag=None, precision=np.float32):
         """
         :param ave: when set to True, it tries to find an average
                     G file (G_ave.TAG)
@@ -82,7 +82,7 @@ class MagicGraph(MagicSetup):
         :type quiet: bool
         :param datadir: directory of the G file (default is . )
         :type datadir: str
-        :param precision: single or double precision (default 'Float32')
+        :param precision: single or double precision (default np.float32)
         :type precision: str
         """
         self.precision = precision
@@ -130,9 +130,9 @@ class MagicGraph(MagicSetup):
 
         if readingMode != 'python':
 
-            if self.precision == 'Float32':
+            if self.precision == np.float32:
                 G = Gsngl.greader_single
-            elif self.precision == 'Float64':
+            elif self.precision == np.float64:
                 G = Gdble.greader_double
 
             G.readg(filename, endian=endian)

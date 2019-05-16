@@ -18,7 +18,7 @@ class Surf:
     >>> # To read G_1.test
     >>> s = Surf(ivar=1, ave=False, tag='test')
     >>> # To read the latest G file in the working directory (double precision)
-    >>> s = Surf(precision='Float64')
+    >>> s = Surf(precision=np.float64)
 
     >>> # Possible plots
     >>> s.equat(field='vr')
@@ -28,7 +28,7 @@ class Surf:
     """
 
     def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None,
-                 precision='Float32'):
+                 precision=np.float32):
         """
         :param ivar: index of the graphic file
         :type ivar: int
@@ -42,7 +42,7 @@ class Surf:
         :param datadir: the working directory
         :type datadir: str
         :param precision: the storage precision of the graphic file (single or
-                          double precision). Default is 'Float32' (single)
+                          double precision). Default is np.float32 (single)
         :type precision: str
         """
         self.precision = precision

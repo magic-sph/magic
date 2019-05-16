@@ -16,7 +16,7 @@ class MagicRSpec(MagicSetup):
     >>> rsp = MagicRSpec(tag='test*', field='Br')
     """
 
-    def __init__(self, tag, field='Br', precision='Float32', avg=False):
+    def __init__(self, tag, field='Br', precision=np.float32, avg=False):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding
                     files and stack them.
@@ -24,7 +24,8 @@ class MagicRSpec(MagicSetup):
         :param field: nature of the radial spectra. Possible choices are
                       'Bt' or 'Bp'
         :type field: str
-        :param precision: single or double precision (default single, i.e. 'Float32')
+        :param precision: single or double precision (default single, i.e.
+                          np.float32)
         :type precision: str
         :param avg: when set to True, display time averaged quantities
         :type avg: bool

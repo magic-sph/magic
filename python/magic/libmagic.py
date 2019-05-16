@@ -376,7 +376,7 @@ def symmetrize(data, ms, reversed=False):
         out[-1, ...] = out[0, ...]
     return out
 
-def fast_read(file, skiplines=0, binary=False, precision='Float64'):
+def fast_read(file, skiplines=0, binary=False, precision=np.float64):
     """
     This function reads an input ascii table
     (can read both formatted or unformatted fortran)
@@ -388,10 +388,10 @@ def fast_read(file, skiplines=0, binary=False, precision='Float64'):
     :type file: str
     :param skiplines: number of header lines to be skept during reading
     :type skiplines: int
-    :param binary: when set to True, try to read an unformatted binray Fortran file
-                   (default is False)
+    :param binary: when set to True, try to read an unformatted binray Fortran
+                   file (default is False)
     :type binary: bool
-    :param precision: single ('Float32') or double precision ('Float64')
+    :param precision: single (np.float32) or double precision (np.float64)
     :type precision: str
     :returns: an array[nlines, ncols] that contains the data of the ascii file
     :rtype: numpy.ndarray
@@ -501,7 +501,7 @@ def matder(nr, z1, z2):
     :rtype: numpy.ndarray
     """
     nrp = nr+1
-    w1 = np.zeros((nrp, nrp), dtype='Float64')
+    w1 = np.zeros((nrp, nrp), dtype=np.float64)
     zl = z2-z1
     for i in range(nrp):
         for j in range(nrp):
@@ -765,9 +765,9 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     :returns: the z derivative of the input array
     :rtype: numpy.ndarray
     """
-    if len(data.shape) == 3: # 3-D
+    if len(data.shape) == 3:  # 3-D
         ntheta = data.shape[1]
-    elif len(data.shape) == 2: # 2-D
+    elif len(data.shape) == 2:  # 2-D
         ntheta = data.shape[0]
     nr = data.shape[-1]
     r1 = 1./(1.-eta)
@@ -778,14 +778,14 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
         th = np.linspace(0., np.pi, ntheta)
     rr = chebgrid(nr-1, r1, r2)
 
-    if len(data.shape) == 3: # 3-D
+    if len(data.shape) == 3:  # 3-D
         thmD = np.zeros_like(data)
         for i in range(ntheta):
             thmD[:,i,:] = th[i]
-    elif len(data.shape) == 2: # 2-D
-        thmD = np.zeros((ntheta, nr), 'f')
+    elif len(data.shape) == 2:  # 2-D
+        thmD = np.zeros((ntheta, nr), np.float64)
         for i in range(ntheta):
-            thmD[i, :]  = th[i]
+            thmD[i, :] = th[i]
 
     dtheta = thetaderavg(data)
     dr = rderavg(data, eta, spectral, exclude)
