@@ -7,8 +7,8 @@ module fieldsLast
    ! by the restart file for the first time step or
    ! calculated here or by the update routines for the
    ! following time step.
-   ! These fields remain in the LM-distributed space 
- 
+   ! These fields remain in the LM-distributed space
+
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
@@ -26,7 +26,7 @@ module fieldsLast
    complex(cp), public, allocatable :: dzdtLast_lo(:,:)
    complex(cp), public, allocatable :: dsdtLast_LMloc(:,:)
    complex(cp), public, allocatable :: dxidtLast_LMloc(:,:)
- 
+
    complex(cp), public, allocatable :: dbdtLast_LMloc(:,:)
    complex(cp), public, allocatable :: djdtLast_LMloc(:,:)
    complex(cp), public, allocatable :: dbdt_icLast_LMloc(:,:)

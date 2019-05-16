@@ -21,7 +21,7 @@ module LMLoop_mod
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
-   use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, lo2r_xi, &
+   use communications, only: lo2r_redist_start, lo2r_xi, &
        &                    lo2r_s, lo2r_flow, lo2r_field
    use updateS_mod
    use updateZ_mod
@@ -133,7 +133,6 @@ contains
       integer :: l,nR,ierr
       integer :: tStart(4),tStop(4),tPassed(4)
 
-      logical,parameter :: DEBUG_OUTPUT=.false.
       !--- Inner core rotation from last time step
       real(cp), save :: omega_icLast
       real(cp) :: z10(n_r_max)
@@ -180,51 +179,24 @@ contains
          call wallTime(tStart)
       end if
 
-      if ( DEBUG_OUTPUT ) then
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
-      end if
-      !call debug_write(dwdt(lmStart:lmStop,:),lmStop-lmStart+1,n_r_max, &
-      !                                        "dwdt",n_time_step*1000+nLMB*100,"E")
-
       if ( l_heat ) then ! dp,workA usead as work arrays
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,I2,8ES20.12)") "s_before: ",nLMB,   &
-                 & GET_GLOBAL_SUM( s_LMloc(:,:) ),          &
-                 & GET_GLOBAL_SUM( ds_LMloc(:,:) ),         &
-                 & GET_GLOBAL_SUM( dsdt(:,:) ),             &
-                 & GET_GLOBAL_SUM( dsdtLast_LMloc(:,:) )
-         end if
-         !call debug_write(dsdt,ulm-llm+1,n_r_max,"dsdt_LMloc", &
-         !                        n_time_step*1000+nLMB*100,"E")
          if ( .not. l_single_matrix ) then
             PERFON('up_S')
             if ( l_anelastic_liquid ) then
-               call updateS_ala(s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt,  & 
+               call updateS_ala(s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt,  &
                     &           dsdtLast_LMloc, w1, coex, dt, nLMB)
             else
                call updateS( s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt, &
                     &        dsdtLast_LMloc, w1, coex, dt, nLMB )
             end if
             PERFOFF
-            ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
+            ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a
             ! nonblocking send
-            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
             !PERFON('rdstSst')
             call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
             !PERFOFF
          end if
 
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,I2,4ES20.12)") "s_after : ",nLMB,  &
-                 & GET_GLOBAL_SUM( s_LMloc(:,:) ),         &
-                 & GET_GLOBAL_SUM( ds_LMloc(:,:) )
-            write(*,"(A,I2,8ES22.14)") "s_after(bnd_r): ",nLMB, &
-                 & GET_GLOBAL_SUM( s_LMloc(:,n_r_icb) ),        &
-                 & GET_GLOBAL_SUM( s_LMloc(:,n_r_cmb) ),        &
-                 & GET_GLOBAL_SUM( ds_LMloc(:,n_r_icb) ),       &
-                 & GET_GLOBAL_SUM( ds_LMloc(:,n_r_cmb) )
-         end if
       end if
 
       if ( l_chemical_conv ) then ! dp,workA usead as work arrays
@@ -235,15 +207,7 @@ contains
       end if
 
       if ( l_conv ) then
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,I2,6ES20.12)") "z_before: ",nLMB,   &
-                 & GET_GLOBAL_SUM( z_LMloc(:,:) ),          &
-                 & GET_GLOBAL_SUM( dz_LMloc(:,:) ),         &
-                 & GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
-         end if
          PERFON('up_Z')
-         ! dp, dVSrLM, workA used as work arrays
-         !call updateZ( z_LMloc, dz_LMloc, dzdt, dzdtLast_LMloc, time, &
          call updateZ( z_LMloc, dz_LMloc, dzdt, dzdtLast_lo, time, &
               &        omega_ma,d_omega_ma_dtLast,                 &
               &        omega_ic,d_omega_ic_dtLast,                 &
@@ -251,32 +215,6 @@ contains
               &        lorentz_torque_ic,lorentz_torque_icLast,    &
               &        w1,coex,dt,lRmsNext)
          PERFOFF
-
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-
-         if ( DEBUG_OUTPUT ) then
-            !do lm=lmStart,lmStop
-            !   write(*,"(A,I4,6ES20.12)") "z_after : ",lm,SUM( z_LMloc(lm,:) ),&
-            !        & SUM( dz_LMloc(lm,:) ),SUM( dzdtLast_lo(lm,:) )
-            !end do
-            write(*,"(A,I2,6ES20.12)") "z_after: ",nLMB,  &
-                 & GET_GLOBAL_SUM( z_LMloc(:,:) ),        &
-                 & GET_GLOBAL_SUM( dz_LMloc(:,:) ),       &
-                 & GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
-         end if
-         ! dVSrLM, workA used as work arrays
-         !call debug_write(dwdt(:,:),lmStop-lmStart+1,n_r_max, &
-         !                "dwdt",n_time_step*1000+nLMB*100,"E")
-         if ( DEBUG_OUTPUT ) then
-            sum_dwdt=GET_GLOBAL_SUM( dwdt(:,:) )
-            write(*,"(A,I2,8ES22.14,4(I3,F19.16))") "wp_before: ",nLMB,&
-                 & GET_GLOBAL_SUM( w_LMloc(:,:) ),                     &
-                 & GET_GLOBAL_SUM( p_LMloc(:,:) ),                     &
-                 & GET_GLOBAL_SUM( dwdtLast_LMloc(:,:) ),              &
-                 & GET_GLOBAL_SUM( dpdtLast_LMloc(:,:) ),              &
-                 & exponent(real(sum_dwdt)),fraction(real(sum_dwdt)),  &
-                 & exponent(aimag(sum_dwdt)),fraction(aimag(sum_dwdt))
-         end if
 
          if ( l_single_matrix ) then
             if ( rank == rank_with_l1m0 ) then
@@ -290,16 +228,16 @@ contains
 #endif
             if ( l_TP_form ) then
                call updateWPT( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,     &
-                 &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,     &
-                 &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,   &
-                 &             dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt,  &
-                 &             nLMB, lRmsNext )
+                    &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,     &
+                    &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,   &
+                    &          dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt,  &
+                    &          nLMB, lRmsNext )
             else
                call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-                 &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
-                 &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
-                 &             dsdt, dsdtLast_LMloc, w1, coex, dt, nLMB,   &
-                 &             lRmsNext )
+                    &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
+                    &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
+                    &          dsdt, dsdtLast_LMloc, w1, coex, dt, nLMB,   &
+                    &          lRmsNext )
             end if
 
             call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
@@ -310,33 +248,10 @@ contains
                  &         dpdtLast_LMloc, s_LMloc, xi_LMloc, w1, coex, dt, &
                  &         nLMB, lRmsNext, lPressNext)
             PERFOFF
-
-            if ( DEBUG_OUTPUT ) then
-               write(*,"(A,I2,12ES22.14)") "wp_after: ",nLMB,  &
-                    & GET_GLOBAL_SUM( w_LMloc(:,:) ),          &
-                    & GET_GLOBAL_SUM( p_LMloc(:,:) ),          &
-                    & GET_GLOBAL_SUM( dwdtLast_LMloc(:,:) ),   &
-                    & GET_GLOBAL_SUM( dpdtLast_LMloc(:,:) ),   &
-                    &GET_GLOBAL_SUM( dw_LMloc(:,:) )
-               write(*,"(A,I2,4ES22.14)") "wp_after(bnd_r): ",nLMB, &
-                    & GET_GLOBAL_SUM( w_LMloc(:,n_r_icb) ),         &
-                    & GET_GLOBAL_SUM( w_LMloc(:,n_r_cmb) )
-            end if
          end if
          call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,I2,14ES20.12)") "b_before: ",nLMB,   &
-                 & GET_GLOBAL_SUM(  b_LMloc(:,:) ),          & 
-                 & GET_GLOBAL_SUM( aj_LMloc(:,:) ),          &
-                 & GET_GLOBAL_SUM( b_ic_LMloc(:,:) ),        &
-                 & GET_GLOBAL_SUM( aj_ic_LMloc(:,:) ),       &
-                 & GET_GLOBAL_SUM( dbdt_icLast_LMloc(:,:) ), &
-                 & GET_GLOBAL_SUM( djdt_icLast_LMloc(:,:) ), &
-                 & GET_GLOBAL_SUM( dVxBhLM(:,:) )
-         end if
-         !LIKWID_ON('up_B')
          PERFON('up_B')
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dVxBhLM, dbdt, dbdtLast_LMloc, djdt, djdtLast_LMloc,    &
@@ -347,19 +262,6 @@ contains
          PERFOFF
          !LIKWID_OFF('up_B')
          call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
-
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,I2,8ES20.12)") "b_after: ",nLMB, &
-                 & GET_GLOBAL_SUM(  b_LMloc(:,:) ),      & 
-                 & GET_GLOBAL_SUM( aj_LMloc(:,:) ),      &
-                 & GET_GLOBAL_SUM( dbdtLast_LMloc(:,:) ),&
-                 & GET_GLOBAL_SUM( djdtLast_LMloc(:,:) )
-            write(*,"(A,I2,8ES20.12)") "b_ic_after: ",nLMB, &
-                 & GET_GLOBAL_SUM( b_ic_LMloc(:,:) ),       &
-                 & GET_GLOBAL_SUM( aj_ic_LMloc(:,:) ),      &
-                 & GET_GLOBAL_SUM( dbdt_icLast_LMloc(:,:) ),&
-                 & GET_GLOBAL_SUM( djdt_icLast_LMloc(:,:) )
-         end if
       end if
 
       if ( lVerbose ) then
@@ -369,7 +271,6 @@ contains
          write(n_log_file,*) 'lmStart,lmStop:',lmStartB(nLMB),lmStopB(nLMB)
          call writeTime(n_log_file,'! Time for thread:',tPassed)
       end if
-
 
       lorentz_torque_maLast=lorentz_torque_ma
       lorentz_torque_icLast=lorentz_torque_ic

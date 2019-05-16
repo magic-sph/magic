@@ -113,57 +113,61 @@ contains
 
       if ( l_double_curl ) then
          allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:4) )
-         dwdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,1)
-         dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
-         dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
-         dVxVhLM_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,4)
+         dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
+         dzdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
+         dpdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
+         dVxVhLM_Rloc(1:,nRstart:) => &
+         &                         dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,4)
          bytes_allocated = bytes_allocated+ &
-                           4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+         &                 4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
          allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
-         dwdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,1)
-         dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
-         dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
+         dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
+         dzdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
+         dpdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
          allocate( dVxVhLM_Rloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+ &
-                           3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+         &                 3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_TP_form ) then
          allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
-         dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
-         dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
-         dVPrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,3)
+         dsdt_Rloc(1:,nRstart:)   => dsdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
+         dVSrLM_Rloc(1:,nRstart:) => dsdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
+         dVPrLM_Rloc(1:,nRstart:) => dsdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
          bytes_allocated = bytes_allocated+ &
-                           3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+         &                 3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
          allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-         dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
-         dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
+         dsdt_Rloc(1:,nRstart:)   => dsdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
+         dVSrLM_Rloc(1:,nRstart:) => dsdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
          allocate( dVPrLM_Rloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+ &
-                           2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+         &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_chemical_conv ) then
          allocate( dxidt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-         dxidt_Rloc(1:lm_max,nRstart:nRstop)   => dxidt_Rloc_container(:,:,1)
-         dVXirLM_Rloc(1:lm_max,nRstart:nRstop) => dxidt_Rloc_container(:,:,2)
+         dxidt_Rloc(1:,nRstart:)   => dxidt_Rloc_container(1:lm_max,nRstart:nRstop,1)
+         dVXirLM_Rloc(1:,nRstart:) => dxidt_Rloc_container(1:lm_max,nRstart:nRstop,2)
          bytes_allocated = bytes_allocated+ &
-                           2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+         &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
          allocate( dxidt_Rloc_container(1,1,1:2) )
-         dxidt_Rloc(1:1,1:1)   => xi_Rloc_container(:,:,1)
-         dVXirLM_Rloc(1:1,1:1) => xi_Rloc_container(:,:,2)
+         dxidt_Rloc(1:,1:)   => xi_Rloc_container(1:1,1:1,1)
+         dVXirLM_Rloc(1:,1:) => xi_Rloc_container(1:1,1:1,2)
       end if
 
       ! the magnetic part
       allocate( dbdt_Rloc_container(lm_maxMag,nRstartMag:nRstopMag,1:3) )
-      dbdt_Rloc(1:lm_maxMag,nRstartMag:nRstopMag)   => dbdt_Rloc_container(:,:,1)
-      djdt_Rloc(1:lm_maxMag,nRstartMag:nRstopMag)   => dbdt_Rloc_container(:,:,2)
-      dVxBhLM_Rloc(1:lm_maxMag,nRstartMag:nRstopMag)=> dbdt_Rloc_container(:,:,3)
+      dbdt_Rloc(1:,nRstartMag:) => &
+      &                    dbdt_Rloc_container(1:lm_maxMag,nRstartMag:nRstopMag,1)
+      djdt_Rloc(1:,nRstartMag:) => &
+      &                    dbdt_Rloc_container(1:lm_maxMag,nRstartMag:nRstopMag,2)
+      dVxBhLM_Rloc(1:,nRstartMag:)=> &
+      &                    dbdt_Rloc_container(1:lm_maxMag,nRstartMag:nRstopMag,3)
       bytes_allocated = bytes_allocated+ &
-                        3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
+      &                 3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
 
       ! first touch
       do nR=nRstart,nRstop
@@ -203,51 +207,52 @@ contains
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
          allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:4))
-         dwdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,1)
-         dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
-         dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
-         dVxVhLM_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,4)
+         dwdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1)
+         dzdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2)
+         dpdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3)
+         dVxVhLM_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4)
          bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       else
          allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3))
-         dwdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,1)
-         dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
-         dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
+         dwdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1)
+         dzdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2)
+         dpdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3)
          allocate( dVxVhLM_LMloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_TP_form ) then
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:3))
-         dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
-         dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
-         dVPrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,3)
+         dsdt_LMloc(llm:,1:)   => dsdt_LMloc_container(llm:ulm,1:n_r_max,1)
+         dVSrLM_LMloc(llm:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2)
+         dVPrLM_LMloc(llm:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,3)
          bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       else
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
-         dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
-         dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
+         dsdt_LMloc(llm:,1:)   => dsdt_LMloc_container(llm:ulm,1:n_r_max,1)
+         dVSrLM_LMloc(llm:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2)
          allocate( dVPrLM_LMloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_chemical_conv ) then
          allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2))
-         dxidt_LMloc(llm:ulm,1:n_r_max)   => dxidt_LMloc_container(:,:,1)
-         dVXirLM_LMloc(llm:ulm,1:n_r_max) => dxidt_LMloc_container(:,:,2)
+         dxidt_LMloc(llm:,1:)   => dxidt_LMloc_container(llm:ulm,1:n_r_max,1)
+         dVXirLM_LMloc(llm:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2)
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       else
          allocate(dxidt_LMloc_container(1,1,1:2))
-         dxidt_LMloc(1:1,1:1)   => dxidt_LMloc_container(:,:,1)
-         dVXirLM_LMloc(1:1,1:1) => dxidt_LMloc_container(:,:,2)
+         dxidt_LMloc(1:,1:)   => dxidt_LMloc_container(1:1,1:1,1)
+         dVXirLM_LMloc(1:,1:) => dxidt_LMloc_container(1:1,1:1,2)
       end if
 
       allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3))
-      dbdt_LMloc(llmMag:ulmMag,1:n_r_maxMag)    => dbdt_LMloc_container(:,:,1)
-      djdt_LMloc(llmMag:ulmMag,1:n_r_maxMag)    => dbdt_LMloc_container(:,:,2)
-      dVxBhLM_LMloc(llmMag:ulmMag,1:n_r_maxMag) => dbdt_LMloc_container(:,:,3)
+      dbdt_LMloc(llmMag:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1)
+      djdt_LMloc(llmMag:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2)
+      dVxBhLM_LMloc(llmMag:,1:) => &
+      &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3)
       bytes_allocated = bytes_allocated+ &
-                        3*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      &                 3*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed
@@ -400,7 +405,6 @@ contains
       integer :: runTimeTL(4),runTimeTM(4)
       integer :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM
 
-      logical, parameter :: DEBUG_OUTPUT=.false.
       integer :: lmStart,lmStop,lmStart_00
       integer :: nR_i1,nR_i2
       ! MPI related variables
@@ -492,7 +496,7 @@ contains
       outer: do n_time_step=1,n_time_steps_go
          n_time_cour=n_time_cour+1
 
-         if ( lVerbose .or. DEBUG_OUTPUT ) then
+         if ( lVerbose ) then
             write(*,*)
             write(*,*) '! Starting time step ',n_time_step
          end if
@@ -533,9 +537,9 @@ contains
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
          call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-                        MPI_COMM_WORLD,ierr)
+              &         MPI_COMM_WORLD,ierr)
          call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-                        MPI_COMM_WORLD,ierr)
+              &         MPI_COMM_WORLD,ierr)
 #endif
          PERFOFF
 
@@ -614,10 +618,10 @@ contains
 #if 0
          if ( rank == 0 ) then
             if ((old_stop_signal /= n_stop_signal) .or.      &
-                 & (old_graph_signal /= n_graph_signal) .or. &
-                 & (old_rst_signal /= n_rst_signal) .or.     &
-                 & (old_spec_signal /= n_spec_signal) .or.   &
-                 & (old_pot_signal /= n_pot_signal) then
+            &      (old_graph_signal /= n_graph_signal) .or. &
+            &      (old_rst_signal /= n_rst_signal) .or.     &
+            &      (old_spec_signal /= n_spec_signal) .or.   &
+            &      (old_pot_signal /= n_pot_signal) then
                do iRank=1,n_procs-1
                   write(*,"(A,I4)") "MPI_putting from rank 0 to rank ",iRank
                   call MPI_Put(signals,5,MPI_integer,&
@@ -672,49 +676,49 @@ contains
          !PERFON('logics')
          !-- Checking logic for output:
          l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,       &
-              &                  n_graph_step,n_graphs,n_t_graph,t_graph,0) .or. &
-              &             n_graph_signal == 1
+         &                       n_graph_step,n_graphs,n_t_graph,t_graph,0) .or. &
+         &                  n_graph_signal == 1
          !l_graph=.false.
          n_graph_signal=0   ! reset interrupt signal !
          l_spectrum=                                                             &
-              &         l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-              &           n_spec_step,n_specs,n_t_spec,t_spec,0) .or.            &
-              &           n_spec_signal == 1
+         &              l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
+         &                n_spec_step,n_specs,n_t_spec,t_spec,0) .or.            &
+         &                n_spec_signal == 1
          l_frame= l_movie .and. (                                                &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &        n_movie_step,n_movie_frames,n_t_movie,t_movie,0) .or.     &
-              &              n_time_steps_go == 1 )
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+         &             n_movie_step,n_movie_frames,n_t_movie,t_movie,0) .or.     &
+         &                   n_time_steps_go == 1 )
          if ( l_mag .or. l_mag_LF ) then
             l_dtB=( l_frame .and. l_dtBmovie ) .or.         &
-                 &              ( l_log .and. l_DTrMagSpec )
+            &                   ( l_log .and. l_DTrMagSpec )
          end if
          l_HT  = l_frame .and. l_HTmovie
 
          lTOframe=l_TOmovie .and.                                                &
-              &     l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-              &     n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
+         &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
+         &          n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
 
          l_probe_out=l_probe .and.                                               &
-              &     l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-              &     n_probe_step,n_probe_out,n_t_probe,t_probe,0)
+         &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
+         &          n_probe_step,n_probe_out,n_t_probe,t_probe,0)
 
          if ( l_mag .or. l_mag_LF ) then
-            l_Bpot=l_storeBpot .and. (                                              &
-                 &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-                 &                       n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or. &
-                 &            n_time_steps == 1 )  .or. n_pot_signal == 1
+            l_Bpot=l_storeBpot .and. (                                             &
+            &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
+            &                            n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or.&
+            &                 n_time_steps == 1 )  .or. n_pot_signal == 1
          else
             l_Bpot=.false.
          end if
          l_Vpot=l_storeVpot .and. (                                              &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_Vpot_step,n_Vpots,n_t_Vpot,t_Vpot,0).or. &
-              &            n_time_steps == 1 ) .or. n_pot_signal == 1
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+         &                            n_Vpot_step,n_Vpots,n_t_Vpot,t_Vpot,0).or. &
+         &                 n_time_steps == 1 ) .or. n_pot_signal == 1
          if ( l_heat ) then
-            l_Tpot=l_storeTpot .and. (                                              &
-                 &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-                 &                       n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).or. &
-                 &            n_time_steps == 1 ) .or. n_pot_signal == 1
+            l_Tpot=l_storeTpot .and. (                                             &
+            &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
+            &                            n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).or.&
+            &                 n_time_steps == 1 ) .or. n_pot_signal == 1
          else
             l_Tpot=.false.
          end if
@@ -723,64 +727,64 @@ contains
          l_cour=.true.
 
          l_new_rst_file=                                                         &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_rst_step,n_rsts,n_t_rst,t_rst,0) .or.    &
-              &        n_rst_signal == 1
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+         &                            n_rst_step,n_rsts,n_t_rst,t_rst,0) .or.    &
+         &             n_rst_signal == 1
          n_rst_signal=0
          l_store= l_new_rst_file .or.                                            &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       0,n_stores,0,t_rst,0)
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+         &                            0,n_stores,0,t_rst,0)
 
          l_log= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_log_step,n_logs,n_t_log,t_log,0)
+         &                            n_log_step,n_logs,n_t_log,t_log,0)
          l_cmb= l_cmb_field .and.                                                &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_cmb_step,n_cmbs,n_t_cmb,t_cmb,0)
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+         &                            n_cmb_step,n_cmbs,n_t_cmb,t_cmb,0)
          l_r= l_r_field .and.                                                    &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_r_field_step,n_r_fields,n_t_r_field,     &
-              &                       t_r_field,0)
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+         &                            n_r_field_step,n_r_fields,n_t_r_field,     &
+         &                            t_r_field,0)
          l_logNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 )                       &
-              &        l_logNext=                                     &
-              &        l_correct_step(n_time_step,time+dt,timeLast,   &
-              &              n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
+         &             l_logNext=                                     &
+         &             l_correct_step(n_time_step,time+dt,timeLast,   &
+         &                   n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
          l_logNext2=.false.
          if ( n_time_step+2 <= n_time_steps+1 )                         &
-              &        l_logNext2=                                      &
-              &        l_correct_step(n_time_step+1,time+2*dt,timeLast, &
-              &         n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
+         &             l_logNext2=                                      &
+         &             l_correct_step(n_time_step+1,time+2*dt,timeLast, &
+         &              n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
          lTOCalc= n_time_step > 2 .and. l_TO .and.                   &
-              &          l_correct_step(n_time_step-1,time,timeLast, &
-              &          n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
+         &               l_correct_step(n_time_step-1,time,timeLast, &
+         &               n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
          lTOnext     =.false.
          lTOframeNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 ) then
             lTONext= l_TO .and.                                            &
-                 &           l_correct_step(n_time_step,time+dt,timeLast,  &
-                 &            n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
+            &                l_correct_step(n_time_step,time+dt,timeLast,  &
+            &                 n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
             lTOframeNext= l_TOmovie .and.                                   &
-                 &           l_correct_step(n_time_step,time+dt,timeLast,   &
-                 &          n_time_steps,n_TOmovie_step,n_TOmovie_frames,   &
-                 &                               n_t_TOmovie,t_TOmovie,0)
+            &                l_correct_step(n_time_step,time+dt,timeLast,   &
+            &               n_time_steps,n_TOmovie_step,n_TOmovie_frames,   &
+            &                                    n_t_TOmovie,t_TOmovie,0)
          end if
          lTONext      =lTOnext.or.lTOframeNext
          lTONext2     =.false.
          lTOframeNext2=.false.
          if ( n_time_step+2 <= n_time_steps+1 ) then
             lTONext2= l_TO .and.                                              &
-                 &           l_correct_step(n_time_step+1,time+2*dt,timeLast, &
-                 &                                    n_time_steps,n_TO_step, &
-                 &                                       n_TOs,n_t_TO,t_TO,0)
+            &                l_correct_step(n_time_step+1,time+2*dt,timeLast, &
+            &                                         n_time_steps,n_TO_step, &
+            &                                            n_TOs,n_t_TO,t_TO,0)
             lTOframeNext2= l_TOmovie .and.                                    &
-                 &           l_correct_step(n_time_step+1,time+2*dt,timeLast, &
-                 &                               n_time_steps,n_TOmovie_step, &
-                 &                  n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
+            &                l_correct_step(n_time_step+1,time+2*dt,timeLast, &
+            &                                    n_time_steps,n_TOmovie_step, &
+            &                       n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
          end if
          lTONext2=lTOnext2.or.lTOframeNext2
          lTOZhelp= n_time_step > 2 .and. l_TO .and.                         &
-              &                l_correct_step(n_time_step-1,time,timeLast,  &
-              &            n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
+         &                     l_correct_step(n_time_step-1,time,timeLast,  &
+         &                 n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
          if ( lTOZhelp ) then
             lTOZwrite=.true.
          else
@@ -868,50 +872,6 @@ contains
             PERFOFF
          end if
 
-         if ( DEBUG_OUTPUT ) then
-            do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs)
-               lmStart=lmStartB(nLMB)
-               lmStop=lmStopB(nLMB)
-               lmStart_00  =max(2,lmStart)
-
-               !do nR=1,n_r_max
-               !   write(*,"(A,I2,A,2ES20.12)") "dw_LMloc for nR=",nR," is ", &
-               !        SUM( dw_LMloc(lmStart:lmStop,nR) )
-               !end do
-               write(*,"(A,I3,6ES20.12)") "start w: ",nLMB,        &
-                    & GET_GLOBAL_SUM( w_LMloc(lmStart:lmStop,:) ), &
-                    & GET_GLOBAL_SUM( dw_LMloc(lmStart:lmStop,:) ),&
-                    & GET_GLOBAL_SUM( ddw_LMloc(lmStart:lmStop,:) )
-               write(*,"(A,I3,4ES20.12)") "start z: ",nLMB,       &
-                    & GET_GLOBAL_SUM( z_LMloc(lmStart:lmStop,:) ),&
-                    & GET_GLOBAL_SUM( dz_LMloc(lmStart:lmStop,:) )
-               write(*,"(A,I3,4ES20.12)") "start s: ",nLMB,       &
-                    & GET_GLOBAL_SUM( s_LMloc(lmStart:lmStop,:) ),&
-                    & GET_GLOBAL_SUM( ds_LMloc(lmStart:lmStop,:) )
-               write(*,"(A,I3,4ES20.12)") "start p: ",nLMB,       &
-                    & GET_GLOBAL_SUM( p_LMloc(lmStart:lmStop,:) ),&
-                    & GET_GLOBAL_SUM( dp_LMloc(lmStart_00:lmStop,:) )
-               if ( l_mag ) then
-                  write(*,"(A,I3,8ES20.12)") "start b: ",nLMB,        &
-                       & GET_GLOBAL_SUM( b_LMloc(lmStart:lmStop,:) ), &
-                       & GET_GLOBAL_SUM( db_LMloc(lmStart:lmStop,:) ),&
-                       & GET_GLOBAL_SUM( ddb_LMloc(lmStart:lmStop,:) )
-                  write(*,"(A,I3,8ES20.12)") "start aj: ",nLMB,        &
-                       & GET_GLOBAL_SUM( aj_LMloc(lmStart:lmStop,:) ), &
-                       & GET_GLOBAL_SUM( dj_LMloc(lmStart:lmStop,:) ), &
-                       & GET_GLOBAL_SUM( ddj_LMloc(lmStart:lmStop,:) )
-                  write(*,"(A,I3,8ES20.12)") "start b_ic: ",nLMB,        &
-                       & GET_GLOBAL_SUM( b_ic_LMloc(lmStart:lmStop,:) ), &
-                       & GET_GLOBAL_SUM( db_ic_LMloc(lmStart:lmStop,:) ),&
-                       & GET_GLOBAL_SUM( ddb_ic_LMloc(lmStart:lmStop,:) )
-                  write(*,"(A,I3,8ES20.12)") "start aj_ic: ",nLMB,       &
-                       & GET_GLOBAL_SUM( aj_ic_LMloc(lmStart:lmStop,:) ),&
-                       & GET_GLOBAL_SUM( dj_ic_LMloc(lmStart:lmStop,:) ),&
-                       & GET_GLOBAL_SUM( ddj_ic_LMloc(lmStart:lmStop,:) )
-               end if
-            end do
-         end if
-
          !--- Now the real work starts with the radial loop that calculates
          !    the nonlinear terms:
          if ( lVerbose ) then
@@ -965,23 +925,6 @@ contains
          ! gather in-place, we need allgatherV because auf the unequal
          ! number of points on the processes (last block is one larger)
 
-         if ( DEBUG_OUTPUT ) then
-            nR_i1=max(1,nRstart)
-            nR_i2=min(n_r_max,nRstop)
-            write(*,"(A,10ES20.12)") "middl: dwdt,dsdt,dzdt,dpdt = ",&
-                 & GET_GLOBAL_SUM( dwdt_Rloc(:,nR_i1:nR_i2) ),       &
-                 & GET_GLOBAL_SUM( dsdt_Rloc(:,nR_i1:nR_i2) ),       &
-                 & GET_GLOBAL_SUM( dzdt_Rloc(:,nR_i1:nR_i2) ),       &
-                 & GET_GLOBAL_SUM( dpdt_Rloc(:,nR_i1:nR_i2) ),       &
-                 & GET_GLOBAL_SUM( dVSrLM_Rloc )
-            if ( l_mag ) then
-               write(*,"(A,6ES20.12)") "middl: dbdt,djdt,dVxBhLM = ",&
-                    & GET_GLOBAL_SUM( dbdt_Rloc(:,nR_i1:nR_i2) ),    &
-                    & GET_GLOBAL_SUM( djdt_Rloc(:,nR_i1:nR_i2) ),    &
-                    & GET_GLOBAL_SUM( dVxBhLM_Rloc )
-            end if
-         end if
-
          ! ===================================== BARRIER =======================
          !PERFON('barr_rad')
          !call MPI_Barrier(MPI_COMM_WORLD,ierr)
@@ -991,7 +934,8 @@ contains
 
          PERFON('r2lo_dst')
          if ( l_conv .or. l_mag_kin ) then
-            call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container,dflowdt_LMloc_container)
+            call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container, &
+                 &                 dflowdt_LMloc_container)
             call r2lo_redist_wait(r2lo_flow)
          end if
 
@@ -1001,7 +945,8 @@ contains
          end if
 
          if ( l_chemical_conv ) then
-            call r2lo_redist_start(r2lo_xi,dxidt_Rloc_container,dxidt_LMloc_container)
+            call r2lo_redist_start(r2lo_xi,dxidt_Rloc_container,  &
+                 &                 dxidt_LMloc_container)
             call r2lo_redist_wait(r2lo_xi)
          end if
 
@@ -1021,43 +966,6 @@ contains
 #endif
          PERFOFF
          if ( lVerbose ) write(*,*) "! r2lo redistribution finished"
-
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,8ES20.12)")                                           &
-                 & "lo_arr middl: dzdt_LMloc,z_LMloc,dz_LMloc,dzdtLast_lo = ",&
-                 & GET_GLOBAL_SUM( dzdt_LMloc(:,2:n_r_max-1) ),               &
-                 & GET_GLOBAL_SUM( z_LMloc ),GET_GLOBAL_SUM( dz_LMloc ),      &
-                 & GET_GLOBAL_SUM( dzdtLast_lo )
-            write(*,"(A,8ES20.12)") "lo_arr middl: dsdt,s,ds,dsdtLast = ", &
-                 & GET_GLOBAL_SUM( dsdt_LMloc(:,2:n_r_max-1) ),            &
-                 & GET_GLOBAL_SUM( s_LMloc ),GET_GLOBAL_SUM( ds_LMloc ),   &
-                 & GET_GLOBAL_SUM( dsdtLast_LMloc )
-            write(*,"(A,10ES20.12)")                            &
-                 & "lo_arr middl: dwdt,w,dw,ddw,dwdtLast = ",   &
-                 & GET_GLOBAL_SUM( dwdt_LMloc(:,2:n_r_max-1) ), &
-                 & GET_GLOBAL_SUM( w_LMloc ),                   &
-                 & GET_GLOBAL_SUM( dw_LMloc ),                  &
-                 & GET_GLOBAL_SUM( ddw_LMloc ),                 &
-                 & GET_GLOBAL_SUM( dwdtLast_LMloc )
-            if ( l_mag ) then
-               write(*,"(A,10ES20.12)")                            &
-                    &"lo_arr middl: dbdt,b,db,ddb,dbdtLast = ",    &
-                    & GET_GLOBAL_SUM( dbdt_LMloc(:,2:n_r_max-1) ), &
-                    & GET_GLOBAL_SUM( b_LMloc ),                   &
-                    & GET_GLOBAL_SUM( db_LMloc ),                  &
-                    & GET_GLOBAL_SUM( ddb_LMloc ),                 &
-                    & GET_GLOBAL_SUM( dbdtLast_LMloc )
-               write(*,"(A,12ES20.12)")                                     &
-                    & "lo_arr middl: djdt,aj,dj,ddj,djdtLast,dVxBhLM = ",   &
-                    & GET_GLOBAL_SUM( djdt_LMloc(:,2:n_r_max-1) ),          &
-                    & GET_GLOBAL_SUM( aj_LMloc ),GET_GLOBAL_SUM( dj_LMloc ),&
-                    & GET_GLOBAL_SUM( ddj_LMloc ),                          &
-                    & GET_GLOBAL_SUM( djdtLast_LMloc ),                     &
-                    & GET_GLOBAL_SUM( dVxBhLM_LMloc )
-            end if
-            write(*,"(A,2ES20.12)") "middl: dtrkc,dthkc = ", &
-                  SUM(dtrkc_Rloc),SUM(dthkc_Rloc)
-         end if
 
          !PERFOFF
 
@@ -1216,7 +1124,7 @@ contains
             lMat=.true.
             if ( rank == 0 ) then
                write(*,'(1p,/,'' ! BUILDING MATRICIES AT STEP/TIME:'',   &
-                    &              i8,ES16.6)') n_time_step,timeScaled
+               &                   i8,ES16.6)') n_time_step,timeScaled
             end if
          end if
 
@@ -1251,35 +1159,6 @@ contains
             call addTime(runTimeLM,runTimePassed)
          end if
 
-         if (DEBUG_OUTPUT) then
-            write(*,"(A,6ES20.12)") "lo_arr end: z_LMloc,dz_LMloc,dzdtLast_lo = ",&
-                 & GET_GLOBAL_SUM( z_LMloc ),               &
-                 & GET_GLOBAL_SUM( dz_LMloc ),              &
-                 & GET_GLOBAL_SUM( dzdtLast_lo )
-            write(*,"(A,6ES20.12)") "lo_arr end: s,ds,dsdtLast = ",&
-                 & GET_GLOBAL_SUM( s_LMloc ),                      &
-                 & GET_GLOBAL_SUM( ds_LMloc ),                     &
-                 & GET_GLOBAL_SUM( dsdtLast_LMloc )
-            write(*,"(A,6ES20.12)") "lo_arr end: w,dw,dwdtLast = ",&
-                 & GET_GLOBAL_SUM( w_LMloc ),                      &
-                 & GET_GLOBAL_SUM( dw_LMloc ),                     &
-                 & GET_GLOBAL_SUM( dwdtLast_LMloc )
-            write(*,"(A,4ES20.12)") "w(bnd_r) = ",            &
-                 & GET_GLOBAL_SUM( w_LMloc(:,n_r_icb) ),      &
-                 & GET_GLOBAL_SUM( w_LMloc(:,n_r_cmb) )
-            write(*,"(A,6ES20.12)") "lo_arr end: p,dpdtLast = ",&
-                 & GET_GLOBAL_SUM( p_LMloc ),                   &
-                 & GET_GLOBAL_SUM( dpdtLast_LMloc )
-            write(*,"(A,6ES20.12)") "lo_arr end: b,db,dbdtLast = ",&
-                 & GET_GLOBAL_SUM( b_LMloc ),                      &
-                 & GET_GLOBAL_SUM( db_LMloc ),                     &
-                 & GET_GLOBAL_SUM( dbdtLast_LMloc )
-            write(*,"(A,6ES20.12)") "lo_arr end: aj,dj,djdtLast = ",&
-                 & GET_GLOBAL_SUM( aj_LMloc ),                      &
-                 & GET_GLOBAL_SUM( dj_LMloc ),                      &
-                 & GET_GLOBAL_SUM( djdtLast_LMloc )
-         end if
-
          !----- Timing and info of advancement:
          ! =================================== BARRIER ======================
          !start_time=MPI_Wtime()
@@ -1306,11 +1185,11 @@ contains
             call addTime(runTime,runTimePassed)
          end if
          if ( real(n_time_step,cp)+tenth_n_time_steps*real(nPercent,cp) >=  &
-            & real(n_time_steps,cp)  .or. n_time_steps < 31 ) then
+         &    real(n_time_steps,cp)  .or. n_time_steps < 31 ) then
             write(message,'(" ! Time step finished:",i6)') n_time_step
             call logWrite(message)
             if ( real(n_time_step,cp)+tenth_n_time_steps*real(nPercent,cp) >= &
-               & real(n_time_steps,cp) .and. n_time_steps >= 10 ) then
+            &    real(n_time_steps,cp) .and. n_time_steps >= 10 ) then
                write(message,'(" ! This is           :",i3,"%")') (10-nPercent)*10
                call logWrite(message)
                nPercent=nPercent-1
@@ -1322,13 +1201,13 @@ contains
                call meanTime(runTimePassed,nTimeT)
                if ( rank == 0 ) then
                   call writeTime(output_unit,'! Mean wall time for time step:',  &
-                  &              runTimePassed)
+                       &         runTimePassed)
                   if ( l_save_out ) then
                      open(newunit=n_log_file, file=log_file, status='unknown', &
                      &    position='append')
                   end if
                   call writeTime(n_log_file,'! Mean wall time for time step:', &
-                  &              runTimePassed)
+                       &         runTimePassed)
                   if ( l_save_out ) close(n_log_file)
                end if
             end if
@@ -1343,35 +1222,35 @@ contains
          if ( rank == 0 ) then
             if (n_frame > 0) then
                write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')                    &
-                    &" !  No of stored movie frames: ",n_frame,           &
-                    &" !     starting at time: ",t_movieS(1)*tScale,      &
-                    &" !       ending at time: ",t_movieS(n_frame)*tScale,&
-                    &" !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
+               &     " !  No of stored movie frames: ",n_frame,           &
+               &     " !     starting at time: ",t_movieS(1)*tScale,      &
+               &     " !       ending at time: ",t_movieS(n_frame)*tScale,&
+               &     " !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &
                   &    position='append')
                end if
                write(n_log_file,'(1p,/,/,A,i10,3(/,A,ES16.6))')           &
-                    &" !  No of stored movie frames: ",n_frame,           &
-                    &" !     starting at time: ",t_movieS(1)*tScale,      &
-                    &" !       ending at time: ",t_movieS(n_frame)*tScale,&
-                    &" !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
+               &     " !  No of stored movie frames: ",n_frame,           &
+               &     " !     starting at time: ",t_movieS(1)*tScale,      &
+               &     " !       ending at time: ",t_movieS(n_frame)*tScale,&
+               &     " !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
                if ( l_save_out ) close(n_log_file)
             else
                write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')          &
-                    &" !  No of stored movie frames: ",n_frame, &
-                    &" !     starting at time: ",0.0_cp,        &
-                    &" !       ending at time: ",0.0_cp,        &
-                    &" !      with step width: ",0.0_cp
+               &     " !  No of stored movie frames: ",n_frame, &
+               &     " !     starting at time: ",0.0_cp,        &
+               &     " !       ending at time: ",0.0_cp,        &
+               &     " !      with step width: ",0.0_cp
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &
                   &    position='append')
                end if
                write(n_log_file,'(1p,/,/,A,i10,3(/,A,ES16.6))') &
-                    &" !  No of stored movie frames: ",n_frame, &
-                    &" !     starting at time: ",0.0_cp,        &
-                    &" !       ending at time: ",0.0_cp,        &
-                    &" !      with step width: ",0.0_cp
+               &     " !  No of stored movie frames: ",n_frame, &
+               &     " !     starting at time: ",0.0_cp,        &
+               &     " !       ending at time: ",0.0_cp,        &
+               &     " !      with step width: ",0.0_cp
                if ( l_save_out ) close(n_log_file)
             end if
          end if
@@ -1389,29 +1268,29 @@ contains
       call meanTime(runTimeT,nTimeT)
       if ( rank == 0 ) then
          call writeTime(output_unit, &
-         &    '! Mean wall time for r Loop                 :',runTimeR)
+              &    '! Mean wall time for r Loop                 :',runTimeR)
          call writeTime(output_unit, &
-         &   '! Mean wall time for LM Loop                :',runTimeLM)
+              &   '! Mean wall time for LM Loop                :',runTimeLM)
          call writeTime(output_unit, &
-         &   '! Mean wall time for t-step with matrix calc:',runTimeTM)
+              &   '! Mean wall time for t-step with matrix calc:',runTimeTM)
          call writeTime(output_unit, &
-         &   '! Mean wall time for t-step with log output :',runTimeTL)
+              &   '! Mean wall time for t-step with log output :',runTimeTL)
          call writeTime(output_unit, &
-         &   '! Mean wall time for pure t-step            :',runTimeT)
+              &   '! Mean wall time for pure t-step            :',runTimeT)
          if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
          call writeTime(n_log_file,  &
-         &    '! Mean wall time for r Loop                 :',runTimeR)
+              &    '! Mean wall time for r Loop                 :',runTimeR)
          call writeTime(n_log_file,  &
-         &    '! Mean wall time for LM Loop                :',runTimeLM)
+              &    '! Mean wall time for LM Loop                :',runTimeLM)
          call writeTime(n_log_file,  &
-         &    '! Mean wall time for t-step with matrix calc:',runTimeTM)
+              &    '! Mean wall time for t-step with matrix calc:',runTimeTM)
          call writeTime(n_log_file,  &
-         &    '! Mean wall time for t-step with log output :',runTimeTL)
+              &    '! Mean wall time for t-step with log output :',runTimeTL)
          call writeTime(n_log_file,  &
-         &    '! Mean wall time for pure t-step            :',runTimeT)
+              &    '! Mean wall time for pure t-step            :',runTimeT)
          if ( l_save_out ) close(n_log_file)
       end if
 
@@ -1451,21 +1330,21 @@ contains
 
       do n=1,n_time_hits
          if ( t_rst(n) > time .and. t_rst(n) < time_new ) &
-              dt_hit(1)=t_rst(n)-time
+         &    dt_hit(1)=t_rst(n)-time
          if ( t_graph(n) > time .and. t_graph(n) < time_new ) &
-              dt_hit(2)=t_graph(n)-time
+         &    dt_hit(2)=t_graph(n)-time
          if ( t_log(n) > time .and. t_log(n) < time_new ) &
-              dt_hit(3)=t_log(n)-time
+         &    dt_hit(3)=t_log(n)-time
          if ( t_spec(n) > time .and. t_spec(n) < time_new ) &
-              dt_hit(4)=t_spec(n)-time
+         &    dt_hit(4)=t_spec(n)-time
          if ( t_cmb(n) > time .and. t_cmb(n) < time_new ) &
-              dt_hit(5)=t_cmb(n)-time
+         &    dt_hit(5)=t_cmb(n)-time
          if ( t_movie(n) > time .and. t_movie(n) < time_new ) &
-              dt_hit(6)=t_movie(n)-time
+         &    dt_hit(6)=t_movie(n)-time
          if ( t_TO(n) > time .and. t_TO(n) < time_new ) &
-              dt_hit(7)=t_TO(n)-time
+         &    dt_hit(7)=t_TO(n)-time
          if ( t_TOmovie(n) > time .and. t_TOmovie(n) < time_new ) &
-              dt_hit(7)=t_TOmovie(n)-time
+         &    dt_hit(7)=t_TOmovie(n)-time
       end do
 
       do n=1,n_dt_hit
@@ -1485,13 +1364,13 @@ contains
                open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
                write(n_log_file,                                                &
-                    &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
-                    &     time_new*tScale,time*tScale
+               &          '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
+               &          time_new*tScale,time*tScale
                close(n_log_file)
             else
                write(n_log_file,                                               &
-                    &    '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
-                    &    time_new*tScale,time*tScale
+               &         '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
+               &         time_new*tScale,time*tScale
             end if
          end if
       end if
@@ -1499,4 +1378,3 @@ contains
    end subroutine check_time_hits
 !------------------------------------------------------------------------------
 end module step_time_mod
-
