@@ -26,7 +26,7 @@ contains
 
       integer :: iproc
 
-      bytes_allocated = 0 ! 
+      bytes_allocated = 0 !
       n_ranks_print = min(n_procs-1, 6)
 
       if ( n_ranks_print > 0 ) then
@@ -41,7 +41,7 @@ contains
       if ( rank == 0 ) then
          memory_file = 'mem_alloc.'//tag
          open(newunit=n_memory_file, file=memory_file, &
-              status='unknown', position='append')
+         &    status='unknown', position='append')
       end if
 
    end subroutine initialize_memory_counter
@@ -80,14 +80,14 @@ contains
             iproc=ranks_selected(i)
             if ( rank == iproc ) then
                call MPI_Send(bytes_alloc,1,MPI_INTEGER8,0,sr_tag+iproc, &
-                             MPI_COMM_WORLD,ierr)
+                    &        MPI_COMM_WORLD,ierr)
             end if
          end do
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
             if ( rank == 0 ) then
                call MPI_Recv(bytes_other_proc,1,MPI_INTEGER8,iproc,sr_tag+iproc, &
-                             MPI_COMM_WORLD,status,ierr)
+                    &        MPI_COMM_WORLD,status,ierr)
                if ( n_procs > 8 .and. iproc == n_procs -2 ) then
                   write(n_memory_file, *) "               ..."
                end if
@@ -132,14 +132,14 @@ contains
             iproc=ranks_selected(i)
             if ( rank == iproc ) then
                call MPI_Send(bytes_allocated,1,MPI_INTEGER8,0,sr_tag+iproc, &
-                             MPI_COMM_WORLD,ierr)
+                    &        MPI_COMM_WORLD,ierr)
             end if
          end do
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
             if ( rank == 0 ) then
                call MPI_Recv(bytes_other_proc,1,MPI_INTEGER8,iproc,sr_tag+iproc, &
-                             MPI_COMM_WORLD,status,ierr)
+                    &        MPI_COMM_WORLD,status,ierr)
                if ( n_procs > 8 .and. iproc == n_procs-2 ) then
                   write(n_memory_file, *) "               ..."
                end if
@@ -173,7 +173,7 @@ contains
 
       do i=1,6
          if ( bytes_float < 1024.0_cp ) then
-            write(st, "(F8.3,A1,A,A)") bytes_float, ' ', units(i), suffix 
+            write(st, "(F8.3,A1,A,A)") bytes_float, ' ', units(i), suffix
             exit
          end if
          bytes_float = bytes_float / 1024.0_cp
