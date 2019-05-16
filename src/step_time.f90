@@ -405,12 +405,9 @@ contains
       integer :: runTimeTL(4),runTimeTM(4)
       integer :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM
 
-      integer :: lmStart,lmStop,lmStart_00
-      integer :: nR_i1,nR_i2
       ! MPI related variables
       integer :: info
       integer, allocatable :: recvcounts(:),displs(:)
-      integer :: nLMB
 
       integer(lip) :: time_in_ms
 

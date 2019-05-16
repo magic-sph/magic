@@ -552,7 +552,7 @@ contains
             if ( rank == 0 ) then
                call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
                     &           ddb_ic_ave_global,aj_ic_ave_global, &
-                    &           dj_ic_ave_global,bICB)
+                    &           dj_ic_ave_global,bICB,l_avg=.true.)
             end if
          end if
 

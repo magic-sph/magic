@@ -129,14 +129,12 @@ contains
 
       !--- Local counter
       integer :: nLMB
-      integer :: lmStart,lmStop
       integer :: l,nR,ierr
       integer :: tStart(4),tStop(4),tPassed(4)
 
       !--- Inner core rotation from last time step
       real(cp), save :: omega_icLast
       real(cp) :: z10(n_r_max)
-      complex(cp) :: sum_dwdt
 
 
       PERFON('LMloop')

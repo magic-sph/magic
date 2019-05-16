@@ -823,7 +823,7 @@ contains
    end subroutine graphOut_mpi_header
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
+   subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB,l_avg)
       !
       !  Purpose of this subroutine is to write inner core magnetic
       !  field onto graphic output file. If the inner core is
@@ -840,21 +840,16 @@ contains
       complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: bICB(lm_maxMag)
+      logical, optional, intent(in) :: l_avg
 
       !-- Local variables:
-      integer :: nR
-      integer :: nThetaB,nTheta,nThetaStart,nThetaC
-      integer :: nPhi
+      logical :: l_avg_loc
+      integer :: nR,nPhi,nThetaB,nTheta,nThetaStart,nThetaC
 
-      complex(cp) :: dLhb(lm_max)
-      complex(cp) :: bhG(lm_max)
-      complex(cp) :: bhC(lm_max)
-      complex(cp) :: dLhj(lm_max)
-      complex(cp) :: cbhG(lm_max)
-      complex(cp) :: cbhC(lm_max)
-      real(cp) :: BrB(nrp,nfs)
-      real(cp) :: BtB(nrp,nfs)
-      real(cp) :: BpB(nrp,nfs)
+      complex(cp) :: dLhb(lm_max), dLhj(lm_max)
+      complex(cp) :: bhG(lm_max), bhC(lm_max)
+      complex(cp) :: cbhG(lm_max), cbhC(lm_max)
+      real(cp) :: BrB(nrp,nfs), BtB(nrp,nfs), BpB(nrp,nfs)
       real(outp) :: Br(n_phi_max,n_theta_max)
       real(outp) :: Bt(n_phi_max,n_theta_max)
       real(outp) :: Bp(n_phi_max,n_theta_max)
@@ -866,10 +861,18 @@ contains
       ! end MPI variables
 #endif
 
+      if ( present(l_avg) ) then
+         l_avg_loc = l_avg
+      else
+         l_avg_loc = .false.
+      end if
+
 #ifdef WITH_MPI
       !-- One has to bring rank=0 to the end of the file
-      offset = 0
-      call MPI_File_Seek(graph_mpi_fh, offset, MPI_SEEK_END, ierr)
+      if ( .not. l_avg_loc ) then
+         offset = 0
+         call MPI_File_Seek(graph_mpi_fh, offset, MPI_SEEK_END, ierr)
+      end if
 #endif
 
       !-- Loop over all radial levels:
@@ -932,16 +935,21 @@ contains
 #ifdef WITH_MPI
          ! in process n_procs-1 the last oc fields have been written,
          ! Now just append on this process.
-         call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max+nR-2,outp),1, &
-              &              MPI_OUT_REAL,status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,real(r_ic(nR)/r_cmb,outp),1, &
-              &              MPI_OUT_REAL,status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,1.e0_outp,1,MPI_OUT_REAL, &
-              &              status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
-              &              MPI_OUT_REAL,status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+         if ( .not. l_avg_loc ) then
+            call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max+nR-2,outp),1, &
+                 &              MPI_OUT_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(r_ic(nR)/r_cmb,outp),1, &
+                 &              MPI_OUT_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,1.e0_outp,1,MPI_OUT_REAL, &
+                 &              status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
+                 &              MPI_OUT_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+         else
+            write(n_graph_file) real(n_r_max+nR-2,outp),real(r_ic(nR)/r_cmb,outp),&
+                 &              1.e0_outp,real(n_theta_max,outp)
+         end if
 #else
          write(n_graph_file) real(n_r_max+nR-2,outp),real(r_ic(nR)/r_cmb,outp),&
               &              1.e0_outp,real(n_theta_max,outp)
@@ -950,21 +958,33 @@ contains
 
          !-- Write radial magnetic field:
 #ifdef WITH_MPI
-         call graph_write_mpi(n_phi_max,n_theta_max,Br,graph_mpi_fh)
+         if ( .not. l_avg_loc ) then
+            call graph_write_mpi(n_phi_max,n_theta_max,Br,graph_mpi_fh)
+         else
+            call graph_write(n_phi_max,n_theta_max,Br,n_graph_file)
+         end if
 #else
          call graph_write(n_phi_max,n_theta_max,Br,n_graph_file)
 #endif
 
          !-- Write latitudinal magnetic field:
 #ifdef WITH_MPI
-         call graph_write_mpi(n_phi_max,n_theta_max,Bt,graph_mpi_fh)
+         if ( .not. l_avg_loc ) then
+            call graph_write_mpi(n_phi_max,n_theta_max,Bt,graph_mpi_fh)
+         else
+            call graph_write(n_phi_max,n_theta_max,Bt,n_graph_file)
+         end if
 #else
          call graph_write(n_phi_max,n_theta_max,Bt,n_graph_file)
 #endif
 
          !-- Write longitudinal magnetic field:
 #ifdef WITH_MPI
-         call graph_write_mpi(n_phi_max,n_theta_max,Bp,graph_mpi_fh)
+         if ( .not. l_avg_loc ) then
+            call graph_write_mpi(n_phi_max,n_theta_max,Bp,graph_mpi_fh)
+         else
+            call graph_write(n_phi_max,n_theta_max,Bp,n_graph_file)
+         end if
 #else
          call graph_write(n_phi_max,n_theta_max,Bp,n_graph_file)
 #endif
