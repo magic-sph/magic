@@ -17,51 +17,51 @@ module blocking
        &                subblocks_mappings
    use useful, only: logWrite, abortRun
    use constants, only: one
- 
+
    implicit none
- 
+
    private
- 
+
    !------------------------------------------------------------------------
    !  Dividing loops over all spherical harmonics into blocks that
-   !  contain approx. nChunk harmonics . The number of blocks, nLMBs,   
+   !  contain approx. nChunk harmonics . The number of blocks, nLMBs,
    !  is a multiple of nThreadsUse (the number of processors used).
    !  Parameter nChunk controls the number (and size) of blocks.
-   !  When nThreadUse is large, the size of the blocks may be 
+   !  When nThreadUse is large, the size of the blocks may be
    !  considerably smaller than the chosen nChunk,
    !  since nLMBs must be a multiple of nThreadsUse!
- 
+
    !integer, parameter :: nChunk=512
    !integer :: nThreadsMax
    ! nthreads > 1
    integer, public, pointer :: lm2(:,:),lm2l(:),lm2m(:)
    integer, public, pointer :: lm2mc(:),l2lmAS(:)
    integer, public, pointer :: lm2lmS(:),lm2lmA(:)
- 
+
    integer, public, pointer :: lmP2(:,:),lmP2l(:)
    integer, public, pointer :: lmP2lmPS(:),lmP2lmPA(:)
- 
+
    integer, public, pointer :: lm2lmP(:),lmP2lm(:)
- 
-   
+
+
    type(mappings), public, target :: st_map
    type(mappings), public, target :: lo_map
    !TYPE(mappings),TARGET :: sn_map
- 
+
    !integer :: nLMBsMax
    integer, public :: nLMBs,sizeLMB
- 
+
    integer, public, allocatable :: lmStartB(:),lmStopB(:)
    !integer,PARAMETER :: sizeLMB2max=201
- 
+
    integer, public, pointer :: nLMBs2(:),sizeLMB2(:,:)
    integer, public, pointer :: lm22lm(:,:,:)
    integer, public, pointer :: lm22l(:,:,:)
    integer, public, pointer :: lm22m(:,:,:)
- 
+
    type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map,sn_sub_map
- 
- 
+
+
    !------------------------------------------------------------------------
    !  Following divides loops over points in theta-direction (index ic) into
    !  blocks. Enhances performance by trying to decrease memory access
@@ -93,17 +93,17 @@ module blocking
    !  Thus it seems a good idea to use
    !        nfs=sizeThetaBI/(n_phi_max+nBSave)+1)*nBDown
    !
- 
+
    integer, public :: nfs
    integer, parameter :: sizeThetaBI=284,nBSave=16,nBDown=8
    integer, public :: cacheblock_size_in_B=4096
- 
+
    integer, public :: nThetaBs,sizeThetaB
- 
+
    interface get_theta_blocking
       module procedure get_theta_blocking_cache,get_theta_blocking_OpenMP
    end interface get_theta_blocking
- 
+
    public :: initialize_blocking, finalize_blocking, get_theta_blocking
 
 contains
@@ -182,15 +182,13 @@ contains
       if (n_procs <= l_max/2) then
          !better load balancing, but only up to l_max/2
          call get_snake_lm_blocking(lo_map,minc)
-         write(message,*) "Using snake ordering."
       else
          call get_lorder_lm_blocking(lo_map,minc)
-         write(message,*) "Using lorder ordering."
       end if
       call logWrite(message)
 
       do n=1,nLMBs
-         write(message,*) n,lmStartB(n),lmStopB(n),lmStopB(n)-lmStartB(n)+1
+         !write(message,*) n,lmStartB(n),lmStopB(n),lmStopB(n)-lmStartB(n)+1
          call logWrite(message)
          if ( lmStopB(n) == lm_max ) exit
       end do
@@ -214,7 +212,7 @@ contains
       write(message,"(2(A,I4))") "rank no ",rank_with_l1m0, &
             " has l1m0 in block ",LMB_with_l1m0
       call logWrite(message)
-         
+
       if (DEBUG_OUTPUT) then
          ! output the lm -> l,m mapping
          if (rank == 0) then
@@ -225,7 +223,7 @@ contains
             end do
          end if
       end if
-      
+
       ! set the standard ordering as default
       lm2(0:,0:) => st_map%lm2
       lm2l(1:lm_max) => st_map%lm2l
@@ -270,7 +268,7 @@ contains
       nThetaBs = 1
 #else
       if (nThreads == 1) then
-#ifdef OLD_THETA_BLOCKING    
+#ifdef OLD_THETA_BLOCKING
          nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
          sizeThetaB=min(n_theta_max,nfs)
          nThetaBs  =n_theta_max/sizeThetaB
@@ -347,12 +345,12 @@ contains
 
    end subroutine finalize_blocking
 !------------------------------------------------------------------------
-   subroutine get_subblocks(map,sub_map) 
+   subroutine get_subblocks(map,sub_map)
 
       !-- Input variables:
       type(mappings),           intent(in) :: map
       type(subblocks_mappings), intent(inout) :: sub_map
-      
+
       !-- Local variables:
       integer :: number_of_blocks
       logical :: lAfter,lStop
@@ -365,7 +363,7 @@ contains
       logical, parameter :: DEBUG_OUTPUT=.false.
 
       number_of_blocks=sub_map%nLMBs
-      
+
       check = 0
       lStop=.false.
       size=0
@@ -485,10 +483,10 @@ contains
 
       type(mappings), intent(inout) :: map
       integer,        intent(in) :: minc
-      
+
       ! Local variables
       integer :: m,l,lm,lmP,mc
-      
+
       do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
@@ -571,10 +569,10 @@ contains
 
       type(mappings), intent(inout) :: map
       integer,        intent(in) :: minc
-      
+
       ! Local variables
       integer :: m,l,lm,lmP,mc
-      
+
       do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
@@ -685,7 +683,7 @@ contains
 
       type(mappings), intent(inout) :: map
       integer,        intent(in) :: minc
-      
+
       ! Local variables
       integer :: l,proc,lm,m,i_l,lmP,mc
       logical :: Ascending
@@ -748,7 +746,7 @@ contains
       end if
 
       ! Now distribution is as equal as possible. We rotate the distribution
-      ! now to have the l0proc as first process. 
+      ! now to have the l0proc as first process.
       if (l0proc /= 0) then
          temp_l_list=l_list(0,:)
          temp_l_counter=l_counter(0)
@@ -823,8 +821,8 @@ contains
                end do
             end do
             lmStopB(proc+1)=lm-1
-            write(*,"(I3,2(A,I6))") proc,": lmStartB=",lmStartB(proc+1), &
-                                    ", lmStopB=",lmStopB(proc+1)
+            !write(*,"(I3,2(A,I6))") proc,": lmStartB=",lmStartB(proc+1), &
+            !                        ", lmStopB=",lmStopB(proc+1)
          end do
       else
          do proc=0,n_procs-1
@@ -851,7 +849,7 @@ contains
          end do
 
       end if
-      
+
       if ( lm-1 /= map%lm_max ) then
          write(*,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
               & " != map%lm_max = ",map%lm_max
@@ -911,9 +909,9 @@ contains
 
       integer, intent(in) :: n_theta_max,nrp,cacheblock_size_in_B
       integer, intent(out) :: nThetaBs, sizeThetaB
-    
+
       integer :: best_s,s,memory_size,min_s
-      
+
       best_s=0
       min_s = 0
       ! The size of the theta blocks must be dividable by 4
@@ -947,9 +945,9 @@ contains
       !
       integer, intent(in) :: n_theta_max,nThreads
       integer, intent(out) :: nThetaBs, sizeThetaB
-    
+
       integer :: best_s,s,min_s
-      
+
       best_s=0
       min_s = 0
       ! The size of the theta blocks must be dividable by 4
@@ -961,7 +959,7 @@ contains
             nThetaBs=n_theta_max/s
             !write(*,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", &
             !     &              nThetaBs = ",nThetaBs
-    
+
             if ( modulo(nThetaBs,nThreads) == 0 ) then
                best_s=s
             elseif (nThetaBs/nThreads  ==  0) then

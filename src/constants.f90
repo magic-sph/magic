@@ -7,7 +7,7 @@ module constants
    use precision_mod
 
    implicit none
- 
+
    real(cp) :: c_z10_omega_ic,c_z10_omega_ma
    real(cp) :: c_dt_z10_ic,c_dt_z10_ma
    real(cp) :: c_lorentz_ic,c_lorentz_ma
@@ -38,6 +38,6 @@ module constants
    real(cp), parameter :: cos36=cos(36.0_cp*pi/180.0_cp) ! :math:`\cos{36\pi/180}`
    real(cp), parameter :: cos72=cos(72.0_cp*pi/180.0_cp) ! :math:`\cos{72\pi/180}`
 
-   character(len=4), parameter :: codeVersion='5.6'
+   character(len=4), parameter :: codeVersion='5.7'
 
 end module constants

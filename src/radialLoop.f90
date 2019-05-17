@@ -60,13 +60,13 @@ contains
 #endif
 #endif
       this_type = this_rIteration%getType()
-      write(*,"(2A)") "Using rIteration type: ",trim(this_type)
+      if ( rank == 0 ) write(*,"(2A)") " ! Using rIteration type: ",trim(this_type)
       call this_rIteration%initialize()
       select type (this_rIteration)
-      class is (rIterThetaBlocking_t)
-         call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
-      class default
-         print*,"this_rIteration has no matching type in radialLoop.f90"
+         class is (rIterThetaBlocking_t)
+            call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
+         class default
+            write(*,*) "This_rIteration has no matching type in radialLoop.f90"
       end select
 
       local_bytes_used = bytes_allocated-local_bytes_used
@@ -210,9 +210,9 @@ contains
            &          ( kbotv == 2 .and. l_rot_ic ) ) )               &
            &     lMagNlBc=.true.
 
-      !------ When boundary output, Courant criterion, or non-magnetic 
-      !       boundary conditions are required I have to calculate 
-      !       the fields at the boundaries. This is done in one thread and 
+      !------ When boundary output, Courant criterion, or non-magnetic
+      !       boundary conditions are required I have to calculate
+      !       the fields at the boundaries. This is done in one thread and
       !       is triggered by lOutBc=.true.
       lOutBc=.false.
       if ( lTOCalc .or. lHelCalc .or. l_frame .or.         &
@@ -238,7 +238,7 @@ contains
          lDeriv = .true.
          isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
 
-         if ( nR == n_r_cmb ) then 
+         if ( nR == n_r_cmb ) then
             if ( lOutBc ) then
                !nR  = n_r_cmb
                nBc = ktopv
@@ -282,10 +282,10 @@ contains
               & fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),EperpLMr(:,nR),           &
               & EparLMr(:,nR),EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
 
-         dtrkc(nR)=this_rIteration%dtrkc      
-         dthkc(nR)=this_rIteration%dthkc      
+         dtrkc(nR)=this_rIteration%dtrkc
+         dthkc(nR)=this_rIteration%dthkc
 
-      end do    ! Loop over radial levels 
+      end do    ! Loop over radial levels
 
       !----- Correct sign of mantel Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma
