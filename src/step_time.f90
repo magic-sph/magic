@@ -33,6 +33,7 @@ module step_time_mod
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
        &                  lm_on_last_rank
    use LMLoop_mod, only: LMLoop
+   use signals_mod, only: initialize_signals, check_signals
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
        &                  n_spec_step, n_specs, n_t_spec, t_spec,          &
        &                  n_movie_step, n_movie_frames, n_t_movie, t_movie,&
@@ -54,7 +55,7 @@ module step_time_mod
 #endif
        &                  n_time_hits, n_graph_file
    use output_mod, only: output
-   use charmanip, only: capitalize, dble2str
+   use charmanip, only: dble2str
    use useful, only: l_correct_step, logWrite, abortRun
    use communications, only: get_global_sum, r2lo_redist_start, lm2r_type,  &
        &                     lo2r_redist_wait, r2lm_type, lo2r_field,       &
@@ -97,8 +98,6 @@ module step_time_mod
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
 
-   integer :: sigFile
-
    public :: initialize_step_time, finalize_step_time, step_time
 
 contains
@@ -110,6 +109,8 @@ contains
       integer(lip) :: local_bytes_used
 
       local_bytes_used = bytes_allocated
+
+      call initialize_signals()
 
       if ( l_double_curl ) then
          allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:4) )
@@ -327,9 +328,7 @@ contains
 
       !--- Stuff needed to construct output files:
       character(len=20) :: string
-
       character(len=255) :: message
-      character(len=76) :: SIG
 
       !--- Courant criteria/diagnosis:
       real(cp) :: dtr,dth
@@ -394,8 +393,6 @@ contains
       integer :: n_rst_signal      ! =1 causes output of rst file
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
-      integer :: old_stop_signal,old_graph_signal,old_rst_signal
-      integer :: old_spec_signal,old_pot_signal
 
       !--- Timing
       integer :: runTimePassed(4)
@@ -446,14 +443,6 @@ contains
       n_spec_signal=0      ! Spec signal
       n_rst_signal=0       ! Rst signal
       n_pot_signal=0       ! Potential file signal
-      if ( rank == 0 ) then
-         message='signal'//'.'//tag
-         open(newunit=sigFile, file=trim(message), status='unknown')
-         write(sigFile,'(A3)') 'NOT'
-         close(sigFile)
-      end if
-      !call MPI_Win_create(signals,4*SIZEOF_integer,SIZEOF_integer,info,&
-      !     & MPI_COMM_WORLD,signal_window,ierr)
 
       !-- STARTING THE TIME STEPPING LOOP:
       if ( rank == 0 ) then
@@ -517,19 +506,10 @@ contains
          ! Waiting for the completion before we continue to the radialLoop
          ! put the waits before signals to avoid cross communication
          PERFON('lo2r_wt')
-         if ( l_heat ) then
-            call lo2r_redist_wait(lo2r_s)
-         end if
-         if ( l_chemical_conv ) then
-            call lo2r_redist_wait(lo2r_xi)
-         end if
-         if ( l_conv .or. l_mag_kin ) then
-            call lo2r_redist_wait(lo2r_flow)
-         end if
-
-         if ( l_mag ) then
-            call lo2r_redist_wait(lo2r_field)
-         end if
+         if ( l_heat ) call lo2r_redist_wait(lo2r_s)
+         if ( l_chemical_conv ) call lo2r_redist_wait(lo2r_xi)
+         if ( l_conv .or. l_mag_kin ) call lo2r_redist_wait(lo2r_flow)
+         if ( l_mag ) call lo2r_redist_wait(lo2r_field)
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
@@ -540,113 +520,15 @@ contains
 #endif
          PERFOFF
 
-#ifdef WITH_MPI
-         ! =================================== BARRIER ======================
-         PERFON('barr_1')
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         PERFOFF
-         ! ==================================================================
-#endif
-
-         PERFON('signals')
          !This dealing with a signal file is quite expensive
          ! as the file can be read only on one rank and the result
          ! must be distributed to all other ranks.
-         if ( rank == 0 ) then
-            !----- Signalling via file signal:
-            message='signal'//'.'//tag
-            open(newunit=sigFile, file=trim(message), status='old')
-            read(sigFile,*) SIG
-            close(sigFile)
-            if ( len(trim(SIG)) > 0 ) then ! Non blank string ?
-               call capitalize(SIG)
-
-               old_stop_signal=n_stop_signal
-               if ( index(SIG,'END')/=0 ) signals(1)=1  !n_stop_signal=1
-               old_graph_signal=n_graph_signal
-               if ( index(SIG,'GRA')/=0 ) then
-                  signals(2)=1
-                  open(newunit=sigFile, file=trim(message), status='unknown')
-                  write(sigFile,'(A3)') 'NOT'
-                  close(sigFile)
-               else
-                  signals(2)=0
-               end if
-               old_rst_signal=n_rst_signal
-               if ( index(SIG,'RST')/=0 ) then
-                  signals(3)=1
-                  open(newunit=sigFile, file=trim(message), status='unknown')
-                  write(sigFile,'(A3)') 'NOT'
-                  close(sigFile)
-               else
-                  signals(3)=0
-               end if
-               old_spec_signal=n_spec_signal
-               if ( index(SIG,'SPE')/=0 ) then
-                  signals(4)=1
-                  open(newunit=sigFile, file=trim(message), status='unknown')
-                  write(sigFile,'(A3)') 'NOT'
-                  close(sigFile)
-               else
-                  signals(4)=0
-               end if
-               old_pot_signal=n_pot_signal
-               if ( index(SIG,'POT')/=0 ) then
-                  signals(5)=1
-                  open(newunit=sigFile, file=trim(message), status='unknown')
-                  write(sigFile,'(A3)') 'NOT'
-                  close(sigFile)
-               else
-                  signals(5)=0
-               end if
-            end if
-         end if
-         ! Only broadcast the results from the signal file if
-         ! something changed. For this we need one-sided communication
-         ! because only process 0 knows if the communication is needed.
-         !write(*,"(A)") "Win_fence 1 start"
-         !PERFON('fence1')
-         !call MPI_Win_fence(0,signal_window,ierr)
-         !PERFOFF
-         !write(*,"(A)") "Win_fence 1 end"
-
-         ! Broadcast the results from the signal file to all processes
-         ! =======> THIS IS A GLOBAL SYNCHRONIZATION POINT <==========
-#if 0
-         if ( rank == 0 ) then
-            if ((old_stop_signal /= n_stop_signal) .or.      &
-            &      (old_graph_signal /= n_graph_signal) .or. &
-            &      (old_rst_signal /= n_rst_signal) .or.     &
-            &      (old_spec_signal /= n_spec_signal) .or.   &
-            &      (old_pot_signal /= n_pot_signal) then
-               do iRank=1,n_procs-1
-                  write(*,"(A,I4)") "MPI_putting from rank 0 to rank ",iRank
-                  call MPI_Put(signals,5,MPI_integer,&
-                       &       iRank,0,5,MPI_integer,signal_window,ierr)
-               end do
-            end if
-         end if
-#endif
-#ifdef WITH_MPI
-         call MPI_Bcast(signals,5,MPI_integer,0,MPI_COMM_WORLD,ierr)
-#endif
-         !write(*,"(A)") "Win_fence 2 start"
-         !PERFON('fence2')
-         !call MPI_Win_fence(0,signal_window,ierr)
-         !PERFOFF
-         !write(*,"(A)") "Win_fence 2 end"
+         call check_signals(runTimePassed, signals)
          n_stop_signal =signals(1)
          n_graph_signal=signals(2)
          n_rst_signal  =signals(3)
          n_spec_signal =signals(4)
          n_pot_signal  =signals(5)
-         PERFOFF
-
-#ifdef WITH_MPI
-         PERFON('barr_2')
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         PERFOFF
-#endif
 
          PERFON('chk_stop')
          !--- Various reasons to stop the time integration:
