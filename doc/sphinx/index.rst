@@ -143,16 +143,16 @@ Giving credit
 
   
    .. seealso:: A (tentative) comprehensive list of the publications that have 
-                been produced to date (june 2017) using **MagIC**
-                is accessible `here <http://cdsads.u-strasbg.fr/cgi-bin/nph-abs_connect?library&libname=MagIC&libid=561d52db33>`_.
-                To date, more than **90 publications** have been-accepted in
+                been produced to date (May 2019) using **MagIC**
+                is accessible `here <https://ui.adsabs.harvard.edu/public-libraries/LVt1vdaKQsC5P09In2iloA>`_.
+                To date, more than **100 publications** have been-accepted in
                 more than 10 different peer-reviewed journals: `PEPI
                 <http://www.journals.elsevier.com/physics-of-the-earth-and-planetary-interiors/>`_
-                (20), `Icarus <http://www.journals.elsevier.com/icarus/>`_ (11), `E&PSL
+                (22), `Icarus <http://www.journals.elsevier.com/icarus/>`_ (11), `E&PSL
                 <www.journals.elsevier.com/earth-and-planetary-science-letters/>`_ (7), `GJI
-                <http://gji.oxfordjournals.org/>`_ (8), `A&A <http://www.aanda.org/>`_ (4), 
+                <http://gji.oxfordjournals.org/>`_ (8), `A&A <http://www.aanda.org/>`_ (6), 
                 `GRL <http://agupubs.onlinelibrary.wiley.com/agu/journal/10.1002/(ISSN)1944-8007/>`_ (4), 
-                `JFM <http://journals.cambridge.org/action/displayJournal?jid=FLM>`_ (4), 
+                `JFM <http://journals.cambridge.org/action/displayJournal?jid=FLM>`_ (6), 
                 `GAFD <http://www.tandfonline.com/toc/ggaf20/current>`_ (3),
                 `Nature <http://www.nature.com/nature>`_ (2), etc.
 
