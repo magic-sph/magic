@@ -1,4 +1,9 @@
 module signals_mod
+   !
+   ! This module handles the reading/writing of the signal.TAG file which
+   ! allows to communicate with MagIC during its execution
+   !
+
 
    use parallel_mod
    use precision_mod
@@ -10,8 +15,8 @@ module signals_mod
 
    private
 
-   integer :: n_sig_file
-   real(cp) :: tsig
+   integer :: n_sig_file ! File handle
+   real(cp) :: tsig      ! A timer to check the signal only every 2 seconds
 
    public :: initialize_signals, check_signals
 
@@ -123,7 +128,12 @@ contains
 #ifdef WITH_MPI
          call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
+         !-- Read the signal file
          call read_signal_file(signals)
+
+#ifdef WITH_MPI
+         call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
       else
          signals(:) = 0
       end if
