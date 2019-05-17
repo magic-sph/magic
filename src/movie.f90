@@ -1366,6 +1366,29 @@ contains
             do n_field=1,n_fields
                n_start = n_movie_field_start(n_field,n_movie)
                n_stop  = n_movie_field_stop(n_field,n_movie)
+               field_length = n_stop-n_start+1
+
+               local_start=n_start+(nRstart-1)*n_phi_max*n_theta_max
+               local_end  =local_start+nR_per_rank*n_phi_max*n_theta_max-1
+               if (rank == n_procs-1) then
+                  local_end = local_start+nR_on_last_rank*n_phi_max*n_theta_max-1
+               end if
+               if (local_end > n_stop) then
+                  call abortRun('local_end exceeds n_stop')
+               end if
+               do irank=0,n_procs-1
+                  recvcounts(irank) = nR_per_rank*n_phi_max*n_theta_max
+                  displs(irank)     = irank*nR_per_rank*n_phi_max*n_theta_max
+               end do
+               recvcounts(n_procs-1) = nR_on_last_rank*n_phi_max*n_theta_max
+               sendcount=local_end-local_start+1
+
+               call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                    &           field_frames_global,recvcounts,displs,      &
+                    &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+               if (rank == 0) then
+                  frames(n_start:n_stop)=field_frames_global(1:field_length)
+               end if
             end do
 
          else if ( n_surface == 1 ) then ! Surface r=constant
