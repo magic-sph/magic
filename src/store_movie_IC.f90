@@ -56,10 +56,7 @@ contains
       integer :: n_store_last   ! Position i in frame(i) were field starts
       integer :: nTheta,nThetaB,nThetaR,nThetaC,nThetaStart
       integer :: nPhi,nPhi0,nPhi180
-      integer :: n_field_size
-      integer :: n_fields, n_theta, n_theta_cal
-      integer :: n_fields_oc
-      integer :: n_fields_ic
+      integer :: n_field_size,n_fields,n_fields_oc,n_fields_ic
       integer :: n_o,n_o_r
 
       complex(cp) :: dLhb(lm_maxMag)
@@ -199,92 +196,95 @@ contains
 
             end do        ! Loop over radius
 
-         else if ( n_surface == 1 ) then
+         else if ( n_surface == 1 ) then  ! r-slice
 
-            nR=abs(n_const)
+            if ( n_fields_ic > 0 ) then
+               nR=abs(n_const)
 
 #ifndef WITH_SHTNS
-            if ( l_cond_ic ) then
-               call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                    &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                    &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                    &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                    &          cbhG,cbhC)
-            else
-               call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                    &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                    &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                    &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                    &          cbhG,cbhC)
-            end if
+               if ( l_cond_ic ) then
+                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
+                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
+               else
+                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
+                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
+               end if
 #else
-            if ( l_cond_ic ) then
-               call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:, nR),db_ic(:, nR),&
-                    &                 aj_ic(:, nR),BrB,BtB,BpB)
-            else
-               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic(:,1),  &
-                    &                 aj_ic(:,1),BrB,BtB,BpB)
-            end if
-#endif
-
-            !------ Calculate magnetic field on grid points:
-            do nThetaB=1,nThetaBs
-               nThetaStart=(nThetaB-1)*sizeThetaB+1
-
-#ifndef WITH_SHTNS
-               !------ Perform Legendre transform:
-               call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
-                    &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                    &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
-               if ( .not. l_axi ) then
-                  call fft_thetab(BrB,1)
-                  call fft_thetab(BtB,1)
-                  call fft_thetab(BpB,1)
+               if ( l_cond_ic ) then
+                  call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:, nR),db_ic(:, nR),&
+                       &                 aj_ic(:, nR),BrB,BtB,BpB)
+               else
+                  call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic(:,1),  &
+                       &                 aj_ic(:,1),BrB,BtB,BpB)
                end if
 #endif
 
-               do n_field=n_fields_oc+1,n_fields
-                  n_field_type=n_movie_field_type(n_field,n_movie)
-                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+               !------ Calculate magnetic field on grid points:
+               do nThetaB=1,nThetaBs
+                  nThetaStart=(nThetaB-1)*sizeThetaB+1
 
-                  if ( n_store_last >= 0 ) then
-                     n_o_r=n_store_last
-
-                     if ( n_field_type == 1 ) then
-                        do nThetaR=1,sizeThetaB
-                           nThetaC=nThetaStart-1+nThetaR
-                           nTheta=n_theta_cal2ord(nThetaC)
-                           n_o=n_o_r+(nTheta-1)*n_phi_max
-                           do nPhi=1,n_phi_max
-                              frames(nPhi+n_o)=BrB(nPhi,nThetaR)*O_r_ic2(nR)
-                           end do
-                        end do
-                     else if ( n_field_type == 2 ) then
-                        do nThetaR=1,sizeThetaB
-                           nThetaC=nThetaStart-1+nThetaR
-                           nTheta=n_theta_cal2ord(nThetaC)
-                           n_o=n_o_r+(nTheta-1)*n_phi_max
-                           help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                           do nPhi=1,n_phi_max
-                              frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
-                           end do
-                        end do
-                     else if ( n_field_type == 3 ) then
-                        do nThetaR=1,sizeThetaB
-                           nThetaC=nThetaStart-1+nThetaR
-                           nTheta=n_theta_cal2ord(nThetaC)
-                           n_o=n_o_r+(nTheta-1)*n_phi_max
-                           help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                           do nPhi=1,n_phi_max
-                              frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
-                           end do
-                        end do
-                     end if
+#ifndef WITH_SHTNS
+                  !------ Perform Legendre transform:
+                  call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
+                       &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
+                       &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                  if ( .not. l_axi ) then
+                     call fft_thetab(BrB,1)
+                     call fft_thetab(BtB,1)
+                     call fft_thetab(BpB,1)
                   end if
+#endif
 
-               end do  ! Loop over fields
+                  do n_field=n_fields_oc+1,n_fields
+                     n_field_type=n_movie_field_type(n_field,n_movie)
+                     n_store_last=n_movie_field_start(n_field,n_movie)-1
 
-            end do     ! Loop over theta blocks
+                     if ( n_store_last >= 0 ) then
+                        n_o_r=n_store_last
+
+                        if ( n_field_type == 1 ) then
+                           do nThetaR=1,sizeThetaB
+                              nThetaC=nThetaStart-1+nThetaR
+                              nTheta=n_theta_cal2ord(nThetaC)
+                              n_o=n_o_r+(nTheta-1)*n_phi_max
+                              do nPhi=1,n_phi_max
+                                 frames(nPhi+n_o)=BrB(nPhi,nThetaR)*O_r_ic2(nR)
+                              end do
+                           end do
+                        else if ( n_field_type == 2 ) then
+                           do nThetaR=1,sizeThetaB
+                              nThetaC=nThetaStart-1+nThetaR
+                              nTheta=n_theta_cal2ord(nThetaC)
+                              n_o=n_o_r+(nTheta-1)*n_phi_max
+                              help=O_r_ic(nR)*O_sin_theta(nThetaC)
+                              do nPhi=1,n_phi_max
+                                 frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                              end do
+                           end do
+                        else if ( n_field_type == 3 ) then
+                           do nThetaR=1,sizeThetaB
+                              nThetaC=nThetaStart-1+nThetaR
+                              nTheta=n_theta_cal2ord(nThetaC)
+                              n_o=n_o_r+(nTheta-1)*n_phi_max
+                              help=O_r_ic(nR)*O_sin_theta(nThetaC)
+                              do nPhi=1,n_phi_max
+                                 frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                              end do
+                           end do
+                        end if
+                     end if
+
+                  end do  ! Loop over fields
+
+               end do     ! Loop over theta blocks
+
+            end if ! if there anything in the inner core
 
          else if ( n_surface == 2 ) then ! Theta-slice or equat
 
