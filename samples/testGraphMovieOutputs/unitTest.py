@@ -63,10 +63,14 @@ def generateEkinFile(fileName='e_kin.test'):
     vortz = Movie(file='VorZ_EQU_mov.start', iplot=False)
     hel = Movie(file='HE_R=C2_mov.start', iplot=False)
     Bteq = Movie(file='Bt_EQU_mov.start', iplot=False)
-    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % (av.data[0, 1, 121, 12], 
-         ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128], vtr.data[0, 0, 33, 87],
-         vreq.data[0, 0, 28, 31], teq.data[0, 1, 29, 29], vortz.data[0, 1, 1, 1],
-         hel.data[0, 0, 3, 4], Bteq.data_ic[0, -1, 10, 5])
+    Br3D = Movie(file='Br_3D_mov.start', iplot=False)
+    vt3D = Movie(file='Vt_3D_mov.start', iplot=False)
+    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( \
+         av.data[0, 1, 121, 12], ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128],
+         vtr.data[0, 0, 33, 87], vreq.data[0, 0, 28, 31], teq.data[0, 1, 29, 29],
+         vortz.data[0, 1, 1, 1], hel.data[0, 0, 3, 4], Bteq.data_ic[0, -1, 10, 5], 
+         Br3D.data[0, -1, 10, 31, 12], Br3D.data_ic[0, -1, 20, 11, 4],
+         vt3D.data[0, 0, 15, 16, 13])
 
     # Write output for movie files
     file.write(st)

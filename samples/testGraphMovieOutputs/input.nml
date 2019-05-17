@@ -63,6 +63,8 @@ n_cheb_ic_max=14,
  movie(7)    ="vortz eq",
  movie(8)    ="temperature eq",
  movie(9)    ="Btheta eq",
+ movie(10)   ="Br 3D",
+ movie(11)   ="Vt 3D",
 /
 &mantle 
  nRotMa      =0
