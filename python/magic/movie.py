@@ -144,7 +144,7 @@ class Movie:
             print('!!! %i fields !!!' % self.n_fields)
             print('!!! The one displayed is controlled by the    !!!')
             print('!!! input parameter ifield (=0 by default)    !!!')
-        self.movtype = int(movtype[0])
+        self.movtype = int(movtype[ifield])
         n_surface = int(n_surface)
 
         # Run parameters
@@ -205,7 +205,15 @@ class Movie:
 
         if n_surface == 0:
             self.surftype = '3d volume'
-            shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
+            if self.movtype in [1, 2, 3]:
+                shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
+            else:
+                shape = (self.n_r_max, self.n_theta_max, self.n_phi_tot)
+            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                  self.n_theta_max, self.n_r_max), precision)
+            self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                    self.n_theta_max, self.n_r_ic_max+2),
+                                    precision)
         elif n_surface == 1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
@@ -257,7 +265,15 @@ class Movie:
             self.time[k] = t_movieS
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape)
-                if n_surface == 2:
+                if n_surface == 0:
+                    if self.movtype in [1, 2, 3]:
+                        datic = dat[self.n_r_max:, ...].T
+                        dat = dat[:self.n_r_max, :].T
+                        self.data[ll, k, ...] = dat
+                        self.data_ic[ll, k, ...] = datic
+                    else:
+                        self.data[ll, k, ...] = dat.T
+                elif n_surface == 2:
                     if self.movtype in [1, 2, 3, 14]:
                         datic = dat[self.n_r_max:, :].T
                         dat = dat[:self.n_r_max, :].T
