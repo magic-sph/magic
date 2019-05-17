@@ -42,6 +42,16 @@ def getMyMatplotlibEnv():
             except ImportError:
                 pass
 
+            # Qt5
+            try:
+                try:
+                    plt.switch_backend('Qt5Agg')
+                    return 'Qt5Agg'
+                except Warning:
+                    pass
+            except ImportError:
+                pass
+
             # TkAgg is the fallback value
             try:
                 try:
