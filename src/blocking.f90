@@ -185,11 +185,11 @@ contains
       else
          call get_lorder_lm_blocking(lo_map,minc)
       end if
-      call logWrite(message)
+      !call logWrite(message)
 
       do n=1,nLMBs
          !write(message,*) n,lmStartB(n),lmStopB(n),lmStopB(n)-lmStartB(n)+1
-         call logWrite(message)
+         !call logWrite(message)
          if ( lmStopB(n) == lm_max ) exit
       end do
 
