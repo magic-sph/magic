@@ -92,7 +92,7 @@ contains
 
       namelist/output_control/                                &
          & n_graph_step,n_graphs,t_graph,                     &
-         & t_graph_start,t_graph_stop,dt_graph,l_graph_time,  &
+         & t_graph_start,t_graph_stop,dt_graph,               &
          & n_stores,n_rst_step,n_rsts,t_rst,                  &
          & t_rst_start,t_rst_stop,dt_rst,                     &
          & n_log_step,n_logs,t_log,t_log_start,t_log_stop,    &
@@ -1384,7 +1384,6 @@ contains
       t_graph_start =0.0_cp
       t_graph_stop  =0.0_cp
       dt_graph      =0.0_cp
-      l_graph_time  =.false.
 
       !----- Spectrum files:
       n_spec_step   =0

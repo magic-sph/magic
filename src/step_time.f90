@@ -34,6 +34,7 @@ module step_time_mod
        &                  lm_on_last_rank
    use LMLoop_mod, only: LMLoop
    use signals_mod, only: initialize_signals, check_signals
+   use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
        &                  n_spec_step, n_specs, n_t_spec, t_spec,          &
        &                  n_movie_step, n_movie_frames, n_t_movie, t_movie,&
@@ -46,14 +47,9 @@ module step_time_mod
        &                  n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
        &                  n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
        &                  n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
-       &                  n_t_TOZ, t_TOZ, l_graph_time, graph_file,        &
-       &                  n_probe_step,n_probe_out,n_t_probe,t_probe,      &
-#ifdef WITH_MPI
-       &                  log_file, graph_mpi_fh, n_log_file,              &
-#else
-       &                  log_file, n_log_file,                            &
-#endif
-       &                  n_time_hits, n_graph_file
+       &                  n_t_TOZ, t_TOZ, n_probe_step, n_probe_out,       &
+       &                  n_t_probe, t_probe, log_file, n_log_file,        &
+       &                  n_time_hits
    use output_mod, only: output
    use charmanip, only: dble2str
    use useful, only: l_correct_step, logWrite, abortRun
@@ -322,12 +318,10 @@ contains
 
       !--- Counter:
       integer :: n                ! Counter
-      integer :: n_graph          ! No. of graphic file
       integer :: n_frame          ! No. of movie frames
       integer :: n_cmb_sets       ! No. of stored sets of b at CMB
 
       !--- Stuff needed to construct output files:
-      character(len=20) :: string
       character(len=255) :: message
 
       !--- Courant criteria/diagnosis:
@@ -403,7 +397,6 @@ contains
       integer :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM
 
       ! MPI related variables
-      integer :: info
       integer, allocatable :: recvcounts(:),displs(:)
 
       integer(lip) :: time_in_ms
@@ -413,7 +406,6 @@ contains
 #ifdef WITH_MPI
       ! allocate the buffers for MPI gathering
       allocate(recvcounts(0:n_procs-1),displs(0:n_procs-1))
-      call MPI_INFO_CREATE(info,ierr)
 #endif
 
       l_log       =.false.
@@ -432,7 +424,6 @@ contains
       lorentz_torque_ma=0.0_cp
 
       !---- Counter for output files/sets:
-      n_graph   =0    ! No. of graphic file
       n_frame   =0    ! No. of movie frames
       n_cmb_sets=0    ! No. of store dt_b sets at CMB
 
@@ -697,59 +688,7 @@ contains
          &            .or. lFluxProfCalc .or. l_TP_form
          lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
 
-         if ( l_graph ) then  ! write graphic output !
-            PERFON('graph')
-            n_graph=n_graph+1     ! increase counter for graphic file
-            if ( l_graph_time ) then
-               call dble2str(time,string)
-               graph_file='G_t='//trim(string)//'.'//tag
-            else
-               write(string, *) n_graph
-               graph_file='G_'//trim(adjustl(string))//'.'//tag
-            end if
-            if ( rank == 0 ) then
-               write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
-               &    " ! Storing graphic file:",             &
-               &    "             at time=",timeScaled,     &
-               &    "            step no.=",n_time_step,    &
-               &    "           into file=",graph_file
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-               write(n_log_file,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
-               &    " ! Storing graphic file:",                       &
-               &    "             at time=",timeScaled,               &
-               &    "            step no.=",n_time_step,              &
-               &    "           into file=",graph_file
-               if ( l_save_out ) close(n_log_file)
-            end if
-#ifdef WITH_MPI
-            !-- Enable collective buffering
-            call MPI_Info_set(info, "romio_cb_write", "automatic",ierr)
-            call MPI_Info_set(info, "romio_cb_read", "automatic",ierr)
-
-            !-- Disable data sieving (let the filesystem handles it)
-            call MPI_Info_set(info, "romio_ds_write", "disable",ierr)
-            call MPI_Info_set(info, "romio_ds_read", "disable",ierr)
-
-            !-- Set the stripping unit to 4M
-            call MPI_Info_set(info, "stripping_unit", "4194304",ierr)
-
-            !-- Set the buffer size to 4M
-            call MPI_Info_set(info,"cb_buffer_size","4194304",ierr)
-
-            call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
-                 &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
-                 &             MPI_INFO_NULL,graph_mpi_fh,ierr)
-#else
-            open(newunit=n_graph_file,file=graph_file,status='new',  &
-            &    form='unformatted')
-#endif
-            !call MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
-            !PRINT*,"MPI_FILE_OPEN returned: ",trim(error_string)
-            PERFOFF
-         end if
+         if ( l_graph ) call open_graph_file(n_time_step, timeScaled)
 
          !--- Now the real work starts with the radial loop that calculates
          !    the nonlinear terms:
@@ -875,22 +814,7 @@ contains
          PERFOFF
          if ( lVerbose ) write(*,*) "! output finished"
 
-         if ( l_graph ) then
-#ifdef WITH_MPI
-            PERFON('graph')
-            call MPI_File_close(graph_mpi_fh,ierr)
-            !call MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
-            !PRINT*,"MPI_FILE_CLOSE returned: ",trim(error_string)
-            PERFOFF
-#else
-            close(n_graph_file)
-#endif
-         end if
-         ! =================================== BARRIER ======================
-         !PERFON('barr_5')
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFOFF
-         ! ==================================================================
+         if ( l_graph ) call close_graph_file()
 
          !----- Finish time stepping, the last step is only for output!
          if ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
@@ -1175,7 +1099,6 @@ contains
 
       !-- WORK IS DONE !
 #ifdef WITH_MPI
-      call MPI_INFO_FREE(info,ierr)
       deallocate(recvcounts,displs)
 #endif
 

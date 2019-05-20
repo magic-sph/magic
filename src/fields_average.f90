@@ -15,8 +15,7 @@ module fields_average_mod
        &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
-   use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb, &
-       &                  n_graph_file, graph_file
+   use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
 #ifdef WITH_SHTNS
    use shtns
@@ -197,6 +196,7 @@ contains
       integer :: lm,nR,nThetaB,nThetaStart
       integer :: n_e_sets,n_spec
 
+      character(len=72) :: graph_file
       character(len=80) :: outFile
       integer :: nOut,n_cmb_sets
 
@@ -207,6 +207,7 @@ contains
 
       integer :: nBpotSets,nVpotSets,nTpotSets
       integer :: lmStart,lmStop
+      integer :: n_graph_file
 
       !-- Initialise average for first time step:
 

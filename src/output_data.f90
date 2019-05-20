@@ -12,9 +12,6 @@ module output_data
    !----- Identification of run:
    character(len=64), public :: runid
  
-   !----- Information for graphic output grid:
-   logical, public :: l_graph_time
- 
    !----- Output time control:
    real(cp), public :: t_graph_start,t_graph_stop,dt_graph
    real(cp), public :: t_rst_start,t_rst_stop,dt_rst
@@ -75,14 +72,9 @@ module output_data
  
    !----- Output files:
    integer, public :: n_log_file
-#ifdef WITH_MPI
-   integer, public :: graph_mpi_fh
-#endif
-   integer, public :: n_graph_file
  
    character(len=55), public :: tag
    character(len=72), public :: log_file
-   character(len=72), public :: graph_file
    character(len=72), public :: lp_file
    !----- Z-integrated output:
    real(cp), public :: zDens,sDens
