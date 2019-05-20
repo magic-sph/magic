@@ -57,7 +57,7 @@ module step_time_mod
        &                     lo2r_redist_wait, r2lm_type, lo2r_field,       &
        &                     lo2r_flow, scatter_from_rank0_to_lo, lo2r_xi,  &
        &                     r2lo_redist_wait, r2lo_flow, r2lo_s, r2lo_xi,  &
-       &                     r2lo_b, lo2r_s
+       &                     r2lo_b, lo2r_s, lo2r_press, lo2r_redist_start
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -309,7 +309,7 @@ contains
       logical :: lTONext,lTONext2 ! TO stuff for next steps
       logical :: lTOframeNext,lTOframeNext2
       logical :: lTOZhelp,lTOZwrite
-      logical :: l_logNext,l_logNext2
+      logical :: l_logNext
       logical :: l_Bpot,l_Vpot,l_Tpot
       logical :: lRmsCalc,lRmsNext
       logical :: lPressCalc,lPressNext
@@ -393,8 +393,9 @@ contains
       integer :: runTimeRstart(4),runTimeRstop(4)
       integer :: runTimeTstart(4),runTimeTstop(4)
       integer :: runTimeR(4),runTimeLM(4),runTimeT(4)
+      integer :: runTimeMPI(4)
       integer :: runTimeTL(4),runTimeTM(4)
-      integer :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM
+      integer :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM,nTimeMPI
 
       ! MPI related variables
       integer, allocatable :: recvcounts(:),displs(:)
@@ -440,18 +441,20 @@ contains
          write(*,*)
          write(*,*) '! Starting time integration!'
       end if
-      nTimeT =0
-      nTimeTL=0
-      nTimeTM=0
-      nTimeR =0
-      nTimeLM=0
+      nTimeT  =0
+      nTimeTL =0
+      nTimeTM =0
+      nTimeR  =0
+      nTimeLM =0
+      nTimeMPI=0
       do n=1,4
-         runTime(n)  =0
-         runTimeT(n) =0
-         runTimeTM(n)=0
-         runTimeTL(n)=0
-         runTimeR(n) =0
-         runTimeLM(n)=0
+         runTime(n)   =0
+         runTimeT(n)  =0
+         runTimeTM(n) =0
+         runTimeTL(n) =0
+         runTimeMPI(n)=0
+         runTimeR(n)  =0
+         runTimeLM(n) =0
       end do
 
       !!!!! Time loop starts !!!!!!
@@ -479,28 +482,6 @@ contains
          end if
 
          call wallTime(runTimeTstart)
-
-         ! =================================== BARRIER ======================
-         !PERFON('barr_0')
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFOFF
-         ! ==================================================================
-
-         ! Here now comes the block where the LM distributed fields
-         ! are redistributed to Rloc distribution which is needed for the radialLoop.
-         ! s,ds
-         ! z,dz
-         ! w,dw,ddw,p,dp
-         ! b,db,ddb,aj,dj,ddj
-         ! b_ic,db_ic, ddb_ic,aj_ic,dj_ic,ddj_ic
-
-         ! Waiting for the completion before we continue to the radialLoop
-         ! put the waits before signals to avoid cross communication
-         PERFON('lo2r_wt')
-         if ( l_heat ) call lo2r_redist_wait(lo2r_s)
-         if ( l_chemical_conv ) call lo2r_redist_wait(lo2r_xi)
-         if ( l_conv .or. l_mag_kin ) call lo2r_redist_wait(lo2r_flow)
-         if ( l_mag ) call lo2r_redist_wait(lo2r_field)
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
@@ -619,11 +600,6 @@ contains
          &             l_logNext=                                     &
          &             l_correct_step(n_time_step,time+dt,timeLast,   &
          &                   n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
-         l_logNext2=.false.
-         if ( n_time_step+2 <= n_time_steps+1 )                         &
-         &             l_logNext2=                                      &
-         &             l_correct_step(n_time_step+1,time+2*dt,timeLast, &
-         &              n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
          lTOCalc= n_time_step > 2 .and. l_TO .and.                   &
          &               l_correct_step(n_time_step-1,time,timeLast, &
          &               n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
@@ -697,6 +673,46 @@ contains
             write(*,*) '! Starting radial loop!'
          end if
 
+         ! Here now comes the block where the LM distributed fields
+         ! are redistributed to Rloc distribution which is needed for the radialLoop.
+         ! s,ds
+         ! z,dz
+         ! w,dw,ddw,p,dp
+         ! b,db,ddb,aj,dj,ddj
+         ! b_ic,db_ic, ddb_ic,aj_ic,dj_ic,ddj_ic
+
+         ! Waiting for the completion before we continue to the radialLoop
+         ! put the waits before signals to avoid cross communication
+         call wallTime(runTimeRstart)
+         if ( l_heat ) then
+            call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
+            call lo2r_redist_wait(lo2r_s)
+         end if
+         if ( l_chemical_conv ) then
+            call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
+            call lo2r_redist_wait(lo2r_xi)
+         end if
+         if ( l_conv .or. l_mag_kin ) then
+            call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
+            call lo2r_redist_wait(lo2r_flow)
+         end if
+         if ( lPressCalc ) then
+            call lo2r_redist_start(lo2r_press,press_LMloc_container, &
+                 &                 press_Rloc_container)
+            call lo2r_redist_wait(lo2r_press)
+         end if
+         if ( l_mag ) then
+            call lo2r_redist_start(lo2r_field,field_LMloc_container, &
+                 &                 field_Rloc_container)
+            call lo2r_redist_wait(lo2r_field)
+         end if
+         call wallTime(runTimeRstop)
+         if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
+            call subTime(runTimeRstart,runTimeRstop,runTimePassed)
+            call addTime(runTimeMPI,runTimePassed)
+         end if
+
+
          !PERFOFF
          ! =============================== BARRIER ===========================
          !PERFON('barr_2')
@@ -750,6 +766,7 @@ contains
          ! =====================================================================
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
+         call wallTime(runTimeRstart)
          PERFON('r2lo_dst')
          if ( l_conv .or. l_mag_kin ) then
             call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container, &
@@ -771,6 +788,12 @@ contains
          if ( l_mag ) then
             call r2lo_redist_start(r2lo_b,dbdt_Rloc_container,dbdt_LMloc_container)
             call r2lo_redist_wait(r2lo_b)
+         end if
+         call wallTime(runTimeRstop)
+         if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
+            nTimeMPI=nTimeMPI+1
+            call subTime(runTimeRstart,runTimeRstop,runTimePassed)
+            call addTime(runTimeMPI,runTimePassed)
          end if
 
 #ifdef WITH_MPI
@@ -1065,15 +1088,18 @@ contains
       end if
 
       call meanTime(runTimeR, nTimeR)
+      call meanTime(runTimeMPI, nTimeMPI)
       call meanTime(runTimeLM,nTimeLM)
       call meanTime(runTimeTM,nTimeTM)
       call meanTime(runTimeTL,nTimeTL)
       call meanTime(runTimeT,nTimeT)
       if ( rank == 0 ) then
          call writeTime(output_unit, &
-              &    '! Mean wall time for r Loop                 :',runTimeR)
+              &   '! Mean wall time for r Loop                 :',runTimeR)
          call writeTime(output_unit, &
               &   '! Mean wall time for LM Loop                :',runTimeLM)
+         call writeTime(output_unit, &
+              &   '! Mean wall time for MPI communications     :',runTimeMPI)
          call writeTime(output_unit, &
               &   '! Mean wall time for t-step with matrix calc:',runTimeTM)
          call writeTime(output_unit, &
@@ -1088,6 +1114,8 @@ contains
               &    '! Mean wall time for r Loop                 :',runTimeR)
          call writeTime(n_log_file,  &
               &    '! Mean wall time for LM Loop                :',runTimeLM)
+         call writeTime(n_log_file,  &
+              &    '! Mean wall time for MPI communications     :',runTimeMPI)
          call writeTime(n_log_file,  &
               &    '! Mean wall time for t-step with matrix calc:',runTimeTM)
          call writeTime(n_log_file,  &

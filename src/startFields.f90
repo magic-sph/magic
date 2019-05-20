@@ -33,11 +33,11 @@ module start_fields
        &                  ulmMag,llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start, lo2r_s, lo2r_flow, lo2r_field, &
-       &                     lo2r_xi
+       &                     lo2r_xi, lo2r_press
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
    use readCheckPoints, only: readStartFields_old, readStartFields
-    
+
    implicit none
 
    private
@@ -55,14 +55,14 @@ contains
 
    subroutine getStartFields(time,dt,dtNew,n_time_step)
       !
-      !  Purpose of this subroutine is to initialize the fields and       
-      !  other auxiliary parameters.                                      
+      !  Purpose of this subroutine is to initialize the fields and
+      !  other auxiliary parameters.
       !
-    
+
       !---- Output variables:
       real(cp), intent(out) :: time,dt,dtNew
       integer,  intent(out) :: n_time_step
-    
+
       !-- Local variables:
       integer :: nR,l1m0,nLMB,l,m
       integer :: lm, n_r
@@ -70,29 +70,29 @@ contains
       real(cp) :: coex
       real(cp) :: d_omega_ma_dt,d_omega_ic_dt
       character(len=76) :: message
-    
+
       real(cp) :: sEA,sES,sAA
       real(cp) :: xiEA,xiES,xiAA
-    
+
       real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
-    
+
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
-    
+
       integer :: ierr, filehandle
-    
+
       !PERFON('getFlds')
       !print*,"Starting getStartFields"
       !write(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
       !---- Computations for the Nusselt number if we are anelastic
       !     Can be done before setting the fields
       if ( l_heat ) then
-    
+
          if ( rank == 0 ) open(newunit=filehandle, file='pscond.dat')
 
          if ( l_TP_form .or. l_anelastic_liquid ) then ! temperature
 
             call pt_cond(s0,p0)
-            
+
             if ( rank == 0 ) then
                do n_r=1,n_r_max
                   write(filehandle,'(5ES20.12)') r(n_r), osq4pi*otemp1(n_r)*&
@@ -188,13 +188,13 @@ contains
          botxicond  =0.0_cp
          deltaxicond=0.0_cp
       end if
-    
+
       !-- Start with setting fields to zero:
       !   Touching the fields with the appropriate processor
       !   for the LM-distribute parallel region (LMLoop) makes
       !   sure that they are located close the individual
       !   processors in memory:
-    
+
       if ( l_start_file ) then
 
          if ( index(start_file, 'rst_') /= 0 ) then
@@ -261,7 +261,7 @@ contains
             aj_ic_LMloc(:,:)      =zero
             djdt_icLast_LMloc(:,:)=zero
          end if
-    
+
          time =0.0_cp
          dt   =dtMax
          dtNew=dtMax
@@ -304,14 +304,14 @@ contains
       do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
- 
+
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
                  &        lmStop-llm+1,n_r_max,rscheme_oc )
             call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
                  &       n_r_max,rscheme_oc )
          end if
-    
+
          if ( l_mag .or. l_mag_kin  ) then
             call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1,  &
                  &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
@@ -332,14 +332,14 @@ contains
                  &            dr_fac_ic,workA_LMloc,workB_LMloc,         &
                  &            chebt_ic, chebt_ic_even)
          end if
-    
+
          if ( l_LCR ) then
             do nR=n_r_cmb,n_r_icb-1
                if ( nR<=n_r_LCR ) then
                   do lm=lmStart,lmStop
                      l=lo_map%lm2l(lm)
                      m=lo_map%lm2m(lm)
-    
+
                      b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
                      &               b_LMloc(lm,n_r_LCR)
                      db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
@@ -354,8 +354,8 @@ contains
                end if
             end do
          end if
-    
-    
+
+
          if ( l_heat ) then
             !-- Get radial derivatives of entropy:
             call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
@@ -371,9 +371,9 @@ contains
             call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
                  &       lmStop-llm+1,n_r_max,rscheme_oc )
          end if
-    
+
       end do
-    
+
       deallocate(workA_LMloc)
       deallocate(workB_LMloc)
 
@@ -458,7 +458,7 @@ contains
             call logWrite(message)
          end if
       end if
-    
+
       !----- Get changes in mantle and ic rotation rate:
       if ( .not. l_mag_LF ) then
          lorentz_torque_icLast=0.0_cp
@@ -485,10 +485,10 @@ contains
          d_omega_ma_dtLast=0.0_cp
          d_omega_ic_dtLast=0.0_cp
       end if
-    
-    
+
+
          ! --------------- end of insertion ----------
-    
+
       !print*,"Start redistribution in getStartfields"
       ! start the redistribution
       if ( l_heat ) then
@@ -499,12 +499,13 @@ contains
       end if
       if ( l_conv .or. l_mag_kin ) then
          call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
+         call lo2r_redist_start(lo2r_press,press_LMloc_container,press_Rloc_container)
       end if
-    
+
       if ( l_mag ) then
          call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
       end if
-    
+
       !print*,"End of getStartFields"
       !PERFOFF
    end subroutine getStartFields

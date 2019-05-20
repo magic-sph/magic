@@ -298,6 +298,8 @@ timing.o: timing.f90
 
 precision_mod.o       : mpimod.o
 truncation.o          : precision_mod.o logic.o useful.o
+signals.o             : precision_mod.o charmanip.o timing.o output_data.o\
+                        parallel.o
 magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
                         logic.o output_data.o movie.o special.o\
@@ -372,7 +374,7 @@ magic.o               : truncation.o num_param.o parallel.o logic.o\
 step_time.o           : truncation.o blocking.o phys_param.o\
                         num_param.o radial_data.o mem_alloc.o\
                         logic.o output_data.o output.o movie.o\
-                        char_manip.o timing.o courant.o\
+                        char_manip.o timing.o courant.o signals.o\
                         radialLoop.o nonlinear_bcs.o\
                         LMLoop.o dt_fieldsLast.o \
 			c_utils.o useful.o probes.o
@@ -407,7 +409,7 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
                         output_data.o fields.o dt_fieldsLast.o\
                         updateS.o updateB.o mem_alloc.o updateXI.o\
                         updateZ.o updateWP.o timing.o LMLoop_data.o\
-                        communications.o debugging.o updateWPT.o
+                        debugging.o updateWPT.o
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
 LMLoop_data.o         : parallel.o blocking.o logic.o

@@ -19,6 +19,8 @@ module fields
    !-- Velocity potentials:
    complex(cp), public, allocatable, target :: flow_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: flow_Rloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: press_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: press_Rloc_container(:,:,:)
    complex(cp), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
    complex(cp), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
 
@@ -102,23 +104,27 @@ contains
          allocate( ddj_ic(1,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + 6*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
-      allocate( flow_LMloc_container(llm:ulm,n_r_max,1:7) )
+      allocate( flow_LMloc_container(llm:ulm,n_r_max,1:5) )
       w_LMloc(llm:,1:)   => flow_LMloc_container(llm:ulm,1:n_r_max,1)
       dw_LMloc(llm:,1:)  => flow_LMloc_container(llm:ulm,1:n_r_max,2)
       ddw_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,3)
       z_LMloc(llm:,1:)   => flow_LMloc_container(llm:ulm,1:n_r_max,4)
       dz_LMloc(llm:,1:)  => flow_LMloc_container(llm:ulm,1:n_r_max,5)
-      p_LMloc(llm:,1:)   => flow_LMloc_container(llm:ulm,1:n_r_max,6)
-      dp_LMloc(llm:,1:)  => flow_LMloc_container(llm:ulm,1:n_r_max,7)
 
-      allocate( flow_Rloc_container(lm_max,nRstart:nRstop,1:7) )
+      allocate( press_LMloc_container(llm:ulm,n_r_max,1:2) )
+      p_LMloc(llm:,1:)   => press_LMloc_container(llm:ulm,1:n_r_max,1)
+      dp_LMloc(llm:,1:)  => press_LMloc_container(llm:ulm,1:n_r_max,2)
+
+      allocate( flow_Rloc_container(lm_max,nRstart:nRstop,1:5) )
       w_Rloc(1:,nRstart:)   => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
       dw_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
       ddw_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
       z_Rloc(1:,nRstart:)   => flow_Rloc_container(1:lm_max,nRstart:nRstop,4)
       dz_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
-      p_Rloc(1:,nRstart:)   => flow_Rloc_container(1:lm_max,nRstart:nRstop,6)
-      dp_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,7)
+
+      allocate( press_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+      p_Rloc(1:,nRstart:)   => press_Rloc_container(1:lm_max,nRstart:nRstop,1)
+      dp_Rloc(1:,nRstart:)  => press_Rloc_container(1:lm_max,nRstart:nRstop,2)
 
       !-- Entropy:
       allocate( s_LMloc_container(llm:ulm,n_r_max,1:2) )
@@ -198,6 +204,7 @@ contains
 
       deallocate( b, b_ic, db_ic, ddb_ic )
       deallocate( aj_ic, dj_ic, ddj_ic, flow_LMloc_container )
+      deallocate( press_LMloc_container, press_Rloc_container )
       deallocate( flow_Rloc_container, s_LMloc_container, s_Rloc_container )
       deallocate( field_LMloc_container, field_Rloc_container )
       deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )

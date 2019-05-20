@@ -21,8 +21,6 @@ module LMLoop_mod
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
-   use communications, only: lo2r_redist_start, lo2r_xi, &
-       &                    lo2r_s, lo2r_flow, lo2r_field
    use updateS_mod
    use updateZ_mod
    use updateWP_mod
@@ -188,11 +186,6 @@ contains
                     &        dsdtLast_LMloc, w1, coex, dt, nLMB )
             end if
             PERFOFF
-            ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a
-            ! nonblocking send
-            !PERFON('rdstSst')
-            call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
-            !PERFOFF
          end if
 
       end if
@@ -200,8 +193,6 @@ contains
       if ( l_chemical_conv ) then ! dp,workA usead as work arrays
          call updateXi(xi_LMloc,dxi_LMloc,dVXirLM,dxidt,dxidtLast_LMloc, &
               &        w1,coex,dt,nLMB)
-
-         call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
       end if
 
       if ( l_conv ) then
@@ -238,7 +229,6 @@ contains
                     &          lRmsNext )
             end if
 
-            call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
          else
             PERFON('up_WP')
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dVxVhLM, dwdt,     &
@@ -247,7 +237,6 @@ contains
                  &         nLMB, lRmsNext, lPressNext)
             PERFOFF
          end if
-         call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
          PERFON('up_B')
@@ -259,7 +248,6 @@ contains
               &        omega_icLast, w1, coex, dt, time, nLMB, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
-         call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
       end if
 
       if ( lVerbose ) then

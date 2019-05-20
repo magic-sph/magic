@@ -64,7 +64,7 @@ module communications
 #endif
  
    ! declaration of the types for the redistribution
-   type(lm2r_type), public :: lo2r_flow, lo2r_s
+   type(lm2r_type), public :: lo2r_flow, lo2r_s, lo2r_press
    type(lm2r_type), public :: lo2r_field, lo2r_xi
 
    type(r2lm_type), public :: r2lo_flow, r2lo_s, r2lo_xi, r2lo_b
@@ -247,7 +247,8 @@ contains
          call create_r2lm_type(r2lo_xi,2)
       end if
       if ( l_conv .or. l_mag_kin) then
-         call create_lm2r_type(lo2r_flow,7)
+         call create_lm2r_type(lo2r_flow,5)
+         call create_lm2r_type(lo2r_press,2)
          if ( l_double_curl ) then
             call create_r2lm_type(r2lo_flow,4)
          else
@@ -304,6 +305,7 @@ contains
       end if
       if ( l_conv .or. l_mag_kin) then
          call destroy_lm2r_type(lo2r_flow)
+         call destroy_lm2r_type(lo2r_press)
          call destroy_r2lm_type(r2lo_flow)
       end if
 
