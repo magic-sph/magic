@@ -55,6 +55,7 @@ def selectField(obj, field, labTex=True, ic=False):
             label = r'$p$'
         else:
             label = 'p'
+        data_ic = None
     elif field in ('composition', 'xi', 'Xi', 'Comp', 'comp', 'chem', 'Chem'):
         data = obj.xi
         if labTex:
