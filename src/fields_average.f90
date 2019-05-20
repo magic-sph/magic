@@ -28,7 +28,7 @@ module fields_average_mod
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb, write_Pot
    use spectra, only: spectrum, spectrum_temp
-   use graphOut_mod, only: graphOut, graphOut_IC
+   use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file
    use leg_helper_mod, only: legPrep
    use legendre_spec_to_grid, only: legTF
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
@@ -207,7 +207,6 @@ contains
 
       integer :: nBpotSets,nVpotSets,nTpotSets
       integer :: lmStart,lmStop
-      integer :: n_graph_file
 
       !-- Initialise average for first time step:
 
