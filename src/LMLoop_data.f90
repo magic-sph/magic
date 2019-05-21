@@ -12,7 +12,6 @@ module LMLoop_data
    private
  
    integer, public :: llm,ulm,llmMag,ulmMag
-   integer, public :: lm_per_rank,lm_on_last_rank
  
    public :: initialize_LMLoop_data
 
@@ -40,16 +39,11 @@ contains
          llmMag = 1
          ulmMag = 1
       end if
-      lm_per_rank=nLMBs_per_rank*sizeLMB
-      lm_on_last_rank=lmStopB (min(n_procs*nLMBs_per_rank,nLMBs))- &
-                      lmStartB(1+(n_procs-1)*nLMBs_per_rank)+1
 #else
       llm = 1
       ulm = lm_max
       llmMag = 1
       ulmMag = lm_maxMag
-      lm_per_rank=lm_max
-      lm_on_last_rank=lm_max
 #endif
 
       if ( DEBUG_OUTPUT ) then

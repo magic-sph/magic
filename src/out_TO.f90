@@ -7,7 +7,7 @@ module outTO_mod
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
        &                 lm_max
    use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
-   use radial_data, only: nRstart, nRstop
+   use radial_data, only: nRstart, nRstop, radial_balance
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: BpzAS_Rloc, BspdAS_Rloc, BpsdAS_Rloc, &
        &                             BzpdAS_Rloc, BpzdAS_Rloc, dzCorLMr,   &
@@ -1523,13 +1523,15 @@ contains
 #ifdef WITH_MPI
       !-- Local variables:
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
-      integer :: i,ierr
+      integer :: p,ierr
 
-      sendcount  = (nRstop-nRstart+1)*(l_max+1)
-      recvcounts = nR_per_rank*(l_max+1)
-      recvcounts(n_procs-1) = nR_on_last_rank*(l_max+1)
-      do i=0,n_procs-1
-         displs(i) = i*nR_per_rank*(l_max+1)
+      sendcount  = nR_per_rank*(l_max+1)
+      do p=0,n_procs-1
+         recvcounts(p)=radial_balance(p)%n_per_rank*(l_max+1)
+      end do
+      displs(0)=0
+      do p=1,n_procs-1
+         displs(p)=displs(p-1)+recvcounts(p-1)
       end do
       call MPI_AllGatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzStrLMr,recvcounts,displs,MPI_DEF_REAL, &

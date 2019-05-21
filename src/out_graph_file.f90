@@ -13,6 +13,7 @@ module graphOut_mod
        &                 n_phi_max, nrp, n_r_ic_max, l_axi
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
+   use radial_data, only: nRstart
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
    use num_param, only: vScale
    use blocking, only: nThetaBs, sizeThetaB, nfs
@@ -392,7 +393,7 @@ contains
       !character(len=MPI_MAX_ERROR_STRING) :: error_string
       !integer :: count
       integer :: bytes_written!,length_of_error
-      integer :: size_of_header, size_of_data_per_rank, size_of_data_per_r
+      integer :: size_of_header, size_of_data_per_r
       integer :: size_of_data_per_thetaB
       integer(kind=MPI_OFFSET_kind) :: disp
       integer :: etype,filetype
@@ -446,7 +447,6 @@ contains
                             3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
 #endif
          size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
-         size_of_data_per_rank = size_of_data_per_r * nR_per_rank
 
          if ( rank == 0 ) then
             ! rank zero writes the Header
@@ -454,7 +454,7 @@ contains
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
                  &                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
          else
-            disp = size_of_header+rank*size_of_data_per_rank
+            disp = size_of_header+(nRstart-1)*size_of_data_per_r
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
                  &                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
          end if
@@ -667,7 +667,7 @@ contains
       !-- MPI related variables
       integer :: status(MPI_STATUS_SIZE)
       integer :: bytes_written
-      integer :: size_of_header, size_of_data_per_rank, size_of_data_per_r
+      integer :: size_of_header, size_of_data_per_r
       integer :: size_of_data_per_thetaB
       integer(kind=MPI_OFFSET_kind) :: disp
       integer :: etype,filetype
@@ -720,7 +720,6 @@ contains
                    &                       3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
 #endif
       size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
-      size_of_data_per_rank = size_of_data_per_r * nR_per_rank
 
       if ( rank == 0 ) then
          ! rank zero writes the Header
@@ -728,7 +727,7 @@ contains
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
                                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
       else
-         disp = size_of_header+rank*size_of_data_per_rank
+         disp = size_of_header+(nRstart-1)*size_of_data_per_r
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,&
               & MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
       end if

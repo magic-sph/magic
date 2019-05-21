@@ -8,7 +8,7 @@ module movie_data
    use logic, only:  l_store_frame, l_save_out, l_movie, &
        &             l_movie_oc, l_movie_ic, l_HTmovie,  &
        &             l_dtBmovie, l_store_frame, l_save_out
-   use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb
+   use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
@@ -1370,17 +1370,17 @@ contains
 
                local_start=n_start+(nRstart-1)*n_phi_max*n_theta_max
                local_end  =local_start+nR_per_rank*n_phi_max*n_theta_max-1
-               if (rank == n_procs-1) then
-                  local_end = local_start+nR_on_last_rank*n_phi_max*n_theta_max-1
-               end if
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
                do irank=0,n_procs-1
-                  recvcounts(irank) = nR_per_rank*n_phi_max*n_theta_max
-                  displs(irank)     = irank*nR_per_rank*n_phi_max*n_theta_max
+                  recvcounts(irank) = radial_balance(irank)%n_per_rank* &
+                  &                   n_phi_max*n_theta_max
                end do
-               recvcounts(n_procs-1) = nR_on_last_rank*n_phi_max*n_theta_max
+               displs(0)=0
+               do irank=1,n_procs-1
+                  displs(irank)=displs(irank-1)+recvcounts(irank-1)
+               end do
                sendcount=local_end-local_start+1
 
                call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
@@ -1425,17 +1425,16 @@ contains
 
                local_start=n_start+(nRstart-1)*n_phi_max
                local_end  =local_start+nR_per_rank*n_phi_max-1
-               if (rank == n_procs-1) then
-                  local_end = local_start+nR_on_last_rank*n_phi_max-1
-               end if
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
                do irank=0,n_procs-1
-                  recvcounts(irank) = nR_per_rank*n_phi_max
-                  displs(irank)     = irank*nR_per_rank*n_phi_max
+                  recvcounts(irank)=radial_balance(irank)%n_per_rank*n_phi_max
                end do
-               recvcounts(n_procs-1) = nR_on_last_rank*n_phi_max
+               displs(0)=0
+               do irank=1,n_procs-1
+                  displs(irank)=displs(irank-1)+recvcounts(irank-1)
+               end do
                sendcount=local_end-local_start+1
 
                call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
@@ -1456,16 +1455,16 @@ contains
 
                local_start=n_start+(nRstart-1)*n_theta_max
                local_end  =local_start+nR_per_rank*n_theta_max-1
-               if (rank == n_procs-1) local_end = local_start+ &
-                                                  nR_on_last_rank*n_theta_max-1
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
                do irank=0,n_procs-1
-                  recvcounts(irank) = nR_per_rank*n_theta_max
-                  displs(irank)     = irank*nR_per_rank*n_theta_max
+                  recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
                end do
-               recvcounts(n_procs-1) = nR_on_last_rank*n_theta_max
+               displs(0)=0
+               do irank=1,n_procs-1
+                  displs(irank)=displs(irank-1)+recvcounts(irank-1)
+               end do
                sendcount=local_end-local_start+1
                call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                     &           field_frames_global,recvcounts,displs,      &

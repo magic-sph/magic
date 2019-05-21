@@ -4,7 +4,7 @@ module radial_data
    !
 
    use truncation, only: n_r_max
-   use parallel_mod, only: rank, n_procs, nR_per_rank, nR_on_last_rank
+   use parallel_mod, only: rank, n_procs, nR_per_rank
    use logic, only: l_mag, lVerbose, l_finite_diff
  
    implicit none
@@ -51,7 +51,6 @@ contains
             ! radial points
             nRstop = nRstop+1
          end if
-         nR_on_last_rank = nR_per_rank+1
       else ! In FD, any grid is allowed
          nR_per_rank = n_r_max/n_procs
          nRstart = n_r_cmb + rank*nR_per_rank
@@ -61,23 +60,19 @@ contains
          if ( rank == n_procs-1 ) then
             nRstop = nRstop+nR_remaining
          end if
-         nR_on_last_rank = nR_per_rank+nR_remaining
       end if
 
 #else
       nR_per_rank = n_r_max
-      nR_on_last_rank = n_r_max
       nRstart = n_r_cmb
       nRstop  = n_r_icb
 #endif
       allocate(radial_balance(0:n_procs-1))
       call getBlocks(radial_balance, n_r_max, n_procs)   
 
-      !print*, rank, nRstart, nRstop, nR_per_rank
-      !nRstart = radial_balance(rank)%nStart
-      !nRstop = radial_balance(rank)%nStop
-      !nR_per_rank = radial_balance(rank)%n_per_rank
-      !print*, rank, nRstart, nRstop, nR_per_rank
+      nRstart = radial_balance(rank)%nStart
+      nRstop = radial_balance(rank)%nStop
+      nR_per_rank = radial_balance(rank)%n_per_rank
 
       if ( l_mag ) then
          nRstartMag = nRstart
