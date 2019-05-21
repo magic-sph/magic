@@ -34,39 +34,9 @@ contains
       ! radial direction
       !
 
-      !-- Local variable:
-      integer :: nR_remaining
-
       n_r_cmb=1
       n_r_icb=n_r_max
 
-#ifdef WITH_MPI
-      if ( .not. l_finite_diff ) then ! Cheb grid are restriced to odd numbers for now
-         nR_per_rank = (n_r_max-1)/n_procs
-         nRstart = n_r_cmb + rank*nR_per_rank
-         nRstop  = n_r_cmb + (rank+1)*nR_per_rank - 1
-
-         if ( rank == n_procs-1 ) then
-            ! add the last point to the last process, which now has nR_per_rank+1
-            ! radial points
-            nRstop = nRstop+1
-         end if
-      else ! In FD, any grid is allowed
-         nR_per_rank = n_r_max/n_procs
-         nRstart = n_r_cmb + rank*nR_per_rank
-         nRstop  = n_r_cmb + (rank+1)*nR_per_rank - 1
-
-         nR_remaining = n_r_max-(n_r_cmb + n_procs*nR_per_rank - 1)
-         if ( rank == n_procs-1 ) then
-            nRstop = nRstop+nR_remaining
-         end if
-      end if
-
-#else
-      nR_per_rank = n_r_max
-      nRstart = n_r_cmb
-      nRstop  = n_r_icb
-#endif
       allocate(radial_balance(0:n_procs-1))
       call getBlocks(radial_balance, n_r_max, n_procs)   
 
