@@ -311,7 +311,7 @@ contains
                if ( mod(l+m,2) == 1 ) e_es_geo = e_es_geo + e_p_temp
                if ( m == 0 )          e_as_geo = e_as_geo + e_p_temp
                if ( mod(l+m,2) == 1 .and. m == 0 )                    &
-                    &                 e_eas_geo=e_eas_geo+e_p_temp
+               &                      e_eas_geo=e_eas_geo+e_p_temp
             end if
 
             if ( l == 1 .and. m == 0 ) then
@@ -641,13 +641,13 @@ contains
                &    status='unknown', position='append')
             end if
             write(n_e_mag_oc_file,'(1P,ES20.12,12ES16.8)')   &
-                 &                        time*tScale,       &! 1
-                 &                        e_p,e_t,           &! 2,3
-                 &                        e_p_as,e_t_as,     &! 4,5
-                 &                        e_p_os,e_p_as_os,  &! 6,7
-                 &                        e_p_es,e_t_es,     &! 8,9
-                 &                        e_p_eas,e_t_eas,   &! 10,11
-                 &                        e_p_e,e_p_as_e      ! 12,13
+            &                             time*tScale,       &! 1
+            &                             e_p,e_t,           &! 2,3
+            &                             e_p_as,e_t_as,     &! 4,5
+            &                             e_p_os,e_p_as_os,  &! 6,7
+            &                             e_p_es,e_t_es,     &! 8,9
+            &                             e_p_eas,e_t_eas,   &! 10,11
+            &                             e_p_e,e_p_as_e      ! 12,13
             if ( l_save_out ) close(n_e_mag_oc_file)
          end if
 
@@ -658,9 +658,9 @@ contains
                &    status='unknown', position='append')
             end if
             write(n_e_mag_ic_file,'(1P,ES20.12,4ES16.8)')             &
-                 &                       time*tScale,                 &
-                 &                       e_p_ic,e_t_ic,               &
-                 &                       e_p_as_ic,e_t_as_ic
+            &                            time*tScale,                 &
+            &                            e_p_ic,e_t_ic,               &
+            &                            e_p_as_ic,e_t_as_ic
             if ( l_save_out ) close(n_e_mag_ic_file)
          end if
       end if
@@ -787,8 +787,8 @@ contains
                   zon=0.0_cp
                end if
                write(n_compliance_file,'(1P,ES20.12,4ES16.8)')    &
-                    &       time*tScale, ad,                      &
-                    &       sym, zon, fluxConcentration
+               &            time*tScale, ad,                      &
+               &            sym, zon, fluxConcentration
 
                if ( l_save_out ) close(n_compliance_file)
             end if
