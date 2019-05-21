@@ -68,7 +68,7 @@ contains
       allocate(cyl_balance(0:n_procs-1))
       call getBlocks(cyl_balance, nSmax, n_procs)
       nSstart = cyl_balance(rank)%nStart
-      nSstop = cyl_balance(rank)%nStart
+      nSstop = cyl_balance(rank)%nStop
 
       !-- The following global arrays are required in getDVptr
       allocate( wS_global(lm_max,n_r_max), dwS_global(lm_max,n_r_max) )
