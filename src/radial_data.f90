@@ -10,6 +10,16 @@ module radial_data
    implicit none
  
    private
+
+
+   type, public :: load
+      integer :: nStart
+      integer :: nStop
+      integer :: n_per_rank
+      integer :: n_points
+   end type load
+
+   type(load), public, allocatable :: radial_balance(:)
  
    integer, public :: nRstart,nRstop,nRstartMag,nRstopMag
    integer, public :: n_r_cmb,n_r_icb
@@ -53,12 +63,22 @@ contains
          end if
          nR_on_last_rank = nR_per_rank+nR_remaining
       end if
+
 #else
       nR_per_rank = n_r_max
       nR_on_last_rank = n_r_max
       nRstart = n_r_cmb
       nRstop  = n_r_icb
 #endif
+      allocate(radial_balance(0:n_procs-1))
+      call getBlocks(radial_balance, n_r_max, n_procs)   
+
+      !print*, rank, nRstart, nRstop, nR_per_rank
+      !nRstart = radial_balance(rank)%nStart
+      !nRstop = radial_balance(rank)%nStop
+      !nR_per_rank = radial_balance(rank)%n_per_rank
+      !print*, rank, nRstart, nRstop, nR_per_rank
+
       if ( l_mag ) then
          nRstartMag = nRstart
          nRstopMag  = nRstop
@@ -73,6 +93,32 @@ contains
       end if
 
    end subroutine initialize_radial_data
+!------------------------------------------------------------------------------
+   subroutine getBlocks(bal, n_points, n_procs)
+
+      type(load), intent(inout) :: bal(0:)
+      integer, intent(in) :: n_procs
+      integer, intent(in) :: n_points
+
+      integer :: n_points_loc, check, p
+
+      n_points_loc = n_points/n_procs
+
+      check = mod(n_points,n_procs)!-1
+
+      bal(0)%nStart = 1
+
+      do p =0, n_procs-1
+         if ( p /= 0 ) bal(p)%nStart=bal(p-1)%nStop+1
+         bal(p)%n_per_rank=n_points_loc
+         if ( p == n_procs-1 ) then
+            bal(p)%n_per_rank=n_points_loc+check
+         end if
+         bal(p)%nStop=bal(p)%nStart+bal(p)%n_per_rank-1
+         bal(p)%n_points=n_points
+      end do
+
+   end subroutine getBlocks
 !------------------------------------------------------------------------------
 end module radial_data
 

@@ -2,6 +2,7 @@ module radial_spectra
 
    use precision_mod
    use parallel_mod
+   use communications, only: reduce_radial
    use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_tot
    use radial_data, only: n_r_icb
    use LMLoop_data, only: llm,ulm
@@ -118,15 +119,8 @@ contains
          end do
       end if
 
-#ifdef WITH_MPI
-      call MPI_Reduce(e_p,e_p_global, 6*n_r_tot, MPI_DEF_REAL, &
-           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
-      call MPI_Reduce(e_p_AS,e_p_AS_global, 6*n_r_tot, MPI_DEF_REAL, &
-           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
-#else
-      e_p_global(:,:)   =e_p(:,:)
-      e_p_AS_global(:,:)=e_p_AS(:,:)
-#endif
+      call reduce_radial(e_p, e_p_global, 0)
+      call reduce_radial(e_p_AS, e_p_AS_global, 0)
       
       if ( rank == 0 ) then
 
@@ -236,15 +230,8 @@ contains
     
       end if
 
-#ifdef WITH_MPI
-      call MPI_Reduce(e_t,e_t_global, 6*n_r_tot, MPI_DEF_REAL, &
-           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
-      call MPI_Reduce(e_t_AS,e_t_AS_global, 6*n_r_tot, MPI_DEF_REAL, &
-           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
-#else
-      e_t_global(:,:)   =e_t(:,:)
-      e_t_AS_global(:,:)=e_t_AS(:,:)
-#endif
+      call reduce_radial(e_t, e_t_global, 0)
+      call reduce_radial(e_t_AS, e_t_AS_global, 0)
       
       if ( rank == 0 ) then
     

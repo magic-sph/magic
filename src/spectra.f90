@@ -2,6 +2,7 @@ module spectra
 
    use parallel_mod
    use precision_mod
+   use communications, only: reduce_radial
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
        &                 n_r_ic_max, l_max, minc
@@ -357,62 +358,22 @@ contains
     
       ! ----------- We need a reduction here ----------------
       ! first the l-spectra
-#ifdef WITH_MPI
       if ( l_mag ) then
-         call MPI_Reduce(e_mag_p_r_l, e_mag_p_r_l_global, n_r_max*l_max,&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_mag_t_r_l, e_mag_t_r_l_global, n_r_max*l_max,&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         call reduce_radial(e_mag_p_r_l, e_mag_p_r_l_global, 0)
+         call reduce_radial(e_mag_t_r_l, e_mag_t_r_l_global, 0)
+         call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
+         call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
       end if
       if ( l_anel ) then
-         call MPI_Reduce(u2_p_r_l, u2_p_r_l_global, n_r_max*l_max,   &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(u2_t_r_l, u2_t_r_l_global, n_r_max*l_max,   &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         call reduce_radial(u2_p_r_l, u2_p_r_l_global, 0)
+         call reduce_radial(u2_t_r_l, u2_t_r_l_global, 0)
+         call reduce_radial(u2_p_r_m, u2_p_r_m_global, 0)
+         call reduce_radial(u2_t_r_m, u2_t_r_m_global, 0)
       end if
-      call MPI_Reduce(e_kin_p_r_l, e_kin_p_r_l_global, n_r_max*l_max,&
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_kin_t_r_l, e_kin_t_r_l_global, n_r_max*l_max,&
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-    
-      ! then the m-spectra
-      if ( l_mag ) then
-         call MPI_Reduce(e_mag_p_r_m, e_mag_p_r_m_global, n_r_max*(l_max+1),&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_mag_t_r_m, e_mag_t_r_m_global, n_r_max*(l_max+1),&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(eCMB, eCMB_global,l_max,MPI_DEF_REAL,MPI_SUM,0, &
-              &          MPI_COMM_WORLD,ierr)
-      end if
-      if ( l_anel ) then
-         call MPI_Reduce(u2_p_r_m, u2_p_r_m_global, n_r_max*(l_max+1),&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(u2_t_r_m, u2_t_r_m_global, n_r_max*(l_max+1),&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      end if
-      call MPI_Reduce(e_kin_p_r_m, e_kin_p_r_m_global, n_r_max*(l_max+1),  &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_kin_t_r_m, e_kin_t_r_m_global, n_r_max*(l_max+1),  &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      if ( l_mag ) then
-         e_mag_p_r_l_global(:,:)=e_mag_p_r_l(:,:)
-         e_mag_t_r_l_global(:,:)=e_mag_t_r_l(:,:)
-         e_mag_p_r_m_global(:,:)=e_mag_p_r_m(:,:)
-         e_mag_t_r_m_global(:,:)=e_mag_t_r_m(:,:)
-         eCMB_global(:)         =eCMB(:)
-      end if
-      if ( l_anel ) then
-         u2_p_r_l_global(:,:)=u2_p_r_l(:,:)
-         u2_t_r_l_global(:,:)=u2_t_r_l(:,:)
-         u2_p_r_m_global(:,:)=u2_p_r_m(:,:)
-         u2_t_r_m_global(:,:)=u2_t_r_m(:,:)
-      end if
-      e_kin_p_r_l_global(:,:)=e_kin_p_r_l(:,:)
-      e_kin_t_r_l_global(:,:)=e_kin_t_r_l(:,:)
-      e_kin_p_r_m_global(:,:)=e_kin_p_r_m(:,:)
-      e_kin_t_r_m_global(:,:)=e_kin_t_r_m(:,:)
-#endif
+      call reduce_radial(e_kin_p_r_l, e_kin_p_r_l_global, 0)
+      call reduce_radial(e_kin_t_r_l, e_kin_t_r_l_global, 0)
+      call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
+      call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
     
       ! now switch to rank 0 for the postprocess
     
@@ -595,22 +556,10 @@ contains
             end do  ! loop over lm's
          end do ! loop over radial levels
     
-#ifdef WITH_MPI
-         call MPI_Reduce(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, n_r_ic_max*l_max,&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, n_r_ic_max*l_max,&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_mag_p_ic_r_m,e_mag_p_ic_r_m_global,n_r_ic_max*(l_max+1),&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_mag_t_ic_r_m,e_mag_t_ic_r_m_global,n_r_ic_max*(l_max+1),&
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-         e_mag_p_ic_r_l_global(:,:)=e_mag_p_ic_r_l(:,:)
-         e_mag_t_ic_r_l_global(:,:)=e_mag_t_ic_r_l(:,:)
-         e_mag_p_ic_r_m_global(:,:)=e_mag_p_ic_r_m(:,:)
-         e_mag_t_ic_r_m_global(:,:)=e_mag_t_ic_r_m(:,:)
-#endif
-    
+         call reduce_radial(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, 0)
+         call reduce_radial(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, 0)
+         call reduce_radial(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, 0)
+         call reduce_radial(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, 0)
     
          if ( rank == 0 ) then
             !----- Radial Integrals:
@@ -906,7 +855,7 @@ contains
       real(cp) :: T_ICB_m(l_max+1), T_ICB_m_global(l_max+1)
       real(cp) :: dT_ICB_m(l_max+1), dT_ICB_m_global(l_max+1)
 
-      integer :: nOut,ierr
+      integer :: nOut
 
       T_l(:)     =0.0_cp
       T_ICB_l(:) =0.0_cp
@@ -950,27 +899,12 @@ contains
       end do    ! radial grid points 
 
       ! Reduction over all ranks
-#ifdef WITH_MPI
-      call MPI_Reduce(T_r_l,T_r_l_global,n_r_max*(l_max+1),      &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(T_r_m,T_r_m_global,n_r_max*(l_max+1),      &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(T_ICB_l,T_ICB_l_global,l_max+1,            &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(T_ICB_m,T_ICB_m_global,l_max+1,            &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,          &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(dT_ICB_m,dT_ICB_m_global,l_max+1,          &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      T_r_l_global(:,:) =T_r_l(:,:)
-      T_r_m_global(:,:) =T_r_m(:,:)
-      T_ICB_l_global(:) =T_ICB_l(:)
-      T_ICB_m_global(:) =T_ICB_m(:)
-      dT_ICB_l_global(:)=dT_ICB_l(:)
-      dT_ICB_m_global(:)=dT_ICB_m(:)
-#endif
+      call reduce_radial(T_r_l, T_r_l_global, 0)
+      call reduce_radial(T_r_m, T_r_m_global, 0)
+      call reduce_radial(T_ICB_l, T_ICB_l_global, 0)
+      call reduce_radial(T_ICB_m, T_ICB_m_global, 0)
+      call reduce_radial(dT_ICB_l, dT_ICB_l_global, 0)
+      call reduce_radial(dT_ICB_m, dT_ICB_m_global, 0)
 
       if ( rank == 0 .and. l_heat ) then
          !-- Radial Integrals:
@@ -1123,24 +1057,12 @@ contains
 
       end do    ! radial grid points 
 
-#ifdef WITH_MPI
       if ( l_mag ) then
-         call MPI_Reduce(e_mag_p_r_m, e_mag_p_r_m_global, n_r_max*(l_max+1), &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_mag_t_r_m, e_mag_t_r_m_global, n_r_max*(l_max+1), &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
+         call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
       end if
-
-      call MPI_Reduce(e_kin_p_r_m, e_kin_p_r_m_global, n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_kin_t_r_m, e_kin_t_r_m_global, n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      e_mag_p_r_m_global(:,:)=e_mag_p_r_m(:,:)
-      e_mag_t_r_m_global(:,:)=e_mag_t_r_m(:,:)
-      e_kin_p_r_m_global(:,:)=e_kin_p_r_m(:,:)
-      e_kin_t_r_m_global(:,:)=e_kin_t_r_m(:,:)
-#endif
+      call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
+      call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
       if ( rank == 0 ) then
 

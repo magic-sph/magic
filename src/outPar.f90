@@ -2,13 +2,13 @@ module outPar_mod
    !
    ! This module is used to compute several time-averaged radial profiles:
    ! fluxes, boundary layers, etc.
-   ! 
+   !
 
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, &
-       &                 l_maxMag
+   use communications, only: gather_from_Rloc
+   use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
@@ -104,9 +104,9 @@ contains
          EperpaxiMeanR(:)=0.0_cp
          EparaxiMeanR(:) =0.0_cp
 
-         if ( rank == 0 .and. (.not. l_save_out) ) then 
+         if ( rank == 0 .and. (.not. l_save_out) ) then
             open(newunit=n_perpPar_file, file=perpPar_file, status='new')
-         end if 
+         end if
       end if
 
    end subroutine initialize_outPar_mod
@@ -179,7 +179,6 @@ contains
       real(cp) :: fkin(nfs), fconv(nfs), fvisc(nfs), fres(nfs), fpoyn(nfs)
 
       integer :: fileHandle
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 
 
       if ( l_viscBcCalc ) then
@@ -223,35 +222,13 @@ contains
          uhR =half* uhR ! Normalisation for the theta integration
          gradT2R =half*gradT2R ! Normalisation for the theta integration
 
-         sendcount  = (nRstop-nRstart+1)
-         recvcounts = nR_per_rank
-         recvcounts(n_procs-1) = nR_on_last_rank
-         do i=0,n_procs-1
-            displs(i) = i*nR_per_rank
-         end do
-#ifdef WITH_MPI
-         call MPI_GatherV(duhR,sendcount,MPI_DEF_REAL,              &
-             &           duhR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(uhR,sendcount,MPI_DEF_REAL,              &
-             &           uhR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(gradT2R,sendcount,MPI_DEF_REAL,              &
-             &           gradT2R_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(sR,sendcount,MPI_DEF_REAL,              &
-             &           sR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(Svar,sendcount,MPI_DEF_REAL,              &
-             &           Svar_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-#else
-         duhR_global   =duhR
-         uhR_global    =uhR
-         gradT2R_global=gradT2R
-         sR_global     =sR
-         Svar_global   =Svar
-#endif
+
+         call gather_from_RLoc(duhR, duhR_global, 0)
+         call gather_from_RLoc(uhR, uhR_global, 0)
+         call gather_from_RLoc(gradT2R, gradT2R_global, 0)
+         call gather_from_RLoc(sR, sR_global, 0)
+         call gather_from_RLoc(Svar, Svar_global, 0)
+
       end if
 
       if ( l_fluxProfs ) then
@@ -275,11 +252,11 @@ contains
             if  ( l_temperature_diff ) then
                do nR=nRstart,nRstop
                   fcR(nR)=-sq4pi*r(nR)*r(nR)*kappa(nR)*rho0(nR)*temp0(nR)*&
-                  &        (dLtemp0(nR)*real(s_Rloc(1,nR)) +   &
-                  &                     real(ds_Rloc(1,nR))+   &
-                  &        ViscHeatFac*ThExpNb*alpha0(nR)*     &
-                  &        orho1(nR)*((dLalpha0(nR)+dLtemp0(nR)-beta(nR))*& 
-                  &                     real(p_Rloc(1,nR))+    &
+                  &        (dLtemp0(nR)*real(s_Rloc(1,nR)) +              &
+                  &                     real(ds_Rloc(1,nR))+              &
+                  &        ViscHeatFac*ThExpNb*alpha0(nR)*                &
+                  &        orho1(nR)*((dLalpha0(nR)+dLtemp0(nR)-beta(nR))*&
+                  &                     real(p_Rloc(1,nR))+               &
                   &                     real(dp_Rloc(1,nR))))
                end do
             else
@@ -328,44 +305,15 @@ contains
             end do
          end if
 
-         sendcount  = (nRstop-nRstart+1)
-         recvcounts = nR_per_rank
-         recvcounts(n_procs-1) = nR_on_last_rank
-         do i=0,n_procs-1
-            displs(i) = i*nR_per_rank
-         end do
-#ifdef WITH_MPI
-         call MPI_GatherV(fkinR,sendcount,MPI_DEF_REAL,&
-             &           fkinR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(fconvR,sendcount,MPI_DEF_REAL,&
-             &           fconvR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(fviscR,sendcount,MPI_DEF_REAL,&
-             &           fviscR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(fcR,sendcount,MPI_DEF_REAL,&
-             &           fcR_global,recvcounts,displs,MPI_DEF_REAL,&
-             &           0,MPI_COMM_WORLD,ierr)
+         call gather_from_Rloc(fkinR, fkinR_global, 0)
+         call gather_from_Rloc(fconvR, fconvR_global, 0)
+         call gather_from_Rloc(fviscR, fviscR_global, 0)
+         call gather_from_Rloc(fcR, fcR_global, 0)
+         if ( l_mag_nl ) then
+            call gather_from_Rloc(fpoynR, fpoynR_global, 0)
+            call gather_from_Rloc(fresR, fresR_global, 0)
+         end if
 
-         if ( l_mag_nl ) then
-            call MPI_GatherV(fpoynR,sendcount,MPI_DEF_REAL,&
-                &           fpoynR_global,recvcounts,displs,MPI_DEF_REAL,&
-                &           0,MPI_COMM_WORLD,ierr)
-            call MPI_GatherV(fresR,sendcount,MPI_DEF_REAL,&
-                &           fresR_global,recvcounts,displs,MPI_DEF_REAL,&
-                &           0,MPI_COMM_WORLD,ierr)
-         end if
-#else
-         fkinR_global =fkinR
-         fconvR_global=fconvR
-         fviscR_global=fviscR
-         fcR_global   =fcR
-         if ( l_mag_nl ) then
-            fpoynR_global=fpoynR
-            fresR_global =fresR
-         end if
-#endif
       end if
 
 
@@ -395,7 +343,7 @@ contains
          RmMeanR    =RmMeanR    +timePassed*RmR*sqrt(mass/rho0)*or2
          !write(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
          ! this is to get u2 value for RmR(r) to plot in parR.tag
-         ! and also remove r**2, so it has to be volume-averaged 
+         ! and also remove r**2, so it has to be volume-averaged
          ! like RolR
          if ( l_viscBcCalc ) then
             sMeanR     =sMeanR    +timePassed*sR_global
@@ -415,7 +363,7 @@ contains
             end if
          end if
 
-         if ( l_stop_time ) then 
+         if ( l_stop_time ) then
 
             dlVMeanR   =dlVMeanR/timeNorm
             dlVcMeanR  =dlVcMeanR/timeNorm
@@ -457,14 +405,14 @@ contains
             open(newunit=fileHandle, file=filename, status='unknown')
             do nR=1,n_r_max
                write(fileHandle,'(ES20.10,8ES15.7)') &
-                          &   r(nR),             &! 1) radius
-                          &   RmMeanR(nR),       &! 2) magnetic Reynolds number
-                          &   RolMeanR(nR),      &! 3) local Rossby number
-                          &   RolMeanRu2(nR),    &! 4) u squared local Rossby number
-                          &   dlVMeanR(nR),      &! 5) local length scale
-                          &   dlVcMeanR(nR),     &! 6) conv. local length scale
-                          &   dlVu2MeanR(nR),    &! 7) u squared local length scale 
-                          &   dlVu2cMeanR(nR)     ! 8) u squared conv. local length scale
+               &              r(nR),                 &! 1) radius
+               &              RmMeanR(nR),           &! 2) magnetic Reynolds number
+               &              RolMeanR(nR),          &! 3) local Rossby number
+               &              RolMeanRu2(nR),        &! 4) u squared local Rossby number
+               &              dlVMeanR(nR),          &! 5) local length scale
+               &              dlVcMeanR(nR),         &! 6) conv. local length scale
+               &              dlVu2MeanR(nR),        &! 7) u squared local length scale
+               &              dlVu2cMeanR(nR)         ! 8) u squared conv. local length scale
             end do
             close(fileHandle)
 
@@ -473,12 +421,12 @@ contains
                open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
                   write(fileHandle,'(ES20.10,6ES15.7)')    &
-                          &   r(nR),                       &! 1) radius
-                          &   sMeanR(nR)*osq4pi,           &! 2) entropy
-                          &   Svar_global(nR)/(four*pi),   &! 3) entropy variance
-                          &   uhMeanR(nR),                 &! 4) uh
-                          &   duhMeanR(nR),                &! 5) duh/dr
-                          &   gradT2MeanR(nR)               ! 6) (grad T)**2
+                  &           r(nR),                       &! 1) radius
+                  &           sMeanR(nR)*osq4pi,           &! 2) entropy
+                  &           Svar_global(nR)/(four*pi),   &! 3) entropy variance
+                  &           uhMeanR(nR),                 &! 4) uh
+                  &           duhMeanR(nR),                &! 5) duh/dr
+                  &           gradT2MeanR(nR)               ! 6) (grad T)**2
                end do
                close(fileHandle)
             end if
@@ -488,13 +436,13 @@ contains
                open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
                   write(fileHandle,'(ES20.10,7ES15.7)')  &
-                          &   r(nR),                     &! 1) radius
-                          &   fcondMeanR(nR),            &! 2) Fcond
-                          &   fconvMeanR(nR),            &! 3) Fconv
-                          &   fkinMeanR(nR),             &! 4) Fkin
-                          &   fviscMeanR(nR),            &! 5) Fvisc
-                          &   fpoynMeanR(nR),            &! 6) Fpoyn
-                          &   fresMeanR(nR)               ! 7) Fres
+                  &           r(nR),                     &! 1) radius
+                  &           fcondMeanR(nR),            &! 2) Fcond
+                  &           fconvMeanR(nR),            &! 3) Fconv
+                  &           fkinMeanR(nR),             &! 4) Fkin
+                  &           fviscMeanR(nR),            &! 5) Fvisc
+                  &           fpoynMeanR(nR),            &! 6) Fpoyn
+                  &           fresMeanR(nR)               ! 7) Fres
                end do
                close(fileHandle)
             end if
@@ -506,7 +454,7 @@ contains
    end subroutine outPar
 !----------------------------------------------------------------------------
    subroutine outPerpPar(time,timePassed,timeNorm,l_stop_time, &
-                 &     EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+              &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
 
 
       !--- Input of variables
@@ -528,7 +476,6 @@ contains
       real(cp) :: Eperp(nfs), Epar(nfs), Eperpaxi(nfs), Eparaxi(nfs)
       real(cp) :: EperpT,EparT,EperpaxT,EparaxT
 
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: fileHandle
 
       do nR=nRstart,nRstop
@@ -558,33 +505,10 @@ contains
       EperpaxiR=half*EperpaxiR ! Normalisation for the theta integration
       EparaxiR =half*EparaxiR  ! Normalisation for the theta integration
 
-      sendcount  = (nRstop-nRstart+1)
-      recvcounts = nR_per_rank
-      recvcounts(n_procs-1) = nR_on_last_rank
-      do i=0,n_procs-1
-         displs(i) = i*nR_per_rank
-      end do
-
-#ifdef WITH_MPI
-      call MPI_GatherV(EperpR,sendcount,MPI_DEF_REAL,&
-          &           EperpR_global,recvcounts,displs,MPI_DEF_REAL,&
-          &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(EparR,sendcount,MPI_DEF_REAL,&
-          &           EparR_global,recvcounts,displs,MPI_DEF_REAL,&
-          &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(EperpaxiR,sendcount,MPI_DEF_REAL,&
-          &           EperpaxiR_global,recvcounts,displs,MPI_DEF_REAL,&
-          &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(EparaxiR,sendcount,MPI_DEF_REAL,&
-          &           EparaxiR_global,recvcounts,displs,MPI_DEF_REAL,&
-          &           0,MPI_COMM_WORLD,ierr)
-#else
-      EperpR_global   =EperpR
-      EparR_global    =EparR
-      EperpaxiR_global=EperpaxiR
-      EparaxiR_global =EparaxiR
-#endif
-
+      call gather_from_Rloc(EperpR, EperpR_global, 0)
+      call gather_from_Rloc(EparR, EparR_global, 0)
+      call gather_from_Rloc(EperpaxiR, EperpaxiR_global, 0)
+      call gather_from_Rloc(EparaxiR, EparaxiR_global, 0)
 
       if ( rank == 0 ) then
          EperpT  =four*pi*rInt_R(EperpR_global*r*r,r,rscheme_oc)
@@ -597,10 +521,8 @@ contains
             open(newunit=n_perpPar_file, file=perpPar_file, &
             &    status='unknown', position='append')
          end if
-         write(n_perpPar_file,'(1P,ES20.12,4ES16.8)') &
-              &  time*tScale,     & ! 1
-              &  EperpT,EparT,    & ! 2,3
-              &  EperpaxT,EparaxT   ! 4,5
+         write(n_perpPar_file,'(1P,ES20.12,4ES16.8)')  time*tScale,     & ! 1
+         &                                       EperpT,EparT, EperpaxT,EparaxT 
          if ( l_save_out ) close(n_perpPar_file)
 
          EperpMeanR    =EperpMeanR     +timePassed*EperpR_global
@@ -616,11 +538,11 @@ contains
              open(newunit=fileHandle, file=filename, status='unknown')
              do nR=1,n_r_max
                 write(fileHandle,'(ES20.10,4ES15.7)')&
-                           &   r(nR),                &! 1) radius
-                           &   EperpMeanR(nR),       &! 2) E perpendicular
-                           &   EparMeanR(nR),        &! 3) E parallel
-                           &   EperpaxiMeanR(nR),    &! 4) E perp (axisymetric)
-                           &   EparaxiMeanR(nR)       ! 5) E parallel (axisymetric)
+                &              r(nR),                &! 1) radius
+                &              EperpMeanR(nR),       &! 2) E perpendicular
+                &              EparMeanR(nR),        &! 3) E parallel
+                &              EperpaxiMeanR(nR),    &! 4) E perp (axisymetric)
+                &              EparaxiMeanR(nR)       ! 5) E parallel (axisymetric)
              end do
              close(fileHandle)
          end if

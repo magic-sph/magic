@@ -29,8 +29,7 @@ module start_fields
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
-   use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, &
-       &                  ulmMag,llmMag
+   use LMLoop_data, only: llm, ulm, ulmMag, llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start, lo2r_s, lo2r_flow, lo2r_field, &
        &                     lo2r_xi, lo2r_press

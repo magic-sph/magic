@@ -3,6 +3,7 @@ module kinetic_energy
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
+   use communications, only: reduce_radial
    use truncation, only: n_r_max, l_max
    use radial_functions, only: r, or1, rscheme_oc, or2, r_cmb, r_icb, &
        &                       orho1, orho2, sigma
@@ -17,25 +18,25 @@ module kinetic_energy
    use communications, only: get_global_sum
    use integration, only: rInt_R
    use useful, only: cc2real
- 
+
    implicit none
- 
+
    private
- 
+
    real(cp), allocatable :: e_pA(:),e_p_asA(:)
    real(cp), allocatable :: e_tA(:),e_t_asA(:)
 
    integer :: n_e_kin_file, n_u_square_file
    character(len=72) :: e_kin_file
    character(len=72) :: u_square_file
- 
+
    public :: get_e_kin, get_u_square, initialize_kinetic_energy, &
    &         finalize_kinetic_energy
- 
+
 contains
 
    subroutine initialize_kinetic_energy
- 
+
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
       allocate( e_tA(n_r_max),e_t_asA(n_r_max) )
       bytes_allocated = bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
@@ -49,7 +50,7 @@ contains
             open(newunit=n_u_square_file, file=u_square_file, status='new')
          end if
       end if
-     
+
    end subroutine initialize_kinetic_energy
 !-----------------------------------------------------------------------------
    subroutine finalize_kinetic_energy
@@ -64,7 +65,7 @@ contains
    end subroutine finalize_kinetic_energy
 !-----------------------------------------------------------------------------
    subroutine get_e_kin(time,l_write,l_stop_time,n_e_sets, &
-       &               w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
+              &         w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
 
       !
       !  calculates kinetic energy  = 1/2 Integral (v^2 dV)
@@ -93,7 +94,7 @@ contains
       real(cp), intent(out) :: e_t_as  ! axisymmetric toroidal energy
 
       !-- Local variables:
-      real(cp) :: e_p_es  ! equatorially symmetric poloidal energy 
+      real(cp) :: e_p_es  ! equatorially symmetric poloidal energy
       real(cp) :: e_t_es  ! equatorially symmetric toroidal energy
       real(cp) :: e_p_eas ! equator. & axially symmetric poloidal energy
       real(cp) :: e_t_eas ! equator. & axially symmetric toroidal energy
@@ -140,9 +141,9 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
 
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * ( &
-                 &      dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
-                 &      + cc2real(dw(lm,nR),m) )
+            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
+            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            &           + cc2real(dw(lm,nR),m) )
             e_t_temp= O_rho*dLh(st_map%lm2(l,m)) * cc2real(z(lm,nR),m)
             !write(*,"(A,3I4,ES22.14)") "e_p_temp = ",nR,l,m,e_p_temp
             if ( m == 0 ) then  ! axisymmetric part
@@ -164,7 +165,7 @@ contains
             end if
 
             !write(*,"(8X,A,4I4,ES22.14)") "e_p_r: ",lm,l,m,nR,e_p_r(nR)
-            
+
          end do    ! do loop over lms in block
          e_p_r(nR)=e_p_r(nR)+e_p_as_r(nR)
          e_t_r(nR)=e_t_r(nR)+e_t_as_r(nR)
@@ -172,33 +173,15 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
-#ifdef WITH_MPI
-      call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_es_r, e_p_es_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_es_r, e_t_es_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_eas_r,e_p_eas_r_global, n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_eas_r,e_t_eas_r_global, n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      e_p_r_global    =e_p_r
-      e_t_r_global    =e_t_r
-      e_p_as_r_global =e_p_as_r
-      e_t_as_r_global =e_t_as_r
-      e_p_es_r_global =e_p_es_r
-      e_t_es_r_global =e_t_es_r
-      e_p_eas_r_global=e_p_eas_r
-      e_t_eas_r_global=e_t_eas_r
-#endif
+      call reduce_radial(e_p_r, e_p_r_global, 0)
+      call reduce_radial(e_t_r, e_t_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_radial(e_p_es_r, e_p_es_r_global, 0)
+      call reduce_radial(e_t_es_r, e_t_es_r_global, 0)
+      call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
+      call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
       if ( rank == 0 ) then
          !do nR=1,n_r_max
@@ -272,14 +255,14 @@ contains
             do nR=1,n_r_max
                surf=four*pi*r(nR)**2
                write(fileHandle,'(ES20.10,8ES15.7)') r(nR),         &
-                    &               fac*e_pA(nR)/timetot,           &
-                    &               fac*e_p_asA(nR)/timetot,        &
-                    &               fac*e_tA(nR)/timetot,           &
-                    &               fac*e_t_asA(nR)/timetot,        &
-                    &               fac*e_pA(nR)/timetot/surf,      &
-                    &               fac*e_p_asA(nR)/timetot/surf,   &
-                    &               fac*e_tA(nR)/timetot/surf,      &
-                    &               fac*e_t_asA(nR)/timetot/surf
+               &                    fac*e_pA(nR)/timetot,           &
+               &                    fac*e_p_asA(nR)/timetot,        &
+               &                    fac*e_tA(nR)/timetot,           &
+               &                    fac*e_t_asA(nR)/timetot,        &
+               &                    fac*e_pA(nR)/timetot/surf,      &
+               &                    fac*e_p_asA(nR)/timetot/surf,   &
+               &                    fac*e_tA(nR)/timetot/surf,      &
+               &                    fac*e_t_asA(nR)/timetot/surf
             end do
             close(fileHandle)
          end if
@@ -367,9 +350,9 @@ contains
             !  l=lm2l(lm)
             !  m=lm2m(lm)
 
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * ( &
-                 &      dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
-                 &      + cc2real(dw(lm,nR),m) )
+            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
+            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            &           + cc2real(dw(lm,nR),m) )
             e_t_temp= O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR)+ e_p_temp
@@ -387,27 +370,12 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
-#ifdef WITH_MPI
-      call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_lr_c, e_lr_c_global,  n_r_max*l_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_lr, e_lr_global,  n_r_max*l_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      e_p_r_global   =e_p_r
-      e_t_r_global   =e_t_r
-      e_p_as_r_global=e_p_as_r
-      e_t_as_r_global=e_t_as_r
-      e_lr_c_global  =e_lr_c
-      e_lr_global    =e_lr
-#endif
+      call reduce_radial(e_p_r, e_p_r_global, 0)
+      call reduce_radial(e_t_r, e_t_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_radial(e_lr_c, e_lr_c_global, 0)
+      call reduce_radial(e_lr, e_lr_global, 0)
 
       if ( rank == 0 ) then
          !-- Radial Integrals:

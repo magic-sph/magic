@@ -476,8 +476,12 @@ contains
             do lm=lStartP(mc),lmS-1,2
                f1LM(lm)=-ci*dm*f1ES1* wPlm(lm,1)-ci*dm*f1ES2* wPlm(lm,2) &
                &              +f2EA1*wdPlm(lm,1)+      f2EA2*wdPlm(lm,2)
+               f1LM(lm+1)=-ci*dm*f1EA1* wPlm(lm+1,1)-ci*dm*f1EA2* wPlm(lm+1,2) &
+               &                +f2ES1*wdPlm(lm+1,1)+      f2ES2*wdPlm(lm+1,2)
                f2LM(lm)=      -f1EA1*wdPlm(lm,1)-      f1EA2*wdPlm(lm,2) &
                &        -ci*dm*f2ES1* wPlm(lm,1)-ci*dm*f2ES2* wPlm(lm,2)
+               f2LM(lm+1)=      -f1ES1*wdPlm(lm+1,1)-      f1ES2*wdPlm(lm+1,2) &
+               &          -ci*dm*f2EA1* wPlm(lm+1,1)-ci*dm*f2EA2* wPlm(lm+1,2)
             end do
             if ( lmOddP(mc) ) then
                f1LM(lmS)=-ci*dm*f1ES1* wPlm(lmS,1)-ci*dm*f1ES2* wPlm(lmS,2) &
@@ -485,25 +489,6 @@ contains
                f2LM(lmS)=      -f1EA1*wdPlm(lmS,1)-      f1EA2*wdPlm(lmS,2) &
                &         -ci*dm*f2ES1* wPlm(lmS,1)-ci*dm*f2ES2* wPlm(lmS,2)
             end if
-         end do
-         do mc=1,n_m_max
-            dm = D_mc2m(mc)
-            lmS=lStopP(mc)
-            lmS=lStopP(mc)
-            f1ES1=f1ES(mc,1)
-            f1ES2=f1ES(mc,2)
-            f2ES1=f2ES(mc,1)
-            f2ES2=f2ES(mc,2)
-            f1EA1=f1EA(mc,1)
-            f1EA2=f1EA(mc,2)
-            f2EA1=f2EA(mc,1)
-            f2EA2=f2EA(mc,2)
-            do lm=lStartP(mc),lmS-1,2
-               f1LM(lm+1)=-ci*dm*f1EA1* wPlm(lm+1,1)-ci*dm*f1EA2* wPlm(lm+1,2) &
-               &                +f2ES1*wdPlm(lm+1,1)+      f2ES2*wdPlm(lm+1,2)
-               f2LM(lm+1)=      -f1ES1*wdPlm(lm+1,1)-      f1ES2*wdPlm(lm+1,2) &
-               &          -ci*dm*f2EA1* wPlm(lm+1,1)-ci*dm*f2EA2* wPlm(lm+1,2)
-            end do
          end do
            
          if ( sizeThetaB <= 4 ) return !RETURN
@@ -539,26 +524,6 @@ contains
                &                    -ci*dm*f1EA2* wPlm(lm+1,nTheta2)  &
                &                    +      f2ES1*wdPlm(lm+1,nTheta1)  &
                &                    +      f2ES2*wdPlm(lm+1,nTheta2)
-            end do
-            if ( lmOddP(mc) ) then
-               f1LM(lmS)=f1LM(lmS)-ci*dm*f1ES1* wPlm(lmS,nTheta1) &
-               &                  -ci*dm*f1ES2* wPlm(lmS,nTheta2) &
-               &                  +      f2EA1*wdPlm(lmS,nTheta1) &
-               &                  +      f2EA2*wdPlm(lmS,nTheta2)
-            end if
-         end do
-         do mc=1,n_m_max
-            dm = D_mc2m(mc)
-            lmS=lStopP(mc)
-            f1ES1=f1ES(mc,nThetaB1)
-            f1ES2=f1ES(mc,nThetaB2)
-            f1EA1=f1EA(mc,nThetaB1)
-            f1EA2=f1EA(mc,nThetaB2)
-            f2ES1=f2ES(mc,nThetaB1)
-            f2ES2=f2ES(mc,nThetaB2)
-            f2EA1=f2EA(mc,nThetaB1)
-            f2EA2=f2EA(mc,nThetaB2)
-            do lm=lStartP(mc),lmS-1,2
                f2LM(lm)  =f2LM(lm)-      f1EA1*wdPlm(lm,nTheta1) &
                &                  -      f1EA2*wdPlm(lm,nTheta2) &
                &                  -ci*dm*f2ES1* wPlm(lm,nTheta1) &
@@ -569,6 +534,10 @@ contains
                &                    -ci*dm*f2EA2* wPlm(lm+1,nTheta2)
             end do
             if ( lmOddP(mc) ) then
+               f1LM(lmS)=f1LM(lmS)-ci*dm*f1ES1* wPlm(lmS,nTheta1) &
+               &                  -ci*dm*f1ES2* wPlm(lmS,nTheta2) &
+               &                  +      f2EA1*wdPlm(lmS,nTheta1) &
+               &                  +      f2EA2*wdPlm(lmS,nTheta2)
                f2LM(lmS)=f2LM(lmS)-      f1EA1*wdPlm(lmS,nTheta1) &
                &                  -      f1EA2*wdPlm(lmS,nTheta2) &
                &                  -ci*dm*f2ES1* wPlm(lmS,nTheta1) &

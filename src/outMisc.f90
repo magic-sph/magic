@@ -6,6 +6,7 @@ module outMisc_mod
 
    use parallel_mod
    use precision_mod
+   use communications, only: gather_from_Rloc
    use mem_alloc, only: bytes_allocated
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
@@ -82,7 +83,7 @@ contains
 !---------------------------------------------------------------------------
    subroutine outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
       !
-      ! This subroutine is used to store informations about kinetic 
+      ! This subroutine is used to store informations about kinetic
       ! helicity
       !
 
@@ -92,7 +93,7 @@ contains
       real(cp), intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
       real(cp), intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
       real(cp), intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
-    
+
       !-- Local stuff:
       integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS,n
       real(cp) :: HelNr(nRstart:nRstop), HelSr(nRstart:nRstop)
@@ -110,11 +111,9 @@ contains
       real(cp) :: HelnaN,HelnaS
       real(cp) :: HelnaRMSN,HelnaRMSS
       real(cp) :: HelRMSN,HelRMSS,HelEA,HelRMS,HelnaRMS
-    
+
       integer :: n_r
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1),ierr
-    
-    
+
       !------ Integration of Helicity, on input the Helicity is
       !       already axisymmetric !
       do n_r=nRstart,nRstop
@@ -128,7 +127,7 @@ contains
          Hel2Sr(n_r)  =0.0_cp
          Helna2Nr(n_r)=0.0_cp
          Helna2Sr(n_r)=0.0_cp
- 
+
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
@@ -139,7 +138,7 @@ contains
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2
- 
+
                !------ Integration over theta:
                if ( mod(nTheta,2) == 1 ) then ! NHS
                   Hel2Nr(n_r)=Hel2Nr(n_r)+gauss(nThetaNHS)*r2*Hel2(nThetaBlock)
@@ -156,59 +155,23 @@ contains
                end if
             end do
          end do
- 
+
       end do
-    
+
       ! Now we have to gather the results on rank 0 for
       ! the arrays: Hel2Nr,Helna2Nr,HelEAr,HelNr,HelnaNr
       ! Hel2Sr,Helna2Sr,HelSr,HelnaSr
-    
-      sendcount  = (nRstop-nRstart+1)
-      recvcounts = nR_per_rank
-      recvcounts(n_procs-1) = nR_on_last_rank
-      do i=0,n_procs-1
-         displs(i) = i*nR_per_rank
-      end do
-#ifdef WITH_MPI
-      call MPI_GatherV(Hel2Nr,sendcount,MPI_DEF_REAL,&
-           &           Hel2Nr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(Helna2Nr,sendcount,MPI_DEF_REAL,&
-           &           Helna2Nr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(HelEAr,sendcount,MPI_DEF_REAL,&
-           &           HelEAr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(HelNr,sendcount,MPI_DEF_REAL,&
-           &           HelNr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(HelnaNr,sendcount,MPI_DEF_REAL,&
-           &           HelnaNr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(HelSr,sendcount,MPI_DEF_REAL,&
-           &           HelSr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(Helna2Sr,sendcount,MPI_DEF_REAL,&
-           &           Helna2Sr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(Hel2Sr,sendcount,MPI_DEF_REAL,&
-           &           Hel2Sr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(HelnaSr,sendcount,MPI_DEF_REAL,&
-           &           HelnaSr_global,recvcounts,displs,MPI_DEF_REAL,&
-           &           0,MPI_COMM_WORLD,ierr)
-#else
-      Hel2Nr_global=Hel2Nr
-      Helna2Nr_global=Helna2Nr
-      HelEAr_global=HelEAr
-      HelNr_global=HelNr
-      HelnaNr_global=HelnaNr
-      HelSr_global=HelSr
-      Helna2Sr_global=Helna2Sr
-      Hel2Sr_global=Hel2Sr
-      HelnaSr_global=HelnaSr
-#endif
-    
+
+      call gather_from_Rloc(Hel2Nr, Hel2Nr_global, 0)
+      call gather_from_Rloc(Helna2Nr, Helna2Nr_global, 0)
+      call gather_from_Rloc(HelEAr, HelEAr_global, 0)
+      call gather_from_Rloc(HelNr, HelNr_global, 0)
+      call gather_from_Rloc(HelnaNr, HelnaNr_global, 0)
+      call gather_from_Rloc(HelSr, HelSr_global, 0)
+      call gather_from_Rloc(Helna2Sr, Helna2Sr_global, 0)
+      call gather_from_Rloc(Hel2Sr, Hel2Sr_global, 0)
+      call gather_from_Rloc(HelnaSr, HelnaSr_global, 0)
+
       if ( rank == 0 ) then
          !------ Integration over r without the boundaries and normalization:
          HelN  =rInt_R(HelNr_global,r,rscheme_oc)
@@ -220,7 +183,7 @@ contains
          HelRMSS=rInt_R(Hel2Sr_global,r,rscheme_oc)
          HelnaRMSN=rInt_R(Helna2Nr_global,r,rscheme_oc)
          HelnaRMSS=rInt_R(Helna2Sr_global,r,rscheme_oc)
- 
+
          HelN  =two*pi*HelN/(vol_oc/2) ! Note integrated over half spheres only !
          HelS  =two*pi*HelS/(vol_oc/2) ! Factor 2*pi is from phi integration
          HelnaN=two*pi*HelnaN/(vol_oc/2) ! Note integrated over half spheres only !
@@ -232,7 +195,7 @@ contains
          HelnaRMSS=sqrt(two*pi*HelnaRMSS/(vol_oc/2))
          HelRMS=HelRMSN+HelRMSS
          HelnaRMS=HelnaRMSN+HelnaRMSS
- 
+
          if ( HelnaRMS /= 0 ) then
             HelnaN =HelnaN/HelnaRMSN
             HelnaS =HelnaS/HelnaRMSS
@@ -249,7 +212,7 @@ contains
             HelS =0.0_cp
             HelEA=0.0_cp
          end if
-    
+
          if ( l_save_out ) then
             open(newunit=n_helicity_file, file=helicity_file,   &
             &    status='unknown', position='append')
@@ -260,9 +223,9 @@ contains
          &     HelnaN, HelnaS, HelnaRMSN, HelnaRMSS
 
          if ( l_save_out ) close(n_helicity_file)
-            
+
       end if
-    
+
    end subroutine outHelicity
 !---------------------------------------------------------------------------
    subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,dp,xi,dxi)
@@ -276,7 +239,7 @@ contains
       real(cp),    intent(in) :: timePassed
       real(cp),    intent(in) :: timeNorm
       logical,     intent(in) :: l_stop_time
-    
+
       !-- Input of scalar fields:
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
@@ -284,7 +247,7 @@ contains
       complex(cp), intent(in) :: dp(llm:ulm,n_r_max)
       complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dxi(llm:ulm,n_r_max)
-    
+
       !-- Local stuff:
       real(cp) :: rhoprime(n_r_max)
       real(cp) :: tmp(n_r_max)
@@ -354,12 +317,12 @@ contains
                   botnuss=-osq4pi/botcond*(otemp1(n_r_icb)*( -dLtemp0(n_r_icb)* &
                   &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb))) -          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*( &
-                  &         ( dLalpha0(n_r_icb)-beta(n_r_icb) )*                &  
+                  &         ( dLalpha0(n_r_icb)-beta(n_r_icb) )*                &
                   &        real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
                   topnuss=-osq4pi/topcond*(otemp1(n_r_cmb)*( -dLtemp0(n_r_cmb)* &
                   &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb))) -          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*( &
-                  &         ( dLalpha0(n_r_cmb)-beta(n_r_cmb) )*                &  
+                  &         ( dLalpha0(n_r_cmb)-beta(n_r_cmb) )*                &
                   &        real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
 
                   botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
@@ -419,7 +382,7 @@ contains
 
                end if
 
-            end if 
+            end if
          else
             botnuss   =one
             topnuss   =one
@@ -459,7 +422,7 @@ contains
 
          tmp(:)=rhoprime(:)*r(:)*r(:)
          mass=four*pi*rInt_R(tmp,r,rscheme_oc)
-    
+
          if ( l_save_out ) then
             open(newunit=n_heat_file, file=heat_file, status='unknown', &
             &    position='append')
@@ -499,7 +462,7 @@ contains
          end if
 
       end if ! rank == 0
-    
+
    end subroutine outHeat
 !---------------------------------------------------------------------------
 end module outMisc_mod

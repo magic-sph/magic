@@ -125,7 +125,7 @@ contains
    subroutine write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b,     &
               &         omega_ic,omega_ma,lorentz_torque_ic,&
               &         lorentz_torque_ma)
-    
+
       !-- Input of variables:
       real(cp),    intent(in) :: omega_ic,omega_ma
       real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
@@ -134,10 +134,10 @@ contains
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-    
+
       !-- Output into rot_file
       real(cp), intent(out) :: eKinIC,eKinMA
-    
+
       !-- Local variables:
       real(cp), parameter :: tolerance=1e-16
       real(cp) :: eKinOC
@@ -149,15 +149,15 @@ contains
       real(cp) :: angular_moment_ic(3)
       real(cp) :: angular_moment_ma(3)
       complex(cp) :: z10(n_r_max),z11(n_r_max)
-    
+
       real(cp) :: powerLor,powerVis
       real(cp), save :: AMzLast=0.0_cp,eKinAMzLast=0.0_cp
-    
+
       integer, pointer :: lm2(:,:)
       integer :: i,l,m,ilm,lm_vals(21),n_lm_vals
       complex(cp) :: zvals_on_rank0(8,3),bvals_on_rank0(8,3)
       complex(cp) :: vals_on_rank0_1d(21)
-    
+
       integer :: sr_tag
 #ifdef WITH_MPI
       integer :: status(MPI_STATUS_SIZE),ierr
@@ -167,13 +167,13 @@ contains
 
       ! some arbitrary tag for the send and recv
       sr_tag=12345
-    
+
       lm2(0:,0:) => lo_map%lm2
       l1m0=lm2(1,0)
-    
-      if ( DEBUG_OUTPUT ) write(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",& 
+
+      if ( DEBUG_OUTPUT ) write(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",&
                         lmStartB(rank+1),lmStopB(rank+1),l1m0
-    
+
       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
@@ -190,7 +190,7 @@ contains
          rank_has_l1m0=.true.
 #ifdef WITH_MPI
          if ( rank /= 0 ) then
-            ! send viscous_torque_ic and viscous_torque_ma to rank 0 for 
+            ! send viscous_torque_ic and viscous_torque_ma to rank 0 for
             ! output
             call MPI_Send(viscous_torque_ic,1,MPI_DEF_REAL,0, &
                  &        sr_tag,MPI_COMM_WORLD,ierr)
@@ -201,7 +201,7 @@ contains
       else
          rank_has_l1m0=.false.
       end if
-    
+
       if ( rank == 0 ) then
 #ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
@@ -240,7 +240,7 @@ contains
             if ( l_save_out ) close(n_SRMA_file)
          end if
       end if
-    
+
       if ( l_drift ) then
          do i=1,4
             lm_vals(i)=lm2(i*minc,i*minc)
@@ -252,7 +252,7 @@ contains
          call sendvals_to_rank0(z,n_r1,lm_vals(1:8),zvals_on_rank0(:,1))
          call sendvals_to_rank0(z,n_r2,lm_vals(1:8),zvals_on_rank0(:,2))
          call sendvals_to_rank0(z,n_r3,lm_vals(1:8),zvals_on_rank0(:,3))
-    
+
          if ( rank == 0 ) then
             if ( l_save_out ) then
                open(newunit=n_driftVD_file, file=driftVD_file, status='unknown', &
@@ -273,13 +273,13 @@ contains
                close(n_driftVQ_file)
             end if
          end if
-         
+
          if ( l_mag .or. l_mag_LF ) then
             n_r1=n_r_CMB
             n_r2=n_r_ICB
             call sendvals_to_rank0(b,n_r1,lm_vals(1:8),bvals_on_rank0(:,1))
             call sendvals_to_rank0(b,n_r2,lm_vals(1:8),bvals_on_rank0(:,2))
-    
+
             if ( rank == 0 ) then
                if ( l_save_out ) then
                   open(newunit=n_driftBD_file, file=driftBD_file, status='unknown',&
@@ -300,7 +300,7 @@ contains
             end if
          end if ! l_mag
       end if
-    
+
       if ( .not. l_SRIC .and. ( l_rot_ic .or. l_rot_ma ) ) then
          if ( rank == 0 ) then
             if ( l_save_out ) then
@@ -317,7 +317,7 @@ contains
             if ( l_save_out ) close(n_rot_file)
          end if
       end if
-      
+
       if ( l_AM ) then
          rank_has_l1m0=.false.
          rank_has_l1m1=.false.
@@ -330,12 +330,12 @@ contains
             rank_has_l1m0=.true.
 #ifdef WITH_MPI
             if (rank /= 0) then
-               call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, & 
+               call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, &
                     &        MPI_COMM_WORLD,ierr)
             end if
 #endif
          end if
-    
+
          if ( l1m1 > 0 ) then
             if ( (lmStartB(rank+1) <= l1m1) .and. (l1m1 <= lmStopB(rank+1)) ) then
                do nR=1,n_r_max
@@ -369,7 +369,7 @@ contains
                end if
             end if
 #endif
-    
+
             call get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
                  &                  angular_moment_ic,angular_moment_ma)
             if ( l_save_out ) then
@@ -405,7 +405,7 @@ contains
             eKinAMzLast=eKinAMz
          end if
       end if
-    
+
       if ( l_iner ) then
          ! l_iner can only be .true. for minc=1
          n_lm_vals=0
@@ -417,7 +417,7 @@ contains
          end do
          n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(w,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
-    
+
          if ( rank == 0 ) then
             if ( l_save_out ) then
                open(newunit=n_inerP_file, file=inerP_file, status='unknown', &
@@ -427,29 +427,29 @@ contains
             &    time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
             if ( l_save_out ) close(n_inerP_file)
          end if
-    
+
          n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(z,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
-    
+
          if ( rank == 0 ) then
             if ( l_save_out ) then
                open(newunit=n_inerT_file, file=inerT_file, status='unknown', &
                &    position='append')
             end if
             write(n_inerT_file,'(1P,2X,ES20.12,21ES12.4)') &
-            &    time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
+            &    time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
             if ( l_save_out ) close(n_inerT_file)
          end if
-    
+
       end if
 
    end subroutine write_rot
 !-----------------------------------------------------------------------
    subroutine get_viscous_torque_real(viscous_torque,z10,dz10,r)
       !
-      !  Purpose of this subroutine is to calculate the viscous torque    
-      !  on mantle or inner core respectively.                            
-      !  NOTE: sign is wrong for torque on mantle!                        
+      !  Purpose of this subroutine is to calculate the viscous torque
+      !  on mantle or inner core respectively.
+      !  NOTE: sign is wrong for torque on mantle!
       !
 
       !-- Input:
@@ -465,9 +465,9 @@ contains
 !-----------------------------------------------------------------------
    subroutine get_viscous_torque_complex(viscous_torque,z10,dz10,r)
       !
-      !  Purpose of this subroutine is to calculate the viscous torque    
-      !  on mantle or inner core respectively.                            
-      !  NOTE: sign is wrong for torque on mantle!                        
+      !  Purpose of this subroutine is to calculate the viscous torque
+      !  on mantle or inner core respectively.
+      !  NOTE: sign is wrong for torque on mantle!
       !
 
       !-- Input:
@@ -484,24 +484,24 @@ contains
    subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
               &                  sizeThetaB,br,bp,nR)
       !
-      !  Purpose of this subroutine is to calculate the lorentz torque    
-      !  on mantle or inner core respectively.                            
-      !  Blocking in theta can be used to increased performance.          
-      !  If no blocking required set n_theta_block=n_theta_max,           
-      !  where n_theta_max is the absolut number of thetas used.          
+      !  Purpose of this subroutine is to calculate the lorentz torque
+      !  on mantle or inner core respectively.
+      !  Blocking in theta can be used to increased performance.
+      !  If no blocking required set n_theta_block=n_theta_max,
+      !  where n_theta_max is the absolut number of thetas used.
       !
-      !  .. note:: Lorentz_torque must be set to zero before loop over        
-      !            theta blocks is started.                                   
+      !  .. note:: Lorentz_torque must be set to zero before loop over
+      !            theta blocks is started.
       !
-      !  .. warning:: subroutine returns -lorentz_torque if used at CMB       
-      !               to calculate torque on mantle because if the inward        
+      !  .. warning:: subroutine returns -lorentz_torque if used at CMB
+      !               to calculate torque on mantle because if the inward
       !               surface normal vector.
       !
-      !  The Prandtl number is always the Prandtl number of the outer     
-      !  core. This comes in via scaling of the magnetic field.           
-      !  Theta alternates between northern and southern hemisphere in     
-      !  br and bp but not in gauss. This has to be cared for, and we     
-      !  use: gauss(latitude)=gauss(-latitude) here.                      
+      !  The Prandtl number is always the Prandtl number of the outer
+      !  core. This comes in via scaling of the magnetic field.
+      !  Theta alternates between northern and southern hemisphere in
+      !  br and bp but not in gauss. This has to be cared for, and we
+      !  use: gauss(latitude)=gauss(-latitude) here.
       !
 
       !-- Input variables:
@@ -567,34 +567,34 @@ contains
 
       !-- normalisation of phi-integration and division by Pm:
       !lorentz_torque=lorentz_torque+fac*lorentz_torque_local
-              
+
    end subroutine get_lorentz_torque
 !-----------------------------------------------------------------------
 
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
               &                  angular_moment_ic,angular_moment_ma)
       !
-      !    Calculates angular momentum of outer core, inner core and      
-      !    mantle. For outer core we need z(l=1|m=0,1|r), for             
+      !    Calculates angular momentum of outer core, inner core and
+      !    mantle. For outer core we need z(l=1|m=0,1|r), for
       !    inner core and mantle the respective rotation rates are needed.
       !
-    
+
       !-- Input of scalar fields:
       complex(cp), intent(in) :: z10(n_r_max),z11(n_r_max)
       real(cp),    intent(in) :: omega_ic,omega_ma
-    
+
       !-- output:
       real(cp), intent(out) :: angular_moment_oc(:)
       real(cp), intent(out) :: angular_moment_ic(:)
       real(cp), intent(out) :: angular_moment_ma(:)
-    
+
       !-- local variables:
       integer :: n_r,n
       integer :: l1m0,l1m1
       real(cp) :: f(n_r_max,3)
       real(cp) :: r_E_2             ! r**2
       real(cp) :: fac
-    
+
       !----- Construct radial function:
       l1m0=lm2(1,0)
       l1m1=lm2(1,1)
@@ -609,19 +609,19 @@ contains
          end if
          f(n_r,3)=r_E_2*real(z10(n_r))
       end do
-    
+
       !----- Perform radial integral:
       do n=1,3
          angular_moment_oc(n)=rInt_R(f(:,n),r,rscheme_oc)
       end do
-    
+
       !----- Apply normalisation factors of chebs and other factors
       !      plus the sign correction for y-component:
       fac=8.0_cp*third*pi
       angular_moment_oc(1)= two*fac*y11_norm * angular_moment_oc(1)
       angular_moment_oc(2)=-two*fac*y11_norm * angular_moment_oc(2)
       angular_moment_oc(3)=     fac*y10_norm * angular_moment_oc(3)
-    
+
       !----- Now inner core and mantle:
       angular_moment_ic(1)=0.0_cp
       angular_moment_ic(2)=0.0_cp
@@ -647,7 +647,7 @@ contains
 #ifdef WITH_MPI
       integer :: ierr,status(MPI_STATUS_SIZE)
 #endif
-    
+
       n_lm_vals=size(lm_vals)
       if ( size(vals_on_rank0) < n_lm_vals ) then
          write(*,"(2(A,I4))") "write_rot: length of vals_on_rank0=",size(vals_on_rank0),&

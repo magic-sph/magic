@@ -45,8 +45,7 @@ module output_mod
    use outPar_mod, only: outPar, outPerpPar
    use graphOut_mod, only: graphOut_IC
    use power, only: get_power
-   use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, llmMag, &
-       &                  ulmMag
+   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
        &                     gather_from_lo_to_rank0
    use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot

@@ -6,6 +6,7 @@ module RMS_helpers
 
    use precision_mod
    use parallel_mod
+   use communications, only: reduce_radial
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
    use radial_functions, only: or2, rscheme_oc, r
@@ -130,21 +131,10 @@ contains
          TorRms_r(n_r)=TorRms_r(n_r) + TorAsRms_r(n_r)
       end do    ! radial grid points
 
-#ifdef WITH_MPI
-      call MPI_Reduce(PolRms_r, PolRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
-      call MPI_Reduce(PolAsRms_r, PolAsRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
-      call MPI_Reduce(TorRms_r, TorRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
-      call MPI_Reduce(TorAsRms_r, TorAsRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
-#else
-      PolRms_r_global(:)  =PolRms_r(:)
-      PolAsRms_r_global(:)=PolAsRms_r(:)
-      TorRms_r_global(:)  =TorRms_r(:)
-      TorAsRms_r_global(:)=TorAsRms_r(:)
-#endif
+      call reduce_radial(PolRms_r, PolRms_r_global, 0)
+      call reduce_radial(PolAsRms_r, PolAsRms_r_global, 0)
+      call reduce_radial(TorRms_r, TorRms_r_global, 0)
+      call reduce_radial(TorAsRms_r, TorAsRms_r_global, 0)
 
       if ( rank == 0 ) then
          !-- Radial Integrals:

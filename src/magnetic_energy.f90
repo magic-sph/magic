@@ -22,12 +22,13 @@ module magnetic_energy
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
    use plms_theta, only: plm_theta
-   use communications, only: gather_from_lo_to_rank0
- 
+   use communications, only: gather_from_lo_to_rank0, reduce_radial, &
+       &                     reduce_scalar
+
    implicit none
- 
+
    private
- 
+
    integer :: n_theta_max_comp
    integer :: n_phi_max_comp
    integer :: lm_max_comp
@@ -44,9 +45,9 @@ module magnetic_energy
    integer :: n_compliance_file
    character(len=72) :: dipole_file, e_mag_ic_file, e_mag_oc_file
    character(len=72) :: earth_compliance_file
- 
+
    public :: initialize_magnetic_energy, get_e_mag, finalize_magnetic_energy
-  
+
 contains
 
    subroutine initialize_magnetic_energy
@@ -195,7 +196,7 @@ contains
       real(cp) :: e_dipole_ax_r(n_r_max), e_dipole_ax_r_global(n_r_max)
 
       real(cp) :: e_p_ic_r(n_r_ic_max), e_p_ic_r_global(n_r_ic_max)
-      real(cp) :: e_t_ic_r(n_r_ic_max), e_t_ic_r_global(n_r_ic_max)   
+      real(cp) :: e_t_ic_r(n_r_ic_max), e_t_ic_r_global(n_r_ic_max)
       real(cp) :: e_p_as_ic_r(n_r_ic_max), e_p_as_ic_r_global(n_r_ic_max)
       real(cp) :: e_t_as_ic_r(n_r_ic_max), e_t_as_ic_r_global(n_r_ic_max)
 
@@ -238,7 +239,7 @@ contains
       ! some arbitrary send recv tag
       sr_tag=18654
 
-      l_geo=11   ! max degree for geomagnetic field seen on Earth  
+      l_geo=11   ! max degree for geomagnetic field seen on Earth
 
       e_p      =0.0_cp
       e_t      =0.0_cp
@@ -288,7 +289,7 @@ contains
             &                                  + cc2real(db(lm,nR),m) )
             e_t_temp= dLh(st_map%lm2(l,m)) * cc2real(aj(lm,nR),m)
 
-            if ( m == 0 ) then  ! axisymmetric part 
+            if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR) + e_p_temp
                e_t_as_r(nR)=e_t_as_r(nR) + e_t_temp
                if ( mod(l,2) == 1 ) then
@@ -305,7 +306,7 @@ contains
             else
                e_t_es_r(nR)=e_t_es_r(nR) + e_t_temp
             end if
-            if ( l <= l_geo .and. nR == n_r_cmb ) then     
+            if ( l <= l_geo .and. nR == n_r_cmb ) then
                e_geo    =e_geo    +e_p_temp
                if ( mod(l+m,2) == 1 ) e_es_geo = e_es_geo + e_p_temp
                if ( m == 0 )          e_as_geo = e_as_geo + e_p_temp
@@ -340,7 +341,7 @@ contains
                end if
             end if
 
-         end do    ! do loop over lms in block 
+         end do    ! do loop over lms in block
 
          e_p_r(nR)=e_p_r(nR)+e_p_as_r(nR)
          e_t_r(nR)=e_t_r(nR)+e_t_as_r(nR)
@@ -348,82 +349,33 @@ contains
          ! In anelastic models it is also interesting to have Lambda
          els_r(nR)=(e_p_r(nR)+e_t_r(nR))*orho1(nR)*sigma(nR)
 
-      end do    ! radial grid points 
+      end do    ! radial grid points
 
-#ifdef WITH_MPI
-      ! reduce over the ranks
-      call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_es_r, e_p_es_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_es_r, e_t_es_r_global,  n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_eas_r,e_p_eas_r_global, n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_t_eas_r,e_t_eas_r_global, n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_dipole_ax_r,e_dipole_ax_r_global, n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_dipole_r,   e_dipole_r_global,    n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(els_r,   els_r_global,    n_r_max, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call reduce_radial(e_p_r, e_p_r_global, 0)
+      call reduce_radial(e_t_r, e_t_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_radial(e_p_es_r, e_p_es_r_global, 0)
+      call reduce_radial(e_t_es_r, e_t_es_r_global, 0)
+      call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
+      call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
+      call reduce_radial(e_dipole_ax_r, e_dipole_ax_r_global, 0)
+      call reduce_radial(e_dipole_r, e_dipole_r_global, 0)
+      call reduce_radial(els_r, els_r_global, 0)
 
       ! reduce some scalars
-      call MPI_Reduce(e_geo,     e_geo_global,    1, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_es_geo,  e_es_geo_global, 1, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_as_geo,  e_as_geo_global, 1, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_eas_geo, e_eas_geo_global,1, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-
+      call reduce_scalar(e_geo, e_geo_global, 0)
+      call reduce_scalar(e_es_geo, e_es_geo_global, 0)
+      call reduce_scalar(e_as_geo, e_as_geo_global, 0)
+      call reduce_scalar(e_eas_geo, e_eas_geo_global, 0)
       if ( l_earth_likeness ) then
-         call MPI_Reduce(ad,ad_global,1,MPI_DEF_REAL,MPI_SUM,0,    &
-              &          MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(nad,nad_global,1,MPI_DEF_REAL,MPI_SUM,0,  &
-              &          MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(sym,sym_global,1,MPI_DEF_REAL,MPI_SUM,0,  &
-              &          MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(asym,asym_global,1,MPI_DEF_REAL,MPI_SUM,0,&
-              &          MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(zon,zon_global,1,MPI_DEF_REAL,MPI_SUM,0,  &
-              &          MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(nzon,nzon_global,1,MPI_DEF_REAL,MPI_SUM,0,&
-              &          MPI_COMM_WORLD,ierr)
+         call reduce_scalar(ad, ad_global, 0)
+         call reduce_scalar(nad, nad_global, 0)
+         call reduce_scalar(sym, sym_global, 0)
+         call reduce_scalar(asym, asym_global, 0)
+         call reduce_scalar(zon, zon_global, 0)
+         call reduce_scalar(nzon, nzon_global, 0)
       end if
-#else
-      e_p_r_global        =e_p_r
-      e_t_r_global        =e_t_r
-      e_p_as_r_global     =e_p_as_r
-      e_t_as_r_global     =e_t_as_r
-      e_p_es_r_global     =e_p_es_r
-      e_t_es_r_global     =e_t_es_r
-      e_p_eas_r_global    =e_p_eas_r
-      e_t_eas_r_global    =e_t_eas_r
-      e_dipole_ax_r_global=e_dipole_ax_r
-      e_dipole_r_global   =e_dipole_r
-      els_r_global        =els_r
-      e_geo_global        =e_geo
-      e_es_geo_global     =e_es_geo
-      e_as_geo_global     =e_as_geo
-      e_eas_geo_global    =e_eas_geo
-      if ( l_earth_likeness ) then
-         ad_global           =ad
-         nad_global          =nad
-         sym_global          =sym
-         asym_global         =asym
-         zon_global          =zon
-         nzon_global         =nzon
-      end if
-#endif
 
       if ( l_earth_likeness ) call gather_from_lo_to_rank0(b(:,n_r_cmb), bCMB)
 
@@ -488,15 +440,15 @@ contains
                end if
                surf=four*pi*r(nR)**2
                write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
-                    &               fac*e_pA(nR)/timetot,           &
-                    &               fac*e_p_asA(nR)/timetot,        &
-                    &               fac*e_tA(nR)/timetot,           &
-                    &               fac*e_t_asA(nR)/timetot,        &
-                    &               fac*e_pA(nR)/timetot/surf,      &
-                    &               fac*e_p_asA(nR)/timetot/surf,   &
-                    &               fac*e_tA(nR)/timetot/surf,      &
-                    &               fac*e_t_asA(nR)/timetot/surf,   &
-                    &               eDR
+               &                    fac*e_pA(nR)/timetot,           &
+               &                    fac*e_p_asA(nR)/timetot,        &
+               &                    fac*e_tA(nR)/timetot,           &
+               &                    fac*e_t_asA(nR)/timetot,        &
+               &                    fac*e_pA(nR)/timetot/surf,      &
+               &                    fac*e_p_asA(nR)/timetot/surf,   &
+               &                    fac*e_tA(nR)/timetot/surf,      &
+               &                    fac*e_t_asA(nR)/timetot/surf,   &
+               &                    eDR
             end do
             close(fileHandle)
          end if
@@ -544,7 +496,7 @@ contains
 
       !-- Inner core:
 
-      if ( l_cond_ic ) then 
+      if ( l_cond_ic ) then
 
          O_r_icb_E_2=one/(r(n_r_max)*r(n_r_max))
 
@@ -564,11 +516,11 @@ contains
                r_dr_b=r_ic(nR)*db_ic(lm,nR)
 
                e_p_temp=     dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
-                    &           real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
-                    &           real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
-                    &                                 cc2real(r_dr_b,m)            )
+               &                real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
+               &                real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
+               &                                      cc2real(r_dr_b,m)            )
                e_t_temp=  dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *                  &
-                    &                             cc2real(aj_ic(lm,nR),m)
+               &                                  cc2real(aj_ic(lm,nR),m)
 
                if ( m == 0 ) then  ! axisymmetric part
                   e_p_as_ic_r(nR)=e_p_as_ic_r(nR) + e_p_temp
@@ -586,21 +538,10 @@ contains
          end do    ! radial grid points
 
          ! reduce over the ranks
-#ifdef WITH_MPI
-         call MPI_Reduce(e_p_ic_r,    e_p_ic_r_global,    n_r_ic_max, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_t_ic_r,    e_t_ic_r_global,    n_r_ic_max, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_p_as_ic_r, e_p_as_ic_r_global, n_r_ic_max, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_t_as_ic_r, e_t_as_ic_r_global, n_r_ic_max, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-         e_p_ic_r_global   =e_p_ic_r
-         e_t_ic_r_global   =e_t_ic_r
-         e_p_as_ic_r_global=e_p_as_ic_r
-         e_t_as_ic_r_global=e_t_as_ic_r
-#endif
+         call reduce_radial(e_p_ic_r, e_p_ic_r_global, 0)
+         call reduce_radial(e_t_ic_r, e_t_ic_r_global, 0)
+         call reduce_radial(e_p_as_ic_r, e_p_as_ic_r_global, 0)
+         call reduce_radial(e_t_as_ic_r, e_t_as_ic_r_global, 0)
 
          if ( rank == 0 ) then
             e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
@@ -626,15 +567,8 @@ contains
             if ( m == 0 ) e_p_as_ic=e_p_as_ic+e_p_temp
          end do    ! do loop over lms in block
 
-#ifdef WITH_MPI
-         call MPI_Reduce(e_p_ic,    e_p_ic_global,   1, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_p_as_ic, e_p_as_ic_global,1, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-         e_p_ic_global   =e_p_ic
-         e_p_as_ic_global=e_p_as_ic
-#endif
+         call reduce_scalar(e_p_ic, e_p_ic_global, 0)
+         call reduce_scalar(e_p_as_ic, e_p_as_ic_global, 0)
 
          if (rank == 0) then
             fac      =half*LFfac/r_icb*eScale
@@ -661,15 +595,8 @@ contains
          if ( m == 0 ) e_p_as_os=e_p_as_os + e_p_temp
       end do
 
-#ifdef WITH_MPI
-      call MPI_Reduce(e_p_os,    e_p_os_global,   1, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_p_as_os, e_p_as_os_global,1, &
-           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      e_p_os_global   =e_p_os
-      e_p_as_os_global=e_p_as_os
-#endif
+      call reduce_scalar(e_p_os, e_p_os_global, 0)
+      call reduce_scalar(e_p_as_os, e_p_as_os_global, 0)
 
       if ( rank == 0 ) then
          fac      =half*LFfac/r_cmb*eScale
@@ -693,22 +620,13 @@ contains
             if ( l == 1 ) e_dipole_e=e_dipole_e+e_p_temp
          end do
 
-#ifdef WITH_MPI
-         call MPI_Reduce(e_p_e,    e_p_e_global,   1, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_p_as_e, e_p_as_e_global,1, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_dipole_e, e_dipole_e_global,1, &
-              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-         e_p_e_global     =e_p_e
-         e_p_as_e_global  =e_p_as_e
-         e_dipole_e_global=e_dipole_e
-#endif
-         
+         call reduce_scalar(e_p_e, e_p_e_global, 0)
+         call reduce_scalar(e_p_as_e, e_p_as_e_global, 0)
+         call reduce_scalar(e_dipole_e, e_dipole_e_global, 0)
+
          if ( rank == 0 ) then
             fac       =half*LFfac/r_cmb**2*eScale
-            e_p_e     =fac*e_p_e_global 
+            e_p_e     =fac*e_p_e_global
             e_p_as_e  =fac*e_p_as_e_global
             e_dipole_e=fac*e_dipole_e_global
          end if
@@ -778,7 +696,7 @@ contains
          rank_has_l1m1=.true.
       end if
 
-         
+
       if ( rank == 0 ) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
@@ -826,22 +744,22 @@ contains
             ! differences are due to the summation for e_es_cmb and are only of the order
             ! of machine accuracy.
             write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
-                 &       time*tScale,                      &! 1
-                 &       theta_dip,phi_dip,                &! 2,3
-                 &       Dip,                              &! 4  
-                 &       DipCMB,                           &! 5
-                 &       e_dipole_ax_cmb/e_geo,            &! 6
-                 &       e_dipole/(e_p+e_t),               &! 7
-                 &       e_dip_cmb/e_cmb,                  &! 8
-                 &       e_dip_cmb/e_geo,                  &! 9
-                 &       e_dip_cmb,e_dipole_ax_cmb,        &! 10,11
-                 &       e_dipole,e_dipole_ax,             &! 12,13
-                 &       e_cmb,e_geo,                      &! 14,15
-                 &       e_p_e_ratio,                      &! 16
-                 &       (e_cmb-e_es_cmb)/e_cmb,           &! 17
-                 &       (e_cmb-e_as_cmb)/e_cmb,           &! 18
-                 &       (e_geo-e_es_geo)/e_geo,           &! 19
-                 &       (e_geo-e_as_geo)/e_geo             ! 20
+            &            time*tScale,                      &! 1
+            &            theta_dip,phi_dip,                &! 2,3
+            &            Dip,                              &! 4
+            &            DipCMB,                           &! 5
+            &            e_dipole_ax_cmb/e_geo,            &! 6
+            &            e_dipole/(e_p+e_t),               &! 7
+            &            e_dip_cmb/e_cmb,                  &! 8
+            &            e_dip_cmb/e_geo,                  &! 9
+            &            e_dip_cmb,e_dipole_ax_cmb,        &! 10,11
+            &            e_dipole,e_dipole_ax,             &! 12,13
+            &            e_cmb,e_geo,                      &! 14,15
+            &            e_p_e_ratio,                      &! 16
+            &            (e_cmb-e_es_cmb)/e_cmb,           &! 17
+            &            (e_cmb-e_as_cmb)/e_cmb,           &! 18
+            &            (e_geo-e_es_geo)/e_geo,           &! 19
+            &            (e_geo-e_as_geo)/e_geo             ! 20
             if ( l_save_out ) close(n_dipole_file)
 
             if ( l_earth_likeness ) then
@@ -888,7 +806,7 @@ contains
    subroutine get_Br_skew(bCMB,Br_skew)
       !
       ! This subroutine calculates the skewness of the radial magnetic field
-      ! at the outer boundary. 
+      ! at the outer boundary.
       ! bskew :=  <B^4> / <B^2>^2   where <..> is average over the surface
       !
 
@@ -916,7 +834,7 @@ contains
                if ( m > 0 ) fac = fac*sqrt(two)
                glm =  fac*real(bCMB(lm))
                hlm = -fac*aimag(bCMB(lm))
-               
+
                do nTheta=1,n_theta_max_comp
                   br(nTheta,nPhi)=br(nTheta,nPhi)+Plm_comp(lm1,nTheta)*( &
                   &               glm*cos(m*phi)+hlm*sin(m*phi))*(l+1)/r(n_r_cmb)**2
