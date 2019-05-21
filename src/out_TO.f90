@@ -33,17 +33,18 @@ module outTO_mod
    use chebInt_mod, only: chebInt, chebIntInit
    use cosine_transform_odd
 
-   implicit none 
+   implicit none
 
    private
 
    integer :: nTOZfile
    integer :: nSmax, nZmaxA
-   integer :: nSstart, nSstop, nS_per_rank, nS_on_last_rank
+   integer :: nSstart, nSstop
+   type(load), allocatable :: cyl_balance(:)
 
    real(cp) :: timeLast!,tNorm
    real(outp) :: timeAve
-   
+
    !-- s-distributed arrays
    integer, allocatable :: nZmaxS_Sloc(:)
    real(cp), allocatable :: zZ_Sloc(:,:)
@@ -97,8 +98,6 @@ contains
 
    subroutine initialize_outTO_mod
 
-      integer :: nS_remaining
-
       !-- R-distributed arrays
       allocate( V2LMr_Rloc(l_max+1,nRstart:nRstop) )
       allocate( Bs2LMr_Rloc(l_max+1,nRstart:nRstop) )
@@ -131,14 +130,10 @@ contains
       nZmaxA=2*nSmax
 
       !-- Distribute over the ranks
-      nS_per_rank = nSmax/n_procs
-      nSstart = 1+rank*nS_per_rank
-      nSstop = 1+(rank+1)*nS_per_rank-1
-      nS_remaining = nSmax-(1+n_procs*nS_per_rank-1)
-      if ( rank == n_procs-1 ) then
-         nSstop = nSstop+nS_remaining
-      end if
-      nS_on_last_rank = nS_per_rank + nS_remaining
+      allocate ( cyl_balance(0:n_procs-1) )
+      call getBlocks(cyl_balance, nSmax, n_procs)
+      nSstart = cyl_balance(rank)%nStart
+      nSstop = cyl_balance(rank)%nStop
 
       !-- Allocate s-distributed arrays
       allocate( PlmS(l_max+1,nZmaxA/2+1,nSstart:nSstop) )
@@ -206,6 +201,8 @@ contains
 
       deallocate( nZmaxS, zZ, VpM, dVpM, AstrM, RstrM, CorM, LFM, StrM )
 
+      deallocate( cyl_balance )
+
    end subroutine finalize_outTO_mod
 !----------------------------------------------------------------------------
    subroutine outTO(time,n_time_step,eKin,eKinTAS,nTOsets,nTOmovSets, &
@@ -214,9 +211,9 @@ contains
       !   Output of axisymmetric zonal flow, its relative strength,
       !   its time variation, and all forces acting on it.
       !   The slowest part in the TO process is the repetitious calculation
-      !   of plms by subroutine plm_theta. They are needed in getAStr and 
-      !   getPAStr when I transform on the cylindrical grid. 
-      !   The necessary plms could simply be calculated one and then 
+      !   of plms by subroutine plm_theta. They are needed in getAStr and
+      !   getPAStr when I transform on the cylindrical grid.
+      !   The necessary plms could simply be calculated one and then
       !   be stored for later use!
       !
 
@@ -263,7 +260,7 @@ contains
       integer :: nZ,nZmax,nZmaxNS!,nZP
 
       !-- S-distributed arrays
-      real(cp) :: VpS_Sloc(nZmaxA,nSstart:nSstop), dVpS_Sloc(nZmaxA,nSstart:nSstop) 
+      real(cp) :: VpS_Sloc(nZmaxA,nSstart:nSstop), dVpS_Sloc(nZmaxA,nSstart:nSstop)
       real(cp) :: LFS_Sloc(nZmaxA,nSstart:nSstop), CorS_Sloc(nZmaxA,nSstart:nSstop)
       real(cp) :: RstrS_Sloc(nZmaxA,nSstart:nSstop), AstrS_Sloc(nZmaxA,nSstart:nSstop)
       real(cp) :: StrS_Sloc(nZmaxA,nSstart:nSstop)
@@ -271,55 +268,55 @@ contains
       real(cp) :: SVpIntN_Sloc(nSstart:nSstop), SVpIntS_Sloc(nSstart:nSstop)
       real(cp) :: SBspIntN_Sloc(nSstart:nSstop), SBspIntS_Sloc(nSstart:nSstop)
       real(cp) :: SBs2IntN_Sloc(nSstart:nSstop), SBs2IntS_Sloc(nSstart:nSstop)
-      real(cp) :: TauBN_Sloc(nSstart:nSstop),TauBS_Sloc(nSstart:nSstop)       
-      real(cp) :: dTauBN_Sloc(nSstart:nSstop),dTauBS_Sloc(nSstart:nSstop)       
-      real(cp) :: dTTauBN_Sloc(nSstart:nSstop),dTTauBS_Sloc(nSstart:nSstop)   
+      real(cp) :: TauBN_Sloc(nSstart:nSstop),TauBS_Sloc(nSstart:nSstop)
+      real(cp) :: dTauBN_Sloc(nSstart:nSstop),dTauBS_Sloc(nSstart:nSstop)
+      real(cp) :: dTTauBN_Sloc(nSstart:nSstop),dTTauBS_Sloc(nSstart:nSstop)
       real(cp) :: Bs2IntN_Sloc(nSstart:nSstop) ,Bs2IntS_Sloc(nSstart:nSstop)
       real(cp) :: dVpIntN_Sloc(nSstart:nSstop) ,dVpIntS_Sloc(nSstart:nSstop)
       real(cp) :: ddVpIntN_Sloc(nSstart:nSstop),ddVpIntS_Sloc(nSstart:nSstop)
       real(cp) :: VpRIntN_Sloc(nSstart:nSstop) ,VpRIntS_Sloc(nSstart:nSstop)
-      real(cp) :: LFIntN_Sloc(nSstart:nSstop)  ,LFIntS_Sloc(nSstart:nSstop)   
-      real(cp) :: RstrIntN_Sloc(nSstart:nSstop),RstrIntS_Sloc(nSstart:nSstop) 
-      real(cp) :: AstrIntN_Sloc(nSstart:nSstop),AstrIntS_Sloc(nSstart:nSstop) 
-      real(cp) :: StrIntN_Sloc(nSstart:nSstop) ,StrIntS_Sloc(nSstart:nSstop) 
-      real(cp) :: TayIntN_Sloc(nSstart:nSstop) ,TayIntS_Sloc(nSstart:nSstop) 
+      real(cp) :: LFIntN_Sloc(nSstart:nSstop)  ,LFIntS_Sloc(nSstart:nSstop)
+      real(cp) :: RstrIntN_Sloc(nSstart:nSstop),RstrIntS_Sloc(nSstart:nSstop)
+      real(cp) :: AstrIntN_Sloc(nSstart:nSstop),AstrIntS_Sloc(nSstart:nSstop)
+      real(cp) :: StrIntN_Sloc(nSstart:nSstop) ,StrIntS_Sloc(nSstart:nSstop)
+      real(cp) :: TayIntN_Sloc(nSstart:nSstop) ,TayIntS_Sloc(nSstart:nSstop)
       real(cp) :: BspdIntN_Sloc(nSstart:nSstop),BspdIntS_Sloc(nSstart:nSstop)
       real(cp) :: BpsdIntN_Sloc(nSstart:nSstop),BpsdIntS_Sloc(nSstart:nSstop)
-      
+
       !-- S-distributed arrays that don't need to be gathered
       real(cp) :: V2IntS(nSstart:nSstop)  ,V2IntN(nSstart:nSstop)
       real(cp) :: BspIntN(nSstart:nSstop) ,BspIntS(nSstart:nSstop)
-      real(cp) :: TayRIntN(nSstart:nSstop),TayRIntS(nSstart:nSstop) 
-      real(cp) :: TayVIntN(nSstart:nSstop),TayVIntS(nSstart:nSstop) 
+      real(cp) :: TayRIntN(nSstart:nSstop),TayRIntS(nSstart:nSstop)
+      real(cp) :: TayVIntN(nSstart:nSstop),TayVIntS(nSstart:nSstop)
 
       !-- Global arrays
       real(cp) :: VpS(nZmaxA,nSmax), dVpS(nZmaxA,nSmax), RstrS(nZmaxA,nSmax)
       real(cp) :: AstrS(nZmaxA,nSmax), LFS(nZmaxA,nSmax), CorS(nZmaxA,nSmax)
       real(cp) :: StrS(nZmaxA,nSmax)
-      real(cp) :: ddVpS(nZmaxA)      
+      real(cp) :: ddVpS(nZmaxA)
       real(cp) :: V2S(nZmaxA), Bs2S(nZmaxA), BspS(nZmaxA), BspdS(nZmaxA)
       real(cp) :: BpsdS(nZmaxA), TayS(nZmaxA), TayRS(nZmaxA), TayVS(nZmaxA)
       real(cp) :: VpIntN(nSmax), VpIntS(nSmax)    ! integration results
       real(cp) :: dVpIntN(nSmax) ,dVpIntS(nSmax)   ! integration results
       real(cp) :: ddVpIntN(nSmax),ddVpIntS(nSmax)  ! integration results
-      real(cp) :: VpRIntN(nSmax) ,VpRIntS(nSmax)   ! for different s and 
-      real(cp) :: LFIntN(nSmax)  ,LFIntS(nSmax)   
-      real(cp) :: RstrIntN(nSmax),RstrIntS(nSmax) 
-      real(cp) :: AstrIntN(nSmax),AstrIntS(nSmax) 
-      real(cp) :: StrIntN(nSmax) ,StrIntS(nSmax) 
-      real(cp) :: TayIntN(nSmax) ,TayIntS(nSmax) 
+      real(cp) :: VpRIntN(nSmax) ,VpRIntS(nSmax)   ! for different s and
+      real(cp) :: LFIntN(nSmax)  ,LFIntS(nSmax)
+      real(cp) :: RstrIntN(nSmax),RstrIntS(nSmax)
+      real(cp) :: AstrIntN(nSmax),AstrIntS(nSmax)
+      real(cp) :: StrIntN(nSmax) ,StrIntS(nSmax)
+      real(cp) :: TayIntN(nSmax) ,TayIntS(nSmax)
       real(cp) :: BspdIntN(nSmax),BspdIntS(nSmax)
       real(cp) :: BpsdIntN(nSmax),BpsdIntS(nSmax)
       real(cp) :: Bs2IntN(nSmax) ,Bs2IntS(nSmax)
-      real(cp) :: SVpIntN(nSmax) ,SVpIntS(nSmax)   ! help arrays and values for 
-      real(cp) :: SBs2IntN(nSmax),SBs2IntS(nSmax)  ! differentiation in s   
+      real(cp) :: SVpIntN(nSmax) ,SVpIntS(nSmax)   ! help arrays and values for
+      real(cp) :: SBs2IntN(nSmax),SBs2IntS(nSmax)  ! differentiation in s
       real(cp) :: SBspIntN(nSmax),SBspIntS(nSmax)
       real(cp) :: dSVpIntN, dSVpIntS
       real(cp) :: d2SVpIntN,d2SVpIntS
       real(cp) :: dSBspIntN,dSBspIntS
       real(cp) :: dSBs2IntN,dSBs2IntS
       real(cp) :: TauN(nSmax),TauS(nSmax)          ! Taylor integral
-      real(cp) :: TauBN(nSmax),TauBS(nSmax)       
+      real(cp) :: TauBN(nSmax),TauBS(nSmax)
       real(cp) :: dTauBN(nSmax),dTauBS(nSmax)
       real(cp) :: dTTauN(nSmax),dTTauS(nSmax)      ! time change of Tau...
       real(cp) :: dTTauBN(nSmax),dTTauBS(nSmax)
@@ -376,8 +373,8 @@ contains
 
       !--- Rescaling for rotation time scale and planetary radius
       !    length scale, for the velocity I use the Rossby number
-      !       vSF=ek/r_CMB                   
-      !       fSF=ek*ek/(four*pi**2*r_CMB)  
+      !       vSF=ek/r_CMB
+      !       fSF=ek*ek/(four*pi**2*r_CMB)
       vSF=one
       fSF=one
 
@@ -491,7 +488,7 @@ contains
             !       Each processor calculates Cheb transform data
             !       for HIS nS and the Plms along the Cylinder
             !       chebIntInit returns zZ_Sloc,nZmaxS,chebt_Z
-            !       Note that this returns z in the MAGIC way, 
+            !       Note that this returns z in the MAGIC way,
             !       starting with zMax, ending with zMin
             !       z(:,nS)=zMin, z(nZmax,nS)=zMax
             call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
@@ -500,7 +497,7 @@ contains
             !--- Points in nothers halfsphere
             if ( lTC ) then
                nZmax=nZmaxS_Sloc(nS)  ! nZmax point in each polar region
-               if ( 2*nZmax > nZmaxA ) then 
+               if ( 2*nZmax > nZmaxA ) then
                   write(*,*) '! nZmaxA too small in outTO!'
                   write(*,*) '! Should be at least:',2*nZmax
                   lStopRun=.true.
@@ -509,7 +506,7 @@ contains
                nZmax=(nZmaxS_Sloc(nS)-1)/2+1 ! Odd point number !
                ! all together nZmaxS_Sloc(nS) from
                ! south to north including equator
-               if ( nZmaxS_Sloc(nS) > nZmaxA ) then 
+               if ( nZmaxS_Sloc(nS) > nZmaxA ) then
                   write(*,*) '! nZmaxA too small in outTO!'
                   write(*,*) '! Should be at least:',nZmaxS_Sloc(nS)
                   lStopRun=.true.
@@ -689,9 +686,9 @@ contains
             BspdIntS_Sloc(nS)=BspdIntN_Sloc(nS)
             BpsdIntS_Sloc(nS)=BpsdIntN_Sloc(nS)
             VpRIntS_Sloc(nS) =VpRIntN_Sloc(nS)
-            TayIntS_Sloc(nS) =TayIntN_Sloc(nS)                 
-            TayRIntS(nS)     =TayRIntN(nS)                 
-            TayVIntS(nS)     =TayVIntN(nS)                 
+            TayIntS_Sloc(nS) =TayIntN_Sloc(nS)
+            TayRIntS(nS)     =TayRIntN(nS)
+            TayVIntS(nS)     =TayVIntN(nS)
          end if
 
          !------ Boundary Values:
@@ -719,7 +716,7 @@ contains
             dTauBN_Sloc(nS) =  BpzdB(1)+BzpdB(1) + sZ(nS)/zMax*(BspdB(1)+BpsdB(1))
             dTTauBN_Sloc(nS)=  BszB(1)+sZ(nS)/zMax*Bs2B(1)
 
-            rB(1)=r_ICB 
+            rB(1)=r_ICB
             zMax = sqrt(r_ICB**2-sZ(nS)**2)
             zMin =-zMax
             BspB(1) =BspS(nZmax)
@@ -743,7 +740,7 @@ contains
             dTTauBS_Sloc(nS)=dTTauBS_Sloc(nS)+(BszB(2)+sZ(nS)/zMin*Bs2B(2))
             TauBN_Sloc(nS)  =TauBN_Sloc(nS)  -(BpzB(1) +sZ(nS)/zMax*BspB(1))
             dTauBN_Sloc(nS) =dTauBN_Sloc(nS) -(BpzdB(1)+BzpdB(1) +              &
-            &                         sZ(nS)/zMax*(BspdB(1)+BpsdB(1)))    
+            &                         sZ(nS)/zMax*(BspdB(1)+BpsdB(1)))
             dTTauBN_Sloc(nS)=dTTauBN_Sloc(nS)-(BszB(1)+sZ(nS)/zMax*Bs2B(1))
 
          else ! outside TC
@@ -773,7 +770,7 @@ contains
 
          end if
 
-      end do outer ! Loop over s 
+      end do outer ! Loop over s
       ! Integration finished
 
       !--- Integrate Geostrophic azumithal flow energy and Taylor measure:
@@ -831,10 +828,12 @@ contains
 
       sendcount  = (nSstop-nSstart+1)*nZmaxA
       do i=0,n_procs-1
-         recvcounts(i) = nS_per_rank*nZmaxA
-         displs(i) = i*nS_per_rank*nZmaxA
+         recvcounts(i) = cyl_balance(i)%n_per_rank*nZmaxA
       end do
-      recvcounts(n_procs-1)=nS_on_last_rank*nZmaxA
+      displs(0)=0
+      do i=1,n_procs-1
+         displs(i)=displs(i-1)+recvcounts(i-1)
+      end do
       call MPI_GatherV(zZ_Sloc, sendcount, MPI_DEF_REAL,        &
            &           zZ, recvcounts, displs, MPI_DEF_REAL,    &
            &           0, MPI_COMM_WORLD, ierr)
@@ -891,10 +890,12 @@ contains
       end if
 
       sendcount  = (nSstop-nSstart+1)
-      recvcounts = nS_per_rank
-      recvcounts(n_procs-1)=nS_on_last_rank
       do i=0,n_procs-1
-         displs(i) = i*nS_per_rank
+         recvcounts(i) = cyl_balance(i)%n_per_rank
+      end do
+      displs(0)=0
+      do i=1,n_procs-1
+         displs(i)=displs(i-1)+recvcounts(i-1)
       end do
 
       call MPI_GatherV(nZmaxS_Sloc, sendcount, MPI_INTEGER,         &
@@ -1223,7 +1224,7 @@ contains
               &  (real(LFfac*dTauBN(nS)/h(nS),kind=outp) ,nS=1,nSmax),  &! 17 Boundary contribution !
               &  (real(LFfac*dTTauN(nS),kind=outp)       ,nS=1,nSmax),  &! 18
               &  (real(LFfac*dTTauBN(nS)/h(nS),kind=outp),nS=1,nSmax),  &! 19
-              &  (real(LFfac*Bs2IntN(nS),kind=outp)      ,nS=1,nSmax)    ! 20 
+              &  (real(LFfac*Bs2IntN(nS),kind=outp)      ,nS=1,nSmax)    ! 20
          close(nOutFile)
 
          open(newunit=nOutFile, file=TOfileShs, status='unknown',       &
@@ -1285,20 +1286,20 @@ contains
                   dumm(1)=102           ! type of input
                   dumm(2)=3             ! marker for constant phi plane
                   dumm(3)=0.0_cp          ! surface constant
-                  dumm(4)=nFields       ! no of fields 
+                  dumm(4)=nFields       ! no of fields
                   write(nOutFile) (real(dumm(n),kind=outp),n=1,4)
 
-                  dumm(1)=11.0          ! Field marker for AS vPhi 
-                  dumm(2)=61.0          ! Field marker for Reynolds Force 
-                  dumm(3)=62.0          ! Field marker for Advective Force  
-                  dumm(4)=63.0          ! Field marker for Viscous Force 
+                  dumm(1)=11.0          ! Field marker for AS vPhi
+                  dumm(2)=61.0          ! Field marker for Reynolds Force
+                  dumm(3)=62.0          ! Field marker for Advective Force
+                  dumm(4)=63.0          ! Field marker for Viscous Force
                   dumm(5)=64.0          ! Field marker for Lorentz Force
                   dumm(6)=65.0          ! Field marker for Coriolis force
                   dumm(7)=66.0          ! Field marker for dtVp
                   write(nOutFile) (real(dumm(n),kind=outp),n=1,nFields)
 
                   !------ Now other info about grid and parameters:
-                  write(nOutFile) runid        ! run identifier 
+                  write(nOutFile) runid        ! run identifier
                   dumm( 1)=n_r_max          ! total number of radial points
                   dumm( 2)=n_r_max          ! no of radial point in outer core
                   dumm( 3)=n_theta_max      ! no. of theta points
@@ -1310,7 +1311,7 @@ contains
                   dumm( 9)=prmag            !      -"-
                   dumm(10)=radratio         ! ratio of inner / outer core
                   dumm(11)=tScale           ! timescale
-                  write(nOutFile) (real(dumm(n),kind=outp),     n=1,11)  
+                  write(nOutFile) (real(dumm(n),kind=outp),     n=1,11)
                   write(nOutFile) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
                   write(nOutFile) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
                   write(nOutFile) (real(phi(n),kind=outp),      n=1,n_phi_max)
@@ -1320,13 +1321,13 @@ contains
                nTOmovSets=nTOmovSets+1
 
                dumm(1)=nTOmovSets        ! time frame number for movie
-               dumm(2)=time              ! time      
-               dumm(3)=0.0_cp      
-               dumm(4)=0.0_cp     
-               dumm(5)=0.0_cp          
-               dumm(6)=0.0_cp          
-               dumm(7)=0.0_cp         
-               dumm(8)=0.0_cp        
+               dumm(2)=time              ! time
+               dumm(3)=0.0_cp
+               dumm(4)=0.0_cp
+               dumm(5)=0.0_cp
+               dumm(6)=0.0_cp
+               dumm(7)=0.0_cp
+               dumm(8)=0.0_cp
                write(nOutFile) (real(dumm(n),kind=outp),n=1,8)
 
             end if ! Produce movie output ?
@@ -1362,7 +1363,7 @@ contains
                   do n=1,nThetaBs ! Loop over theta blocks
                      nThetaStart=(n-1)*sizeThetaB+1
 
-                     !------ Convert from lm to theta block: 
+                     !------ Convert from lm to theta block:
                      if ( nOut == 1 ) then
                         call get_PAS(dzVpLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
                      else if ( nOut == 2 ) then
@@ -1409,7 +1410,7 @@ contains
                         else if ( nOut == 4 ) then
                            !--------------- Viscous force:
                            fOut(nPos)=fSF*outBlock(nThetaBlock)
-                           StrR(nR)=StrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS           
+                           StrR(nR)=StrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                         else if ( nOut == 5 ) then
                            !--------------- Lorentz force:
                            fOut(nPos)=fSF*LFfac*outBlock(nThetaBlock)
@@ -1440,7 +1441,7 @@ contains
                open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
-            if ( lTOmov ) then 
+            if ( lTOmov ) then
                close(nOutFile)
                call logWrite(' ')
                write(message,'(1p,A,I8,A,ES16.6,I8)')              &
@@ -1480,7 +1481,7 @@ contains
             TaySRMS=rInt_R(TayRMSR,r,rscheme_oc)
             !--- And finally calculate the mean value, the factor 4*pi comes from
             !    the fact that the surface integral has already been cared for
-            !    NOTE: Integral for RMS Taylorisation changed to not respect the 
+            !    NOTE: Integral for RMS Taylorisation changed to not respect the
             !    different volumes represented by each shell on 2 Nov 2007.
             !          fac    =four*pi/vol_oc
             fac    =one/(r_cmb-r_icb) ! =1

@@ -107,7 +107,7 @@ program magic
    use movie_data, only: initialize_movie_data, finalize_movie_data
    use RMS, only: initialize_RMS, finalize_RMS
    use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
-   use radial_data, only: initialize_radial_data
+   use radial_data, only: initialize_radial_data, finalize_radial_data
    use radialLoop, only: initialize_radialLoop, finalize_radialLoop
    use lmLoop_data, only: initialize_LMLoop_data
    use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop
@@ -442,6 +442,7 @@ program magic
    call finalize_horizontal_data
    call finalize_radial_functions
    call finalize_blocking
+   call finalize_radial_data
 
    call finalize_output
 
