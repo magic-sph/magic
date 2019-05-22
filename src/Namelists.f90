@@ -52,84 +52,84 @@ contains
       !-- Name lists:
       integer :: runHours,runMinutes,runSeconds
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
-         &  n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
-         &  fd_order,fd_order_bound,fd_ratio,fd_stretch
+      &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
+      &     fd_order,fd_order_bound,fd_ratio,fd_stretch
 
       namelist/control/                                     &
-         & mode,tag,n_time_steps,                           &
-         & n_tScale,n_lScale,alpha,enscale,                 &
-         & l_update_v,l_update_b,l_update_s,l_update_xi,    &
-         & dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
-         & difnu,difeta,difkap,difchem,ldif,ldifexp,        &
-         & l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
-         & l_newmap,alph1,alph2,l_cour_alf_damp,            &
-         & runHours,runMinutes,runSeconds,map_function,     &
-         & cacheblock_size_in_B,anelastic_flavour,          &
-         & thermo_variable,radial_scheme,polo_flow_eq
+      &    mode,tag,n_time_steps,                           &
+      &    n_tScale,n_lScale,alpha,enscale,                 &
+      &    l_update_v,l_update_b,l_update_s,l_update_xi,    &
+      &    dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
+      &    difnu,difeta,difkap,difchem,ldif,ldifexp,        &
+      &    l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
+      &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
+      &    runHours,runMinutes,runSeconds,map_function,     &
+      &    cacheblock_size_in_B,anelastic_flavour,          &
+      &    thermo_variable,radial_scheme,polo_flow_eq
 
       namelist/phys_param/                                      &
-         & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
-         & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
-         & s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,     &
-         & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,   &
-         & con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,          &
-         & strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
-         & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
-         & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
-         & nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,    &
-         & po_diff,diff_prec_angle, dilution_fac
+      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
+      &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
+      &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,     &
+      &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,   &
+      &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,          &
+      &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
+      &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
+      &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
+      &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,    &
+      &    po_diff,diff_prec_angle, dilution_fac
 
       namelist/B_external/                                    &
-         & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
-         & l_curr,amp_curr
+      &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
+      &    l_curr,amp_curr
 
       namelist/start_field/                                   &
-         & l_start_file,start_file,inform,l_reset_t,          &
-         & scale_s,scale_xi,scale_b,scale_v,tipdipole,        &
-         & init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,   &
-         & amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,   &
-         & amp_xi1, amp_xi2
+      &    l_start_file,start_file,inform,l_reset_t,          &
+      &    scale_s,scale_xi,scale_b,scale_v,tipdipole,        &
+      &    init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,   &
+      &    amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,   &
+      &    amp_xi1, amp_xi2
 
       namelist/output_control/                                &
-         & n_graph_step,n_graphs,t_graph,                     &
-         & t_graph_start,t_graph_stop,dt_graph,               &
-         & n_stores,n_rst_step,n_rsts,t_rst,                  &
-         & t_rst_start,t_rst_stop,dt_rst,                     &
-         & n_log_step,n_logs,t_log,t_log_start,t_log_stop,    &
-         & dt_log,n_spec_step,n_specs,t_spec,t_spec_start,    &
-         & t_spec_stop,dt_spec,n_cmb_step,n_cmbs,t_cmb,       &
-         & t_cmb_start,t_cmb_stop,dt_cmb,                     &
-         & n_r_field_step,n_r_fields,t_r_field,               &
-         & t_r_field_start,t_r_field_stop,dt_r_field,         &
-         & n_Bpot_step,n_Bpots,t_Bpot,t_Bpot_start,           &
-         & t_Bpot_stop,dt_Bpot,n_Vpot_step,n_Vpots,t_Vpot,    &
-         & t_Vpot_start,t_Vpot_stop,dt_Vpot,n_Tpot_step,      &
-         & n_Tpots,t_Tpot,t_Tpot_start,t_Tpot_stop,dt_Tpot,   &
-         & n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
-         & dt_pot,runid,movie,n_movie_step,                   &
-         & n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
-         & dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
-         & dt_TO,n_TOZ_step,n_TOZs,t_TOZ,t_TOZ_start,         &
-         & t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
-         & t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
-         & dt_TOmovie,l_movie,l_average,l_save_out,           &
-         & l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
-         & l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
-         & n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
-         & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
-         & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
-         & l_RMS,l_par,l_corrMov,rCut,rDea,                   &
-         & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
-         & l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
-         & r_probe,theta_probe,n_phi_probes,n_probe_step,     &
-         & n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-         & l_earth_likeness,l_max_comp,l_2D_spectra
+      &    n_graph_step,n_graphs,t_graph,                     &
+      &    t_graph_start,t_graph_stop,dt_graph,               &
+      &    n_stores,n_rst_step,n_rsts,t_rst,                  &
+      &    t_rst_start,t_rst_stop,dt_rst,                     &
+      &    n_log_step,n_logs,t_log,t_log_start,t_log_stop,    &
+      &    dt_log,n_spec_step,n_specs,t_spec,t_spec_start,    &
+      &    t_spec_stop,dt_spec,n_cmb_step,n_cmbs,t_cmb,       &
+      &    t_cmb_start,t_cmb_stop,dt_cmb,                     &
+      &    n_r_field_step,n_r_fields,t_r_field,               &
+      &    t_r_field_start,t_r_field_stop,dt_r_field,         &
+      &    n_Bpot_step,n_Bpots,t_Bpot,t_Bpot_start,           &
+      &    t_Bpot_stop,dt_Bpot,n_Vpot_step,n_Vpots,t_Vpot,    &
+      &    t_Vpot_start,t_Vpot_stop,dt_Vpot,n_Tpot_step,      &
+      &    n_Tpots,t_Tpot,t_Tpot_start,t_Tpot_stop,dt_Tpot,   &
+      &    n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
+      &    dt_pot,runid,movie,n_movie_step,                   &
+      &    n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
+      &    dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
+      &    dt_TO,n_TOZ_step,n_TOZs,t_TOZ,t_TOZ_start,         &
+      &    t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
+      &    t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
+      &    dt_TOmovie,l_movie,l_average,l_save_out,           &
+      &    l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
+      &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
+      &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
+      &    lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
+      &    l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
+      &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
+      &    l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
+      &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
+      &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
+      &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
+      &    l_earth_likeness,l_max_comp,l_2D_spectra
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
-         & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
-         & omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-         & amp_RiMaAsym,omega_RiMaAsym,m_RiMaAsym,        &
-         & amp_RiMaSym,omega_RiMaSym,m_RiMaSym
+      &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
+      &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
+      &    amp_RiMaAsym,omega_RiMaAsym,m_RiMaAsym,        &
+      &    amp_RiMaSym,omega_RiMaSym,m_RiMaSym
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
          & omega_ic1,omegaOsz_ic1,tShift_ic1,              &
@@ -393,7 +393,7 @@ contains
       !-- Inertial mode forcing at boundaries
 
       if ( amp_RiIcAsym /= 0.0_cp .or. amp_RiIcSym /= 0.0_cp .or. &
-           amp_RiMaAsym /= 0.0_cp .or. amp_RiMaSym /= 0.0_cp) then
+      &    amp_RiMaAsym /= 0.0_cp .or. amp_RiMaSym /= 0.0_cp) then
          l_Ri   = .true.
       end if
 
@@ -418,7 +418,7 @@ contains
       if ( index(thermo_variable, 'T') /= 0 ) then
          l_TP_form=.true.
       else if ( index(thermo_variable, 'S') /= 0 .or. &
-              & index(thermo_variable, 'ENT') /=0 ) then
+      &         index(thermo_variable, 'ENT') /=0 ) then
          l_TP_form=.false.
       else
          l_TP_form=.false.
@@ -427,17 +427,17 @@ contains
       !-- Choose between entropy diffusion and temperature diffusion
       call capitalize(anelastic_flavour)
       if ( index(anelastic_flavour, 'LBR') /= 0 .or. &
-         & index(anelastic_flavour, 'ENT') /= 0 ) then
+      &    index(anelastic_flavour, 'ENT') /= 0 ) then
          l_temperature_diff = .false.
          l_anelastic_liquid = .false.
          l_single_matrix    = .false.
       else if ( index(anelastic_flavour, 'ALA') /= 0 .or. &
-           index(anelastic_flavour, 'LIQ') /= 0 ) then
+      &    index(anelastic_flavour, 'LIQ') /= 0 ) then
          l_temperature_diff = .false.
          l_anelastic_liquid = .true.
          l_single_matrix    = .false.
       else if ( index(anelastic_flavour, 'TEMP') /= 0 .or. &
-           index(anelastic_flavour, 'TDIFF') /= 0 ) then
+      &    index(anelastic_flavour, 'TDIFF') /= 0 ) then
          l_temperature_diff = .true.
          l_anelastic_liquid = .false.
          l_single_matrix    = .true.
@@ -501,7 +501,7 @@ contains
       end if
 
       if ( l_centrifuge .and. .not.  &
-           (l_anel .and. .not. l_isothermal .and. (index(interior_model, "NONE")/=0)) )  then
+      &    (l_anel .and. .not. l_isothermal .and. (index(interior_model, "NONE")/=0)) )  then
          call abortRun("This case is not implemented.")
          ! centrifugal acceleration implemented for anelastic polytropic background so far
       end if
@@ -663,7 +663,7 @@ contains
       !-- Special matrix for z(l=1,m=0) which is the solid body rotation:
       l_z10mat=.false.
       if ( ( l_rot_ma .and. ktopv == 2 ) .or. &
-           ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true.
+      &    ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true.
 
       !-- Check Courant criteria at even time steps:
       if ( mod(n_cour_step,2) /= 0 ) n_cour_step=n_cour_step+1
@@ -886,14 +886,14 @@ contains
       do m=0,m_max,minc
           do l=m,l_max
               if ( bots(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
-                   l,m,real(bots(l,m))/sq4pi,aimag(bots(l,m))/sq4pi
+              &    l,m,real(bots(l,m))/sq4pi,aimag(bots(l,m))/sq4pi
           end do
       end do
       write(n_out,'("  Top boundary l,m,S:")')
       do m=0,m_max,minc
           do l=m,l_max
               if ( tops(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
-                   l,m,real(tops(l,m))/sq4pi,aimag(tops(l,m))/sq4pi
+              &    l,m,real(tops(l,m))/sq4pi,aimag(tops(l,m))/sq4pi
           end do
       end do
       write(n_out,'(''  impS            ='',i3,'','')') impS
@@ -905,8 +905,8 @@ contains
             write(n_out,'(A)',advance='NO') "               "
          end if
          write(n_out,'(1p,4(ES14.6,A))') peakS(i)/rad,",", &
-              & thetaS(i)/rad,",", phiS(i)/rad,",",        &
-              & widthS(i)/rad,","
+         &      thetaS(i)/rad,",", phiS(i)/rad,",",        &
+         &      widthS(i)/rad,","
       end do
 
       !--- Chemical composition boundary condition:
@@ -917,14 +917,14 @@ contains
          do m=0,m_max,minc
              do l=m,l_max
                  if ( botxi(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
-                      l,m,real(botxi(l,m))/sq4pi,aimag(botxi(l,m))/sq4pi
+                 &    l,m,real(botxi(l,m))/sq4pi,aimag(botxi(l,m))/sq4pi
              end do
          end do
          write(n_out,'("  Top boundary l,m,Xi:")')
          do m=0,m_max,minc
              do l=m,l_max
                  if ( topxi(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
-                      l,m,real(topxi(l,m))/sq4pi,aimag(topxi(l,m))/sq4pi
+                 &    l,m,real(topxi(l,m))/sq4pi,aimag(topxi(l,m))/sq4pi
              end do
          end do
          write(n_out,'(''  impXi           ='',i3,'','')') impXi
@@ -935,9 +935,9 @@ contains
             else
                write(n_out,'(A)',advance='NO') "               "
             end if
-            write(n_out,'(1p,4(ES14.6,A))') peakXi(i)/rad,",", &
-                 & thetaXi(i)/rad,",", phiXi(i)/rad,",",        &
-                 & widthXi(i)/rad,","
+            write(n_out,'(1p,4(ES14.6,A))') peakXi(i)/rad,",",  &
+            &      thetaXi(i)/rad,",", phiXi(i)/rad,",",        &
+            &      widthXi(i)/rad,","
          end do
       end if
 
@@ -1583,7 +1583,6 @@ contains
       amp_RiIcSym  =0.0_cp     ! amplitude of Rieutord forcing (eq symm)
       omega_RiIcSym=0.0_cp     ! frequency of Rieutord forcing (eq symm)
       m_RiIcSym    =0          ! default forcing -> axisymmetric (eq symm)
-
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

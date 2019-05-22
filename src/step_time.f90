@@ -52,11 +52,9 @@ module step_time_mod
    use output_mod, only: output
    use charmanip, only: dble2str
    use useful, only: l_correct_step, logWrite, abortRun
-   use communications, only: get_global_sum, r2lo_redist_start, lm2r_type,  &
-       &                     lo2r_redist_wait, r2lm_type, lo2r_field,       &
-       &                     lo2r_flow, scatter_from_rank0_to_lo, lo2r_xi,  &
-       &                     r2lo_redist_wait, r2lo_flow, r2lo_s, r2lo_xi,  &
-       &                     r2lo_b, lo2r_s, lo2r_press, lo2r_redist_start
+   use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
+       &                     lo2r_xi,  r2lo_flow, r2lo_s, r2lo_xi,r2lo_field, &
+       &                     lo2r_s, lo2r_press
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -684,26 +682,19 @@ contains
          ! put the waits before signals to avoid cross communication
          call wallTime(runTimeRstart)
          if ( l_heat ) then
-            call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
-            call lo2r_redist_wait(lo2r_s)
+            call lo2r_s%transp_lm2r(s_LMloc_container, s_Rloc_container)
          end if
          if ( l_chemical_conv ) then
-            call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
-            call lo2r_redist_wait(lo2r_xi)
+            call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
          end if
          if ( l_conv .or. l_mag_kin ) then
-            call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
-            call lo2r_redist_wait(lo2r_flow)
+            call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
          end if
          if ( lPressCalc ) then
-            call lo2r_redist_start(lo2r_press,press_LMloc_container, &
-                 &                 press_Rloc_container)
-            call lo2r_redist_wait(lo2r_press)
+            call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
          end if
          if ( l_mag ) then
-            call lo2r_redist_start(lo2r_field,field_LMloc_container, &
-                 &                 field_Rloc_container)
-            call lo2r_redist_wait(lo2r_field)
+            call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
          end if
          call wallTime(runTimeRstop)
          if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
@@ -768,25 +759,19 @@ contains
          call wallTime(runTimeRstart)
          PERFON('r2lo_dst')
          if ( l_conv .or. l_mag_kin ) then
-            call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container, &
-                 &                 dflowdt_LMloc_container)
-            call r2lo_redist_wait(r2lo_flow)
+            call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,dflowdt_LMloc_container)
          end if
 
          if ( l_heat ) then
-            call r2lo_redist_start(r2lo_s,dsdt_Rloc_container,dsdt_LMloc_container)
-            call r2lo_redist_wait(r2lo_s)
+            call r2lo_s%transp_r2lm(dsdt_Rloc_container,dsdt_LMloc_container)
          end if
 
          if ( l_chemical_conv ) then
-            call r2lo_redist_start(r2lo_xi,dxidt_Rloc_container,  &
-                 &                 dxidt_LMloc_container)
-            call r2lo_redist_wait(r2lo_xi)
+            call r2lo_xi%transp_r2lm(dxidt_Rloc_container,dxidt_LMloc_container)
          end if
 
          if ( l_mag ) then
-            call r2lo_redist_start(r2lo_b,dbdt_Rloc_container,dbdt_LMloc_container)
-            call r2lo_redist_wait(r2lo_b)
+            call r2lo_field%transp_r2lm(dbdt_Rloc_container,dbdt_LMloc_container)
          end if
          call wallTime(runTimeRstop)
          if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then

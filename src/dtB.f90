@@ -10,9 +10,10 @@ module dtB_mod
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
        &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
        &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC, &
-       &                     r2lm_type, create_r2lm_type, destroy_r2lm_type, &
-       &                     r2lo_redist_start, r2lo_redist_wait
+   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
+   use mpi_transp, only: type_mpitransp
+   use mpi_alltoall_mod, only: type_mpiatoa
+   use mpi_ptop_mod, only: type_mpiptop
    use physical_parameters, only: opm,O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
        &                       or1, orho1
@@ -59,7 +60,7 @@ module dtB_mod
    complex(cp), public, allocatable :: PadvLMIC_LMloc(:,:), PdifLMIC_LMloc(:,:)
    complex(cp), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
 
-   type(r2lm_type) :: r2lo_dtB
+   class(type_mpitransp), pointer :: r2lo_dtB
 
    public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
    &         finalize_dtB_mod
@@ -75,6 +76,10 @@ contains
       ! The remaining global arrays should be suppressed, they are only
       ! needed because of some movie outputs
       !
+      logical :: l_alltoall
+
+      l_alltoall = .true.
+
       if ( l_dtBmovie ) then
          if ( rank == 0 ) then
             allocate( PstrLM(lm_max_dtB,n_r_max_dtB) )
@@ -146,7 +151,13 @@ contains
       bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max_dtB* &
       &                 SIZEOF_DEF_COMPLEX
 
-      call create_r2lm_type(r2lo_dtB,8)
+      if ( l_alltoall ) then
+         allocate ( type_mpiatoa :: r2lo_dtB )
+      else
+         allocate ( type_mpiptop :: r2lo_dtB )
+      end if
+
+      call r2lo_dtB%create_comm(8)
 
    end subroutine initialize_dtB_mod
 !----------------------------------------------------------------------------
@@ -161,20 +172,9 @@ contains
       deallocate( TadvLMIC_LMloc, TdifLMIC_LMloc )
       deallocate( dtB_Rloc_container, dtB_LMloc_container )
 
-      call destroy_r2lm_type(r2lo_dtB)
+      call r2lo_dtB%destroy_comm()
 
    end subroutine finalize_dtB_mod
-!----------------------------------------------------------------------------
-   subroutine dtb_from_Rloc_to_lo
-      !
-      ! MPI transpose (from LM to R ) for dtB calculations
-      !
-
-      !-- Redistribute from r-distrubuted arrays to LM-distributed arrays
-      call r2lo_redist_start(r2lo_dtB, dtB_Rloc_container, dtB_LMloc_container)
-      call r2lo_redist_wait(r2lo_dtB)
-
-   end subroutine dtb_from_Rloc_to_lo
 !----------------------------------------------------------------------------
    subroutine dtb_gather_lo_on_rank0
       !
@@ -194,7 +194,6 @@ contains
       call gather_all_from_lo_to_rank0(gt_IC,TadvLMIC_LMloc,TadvLMIC)
       call gather_all_from_lo_to_rank0(gt_IC,PdifLMIC_LMloc,PdifLMIC)
       call gather_all_from_lo_to_rank0(gt_IC,TdifLMIC_LMloc,TdifLMIC)
-
 
    end subroutine dtb_gather_lo_on_rank0
 !----------------------------------------------------------------------------
@@ -586,7 +585,7 @@ contains
 
 
       !-- Bring some array from rLoc to LMloc
-      call dtB_from_Rloc_to_lo()
+      call r2lo_dtB%transp_r2lm(dtB_Rloc_container, dtB_LMloc_container)
 
       if ( l_cond_ic ) then
          do nR=1,n_r_ic_max

@@ -485,28 +485,22 @@ contains
          d_omega_ic_dtLast=0.0_cp
       end if
 
-
-         ! --------------- end of insertion ----------
-
-      !print*,"Start redistribution in getStartfields"
-      ! start the redistribution
+      !-- MPI transposition
       if ( l_heat ) then
-         call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
+         call lo2r_s%transp_lm2r(s_LMloc_container,s_Rloc_container)
       end if
       if ( l_chemical_conv ) then
-         call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
+         call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
       end if
       if ( l_conv .or. l_mag_kin ) then
-         call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
-         call lo2r_redist_start(lo2r_press,press_LMloc_container,press_Rloc_container)
+         call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
+         call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
       end if
 
       if ( l_mag ) then
-         call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
+         call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
       end if
 
-      !print*,"End of getStartFields"
-      !PERFOFF
    end subroutine getStartFields
 !------------------------------------------------------------------------------
 end module start_fields

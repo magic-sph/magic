@@ -1,0 +1,717 @@
+module mpi_transp
+
+   use precision_mod
+   use truncation, only: lm_max, n_r_max
+   use radial_data, only: nRstart, nRstop
+   use LMLoop_data, only: llm, ulm
+
+   implicit none
+
+   private
+
+   type, abstract, public :: type_mpitransp
+      integer :: n_fields
+   contains
+      procedure(create_if), deferred :: create_comm
+      procedure(destroy_if), deferred :: destroy_comm
+      procedure(transp_lm2r_if), deferred :: transp_lm2r
+      procedure(transp_r2lm_if), deferred :: transp_r2lm
+   end type type_mpitransp
+
+   interface 
+
+      subroutine create_if(this, n_fields)
+         import
+         class(type_mpitransp) :: this
+         integer, intent(in) :: n_fields
+      end subroutine create_if
+
+      subroutine destroy_if(this)
+         import
+         class(type_mpitransp) :: this
+      end subroutine destroy_if
+
+      subroutine transp_lm2r_if(this, arr_LMloc, arr_Rloc)
+         import
+         class(type_mpitransp) :: this
+         complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+         complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      end subroutine transp_lm2r_if
+
+      subroutine transp_r2lm_if(this, arr_Rloc, arr_LMloc)
+         import
+         class(type_mpitransp) :: this
+         complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+         complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      end subroutine transp_r2lm_if
+
+   end interface
+
+end module mpi_transp
+
+module  mpi_alltoall_mod
+
+   use precision_mod
+   use parallel_mod
+   use mem_alloc
+   use radial_data, only: radial_balance
+   use truncation, only: lm_max, n_r_max
+   use radial_data, only: nRstart, nRstop
+   use LMLoop_data, only: llm, ulm
+   use blocking, only: lmStartB, lmStopB, lo_map, st_map
+   use mpi_transp, only: type_mpitransp
+
+   implicit none
+
+   private
+
+   type, public, extends(type_mpitransp) :: type_mpiatoa
+      integer, allocatable :: rcounts(:)
+      integer, allocatable :: scounts(:)
+      integer,     allocatable :: rdisp(:)
+      integer,     allocatable :: sdisp(:)
+      complex(cp), allocatable :: rbuff(:)
+      complex(cp), allocatable :: sbuff(:)
+      integer :: max_send, max_recv
+   contains
+      procedure :: create_comm
+      procedure :: destroy_comm
+      procedure :: transp_lm2r
+      procedure :: transp_r2lm
+   end type type_mpiatoa
+
+contains
+
+   subroutine create_comm(this, n_fields)
+
+      class(type_mpiatoa) :: this
+      integer, intent(in) :: n_fields
+
+      !-- Local variables
+      integer :: p, nlm_per_rank, my_lm_counts
+
+      this%n_fields = n_fields
+
+      allocate ( this%rcounts(0:n_procs-1), this%scounts(0:n_procs-1) )
+      allocate ( this%rdisp(0:n_procs-1), this%sdisp(0:n_procs-1) )
+
+      do p=0,n_procs-1
+         my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
+         nlm_per_rank = ulm-llm+1
+         this%scounts(p)=nR_per_rank*my_lm_counts*this%n_fields
+         this%rcounts(p)=radial_balance(p)%n_per_rank*nlm_per_rank*this%n_fields
+      end do
+
+      this%rdisp(0)=0
+      this%sdisp(0)=0
+      do p=1,n_procs-1
+         this%sdisp(p)=this%sdisp(p-1)+this%scounts(p-1)
+         this%rdisp(p)=this%rdisp(p-1)+this%rcounts(p-1)
+      end do
+
+      this%max_send = sum(this%scounts)
+      this%max_recv = sum(this%rcounts)
+
+      bytes_allocated = bytes_allocated+4*n_procs*SIZEOF_INTEGER
+
+      allocate( this%sbuff(1:this%max_send) )
+      allocate( this%rbuff(1:this%max_recv) )
+
+   end subroutine create_comm
+!----------------------------------------------------------------------------------
+   subroutine destroy_comm(this)
+
+      class(type_mpiatoa) :: this
+
+      deallocate( this%rbuff, this%sbuff, this%sdisp, this%rdisp )
+      deallocate( this%scounts, this%rcounts )
+
+   end subroutine destroy_comm
+!----------------------------------------------------------------------------------
+   subroutine transp_lm2r(this, arr_LMloc, arr_Rloc)
+
+      class(type_mpiatoa) :: this
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+
+      !-- Local variables
+      integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+
+      do p = 0, n_procs-1
+         ii = this%rdisp(p)+1
+         do n_f=1,this%n_fields
+            do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+               do lm=llm,ulm
+                  this%rbuff(ii)=arr_LMloc(lm,n_r,n_f)
+                  ii = ii+1
+               end do
+            end do
+         end do
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Alltoallv(this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
+           &             this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      do p = 0, n_procs-1
+         ii = this%sdisp(p)+1
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do lm=lmStartB(p+1),lmStopB(p+1)
+                  l = lo_map%lm2l(lm)
+                  m = lo_map%lm2m(lm)
+                  lm_st = st_map%lm2(l,m)
+                  arr_Rloc(lm_st,n_r,n_f)=this%sbuff(ii)
+                  ii=ii+1
+               end do
+            end do
+         end do
+      end do
+
+   end subroutine transp_lm2r
+!----------------------------------------------------------------------------------
+   subroutine transp_r2lm(this, arr_Rloc, arr_LMloc)
+
+      class(type_mpiatoa) :: this
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+
+      !-- Local variables
+      integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+
+      do p = 0, n_procs-1
+         ii = this%sdisp(p)+1
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do lm=lmStartB(p+1),lmStopB(p+1)
+                  l = lo_map%lm2l(lm)
+                  m = lo_map%lm2m(lm)
+                  lm_st = st_map%lm2(l,m)
+                  this%sbuff(ii)=arr_Rloc(lm_st,n_r,n_f)
+                  ii = ii +1
+               end do
+            end do
+         end do
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Alltoallv(this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
+           &             this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      do p = 0, n_procs-1
+         ii = this%rdisp(p)+1
+         do n_f=1,this%n_fields
+            do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+               do lm=llm,ulm
+                  arr_LMloc(lm,n_r,n_f)=this%rbuff(ii)
+                  ii=ii+1
+               end do
+            end do
+         end do
+      end do
+
+   end subroutine transp_r2lm
+!----------------------------------------------------------------------------------
+end module mpi_alltoall_mod
+
+module  mpi_ptop_mod
+
+   use precision_mod
+   use mem_alloc
+   use parallel_mod
+   use truncation, only: l_max, minc, l_axi
+   use logic, only: l_finite_diff
+   use truncation, only: lm_max, n_r_max
+   use radial_data, only: nRstart, nRstop, radial_balance
+   use LMLoop_data, only: llm, ulm
+   use blocking, only: lmStartB, lmStopB, st_map, lo_map
+   use mpi_transp, only: type_mpitransp
+
+   implicit none
+
+   private
+
+   type, public, extends(type_mpitransp) :: type_mpiptop
+      integer, allocatable :: s_request(:)
+      integer, allocatable :: r_request(:)
+      integer, allocatable :: final_wait_array(:)
+      complex(cp), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
+      integer, allocatable :: s_transfer_type_cont(:,:)
+      integer, allocatable :: s_transfer_type_nr_end_cont(:,:)
+      integer, allocatable :: r_transfer_type_cont(:,:)
+      integer, allocatable :: r_transfer_type_nr_end_cont(:,:)
+   contains
+      procedure :: create_comm
+      procedure :: destroy_comm
+      procedure :: transp_lm2r
+      procedure :: transp_r2lm
+   end type type_mpiptop
+
+
+contains
+
+   subroutine initialize_comm(this)
+
+      type(type_mpiptop) :: this
+
+#ifdef WITH_MPI
+      integer :: proc, my_lm_per_rank, i, nR_main_ranks, nR_last_rank
+      integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
+      integer :: base_col_type,temptype
+      integer :: blocklengths(8),blocklengths_on_last(8),displs(8),displs_on_last(8)
+
+
+      if (.not. l_finite_diff ) then
+         nR_main_ranks = (n_r_max-1)/n_procs
+         nR_last_rank = nR_main_ranks+1
+      else
+         nR_main_ranks = n_r_max/n_procs
+         nR_last_rank = nR_main_ranks+n_r_max-n_procs*nR_main_ranks
+      end if
+
+      allocate(this%s_transfer_type_cont(n_procs,8))
+      allocate(this%s_transfer_type_nr_end_cont(n_procs,8))
+      allocate(this%r_transfer_type_cont(n_procs,8))
+      allocate(this%r_transfer_type_nr_end_cont(n_procs,8))
+      bytes_allocated = bytes_allocated + 32*n_procs*SIZEOF_INTEGER
+
+      do proc=0,n_procs-1
+         my_lm_per_rank=lmStopB(proc+1)-lmStartB(proc+1)+1
+
+         ! define the transfer types for the containers
+         ! same schema as for the other types
+         ! some temporary datatypes, not needed for communication
+         ! but only for constructing the final datatypes
+         call MPI_Type_get_extent(MPI_DEF_COMPLEX,zerolb,sizeof_double_complex,ierr)
+         call MPI_Type_contiguous(my_lm_per_rank,MPI_DEF_COMPLEX,temptype,ierr)
+         zerolb=0
+         extent=lm_max*sizeof_double_complex
+         call MPI_Type_create_resized(temptype,zerolb,extent,base_col_type,ierr)
+
+         do i=1,8
+            blocklengths(i)         = nR_main_ranks
+            displs(i)               = (i-1)*nR_main_ranks
+            blocklengths_on_last(i) = nR_last_rank
+            displs_on_last(i)       = (i-1)*nR_last_rank
+         end do
+
+         do i=1,8
+            call MPI_Type_vector(i,nR_main_ranks*my_lm_per_rank,        &
+                 &               n_r_max*my_lm_per_rank,MPI_DEF_COMPLEX,&
+                 &               this%r_transfer_type_cont(proc+1,i),ierr)
+            call MPI_Type_commit(this%r_transfer_type_cont(proc+1,i),ierr)
+            call MPI_Type_vector(i,nR_last_rank*my_lm_per_rank,            &
+                 &               n_r_max*my_lm_per_rank,MPI_DEF_COMPLEX,   &
+                 &               this%r_transfer_type_nr_end_cont(proc+1,i),ierr)
+            call MPI_Type_commit(this%r_transfer_type_nr_end_cont(proc+1,i),ierr)
+
+            call MPI_Type_indexed(i,blocklengths(1:i),displs(1:i),base_col_type, &
+                 &                this%s_transfer_type_cont(proc+1,i),ierr)
+            call MPI_Type_commit(this%s_transfer_type_cont(proc+1,i),ierr)
+            call MPI_Type_indexed(i,blocklengths_on_last(1:i),             &
+                 &                displs_on_last(1:i),base_col_type,       &
+                 &                this%s_transfer_type_nr_end_cont(proc+1,i),ierr)
+            call MPI_Type_commit(this%s_transfer_type_nr_end_cont(proc+1,i),ierr)
+         end do
+
+      end do
+#endif
+
+   end subroutine initialize_comm
+!----------------------------------------------------------------------------------
+   subroutine finalize_comm(this)
+
+      type(type_mpiptop) :: this
+
+#ifdef WITH_MPI
+      deallocate( this%s_transfer_type_cont, this%s_transfer_type_nr_end_cont )
+      deallocate( this%r_transfer_type_cont, this%r_transfer_type_nr_end_cont )
+#endif
+
+   end subroutine finalize_comm
+!----------------------------------------------------------------------------------
+   subroutine create_comm(this, n_fields)
+
+      class(type_mpiptop) :: this
+      integer, intent(in) :: n_fields
+
+      this%n_fields = n_fields
+
+#ifdef WITH_MPI
+      allocate(this%s_request(n_procs-1))
+      allocate(this%r_request(n_procs-1))
+      allocate(this%final_wait_array(2*(n_procs-1)))
+      bytes_allocated = bytes_allocated+4*(n_procs-1)*SIZEOF_INTEGER
+#endif
+
+      allocate(this%temp_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields))
+      bytes_allocated = bytes_allocated+&
+      &                 lm_max*(nRstop-nRstart+1)*this%n_fields*SIZEOF_DEF_COMPLEX
+
+      call initialize_comm(this)
+
+   end subroutine create_comm
+!----------------------------------------------------------------------------------
+   subroutine destroy_comm(this)
+
+      class(type_mpiptop) :: this
+
+      call finalize_comm(this)
+
+#ifdef WITH_MPI
+      deallocate(this%final_wait_array, this%s_request, this%r_request)
+#endif
+      deallocate(this%temp_Rloc)
+
+   end subroutine destroy_comm
+!----------------------------------------------------------------------------------
+   subroutine lm2r_redist_start(this,arr_LMloc,arr_Rloc)
+
+      type(type_mpiptop) :: this
+      complex(cp), intent(in)  :: arr_LMloc(llm:ulm,n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(lm_max,nRstart:nRstop,*)
+
+      integer :: i
+#ifdef WITH_MPI
+      ! Local variables
+      integer :: send_pe,recv_pe,irank
+      integer :: transfer_tag=1111
+
+      !PERFON('lm2r_st')
+
+      if ( rank < n_procs-1 ) then
+         ! all the ranks from [0,n_procs-2]
+         do irank=0,n_procs-1
+            !if (rank == irank) then
+            ! just copy
+            !   arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
+            !else
+            ! send_pe: send to this rank
+            ! recv_pe: receive from this rank
+            send_pe = modulo(rank+irank,n_procs)
+            recv_pe = modulo(rank-irank+n_procs,n_procs)
+            if (rank == send_pe) then
+               !PERFON('loc_copy')
+               ! just copy
+               do i=1,this%n_fields
+                  arr_Rloc(llm:ulm,nRstart:nRstop,i)= &
+                  &    arr_LMloc(llm:ulm,nRstart:nRstop,i)
+               end do
+               !PERFOFF
+            else
+               !PERFON('irecv')
+               call MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),             &
+                    &         1,this%s_transfer_type_cont(recv_pe+1,this%n_fields),&
+                    &         recv_pe,transfer_tag,MPI_COMM_WORLD,                 &
+                    &         this%r_request(irank),ierr)
+               !PERFOFF
+               !PERFON('isend')
+               if (send_pe == n_procs-1) then
+                  call MPI_Isend(arr_LMloc(llm,radial_balance(send_pe)%nStart,1),   &
+                       &         1,this%r_transfer_type_nr_end_cont(rank+1,         &
+                       &         this%n_fields),send_pe,transfer_tag,MPI_COMM_WORLD,&
+                       &         this%s_request(irank),ierr)
+               else
+                  call MPI_Isend(arr_LMloc(llm,radial_balance(send_pe)%nStart,1),   &
+                       &         1,this%r_transfer_type_cont(rank+1,this%n_fields), &
+                       &         send_pe,transfer_tag,MPI_COMM_WORLD,               &
+                       &         this%s_request(irank),ierr)
+               end if
+               !PERFOFF
+            end if
+         end do
+
+         i=1
+         do irank=1,n_procs-1
+            this%final_wait_array(i)=this%s_request(irank)
+            this%final_wait_array(i+1)=this%r_request(irank)
+            i = i + 2
+         end do
+      else
+         ! rank  ==  n_procs-1
+         ! all receives are with the s_transfer_type_nr_end
+         ! all sends are done with r_transfer_type_lm_end
+         do irank=0,n_procs-1
+            ! send_pe: send to this rank
+            ! recv_pe: receive from this rank
+            send_pe = modulo(rank+irank,n_procs)
+            recv_pe = modulo(rank-irank+n_procs,n_procs)
+            if (rank == send_pe) then
+               !PERFON('loc_copy')
+               ! just copy
+               do i=1,this%n_fields
+                  arr_Rloc(llm:ulm,nRstart:nRstop,i)= &
+                  &     arr_LMloc(llm:ulm,nRstart:nRstop,i)
+               end do
+               !PERFOFF
+            else
+               !PERFON('irecv')
+               call MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),1,         &
+                    &         this%s_transfer_type_nr_end_cont(recv_pe+1,        &
+                    &         this%n_fields),recv_pe,transfer_tag,MPI_COMM_WORLD,&
+                    &         this%r_request(irank),ierr)
+               !PERFOFF
+               !PERFON('isend')
+               call MPI_Isend(arr_LMloc(llm,radial_balance(send_pe)%nStart,1),   &
+                    &         1,this%r_transfer_type_cont(rank+1,this%n_fields), &
+                    &         send_pe,transfer_tag,MPI_COMM_WORLD,               &
+                    &         this%s_request(irank),ierr)
+               !PERFOFF
+            end if
+         end do
+         i=1
+         do irank=1,n_procs-1
+            this%final_wait_array(i)=this%s_request(irank)
+            this%final_wait_array(i+1)=this%r_request(irank)
+            i = i + 2
+         end do
+      end if
+      !PERFOFF
+
+#else
+      do i=1,this%n_fields
+         arr_Rloc(llm:ulm,nRstart:nRstop,i)= arr_LMloc(llm:ulm,nRstart:nRstop,i)
+      end do
+#endif
+
+   end subroutine lm2r_redist_start
+!----------------------------------------------------------------------------------
+   subroutine lm2r_redist_wait(this)
+
+      type(type_mpiptop) :: this
+#ifdef WITH_MPI
+      integer :: ierr
+      integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_procs)
+
+      call MPI_Waitall(2*(n_procs-1),this%final_wait_array,array_of_statuses,ierr)
+#endif
+
+   end subroutine lm2r_redist_wait
+!----------------------------------------------------------------------------------
+   subroutine lo2r_redist_start(this,arr_lo,arr_Rloc)
+
+      type(type_mpiptop) :: this
+      complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max,*)
+      complex(cp), target, intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+
+      this%arr_Rloc(1:,nRstart:,1:) => arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      call lm2r_redist_start(this,arr_lo,this%temp_Rloc)
+
+   end subroutine lo2r_redist_start
+!-------------------------------------------------------------------------------
+   subroutine lo2r_redist_wait(this)
+
+      type(type_mpiptop) :: this
+
+      ! Local variables
+      integer :: nR,l,m,i
+
+      !PERFON("lo2r_wt")
+      call lm2r_redist_wait(this)
+      ! now in this%temp_Rloc we do have the lo_ordered r-local part
+      ! now reorder to the original ordering
+      if ( .not. l_axi ) then
+         do i=1,this%n_fields
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  do m=0,l,minc
+                     this%arr_Rloc(st_map%lm2(l,m),nR,i) = &
+                     &      this%temp_Rloc(lo_map%lm2(l,m),nR,i)
+                  end do
+               end do
+            end do
+         end do
+      else
+         do i=1,this%n_fields
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  this%arr_Rloc(st_map%lm2(l,0),nR,i) = &
+                  &      this%temp_Rloc(lo_map%lm2(l,0),nR,i)
+               end do
+            end do
+         end do
+      end if
+      !PERFOFF
+
+   end subroutine lo2r_redist_wait
+!-------------------------------------------------------------------------------
+   subroutine r2lo_redist_start(this,arr_Rloc,arr_lo)
+
+      type(type_mpiptop) :: this
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,*)
+
+      ! Local variables
+      integer :: nR,l,m,i
+
+      this%temp_Rloc(1:,nRstart:,1:) = arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+
+      ! Just copy the array with permutation
+      !PERFON('r2lo_dst')
+      if ( .not. l_axi ) then
+         do i=1,this%n_fields
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  do m=0,l,minc
+                     this%temp_Rloc(lo_map%lm2(l,m),nR,i) = &
+                     &                arr_Rloc(st_map%lm2(l,m),nR,i)
+                  end do
+               end do
+            end do
+         end do
+      else
+         do i=1,this%n_fields
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  this%temp_Rloc(lo_map%lm2(l,0),nR,i) = &
+                  &                arr_Rloc(st_map%lm2(l,0),nR,i)
+               end do
+            end do
+         end do
+      end if
+
+      call r2lm_redist_start(this,this%temp_Rloc,arr_lo)
+      !PERFOFF
+
+   end subroutine r2lo_redist_start
+!-------------------------------------------------------------------------------
+   subroutine r2lo_redist_wait(this)
+
+      type(type_mpiptop) :: this
+
+#ifdef WITH_MPI
+      integer :: ierr
+      integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_procs)
+
+      !PERFON('lm2r_wt')
+      call MPI_Waitall(2*(n_procs-1),this%final_wait_array,array_of_statuses,ierr)
+      !PERFOFF
+#endif
+
+   end subroutine r2lo_redist_wait
+!-------------------------------------------------------------------------------
+   subroutine r2lm_redist_start(this,arr_rloc,arr_LMloc)
+
+      type(type_mpiptop) :: this
+      complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max,*)
+
+      integer :: i
+#ifdef WITH_MPI
+      ! Local variables
+      integer :: send_pe, recv_pe, irank
+      integer :: transfer_tag=1111
+
+      !write(*,"(A)") "----------- start r2lm_redist -------------"
+      !PERFON('r2lm_dst')
+      if (rank < n_procs-1) then
+         ! all the ranks from [0,n_procs-2]
+         do irank=0,n_procs-1
+            !if (rank == irank) then
+            ! just copy
+            !   arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
+            !else
+            ! send_pe: send to this rank
+            ! recv_pe: receive from this rank
+            send_pe = modulo(rank+irank,n_procs)
+            recv_pe = modulo(rank-irank+n_procs,n_procs)
+            if (rank == send_pe) then
+               do i=1,this%n_fields
+                  arr_LMLoc(llm:ulm,nRstart:nRstop,i)= &
+                  &         arr_Rloc(llm:ulm,nRstart:nRstop,i)
+               end do
+            else
+               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),             &
+                    &         1,this%s_transfer_type_cont(send_pe+1,this%n_fields),&
+                    &         send_pe,transfer_tag,MPI_COMM_WORLD,                 &
+                    &         this%s_request(irank),ierr)
+               if (recv_pe == n_procs-1) then
+                  call MPI_Irecv(arr_LMloc(llm,radial_balance(recv_pe)%nStart,1),   &
+                       &         1,this%r_transfer_type_nr_end_cont(rank+1,         &
+                       &         this%n_fields),recv_pe,transfer_tag,MPI_COMM_WORLD,&
+                       &         this%r_request(irank),ierr)
+               else
+                  call MPI_Irecv(arr_LMloc(llm,radial_balance(recv_pe)%nStart,1),   &
+                       &         1,this%r_transfer_type_cont(rank+1,this%n_fields), &
+                       &         recv_pe,transfer_tag,MPI_COMM_WORLD,               &
+                       &         this%r_request(irank),ierr)
+               end if
+            end if
+         end do
+
+         i=1
+         do irank=1,n_procs-1
+            this%final_wait_array(i)=this%s_request(irank)
+            this%final_wait_array(i+1)=this%r_request(irank)
+            i = i + 2
+         end do
+      else
+         ! rank  ==  n_procs-1
+         ! all receives are with the r_transfer_type_lm_end
+         ! all sends are done with s_transfer_type_nr_end
+         do irank=0,n_procs-1
+            ! send_pe: send to this rank
+            ! recv_pe: receive from this rank
+            send_pe = modulo(rank+irank,n_procs)
+            recv_pe = modulo(rank-irank+n_procs,n_procs)
+            if (rank == send_pe) then
+               ! just copy
+               do i=1,this%n_fields
+                  arr_LMLoc(llm:ulm,nRstart:nRstop,i)= &
+                  &        arr_Rloc(llm:ulm,nRstart:nRstop,i)
+               end do
+            else
+               call MPI_Irecv(arr_LMloc(llm,radial_balance(recv_pe)%nStart,1),   &
+                    &         1,this%r_transfer_type_cont(rank+1,this%n_fields), & 
+                    &         recv_pe,transfer_tag,MPI_COMM_WORLD,               &
+                    &         this%r_request(irank),ierr)
+               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),           &
+                    &         1,this%s_transfer_type_nr_end_cont(send_pe+1,      &
+                    &         this%n_fields),send_pe,transfer_tag,MPI_COMM_WORLD,&
+                    &         this%s_request(irank),ierr)
+
+            end if
+         end do
+         i=1
+         do irank=1,n_procs-1
+            this%final_wait_array(i)=this%s_request(irank)
+            this%final_wait_array(i+1)=this%r_request(irank)
+            i = i + 2
+         end do
+      end if
+      !PERFOFF
+#else
+      do i=1,this%n_fields
+         arr_LMLoc(llm:ulm,nRstart:nRstop,i)=arr_Rloc(llm:ulm,nRstart:nRstop,i)
+      end do
+#endif
+
+   end subroutine r2lm_redist_start
+!-------------------------------------------------------------------------------
+   subroutine transp_lm2r(this, arr_LMloc, arr_Rloc)
+
+      class(type_mpiptop) :: this
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+
+      call lo2r_redist_start(this, arr_LMloc, arr_Rloc)
+      call lo2r_redist_wait(this)
+
+   end subroutine transp_lm2r
+!----------------------------------------------------------------------------------
+   subroutine transp_r2lm(this, arr_Rloc, arr_LMloc)
+
+      class(type_mpiptop) :: this
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+
+      call r2lo_redist_start(this, arr_Rloc, arr_LMloc)
+      call r2lo_redist_wait(this)
+
+   end subroutine transp_r2lm
+!----------------------------------------------------------------------------------
+end module mpi_ptop_mod

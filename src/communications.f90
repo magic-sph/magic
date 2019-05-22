@@ -14,6 +14,9 @@ module communications
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
        &            l_mag_kin, l_TP_form, l_double_curl
    use useful, only: abortRun
+   use mpi_ptop_mod, only: type_mpiptop
+   use mpi_alltoall_mod, only: type_mpiatoa
+   use mpi_transp, only: type_mpitransp
 
    implicit none
 
@@ -68,10 +71,10 @@ module communications
    public :: reduce_radial, reduce_scalar
 
    ! declaration of the types for the redistribution
-   type(lm2r_type), public :: lo2r_flow, lo2r_s, lo2r_press
-   type(lm2r_type), public :: lo2r_field, lo2r_xi
-
-   type(r2lm_type), public :: r2lo_flow, r2lo_s, r2lo_xi, r2lo_b
+   class(type_mpitransp), public, pointer :: lo2r_s, r2lo_s, lo2r_press
+   class(type_mpitransp), public, pointer :: lo2r_flow, r2lo_flow
+   class(type_mpitransp), public, pointer :: lo2r_field, r2lo_field
+   class(type_mpitransp), public, pointer :: lo2r_xi, r2lo_xi
 
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
@@ -83,6 +86,7 @@ contains
 
       integer :: proc,my_lm_per_rank
       integer(lip) :: local_bytes_used
+      logical :: l_alltoall
 #ifdef WITH_MPI
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer :: base_col_type,temptype
@@ -181,31 +185,53 @@ contains
       bytes_allocated = bytes_allocated + 2*(n_procs-1)*SIZEOF_INTEGER
 #endif
 
+      l_alltoall=.true.
+      if ( l_alltoall ) then
+         allocate( type_mpiatoa :: lo2r_s )
+         allocate( type_mpiatoa :: r2lo_s )
+         allocate( type_mpiatoa :: lo2r_flow )
+         allocate( type_mpiatoa :: r2lo_flow )
+         allocate( type_mpiatoa :: lo2r_field )
+         allocate( type_mpiatoa :: r2lo_field )
+         allocate( type_mpiatoa :: lo2r_xi )
+         allocate( type_mpiatoa :: r2lo_xi )
+         allocate( type_mpiatoa :: lo2r_press )
+      else
+         allocate( type_mpiptop :: lo2r_s )
+         allocate( type_mpiptop :: r2lo_s )
+         allocate( type_mpiptop :: lo2r_flow )
+         allocate( type_mpiptop :: r2lo_flow )
+         allocate( type_mpiptop :: lo2r_field )
+         allocate( type_mpiptop :: r2lo_field )
+         allocate( type_mpiptop :: lo2r_xi )
+         allocate( type_mpiptop :: r2lo_xi )
+         allocate( type_mpiptop :: lo2r_press )
+      end if
+
       if ( l_heat ) then
-         call create_lm2r_type(lo2r_s,2)
+         call lo2r_s%create_comm(2)
          if ( l_TP_form ) then
-            call create_r2lm_type(r2lo_s,3) ! since we also need u\grad P
+            call r2lo_s%create_comm(3)
          else
-            call create_r2lm_type(r2lo_s,2)
+            call r2lo_s%create_comm(2)
          end if
       end if
       if ( l_chemical_conv ) then
-         call create_lm2r_type(lo2r_xi,2)
-         call create_r2lm_type(r2lo_xi,2)
+         call lo2r_xi%create_comm(2)
+         call r2lo_xi%create_comm(2)
       end if
       if ( l_conv .or. l_mag_kin) then
-         call create_lm2r_type(lo2r_flow,5)
-         call create_lm2r_type(lo2r_press,2)
+         call lo2r_flow%create_comm(5)
+         call lo2r_press%create_comm(2)
          if ( l_double_curl ) then
-            call create_r2lm_type(r2lo_flow,4)
+            call r2lo_flow%create_comm(4)
          else
-            call create_r2lm_type(r2lo_flow,3)
+            call r2lo_flow%create_comm(3)
          end if
       end if
-
       if ( l_mag ) then
-         call create_lm2r_type(lo2r_field,5)
-         call create_r2lm_type(r2lo_b,3)
+         call lo2r_field%create_comm(5)
+         call r2lo_field%create_comm(3)
       end if
 
       ! allocate a temporary array for the gather operations.
@@ -233,26 +259,21 @@ contains
 #endif
 
       if ( l_heat ) then
-         call destroy_lm2r_type(lo2r_s)
-         if ( l_TP_form ) then
-            call destroy_r2lm_type(r2lo_s) ! since we also need u\grad P
-         else
-            call destroy_r2lm_type(r2lo_s)
-         end if
+         call lo2r_s%destroy_comm()
+         call r2lo_s%destroy_comm()
       end if
       if ( l_chemical_conv ) then
-         call destroy_lm2r_type(lo2r_xi)
-         call destroy_r2lm_type(r2lo_xi)
+         call lo2r_xi%destroy_comm()
+         call r2lo_xi%destroy_comm()
       end if
       if ( l_conv .or. l_mag_kin) then
-         call destroy_lm2r_type(lo2r_flow)
-         call destroy_lm2r_type(lo2r_press)
-         call destroy_r2lm_type(r2lo_flow)
+         call lo2r_flow%destroy_comm()
+         call r2lo_flow%destroy_comm()
+         call lo2r_press%destroy_comm()
       end if
-
       if ( l_mag ) then
-         call destroy_lm2r_type(lo2r_field)
-         call destroy_r2lm_type(r2lo_b)
+         call lo2r_field%destroy_comm()
+         call r2lo_field%destroy_comm()
       end if
 
       deallocate( temp_gather_lo )
