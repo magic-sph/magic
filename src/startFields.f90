@@ -31,8 +31,7 @@ module start_fields
    use useful, only: cc2real, logWrite
    use LMLoop_data, only: llm, ulm, ulmMag, llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
-   use communications, only: lo2r_redist_start, lo2r_s, lo2r_flow, lo2r_field, &
-       &                     lo2r_xi, lo2r_press
+   use communications, only: lo2r_s, lo2r_flow, lo2r_field, lo2r_xi, lo2r_press
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
    use readCheckPoints, only: readStartFields_old, readStartFields

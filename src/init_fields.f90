@@ -6,11 +6,9 @@ module init_fields
    use precision_mod
    use iso_fortran_env, only: output_unit
    use parallel_mod
-   use communications, only: r2lm_type, create_r2lm_type, lm2r_type,  &
-       &                     r2lo_redist_start, r2lo_redist_wait,     &
-       &                     create_lm2r_type, destroy_lm2r_type,     &
-       &                     lo2r_redist_start, lo2r_redist_wait,     &
-       &                     destroy_r2lm_type
+   use mpi_ptop_mod, only: type_mpiptop
+   use mpi_alltoall_mod, only: type_mpiatoa
+   use mpi_transp, only: type_mpitransp
    use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
        &                 l_axi,minc,n_cheb_ic_max,lm_max
@@ -157,22 +155,30 @@ contains
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
-      type(r2lm_type) :: r2lo_initv
-      type(lm2r_type) :: lo2r_initv
-
+      class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nrp,nfs)
       complex(cp) :: omeLM(lmP_max)
+      logical :: l_alltoall
+
+      l_alltoall = .true.
+
+      if ( l_alltoall ) then
+         allocate( type_mpiatoa :: r2lo_initv )
+         allocate( type_mpiatoa :: lo2r_initv )
+      else
+         allocate( type_mpiptop :: r2lo_initv )
+         allocate( type_mpiptop :: lo2r_initv )
+      end if
 
       !-- Initialize rotation according to
       !   given inner core and mantel rotation rate:
       if ( init_v1 == 1 .and. ( omega_ic1 /= 0.0_cp .or. omega_ma1 /= 0.0_cp ) ) then
 
-         call create_r2lm_type(r2lo_initv,1)
-         call create_lm2r_type(lo2r_initv,1)
+         call r2lo_initv%create_comm(1)
+         call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
-         call lo2r_redist_start(lo2r_initv, z, z_Rloc)
-         call lo2r_redist_wait(lo2r_initv)
+         call lo2r_initv%transp_lm2r(z, z_Rloc)
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -230,21 +236,19 @@ contains
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
-         call r2lo_redist_start(r2lo_initv, z_Rloc, z)
-         call r2lo_redist_wait(r2lo_initv)
+         call r2lo_initv%transp_r2lm(z_Rloc, z)
 
          !-- Destroy MPI communicators
-         call destroy_r2lm_type(r2lo_initv)
-         call destroy_lm2r_type(lo2r_initv)
+         call r2lo_initv%destroy_comm()
+         call lo2r_initv%destroy_comm()
 
       else if ( init_v1 == 2 ) then
 
-         call create_r2lm_type(r2lo_initv,1)
-         call create_lm2r_type(lo2r_initv,1)
+         call r2lo_initv%create_comm(1)
+         call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
-         call lo2r_redist_start(lo2r_initv, z, z_Rloc)
-         call lo2r_redist_wait(lo2r_initv)
+         call lo2r_initv%transp_lm2r(z, z_Rloc)
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -301,12 +305,11 @@ contains
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
-         call r2lo_redist_start(r2lo_initv, z_Rloc, z)
-         call r2lo_redist_wait(r2lo_initv)
+         call r2lo_initv%transp_r2lm(z_Rloc, z)
 
          !-- Destroy MPI communicators
-         call destroy_r2lm_type(r2lo_initv)
-         call destroy_lm2r_type(lo2r_initv)
+         call r2lo_initv%destroy_comm()
+         call lo2r_initv%destroy_comm()
 
 
       else if ( init_v1 > 2 ) then
