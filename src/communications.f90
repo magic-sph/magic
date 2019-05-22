@@ -12,7 +12,7 @@ module communications
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_TP_form, l_double_curl
+       &            l_mag_kin, l_TP_form, l_double_curl, l_alltoall
    use useful, only: abortRun
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoa
@@ -62,14 +62,12 @@ contains
    subroutine initialize_communications
 
       integer(lip) :: local_bytes_used
-      logical :: l_alltoall
 
       local_bytes_used=bytes_allocated
 
       call create_gather_type(gt_OC,n_r_max)
       call create_gather_type(gt_IC,n_r_ic_max)
 
-      l_alltoall=.true.
       if ( l_alltoall ) then
          allocate( type_mpiatoa :: lo2r_s )
          allocate( type_mpiatoa :: r2lo_s )

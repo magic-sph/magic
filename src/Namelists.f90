@@ -65,7 +65,8 @@ contains
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
-      &    thermo_variable,radial_scheme,polo_flow_eq
+      &    thermo_variable,radial_scheme,polo_flow_eq,      &
+      &    mpi_transp
 
       namelist/phys_param/                                      &
       &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
@@ -266,6 +267,14 @@ contains
          l_PressGraph  = .false.
       else
          l_double_curl = .false.
+      end if
+
+      call capitalize(mpi_transp)
+      if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 .or. &
+      &    index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
+         l_alltoall = .false.
+      else
+         l_alltoall = .true.
       end if
 
       call capitalize(radial_scheme)
@@ -836,6 +845,8 @@ contains
       write(n_out,*) "anelastic_flavour= """,anelastic_flavour(1:length),""","
       length=length_to_blank(thermo_variable)
       write(n_out,*) " thermo_variable = """,thermo_variable(1:length),""","
+      length=length_to_blank(mpi_transp)
+      write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
@@ -1198,6 +1209,7 @@ contains
       thermo_variable  ="None"
       polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
+      mpi_transp       ="PointToPoint"  ! point-to-point communicators
 
       cacheblock_size_in_B=4096
 

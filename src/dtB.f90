@@ -20,7 +20,7 @@ module dtB_mod
    use radial_data,only: nRstart,nRstop
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
        &                      dTheta1S, dTheta1A
-   use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
+   use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie, l_alltoall
    use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, nfs
@@ -76,9 +76,6 @@ contains
       ! The remaining global arrays should be suppressed, they are only
       ! needed because of some movie outputs
       !
-      logical :: l_alltoall
-
-      l_alltoall = .true.
 
       if ( l_dtBmovie ) then
          if ( rank == 0 ) then

@@ -19,7 +19,8 @@ module init_fields
        &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
-       &            l_anelastic_liquid, l_non_adia, l_diff_prec
+       &            l_anelastic_liquid, l_non_adia, l_diff_prec,    &
+       &            l_alltoall
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
        &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
@@ -158,9 +159,6 @@ contains
       class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nrp,nfs)
       complex(cp) :: omeLM(lmP_max)
-      logical :: l_alltoall
-
-      l_alltoall = .true.
 
       if ( l_alltoall ) then
          allocate( type_mpiatoa :: r2lo_initv )

@@ -53,6 +53,8 @@ module num_param
    character(len=72), public :: thermo_variable ! thermodynamic variable: S or T
    character(len=72), public :: polo_flow_eq ! form of the poloidal flow equation: Pressure or Double Curl
 
+   character(len=72), public :: mpi_transp ! Form of the MPI transpose (point to point or alltoall)
+
    !-- Stop signal:
    integer, public :: istop            ! Variable used in FFT soubroutine
  

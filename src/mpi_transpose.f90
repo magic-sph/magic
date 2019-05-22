@@ -1,4 +1,9 @@
 module mpi_transp
+   !
+   ! This is an abstract class that will be used to define MPI transposers
+   ! The actual implementation is deferred to either point-to-point (MPI_Isend
+   ! and MPI_IRecv) communications or all-to-all (MPI_AlltoAll)
+   !
 
    use precision_mod
    use truncation, only: lm_max, n_r_max
@@ -49,7 +54,12 @@ module mpi_transp
 
 end module mpi_transp
 
+
+!----------------------------------------------------------------------------------
 module  mpi_alltoall_mod
+   !
+   ! This module contains the implementation of all-to-all global communicators
+   !
 
    use precision_mod
    use parallel_mod
@@ -129,6 +139,10 @@ contains
    end subroutine destroy_comm
 !----------------------------------------------------------------------------------
    subroutine transp_lm2r(this, arr_LMloc, arr_Rloc)
+      !
+      ! This subroutine transposes a LM-distributed container of arrays into
+      ! a r-distributed container of arrays
+      !
 
       class(type_mpiatoa) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
@@ -173,6 +187,10 @@ contains
    end subroutine transp_lm2r
 !----------------------------------------------------------------------------------
    subroutine transp_r2lm(this, arr_Rloc, arr_LMloc)
+      !
+      ! This subroutine transposes a r-distributed container of arrays into
+      ! a LM-distributed container of arrays
+      !
 
       class(type_mpiatoa) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
@@ -218,7 +236,14 @@ contains
 !----------------------------------------------------------------------------------
 end module mpi_alltoall_mod
 
+
+
+!----------------------------------------------------------------------------------
 module  mpi_ptop_mod
+   !
+   ! This module contains the implementation of MPI_Isend/MPI_Irecv global
+   ! transpose
+   !
 
    use precision_mod
    use mem_alloc
@@ -693,6 +718,10 @@ contains
    end subroutine r2lm_redist_start
 !-------------------------------------------------------------------------------
    subroutine transp_lm2r(this, arr_LMloc, arr_Rloc)
+      !
+      ! This subroutine transposes a LM-distributed container of arrays into
+      ! a r-distributed container of arrays
+      !
 
       class(type_mpiptop) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
@@ -704,6 +733,10 @@ contains
    end subroutine transp_lm2r
 !----------------------------------------------------------------------------------
    subroutine transp_r2lm(this, arr_Rloc, arr_LMloc)
+      !
+      ! This subroutine transposes a r-distributed container of arrays into
+      ! a LM-distributed container of arrays
+      !
 
       class(type_mpiptop) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
