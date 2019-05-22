@@ -266,3 +266,11 @@ Miscellaneous
    | polo_flow_eq='DC'   | Use the double-curl formulation         |
    +---------------------+-----------------------------------------+
 
+* **mpi_transp** (defautl :f:var:`mpi_transp="PointToPoint <mpi_tansp>`) is a character string. It allows to change the way the global MPI transposes are handled by the code. One can either use calls to local communicators (such as Isend Irecv), or rather make use of the native alltoallv MPI variant.
+
+   +--------------------+-----------------------------------------+
+   | mpi_transp='p2p'   | Use local communicators                 |
+   +--------------------+-----------------------------------------+
+   | mpi_transp='a2a'   | Use alltoallv communicators             |
+   +--------------------+-----------------------------------------+
+
