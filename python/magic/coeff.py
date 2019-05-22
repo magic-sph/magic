@@ -259,7 +259,10 @@ class MagicCoeffCmb(MagicSetup):
 
             # Secular variation
             self.ESVlM = facT * np.trapz(self.ESVl, self.time, axis=0)
-            self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
+            if abs(self.ESVlM[1:]).min() > 0.:
+                self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
+            else:
+                self.taul = np.zeros_like(self.ElM[1:])
 
         if iplot:
             self.plot()
@@ -320,7 +323,6 @@ class MagicCoeffCmb(MagicSetup):
         self.ell = ell_new
         self.ms = ms_new
         self.blm = blm_new
-
 
     def plot(self):
         """
