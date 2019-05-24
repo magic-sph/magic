@@ -570,7 +570,10 @@ class MagicSpectrum2D(MagicSetup):
         file = npfile(filename, endian='B')
 
         if self.version == 'snap':
-            out = file.fort_read('%s,3i4' % precision)[0]
+            if precision == np.float64:
+                out = file.fort_read('f8,3i4')[0]
+            else:
+                out = file.fort_read('f4,3i4')[0]
             self.time = out[0]
             self.n_r_max, self.l_max, self.minc = out[1]
         elif self.version == 'ave':
