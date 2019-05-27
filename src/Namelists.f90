@@ -69,7 +69,7 @@ contains
       &    mpi_transp
 
       namelist/phys_param/                                      &
-      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
+      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,    &
       &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
       &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,     &
       &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,   &
@@ -863,6 +863,7 @@ contains
       write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
+      write(n_out,'(''  Bn              ='',ES14.6,'','')') Bn
       write(n_out,'(''  DissNb          ='',ES14.6,'','')') DissNb
       write(n_out,'(''  strat           ='',ES14.6,'','')') strat
       write(n_out,'(''  polind          ='',ES14.6,'','')') polind
@@ -1253,6 +1254,7 @@ contains
       diff_prec_angle =23.5_cp
       epsc0      =0.0_cp
       epscxi0    =0.0_cp
+      Bn         =1.0_cp
       radratio   =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
       !----- Anelatic stuff

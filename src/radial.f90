@@ -881,6 +881,13 @@ contains
          else
             epscProf(:)=rho0(:)
          end if
+      else if ( nVarEps == 3 ) then
+         ! eps*rho**2*temp**(-3)*exp(-Bn/T) in the RHS
+         if ( l_anelastic_liquid .or. l_TP_form ) then
+            epscProf(:)=rho0(:)**2*temp0(:)**(-3)*exp(-Bn/temp0(:))
+         else
+            epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
+         end if
       end if
 
       !-- Variable viscosity
