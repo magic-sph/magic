@@ -30,7 +30,7 @@ module preCalculations
        &                          PolInd, nVarCond, nVarDiff, nVarVisc,    &
        &                          rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
        &                          ktops, kbots, interior_model, r_LCR,     &
-       &                          n_r_LCR, mode, tmagcon, oek,             &
+       &                          n_r_LCR, mode, tmagcon, oek, Bn,         &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
        &                          ChemFac, raxi, Po, prec_angle, diff_prec_angle
    use horizontal_data, only: horizontal
@@ -400,6 +400,9 @@ contains
             facIH=mass*vol_oc
          else if ( nVarEps == 2 ) then
             mom(:)=r(:)**2*rho0(:)*temp0(:)
+            facIH=four*pi*rInt_R(mom,r,rscheme_oc)
+         else if ( nVarEps == 3 ) then
+            mom(:)=r(:)**2*rho0(:)**2*temp0(:)**(-3)*exp(-Bn/temp0(:))
             facIH=four*pi*rInt_R(mom,r,rscheme_oc)
          end if
 

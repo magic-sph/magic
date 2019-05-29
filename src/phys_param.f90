@@ -45,6 +45,7 @@ module physical_parameters
    real(cp) :: epscxi0        ! Internal chemical heat source magnitude
    real(cp) :: epsc           ! Renormalisation of epsc0
    real(cp) :: epscxi         ! Renormalisation of epsc0Xi
+   real(cp) :: Bn             ! Normalisation of He burning
    real(cp) :: strat          ! number of density scale heights
    real(cp) :: polind         ! polytropic index
    real(cp) :: ViscHeatFac    ! Prefactor for viscous heating: :math:`Di\,Pr/Ra`
