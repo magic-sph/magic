@@ -1509,6 +1509,13 @@ contains
       t_TO_stop     =0.0_cp
       dt_TO         =0.0_cp
 
+      !----- TO movie outputs:
+      n_TOmovie_step  =0
+      n_TOmovie_frames=0
+      t_TOmovie_start =0.0_cp
+      t_TOmovie_stop  =0.0_cp
+      dt_TOmovie      =0.0_cp
+
       !----- Times for different output:
       do n=1,n_time_hits
          t_graph(n)  =-one
