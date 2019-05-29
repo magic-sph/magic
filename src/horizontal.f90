@@ -153,11 +153,14 @@ contains
 
       !-- Local variables:
       integer :: norm,n_theta,n_phi
-      integer :: l,m,lm,lmP,mc
+      integer :: l,m,lm,mc
       real(cp) :: ampnu!,q0
       real(cp) :: clm(0:l_max+1,0:l_max+1)
+#ifndef WITH_SHTNS
+      integer :: lmP
       real(cp) :: plma(lmP_max)
       real(cp) :: dtheta_plma(lmP_max)
+#endif
       real(cp) :: colat
       real(cp) :: fac
       real(cp) :: Pl0Eq(l_max+1)

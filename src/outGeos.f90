@@ -43,7 +43,7 @@ module geos_mod
    real(cp), allocatable :: VorOld(:,:,:)
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
 
-   integer :: n_geos_file
+   integer :: n_geos_file, nrp_geos
    integer :: nSmax, nZmaxA, nSstart, nSstop
    type(load), allocatable :: cyl_balance(:)
    character(len=72) :: geos_file
@@ -58,6 +58,12 @@ contains
       !
       logical, intent(in) :: l_geos
       logical, intent(in) :: l_PV
+
+#ifdef WITH_SHTNS
+      nrp_geos=nrp+2 ! One has to include the 2 extra points again
+#else
+      nrp_geos=nrp
+#endif
 
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
       nSmax=int(sDens*nSmax)
@@ -88,8 +94,8 @@ contains
          allocate( dPlmZ(l_max+1,nZmaxA/2+1,nSstart:nSstop) )
          bytes_allocated = bytes_allocated + 2*(l_max+1)*(nZmaxA/2+1)* &
          &                 (nSstop-nSstart+1)*SIZEOF_DEF_REAL
-         allocate( VorOld(nrp,nZmaxA,nSstart:nSstop) )
-         bytes_allocated = bytes_allocated + nrp*nZmaxA*(nSstop-nSstart+1)* &
+         allocate( VorOld(nrp_geos,nZmaxA,nSstart:nSstop) )
+         bytes_allocated = bytes_allocated + nrp_geos*nZmaxA*(nSstop-nSstart+1)* &
          &                 SIZEOF_DEF_REAL
 
          allocate( nZC_Sloc(nSstart:nSstop),nZ2(nZmaxA,nSstart:nSstop) )
@@ -189,10 +195,10 @@ contains
 
 
       !-- Representation in (phi,z):
-      real(cp) :: VrS(nrp,nZmaxA),VrInt(nZmaxA),VrIntS
-      real(cp) :: VtS(nrp,nZmaxA),VtInt(nZmaxA),VtIntS
-      real(cp) :: VpS(nrp,nZmaxA),VpInt(nZmaxA),VpIntS
-      real(cp) :: VozS(nrp,nZmaxA)
+      real(cp) :: VrS(nrp_geos,nZmaxA),VrInt(nZmaxA),VrIntS
+      real(cp) :: VtS(nrp_geos,nZmaxA),VtInt(nZmaxA),VtIntS
+      real(cp) :: VpS(nrp_geos,nZmaxA),VpInt(nZmaxA),VpIntS
+      real(cp) :: VozS(nrp_geos,nZmaxA)
       real(cp) :: sinT,cosT
       integer :: nInt,nInts   ! index for NHS and SHS integral
       integer :: nZ,nZmax,nZS,nZN
@@ -218,12 +224,12 @@ contains
       character(len=64) :: version
       integer :: nFields,nFieldSize
       real(cp) :: dumm(40)
-      real(outp) :: CVz(nrp,nSmax)
-      real(outp) :: CVor(nrp,nSmax)
-      real(outp) :: CHel(nrp,nSmax)
-      real(outp) :: CVz_Sloc(nrp,nSstart:nSstop)
-      real(outp) :: CVor_Sloc(nrp,nSstart:nSstop)
-      real(outp) :: CHel_Sloc(nrp,nSstart:nSstop)
+      real(outp) :: CVz(nrp_geos,nSmax)
+      real(outp) :: CVor(nrp_geos,nSmax)
+      real(outp) :: CHel(nrp_geos,nSmax)
+      real(outp) :: CVz_Sloc(nrp_geos,nSstart:nSstop)
+      real(outp) :: CVor_Sloc(nrp_geos,nSstart:nSstop)
+      real(outp) :: CHel_Sloc(nrp_geos,nSstart:nSstop)
 
 #ifdef WITH_MPI
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -586,7 +592,7 @@ contains
          end do
 
 #ifdef WITH_MPI
-         sendcount  = (nSstop-nSstart+1)*nrp
+         sendcount  = (nSstop-nSstart+1)*nrp_geos
          do i=0,n_procs-1
             recvcounts(i)=cyl_balance(i)%n_per_rank
          end do
@@ -749,10 +755,10 @@ contains
       character(len=80) :: fileName
 
       !-- Output of all three field components:
-      real(cp) :: VsS(nrp,nZmaxA)
-      real(cp) :: VpS(nrp,nZmaxA)
-      real(cp) :: VzS(nrp,nZmaxA)
-      real(cp) :: VorS(nrp,nZmaxA)
+      real(cp) :: VsS(nrp_geos,nZmaxA)
+      real(cp) :: VpS(nrp_geos,nZmaxA)
+      real(cp) :: VzS(nrp_geos,nZmaxA)
+      real(cp) :: VorS(nrp_geos,nZmaxA)
       real(outp) :: frame(5,n_phi_max*nZmaxA,nSmax)
 
       integer :: n_pvz_file, n_vcy_file
@@ -1007,10 +1013,10 @@ contains
       integer,     intent(in) :: kindCalc
 
       !--- Output: function on azimuthal grid points defined by FT!
-      real(cp), intent(out) :: VrS(nrp,nZmaxA)
-      real(cp), intent(out) :: VtS(nrp,nZmaxA)
-      real(cp), intent(out) :: VpS(nrp,nZmaxA)
-      real(cp), intent(out) :: VorS(nrp,nZmaxA)
+      real(cp), intent(out) :: VrS(nrp_geos,nZmaxA)
+      real(cp), intent(out) :: VtS(nrp_geos,nZmaxA)
+      real(cp), intent(out) :: VpS(nrp_geos,nZmaxA)
+      real(cp), intent(out) :: VorS(nrp_geos,nZmaxA)
       real(cp), optional, intent(out) :: dpEk(nZmaxA)
 
       !--- Local variables:
@@ -1018,10 +1024,10 @@ contains
       integer :: nS,nN,mc,lm,l,m,nCheb,nPhi,n
       real(cp) :: x,phiNorm,mapFac,OS,cosT,sinT,Or_e1,Or_e2
       complex(cp) :: Vr,Vt1,Vt2,Vp1,Vp2,Vor,Vot1,Vot2
-      real(cp) :: VotS(nrp,nZmaxA)
+      real(cp) :: VotS(nrp_geos,nZmaxA)
       complex(cp) :: wSr,dwSr,ddwSr,zSr,dzSr
 
-      real(cp) :: dV(nrp,nZmaxA)
+      real(cp) :: dV(nrp_geos,nZmaxA)
       complex(cp) :: dp
 
 
@@ -1029,7 +1035,7 @@ contains
       phiNorm=two*pi/n_phi_max
 
       do nS=1,nZmax
-         do mc=1,nrp
+         do mc=1,nrp_geos
             VrS(mc,nS) =0.0_cp
             VtS(mc,nS) =0.0_cp
             VpS(mc,nS) =0.0_cp
@@ -1197,7 +1203,7 @@ contains
             VorS(2*mc-1,nS)=cosT*Or_e2*VorS(2*mc-1,nS) - Or_e1*VotS(2*mc-1,nS)
             VorS(2*mc  ,nS)=cosT*Or_e2*VorS(2*mc  ,nS) - Or_e1*VotS(2*mc  ,nS)
          end do
-         do mc=2*n_m_max+1,nrp
+         do mc=2*n_m_max+1,nrp_geos
             VrS(mc,nS) =0.0_cp
             VpS(mc,nS) =0.0_cp
             VtS(mc,nS) =0.0_cp
@@ -1230,7 +1236,7 @@ contains
             VorS(2*mc-1,nS)=cosT*Or_e2*VorS(2*mc-1,nS) - Or_e1*VotS(2*mc-1,nS)
             VorS(2*mc  ,nS)=cosT*Or_e2*VorS(2*mc  ,nS) - Or_e1*VotS(2*mc  ,nS)
          end do
-         do mc=2*n_m_max+1,nrp
+         do mc=2*n_m_max+1,nrp_geos
             VrS(mc,nS) =0.0_cp
             VpS(mc,nS) =0.0_cp
             VtS(mc,nS) =0.0_cp
@@ -1262,13 +1268,13 @@ contains
                      dV(2*mc  ,nS)=aimag(dp)*VpS(2*mc-1,nS)+ real(dp)*VpS(2*mc,nS)
                   end do
                end if
-               do mc=2*n_m_max+1,nrp
+               do mc=2*n_m_max+1,nrp_geos
                   dV(mc,nS)=0.0_cp
                end do
             end do
 
             !--- Transform m 2 phi for phi-derivative
-            if ( .not. l_axi ) call fft_to_real(dV,nrp,nZmax)
+            if ( .not. l_axi ) call fft_to_real(dV,nrp_geos,nZmax)
 
             !--- Phi average
             do nS=1,nZmax
@@ -1290,10 +1296,10 @@ contains
 
       !----- Transform m 2 phi for flow field:
       if ( .not. l_axi ) then
-         call fft_to_real(VrS,nrp,nZmax)
-         call fft_to_real(VtS,nrp,nZmax)
-         call fft_to_real(VpS,nrp,nZmax)
-         call fft_to_real(VorS,nrp,nZmax)
+         call fft_to_real(VrS,nrp_geos,nZmax)
+         call fft_to_real(VtS,nrp_geos,nZmax)
+         call fft_to_real(VpS,nrp_geos,nZmax)
+         call fft_to_real(VorS,nrp_geos,nZmax)
       end if
 
    end subroutine getDVptr
