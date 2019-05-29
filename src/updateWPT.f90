@@ -1,6 +1,6 @@
 #include "perflib_preproc.cpp"
 module updateWPT_mod
-   
+
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
@@ -53,16 +53,21 @@ contains
 
    subroutine initialize_updateWPT
 
+      integer, pointer :: nLMBs2(:)
+
+      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+
       allocate( pt0Mat(2*n_r_max,2*n_r_max) )
       allocate( pt0Mat_fac(2*n_r_max,2) )
       allocate( pt0Pivot(2*n_r_max) )
       bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
       &                 +2*n_r_max*SIZEOF_INTEGER
-      allocate( wptMat(3*n_r_max,3*n_r_max,l_max) )
-      allocate(wptMat_fac(3*n_r_max,2,l_max))
-      allocate ( wptPivot(3*n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(9*n_r_max*l_max+6*n_r_max*l_max)*&
-      &                 SIZEOF_DEF_REAL+3*n_r_max*l_max*SIZEOF_INTEGER
+      allocate( wptMat(3*n_r_max,3*n_r_max,nLMBs2(1+rank)) )
+      allocate(wptMat_fac(3*n_r_max,2,nLMBs2(1+rank)))
+      allocate ( wptPivot(3*n_r_max,nLMBs2(1+rank)) )
+      bytes_allocated = bytes_allocated+(9*n_r_max*nLMBs2(1+rank)+6*n_r_max* &
+      &                 nLMBs2(1+rank))*SIZEOF_DEF_REAL+3*n_r_max*           &
+      &                 nLMBs2(1+rank)*SIZEOF_INTEGER
       allocate( lWPTmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
@@ -219,7 +224,7 @@ contains
             &            temp0(nR)*orho2(nR)*workB(lm,nR) +             &
             &            or2(nR)*orho1(nR)*dLtemp0(nR)*dVTrLM(lm,nR)+   &
             &            ViscHeatFac*ThExpNb*or2(nR)*alpha0(nR)*        &
-            &            temp0(nR)*orho2(nR)*( dLalpha0(nR)-beta(nR) )* &   
+            &            temp0(nR)*orho2(nR)*( dLalpha0(nR)-beta(nR) )* &
             &                                           dVPrLM(lm,nR)
          end do
       end do
@@ -255,10 +260,10 @@ contains
             end if
          else
             if ( .not. lWPTmat(l1) ) then
-               call get_wptMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &          hdif_S(st_map%lm2(l1,0)),       &
-                    &          wptMat(:,:,l1),wptPivot(:,l1),  &
-                    &          wptMat_fac(:,:,l1))
+               call get_wptMat(dt,l1,hdif_V(st_map%lm2(l1,0)),       &
+                    &          hdif_S(st_map%lm2(l1,0)),             &
+                    &          wptMat(:,:,nLMB2),wptPivot(:,nLMB2),  &
+                    &          wptMat_fac(:,:,nLMB2))
                lWPTmat(l1)=.true.
             end if
          end if
@@ -342,16 +347,16 @@ contains
                ! use the mat_fac(:,1) to scale the rhs
                do lm=lmB0+1,lmB
                   do nR=1,3*n_r_max
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wptMat_fac(nR,1,l1)
+                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wptMat_fac(nR,1,nLMB2)
                   end do
                end do
-               call solve_mat(wptMat(:,:,l1),3*n_r_max,3*n_r_max,        &
-                    &         wptPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),&
+               call solve_mat(wptMat(:,:,nLMB2),3*n_r_max,3*n_r_max,        &
+                    &         wptPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),&
                     &         lmB-lmB0)
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,3*n_r_max
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wptMat_fac(nR,2,l1)
+                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wptMat_fac(nR,2,nLMB2)
                   end do
                end do
             end if
@@ -577,7 +582,7 @@ contains
                &              beta(nR)+two*or1(nR) ) +                    &
                &                  dLh(st_map%lm2(l1,m1))*or2(nR) )        &
                &                                       *  tt(lm1,nR)    - &
-               &       ViscHeatFac*ThExpNb*alpha0(nR)*orho1(nR)*temp0(nR)*& 
+               &       ViscHeatFac*ThExpNb*alpha0(nR)*orho1(nR)*temp0(nR)*&
                &        (                             workC(lm1,nR) +     &
                &        ( dLkappa(nR)+dLtemp0(nR)+two*dLalpha0(nR)        &
                &          +two*or1(nR)-beta(nR))*        dp(lm1,nR) +     &
@@ -606,8 +611,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_wptMat(dt,l,hdif_vel,hdif_t,wptMat,wptPivot,wptMat_fac)
       !
-      !  Purpose of this subroutine is to contruct the time step matrix  
-      !  wpmat  for the NS equation.                                    
+      !  Purpose of this subroutine is to contruct the time step matrix
+      !  wpmat  for the NS equation.
       !
 
       !-- Input variables:
@@ -628,21 +633,21 @@ contains
 
       O_dt=one/dt
       dLh =real(l*(l+1),kind=cp)
-    
+
       !-- Now mode l>0
-    
+
       !----- Boundary conditions, see above:
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
          nR_out_t=nR_out+2*n_r_max
-    
+
          wptMat(1,nR_out)        =rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          wptMat(1,nR_out_p)      =0.0_cp
          wptMat(1,nR_out_t)      =0.0_cp
          wptMat(n_r_max,nR_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
          wptMat(n_r_max,nR_out_p)=0.0_cp
          wptMat(n_r_max,nR_out_t)=0.0_cp
-    
+
          if ( ktopv == 1 ) then  ! free slip !
             wptMat(n_r_max+1,nR_out)=rscheme_oc%rnorm * (          &
             &                        rscheme_oc%d2rMat(1,nR_out) - &
@@ -714,9 +719,9 @@ contains
          end if
          wptMat(3*n_r_max,nR_out)  =0.0_cp
 
-    
+
       end do   !  loop over nR_out
-    
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
@@ -741,7 +746,7 @@ contains
             wptMat(3*n_r_max,nR_out_t)  =0.0_cp
          end do
       end if
-    
+
       if ( l_temperature_diff ) then ! temperature diffusion
 
          do nR_out=1,n_r_max
@@ -764,7 +769,7 @@ contains
                ! Buoyancy
                wptMat(nR,nR_out_t)=-rscheme_oc%rnorm*alpha*BuoFac*rgrav(nR)*    &
                &                    rho0(nR)*alpha0(nR)*rscheme_oc%rMat(nR,nR_out)
-       
+
                ! Pressure gradient
                wptMat(nR,nR_out_p)= rscheme_oc%rnorm*alpha*(                    &
                &                                    rscheme_oc%drMat(nR,nR_out) &
@@ -782,7 +787,7 @@ contains
                &                                   rscheme_oc%drMat(nR,nR_out)  &
                &            -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)               &
                &           +two*third*beta(nR)   )* rscheme_oc%rMat(nR,nR_out) ) )
-       
+
                wptMat(nR_p,nR_out_p)= -rscheme_oc%rnorm*alpha*dLh*or2(nR)*        &
                &                       rscheme_oc%rMat(nR,nR_out)
 
@@ -830,7 +835,7 @@ contains
                ! Buoyancy
                wptMat(nR,nR_out_t)=-rscheme_oc%rnorm*alpha*BuoFac*rgrav(nR)*  &
                &                   rho0(nR)*alpha0(nR)*rscheme_oc%rMat(nR,nR_out)
-       
+
                ! Pressure gradient
                wptMat(nR,nR_out_p)= rscheme_oc%rnorm*alpha*(                      &
                &                                rscheme_oc%drMat(nR,nR_out)       &
@@ -848,7 +853,7 @@ contains
                &                                    rscheme_oc%drMat(nR,nR_out) &
                &                -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)           &
                &            +two*third*beta(nR)   )* rscheme_oc%rMat(nR,nR_out) ) )
-       
+
                wptMat(nR_p,nR_out_p)= -rscheme_oc%rnorm*alpha*dLh*or2(nR)*     &
                &                       rscheme_oc%rMat(nR,nR_out)
 
@@ -883,7 +888,7 @@ contains
             end do
          end do
       end if
-    
+
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
          nR_p=nR+n_r_max
@@ -907,7 +912,7 @@ contains
          wptMat(nR_t,2*n_r_max+1)=rscheme_oc%boundary_fac*wptMat(nR_t,2*n_r_max+1)
          wptMat(nR_t,3*n_r_max)  =rscheme_oc%boundary_fac*wptMat(nR_t,3*n_r_max)
       end do
-    
+
       ! compute the linesum of each line
       do nR=1,3*n_r_max
          wptMat_fac(nR,1)=one/maxval(abs(wptMat(nR,:)))
@@ -916,7 +921,7 @@ contains
       do nr=1,3*n_r_max
          wptMat(nR,:) = wptMat(nR,:)*wptMat_fac(nR,1)
       end do
-    
+
       ! also compute the rowsum of each column
       do nR=1,3*n_r_max
          wptMat_fac(nR,2)=one/maxval(abs(wptMat(:,nR)))
@@ -969,7 +974,7 @@ contains
 
                ptMat(nR_p,nR_out)  = -rscheme_oc%rnorm*rho0(nR)*alpha0(nR)*  &
                &                     BuoFac*rgrav(nR)*rscheme_oc%rMat(nR,nR_out)
-               ptMat(nR_p,nR_out_p)= rscheme_oc%rnorm*(  rscheme_oc%drMat(nR,nR_out) & 
+               ptMat(nR_p,nR_out_p)= rscheme_oc%rnorm*(  rscheme_oc%drMat(nR,nR_out) &
                &                   +BuoFac*ViscHeatFac*(                             &
                &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR) )*         &
                &                   alpha0(nR)*rgrav(nR)*  rscheme_oc%rMat(nR,nR_out) )
@@ -1008,7 +1013,7 @@ contains
                ptMat(nR_p,nR_out_p)= rscheme_oc%rnorm*(  rscheme_oc%drMat(nR,nR_out) &
                &                   +BuoFac*ViscHeatFac*(                             &
                &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR) )*         &
-               &                   alpha0(nR)*rgrav(nR)*  rscheme_oc%rMat(nR,nR_out) ) 
+               &                   alpha0(nR)*rgrav(nR)*  rscheme_oc%rMat(nR,nR_out) )
             end do
          end do
 

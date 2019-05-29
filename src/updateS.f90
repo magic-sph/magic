@@ -28,7 +28,7 @@ module updateS_mod
 
    !-- Local variables
    complex(cp), allocatable :: rhs1(:,:,:)
-   real(cp), allocatable :: s0Mat(:,:)     ! for l=m=0  
+   real(cp), allocatable :: s0Mat(:,:)     ! for l=m=0
    real(cp), allocatable :: sMat(:,:,:)
    integer, allocatable :: s0Pivot(:)
    integer, allocatable :: sPivot(:,:)
@@ -48,16 +48,21 @@ contains
 
    subroutine initialize_updateS
 
-      allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
-      allocate( sMat(n_r_max,n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(n_r_max*n_r_max*(1+l_max))* &
+      integer, pointer :: nLMBs2(:)
+
+      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+
+      allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0
+      allocate( sMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
+      bytes_allocated = bytes_allocated+(n_r_max*n_r_max*(1+nLMBs2(1+rank)))* &
       &                 SIZEOF_DEF_REAL
       allocate( s0Pivot(n_r_max) )
-      allocate( sPivot(n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*l_max)*SIZEOF_INTEGER
+      allocate( sPivot(n_r_max,nLMBs2(1+rank)) )
+      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*nLMBs2(1+rank))* &
+      &                 SIZEOF_INTEGER
 #ifdef WITH_PRECOND_S
-      allocate(sMat_fac(n_r_max,l_max))
-      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+      allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
+      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S0
       allocate(s0Mat_fac(n_r_max))
@@ -87,7 +92,7 @@ contains
       deallocate( s0Mat_fac )
 #endif
       deallocate( rhs1 )
-  
+
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
    subroutine updateS(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
@@ -202,7 +207,6 @@ contains
 
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
-         !write(*,"(3(A,I3),A)") "Launching task for nLMB2=",nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
 
          if ( l1 == 0 ) then
             if ( .not. lSmat(l1) ) then
@@ -217,10 +221,10 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,l1),sPivot(:,l1),sMat_fac(:,l1))
+                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2),sMat_fac(:,nLMB2))
 #else
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,l1),sPivot(:,l1))
+                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2))
 #endif
                lSmat(l1)=.true.
                !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
@@ -266,14 +270,14 @@ contains
                   rhs1(1,lmB,threadid)=      tops(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=bots(l1,m1)
 #ifdef WITH_PRECOND_S
-                  rhs1(1,lmB,threadid)=      sMat_fac(1,l1)*rhs1(1,lmB,threadid)
-                  rhs1(n_r_max,lmB,threadid)=sMat_fac(1,l1)*rhs1(n_r_max,lmB,threadid)
+                  rhs1(1,lmB,threadid)=      sMat_fac(1,nLMB2)*rhs1(1,lmB,threadid)
+                  rhs1(n_r_max,lmB,threadid)=sMat_fac(1,nLMB2)*rhs1(n_r_max,lmB,threadid)
 #endif
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt+w1*dsdt(lm1,nR)  &
                      &                     +w2*dsdtLast(lm1,nR)
 #ifdef WITH_PRECOND_S
-                     rhs1(nR,lmB,threadid) = sMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
+                     rhs1(nR,lmB,threadid) = sMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
 #endif
                   end do
                end if
@@ -282,8 +286,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call solve_mat(sMat(:,:,l1),n_r_max,n_r_max, &
-                    &         sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(sMat(:,:,nLMB2),n_r_max,n_r_max, &
+                    &         sPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -471,7 +475,7 @@ contains
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dsdt(lm,nR)=           orho1(nR)*        dsdt(lm,nR) - & 
+            dsdt(lm,nR)=           orho1(nR)*        dsdt(lm,nR) - &
             &        or2(nR)*orho1(nR)*        work_LMloc(lm,nR) + &
             &        or2(nR)*orho1(nR)*dLtemp0(nR)*dVSrLM(lm,nR) - &
             &        dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(nR)*   &
@@ -513,10 +517,10 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,l1),sPivot(:,l1),sMat_fac(:,l1))
+                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2),sMat_fac(:,nLMB2))
 #else
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,l1),sPivot(:,l1))
+                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2))
 #endif
                lSmat(l1)=.true.
              !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
@@ -562,14 +566,14 @@ contains
                   rhs1(1,lmB,threadid)=      tops(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=bots(l1,m1)
 #ifdef WITH_PRECOND_S
-                  rhs1(1,lmB,threadid)=      sMat_fac(1,l1)*rhs1(1,lmB,threadid)
-                  rhs1(n_r_max,lmB,threadid)=sMat_fac(1,l1)*rhs1(n_r_max,lmB,threadid)
+                  rhs1(1,lmB,threadid)=      sMat_fac(1,nLMB2)*rhs1(1,lmB,threadid)
+                  rhs1(n_r_max,lmB,threadid)=sMat_fac(1,nLMB2)*rhs1(n_r_max,lmB,threadid)
 #endif
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt + w1*dsdt(lm1,nR)  &
                      &                     + w2*dsdtLast(lm1,nR)
 #ifdef WITH_PRECOND_S
-                     rhs1(nR,lmB,threadid) = sMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
+                     rhs1(nR,lmB,threadid) = sMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
 #endif
                   end do
                end if
@@ -578,8 +582,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call solve_mat(sMat(:,:,l1),n_r_max,n_r_max, &
-                    &         sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(sMat(:,:,nLMB2),n_r_max,n_r_max, &
+                    &         sPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -663,7 +667,7 @@ contains
            &      - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
            &        (                                         work_LMloc(lm1,nR) &
            &                + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) *  ds(lm1,nR) &
-           &          - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) ) 
+           &          - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) )
          end do
       end do
       !$OMP end do
@@ -681,8 +685,8 @@ contains
    subroutine get_s0Mat(dt,sMat,sPivot)
 #endif
       !
-      !  Purpose of this subroutine is to contruct the time step matrix   
-      !  sMat0                                                            
+      !  Purpose of this subroutine is to contruct the time step matrix
+      !  sMat0
       !
 
       !-- Input variables
@@ -700,10 +704,10 @@ contains
       real(cp) :: O_dt
 
       O_dt=one/dt
-    
+
       !----- Boundary condition:
       do nR_out=1,rscheme_oc%n_max
-    
+
          if ( ktops == 1 ) then
             !--------- Constant entropy at CMB:
             sMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
@@ -727,12 +731,12 @@ contains
             sMat(n_r_max,nR_out)=0.0_cp
          end do
       end if
-    
+
       if ( l_anelastic_liquid ) then
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
                sMat(nR,nR_out)= rscheme_oc%rnorm * (                          &
-               &                            O_dt*rscheme_oc%rMat(nR,nR_out) - & 
+               &                            O_dt*rscheme_oc%rMat(nR,nR_out) - &
                &      alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
                & (beta(nR)+two*or1(nR)+dLkappa(nR))*                          &
                &                                rscheme_oc%drMat(nR,nR_out) ) )
@@ -742,20 +746,20 @@ contains
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
                sMat(nR,nR_out)= rscheme_oc%rnorm * (                         &
-               &                           O_dt*rscheme_oc%rMat(nR,nR_out) - & 
+               &                           O_dt*rscheme_oc%rMat(nR,nR_out) - &
                &     alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
                & (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*             &
                &                               rscheme_oc%drMat(nR,nR_out) ) )
             end do
          end do
       end if
-    
+
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
          sMat(nR,1)      =rscheme_oc%boundary_fac*sMat(nR,1)
          sMat(nR,n_r_max)=rscheme_oc%boundary_fac*sMat(nR,n_r_max)
       end do
-    
+
 #ifdef WITH_PRECOND_S0
       ! compute the linesum of each line
       do nR=1,n_r_max
@@ -766,7 +770,7 @@ contains
          sMat(nR,:) = sMat(nR,:)*sMat_fac(nR)
       end do
 #endif
-    
+
       !---- LU decomposition:
       call prepare_mat(sMat,n_r_max,n_r_max,sPivot,info)
       if ( info /= 0 ) then
@@ -782,9 +786,9 @@ contains
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
-      !  sMat(i,j) and s0mat for the entropy equation.                    
+      !  sMat(i,j) and s0mat for the entropy equation.
       !
-      
+
       !-- Input variables
       real(cp), intent(in) :: dt
       real(cp), intent(in) :: hdif
@@ -915,7 +919,7 @@ contains
       if ( info /= 0 ) then
          call abortRun('Singular matrix sMat!')
       end if
-            
+
    end subroutine get_Smat
 !-----------------------------------------------------------------------------
 end module updateS_mod

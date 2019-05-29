@@ -1,6 +1,6 @@
 #include "perflib_preproc.cpp"
 module updateWP_mod
-   
+
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
@@ -21,7 +21,7 @@ module updateWP_mod
    use algebra, only: prepare_mat, solve_mat
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize
+   use parallel_mod, only: chunksize, rank
    use RMS_helpers, only:  hInt2Pol
    use radial_der, only: get_dddr, get_ddr, get_dr
    use integration, only: rInt_R
@@ -51,13 +51,17 @@ contains
 
    subroutine initialize_updateWP
 
-      allocate( wpMat(2*n_r_max,2*n_r_max,l_max), p0Mat(n_r_max,n_r_max) )
-      allocate( wpMat_fac(2*n_r_max,2,l_max) )
-      allocate( wpPivot(2*n_r_max,l_max), p0Pivot(n_r_max) )
+      integer, pointer :: nLMBs2(:)
+
+      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+
+      allocate( wpMat(2*n_r_max,2*n_r_max,nLMBs2(1+rank)), p0Mat(n_r_max,n_r_max) )
+      allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
+      allocate( wpPivot(2*n_r_max,nLMBs2(1+rank)), p0Pivot(n_r_max) )
       allocate( lWPmat(0:l_max) )
-      bytes_allocated=bytes_allocated+((4*n_r_max+4)*(l_max)+n_r_max)*n_r_max* &
-      &               SIZEOF_DEF_REAL+(2*n_r_max*l_max+n_r_max)*SIZEOF_INTEGER+&
-      &               (l_max+1)*SIZEOF_LOGICAL
+      bytes_allocated=bytes_allocated+((4*n_r_max+4)*nLMBs2(1+rank)+n_r_max)*    &
+      &               n_r_max*SIZEOF_DEF_REAL+(2*n_r_max*nLMBs2(1+rank)+n_r_max)*&
+      &               SIZEOF_INTEGER+(l_max+1)*SIZEOF_LOGICAL
 
       if ( l_RMS ) then
          allocate( workB(llm:ulm,n_r_max) )
@@ -253,11 +257,13 @@ contains
             if ( .not. lWPmat(l1) ) then
                !PERFON('upWP_mat')
                if ( l_double_curl ) then
-                  call get_wMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                       &        wpMat(:,:,l1),wpPivot(:,l1),wpMat_fac(:,:,l1))
+                  call get_wMat(dt,l1,hdif_V(st_map%lm2(l1,0)),    &
+                       &        wpMat(:,:,nLMB2),wpPivot(:,nLMB2), &
+                       &        wpMat_fac(:,:,nLMB2))
                else
-                  call get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                       &         wpMat(:,:,l1),wpPivot(:,l1),wpMat_fac(:,:,l1))
+                  call get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,0)),   &
+                       &         wpMat(:,:,nLMB2),wpPivot(:,nLMB2),&
+                       &         wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
                !PERFOFF
@@ -366,7 +372,7 @@ contains
                            rhs1(nR,lmB,threadid)=O_dt*dLh(st_map%lm2(l1,m1))* &
                            &                     or2(nR)*w(lm1,nR) +          &
                            &                     rho0(nR)*alpha*BuoFac*       &
-                           &                     rgrav(nR)*s(lm1,nR) +        & 
+                           &                     rgrav(nR)*s(lm1,nR) +        &
                            &                     w1*dwdt(lm1,nR) +            &
                            &                     w2*dwdtLast(lm1,nR)
                            rhs1(nR+n_r_max,lmB,threadid)=-O_dt*dLh(st_map%lm2(l1,&
@@ -386,15 +392,15 @@ contains
                ! use the mat_fac(:,1) to scale the rhs
                do lm=lmB0+1,lmB
                   do nR=1,2*n_r_max
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,1,l1)
+                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,1,nLMB2)
                   end do
                end do
-               call solve_mat(wpMat(:,:,l1),2*n_r_max,2*n_r_max,    &
-                    &         wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(wpMat(:,:,nLMB2),2*n_r_max,2*n_r_max,    &
+                    &         wpPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,2*n_r_max
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,2,l1)
+                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,2,nLMB2)
                   end do
                end do
             end if
@@ -603,7 +609,7 @@ contains
                   &               + dLh(st_map%lm2(l1,m1))*or2(nR)           &
                   &                  * ( two*or1(nR)+two*third*beta(nR)      &
                   &                     +dLvisc(nR) )   *         w(lm1,nR)  &
-                  &                                         ) 
+                  &                                         )
                end if
 
                if ( lRmsNext ) then
@@ -722,8 +728,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_wpMat(dt,l,hdif,wpMat,wpPivot,wpMat_fac)
       !
-      !  Purpose of this subroutine is to contruct the time step matrix  
-      !  wpmat  for the NS equation.                                    
+      !  Purpose of this subroutine is to contruct the time step matrix
+      !  wpmat  for the NS equation.
       !
 
       !-- Input variables:
@@ -753,19 +759,19 @@ contains
 
       O_dt=one/dt
       dLh =real(l*(l+1),kind=cp)
-    
+
       !-- Now mode l>0
-    
+
       !----- Boundary conditions, see above:
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
-    
+
          wpMat(1,nR_out)        =rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          wpMat(1,nR_out_p)      =0.0_cp
          wpMat(n_r_max,nR_out)  =rscheme_oc%rnorm* &
          &                       rscheme_oc%rMat(n_r_max,nR_out)
          wpMat(n_r_max,nR_out_p)=0.0_cp
-    
+
          if ( ktopv == 1 ) then  ! free slip !
             wpMat(n_r_max+1,nR_out)= rscheme_oc%rnorm * (           &
             &                        rscheme_oc%d2rMat(1,nR_out) -  &
@@ -775,7 +781,7 @@ contains
             &                       rscheme_oc%drMat(1,nR_out)
          end if
          wpMat(n_r_max+1,nR_out_p)=0.0_cp
-    
+
          if ( kbotv == 1 ) then  ! free slip !
             wpMat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (           &
             &                  rscheme_oc%d2rMat(n_r_max,nR_out) - &
@@ -786,9 +792,9 @@ contains
             &                       rscheme_oc%drMat(n_r_max,nR_out)
          end if
          wpMat(2*n_r_max,nR_out_p)=0.0_cp
-    
+
       end do   !  loop over nR_out
-    
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
@@ -802,7 +808,7 @@ contains
             wpMat(2*n_r_max,nR_out_p)=0.0_cp
          end do
       end if
-    
+
       !----- Other points:
       do nR_out=1,n_r_max
          nR_out_p=nR_out+n_r_max
@@ -820,11 +826,11 @@ contains
             &        -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)        &
             &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )     &
             &          )                    *rscheme_oc%rMat(nR,nR_out)  )  )
-    
+
             wpMat(nR,nR_out_p)= rscheme_oc%rnorm*alpha*(             &
             &                            rscheme_oc%drMat(nR,nR_out) &
             &                  -beta(nR)* rscheme_oc%rMat(nR,nR_out))
-            ! the following part gives sometimes very large 
+            ! the following part gives sometimes very large
             ! matrix entries
             wpMat(nR_p,nR_out)=rscheme_oc%rnorm * (                           &
             &                  -O_dt*dLh*or2(nR)*rscheme_oc%drMat(nR,nR_out)  &
@@ -836,12 +842,12 @@ contains
             &                                    rscheme_oc%drMat(nR,nR_out)  &
             &          -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)                  &
             &          +two*third*beta(nR)   )*   rscheme_oc%rMat(nR,nR_out) ) )
-    
+
             wpMat(nR_p,nR_out_p)= -rscheme_oc%rnorm*alpha*dLh*or2(nR)* &
             &                      rscheme_oc%rMat(nR,nR_out)
          end do
       end do
-    
+
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
          nR_p=nR+n_r_max
@@ -854,7 +860,7 @@ contains
          wpMat(nR_p,n_r_max+1)=rscheme_oc%boundary_fac*wpMat(nR_p,n_r_max+1)
          wpMat(nR_p,2*n_r_max)=rscheme_oc%boundary_fac*wpMat(nR_p,2*n_r_max)
       end do
-    
+
       ! compute the linesum of each line
       do nR=1,2*n_r_max
          wpMat_fac(nR,1)=one/maxval(abs(wpMat(nR,:)))
@@ -863,7 +869,7 @@ contains
       do nr=1,2*n_r_max
          wpMat(nR,:) = wpMat(nR,:)*wpMat_fac(nR,1)
       end do
-    
+
       ! also compute the rowsum of each column
       do nR=1,2*n_r_max
          wpMat_fac(nR,2)=one/maxval(abs(wpMat(:,nR)))
@@ -878,7 +884,7 @@ contains
       write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
-      
+
       do i=1,2*n_r_max
          do j=1,2*n_r_max
             write(filehandle,"(2ES20.12,1X)",advance="no") wpMat(i,j)
@@ -912,7 +918,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_wMat(dt,l,hdif,wMat,wPivot,wMat_fac)
       !
-      !  Purpose of this subroutine is to contruct the time step matrix  
+      !  Purpose of this subroutine is to contruct the time step matrix
       !  wpmat  for the NS equation. This matrix corresponds here to the
       !  radial component of the double-curl of the Navier-Stokes equation.
       !
@@ -934,27 +940,27 @@ contains
 
       O_dt=one/dt
       dLh =real(l*(l+1),kind=cp)
-    
+
       !-- Now mode l>0
-    
+
       !----- Boundary conditions, see above:
       do nR_out=1,rscheme_oc%n_max
          nR_out_ddw=nR_out+n_r_max
-    
+
          wMat(1,nR_out)      =rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          wMat(1,nR_out_ddw)  =0.0_cp
          wMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
          wMat(n_r_max,nR_out_ddw)=0.0_cp
-    
+
          if ( ktopv == 1 ) then  ! free slip !
             wMat(n_r_max+1,nR_out)= -rscheme_oc%rnorm *         &
-            &                       (two*or1(1)+beta(1))*rscheme_oc%drMat(1,nR_out) 
+            &                       (two*or1(1)+beta(1))*rscheme_oc%drMat(1,nR_out)
             wMat(n_r_max+1,nR_out_ddw)= rscheme_oc%rnorm * rscheme_oc%rMat(1,nR_out)
          else                    ! no slip, note exception for l=1,m=0
             wMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
             wMat(n_r_max+1,nR_out_ddw)=0.0_cp
          end if
-    
+
          if ( kbotv == 1 ) then  ! free slip !
             wMat(2*n_r_max,nR_out)= -rscheme_oc%rnorm *              &
             &                      (two*or1(n_r_max)+beta(n_r_max))* &
@@ -964,9 +970,9 @@ contains
             wMat(2*n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
             wMat(2*n_r_max,nR_out_ddw)=0.0_cp
          end if
-    
+
       end do   !  loop over nR_out
-    
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_ddw=nR_out+n_r_max
@@ -980,14 +986,14 @@ contains
             wMat(2*n_r_max,nR_out_ddw)=0.0_cp
          end do
       end if
-    
+
       !----- Other points:
       do nR_out=1,n_r_max
          nR_out_ddw=nR_out+n_r_max
          do nR=2,n_r_max-1
 
             !-- Here instead of solving one single matrix that would require
-            !-- the 4th derivative, we instead solve a matrix of size 
+            !-- the 4th derivative, we instead solve a matrix of size
             !-- (2*n_r_max, 2*n_r_max) that solve for w and ddw
 
             nR_ddw=nR+n_r_max
@@ -1024,7 +1030,7 @@ contains
             wMat(nR_ddw,nR_out_ddw)=   rscheme_oc%rnorm*rscheme_oc%rMat(nR,nR_out)
          end do
       end do
-    
+
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
          nR_ddw=nR+n_r_max
@@ -1037,7 +1043,7 @@ contains
          wMat(nR_ddw,n_r_max+1)=rscheme_oc%boundary_fac*wMat(nR_ddw,n_r_max+1)
          wMat(nR_ddw,2*n_r_max)=rscheme_oc%boundary_fac*wMat(nR_ddw,2*n_r_max)
       end do
-    
+
       ! compute the linesum of each line
       do nR=1,2*n_r_max
          wMat_fac(nR,1)=one/maxval(abs(wMat(nR,:)))
@@ -1046,7 +1052,7 @@ contains
       do nr=1,2*n_r_max
          wMat(nR,:) = wMat(nR,:)*wMat_fac(nR,1)
       end do
-    
+
       ! also compute the rowsum of each column
       do nR=1,2*n_r_max
          wMat_fac(nR,2)=one/maxval(abs(wMat(:,nR)))

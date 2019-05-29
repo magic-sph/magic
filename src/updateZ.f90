@@ -34,18 +34,18 @@ module updateZ_mod
    use fields, only: work_LMloc
    use useful, only: abortRun
    use special
-    
+
    implicit none
- 
+
    private
- 
+
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workB(:,:)  ! Work array
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: dtV(:)
-   complex(cp), allocatable :: Dif(:) 
+   complex(cp), allocatable :: Dif(:)
    real(cp), allocatable :: zMat(:,:,:)
-   real(cp), allocatable :: z10Mat(:,:) 
+   real(cp), allocatable :: z10Mat(:,:)
 #ifdef WITH_PRECOND_Z
    real(cp), allocatable :: zMat_fac(:,:)
 #endif
@@ -58,21 +58,25 @@ module updateZ_mod
    logical, public, allocatable :: lZmat(:)
 
    integer :: maxThreads
-   
+
    public :: updateZ, initialize_updateZ, finalize_updateZ
 
 contains
 
    subroutine initialize_updateZ
 
-      allocate( zMat(n_r_max,n_r_max,l_max) )
-      allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0 
+      integer, pointer :: nLMBs2(:)
+
+      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+
+      allocate( zMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
+      allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0
       bytes_allocated = bytes_allocated+(n_r_max*n_r_max+ &
-      &                 n_r_max*n_r_max*l_max)*SIZEOF_DEF_REAL
+      &                 n_r_max*n_r_max*nLMBs2(1+rank))*SIZEOF_DEF_REAL
 
       allocate( z10Pivot(n_r_max) )
-      allocate( zPivot(n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*l_max)*&
+      allocate( zPivot(n_r_max,nLMBs2(1+rank)) )
+      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*nLMBs2(1+rank))*&
       &                 SIZEOF_INTEGER
 
 #ifdef WITH_PRECOND_Z10
@@ -80,8 +84,8 @@ contains
       bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_Z
-      allocate(zMat_fac(n_r_max,l_max))
-      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+      allocate(zMat_fac(n_r_max,nLMBs2(1+rank)))
+      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
@@ -100,7 +104,7 @@ contains
 #else
       maxThreads=1
 #endif
- 
+
       allocate(rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
       bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
       &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
@@ -133,7 +137,7 @@ contains
       !  updates the toroidal potential z and its radial derivatives
       !  adds explicit part to time derivatives of z
       !
-    
+
       !-- Input/output of scalar fields:
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)        ! Toroidal velocity potential z
       complex(cp), intent(in)    :: dzdt(llm:ulm,n_r_max)     ! Time derivative of z
@@ -144,7 +148,7 @@ contains
       real(cp),    intent(in) :: lorentz_torque_maLast        ! Lorentz torque (for OC rotation) of previous step
       real(cp),    intent(in) :: lorentz_torque_ic            ! Lorentz torque (for IC rotation)
       real(cp),    intent(in) :: lorentz_torque_icLast        ! Lorentz torque (for IC rotation) of previous step
-    
+
       !-- Input of other variables:
       real(cp),    intent(in) :: time       ! Current time
       real(cp),    intent(in) :: w1         ! Weight for time step
@@ -156,7 +160,7 @@ contains
       complex(cp), intent(out) :: dz(llm:ulm,n_r_max)   ! Radial derivative of z
       real(cp),    intent(out) :: omega_ma              ! Calculated OC rotation
       real(cp),    intent(out) :: omega_ic              ! Calculated IC rotation
-    
+
       !-- local variables:
       real(cp) :: w2                  ! weight of second time step
       real(cp) :: O_dt
@@ -185,17 +189,17 @@ contains
       logical :: l10
       integer :: nLMB
       real(cp) :: ddzASL_loc(l_max+1,n_r_max)
-    
+
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
-    
+
       logical :: DEBUG_OUTPUT=.false.
       integer :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
       integer :: n_r_bot, n_r_top
       complex(cp) :: rhs_sum
-    
+
       !call mpi_barrier(MPI_COMM_WORLD,ierr)
       !write(*,"(3(A,2ES20.12))") "begin upZ: dzdt = ",get_global_sum( dzdt ),&
       !     &", z = ",get_global_sum( z ),&
@@ -215,7 +219,7 @@ contains
       end if
 
       if ( .not. l_update_v ) return
-    
+
       nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
@@ -224,17 +228,17 @@ contains
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-    
-    
+
+
       nLMB = 1+rank
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
       lmStart_00  =max(2,lmStart)
       l1m0        =lm2(1,0)
-    
+
       w2  =one-w1
       O_dt=one/dt
-    
+
       l10=.false.
       !$OMP PARALLEL default(shared)
       !$OMP SINGLE
@@ -247,20 +251,20 @@ contains
          !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
-    
+
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
          !write(*,"(3(A,I3),A)") "Launching task for nLMB2=", &
          !     &   nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
-    
+
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(:,:,l1),zPivot(:,l1),zMat_fac(:,l1))
+                    &        zMat(:,:,nLMB2),zPivot(:,nLMB2),zMat_fac(:,nLMB2))
 #else
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(:,:,l1),zPivot(:,l1))
+                    &        zMat(:,:,nLMB2),zPivot(:,nLMB2))
 #endif
                lZmat(l1)=.true.
             !write(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
@@ -282,14 +286,14 @@ contains
 
             lmB0=(iChunk-1)*chunksize
             lmB=lmB0
-    
+
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
-               if ( lm1 == l1m0 ) l10= .true. 
-    
+               if ( lm1 == l1m0 ) l10= .true.
+
                if ( l_z10mat .and. lm1 == l1m0 ) then
                   !write(*,"(A,3I3)") "l_z10mat and lm1=",lm1,l1,m1
                   !PERFON('upZ_z10')
@@ -303,7 +307,7 @@ contains
 #ifdef WITH_PRECOND_Z10
                      call get_z10Mat(dt,l1,                                   &
                           &          hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                                     z10Mat,z10Pivot,z10Mat_fac)
+                          &          z10Mat,z10Pivot,z10Mat_fac)
 #else
                      call get_z10Mat(dt,l1,hdif_V(                     &
                           &          st_map%lm2(lm2l(lm1),lm2m(lm1))), &
@@ -326,7 +330,7 @@ contains
                   else
                      rhs(1)=0.0_cp
                   end if
-    
+
                   if ( l_SRIC ) then
                      tOmega_ic1=time+tShift_ic1
                      tOmega_ic2=time+tShift_ic2
@@ -341,8 +345,8 @@ contains
                   else
                      rhs(n_r_max)=0.0_cp
                   end if
-                  
-    
+
+
                   !----- This is the normal RHS for the other radial grid points:
                   do nR=2,n_r_max-1
                      rhs(nR)=O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
@@ -358,9 +362,9 @@ contains
                   if ( DEBUG_OUTPUT ) then
                      rhs_sum=sum(rhs)
                      write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,             &
-                          & ":rhs_sum (z10) before = ",                     &
-                          & exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
-                          & exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
+                     &      ":rhs_sum (z10) before = ",                     &
+                     &      exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
+                     &      exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
                      !do nR=1,n_r_max
                      !   write(*,"(3I4,A,2(I4,F20.16))")                        &
                      !        &nLMB2,lm1,nR,":rhs (z10) before = ",             &
@@ -378,19 +382,19 @@ contains
                      !end do
                      rhs_sum=sum(rhs)
                      write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,             &
-                          & ":rhs_sum (z10) after = ",                      &
-                          & exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
-                          & exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
+                     &      ":rhs_sum (z10) after = ",                      &
+                     &      exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
+                     &      exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
                   end if
-    
-    
+
+
                else if ( l1 /= 0 ) then
                   !PERFON('upZ_ln0')
                   lmB=lmB+1
-                  
+
                   rhs1(1,lmB,threadid)      =0.0_cp
-                  rhs1(n_r_max,lmB,threadid)=0.0_cp                  
-                 
+                  rhs1(n_r_max,lmB,threadid)=0.0_cp
+
                   if (l_Ri) then
                      if (amp_RiIcAsym /= 0.0_cp) then
                         if (l1 == m_RiIcAsym .and. m1 == m_RiIcAsym) then
@@ -400,7 +404,7 @@ contains
                            &                                  kind=cp)
                         end if
                      end if
-                        
+
                      if (amp_RiMaAsym /= 0.0_cp) then
                         if (l1 == m_RiMaAsym .and. m1 == m_RiMaAsym) then
                            rhs1(1,lmB,threadid) = cmplx(                    &
@@ -447,7 +451,7 @@ contains
                      end if
 
 #ifdef WITH_PRECOND_Z
-                     rhs1(nR,lmB,threadid)=zMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
+                     rhs1(nR,lmB,threadid)=zMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
 #endif
                   end do
                   !PERFOFF
@@ -456,8 +460,8 @@ contains
 
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
-               call solve_mat(zMat(:,:,l1),n_r_max,n_r_max, &
-                    &         zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(zMat(:,:,nLMB2),n_r_max,n_r_max, &
+                    &         zPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
             if ( lRmsNext ) then ! Store old z
@@ -468,14 +472,14 @@ contains
                   end do
                end do
             end if
-    
+
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
-               
+
                if ( l_z10mat .and. lm1 == l1m0 ) then
                   do n_r_out=1,rscheme_oc%n_max
                      z(lm1,n_r_out)=real(rhs(n_r_out))
@@ -501,15 +505,15 @@ contains
       end do       ! end of loop over lm blocks
       !$OMP END SINGLE
       !$OMP END PARALLEL
-    
-    
+
+
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart,lmStop
             z(lm1,n_r_out)=zero
          end do
       end do
-    
+
       !PERFON('upZ_drv')
       all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
@@ -552,7 +556,7 @@ contains
       call omp_set_num_threads(omp_get_max_threads())
 #endif
       !PERFOFF
-      
+
       !PERFON('upZ_icma')
       !--- Update of inner core and mantle rotation:
       if ( l10 ) then
@@ -586,7 +590,7 @@ contains
       l1m1=lm2(1,1)
       if ( l_correct_AMz .and.  l1m0 > 0 .and. &
          & lmStart_00 <= l1m0 .and. lmStop >= l1m0 ) then
-    
+
          do nR=1,n_r_max
             z10(nR)=z(l1m0,nR)
          end do
@@ -610,7 +614,7 @@ contains
             nomi=c_moi_oc*y10_norm
          end if
          corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
-    
+
          !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
          !         derivatives:
          !$OMP PARALLEL do default(shared) &
@@ -632,12 +636,12 @@ contains
               omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
          omega_ic1=omega_ic
          omega_ma1=omega_ma
-    
+
       end if ! l=1,m=0 contained in lm-block ?
-    
+
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
            lmStart_00 <= l1m1 .and. lmStop >= l1m1 ) then
-    
+
          do nR=1,n_r_max
             z11(nR)=z(l1m1,nR)
          end do
@@ -650,7 +654,7 @@ contains
          end do
          corr_l1m1=cmplx(angular_moment(1),-angular_moment(2),kind=cp) / &
          &         (two*y11_norm*c_moi_oc)
-    
+
          !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
          !         derivatives:
          !$OMP PARALLEL do default(shared) &
@@ -667,7 +671,7 @@ contains
          end do
          !$OMP END PARALLEL DO
       end if ! l=1,m=1 contained in lm-block ?
-    
+
       if ( lRmsNext ) then
          n_r_top=n_r_cmb
          n_r_bot=n_r_icb
@@ -697,7 +701,7 @@ contains
             &        -( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)           &
             &           + dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)       &
             &           + dbeta(nR)+ two*beta(nR)*or1(nR) ) * z(lm1,nR) )
-    
+
             dzdtLast(lm1,nR)=dzdt(lm1,nR)-coex*Dif(lm1)
             if ( lRmsNext ) then
                dtV(lm1)= O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
@@ -741,7 +745,7 @@ contains
 #endif
          end do
       end if
-    
+
       !----- Special thing for l=1,m=0 for rigid boundaries and
       !      if IC or mantle are allowed to rotate:
       if ( l10 .and. l_z10mat ) then ! z10 term !
@@ -766,14 +770,14 @@ contains
    subroutine get_z10Mat(dt,l,hdif,zMat,zPivot)
 #endif
       !
-      !  Purpose of this subroutine is to construct and LU-decompose the  
-      !  inversion matrix z10mat for the implicit time step of the       
-      !  toroidal velocity potential z of degree l=1 and order m=0.       
-      !  This differs from the the normal zmat only if either the ICB or  
-      !  CMB have no-slip boundary condition and inner core or mantle are 
-      !  chosen to rotate freely (either kbotv=1 and/or ktopv=1).         
+      !  Purpose of this subroutine is to construct and LU-decompose the
+      !  inversion matrix z10mat for the implicit time step of the
+      !  toroidal velocity potential z of degree l=1 and order m=0.
+      !  This differs from the the normal zmat only if either the ICB or
+      !  CMB have no-slip boundary condition and inner core or mantle are
+      !  chosen to rotate freely (either kbotv=1 and/or ktopv=1).
       !
-      
+
       real(cp), intent(in) :: dt      ! Time step internal
       real(cp), intent(in) :: hdif    ! Value of hyperdiffusivity in zMat terms
       integer,  intent(in) :: l       ! Variable to loop over l's
@@ -889,14 +893,14 @@ contains
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
-      !  zmat(i,j) for the NS equation.                                   
+      !  zmat(i,j) for the NS equation.
       !
-    
+
       !-- Input variables:
       real(cp), intent(in) :: dt                     ! Time interval
       integer,  intent(in) :: l                      ! Variable to loop over degrees
       real(cp), intent(in) :: hdif                   ! Hyperdiffusivity
-    
+
       !-- Output variables:
       real(cp), intent(out) :: zMat(n_r_max,n_r_max) ! Matrix with LHS of z equation
       integer,  intent(out) :: zPivot(n_r_max)       ! Pivot for zMat inversion
@@ -924,7 +928,7 @@ contains
 
       O_dt=one/dt
       dLh=real(l*(l+1),kind=cp)
-    
+
       !----- Boundary conditions, see above:
       do nR_out=1,rscheme_oc%n_max
 
@@ -935,7 +939,7 @@ contains
          else                    ! no slip, note exception for l=1,m=0
             zMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          end if
-    
+
          if ( kbotv == 1 ) then  ! free slip !
             zMat(n_r_max,nR_out)=rscheme_oc%rnorm *            (  &
             &                  rscheme_oc%drMat(n_r_max,nR_out) - &
@@ -945,16 +949,16 @@ contains
             zMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
             &                    rscheme_oc%rMat(n_r_max,nR_out)
          end if
-    
+
       end do  !  loop over nR_out
-    
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
             zMat(1,nR_out)      =0.0_cp
             zMat(n_r_max,nR_out)=0.0_cp
          end do
       end if
-    
+
       !----- Other points:
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
@@ -968,7 +972,7 @@ contains
             &                             ) * rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
-    
+
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
          zMat(nR,1)      =rscheme_oc%boundary_fac*zMat(nR,1)
@@ -988,7 +992,7 @@ contains
       write(filename,"(A,I3.3,A,I3.3,A)") "zMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
- 
+
       do i=1,n_r_max
          do j=1,n_r_max
             write(filehandle,"(2ES20.12,1X)",advance="no") zMat(i,j)

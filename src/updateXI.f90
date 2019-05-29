@@ -28,7 +28,7 @@ module updateXi_mod
    !-- Local variables
    complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
-   real(cp), allocatable :: xi0Mat(:,:)     ! for l=m=0  
+   real(cp), allocatable :: xi0Mat(:,:)     ! for l=m=0
    real(cp), allocatable :: xiMat(:,:,:)
    integer, allocatable :: xi0Pivot(:)
    integer, allocatable :: xiPivot(:,:)
@@ -46,17 +46,21 @@ contains
 
    subroutine initialize_updateXi
 
-      allocate( xi0Mat(n_r_max,n_r_max) )      ! for l=m=0  
-      allocate( xiMat(n_r_max,n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*n_r_max+ &
+      integer, pointer :: nLMBs2(:)
+
+      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+
+      allocate( xi0Mat(n_r_max,n_r_max) )      ! for l=m=0
+      allocate( xiMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
+      bytes_allocated = bytes_allocated+(nLMBs2(1+rank)+1)*n_r_max*n_r_max+ &
       &                 SIZEOF_DEF_REAL
       allocate( xi0Pivot(n_r_max) )
-      allocate( xiPivot(n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+n_r_max*(l_max+1)*SIZEOF_INTEGER
+      allocate( xiPivot(n_r_max,nLMBs2(1+rank)) )
+      bytes_allocated = bytes_allocated+n_r_max*(nLMBs2(1+rank)+1)*SIZEOF_INTEGER
 
 #ifdef WITH_PRECOND_S
-      allocate(xiMat_fac(n_r_max,l_max))
-      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+      allocate(xiMat_fac(n_r_max,nLMBs2(1+rank)))
+      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S0
       allocate(xi0Mat_fac(n_r_max))
@@ -215,10 +219,10 @@ contains
             if ( .not. lXimat(l1) ) then
 #ifdef WITH_PRECOND_S
                 call get_xiMat(dt,l1,hdif_Xi(st_map%lm2(l1,0)), &
-                     &         xiMat(:,:,l1),xiPivot(:,l1),xiMat_fac(:,l1))
+                     &         xiMat(:,:,nLMB2),xiPivot(:,nLMB2),xiMat_fac(:,nLMB2))
 #else
                 call get_xiMat(dt,l1,hdif_Xi(st_map%lm2(l1,0)), &
-                     &         xiMat(:,:,l1),xiPivot(:,l1))
+                     &         xiMat(:,:,nLMB2),xiPivot(:,nLMB2))
 #endif
                 lXimat(l1)=.true.
              end if
@@ -246,8 +250,8 @@ contains
                   rhs(n_r_max)=real(botxi(0,0))
                   do nR=2,n_r_max-1
                      rhs(nR)=real(xi(lm1,nR))*O_dt+ &
-                           w1*real(dxidt(lm1,nR)) + &
-                           w2*real(dxidtLast(lm1,nR))
+                     &     w1*real(dxidt(lm1,nR)) + &
+                     &     w2*real(dxidtLast(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_S0
@@ -262,15 +266,15 @@ contains
                   rhs1(1,lmB,threadid)=      topxi(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=botxi(l1,m1)
 #ifdef WITH_PRECOND_S
-                  rhs1(1,lmB,threadid)=      xiMat_fac(1,l1)*rhs1(1,lmB,threadid)
-                  rhs1(n_r_max,lmB,threadid)=xiMat_fac(1,l1)*rhs1(n_r_max,lmB,threadid)
+                  rhs1(1,lmB,threadid)=      xiMat_fac(1,nLMB2)*rhs1(1,lmB,threadid)
+                  rhs1(n_r_max,lmB,threadid)=xiMat_fac(1,nLMB2)*rhs1(n_r_max,lmB,threadid)
 #endif
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=xi(lm1,nR)*O_dt + &
-                                          w1*dxidt(lm1,nR) + &
-                                          w2*dxidtLast(lm1,nR)
+                     &                    w1*dxidt(lm1,nR) + &
+                     &                    w2*dxidtLast(lm1,nR)
 #ifdef WITH_PRECOND_S
-                     rhs1(nR,lmB,threadid) = xiMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
+                     rhs1(nR,lmB,threadid) = xiMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
 #endif
                   end do
                end if
@@ -279,8 +283,8 @@ contains
 
             !PERFON('upXi_sol')
             if ( lmB  >  lmB0 ) then
-               call solve_mat(xiMat(:,:,l1),n_r_max,n_r_max, &
-                    &         xiPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(xiMat(:,:,nLMB2),n_r_max,n_r_max, &
+                    &         xiPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -302,7 +306,7 @@ contains
                   else
                      do n_r_out=1,rscheme_oc%n_max
                         xi(lm1,n_r_out)= cmplx(real(rhs1(n_r_out,lmB,threadid)), &
-                                       &     0.0_cp,kind=cp)
+                        &                      0.0_cp,kind=cp)
                      end do
                   end if
                end if
@@ -357,10 +361,10 @@ contains
       !$OMP do private(nR,lm1)
       do nR=n_r_cmb+1,n_r_icb-1
          do lm1=lmStart,lmStop
-            dxidtLast(lm1,nR)=dxidt(lm1,nR) &
-                 & - coex*osc*hdif_Xi(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
-                 &   ( work_LMloc(lm1,nR) &
-                 &     + ( beta(nR)+two*or1(nR) ) * dxi(lm1,nR) &
+            dxidtLast(lm1,nR)=dxidt(lm1,nR)                                      &
+                 & - coex*osc*hdif_Xi(st_map%lm2(lm2l(lm1),lm2m(lm1))) *         &
+                 &   ( work_LMloc(lm1,nR)                                        &
+                 &     + ( beta(nR)+two*or1(nR) ) * dxi(lm1,nR)                  &
                  &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*xi(lm1,nR) &
                  &   )
          end do
@@ -370,8 +374,6 @@ contains
 #ifdef WITHOMP
       call omp_set_num_threads(maxThreads)
 #endif
-      !PERFOFF
-      !-- work_LMloc=dds not needed further after this point, used as work array later
 
    end subroutine updateXi
 !------------------------------------------------------------------------------
@@ -381,8 +383,8 @@ contains
    subroutine get_Xi0Mat(dt,xiMat,xiPivot)
 #endif
       !
-      !  Purpose of this subroutine is to contruct the time step matrix   
-      !  xiMat0                                                            
+      !  Purpose of this subroutine is to contruct the time step matrix
+      !  xiMat0
       !
 
       !-- Input variables
@@ -400,10 +402,10 @@ contains
       real(cp) :: O_dt
 
       O_dt=one/dt
-    
+
       !----- Boundary condition:
       do nR_out=1,rscheme_oc%n_max
-    
+
          if ( ktopxi == 1 ) then
             !--------- Constant entropy at CMB:
             xiMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
@@ -429,22 +431,22 @@ contains
             xiMat(n_r_max,nR_out)=0.0_cp
          end do
       end if
-    
+
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             xiMat(nR,nR_out)= rscheme_oc%rnorm * (                      &
-            &                         O_dt*rscheme_oc%rMat(nR,nR_out) - & 
+            &                         O_dt*rscheme_oc%rMat(nR,nR_out) - &
             &             alpha*osc*(    rscheme_oc%d2rMat(nR,nR_out) + &
             &  (beta(nR)+two*or1(nR))*    rscheme_oc%drMat(nR,nR_out) ) )
          end do
       end do
-    
+
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
          xiMat(nR,1)      =rscheme_oc%boundary_fac*xiMat(nR,1)
          xiMat(nR,n_r_max)=rscheme_oc%boundary_fac*xiMat(nR,n_r_max)
       end do
-    
+
 #ifdef WITH_PRECOND_S0
       ! compute the linesum of each line
       do nR=1,n_r_max
@@ -455,7 +457,7 @@ contains
          xiMat(nR,:) = xiMat(nR,:)*xiMat_fac(nR)
       end do
 #endif
-    
+
       !---- LU decomposition:
       call prepare_mat(xiMat,n_r_max,n_r_max,xiPivot,info)
       if ( info /= 0 ) then
@@ -473,7 +475,7 @@ contains
       !  Purpose of this subroutine is to contruct the time step matricies
       !  xiMat(i,j) for the equation for the chemical composition.
       !
-      
+
       !-- Input variables
       real(cp), intent(in) :: dt
       real(cp), intent(in) :: hdif
@@ -561,7 +563,7 @@ contains
       if ( info /= 0 ) then
          call abortRun('Singular matrix xiMat!')
       end if
-            
+
    end subroutine get_Ximat
 !-----------------------------------------------------------------------------
 end module updateXi_mod
