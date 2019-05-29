@@ -4,9 +4,13 @@ module TO_helpers
    !
 
    use precision_mod
-   use truncation, only: l_max
+   use truncation, only: l_max, n_theta_max
    use blocking, only: lm2
+#ifdef WITH_SHTNS
+   use horizontal_data, only: osn1
+#else
    use horizontal_data, only: dPlm, osn1
+#endif
    use constants, only: one, two, half
 
    implicit none
@@ -122,10 +126,10 @@ contains
       integer,  intent(in) :: nThetaStart    ! first theta to be treated
       integer,  intent(in) :: sizeThetaBlock ! size of theta block
       real(cp), intent(in) :: rT             ! radius
-      real(cp), intent(in) :: Tlm(*)         ! field in (l,m)-space for rT
+      real(cp), intent(in) :: Tlm(:)         ! field in (l,m)-space for rT
 
       !-- Output variables:
-      real(cp), intent(out) :: Bp(*)
+      real(cp), intent(out) :: Bp(:)
 
       !-- Local variables:
       integer :: lm,l
@@ -133,7 +137,28 @@ contains
       real(cp) :: fac
       real(cp) :: sign
       real(cp) :: Bp_1,Bp_n,Bp_s
+#ifdef WITH_SHTNS
+      integer :: nThetaS
+      complex(cp) :: Tl_AX(1:l_max+1)
+      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+#endif
 
+#ifdef WITH_SHTNS
+      do l=0,l_max
+         lm=lm2(l,0)
+         Tl_AX(l+1)=cmplx(Tlm(lm),0.0_cp,kind=cp)
+      end do
+
+      call shtns_load_cfg(0)
+      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+
+      do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
+         nThetaN=(nThetaStart+nTheta)/2
+         fac=osn1(nThetaN)/rT
+         Bp(nTheta)  =fac*real(tmpp(nTheta))
+         Bp(nTheta+1)=fac*real(tmpp(nTheta+1))
+      end do
+#else
       do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
 
          nThetaN=(nThetaStart+nTheta)/2
@@ -153,6 +178,7 @@ contains
          Bp(nTheta+1)=fac*Bp_s
 
       end do        ! Loop over colatitudes
+#endif
 
    end subroutine get_PAS
 !----------------------------------------------------------------------------
