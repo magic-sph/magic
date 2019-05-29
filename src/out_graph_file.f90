@@ -17,7 +17,7 @@ module graphOut_mod
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
    use num_param, only: vScale
    use blocking, only: nThetaBs, sizeThetaB, nfs
-   use horizontal_data, only: theta_ord, dLh, Plm, dPlm, O_sin_theta
+   use horizontal_data, only: theta_ord, O_sin_theta
    use logic, only: l_mag, l_cond_ic, l_PressGraph, l_chemical_conv,  &
        &            l_save_out
    use output_data, only: runid, n_log_file, log_file, tag
@@ -25,6 +25,7 @@ module graphOut_mod
    use shtns, only: torpol_to_spat_IC
 #else
    use fft
+   use horizontal_data, only: dLh, Plm, dPlm
 #endif
    use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
