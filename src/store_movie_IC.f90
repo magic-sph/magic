@@ -60,18 +60,13 @@ contains
       integer :: n_field_size,n_fields,n_fields_oc,n_fields_ic
       integer :: n_o,n_o_r
 
-      complex(cp) :: dLhb(lm_maxMag)
-      complex(cp) :: bhG(lm_maxMag)
-      complex(cp) :: bhC(lm_maxMag)
-      complex(cp) :: dLhj(lm_maxMag)
-      complex(cp) :: cbhG(lm_maxMag)
-      complex(cp) :: cbhC(lm_maxMag)
-      real(cp) :: BrB(nrp,nfs)
-      real(cp) :: BtB(nrp,nfs)
-      real(cp) :: BpB(nrp,nfs)
-      real(cp) :: cBrB(nrp,nfs)
-      real(cp) :: cBtB(nrp,nfs)
-      real(cp) :: cBpB(nrp,nfs)
+#ifndef WITH_SHTNS
+      complex(cp) :: dLhb(lm_maxMag), bhG(lm_maxMag)
+      complex(cp) :: bhC(lm_maxMag), dLhj(lm_maxMag)
+      complex(cp) :: cbhG(lm_maxMag), cbhC(lm_maxMag)
+#endif
+      real(cp) :: BrB(nrp,nfs), BtB(nrp,nfs), BpB(nrp,nfs)
+      real(cp) :: cBrB(nrp,nfs), cBtB(nrp,nfs), cBpB(nrp,nfs)
       real(cp) :: fl(nfs),help
 
       real(cp) ::  phi_norm

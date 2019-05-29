@@ -14,12 +14,16 @@ module torsional_oscillations
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
+#ifdef WITH_SHTNS
+   use shtns, only: spat_to_SH_axi
+#else
    use legendre_grid_to_spec, only: legTFAS2
+#endif
 
    implicit none
 
    private
- 
+
    real(cp), public, allocatable :: dzStrLMr(:,:)
    real(cp), public, allocatable :: dzRstrLMr(:,:)
    real(cp), public, allocatable :: dzAstrLMr(:,:)
@@ -85,7 +89,7 @@ contains
       bytes_allocated = bytes_allocated+ &
       &                 9*(nRstop-nRstart+1)*n_theta_maxStr*SIZEOF_DEF_REAL
 
-      allocate( ddzASL(l_max+1,n_r_maxStr) ) 
+      allocate( ddzASL(l_max+1,n_r_maxStr) )
       bytes_allocated = bytes_allocated+ (l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
 
    end subroutine initialize_TO
@@ -310,10 +314,17 @@ contains
       !--- Transform and Add to LM-Space:
       !------ Add contribution from thetas in block:
       !       note legtfAS2 returns modes l=0 -- l=l_max+1
+#ifdef WITH_SHTNS
+      call spat_to_SH_axi(Rmean,dzRstrLM)
+      call spat_to_SH_axi(Amean,dzAstrLM)
+      call spat_to_SH_axi(dzCorMean,dzCorLM)
+      call spat_to_SH_axi(dZLFmean,dzLFLM)
+#else
       call legTFAS2(dzRstrLM,dzAstrLM,Rmean,Amean,     &
            &        l_max+2,nThetaStart,nThetaBlockSize)
       call legTFAS2(dzCorLM,dzLFLM,dzCorMean,dZLFmean, &
            &        l_max+2,nThetaStart,nThetaBlockSize)
+#endif
 
       if ( lVerbose ) write(*,*) '! End of getTO!'
 
@@ -385,13 +396,13 @@ contains
                BzLast(nPhi,nTheta,nR)=BzF1*br(nPhi,nThetaBlock) - &
                &                      BzF2*bt(nPhi,nThetaBlock)
             end do
-                            
+
          end do ! Loop over thetas in block !
 #ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
 #endif
 
-                  
+
          if ( nThetaStart == 1 ) then
             dzdVpLMr_Rloc(1,nR) =0.0_cp
             dzddVpLMr_Rloc(1,nR)=0.0_cp
@@ -462,7 +473,7 @@ contains
          dzdVpLMr_Rloc(l+1,nR) =(zAS(l+1)-dzdVpLMr_Rloc(l+1,nR))/dtLast
          dzddVpLMr_Rloc(l+1,nR)=(zAS(l+1)/dtLast+dzddVpLMr_Rloc(l+1,nR))/dtLast
       end do
-      
+
    end subroutine getTOfinish
 !-----------------------------------------------------------------------------
 end module torsional_oscillations

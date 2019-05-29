@@ -87,18 +87,22 @@ contains
       bytes_allocated = bytes_allocated+n_phi_max*SIZEOF_DEF_REAL
 
       !-- Legendres:
+      allocate( gauss(n_theta_max) )
+      allocate( dPl0Eq(l_max+1) )
+      bytes_allocated = bytes_allocated+(n_theta_max+l_max+1)*SIZEOF_DEF_REAL
+
+#ifndef WITH_SHTNS
       allocate( Plm(lm_max,n_theta_max/2) )
       allocate( wPlm(lmP_max,n_theta_max/2) )
       allocate( dPlm(lm_max,n_theta_max/2) )
-      allocate( gauss(n_theta_max) )
-      allocate( dPl0Eq(l_max+1) )
       bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
-                        lmP_max*n_theta_max/2+n_theta_max+l_max+1)*SIZEOF_DEF_REAL
+                        lmP_max*n_theta_max/2)*SIZEOF_DEF_REAL
 
       if ( l_RMS ) then
          allocate( wdPlm(lmP_max,n_theta_max/2) )
          bytes_allocated = bytes_allocated*lmP_max*n_theta_max/2*SIZEOF_DEF_REAL
       end if
+#endif
 
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max) )
@@ -126,8 +130,11 @@ contains
 
       deallocate( sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
-      deallocate( Plm, wPlm, dPlm, gauss, dPl0Eq )
+      deallocate( gauss, dPl0Eq )
+#ifndef WITH_SHTNS
+      deallocate( Plm, wPlm, dPlm )
       if ( l_RMS ) deallocate( wdPlm )
+#endif
       deallocate( dPhi, dPhi0, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( D_m, D_l, D_lP1, D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
@@ -171,6 +178,7 @@ contains
 
          colat=theta_ord(n_theta)
 
+#ifndef WITH_SHTNS
          !----- plmtheta calculates plms and their derivatives
          !      up to degree and order l_max+1 and m_max at
          !      the points cos(theta_ord(n_theta)):
@@ -186,6 +194,7 @@ contains
             wPlm(lmP,n_theta) =two*pi*gauss(n_theta)*plma(lmP)
             if ( l_RMS ) wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
          end do
+#endif
 
          ! Get dP for all degrees and order m=0 at the equator only
          ! Usefull to estimate the flow velocity at the equator

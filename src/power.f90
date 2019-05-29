@@ -26,7 +26,11 @@ module power
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
    use constants, only: one, two, half
+#ifdef WITH_SHTNS
+   use shtns, only: axi_to_spat
+#else
    use legendre_spec_to_grid, only: lmAS2pt
+#endif
 
    implicit none
 
@@ -166,10 +170,15 @@ contains
 
       do n_r=nRstart,nRstop
          viscHeatR(n_r)=0.0_cp
+#ifdef WITH_SHTNS
+         call axi_to_spat(viscLMr(:,n_r), visc)
+#endif
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
             call lmAS2pt(viscLMr(:,n_r),visc,nThetaStart,sizeThetaB)
+#endif
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2

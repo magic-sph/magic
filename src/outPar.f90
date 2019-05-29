@@ -28,7 +28,11 @@ module outPar_mod
    use output_data, only: tag
    use useful, only: cc2real
    use integration, only: rInt_R
+#ifdef WITH_SHTNS
+   use shtns, only: axi_to_spat
+#else
    use legendre_spec_to_grid, only: lmAS2pt
+#endif
 
    implicit none
 
@@ -203,12 +207,19 @@ contains
             uhR(nR)    =0.0_cp
             gradT2R(nR)=0.0_cp
             duhR(nR)   =0.0_cp
+#ifdef WITH_SHTNS
+            call axi_to_spat(duhLMr(:,nR),duh)
+            call axi_to_spat(uhLMr(:,nR),uh)
+            call axi_to_spat(gradsLMr(:,nR),gradT2)
+#endif
             do n=1,nThetaBs ! Loop over theta blocks
                nTheta=(n-1)*sizeThetaB
                nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
                call lmAS2pt(duhLMr(:,nR),duh,nThetaStart,sizeThetaB)
                call lmAS2pt(uhLMr(:,nR),uh,nThetaStart,sizeThetaB)
                call lmAS2pt(gradsLMr(:,nR),gradT2,nThetaStart,sizeThetaB)
+#endif
                do nThetaBlock=1,sizeThetaB
                   nTheta=nTheta+1
                   nThetaNHS=(nTheta+1)/2
@@ -270,12 +281,19 @@ contains
             fkinR(nR) =0.0_cp
             fconvR(nR)=0.0_cp
             fviscR(nR)=0.0_cp
+#ifdef WITH_SHTNS
+            call axi_to_spat(fkinLMr(:,nR),fkin)
+            call axi_to_spat(fconvLMr(:,nR),fconv)
+            call axi_to_spat(fviscLMr(:,nR),fvisc)
+#endif
             do n=1,nThetaBs ! Loop over theta blocks
                nTheta=(n-1)*sizeThetaB
                nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
                call lmAS2pt(fkinLMr(:,nR),fkin,nThetaStart,sizeThetaB)
                call lmAS2pt(fconvLMr(:,nR),fconv,nThetaStart,sizeThetaB)
                call lmAS2pt(fviscLMr(:,nR),fvisc,nThetaStart,sizeThetaB)
+#endif
                do nThetaBlock=1,sizeThetaB
                   nTheta=nTheta+1
                   nThetaNHS=(nTheta+1)/2
@@ -290,11 +308,17 @@ contains
             do nR=nRstart,nRstop
                fresR(nR) =0.0_cp
                fpoynR(nR)=0.0_cp
+#ifdef WITH_SHTNS
+               call axi_to_spat(fpoynLMr(:,nR),fpoyn)
+               call axi_to_spat(fresLMr(:,nR),fres)
+#endif
                do n=1,nThetaBs ! Loop over theta blocks
                   nTheta=(n-1)*sizeThetaB
                   nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
                   call lmAS2pt(fpoynLMr(:,nR),fpoyn,nThetaStart,sizeThetaB)
                   call lmAS2pt(fresLMr(:,nR),fres,nThetaStart,sizeThetaB)
+#endif
                   do nThetaBlock=1,sizeThetaB
                      nTheta=nTheta+1
                      nThetaNHS=(nTheta+1)/2
@@ -483,13 +507,21 @@ contains
          EparR(nR)    =0.0_cp
          EparaxiR(nR) =0.0_cp
          EperpaxiR(nR)=0.0_cp
+#ifdef WITH_SHTNS
+         call axi_to_spat(EperpLMr(:,nR),Eperp)
+         call axi_to_spat(EparLMr(:,nR),Epar)
+         call axi_to_spat(EperpaxiLMr(:,nR),Eperpaxi)
+         call axi_to_spat(EparaxiLMr(:,nR),Eparaxi)
+#endif
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
             call lmAS2pt(EperpLMr(:,nR),Eperp,nThetaStart,sizeThetaB)
             call lmAS2pt(EparLMr(:,nR),Epar,nThetaStart,sizeThetaB)
             call lmAS2pt(EperpaxiLMr(:,nR),Eperpaxi,nThetaStart,sizeThetaB)
             call lmAS2pt(EparaxiLMr(:,nR),Eparaxi,nThetaStart,sizeThetaB)
+#endif
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2
@@ -522,7 +554,7 @@ contains
             &    status='unknown', position='append')
          end if
          write(n_perpPar_file,'(1P,ES20.12,4ES16.8)')  time*tScale,     & ! 1
-         &                                       EperpT,EparT, EperpaxT,EparaxT 
+         &                                       EperpT,EparT, EperpaxT,EparaxT
          if ( l_save_out ) close(n_perpPar_file)
 
          EperpMeanR    =EperpMeanR     +timePassed*EperpR_global

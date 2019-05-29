@@ -27,7 +27,11 @@ module outMisc_mod
    use useful, only: cc2real
    use integration, only: rInt_R
    use LMLoop_data,only: llm,ulm
+#ifdef WITH_SHTNS
+   use shtns, only: axi_to_spat
+#else
    use legendre_spec_to_grid, only: lmAS2pt
+#endif
 
    implicit none
 
@@ -128,13 +132,22 @@ contains
          Helna2Nr(n_r)=0.0_cp
          Helna2Sr(n_r)=0.0_cp
 
+#ifdef WITH_SHTNS
+         call axi_to_spat(HelLMr(:,n_r), Hel)
+         call axi_to_spat(Hel2LMr(:,n_r), Hel2)
+         call axi_to_spat(HelnaLMr(:,n_r), Helna)
+         call axi_to_spat(Helna2LMr(:,n_r), Helna2)
+#endif
+
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
             call lmAS2pt(HelLMr(:,n_r),Hel,nThetaStart,sizeThetaB)
             call lmAS2pt(Hel2LMr(:,n_r),Hel2,nThetaStart,sizeThetaB)
             call lmAS2pt(HelnaLMr(:,n_r),Helna,nThetaStart,sizeThetaB)
             call lmAS2pt(Helna2LMr(:,n_r),Helna2,nThetaStart,sizeThetaB)
+#endif
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2

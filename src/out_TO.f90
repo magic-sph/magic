@@ -29,7 +29,12 @@ module outTO_mod
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
    use useful, only: logWrite, abortRun
+#ifdef WITH_SHTNS
+   use shtns, only: spat_to_SH_axi
+#else
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
+#endif
+
    use chebInt_mod, only: chebInt, chebIntInit
    use cosine_transform_odd
 
@@ -389,6 +394,17 @@ contains
       !--- Transform to lm-space for all radial grid points:
 
       do nR=nRstart,nRstop
+#ifdef WITH_SHTNS
+         call spat_to_SH_axi(V2AS_Rloc(:,nR),V2LMr_Rloc(:,nR))
+         call spat_to_SH_axi(Bs2AS_Rloc(:,nR),Bs2LMr_Rloc(:,nR))
+         call spat_to_SH_axi(BszAS_Rloc(:,nR),BszLMr_Rloc(:,nR))
+         call spat_to_SH_axi(BspAS_Rloc(:,nR),BspLMr_Rloc(:,nR))
+         call spat_to_SH_axi(BpzAS_Rloc(:,nR),BpzLMr_Rloc(:,nR))
+         call spat_to_SH_axi(BspdAS_Rloc(:,nR),BspdLMr_Rloc(:,nR))
+         call spat_to_SH_axi(BpsdAS_Rloc(:,nR),BpsdLMr_Rloc(:,nR))
+         call spat_to_SH_axi(BzpdAS_Rloc(:,nR),BzpdLMr_Rloc(:,nR))
+         call spat_to_SH_axi(BpzdAS_Rloc(:,nR),BpzdLMr_Rloc(:,nR))
+#else
          do n=1,nThetaBs
             nThetaStart=(n-1)*sizeThetaB+1
             call legTFAS(V2LMr_Rloc(:,nR),V2AS_Rloc(nThetaStart,nR),               &
@@ -406,6 +422,7 @@ contains
                  &        BzpdAS_Rloc(nThetaStart,nR),BpzdAS_Rloc(nThetaStart,nR), &
                  &        l_max+1,nThetaStart,sizeThetaB)
          end do
+#endif
       end do ! Loop over radial grid points
 
 

@@ -17,13 +17,13 @@ contains
 
    subroutine legTF1(nThetaStart,f1LM,f1TM)
       !
-      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
-      !  [grid to spectral] for 2 arrays                                  
-      !  f1TM (input) to f1LM (output)                                    
-      !  One call to this routine does part of the transform              
-      !  by summation over theta points in one theta block:               
-      !  nThetaStart,..,nThetaStart+n_theta_block-1                   
-      !                                                                   
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
+      !  [grid to spectral] for 2 arrays
+      !  f1TM (input) to f1LM (output)
+      !  One call to this routine does part of the transform
+      !  by summation over theta points in one theta block:
+      !  nThetaStart,..,nThetaStart+n_theta_block-1
+      !
 
       !-- Input variables:
       integer,  intent(in) :: nThetaStart ! First no of theta on block
@@ -79,12 +79,12 @@ contains
                f1LM(lmS) =f1ES1*wPlm(lmS,1)+f1ES2*wPlm(lmS,2)
             end if
          end do
-           
+
          if ( sizeThetaB <= 4 ) return ! return
 
       end if
 
-       
+
       !-- Loop over half of the thetas with step 2 unrolling:
       nThetaMin=1
       if ( nThetaStart == 1 ) nThetaMin=3
@@ -117,12 +117,12 @@ contains
 !------------------------------------------------------------------------
    subroutine legTF2(nThetaStart,f1LM,f2LM,f1TM,f2TM)
       !
-      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
-      !  [grid to spectral] for 2 arrays                                  
-      !  f1TM,f2TM (input) to f1LM,f2LM (output)                          
-      !  One call to this routine does part of the transform              
-      !  by summation over theta points in on theta block:                
-      !  nThetaStart,..,nThetaStart+n_theta_block-1                  
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
+      !  [grid to spectral] for 2 arrays
+      !  f1TM,f2TM (input) to f1LM,f2LM (output)
+      !  One call to this routine does part of the transform
+      !  by summation over theta points in on theta block:
+      !  nThetaStart,..,nThetaStart+n_theta_block-1
       !
 
       !-- Input variables:
@@ -197,7 +197,7 @@ contains
                f2LM(lm+1)=f2EA1*wPlm(lm+1,1)+f2EA2*wPlm(lm+1,2)
             end do
          end do
-           
+
          if ( sizeThetaB <= 4 ) return !RETURN
 
        end if
@@ -248,12 +248,12 @@ contains
 !------------------------------------------------------------------------
    subroutine legTF3(nThetaStart,f1LM,f2LM,f3LM,f1TM,f2TM,f3TM)
       !
-      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
-      !  [grid to spectral] for 2 arrays                                  
-      !  ancl1/2/3 (input) to flm1/2/3 (output)                           
-      !  One call to this routine does part of the transform              
-      !  by summation over theta points in on theta block:                
-      !  nThetaStart,..,nThetaStart+n_theta_block-1                   
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
+      !  [grid to spectral] for 2 arrays
+      !  ancl1/2/3 (input) to flm1/2/3 (output)
+      !  One call to this routine does part of the transform
+      !  by summation over theta points in on theta block:
+      !  nThetaStart,..,nThetaStart+n_theta_block-1
       !
 
       !-- Input variables:
@@ -490,7 +490,7 @@ contains
                &         -ci*dm*f2ES1* wPlm(lmS,1)-ci*dm*f2ES2* wPlm(lmS,2)
             end if
          end do
-           
+
          if ( sizeThetaB <= 4 ) return !RETURN
 
        end if
@@ -519,7 +519,7 @@ contains
                f1LM(lm)  =f1LM(lm)-ci*dm*f1ES1* wPlm(lm,nTheta1)      &
                &                  -ci*dm*f1ES2* wPlm(lm,nTheta2)      &
                &                  +      f2EA1*wdPlm(lm,nTheta1)      &
-               &                  +      f2EA2*wdPlm(lm,nTheta2) 
+               &                  +      f2EA2*wdPlm(lm,nTheta2)
                f1LM(lm+1)=f1LM(lm+1)-ci*dm*f1EA1* wPlm(lm+1,nTheta1)  &
                &                    -ci*dm*f1EA2* wPlm(lm+1,nTheta2)  &
                &                    +      f2ES1*wdPlm(lm+1,nTheta1)  &
@@ -553,12 +553,12 @@ contains
 !------------------------------------------------------------------------
    subroutine legTFAS(flm1,ft1,lmMax,nThetaStart,sizeThetaB)
       !
-      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
-      !  [grid to spectral] for 2 arrays                                  
-      !  ancl1/2 (input) to flm1/2 (output)                               
-      !  One call to this routine does part of the transform              
-      !  by summation over theta points in on theta block:                
-      !  n_theta_min,..,n_theta_min+n_theta_block-1                   
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
+      !  [grid to spectral] for 2 arrays
+      !  ancl1/2 (input) to flm1/2 (output)
+      !  One call to this routine does part of the transform
+      !  by summation over theta points in on theta block:
+      !  n_theta_min,..,n_theta_min+n_theta_block-1
       !
 
       !-- Input variables:
@@ -601,14 +601,14 @@ contains
             lm1=lmMax
             flm1(lm1)=f1p(1)*wPlm(lm1,1)+f1p(2)*wPlm(lm1,2)
          end if
-          
+
          if ( sizeThetaB <= 4 ) return
-           
+
       end if
 
       !-- Following values of n_theta=3,4,5... when n_theta_min=1
       !   or all values of n_theta when n_theta_min > 0
-       
+
       nThetaMin=1
       If ( nThetaStart == 1 ) nThetaMin=3 ! 2 already done
 
@@ -626,29 +626,29 @@ contains
          do lm1=1,lmMax-1,2
             lm2=lm1+1
             flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nThetaC1) + &
-                                  f1p(nTheta2)*wPlm(lm1,nThetaC2)
+            &                     f1p(nTheta2)*wPlm(lm1,nThetaC2)
             flm1(lm2)=flm1(lm2) + f1m(nTheta1)*wPlm(lm2,nThetaC1) + &
-                                  f1m(nTheta2)*wPlm(lm2,nThetaC2)
+            &                     f1m(nTheta2)*wPlm(lm2,nThetaC2)
          end do
          if ( lm2 < lmMax ) then
             lm1=lmMax
             flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nThetaC1) + &
-                                  f1p(nTheta2)*wPlm(lm1,nThetaC2)
+            &                     f1p(nTheta2)*wPlm(lm1,nThetaC2)
          end if
-           
+
       end do
-        
+
 
    end subroutine legTFAS
 !------------------------------------------------------------------------
    subroutine legTFAS2(flm1,flm2,ft1,ft2,lmMax,nThetaStart,sizeThetaB)
       !
-      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
-      !  [grid to spectral] for 2 arrays                                  
-      !  ancl1/2 (input) to flm1/2 (output)                               
-      !  One call to this routine does part of the transform              
-      !  by summation over theta points in on theta block:                
-      !  n_theta_min,..,n_theta_min+n_theta_block-1                   
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
+      !  [grid to spectral] for 2 arrays
+      !  ancl1/2 (input) to flm1/2 (output)
+      !  One call to this routine does part of the transform
+      !  by summation over theta points in on theta block:
+      !  n_theta_min,..,n_theta_min+n_theta_block-1
       !
 
       !-- Input variables
@@ -700,9 +700,9 @@ contains
             flm1(lm1)=f1p(1)*wPlm(lm1,1)+f1p(2)*wPlm(lm1,2)
             flm2(lm1)=f2p(1)*wPlm(lm1,1)+f2p(2)*wPlm(lm1,2)
          end if
-          
+
          if ( sizeThetaB <= 4 ) return
-           
+
       end if
 
       !-- Following values of n_theta=3,4,5... when n_theta_min=1
@@ -724,27 +724,27 @@ contains
          do lm1=1,lmMax-1,2
             lm2=lm1+1
             flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nThetaC1) + &
-                                  f1p(nTheta2)*wPlm(lm1,nThetaC2)
+            &                     f1p(nTheta2)*wPlm(lm1,nThetaC2)
             flm1(lm2)=flm1(lm2) + f1m(nTheta1)*wPlm(lm2,nThetaC1) + &
-                                  f1m(nTheta2)*wPlm(lm2,nThetaC2)
+            &                     f1m(nTheta2)*wPlm(lm2,nThetaC2)
          end do
          do lm1=1,lmMax-1,2
             lm2=lm1+1
             flm2(lm1)=flm2(lm1) + f2p(nTheta1)*wPlm(lm1,nThetaC1) + &
-                                  f2p(nTheta2)*wPlm(lm1,nThetaC2)
+            &                     f2p(nTheta2)*wPlm(lm1,nThetaC2)
             flm2(lm2)=flm2(lm2) + f2m(nTheta1)*wPlm(lm2,nThetaC1) + &
-                                  f2m(nTheta2)*wPlm(lm2,nThetaC2)
+            &                     f2m(nTheta2)*wPlm(lm2,nThetaC2)
          end do
          if ( lm2 < lmMax ) then
             lm1=lmMax
             flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nThetaC1) + &
-                                  f1p(nTheta2)*wPlm(lm1,nThetaC2)
+            &                     f1p(nTheta2)*wPlm(lm1,nThetaC2)
             flm2(lm1)=flm2(lm1) + f2p(nTheta1)*wPlm(lm1,nThetaC1) + &
-                                  f2p(nTheta2)*wPlm(lm1,nThetaC2)
+            &                     f2p(nTheta2)*wPlm(lm1,nThetaC2)
          end if
-           
+
       end do
-        
+
    end subroutine legTFAS2
 !------------------------------------------------------------------------
 end module legendre_grid_to_spec

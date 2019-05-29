@@ -16,7 +16,8 @@ module shtns
    public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
    &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
    &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor,               &
-   &         torpol_to_spat_IC, torpol_to_curl_spat_IC
+   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
+   &         axi_to_spat
 
 contains
 
@@ -34,7 +35,7 @@ contains
 
       call shtns_set_size(l_max, m_max/minc, minc, norm)
       call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
-                            1.e-10_cp, n_theta_max, n_phi_max)
+           &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(0)
 
       if ( rank == 0 ) then
@@ -289,5 +290,37 @@ contains
       call shtns_load_cfg(0)
 
    end subroutine spat_to_sphertor
+!------------------------------------------------------------------------------
+   subroutine axi_to_spat(fl_ax, f)
+
+      real(cp), intent(in) :: fl_ax(l_max+1)
+      real(cp), intent(out) :: f(n_theta_max)
+
+      !-- Local arrays
+      complex(cp) :: tmp(n_theta_max)
+      complex(cp) :: tmp_ax(l_max+1)
+
+      tmp_ax(:)=cmplx(fl_ax(:),0.0_cp,kind=cp)
+      call shtns_sh_to_spat_ml(0, tmp_ax, tmp, l_max)
+      f(:)=real(tmp(:))
+
+   end subroutine axi_to_spat
+!------------------------------------------------------------------------------
+   subroutine spat_to_SH_axi(f, fLM)
+
+      real(cp), intent(in) :: f(n_theta_max)
+      real(cp), intent(out) :: fLM(:)
+
+      !-- Local arrays
+      complex(cp) :: tmp(n_theta_max)
+      complex(cp) :: tmpLM(size(fLM))
+
+      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(1)
+      tmp(:)=cmplx(f(:),0.0_cp,kind=cp)
+      call shtns_spat_to_sh_ml(0, tmp, tmpLM, size(fLM)-1)
+      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(0)
+      fLM(:)=real(tmpLM(:))
+
+   end subroutine spat_to_SH_axi
 !------------------------------------------------------------------------------
 end module shtns
