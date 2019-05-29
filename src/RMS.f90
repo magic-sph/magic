@@ -28,8 +28,7 @@ module RMS
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
-   use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
-       &                  hInt2dPolLM
+   use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM
    use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
    use useful, only: get_mean_sd, abortRun

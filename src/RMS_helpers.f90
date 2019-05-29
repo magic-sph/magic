@@ -20,56 +20,11 @@ module RMS_helpers
 
    private
 
-   public :: get_PASLM, get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
-   &         get_RAS, hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM
+   public :: get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
+   &         hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM
 
 contains
 
-   subroutine get_PASLM(Tlm,Bp,rT,nThetaStart,sizeThetaBlock)
-      !
-      !  Purpose of this subroutine is to calculated the axisymmetric     
-      !  phi component Bp of an axisymmetric toroidal field Tlm           
-      !  given in spherical harmonic space (l,m=0).                       
-      !
-
-      !-- Input variables:
-      integer,     intent(in) :: nThetaStart    ! first theta to be treated
-      integer,     intent(in) :: sizeThetaBlock ! size of theta block
-      real(cp),    intent(in) :: rT             ! radius
-      complex(cp), intent(in) :: Tlm(lm_max_dtB) ! field in (l,m)-space for rT
-
-      !-- Output variables:
-      real(cp), intent(out) :: Bp(*)
-
-      !-- Local variables:
-      integer :: lm,l
-      integer :: nTheta,nThetaN
-      real(cp) :: fac
-      real(cp) :: sign
-      real(cp) :: Bp_1,Bp_n,Bp_s
-
-      do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
-
-         nThetaN=(nThetaStart+nTheta)/2
-         fac=osn1(nThetaN)/rT
-
-         sign=-one
-         Bp_n=0.0_cp
-         Bp_s=0.0_cp
-         do l=0,l_max
-            lm=lm2(l,0)
-            sign=-sign
-            Bp_1=-real(Tlm(l+1))*dPlm(lm,nThetaN)
-            Bp_n=Bp_n+Bp_1
-            Bp_s=Bp_s-sign*Bp_1
-         end do  ! Loop over degree
-         Bp(nTheta)  =fac*Bp_n
-         Bp(nTheta+1)=fac*Bp_s
-
-      end do        ! Loop over colatitudes
-
-   end subroutine get_PASLM
-!---------------------------------------------------------------------------
    subroutine get_PolTorRms(Pol,drPol,Tor,llm,ulm,PolRms,TorRms, &
               &             PolAsRms,TorAsRms,map)
       !
@@ -349,50 +304,5 @@ contains
       end do
     
    end subroutine hInt2TorLM
-!-----------------------------------------------------------------------------
-   subroutine get_RAS(Blm,Br,rT,nThetaStart,sizeThetaBlock)
-      !
-      !  Purpose of this subroutine is to calculate the axisymmetric      
-      !  radial component Br of an axisymmetric ploidal field Blm         
-      !  given in spherical harmonic space (l,m=0).                       
-      !
-
-      !-- Input variables:
-      integer,         intent(in) :: nThetaStart    ! first theta to be treated
-      integer,         intent(in) :: sizeThetaBlock ! last theta
-      real(cp),        intent(in) :: rT             ! radius
-      complex(cp),     intent(in) :: Blm(lm_max_dtB)! field in (l,m)-space for rT
-
-      !-- Output variables:
-      real(cp), intent(out) :: Br(*)
-
-      !-- Local variables:
-      integer :: lm,l
-      integer :: nTheta,nThetaN
-      real(cp) :: fac
-      real(cp) :: sign
-      real(cp) :: Br_1,Br_n,Br_s
-
-      fac=one/(rT*rT)
-
-      do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
-         nThetaN=(nThetaStart+nTheta)/2
-
-         sign=-one
-         Br_n=0.0_cp
-         Br_s=0.0_cp
-         do l=0,l_max
-            lm=lm2(l,0)
-            sign=-sign
-            Br_1=real(Blm(l+1))*real(l*(l+1),kind=cp)*Plm(lm,nThetaN)
-            Br_n=Br_n+Br_1
-            Br_s=Br_s+sign*Br_1
-         end do  ! Loop over degree
-         Br(nTheta)  =fac*Br_n
-         Br(nTheta+1)=fac*Br_s
-
-      end do        ! Loop over colatitudes
-
-    end subroutine get_RAS
 !-----------------------------------------------------------------------------
 end module RMS_helpers
