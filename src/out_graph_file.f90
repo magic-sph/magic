@@ -817,9 +817,11 @@ contains
       logical :: l_avg_loc
       integer :: nR,nPhi,nThetaB,nTheta,nThetaStart,nThetaC
 
+#ifndef WITH_SHTNS
       complex(cp) :: dLhb(lm_max), dLhj(lm_max)
       complex(cp) :: bhG(lm_max), bhC(lm_max)
       complex(cp) :: cbhG(lm_max), cbhC(lm_max)
+#endif
       real(cp) :: BrB(nrp,nfs), BtB(nrp,nfs), BpB(nrp,nfs)
       real(outp) :: Br(n_phi_max,n_theta_max)
       real(outp) :: Bt(n_phi_max,n_theta_max)

@@ -20,11 +20,16 @@ module out_movie
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
    use num_param, only: vScale, tScale
    use blocking, only: nfs, lm2l, lm2
-   use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,        &
-       &                      n_theta_cal2ord, O_sin_theta_E2, Plm,   &
-       &                      dLh, dPlm, osn1, D_l, dPhi, phi, theta_ord
+   use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
+       &                      n_theta_cal2ord, O_sin_theta_E2,    &
+       &                      dLh, osn1, D_l, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, b
+#ifdef WITH_SHTNS
+   use shtns, only: torpol_to_spat
+#else
    use fft, only: fft_thetab
+   use horizontal_data, only: dPlm, Plm, dPhi
+#endif
    use logic, only: l_save_out, l_cond_ic
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
@@ -1476,22 +1481,42 @@ contains
       integer, intent(in) :: n_theta_block   ! Size of theta block
 
       !-- Output variables:
-      real(cp), intent(out) ::  sl(*)           ! Field for field lines
+      real(cp), intent(out) ::  sl(:)           ! Field for field lines
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
       integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
-      real(cp) :: sign
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
-      real(cp) :: sl_s,sl_n,sl_1
-
+#ifdef WITH_SHTNS
+      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      complex(cp) :: Tl_AX(1:l_max+1)
+#else
+      real(cp) :: sl_s,sl_n,sl_1,sign
+#endif
 
       !-- Calculate radial dependencies:
       O_r=or1(n_r)
 
+#ifdef WITH_SHTNS
+      Tl_AX(1)=zero
+      do l=1,l_max
+         lm=lm2(l,0)
+         Tl_AX(l+1)=-w_Rloc(lm,n_r)
+      end do
+
+      call shtns_load_cfg(0)
+      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+
+      do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
+         n_theta_nhs=(n_theta_start+n_theta)/2
+         O_sint=osn1(n_theta_nhs)
+         sl(n_theta)  =O_r*O_sint*real(tmpp(n_theta))
+         sl(n_theta+1)=O_r*O_sint*real(tmpp(n_theta+1))
+      end do
+#else
       !----- Loop over colatitudes:
       do n_theta=1,n_theta_block,2
 
@@ -1518,6 +1543,7 @@ contains
          sl(n_theta+1)=O_sint*sl_s
 
       end do        ! Loop over colatitudes
+#endif
 
    end subroutine get_sl
 !----------------------------------------------------------------------------
@@ -1546,12 +1572,16 @@ contains
       integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
-      real(cp) :: sign
       real(cp) :: r_ratio          ! r/r_ICB
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
-      real(cp) :: fl_s,fl_n,fl_1
+#ifdef WITH_SHTNS
+      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      complex(cp) :: Tl_AX(1:l_max+1)
+#else
+      real(cp) :: fl_s,fl_n,fl_1, sign
+#endif
 
       if ( l_ic ) then
          r_ratio =r_ic(n_r)/r_ic(1)
@@ -1563,6 +1593,31 @@ contains
          O_r=or1(n_r)
       end if
 
+#ifdef WITH_SHTNS
+      Tl_AX(1)=zero
+      do l=1,l_max
+         lm=lm2(l,0)
+         if ( l_ic ) then ! Inner Core
+            if ( l_cond_ic ) then
+               Tl_AX(l+1)=-r_dep(l)*b_ic(lm,n_r)
+            else
+               Tl_AX(l+1)=-r_dep(l)*b(lm,n_r_icb)
+            end if
+         else             ! Outer Core
+            Tl_AX(l+1)=-O_r*b_Rloc(lm,n_r)
+         end if
+      end do
+
+      call shtns_load_cfg(0)
+      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+
+      do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
+         n_theta_nhs=(n_theta_start+n_theta)/2
+         O_sint=osn1(n_theta_nhs)
+         fl(n_theta)  =O_sint*real(tmpp(n_theta))
+         fl(n_theta+1)=O_sint*real(tmpp(n_theta+1))
+      end do
+#else
       !----- Loop over colatitudes:
       do n_theta=1,n_theta_block,2
 
@@ -1599,6 +1654,7 @@ contains
          fl(n_theta+1)=-O_sint*fl_s
 
       end do        ! Loop over colatitudes
+#endif
 
    end subroutine get_fl
 !----------------------------------------------------------------------------
@@ -1625,18 +1681,20 @@ contains
       real(cp), intent(out) :: b_p(nrp,*) !Azimuthal magnetic field.
 
       !-- Local variables:
-      integer :: n_theta         ! No. of theta
-      integer :: n_theta_nhs     ! Counter for theta in northern hemisphere
-      integer :: l,m,lm,mc       ! degree/order,counter
+      integer :: l,lm
 
       real(cp) :: r_ratio          ! r_cmb/r_surface
-      real(cp) :: sign             ! Sign for southern hemisphere
       real(cp) :: r_dep(l_max)     ! Radial dependence
-      real(cp) :: O_sint           ! 1/sin(theta)
       complex(cp) :: cs1(lm_max),cs2(lm_max) ! help arrays
+#ifdef WITH_SHTNS
+      complex(cp) :: zerosc(lm_max)
+#else
       complex(cp) :: b_r_1,b_t_1,b_p_1
       complex(cp) :: b_r_n,b_t_n,b_p_n
       complex(cp) :: b_r_s,b_t_s,b_p_s
+      real(cp) :: O_sint, sign
+      integer :: n_theta, n_theta_nhs, m, mc
+#endif
 
       !-- Radial dependence:
       r_ratio=r_cmb/r_surface
@@ -1650,10 +1708,18 @@ contains
       cs1(1)=zero
       cs2(1)=zero
       do lm=2,lm_max
+#ifdef WITH_SHTNS
+         cs1(lm) = bCMB(lm)*r_dep(lm2l(lm)) ! multiplication by l(l+1) in shtns.f90
+#else
          cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(lm2l(lm))
+#endif
          cs2(lm)= -bCMB(lm)*D_l(lm)*r_dep(lm2l(lm))
       end do
 
+#ifdef WITH_SHTNS
+      zerosc(:)=zero
+      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p)
+#else
       !-- Build field components:
       !----- Loop over colatitudes:
 
@@ -1731,6 +1797,7 @@ contains
          call fft_thetab(b_t,1)
          call fft_thetab(b_p,1)
       end if
+#endif
 
    end subroutine get_B_surface
 !----------------------------------------------------------------------------
