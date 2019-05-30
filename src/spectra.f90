@@ -363,6 +363,7 @@ contains
          call reduce_radial(e_mag_t_r_l, e_mag_t_r_l_global, 0)
          call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
          call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
+         call reduce_radial(eCMB, eCMB_global, 0)
       end if
       if ( l_anel ) then
          call reduce_radial(u2_p_r_l, u2_p_r_l_global, 0)
@@ -374,7 +375,7 @@ contains
       call reduce_radial(e_kin_t_r_l, e_kin_t_r_l_global, 0)
       call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
       call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
-    
+
       ! now switch to rank 0 for the postprocess
     
       if ( rank == 0 ) then
@@ -447,7 +448,7 @@ contains
       end if
 
       !-- Averaging:
-      if ( l_avg ) then
+      if ( rank == 0 .and. l_avg ) then
          if ( l_mag ) then
             call get_mean_sd(e_mag_p_l_ave(1:l_max), e_mag_p_l_SD(1:l_max),     &
                  &           e_mag_p_l, n_time_ave, time_passed, time_norm)
