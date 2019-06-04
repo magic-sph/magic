@@ -1005,6 +1005,30 @@ contains
              sigma = one/lambda
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
+          else if ( nVarCond == 7 ) then
+             if ( index(interior_model, 'PNS_2S') /= 0 ) then
+                a0 = -29.3468638288
+                a1 = 335.929657508
+                a2 = -1617.65787705
+                a3 = 4286.501036
+                a4 = -6746.07848196
+                a5 = 6308.95415428
+                a6 = -3247.58459547
+                a7 = 710.280067712
+             else
+                call abortRun('Conductivity profile not defined')
+             end if
+             do n_r=1,n_r_max
+                rrOcmb = r(n_r)/r_cmb*r_cut_model
+                lambda(n_r)= a0 + a1*rrOcmb    + a2*rrOcmb**2 &
+                     + a3*rrOcmb**3 + a4*rrOcmb**4 &
+                     + a5*rrOcmb**5 + a6*rrOcmb**6 &
+                     + a7*rrOcmb**7
+             end do
+             lambda = lambda/lambda(1)
+             sigma = one/lambda
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+             dLlambda=dsigma/lambda
           end if
       end if
 
