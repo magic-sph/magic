@@ -487,6 +487,20 @@ contains
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
 
+      else if ( index(interior_model,'PNS_2S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) , coeffGrav(6) )
+         coeffDens = [14.5649560668_cp, -26.1462235672_cp, 52.8432513624_cp, &
+              -82.837369536_cp, 58.2910747189_cp, -15.7212352085_cp]
+
+         coeffTemp = [-6.33078724295_cp, 74.0516826175_cp, -202.268812325_cp, &
+              258.6129266_cp, -161.782859987_cp, 38.7217973339_cp]
+
+         coeffGrav = [0.0961974297099_cp, 3.06791065527_cp, 3.91870769838_cp, &
+              -14.5167546463_cp, 11.5773447456_cp, -3.14354794653_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp,coeffGrav)
+         deallocate( coeffDens, coeffTemp, coeffGrav )
+
       else if ( index(interior_model,'PNS_5S') /= 0 ) then
          allocate( coeffDens(6), coeffTemp(6) )
          coeffDens = [5.56892773949_cp, -0.532496149403_cp, -1.63704759716_cp, &
@@ -1117,6 +1131,15 @@ contains
                a5 = 160897.639922
                a6 = -70265.4062536
                a7 = 13117.1344588
+            else if ( index(interior_model, 'PNS_2S') /= 0 ) then
+               a0 = -95.9735911526
+               a1 = 1087.08663925
+               a2 = -5203.4624924
+               a3 = 13653.9408117
+               a4 = -21218.8320365
+               a5 = 19540.2406991
+               a6 = -9879.84517647
+               a7 = 2117.83593177
             else if ( index(interior_model, 'PNS_5S') /= 0 ) then
                a0 = 0.0556428940038
                a1 = 1.57277204681

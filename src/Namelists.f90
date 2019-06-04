@@ -541,7 +541,7 @@ contains
          ! Proto-Neutron Star interior model
          ! at time 2s
          l_anel=.true.
-         radratio    = 0.10D0
+         radratio    = 0.40D0
          r_cut_model = 1.0D0
       else if ( index(interior_model, 'PNS_5S') /= 0 ) then
          ! Proto-Neutron Star interior model
