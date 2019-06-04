@@ -183,7 +183,7 @@ contains
 #ifndef WITH_SHTNS
       complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
       complex(cp) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
-      integer :: nThetaB, ntThetaStart
+      integer :: nThetaB, nThetaStart
 #endif
 
       !----- Energies of time average field:
