@@ -26,7 +26,9 @@ module dtB_mod
                        lm2lmP, nfs
    use radial_spectra ! rBrSpec, rBpSpec
    use fft
+#ifndef WITH_SHTNS
    use legendre_grid_to_spec, only: legTF2, legTF3
+#endif
    use constants, only: two
    use radial_der, only: get_dr
 

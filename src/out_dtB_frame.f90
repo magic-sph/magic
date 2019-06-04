@@ -6,7 +6,10 @@ module out_dtB_frame
        &                       dr_fac_ic, chebt_ic_even
    use blocking, only: nThetaBs, sizeThetaB, lm2m, lm2l, nfs, lm2
    use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, osn1, &
-       &                      dPlm, Plm, dPhi, dLh, D_lP1
+       &                      dLh, D_lP1
+#ifndef WITH_SHTNS
+   use horizontal_data, only: dPlm, Plm, dPhi
+#endif
    use dtB_mod, only: PstrLM, PadvLM, PdifLM, TstrLM, TadvLM, TdifLM, &
        &              PadvLMIC, PdifLMIC, TadvLMIC, TomeLM, TdifLMIC
    use movie_data, only: n_movie_type, n_movie_fields, n_movie_fields_ic, &
@@ -527,12 +530,17 @@ contains
       integer :: n_theta         ! No. of theta
       integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
-      real(cp) :: sign
       real(cp) :: r_ratio          ! r/r_ICB
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
+#ifdef WITH_SHTNS
+      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      complex(cp) :: Tl_AX(1:l_max+1)
+#else
       real(cp) :: fl_s,fl_n,fl_1
+      real(cp) :: sign
+#endif
     
       !-- Calculate radial dependencies:
       !     for IC: (r/r_ICB)**l / r_ICB
@@ -547,6 +555,27 @@ contains
          O_r=or1(n_r)
       end if
     
+#ifdef WITH_SHTNS
+      Tl_AX(1)=zero
+      do l=1,l_max
+         lm=lm2(l,0)
+         if ( l_ic ) then
+            Tl_AX(l+1)=r_dep(l)*dtBLM(lm,n_r)
+         else
+            Tl_AX(l+1)=O_r*dtBLM(lm,n_r)
+         end if
+      end do
+
+      call shtns_load_cfg(0)
+      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+
+      do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
+         n_theta_nhs=(n_theta_start+n_theta)/2
+         O_sint=osn1(n_theta_nhs)
+         dtB(n_theta)  =O_sint*real(tmpp(n_theta))
+         dtB(n_theta+1)=O_sint*real(tmpp(n_theta+1))
+      end do
+#else
       !----- Loop over colatitudes:
       do n_theta=1,n_theta_block,2
          n_theta_nhs=(n_theta_start+n_theta)/2
@@ -572,6 +601,7 @@ contains
          dtB(n_theta)  =-O_sint*fl_n
          dtB(n_theta+1)=-O_sint*fl_s
       end do        ! Loop over colatitudes
+#endif
 
    end subroutine get_dtB
 !-------------------------------------------------------------------------
@@ -599,18 +629,17 @@ contains
       real(cp), intent(out) :: Br(nrp,*),Bt(nrp,*),Bp(nrp,*)
 
       !-- Local variables
-      integer :: lm,mc,m,l
-      integer :: n_theta,n_theta_nhs
+      integer :: lm,mc,m,l,n_theta
       real(cp) :: rRatio,rDep(0:l_max)
-      real(cp) :: O_sint,O_r_E_2
-      real(cp) :: sign
+      real(cp) :: O_r_E_2
       complex(cp) :: cs1(lm_max),cs2(lm_max)
 #ifdef WITH_SHTNS
       complex(cp) :: zeros(lm_max)
+#else
+      integer :: n_theta_nhs
+      real(cp) :: sign, O_sint
+      complex(cp) :: Br_1,Bt_1,Bp_1,Br_n,Bt_n,Bp_n,Br_s,Bt_s,Bp_s
 #endif
-      complex(cp) :: Br_1,Bt_1,Bp_1
-      complex(cp) :: Br_n,Bt_n,Bp_n
-      complex(cp) :: Br_s,Bt_s,Bp_s
 
       !-- Calculate radial dependencies: (r_ic(1)=r(n_r_max)=inner core boundary)
       !   Radial dependence = (r/r_ICB)**(l-1) / r_ICB**2
@@ -779,17 +808,16 @@ contains
 
       !-- Local variables:
       integer :: lm,mc,m,l
-      integer :: n_theta,n_theta_nhs
+      integer :: n_theta
       real(cp) :: rRatio,rDep(0:l_max)
-      real(cp) :: O_sint
-      real(cp) :: sign
       complex(cp) :: cs1(lm_max)
 #ifdef WITH_SHTNS
       complex(cp) :: zeros(lm_max)
+#else
+      integer :: n_theta_nhs
+      real(cp) :: O_sint, sign
+      complex(cp) :: Bt_1,Bp_1,Bt_n,Bp_n,Bt_s,Bp_s
 #endif
-      complex(cp) :: Bt_1,Bp_1
-      complex(cp) :: Bt_n,Bp_n
-      complex(cp) :: Bt_s,Bp_s
 
       !-- Zero output field:
       do n_theta=1,n_theta_block
@@ -919,12 +947,15 @@ contains
       real(cp), intent(out) :: aij(nrp,*)  ! field in (theta,phi)-space
 
       !-- Local variables:
-      integer :: nThetaN,nThetaS,nThetaHS
-      integer :: lm,mca,m,l     ! degree/order
-      real(cp) :: sign
+      integer :: nThetaN
+      integer :: lm,mca     ! degree/order
       complex(cp) :: cs1(lm_max) ! help array
-      complex(cp) :: a_n, a_s
       real(cp) :: O_r_E_2,rRatio
+#ifndef WITH_SHTNS
+      integer :: nThetaS,nThetaHS,m,l
+      real(cp) :: sign
+      complex(cp) :: a_n, a_s
+#endif
 
       O_r_E_2=one/(rT*rT)
       rRatio=rT/r_icb

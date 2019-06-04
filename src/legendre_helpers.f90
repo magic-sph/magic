@@ -119,7 +119,9 @@ contains
 
       !-- Local variables:
       integer :: lm,l,m
+#ifndef WITH_SHTNS
       complex(cp) :: dbd
+#endif
 
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
       if ( nR == n_r_cmb ) this%omegaMA=omega_ma

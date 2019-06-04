@@ -38,6 +38,7 @@ module init_fields
    use shtns
 #else
    use fft
+   use legendre_grid_to_spec, only: legTF1
 #endif
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
@@ -48,7 +49,6 @@ module init_fields
        &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
        &                          diff_prec_angle
    use algebra, only: prepare_mat, solve_mat
-   use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
 
    implicit none

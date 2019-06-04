@@ -26,8 +26,8 @@ module graphOut_mod
 #else
    use fft
    use horizontal_data, only: dLh, Plm, dPlm
-#endif
    use legendre_spec_to_grid, only: legTF
+#endif
    use leg_helper_mod, only: legPrep_IC
 
    implicit none
@@ -1000,7 +1000,9 @@ contains
       integer,    intent(in) :: graph_mpi_fh      ! mpi handle of the mpi file
 
       !-- Local variables:
+#ifndef ONE_LARGE_BLOCK
       integer :: n_theta
+#endif
 
       !-- MPI related variables
       integer :: status(MPI_STATUS_SIZE), count

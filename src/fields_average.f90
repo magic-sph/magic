@@ -21,6 +21,7 @@ module fields_average_mod
 #else
    use horizontal_data, only: Plm, dPlm, dLh
    use fft, only: fft_thetab
+   use legendre_spec_to_grid, only: legTF
 #endif
    use constants, only: zero, vol_oc, vol_ic, one
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
@@ -30,7 +31,6 @@ module fields_average_mod
    use spectra, only: spectrum, spectrum_temp
    use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file
    use leg_helper_mod, only: legPrep
-   use legendre_spec_to_grid, only: legTF
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdtLast_LMloc, dpdtLast_LMloc, dzdtLast_lo,     &

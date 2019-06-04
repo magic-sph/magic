@@ -135,12 +135,12 @@ contains
       integer :: lm,l
       integer :: nTheta,nThetaN
       real(cp) :: fac
-      real(cp) :: sign
-      real(cp) :: Bp_1,Bp_n,Bp_s
 #ifdef WITH_SHTNS
-      integer :: nThetaS
       complex(cp) :: Tl_AX(1:l_max+1)
       complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+#else
+      real(cp) :: sign
+      real(cp) :: Bp_1,Bp_n,Bp_s
 #endif
 
 #ifdef WITH_SHTNS

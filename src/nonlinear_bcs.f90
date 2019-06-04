@@ -11,11 +11,12 @@ module nonlinear_bcs
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
        &                      dLh, sn2, cosTheta, sinTheta, phi
    use fft, only: fft_thetab
-   use legendre_grid_to_spec, only: legTF2
    use constants, only: two
    use logic, only: l_diff_prec
 #ifdef WITH_SHTNS
    use shtns, only: spat_to_SH
+#else
+   use legendre_grid_to_spec, only: legTF2
 #endif
    use useful, only: abortRun
 

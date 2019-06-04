@@ -178,7 +178,7 @@ contains
       !-- Big loop over thetas in block:
       nTheta=nThetaStart-1
       do nThetaBlock=1,nThetaBlockSize
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaBlock-1
          sinT =sinTheta(nTheta)
          cosT =cosTheta(nTheta)
          Osin =one/sinT
@@ -379,7 +379,7 @@ contains
       !$OMP& private(sinT,cosT,BsF1,BsF2,BpF1,BzF1,BzF2)
 #endif
          do nThetaBlock=1,nThetaBlockSize
-            nTheta=nTheta+1
+            nTheta=nThetaStart+nThetaBlock-1
             sinT =sinTheta(nTheta)
             cosT =cosTheta(nTheta)
             BsF1 =sinT*or2(nR)
