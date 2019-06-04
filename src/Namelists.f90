@@ -539,7 +539,7 @@ contains
          r_cut_model = 1.0D0
       else if ( index(interior_model, 'PNS_2S') /= 0 ) then
          ! Proto-Neutron Star interior model
-         ! at time 5s
+         ! at time 2s
          l_anel=.true.
          radratio    = 0.10D0
          r_cut_model = 1.0D0
