@@ -20,7 +20,7 @@ module dtB_mod
    use radial_data,only: nRstart,nRstop
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
        &                      dTheta1S, dTheta1A
-   use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie, l_alltoall
+   use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, nfs
@@ -150,11 +150,7 @@ contains
       bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max_dtB* &
       &                 SIZEOF_DEF_COMPLEX
 
-      if ( l_alltoall ) then
-         allocate ( type_mpiatoa :: r2lo_dtB )
-      else
-         allocate ( type_mpiptop :: r2lo_dtB )
-      end if
+      allocate ( type_mpiptop :: r2lo_dtB )
 
       call r2lo_dtB%create_comm(8)
 

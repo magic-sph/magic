@@ -1,5 +1,6 @@
 module shtns
 
+   use iso_fortran_env, only: output_unit
    use precision_mod, only: cp
    use constants, only: ci, one
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
@@ -40,6 +41,7 @@ contains
 
       if ( rank == 0 ) then
          call shtns_verbose(0)
+         write(output_unit,*) ''
       end if
 
       call shtns_set_size(l_max+1, m_max/minc, minc, norm)

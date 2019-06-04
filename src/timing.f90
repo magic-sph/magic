@@ -19,9 +19,10 @@ module timing
    integer, parameter :: msecHour  =3600000
 
    public :: wallTime, ms2time, time2ms, subTime, lTimeLimit, &
-             addTime, lNegTime, writeTime, meanTime
+   &         addTime, lNegTime, writeTime, meanTime
 
 contains
+
    subroutine wallTime(time)
       !
       !   This routine returns the wallclock time in four
@@ -240,12 +241,12 @@ contains
       timeH=time(1)-days*hoursDay
       if (nOut == output_unit) then
          write(*,'(/,1X,2A,I4,A,I2,A,I2,A,I2,A,I3,A)')         &
-              &     text," ",days,"d : ",timeH,"h : ",time(2), &
-              &       "m : ",time(3),"s : ",time(4),"ms"
+         &          text," ",days,"d : ",timeH,"h : ",time(2), &
+         &            "m : ",time(3),"s : ",time(4),"ms"
       else
          write(nOut,'(/,1x,A,A,i4,A,i2,A,i2,A,i2,A,i3,A)')     &
-              &     text," ",days,"d : ",timeH,"h : ",time(2), &
-              &       "m : ",time(3),"s : ",time(4),"ms"
+         &          text," ",days,"d : ",timeH,"h : ",time(2), &
+         &            "m : ",time(3),"s : ",time(4),"ms"
       end if
 
    end subroutine writeTime

@@ -12,10 +12,14 @@ module communications
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_TP_form, l_double_curl, l_alltoall
+       &            l_mag_kin, l_TP_form, l_double_curl
    use useful, only: abortRun
+   use output_data, only: n_log_file
+   use iso_fortran_env, only: output_unit
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoa
+   use charmanip, only: capitalize
+   use num_param, only: mpi_transp
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -62,11 +66,24 @@ contains
    subroutine initialize_communications
 
       integer(lip) :: local_bytes_used
+      logical :: l_alltoall
 
       local_bytes_used=bytes_allocated
 
       call create_gather_type(gt_OC,n_r_max)
       call create_gather_type(gt_IC,n_r_ic_max)
+
+      call capitalize(mpi_transp)
+      if ( index(mpi_transp, 'AUTO') /= 0 ) then
+         call find_faster_comm(l_alltoall)
+      else
+         if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
+         &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
+            l_alltoall = .false.
+         else
+            l_alltoall = .true.
+         end if
+      end if
 
       if ( l_alltoall ) then
          allocate( type_mpiatoa :: lo2r_s )
@@ -624,6 +641,110 @@ contains
 #endif
 
    end subroutine reduce_scalar
+!-------------------------------------------------------------------------------
+   subroutine find_faster_comm(l_alltoall)
+      !
+      ! This subroutine tests the two MPI transposition strategies and
+      ! selects the fastest one.
+      !
+
+      !-- Output variable:
+      logical, intent(out) :: l_alltoall
+
+#ifdef WITH_MPI
+      !-- Local variables
+      class(type_mpitransp), pointer :: lo2r_test
+      complex(cp) :: arr_Rloc(lm_max,nRstart:nRstop,5)
+      complex(cp) :: arr_LMloc(llm:ulm,n_r_max,5)
+      real(cp) :: tStart, tStop, tAlltoAll, tPointtoPoint, tA2A, tP2P
+      real(cp) :: rdm_real, rdm_imag
+      integer :: n_f, n_r, lm, n_t, n, n_out
+      integer, parameter :: n_transp=10
+      character(len=80) :: message
+
+      !-- First fill an array with random numbers
+      do n_f=1,5
+         do n_r=nRstart,nRstop
+            do lm=1,lm_max
+               call random_number(rdm_real)
+               call random_number(rdm_imag)
+               arr_Rloc(lm,n_r,n_f)=cmplx(rdm_real,rdm_imag,kind=cp)
+            end do
+         end do
+      end do
+
+      !-- Try the all-to-all strategy (10 back and forth transposes)
+      allocate( type_mpiatoa :: lo2r_test )
+      call lo2r_test%create_comm(5)
+      tStart = MPI_Wtime()
+      do n_t=1,n_transp
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+      end do
+      tStop = MPI_Wtime()
+      tAlltoAll = tStop-tStart
+      call lo2r_test%destroy_comm()
+      deallocate( lo2r_test)
+
+      !-- Try the point-to-point strategy (10 back and forth transposes)
+      allocate( type_mpiptop :: lo2r_test )
+      call lo2r_test%create_comm(5)
+      tStart = MPI_Wtime()
+      do n_t=1,n_transp
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+      end do
+      tStop = MPI_Wtime()
+      tPointtoPoint = tStop-tStart
+      call lo2r_test%destroy_comm()
+      deallocate ( lo2r_test )
+
+      !-- Now determine the average over the ranks and send it to rank=0
+      call MPI_Reduce(tAlltoAll, tA2A, 1, MPI_DEF_REAL, MPI_SUM, 0, &
+           &          MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(tPointtoPoint, tP2P, 1, MPI_DEF_REAL, MPI_SUM, 0, &
+           &          MPI_COMM_WORLD, ierr)
+
+      if ( rank == 0 ) then
+         tP2P = tP2P/real(n_procs,cp)/real(n_transp,cp)
+         tA2A = tA2A/real(n_procs,cp)/real(n_transp,cp)
+         !-- Determine the fastest
+         l_alltoall=.true.
+         if ( tP2P < tA2A ) l_alltoall=.false.
+
+         do n=1,2
+            if ( n==1 ) then
+               n_out = n_log_file
+            else
+               n_out = output_unit
+            end if
+            write(n_out,*)
+            write(n_out,*) '! MPI transpose strategy :'
+            write(message,'('' ! isend/irecv/waitall communicator='', &
+            &               ES10.3, '' ms'')') tP2P
+            write(n_out,'(A80)') message
+            write(message,'('' ! alltoallv communicator          ='', &
+            &               ES10.3, '' ms'')') tA2A
+            write(n_out,'(A80)') message
+
+            if ( l_alltoall ) then
+               write(n_out,*) '! -> I choose alltoallv'
+            else
+               write(n_out,*) '! -> I choose isend/irecv/waitall'
+            end if
+            write(n_out,*)
+         end do
+
+      end if
+
+      call MPI_Bcast(l_alltoall,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+#else
+      l_alltoall=.false.
+#endif
+
+   end subroutine find_faster_comm
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
 #define STANDARD 1001

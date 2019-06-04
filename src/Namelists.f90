@@ -269,14 +269,6 @@ contains
          l_double_curl = .false.
       end if
 
-      call capitalize(mpi_transp)
-      if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 .or. &
-      &    index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
-         l_alltoall = .false.
-      else
-         l_alltoall = .true.
-      end if
-
       call capitalize(radial_scheme)
       if ( index(radial_scheme, 'FD') /= 0 ) then
          l_finite_diff = .true.
@@ -1210,7 +1202,7 @@ contains
       thermo_variable  ="None"
       polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
-      mpi_transp       ="PointToPoint"  ! point-to-point communicators
+      mpi_transp       ="AUTO" ! automatic detection of the MPI strategy
 
       cacheblock_size_in_B=4096
 

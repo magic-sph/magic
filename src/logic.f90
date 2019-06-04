@@ -95,6 +95,5 @@ module logic
    logical :: l_precession ! Use precession
    logical :: l_diff_prec  ! Use differential precession
    logical :: l_centrifuge ! Compute centrifugal acceleration
-   logical :: l_alltoall ! All-to-all MPI communicators (instead of send/recv)
 
 end module logic

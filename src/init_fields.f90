@@ -19,8 +19,7 @@ module init_fields
        &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
-       &            l_anelastic_liquid, l_non_adia, l_diff_prec,    &
-       &            l_alltoall
+       &            l_anelastic_liquid, l_non_adia, l_diff_prec
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
        &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
@@ -160,13 +159,8 @@ contains
       real(cp) :: ss,ome(nrp,nfs)
       complex(cp) :: omeLM(lmP_max)
 
-      if ( l_alltoall ) then
-         allocate( type_mpiatoa :: r2lo_initv )
-         allocate( type_mpiatoa :: lo2r_initv )
-      else
-         allocate( type_mpiptop :: r2lo_initv )
-         allocate( type_mpiptop :: lo2r_initv )
-      end if
+      allocate( type_mpiptop :: r2lo_initv )
+      allocate( type_mpiptop :: lo2r_initv )
 
       !-- Initialize rotation according to
       !   given inner core and mantel rotation rate:

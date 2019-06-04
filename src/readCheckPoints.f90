@@ -1589,7 +1589,6 @@ contains
          allocate( xioR(n_r_maxL) )
          bytes_allocated = bytes_allocated + n_r_maxL*SIZEOF_DEF_COMPLEX
       end if
-      write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
 
       !PERFON('mD_map')
       do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
@@ -1707,7 +1706,6 @@ contains
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
-      write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
 
       !PERFON('mD_map')
       do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
