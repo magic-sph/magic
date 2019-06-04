@@ -10,7 +10,7 @@ module RMS_helpers
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
    use radial_functions, only: or2, rscheme_oc, r
-   use horizontal_data, only: osn1, Plm, dPlm, dLh
+   use horizontal_data, only: dLh
    use useful, only: cc2real
    use integration, only: rInt_R
    use LMmapping, only: mappings
@@ -37,7 +37,7 @@ contains
       !  arrays Pol,drPol and Tor
       !  Output: PolRms,TorRms,PolAsRms,TorAsRms
       !
-    
+
       !-- Input variables:
       integer,         intent(in) :: llm
       integer,         intent(in) :: ulm
@@ -45,34 +45,34 @@ contains
       complex(cp),     intent(in) :: drPol(llm:ulm,n_r_max) ! Radial derivative of Pol
       complex(cp),     intent(in) :: Tor(llm:ulm,n_r_max)   ! Toroidal field Potential
       type(mappings),  intent(in) :: map
-    
+
       !-- Output variables:
       real(cp), intent(out) :: PolRms,PolAsRms
       real(cp), intent(out) :: TorRms,TorAsRms
-    
+
       !-- Local variables:
       real(cp) :: PolRmsTemp,TorRmsTemp
       real(cp) :: PolRms_r(n_r_max), PolRms_r_global(n_r_max)
       real(cp) :: TorRms_r(n_r_max), TorRms_r_global(n_r_max)
       real(cp) :: PolAsRms_r(n_r_max), PolAsRms_r_global(n_r_max)
       real(cp) :: TorAsRms_r(n_r_max), TorAsRms_r_global(n_r_max)
-    
+
       integer :: n_r,lm,l,m
       real(cp) :: fac
-    
+
       do n_r=1,n_r_max
-    
+
          PolRms_r(n_r)  =0.0_cp
          TorRms_r(n_r)  =0.0_cp
          PolAsRms_r(n_r)=0.0_cp
          TorAsRms_r(n_r)=0.0_cp
-    
+
          do lm=max(2,llm),ulm
             l=map%lm2l(lm)
             m=map%lm2m(lm)
             PolRmsTemp= dLh(st_map%lm2(l,m)) * (                        &
-                 dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(Pol(lm,n_r),m) + &
-                 cc2real(drPol(lm,n_r),m) )
+            &    dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(Pol(lm,n_r),m) + &
+            &    cc2real(drPol(lm,n_r),m) )
             TorRmsTemp=   dLh(st_map%lm2(l,m))*cc2real(Tor(lm,n_r),m)
             if ( m == 0 ) then  ! axisymmetric part
                PolAsRms_r(n_r)=PolAsRms_r(n_r) + PolRmsTemp
@@ -107,19 +107,19 @@ contains
    end subroutine get_PolTorRms
 !-----------------------------------------------------------------------------
    subroutine hInt2dPol(dPol,lmStart,lmStop,Pol2hInt,map)
-    
+
       !-- Input variables:
       integer,         intent(in) :: lmStart,lmStop
       complex(cp),     intent(in) :: dPol(lmStart:lmStop)   ! Toroidal field Potential
       type(mappings),  intent(in) :: map
-    
+
       !-- Output variables:
       real(cp), intent(inout) :: Pol2hInt(0:l_max)
-    
+
       !-- Local variables:
       real(cp) :: help
       integer :: lm,l,m
-    
+
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
          m=map%lm2m(lm)
@@ -133,7 +133,7 @@ contains
 
       !-- Input variables
       integer,         intent(in) :: lmStart,lmStop
-      complex(cp),     intent(in) :: dPol(lmStart:lmStop) 
+      complex(cp),     intent(in) :: dPol(lmStart:lmStop)
       type(mappings),  intent(in) :: map
 
       !-- Output variables
@@ -236,10 +236,10 @@ contains
                ! The l(l+1) factor comes from the orthogonality properties of
                ! vector spherical harmonics
 #ifdef WITH_SHTNS
-               help=rE2*cc2real(f(lm),m)*l*(l+one)!*l*(l+1) 
+               help=rE2*cc2real(f(lm),m)*l*(l+one)!*l*(l+1)
 #else
                if ( l /= 0 ) then
-                  help=rE2*cc2real(f(lm),m)/(l*(l+one)) 
+                  help=rE2*cc2real(f(lm),m)/(l*(l+one))
                else
                   help=rE2*cc2real(f(lm),m)
                end if
@@ -261,14 +261,14 @@ contains
       integer,         intent(in) :: nR
       integer,         intent(in) :: lmStart,lmStop
       type(mappings),  intent(in) :: map
-    
+
       !-- Output variables:
       real(cp),        intent(inout) :: Tor2hInt(0:l_max)
-    
+
       !-- Local variables:
       real(cp) :: help,rE4
       integer :: lm,l,m
-    
+
       rE4=r(nR)**4
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
@@ -276,7 +276,7 @@ contains
          help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
          Tor2hInt(l)=Tor2hInt(l)+help
       end do
-    
+
    end subroutine hInt2Tor
 !-----------------------------------------------------------------------------
    subroutine hInt2TorLM(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,map)
@@ -287,14 +287,14 @@ contains
       integer,         intent(in) :: nR
       integer,         intent(in) :: lmStart,lmStop
       type(mappings),  intent(in) :: map
-    
+
       !-- Output variables:
       real(cp),        intent(inout) :: Tor2hInt(lb:ub)
-    
+
       !-- Local variables:
       real(cp) :: help,rE4
       integer :: lm,l,m
-    
+
       rE4=r(nR)**4
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
@@ -302,7 +302,7 @@ contains
          help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
          Tor2hInt(lm)=Tor2hInt(lm)+help
       end do
-    
+
    end subroutine hInt2TorLM
 !-----------------------------------------------------------------------------
 end module RMS_helpers
