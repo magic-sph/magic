@@ -658,7 +658,11 @@ contains
       real(cp) ::  phi_norm
       real(cp) ::  fac,fac_r
 
-      real(cp) ::  fl(2)        ! Field for poloidal field lines
+#ifdef WITH_SHTNS
+      real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
+#else
+      real(cp) ::  fl(2)           ! Field for poloidal field lines
+#endif
 
 
       !--- Get phi no. for left and right halfspheres:
@@ -752,13 +756,22 @@ contains
       else if ( n_field_type == 8 ) then
 
          !--- Field for axisymmetric poloidal field lines:
+#ifdef WITH_SHTNS
+         call get_fl(fl,n_r,1,n_theta_max,.false.)
+#endif
          do n_theta_b=1,n_theta_block,2
             n_theta_cal=n_theta_b+n_theta_start-1
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            n_theta2=n_theta_cal2ord(n_theta_cal+1)
+            n_theta    =n_theta_cal2ord(n_theta_cal)
+            n_theta2   =n_theta_cal2ord(n_theta_cal+1)
+#ifdef WITH_SHTNS
+            !call get_fl(fl,n_r,n_theta_cal,1,.false.)
+            frames(n_0+n_theta) =fl(n_theta_cal)
+            frames(n_0+n_theta2)=fl(n_theta_cal+1)
+#else
             call get_fl(fl,n_r,n_theta_cal,2,.false.)
             frames(n_0+n_theta) =fl(1)
             frames(n_0+n_theta2)=fl(2)
+#endif
          end do
 
       else if ( n_field_type == 9 ) then
@@ -777,13 +790,21 @@ contains
       else if ( n_field_type == 10 ) then
 
          !--- Field for axisymmetric velocity stream lines:
+#ifdef WITH_SHTNS
+         call get_sl(fl,n_r,1,n_theta_max)
+#endif
          do n_theta_b=1,n_theta_block,2
             n_theta_cal=n_theta_b+n_theta_start-1
-            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_theta =n_theta_cal2ord(n_theta_cal)
             n_theta2=n_theta_cal2ord(n_theta_cal+1)
+#ifdef WITH_SHTNS
+            frames(n_0+n_theta) =fl(n_theta_cal)
+            frames(n_0+n_theta2)=fl(n_theta_cal+1)
+#else
             call get_sl(fl,n_r,n_theta_cal,2)
             frames(n_0+n_theta) =fl(1)
             frames(n_0+n_theta2)=fl(2)
+#endif
          end do
 
       else if ( n_field_type == 11 ) then
@@ -1504,7 +1525,7 @@ contains
       Tl_AX(1)=zero
       do l=1,l_max
          lm=lm2(l,0)
-         Tl_AX(l+1)=-w_Rloc(lm,n_r)
+         Tl_AX(l+1)=O_r*w_Rloc(lm,n_r)
       end do
 
       call shtns_load_cfg(0)
@@ -1513,8 +1534,8 @@ contains
       do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
          n_theta_nhs=(n_theta_start+n_theta)/2
          O_sint=osn1(n_theta_nhs)
-         sl(n_theta)  =O_r*O_sint*real(tmpp(n_theta))
-         sl(n_theta+1)=O_r*O_sint*real(tmpp(n_theta+1))
+         sl(n_theta)  =O_sint*real(tmpp(n_theta))
+         sl(n_theta+1)=O_sint*real(tmpp(n_theta+1))
       end do
 #else
       !----- Loop over colatitudes:
@@ -1565,7 +1586,7 @@ contains
       logical, intent(in) :: l_ic            ! =true if inner core field
 
       !-- Output variables:
-      real(cp), intent(out) ::  fl(*)    ! Field for field lines
+      real(cp), intent(out) ::  fl(:)    ! Field for field lines
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
@@ -1599,12 +1620,12 @@ contains
          lm=lm2(l,0)
          if ( l_ic ) then ! Inner Core
             if ( l_cond_ic ) then
-               Tl_AX(l+1)=-r_dep(l)*b_ic(lm,n_r)
+               Tl_AX(l+1)=r_dep(l)*b_ic(lm,n_r)
             else
-               Tl_AX(l+1)=-r_dep(l)*b(lm,n_r_icb)
+               Tl_AX(l+1)=r_dep(l)*b(lm,n_r_icb)
             end if
          else             ! Outer Core
-            Tl_AX(l+1)=-O_r*b_Rloc(lm,n_r)
+            Tl_AX(l+1)=O_r*b_Rloc(lm,n_r)
          end if
       end do
 
