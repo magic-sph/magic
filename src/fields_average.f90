@@ -183,6 +183,7 @@ contains
 #ifndef WITH_SHTNS
       complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
       complex(cp) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
+      integer :: nThetaB, ntThetaStart
 #endif
 
       !----- Energies of time average field:
@@ -195,7 +196,7 @@ contains
       real(cp) :: e_mag_os_ave,e_mag_as_os_ave
       real(cp) :: Dip,DipCMB,e_cmb,elsAnel
 
-      integer :: lm,nR,nThetaB,nThetaStart
+      integer :: lm, nR
       integer :: n_e_sets,n_spec
 
       character(len=72) :: graph_file
