@@ -167,8 +167,8 @@ program magic
 
 #ifdef WITH_MPI
 #ifdef WITHOMP
-   required_level=MPI_THREAD_MULTIPLE
-   call mpi_init_thread(required_level,provided_level,ierr)
+   required_level=MPI_THREAD_FUNNELED
+   call MPI_Init_Thread(required_level,provided_level,ierr)
    if (provided_level < required_level) then
       print*,"We need at least thread level ",required_level, &
       &      ", but have ",provided_level
