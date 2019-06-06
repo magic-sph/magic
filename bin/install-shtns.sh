@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ver="3.2.1-r671"
+ver="3.2.2-r675"
 
 if test ! -d $HOME/local; then
     mkdir $HOME/local
@@ -31,7 +31,7 @@ else
      then
         if [ ${shtns_minor} -eq 2 ] # 3.2....
         then
-           if [ ${shtns_minor_sub} -lt 3 ]
+           if [ ${shtns_minor_sub} -lt 2 ]
            then
               sed -i '/magic_layout/{N;N;N;N;s/enable_many_core=yes/enable_many_core=no/;}' configure
            fi
