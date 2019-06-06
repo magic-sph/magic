@@ -286,7 +286,7 @@ contains
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
       !-- Local variables
-      integer :: n_r, l, m, n_f
+      integer :: n_r, l, m, n_f, lm
 
 #ifdef WITH_MPI
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype,      &
@@ -297,11 +297,10 @@ contains
       if ( .not. l_axi ) then
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do l=0,l_max
-                  do m=0,l,minc
-                     arr_Rloc(st_map%lm2(l,m),n_r,n_f) = &
-                     &      this%temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
-                  end do
+               do lm=1,lm_max
+                  l = st_map%lm2l(lm)
+                  m = st_map%lm2m(lm)
+                  arr_Rloc(lm,n_r,n_f)=this%temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
@@ -373,16 +372,15 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
       !-- Local variables
-      integer :: n_r, l, m, n_f
+      integer :: n_r, l, m, n_f, lm
 
       if ( .not. l_axi ) then
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do l=0,l_max
-                  do m=0,l,minc
-                     this%temp_Rloc(lo_map%lm2(l,m),n_r,n_f) = &
-                     &                arr_Rloc(st_map%lm2(l,m),n_r,n_f)
-                  end do
+               do lm=1,lm_max
+                  l = lo_map%lm2l(lm)
+                  m = lo_map%lm2m(lm)
+                  this%temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
@@ -704,7 +702,7 @@ contains
       type(type_mpiptop) :: this
 
       ! Local variables
-      integer :: nR,l,m,i
+      integer :: nR, l, m, lm, i
 
       !PERFON("lo2r_wt")
       call lm2r_redist_wait(this)
@@ -713,12 +711,17 @@ contains
       if ( .not. l_axi ) then
          do i=1,this%n_fields
             do nR=nRstart,nRstop
-               do l=0,l_max
-                  do m=0,l,minc
-                     this%arr_Rloc(st_map%lm2(l,m),nR,i) = &
-                     &      this%temp_Rloc(lo_map%lm2(l,m),nR,i)
-                  end do
+               do lm=1,lm_max
+                  l = st_map%lm2l(lm)
+                  m = st_map%lm2m(lm)
+                  this%arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
                end do
+               !do l=0,l_max
+               !   do m=0,l,minc
+               !      this%arr_Rloc(st_map%lm2(l,m),nR,i) = &
+               !      &      this%temp_Rloc(lo_map%lm2(l,m),nR,i)
+               !   end do
+               !end do
             end do
          end do
       else
@@ -742,21 +745,24 @@ contains
       complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,*)
 
       ! Local variables
-      integer :: nR,l,m,i
-
-      this%temp_Rloc(1:,nRstart:,1:) = arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      integer :: nR,l,m,i,lm
 
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
       if ( .not. l_axi ) then
          do i=1,this%n_fields
             do nR=nRstart,nRstop
-               do l=0,l_max
-                  do m=0,l,minc
-                     this%temp_Rloc(lo_map%lm2(l,m),nR,i) = &
-                     &                arr_Rloc(st_map%lm2(l,m),nR,i)
-                  end do
+               do lm=1,lm_max
+                  l=lo_map%lm2l(lm)
+                  m=lo_map%lm2m(lm)
+                  this%temp_Rloc(lm,nR,i)=arr_Rloc(st_map%lm2(l,m),nR,i)
                end do
+               !do l=0,l_max
+               !   do m=0,l,minc
+               !      this%temp_Rloc(lo_map%lm2(l,m),nR,i) = &
+               !      &                arr_Rloc(st_map%lm2(l,m),nR,i)
+               !   end do
+               !end do
             end do
          end do
       else
