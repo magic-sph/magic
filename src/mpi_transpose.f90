@@ -65,7 +65,7 @@ module  mpi_alltoall_mod
    use parallel_mod
    use mem_alloc
    use radial_data, only: radial_balance
-   use truncation, only: lm_max, n_r_max
+   use truncation, only: lm_max, n_r_max, l_max, minc, l_axi
    use radial_data, only: nRstart, nRstop
    use LMLoop_data, only: llm, ulm
    use blocking, only: lmStartB, lmStopB, lo_map, st_map
@@ -75,7 +75,7 @@ module  mpi_alltoall_mod
 
    private
 
-   type, public, extends(type_mpitransp) :: type_mpiatoa
+   type, public, extends(type_mpitransp) :: type_mpiatoav
       integer, allocatable :: rcounts(:)
       integer, allocatable :: scounts(:)
       integer,     allocatable :: rdisp(:)
@@ -84,17 +84,30 @@ module  mpi_alltoall_mod
       complex(cp), allocatable :: sbuff(:)
       integer :: max_send, max_recv
    contains
-      procedure :: create_comm
-      procedure :: destroy_comm
-      procedure :: transp_lm2r
-      procedure :: transp_r2lm
-   end type type_mpiatoa
+      procedure :: create_comm => create_comm_alltoallv
+      procedure :: destroy_comm => destroy_comm_alltoallv
+      procedure :: transp_lm2r => transp_lm2r_alltoallv
+      procedure :: transp_r2lm => transp_r2lm_alltoallv
+   end type type_mpiatoav
+
+   type, public, extends(type_mpitransp) :: type_mpiatoaw
+      integer, allocatable :: rtype(:)
+      integer, allocatable :: stype(:)
+      integer, allocatable :: disp(:)
+      integer, allocatable :: counts(:)
+      complex(cp), pointer :: temp_Rloc(:,:,:)
+   contains
+      procedure :: create_comm => create_comm_alltoallw
+      procedure :: destroy_comm => destroy_comm_alltoallw
+      procedure :: transp_lm2r => transp_lm2r_alltoallw
+      procedure :: transp_r2lm => transp_r2lm_alltoallw
+   end type type_mpiatoaw
 
 contains
 
-   subroutine create_comm(this, n_fields)
+   subroutine create_comm_alltoallv(this, n_fields)
 
-      class(type_mpiatoa) :: this
+      class(type_mpiatoav) :: this
       integer, intent(in) :: n_fields
 
       !-- Local variables
@@ -104,6 +117,7 @@ contains
 
       allocate ( this%rcounts(0:n_procs-1), this%scounts(0:n_procs-1) )
       allocate ( this%rdisp(0:n_procs-1), this%sdisp(0:n_procs-1) )
+      bytes_allocated = bytes_allocated +4*n_procs*SIZEOF_INTEGER
 
       do p=0,n_procs-1
          my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
@@ -122,29 +136,108 @@ contains
       this%max_send = sum(this%scounts)
       this%max_recv = sum(this%rcounts)
 
-      bytes_allocated = bytes_allocated+4*n_procs*SIZEOF_INTEGER
-
       allocate( this%sbuff(1:this%max_send) )
       allocate( this%rbuff(1:this%max_recv) )
+      bytes_allocated = bytes_allocated+(this%max_send+this%max_recv)* &
+      &                 SIZEOF_DEF_COMPLEX
 
-   end subroutine create_comm
+   end subroutine create_comm_alltoallv
 !----------------------------------------------------------------------------------
-   subroutine destroy_comm(this)
+   subroutine create_comm_alltoallw(this, n_fields)
 
-      class(type_mpiatoa) :: this
+      class(type_mpiatoaw) :: this
+      integer, intent(in) :: n_fields
+
+      !-- Local variables
+      integer :: arr_size(3), arr_loc_size(3), arr_start(3)
+      integer :: p, my_lm_counts, nlm_per_rank
+
+      this%n_fields = n_fields
+
+      allocate(this%temp_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields))
+      bytes_allocated = bytes_allocated+&
+      &                 lm_max*(nRstop-nRstart+1)*this%n_fields*SIZEOF_DEF_COMPLEX
+
+      allocate ( this%counts(0:n_procs-1), this%disp(0:n_procs-1) )
+      allocate ( this%rtype(0:n_procs-1), this%stype(0:n_procs-1) )
+      bytes_allocated = bytes_allocated+4*n_procs*SIZEOF_INTEGER
+
+      do p=0,n_procs-1
+         my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
+         nlm_per_rank = ulm-llm+1
+
+         this%counts(p)=1
+         this%disp(p)  =0
+
+         arr_size(1)=lm_max
+         arr_size(2)=nR_per_rank
+         arr_size(3)=this%n_fields
+         arr_loc_size(1)=my_lm_counts
+         arr_loc_size(2)=nR_per_rank
+         arr_loc_size(3)=this%n_fields
+         arr_start(1)=lmStartB(p+1)-1
+         arr_start(2)=0
+         arr_start(3)=0
+#ifdef WITH_MPI
+         call MPI_Type_Create_Subarray(3, arr_size, arr_loc_size, arr_start, &
+              &                        MPI_ORDER_FORTRAN, MPI_DEF_COMPLEX,   &
+              &                        this%stype(p), ierr)
+         call MPI_Type_Commit(this%stype(p), ierr)
+#endif
+
+         arr_size(1)=nlm_per_rank
+         arr_size(2)=n_r_max
+         arr_size(3)=this%n_fields
+         arr_loc_size(1)=nlm_per_rank
+         arr_loc_size(2)=radial_balance(p)%n_per_rank
+         arr_loc_size(3)=this%n_fields
+         arr_start(1)=0
+         arr_start(2)=radial_balance(p)%nStart-1
+         arr_start(3)=0
+#ifdef WITH_MPI
+         call MPI_Type_Create_Subarray(3, arr_size, arr_loc_size, arr_start, &
+              &                        MPI_ORDER_FORTRAN, MPI_DEF_COMPLEX,   &
+              &                        this%rtype(p), ierr)
+         call MPI_Type_Commit(this%rtype(p), ierr)
+#endif
+      end do
+
+   end subroutine create_comm_alltoallw
+!----------------------------------------------------------------------------------
+   subroutine destroy_comm_alltoallv(this)
+
+      class(type_mpiatoav) :: this
 
       deallocate( this%rbuff, this%sbuff, this%sdisp, this%rdisp )
       deallocate( this%scounts, this%rcounts )
 
-   end subroutine destroy_comm
+   end subroutine destroy_comm_alltoallv
 !----------------------------------------------------------------------------------
-   subroutine transp_lm2r(this, arr_LMloc, arr_Rloc)
+   subroutine destroy_comm_alltoallw(this)
+
+      class(type_mpiatoaw) :: this
+
+#ifdef WITH_MPI
+      !-- Local variables
+      integer :: p
+
+      do p = 0, n_procs-1
+         call MPI_Type_Free(this%rtype(p), ierr)
+      end do
+#endif
+
+      deallocate( this%temp_Rloc )
+      deallocate( this%counts, this%disp, this%rtype, this%stype )
+
+   end subroutine destroy_comm_alltoallw
+!----------------------------------------------------------------------------------
+   subroutine transp_lm2r_alltoallv(this, arr_LMloc, arr_Rloc)
       !
       ! This subroutine transposes a LM-distributed container of arrays into
       ! a r-distributed container of arrays
       !
 
-      class(type_mpiatoa) :: this
+      class(type_mpiatoav) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
@@ -184,15 +277,54 @@ contains
          end do
       end do
 
-   end subroutine transp_lm2r
+   end subroutine transp_lm2r_alltoallv
 !----------------------------------------------------------------------------------
-   subroutine transp_r2lm(this, arr_Rloc, arr_LMloc)
+   subroutine transp_lm2r_alltoallw(this, arr_LMloc, arr_Rloc)
+
+      class(type_mpiatoaw) :: this
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+
+      !-- Local variables
+      integer :: n_r, l, m, n_f
+
+#ifdef WITH_MPI
+      call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype,      &
+           &             this%temp_Rloc, this%counts, this%disp, this%stype, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      if ( .not. l_axi ) then
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do l=0,l_max
+                  do m=0,l,minc
+                     arr_Rloc(st_map%lm2(l,m),n_r,n_f) = &
+                     &      this%temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
+                  end do
+               end do
+            end do
+         end do
+      else
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do l=0,l_max
+                  arr_Rloc(st_map%lm2(l,0),n_r,n_f) = &
+                  &      this%temp_Rloc(lo_map%lm2(l,0),n_r,n_f)
+               end do
+            end do
+         end do
+      end if
+
+   end subroutine transp_lm2r_alltoallw
+!----------------------------------------------------------------------------------
+   subroutine transp_r2lm_alltoallv(this, arr_Rloc, arr_LMloc)
       !
       ! This subroutine transposes a r-distributed container of arrays into
       ! a LM-distributed container of arrays
       !
 
-      class(type_mpiatoa) :: this
+      class(type_mpiatoav) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
@@ -232,7 +364,46 @@ contains
          end do
       end do
 
-   end subroutine transp_r2lm
+   end subroutine transp_r2lm_alltoallv
+!----------------------------------------------------------------------------------
+   subroutine transp_r2lm_alltoallw(this, arr_Rloc, arr_LMloc)
+
+      class(type_mpiatoaw) :: this
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+
+      !-- Local variables
+      integer :: n_r, l, m, n_f
+
+      if ( .not. l_axi ) then
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do l=0,l_max
+                  do m=0,l,minc
+                     this%temp_Rloc(lo_map%lm2(l,m),n_r,n_f) = &
+                     &                arr_Rloc(st_map%lm2(l,m),n_r,n_f)
+                  end do
+               end do
+            end do
+         end do
+      else
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do l=0,l_max
+                  this%temp_Rloc(lo_map%lm2(l,0),n_r,n_f) = &
+                  &                arr_Rloc(st_map%lm2(l,0),n_r,n_f)
+               end do
+            end do
+         end do
+      end if
+
+#ifdef WITH_MPI
+      call MPI_Alltoallw(this%temp_Rloc, this%counts, this%disp, this%stype, &
+           &             arr_LMloc, this%counts, this%disp, this%rtype,      &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+   end subroutine transp_r2lm_alltoallw
 !----------------------------------------------------------------------------------
 end module mpi_alltoall_mod
 

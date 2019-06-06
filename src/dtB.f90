@@ -12,7 +12,6 @@ module dtB_mod
        &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use mpi_transp, only: type_mpitransp
-   use mpi_alltoall_mod, only: type_mpiatoa
    use mpi_ptop_mod, only: type_mpiptop
    use physical_parameters, only: opm,O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
