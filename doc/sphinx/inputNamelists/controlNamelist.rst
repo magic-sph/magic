@@ -266,13 +266,15 @@ Miscellaneous
    | polo_flow_eq='DC'   | Use the double-curl formulation         |
    +---------------------+-----------------------------------------+
 
-* **mpi_transp** (defautl :f:var:`mpi_transp="auto <mpi_tansp>`) is a character string. It allows to change the way the global MPI transposes are handled by the code. By default, the code tries to determine by itself the fastest method. One can nevertheless force the code to use local communicators (such as Isend Irecv), or rather make use of the native alltoallv MPI variant.
+* **mpi_transp** (default :f:var:`mpi_transp="auto <mpi_tansp>`) is a character string. It allows to change the way the global MPI transposes are handled by the code. By default, the code tries to determine by itself the fastest method. One can nevertheless force the code to use local communicators (such as Isend/Irecv/waitall),make use of the native alltoallv MPI variant or choose the alltoallw variant instead.
 
    +--------------------+--------------------------------------------------+
    | mpi_transp='auto'  | Automatic determination of the fastest transpose |
    +--------------------+--------------------------------------------------+
-   | mpi_transp='p2p'   | Use local communicators                          |
+   | mpi_transp='p2p'   | Use Isend/Irecv/Waitall communicators            |
    +--------------------+--------------------------------------------------+
-   | mpi_transp='a2a'   | Use alltoallv communicators                      |
+   | mpi_transp='a2av'  | Use alltoallv communicators                      |
+   +--------------------+--------------------------------------------------+
+   | mpi_transp='a2aw'  | Use alltoallw communicators                      |
    +--------------------+--------------------------------------------------+
 
