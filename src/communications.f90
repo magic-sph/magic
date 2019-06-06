@@ -758,13 +758,13 @@ contains
             write(n_out,*)
             write(n_out,*) '! MPI transpose strategy :'
             write(message,'('' ! isend/irecv/waitall communicator='', &
-            &               ES10.3, '' ms'')') timers(1)
+            &               ES10.3, '' s'')') timers(1)
             write(n_out,'(A80)') message
             write(message,'('' ! alltoallv communicator          ='', &
-            &               ES10.3, '' ms'')') timers(2)
+            &               ES10.3, '' s'')') timers(2)
             write(n_out,'(A80)') message
             write(message,'('' ! alltoallw communicator          ='', &
-            &               ES10.3, '' ms'')') timers(3)
+            &               ES10.3, '' s'')') timers(3)
             write(n_out,'(A80)') message
 
             if ( idx == 1 ) then
