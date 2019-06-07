@@ -80,8 +80,6 @@ module  mpi_alltoall_mod
       integer, allocatable :: scounts(:)
       integer,     allocatable :: rdisp(:)
       integer,     allocatable :: sdisp(:)
-      complex(cp), allocatable :: rbuff(:)
-      complex(cp), allocatable :: sbuff(:)
       integer :: max_send, max_recv
    contains
       procedure :: create_comm => create_comm_alltoallv
@@ -95,7 +93,6 @@ module  mpi_alltoall_mod
       integer, allocatable :: stype(:)
       integer, allocatable :: disp(:)
       integer, allocatable :: counts(:)
-      complex(cp), pointer :: temp_Rloc(:,:,:)
    contains
       procedure :: create_comm => create_comm_alltoallw
       procedure :: destroy_comm => destroy_comm_alltoallw
@@ -136,11 +133,6 @@ contains
       this%max_send = sum(this%scounts)
       this%max_recv = sum(this%rcounts)
 
-      allocate( this%sbuff(1:this%max_send) )
-      allocate( this%rbuff(1:this%max_recv) )
-      bytes_allocated = bytes_allocated+(this%max_send+this%max_recv)* &
-      &                 SIZEOF_DEF_COMPLEX
-
    end subroutine create_comm_alltoallv
 !----------------------------------------------------------------------------------
    subroutine create_comm_alltoallw(this, n_fields)
@@ -153,10 +145,6 @@ contains
       integer :: p, my_lm_counts, nlm_per_rank
 
       this%n_fields = n_fields
-
-      allocate(this%temp_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields))
-      bytes_allocated = bytes_allocated+&
-      &                 lm_max*(nRstop-nRstart+1)*this%n_fields*SIZEOF_DEF_COMPLEX
 
       allocate ( this%counts(0:n_procs-1), this%disp(0:n_procs-1) )
       allocate ( this%rtype(0:n_procs-1), this%stype(0:n_procs-1) )
@@ -208,8 +196,7 @@ contains
 
       class(type_mpiatoav) :: this
 
-      deallocate( this%rbuff, this%sbuff, this%sdisp, this%rdisp )
-      deallocate( this%scounts, this%rcounts )
+      deallocate( this%sdisp, this%rdisp, this%scounts, this%rcounts )
 
    end subroutine destroy_comm_alltoallv
 !----------------------------------------------------------------------------------
@@ -225,8 +212,6 @@ contains
          call MPI_Type_Free(this%rtype(p), ierr)
       end do
 #endif
-
-      deallocate( this%temp_Rloc )
       deallocate( this%counts, this%disp, this%rtype, this%stype )
 
    end subroutine destroy_comm_alltoallw
@@ -242,26 +227,35 @@ contains
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
       !-- Local variables
+      complex(cp) :: sbuff(1:this%max_send)
+      complex(cp) :: rbuff(1:this%max_recv)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+      !$omp barrier
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm)
       do p = 0, n_procs-1
          ii = this%rdisp(p)+1
          do n_f=1,this%n_fields
             do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
                do lm=llm,ulm
-                  this%rbuff(ii)=arr_LMloc(lm,n_r,n_f)
+                  rbuff(ii)=arr_LMloc(lm,n_r,n_f)
                   ii = ii+1
                end do
             end do
          end do
       end do
+      !$omp end parallel do
 
 #ifdef WITH_MPI
-      call MPI_Alltoallv(this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
-           &             this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
+           &             sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
 #endif
 
+      !$omp barrier
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
       do p = 0, n_procs-1
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
@@ -270,12 +264,13 @@ contains
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
-                  arr_Rloc(lm_st,n_r,n_f)=this%sbuff(ii)
+                  arr_Rloc(lm_st,n_r,n_f)=sbuff(ii)
                   ii=ii+1
                end do
             end do
          end do
       end do
+      !$omp end parallel do
 
    end subroutine transp_lm2r_alltoallv
 !----------------------------------------------------------------------------------
@@ -286,30 +281,35 @@ contains
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
       !-- Local variables
+      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: n_r, l, m, n_f, lm
 
 #ifdef WITH_MPI
-      call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype,      &
-           &             this%temp_Rloc, this%counts, this%disp, this%stype, &
+      call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
+           &             temp_Rloc, this%counts, this%disp, this%stype, &
            &             MPI_COMM_WORLD, ierr)
 #endif
 
       if ( .not. l_axi ) then
+         !$omp barrier
+         !$omp parallel do default(shared) &
+         !$omp private(n_f,n_r,lm,l,m)
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
                do lm=1,lm_max
                   l = st_map%lm2l(lm)
                   m = st_map%lm2m(lm)
-                  arr_Rloc(lm,n_r,n_f)=this%temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
+                  arr_Rloc(lm,n_r,n_f)=temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
+         !$omp end parallel do
       else
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
                do l=0,l_max
                   arr_Rloc(st_map%lm2(l,0),n_r,n_f) = &
-                  &      this%temp_Rloc(lo_map%lm2(l,0),n_r,n_f)
+                  &      temp_Rloc(lo_map%lm2(l,0),n_r,n_f)
                end do
             end do
          end do
@@ -328,8 +328,13 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
       !-- Local variables
+      complex(cp) :: sbuff(1:this%max_send)
+      complex(cp) :: rbuff(1:this%max_recv)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+      !$omp barrier
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
       do p = 0, n_procs-1
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
@@ -338,30 +343,35 @@ contains
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
-                  this%sbuff(ii)=arr_Rloc(lm_st,n_r,n_f)
+                  sbuff(ii)=arr_Rloc(lm_st,n_r,n_f)
                   ii = ii +1
                end do
             end do
          end do
       end do
+      !$omp end parallel do
 
 #ifdef WITH_MPI
-      call MPI_Alltoallv(this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
-           &             this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
+           &             rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
 #endif
 
+      !$omp barrier
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm)
       do p = 0, n_procs-1
          ii = this%rdisp(p)+1
          do n_f=1,this%n_fields
             do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
                do lm=llm,ulm
-                  arr_LMloc(lm,n_r,n_f)=this%rbuff(ii)
+                  arr_LMloc(lm,n_r,n_f)=rbuff(ii)
                   ii=ii+1
                end do
             end do
          end do
       end do
+      !$omp end parallel do
 
    end subroutine transp_r2lm_alltoallv
 !----------------------------------------------------------------------------------
@@ -372,23 +382,28 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
       !-- Local variables
+      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: n_r, l, m, n_f, lm
 
       if ( .not. l_axi ) then
+         !$omp barrier
+         !$omp parallel do default(shared) &
+         !$omp private(n_f,n_r,lm,l,m)
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
                do lm=1,lm_max
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
-                  this%temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
+                  temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
+         !$omp end parallel do 
       else
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
                do l=0,l_max
-                  this%temp_Rloc(lo_map%lm2(l,0),n_r,n_f) = &
+                  temp_Rloc(lo_map%lm2(l,0),n_r,n_f) = &
                   &                arr_Rloc(st_map%lm2(l,0),n_r,n_f)
                end do
             end do
@@ -396,8 +411,8 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call MPI_Alltoallw(this%temp_Rloc, this%counts, this%disp, this%stype, &
-           &             arr_LMloc, this%counts, this%disp, this%rtype,      &
+      call MPI_Alltoallw(temp_Rloc, this%counts, this%disp, this%stype, &
+           &             arr_LMloc, this%counts, this%disp, this%rtype, &
            &             MPI_COMM_WORLD, ierr)
 #endif
 
@@ -709,6 +724,9 @@ contains
       ! now in this%temp_Rloc we do have the lo_ordered r-local part
       ! now reorder to the original ordering
       if ( .not. l_axi ) then
+         !$omp barrier
+         !$omp parallel do default(shared) &
+         !$omp private(i,nR,lm,l,m)
          do i=1,this%n_fields
             do nR=nRstart,nRstop
                do lm=1,lm_max
@@ -716,14 +734,9 @@ contains
                   m = st_map%lm2m(lm)
                   this%arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
                end do
-               !do l=0,l_max
-               !   do m=0,l,minc
-               !      this%arr_Rloc(st_map%lm2(l,m),nR,i) = &
-               !      &      this%temp_Rloc(lo_map%lm2(l,m),nR,i)
-               !   end do
-               !end do
             end do
          end do
+         !$omp end parallel do
       else
          do i=1,this%n_fields
             do nR=nRstart,nRstop
@@ -750,6 +763,9 @@ contains
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
       if ( .not. l_axi ) then
+         !$omp barrier
+         !$omp parallel do default(shared) &
+         !$omp private(i,nR,lm,l,m)
          do i=1,this%n_fields
             do nR=nRstart,nRstop
                do lm=1,lm_max
@@ -757,14 +773,9 @@ contains
                   m=lo_map%lm2m(lm)
                   this%temp_Rloc(lm,nR,i)=arr_Rloc(st_map%lm2(l,m),nR,i)
                end do
-               !do l=0,l_max
-               !   do m=0,l,minc
-               !      this%temp_Rloc(lo_map%lm2(l,m),nR,i) = &
-               !      &                arr_Rloc(st_map%lm2(l,m),nR,i)
-               !   end do
-               !end do
             end do
          end do
+         !$omp end parallel do
       else
          do i=1,this%n_fields
             do nR=nRstart,nRstop
