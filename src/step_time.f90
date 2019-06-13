@@ -14,8 +14,8 @@ module step_time_mod
    use mem_alloc, only: bytes_allocated, memWrite
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
        &                 lm_max, lmP_max, lm_maxMag
-   use num_param, only: n_time_steps, runTimeLimit, tEnd, dtMax, &
-       &                dtMin, tScale, alpha, runTime
+   use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
+       &                dtMin, tScale, alpha
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
    use blocking, only: nLMBs, lmStartB, lmStopB
@@ -271,16 +271,17 @@ contains
 
    end subroutine finalize_step_time
 !-------------------------------------------------------------------------------
-   subroutine step_time(time,dt,dtNew,n_time_step)
+   subroutine step_time(time,dt,dtNew,n_time_step,run_time_start)
       !
       !  This subroutine performs the actual time-stepping.
       !
 
       !-- Input from initialization:
       !   time and n_time_step updated and returned to magic.f
-      real(cp), intent(inout) :: time
-      real(cp), intent(inout) :: dt,dtNew
-      integer,  intent(inout) :: n_time_step
+      real(cp),         intent(inout) :: time
+      real(cp),         intent(inout) :: dt,dtNew
+      integer,          intent(inout) :: n_time_step
+      type(timer_type), intent(in) :: run_time_start
 
       !--- Local variables:
 
@@ -313,8 +314,12 @@ contains
       logical :: lMat             ! update matricies
       logical :: l_probe_out      ! Sensor output
 
+      !-- Timers:
+      type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
+      type(timer_type) :: mat_counter, tot_counter, io_counter, pure_counter
+      real(cp) :: run_time_passed
+
       !--- Counter:
-      integer :: n                ! Counter
       integer :: n_frame          ! No. of movie frames
       integer :: n_cmb_sets       ! No. of stored sets of b at CMB
 
@@ -322,7 +327,7 @@ contains
       character(len=255) :: message
 
       !--- Courant criteria/diagnosis:
-      real(cp) :: dtr,dth
+      real(cp) :: dtr, dth, tTot
       !-- Saves values for time step
       real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop)
 
@@ -385,26 +390,7 @@ contains
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
 
-      !--- Timing
-      integer :: runTimePassed(4)
-      integer :: runTimeRstart(4),runTimeRstop(4)
-      integer :: runTimeTstart(4),runTimeTstop(4)
-      integer :: runTimeR(4),runTimeLM(4),runTimeT(4)
-      integer :: runTimeMPI(4)
-      integer :: runTimeTL(4),runTimeTM(4)
-      integer :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM,nTimeMPI
-
-      ! MPI related variables
-      integer, allocatable :: recvcounts(:),displs(:)
-
-      integer(lip) :: time_in_ms
-
       if ( lVerbose ) write(*,'(/,'' ! STARTING STEP_TIME !'')')
-
-#ifdef WITH_MPI
-      ! allocate the buffers for MPI gathering
-      allocate(recvcounts(0:n_procs-1),displs(0:n_procs-1))
-#endif
 
       l_log       =.false.
       l_stop_time =.false.
@@ -438,21 +424,13 @@ contains
          write(*,*)
          write(*,*) '! Starting time integration!'
       end if
-      nTimeT  =0
-      nTimeTL =0
-      nTimeTM =0
-      nTimeR  =0
-      nTimeLM =0
-      nTimeMPI=0
-      do n=1,4
-         runTime(n)   =0
-         runTimeT(n)  =0
-         runTimeTM(n) =0
-         runTimeTL(n) =0
-         runTimeMPI(n)=0
-         runTimeR(n)  =0
-         runTimeLM(n) =0
-      end do
+      call comm_counter%initialize()
+      call rLoop_counter%initialize()
+      call lmLoop_counter%initialize()
+      call mat_counter%initialize()
+      call tot_counter%initialize()
+      call pure_counter%initialize()
+      call io_counter%initialize()
 
       !!!!! Time loop starts !!!!!!
       n_time_cour=-2 ! Causes a Courant check after first update
@@ -465,7 +443,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call mpi_barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
 
       PERFON('tloop')
@@ -478,7 +456,10 @@ contains
             write(*,*) '! Starting time step ',n_time_step
          end if
 
-         call wallTime(runTimeTstart)
+         !-- Start time counters
+         call mat_counter%start_count()
+         call tot_counter%start_count()
+         call pure_counter%start_count()
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
@@ -487,12 +468,11 @@ contains
          call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
               &         MPI_COMM_WORLD,ierr)
 #endif
-         PERFOFF
 
          !This dealing with a signal file is quite expensive
          ! as the file can be read only on one rank and the result
          ! must be distributed to all other ranks.
-         call check_signals(runTimePassed, signals)
+         call check_signals(run_time_passed, signals)
          n_stop_signal =signals(1)
          n_graph_signal=signals(2)
          n_rst_signal  =signals(3)
@@ -502,13 +482,12 @@ contains
          PERFON('chk_stop')
          !--- Various reasons to stop the time integration:
          if ( l_runTimeLimit ) then
+            tTot = tot_counter%tTot+run_time_start%tTot
 #ifdef WITH_MPI
-            time_in_ms=time2ms(runTime)
-            call MPI_Allreduce(MPI_IN_PLACE,time_in_ms,1,MPI_integer8, &
-                 &             MPI_MAX,MPI_COMM_WORLD,ierr)
-            call ms2time(time_in_ms,runTime)
+            call MPI_Allreduce(MPI_IN_PLACE, tTot, 1, MPI_DEF_REAL, MPI_MAX, &
+                 &             MPI_COMM_WORLD, ierr)
 #endif
-            if ( lTimeLimit(runTime,runTimeLimit) ) then
+            if ( tTot > run_time_limit ) then
                write(message,'("! Run time limit exeeded !")')
                call logWrite(message)
                l_stop_time=.true.
@@ -680,7 +659,7 @@ contains
 
          ! Waiting for the completion before we continue to the radialLoop
          ! put the waits before signals to avoid cross communication
-         call wallTime(runTimeRstart)
+         call comm_counter%start_count()
          if ( l_heat ) then
             call lo2r_s%transp_lm2r(s_LMloc_container, s_Rloc_container)
          end if
@@ -696,11 +675,7 @@ contains
          if ( l_mag ) then
             call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
          end if
-         call wallTime(runTimeRstop)
-         if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
-            call subTime(runTimeRstart,runTimeRstop,runTimePassed)
-            call addTime(runTimeMPI,runTimePassed)
-         end if
+         call comm_counter%stop_count(l_increment=.false.)
 
 
          !PERFOFF
@@ -710,8 +685,7 @@ contains
          !PERFOFF
          ! ===================================================================
 
-         call wallTime(runTimeRstart)
-
+         call rLoop_counter%start_count()
          call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
               &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
               &           lPowerCalc,lRmsCalc,lPressCalc,                      &
@@ -727,16 +701,9 @@ contains
               &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,            &
               &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
               &           dtrkc_Rloc,dthkc_Rloc)
+         call rLoop_counter%stop_count()
 
          if ( lVerbose ) write(*,*) '! r-loop finished!'
-         if ( .not.l_log ) then
-            call wallTime(runTimeRstop)
-            if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
-               nTimeR=nTimeR+1
-               call subTime(runTimeRstart,runTimeRstop,runTimePassed)
-               call addTime(runTimeR,runTimePassed)
-            end if
-         end if
 
          !---------------------------------------
          !--- Gather all r-distributed arrays ---
@@ -756,7 +723,7 @@ contains
          ! =====================================================================
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
-         call wallTime(runTimeRstart)
+         call comm_counter%start_count()
          PERFON('r2lo_dst')
          if ( l_conv .or. l_mag_kin ) then
             call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,dflowdt_LMloc_container)
@@ -773,12 +740,7 @@ contains
          if ( l_mag ) then
             call r2lo_field%transp_r2lm(dbdt_Rloc_container,dbdt_LMloc_container)
          end if
-         call wallTime(runTimeRstop)
-         if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
-            nTimeMPI=nTimeMPI+1
-            call subTime(runTimeRstart,runTimeRstop,runTimePassed)
-            call addTime(runTimeMPI,runTimePassed)
-         end if
+         call comm_counter%stop_count()
 
 #ifdef WITH_MPI
          ! ------------------
@@ -807,6 +769,7 @@ contains
             call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
          end if
          if ( lVerbose ) write(*,*) "! start real output"
+         call io_counter%start_count()
          call output(time,dt,dtNew,n_time_step,l_stop_time,                &
               &      l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,          &
               &      l_store,l_new_rst_file,                               &
@@ -818,6 +781,7 @@ contains
               &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
               &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
               &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
+         call io_counter%stop_count()
          PERFOFF
          if ( lVerbose ) write(*,*) "! output finished"
 
@@ -944,7 +908,6 @@ contains
          !PERFOFF
          ! ==================================================================
 
-         call wallTime(runTimeRstart)
          if ( lVerbose ) write(*,*) '! starting lm-loop!'
          if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
@@ -954,6 +917,7 @@ contains
             l_AB1 = .false.
          end if
 
+         call lmLoop_counter%start_count()
          call LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM_LMloc, &
               &      dVxBhLM_LMloc,dVSrLM_LMloc,dVPrLM_LMloc,dVXirLM_LMloc,  &
               &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,&
@@ -961,13 +925,10 @@ contains
               &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
          if ( lVerbose ) write(*,*) '! lm-loop finished!'
-         call wallTime(runTimeRstop)
-
-         if ( .not.lNegTime(runTimeRstart,runTimeRstop) ) then
-            nTimeLM=nTimeLM+1
-            call subTime(runTimeRstart,runTimeRstop,runTimePassed)
-            call addTime(runTimeLM,runTimePassed)
-         end if
+         call lmLoop_counter%stop_count()
+         if ( lMat ) call mat_counter%stop_count()
+         if ( .not. lMat .and. .not. l_log ) call pure_counter%stop_count()
+         call tot_counter%stop_count()
 
          !----- Timing and info of advancement:
          ! =================================== BARRIER ======================
@@ -979,21 +940,7 @@ contains
          !write(*,"(A,I4,A,F10.6,A)") " lm barrier on rank ",rank,&
          !     & " takes ",end_time-start_time," s."
          ! ==================================================================
-         call wallTime(runTimeTstop)
-         if ( .not.lNegTime(runTimeTstart,runTimeTstop) ) then
-            call subTime(runTimeTstart,runTimeTstop,runTimePassed)
-            if ( lMat .and. .not.l_log ) then
-               nTimeTM=nTimeTM+1
-               call addTime(runTimeTM,runTimePassed)
-            else if ( .not.lMat .and. l_log ) then
-               nTimeTL=nTimeTL+1
-               call addTime(runTimeTL,runTimePassed)
-            else if ( .not.lMat .and. .not.l_log ) then
-               nTimeT=nTimeT+1
-               call addTime(runTimeT,runTimePassed)
-            end if
-            call addTime(runTime,runTimePassed)
-         end if
+         run_time_passed = tot_counter%tTot/real(tot_counter%n_counts,cp)
          if ( real(n_time_step,cp)+tenth_n_time_steps*real(nPercent,cp) >=  &
          &    real(n_time_steps,cp)  .or. n_time_steps < 31 ) then
             write(message,'(" ! Time step finished:",i6)') n_time_step
@@ -1004,22 +951,12 @@ contains
                call logWrite(message)
                nPercent=nPercent-1
             end if
-            do n=1,4
-               runTimePassed(n)=runTimeT(n)
-            end do
-            if ( nTimeT > 0 ) then
-               call meanTime(runTimePassed,nTimeT)
-               if ( rank == 0 ) then
-                  call writeTime(output_unit,'! Mean wall time for time step:',  &
-                       &         runTimePassed)
-                  if ( l_save_out ) then
-                     open(newunit=n_log_file, file=log_file, status='unknown', &
-                     &    position='append')
-                  end if
-                  call writeTime(n_log_file,'! Mean wall time for time step:', &
-                       &         runTimePassed)
-                  if ( l_save_out ) close(n_log_file)
-               end if
+            !tot_counter%tTtop%
+            if ( rank == 0 ) then
+               call formatTime(output_unit,' ! Mean wall time for time step:',  &
+               &               run_time_passed)
+               call formatTime(n_log_file,' ! Mean wall time for time step:', &
+               &               run_time_passed)
             end if
          end if
 
@@ -1071,48 +1008,26 @@ contains
          call logWrite(message)
       end if
 
-      call meanTime(runTimeR, nTimeR)
-      call meanTime(runTimeMPI, nTimeMPI)
-      call meanTime(runTimeLM,nTimeLM)
-      call meanTime(runTimeTM,nTimeTM)
-      call meanTime(runTimeTL,nTimeTL)
-      call meanTime(runTimeT,nTimeT)
       if ( rank == 0 ) then
-         call writeTime(output_unit, &
-              &   '! Mean wall time for r Loop                 :',runTimeR)
-         call writeTime(output_unit, &
-              &   '! Mean wall time for LM Loop                :',runTimeLM)
-         call writeTime(output_unit, &
-              &   '! Mean wall time for MPI communications     :',runTimeMPI)
-         call writeTime(output_unit, &
-              &   '! Mean wall time for t-step with matrix calc:',runTimeTM)
-         call writeTime(output_unit, &
-              &   '! Mean wall time for t-step with log output :',runTimeTL)
-         call writeTime(output_unit, &
-              &   '! Mean wall time for pure t-step            :',runTimeT)
-         if ( l_save_out ) then
-            open(newunit=n_log_file, file=log_file, status='unknown', &
-            &    position='append')
-         end if
-         call writeTime(n_log_file,  &
-              &    '! Mean wall time for r Loop                 :',runTimeR)
-         call writeTime(n_log_file,  &
-              &    '! Mean wall time for LM Loop                :',runTimeLM)
-         call writeTime(n_log_file,  &
-              &    '! Mean wall time for MPI communications     :',runTimeMPI)
-         call writeTime(n_log_file,  &
-              &    '! Mean wall time for t-step with matrix calc:',runTimeTM)
-         call writeTime(n_log_file,  &
-              &    '! Mean wall time for t-step with log output :',runTimeTL)
-         call writeTime(n_log_file,  &
-              &    '! Mean wall time for pure t-step            :',runTimeT)
-         if ( l_save_out ) close(n_log_file)
+         write(output_unit,*)
+         call logWrite('')
       end if
+      call rLoop_counter%finalize('! Mean wall time for r Loop                 :', &
+           &                      n_log_file)
+      call lmLoop_counter%finalize('! Mean wall time for LM Loop                :',&
+           &                       n_log_file)
+      call comm_counter%finalize('! Mean wall time for MPI communications     :',  &
+           &                     n_log_file)
+      call mat_counter%finalize('! Mean wall time for t-step with matrix calc:',   &
+           &                    n_log_file)
+      call io_counter%finalize('! Mean wall time for output routine         :',  &
+           &                   n_log_file)
+      call pure_counter%finalize('! Mean wall time for one pure time step     :', &
+           &                     n_log_file)
+      call tot_counter%finalize('! Mean wall time for one time step          :', &
+           &                    n_log_file)
 
       !-- WORK IS DONE !
-#ifdef WITH_MPI
-      deallocate(recvcounts,displs)
-#endif
 
    end subroutine step_time
 !------------------------------------------------------------------------------

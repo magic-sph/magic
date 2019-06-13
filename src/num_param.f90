@@ -59,9 +59,7 @@ module num_param
    integer, public :: istop            ! Variable used in FFT soubroutine
  
    !-- Controlling run time:
-   integer, public :: runTimeLimit(4)  ! Maximum running time
-   integer, public :: runTime(4)       ! Running time
-   integer, public :: runTimeStart(4)  ! Wall clock time of start of the run
+   real(cp), public :: run_time_limit
 
    !-- For the nonlinear mapping)
    real(cp), public :: alph1  ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)

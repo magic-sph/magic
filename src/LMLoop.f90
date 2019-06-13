@@ -18,7 +18,6 @@ module LMLoop_mod
        &            l_single_matrix, l_chemical_conv, l_TP_form,         &
        &            l_save_out
    use output_data, only: n_log_file, log_file
-   use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
    use updateS_mod
@@ -128,7 +127,6 @@ contains
       !--- Local counter
       integer :: nLMB
       integer :: l,nR,ierr
-      integer :: tStart(4),tStop(4),tPassed(4)
 
       !--- Inner core rotation from last time step
       real(cp), save :: omega_icLast
@@ -170,10 +168,6 @@ contains
       !nThreadsLMmax = 1
       nLMB=1+rank
       !nTh=1
-      if ( lVerbose ) then
-         write(*,'(/," ! lm block no:",i3)') nLMB
-         call wallTime(tStart)
-      end if
 
       if ( l_heat ) then ! dp,workA usead as work arrays
          if ( .not. l_single_matrix ) then
@@ -248,14 +242,6 @@ contains
               &        omega_icLast, w1, coex, dt, time, nLMB, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
-      end if
-
-      if ( lVerbose ) then
-         call wallTime(tStop)
-         call subTime(tStart,tStop,tPassed)
-         !write(n_log_file,*) '! Thread no:',nTh
-         write(n_log_file,*) 'lmStart,lmStop:',lmStartB(nLMB),lmStopB(nLMB)
-         call writeTime(n_log_file,'! Time for thread:',tPassed)
       end if
 
       lorentz_torque_maLast=lorentz_torque_ma

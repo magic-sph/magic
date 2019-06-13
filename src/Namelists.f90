@@ -25,6 +25,8 @@ module Namelists
 
    private
 
+   integer :: runHours,runMinutes,runSeconds
+
    public :: readNamelists, writeNamelists
 
 contains
@@ -50,7 +52,6 @@ contains
       character(len=100) :: input_filename
 
       !-- Name lists:
-      integer :: runHours,runMinutes,runSeconds
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch
@@ -746,10 +747,7 @@ contains
       l_max_cmb=min(l_max_cmb,l_max)
 
       !-- Maximum run time specified?
-      runTimeLimit(1)=runHours
-      runTimeLimit(2)=runMinutes
-      runTimeLimit(3)=runSeconds
-      runTimeLimit(4)=0
+      run_time_limit=runHours*3600+runMinutes*60+runSeconds
       l_runTimeLimit =.false.
       if ( runHours+runMinutes+runSeconds > 0 ) l_runTimeLimit= .true.
 
@@ -825,9 +823,9 @@ contains
       write(n_out,'(''  l_correct_AMz   ='',l3,'','')') l_correct_AMz
       write(n_out,'(''  l_non_rot       ='',l3,'','')') l_non_rot
       write(n_out,'(''  l_runTimeLimit  ='',l3,'','')') l_runTimeLimit
-      write(n_out,'(''  runHours        ='',i6,'','')') runTimeLimit(1)
-      write(n_out,'(''  runMinutes      ='',i4,'','')') runTimeLimit(2)
-      write(n_out,'(''  runSeconds      ='',i4,'','')') runTimeLimit(3)
+      write(n_out,'(''  runHours        ='',i6,'','')') runHours
+      write(n_out,'(''  runMinutes      ='',i4,'','')') runMinutes
+      write(n_out,'(''  runSeconds      ='',i4,'','')') runSeconds
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
       length=length_to_blank(radial_scheme)
       write(n_out,*) " radial_scheme   = """,radial_scheme(1:length),""","
@@ -1219,11 +1217,10 @@ contains
 
       !---- Run time and number of threads:
       l_runTimeLimit=.false. ! Control of absolute run time
-      do n=1,4
-         runTimeLimit(n)=0
-      end do
-
-      tEND          =0.0_cp    ! numerical time where run should end
+      runHours  =0
+      runMinutes=0
+      runSeconds=0
+      tEND      =0.0_cp    ! numerical time where run should end
 
       !----- Hyperdiffusion:
       difnu         =0.0_cp

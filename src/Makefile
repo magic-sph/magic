@@ -298,7 +298,7 @@ timing.o: timing.f90
 
 precision_mod.o       : mpimod.o
 truncation.o          : precision_mod.o logic.o useful.o
-signals.o             : precision_mod.o char_manip.o timing.o output_data.o\
+signals.o             : precision_mod.o char_manip.o output_data.o\
                         parallel.o
 magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
@@ -408,7 +408,7 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
                         logic.o radial_data.o updateWPS.o\
                         output_data.o fields.o dt_fieldsLast.o\
                         updateS.o updateB.o mem_alloc.o updateXI.o\
-                        updateZ.o updateWP.o timing.o LMLoop_data.o\
+                        updateZ.o updateWP.o LMLoop_data.o\
                         debugging.o updateWPT.o
 mpi_transpose.o       : precision_mod.o truncation.o radial_data.o LMLoop_data.o\
                         mem_alloc.o parallel.o blocking.o

@@ -93,6 +93,8 @@ contains
          end if
       end if
 
+      !call find_faster_block(idx)
+
       if ( idx == 1 ) then
          allocate( type_mpiptop :: lo2r_s )
          allocate( type_mpiptop :: r2lo_s )
@@ -659,6 +661,115 @@ contains
 #endif
 
    end subroutine reduce_scalar
+!-------------------------------------------------------------------------------
+   subroutine find_faster_block(idx_type)
+
+      !-- Input variable
+      integer, intent(in) :: idx_type
+
+#ifdef WITH_MPI
+      !-- Local variables
+      complex(cp), allocatable :: arr_Rloc(:,:,:), arr_LMloc(:,:,:)
+      class(type_mpitransp), pointer :: lo2r_test
+      real(cp) :: rdm_real, rdm_imag, tStart, tStop
+      real(cp) :: tBlock(6), tBlock_avg(6)
+      integer, parameter :: n_transp=10
+      integer :: block_size(6), ind(1)
+      integer :: iblock, idx, n_f, n_r, lm, n, n_t, n_out
+      character(len=80) :: message
+
+      block_size = [1, 2, 3, 4, 5, 8]
+
+      if ( idx_type == 1 ) then
+         allocate( type_mpiptop :: lo2r_test )
+      else if ( idx_type == 2 ) then
+         allocate( type_mpiatoav :: lo2r_test )
+      else if ( idx_type == 3 ) then
+         allocate( type_mpiatoaw :: lo2r_test )
+      end if
+      do iblock=1,size(block_size)
+
+         allocate( arr_RLoc(lm_max,nRstart:nRstop, block_size(iblock)) )
+         allocate( arr_LMLoc(llm:ulm,n_r_max, block_size(iblock)) )
+
+         !-- Try the all-to-allv strategy (10 back and forth transposes)
+         call lo2r_test%create_comm(block_size(iblock))
+
+         do n_f=1,block_size(iblock)
+            do n_r=nRstart,nRstop
+               do lm=1,lm_max
+                  call random_number(rdm_real)
+                  call random_number(rdm_imag)
+                  arr_Rloc(lm,n_r,n_f)=cmplx(rdm_real,rdm_imag,kind=cp)
+               end do
+            end do
+         end do
+
+         tStart = MPI_Wtime()
+         do n_t=1,n_transp
+            call MPI_Barrier(MPI_COMM_WORLD, ierr)
+            call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+            call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+         end do
+         tStop = MPI_Wtime()
+         tBlock(iblock) = tStop-tStart
+
+
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call lo2r_test%destroy_comm()
+
+         deallocate( arr_Rloc, arr_LMloc )
+      end do
+      deallocate( lo2r_test )
+
+      !-- Now determine the average over the ranks and send it to rank=0
+      call MPI_Reduce(tBlock, tBlock_avg, size(tBlock), MPI_DEF_REAL, &
+           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
+      if ( rank == 0 ) then
+         !-- Average over procs and number of transposes
+         tBlock_avg(:) = tBlock_avg(:)/real(n_procs,cp)/real(n_transp,cp)
+
+         tBlock_avg(:) = tBlock_avg(:)/real(block_size(:),cp)
+
+         !-- Determine the fastest
+         ind = minloc(tBlock_avg)
+         idx = ind(1)
+
+         do n=1,2
+            if ( n==1 ) then
+               n_out = n_log_file
+            else
+               n_out = output_unit
+            end if
+            write(n_out,*)
+            write(n_out,*) '! MPI blocking for the transposes :'
+            write(message,'('' ! Container contains 1 field  ='', &
+            &               ES10.3, '' s'')') tBlock_avg(1)
+            write(n_out,'(A80)') message
+            write(message,'('' ! Container contains 2 fields ='', &
+            &               ES10.3, '' s'')') tBlock_avg(2)
+            write(n_out,'(A80)') message
+            write(message,'('' ! Container contains 3 fields ='', &
+            &               ES10.3, '' s'')') tBlock_avg(3)
+            write(n_out,'(A80)') message
+            write(message,'('' ! Container contains 4 fields ='', &
+            &               ES10.3, '' s'')') tBlock_avg(4)
+            write(n_out,'(A80)') message
+            write(message,'('' ! Container contains 5 fields ='', &
+            &               ES10.3, '' s'')') tBlock_avg(5)
+            write(n_out,'(A80)') message
+            write(message,'('' ! Container contains 8 fields ='', &
+            &               ES10.3, '' s'')') tBlock_avg(6)
+            write(n_out,'(A80)') message
+            write(n_out,*)
+         end do
+
+      end if
+#endif
+
+
+   end subroutine find_faster_block
 !-------------------------------------------------------------------------------
    subroutine find_faster_comm(idx)
       !

@@ -99,6 +99,7 @@ program magic
    use special, only: initialize_Grenoble, finalize_Grenoble
    use blocking, only: initialize_blocking, finalize_blocking
    use LMLoop_data, only: llm, ulm
+   use timing, only: timer_type
    use horizontal_data
    use logic
    use fields
@@ -124,7 +125,6 @@ program magic
    use parallel_mod
    use Namelists
    use step_time_mod, only: initialize_step_time, step_time, finalize_step_time
-   use timing, only: writeTime,wallTime
    use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
@@ -155,6 +155,7 @@ program magic
    real(cp) :: time
    real(cp) :: dt
    real(cp) :: dtNew
+   type(timer_type) :: run_time, run_time_start
 
    integer :: n_stop_signal=0     ! signal returned from step_time
 
@@ -189,10 +190,13 @@ program magic
    !LIKWID_ON('main')
    call parallel
 
+   call run_time%initialize()
+   call run_time%start_count()
+   call run_time_start%initialize()
+   call run_time_start%start_count()
+
    !--- Read starting time
    if ( rank == 0 ) then
-      !call get_resetTime(resetTime)
-      call wallTime(runTimeStart)
       write(*,*)
       write(*,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
       call date_and_time(values=values)
@@ -364,10 +368,16 @@ program magic
    timeStart        =time
    n_time_step_start=n_time_step
 
+   !-- Stop measuring initiatisation of MagIC
+   call run_time_start%stop_count()
+
    !--- Call time-integration routine:
-   PERFON('steptime')
-   call step_time(time,dt,dtNew,n_time_step)
-   PERFOFF
+   call step_time(time,dt,dtNew,n_time_step,run_time_start)
+
+   !-- Stop counting time and print
+   call run_time%stop_count()
+   call run_time%finalize('! Total run time:', n_log_file)
+
    !--- Write stop time to SDTOUR and logfile:
    if ( rank == 0 ) then
       if ( l_save_out ) then
@@ -376,7 +386,7 @@ program magic
       end if
 
       do n=1,2
-         if ( n == 1 ) nO=6
+         if ( n == 1 ) nO=output_unit
          if ( n == 2 ) nO=n_log_file
          write(nO,'(/,'' ! STOPPING TIME INTEGRATION AT:'')')
          write(nO,'(''   stop time ='',1p,ES18.10)') tScale*time
@@ -384,17 +394,13 @@ program magic
          write(nO,'(''   steps gone='',i10)') (n_time_step-1)
          write(nO,*)
          if ( n_stop_signal > 0 ) then
-            write(nO,*) '!!! MAGIC terminated by STOP signal !!!'
+            write(nO,*) '!!! MagIC terminated by STOP signal !!!'
          else
-            write(nO,*) '!!! regular end of program MAGIC !!!'
+            write(nO,*) '!!! regular end of program MagIC !!!'
          end if
          write(nO,*)
-         !write(nO,'('' max. thread number in  R-loop='',i3)') &
-         !      nThreadsRmax
-         !write(nO,'('' max. thread number in LM-loop='',i3)') &
-         !      nThreadsLMmax
+
          write(nO,*)
-         call writeTime(nO,'! Total run time:',runTime)
          write(nO,*)
          write(nO,*) ' !***********************************!'
          write(nO,*) ' !---- THANK YOU FOR USING MAGIC ----!'

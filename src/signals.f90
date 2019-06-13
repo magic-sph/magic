@@ -7,7 +7,6 @@ module signals_mod
 
    use parallel_mod
    use precision_mod
-   use timing, only: time2ms
    use charmanip, only: capitalize
    use output_data, only: tag
 
@@ -93,19 +92,16 @@ contains
 
    end subroutine read_signal_file
 !------------------------------------------------------------------------------
-   subroutine check_signals(run_time_passed, signals)
+   subroutine check_signals(run_time, signals)
 
       !-- Input variable:
-      integer, intent(in) :: run_time_passed(4)
+      real(cp), intent(in) :: run_time
 
       !-- Output variables
       integer, intent(out) :: signals(5)
 
       !-- Local variables:
-      real(cp) :: run_time
       logical :: l_check_signal
-
-      run_time = time2ms(run_time_passed)*1e-3_cp ! to seconds
 
       if ( run_time > 0.0_cp ) then
          tsig = tsig+run_time
