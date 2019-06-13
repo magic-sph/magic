@@ -7,7 +7,7 @@ module rIterThetaBlocking_seq_mod
    use TO_arrays_mod, only: TO_arrays_t
    use dtB_arrays_mod, only: dtB_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
- 
+   use num_param, only: lm2phy_counter, phy2lm_counter, nl_counter, td_counter
    use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
        &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
@@ -26,7 +26,7 @@ module rIterThetaBlocking_seq_mod
    use dtB_mod, only: get_dtBLM, get_dH_dtBLM
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque
-   use courant_mod, only: courant 
+   use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs
    use constants, only: zero
    use nl_special_calc
@@ -94,11 +94,11 @@ contains
               &           EperpaxiLMr,EparaxiLmr)
 
       class(rIterThetaBlocking_seq_t) :: this
-  
+
       !-- Input variables
       integer,  intent(in) :: nR,nBc
       real(cp), intent(in) :: time,dt,dtLast
-  
+
       !-- Output variables
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:), dVXirLM(:), dVPrLM(:)
@@ -116,16 +116,16 @@ contains
       real(cp),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
-  
+
       !-- Local variables
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
-  
+
       this%nR=nR
       this%nBc=nBc
       this%isRadialBoundaryPoint = (nR == n_r_cmb) .or. (nR == n_r_icb)
-  
+
       if ( this%l_cour ) then
          this%dtrkc=1.e10_cp
          this%dthkc=1.e10_cp
@@ -139,16 +139,16 @@ contains
             this%TO_arrays%dzLFLM(l+1)  =0.0_cp
          end do
       end if
-  
+
       !----- Prepare legendre transform:
-      !      legPrepG collects all the different modes necessary 
+      !      legPrepG collects all the different modes necessary
       !      to calculate the non-linear terms at a radial grid point nR
       PERFON('legPrepG')
       if ( DEBUG_OUTPUT ) then
          write(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ",this%nBc,", lDeriv = ", &
               & this%lDeriv,", l_mag = ",l_mag
       end if
-  
+
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
            &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
            &                        this%lTOcalc)
@@ -186,7 +186,7 @@ contains
       !        & SUM(dLhb),SUM(dLhj),SUM(bhG),SUM(bhC),SUM(cbhG),SUM(cbhC),&
       !        & SUM(sR),SUM(dsR),SUM(preR),SUM(dpR),SUM(zAS), SUM(dzAS),&
       !        &SUM(ddzAS),SUM(bCMB),omegaIC,omegaMA
-  
+
       !   write(*,"(A,I4,A)") "We have ",this%nThetaBs," theta blocks!"
       !end if
       !----- Blocking of loops over ic (theta):
@@ -196,27 +196,33 @@ contains
          nThetaStop =nThetaLast + this%sizeThetaB
          !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ", &
          !      & nThetaStop
-  
+
+         call lm2phy_counter%start_count()
          call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa,time)
-  
+         call lm2phy_counter%stop_count(l_increment=.false.)
+
          !--------- Calculation of nonlinear products in grid space:
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
-                this%lRmsCalc ) then 
+                this%lRmsCalc ) then
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
+            call nl_counter%start_count()
             PERFON('get_nl')
             call this%gsa%get_nl(time, this%nR, this%nBc, nThetaStart, &
                  &               this%lRmsCalc)
             PERFOFF
-  
+            call nl_counter%stop_count(l_increment=.false.)
+
+            call phy2lm_counter%start_count()
             call this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)
-  
+            call phy2lm_counter%stop_count(l_increment=.false.)
+
          else if ( l_mag ) then
             do lm=1,lmP_max
                this%nl_lm%VxBtLM(lm)=0.0_cp
                this%nl_lm%VxBpLM(lm)=0.0_cp
             end do
          end if
-  
+
          !---- Calculation of nonlinear products needed for conducting mantle or
          !     conducting inner core if free stress BCs are applied:
          !     input are brc,vtc,vpc in (theta,phi) space (plus omegaMA and ..)
@@ -246,7 +252,7 @@ contains
                  &                  this%sizeThetaB,this%gsa%brc,      &
                  &                  this%gsa%bpc,this%nR)
          end if
-  
+
          !--------- Calculate Lorentz torque on mantle:
          !          note: this calculates a torque of a wrong sign.
          !          sign is reversed at the end of the theta blocking.
@@ -264,7 +270,7 @@ contains
                  &       this%gsa%btc,this%gsa%bpc,nThetaStart,      &
                  &       this%sizeThetaB)
          end if
-  
+
          !--------- Since the fields are given at gridpoints here, this is a good
          !          point for graphical output:
          if ( this%l_graph ) then
@@ -309,16 +315,16 @@ contains
                  &        this%nR,nThetaStart)
             PERFOFF
          end if
-  
+
          !--------- horizontal velocity :
-  
+
          if ( this%lViscBcCalc ) then
             call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,  &
                     &          this%gsa%dvpdrc,this%gsa%drSc,              &
                     &          this%gsa%dsdtc,this%gsa%dsdpc,uhLMr,duhLMr, &
                     &          gradsLMr,nR,nThetaStart)
          end if
-  
+
          if ( this%lFluxProfCalc ) then
              call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,  &
                     &        this%gsa%dvtdrc,this%gsa%dvpdrc,this%gsa%dvrdtc,         &
@@ -326,13 +332,13 @@ contains
                     &        this%gsa%btc,this%gsa%bpc,this%gsa%cbtc,this%gsa%cbpc,   &
                     &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,nThetaStart)
          end if
-  
+
          if ( this%lPerpParCalc ) then
              call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,  &
                     &        EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,  &
                     &        nR,nThetaStart)
          end if
-  
+
          !--------- Movie output:
          if ( this%l_frame .and. l_movie_oc .and. l_store_frame ) then
             PERFON('mov_out')
@@ -345,8 +351,8 @@ contains
                  &                 this%leg_helper%bCMB)
             PERFOFF
          end if
-  
-  
+
+
          !--------- Stuff for special output:
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
@@ -364,8 +370,8 @@ contains
                  &         this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
             PERFOFF
          end if
-  
-  
+
+
          !--------- Torsional oscillation terms:
          PERFON('TO_terms')
          if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
@@ -374,7 +380,7 @@ contains
                  &         dtLast,this%nR,nThetaStart,this%sizeThetaB,    &
                  &         this%BsLast,this%BpLast,this%BzLast)
          end if
-  
+
          if ( this%lTOCalc ) then
             call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
@@ -385,35 +391,37 @@ contains
                  &     this%sizeThetaB)
          end if
          PERFOFF
-  
+
       end do ! Loop over theta blocks
-  
-  
+
+
       !-- Partial calculation of time derivatives (horizontal parts):
       !   input flm...  is in (l,m) space at radial grid points this%nR !
       !   Only dVxBh needed for boundaries !
-      !   get_td finally calculates the d*dt terms needed for the 
+      !   get_td finally calculates the d*dt terms needed for the
       !   time step performed in s_LMLoop.f . This should be distributed
-      !   over the different models that s_LMLoop.f parallelizes over. 
+      !   over the different models that s_LMLoop.f parallelizes over.
       !write(*,"(A,I4,4ES20.13)") "before_td: ",this%nR,SUM(this%nl_lm%VxBtLM),&
       !     & SUM(this%nl_lm%VxBpLM)
+      call td_counter%start_count()
       PERFON('get_td')
       call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,                 &
            &                 this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,dVxVhLM,  &
            &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       PERFOFF
+      call td_counter%stop_count(l_increment=.false.)
       !do lm=1,lm_max
       !   write(*,"(2(I3,A),2ES20.12)") this%nR,": dwdt(",lm,") = ",dwdt(lm)
       !end do
       !write(*,"(A,I4,4ES20.13)") "after_td: dwdt ",this%nR, SUM(dwdt)
       !-- Finish calculation of TO variables:
-      if ( this%lTOcalc ) then                                   
+      if ( this%lTOcalc ) then
          call getTOfinish(this%nR,dtLast,this%leg_helper%zAS,             &
               &           this%leg_helper%dzAS,this%leg_helper%ddzAS,     &
               &           this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,&
               &           this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM)
       end if
-  
+
       !--- Form partial horizontal derivaties of magnetic production and
       !    advection terms:
       if ( l_dtB ) then

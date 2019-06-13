@@ -18,7 +18,7 @@ module updateB_mod
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
-   use num_param, only: alpha
+   use num_param, only: alpha, solve_counter, dct_counter
    use blocking, only: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
@@ -308,6 +308,7 @@ contains
 #endif
       !PERFOFF
 
+      call solve_counter%start_count()
       ! This is a loop over all l values which should be treated on
       ! the actual MPI rank
       !$OMP PARALLEL default(shared)
@@ -622,6 +623,7 @@ contains
       end do      ! end of do loop over lm1
       !$OMP END SINGLE
       !$OMP END PARALLEL
+      call solve_counter%stop_count(l_increment=.false.)
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
@@ -640,6 +642,7 @@ contains
          end do
       end if
 
+      call dct_counter%start_count()
       !PERFON('upB_drv')
       all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
@@ -708,6 +711,7 @@ contains
       call omp_set_num_threads(maxThreads)
 #endif
       !PERFOFF
+      call dct_counter%stop_count(l_increment=.false.)
       !-- We are now back in radial space !
 
       !PERFON('upB_last')

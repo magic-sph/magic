@@ -5,7 +5,8 @@ module rIterThetaBlocking_shtns_mod
 #endif
    use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
-
+   use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
+       &                td_counter
    use truncation, only: lm_max, lmP_max, l_max, lmP_max_dtB,      &
        &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr, &
        &                 n_theta_max, n_phi_max, nrp, n_r_max
@@ -186,17 +187,23 @@ contains
 
       call this%nl_lm%set_zero()
 
+      call lm2phy_counter%start_count()
       call this%transform_to_grid_space_shtns(this%gsa, time)
+      call lm2phy_counter%stop_count(l_increment=.false.)
 
       !--------- Calculation of nonlinear products in grid space:
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
-            this%lRmsCalc ) then
+      &     this%lRmsCalc ) then
 
+         call nl_counter%start_count()
          PERFON('get_nl')
          call this%gsa%get_nl_shtns(time, this%nR, this%nBc, this%lRmsCalc)
          PERFOFF
+         call nl_counter%stop_count(l_increment=.false.)
 
+         call phy2lm_counter%start_count()
          call this%transform_to_lm_space_shtns(this%gsa, this%nl_lm)
+         call phy2lm_counter%stop_count(l_increment=.false.)
 
       else if ( l_mag ) then
          do lm=1,lmP_max
@@ -420,10 +427,12 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
+      call td_counter%start_count()
       call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,           &
            &                 this%lPressCalc, dVSrLM, dVPrLM, dVXirLM,   &
            &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt,   &
            &                 dxidt, dbdt, djdt)
+      call td_counter%stop_count(l_increment=.false.)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &

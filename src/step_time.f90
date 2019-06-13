@@ -15,7 +15,9 @@ module step_time_mod
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
        &                 lm_max, lmP_max, lm_maxMag
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
-       &                dtMin, tScale, alpha
+       &                dtMin, tScale, alpha, dct_counter,         &
+       &                solve_counter, lm2phy_counter, td_counter, &
+       &                phy2lm_counter, nl_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
    use blocking, only: nLMBs, lmStartB, lmStopB
@@ -27,7 +29,8 @@ module step_time_mod
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
        &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
-       &            l_double_curl, l_PressGraph, l_probe, l_AB1
+       &            l_double_curl, l_PressGraph, l_probe, l_AB1,       &
+       &            l_finite_diff
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
@@ -702,6 +705,10 @@ contains
               &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
               &           dtrkc_Rloc,dthkc_Rloc)
          call rLoop_counter%stop_count()
+         phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
+         lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
+         nl_counter%n_counts=nl_counter%n_counts+1
+         td_counter%n_counts=td_counter%n_counts+1
 
          if ( lVerbose ) write(*,*) '! r-loop finished!'
 
@@ -925,6 +932,8 @@ contains
               &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
          if ( lVerbose ) write(*,*) '! lm-loop finished!'
+
+         !-- Timer counters
          call lmLoop_counter%stop_count()
          if ( lMat ) call mat_counter%stop_count()
          if ( .not. lMat .and. .not. l_log ) call pure_counter%stop_count()
@@ -1014,8 +1023,20 @@ contains
       end if
       call rLoop_counter%finalize('! Mean wall time for r Loop                 :', &
            &                      n_log_file)
+      call phy2lm_counter%finalize('!    - Time taken for Spec->Spat            :',&
+           &                       n_log_file)
+      call lm2phy_counter%finalize('!    - Time taken for Spat->Spec            :',&
+           &                       n_log_file)
+      call nl_counter%finalize('!    - Time taken for nonlinear terms       :',&
+           &                       n_log_file)
+      call td_counter%finalize('!    - Time taken for time derivative terms :',&
+           &                       n_log_file)
       call lmLoop_counter%finalize('! Mean wall time for LM Loop                :',&
            &                       n_log_file)
+      call dct_counter%finalize('!     - Time taken for DCTs and r-der       :',   &
+           &                    n_log_file)
+      call solve_counter%finalize('!     - Time taken for linear solves        :', &
+           &                      n_log_file)
       call comm_counter%finalize('! Mean wall time for MPI communications     :',  &
            &                     n_log_file)
       call mat_counter%finalize('! Mean wall time for t-step with matrix calc:',   &

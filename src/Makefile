@@ -539,7 +539,7 @@ outRot.o              : truncation.o blocking.o num_param.o\
 blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
                         output_data.o useful.o precision_mod.o constants.o\
                         mem_alloc.o
-num_param.o           : truncation.o precision_mod.o mem_alloc.o
+num_param.o           : truncation.o precision_mod.o mem_alloc.o timing.o
 radial.o              : truncation.o radial_data.o $(LAPACK_OBJS)\
                         phys_param.o logic.o precision_mod.o finite_differences.o\
                         output_data.o cosine_transform_odd.o\

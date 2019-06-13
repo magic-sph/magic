@@ -13,7 +13,7 @@ module updateWPS_mod
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
-   use num_param, only: alpha
+   use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops, bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
@@ -173,10 +173,8 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      !allocate(rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,nLMBs2(nLMB)))
-
-      lmStart     =lmStartB(nLMB)
-      lmStop      =lmStopB(nLMB)
+      lmStart=lmStartB(nLMB)
+      lmStop =lmStopB(nLMB)
 
       w2  =one-w1
       O_dt=one/dt
@@ -219,6 +217,7 @@ contains
       !$OMP END PARALLEL
 
 
+      call solve_counter%start_count()
       !PERFON('upWP_ssol')
       !$OMP PARALLEL default(shared)
       !$OMP SINGLE
@@ -392,7 +391,7 @@ contains
       !$OMP END SINGLE
       !$OMP END PARALLEL
       !PERFOFF
-      !write(*,"(A,I3,4ES22.12)") "w,p after: ",nLMB,get_global_SUM(w),get_global_SUM(p)
+      call solve_counter%stop_count(l_increment=.false.)
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -404,6 +403,7 @@ contains
       end do
 
 
+      call dct_counter%start_count()
       !PERFON('upWP_drv')
       all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
@@ -448,6 +448,7 @@ contains
       end do
       !$OMP end do
       !$OMP END PARALLEL
+      call dct_counter%stop_count(l_increment=.false.)
 
 
       !do nR=1,n_r_max

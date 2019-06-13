@@ -11,7 +11,7 @@ module updateZ_mod
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
    use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek, &
        &                          po_diff, diff_prec_angle
-   use num_param, only: alpha, AMstart
+   use num_param, only: alpha, AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
                      & lmStartB,lmStopB
@@ -239,6 +239,7 @@ contains
       w2  =one-w1
       O_dt=one/dt
 
+      call solve_counter%start_count()
       l10=.false.
       !$OMP PARALLEL default(shared)
       !$OMP SINGLE
@@ -505,6 +506,7 @@ contains
       end do       ! end of loop over lm blocks
       !$OMP END SINGLE
       !$OMP END PARALLEL
+      call solve_counter%stop_count(l_increment=.false.)
 
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
@@ -515,6 +517,7 @@ contains
       end do
 
       !PERFON('upZ_drv')
+      call dct_counter%start_count()
       all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < omp_get_max_threads()) then
@@ -556,6 +559,7 @@ contains
       call omp_set_num_threads(omp_get_max_threads())
 #endif
       !PERFOFF
+      call dct_counter%stop_count(l_increment=.false.)
 
       !PERFON('upZ_icma')
       !--- Update of inner core and mantle rotation:

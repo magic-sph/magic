@@ -11,7 +11,7 @@ module updateWP_mod
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
        &                          ViscHeatFac, ThExpNb, ktopp
-   use num_param, only: alpha
+   use num_param, only: alpha, dct_counter, solve_counter
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
@@ -116,7 +116,7 @@ contains
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
    subroutine updateWP(w,dw,ddw,dVxVhLM,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s,xi, &
-        &              w1,coex,dt,nLMB,lRmsNext,lPressNext)
+              &        w1,coex,dt,nLMB,lRmsNext,lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -227,6 +227,7 @@ contains
          !PERFOFF
       end if
 
+      call solve_counter%start_count()
       !PERFON('upWP_ssol')
       !$OMP PARALLEL default(shared) &
       !$OMP private(nLMB2,lm,lm1,l1,m1,lmB)
@@ -475,7 +476,7 @@ contains
       !$OMP END SINGLE
       !$OMP END PARALLEL
       !PERFOFF
-      !write(*,"(A,I3,4ES22.12)") "w,p after: ",nLMB,get_global_SUM(w),get_global_SUM(p)
+      call solve_counter%stop_count()
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -489,6 +490,7 @@ contains
       end do
 
 
+      call dct_counter%start_count()
       !PERFON('upWP_drv')
       all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
@@ -543,6 +545,7 @@ contains
       call omp_set_num_threads(omp_get_max_threads())
 #endif
       !PERFOFF
+      call dct_counter%stop_count()
 
       if ( lRmsNext ) then
          n_r_top=n_r_cmb

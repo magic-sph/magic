@@ -7,7 +7,7 @@ module updateXi_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: orho1, or1, or2, beta, rscheme_oc
    use physical_parameters, only: osc, kbotxi, ktopxi
-   use num_param, only: alpha
+   use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: topxi, botxi
    use blocking, only: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh, hdif_Xi
@@ -189,6 +189,7 @@ contains
       !$OMP END PARALLEL
       !PERFOFF
 
+      call solve_counter%start_count()
       ! one subblock is linked to one l value and needs therefore once the matrix
       !$OMP PARALLEL default(shared)
       !$OMP SINGLE
@@ -318,6 +319,7 @@ contains
       end do     ! loop over lm blocks
       !$OMP END SINGLE
       !$OMP END PARALLEL
+      call solve_counter%stop_count(l_increment=.false.)
 
       !write(*,"(A,2ES22.12)") "s after = ",SUM(s)
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
@@ -328,6 +330,7 @@ contains
       end do
 
       !PERFON('upXi_drv')
+      call dct_counter%start_count()
       all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
@@ -374,6 +377,7 @@ contains
 #ifdef WITHOMP
       call omp_set_num_threads(maxThreads)
 #endif
+      call dct_counter%stop_count(l_increment=.false.)
 
    end subroutine updateXi
 !------------------------------------------------------------------------------

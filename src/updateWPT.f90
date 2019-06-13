@@ -13,7 +13,7 @@ module updateWPT_mod
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
-   use num_param, only: alpha
+   use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops, bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
@@ -176,8 +176,8 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      lmStart     =lmStartB(nLMB)
-      lmStop      =lmStopB(nLMB)
+      lmStart=lmStartB(nLMB)
+      lmStop =lmStopB(nLMB)
 
       w2  =one-w1
       O_dt=one/dt
@@ -232,14 +232,12 @@ contains
       !$OMP END PARALLEL
 
 
+      call solve_counter%start_count()
       !PERFON('upWP_ssol')
       !$OMP PARALLEL default(shared) &
       !$OMP private(nLMB2,lm,lm1,l1,m1,lmB)
-      !write(*,"(I3,A)") omp_get_thread_num(),": before SINGLE"
       !$OMP SINGLE
-      ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
-         !write(*,"(2(A,I3))") "Constructing next task for ",nLMB2,"/",nLMBs2(nLMB)
 
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
@@ -410,7 +408,7 @@ contains
       !$OMP END SINGLE
       !$OMP END PARALLEL
       !PERFOFF
-      !write(*,"(A,I3,4ES22.12)") "w,p after: ",nLMB,get_global_SUM(w),get_global_SUM(p)
+      call solve_counter%stop_count(l_increment=.false.)
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -422,6 +420,7 @@ contains
       end do
 
 
+      call dct_counter%start_count()
       !PERFON('upWP_drv')
       all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
@@ -470,6 +469,7 @@ contains
       end do
       !$OMP end do
       !$OMP END PARALLEL
+      call dct_counter%stop_count(l_increment=.false.)
 
 #ifdef WITHOMP
       call omp_set_num_threads(omp_get_max_threads())

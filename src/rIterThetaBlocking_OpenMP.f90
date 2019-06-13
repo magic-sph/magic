@@ -5,7 +5,8 @@ module rIterThetaBlocking_OpenMP_mod
 #endif
    use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
-
+   use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
+       &                td_counter
    use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB,&
        &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
@@ -256,14 +257,16 @@ contains
          !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ", &
          !      &                  nThetaStart," to ",nThetaStop
 
+         call lm2phy_counter%start_count()
          !PERFON('lm2grid')
          call this%transform_to_grid_space(nThetaStart,nThetaStop,&
               &                            this%gsa(threadid),time)
          !PERFOFF
+         call lm2phy_counter%stop_count(l_increment=.false.)
 
          !--------- Calculation of nonlinear products in grid space:
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
-               this%lRmsCalc ) then
+         &     this%lRmsCalc ) then
 
             !if (DEBUG_OUTPUT) then
                !if (this%nR == 2) then
@@ -275,10 +278,12 @@ contains
                !end if
             !end if
 
+            call nl_counter%start_count()
             !PERFON('get_nl')
             call this%gsa(threadid)%get_nl(time, this%nR, this%nBc,  &
                  &                         nThetaStart, this%lRmsCalc )
             !PERFOFF
+            call nl_counter%stop_count(l_increment=.false.)
 
             !if (DEBUG_OUTPUT) then
             !   if (this%nR == 2) then
@@ -289,11 +294,13 @@ contains
             !           & "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
             !   end if
             !end if
+            call phy2lm_counter%start_count()
             !PERFON('grid2lm')
             call this%transform_to_lm_space(nThetaStart,nThetaStop, &
                  &                          this%gsa(threadid),     &
                  &                          this%nl_lm(threadid))
             !PERFOFF
+            call phy2lm_counter%stop_count(l_increment=.false.)
 
          else if ( l_mag ) then
             do lm=1,lmP_max
@@ -623,7 +630,7 @@ contains
             this%nl_lm(0)%CFt2LM=this%nl_lm(0)%CFt2LM+this%nl_lm(iThread)%CFt2LM
             this%nl_lm(0)%CFp2LM=this%nl_lm(0)%CFp2LM+this%nl_lm(iThread)%CFp2LM
          end do
-      end if 
+      end if
 
       !$OMP SECTION
       if ( l_dtB ) then
@@ -697,11 +704,12 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
+      call td_counter%start_count()
       call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,             &
            &                    this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,      &
            &                    dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,  &
            &                    dbdt,djdt)
-
+      call td_counter%stop_count(l_increment=.false.)
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &
       !     & this%nR,sum(real(conjg(dVxBhLM(:,this%nR_Mag))*dVxBhLM(:,this%nR_Mag)))
