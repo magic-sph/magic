@@ -314,7 +314,7 @@ contains
    end subroutine finalize_output
 !----------------------------------------------------------------------------
    subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
-              &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
+              &      l_graph,lRmsCalc,l_store,l_new_rst_file,l_gw_out,    &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
@@ -334,6 +334,7 @@ contains
       logical,             intent(in) :: l_pot
       logical,             intent(in) :: l_log, l_graph, lRmsCalc, l_store
       logical,             intent(in) :: l_new_rst_file, l_spectrum
+      logical,             intent(in) :: l_gw_out
       logical,             intent(in) :: lTOCalc,lTOframe
       logical,             intent(in) :: l_frame, l_cmb, l_r
       logical,             intent(inout) :: lTOZwrite
@@ -580,12 +581,6 @@ contains
 
          if ( l_mag_hel ) then
             call outMagneticHelicity(timeScaled,magHelLMr)
-
-         if (l_gw) then
-            call outGWpressure(timeScaled,p_LMloc)
-            if ( l_heat .or. l_chemical_conv ) then
-               call outGWentropy(timeScaled,s_LMloc)
-            end if
          end if
 
          if ( l_par ) then
@@ -612,6 +607,13 @@ contains
          else
             dlB=0.0_cp
             dmB=0.0_cp
+         end if
+      end if
+
+      if ( l_gw_out ) then
+         call outGWpressure(timeScaled,p_LMloc)
+         if ( l_heat .or. l_chemical_conv ) then
+            call outGWentropy(timeScaled,s_LMloc)
          end if
       end if
 

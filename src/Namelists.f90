@@ -123,6 +123,7 @@ contains
       &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,l_gw,    &
+      &    n_gw_step, n_gws, t_gw_start, t_gw_stop, dt_gw,    &
       &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
       &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,         &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
@@ -1123,6 +1124,11 @@ contains
       write(n_out,'(''  t_movie_start   ='',ES14.6,'','')') t_movie_start
       write(n_out,'(''  t_movie_stop    ='',ES14.6,'','')') t_movie_stop
       write(n_out,'(''  dt_movie        ='',ES14.6,'','')') dt_movie
+      write(n_out,'(''  n_gw_step       ='',i5,'','')') n_gw_step
+      write(n_out,'(''  n_gws           ='',i5,'','')') n_gws
+      write(n_out,'(''  t_gw_start      ='',ES14.6,'','')') t_gw_start
+      write(n_out,'(''  t_gw_stop       ='',ES14.6,'','')') t_gw_stop
+      write(n_out,'(''  dt_gw           ='',ES14.6,'','')') dt_gw
       do n=1,n_movies_max
          length=len(trim(movie(n)))
          if ( length > 0 ) then
@@ -1558,6 +1564,14 @@ contains
       t_TOmovie_stop  =0.0_cp
       dt_TOmovie      =0.0_cp
 
+      !----- Output GW:
+      l_gw          =.false. ! Gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
+      n_gw_step     =10
+      n_gws         =0
+      t_gw_start    =0.0_cp
+      t_gw_stop     =0.0_cp
+      dt_gw         =0.0_cp
+
       !----- Times for different output:
       do n=1,n_time_hits
          t_graph(n)  =-one
@@ -1572,6 +1586,7 @@ contains
          t_TOZ(n)    =-one
          t_TOmovie(n)=-one
          t_probe     =-one
+         t_gw(n)     =-one
       end do
 
       !----- Magnetic spectra for different depths
@@ -1587,8 +1602,6 @@ contains
 
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
-      l_mag_hel     =.false. ! Magnetic helicity
-      l_gw          =.false. ! Gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
       l_AM          =.false. ! Angular moment in AM.TAG
       l_power       =.false. ! power budget in power.TAG and dtE.TAG
       l_viscBcCalc  =.false. ! dissipation layer for stress-free BCs

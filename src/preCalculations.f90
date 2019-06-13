@@ -17,7 +17,7 @@ module preCalculations
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
-       &            l_precession, l_finite_diff, l_full_sphere
+       &            l_precession, l_finite_diff, l_full_sphere, l_gw
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -825,6 +825,15 @@ contains
               &             t_probe_start,t_probe_stop,dt_probe,  &
               &             n_probe_out,n_probe_step,'probe',time,tScale)
          if ( n_probe_out > 0 .or. n_probe_step > 0 .or. l_time ) l_probe= .true.
+      end if
+
+      if ( l_gw ) then
+         l_gw=.false.
+         call get_hit_times(t_gw,n_time_hits,n_t_gw,l_time, &
+              &             t_gw_start,t_gw_stop,dt_gw,  &
+              &             n_gws,n_gw_step,'gw',time,tScale)
+         if ( n_gws > 0 .or. n_gw_step > 0 .or. l_time ) l_gw= .true.
+         l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_cmb_field ) then

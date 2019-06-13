@@ -30,7 +30,7 @@ module step_time_mod
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
-       &            l_packed_transp, l_mag_hel
+       &            l_packed_transp, l_mag_hel, l_gw
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
@@ -50,6 +50,7 @@ module step_time_mod
        &                  n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
        &                  n_t_TOZ, t_TOZ, n_probe_step, n_probe_out,       &
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
+       &                  n_gw_step, n_gws, n_t_gw, t_gw,                  &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
    use updateWP_mod, only: get_pol_rhs_imp
@@ -122,6 +123,7 @@ contains
       logical :: lPressCalc,lPressNext
       logical :: lMat, lMatNext   ! update matrices
       logical :: l_probe_out      ! Sensor output
+      logical :: l_gw_out         ! gw output
 
       !-- Timers:
       type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
@@ -358,6 +360,10 @@ contains
          l_store= l_new_rst_file .or.                                            &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
          &                            0,n_stores,0,t_rst,0)
+
+         l_gw_out = l_gw .and.                                                   &
+              & l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+              &                       n_gw_step,n_gws,n_t_gw,t_gw,0)
 
          l_log= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
          &                            n_log_step,n_logs,n_t_log,t_log,0)
@@ -619,7 +625,7 @@ contains
                if ( lVerbose ) write(output_unit,*) "! start real output"
                call io_counter%start_count()
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,     &
-                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
+                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,l_gw_out,     &
                     &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
