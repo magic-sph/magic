@@ -1023,9 +1023,9 @@ contains
       end if
       call rLoop_counter%finalize('! Mean wall time for r Loop                 :', &
            &                      n_log_file)
-      call phy2lm_counter%finalize('!    - Time taken for Spec->Spat            :',&
+      call phy2lm_counter%finalize('!    - Time taken for Spat->Spec            :',&
            &                       n_log_file)
-      call lm2phy_counter%finalize('!    - Time taken for Spat->Spec            :',&
+      call lm2phy_counter%finalize('!    - Time taken for Spec->Spat            :',&
            &                       n_log_file)
       call nl_counter%finalize('!    - Time taken for nonlinear terms       :',&
            &                       n_log_file)
