@@ -90,7 +90,7 @@ for i in range(n_resub):
     
     # Determine the new tag
     old_tag = get_old_tag(old_job)
-    if integers.match(old_tag[-1]):
+    if integers.match(old_tag[-1]) or old_tag[-1] == 'Z':
         new_tag = oldtag + 'a'
     else:
         ind = string.ascii_letters.index(old_tag[-1])
