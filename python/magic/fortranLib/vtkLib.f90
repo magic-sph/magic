@@ -394,6 +394,8 @@ subroutine getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
       if ( scalcodes(i) == 11) scalnames(i) = 'Radial mag. field'
       if ( scalcodes(i) == 12) scalnames(i) = 'Cyl Radial Velocity'
       if ( scalcodes(i) == 13) scalnames(i) = 'Colatitude'
+      if ( scalcodes(i) == 14) scalnames(i) = 'Composition'
+      if ( scalcodes(i) == 15) scalnames(i) = 'Fluct. composition'
    end do
 
    do i=1,nvecs

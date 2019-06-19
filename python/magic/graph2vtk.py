@@ -264,6 +264,10 @@ class Graph2Vtk:
         keyScal['us'] = 12
         keyScal['colat'] = 13
         keyScal['theta'] = 13
+        keyScal['xi'] = 14
+        keyScal['Xi'] = 14
+        keyScal['xifluct'] = 15
+        keyScal['Xifluct'] = 15
 
         # Change default scalars and vectors in non-magnetic cases
         if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
@@ -465,6 +469,22 @@ class Graph2Vtk:
                     self.scals[k, :, :, 0:gr.nr] = symmetrize(th3D[..., ::-1], gr.minc)
                 else:
                     self.scals[k, :, :, 0:gr.nr] = th3D[..., ::-1]
+
+            if index == 14: # chemical composition
+                if deminc:
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(gr.xi[..., ::-1],
+                                                              gr.minc)
+                else:
+                    self.scals[k, :, :, 0:gr.nr] = gr.xi[..., ::-1]
+
+            elif index == 15: # fluctuation of chemical composition
+                if deminc:
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(gr.xi[..., ::-1],
+                                                              gr.minc)
+                else:
+                    self.scals[k, :, :, 0:gr.nr] = gr.xi[..., ::-1]
+                self.scals[k, ...] = self.scals[k, ...]-\
+                                     self.scals[k, ...].mean(axis=0)
 
             if potExtra:
                 if index == 2:
