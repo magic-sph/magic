@@ -790,7 +790,7 @@ contains
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old
-      integer :: n_r_ic_max_old
+      integer :: n_r_ic_max_old, io_status
       real(cp) :: pr_old,ra_old,pm_old
       real(cp) :: raxi_old,sc_old
       real(cp) :: ek_old,radratio_old
@@ -828,8 +828,27 @@ contains
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
+
+            !-- First try without stream
             open(newunit=n_start_file, file=start_file, status='old', &
             &    form='unformatted')
+
+            read(n_start_file, iostat=io_status) version
+
+            if ( io_status /= 0 ) then
+               write(*,*) '! The checkpoint file does not have record markers'
+               write(*,*) '! I try to read it with a stream access...'
+               close(n_start_file)
+
+               !-- Second attempt without stream
+               open(newunit=n_start_file, file=start_file, status='old', &
+               &    form='unformatted', access='stream')
+
+               read(n_start_file, iostat=io_status) version
+               if ( io_status /= 0 ) then
+                  call abortRun('! The restart file has a wrong formatting !')
+               end if
+            end if
          else
             call abortRun('! The restart file does not exist !')
          end if
@@ -840,7 +859,6 @@ contains
             l_AB1=.true.
          end if
 
-         read(n_start_file) version
          read(n_start_file) time, dt_old, n_time_step
          read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
          &                  ek_old,radratio_old,sigma_ratio_old

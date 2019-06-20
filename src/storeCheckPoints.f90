@@ -95,7 +95,7 @@ contains
 
       if ( rank == 0 ) then
          open(newunit=n_rst_file, file=rst_file, status='unknown', &
-         &    form='unformatted')
+         &    form='unformatted', access='stream')
 
          !-- Write the header of the file
          write(n_rst_file) version
