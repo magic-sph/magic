@@ -472,6 +472,7 @@ contains
 
       !-- Calculate explicit time step part:
       if ( l_temperature_diff ) then
+         !$omp parallel do default(shared) private(nR,lm1,l1,m1,Dif,Pre,Buo,dtV)
          do nR=n_r_top,n_r_bot
             do lm1=lmStart,lmStop
                l1=lm2l(lm1)
@@ -537,9 +538,11 @@ contains
                     &        dtVPolLMr(llm:,nR),dtVPol2hInt(:,nR,1),lo_map)
             end if
          end do
+         !$omp end parallel do
 
       else ! entropy diffusion
 
+         !$omp parallel do default(shared) private(nR,lm1,l1,m1,Dif,Pre,Buo,dtV)
          do nR=n_r_top,n_r_bot
             do lm1=lmStart,lmStop
                l1=lm2l(lm1)
@@ -597,6 +600,7 @@ contains
                     &        dtVPolLMr(llm:,nR),dtVPol2hInt(:,nR,1),lo_map)
             end if
          end do
+         !$omp end parallel do
       end if
 
    end subroutine updateWPS

@@ -716,6 +716,7 @@ contains
 
       !PERFON('upB_last')
       if ( l_LCR ) then
+         !$omp parallel do default(shared) private(nR,lm1,l1,m1)
          do nR=n_r_cmb,n_r_icb-1
             if ( nR<=n_r_LCR ) then
                do lm1=lmStart_00,lmStop
@@ -736,6 +737,7 @@ contains
                end do
             end if
          end do
+         !$omp end parallel do
       end if
 
       if ( lRmsNext ) then
@@ -746,6 +748,7 @@ contains
          n_r_bot=n_r_icb-1
       end if
 
+      !$omp parallel do default(shared) private(nR,lm1,l1,m1,dtP,dtT)
       do nR=n_r_top,n_r_bot
          do lm1=lmStart_00,lmStop
             l1=lm2l(lm1)
@@ -773,6 +776,7 @@ contains
                  &          dtBTor2hInt(llmMag:,nR,1),lo_map)
          end if
       end do
+      !$omp end parallel do
       !PERFOFF
 
       !----- equations for inner core are different:
@@ -780,6 +784,8 @@ contains
       !      NOTE: no hyperdiffusion in inner core !
       if ( l_cond_ic ) then
          !PERFON('upB_ic')
+         !$omp parallel default(shared) private(nR,lm1,l1,m1)
+         !$omp do
          do nR=2,n_r_ic_max-1
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
@@ -794,7 +800,9 @@ contains
                &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
             end do
          end do
+         !$omp end do
          nR=n_r_ic_max
+         !$omp do
          do lm1=lmStart_00,lmStop
             l1=lm2l(lm1)
             m1=lm2m(lm1)
@@ -805,6 +813,8 @@ contains
             &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
             &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
          end do
+         !$omp end do
+         !$omp end parallel
          !PERFOFF
       end if
 

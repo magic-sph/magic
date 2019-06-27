@@ -42,7 +42,7 @@ contains
       ! In addition to the magnetic field and velocity potentials
       ! we also store the time derivative terms djdt(lm,nR),dbdt(lm,nR), ...
       ! to allow to restart with 2nd order Adams-Bashforth scheme.
-      ! To minimize the memory imprint, a gater/write strategy has been adopted
+      ! To minimize the memory imprint, a gather/write strategy has been adopted
       ! here. This implies that only one global array dimension(lm_max,n_r_max)
       ! is required.
       !

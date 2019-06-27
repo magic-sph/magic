@@ -564,6 +564,7 @@ contains
             n_r_bot=n_r_icb
          end if
 
+         !$omp parallel do default(shared) private(nR,lm1,l1,m1,Dif,Buo,dtV)
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
@@ -637,9 +638,11 @@ contains
                     &        dtVPolLMr(llm:,nR),dtVPol2hInt(:,nR,1),lo_map)
             end if
          end do
+         !$omp end parallel do
 
       else
 
+         !$omp parallel do default(shared) private(nR,lm1,l1,m1,Dif,Buo,Pre,dtV)
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
@@ -684,6 +687,7 @@ contains
                     &        dtVPolLMr(llm:,nR),dtVPol2hInt(:,nR,1),lo_map)
             end if
          end do
+         !$omp end parallel do
 
       end if
       !PERFOFF
