@@ -1160,8 +1160,8 @@ class Surf:
         if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
             normed = False
 
-        fig, xx, yy = merContour(phiavg, self.gr.radius, label, levels, cm,
-                                 normed, vmax, vmin, cbar, tit)
+        fig, xx, yy, im = merContour(phiavg, self.gr.radius, label, levels, cm,
+                                     normed, vmax, vmin, cbar, tit)
         ax = fig.get_axes()[0]
 
         if ic:

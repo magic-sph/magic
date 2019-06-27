@@ -308,8 +308,8 @@ class MagicPotential(MagicSetup):
         if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
 
-        fig, xx, yy = merContour(phiavg, self.radius, label, levels, cm, normed,
-                                 vmax, vmin, cbar, tit)
+        fig, xx, yy, im = merContour(phiavg, self.radius, label, levels, cm, normed,
+                                     vmax, vmin, cbar, tit)
 
     def equat(self, field='vr', levels=defaultLevels, cm=defaultCm, normed=True,
               vmax=None, vmin=None, cbar=True, tit=True, normRad=False):

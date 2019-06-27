@@ -199,7 +199,8 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
 
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
-               normed=True, vmax=None, vmin=None, cbar=True, tit=True):
+               normed=True, vmax=None, vmin=None, cbar=True, tit=True,
+               fig=None, ax=None, bounds=True):
     """
     Plot a meridional cut of a given field
 
@@ -225,6 +226,13 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :param normed: when set to True, the colormap is centered around zero.
                    Default is True, except for entropy/temperature plots.
     :type normed: bool
+    :param bounds: a boolean to determine if one wants to plot the limits
+                   of the domain (True by default)
+    :type bounds: bool
+    :param fig: a pre-existing figure (if needed)
+    :type fig: matplotlib.figure.Figure
+    :param ax: a pre-existing axis
+    :type ax: matplotlib.axes._subplots.AxesSubplot
     """
     ntheta, nr = data.shape
 
@@ -235,19 +243,26 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
     if tit and label is not None:
         if cbar:
-            fig = plt.figure(figsize=(5,7.5))
-            ax = fig.add_axes([0.01, 0.01, 0.69, 0.91])
+            fsize = (5, 7.5)
+            bb = [0.01, 0.01, 0.69, 0.91]
         else:
-            fig = plt.figure(figsize=(3.5,7.5))
-            ax = fig.add_axes([0.01, 0.01, 0.98, 0.91])
-        ax.set_title(label, fontsize=24)
+            fsize = (3.5, 7.5)
+            bb = [0.01, 0.01, 0.98, 0.91]
     else:
         if cbar:
-            fig = plt.figure(figsize=(5,7))
-            ax = fig.add_axes([0.01, 0.01, 0.69, 0.98])
+            fsize = (5, 7)
+            bb = [0.01, 0.01, 0.69, 0.98]
         else:
-            fig = plt.figure(figsize=(3.5,7))
-            ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+            fsize = (3.5, 7)
+            bb = [0.01, 0.01, 0.98, 0.98]
+
+    if fig is None:
+        fig = plt.figure(figsize=fsize)
+        if ax is None:
+            ax = fig.add_axes(bb)
+
+    if tit and label is not None:
+        ax.set_title(label, fontsize=24)
 
     cmap = plt.get_cmap(cm)
     if vmax is not None and vmin is not None:
@@ -264,10 +279,11 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     for c in im.collections:
         c.set_edgecolor("face")
 
-    ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
-    ax.plot((radius[-1])*np.sin(th), (radius[-1])*np.cos(th), 'k-')
-    ax.plot([0., 0.], [radius[-1], radius[0]], 'k-')
-    ax.plot([0., 0.], [-radius[-1], -radius[0]], 'k-')
+    if bounds:
+        ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
+        ax.plot((radius[-1])*np.sin(th), (radius[-1])*np.cos(th), 'k-')
+        ax.plot([0., 0.], [radius[-1], radius[0]], 'k-')
+        ax.plot([0., 0.], [-radius[-1], -radius[0]], 'k-')
 
     eps = 1e-4
     if xx.min() < -eps:
@@ -299,7 +315,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         im.set_clim(-max(abs(data.max()), abs(data.min())),
                      max(abs(data.max()), abs(data.min())))
 
-    return fig, xx, yy
+    return fig, xx, yy, im
 
 
 def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None,
