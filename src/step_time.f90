@@ -395,6 +395,7 @@ contains
 
       if ( lVerbose ) write(*,'(/,'' ! STARTING STEP_TIME !'')')
 
+      run_time_passed=0.0_cp
       l_log       =.false.
       l_stop_time =.false.
       l_new_dt    =.true.   ! Invokes calculation of t-step matricies
