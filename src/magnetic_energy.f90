@@ -10,7 +10,8 @@ module magnetic_energy
        &                       sigma, orho1, r, or2, rscheme_oc
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
-   use blocking, only: st_map, lo_map, lmStartB, lmStopB
+   use blocking, only: st_map, lo_map
+   use LMLoop_data, only: llm, ulm
    use horizontal_data, only: dLh
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
@@ -670,9 +671,8 @@ contains
 
       rank_has_l1m0=.false.
       rank_has_l1m1=.false.
-      !write(*,"(I5,A,2I5,A,2I5)") rank,": l1m0,l1m1 = ",l1m0,l1m1,&
-      !     & ", lm block: ",lmStartB(rank+1),lmStopB(rank+1)
-      if ( (l1m0 >= lmStartB(rank+1)) .and. (l1m0 <= lmStopB(rank+1)) ) then
+
+      if ( (l1m0 >= llm) .and. (l1m0 <= ulm) ) then
          b10=b(l1m0,n_r_cmb)
 #ifdef WITH_MPI
          if (rank /= 0) then
@@ -682,7 +682,7 @@ contains
          rank_has_l1m0=.true.
       end if
       if ( l1m1 > 0 ) then
-         if ( (l1m1 >= lmStartB(rank+1)) .and. (l1m1 <= lmStopB(rank+1)) ) then
+         if ( (l1m1 >= llm) .and. (l1m1 <= ulm) ) then
             b11=b(l1m1,n_r_cmb)
 #ifdef WITH_MPI
             if (rank /= 0) then
