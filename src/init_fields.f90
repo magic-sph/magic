@@ -12,8 +12,7 @@ module init_fields
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
        &                 l_axi,minc,n_cheb_ic_max,lm_max
    use mem_alloc, only: bytes_allocated
-   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
-       &               lmStartB, lmStopB
+   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
        &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
@@ -372,7 +371,7 @@ contains
 
          l1m0 = lo_map%lm2(1,0)
 
-         if ( (l1m0>=lmStartB(rank+1)) .and. (l1m0<=lmStopB(rank+1)) ) then
+         if ( (l1m0>=llm) .and. (l1m0<=ulm) ) then
 
             write(*,*) '! NO STARTFILE READ, SETTING Z10!'
 
@@ -469,7 +468,7 @@ contains
       lm00=lo_map%lm2(0,0)
       rank_has_l0m0=.false.
 
-      if ( lm00 >= lmStartB(rank+1) .and. lm00 <= lmStopB(rank+1) ) then
+      if ( lm00 >= llm .and. lm00 <= ulm ) then
          rank_has_l0m0=.true.
       end if
 
@@ -560,7 +559,7 @@ contains
             call abortRun('Stop run in init')
          end if
          lm=lo_map%lm2(l,m)
-         if( (lm>=lmStartB(rank+1)) .and. (lm<=lmStopB(rank+1)) ) then
+         if( (lm>=llm) .and. (lm<=ulm) ) then
             do n_r=1,n_r_max
                c_r=s1(n_r)*amp_s1
                s(lm,n_r)=s(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
@@ -588,7 +587,7 @@ contains
             lm=lo_map%lm2(l,m)
             s_r=amp_s2
             s_i=0.0_cp
-            if( (lm>=lmStartB(rank+1)) .and. (lm<=lmStopB(rank+1)) ) then
+            if( (lm>=llm) .and. (lm<=ulm) ) then
                if ( amp_s2 < 0.0_cp .and. m /= 0 ) then
                !-------- Sin(phi)-mode initialized for amp_s2<0
                   s_r = 0.0_cp
@@ -817,7 +816,7 @@ contains
 
       if ( .not. l_start_file ) then
 
-         if ( (lmStartB(rank+1) <= lm00) .and. (lmStopB(rank+1) >= lm00) ) then
+         if ( (llm <= lm00) .and. (ulm >= lm00) ) then
             call xi_cond(xi0)
             open(newunit=fileHandle, file='xicond.dat')
             do n_r=1,n_r_max
@@ -877,7 +876,7 @@ contains
          end if
          lm=lo_map%lm2(l,m)
 
-         if ( (lmStartB(rank+1) <= lm) .and. (lmStopB(rank+1) >= lm) ) then
+         if ( (llm <= lm) .and. (ulm >= lm) ) then
             do n_r=1,n_r_max
                c_r=xi1(n_r)*amp_xi1
                xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
@@ -903,7 +902,7 @@ contains
             end if
 
             lm=lo_map%lm2(l,m)
-            if ( (lmStartB(rank+1) <= lm) .and. (lmStopB(rank+1) >= lm) ) then
+            if ( (llm <= lm) .and. (ulm >= lm) ) then
                xi_r=amp_s2
                xi_i=0.0_cp
                if ( amp_s2 < 0.0_cp .and. m /= 0 ) then
@@ -1188,7 +1187,7 @@ contains
          bpeaktop=0.0_cp
          aVarCon =-one/255.0_cp
          bVarCon =256.0_cp/255.0_cp
-         if ( lmStartB(rank+1) <= lm0 .and. lmStopB(rank+1) >= lm0 ) then ! select processor
+         if ( llm <= lm0 .and. ulm >= lm0 ) then ! select processor
             do n_r=1,n_r_max             ! Diffusive toroidal field
                jVarCon(n_r)=aVarCon*r(n_r)**2 + bVarCon/(r(n_r)**6)
                aj(lm0,n_r) =jVarCon(n_r) + 0.1_cp*sin((r(n_r)-r_ICB)*pi)
@@ -1202,7 +1201,7 @@ contains
       !      diffusion equation solved in j_cond, amplitude defined
       !      by bpeaktop and bpeakbot respectively.
       !      bpeakbot is only used for insulating inner core !
-         if ( lmStartB(rank+1) <= lm0 .and. lmStopB(rank+1) >= lm0 ) then ! select processor
+         if ( llm <= lm0 .and. ulm >= lm0 ) then ! select processor
             call j_cond(lm0,aj0,aj0_ic)
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(lm0,n_r)=aj0(n_r)
@@ -1220,7 +1219,7 @@ contains
       ! inner core and at r_cmb/2 for a conducting
       ! inner core
 
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_tor=-two*amp_b1*sqrt(third*pi)  ! minus sign makes phi comp. > 0
             if ( l_cond_ic ) then
                do n_r=1,n_r_max
@@ -1247,7 +1246,7 @@ contains
          ! a homogeneous  current density, its maximum at
          ! the ICB is set to amp_b1.
          ! The inner core poloidal field is chosen accordingly.
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_tor=-four*third*amp_b1*sqrt(pi/5.0_cp)
             if ( l_cond_ic ) then
                b_pol=amp_b1*sqrt(three*pi)/(three+r_cmb)
@@ -1275,7 +1274,7 @@ contains
             end if
          end if
 
-         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
+         if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             b_tor=-four*third*amp_b1*sqrt(pi/5.0_cp)
             if ( l_cond_ic ) then
                b_pol=amp_b1*sqrt(three*pi)/(three+r_cmb)
@@ -1300,7 +1299,7 @@ contains
 
       else if ( init_b1 == 4 .or. imagcon == -1 ) then  ! l=1,m0 poloidal field
       ! with max field amplitude amp_b1 at r_icb
-       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+       if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
           b_pol=-amp_b1*r_icb**3*sqrt(third*pi)
           do n_r=1,n_r_max
              b(l1m0,n_r)=b(l1m0,n_r)+b_pol*or1(n_r)
@@ -1315,7 +1314,7 @@ contains
 
       else if ( init_b1 == 5 ) then  ! l=1,m0 poloidal field
       ! constant j density, defined max field value amp_v1 at r_cmb
-       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+       if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
           if ( l_cond_ic ) then
              b_pol=amp_b1*sqrt(three*pi)/r_cmb
              do n_r=1,n_r_max
@@ -1338,7 +1337,7 @@ contains
 
       else if ( init_b1 == 6 ) then  ! l=1,m=0 poloidal field , constant in r !
       ! no potential at r_cmb but simple
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*r(n_r)**2
@@ -1352,7 +1351,7 @@ contains
 
       else if ( init_b1 == 7 .or. imagcon == -2 ) then  ! l=1,m0 poloidal field
       ! which is potential field at r_cmb
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
@@ -1368,7 +1367,7 @@ contains
 
       else if ( init_b1 == 8 ) then  ! l=1,m0 pol. field, l=2,m=0 toroidal field
       ! which is potential field at r_cmb
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*(r(n_r)/r_cmb)**2 * &
@@ -1382,7 +1381,7 @@ contains
             end if
          end if
 
-         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
+         if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             b_tor=amp_b1*three*half*sqrt(pi/5.0_cp)*r_icb**2*radratio
             do n_r=1,n_r_max
                aj(l2m0,n_r)=aj(l2m0,n_r)+b_tor*(r(n_r)/r_icb)**3 * &
@@ -1398,7 +1397,7 @@ contains
 
       else if ( init_b1 == 9 ) then  ! l=2,m0 poloidal field
       ! which is potential field at r_cmb
-         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
+         if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             b_pol=amp_b1*7.0_cp/6.0_cp*sqrt(pi/5.0_cp)*r_icb**2*radratio
             do n_r=1,n_r_max
                b(l2m0,n_r)=b(l2m0,n_r)+b_pol*(r(n_r)/r_icb)**3 * &
@@ -1418,7 +1417,7 @@ contains
           call abortRun('! Can not initialize l=1,m=1 !')
        end if
 
-       if ( lmStartB(rank+1) <= l1m1 .and. lmStopB(rank+1) >= l1m1 ) then ! select processor
+       if ( llm <= l1m1 .and. ulm >= l1m1 ) then ! select processor
           b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
           do n_r=1,n_r_max
              b(l1m1,n_r)=b(l1m1,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
@@ -1469,7 +1468,7 @@ contains
 
       else if ( init_b1 == 11 ) then  ! axial and equatorial dipole
 
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*(r(n_r)/r_cmb)**2 * &
@@ -1487,7 +1486,7 @@ contains
             call abortRun('! Cannot initialize l=1,m=1 !')
          end if
 
-         if ( lmStartB(rank+1) <= l1m1 .and. lmStopB(rank+1) >= l1m1 ) then ! select processor
+         if ( llm <= l1m1 .and. ulm >= l1m1 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m1,n_r)=b(l1m1,n_r) +                   &
@@ -1504,7 +1503,7 @@ contains
 
       else if ( init_b1 == 21 ) then ! toroidal field created by inner core rotation
       ! equatorialy symmetric
-         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
             end do
@@ -1520,7 +1519,7 @@ contains
 
       else if ( init_b1 == 22 ) then ! toroidal field created by inner core rotation
       ! equatorialy asymmetric
-         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
+         if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
             end do

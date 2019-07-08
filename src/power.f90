@@ -14,8 +14,7 @@ module power
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map, lmStartB, lmStopB, nfs,      &
-       &               nThetaBs, sizeThetaB
+   use blocking, only: lo_map, st_map, nfs, nThetaBs, sizeThetaB
    use horizontal_data, only: dLh, gauss
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
@@ -336,7 +335,7 @@ contains
       l1m0=lo_map%lm2(1,0)
       rank_has_l1m0=.false. ! set default
       sr_tag=46378 !arbitray send-recv tag
-      if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then
+      if ( llm <= l1m0 .and. ulm >= l1m0 ) then
          if ( l_rot_IC ) then
             z10ICB  =real(z(l1m0,n_r_ICB))
             drz10ICB=real(dz(l1m0,n_r_ICB))
