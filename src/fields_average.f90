@@ -9,7 +9,7 @@ module fields_average_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc
-   use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
+   use blocking,only: sizeThetaB, nThetaBs, lm2, nfs
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
        &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
@@ -209,7 +209,6 @@ contains
       real(cp) :: dt_norm
 
       integer :: nBpotSets,nVpotSets,nTpotSets
-      integer :: lmStart,lmStop
 
       !-- Initialise average for first time step:
 
@@ -331,33 +330,26 @@ contains
          end if
 
          !----- Get the radial derivatives:
-         lmStart=lmStartB(rank+1)
-         lmStop = lmStopB(rank+1)
-
-         call get_dr(w_ave,dw_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,   &
-              &      n_r_max,rscheme_oc,nocopy=.true.)
+         call get_dr(w_ave,dw_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+              &      nocopy=.true.)
          if ( l_mag ) then
-            call get_dr(b_ave,db_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
-                 &      n_r_max,rscheme_oc,nocopy=.true.)
+            call get_dr(b_ave,db_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+                 &      nocopy=.true.)
          end if
          if ( l_heat ) then
-            call get_dr(s_ave,ds_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
-                 &      n_r_max,rscheme_oc,nocopy=.true.)
+            call get_dr(s_ave,ds_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+                 &      nocopy=.true.)
          end if
          if ( l_chemical_conv ) then
-            call get_dr(xi_ave,dxi_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1, &
-                 &      n_r_max,rscheme_oc,nocopy=.true.)
+            call get_dr(xi_ave,dxi_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+                 &      nocopy=.true.)
          end if
          if ( l_cond_ic ) then
-            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,         &
-                 &              ulm-llm+1,lmStart-llm+1,               &
-                 &              lmStop-llm+1,n_r_ic_max,               &
-                 &              n_cheb_ic_max,dr_fac_ic,workA_LMloc,   &
-                 &              chebt_ic, chebt_ic_even)
-            call get_drNS_even(aj_ic_ave,dj_ic_ave,                    &
-                 &             ulm-llm+1,lmStart-llm+1,                &
-                 &             lmStop-llm+1,n_r_ic_max,                &
-                 &             n_cheb_ic_max,dr_fac_ic,workA_LMloc,    &
+            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,ulm-llm+1,1,     &
+                 &              ulm-llm+1,n_r_ic_max,n_cheb_ic_max,dr_fac_ic,  &
+                 &              workA_LMloc,chebt_ic, chebt_ic_even)
+            call get_drNS_even(aj_ic_ave,dj_ic_ave,ulm-llm+1,1,ulm-llm+1,      &
+                 &             n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc, &
                  &             chebt_ic,chebt_ic_even)
          end if
 
