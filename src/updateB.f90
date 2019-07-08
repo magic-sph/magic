@@ -27,7 +27,7 @@ module updateB_mod
    use constants, only: pi, zero, one, two, three, half
    use special
    use algebra, only: prepare_mat, solve_mat
-   use parallel_mod, only:  rank, chunksize, n_procs
+   use parallel_mod, only:  rank, chunksize, n_procs, get_openmp_blocks
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
@@ -52,9 +52,6 @@ module updateB_mod
 #endif
    logical, public, allocatable :: lBmat(:)
 
-
-   integer :: maxThreads
-
    public :: initialize_updateB, finalize_updateB, updateB
 
 contains
@@ -62,6 +59,7 @@ contains
    subroutine initialize_updateB
 
       integer, pointer :: nLMBs2(:)
+      integer :: maxThreads
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
@@ -207,16 +205,10 @@ contains
 
       real(cp), save :: direction
 
-      integer :: iThread,start_lm,stop_lm,all_lms,per_thread,nThreads,maxThreads
+      integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( .not. l_update_b ) RETURN
-
-#ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
-#else
-      maxThreads = 1
-#endif
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -231,59 +223,34 @@ contains
       if ( l_cond_ic ) n_r_real=n_r_max+n_r_ic_max
 
       nLMB=1+rank
-      lmStart_00  =max(2,llmMag)
+      lmStart_00=max(2,llmMag)
 
       w2  =one-w1
       O_dt=one/dt
 
       !--- Start with finishing djdt:
       !PERFON('upB_fin')
-      all_lms=ulmMag-lmStart_00+1
-#ifdef WITHOMP
-      if (all_lms < maxThreads) then
-         call omp_set_num_threads(all_lms)
-      end if
-#endif
-      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
-      !$OMP SINGLE
-#ifdef WITHOMP
-      nThreads=omp_get_num_threads()
-#else
-      nThreads=1
-#endif
-      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
-      per_thread=all_lms/nThreads
-      !$OMP END SINGLE
-      !$OMP BARRIER
-      !$OMP DO
-      do iThread=0,nThreads-1
-         start_lm=lmStart_00+iThread*per_thread
-         stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=ulmMag
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=lmStart_00; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm, stop_lm)
+      call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
+      !$omp barrier
 
-         call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
-
-      end do
-      !$OMP end do
-
-      !$OMP do private(nR)
+      !$omp do private(nR)
       do nR=1,n_r_max
          do lm=lmStart_00,ulmMag
             djdt(lm,nR)=djdt(lm,nR)+or2(nR)*work_LMloc(lm,nR)
          end do
       end do
-      !$OMP end do
-      !$OMP END PARALLEL
-#ifdef WITHOMP
-      call omp_set_num_threads(maxThreads)
-#endif
+      !$omp end do
       !PERFOFF
 
+      !$omp single
       call solve_counter%start_count()
+      !$omp end single
       ! This is a loop over all l values which should be treated on
       ! the actual MPI rank
-      !$OMP PARALLEL default(shared)
       !$OMP SINGLE
       do nLMB2=1,nLMBs2(nLMB)
          !$OMP TASK default(shared) &
@@ -594,94 +561,71 @@ contains
          !$OMP END TASK
       end do      ! end of do loop over lm1
       !$OMP END SINGLE
-      !$OMP END PARALLEL
+      !$omp single
       call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
+      !$omp do private(n_r_out, lm1)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart_00,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
       end do
+      !$omp end do
+
       if ( l_cond_ic ) then
+         !$omp do private(n_r_out, lm1)
          do n_r_out=n_cheb_ic_max+1,n_r_ic_max
             do lm1=lmStart_00,ulmMag
                b_ic(lm1,n_r_out) =zero
                aj_ic(lm1,n_r_out)=zero
             end do
          end do
+         !$omp end do
       end if
 
+      !$omp single
       call dct_counter%start_count()
-      !PERFON('upB_drv')
-      all_lms=ulmMag-lmStart_00+1
-#ifdef WITHOMP
-      if (all_lms < maxThreads) then
-         call omp_set_num_threads(all_lms)
+      !$omp end single
+      !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
+      call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
+      call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &                 stop_lm-llmMag+1)
+
+      call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
+      call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1, &
+           &                 stop_lm-llmMag+1)
+
+      !-- Same for inner core:
+      if ( l_cond_ic ) then
+         call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+              &                stop_lm-llmMag+1, dbdtLast)
+         call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
+              &             start_lm-llmMag+1,stop_lm-llmMag+1, &
+              &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
+              &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
+         call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+              &               stop_lm-llmMag+1, dbdtLast)
+         call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
+              &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
+              &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
+              &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
       end if
-#endif
-      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
-      !$OMP SINGLE
-#ifdef WITHOMP
-      nThreads=omp_get_num_threads()
-#else
-      nThreads=1
-#endif
-      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
-      per_thread=all_lms/nThreads
-      !write(*,"(2(A,I5))") "nThreads = ",nThreads,", per_thread = ",per_thread
-      !$OMP END SINGLE
-      !$OMP BARRIER
-      !$OMP DO
-      do iThread=0,nThreads-1
-         start_lm=lmStart_00+iThread*per_thread
-         stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=ulmMag
-
-         !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
-         !PERFON('upB_db')
-         call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
-         call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &                 stop_lm-llmMag+1)
-
-         !PERFOFF
-         call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
-         call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &                 stop_lm-llmMag+1)
-
-
-         !-- Same for inner core:
-         if ( l_cond_ic ) then
-            call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-                 &                stop_lm-llmMag+1, dbdtLast)
-            call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
-                 &             start_lm-llmMag+1,stop_lm-llmMag+1, &
-                 &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
-                 &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
-            call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-                 &               stop_lm-llmMag+1, dbdtLast)
-            call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
-                 &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
-                 &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
-                 &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
-         end if
-      end do
-      !$OMP end do
-      !$OMP END PARALLEL
-#ifdef WITHOMP
-      call omp_set_num_threads(maxThreads)
-#endif
+      !$omp barrier
       !PERFOFF
+      !$omp single
       call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
       !-- We are now back in radial space !
 
       !PERFON('upB_last')
       if ( l_LCR ) then
-         !$omp parallel do default(shared) private(nR,lm1,l1,m1)
+         !$omp do private(nR,lm1,l1,m1)
          do nR=n_r_cmb,n_r_icb-1
             if ( nR<=n_r_LCR ) then
                do lm1=lmStart_00,ulmMag
@@ -702,7 +646,7 @@ contains
                end do
             end if
          end do
-         !$omp end parallel do
+         !$omp end do
       end if
 
       if ( lRmsNext ) then
@@ -713,7 +657,7 @@ contains
          n_r_bot=n_r_icb-1
       end if
 
-      !$omp parallel do default(shared) private(nR,lm1,l1,m1,dtP,dtT)
+      !$omp do private(nR,lm1,l1,m1,dtP,dtT)
       do nR=n_r_top,n_r_bot
          do lm1=lmStart_00,ulmMag
             l1=lm2l(lm1)
@@ -741,7 +685,7 @@ contains
                  &          dtBTor2hInt(llmMag:,nR,1),lo_map)
          end if
       end do
-      !$omp end parallel do
+      !$omp end do
       !PERFOFF
 
       !----- equations for inner core are different:
@@ -749,8 +693,7 @@ contains
       !      NOTE: no hyperdiffusion in inner core !
       if ( l_cond_ic ) then
          !PERFON('upB_ic')
-         !$omp parallel default(shared) private(nR,lm1,l1,m1)
-         !$omp do
+         !$omp do private(nR,lm1,l1,m1)
          do nR=2,n_r_ic_max-1
             do lm1=lmStart_00,ulmMag
                l1=lm2l(lm1)
@@ -779,9 +722,10 @@ contains
             &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
          end do
          !$omp end do
-         !$omp end parallel
          !PERFOFF
       end if
+
+      !$omp end parallel
 
    end subroutine updateB
 !-----------------------------------------------------------------------------

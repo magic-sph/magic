@@ -192,16 +192,10 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       logical :: DEBUG_OUTPUT=.false.
-      integer :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
+      integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
       integer :: n_r_bot, n_r_top
       complex(cp) :: rhs_sum
-
-      !call mpi_barrier(MPI_COMM_WORLD,ierr)
-      !write(*,"(3(A,2ES20.12))") "begin upZ: dzdt = ",get_global_sum( dzdt ),&
-      !     &", z = ",get_global_sum( z ),&
-      !     &", dzdtLast = ",get_global_sum( dzdtLast )
-      !call mpi_barrier(MPI_COMM_WORLD,ierr)
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -234,9 +228,10 @@ contains
       w2  =one-w1
       O_dt=one/dt
 
+      !$OMP parallel default(shared) private(start_lm, stop_lm)
+
       call solve_counter%start_count()
       l10=.false.
-      !$OMP PARALLEL default(shared)
       !$OMP SINGLE
       do nLMB2=1,nLMBs2(nLMB)
          !$OMP TASK default(shared) &
@@ -500,57 +495,36 @@ contains
          !$OMP END TASK
       end do       ! end of loop over lm blocks
       !$OMP END SINGLE
-      !$OMP END PARALLEL
+      !$omp single
       call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+      !$omp do private(n_r_out,lm1)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             z(lm1,n_r_out)=zero
          end do
       end do
+      !$omp end do
 
       !PERFON('upZ_drv')
+      !$omp single
       call dct_counter%start_count()
-      all_lms=ulm-lmStart_00+1
-#ifdef WITHOMP
-      if (all_lms < omp_get_max_threads()) then
-         call omp_set_num_threads(all_lms)
-         per_thread=1
-      else
-         per_thread=all_lms/omp_get_max_threads()
-      end if
-#else
-      per_thread=all_lms
-#endif
-      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
-      !$OMP SINGLE
-#ifdef WITHOMP
-      nThreads=omp_get_num_threads()
-#else
-      nThreads=1
-#endif
-      !$OMP END SINGLE
-      !$OMP BARRIER
-      !$OMP DO
-      do iThread=0,nThreads-1
-         start_lm = lmStart_00+iThread*per_thread
-         stop_lm  = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=ulm
-         !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
-         !-- Get derivatives:
-         call get_ddr(z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1,     &
-              &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.false.)
-         call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-      end do
-      !$OMP end do
-      !$OMP END PARALLEL
-#ifdef WITHOMP
-      call omp_set_num_threads(omp_get_max_threads())
-#endif
+      !$omp end single
+      start_lm=lmStart_00; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+      call get_ddr(z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1,     &
+           &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.false.)
+      call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+      !$omp barrier
       !PERFOFF
+      !$omp single
       call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
+
+      !$omp end parallel
 
       !PERFON('upZ_icma')
       !--- Update of inner core and mantle rotation:
