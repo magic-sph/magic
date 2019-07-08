@@ -19,12 +19,11 @@ module outTO_mod
        &                             dzddVpLMr_Rloc, dzdVpLMr_Rloc,        &
        &                             dzLFLMr_Rloc, dzStrLMr_Rloc
    use num_param, only: tScale
-   use blocking, only: nThetaBs, sizeThetaB, nfs, lo_map
+   use blocking, only: nThetaBs, sizeThetaB, nfs, lo_map, llm, ulm
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file
    use constants, only: pi, vol_oc, one, two, half, four
-   use LMLoop_data, only: llm, ulm
    use integration, only: rInt_R
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr

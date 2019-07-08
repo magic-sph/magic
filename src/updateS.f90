@@ -11,10 +11,9 @@ module updateS_mod
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops,bots
-   use blocking, only: st_map, lo_map, lo_sub_map
+   use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: dLh,hdif_S
    use logic, only: l_update_s, l_anelastic_liquid
-   use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank, chunksize, n_procs
    use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr

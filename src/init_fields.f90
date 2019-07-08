@@ -12,7 +12,8 @@ module init_fields
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
        &                 l_axi,minc,n_cheb_ic_max,lm_max
    use mem_alloc, only: bytes_allocated
-   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map
+   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
+       &               llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
        &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
@@ -30,7 +31,6 @@ module init_fields
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
    use useful, only: random, abortRun
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
 #ifdef WITH_SHTNS
    use shtns
 #else

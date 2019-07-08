@@ -12,13 +12,12 @@ module updateWP_mod
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: alpha, dct_counter, solve_counter
-   use blocking, only: lo_sub_map,lo_map,st_map,st_sub_map
+   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, dLh
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use algebra, only: prepare_mat, solve_mat
-   use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs
    use RMS_helpers, only:  hInt2Pol

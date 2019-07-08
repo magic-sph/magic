@@ -7,13 +7,12 @@ module readCheckPoints
    use precision_mod
    use parallel_mod
    use communications, only: scatter_from_rank0_to_lo
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem,fd_stretch,fd_ratio
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv, l_AB1
-   use blocking, only: lo_map, lm2l, lm2m, lm_balance
+   use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, ulmMag
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
        &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
        &                  omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,       &

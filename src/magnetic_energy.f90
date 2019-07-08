@@ -10,8 +10,7 @@ module magnetic_energy
        &                       sigma, orho1, r, or2, rscheme_oc
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
-   use blocking, only: st_map, lo_map
-   use LMLoop_data, only: llm, ulm
+   use blocking, only: st_map, lo_map, llmMag, ulmMag
    use horizontal_data, only: dLh
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
@@ -19,7 +18,6 @@ module magnetic_energy
    use output_data, only: tag, l_max_comp
    use constants, only: pi, zero, one, two, half, four, osq4pi
    use special, only: n_imp, rrMP
-   use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
    use plms_theta, only: plm_theta
@@ -672,7 +670,7 @@ contains
       rank_has_l1m0=.false.
       rank_has_l1m1=.false.
 
-      if ( (l1m0 >= llm) .and. (l1m0 <= ulm) ) then
+      if ( (l1m0 >= llmMag) .and. (l1m0 <= ulmMag) ) then
          b10=b(l1m0,n_r_cmb)
 #ifdef WITH_MPI
          if (rank /= 0) then
@@ -682,7 +680,7 @@ contains
          rank_has_l1m0=.true.
       end if
       if ( l1m1 > 0 ) then
-         if ( (l1m1 >= llm) .and. (l1m1 <= ulm) ) then
+         if ( (l1m1 >= llmMag) .and. (l1m1 <= ulmMag) ) then
             b11=b(l1m1,n_r_cmb)
 #ifdef WITH_MPI
             if (rank /= 0) then

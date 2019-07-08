@@ -19,7 +19,7 @@ module updateB_mod
        &                         sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: alpha, solve_counter, dct_counter
-   use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map
+   use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
        &            l_b_nl_cmb, l_update_b, l_RMS
@@ -27,7 +27,6 @@ module updateB_mod
    use constants, only: pi, zero, one, two, three, half
    use special
    use algebra, only: prepare_mat, solve_mat
-   use LMLoop_data, only: llmMag, ulmMag
    use parallel_mod, only:  rank, chunksize, n_procs
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc

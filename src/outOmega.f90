@@ -8,8 +8,7 @@ module omega
    use parallel_mod
    use truncation, only: n_r_max, lm_max, l_max, minc
    use radial_functions, only: r_CMB, r_ICB, rscheme_oc, orho1
-   use LMLoop_data, only: llm,ulm
-   use blocking, only: lo_map
+   use blocking, only: lo_map, llm, ulm
    use logic, only: lVerbose
    use output_data, only: tag
    use plms_theta, only: plm_theta

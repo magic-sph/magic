@@ -13,7 +13,7 @@ module storeCheckPoints
    use radial_functions, only: rscheme_oc
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
-   use LMLoop_data, only: llm,ulm, llmMag, ulmMag
+   use blocking, only: llm, ulm, llmMag, ulmMag
    use num_param, only: tScale, alph1, alph2
    use fieldsLast, only: d_omega_ma_dtLast,d_omega_ic_dtLast, &
        &                 lorentz_torque_maLast,lorentz_torque_icLast

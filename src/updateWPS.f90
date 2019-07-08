@@ -15,13 +15,12 @@ module updateWPS_mod
        &                          CorFac, ktopp
    use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops, bots
-   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map
+   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, hdif_S, dLh
    use logic, only: l_update_v, l_temperature_diff, l_RMS
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
-   use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs
    use radial_der, only: get_dddr, get_ddr, get_dr

@@ -16,7 +16,7 @@ module start_fields
        &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
-   use blocking, only: lo_map
+   use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
@@ -29,7 +29,6 @@ module start_fields
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
-   use LMLoop_data, only: llm, ulm, ulmMag, llmMag
    use parallel_mod, only: rank, n_procs
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even

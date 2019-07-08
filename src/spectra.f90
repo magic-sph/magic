@@ -11,12 +11,11 @@ module spectra
        &                       rscheme_oc, or2, r_icb, dr_fac_ic
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
-   use blocking, only: lo_map, st_map
+   use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh
    use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, &
        &            l_energy_modes, l_2D_spectra
    use output_data, only: tag, log_file, n_log_file, m_max_modes
-   use LMLoop_data,only: llm, ulm, llmMag, ulmMag
    use useful, only: cc2real, cc22real, abortRun, get_mean_sd
    use integration, only: rInt_R, rIntIC
    use constants, only: pi, vol_oc, half, one, four

@@ -32,7 +32,7 @@ module step_time_mod
        &            l_finite_diff
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+   use blocking, only: llm, ulm, llmMag, ulmMag
    use LMLoop_mod, only: LMLoop
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file

@@ -13,12 +13,11 @@ module LMLoop_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
-   use blocking, only: lo_map
+   use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
        &            l_single_matrix, l_chemical_conv, l_TP_form,         &
        &            l_save_out
    use output_data, only: n_log_file, log_file
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
    use updateS_mod
    use updateZ_mod

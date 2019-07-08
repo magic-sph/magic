@@ -13,7 +13,7 @@ module updateZ_mod
        &                          po_diff, diff_prec_angle
    use num_param, only: alpha, AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
-   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map
+   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_diff_prec, l_correct_AMe, l_correct_AMz, l_update_v, l_TO,&
@@ -25,7 +25,6 @@ module updateZ_mod
        &                pi, third
    use parallel_mod
    use algebra, only: prepare_mat, solve_mat
-   use LMLoop_data, only: llm,ulm
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
    use RMS_helpers, only: hInt2Tor

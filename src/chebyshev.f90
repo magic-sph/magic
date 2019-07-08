@@ -3,7 +3,7 @@ module chebyshev
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use constants, only: half, one, two, three, four, pi
-   use LMLoop_data, only: llm,ulm
+   use blocking, only: llm, ulm
    use radial_scheme, only: type_rscheme
    use useful, only: factorise
    use chebyshev_polynoms_mod, only: cheb_grid

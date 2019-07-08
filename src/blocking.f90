@@ -8,7 +8,7 @@ module blocking
    use parallel_mod, only: nThreads, rank, n_procs, rank_with_l1m0, load, getBlocks
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
        &                 minc, n_r_max, m_max, l_axi
-   use logic, only: l_save_out, l_finite_diff
+   use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
        &                allocate_subblocks_mappings, deallocate_subblocks_mappings, &
@@ -45,6 +45,7 @@ module blocking
    type(mappings), public, target :: st_map
    type(mappings), public, target :: lo_map
    type(load), public, allocatable :: lm_balance(:)
+   integer, public :: llm, ulm, llmMag, ulmMag
 
    integer, public, pointer :: nLMBs2(:),sizeLMB2(:,:)
    integer, public, pointer :: lm22lm(:,:,:)
@@ -143,17 +144,28 @@ contains
       allocate( lm_balance(0:n_procs-1) )
       call getBlocks(lm_balance, lm_max, n_procs)
 
+      !-- Fix LM balance in case of snake ordering
       call get_standard_lm_blocking(st_map,minc)
       !call get_standard_lm_blocking(lo_map,minc)
       if (n_procs <= l_max/2) then
          !better load balancing, but only up to l_max/2
-         call get_snake_lm_blocking(lo_map,minc)
+         call get_snake_lm_blocking(lo_map,minc,lm_balance)
       else
          call get_lorder_lm_blocking(lo_map,minc)
       end if
       !call logWrite(message)
 
 
+      !-- Define llm and ulm
+      llm = lm_balance(rank)%nStart
+      ulm = lm_balance(rank)%nStop
+      if ( l_mag ) then
+         llmMag = llm
+         ulmMag = ulm
+      else
+         llmMag = 1
+         ulmMag = 1
+      end if
 
       !--- Get the block (rank+1) with the l1m0 mode
       l1m0 = lo_map%lm2(1,0)
@@ -620,9 +632,10 @@ contains
 
    end subroutine get_lorder_lm_blocking
 !------------------------------------------------------------------------
-   subroutine get_snake_lm_blocking(map,minc)
+   subroutine get_snake_lm_blocking(map, minc, lm_balance)
 
       type(mappings), intent(inout) :: map
+      type(load),     intent(inout) :: lm_balance(0:n_procs-1)
       integer,        intent(in) :: minc
 
       ! Local variables

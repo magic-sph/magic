@@ -9,7 +9,8 @@ module fields_average_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc
-   use blocking,only: sizeThetaB, nThetaBs, lm2, nfs
+   use blocking,only: sizeThetaB, nThetaBs, lm2, nfs, llm, ulm, llmMag, &
+       &              ulmMag
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
        &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
@@ -24,7 +25,6 @@ module fields_average_mod
    use legendre_spec_to_grid, only: legTF
 #endif
    use constants, only: zero, vol_oc, vol_ic, one
-   use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb, write_Pot

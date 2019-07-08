@@ -8,7 +8,7 @@ module mpi_transp
    use precision_mod
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop
-   use LMLoop_data, only: llm, ulm
+   use blocking, only: llm, ulm
 
    implicit none
 
@@ -67,8 +67,7 @@ module  mpi_alltoall_mod
    use radial_data, only: radial_balance
    use truncation, only: lm_max, n_r_max, l_max, minc, l_axi
    use radial_data, only: nRstart, nRstop
-   use LMLoop_data, only: llm, ulm
-   use blocking, only: lm_balance, lo_map, st_map
+   use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -436,8 +435,7 @@ module  mpi_ptop_mod
    use logic, only: l_finite_diff
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop, radial_balance
-   use LMLoop_data, only: llm, ulm
-   use blocking, only: lm_balance, st_map, lo_map
+   use blocking, only: lm_balance, st_map, lo_map, llm, ulm
    use mpi_transp, only: type_mpitransp
 
    implicit none

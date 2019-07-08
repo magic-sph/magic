@@ -14,14 +14,14 @@ module power
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map, nfs, nThetaBs, sizeThetaB
+   use blocking, only: lo_map, st_map, nfs, nThetaBs, sizeThetaB, llm, &
+       &               ulm, llmMag, ulmMag
    use horizontal_data, only: dLh, gauss
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
        &            l_chemical_conv, l_anelastic_liquid
    use output_data, only: tag
    use useful, only: cc2real, cc22real, get_mean_sd, round_off
-   use LMLoop_data,only: llm, ulm, llmMag, ulmMag
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
    use constants, only: one, two, half

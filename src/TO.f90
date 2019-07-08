@@ -7,10 +7,9 @@ module torsional_oscillations
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr
    use radial_data, only: n_r_cmb, nRstart, nRstop
-   use LMLoop_data, only: llmMag, ulmMag
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
-   use blocking, only: nfs, lm2
+   use blocking, only: nfs, lm2, llmMag, ulmMag
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh
    use constants, only: one, two
    use logic, only: lVerbose, l_mag

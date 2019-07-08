@@ -13,13 +13,12 @@ module out_movie
        &                 movieDipStrengthGeo, t_movieS, n_movie_type,       &
        &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
        &                 movie_file, movie_const
-   use LMLoop_data, only: llmMag, ulmMag
    use radial_data, only: n_r_icb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
        &                       r_surface, r_cmb, r, r_ic
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
    use num_param, only: vScale, tScale
-   use blocking, only: nfs, lm2l, lm2
+   use blocking, only: nfs, lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      dLh, osn1, D_l, phi, theta_ord
