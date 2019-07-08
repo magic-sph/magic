@@ -68,7 +68,7 @@ module  mpi_alltoall_mod
    use truncation, only: lm_max, n_r_max, l_max, minc, l_axi
    use radial_data, only: nRstart, nRstop
    use LMLoop_data, only: llm, ulm
-   use blocking, only: lmStartB, lmStopB, lo_map, st_map
+   use blocking, only: lm_balance, lo_map, st_map
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -117,7 +117,7 @@ contains
       bytes_allocated = bytes_allocated +4*n_procs*SIZEOF_INTEGER
 
       do p=0,n_procs-1
-         my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
+         my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
          this%scounts(p)=nR_per_rank*my_lm_counts*this%n_fields
          this%rcounts(p)=radial_balance(p)%n_per_rank*nlm_per_rank*this%n_fields
@@ -151,7 +151,7 @@ contains
       bytes_allocated = bytes_allocated+4*n_procs*SIZEOF_INTEGER
 
       do p=0,n_procs-1
-         my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
+         my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
 
          this%counts(p)=1
@@ -163,7 +163,7 @@ contains
          arr_loc_size(1)=my_lm_counts
          arr_loc_size(2)=nR_per_rank
          arr_loc_size(3)=this%n_fields
-         arr_start(1)=lmStartB(p+1)-1
+         arr_start(1)=lm_balance(p)%nStart-1
          arr_start(2)=0
          arr_start(3)=0
 #ifdef WITH_MPI
@@ -260,7 +260,7 @@ contains
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=lmStartB(p+1),lmStopB(p+1)
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
@@ -339,7 +339,7 @@ contains
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=lmStartB(p+1),lmStopB(p+1)
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
@@ -437,7 +437,7 @@ module  mpi_ptop_mod
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop, radial_balance
    use LMLoop_data, only: llm, ulm
-   use blocking, only: lmStartB, lmStopB, st_map, lo_map
+   use blocking, only: lm_balance, st_map, lo_map
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -489,7 +489,7 @@ contains
       bytes_allocated = bytes_allocated + 32*n_procs*SIZEOF_INTEGER
 
       do proc=0,n_procs-1
-         my_lm_per_rank=lmStopB(proc+1)-lmStartB(proc+1)+1
+         my_lm_per_rank=lm_balance(proc)%n_per_rank
 
          ! define the transfer types for the containers
          ! same schema as for the other types
@@ -613,7 +613,7 @@ contains
                !PERFOFF
             else
                !PERFON('irecv')
-               call MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),             &
+               call MPI_Irecv(arr_Rloc(lm_balance(recv_pe)%nStart,nRstart,1),      &
                     &         1,this%s_transfer_type_cont(recv_pe+1,this%n_fields),&
                     &         recv_pe,transfer_tag,MPI_COMM_WORLD,                 &
                     &         this%r_request(irank),ierr)
@@ -659,7 +659,7 @@ contains
                !PERFOFF
             else
                !PERFON('irecv')
-               call MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),1,         &
+               call MPI_Irecv(arr_Rloc(lm_balance(recv_pe)%nStart,nRstart,1),1,  &
                     &         this%s_transfer_type_nr_end_cont(recv_pe+1,        &
                     &         this%n_fields),recv_pe,transfer_tag,MPI_COMM_WORLD,&
                     &         this%r_request(irank),ierr)
@@ -838,7 +838,7 @@ contains
                   &         arr_Rloc(llm:ulm,nRstart:nRstop,i)
                end do
             else
-               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),             &
+               call MPI_Isend(arr_Rloc(lm_balance(send_pe)%nStart,nRstart,1),      &
                     &         1,this%s_transfer_type_cont(send_pe+1,this%n_fields),&
                     &         send_pe,transfer_tag,MPI_COMM_WORLD,                 &
                     &         this%s_request(irank),ierr)
@@ -882,7 +882,7 @@ contains
                     &         1,this%r_transfer_type_cont(rank+1,this%n_fields), & 
                     &         recv_pe,transfer_tag,MPI_COMM_WORLD,               &
                     &         this%r_request(irank),ierr)
-               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),           &
+               call MPI_Isend(arr_Rloc(lm_balance(send_pe)%nStart,nRstart,1),    &
                     &         1,this%s_transfer_type_nr_end_cont(send_pe+1,      &
                     &         this%n_fields),send_pe,transfer_tag,MPI_COMM_WORLD,&
                     &         this%s_request(irank),ierr)

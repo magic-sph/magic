@@ -13,8 +13,7 @@ module updateZ_mod
        &                          po_diff, diff_prec_angle
    use num_param, only: alpha, AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
-   use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
-                     & lmStartB,lmStopB
+   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_diff_prec, l_correct_AMe, l_correct_AMz, l_update_v, l_TO,&
@@ -67,7 +66,7 @@ contains
 
       integer, pointer :: nLMBs2(:)
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
       allocate( zMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
       allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0
@@ -168,7 +167,6 @@ contains
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
       integer :: lmStart_00         ! excluding l=0,m=0
-      integer :: lmStart,lmStop ! max and min number of orders m
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
@@ -220,7 +218,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -231,10 +229,8 @@ contains
 
 
       nLMB = 1+rank
-      lmStart     =lmStartB(nLMB)
-      lmStop      =lmStopB(nLMB)
-      lmStart_00  =max(2,lmStart)
-      l1m0        =lm2(1,0)
+      lmStart_00 =max(2,llm)
+      l1m0       =lm2(1,0)
 
       w2  =one-w1
       O_dt=one/dt
@@ -511,14 +507,14 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart,lmStop
+         do lm1=llm,ulm
             z(lm1,n_r_out)=zero
          end do
       end do
 
       !PERFON('upZ_drv')
       call dct_counter%start_count()
-      all_lms=lmStop-lmStart_00+1
+      all_lms=ulm-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < omp_get_max_threads()) then
          call omp_set_num_threads(all_lms)
@@ -529,11 +525,7 @@ contains
 #else
       per_thread=all_lms
 #endif
-      !$OMP PARALLEL &
-      !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(per_thread,lmStart_00,lmStop,nThreads) &
-      !$OMP shared(z,dz,dzdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,work_LMloc,llm,ulm)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -546,7 +538,7 @@ contains
       do iThread=0,nThreads-1
          start_lm = lmStart_00+iThread*per_thread
          stop_lm  = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulm
          !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
          !-- Get derivatives:
          call get_ddr(z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1,     &
@@ -593,7 +585,7 @@ contains
       !    is kept constant.
       l1m1=lm2(1,1)
       if ( l_correct_AMz .and.  l1m0 > 0 .and. &
-         & lmStart_00 <= l1m0 .and. lmStop >= l1m0 ) then
+         & lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
 
          do nR=1,n_r_max
             z10(nR)=z(l1m0,nR)
@@ -621,8 +613,7 @@ contains
 
          !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
          !         derivatives:
-         !$OMP PARALLEL do default(shared) &
-         !$OMP PRIVATE(r_E_2,nR)
+         !$OMP PARALLEL do default(shared) PRIVATE(r_E_2,nR)
          do nR=1,n_r_max
             r_E_2=r(nR)*r(nR)
             z(l1m0,nR)  =z(l1m0,nR)  - rho0(nR)*r_E_2*corr_l1m0
@@ -644,7 +635,7 @@ contains
       end if ! l=1,m=0 contained in lm-block ?
 
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
-           lmStart_00 <= l1m1 .and. lmStop >= l1m1 ) then
+           lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
 
          do nR=1,n_r_max
             z11(nR)=z(l1m1,nR)
@@ -661,16 +652,15 @@ contains
 
          !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
          !         derivatives:
-         !$OMP PARALLEL do default(shared) &
-         !$OMP private(nR,r_E_2)
+         !$OMP PARALLEL do default(shared) private(nR,r_E_2)
          do nR=1,n_r_max
             r_E_2=r(nR)*r(nR)
             z(l1m1,nR)  =z(l1m1,nR)  -  rho0(nR)*r_E_2*corr_l1m1
             dz(l1m1,nR) =dz(l1m1,nR) -  rho0(nR)*( &
             &            two*r(nR)+r_E_2*beta(nR))*corr_l1m1
             work_LMloc(l1m1,nR)=work_LMloc(l1m1,nR)-rho0(nR)*(    &
-            &             two+four*beta(nR)*r(nR) +     &
-            &                        dbeta(nR)*r_E_2 +  &
+            &             two+four*beta(nR)*r(nR) +               &
+            &                        dbeta(nR)*r_E_2 +            &
             &                beta(nR)*beta(nR)*r_E_2 )*corr_l1m1
          end do
          !$OMP END PARALLEL DO
@@ -694,11 +684,10 @@ contains
       !   end do
       !end if
       !-- Calculate explicit time step part:
-      !$OMP PARALLEL default(shared) &
-      !$OMP private(nR,lm1,dtV,Dif)
+      !$OMP PARALLEL default(shared) private(nR,lm1,dtV,Dif)
       !$OMP DO
       do nR=n_r_top,n_r_bot
-         do lm1=lmStart_00,lmStop
+         do lm1=lmStart_00,ulm
             Dif(lm1)=hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1)))*                &
             &        dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*visc(nR)*  &
             &      ( work_LMloc(lm1,nR)   +(dLvisc(nR)-beta(nR)) *dz(lm1,nR) &
@@ -713,9 +702,9 @@ contains
             end if
          end do
          if ( lRmsNext ) then
-            call hInt2Tor(Dif,llm,ulm,nR,lmStart_00,lmStop, &
+            call hInt2Tor(Dif,llm,ulm,nR,lmStart_00,ulm, &
                  &        DifTor2hInt(:,nR,1),lo_map)
-            call hInt2Tor(dtV,llm,ulm,nR,lmStart_00,lmStop, &
+            call hInt2Tor(dtV,llm,ulm,nR,lmStart_00,ulm, &
                  &        dtVTor2hInt(:,nR,1),lo_map)
          end if
       end do
@@ -729,7 +718,7 @@ contains
          !$OMP do private(nR,lm1,l1,m1)
          do nR=1,n_r_max
             ddzASL_loc(:,nR)=0.0_cp
-            do lm1=lmStart_00,lmStop
+            do lm1=lmStart_00,ulm
                l1=lm2l(lm1)
                m1=lm2m(lm1)
                if ( m1 == 0 ) ddzASL_loc(l1+1,nR)=real(work_LMloc(lm1,nR))

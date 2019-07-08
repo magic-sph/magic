@@ -11,11 +11,11 @@ module updateS_mod
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops,bots
-   use blocking, only: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
+   use blocking, only: st_map, lo_map, lo_sub_map
    use horizontal_data, only: dLh,hdif_S
    use logic, only: l_update_s, l_anelastic_liquid
    use LMLoop_data, only: llm, ulm
-   use parallel_mod, only: rank,chunksize
+   use parallel_mod, only: rank, chunksize, n_procs
    use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
    use fields, only:  work_LMloc
@@ -50,7 +50,7 @@ contains
 
       integer, pointer :: nLMBs2(:)
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
       allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0
       allocate( sMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
@@ -95,7 +95,7 @@ contains
 
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
-   subroutine updateS(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
+   subroutine updateS(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt)
       !
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
@@ -105,7 +105,6 @@ contains
       real(cp),    intent(in) :: w1        ! weight for time step !
       real(cp),    intent(in) :: coex      ! factor depending on alpha
       real(cp),    intent(in) :: dt        ! time step
-      integer,     intent(in) :: nLMB
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
@@ -121,8 +120,7 @@ contains
       real(cp) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
-      integer :: lmStart,lmStop
-      integer :: nLMB2
+      integer :: nLMB2,nLMB
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out             ! counts cheb modes
       real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
@@ -136,7 +134,7 @@ contains
 
       if ( .not. l_update_s ) return
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -145,18 +143,13 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      lmStart     =lmStartB(nLMB)
-      lmStop      =lmStopB(nLMB)
+      nLMB=1+rank
       w2  =one-w1
       O_dt=one/dt
 
 
       !PERFON('upS_fin')
-      !$OMP PARALLEL  &
-      !$OMP private(iThread,start_lm,stop_lm,nR,lm)       &
-      !$OMP shared(all_lms,per_thread,lmStart,lmStop)     &
-      !$OMP shared(dVSrLM,dsdt,orho1,or2,dentropy0,w,dLh) &
-      !$OMP shared(n_r_max,rscheme_oc,work_LMloc,nThreads,llm,ulm)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm,nR,lm) 
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -164,15 +157,15 @@ contains
       nThreads=1
 #endif
       !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
-      all_lms=lmStop-lmStart+1
+      all_lms=ulm-llm+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart+iThread*per_thread
+         start_lm=llm+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulm
 
          !--- Finish calculation of dsdt:
          call get_dr( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
@@ -182,7 +175,7 @@ contains
 
       !$OMP DO
       do nR=1,n_r_max
-         do lm=lmStart,lmStop
+         do lm=llm,ulm
             dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*work_LMloc(lm,nR)- &
             &           dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(nR)*       &
             &           dentropy0(nR)*w(lm,nR))
@@ -329,14 +322,14 @@ contains
       !write(*,"(A,2ES22.12)") "s after = ",SUM(s)
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart,lmStop
+         do lm1=llm,ulm
             s(lm1,n_r_out)=zero
          end do
       end do
 
       call dct_counter%start_count()
       !PERFON('upS_drv')
-      all_lms=lmStop-lmStart+1
+      all_lms=ulm-llm+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
@@ -347,19 +340,12 @@ contains
 #else
       per_thread=all_lms
 #endif
-      !$OMP PARALLEL &
-      !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
-      !$OMP shared(s,ds,dsdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
-      !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
-      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1) &
-      !$OMP shared(dLkappa,dLh,or2)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart+iThread*per_thread
+         start_lm=llm+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulm
          call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, &
               &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
          call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
@@ -369,7 +355,7 @@ contains
       !-- Calculate explicit time step part:
       !$OMP do private(nR,lm1)
       do nR=n_r_cmb+1,n_r_icb-1
-         do lm1=lmStart,lmStop
+         do lm1=llm,ulm
             dsdtLast(lm1,nR)=                              dsdt(lm1,nR) &
             &      - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
             &        kappa(nR) *                   ( work_LMloc(lm1,nR) &
@@ -389,7 +375,7 @@ contains
 
    end subroutine updateS
 !------------------------------------------------------------------------------
-   subroutine updateS_ala(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
+   subroutine updateS_ala(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt)
       !
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
@@ -399,7 +385,6 @@ contains
       real(cp),    intent(in) :: w1        ! weight for time step !
       real(cp),    intent(in) :: coex      ! factor depending on alpha
       real(cp),    intent(in) :: dt        ! time step
-      integer,     intent(in) :: nLMB
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
@@ -415,8 +400,7 @@ contains
       real(cp) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
-      integer :: lmStart,lmStop
-      integer :: nLMB2
+      integer :: nLMB2,nLMB
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out             ! counts cheb modes
       real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
@@ -430,7 +414,7 @@ contains
 
       if ( .not. l_update_s ) return
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -440,19 +424,13 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
 
-      lmStart     =lmStartB(nLMB)
-      lmStop      =lmStopB(nLMB)
+      nLMB=1+rank
       w2  =one-w1
       O_dt=one/dt
 
 
       !PERFON('upS_fin')
-      !$OMP PARALLEL  &
-      !$OMP private(iThread,start_lm,stop_lm,nR,lm)        &
-      !$OMP shared(all_lms,per_thread)                     &
-      !$OMP shared(dVSrLM,rscheme_oc,dsdt,orho1,dentropy0) &
-      !$OMP shared(dLtemp0,w,or2,lmStart,lmStop,temp0,dLh) &
-      !$OMP shared(n_r_max,work_LMloc,nThreads,llm,ulm)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm,nR,lm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -460,15 +438,15 @@ contains
       nThreads=1
 #endif
       !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
-      all_lms=lmStop-lmStart+1
+      all_lms=ulm-llm+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart+iThread*per_thread
+         start_lm=llm+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulm
 
          !--- Finish calculation of dsdt:
          call get_dr( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,    &
@@ -478,7 +456,7 @@ contains
 
       !$OMP DO
       do nR=1,n_r_max
-         do lm=lmStart,lmStop
+         do lm=llm,ulm
             dsdt(lm,nR)=           orho1(nR)*        dsdt(lm,nR) - &
             &        or2(nR)*orho1(nR)*        work_LMloc(lm,nR) + &
             &        or2(nR)*orho1(nR)*dLtemp0(nR)*dVSrLM(lm,nR) - &
@@ -629,14 +607,14 @@ contains
       !write(*,"(A,2ES22.12)") "s after = ",SUM(s)
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart,lmStop
+         do lm1=llm,ulm
             s(lm1,n_r_out)=zero
          end do
       end do
 
       call dct_counter%start_count()
       !PERFON('upS_drv')
-      all_lms=lmStop-lmStart+1
+      all_lms=ulm-llm+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
@@ -647,19 +625,12 @@ contains
 #else
       per_thread=all_lms
 #endif
-      !$OMP PARALLEL &
-      !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(per_thread,nThreads) &
-      !$OMP shared(s,ds,w,dsdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
-      !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S) &
-      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,or1,dLkappa,dLh,or2) &
-      !$OMP shared(orho1)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart+iThread*per_thread
+         start_lm=llm+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulm
          call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, &
               &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
          call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
@@ -669,7 +640,7 @@ contains
       !-- Calculate explicit time step part:
       !$OMP do private(nR,lm1)
       do nR=n_r_cmb+1,n_r_icb-1
-         do lm1=lmStart,lmStop
+         do lm1=llm,ulm
            dsdtLast(lm1,nR)=dsdt(lm1,nR) &
            &      - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
            &        (                                         work_LMloc(lm1,nR) &

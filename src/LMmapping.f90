@@ -3,6 +3,7 @@ module LMmapping
    use precision_mod
    use truncation, only: l_axi
    use mem_alloc, only: bytes_allocated
+   use parallel_mod, only: load
 
    implicit none
  
@@ -75,16 +76,16 @@ contains
 
    end subroutine deallocate_mappings
 !-------------------------------------------------------------------------------
-   subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,lmStartB,lmStopB)
+   subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,lm_balance)
 
       !-- Input variables
       type(subblocks_mappings) :: self
       type(mappings), intent(in) :: map
       integer,        intent(in) :: nLMBs, l_max
-      integer,        intent(in) :: lmStartB(nLMBs), lmStopB(nLMBs)
+      type(load),     intent(in) :: lm_balance(0:nLMBs-1)
 
       !-- Local variables
-      integer :: nLMB,lm1,l1,max_size_of_subblock,lmStart,lmStop
+      integer :: n_proc,lm1,l1,max_size_of_subblock,lmStart,lmStop
       integer :: counter(0:l_max)
 
       self%nLMBs = nLMBs
@@ -99,9 +100,9 @@ contains
       ! now determine the maximal size of a subblock (was sizeLMB2max parameter
       ! in former versions).
       max_size_of_subblock=0
-      do nLMB=1,nLMBs
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
+      do n_proc=0,nLMBs-1
+         lmStart=lm_balance(n_proc)%nStart
+         lmStop =lm_balance(n_proc)%nStop
          counter=0
          do lm1=lmStart,lmStop
             l1=map%lm2l(lm1)

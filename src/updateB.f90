@@ -19,7 +19,7 @@ module updateB_mod
        &                         sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: alpha, solve_counter, dct_counter
-   use blocking, only: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
+   use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
        &            l_b_nl_cmb, l_update_b, l_RMS
@@ -27,8 +27,8 @@ module updateB_mod
    use constants, only: pi, zero, one, two, three, half
    use special
    use algebra, only: prepare_mat, solve_mat
-   use LMLoop_data, only: llmMag,ulmMag
-   use parallel_mod, only:  rank,chunksize
+   use LMLoop_data, only: llmMag, ulmMag
+   use parallel_mod, only:  rank, chunksize, n_procs
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
@@ -64,7 +64,7 @@ contains
 
       integer, pointer :: nLMBs2(:)
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
       allocate( bMat(n_r_tot,n_r_tot,nLMBs2(1+rank)) )
       allocate( jMat(n_r_tot,n_r_totMag,nLMBs2(1+rank)) )
@@ -121,7 +121,7 @@ contains
    subroutine updateB(b,db,ddb,aj,dj,ddj,dVxBhLM,dbdt,dbdtLast,djdt,djdtLast, &
        &              b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,dbdt_icLast,       &
        &              djdt_icLast,b_nl_cmb,aj_nl_cmb,aj_nl_icb,omega_ic,      &
-       &              w1,coex,dt,time,nLMB,lRmsNext)
+       &              w1,coex,dt,time,lRmsNext)
       !
       !
       !  Calculated update of magnetic field potential and the time
@@ -159,7 +159,6 @@ contains
       real(cp),    intent(in) :: coex  ! factor depending on alpha
       real(cp),    intent(in) :: dt
       real(cp),    intent(in) :: time
-      integer,     intent(in) :: nLMB
       logical,     intent(in) :: lRmsNext
 
       !-- Input/output of scalar potentials and time stepping arrays:
@@ -190,9 +189,8 @@ contains
 
       integer :: l1,m1               ! degree and order
       integer :: lm1,lm,lmB          ! position of (l,m) in array
-      integer :: lmStart,lmStop      ! max and min number of orders m
       integer :: lmStart_00          ! excluding l=0,m=0
-      integer :: nLMB2
+      integer :: nLMB2, nLMB
       integer :: n_r_out             ! No of cheb polynome (degree+1)
       integer :: nR                  ! No of radial grid point
       integer :: n_r_real            ! total number of used grid points
@@ -221,7 +219,7 @@ contains
       maxThreads = 1
 #endif
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -233,46 +231,21 @@ contains
       n_r_real=n_r_max
       if ( l_cond_ic ) n_r_real=n_r_max+n_r_ic_max
 
-      lmStart     =lmStartB(nLMB)
-      lmStop      =lmStopB(nLMB)
-      lmStart_00  =max(2,lmStart)
-
-      ! output the input
-      !write(*,"(4(A,I4),I4,A,I4)") "nLMB=",nLMB,", from ",lmStart," to ",lmStop,&
-      !     &", reals: ",lmStart_00,lmStop,", nLMBs2 = ",nLMBs2(nLMB)
+      nLMB=1+rank
+      lmStart_00  =max(2,llmMag)
 
       w2  =one-w1
       O_dt=one/dt
 
       !--- Start with finishing djdt:
-      !    dVxBhLM is still in the R-distributed space,
-      !    the ouput workA is in the LM-distributed space.
-      !if (2*lmStart-1 - llmMag+1 /= 1) then
-      !   write(*,"(I4,2(A,I6))") rank,": lmStart = ",lmStart,", llmMag = ",llmMag
-      !   STOP
-      !end if
-      !if (lmStop  /=  ulmMag) then
-      !   write(*,"(I4,A,2I6)") rank,": ",ulmMag,lmStop
-      !   stop
-      !end if
-      !call get_dr( dVxBhLM,workA, &
-      !     &         ulmMag-llmMag+1,(2*lmStart-1)-llmMag+1,lmStop-llmMag+1, &
-      !     &         n_r_max,rscheme_oc )
-      ! simplified interface
-      !PRINT*,rank,": computing for ",ulmMag-llmMag+1," rows, chebt_oc = ",chebt_oc
-
       !PERFON('upB_fin')
-      all_lms=lmStop-lmStart_00+1
+      all_lms=ulmMag-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
       end if
 #endif
-      !$OMP PARALLEL &
-      !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(all_lms,per_thread,lmStop,lmStart_00) &
-      !$OMP shared(dVxBhLM,work_LMloc,djdt,or2,rscheme_oc) &
-      !$OMP shared(n_r_max,nThreads,llmMag,ulmMag)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -287,7 +260,7 @@ contains
       do iThread=0,nThreads-1
          start_lm=lmStart_00+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulmMag
 
          call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
@@ -297,7 +270,7 @@ contains
 
       !$OMP do private(nR)
       do nR=1,n_r_max
-         do lm=lmStart_00,lmStop
+         do lm=lmStart_00,ulmMag
             djdt(lm,nR)=djdt(lm,nR)+or2(nR)*work_LMloc(lm,nR)
          end do
       end do
@@ -628,14 +601,14 @@ contains
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart_00,lmStop
+         do lm1=lmStart_00,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
       end do
       if ( l_cond_ic ) then
          do n_r_out=n_cheb_ic_max+1,n_r_ic_max
-            do lm1=lmStart_00,lmStop
+            do lm1=lmStart_00,ulmMag
                b_ic(lm1,n_r_out) =zero
                aj_ic(lm1,n_r_out)=zero
             end do
@@ -644,20 +617,13 @@ contains
 
       call dct_counter%start_count()
       !PERFON('upB_drv')
-      all_lms=lmStop-lmStart_00+1
+      all_lms=ulmMag-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
       end if
 #endif
-      !$OMP PARALLEL &
-      !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
-      !$OMP shared(b,db,ddb,aj,dj,ddj,dbdtLast,djdtLast) &
-      !$OMP shared(rscheme_oc,n_r_max,nThreads,llmMag,ulmMag) &
-      !$OMP shared(l_cond_ic,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic) &
-      !$OMP shared(chebt_ic,chebt_ic_even) &
-      !$OMP shared(n_r_ic_max,n_cheb_ic_max,dr_fac_ic)
+      !$OMP PARALLEL default(shared) private(iThread,start_lm,stop_lm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -673,7 +639,7 @@ contains
       do iThread=0,nThreads-1
          start_lm=lmStart_00+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+         if (iThread == nThreads-1) stop_lm=ulmMag
 
          !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
          !PERFON('upB_db')
@@ -719,7 +685,7 @@ contains
          !$omp parallel do default(shared) private(nR,lm1,l1,m1)
          do nR=n_r_cmb,n_r_icb-1
             if ( nR<=n_r_LCR ) then
-               do lm1=lmStart_00,lmStop
+               do lm1=lmStart_00,ulmMag
                   l1=lm2l(lm1)
                   m1=lm2m(lm1)
 
@@ -750,7 +716,7 @@ contains
 
       !$omp parallel do default(shared) private(nR,lm1,l1,m1,dtP,dtT)
       do nR=n_r_top,n_r_bot
-         do lm1=lmStart_00,lmStop
+         do lm1=lmStart_00,ulmMag
             l1=lm2l(lm1)
             m1=lm2m(lm1)
             dbdtLast(lm1,nR)= dbdt(lm1,nR) -                    &
@@ -770,9 +736,9 @@ contains
             end if
          end do
          if ( lRmsNext ) then
-            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,lmStop,&
+            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,ulmMag,&
                  &          dtBPolLMr(llmMag:,nR),dtBPol2hInt(llmMag:,nR,1),lo_map)
-            call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,lmStop, &
+            call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,ulmMag, &
                  &          dtBTor2hInt(llmMag:,nR,1),lo_map)
          end if
       end do
@@ -787,7 +753,7 @@ contains
          !$omp parallel default(shared) private(nR,lm1,l1,m1)
          !$omp do
          do nR=2,n_r_ic_max-1
-            do lm1=lmStart_00,lmStop
+            do lm1=lmStart_00,ulmMag
                l1=lm2l(lm1)
                m1=lm2m(lm1)
                dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
@@ -803,7 +769,7 @@ contains
          !$omp end do
          nR=n_r_ic_max
          !$omp do
-         do lm1=lmStart_00,lmStop
+         do lm1=lmStart_00,ulmMag
             l1=lm2l(lm1)
             m1=lm2m(lm1)
             dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
