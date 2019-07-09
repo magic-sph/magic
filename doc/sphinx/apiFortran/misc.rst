@@ -3,6 +3,12 @@
 Useful additional libraries
 ===========================
 
+``mean_sd.f90``
+----------------
+
+.. f:automodule:: mean_sd
+
+
 ``useful.f90``
 --------------
 
