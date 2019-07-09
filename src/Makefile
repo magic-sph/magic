@@ -441,7 +441,7 @@ outPar.o              : truncation.o blocking.o phys_param.o\
 spectra.o             : truncation.o blocking.o num_param.o\
                         horizontal.o phys_param.o radial.o logic.o\
                         output_data.o useful.o LMLoop_data.o\
-                        integration.o mem_alloc.o
+                        integration.o mem_alloc.o mean_sd.o
 RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
                         phys_param.o radial.o constants.o logic.o\
                         output_data.o radial_derivatives.o useful.o\
@@ -555,6 +555,7 @@ init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) legendre_grid_to_spec.o\
                         useful.o phys_param.o LMLoop_data.o mpi_transpose.o\
                         cosine_transform_odd.o mem_alloc.o parallel.o
+mean_sd.o             : precision_mod.o mem_alloc.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
                         horizontal.o char_manip.o useful.o
