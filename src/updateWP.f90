@@ -449,7 +449,7 @@ contains
       !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp do private(n_r_out,lm1)
+      !$omp single
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             w(lm1,n_r_out)=zero
@@ -459,7 +459,7 @@ contains
             end if
          end do
       end do
-      !$omp end do
+      !$omp end single
 
       !$omp single
       call dct_counter%start_count()

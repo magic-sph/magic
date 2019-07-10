@@ -298,15 +298,14 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 
-      !write(*,"(A,2ES22.12)") "s after = ",SUM(s)
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp do private(n_r_out,lm1)
+      !$omp single
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             xi(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end do
+      !$omp end single
 
       !PERFON('upXi_drv')
       !$omp single

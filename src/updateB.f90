@@ -567,14 +567,14 @@ contains
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
-      !$omp do private(n_r_out, lm1)
+      !$omp single
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart_00,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end do
+      !$omp end single
 
       if ( l_cond_ic ) then
          !$omp do private(n_r_out, lm1)
