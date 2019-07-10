@@ -645,7 +645,7 @@ contains
          if ( lRmsCalc ) then
             if ( lVerbose ) write(*,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
-            call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS)
+            call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS,l_stop_time)
             if ( l_mag ) call dtBrms(time)
             timePassedRMS=0.0_cp
          end if

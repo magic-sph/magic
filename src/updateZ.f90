@@ -676,9 +676,9 @@ contains
          end do
          if ( lRmsNext ) then
             call hInt2Tor(Dif,llm,ulm,nR,lmStart_00,ulm, &
-                 &        DifTor2hInt(:,nR,1),lo_map)
+                 &        DifTor2hInt(:,nR),lo_map)
             call hInt2Tor(dtV,llm,ulm,nR,lmStart_00,ulm, &
-                 &        dtVTor2hInt(:,nR,1),lo_map)
+                 &        dtVTor2hInt(:,nR),lo_map)
          end if
       end do
       !$OMP end do

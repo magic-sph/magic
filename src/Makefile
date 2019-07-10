@@ -359,7 +359,7 @@ updateXI.o            : truncation.o blocking.o horizontal.o\
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         output_data.o outRot.o integration.o useful.o\
-                        mem_alloc.o legendre_spec_to_grid.o
+                        mem_alloc.o legendre_spec_to_grid.o mean_sd.o
 integration.o         : cosine_transform_odd.o precision_mod.o constants.o
 out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         truncation.o communications.o\
@@ -437,11 +437,11 @@ outPar.o              : truncation.o blocking.o phys_param.o\
                         logic.o radial.o output_data.o radial_data.o\
                         horizontal.o fields.o legendre_spec_to_grid.o\
                         num_param.o integration.o constants.o mem_alloc.o
-spectra.o             : truncation.o blocking.o num_param.o\
+spectra.o             : truncation.o blocking.o num_param.o mean_sd.o\
                         horizontal.o phys_param.o radial.o logic.o\
                         output_data.o useful.o integration.o mem_alloc.o
 RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
-                        phys_param.o radial.o constants.o logic.o\
+                        phys_param.o radial.o constants.o logic.o mean_sd.o\
                         output_data.o radial_derivatives.o useful.o\
                         RMS_helpers.o integration.o communications.o\
                         horizontal.o dtB.o chebyshev_polynoms.o mem_alloc.o\
@@ -553,6 +553,7 @@ init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) legendre_grid_to_spec.o\
                         useful.o phys_param.o mpi_transpose.o\
                         cosine_transform_odd.o mem_alloc.o parallel.o
+mean_sd.o             : precision_mod.o mem_alloc.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
                         horizontal.o char_manip.o useful.o

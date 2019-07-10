@@ -476,10 +476,10 @@ contains
                !end if
             end do
             if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:,nR), &
-                    &        DifPol2hInt(:,nR,1),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm, &
-                    &        dtVPolLMr(llm:,nR),dtVPol2hInt(:,nR,1),lo_map)
+               call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:ulm,nR), &
+                    &        DifPol2hInt(:,nR),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm,dtVPolLMr(llm:ulm,nR), &
+                    &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
          !$omp end do
@@ -538,10 +538,10 @@ contains
 
             end do
             if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:,nR), &
-                    &        DifPol2hInt(:,nR,1),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm, &
-                    &        dtVPolLMr(llm:,nR),dtVPol2hInt(:,nR,1),lo_map)
+               call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:ulm,nR), &
+                    &        DifPol2hInt(:,nR),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm,dtVPolLMr(llm:ulm,nR), &
+                    &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
          !$omp end do
