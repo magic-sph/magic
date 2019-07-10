@@ -45,7 +45,7 @@ contains
       end if
 
       call shtns_set_size(l_max+1, m_max/minc, minc, norm)
-      call shtns_precompute(SHT_QUICK_INIT, SHT_PHI_CONTIGUOUS, &
+      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
            &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(1)
 
@@ -83,9 +83,11 @@ contains
       complex(cp) :: Qlm(lm_max)
       integer :: lm
 
+      !$omp parallel do default(shared) private(lm)
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Slm(lm)
       end do
+      !$omp end parallel do
 
       call shtns_sph_to_spat(Qlm, gradtc, gradpc)
 
@@ -101,9 +103,11 @@ contains
       complex(cp) :: Qlm(lm_max)
       integer :: lm
 
+      !$omp parallel do default(shared) private(lm)
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Wlm(lm)
       end do
+      !$omp end parallel do
 
       call shtns_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc)
 
@@ -210,24 +214,29 @@ contains
       integer :: lm, it, ip
       real(cp) :: m
 
+      !$omp parallel do default(shared) private(lm)
       do lm = 1, lm_max
          m = D_m(lm)
          Slm(lm) = ci*m*dWlm(lm)
          Tlm(lm) = ci*m*Zlm(lm)
       end do
+      !$omp end parallel do
 
       call shtns_sphtor_to_spat(Slm, Tlm, dvtdp, dvpdp)
 
+      !$omp parallel do default(shared) private(it,ip)
       do it=1, n_theta_max
          do ip=1, n_phi_max
             dvtdp(ip, it) = dvtdp(ip, it) * O_sin_theta_E2(it)
             dvpdp(ip, it) = dvpdp(ip, it) * O_sin_theta_E2(it)
          end do
       end do
+      !$omp end parallel do
 
    end subroutine torpol_to_dphspat
 !------------------------------------------------------------------------------
    subroutine pol_to_curlr_spat(Qlm, cvrc)
+
       complex(cp), intent(in) :: Qlm(lm_max)
       real(cp), intent(out) :: cvrc(n_phi_max, n_theta_max)
 
@@ -235,10 +244,11 @@ contains
       complex(cp) :: dQlm(lm_max)
       integer :: lm
 
-
+      !$omp parallel do default(shared) private(lm)
       do lm = 1, lm_max
          dQlm(lm) = dLh(lm) * Qlm(lm)
       end do
+      !$omp end parallel do
 
       call shtns_SH_to_spat(dQlm, cvrc)
 
@@ -260,10 +270,13 @@ contains
       complex(cp) :: Qlm(lm_max), Tlm(lm_max)
       integer :: lm
 
+      !$omp parallel do default(shared) private(lm)
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Jlm(lm)
          Tlm(lm) = or2 * dLh(lm) * Blm(lm) - ddBlm(lm)
       end do
+      !
+      !$omp end parallel do
 
       call shtns_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc)
 

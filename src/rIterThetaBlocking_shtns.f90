@@ -7,6 +7,7 @@ module rIterThetaBlocking_shtns_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
+   use parallel_mod, only: get_openmp_blocks
    use truncation, only: lm_max, lmP_max, l_max, lmP_max_dtB,      &
        &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr, &
        &                 n_theta_max, n_phi_max, nrp, n_r_max
@@ -130,7 +131,7 @@ contains
       real(cp),    intent(out) :: fpoynLMr(:), fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:), EparLMr(:), EperpaxiLMr(:), EparaxiLMr(:)
 
-      integer :: l,lm
+      integer :: lm
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
       real(cp) :: c, lorentz_torques_ic
@@ -566,16 +567,21 @@ contains
       type(nonlinear_lm_t) :: nl_lm
 
       ! Local variables
-      integer :: nTheta, nPhi
+      integer :: nTheta, nPhi, nThStart, nThStop
 
       call shtns_load_cfg(1)
 
       if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) &
             .and. ( l_conv_nl .or. l_mag_LF ) ) then
+
+         !$omp parallel default(shared) private(nThStart,nThStop,nTheta,nPhi)
+         nThStart=1; nThStop=n_theta_max
+         call get_openmp_blocks(nThStart,nThStop)
+
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then
-               do nTheta=1,this%sizeThetaB
+               do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
                      gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%LFr(nPhi, nTheta)
                      gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%LFt(nPhi, nTheta)
@@ -585,7 +591,7 @@ contains
             end if
          else if ( l_mag_LF ) then
             if ( this%nR > n_r_LCR ) then
-               do nTheta=1, this%sizeThetaB
+               do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
                      gsa%Advr(nPhi, nTheta) = gsa%LFr(nPhi, nTheta)
                      gsa%Advt(nPhi, nTheta) = gsa%LFt(nPhi, nTheta)
@@ -593,7 +599,7 @@ contains
                   end do
                end do
             else
-               do nTheta=1, this%sizeThetaB
+               do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
                      gsa%Advr(nPhi,nTheta)=0.0_cp
                      gsa%Advt(nPhi,nTheta)=0.0_cp
@@ -604,7 +610,7 @@ contains
          end if
 
          if ( l_precession ) then
-            do nTheta=1,this%sizeThetaB
+            do nTheta=nThStart, nThStop
                do nPhi=1, n_phi_max
                   gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%PCr(nPhi, nTheta)
                   gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%PCt(nPhi, nTheta)
@@ -614,13 +620,14 @@ contains
          end if
 
          if ( l_centrifuge ) then
-            do nTheta=1,this%sizeThetaB
+            do nTheta=nThStart, nThStop
                do nPhi=1, n_phi_max
                   gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%CAr(nPhi, nTheta)
                   gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%CAt(nPhi, nTheta)
                end do
             end do
          end if
+         !$omp end parallel
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM)
          call spat_to_SH(gsa%Advt, nl_lm%AdvtLM)
