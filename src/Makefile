@@ -359,7 +359,7 @@ updateXI.o            : truncation.o blocking.o horizontal.o\
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         output_data.o outRot.o integration.o useful.o\
-                        mem_alloc.o legendre_spec_to_grid.o
+                        mem_alloc.o legendre_spec_to_grid.o mean_sd.o
 integration.o         : cosine_transform_odd.o precision_mod.o constants.o
 out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         truncation.o communications.o LMLoop_data.o\

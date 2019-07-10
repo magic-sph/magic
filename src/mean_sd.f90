@@ -84,7 +84,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_SD_1D(this,totalTime)
       !
-      ! Memory deallocation
+      ! Finish computation of standard-deviation
       !
       class(mean_sd_type)  :: this
       real(cp), intent(in) :: totalTime
@@ -199,7 +199,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_SD_2D(this,totalTime)
       !
-      ! Memory deallocation
+      ! Finish computation of standard-deviation
       !
       class(mean_sd_2D_type) :: this
       real(cp), intent(in)   :: totalTime

@@ -21,7 +21,8 @@ module power
        &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
        &            l_chemical_conv, l_anelastic_liquid
    use output_data, only: tag
-   use useful, only: cc2real, cc22real, get_mean_sd, round_off
+   use mean_sd, only: mean_sd_type
+   use useful, only: cc2real, cc22real, round_off
    use LMLoop_data,only: llm, ulm, llmMag, ulmMag
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
@@ -36,14 +37,7 @@ module power
 
    private
 
-   real(cp), allocatable :: buoR_mean(:)  ! time-averaged buoyancy power (thermal)
-   real(cp), allocatable :: buoR_SD(:)    ! standard deviation of buoyancy power (thermal)
-   real(cp), allocatable :: buo_chemR_mean(:) ! time-averaged buoyancy power (chemical)
-   real(cp), allocatable :: buo_chemR_SD(:)   ! standard deviation buoyancy power (chemical)
-   real(cp), allocatable :: viscHeatR_mean(:)  ! time-averaged viscous dissipation
-   real(cp), allocatable :: viscHeatR_SD(:)    ! standard deviation viscous dissipation
-   real(cp), allocatable :: ohmDissR_mean(:)   ! time-averaged ohmic dissipation
-   real(cp), allocatable :: ohmDissR_SD(:)     ! standard deviation ohmic dissipation
+   type(mean_sd_type) :: buo_ave, buo_chem_ave, visc_ave, ohm_ave
    real(cp) :: powerDiff, eDiffInt
    integer :: n_power_file, n_calls
    character(len=72) :: power_file
@@ -58,20 +52,10 @@ contains
       ! Memory allocation
       !
 
-      allocate( ohmDissR_mean(n_r_max), ohmDissR_SD(n_r_max) )
-      allocate( buoR_mean(n_r_max), buoR_SD(n_r_max) )
-      allocate( viscHeatR_mean(n_r_max), viscHeatR_SD(n_r_max) )
-      allocate( buo_chemR_mean(n_r_max), buo_chemR_SD(n_r_max) )
-      bytes_allocated = bytes_allocated+8*n_r_max*SIZEOF_DEF_REAL
-
-      buoR_mean(:)     =0.0_cp
-      buoR_SD(:)       =0.0_cp
-      ohmDissR_mean(:) =0.0_cp
-      ohmDissR_SD(:)   =0.0_cp
-      viscHeatR_mean(:)=0.0_cp
-      viscHeatR_SD(:)  =0.0_cp
-      buo_chemR_mean(:)=0.0_cp
-      buo_chemR_SD(:)  =0.0_cp
+      call buo_ave%initialize(1,n_r_max)
+      call buo_chem_ave%initialize(1,n_r_max)
+      call visc_ave%initialize(1,n_r_max)
+      call ohm_ave%initialize(1,n_r_max)
 
       n_calls = 0
       powerDiff=0.0_cp
@@ -86,8 +70,10 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_output_power
 
-      deallocate( buoR_mean, buoR_SD, ohmDissR_mean, ohmDissR_SD )
-      deallocate( viscHeatR_mean, viscHeatR_SD, buo_chemR_mean, buo_chemR_SD )
+      call buo_ave%finalize()
+      call buo_chem_ave%finalize()
+      call visc_ave%finalize()
+      call ohm_ave%finalize()
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_power_file)
@@ -263,29 +249,26 @@ contains
          if ( l_conv ) then
             !curlU2MeanR=curlU2MeanR+timePassed*curlU2_r_global*eScale
             !curlU2=rInt_R(curlU2_r_global,r,rscheme_oc)
-            call get_mean_sd(viscHeatR_mean, viscHeatR_SD, viscHeatR_global, &
-                 &           n_calls, timePassed, timeNorm)
+            call visc_ave%compute(viscHeatR_global, n_calls, timePassed, timeNorm)
             viscHeat=rInt_R(viscHeatR_global,r,rscheme_oc)
          else
             viscHeat=0.0_cp
          end if
          if ( l_mag )  then
-            call get_mean_sd(ohmDissR_mean, ohmDissR_SD, curlB2_r_global, n_calls, &
-                 &           timePassed, timeNorm)
+            call ohm_ave%compute(curlB2_r_global, n_calls, timePassed, timeNorm)
             curlB2=rInt_R(curlB2_r_global,r,rscheme_oc)
          else
             curlB2=0.0_cp
          end if
          if ( l_heat ) then
-            call get_mean_sd(buoR_mean, buoR_SD, buoy_r_global, n_calls, &
-                 &           timePassed, timeNorm)
+            call buo_ave%compute(buoy_r_global, n_calls, timePassed, timeNorm)
             buoy=rInt_R(buoy_r_global,r,rscheme_oc)
          else
             buoy=0.0_cp
          end if
          if ( l_chemical_conv ) then
-            call get_mean_sd(buo_chemR_mean, buo_chemR_SD, buoy_chem_r_global, &
-                 &           n_calls, timePassed, timeNorm)
+            call buo_chem_ave%compute(buoy_chem_r_global, n_calls, timePassed, &
+                 &                    timeNorm)
             buoy_chem=rInt_R(buoy_chem_r_global,r,rscheme_oc)
          else
             buoy_chem=0.0_cp
@@ -451,33 +434,23 @@ contains
          end if
 
          if ( l_stop_time ) then
-            ! buoMeanR(:)=buoMeanR(:)/timeNorm
-            buoR_mean(1)      =0.0_cp ! Ensure this is really zero on the boundaries
-            buoR_mean(n_r_max)=0.0_cp
-            buoR_SD(1)        =0.0_cp
-            buoR_SD(n_r_max)  =0.0_cp
-            if ( l_chemical_conv ) then
-               buo_chemR_mean(1)      =0.0_cp
-               buo_chemR_mean(n_r_max)=0.0_cp
-               buo_chemR_SD(1)        =0.0_cp
-               buo_chemR_SD(n_r_max)  =0.0_cp
-            end if
-
-            buoR_SD(:)     =sqrt(buoR_SD(:)/timeNorm)
-            ohmDissR_SD(:) =sqrt(ohmDissR_SD(:)/timeNorm)
-            viscHeatR_SD(:)=sqrt(viscHeatR_SD(:)/timeNorm)
-            buo_chemR_SD(:)=sqrt(buo_chemR_SD(:)/timeNorm)
+            if ( l_heat ) call buo_ave%finalize_SD(timeNorm)
+            if ( l_chemical_conv ) call buo_chem_ave%finalize_SD(timeNorm)
+            if ( l_mag )  call ohm_ave%finalize_SD(timeNorm)
+            if ( l_conv ) call visc_ave%finalize_SD(timeNorm)
 
             fileName='powerR.'//tag
             open(newunit=fileHandle, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(fileHandle,'(ES20.10,4ES15.7, 4ES13.5)')          &
-               &     r(n_r),buoR_mean(n_r),buo_chemR_mean(n_r),        &
-               &     viscHeatR_mean(n_r),ohmDissR_mean(n_r),           &
-               &     round_off(buoR_SD(n_r),buoR_mean(n_r)),           &
-               &     round_off(buo_chemR_SD(n_r),buo_chemR_mean(n_r)), &
-               &     round_off(viscHeatR_SD(n_r),viscHeatR_mean(n_r)), &
-               &     round_off(ohmDissR_SD(n_r),ohmDissR_mean(n_r))
+               write(fileHandle,'(ES20.10,4ES15.7, 4ES13.5)')                    &
+               &     r(n_r),round_off(buo_ave%mean(n_r),maxval(buo_ave%mean)),   &
+               &     round_off(buo_chem_ave%mean(n_r),maxval(buo_chem_ave%mean)),&
+               &     round_off(visc_ave%mean(n_r),maxval(visc_ave%mean)),        &
+               &     round_off(ohm_ave%mean(n_r),maxval(ohm_ave%mean)),          &
+               &     round_off(buo_ave%SD(n_r),maxval(buo_ave%SD)),              &
+               &     round_off(buo_chem_ave%SD(n_r),maxval(buo_chem_ave%SD)),    &
+               &     round_off(visc_ave%SD(n_r),maxval(visc_ave%SD)),            &
+               &     round_off(ohm_ave%SD(n_r),maxval(ohm_ave%SD))
             end do
             close(fileHandle)
          end if
