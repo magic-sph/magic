@@ -443,7 +443,7 @@ spectra.o             : truncation.o blocking.o num_param.o\
                         output_data.o useful.o LMLoop_data.o\
                         integration.o mem_alloc.o mean_sd.o
 RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
-                        phys_param.o radial.o constants.o logic.o\
+                        phys_param.o radial.o constants.o logic.o mean_sd.o\
                         output_data.o radial_derivatives.o useful.o\
                         RMS_helpers.o integration.o communications.o\
                         horizontal.o dtB.o chebyshev_polynoms.o mem_alloc.o\

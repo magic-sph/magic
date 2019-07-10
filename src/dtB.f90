@@ -608,8 +608,9 @@ contains
          end do
       end do
 
-      call get_dr(TomeRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(TomeRLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,       &
+           &      nocopy=.true.)
 
       do nR=1,n_r_max
          do lm=llm,ulm
@@ -617,8 +618,9 @@ contains
          end do
       end do
 
-      call get_dr(TstrRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(TstrRLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,       &
+           &      nocopy=.true.)
 
       do nR=1,n_r_max
          do lm=llm,ulm
@@ -626,8 +628,9 @@ contains
          end do
       end do
 
-      call get_dr(TadvRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(TadvRLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,       &
+           &      nocopy=.true.)
 
       do nR=1,n_r_max
          do lm=llm,ulm

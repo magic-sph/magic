@@ -770,10 +770,11 @@ contains
             end if
          end do
          if ( lRmsNext ) then
-            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,lmStop,&
-                 &          dtBPolLMr(llmMag:,nR),dtBPol2hInt(llmMag:,nR,1),lo_map)
+            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,lmStop, &
+                 &          dtBPolLMr(llmMag:ulmMag,nR),            &
+                 &          dtBPol2hInt(llmMag:ulmMag,nR),lo_map)
             call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,lmStop, &
-                 &          dtBTor2hInt(llmMag:,nR,1),lo_map)
+                 &          dtBTor2hInt(llmMag:ulmMag,nR),lo_map)
          end if
       end do
       !$omp end parallel do
