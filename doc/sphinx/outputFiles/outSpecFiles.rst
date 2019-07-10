@@ -356,6 +356,85 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    |               | at the ICB  versus order                                  |
    +---------------+-----------------------------------------------------------+
 
+.. _sec2DRMSSpectra:
+
+2D force balance spectra ``2D_dtVrms_spec.TAG``
+-----------------------------------------------
+
+.. note:: Those files are **only** written when :ref:`l_RMS=.true. <varl_RMS>` and :ref:`l_2D_RMS=.true. <varl_2D_RMS>`.
+
+Those files contain 2-D force balance spectra in the :math:`(r,\ell)` plane.
+The calculations are done in the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
+The output file is stored as a Fortran unformatted file.
+
+The structure of the 2D force balance spectra files are as follows:
+
+   .. code-block:: fortran
+
+       !-------------
+       ! Line 1
+       !-------------
+
+       n_r_max, l_max ! radial resolution, max(\ell)
+
+       !-------------
+       ! Line 2
+       !-------------
+
+       r(1), r(2), r(3), ..., r(n_r_max)                  ! Radius
+
+       !-------------
+       ! Line 3
+       !-------------
+
+       Cor_l(l=1,r=1), Cor_l(l=1,r=2), ..., Cor_l(l=1,r=n_r_max),      ! Coriolis force
+       ...                                                             ! versus degree
+       Cor_l(l=l_max,r=1), Cor_l(l=l_max,r=2), ..., Cor_l(l=l_max,r=n_r_max),
+
+       !-------------
+       ! Line 4
+       !-------------
+
+       Adv_l ! Advection
+
+       !-------------
+       ! Line 5
+       !-------------
+
+       LF_l ! Lorentz force
+
+       !-------------
+       ! Line 6
+       !-------------
+
+       Buo_l ! Buoyancy
+
+       !-------------
+       ! Line 7
+       !-------------
+
+       Pre_l ! Pressure
+
+       !-------------
+       ! Line 8
+       !-------------
+
+       Dif_l ! Viscosity
+
+       !-------------
+       ! Line 9
+       !-------------
+
+       dtV_l ! du/dt
+
+
+Those files can be read using the python class :py:class:`MagicSpectrum2D <magic.MagicSpectrum2D>` with the following options:
+
+   >>> # Read the file 2D_dtVrms_spec.ext
+   >>> sp = MagicSpectrum2D(tag='ext', field='dtVrms')
+   >>> # Print Cor_l
+   >>> print(sp.Cor_l)
+
 .. _secTimeSpectraFiles:
 
 2D spectra `am_[kin|mag]_[pol|tor].TAG`
