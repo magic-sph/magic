@@ -652,8 +652,8 @@ contains
       if ( this%lRmsCalc ) then
          call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, nl_lm%PFp2LM)
          call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM)
-         call spat_to_SH(gsa%dtVr, nl_lm%dtVrLM)
-         call spat_to_sphertor(gsa%dtVt, gsa%dtVp, nl_lm%dtVtLM, nl_lm%dtVpLM)
+         call spat_to_qst(gsa%dtVr, gsa%dtVt, gsa%dtVp, nl_lm%dtVrLM, &
+              &           nl_lm%dtVtLM, nl_lm%dtVpLM)
          if ( l_conv_nl ) then
             call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, nl_lm%Advp2LM)
          end if
