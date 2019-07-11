@@ -747,7 +747,15 @@ contains
             dVXirLM(1)=this%VXirLM(1)
             dxidt(1)  =epscXi
 
-            !PERFON('td_xi_heat')
+#ifdef WITH_SHTNS
+            !$omp parallel do default(shared) private(lm,lmP) &
+            do lm=2,lm_max
+               lmP=lm2lmP(lm)
+               dVXirLM(lm)=this%VXirLM(lmP)
+               dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+            end do
+            !$omp end parallel do
+#else
             !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS) &
             !$omp private(lmPA,dxidt_loc)
             do lm=2,lm_max
@@ -756,8 +764,6 @@ contains
                lmP =lm2lmP(lm)
                lmPS=lmP2lmPS(lmP)
                lmPA=lmP2lmPA(lmP)
-               !------ This is horizontal heat advection:
-               !PERFON('td_h1')
 
                if ( l > m ) then
                   dxidt_loc= -dTheta1S(lm)*this%VXitLM(lmPS) &
@@ -767,13 +773,11 @@ contains
                   dxidt_loc=  dTheta1A(lm)*this%VXitLM(lmPA) &
                   &          -dPhi(lm)*this%VXipLM(lmP)
                end if
-               !PERFOFF
                dVXirLM(lm)=this%VXirLM(lmP)
                dxidt(lm) = dxidt_loc
             end do
-            !LIKWID_OFF('td_xi_heat')
             !$omp end parallel do
-            !PERFOFF
+#endif
          end if
 
          if ( l_mag_nl .or. l_mag_kin  ) then

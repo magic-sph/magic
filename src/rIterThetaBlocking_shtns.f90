@@ -663,11 +663,8 @@ contains
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         !PERFON('inner2')
-         call spat_to_SH(gsa%VXir, nl_lm%VXirLM)
-         call spat_to_SH(gsa%VXit, nl_lm%VXitLM)
-         call spat_to_SH(gsa%VXip, nl_lm%VXipLM)
-         !PERFOFF
+         call spat_to_qst(gsa%VXir, gsa%VXit, gsa%VXip, nl_lm%VXirLM, &
+              &           nl_lm%VXitLM, nl_lm%VXipLM)
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')

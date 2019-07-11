@@ -385,15 +385,13 @@ contains
       if ( l_chemical_conv .and. nBc == 0 ) then
          !------ Get V S, the divergence of it is the advection of chem comp:
          do n_th=nThStart,nThStop
-            nThetaNHS=(n_th+1)/2
-            or2sn2=or2(nR)*osn2(nThetaNHS)
             do n_phi=1,n_phi_max     ! calculate v*s components
                this%VXir(n_phi,n_th)= &
                &    this%vrc(n_phi,n_th)*this%xic(n_phi,n_th)
                this%VXit(n_phi,n_th)= &
-               &    or2sn2*this%vtc(n_phi,n_th)*this%xic(n_phi,n_th)
+               &    or2(nR)*this%vtc(n_phi,n_th)*this%xic(n_phi,n_th)
                this%VXip(n_phi,n_th)= &
-               &    or2sn2*this%vpc(n_phi,n_th)*this%xic(n_phi,n_th)
+               &    or2(nR)*this%vpc(n_phi,n_th)*this%xic(n_phi,n_th)
             end do
          end do  ! theta loop
       end if     ! chemical composition equation required ?

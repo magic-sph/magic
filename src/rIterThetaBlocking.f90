@@ -16,7 +16,7 @@ module rIterThetaBlocking_mod
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
        &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_centrifuge
+       &            l_centrifuge, l_TO
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -73,12 +73,14 @@ contains
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
 
-      allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-      allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-      allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+ &
-      &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*&
-      &                SIZEOF_DEF_REAL
+      if ( l_TO ) then
+         allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+         allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+         allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+ &
+         &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*&
+         &                SIZEOF_DEF_REAL
+      end if
 
    end subroutine allocate_common_arrays
 !-------------------------------------------------------------------------------
@@ -87,9 +89,7 @@ contains
       class(rIterThetaBlocking_t) :: this
 
       call this%leg_helper%finalize()
-      deallocate( this%BsLast)
-      deallocate( this%BpLast)
-      deallocate( this%BzLast)
+      if ( l_TO ) deallocate( this%BsLast,this%BpLast,this%BzLast )
 
    end subroutine deallocate_common_arrays
 !-------------------------------------------------------------------------------
