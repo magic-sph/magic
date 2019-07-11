@@ -16,9 +16,8 @@ module updateZ_mod
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
-       &            l_diff_prec, l_correct_AMe, l_correct_AMz, l_update_v, l_TO,&
-       &            l_RMS
-   use RMS, only: DifTor2hInt, dtVTor2hInt
+       &            l_diff_prec, l_correct_AMe, l_correct_AMz, l_update_v, l_TO
+   use RMS, only: DifTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
        &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
@@ -38,9 +37,7 @@ module updateZ_mod
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workB(:,:)  ! Work array
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
-   complex(cp), allocatable :: dtV(:)
    complex(cp), allocatable :: Dif(:)
    real(cp), allocatable :: zMat(:,:,:)
    real(cp), allocatable :: z10Mat(:,:)
@@ -88,14 +85,8 @@ contains
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-      if ( l_RMS ) then
-         allocate(workB(llm:ulm,n_r_max))
-         bytes_allocated=bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      end if
-
-      allocate( dtV(llm:ulm) )
       allocate( Dif(llm:ulm) )
-      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+      bytes_allocated=bytes_allocated+(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
@@ -120,10 +111,7 @@ contains
 #ifdef WITH_PRECOND_Z
       deallocate( zMat_fac )
 #endif
-      deallocate( rhs1 )
-      deallocate( dtV, Dif )
-
-      if ( l_RMS ) deallocate( workB )
+      deallocate( rhs1, Dif )
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
@@ -455,14 +443,6 @@ contains
                     &         zPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
-            if ( lRmsNext ) then ! Store old z
-               do nR=1,n_r_max
-                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     lm1=lm22lm(lm,nLMB2,nLMB)
-                     workB(lm1,nR)=z(lm1,nR)
-                  end do
-               end do
-            end if
 
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -656,7 +636,7 @@ contains
       !   end do
       !end if
       !-- Calculate explicit time step part:
-      !$OMP PARALLEL default(shared) private(nR,lm1,dtV,Dif)
+      !$OMP PARALLEL default(shared) private(nR,lm1,Dif)
       !$OMP DO
       do nR=n_r_top,n_r_bot
          do lm1=lmStart_00,ulm
@@ -668,16 +648,10 @@ contains
             &           + dbeta(nR)+ two*beta(nR)*or1(nR) ) * z(lm1,nR) )
 
             dzdtLast(lm1,nR)=dzdt(lm1,nR)-coex*Dif(lm1)
-            if ( lRmsNext ) then
-               dtV(lm1)= O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
-               &            or2(nR)*(z(lm1,nR)-workB(lm1,nR))
-            end if
          end do
          if ( lRmsNext ) then
             call hInt2Tor(Dif,llm,ulm,nR,lmStart_00,ulm, &
                  &        DifTor2hInt(:,nR),lo_map)
-            call hInt2Tor(dtV,llm,ulm,nR,lmStart_00,ulm, &
-                 &        dtVTor2hInt(:,nR),lo_map)
          end if
       end do
       !$OMP end do

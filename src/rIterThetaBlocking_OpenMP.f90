@@ -280,7 +280,7 @@ contains
 
             call nl_counter%start_count()
             !PERFON('get_nl')
-            call this%gsa(threadid)%get_nl(time, this%nR, this%nBc,  &
+            call this%gsa(threadid)%get_nl(time, dt, this%nR, this%nBc,  &
                  &                         nThetaStart, this%lRmsCalc )
             !PERFOFF
             call nl_counter%stop_count(l_increment=.false.)
@@ -629,6 +629,9 @@ contains
             this%nl_lm(0)%LFp2LM=this%nl_lm(0)%LFp2LM+this%nl_lm(iThread)%LFp2LM
             this%nl_lm(0)%CFt2LM=this%nl_lm(0)%CFt2LM+this%nl_lm(iThread)%CFt2LM
             this%nl_lm(0)%CFp2LM=this%nl_lm(0)%CFp2LM+this%nl_lm(iThread)%CFp2LM
+            this%nl_lm(0)%dtVrLM=this%nl_lm(0)%dtVrLM+this%nl_lm(iThread)%dtVrLM
+            this%nl_lm(0)%dtVtLM=this%nl_lm(0)%dtVtLM+this%nl_lm(iThread)%dtVtLM
+            this%nl_lm(0)%dtVpLM=this%nl_lm(0)%dtVpLM+this%nl_lm(iThread)%dtVpLM
          end do
       end if
 

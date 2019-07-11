@@ -23,7 +23,7 @@ module nonlinear_lm_mod
        &                      dTheta3S, dTheta4S, hdif_V, hdif_B
    use RMS, only: Adv2hInt, Pre2hInt, Buo2hInt, Cor2hInt, LF2hInt,  &
        &          Geo2hInt, Mag2hInt, ArcMag2hInt, CLF2hInt, PLF2hInt, &
-       &          CIA2hInt, Arc2hInt
+       &          CIA2hInt, Arc2hInt, Iner2hInt
    use constants, only: zero, two
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc, s_Rloc, &
        &             p_Rloc, dp_Rloc
@@ -42,10 +42,9 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: VPrLM(:)
       complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
       !----- RMS calculations
-      complex(cp), allocatable :: Advt2LM(:), Advp2LM(:)
-      complex(cp), allocatable :: LFt2LM(:), LFp2LM(:)
-      complex(cp), allocatable :: CFt2LM(:), CFp2LM(:)
-      complex(cp), allocatable :: PFt2LM(:), PFp2LM(:)
+      complex(cp), allocatable :: Advt2LM(:), Advp2LM(:), PFt2LM(:), PFp2LM(:)
+      complex(cp), allocatable :: LFt2LM(:), LFp2LM(:), CFt2LM(:), CFp2LM(:)
+      complex(cp), allocatable :: dtVtLM(:), dtVpLM(:), dtVrLM(:)
 
    contains
 
@@ -88,11 +87,13 @@ contains
 
       !-- RMS calculations
       if ( l_RMS ) then
+         allocate( this%dtVrLM(lmP_max), this%dtVtLM(lmP_max) )
+         allocate( this%dtVpLM(lmP_max) )
          allocate( this%Advt2LM(lmP_max), this%Advp2LM(lmP_max) )
          allocate( this%LFt2LM(lmP_max), this%LFp2LM(lmP_max) )
          allocate( this%CFt2LM(lmP_max), this%CFp2LM(lmP_max) )
          allocate( this%PFt2LM(lmP_max), this%PFp2LM(lmP_max) )
-         bytes_allocated = bytes_allocated + 8*lmP_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 11*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
    end subroutine initialize
@@ -116,6 +117,7 @@ contains
       if ( l_RMS ) then
          deallocate( this%Advt2LM, this%Advp2LM, this%LFt2LM, this%LFp2LM )
          deallocate( this%CFt2LM, this%CFp2LM, this%PFt2LM, this%PFp2LM )
+         deallocate( this%dtVrLM, this%dtVtLM, this%dtVpLM )
       end if
 
    end subroutine finalize
@@ -160,6 +162,9 @@ contains
          this%CFp2LM(:) =zero
          this%PFt2LM(:) =zero
          this%PFp2LM(:) =zero
+         this%dtVtLM(:) =zero
+         this%dtVpLM(:) =zero
+         this%dtVrLM(:) =zero
       end if
 
    end subroutine set_zero
@@ -494,6 +499,16 @@ contains
                        &       .true.)
                   call hIntRms(this%Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
                        &       .true.)
+                  do lm=1,lm_max
+                     lmP =lm2lmP(lm)
+                     !-- Use Geo as work array
+                     Geo(lm)=AdvPol(lm)-this%dtVrLM(lmP)
+                  end do
+                  call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map, .false.)
+                  call hIntRms(this%Advt2LM-this%dtVtLM,nR,1,lmP_max,1, &
+                       &       Iner2hInt(:,nR),st_map,.true.)
+                  call hIntRms(this%Advp2LM-this%dtVpLM,nR,1,lmP_max,1, &
+                       &       Iner2hInt(:,nR),st_map,.true.)
                end if
 
                if ( l_TP_form .or. l_anelastic_liquid ) then
@@ -529,7 +544,7 @@ contains
                   Mag(lm)=Geo(lm)+LFPol(lm)
                   Arc(lm)=Geo(lm)+Buo(lm)
                   ArcMag(lm)=Mag(lm)+Buo(lm)
-                  CIA(lm)=ArcMag(lm)+AdvPol(lm)
+                  CIA(lm)=ArcMag(lm)+AdvPol(lm)-this%dtVrLM(lmP)
                   !CIA(lm)=CorPol(lm)+Buo(lm)+AdvPol(lm)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
@@ -548,7 +563,7 @@ contains
                   Mag(lm)=Geo(lm)+this%LFt2LM(lmP)
                   Arc(lm)=Geo(lm)
                   ArcMag(lm)=Mag(lm)
-                  CIA(lm)=ArcMag(lm)+this%Advt2LM(lmP)
+                  CIA(lm)=ArcMag(lm)+this%Advt2LM(lmP)-this%dtVtLM(lmP)
                   !CIA(lm)=-this%CFt2LM(lmP)+this%Advt2LM(lmP)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
@@ -567,7 +582,7 @@ contains
                   Mag(lm)=Geo(lm)+this%LFp2LM(lmP)
                   Arc(lm)=Geo(lm)
                   ArcMag(lm)=Mag(lm)
-                  CIA(lm)=ArcMag(lm)+this%Advp2LM(lmP)
+                  CIA(lm)=ArcMag(lm)+this%Advp2LM(lmP)-this%dtVpLM(lmP)
                   !CIA(lm)=-this%CFp2LM(lmP)+this%Advp2LM(lmP)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)

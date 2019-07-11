@@ -49,35 +49,26 @@ module RMS
    real(cp), public, allocatable :: dtBTor2hInt(:,:)
    complex(cp), public, allocatable :: dtBPolLMr(:,:)
  
-   real(cp), public, allocatable :: dtVPol2hInt(:,:)
-   real(cp), public, allocatable :: dtVTor2hInt(:,:)
-   complex(cp), public, allocatable :: dtVPolLMr(:,:)
-
    real(cp), public, allocatable :: DifPol2hInt(:,:)
    real(cp), public, allocatable :: DifTor2hInt(:,:)
    complex(cp), public, allocatable :: DifPolLMr(:,:)
  
-   real(cp), public, allocatable :: Adv2hInt(:,:)
-   real(cp), public, allocatable :: Cor2hInt(:,:)
-   real(cp), public, allocatable :: LF2hInt(:,:)
-   real(cp), public, allocatable :: Buo2hInt(:,:)
-   real(cp), public, allocatable :: Pre2hInt(:,:)
-   real(cp), public, allocatable :: Geo2hInt(:,:)
-   real(cp), public, allocatable :: Mag2hInt(:,:)
-   real(cp), public, allocatable :: Arc2hInt(:,:)
-   real(cp), public, allocatable :: ArcMag2hInt(:,:)
-   real(cp), public, allocatable :: CIA2hInt(:,:)
-   real(cp), public, allocatable :: CLF2hInt(:,:)
-   real(cp), public, allocatable :: PLF2hInt(:,:)
+   real(cp), public, allocatable :: Adv2hInt(:,:), Cor2hInt(:,:)
+   real(cp), public, allocatable :: LF2hInt(:,:), Buo2hInt(:,:)
+   real(cp), public, allocatable :: Pre2hInt(:,:), Geo2hInt(:,:)
+   real(cp), public, allocatable :: Mag2hInt(:,:), Arc2hInt(:,:)
+   real(cp), public, allocatable :: ArcMag2hInt(:,:), CIA2hInt(:,:)
+   real(cp), public, allocatable :: CLF2hInt(:,:), PLF2hInt(:,:)
+   real(cp), public, allocatable :: Iner2hInt(:,:)
 
    !-- Time-averaged spectra
-   type(mean_sd_type) :: dtVRmsL, CorRmsL, LFRmsL, AdvRmsL
+   type(mean_sd_type) :: InerRmsL, CorRmsL, LFRmsL, AdvRmsL
    type(mean_sd_type) :: DifRmsL, BuoRmsL, PreRmsL, GeoRmsL
    type(mean_sd_type) :: MagRmsL, ArcRmsL, ArcMagRmsL
    type(mean_sd_type) :: CIARmsL, CLFRmsL, PLFRmsL
 
    type(mean_sd_2D_type) :: CorRmsLnR, AdvRmsLnR, LFRmsLnR, BuoRmsLnR
-   type(mean_sd_2D_type) :: PreRmsLnR, DifRmsLnR, dtVRmsLnR, GeoRmsLnR
+   type(mean_sd_2D_type) :: PreRmsLnR, DifRmsLnR, InerRmsLnR, GeoRmsLnR
    type(mean_sd_2D_type) :: MagRmsLnR, ArcRmsLnR, ArcMagRmsLnR
    type(mean_sd_2D_type) :: CIARmsLnR, CLFRmsLnR, PLFRmsLnR
 
@@ -100,13 +91,6 @@ contains
       &                 2*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_REAL+&
       &                 (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
     
-      allocate( dtVPol2hInt(0:l_max,n_r_max) )
-      allocate( dtVTor2hInt(0:l_max,n_r_max) )
-      allocate( dtVPolLMr(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated+ &
-      &                 2*(l_max+1)*n_r_max*SIZEOF_DEF_REAL+  &
-      &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-
       allocate( DifPol2hInt(0:l_max,n_r_max) )
       allocate( DifTor2hInt(0:l_max,n_r_max) )
       allocate( DifPolLMr(llm:ulm,n_r_max) )
@@ -114,21 +98,16 @@ contains
       &                 2*(l_max+1)*n_r_max*SIZEOF_DEF_REAL+  &
       &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
     
-      allocate( Adv2hInt(0:l_max,n_r_max) )
-      allocate( Cor2hInt(0:l_max,n_r_max) )
-      allocate( LF2hInt(0:l_max,n_r_max) )
-      allocate( Buo2hInt(0:l_max,n_r_max) )
-      allocate( Pre2hInt(0:l_max,n_r_max) )
-      allocate( Geo2hInt(0:l_max,n_r_max) )
-      allocate( Mag2hInt(0:l_max,n_r_max) )
-      allocate( Arc2hInt(0:l_max,n_r_max) )
-      allocate( ArcMag2hInt(0:l_max,n_r_max) )
-      allocate( CIA2hInt(0:l_max,n_r_max) )
-      allocate( CLF2hInt(0:l_max,n_r_max) )
-      allocate( PLF2hInt(0:l_max,n_r_max) )
-      bytes_allocated = bytes_allocated+ 12*(l_max+1)*n_r_max*SIZEOF_DEF_REAL
+      allocate( Adv2hInt(0:l_max,n_r_max), Cor2hInt(0:l_max,n_r_max) )
+      allocate( LF2hInt(0:l_max,n_r_max), Buo2hInt(0:l_max,n_r_max) )
+      allocate( Pre2hInt(0:l_max,n_r_max), Geo2hInt(0:l_max,n_r_max) )
+      allocate( Mag2hInt(0:l_max,n_r_max), Arc2hInt(0:l_max,n_r_max) )
+      allocate( ArcMag2hInt(0:l_max,n_r_max), CIA2hInt(0:l_max,n_r_max) )
+      allocate( CLF2hInt(0:l_max,n_r_max), PLF2hInt(0:l_max,n_r_max) )
+      allocate( Iner2hInt(0:l_max,n_r_max) )
+      bytes_allocated = bytes_allocated+ 13*(l_max+1)*n_r_max*SIZEOF_DEF_REAL
 
-      call dtVRmsL%initialize(0,l_max)
+      call InerRmsL%initialize(0,l_max)
       call CorRmsL%initialize(0,l_max)
       call LFRmsL%initialize(0,l_max)
       call AdvRmsL%initialize(0,l_max)
@@ -150,7 +129,7 @@ contains
          call BuoRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
          call PreRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
          call DifRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
-         call dtVRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
+         call InerRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
          call GeoRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
          call MagRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
          call ArcRmsLnR%initialize(0,l_max,1,n_r_max,.false.)
@@ -184,14 +163,12 @@ contains
 
       deallocate( rC )
       deallocate( dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
-      deallocate( dtVPol2hInt, dtVTor2hInt, dtVPolLMr )
       deallocate( DifPol2hInt, DifTor2hInt, DifPolLMr )
-      deallocate( Adv2hInt, Cor2hInt, LF2hInt )
-      deallocate( Buo2hInt, Pre2hInt, Geo2hInt )
-      deallocate( Mag2hInt, Arc2hInt, CIA2hInt )
+      deallocate( Adv2hInt, Cor2hInt, LF2hInt, Iner2hInt, Buo2hInt, Pre2hInt)
+      deallocate( Geo2hInt, Mag2hInt, Arc2hInt, CIA2hInt )
       deallocate( CLF2hInt, PLF2hInt, ArcMag2hInt )
 
-      call dtVRmsL%finalize()
+      call InerRmsL%finalize()
       call CorRmsL%finalize()
       call LFRmsL%finalize()
       call AdvRmsL%finalize()
@@ -213,7 +190,7 @@ contains
           call BuoRmsLnR%finalize()
           call PreRmsLnR%finalize()
           call DifRmsLnR%finalize()
-          call dtVRmsLnR%finalize()
+          call InerRmsLnR%finalize()
           call GeoRmsLnR%finalize()
           call MagRmsLnR%finalize()
           call ArcMagRmsLnR%finalize()
@@ -243,8 +220,6 @@ contains
 
       do nR=1,n_r_max
          do l=0,l_max
-            dtVPol2hInt(l,nR)=0.0_cp
-            dtVTor2hInt(l,nR)=0.0_cp
             DifPol2hInt(l,nR)=0.0_cp
             DifTor2hInt(l,nR)=0.0_cp
          end do
@@ -259,6 +234,7 @@ contains
       do nR=1,n_r_max
          do l=0,l_max
             Adv2hInt(l,nR)   =0.0_cp
+            Iner2hInt(l,nR)  =0.0_cp
             Cor2hInt(l,nR)   =0.0_cp
             LF2hInt(l,nR)    =0.0_cp
             Buo2hInt(l,nR)   =0.0_cp
@@ -274,7 +250,6 @@ contains
       end do
       do nR=1,n_r_max
          do lm=llm,ulm
-            dtVPolLMr(lm,nR)=zero
             DifPolLMr(lm,nR)=zero
          end do
       end do
@@ -490,7 +465,7 @@ contains
       integer,  intent(inout) :: nRMS_sets
     
       !-- Output:
-      real(cp) :: dtV_Rms  =0.0_cp
+      real(cp) :: InerRms  =0.0_cp
       real(cp) :: CorRms   =0.0_cp
       real(cp) :: AdvRms   =0.0_cp
       real(cp) :: LFRms    =0.0_cp
@@ -508,7 +483,7 @@ contains
       !-- Local variables:
       integer :: nR,nRC,l,fileHandle
       real(cp) :: volC
-      real(cp) :: Dif2hInt(n_r_max),dtV2hInt(n_r_max)
+      real(cp) :: Dif2hInt(n_r_max)
 
       complex(cp) :: workA(llm:ulm,n_r_max)
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -538,26 +513,6 @@ contains
       if ( rank == 0 ) DifPol2hInt(:,:)=global_sum
 #endif
 
-      !-- Flow changes
-      dtV_Rms=0.0_cp
-      if ( rscheme_RMS%version == 'cheb' ) then
-         call get_dr(dtVPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
-      else
-         call get_dr(dtVPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc)
-      end if
-
-      do nR=1,n_r_max
-         call hInt2dPol( workA(llm:ulm,nR),llm,ulm,dtVPol2hInt(:,nR), &
-              &          lo_map)
-      end do
-#ifdef WITH_MPI
-      call MPI_Reduce(dtVPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVPol2hInt(:,:)=global_sum
-#endif
-
       ! First gather all needed arrays on rank 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
@@ -577,6 +532,9 @@ contains
            &              MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Adv2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Iner2hInt,recvcounts,displs,MPI_DEF_REAL,  &
            &              MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              LF2hInt,recvcounts,displs,MPI_DEF_REAL,    &
@@ -612,9 +570,6 @@ contains
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
     
-      call MPI_Reduce(dtVTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVTor2hInt(:,:)=global_sum
       call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
            &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTor2hInt(:,:)=global_sum
@@ -622,7 +577,6 @@ contains
     
       if ( rank == 0 ) then
     
-         !write(*,"(A,ES22.14)") "dtVPol2hInt = ",SUM(dtVPol2hInt)
          nRMS_sets=nRMS_sets+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
 
@@ -696,15 +650,16 @@ contains
                  &         nRMS_sets,timePassed,timeNorm,l_stop_time)
          end if
 
+         !-- Advection+du/dt
+         if ( l_conv_nl ) then
+            call get_force(Iner2hInt,InerRms,InerRmsL,InerRmsLnR,volC, &
+                 &         nRMS_sets,timePassed,timeNorm,l_stop_time)
+         end if
+
          !-- Visosity
          call get_force(Dif2hInt,DifRms,DifRmsL,DifRmsLnR,volC,    &
               &         nRMS_sets,timePassed,timeNorm,l_stop_time, &
               &         DifPol2hInt,DifTor2hInt)
-
-         !-- Time derivative
-         call get_force(dtV2hInt,dtV_Rms,dtVRmsL,dtVRmsLnR,volC,   &
-              &         nRMS_sets,timePassed,timeNorm,l_stop_time, &
-              &         dtVPol2hInt,dtVTor2hInt)
 
 
          !----- Output:
@@ -713,13 +668,13 @@ contains
             &    form='formatted', status='unknown', position='append')
          end if
          write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,7ES14.6)')        &
-         &     time*tScale, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
+         &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,&
          &     BuoRms, PreRms, GeoRms/(CorRms+PreRms),              &
          &     MagRms/(CorRms+PreRms+LFRms),                        &
          &     ArcRms/(CorRms+PreRms+BuoRms),                       &
          &     ArcMagRms/(CorRms+PreRms+LFRms+BuoRms),              &
          &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),        &
-         &     CIARms/(CorRms+PreRms+BuoRms+AdvRms+LFRms)
+         &     CIARms/(CorRms+PreRms+BuoRms+InerRms+LFRms)
          if ( l_save_out) then
             close(n_dtvrms_file)
          end if
@@ -729,11 +684,11 @@ contains
             open(newunit=fileHandle,file=fileName,form='formatted',status='unknown')
             do l=0,l_max
                write(fileHandle,'(1P,I4,28ES16.8)') l+1,                 &
-               &     dtVRmsL%mean(l),CorRmsL%mean(l),LFRmsL%mean(l),     &
+               &     InerRmsL%mean(l),CorRmsL%mean(l),LFRmsL%mean(l),    &
                &     AdvRmsL%mean(l),DifRmsL%mean(l),BuoRmsL%mean(l),    &
                &     PreRmsL%mean(l),GeoRmsL%mean(l),MagRmsL%mean(l),    &
                &     ArcRmsL%mean(l),ArcMagRmsL%mean(l),CLFRmsL%mean(l), &
-               &     PLFRmsL%mean(l),CIARmsL%mean(l),dtVRmsL%SD(l),      &
+               &     PLFRmsL%mean(l),CIARmsL%mean(l),InerRmsL%SD(l),     &
                &     CorRmsL%SD(l),LFRmsL%SD(l),AdvRmsL%SD(l),           &
                &     DifRmsL%SD(l),BuoRmsL%SD(l),PreRmsL%SD(l),          &
                &     GeoRmsL%SD(l),MagRmsL%SD(l),ArcRmsL%SD(l),          &
@@ -755,7 +710,7 @@ contains
             write(fileHandle) BuoRmsLnR%mean(:,:)
             write(fileHandle) PreRmsLnR%mean(:,:)
             write(fileHandle) DifRmsLnR%mean(:,:)
-            write(fileHandle) dtVRmsLnR%mean(:,:)
+            write(fileHandle) InerRmsLnR%mean(:,:)
             write(fileHandle) GeoRmsLnR%mean(:,:)
             write(fileHandle) MagRmsLnR%mean(:,:)
             write(fileHandle) ArcRmsLnR%mean(:,:)

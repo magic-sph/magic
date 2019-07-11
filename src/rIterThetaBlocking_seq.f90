@@ -207,7 +207,7 @@ contains
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             call nl_counter%start_count()
             PERFON('get_nl')
-            call this%gsa%get_nl(time, this%nR, this%nBc, nThetaStart, &
+            call this%gsa%get_nl(time, dt, this%nR, this%nBc, nThetaStart, &
                  &               this%lRmsCalc)
             PERFOFF
             call nl_counter%stop_count(l_increment=.false.)

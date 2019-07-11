@@ -18,7 +18,7 @@ module updateWPS_mod
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, hdif_S, dLh
    use logic, only: l_update_v, l_temperature_diff, l_RMS
-   use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
+   use RMS, only: DifPol2hInt, DifPolLMr
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
@@ -33,8 +33,8 @@ module updateWPS_mod
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workB(:,:), workC(:,:), workD(:,:)
-   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
+   complex(cp), allocatable :: workB(:,:), workC(:,:)
+   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    complex(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:,:)
    integer, allocatable :: ps0Pivot(:)
@@ -77,8 +77,7 @@ contains
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
       allocate( Buo(llm:ulm) )
-      allocate( dtV(llm:ulm) )
-      bytes_allocated = bytes_allocated+4*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
@@ -90,11 +89,6 @@ contains
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
-      if ( l_RMS ) then
-         allocate( workD(llm:ulm, n_r_max) )
-         bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_REAL
-      end if
-
       Cor00_fac=four/sqrt(three)
 
    end subroutine initialize_updateWPS
@@ -104,8 +98,7 @@ contains
       deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
       deallocate( workB, workC, rhs1)
-      deallocate( Dif, Pre, Buo, dtV )
-      if ( l_RMS ) deallocate( workD )
+      deallocate( Dif, Pre, Buo )
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
@@ -317,15 +310,6 @@ contains
             end if
             !PERFOFF
 
-            if ( lRmsNext ) then ! Store old w
-               do nR=1,n_r_max
-                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     lm1=lm22lm(lm,nLMB2,nLMB)
-                     workD(lm1,nR)=w(lm1,nR)
-                  end do
-               end do
-            end if
-
             !PERFON('upWP_aft')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -416,7 +400,7 @@ contains
 
       !-- Calculate explicit time step part:
       if ( l_temperature_diff ) then
-         !$omp do private(nR,lm1,l1,m1,Dif,Pre,Buo,dtV)
+         !$omp do private(nR,lm1,l1,m1,Dif,Pre,Buo)
          do nR=n_r_top,n_r_bot
             do lm1=llm,ulm
                l1=lm2l(lm1)
@@ -466,10 +450,6 @@ contains
                &        )*                p(lm1,nR) ) ) +                   &
                &        coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)   &
                &        *orho1(nR)*dentropy0(nR)*w(lm1,nR)
-               if ( lRmsNext ) then
-                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                  &        ( w(lm1,nR)-workD(lm1,nR) )
-               end if
                !if ( l1 == 0 ) then
                !   dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1) + &
                !   &                 Cor00_fac*CorFac*or1(nR)*z10(nR))
@@ -478,15 +458,13 @@ contains
             if ( lRmsNext ) then
                call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:ulm,nR), &
                     &        DifPol2hInt(:,nR),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm,dtVPolLMr(llm:ulm,nR), &
-                    &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
          !$omp end do
 
       else ! entropy diffusion
 
-         !$omp do private(nR,lm1,l1,m1,Dif,Pre,Buo,dtV)
+         !$omp do private(nR,lm1,l1,m1,Dif,Pre,Buo)
          do nR=n_r_top,n_r_bot
             do lm1=llm,ulm
                l1=lm2l(lm1)
@@ -531,17 +509,11 @@ contains
                !   dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1) + &
                !   &                 Cor00_fac*CorFac*or1(nR)*z10(nR))
                !end if
-               if ( lRmsNext ) then
-                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                  &        ( w(lm1,nR)-workD(lm1,nR) )
-               end if
-
             end do
+
             if ( lRmsNext ) then
                call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:ulm,nR), &
                     &        DifPol2hInt(:,nR),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm,dtVPolLMr(llm:ulm,nR), &
-                    &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
          !$omp end do

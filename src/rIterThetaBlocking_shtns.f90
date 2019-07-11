@@ -198,7 +198,7 @@ contains
 
          call nl_counter%start_count()
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(time, this%nR, this%nBc, this%lRmsCalc)
+         call this%gsa%get_nl_shtns(time, dt, this%nR, this%nBc, this%lRmsCalc)
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 
@@ -652,6 +652,8 @@ contains
       if ( this%lRmsCalc ) then
          call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, nl_lm%PFp2LM)
          call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM)
+         call spat_to_SH(gsa%dtVr, nl_lm%dtVrLM)
+         call spat_to_sphertor(gsa%dtVt, gsa%dtVp, nl_lm%dtVtLM, nl_lm%dtVpLM)
          if ( l_conv_nl ) then
             call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, nl_lm%Advp2LM)
          end if

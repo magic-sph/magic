@@ -16,7 +16,7 @@ module updateWP_mod
    use horizontal_data, only: hdif_V, dLh
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs
-   use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
+   use RMS, only: DifPol2hInt, DifPolLMr
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
@@ -32,10 +32,10 @@ module updateWP_mod
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workB(:,:), ddddw(:,:)
+   complex(cp), allocatable :: ddddw(:,:)
    complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
-   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
+   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    complex(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: wpMat(:,:,:), wpMat_fac(:,:,:)
    real(cp), allocatable :: p0Mat(:,:)
@@ -61,11 +61,6 @@ contains
       &               n_r_max*SIZEOF_DEF_REAL+(2*n_r_max*nLMBs2(1+rank)+n_r_max)*&
       &               SIZEOF_INTEGER+(l_max+1)*SIZEOF_LOGICAL
 
-      if ( l_RMS ) then
-         allocate( workB(llm:ulm,n_r_max) )
-         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      end if
-
       if ( l_double_curl ) then
          allocate( ddddw(llm:ulm,n_r_max) )
          bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -81,8 +76,7 @@ contains
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
       allocate( Buo(llm:ulm) )
-      allocate( dtV(llm:ulm) )
-      bytes_allocated = bytes_allocated+4*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
@@ -102,8 +96,7 @@ contains
       deallocate( wpMat, wpMat_fac, wpPivot, lWPmat )
       deallocate( p0Mat, p0Pivot )
       deallocate( rhs1, work )
-      deallocate( Dif, Pre, Buo, dtV )
-      if ( l_RMS ) deallocate( workB )
+      deallocate( Dif, Pre, Buo )
       if ( l_double_curl ) then
          deallocate( ddddw )
          if ( l_RMS .or. l_FluxProfs ) then
@@ -209,7 +202,7 @@ contains
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
          !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(workB,dwold,nLMB,nLMBs2,rhs1)
+         !$OMP shared(dwold,nLMB,nLMBs2,rhs1)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -376,15 +369,6 @@ contains
             end if
             !PERFOFF
 
-            if ( lRmsNext ) then ! Store old w
-               do nR=1,n_r_max
-                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     lm1=lm22lm(lm,nLMB2,nLMB)
-                     workB(lm1,nR)=w(lm1,nR)
-                  end do
-               end do
-            end if
-
             if ( l_double_curl .and. lPressNext ) then ! Store old dw
                do nR=1,n_r_max
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -503,7 +487,7 @@ contains
             n_r_bot=n_r_icb
          end if
 
-         !$omp do private(nR,lm1,l1,m1,Dif,Buo,dtV)
+         !$omp do private(nR,lm1,l1,m1,Dif,Buo)
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,ulm
                l1=lm2l(lm1)
@@ -566,24 +550,19 @@ contains
                   &             dbeta(nR)+dLvisc(nR)*beta(nR)                  &
                   &             +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                   &                                                 w(lm1,nR)  )
-                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                  &             ( w(lm1,nR)-workB(lm1,nR) )
                end if
             end do
             if ( lRmsNext ) then
                call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,ulm, &
                     &        DifPolLMr(llm:ulm,nR),         &
                     &        DifPol2hInt(:,nR),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,lmStart_00,ulm,  &
-                    &        dtVPolLMr(llm:ulm,nR),          &
-                    &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
          !$omp end do
 
       else
 
-         !$omp do private(nR,lm1,l1,m1,Dif,Buo,Pre,dtV)
+         !$omp do private(nR,lm1,l1,m1,Dif,Buo,Pre)
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,ulm
                l1=lm2l(lm1)
@@ -616,18 +595,11 @@ contains
                &                  * ( two*or1(nR)+two*third*beta(nR)      &
                &                     +dLvisc(nR) )   *         w(lm1,nR)  &
                &                                         ) )
-               if ( lRmsNext ) then
-                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                  &             ( w(lm1,nR)-workB(lm1,nR) )
-               end if
             end do
             if ( lRmsNext ) then
                call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,ulm, &
                     &        DifPolLMr(llm:ulm,nR),         &
                     &        DifPol2hInt(:,nR),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,lmStart_00,ulm, &
-                    &        dtVPolLMr(llm:ulm,nR),         &
-                    &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
          !$omp end do

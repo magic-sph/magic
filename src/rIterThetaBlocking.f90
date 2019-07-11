@@ -443,6 +443,14 @@ contains
             call legTF_spher_tor(nThetaStart,nl_lm%LFp2LM,nl_lm%LFt2LM, &
                  &               gsa%LFp2,gsa%LFt2)
          end if
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%dtVr,-1)
+            call fft_thetab(gsa%dtVt,-1)
+            call fft_thetab(gsa%dtVp,-1)
+         end if
+         call legTF1(nThetaStart,nl_lm%dtVrLM,gsa%dtVr)
+         call legTF_spher_tor(nThetaStart,nl_lm%dtVpLM,nl_lm%dtVtLM, &
+              &               gsa%dtVp,gsa%dtVt)
       end if
 
    end subroutine transform_to_lm_space

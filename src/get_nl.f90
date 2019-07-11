@@ -16,6 +16,7 @@ module grid_space_arrays_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max, n_theta_max
+   use radial_data, only: nRstart, nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
@@ -46,10 +47,9 @@ module grid_space_arrays_mod
       real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
 
       !---- RMS calculations
-      real(cp), allocatable :: Advt2(:,:), Advp2(:,:)
-      real(cp), allocatable :: LFt2(:,:), LFp2(:,:)
-      real(cp), allocatable :: CFt2(:,:), CFp2(:,:)
-      real(cp), allocatable :: dpdtc(:,:), dpdpc(:,:)
+      real(cp), allocatable :: Advt2(:,:), Advp2(:,:), LFt2(:,:), LFp2(:,:)
+      real(cp), allocatable :: CFt2(:,:), CFp2(:,:), dpdtc(:,:), dpdpc(:,:)
+      real(cp), allocatable :: dtVr(:,:), dtVp(:,:), dtVt(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), pointer :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -74,6 +74,8 @@ module grid_space_arrays_mod
 #endif
 
    end type grid_space_arrays_t
+
+   real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
 
 contains
 
@@ -138,10 +140,24 @@ contains
       !-- RMS Calculations
       if ( l_RMS ) then
          allocate ( this%Advt2(nrp,nfs), this%Advp2(nrp,nfs) )
+         allocate ( this%dtVr(nrp,nfs), this%dtVt(nrp,nfs), this%dtVp(nrp,nfs) )
          allocate ( this%LFt2(nrp,nfs), this%LFp2(nrp,nfs) )
          allocate ( this%CFt2(nrp,nfs), this%CFp2(nrp,nfs) )
          allocate ( this%dpdtc(nrp,nfs), this%dpdpc(nrp,nfs) )
-         bytes_allocated=bytes_allocated + 8*nrp*nfs*SIZEOF_DEF_REAL
+         bytes_allocated=bytes_allocated + 11*nrp*nfs*SIZEOF_DEF_REAL
+
+         allocate( vt_old(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vp_old(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vr_old(nrp,n_theta_max,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated + 3*nrp*n_theta_max*(nRstop-nRstart+1)*&
+         &               SIZEOF_DEF_REAL
+
+         this%dtVr(:,:)=0.0_cp
+         this%dtVt(:,:)=0.0_cp
+         this%dtVp(:,:)=0.0_cp
+         vt_old(:,:,:) =0.0_cp
+         vr_old(:,:,:) =0.0_cp
+         vp_old(:,:,:) =0.0_cp
       end if
       !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
 
@@ -172,6 +188,8 @@ contains
       if ( l_RMS ) then
          deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
          deallocate ( this%CFt2, this%CFp2, this%dpdtc, this%dpdpc )
+         deallocate ( this%dtVr, this%dtVt, this%dtVp )
+         deallocate ( vr_old, vt_old, vp_old )
       end if
 
    end subroutine finalize
@@ -195,7 +213,7 @@ contains
    end subroutine output_nl_input
 !----------------------------------------------------------------------------
 #ifdef WITH_SHTNS
-   subroutine get_nl_shtns(this, time, nR, nBc, lRmsCalc)
+   subroutine get_nl_shtns(this, time, dt, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -213,13 +231,14 @@ contains
 
       !-- Input of variables:
       real(cp), intent(in) :: time
+      real(cp), intent(in) :: dt
       integer,  intent(in) :: nR
       logical,  intent(in) :: lRmsCalc
       integer,  intent(in) :: nBc
 
       !-- Local variables:
       integer :: n_th, nThetaNHS, n_phi, nThStart, nThStop
-      real(cp) :: or4sn2, csn2, cnt, rsnt, snt, posnalp
+      real(cp) :: or4sn2, csn2, cnt, rsnt, snt, posnalp, O_dt
 
       !$omp parallel default(shared) private(nThStart,nThStop) &
       !$omp private(n_th,nThetaNHS,n_phi) &
@@ -562,13 +581,31 @@ contains
          end do
       end if
 
+      if ( l_RMS ) then
+         O_dt = 1.0_cp/dt
+         do n_th=nThStart,nThStop
+            do n_phi=1,n_phi_max
+               this%dtVr(n_phi,n_th)=O_dt*or2(nR)*(this%vrc(n_phi,n_th)- &
+               &                             vr_old(n_phi,n_th,nR))
+               this%dtVt(n_phi,n_th)=O_dt*or1(nR)*(this%vtc(n_phi,n_th)- &
+               &                             vt_old(n_phi,n_th,nR))
+               this%dtVp(n_phi,n_th)=O_dt*or1(nR)*(this%vpc(n_phi,n_th)- &
+               &                             vp_old(n_phi,n_th,nR))
+
+               vr_old(n_phi,n_th,nR)=this%vrc(n_phi,n_th)
+               vt_old(n_phi,n_th,nR)=this%vtc(n_phi,n_th)
+               vp_old(n_phi,n_th,nR)=this%vpc(n_phi,n_th)
+            end do
+         end do
+      end if
+
       !$omp end parallel
 
 
    end subroutine get_nl_shtns
 #endif
 !----------------------------------------------------------------------------
-   subroutine get_nl(this,time,nR,nBc,nThetaStart,lRmsCalc)
+   subroutine get_nl(this,time,dt,nR,nBc,nThetaStart,lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -586,6 +623,7 @@ contains
 
       !-- Input of variables:
       real(cp), intent(in) :: time
+      real(cp), intent(in) :: dt
       integer,  intent(in) :: nR
       integer,  intent(in) :: nBc
       integer,  intent(in) :: nThetaStart
@@ -595,7 +633,7 @@ contains
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp
+      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp, O_dt
 
       nThetaLast=nThetaStart-1
 
@@ -1011,6 +1049,34 @@ contains
                   this%LFp2(n_phi_max+2,nThetaB)=0.0_cp
                end if
             end do
+         end do
+      end if
+
+      if ( l_RMS ) then
+         O_dt = 1.0_cp/dt
+         nTheta=nThetaLast
+         do nThetaB=1,sizeThetaB ! loop over theta points in block
+            nTheta   =nTheta+1
+            snt=sinTheta(nTheta)
+            snt=sinTheta(nTheta)
+            do nPhi=1,n_phi_max
+               this%dtVr(nPhi,nThetaB)=O_dt*or2(nR)*(this%vrc(nPhi,nThetaB)- &
+               &                             vr_old(nPhi,nTheta,nR))
+               this%dtVt(nPhi,nThetaB)=O_dt*or1(nR)*(this%vtc(nPhi,nThetaB)- &
+               &                             vt_old(nPhi,nTheta,nR))/snt/snt
+               this%dtVp(nPhi,nThetaB)=O_dt*or1(nR)*(this%vpc(nPhi,nThetaB)- &
+               &                             vp_old(nPhi,nTheta,nR))/snt/snt
+
+               vr_old(nPhi,nTheta,nR)=this%vrc(nPhi,nThetaB)
+               vt_old(nPhi,nTheta,nR)=this%vtc(nPhi,nThetaB)
+               vp_old(nPhi,nTheta,nR)=this%vpc(nPhi,nThetaB)
+            end do
+            this%dtVr(n_phi_max+1,nThetaB)=0.0_cp
+            this%dtVr(n_phi_max+2,nThetaB)=0.0_cp
+            this%dtVt(n_phi_max+1,nThetaB)=0.0_cp
+            this%dtVt(n_phi_max+2,nThetaB)=0.0_cp
+            this%dtVp(n_phi_max+1,nThetaB)=0.0_cp
+            this%dtVp(n_phi_max+2,nThetaB)=0.0_cp
          end do
       end if
 
