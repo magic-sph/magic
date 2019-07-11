@@ -333,7 +333,7 @@ class MagicTs(MagicSetup):
             self.ekin_tot = self.eperp+self.epar
         elif self.field in ('dtVrms'):
             self.time = data[:, 0]
-            self.dtVRms = data[:, 1]
+            self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
             self.LFRms = data[:, 3]
             self.AdvRms = data[:, 4]
@@ -599,9 +599,8 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time, self.PreRms, label='Pressure')
             ax.semilogy(self.time, self.LFRms, label='Lorentz')
             ax.semilogy(self.time, self.BuoRms, label='Buoyancy')
-            ax.semilogy(self.time, self.AdvRms, label='Inertia')
+            ax.semilogy(self.time, self.InerRms, label='Inertia')
             ax.semilogy(self.time, self.DifRms, label='Diffusion')
-            ax.semilogy(self.time, self.dtVRms, label='Time derivative', zorder=0)
 
             ax.legend(loc='best', frameon=False, ncol=2)
             ax.set_xlabel('Time')
