@@ -252,11 +252,11 @@ contains
 
       !-- Local variables:
       integer :: n_th, nThetaNHS, n_phi, nThStart, nThStop
-      real(cp) :: or2sn2, or4sn2, csn2, cnt, rsnt, snt, posnalp
+      real(cp) :: or4sn2, csn2, cnt, rsnt, snt, posnalp
 
       !$omp parallel default(shared) private(nThStart,nThStop) &
       !$omp private(n_th,nThetaNHS,n_phi) &
-      !$omp private(or4sn2,csn2,or2sn2,cnt,snt,rsnt,posnalp)
+      !$omp private(or4sn2,csn2,cnt,snt,rsnt,posnalp)
       nThStart=1; nThStop=n_theta_max
       call get_openmp_blocks(nThStart,nThStop)
 
@@ -348,35 +348,31 @@ contains
          if ( l_TP_form ) then
             !------ Get V S, the divergence of it is entropy advection:
             do n_th=nThStart,nThStop
-               nThetaNHS=(n_th+1)/2
-               or2sn2=or2(nR)*osn2(nThetaNHS)
                do n_phi=1,n_phi_max     ! calculate v*s components
-                  this%VSr(n_phi,n_th)=                                   &
+                  this%VSr(n_phi,n_th)=                                  &
                   &    this%vrc(n_phi,n_th)*this%sc(n_phi,n_th)
-                  this%VSt(n_phi,n_th)=                                   &
-                  &    or2sn2*(this%vtc(n_phi,n_th)*this%sc(n_phi,n_th) &
-                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*        &
+                  this%VSt(n_phi,n_th)=                                  &
+                  &    or2(nR)*(this%vtc(n_phi,n_th)*this%sc(n_phi,n_th) &
+                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*     &
                   &    ThExpNb*this%vtc(n_phi,n_th)*this%pc(n_phi,n_th))
-                  this%VSp(n_phi,n_th)=                                   &
-                  &    or2sn2*(this%vpc(n_phi,n_th)*this%sc(n_phi,n_th) &
-                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*        &
+                  this%VSp(n_phi,n_th)=                                  &
+                  &    or2(nR)*(this%vpc(n_phi,n_th)*this%sc(n_phi,n_th) &
+                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*     &
                   &    ThExpNb*this%vpc(n_phi,n_th)*this%pc(n_phi,n_th))
-                  this%VPr(n_phi,n_th)=                                   &
+                  this%VPr(n_phi,n_th)=                                  &
                   &    this%vrc(n_phi,n_th)*this%pc(n_phi,n_th)
                end do
             end do  ! theta loop
          else
             !------ Get V S, the divergence of it is entropy advection:
             do n_th=nThStart,nThStop
-               nThetaNHS=(n_th+1)/2
-               or2sn2=or2(nR)*osn2(nThetaNHS)
                do n_phi=1,n_phi_max     ! calculate v*s components
                   this%VSr(n_phi,n_th)= &
                   &    this%vrc(n_phi,n_th)*this%sc(n_phi,n_th)
                   this%VSt(n_phi,n_th)= &
-                  &    or2sn2*this%vtc(n_phi,n_th)*this%sc(n_phi,n_th)
+                  &    or2(nR)*this%vtc(n_phi,n_th)*this%sc(n_phi,n_th)
                   this%VSp(n_phi,n_th)= &
-                  &    or2sn2*this%vpc(n_phi,n_th)*this%sc(n_phi,n_th)
+                  &    or2(nR)*this%vpc(n_phi,n_th)*this%sc(n_phi,n_th)
                end do
             end do  ! theta loop
          end if

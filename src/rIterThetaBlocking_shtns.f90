@@ -643,9 +643,8 @@ contains
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call spat_to_SH(gsa%VSr, nl_lm%VSrLM)
-         call spat_to_SH(gsa%VSt, nl_lm%VStLM)
-         call spat_to_SH(gsa%VSp, nl_lm%VSpLM)
+         call spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, nl_lm%VStLM, &
+              &           nl_lm%VSpLM)
 
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then

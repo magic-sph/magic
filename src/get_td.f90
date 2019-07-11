@@ -684,6 +684,34 @@ contains
             end if
             dsdt(1)=dsdt_loc
 
+#ifdef WITH_SHTNS
+            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc)
+            do lm=2,lm_max
+               lmP =lm2lmP(lm)
+               dVSrLM(lm)=this%VSrLM(lmP)
+               dsdt_loc = dLh(lm)*this%VStLM(lmP)
+               if ( l_anel ) then
+                  if ( l_anelastic_liquid .or. l_TP_form ) then
+                     dsdt_loc = dsdt_loc+ &
+                     &          ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
+                     if ( l_mag_nl ) then
+                        dsdt_loc = dsdt_loc+ &
+                        &          OhmLossFac*hdif_B(lm)*temp0(nR)*this%OhmLossLM(lmP)
+                     end if
+                  else
+                     dsdt_loc = dsdt_loc+ &
+                     &          ViscHeatFac*hdif_V(lm)*this%ViscHeatLM(lmP)
+                     if ( l_mag_nl ) then
+                        dsdt_loc = dsdt_loc+ &
+                        &          OhmLossFac*hdif_B(lm)*this%OhmLossLM(lmP)
+                     end if
+                  end if
+               end if
+               dsdt(lm) = dsdt_loc
+               if ( l_TP_form ) dVPrLM(lm)=this%VPrLM(lmP)
+            end do
+            !$omp end parallel do
+#else
             !PERFON('td_heat')
             !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS) &
             !$omp private(lmPA,dsdt_loc)
@@ -736,6 +764,7 @@ contains
             !LIKWID_OFF('td_heat')
             !$omp end parallel do
             !PERFOFF
+#endif
          else
             do lm=2,lm_max
                dsdt(lm)  =0.0_cp
