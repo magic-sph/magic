@@ -163,7 +163,7 @@ class MagicSpectrum(MagicSetup):
             self.emagcmb_l_SD = data[:, 11]
             self.emagcmb_m_SD = data[:, 12]
         elif self.name == 'dtVrms_spec':
-            self.dtVRms = data[:, 1]
+            self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
             self.LFRms = data[:, 3]
             self.AdvRms = data[:, 4]
@@ -413,11 +413,11 @@ class MagicSpectrum(MagicSetup):
             if self.LFRms.max() > 1e-11:
                 ax.loglog(self.index, self.LFRms, label='Lorentz')
             ax.loglog(self.index, self.BuoRms, label='Buoyancy')
-            ax.loglog(self.index, self.AdvRms, label='Advection')
+            ax.loglog(self.index, self.InerRms, label='Inertia')
             ax.loglog(self.index, self.DifRms, label='Viscosity')
             ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
-            ax.loglog(self.index, self.dtVRms, label='Time derivative')
-            ax.loglog(self.index, self.arcMag, ls='--', label='Coriolis-Pressure-Buoyancy-Lorentz')
+            ax.loglog(self.index, self.arcMag, ls='--',
+                      label='Coriolis-Pressure-Buoyancy-Lorentz')
 
             if labTex:
                 ax.set_xlabel('$\ell+1$')
