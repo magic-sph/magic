@@ -665,12 +665,12 @@ contains
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call spat_to_SH(gsa%VxBr, nl_lm%VxBrLM)
-            call spat_to_SH(gsa%VxBt, nl_lm%VxBtLM)
-            call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
+            call spat_to_qst(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
+                 &           nl_lm%VxBtLM, nl_lm%VxBpLM)
          else
-            call spat_to_SH(gsa%VxBt, nl_lm%VxBtLM)
-            call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
+            call spat_to_sphertor(gsa%VxBt,gsa%VxBp,nl_lm%VxBtLM,nl_lm%VxBpLM)
+            !call spat_to_SH(gsa%VxBt, nl_lm%VxBtLM)
+            !call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
          end if
          !PERFOFF
       end if

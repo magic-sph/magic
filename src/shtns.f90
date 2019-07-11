@@ -5,7 +5,7 @@ module shtns
    use constants, only: ci, one
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
        &                 minc, lm_max, lmP_max
-   use horizontal_data, only: dLh, D_m, O_sin_theta_E2
+   use horizontal_data, only: dLh, D_m, O_sin_theta_E2, O_sin_theta
    use parallel_mod
 
    implicit none
@@ -18,7 +18,7 @@ module shtns
    &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
    &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor,               &
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
-   &         axi_to_spat
+   &         axi_to_spat, spat_to_qst
 
 contains
 
@@ -35,7 +35,7 @@ contains
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 
       call shtns_set_size(l_max, m_max/minc, minc, norm)
-      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
+      call shtns_precompute(SHT_QUICK_INIT, SHT_PHI_CONTIGUOUS, &
            &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(0)
 
@@ -279,6 +279,24 @@ contains
       call shtns_load_cfg(0)
 
    end subroutine spat_to_SH
+!------------------------------------------------------------------------------
+   subroutine spat_to_qst(f,g,h,qLM,sLM,tLM)
+
+      !-- Input variables
+      real(cp), intent(in) :: f(n_phi_max,n_theta_max)
+      real(cp), intent(in) :: g(n_phi_max,n_theta_max)
+      real(cp), intent(in) :: h(n_phi_max,n_theta_max)
+
+      !-- Output variables
+      complex(cp), intent(out) :: qLM(lmP_max)
+      complex(cp), intent(out) :: sLM(lmP_max)
+      complex(cp), intent(out) :: tLM(lmP_max)
+
+      call shtns_load_cfg(1)
+      call shtns_spat_to_qst(f,g,h,qLM,sLM,tLM)
+      call shtns_load_cfg(0)
+
+   end subroutine spat_to_qst
 !------------------------------------------------------------------------------
    subroutine spat_to_sphertor(f,g,fLM,gLM)
 

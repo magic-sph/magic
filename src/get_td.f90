@@ -28,12 +28,12 @@ module nonlinear_lm_mod
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc, s_Rloc, &
        &             p_Rloc, dp_Rloc
    use RMS_helpers, only: hIntRms
-    
+
 
    implicit none
- 
+
    type :: nonlinear_lm_t
-      !----- Nonlinear terms in lm-space: 
+      !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
       complex(cp), allocatable :: LFrLM(:),  LFtLM(:),  LFpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
@@ -46,15 +46,15 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: LFt2LM(:), LFp2LM(:)
       complex(cp), allocatable :: CFt2LM(:), CFp2LM(:)
       complex(cp), allocatable :: PFt2LM(:), PFp2LM(:)
- 
+
    contains
- 
+
       procedure :: initialize
       procedure :: finalize
       procedure :: output
       procedure :: set_zero
       procedure :: get_td
- 
+
    end type nonlinear_lm_t
 
 contains
@@ -64,44 +64,34 @@ contains
       class(nonlinear_lm_t) :: this
       integer, intent(in) :: lmP_max
 
-      allocate( this%AdvrLM(lmP_max) )   
-      allocate( this%AdvtLM(lmP_max) )   
-      allocate( this%AdvpLM(lmP_max) )   
-      allocate( this%LFrLM(lmP_max) )    
-      allocate( this%LFtLM(lmP_max) )    
-      allocate( this%LFpLM(lmP_max) )    
-      allocate( this%VxBrLM(lmP_max) )   
-      allocate( this%VxBtLM(lmP_max) )   
-      allocate( this%VxBpLM(lmP_max) )   
-      allocate( this%VSrLM(lmP_max) )    
-      allocate( this%VStLM(lmP_max) )    
-      allocate( this%VSpLM(lmP_max) )    
-      allocate( this%ViscHeatLM(lmP_max) )
-      allocate( this%OhmLossLM(lmP_max) )
-      bytes_allocated = bytes_allocated + 14*lmP_max*SIZEOF_DEF_COMPLEX
+      allocate( this%AdvrLM(lmP_max), this%AdvtLM(lmP_max) )
+      allocate( this%AdvpLM(lmP_max), this%LFrLM(lmP_max) )
+      allocate( this%LFtLM(lmP_max), this%LFpLM(lmP_max) )
+      allocate( this%VxBrLM(lmP_max), this%VxBtLM(lmP_max) )
+      allocate( this%VxBpLM(lmP_max), this%VSrLM(lmP_max) )
+      allocate( this%VStLM(lmP_max), this%VSpLM(lmP_max) )
+      bytes_allocated = bytes_allocated + 12*lmP_max*SIZEOF_DEF_COMPLEX
+      if ( l_anel) then
+         allocate( this%ViscHeatLM(lmP_max), this%OhmLossLM(lmP_max) )
+         bytes_allocated = bytes_allocated+14*lmP_max*SIZEOF_DEF_COMPLEX
+      end if
 
       if ( l_TP_form ) then
-         allocate( this%VPrLM(lmP_max) )    
+         allocate( this%VPrLM(lmP_max) )
          bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
       end if
-      
+
       if ( l_chemical_conv ) then
-         allocate( this%VXirLM(lmP_max) )    
-         allocate( this%VXitLM(lmP_max) )    
-         allocate( this%VXipLM(lmP_max) )    
+         allocate(this%VXirLM(lmP_max),this%VXitLM(lmP_max),this%VXipLM(lmP_max))
          bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
       !-- RMS calculations
       if ( l_RMS ) then
-         allocate( this%Advt2LM(lmP_max) )
-         allocate( this%Advp2LM(lmP_max) )
-         allocate( this%LFt2LM(lmP_max) )
-         allocate( this%LFp2LM(lmP_max) )
-         allocate( this%CFt2LM(lmP_max) )
-         allocate( this%CFp2LM(lmP_max) )
-         allocate( this%PFt2LM(lmP_max) )
-         allocate( this%PFp2LM(lmP_max) )
+         allocate( this%Advt2LM(lmP_max), this%Advp2LM(lmP_max) )
+         allocate( this%LFt2LM(lmP_max), this%LFp2LM(lmP_max) )
+         allocate( this%CFt2LM(lmP_max), this%CFp2LM(lmP_max) )
+         allocate( this%PFt2LM(lmP_max), this%PFp2LM(lmP_max) )
          bytes_allocated = bytes_allocated + 8*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
@@ -111,41 +101,21 @@ contains
 
       class(nonlinear_lm_t) :: this
 
-      deallocate( this%AdvrLM )   
-      deallocate( this%AdvtLM )   
-      deallocate( this%AdvpLM )   
-      deallocate( this%LFrLM )    
-      deallocate( this%LFtLM )    
-      deallocate( this%LFpLM )    
-      deallocate( this%VxBrLM )   
-      deallocate( this%VxBtLM )   
-      deallocate( this%VxBpLM )   
-      deallocate( this%VSrLM )    
-      deallocate( this%VStLM )    
-      deallocate( this%VSpLM )    
-      deallocate( this%ViscHeatLM )
-      deallocate( this%OhmLossLM )
+      deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
+      deallocate( this%LFrLM, this%LFtLM, this%LFpLM )
+      deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
+      deallocate( this%VSrLM, this%VStLM, this%VSpLM )
 
-      if ( l_TP_form ) then
-         deallocate( this%VPrLM )    
-      end if
+      if ( l_anel ) deallocate( this%ViscHeatLM, this%OhmLossLM )
 
-      if ( l_chemical_conv ) then
-         deallocate( this%VXirLM )    
-         deallocate( this%VXitLM )    
-         deallocate( this%VXipLM )    
-      end if
+      if ( l_TP_form )deallocate( this%VPrLM )
+
+      if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
 
       !-- RMS calculations
       if ( l_RMS ) then
-         deallocate( this%Advt2LM )
-         deallocate( this%Advp2LM )
-         deallocate( this%LFt2LM )
-         deallocate( this%LFp2LM )
-         deallocate( this%CFt2LM )
-         deallocate( this%CFp2LM )
-         deallocate( this%PFt2LM )
-         deallocate( this%PFp2LM )
+         deallocate( this%Advt2LM, this%Advp2LM, this%LFt2LM, this%LFp2LM )
+         deallocate( this%CFt2LM, this%CFp2LM, this%PFt2LM, this%PFp2LM )
       end if
 
    end subroutine finalize
@@ -153,41 +123,43 @@ contains
    subroutine set_zero(this)
 
       class(nonlinear_lm_t) :: this
-      
-      this%AdvrLM    =zero
-      this%AdvtLM    =zero
-      this%AdvpLM    =zero
-      this%LFrLM     =zero
-      this%LFtLM     =zero
-      this%LFpLM     =zero
-      this%VxBrLM    =zero
-      this%VxBtLM    =zero
-      this%VxBpLM    =zero
-      this%VSrLM     =zero
-      this%VStLM     =zero
-      this%VSpLM     =zero
-      this%ViscHeatLM=zero
-      this%OhmLossLM =zero
+
+      this%AdvrLM(:)    =zero
+      this%AdvtLM(:)    =zero
+      this%AdvpLM(:)    =zero
+      this%LFrLM(:)     =zero
+      this%LFtLM(:)     =zero
+      this%LFpLM(:)     =zero
+      this%VxBrLM(:)    =zero
+      this%VxBtLM(:)    =zero
+      this%VxBpLM(:)    =zero
+      this%VSrLM(:)     =zero
+      this%VStLM(:)     =zero
+      this%VSpLM(:)     =zero
+      if ( l_anel ) then
+         this%ViscHeatLM(:)=zero
+         this%OhmLossLM(:) =zero
+      end if
 
       if ( l_TP_form ) then
-         this%VPrLM =zero
+         this%VPrLM(:) =zero
       end if
 
       if ( l_chemical_conv ) then
-         this%VXirLM =zero
-         this%VXitLM =zero
-         this%VXipLM =zero
+         this%VXirLM(:) =zero
+         this%VXitLM(:) =zero
+         this%VXipLM(:) =zero
       end if
 
       if ( l_RMS ) then
-         this%Advt2LM=zero
-         this%Advp2LM=zero
-         this%LFp2LM =zero
-         this%LFt2LM =zero
-         this%CFt2LM =zero
-         this%CFp2LM =zero
-         this%PFt2LM =zero
-         this%PFp2LM =zero
+         this%Advt2LM(:)=zero
+         this%Advp2LM(:)=zero
+         this%LFp2LM(:) =zero
+         this%LFt2LM(:) =zero
+         this%CFt2LM(:) =zero
+         this%CFp2LM(:) =zero
+         this%PFt2LM(:) =zero
+         this%PFp2LM(:) =zero
       end if
 
    end subroutine set_zero
@@ -195,7 +167,7 @@ contains
    subroutine output(this)
 
       class(nonlinear_lm_t) :: this
-      
+
       write(*,"(A,6ES20.12)") "AdvrLM,AdvtLM,AdvpLM = ",&
            & sum(this%AdvrLM), sum(this%AdvtLM),        &
            & sum(this%AdvpLM)
@@ -211,15 +183,15 @@ contains
       !  from non-linear terms in spectral form,
       !  contained in flmw1-3,flms1-3, flmb1-3 (input)
       !
-    
+
       !-- Input of variables:
       class(nonlinear_lm_t) :: this
 
-      integer,            intent(in) :: nR
-      integer,            intent(in) :: nBc ! signifies boundary conditions
-      logical,            intent(in) :: lRmsCalc
-      logical,            intent(in) :: lPressCalc
-    
+      integer, intent(in) :: nR
+      integer, intent(in) :: nBc ! signifies boundary conditions
+      logical, intent(in) :: lRmsCalc
+      logical, intent(in) :: lPressCalc
+
       !-- Output of variables:
       complex(cp), intent(out) :: dwdt(:),dzdt(:)
       complex(cp), intent(out) :: dpdt(:),dsdt(:)
@@ -230,7 +202,7 @@ contains
       complex(cp), intent(out) :: dVSrLM(:)
       complex(cp), intent(out) :: dVXirLM(:)
       complex(cp), intent(out) :: dVPrLM(:)
-    
+
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
       complex(cp) :: CorPol(lm_max)
@@ -241,21 +213,21 @@ contains
       complex(cp) :: Buo(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
       complex(cp) :: dsdt_loc, dxidt_loc
-    
+
       integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
-    
-    
+
+
       !write(*,"(I3,A,4ES20.12)") nR,": get_td start: ",SUM(this%AdvrLM)
-    
+
       !lm_chunksize=(((lm_max)/nThreads)/DOUBLE_COMPLEX_PER_CACHELINE) * &
       !             & DOUBLE_COMPLEX_PER_CACHELINE
       !lm_chunksize=4
       !write(*,"(A,I4)") "Using a chunksize of ",lm_chunksize
-    
+
       if (nBc == 0 .or. lRmsCalc ) then
-    
+
          if ( l_conv ) then  ! Convection
-    
+
             lm =1   ! This is l=0,m=0
             lmA=lm2lmA(lm)
             lmP=1
@@ -300,20 +272,10 @@ contains
                CorPol(lm)=CorPol_loc
 
             end if
-    
+
             !PERFON('td_cv1')
-            !$OMP PARALLEL do default(none) &
-            !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &
-            !$OMP private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc) &
-            !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmPS,lmP2lmPA) &
-            !$OMP shared(lm_max,l_corr,l_max,l_conv_nl,lRmsCalc,l_mag_LF) &
-            !$OMP shared(CorPol,AdvPol,LFPol,AdvTor,LFTor,z_Rloc,p_Rloc,nR) &
-            !$OMP shared(w_Rloc,s_Rloc,l_double_curl,this,dw_Rloc,nBc,Buo) &
-            !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S,n_r_LCR) &
-            !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
-            !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac,l_TP_form,temp0) &
-            !$OMP shared(l_anelastic_liquid,alpha0,ThExpNb,ViscHeatFac,ogrun) &
-            !$OMP shared(beta,orho1,r,or4,ddw_Rloc,dVxVhLM,dz_Rloc,dLh)
+            !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+            !$omp private(lmPS,lmPA,AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -322,7 +284,7 @@ contains
                lmP =lm2lmP(lm)
                lmPS=lmP2lmPS(lmP)
                lmPA=lmP2lmPA(lmP)
-    
+
                if ( l_double_curl ) then ! Pressure is not needed
 
                   if ( l_corr ) then
@@ -423,7 +385,7 @@ contains
                      Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm,nR)
                   end if
 
-                  if ( l_double_curl ) then 
+                  if ( l_double_curl ) then
                      ! In that case we have to recompute the Coriolis force
                      ! since we also want the pressure gradient
                      if ( l_corr .and. nBc /= 2 ) then
@@ -483,7 +445,7 @@ contains
                else
                   CorTor_loc=zero
                end if
-    
+
                if ( l_conv_nl ) then
                   if ( l > m ) then
                      AdvTor_loc=   -dPhi(lm)*this%AdvtLM(lmP)  + &
@@ -496,15 +458,15 @@ contains
                else
                   AdvTor_loc=zero
                end if
-    
+
                dzdt(lm)=CorTor_loc+AdvTor_loc
                ! until here
-    
+
                if ( lRmsCalc ) then
                   if ( l_mag_LF .and. nR>n_r_LCR ) then
                      !------ When RMS values are required, the Lorentz force is treated
                      !       separately:
-       
+
                      if ( l > m ) then
                         !------- LFTor= 1/(E*Pm) * curl( curl(B) x B )_r
                         LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  + &
@@ -519,13 +481,13 @@ contains
                      AdvTor(lm)=AdvTor_loc
                   end if
                end if
-    
+
             end do
-            !$OMP END PARALLEL DO
+            !$omp end parallel do
             !PERFOFF
-    
+
             if ( lRmsCalc ) then
-    
+
                if ( l_conv_nl ) then
                   call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map, .false.)
                   call hIntRms(this%Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
@@ -596,7 +558,7 @@ contains
                call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
                call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
                call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
-    
+
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
                   Geo(lm)=-this%CFp2LM(lmP)-this%PFp2LM(lmP)
@@ -619,18 +581,11 @@ contains
             end if
 
             ! In case double curl is calculated dpdt is useless
-            if ( (.not. l_double_curl) .or. lPressCalc ) then 
+            if ( (.not. l_double_curl) .or. lPressCalc ) then
                !PERFON('td_cv2')
-               !$OMP PARALLEL default(none) &
-               !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &
-               !$OMP private(AdvPol_loc,CorPol_loc) &
-               !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmpS,lmP2lmPA) &
-               !$OMP shared(lm_max,l_max,nR,l_corr,l_conv_nl) &
-               !$OMP shared(CorFac,or1,or2,dPhi0,dTheta3A,dTheta3S,dTheta1S,dTheta1A) &
-               !$OMP shared(z_Rloc,dPhi,dw_Rloc,dLh,w_Rloc) &
-               !$OMP shared(CorPol,AdvPol,dpdt,this)
+               !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+               !$omp private(lmPS,lmP,AAdvPol_loc,CorPol_loc)
                !LIKWID_ON('td_cv2')
-               !$OMP DO
                do lm=2,lm_max
                   l   =lm2l(lm)
                   m   =lm2m(lm)
@@ -639,7 +594,7 @@ contains
                   lmP =lm2lmP(lm)
                   lmPS=lmP2lmPS(lmP)
                   lmPA=lmP2lmPA(lmP)
-       
+
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
                      !PERFON('td_cv2c')
@@ -651,12 +606,12 @@ contains
                         &              +dTheta3A(lm)*z_Rloc(lmA,nR) &
                         &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
                         &           )
-       
+
                      else if ( l == l_max ) then
                         CorPol_loc=  two*CorFac*or2(nR) * ( -dPhi0(lm) *  &
                         &           ( dw_Rloc(lm,nR) +                    &
                         &           or1(nR)*dLh(lm)*w_Rloc(lm,nR) ) )
-       
+
                      else if ( l == m ) then
                         CorPol_loc=                    two*CorFac*or2(nR) *  &
                         &                    ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
@@ -664,7 +619,7 @@ contains
                         &                                                   )&
                         &                      +dTheta3A(lm)*z_Rloc(lmA,nR)  &
                         &                    )
-       
+
                      end if
                      !PERFOFF
                   else
@@ -685,11 +640,10 @@ contains
                      AdvPol_loc=zero
                   end if
                   dpdt(lm)=AdvPol_loc+CorPol_loc
-       
+
                end do ! lm loop
-               !$OMP end do 
                !LIKWID_OFF('td_cv2')
-               !$OMP END PARALLEL 
+               !$omp end parallel do
                !PERFOFF
             end if
 
@@ -702,7 +656,7 @@ contains
          end if ! l_conv ?
 
       end if
-    
+
       if ( nBc == 0 ) then
 
          if ( l_heat ) then
@@ -729,17 +683,11 @@ contains
                end if
             end if
             dsdt(1)=dsdt_loc
-    
+
             !PERFON('td_heat')
-            !$OMP PARALLEL DEFAULT(none) &
-            !$OMP private(lm,l,m,lmP,lmPS,lmPA,dsdt_loc) &
-            !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
-            !$OMP shared(lm_max,dsdt,dVSrLM,dTheta1S,dTheta1A,dPhi) &
-            !$OMP shared(l_anel,l_anelastic_liquid,l_mag_nl,nR) &
-            !$OMP shared(l_TP_form, dVPrLM) &
-            !$OMP shared(ViscHeatFac,hdif_V,OhmLossFac,hdif_B,temp0,this)
+            !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS) &
+            !$omp private(lmPA,dsdt_loc)
             !LIKWID_ON('td_heat')
-            !$OMP DO
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -748,7 +696,7 @@ contains
                lmPA=lmP2lmPA(lmP)
                !------ This is horizontal heat advection:
                !PERFON('td_h1')
-    
+
                if ( l > m ) then
                   dsdt_loc= -dTheta1S(lm)*this%VStLM(lmPS) &
                   &         +dTheta1A(lm)*this%VStLM(lmPA) &
@@ -785,9 +733,8 @@ contains
                dsdt(lm) = dsdt_loc
                if ( l_TP_form ) dVPrLM(lm)=this%VPrLM(lmP)
             end do
-            !$OMP end do
             !LIKWID_OFF('td_heat')
-            !$OMP END PARALLEL
+            !$omp end parallel do
             !PERFOFF
          else
             do lm=2,lm_max
@@ -799,15 +746,10 @@ contains
          if ( l_chemical_conv ) then
             dVXirLM(1)=this%VXirLM(1)
             dxidt(1)  =epscXi
-    
+
             !PERFON('td_xi_heat')
-            !$OMP PARALLEL DEFAULT(none) &
-            !$OMP private(lm,l,m,lmP,lmPS,lmPA,dxidt_loc) &
-            !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
-            !$OMP shared(lm_max,dxidt,dVXirLM,dTheta1S,dTheta1A,dPhi) &
-            !$OMP shared(nR,this) 
-            !LIKWID_ON('td_xi_heat')
-            !$OMP DO
+            !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS) &
+            !$omp private(lmPA,dxidt_loc)
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -816,7 +758,7 @@ contains
                lmPA=lmP2lmPA(lmP)
                !------ This is horizontal heat advection:
                !PERFON('td_h1')
-    
+
                if ( l > m ) then
                   dxidt_loc= -dTheta1S(lm)*this%VXitLM(lmPS) &
                   &          +dTheta1A(lm)*this%VXitLM(lmPA) &
@@ -829,20 +771,25 @@ contains
                dVXirLM(lm)=this%VXirLM(lmP)
                dxidt(lm) = dxidt_loc
             end do
-            !$OMP end do
             !LIKWID_OFF('td_xi_heat')
-            !$OMP END PARALLEL
+            !$omp end parallel do
             !PERFOFF
          end if
-    
+
          if ( l_mag_nl .or. l_mag_kin  ) then
             !PERFON('td_magnl')
-    
-            !$OMP PARALLEL do default(none) &
-            !$OMP private(lm,l,m,lmP,lmPS,lmPA) &
-            !$OMP shared(lm_max,lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
-            !$OMP shared(dbdt,djdt,dTheta1S,dTheta1A,dPhi) &
-            !$OMP shared(dLh,or4,dVxBhLM,r,nR,this)
+
+#ifdef WITH_SHTNS
+            !$omp parallel do default(shared) private(lm,lmP)
+            do lm=1,lm_max
+               lmP =lm2lmP(lm)
+               dbdt(lm)   = dLh(lm)*this%VxBpLM(lmP)
+               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
+               djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lmP)
+            end do
+            !$omp end parallel do
+#else
+            !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS,lmPA)
             do lm=1,lm_max
                if (lm == 1) then
                   lmP=1
@@ -857,7 +804,7 @@ contains
                lmP =lm2lmP(lm)
                lmPS=lmP2lmPS(lmP)
                lmPA=lmP2lmPA(lmP)
-    
+
                !------- This is the radial part of the dynamo terms \curl(VxB)
                !PERFON('td_mnl1')
                if ( l > m ) then
@@ -869,13 +816,13 @@ contains
                   &         -dPhi(lm)    *this%VxBtLM(lmP)
                end if
                !PERFOFF
-    
+
                !------- Radial component of
                !           \curl\curl(UxB) = \grad\div(UxB) - \laplace(VxB)
-    
+
                !------- This is the radial part of \laplace (UxB)
                djdt(lm)=dLh(lm)*or4(nR)*this%VxBrLM(lmP)
-    
+
                !------- This is r^2 * horizontal divergence of (UxB)
                !        Radial derivative performed in get_dr_td
                !PERFON('td_mnl2')
@@ -891,7 +838,8 @@ contains
                end if
                !PERFOFF
             end do
-            !$OMP END PARALLEL DO
+            !$omp end parallel do
+#endif
             !PERFOFF
          else
             if ( l_mag ) then
@@ -906,12 +854,24 @@ contains
       else   ! boundary !
          !PERFON('td_bnd')
          if ( l_mag_nl .or. l_mag_kin ) then
-    
+
+#ifdef WITH_SHTNS
+            dVxBhLM(1)=zero
+            dVSrLM(1) =zero
+            !$omp parallel do default(shared) private(lm,lmP)
+            do lm=2,lm_max
+               lmP =lm2lmP(lm)
+               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
+               dVSrLM(lm) =zero
+            end do
+            !$omp end paralell do
+#else
             !----- Stress free boundary, only nl mag. term for poloidal field needed.
             !      Because the radial derivative will be taken, this will contribute to
             !      the other radial grid points.
             dVxBhLM(1)=zero
             dVSrLM(1) =zero
+            !$omp parallel do default(shared) private(lm,lmP,l,m,lmPS,lmPA)
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -930,7 +890,9 @@ contains
                end if
                dVSrLM(lm)=zero
             end do
-    
+            !$omp end parallel do
+#endif
+
          else
             do lm=1,lm_max
                if ( l_mag ) dVxBhLM(lm)=zero
@@ -952,7 +914,7 @@ contains
                dVPrLM(lm)=zero
             end do
          end if
-    
+
       end if  ! boundary ? lvelo ?
 
    end subroutine get_td
