@@ -584,7 +584,7 @@ contains
             if ( (.not. l_double_curl) .or. lPressCalc ) then
                !PERFON('td_cv2')
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
-               !$omp private(lmPS,lmP,AAdvPol_loc,CorPol_loc)
+               !$omp private(lmPS,AdvPol_loc,CorPol_loc)
                !LIKWID_ON('td_cv2')
                do lm=2,lm_max
                   l   =lm2l(lm)
@@ -777,7 +777,7 @@ contains
             dxidt(1)  =epscXi
 
 #ifdef WITH_SHTNS
-            !$omp parallel do default(shared) private(lm,lmP) &
+            !$omp parallel do default(shared) private(lm,lmP)
             do lm=2,lm_max
                lmP=lm2lmP(lm)
                dVXirLM(lm)=this%VXirLM(lmP)
@@ -897,7 +897,7 @@ contains
                dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
                dVSrLM(lm) =zero
             end do
-            !$omp end paralell do
+            !$omp end parallel do
 #else
             !----- Stress free boundary, only nl mag. term for poloidal field needed.
             !      Because the radial derivative will be taken, this will contribute to
