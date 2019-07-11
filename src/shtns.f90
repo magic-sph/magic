@@ -35,7 +35,7 @@ contains
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 
       call shtns_set_size(l_max, m_max/minc, minc, norm)
-      call shtns_precompute(SHT_QUICK_INIT, SHT_PHI_CONTIGUOUS, &
+      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
            &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(0)
 
