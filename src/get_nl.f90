@@ -27,7 +27,7 @@ module grid_space_arrays_mod
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_diff_prec, l_centrifuge
+       &            l_diff_prec, l_centrifuge, l_adv_curl
 
    implicit none
 
@@ -59,7 +59,7 @@ module grid_space_arrays_mod
       real(cp), pointer :: dvtdpc(:,:), dvpdpc(:,:)
       real(cp), pointer :: brc(:,:), btc(:,:), bpc(:,:)
       real(cp), pointer :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
-      real(cp), pointer :: pc(:,:), xic(:,:)
+      real(cp), pointer :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
       real(cp), pointer :: dsdtc(:,:), dsdpc(:,:)
 
    contains
@@ -81,20 +81,11 @@ contains
 
       class(grid_space_arrays_t) :: this
 
-      allocate( this%Advr(nrp,nfs) )
-      allocate( this%Advt(nrp,nfs) )
-      allocate( this%Advp(nrp,nfs) )
-      allocate( this%LFr(nrp,nfs) )
-      allocate( this%LFt(nrp,nfs) )
-      allocate( this%LFp(nrp,nfs) )
-      allocate( this%VxBr(nrp,nfs) )
-      allocate( this%VxBt(nrp,nfs) )
-      allocate( this%VxBp(nrp,nfs) )
-      allocate( this%VSr(nrp,nfs) )
-      allocate( this%VSt(nrp,nfs) )
-      allocate( this%VSp(nrp,nfs) )
-      allocate( this%ViscHeat(nrp,nfs) )
-      allocate( this%OhmLoss(nrp,nfs) )
+      allocate( this%Advr(nrp,nfs), this%Advt(nrp,nfs), this%Advp(nrp,nfs) )
+      allocate( this%LFr(nrp,nfs), this%LFt(nrp,nfs), this%LFp(nrp,nfs) )
+      allocate( this%VxBr(nrp,nfs), this%VxBt(nrp,nfs), this%VxBp(nrp,nfs) )
+      allocate( this%VSr(nrp,nfs), this%VSt(nrp,nfs), this%VSp(nrp,nfs) )
+      allocate( this%ViscHeat(nrp,nfs), this%OhmLoss(nrp,nfs) )
       bytes_allocated=bytes_allocated + 14*nrp*nfs*SIZEOF_DEF_REAL
 
       if ( l_TP_form ) then
@@ -103,22 +94,17 @@ contains
       end if
 
       if ( l_precession ) then
-         allocate( this%PCr(nrp,nfs) )
-         allocate( this%PCt(nrp,nfs) )
-         allocate( this%PCp(nrp,nfs) )
+         allocate( this%PCr(nrp,nfs), this%PCt(nrp,nfs), this%PCp(nrp,nfs) )
          bytes_allocated=bytes_allocated + 3*nrp*nfs*SIZEOF_DEF_REAL
       end if
 
       if ( l_centrifuge ) then
-         allocate( this%CAr(nrp,nfs) )
-         allocate( this%CAt(nrp,nfs) )
+         allocate( this%CAr(nrp,nfs), this%CAt(nrp,nfs) )
          bytes_allocated=bytes_allocated + 2*nrp*nfs*SIZEOF_DEF_REAL
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%VXir(nrp,nfs) )
-         allocate( this%VXit(nrp,nfs) )
-         allocate( this%VXip(nrp,nfs) )
+         allocate( this%VXir(nrp,nfs), this%VXit(nrp,nfs), this%VXip(nrp,nfs) )
          bytes_allocated=bytes_allocated + 3*nrp*nfs*SIZEOF_DEF_REAL
       end if
 
@@ -144,16 +130,17 @@ contains
          allocate( this%xic(1,1) )
       end if
 
+      if ( l_adv_curl ) then
+         allocate( this%cvtc(nrp,nfs), this%cvpc(nrp,nfs) )
+         bytes_allocated=bytes_allocated+2*nrp*nfs*SIZEOF_DEF_REAL
+      end if
+
       !-- RMS Calculations
       if ( l_RMS ) then
-         allocate ( this%Advt2(nrp,nfs) )
-         allocate ( this%Advp2(nrp,nfs) )
-         allocate ( this%LFt2(nrp,nfs) )
-         allocate ( this%LFp2(nrp,nfs) )
-         allocate ( this%CFt2(nrp,nfs) )
-         allocate ( this%CFp2(nrp,nfs) )
-         allocate ( this%dpdtc(nrp,nfs) )
-         allocate ( this%dpdpc(nrp,nfs) )
+         allocate ( this%Advt2(nrp,nfs), this%Advp2(nrp,nfs) )
+         allocate ( this%LFt2(nrp,nfs), this%LFp2(nrp,nfs) )
+         allocate ( this%CFt2(nrp,nfs), this%CFp2(nrp,nfs) )
+         allocate ( this%dpdtc(nrp,nfs), this%dpdpc(nrp,nfs) )
          bytes_allocated=bytes_allocated + 8*nrp*nfs*SIZEOF_DEF_REAL
       end if
       !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
@@ -164,47 +151,27 @@ contains
 
       class(grid_space_arrays_t) :: this
 
-      deallocate( this%Advr )
-      deallocate( this%Advt )
-      deallocate( this%Advp )
-      deallocate( this%LFr )
-      deallocate( this%LFt )
-      deallocate( this%LFp )
-      deallocate( this%VxBr )
-      deallocate( this%VxBt )
-      deallocate( this%VxBp )
-      deallocate( this%VSr )
-      deallocate( this%VSt )
-      deallocate( this%VSp )
+      deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
+      deallocate( this%VxBr, this%VxBt, this%VxBp, this%VSr, this%VSt, this%VSp )
       if ( l_TP_form ) deallocate( this%VPr )
       if ( l_chemical_conv ) deallocate( this%VXir, this%VXit, this%VXip )
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
-      deallocate( this%ViscHeat )
-      deallocate( this%OhmLoss )
+      if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
+      deallocate( this%ViscHeat, this%OhmLoss )
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vrc,this%vtc,this%vpc )
-      deallocate( this%dvrdrc,this%dvtdrc )
-      deallocate( this%dvpdrc,this%cvrc )
-      deallocate( this%dvrdtc,this%dvrdpc )
-      deallocate( this%dvtdpc,this%dvpdpc )
-      deallocate( this%brc,this%btc,this%bpc )
-      deallocate( this%cbrc,this%cbtc,this%cbpc )
-      deallocate( this%sc,this%drSc )
-      deallocate( this%pc, this%xic )
+      deallocate( this%dvrdrc,this%dvtdrc,this%dvpdrc,this%cvrc )
+      deallocate( this%dvrdtc,this%dvrdpc,this%dvtdpc,this%dvpdpc )
+      deallocate( this%brc,this%btc,this%bpc,this%cbrc,this%cbtc,this%cbpc )
+      deallocate( this%sc,this%drSc, this%pc, this%xic )
       deallocate( this%dsdtc, this%dsdpc )
 
       !-- RMS Calculations
       if ( l_RMS ) then
-         deallocate ( this%Advt2 )
-         deallocate ( this%Advp2 )
-         deallocate ( this%LFt2 )
-         deallocate ( this%LFp2 )
-         deallocate ( this%CFt2 )
-         deallocate ( this%CFp2 )
-         deallocate ( this%dpdtc )
-         deallocate ( this%dpdpc )
+         deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
+         deallocate ( this%CFt2, this%CFp2, this%dpdtc, this%dpdpc )
       end if
 
    end subroutine finalize
@@ -294,53 +261,79 @@ contains
 
       if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 
-         !------ Get Advection:
-         do n_th=nThStart,nThStop ! loop over theta points in block
-            nThetaNHS=(n_th+1)/2
-            or4sn2   =or4(nR)*osn2(nThetaNHS)
-            csn2     =cosn2(nThetaNHS)
-            if ( mod(n_th,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+         if ( l_adv_curl ) then ! Advection is \curl{u} \times u
 
-            do n_phi=1,n_phi_max
-               this%Advr(n_phi,n_th)=          -or2(nR)*orho1(nR) * (  &
-               &                                this%vrc(n_phi,n_th) * &
-               &                     (       this%dvrdrc(n_phi,n_th) - &
-               &    ( two*or1(nR)+beta(nR) )*this%vrc(n_phi,n_th) ) +  &
-               &                               osn2(nThetaNHS) * (       &
-               &                                this%vtc(n_phi,n_th) * &
-               &                     (       this%dvrdtc(n_phi,n_th) - &
-               &                  r(nR)*      this%vtc(n_phi,n_th) ) + &
-               &                                this%vpc(n_phi,n_th) * &
-               &                     (       this%dvrdpc(n_phi,n_th) - &
-               &                    r(nR)*      this%vpc(n_phi,n_th) ) ) )
+            do n_th=nThStart,nThStop ! loop over theta points in block
+
+               nThetaNHS=(n_th+1)/2
+               or4sn2   =or4(nR)*osn2(nThetaNHS)
+
+               do n_phi=1,n_phi_max
+                  this%Advr(n_phi,n_th)=       - osn2(nThetaNHS) * (    &
+                  &        this%cvtc(n_phi,n_th)*this%vpc(n_phi,n_th) - &
+                  &        this%cvpc(n_phi,n_th)*this%vtc(n_phi,n_th) )
+
+                  this%Advt(n_phi,n_th)=        -        or4sn2 * (     &
+                  &        this%cvpc(n_phi,n_th)*this%vrc(n_phi,n_th) - &
+                  &        this%cvrc(n_phi,n_th)*this%vpc(n_phi,n_th) )
+
+                  this%Advp(n_phi,n_th)=        -        or4sn2 * (     &
+                  &        this%cvrc(n_phi,n_th)*this%vtc(n_phi,n_th) - &
+                  &        this%cvtc(n_phi,n_th)*this%vrc(n_phi,n_th) )
+               end do
+
             end do
 
-            do n_phi=1,n_phi_max
-               this%Advt(n_phi,n_th)=         or4sn2*orho1(nR) * (  &
-               &                            -this%vrc(n_phi,n_th) * &
-               &                      (   this%dvtdrc(n_phi,n_th) - &
-               &                beta(nR)*this%vtc(n_phi,n_th) )   + &
-               &                             this%vtc(n_phi,n_th) * &
-               &                      ( csn2*this%vtc(n_phi,n_th) + &
-               &                          this%dvpdpc(n_phi,n_th) + &
-               &                      this%dvrdrc(n_phi,n_th) )   + &
-               &                             this%vpc(n_phi,n_th) * &
-               &                      ( csn2*this%vpc(n_phi,n_th) - &
-               &                          this%dvtdpc(n_phi,n_th) )  )
-            end do
+         else ! Advection is u\grad u
 
-            do n_phi=1,n_phi_max
-               this%Advp(n_phi,n_th)=         or4sn2*orho1(nR) * (  &
-               &                            -this%vrc(n_phi,n_th) * &
-               &                        ( this%dvpdrc(n_phi,n_th) - &
-               &                beta(nR)*this%vpc(n_phi,n_th) )   - &
-               &                             this%vtc(n_phi,n_th) * &
-               &                        ( this%dvtdpc(n_phi,n_th) + &
-               &                        this%cvrc(n_phi,n_th) )   - &
-               &       this%vpc(n_phi,n_th) * this%dvpdpc(n_phi,n_th) )
-            end do
+            !------ Get Advection:
+            do n_th=nThStart,nThStop ! loop over theta points in block
+               nThetaNHS=(n_th+1)/2
+               or4sn2   =or4(nR)*osn2(nThetaNHS)
+               csn2     =cosn2(nThetaNHS)
+               if ( mod(n_th,2) == 0 ) csn2=-csn2 ! South, odd function in theta
 
-         end do ! theta loop
+               do n_phi=1,n_phi_max
+                  this%Advr(n_phi,n_th)=          -or2(nR)*orho1(nR) * (  &
+                  &                                this%vrc(n_phi,n_th) * &
+                  &                     (       this%dvrdrc(n_phi,n_th) - &
+                  &    ( two*or1(nR)+beta(nR) )*this%vrc(n_phi,n_th) ) +  &
+                  &                               osn2(nThetaNHS) * (     &
+                  &                                this%vtc(n_phi,n_th) * &
+                  &                     (       this%dvrdtc(n_phi,n_th) - &
+                  &                  r(nR)*      this%vtc(n_phi,n_th) ) + &
+                  &                                this%vpc(n_phi,n_th) * &
+                  &                     (       this%dvrdpc(n_phi,n_th) - &
+                  &                    r(nR)*      this%vpc(n_phi,n_th) ) ) )
+               end do
+
+               do n_phi=1,n_phi_max
+                  this%Advt(n_phi,n_th)=         or4sn2*orho1(nR) * (  &
+                  &                            -this%vrc(n_phi,n_th) * &
+                  &                      (   this%dvtdrc(n_phi,n_th) - &
+                  &                beta(nR)*this%vtc(n_phi,n_th) )   + &
+                  &                             this%vtc(n_phi,n_th) * &
+                  &                      ( csn2*this%vtc(n_phi,n_th) + &
+                  &                          this%dvpdpc(n_phi,n_th) + &
+                  &                      this%dvrdrc(n_phi,n_th) )   + &
+                  &                             this%vpc(n_phi,n_th) * &
+                  &                      ( csn2*this%vpc(n_phi,n_th) - &
+                  &                          this%dvtdpc(n_phi,n_th) )  )
+               end do
+
+               do n_phi=1,n_phi_max
+                  this%Advp(n_phi,n_th)=         or4sn2*orho1(nR) * (  &
+                  &                            -this%vrc(n_phi,n_th) * &
+                  &                        ( this%dvpdrc(n_phi,n_th) - &
+                  &                beta(nR)*this%vpc(n_phi,n_th) )   - &
+                  &                             this%vtc(n_phi,n_th) * &
+                  &                        ( this%dvtdpc(n_phi,n_th) + &
+                  &                        this%cvrc(n_phi,n_th) )   - &
+                  &       this%vpc(n_phi,n_th) * this%dvpdpc(n_phi,n_th) )
+               end do
+
+            end do ! theta loop
+         end if
 
       end if  ! Navier-Stokes nonlinear advection term ?
 

@@ -16,7 +16,7 @@ module rIterThetaBlocking_shtns_mod
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
        &            l_TO, l_chemical_conv, l_TP_form, l_probe,       &
-       &            l_precession, l_centrifuge
+       &            l_precession, l_centrifuge, l_adv_curl
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -231,35 +231,27 @@ contains
               &            or2(this%nR),orho1(this%nR), 1,          &
               &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
       end if
-      !PERFOFF
       !--------- Calculate Lorentz torque on inner core:
       !          each call adds the contribution of the theta-block to
       !          lorentz_torque_ic
       if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
          lorentz_torques_ic=0.0_cp
-         call get_lorentz_torque(lorentz_torques_ic,                &
-              &                  1,this%sizeThetaB,                 &
-              &                  this%gsa%brc,                      &
-              &                  this%gsa%bpc,this%nR)
+         call get_lorentz_torque(lorentz_torques_ic,1,this%sizeThetaB,  &
+              &                  this%gsa%brc,this%gsa%bpc,this%nR)
       end if
 
       !--------- Calculate Lorentz torque on mantle:
       !          note: this calculates a torque of a wrong sign.
       !          sign is reversed at the end of the theta blocking.
       if ( this%nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-         call get_lorentz_torque(this%lorentz_torque_ma,   &
-              &                  1 ,this%sizeThetaB,       &
-              &                  this%gsa%brc,             &
-              &                  this%gsa%bpc,this%nR)
+         call get_lorentz_torque(this%lorentz_torque_ma,1,this%sizeThetaB, &
+              &                  this%gsa%brc,this%gsa%bpc,this%nR)
       end if
-      !PERFOFF
 
       !--------- Calculate courant condition parameters:
       if ( this%l_cour ) then
-         !PRINT*,"Calling courant with this%nR=",this%nR
-         call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc, &
-              &       this%gsa%vtc,this%gsa%vpc,                  &
-              &       this%gsa%brc,this%gsa%btc,                  &
+         call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc,          &
+              &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
               &       this%gsa%bpc,1 ,this%sizeThetaB)
       end if
 
@@ -267,20 +259,14 @@ contains
       !          point for graphical output:
       if ( this%l_graph ) then
 #ifdef WITH_MPI
-            PERFON('graphout')
-            call graphOut_mpi(time,this%nR,this%gsa%vrc,           &
-                 &            this%gsa%vtc,this%gsa%vpc,           &
-                 &            this%gsa%brc,this%gsa%btc,           &
-                 &            this%gsa%bpc,this%gsa%sc,            &
-                 &            this%gsa%pc,this%gsa%xic,            &
-                 &            1 ,this%sizeThetaB,lGraphHeader)
-            PERFOFF
+            call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc,           &
+                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
+                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
+                 &            1,this%sizeThetaB,lGraphHeader)
 #else
-            call graphOut(time,this%nR,this%gsa%vrc,           &
-                 &        this%gsa%vtc,this%gsa%vpc,           &
-                 &        this%gsa%brc,this%gsa%btc,           &
-                 &        this%gsa%bpc,this%gsa%sc,            &
-                 &        this%gsa%pc,this%gsa%xic,            &
+            call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc,           &
+                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
+                 &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
                  &        1 ,this%sizeThetaB,lGraphHeader)
 #endif
       end if
@@ -291,80 +277,53 @@ contains
 
       !--------- Helicity output:
       if ( this%lHelCalc ) then
-         PERFON('hel_out')
-         call get_helicity(this%gsa%vrc,this%gsa%vtc,          &
-              &        this%gsa%vpc,this%gsa%cvrc,             &
-              &        this%gsa%dvrdtc,                        &
-              &        this%gsa%dvrdpc,                        &
-              &        this%gsa%dvtdrc,                        &
-              &        this%gsa%dvpdrc,HelLMr,Hel2LMr,         &
-              &        HelnaLMr,Helna2LMr,this%nR,1 )
-         PERFOFF
+         call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+              &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
+              &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
+              &            HelnaLMr,Helna2LMr,this%nR,1 )
       end if
 
-      !--------- Viscous heating:
+      !-- Viscous heating:
       if ( this%lPowerCalc ) then
-         PERFON('hel_out')
-         call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
-              &        this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
-              &        this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
-              &        this%gsa%dvpdrc,this%gsa%dvpdpc,viscLMr,         &
-              &        this%nR,1)
-         PERFOFF
+         call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
+              &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
+              &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
+              &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscLMr,         &
+              &             this%nR,1)
       end if
 
-      !--------- horizontal velocity :
+      !-- horizontal velocity :
       if ( this%lViscBcCalc ) then
-
-         call get_nlBLayers(this%gsa%vtc,    &
-              &             this%gsa%vpc,    &
-              &             this%gsa%dvtdrc, &
-              &             this%gsa%dvpdrc, &
-              &             this%gsa%drSc,   &
-              &             this%gsa%dsdtc,  &
-              &             this%gsa%dsdpc,  &
-              &             uhLMr,duhLMr,gradsLMr,nR,1 )
+         call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
+              &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
+              &             this%gsa%dsdpc,uhLMr,duhLMr,gradsLMr,nR,1 )
       end if
 
-
+      !-- Radial flux profiles
       if ( this%lFluxProfCalc ) then
-          call get_fluxes(this%gsa%vrc,this%gsa%vtc,             &
-                 &        this%gsa%vpc,this%gsa%dvrdrc,          &
-                 &        this%gsa%dvtdrc,                       &
-                 &        this%gsa%dvpdrc,                       &
-                 &        this%gsa%dvrdtc,                       &
-                 &        this%gsa%dvrdpc,this%gsa%sc,           &
-                 &        this%gsa%pc,this%gsa%brc,              &
-                 &        this%gsa%btc,this%gsa%bpc,             &
-                 &        this%gsa%cbtc,this%gsa%cbpc,           &
-                 &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,    &
-                 &        fresLMr,nR,1 )
+          call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+               &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
+               &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
+               &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
+               &          this%gsa%cbtc,this%gsa%cbpc,fconvLMr,fkinLMr,      &
+               &          fviscLMr,fpoynLMr,fresLMr,nR,1 )
       end if
 
+      !-- Kinetic energy parallel and perpendicular to rotation axis
       if ( this%lPerpParCalc ) then
-          call get_perpPar(this%gsa%vrc,this%gsa%vtc,       &
-                 &         this%gsa%vpc,EperpLMr,EparLMr,   &
-                 &         EperpaxiLMr,EparaxiLMr,nR,1 )
+          call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpLMr, &
+               &           EparLMr,EperpaxiLMr,EparaxiLMr,nR,1 )
       end if
 
 
       !--------- Movie output:
       if ( this%l_frame .and. l_movie_oc .and. l_store_frame ) then
-         PERFON('mov_out')
-         call store_movie_frame(this%nR,this%gsa%vrc,                &
-              &                 this%gsa%vtc,this%gsa%vpc,           &
-              &                 this%gsa%brc,this%gsa%btc,           &
-              &                 this%gsa%bpc,this%gsa%sc,            &
-              &                 this%gsa%drSc,                       &
-              &                 this%gsa%dvrdpc,                     &
-              &                 this%gsa%dvpdrc,                     &
-              &                 this%gsa%dvtdrc,                     &
-              &                 this%gsa%dvrdtc,                     &
-              &                 this%gsa%cvrc,                       &
-              &                 this%gsa%cbrc,                       &
-              &                 this%gsa%cbtc,1 ,                    &
+         call store_movie_frame(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+              &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
+              &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
+              &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
+              &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,1,    &
               &                 this%sizeThetaB,this%leg_helper%bCMB)
-         PERFOFF
       end if
 
 
@@ -372,10 +331,8 @@ contains
       !--------- Calculation of magnetic field production and advection terms
       !          for graphic output:
       if ( l_dtB ) then
-         PERFON('dtBLM')
-         call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,                    &
-              &         this%gsa%vpc,this%gsa%brc,                            &
-              &         this%gsa%btc,this%gsa%bpc,                            &
+         call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
+              &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,               &
               &         1 ,this%sizeThetaB,this%dtB_arrays%BtVrLM,            &
               &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
               &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
@@ -384,30 +341,25 @@ contains
               &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,  &
               &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,  &
               &         this%dtB_arrays%BtVZsn2LM)
-         PERFOFF
       end if
 
 
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper%zAS,this%gsa%brc,             &
-              &         this%gsa%btc,this%gsa%bpc,                    &
-              &         this%lTONext,this%lTONext2,dt,dtLast,this%nR, &
-              &         1 ,this%sizeThetaB,this%BsLast,               &
-              &         this%BpLast,this%BzLast)
+         call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,     &
+              &         this%gsa%bpc,this%lTONext,this%lTONext2,dt,dtLast, &
+              &         this%nR,1,this%sizeThetaB,this%BsLast,this%BpLast, &
+              &         this%BzLast)
       end if
 
       if ( this%lTOCalc ) then
-         call getTO(this%gsa%vrc,this%gsa%vtc,    &
-              &     this%gsa%vpc,this%gsa%cvrc,   &
-              &     this%gsa%dvpdrc,this%gsa%brc, &
-              &     this%gsa%btc,this%gsa%bpc,    &
-              &     this%gsa%cbrc,this%gsa%cbtc,  &
-              &     this%BsLast,this%BpLast,this%BzLast,              &
-              &     this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,  &
-              &     this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM,     &
-              &     dtLast,this%nR,1,this%sizeThetaB)
+         call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
+              &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
+              &     this%gsa%cbrc,this%gsa%cbtc,this%BsLast,this%BpLast,    &
+              &     this%BzLast,this%TO_arrays%dzRstrLM,                    &
+              &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
+              &     this%TO_arrays%dzLFLM,dtLast,this%nR,1,this%sizeThetaB)
       end if
       PERFOFF
 
@@ -471,9 +423,9 @@ contains
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call scal_to_spat(s_Rloc(:, nR), gsa%sc)
+            call scal_to_spat(s_Rloc(:,nR), gsa%sc)
             if ( this%lViscBcCalc ) then
-               call scal_to_grad_spat(s_Rloc(:, nR), gsa%dsdtc, gsa%dsdpc)
+               call scal_to_grad_spat(s_Rloc(:,nR), gsa%dsdtc, gsa%dsdpc)
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -486,46 +438,67 @@ contains
          end if
 
          if ( this%lRmsCalc ) then
-            call scal_to_grad_spat(p_Rloc(:, nR), gsa%dpdtc, gsa%dpdpc)
+            call scal_to_grad_spat(p_Rloc(:,nR), gsa%dpdtc, gsa%dpdpc)
          end if
 
-         if ( this%lPressCalc ) then ! Pressure
-            call scal_to_spat(p_Rloc(:, nR), gsa%pc)
-         end if
+         !-- Pressure
+         if ( this%lPressCalc ) call scal_to_spat(p_Rloc(:,nR), gsa%pc)
 
-         if ( l_chemical_conv ) then ! Chemical composition
-            call scal_to_spat(xi_Rloc(:, nR), gsa%xic)
-         end if
+         !-- Composition
+         if ( l_chemical_conv ) call scal_to_spat(xi_Rloc(:,nR), gsa%xic)
 
          if ( l_HT .or. this%lViscBcCalc ) then
-            call scal_to_spat(ds_Rloc(:, nR), gsa%drsc)
+            call scal_to_spat(ds_Rloc(:,nR), gsa%drsc)
          endif
-         if ( this%nBc == 0 ) then
-            call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), &
+         if ( this%nBc == 0 ) then ! Bulk points
+            !-- pol, sph, tor > ur,ut,up
+            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              gsa%vrc, gsa%vtc, gsa%vpc)
-            if ( this%lDeriv ) then
-               call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
 
-               call pol_to_curlr_spat(z_Rloc(:, nR), gsa%cvrc)
+            !-- Advection is treated as u \times \curl u
+            if ( l_adv_curl ) then
+               !-- z,dz,w,dd< -> wr,wt,wp
+               call torpol_to_curl_spat(or2(nR), w_Rloc(:,nR), ddw_Rloc(:,nR), &
+                    &                   z_Rloc(:,nR), dz_Rloc(:,nR),           &
+                    &                   gsa%cvrc, gsa%cvtc, gsa%cvpc)
 
-               call pol_to_grad_spat(w_Rloc(:, nR), gsa%dvrdtc, gsa%dvrdpc)
-               call torpol_to_dphspat(dw_Rloc(:, nR),  z_Rloc(:, nR), &
+               !-- For some outputs one still need the other terms
+               if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+               &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+               &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+
+                  call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR),         &
+                       &              dz_Rloc(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
+                       &              gsa%dvpdrc)
+                  call pol_to_grad_spat(w_Rloc(:,nR),gsa%dvrdtc,gsa%dvrdpc)
+                  call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                       &                 gsa%dvtdpc, gsa%dvpdpc)
+               end if
+
+            else ! Advection is treated as u\grad u
+
+               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                 &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
+
+               call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc)
+
+               call pol_to_grad_spat(w_Rloc(:,nR), gsa%dvrdtc, gsa%dvrdpc)
+               call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
                     &                 gsa%dvtdpc, gsa%dvpdpc)
-
             end if
+
          else if ( this%nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
-            call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), &
+            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              gsa%vrc, gsa%vtc, gsa%vpc)
             gsa%vrc = 0.0_cp
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
-               call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
+               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
-               call pol_to_curlr_spat(z_Rloc(:, nR), gsa%cvrc)
-               call torpol_to_dphspat(dw_Rloc(:, nR),  z_Rloc(:, nR), &
+               call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc)
+               call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
                     &                 gsa%dvtdpc, gsa%dvpdpc)
             end if
          else if ( this%nBc == 2 ) then
@@ -541,19 +514,19 @@ contains
                     &                1,time)
             end if
             if ( this%lDeriv ) then
-               call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
+               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat(b_Rloc(:, nR), db_Rloc(:, nR),  aj_Rloc(:, nR),    &
+         call torpol_to_spat(b_Rloc(:,nR), db_Rloc(:,nR),  aj_Rloc(:,nR),    &
               &              gsa%brc, gsa%btc, gsa%bpc)
 
          if ( this%lDeriv ) then
-            call torpol_to_curl_spat(or2(nR), b_Rloc(:, nR), ddb_Rloc(:, nR), &
-                 &                   aj_Rloc(:, nR), dj_Rloc(:, nR),          &
+            call torpol_to_curl_spat(or2(nR), b_Rloc(:,nR), ddb_Rloc(:,nR), &
+                 &                   aj_Rloc(:,nR), dj_Rloc(:,nR),          &
                  &                   gsa%cbrc, gsa%cbtc, gsa%cbpc)
          end if
       end if

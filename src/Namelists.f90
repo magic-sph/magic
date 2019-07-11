@@ -67,7 +67,7 @@ contains
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
       &    thermo_variable,radial_scheme,polo_flow_eq,      &
-      &    mpi_transp
+      &    mpi_transp,l_adv_curl
 
       namelist/phys_param/                                      &
       &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,    &
@@ -485,6 +485,16 @@ contains
          l_anel=.true.
       end if
 
+      !-- If anelastic, the curl formulation is set to .false.
+      if ( l_anel ) l_adv_curl=.false.
+
+#ifndef WITH_SHTNS
+      !-- Abort the run if the curl form is used
+      if ( l_adv_curl ) then
+         call abortRun('! u\curl{u} form for advection not supported by native transforms! Rerun with SHTns')
+      end if
+#endif
+
       if ( prmag == 0.0_cp ) then
          l_mag   =.false.
          l_mag_nl=.false.
@@ -822,6 +832,7 @@ contains
       write(n_out,'(''  l_correct_AMe   ='',l3,'','')') l_correct_AMe
       write(n_out,'(''  l_correct_AMz   ='',l3,'','')') l_correct_AMz
       write(n_out,'(''  l_non_rot       ='',l3,'','')') l_non_rot
+      write(n_out,'(''  l_adv_curl      ='',l3,'','')') l_adv_curl
       write(n_out,'(''  l_runTimeLimit  ='',l3,'','')') l_runTimeLimit
       write(n_out,'(''  runHours        ='',i6,'','')') runHours
       write(n_out,'(''  runMinutes      ='',i4,'','')') runMinutes
@@ -1230,6 +1241,9 @@ contains
       difchem       =0.0_cp
       ldif          =1
       ldifexp       =-1
+
+      !-- In case one wants to treat the advection term as u \curl{u}
+      l_adv_curl=.false.
 
       !----- Namelist phys_param:
       ra         =0.0_cp
