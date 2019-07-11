@@ -104,13 +104,10 @@ contains
 
       integer :: n
       integer(lip) :: local_bytes_used
-      integer :: LMB_with_l1m0,l1m0,irank
+      integer :: l1m0
 
       logical, parameter :: DEBUG_OUTPUT=.false.
       integer :: lm,l,m,sizeLMB
-
-      character(len=255) :: message
-
 
       local_bytes_used = bytes_allocated
       call allocate_mappings(st_map,l_max,lm_max,lmP_max)
@@ -171,21 +168,10 @@ contains
       l1m0 = lo_map%lm2(1,0)
       do n=0,n_procs-1
          if ( (l1m0 >= lm_balance(n)%nStart) .and. (l1m0 <= lm_balance(n)%nStop) ) then
-            LMB_with_l1m0=n
+            rank_with_l1m0=n
             exit
          end if
       end do
-
-      ! which rank does have the LMB with LMB_with_l1m0?
-      do irank=0,n_procs-1
-         if ((LMB_with_l1m0-1 >= irank).and.&
-              &(LMB_with_l1m0-1 <= (irank+1)-1)) then
-            rank_with_l1m0 = irank
-         end if
-      end do
-      write(message,"(2(A,I4))") "rank no ",rank_with_l1m0, &
-            " has l1m0 in block ",LMB_with_l1m0
-      call logWrite(message)
 
       if (DEBUG_OUTPUT) then
          ! output the lm -> l,m mapping
