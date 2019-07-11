@@ -676,8 +676,6 @@ contains
                  &           nl_lm%VxBtLM, nl_lm%VxBpLM)
          else
             call spat_to_sphertor(gsa%VxBt,gsa%VxBp,nl_lm%VxBtLM,nl_lm%VxBpLM)
-            !call spat_to_SH(gsa%VxBt, nl_lm%VxBtLM)
-            !call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
          end if
          !PERFOFF
       end if
