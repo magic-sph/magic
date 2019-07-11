@@ -20,7 +20,6 @@ module step_time_mod
        &                phy2lm_counter, nl_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
-   use blocking, only: nLMBs, lmStartB, lmStopB
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_storeTpot,    &
        &            l_storeVpot, l_storeBpot, l_HTmovie, l_DTrMagSpec, &
@@ -33,7 +32,7 @@ module step_time_mod
        &            l_finite_diff
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+   use blocking, only: llm, ulm, llmMag, ulmMag
    use LMLoop_mod, only: LMLoop
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
@@ -917,7 +916,6 @@ contains
          ! ==================================================================
 
          if ( lVerbose ) write(*,*) '! starting lm-loop!'
-         if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
          if ( n_time_step == 1 .and. l_AB1 ) then
             if (rank == 0 ) write(*,*) '! 1st order Adams-Bashforth for 1st time step'

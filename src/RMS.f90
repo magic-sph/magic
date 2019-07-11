@@ -8,7 +8,7 @@ module RMS
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
-       &               lm2m
+       &               lm2m, llm, ulm, llmMag, ulmMag
    use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
@@ -27,7 +27,6 @@ module RMS
    use radial_der, only: get_dr
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM
    use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc

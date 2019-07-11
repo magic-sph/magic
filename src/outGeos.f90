@@ -12,12 +12,11 @@ module geos_mod
    use radial_functions, only: r_ICB, r_CMB, rscheme_oc, orho1
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use num_param, only: tScale
-   use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map
+   use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map, llm, ulm
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out, l_SRIC
    use output_data, only: sDens, zDens, tag, runid
    use constants, only: pi, zero, ci, one, two, half
-   use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
    use fft, only: fft_to_real

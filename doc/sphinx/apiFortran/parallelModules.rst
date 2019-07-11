@@ -14,13 +14,6 @@ MPI related modules
 
 .. f:automodule:: radial_data
 
-
-``LMLoop_data.f90``
--------------------
-
-.. f:automodule:: lmloop_data
-
-
 ``communications.f90``
 ----------------------
 

@@ -13,12 +13,11 @@ module LMLoop_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
-   use blocking, only: lmStartB, lmStopB, lo_map
+   use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
        &            l_single_matrix, l_chemical_conv, l_TP_form,         &
        &            l_save_out
    use output_data, only: n_log_file, log_file
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
    use updateS_mod
    use updateZ_mod
@@ -125,7 +124,6 @@ contains
       complex(cp), intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Local counter
-      integer :: nLMB
       integer :: l,nR,ierr
 
       !--- Inner core rotation from last time step
@@ -165,19 +163,15 @@ contains
          end do
       end if
 
-      !nThreadsLMmax = 1
-      nLMB=1+rank
-      !nTh=1
-
       if ( l_heat ) then ! dp,workA usead as work arrays
          if ( .not. l_single_matrix ) then
             PERFON('up_S')
             if ( l_anelastic_liquid ) then
                call updateS_ala(s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt,  &
-                    &           dsdtLast_LMloc, w1, coex, dt, nLMB)
+                    &           dsdtLast_LMloc, w1, coex, dt)
             else
                call updateS( s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt, &
-                    &        dsdtLast_LMloc, w1, coex, dt, nLMB )
+                    &        dsdtLast_LMloc, w1, coex, dt )
             end if
             PERFOFF
          end if
@@ -186,7 +180,7 @@ contains
 
       if ( l_chemical_conv ) then ! dp,workA usead as work arrays
          call updateXi(xi_LMloc,dxi_LMloc,dVXirLM,dxidt,dxidtLast_LMloc, &
-              &        w1,coex,dt,nLMB)
+              &        w1,coex,dt)
       end if
 
       if ( l_conv ) then
@@ -214,12 +208,12 @@ contains
                     &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,     &
                     &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,   &
                     &          dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt,  &
-                    &          nLMB, lRmsNext )
+                    &          lRmsNext )
             else
                call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                     &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
                     &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
-                    &          dsdt, dsdtLast_LMloc, w1, coex, dt, nLMB,   &
+                    &          dsdt, dsdtLast_LMloc, w1, coex, dt,         &
                     &          lRmsNext )
             end if
 
@@ -228,7 +222,7 @@ contains
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dVxVhLM, dwdt,     &
                  &         dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,         &
                  &         dpdtLast_LMloc, s_LMloc, xi_LMloc, w1, coex, dt, &
-                 &         nLMB, lRmsNext, lPressNext)
+                 &         lRmsNext, lPressNext)
             PERFOFF
          end if
       end if
@@ -239,7 +233,7 @@ contains
               &        b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
               &        dj_ic_LMloc, ddj_ic_LMloc, dbdt_icLast_LMloc,           &
               &        djdt_icLast_LMloc, b_nl_cmb, aj_nl_cmb, aj_nl_icb,      &
-              &        omega_icLast, w1, coex, dt, time, nLMB, lRmsNext )
+              &        omega_icLast, w1, coex, dt, time, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
       end if

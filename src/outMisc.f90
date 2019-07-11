@@ -16,7 +16,7 @@ module outMisc_mod
        &                       otemp1, ogrun, rscheme_oc
    use physical_parameters, only: ViscHeatFac, ThExpNb
    use num_param, only: lScale
-   use blocking, only: nThetaBs, nfs, sizeThetaB
+   use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
        &            l_temperature_diff, l_chemical_conv, l_TP_form
@@ -26,7 +26,6 @@ module outMisc_mod
        &                   deltaxicond
    use useful, only: cc2real
    use integration, only: rInt_R
-   use LMLoop_data,only: llm,ulm
 #ifdef WITH_SHTNS
    use shtns, only: axi_to_spat
 #else

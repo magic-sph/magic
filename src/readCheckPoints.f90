@@ -7,13 +7,12 @@ module readCheckPoints
    use precision_mod
    use parallel_mod
    use communications, only: scatter_from_rank0_to_lo
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem,fd_stretch,fd_ratio
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv, l_AB1
-   use blocking, only: lo_map,lmStartB,lmStopB,nLMBs,lm2l,lm2m
+   use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, ulmMag
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
        &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
        &                  omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,       &
@@ -443,7 +442,7 @@ contains
       !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
       if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
          lm=l_max+2
-         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+         if ( llm<=lm .and. ulm>=lm ) then
             do nR=1,n_r_max+1
                fr=sin(pi*(r(nR)-r(n_r_max)))
                s(lm,nR)=tipdipole*fr
@@ -453,7 +452,7 @@ contains
 
       if ( l_chemical_conv .and. minc<minc_old .and. tipdipole>0.0_cp ) then
          lm=l_max+2
-         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+         if ( llm<=lm .and. ulm>=lm ) then
             do nR=1,n_r_max+1
                fr=sin(pi*(r(nR)-r(n_r_max)))
                xi(lm,nR)=tipdipole*fr
@@ -467,7 +466,7 @@ contains
       &            .and. minc==1 .and. minc_old/=1 .and.          &
       &            tipdipole>0.0_cp .and. l_mag_old ) then
          lm=l_max+2
-         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+         if ( llm<=lm .and. ulm>=lm ) then
             do nR=1,n_r_max+1
                b(lm,nR)=tipdipole
             end do
@@ -705,7 +704,7 @@ contains
                write(*,*) '! omega_ic=',omega_ic
             end if
             if ( kbotv == 2 ) then
-               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+               if ( llm<=l1m0 .and. ulm>=l1m0 ) then
                   z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
                end if
             end if
@@ -733,7 +732,7 @@ contains
                write(*,*) '! omega_ma1=',omega_ma1
             end if
             if ( ktopv == 2 ) then
-               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+               if ( llm<=l1m0 .and. ulm>=l1m0 ) then
                   z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
                end if
             end if
@@ -1312,7 +1311,7 @@ contains
       !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
       if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
          lm=l_max+2
-         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+         if ( llm<=lm .and. ulm>=lm ) then
             do nR=1,n_r_max+1
                fr=sin(pi*(r(nR)-r(n_r_max)))
                s(lm,nR)=tipdipole*fr
@@ -1322,7 +1321,7 @@ contains
 
       if ( l_chemical_conv .and. minc<minc_old .and. tipdipole>0.0_cp ) then
          lm=l_max+2
-         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+         if ( llm<=lm .and. ulm>=lm ) then
             do nR=1,n_r_max+1
                fr=sin(pi*(r(nR)-r(n_r_max)))
                xi(lm,nR)=tipdipole*fr
@@ -1336,7 +1335,7 @@ contains
       &            .and. minc==1 .and. minc_old/=1 .and.          &
       &            tipdipole>0.0_cp .and. l_mag_old ) then
          lm=l_max+2
-         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+         if ( llm<=lm .and. ulm>=lm ) then
             do nR=1,n_r_max+1
                b(lm,nR)=tipdipole
             end do
@@ -1366,7 +1365,7 @@ contains
                write(*,*) '! omega_ic=',omega_ic
             end if
             if ( kbotv == 2 ) then
-               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+               if ( llm<=l1m0 .and. ulm>=l1m0 ) then
                   z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
                end if
             end if
@@ -1394,7 +1393,7 @@ contains
                write(*,*) '! omega_ma1=',omega_ma1
             end if
             if ( ktopv == 2 ) then
-               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+               if ( llm<=l1m0 .and. ulm>=l1m0 ) then
                   z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
                end if
             end if
@@ -1530,13 +1529,13 @@ contains
       complex(cp), intent(out) :: w(lm_max,dim1)
 
       !--- Local variables
-      integer :: lm,lmo,lmStart,lmStop,nLMB
+      integer :: lm,lmo,lmStart,lmStop,n_proc
       complex(cp) :: woR(n_r_maxL)
 
-      !$omp parallel do default(shared) private(nLMB,lmStart,lmStop,lm,lmo,woR)
-      do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
+      !$omp parallel do default(shared) private(n_proc,lmStart,lmStop,lm,lmo,woR)
+      do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
+         lmStart=lm_balance(n_proc)%nStart
+         lmStop =lm_balance(n_proc)%nStop
 
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
@@ -1581,12 +1580,11 @@ contains
       complex(cp), intent(out) :: xi(lm_max,n_r_max)
 
       !--- Local variables
-      integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
+      integer :: lm,lmo,n,nR,lmStart,lmStop,n_proc
       complex(cp),allocatable :: woR(:),zoR(:)
       complex(cp),allocatable :: poR(:),soR(:)
       complex(cp),allocatable :: xioR(:)
 
-      !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL),poR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 3*n_r_maxL*SIZEOF_DEF_COMPLEX
       if ( lreadS .and. l_heat ) then
@@ -1599,11 +1597,10 @@ contains
       end if
 
       !PERFON('mD_map')
-      do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
+      do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
+         lmStart=lm_balance(n_proc)%nStart
+         lmStop =lm_balance(n_proc)%nStop
 
-         !PRINT*,nLMB,lmStart,lmStop
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
@@ -1676,7 +1673,6 @@ contains
          end do
       end do
       !PERFOFF
-      !PRINT*,omp_get_thread_num(),": After nLMB loop"
       deallocate(woR,zoR,poR)
       bytes_allocated = bytes_allocated - 3*n_r_maxL*SIZEOF_DEF_COMPLEX
       if ( lreadS .and. l_heat ) then
@@ -1707,18 +1703,17 @@ contains
       complex(cp), intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
 
       !--- Local variables
-      integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
+      integer :: lm,lmo,n,nR,lmStart,lmStop,n_proc
       complex(cp), allocatable :: woR(:),zoR(:),poR(:),soR(:)
 
-      !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 
       !PERFON('mD_map')
-      do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
+      do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
+         lmStart=lm_balance(n_proc)%nStart
+         lmStop =lm_balance(n_proc)%nStop
          lmStart=max(2,lmStart)
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
@@ -1764,7 +1759,6 @@ contains
          end do
       end do
       !PERFOFF
-      !PRINT*,omp_get_thread_num(),": After nLMB loop"
       deallocate(woR,zoR,poR,soR)
       bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 

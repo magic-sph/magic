@@ -97,8 +97,7 @@ program magic
    use torsional_oscillations
    use init_fields
    use special, only: initialize_Grenoble, finalize_Grenoble
-   use blocking, only: initialize_blocking, finalize_blocking
-   use LMLoop_data, only: llm, ulm
+   use blocking, only: initialize_blocking, finalize_blocking, llm, ulm
    use timing, only: timer_type
    use horizontal_data
    use logic
@@ -110,7 +109,6 @@ program magic
    use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
    use radial_data, only: initialize_radial_data, finalize_radial_data
    use radialLoop, only: initialize_radialLoop, finalize_radialLoop
-   use lmLoop_data, only: initialize_LMLoop_data
    use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop
    use preCalculations
    use start_fields, only: getStartFields
@@ -256,7 +254,6 @@ program magic
    call initialize_blocking
    local_bytes_used=bytes_allocated
    call initialize_radial_data
-   call initialize_LMLoop_data ! needed before radial_functions
    call initialize_radial_functions
    call initialize_horizontal_data
    local_bytes_used=bytes_allocated-local_bytes_used

@@ -5,10 +5,9 @@ module radial_spectra
    use communications, only: reduce_radial
    use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_tot
    use radial_data, only: n_r_icb
-   use LMLoop_data, only: llm,ulm
    use radial_functions, only: or2, r_icb, r_ic
    use num_param, only: eScale
-   use blocking, only: st_map
+   use blocking, only: st_map, llm, ulm
    use horizontal_data, only: dLh
    use logic, only: l_cond_ic
    use output_data, only: tag

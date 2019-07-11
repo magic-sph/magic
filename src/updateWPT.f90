@@ -15,16 +15,14 @@ module updateWPT_mod
        &                          CorFac, ktopp
    use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops, bots
-   use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
-       &               lmStartB,lmStopB
+   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, hdif_S, dLh
    use logic, only: l_update_v, l_temperature_diff, l_RMS
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
-   use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize, rank
+   use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
    use radial_der, only: get_dddr, get_ddr, get_dr
    use fields, only: work_LMloc
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
@@ -55,7 +53,7 @@ contains
 
       integer, pointer :: nLMBs2(:)
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
       allocate( pt0Mat(2*n_r_max,2*n_r_max) )
       allocate( pt0Mat_fac(2*n_r_max,2) )
@@ -113,7 +111,7 @@ contains
    end subroutine finalize_updateWPT
 !-----------------------------------------------------------------------------
    subroutine updateWPT(w,dw,ddw,z10,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,tt,  &
-        &               dtt,dVTrLM,dVPrLM,dttdt,dttdtLast,w1,coex,dt,nLMB, &
+        &               dtt,dVTrLM,dVPrLM,dttdt,dttdtLast,w1,coex,dt,      &
         &               lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
@@ -125,7 +123,6 @@ contains
       real(cp),    intent(in) :: w1       ! weight for time step !
       real(cp),    intent(in) :: coex     ! factor depending on alpha
       real(cp),    intent(in) :: dt       ! time step
-      integer,     intent(in) :: nLMB     ! block number
       logical,     intent(in) :: lRmsNext
       complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
@@ -151,8 +148,7 @@ contains
       real(cp) :: O_dt
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm,lmB     ! position of (l,m) in array
-      integer :: lmStart,lmStop ! max and min number of orders m
-      integer :: nLMB2
+      integer :: nLMB2, nLMB
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
       real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
@@ -162,12 +158,12 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: iThread,start_lm,stop_lm,all_lms,per_thread,nThreads
+      integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( .not. l_update_v ) return
 
-      nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -176,48 +172,26 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      lmStart=lmStartB(nLMB)
-      lmStop =lmStopB(nLMB)
+      nLMB=1+rank
 
       w2  =one-w1
       O_dt=one/dt
 
-      !$OMP PARALLEL  &
-      !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
-      !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
-      !$OMP shared(dVTrLM,dVPrLM,dttdt,orho1,or2) &
-      !$OMP shared(alpha0,temp0,dLalpha0) &
-      !$OMP shared(n_r_max,work_LMloc,workB,workC,workD) &
-      !$OMP shared(nThreads,llm,ulm)
-      !$OMP SINGLE
-#ifdef WITHOMP
-      nThreads=omp_get_num_threads()
-#else
-      nThreads=1
-#endif
-      !-- Get radial derivatives of tt: work_LMloc,dttdtLast used as work arrays
-      all_lms=lmStop-lmStart+1
-      per_thread=all_lms/nThreads
-      !$OMP END SINGLE
-      !$OMP BARRIER
-      !$OMP DO
-      do iThread=0,nThreads-1
-         start_lm=lmStart+iThread*per_thread
-         stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
+      !$omp parallel default(shared) private(start_lm,stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
 
-         !--- Finish calculation of dttdt:
-         call get_dr( dVTrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
-              &       stop_lm-llm+1,n_r_max,rscheme_oc)
+      !--- Finish calculation of dttdt:
+      call get_dr( dVTrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
+           &       stop_lm-llm+1,n_r_max,rscheme_oc)
 
-         call get_dr( dVPrLM,workB,ulm-llm+1,start_lm-llm+1,  &
-              &       stop_lm-llm+1,n_r_max,rscheme_oc)
-      end do
-      !$OMP end do
+      call get_dr( dVPrLM,workB,ulm-llm+1,start_lm-llm+1,  &
+           &       stop_lm-llm+1,n_r_max,rscheme_oc)
+      !$omp barrier
 
-      !$OMP DO
+      !$omp do private(nR,lm)
       do nR=1,n_r_max
-         do lm=lmStart,lmStop
+         do lm=llm,ulm
             dttdt(lm,nR)=          orho1(nR)*dttdt(lm,nR) -             &
             &            or2(nR)*orho1(nR)*work_LMloc(lm,nR) +          &
             &            ViscHeatFac*ThExpNb*or2(nR)*alpha0(nR)*        &
@@ -228,14 +202,12 @@ contains
             &                                           dVPrLM(lm,nR)
          end do
       end do
-      !$OMP end do
-      !$OMP END PARALLEL
+      !$omp end do
 
-
+      !$omp single
       call solve_counter%start_count()
+      !$omp end single
       !PERFON('upWP_ssol')
-      !$OMP PARALLEL default(shared) &
-      !$OMP private(nLMB2,lm,lm1,l1,m1,lmB)
       !$OMP SINGLE
       do nLMB2=1,nLMBs2(nLMB)
 
@@ -406,74 +378,43 @@ contains
          !$OMP END TASK
       end do   ! end of loop over l1 subblocks
       !$OMP END SINGLE
-      !$OMP END PARALLEL
       !PERFOFF
+      !$omp single
       call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+      !$omp single
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart,lmStop
+         do lm1=llm,ulm
             w(lm1,n_r_out) =zero
             p(lm1,n_r_out) =zero
             tt(lm1,n_r_out)=zero
          end do
       end do
+      !$omp end single
 
-
+      !$omp single
       call dct_counter%start_count()
-      !PERFON('upWP_drv')
-      all_lms=lmStop-lmStart+1
-#ifdef WITHOMP
-      if (all_lms < omp_get_max_threads()) then
-         call omp_set_num_threads(all_lms)
-      end if
-#endif
-      !$OMP PARALLEL  &
-      !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(all_lms,per_thread,lmStop) &
-      !$OMP shared(w,dw,ddw,p,dp,tt,dtt,dwdtLast,dpdtLast,dttdtLast) &
-      !$OMP shared(rscheme_oc) &
-      !$OMP shared(n_r_max,nThreads,work_LMloc,workB,workC,llm,ulm)
-      !$OMP SINGLE
-#ifdef WITHOMP
-      nThreads=omp_get_num_threads()
-#else
-      nThreads = 1
-#endif
-      !$OMP END SINGLE
-      !$OMP BARRIER
-      per_thread=all_lms/nThreads
-      !$OMP DO
-      do iThread=0,nThreads-1
-         start_lm=lmStart+iThread*per_thread
-         stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop
-         !write(*,"(2(A,I3),2(A,I5))") "iThread=",iThread," on thread ", &
-         !     & omp_get_thread_num()," lm = ",start_lm,":",stop_lm
+      !$omp end single
+      !-- Transform to radial space and get radial derivatives
+      !   using dwdtLast, dpdtLast as work arrays:
+      call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
+           &         stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
 
-         !-- Transform to radial space and get radial derivatives
-         !   using dwdtLast, dpdtLast as work arrays:
-         call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-              &         stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
+      call get_ddr( p, dp, workC, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+           &       n_r_max,rscheme_oc, l_dct_in=.false.)
 
-         call get_ddr( p, dp, workC, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max,rscheme_oc, l_dct_in=.false.)
+      call get_ddr(tt, dtt, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+           &       n_r_max,rscheme_oc, l_dct_in=.false.)
 
-         call get_ddr(tt, dtt, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max,rscheme_oc, l_dct_in=.false.)
-
-         call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call rscheme_oc%costf1(tt,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-
-      end do
-      !$OMP end do
-      !$OMP END PARALLEL
+      call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+      call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+      call rscheme_oc%costf1(tt,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+      !$omp barrier
+      !$omp single
       call dct_counter%stop_count(l_increment=.false.)
-
-#ifdef WITHOMP
-      call omp_set_num_threads(omp_get_max_threads())
-#endif
+      !$omp end single
       !PERFOFF
 
       if ( lRmsNext ) then
@@ -486,8 +427,9 @@ contains
 
       !-- Calculate explicit time step part:
       if ( l_temperature_diff ) then
+         !$omp do private(nR,lm1,l1,m1,Dif,Pre,Buo,dtV)
          do nR=n_r_top,n_r_bot
-            do lm1=lmStart,lmStop
+            do lm1=llm,ulm
                l1=lm2l(lm1)
                m1=lm2m(lm1)
 
@@ -532,19 +474,19 @@ contains
                end if
             end do
             if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,nR,lmStart,lmStop, &
-                    &        DifPolLMr(llm:ulm,nR),         &
+               call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:ulm,nR), &
                     &        DifPol2hInt(:,nR),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,lmStart,lmStop, &
-                    &        dtVPolLMr(llm:ulm,nR),         &
+               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm,dtVPolLMr(llm:ulm,nR), &
                     &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
+         !$omp end do
 
       else ! entropy diffusion
 
+         !$omp do private(nR,lm1,l1,m1,Dif,Pre,Buo,dtV)
          do nR=n_r_top,n_r_bot
-            do lm1=lmStart,lmStop
+            do lm1=llm,ulm
                l1=lm2l(lm1)
                m1=lm2m(lm1)
 
@@ -601,15 +543,16 @@ contains
                end if
             end do
             if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,nR,lmStart,lmStop, &
-                    &        DifPolLMr(llm:ulm,nR),         &
+               call hInt2Pol(Dif,llm,ulm,nR,llm,ulm,DifPolLMr(llm:ulm,nR), &
                     &        DifPol2hInt(:,nR),lo_map)
-               call hInt2Pol(dtV,llm,ulm,nR,lmStart,lmStop, &
-                    &        dtVPolLMr(llm:ulm,nR),         &
+               call hInt2Pol(dtV,llm,ulm,nR,llm,ulm,dtVPolLMr(llm:ulm,nR), &
                     &        dtVPol2hInt(:,nR),lo_map)
             end if
          end do
+         !$omp end do
       end if
+
+      !$omp end parallel
 
    end subroutine updateWPT
 !------------------------------------------------------------------------------

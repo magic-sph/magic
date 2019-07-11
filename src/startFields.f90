@@ -16,7 +16,7 @@ module start_fields
        &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
-   use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
+   use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
@@ -29,8 +29,7 @@ module start_fields
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
-   use LMLoop_data, only: llm, ulm, ulmMag, llmMag
-   use parallel_mod, only: rank, n_procs, nLMBs_per_rank
+   use parallel_mod, only: rank, n_procs
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
    use readCheckPoints, only: readStartFields_old, readStartFields
@@ -61,9 +60,8 @@ contains
       integer,  intent(out) :: n_time_step
 
       !-- Local variables:
-      integer :: nR,l1m0,nLMB,l,m
+      integer :: nR,l1m0,l,m
       integer :: lm, n_r
-      integer :: lmStart,lmStop
       real(cp) :: coex
       real(cp) :: d_omega_ma_dt,d_omega_ic_dt
       character(len=76) :: message
@@ -298,78 +296,65 @@ contains
       end if
 
       !  Computing derivatives
-      do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs)
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
+      if ( l_conv .or. l_mag_kin ) then
+         call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,1, &
+              &        ulm-llm+1,n_r_max,rscheme_oc )
+         call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, 1,ulm-llm+1, &
+              &       n_r_max,rscheme_oc )
+      end if
 
-         if ( l_conv .or. l_mag_kin ) then
-            call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
-                 &        lmStop-llm+1,n_r_max,rscheme_oc )
-            call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                 &       n_r_max,rscheme_oc )
-         end if
+      if ( l_mag .or. l_mag_kin  ) then
+         call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1,  &
+              &        1,ulmMag-llmMag+1,n_r_max,rscheme_oc )
+         call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
+              &        1,ulmMag-llmMag+1,n_r_max,rscheme_oc )
+      end if
+      if ( l_cond_ic ) then
+         call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,ulmMag-llmMag+1, &
+              &            1,ulmMag-llmMag+1,n_r_ic_max,n_cheb_ic_max,          &
+              &            dr_fac_ic,workA_LMloc,workB_LMloc,chebt_ic,          &
+              &            chebt_ic_even)
+         call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,ulmMag-llmMag+1,&
+              &            1,ulmMag-llmMag+1,n_r_ic_max,n_cheb_ic_max,          &
+              &            dr_fac_ic,workA_LMloc,workB_LMloc,chebt_ic,          &
+              &            chebt_ic_even)
+      end if
 
-         if ( l_mag .or. l_mag_kin  ) then
-            call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1,  &
-                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
-                 &        rscheme_oc )
-            call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
-                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
-                 &        rscheme_oc )
-         end if
-         if ( l_cond_ic ) then
-            call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,       &
-                 &            ulmMag-llmMag+1,lmStart-llmMag+1,          &
-                 &            lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
-                 &            dr_fac_ic,workA_LMloc,workB_LMloc,         &
-                 &            chebt_ic, chebt_ic_even)
-            call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,      &
-                 &            ulmMag-llmMag+1,lmStart-llmMag+1,          &
-                 &            lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
-                 &            dr_fac_ic,workA_LMloc,workB_LMloc,         &
-                 &            chebt_ic, chebt_ic_even)
-         end if
+      if ( l_LCR ) then
+         do nR=n_r_cmb,n_r_icb-1
+            if ( nR<=n_r_LCR ) then
+               do lm=llm,ulm
+                  l=lo_map%lm2l(lm)
+                  m=lo_map%lm2m(lm)
 
-         if ( l_LCR ) then
-            do nR=n_r_cmb,n_r_icb-1
-               if ( nR<=n_r_LCR ) then
-                  do lm=lmStart,lmStop
-                     l=lo_map%lm2l(lm)
-                     m=lo_map%lm2m(lm)
-
-                     b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
-                     &               b_LMloc(lm,n_r_LCR)
-                     db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                     &               (r(nR))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
-                     ddb_LMloc(lm,nR)=real(l,cp)*real(l+1,cp)*    &
-                     &                (r(n_r_LCR))**(real(l,cp))/ &
-                     &                (r(nR))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
-                     aj_LMloc(lm,nR)=zero
-                     dj_LMloc(lm,nR)=zero
-                     ddj_LMloc(lm,nR)=zero
-                  end do
-               end if
-            end do
-         end if
-
-
-         if ( l_heat ) then
-            !-- Get radial derivatives of entropy:
-            call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                 &       n_r_max,rscheme_oc )
-            if ( l_single_matrix ) then
-               call get_dr( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
-                    &       lmStop-llm+1, n_r_max, rscheme_oc )
+                  b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
+                  &               b_LMloc(lm,n_r_LCR)
+                  db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
+                  &               (r(nR))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
+                  ddb_LMloc(lm,nR)=real(l,cp)*real(l+1,cp)*    &
+                  &                (r(n_r_LCR))**(real(l,cp))/ &
+                  &                (r(nR))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
+                  aj_LMloc(lm,nR)=zero
+                  dj_LMloc(lm,nR)=zero
+                  ddj_LMloc(lm,nR)=zero
+               end do
             end if
-         end if
+         end do
+      end if
 
-         if ( l_chemical_conv ) then
-            !-- Get radial derivatives of chemical composition:
-            call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
-                 &       lmStop-llm+1,n_r_max,rscheme_oc )
-         end if
 
-      end do
+      if ( l_heat ) then
+         !-- Get radial derivatives of entropy:
+         call get_dr( s_LMloc,ds_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
+         if ( l_single_matrix ) then
+            call get_dr( p_LMloc,dp_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
+         end if
+      end if
+
+      if ( l_chemical_conv ) then
+         !-- Get radial derivatives of chemical composition:
+         call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
+      end if
 
       deallocate(workA_LMloc)
       deallocate(workB_LMloc)

@@ -12,7 +12,7 @@ module output_mod
        &                  n_r_cmb, n_r_icb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use num_param, only: tScale,eScale
-   use blocking, only: st_map, lm2, lo_map
+   use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
@@ -45,7 +45,6 @@ module output_mod
    use outPar_mod, only: outPar, outPerpPar
    use graphOut_mod, only: graphOut_IC
    use power, only: get_power
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
        &                     gather_from_lo_to_rank0
    use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
