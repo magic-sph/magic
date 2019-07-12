@@ -601,6 +601,39 @@ def den(k, j, nr):
         den = 2.*den
     return den
 
+def timeder(time,y):
+    """
+    time derivative of an input array
+
+    computed with central differences (numpy.gradient)
+
+    >>> ts = MagicTs(field='e_kin')
+    >>> dt_ekinpol = timeder(ts,field='ekin_pol')
+
+    """
+    out = np.gradient(y,
+                      time,
+                      edge_order=1)
+
+    return out
+
+def secondtimeder(time,y):
+    """
+    second time derivative of an input array
+
+    computed with central differences (numpy.gradient)
+
+    >>> ts = MagicTs(field='e_kin')
+    >>> dt_ekinpol = secondtimeder(ts,field='ekin_pol')
+
+    """
+    tmp = np.gradient(y,
+                      time,
+                      edge_order=1)
+    out = np.gradient(tmp,
+                      time,
+                      edge_order=1)
+    return out
 
 def phideravg(data, minc=1, order=4):
     """
@@ -920,6 +953,41 @@ def getCpuTime(file):
     f.close()
     cpuTime = nThreads*nRanks*realTime
     return cpuTime
+
+def ReadBinaryTimeseries(infile,
+                         ncols,
+                         datatype='f8',
+                         endianness='>'):
+    """
+    This function reads binary timeseries. It is then faster than
+    the fast_read function.
+
+    :param infile: the file to read
+    :type infile: string
+    :param ncols: number of columns of the file
+    :type ncols: int
+    :param datatype: 'f8' = 64-bit floating-point number
+                     'f4' = 32-bit floating-point number
+    :type datatype: string
+    :param endianness: '>' = big-endian ; '<' = small-endian
+    :type endianness: string
+    :returns: an array[nlines, ncols] that contains
+              the data of the binary file
+    :rtype: numpy.ndarray
+    """
+    DUMM = endianness+'i4'
+    FTYP = endianness+datatype
+
+    size = os.path.getsize(infile)
+    #nline = size/(2*4 + ncols*4) # line = 2*i4 + ncols*f4
+    typeG = np.dtype([('dum1',DUMM,1),
+                      ('line',FTYP,ncols),
+                      ('dum2',DUMM,1)])
+
+    with open(infile,'rb') as f:
+        data = np.fromfile(f,dtype=typeG,count=size)['line']
+
+    return data
 
 def getTotalRunTime():
     """
