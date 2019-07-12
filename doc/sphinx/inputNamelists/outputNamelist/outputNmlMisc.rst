@@ -9,7 +9,7 @@ the induction equation.
 
 .. _varl_RMS:
 
-* **l_RMS** (default :f:var:`l_RMS=.false. <l_rms>`) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in :ref:`dtVrms.TAG <secdtVrmsFile>` and :ref:`dtBrms.TAG <secdtBrmsFile>`.
+* **l_RMS** (default :f:var:`l_RMS=.false. <l_rms>`) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in :ref:`dtVrms.TAG <secdtVrmsFile>`, :ref:`dtBrms.TAG <secdtBrmsFile>` and :ref:`dtVrms_spec.TAG <secRMSSpectra>`.
 
 * **rCut** (default :f:var:`rCut=0.0 <rcut>`) is a float. This is the thickness of the layer which is left out at both boundaries for the RMS calculation. ``rCut=0.075`` actually means that 7.5% below the CMB and above the ICB are disregarded in the force balance calculation.
 
