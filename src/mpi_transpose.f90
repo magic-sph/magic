@@ -498,15 +498,18 @@ module  mpi_ptop_mod
 
 contains
 
-   subroutine initialize_comm(this)
+   subroutine initialize_comm(this, n_fields)
 
       type(type_mpiptop) :: this
+
+      integer, intent(in) :: n_fields
 
 #ifdef WITH_MPI
       integer :: proc, my_lm_per_rank, i, nR_main_ranks, nR_last_rank
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer :: base_col_type,temptype
-      integer :: blocklengths(8),blocklengths_on_last(8),displs(8),displs_on_last(8)
+      integer :: blocklengths(n_fields),blocklengths_on_last(n_fields)
+      integer :: displs(n_fields),displs_on_last(n_fields)
 
 
       if (.not. l_finite_diff ) then
@@ -517,11 +520,11 @@ contains
          nR_last_rank = nR_main_ranks+n_r_max-n_procs*nR_main_ranks
       end if
 
-      allocate(this%s_transfer_type_cont(n_procs,8))
-      allocate(this%s_transfer_type_nr_end_cont(n_procs,8))
-      allocate(this%r_transfer_type_cont(n_procs,8))
-      allocate(this%r_transfer_type_nr_end_cont(n_procs,8))
-      bytes_allocated = bytes_allocated + 32*n_procs*SIZEOF_INTEGER
+      allocate(this%s_transfer_type_cont(n_procs,n_fields))
+      allocate(this%s_transfer_type_nr_end_cont(n_procs,n_fields))
+      allocate(this%r_transfer_type_cont(n_procs,n_fields))
+      allocate(this%r_transfer_type_nr_end_cont(n_procs,n_fields))
+      bytes_allocated = bytes_allocated + 4*n_fields*n_procs*SIZEOF_INTEGER
 
       do proc=0,n_procs-1
          my_lm_per_rank=lm_balance(proc)%n_per_rank
@@ -536,14 +539,14 @@ contains
          extent=lm_max*sizeof_double_complex
          call MPI_Type_create_resized(temptype,zerolb,extent,base_col_type,ierr)
 
-         do i=1,8
+         do i=1,n_fields
             blocklengths(i)         = nR_main_ranks
             displs(i)               = (i-1)*nR_main_ranks
             blocklengths_on_last(i) = nR_last_rank
             displs_on_last(i)       = (i-1)*nR_last_rank
          end do
 
-         do i=1,8
+         do i=1,n_fields
             call MPI_Type_vector(i,nR_main_ranks*my_lm_per_rank,        &
                  &               n_r_max*my_lm_per_rank,MPI_DEF_COMPLEX,&
                  &               this%r_transfer_type_cont(proc+1,i),ierr)
@@ -596,7 +599,7 @@ contains
       bytes_allocated = bytes_allocated+&
       &                 lm_max*(nRstop-nRstart+1)*this%n_fields*SIZEOF_DEF_COMPLEX
 
-      call initialize_comm(this)
+      call initialize_comm(this, n_fields)
 
    end subroutine create_comm
 !----------------------------------------------------------------------------------
