@@ -64,7 +64,7 @@ class Butterfly:
                 str1 += ' %i) %s\n' % (k+1, movie)
             index = input(str1)
             try:
-                filename = dat[index-1]
+                filename = dat[int(index)-1]
             except IndexError:
                 print('Non valid index: %s has been chosen instead' % dat[0])
                 filename = dat[0]
@@ -275,10 +275,10 @@ class Butterfly:
             print("####################")
         nt = self.time.shape[0]
         w1 = np.fft.fft(self.data, axis=1)
-        self.amp = np.abs(w1[:, 1:nt/2+1])
+        self.amp = np.abs(w1[:, 1:nt//2+1])
         dw = 2.*np.pi/(self.time[-1]-self.time[0])
         w = dw*np.arange(nt)
-        self.omega = w[1:nt/2+1]
+        self.omega = w[1:nt//2+1]
         self.amp1D = np.zeros_like(self.omega)
         for i in range(len(self.omega)):
             self.amp1D[i] = simps(self.amp[:, i], self.theta)
