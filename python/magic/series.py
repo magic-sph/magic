@@ -22,7 +22,6 @@ class MagicTs(MagicSetup):
        * Geostrophy: :ref:`geos.TAG <secGeosFile>`
        * Heat transfer: :ref:`heat.TAG <secHeatFile>`
        * Helicity: :ref:`helicity.TAG <secHelicityFile>`
-       * Quadrupole components: :ref:`gwPressure.TAG <secGWFile>`
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
        * Angular momentum: :ref:`AM.TAG <secAMFile>`
        * Power budget: :ref:`power.TAG <secpowerFile>`
@@ -45,8 +44,7 @@ class MagicTs(MagicSetup):
     >>> ts = MagicTs(field='heat', tag='N0m2z', iplot=False)
     """
 
-    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None,
-                 step=1):
+    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
         """
         :param datadir: working directory
         :type datadir: str
@@ -60,8 +58,6 @@ class MagicTs(MagicSetup):
         :type all: bool
         :param tag: read the time series that exactly corresponds to the specified tag
         :type tag: str
-        :param step: load data[::modulo]  (for gw file only)
-        :type step: int
         """
         self.field = field
         pattern = os.path.join(datadir, 'log.*')
@@ -92,8 +88,6 @@ class MagicTs(MagicSetup):
                 filename = file
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     datanew = fast_read(filename, binary=True)
-                if self.field in ('gwPressure','gwEntropy'):
-                    datanew = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     datanew = fast_read(filename)
                 if k == 0:
@@ -124,8 +118,6 @@ class MagicTs(MagicSetup):
                 filename = os.path.join(datadir, name)
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor',):
                     data = fast_read(filename, binary=True)
-                elif self.field in ('gwPressure','gwEntropy'):
-                    data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename)
             else:
@@ -135,8 +127,6 @@ class MagicTs(MagicSetup):
                 filename = dat[-1][1]
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     data = fast_read(filename, binary=True)
-                if self.field in ('gwPressure','gwEntropy'):
-                    data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename)
 
@@ -150,8 +140,6 @@ class MagicTs(MagicSetup):
                 filename = file
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     datanew = fast_read(filename, binary=True)
-                elif self.field in ('gwPressure','gwEntropy'):
-                    datanew = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     datanew = fast_read(filename)
                 if k == 0:
@@ -426,67 +414,6 @@ class MagicTs(MagicSetup):
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
             self.coeffs = data[:, 1:]
-        elif self.field in ('gwPressure'):
-            self.component = 'gw-pressure'
-            self.time = data[::step,0]
-            self.Qc_pressure_20 = data[::step,1]
-            self.Qc_pressure_21 = data[::step,2]
-            self.Qs_pressure_21 = data[::step,3]
-            self.Qc_pressure_22 = data[::step,4]
-            self.Qs_pressure_22 = data[::step,5]
-            self.dPhiQc_pressure_21 = data[::step,6]
-            self.dPhiQs_pressure_21 = data[::step,7]
-            self.dPhiQc_pressure_22 = data[::step,8]
-            self.dPhiQs_pressure_22 = data[::step,9]
-            self.ddPhiQc_pressure_21 = data[::step,10]
-            self.ddPhiQs_pressure_21 = data[::step,11]
-            self.ddPhiQc_pressure_22 = data[::step,12]
-            self.ddPhiQs_pressure_22 = data[::step,13]
-            #### compute 2nd time derivatives
-            self.ddotQc_P_20 = secondtimeder(self.time, self.Qc_pressure_20)
-            self.ddotQc_P_21 = (secondtimeder(self.time, self.Qc_pressure_21) +
-                                timeder(self.time, self.dPhiQc_pressure_21) +
-                                self.ddPhiQc_pressure_21)
-            self.ddotQs_P_21 = (secondtimeder(self.time, self.Qs_pressure_21) +
-                                timeder(self.time, self.dPhiQs_pressure_21) +
-                                self.ddPhiQs_pressure_21)
-            self.ddotQc_P_22 = (secondtimeder(self.time, self.Qc_pressure_22) +
-                                timeder(self.time, self.dPhiQc_pressure_22) +
-                                self.ddPhiQc_pressure_22)
-            self.ddotQs_P_22 = (secondtimeder(self.time, self.Qs_pressure_22) +
-                                timeder(self.time, self.dPhiQs_pressure_22) +
-                                self.ddPhiQs_pressure_22)
-
-        elif self.field in ('gwEntropy'):
-            self.component = 'gw-entropy'
-            self.time = data[::step,0]
-            self.Qc_entropy_20 = data[::step,1]
-            self.Qc_entropy_21 = data[::step,2]
-            self.Qs_entropy_21 = data[::step,3]
-            self.Qc_entropy_22 = data[::step,4]
-            self.Qs_entropy_22 = data[::step,5]
-            self.dPhiQc_entropy_21 = data[::step,6]
-            self.dPhiQs_entropy_21 = data[::step,7]
-            self.dPhiQc_entropy_22 = data[::step,8]
-            self.dPhiQs_entropy_22 = data[::step,9]
-            self.ddPhiQc_entropy_21 = data[::step,10]
-            self.ddPhiQs_entropy_21 = data[::step,11]
-            self.ddPhiQc_entropy_22 = data[::step,12]
-            self.ddPhiQs_entropy_22 = data[::step,13]
-
-            self.ddotQc_S_20 = secondtimeder(self.time, self.Qc_entropy_20)
-            self.ddotQc_S_21 = (secondtimeder(self.time, self.Qc_entropy_21) +
-                                timeder(self.time, self.dPhiQc_entropy_21) +
-                                self.ddPhiQc_entropy_21)
-            self.ddotQs_S_21 = (secondtimeder(self.time, self.Qs_entropy_21) +
-                                timeder(self.time, self.dPhiQs_entropy_21) +
-                                self.ddPhiQs_entropy_21)
-            self.ddotQc_S_22 = (secondtimeder(self.time, self.Qc_entropy_22) +
-                                timeder(self.time, self.dPhiQc_entropy_22) +
-                                self.ddPhiQc_entropy_22)
-            self.ddotQs_S_22 = (secondtimeder(self.time, self.Qs_entropy_22) +
-                                timeder(self.time, self.dPhiQs_entropy_22) +
-                                self.ddPhiQs_entropy_22)
 
         if iplot:
             self.plot()
