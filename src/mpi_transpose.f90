@@ -1,3 +1,4 @@
+#define KNL_BIG 0
 module mpi_transp
    !
    ! This is an abstract class that will be used to define MPI transposers
@@ -327,8 +328,43 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
       !-- Local variables
-      complex(cp) :: sbuff(1:this%max_send)
-      complex(cp) :: rbuff(1:this%max_recv)
+      complex(cp) :: sbuff(1:this%max_send), rbuff(1:this%max_recv)
+#if (KNL_BIG==1)
+      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
+      integer :: p, ii, n_r, lm, l, m, n_f
+
+      !$omp barrier
+      !$omp parallel default(shared) private(p,ii,n_f,n_r,lm,l,m)
+      !$omp do collapse(3)
+      do n_f=1,this%n_fields
+         do n_r=nRstart,nRstop
+            do lm=1,lm_max
+               l = lo_map%lm2l(lm)
+               m = lo_map%lm2m(lm)
+               temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
+            end do
+         end do
+      end do
+      !$omp end do
+
+      !$omp do
+      do p = 0, n_procs-1
+         ii = this%sdisp(p)+1
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
+                  sbuff(ii)=temp_Rloc(lm,n_r,n_f)
+                  ii = ii +1
+               end do
+            end do
+         end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+
+
+#elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
       !$omp barrier
@@ -349,6 +385,7 @@ contains
          end do
       end do
       !$omp end parallel do
+#endif
 
 #ifdef WITH_MPI
       call MPI_Alltoallv(sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
