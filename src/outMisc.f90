@@ -254,6 +254,39 @@ contains
      real(cp), intent(in) :: timeScaled
      real(cp), intent(in) :: magHelLMr(l_max+1,nRstart:nRstop)
 
+     !-- Local variables
+     integer  :: n_r
+     integer  :: nTheta,nThetaStart,nThetaBlock,nThetaNHS,n
+     real(cp) :: magHelR(nRstart:nRstop)
+     real(cp) :: magHelR_global(n_r_max)
+     real(cp) :: maghel(nfs)
+
+     do n_r=nRstart,nRstop
+         magHelR(n_r)=0.0_cp
+#ifdef WITH_SHTNS
+         call axi_to_spat(magHelLMr(:,n_r), maghel)
+#endif
+
+         do n=1,nThetaBs ! Loop over theta blocks
+            nTheta=(n-1)*sizeThetaB
+            nThetaStart=nTheta+1
+#ifndef WITH_SHTNS
+            call lmAS2pt(magHelLMr(:,n_r),maghel,nThetaStart,sizeThetaB)
+#endif
+            do nThetaBlock=1,sizeThetaB
+               nTheta=nTheta+1
+               nThetaNHS=(nTheta+1)/2
+
+               !-- Integration over theta
+               magHelR(n_r)=magHelR(n_r)+gauss(nThetaNHS)*maghel(nThetaBlock) ! facteur r2 ?
+            end do
+         end do
+     end do
+
+     !-- Gather on rank 0
+     call gather_from_Rloc(magHelR, magHelR_global, 0)
+
+
      if ( l_save_out ) then
         open(newunit=n_magHel_file, file=magHel_file,   &
              &    status='unknown', position='append')
