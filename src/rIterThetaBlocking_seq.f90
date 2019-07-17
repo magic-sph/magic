@@ -89,6 +89,7 @@ contains
               &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
               &           lorentz_torque_ic, lorentz_torque_ma,         &
               &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
+              &           magHelLMr,                                    &
               &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
               &           fviscLMr,fpoynLMr,fresLMr,EperpLMr,EparLMr,   &
               &           EperpaxiLMr,EparaxiLmr)
@@ -112,6 +113,7 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
       real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
       real(cp),    intent(out) :: viscLMr(:)
+      real(cp),    intent(out) :: magHelLMr(:)
       real(cp),    intent(out) :: uhLMr(:),duhLMr(:),gradsLMr(:)
       real(cp),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)

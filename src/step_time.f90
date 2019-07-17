@@ -29,7 +29,7 @@ module step_time_mod
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
        &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
        &            l_double_curl, l_PressGraph, l_probe, l_AB1,       &
-       &            l_finite_diff
+       &            l_finite_diff, l_mag_hel
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use blocking, only: llm, ulm, llmMag, ulmMag
@@ -301,6 +301,7 @@ contains
       logical :: l_cmb            ! Store set of b at CMB
       logical :: l_r              ! Store coeff at various depths
       logical :: lHelCalc         ! Calculate helicity for output
+      logical :: lMagHelCalc      ! Calculate magnetic helicity for output
       logical :: lPowerCalc       ! Calculate viscous heating in the physical space
       logical :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
       logical :: lFluxProfCalc    ! Calculate radial flux components
@@ -348,6 +349,7 @@ contains
       real(cp) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: viscLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: magHelLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
@@ -632,6 +634,8 @@ contains
 
          lHelCalc=l_hel.and.l_log
 
+         lMagHelCalc = l_mag_hel .and. l_log
+
          lPowerCalc=l_power.and.l_log
 
          lperpParCalc=l_perpPar.and.l_log
@@ -691,7 +695,7 @@ contains
 
          call rLoop_counter%start_count()
          call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
-              &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
+              &           lTOCalc,lTONext,lTONext2,lHelCalc,lMagHelCalc,       &
               &           lPowerCalc,lRmsCalc,lPressCalc,                      &
               &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,  &
               &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
@@ -700,7 +704,8 @@ contains
               &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
               &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,  &
               &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,           &
-              &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,   &
+              &           viscLMr_Rloc, magHelLMr_Rloc,                        & 
+              &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,                &
               &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,            &
               &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,            &
               &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
