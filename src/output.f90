@@ -317,7 +317,8 @@ contains
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
-              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,     &
+              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,magHelLMr, &
+              &      uhLMr,                                               &
               &      duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
               &      fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
       !
@@ -371,6 +372,7 @@ contains
       real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: viscLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: magHelLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
@@ -576,7 +578,7 @@ contains
          end if
 
          if ( l_mag_hel ) then
-            call outMagneticHelicity(timeScaled)
+            call outMagneticHelicity(timeScaled,magHelLMr)
          end if
 
          if ( l_par ) then

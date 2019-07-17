@@ -248,11 +248,11 @@ contains
 
    end subroutine outHelicity
 !---------------------------------------------------------------------------
-   subroutine outMagneticHelicity(timeScaled)
+   subroutine outMagneticHelicity(timeScaled,magHelLMr)
+
      !-- Input of variables:
      real(cp), intent(in) :: timeScaled
-
-     ! 'work in progress'
+     real(cp), intent(in) :: magHelLMr(l_max+1,nRstart:nRstop)
 
      if ( l_save_out ) then
         open(newunit=n_magHel_file, file=magHel_file,   &
