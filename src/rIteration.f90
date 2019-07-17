@@ -6,28 +6,28 @@ module rIteration_mod
    implicit none
 
    private
- 
+
    type, abstract, public :: rIteration_t
       integer :: nR,nBc
       logical :: lTOCalc,lTOnext,lTOnext2
-      logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
+      logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc, lMagHelCalc
       logical :: lPowerCalc, l_probe_out
       logical :: l_graph,lPerpParCalc,lViscBcCalc,lFluxProfCalc,lPressCalc
       logical :: isRadialBoundaryPoint, lPressNext
       real(cp) :: dtrkc,dthkc
- 
+
    contains
- 
+
       procedure(empty_if), deferred :: initialize
       procedure(empty_if), deferred :: finalize
       procedure :: set_steering_variables
       procedure(do_iteration_if), deferred :: do_iteration
       procedure(getType_if), deferred :: getType
- 
+
    end type rIteration_t
- 
-   interface 
- 
+
+   interface
+
       subroutine empty_if(this)
          import
          class(rIteration_t) :: this
@@ -39,18 +39,19 @@ module rIteration_mod
                  &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,   &
                  &               br_vp_lm_icb,lorentz_torque_ic,           &
                  &               lorentz_torque_ma,HelLMr,Hel2LMr,         &
-                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,  &
+                 &               HelnaLMr,Helna2LMr,viscLMr,               &
+                 &               magHelLMr,uhLMr,duhLMr,                   &
                  &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,       &
                  &               fpoynLMr,fresLMr,EperpLMr,EparLMr,        &
                  &               EperpaxiLMr,EparaxiLMr)
          import
          class(rIteration_t) :: this
- 
+
          !-- Input variables
          integer,             intent(in) :: nR,nBc
          class(type_tscheme), intent(in) :: tscheme
          real(cp),            intent(in) :: time,timeStage,dtLast
-     
+
          !-- Output variables
          complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)
          complex(cp), intent(out) :: dbdt(:), djdt(:), dVxVhLM(:), dVxBhLM(:)
@@ -65,12 +66,13 @@ module rIteration_mod
          real(cp),    intent(out) :: HelLMr(:), Hel2LMr(:)
          real(cp),    intent(out) :: HelnaLMr(:), Helna2LMr(:)
          real(cp),    intent(out) :: viscLMr(:)
+         real(cp),    intent(out) :: magHelLMr(:)
          real(cp),    intent(out) :: uhLMr(:), duhLMr(:), gradsLMr(:)
          real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
          real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
          real(cp),    intent(out) :: EperpLMr(:), EparLMr(:)
          real(cp),    intent(out) :: EperpaxiLMr(:), EparaxiLMr(:)
- 
+
       end subroutine do_iteration_if
    !-----------------------------------------------------------------------------
       function getType_if(this)
@@ -83,15 +85,17 @@ module rIteration_mod
 
 contains
 
-   subroutine set_steering_variables(this,lTOCalc,lTOnext,lTOnext2,        &
-              &                      lDeriv,lRmsCalc,lHelCalc,lPowerCalc,  &
-              &                      l_frame,lMagNlBc,l_graph,lViscBcCalc, &
-              &                      lFluxProfCalc,lPerpParCalc,lPressCalc,&
-              &                      lPressNext,l_probe_out)
+subroutine set_steering_variables(this,lTOCalc,lTOnext,lTOnext2,        &
+              &                   lDeriv,lRmsCalc,lHelCalc,             &
+              &                   lMagHelCalc,lPowerCalc,               &
+              &                   l_frame,lMagNlBc,l_graph,lViscBcCalc, &
+              &                   lFluxProfCalc,lPerpParCalc,lPressCalc,&
+              &                   lPressNext,l_probe_out)
 
       class(rIteration_t) :: this
       logical, intent(in) :: lDeriv, lRmsCalc
       logical, intent(in) :: lHelCalc, lPowerCalc, l_frame, l_probe_out
+      logical, intent(in) :: lMagHelCalc
       logical, intent(in) :: lTOCalc, lTOnext, lTOnext2, lMagNlBc, l_graph
       logical, intent(in) :: lViscBcCalc, lFluxProfCalc, lPerpParCalc
       logical, intent(in) :: lPressCalc, lPressNext
@@ -102,6 +106,7 @@ contains
       this%lDeriv = lDeriv
       this%lRmsCalc = lRmsCalc
       this%lHelCalc = lHelCalc
+      this%lMagHelCalc = lMagHelCalc
       this%lPowerCalc = lPowerCalc
       this%l_frame = l_frame
       this%lMagNlBc = lMagNlBc
