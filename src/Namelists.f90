@@ -125,7 +125,8 @@ contains
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS
+      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS, &
+      &    l_mag_hel
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -1081,6 +1082,7 @@ contains
       write(n_out,'(''  l_earth_likeness='',l3,'','')') l_earth_likeness
       write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
+      write(n_out,'(''  l_mag_hel       ='',l3,'','')') l_mag_hel
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
@@ -1549,6 +1551,7 @@ contains
 
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
+      l_mag_hel     =.false. ! Magnetic helicity
       l_AM          =.false. ! Angular moment in AM.TAG
       l_power       =.false. ! power budget in power.TAG and dtE.TAG
       l_viscBcCalc  =.false. ! dissipation layer for stress-free BCs
