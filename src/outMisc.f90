@@ -260,6 +260,7 @@ contains
      real(cp) :: magHelR(nRstart:nRstop)
      real(cp) :: magHelR_global(n_r_max)
      real(cp) :: maghel(nfs)
+     real(cp) :: mag_Hel
 
      do n_r=nRstart,nRstop
          magHelR(n_r)=0.0_cp
@@ -286,16 +287,22 @@ contains
      !-- Gather on rank 0
      call gather_from_Rloc(magHelR, magHelR_global, 0)
 
+      if ( rank == 0 ) then
+         !------ Integration over r:
+         mag_Hel = rInt_R(magHelR_global,r,rscheme_oc)
 
-     if ( l_save_out ) then
-        open(newunit=n_magHel_file, file=magHel_file,   &
-             &    status='unknown', position='append')
-     end if
+         mag_Hel = two*pi*mag_Hel/vol_oc
 
-     write(n_magHel_file,'(1P,ES20.12,1ES16.8)')   &
-          &     timeScaled, 0.0
+         if ( l_save_out ) then
+            open(newunit=n_magHel_file, file=magHel_file,   &
+                 &    status='unknown', position='append')
+         end if
 
-     if ( l_save_out ) close(n_magHel_file)
+         write(n_magHel_file,'(1P,ES20.12,1ES16.8)')   &
+              &     timeScaled, mag_Hel
+
+         if ( l_save_out ) close(n_magHel_file)
+      end if
 
    end subroutine outMagneticHelicity
 !---------------------------------------------------------------------------
