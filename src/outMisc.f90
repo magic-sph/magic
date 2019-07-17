@@ -19,7 +19,8 @@ module outMisc_mod
    use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
-       &            l_temperature_diff, l_chemical_conv, l_TP_form
+       &            l_temperature_diff, l_chemical_conv, l_TP_form,&
+       &            l_mag_hel
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -37,10 +38,11 @@ module outMisc_mod
    private
 
    real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:), XiMeanR(:)
-   integer :: n_heat_file, n_helicity_file
-   character(len=72) :: heat_file, helicity_file
+   integer :: n_heat_file, n_helicity_file, n_magHel_file
+   character(len=72) :: heat_file, helicity_file, magHel_file
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod
+   public :: outMagneticHelicity
 
 contains
 
@@ -60,12 +62,16 @@ contains
 
       helicity_file='helicity.'//tag
       heat_file    ='heat.'//tag
+      magHel_file  ='helicity_mag.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) then
             open(newunit=n_helicity_file, file=helicity_file, status='new')
          end if
          if ( l_heat .or. l_chemical_conv ) then
             open(newunit=n_heat_file, file=heat_file, status='new')
+         end if
+         if (l_mag_hel) then
+            open(newunit=n_magHel_file, file=magHel_file, status='new')
          end if
       end if
 
@@ -79,6 +85,7 @@ contains
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
+         if ( l_mag_hel ) close(n_magHel_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
       end if
 
@@ -239,6 +246,24 @@ contains
       end if
 
    end subroutine outHelicity
+!---------------------------------------------------------------------------
+   subroutine outMagneticHelicity(timeScaled)
+     !-- Input of variables:
+     real(cp), intent(in) :: timeScaled
+
+     ! 'work in progress'
+
+     if ( l_save_out ) then
+        open(newunit=n_magHel_file, file=magHel_file,   &
+             &    status='unknown', position='append')
+     end if
+
+     write(n_magHel_file,'(1P,ES20.12,1ES16.8)')   &
+          &     timeScaled, 0.0
+
+     if ( l_save_out ) close(n_magHel_file)
+
+   end subroutine outMagneticHelicity
 !---------------------------------------------------------------------------
    subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,dp,xi,dxi)
       !
