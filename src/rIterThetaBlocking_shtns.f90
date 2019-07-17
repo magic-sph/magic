@@ -273,9 +273,11 @@ contains
       end if
 
       if ( this%lMagHelCalc ) then
+         call logWrite('call get_mag_hel')
          call get_magnetic_helicity(this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
               &                     this%gsa%arc, this%gsa%atc, this%gsa%apc, &
               &                     magHelLMr, this%nR,1 )
+         call logWrite('call get_mag_hel done')
       end if
 
 

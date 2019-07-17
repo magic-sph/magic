@@ -19,13 +19,14 @@ module nl_special_calc
 #else
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
 #endif
+   use useful, only: logWrite
 
    implicit none
 
    private
 
    public :: get_nlBLayers, get_perpPar, get_fluxes, get_helicity, &
-        &    get_visc_heat
+        &    get_visc_heat, get_magnetic_helicity
 
 contains
 
@@ -504,6 +505,69 @@ contains
 #endif
 
    end subroutine get_helicity
+!------------------------------------------------------------------------------
+   subroutine get_magnetic_helicity(br,bt,bp,ar,at,ap,magHelLMr,nR,nThetaStart)
+
+     !-- Input of variables
+     integer,  intent(in) :: nR
+     integer,  intent(in) :: nThetaStart
+
+     real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
+     real(cp), intent(in) :: ar(nrp,nfs),at(nrp,nfs),ap(nrp,nfs)
+
+     !-- Output variables:
+     real(cp), intent(out) :: magHelLMr(l_max+1)
+
+     !-- Local variables:
+     integer :: l
+     integer :: nTheta,nThetaB,nPhi, nThetaNHS
+     real(cp) :: mhelAS(nfs), mhel, phiNorm
+
+     phiNorm=two*pi/real(n_phi_max,cp)
+
+     !-- Zero lm coeffs for first theta block ## CHECK
+     ! if ( nThetaStart == 1 ) then
+     !    do l=1,l_max+1
+     !       magHelLMr(l) =0.0_cp
+     !    end do
+     ! end if
+
+
+     call logWrite('toto1')
+
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                     &
+      !$OMP& private(nThetaB, nTheta, nPhi)                 &
+      !$OMP& private(mhel)
+#endif
+      do nThetaB=1,sizeThetaB
+         nTheta=nThetaStart+nThetaB-1
+         nThetaNHS=(nTheta+1)/2
+
+         mhel=0.0_cp
+         do nPhi=1,n_phi_max
+            mhel = or4(nR)*br(nPhi,nThetaB)*ar(nPhi,nThetaB) + &
+                 &            or2(nR)*O_sin_theta_E2(nTheta)*( &
+                 &         bt(nPhi,nThetaB)*at(nPhi,nThetaB) + &
+                 &         bp(nPhi,nThetaB)*ap(nPhi,nThetaB) )
+
+            mhelAS(nThetaB) = mhelAS(nThetaB) + mhel
+         end do
+         mhelAS(nThetaB) = phiNorm * mhelAS(nThetaB)
+      end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
+
+      call logWrite('mh: grid to spec')
+#ifdef WITH_SHTNS
+      call spat_to_SH_axi(mhelAS,magHelLMr)
+      call logWrite('mh: grid to spec done')
+#else
+      call legTFAS(magHelLMr,mhelAS,l_max+1,nThetaStart,sizeThetaB)
+#endif
+
+   end subroutine get_magnetic_helicity
 !------------------------------------------------------------------------------
    subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
               &             dvtdp,dvpdr,dvpdp,viscLMr,nR,nThetaStart)
