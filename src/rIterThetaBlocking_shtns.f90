@@ -16,7 +16,7 @@ module rIterThetaBlocking_shtns_mod
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
        &            l_TO, l_chemical_conv, l_TP_form, l_probe,       &
-       &            l_precession, l_centrifuge, l_adv_curl
+       &            l_precession, l_centrifuge, l_adv_curl, l_mag_hel
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -44,7 +44,7 @@ module rIterThetaBlocking_shtns_mod
        &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
-
+   use useful, only: logWrite
    implicit none
 
    private
@@ -106,6 +106,7 @@ contains
               &           br_vt_lm_icb,br_vp_lm_icb,                       &
               &           lorentz_torque_ic, lorentz_torque_ma,            &
               &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
+              &           magHelLMr,                                       &
               &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
               &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
               &           EparaxiLMr)
@@ -126,6 +127,7 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ma, lorentz_torque_ic
       real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
       real(cp),    intent(out) :: viscLMr(:)
+      real(cp),    intent(out) :: magHelLMr(:)
       real(cp),    intent(out) :: uhLMr(:), duhLMr(:) ,gradsLMr(:)
       real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
       real(cp),    intent(out) :: fpoynLMr(:), fresLMr(:)
@@ -173,6 +175,7 @@ contains
       HelnaLMr   =0.0_cp
       Helna2LMr  =0.0_cp
       viscLMr    =0.0_cp
+      magHelLMr  =0.0_cp
       uhLMr      =0.0_cp
       duhLMr     =0.0_cp
       gradsLMr   =0.0_cp
@@ -282,6 +285,13 @@ contains
               &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
               &            HelnaLMr,Helna2LMr,this%nR,1 )
       end if
+
+      if ( this%lMagHelCalc ) then
+         call get_magnetic_helicity(this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
+              &                     this%gsa%arc, this%gsa%atc, this%gsa%apc, &
+              &                     magHelLMr, this%nR,1 )
+      end if
+
 
       !-- Viscous heating:
       if ( this%lPowerCalc ) then
@@ -528,6 +538,15 @@ contains
             call torpol_to_curl_spat(or2(nR), b_Rloc(:,nR), ddb_Rloc(:,nR), &
                  &                   aj_Rloc(:,nR), dj_Rloc(:,nR),          &
                  &                   gsa%cbrc, gsa%cbtc, gsa%cbpc)
+         end if
+
+         if (this%lMagHelCalc) then
+            call logWrite('trick magnetic helicity')
+            !! replace (poloidal => 0, toroidal => poloidal)
+            call torpol_to_spat(zero*b_Rloc(:,nR), zero*db_Rloc(:,nR),  b_Rloc(:,nR),    &
+                 &              gsa%arc, gsa%atc, gsa%apc)
+            !! radial component of potential vector A == B_toroidal
+            call scal_to_spat(aj_Rloc(:,nR), gsa%arc)
          end if
       end if
 

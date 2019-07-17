@@ -28,7 +28,7 @@ module grid_space_arrays_mod
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_diff_prec, l_centrifuge, l_adv_curl
+       &            l_diff_prec, l_centrifuge, l_adv_curl, l_mag_hel
 
    implicit none
 
@@ -61,6 +61,7 @@ module grid_space_arrays_mod
       real(cp), pointer :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
       real(cp), pointer :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
       real(cp), pointer :: dsdtc(:,:), dsdpc(:,:)
+      real(cp), pointer :: arc(:,:), atc(:,:), apc(:,:)
 
    contains
 
@@ -125,6 +126,11 @@ contains
       allocate( this%dsdtc(nrp,nfs),this%dsdpc(nrp,nfs) )
       bytes_allocated=bytes_allocated + 22*nrp*nfs*SIZEOF_DEF_REAL
 
+      if ( l_mag_hel) then
+         allocate( this%arc(nrp,nfs),this%atc(nrp,nfs),this%apc(nrp,nfs) )
+         bytes_allocated=bytes_allocated+3*nrp*nfs*SIZEOF_DEF_REAL
+      end if
+
       if ( l_chemical_conv ) then
          allocate( this%xic(nrp,nfs) )
          bytes_allocated=bytes_allocated + nrp*nfs*SIZEOF_DEF_REAL
@@ -174,6 +180,7 @@ contains
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
+      if ( l_mag_hel ) deallocate ( this%arc, this%atc, this%apc )
       deallocate( this%ViscHeat, this%OhmLoss )
 
       !----- Fields calculated from these help arrays by legtf:
