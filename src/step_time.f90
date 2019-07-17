@@ -790,7 +790,8 @@ contains
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
               &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-              &      viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
+              &      viscLMr_Rloc,magHelLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,   &
+              &      gradsLMr_Rloc,                                        &
               &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
               &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
               &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
