@@ -532,9 +532,6 @@ contains
      !    end do
      ! end if
 
-
-     call logWrite('toto1')
-
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
