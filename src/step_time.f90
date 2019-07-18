@@ -616,7 +616,8 @@ contains
             lTOZwrite=.false.
          end if
 
-         lRmsCalc=l_RMS .and. l_log .and. (n_time_step > 1)
+         lRmsCalc=(l_RMS .and. l_log .and. (n_time_step > 1)) .or. &
+         &        (l_RMS .and. l_stop_time)
          if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
          lRmsNext=l_RMS .and. l_logNext ! Used for storing in update routines !
 
