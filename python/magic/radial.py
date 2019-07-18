@@ -471,15 +471,15 @@ class MagicRadial(MagicSetup):
         elif self.name == 'parR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.rm, marker='|')
+            ax.plot(x_axis, self.rm)
             ax.set_xlim(x_axis.min(), x_axis.max())
             ax.set_xlabel('Radius')
             ax.set_ylabel('Rm')
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.rol, label='Rol',marker='+')
-            ax.plot(x_axis, self.urol, label='u Rol',marker='+')
+            ax.plot(x_axis, self.rol, label='Rol')
+            ax.plot(x_axis, self.urol, label='u Rol')
             ax.set_xlabel('Radius')
             ax.set_ylabel('Rol')
             ax.set_xlim(x_axis.min(), x_axis.max())

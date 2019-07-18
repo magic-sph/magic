@@ -427,7 +427,7 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
-                    label='ekin pol',marker='+')
+                    label='ekin pol')
             ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
                     label='ekin tor')
             ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
