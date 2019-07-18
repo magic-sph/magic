@@ -44,7 +44,7 @@ module rIterThetaBlocking_shtns_mod
        &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
-   use useful, only: logWrite
+
    implicit none
 
    private
@@ -287,11 +287,9 @@ contains
       end if
 
       if ( this%lMagHelCalc ) then
-         call logWrite('call get_mag_hel')
          call get_magnetic_helicity(this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
               &                     this%gsa%arc, this%gsa%atc, this%gsa%apc, &
               &                     magHelLMr, this%nR,1 )
-         call logWrite('call get_mag_hel done')
       end if
 
 
@@ -543,7 +541,6 @@ contains
          end if
 
          if (this%lMagHelCalc) then
-            call logWrite('trick magnetic helicity')
             !! replace (poloidal => 0, toroidal => poloidal)
             call torpol_to_spat(zero*b_Rloc(:,nR), zero*db_Rloc(:,nR),  b_Rloc(:,nR),    &
                  &              gsa%arc, gsa%atc, gsa%apc)
