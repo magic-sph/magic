@@ -541,13 +541,12 @@ contains
          nTheta=nThetaStart+nThetaB-1
          nThetaNHS=(nTheta+1)/2
 
-         mhel=0.0_cp
+         mhelAS(nThetaB)=0.0_cp
          do nPhi=1,n_phi_max
             mhel = or4(nR)*br(nPhi,nThetaB)*ar(nPhi,nThetaB) + &
                  &            or2(nR)*O_sin_theta_E2(nTheta)*( &
                  &         bt(nPhi,nThetaB)*at(nPhi,nThetaB) + &
                  &         bp(nPhi,nThetaB)*ap(nPhi,nThetaB) )
-
             mhelAS(nThetaB) = mhelAS(nThetaB) + mhel
          end do
          mhelAS(nThetaB) = phiNorm * mhelAS(nThetaB)
@@ -555,7 +554,6 @@ contains
 #ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
 #endif
-
       call logWrite('mh: grid to spec')
 #ifdef WITH_SHTNS
       call spat_to_SH_axi(mhelAS,magHelLMr)
