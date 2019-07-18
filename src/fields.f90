@@ -4,10 +4,11 @@ module fields
    !  derivatives
    !
    use precision_mod
+   use constants, only: zero
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag
-   use logic, only: l_chemical_conv
+   use logic, only: l_chemical_conv, l_mag_hel
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop
    use parallel_mod, only: rank
@@ -69,6 +70,8 @@ module fields
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
 
    complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
+
+   complex(cp), public, allocatable :: zeros_alike_b_Rloc(:) ! trick magnetic helicity
 
    !-- Rotation rates:
    real(cp), public :: omega_ic,omega_ma
@@ -176,11 +179,18 @@ contains
       aj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,4)
       dj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,5)
 
-
       bytes_allocated = bytes_allocated + &
       &                 6*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
       bytes_allocated = bytes_allocated + &
       &                 5*lm_maxMag*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
+      if (l_mag_hel) then
+         allocate(zeros_alike_b_Rloc(1:lm_maxMag))
+         bytes_allocated = bytes_allocated+lm_maxMag*SIZEOF_DEF_COMPLEX
+
+         zeros_alike_b_Rloc(:) = zero
+      end if
+
 
       !-- Magnetic field potentials in inner core:
       !   NOTE: n_r-dimension may be smaller once CHEBFT is adopted
@@ -211,6 +221,8 @@ contains
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
       deallocate( xi_LMloc_container, xi_Rloc_container )
       deallocate( work_LMloc )
+
+      if (l_mag_hel) deallocate(zeros_alike_b_Rloc)
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------

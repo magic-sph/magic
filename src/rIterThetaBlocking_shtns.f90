@@ -41,7 +41,7 @@ module rIterThetaBlocking_shtns_mod
    use horizontal_data
    use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
-       &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc
+       &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc, zeros_alike_b_Rloc
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
 
@@ -542,7 +542,7 @@ contains
 
          if (this%lMagHelCalc) then
             !! replace (poloidal => 0, toroidal => poloidal)
-            call torpol_to_spat(zero*b_Rloc(:,nR), zero*db_Rloc(:,nR),  b_Rloc(:,nR),    &
+            call torpol_to_spat(zeros_alike_b_Rloc, zeros_alike_b_Rloc,  b_Rloc(:,nR),    &
                  &              gsa%arc, gsa%atc, gsa%apc)
             !! radial component of potential vector A == B_toroidal
             call scal_to_spat(aj_Rloc(:,nR), gsa%arc)
