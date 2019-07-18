@@ -1058,7 +1058,6 @@ contains
          do nThetaB=1,sizeThetaB ! loop over theta points in block
             nTheta   =nTheta+1
             snt=sinTheta(nTheta)
-            snt=sinTheta(nTheta)
             do nPhi=1,n_phi_max
                this%dtVr(nPhi,nThetaB)=O_dt*or2(nR)*(this%vrc(nPhi,nThetaB)- &
                &                             vr_old(nPhi,nTheta,nR))
