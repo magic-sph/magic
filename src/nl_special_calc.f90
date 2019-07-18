@@ -19,7 +19,6 @@ module nl_special_calc
 #else
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
 #endif
-   use useful, only: logWrite
 
    implicit none
 
@@ -554,10 +553,9 @@ contains
 #ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
 #endif
-      call logWrite('mh: grid to spec')
+
 #ifdef WITH_SHTNS
       call spat_to_SH_axi(mhelAS,magHelLMr)
-      call logWrite('mh: grid to spec done')
 #else
       call legTFAS(magHelLMr,mhelAS,l_max+1,nThetaStart,sizeThetaB)
 #endif
