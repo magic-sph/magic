@@ -594,6 +594,7 @@ contains
          l_mag_nl =.false.
          l_cond_ic=.false.
          lMagMem  =0
+         l_mag_hel = .false.
       end if
 
       if ( l_corrMov ) l_par= .true.
