@@ -526,6 +526,12 @@ contains
       !-- If anelastic, the curl formulation is set to .false.
       if ( l_anel ) l_adv_curl=.false.
 
+#ifndef WITH_SHTNS
+      if ( l_mag_hel) then
+         call abortRun('! magnetic helicity not implemented with native transforms! Rerun with SHTns')
+      end if
+#endif
+
       if ( prmag == 0.0_cp ) then
          l_mag   =.false.
          l_mag_nl=.false.
