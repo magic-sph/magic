@@ -698,7 +698,7 @@ contains
             close(fileHandle)
          end if
 
-         if ( l_2D_RMS ) then
+         if ( l_2D_RMS .and. l_stop_time ) then
             fileName='2D_dtVrms_spec.'//tag
             open(newunit=fileHandle,file=fileName,form='unformatted', &
             &    status='unknown')
