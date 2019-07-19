@@ -278,7 +278,8 @@ contains
                nThetaNHS=(nTheta+1)/2
 
                !-- Integration over theta
-               magHelR(n_r)=magHelR(n_r)+gauss(nThetaNHS)*maghel(nThetaBlock) ! facteur r2 ?
+               !-- r2 factor taken into account in mhel calculation
+               magHelR(n_r)=magHelR(n_r)+gauss(nThetaNHS)*maghel(nThetaBlock)
             end do
          end do
      end do
@@ -289,8 +290,7 @@ contains
       if ( rank == 0 ) then
          !------ Integration over r:
          mag_Hel = rInt_R(magHelR_global,r,rscheme_oc)
-
-         mag_Hel = two*pi*mag_Hel ! CHECK
+         ! mag_Hel = two*pi*mag_Hel  !! CHECK
 
          if ( l_save_out ) then
             open(newunit=n_magHel_file, file=magHel_file,   &

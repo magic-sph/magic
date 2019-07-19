@@ -541,10 +541,13 @@ contains
 
          mhelAS(nThetaB)=0.0_cp
          do nPhi=1,n_phi_max
-            mhel = or2(nR)*br(nPhi,nThetaB)*ar(nPhi,nThetaB) + &
-                 &            or2(nR)*O_sin_theta_E2(nTheta)*( &
-                 &         bt(nPhi,nThetaB)*at(nPhi,nThetaB) + &
-                 &         bp(nPhi,nThetaB)*ap(nPhi,nThetaB) )
+            !-- expression of r2 * <B,A>
+            !-- br = r2 B_r ; (bt,bp) = r sin_theta (B_theta,B_phi)
+            !-- ar = A_r    ; (at,ap) = r sin_theta (A_theta,A_phi)
+            mhel =  br(nPhi,nThetaB)*ar(nPhi,nThetaB) +     &
+                 &  O_sin_theta_E2(nTheta)*(                &
+                 &    bt(nPhi,nThetaB)*at(nPhi,nThetaB) +   &
+                 &    bp(nPhi,nThetaB)*ap(nPhi,nThetaB) )
             mhelAS(nThetaB) = mhelAS(nThetaB) + mhel
          end do
          mhelAS(nThetaB) = phiNorm * mhelAS(nThetaB)
