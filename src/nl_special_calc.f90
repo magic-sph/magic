@@ -541,7 +541,7 @@ contains
 
          mhelAS(nThetaB)=0.0_cp
          do nPhi=1,n_phi_max
-            mhel = or4(nR)*br(nPhi,nThetaB)*ar(nPhi,nThetaB) + &
+            mhel = or2(nR)*br(nPhi,nThetaB)*ar(nPhi,nThetaB) + &
                  &            or2(nR)*O_sin_theta_E2(nTheta)*( &
                  &         bt(nPhi,nThetaB)*at(nPhi,nThetaB) + &
                  &         bp(nPhi,nThetaB)*ap(nPhi,nThetaB) )
