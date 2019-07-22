@@ -15,7 +15,7 @@ module outMisc_mod
        &                       otemp1, ogrun, rscheme_oc
    use physical_parameters, only: ViscHeatFac, ThExpNb, oek, GrunNb
    use num_param, only: lScale
-   use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
+   use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm, lo_map
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
