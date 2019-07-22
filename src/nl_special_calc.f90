@@ -425,13 +425,13 @@ contains
       !--- Helicity:
       nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP& private(nThetaB, nTheta, nPhi) &
-      !$OMP& private(vras, cvras, vtas, vpas) &
-      !$OMP& private(dvrdpas, dvpdras, dvtdras, dvrdtas) &
-      !$OMP& private(vrna, cvrna, vtna) &
-      !$OMP& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna, Hel, Helna) &
-      !$OMP& private(Hel2AS, HelAS, dvtdr, vpna, or2, HelnaAS, Helna2AS)
+      !$OMP PARALLEL DO default(shared)                     &
+      !$OMP& private(nThetaB, nTheta, nPhi)                 &
+      !$OMP& private(Hel, Helna)                            &
+      !$OMP& private(vras, cvras, vtas, vpas)               &
+      !$OMP& private(vrna, cvrna, vtna, vpna)               &
+      !$OMP& private(dvrdpas, dvpdras, dvtdras, dvrdtas)    &
+      !$OMP& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)
 #endif
       do nThetaB=1,sizeThetaB
          nTheta=nThetaStart+nThetaB-1
