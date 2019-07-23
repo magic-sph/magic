@@ -148,7 +148,7 @@ contains
       !$OMP PARALLEL DO default(shared)                 &
       !$OMP& private(nThetaB, nTheta, nPhi)             &
       !$OMP& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
-      !$OMP& private(vras, vtas, vpas)
+      !$OMP& private(vras, vtas, vpas, nThetaNHS)
 #endif
       do nThetaB=1,sizeThetaB
          nTheta=nThetaStart+nThetaB-1
@@ -272,7 +272,7 @@ contains
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)         &
       !$OMP& private(nThetaB, nTheta, nPhi)     &
-      !$OMP& private(fkin, fconv, fvisc)
+      !$OMP& private(fkin, fconv, fvisc, nThetaNHS)
 #endif
       do nThetaB=1,sizeThetaB
          nTheta=nThetaStart+nThetaB-1
@@ -331,7 +331,7 @@ contains
 #ifdef WITH_SHTNS
          !$OMP PARALLEL DO default(shared)         &
          !$OMP& private(nThetaB, nTheta, nPhi)     &
-         !$OMP& private(fkin, fconv, fvisc)
+         !$OMP& private(fkin, fconv, fvisc, nThetaNHS)
 #endif
          do nThetaB=1,sizeThetaB
             nTheta=nThetaStart+nThetaB-1
@@ -545,7 +545,7 @@ contains
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
-      !$OMP& private(vischeat)
+      !$OMP& private(vischeat, csn2, nThetaNHS)
 #endif
       do nThetaB=1,sizeThetaB
          nTheta=nThetaStart+nThetaB-1
