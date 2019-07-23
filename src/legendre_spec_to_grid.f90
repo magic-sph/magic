@@ -25,7 +25,7 @@ module legendre_spec_to_grid
 contains
 
    subroutine leg_polsphtor_to_spat(l_calc, nThetaStart, Qlm, bhG, bhC, brc, &
-              &                     btc, bpc)
+              &                     btc, bpc, n_thetas)
       !
       ! Take Q,S,T and transform them to vectors
       !
@@ -36,6 +36,7 @@ contains
       complex(cp), intent(in) :: Qlm(lm_max) ! Poloidal
       complex(cp), intent(in) :: bhG(lm_max)
       complex(cp), intent(in) :: bhC(lm_max)
+      integer, optional, intent(in) :: n_thetas
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
@@ -47,7 +48,7 @@ contains
     
       !-- Local variables:
       complex(cp) :: brES,brEA
-      integer :: nThetaN,nThetaS,nThetaNHS
+      integer :: nThetaN,nThetaS,nThetaNHS,sThetaB
       integer :: mc,lm,lmS
       real(cp) :: dm
     
@@ -55,9 +56,15 @@ contains
       complex(cp) :: bhS1M(n_m_max),bhS2M(n_m_max),bhS,bhS1,bhS2
     
       nThetaNHS=(nThetaStart-1)/2
+
+      if ( present(n_thetas) ) then
+         sThetaB = n_thetas
+      else
+         sThetaB = sizeThetaB
+      end if
     
       if ( l_calc ) then ! not a boundary or derivs required
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
+         do nThetaN=1,sThetaB,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
     
@@ -133,7 +140,7 @@ contains
     
          !-- Zero out terms with index mc > n_m_max:
          if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
+            do nThetaN=1,sThetaB
                do mc=2*n_m_max+1,nrp
                   brc(mc,nThetaN)   =0.0_cp
                   btc(mc,nThetaN)   =0.0_cp
@@ -146,7 +153,7 @@ contains
       else   ! boundary ?
     
          !-- Calculation for boundary r_cmb or r_icb:
-         do nThetaN=1,sizeThetaB,2
+         do nThetaN=1,sThetaB,2
             nThetaS=nThetaN+1
             nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
     
@@ -208,7 +215,7 @@ contains
     
          !-- Zero out terms with index mc > n_m_max :
          if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
+            do nThetaN=1,sThetaB
                do mc=2*n_m_max+1,nrp
                   brc(mc,nThetaN)=0.0_cp
                   btc(mc,nThetaN)=0.0_cp

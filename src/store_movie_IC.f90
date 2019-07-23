@@ -330,10 +330,10 @@ contains
 
 #ifndef WITH_SHTNS
                !------ Perform Legendre transform for 2 theta points
-               call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                    &                     BrB,BtB,BpB)
-               call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
-                    &                     cBrB,cBtB,cBpB)
+               call leg_polsphtor_to_spat(.true.,nTheta,dLhb,bhG,bhC, &
+                    &                     BrB,BtB,BpB,n_thetas=2)
+               call leg_polsphtor_to_spat(.true.,nTheta,dLhj,cbhG,cbhC,&
+                    &                     cBrB,cBtB,cBpB,n_thetas=2)
                if ( .not. l_axi ) then
                   call fft_thetab(BrB,1)
                   call fft_thetab(BtB,1)
