@@ -22,7 +22,7 @@ module fields_average_mod
 #else
    use horizontal_data, only: Plm, dPlm, dLh
    use fft, only: fft_thetab
-   use legendre_spec_to_grid, only: legTF
+   use legendre_spec_to_grid, only: leg_scal_to_spat, leg_polsphtor_to_spat
 #endif
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
@@ -494,29 +494,16 @@ contains
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
 
                   !-------- Transform to grid space:
-                  call legTF(dLhb,bhG,bhC,dLhw,vhG,vhC,                  &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.true.,.false.,                    &
-                       &     Br,Bt,Bp,Br,Br,Br)
-                  call legTF(dLhw,vhG,vhC,dLhw,vhG,vhC,                  &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.true.,.false.,                    &
-                       &     Vr,Vt,Vp,Br,Br,Br)
-                  call legTF(s_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.false.,.false.,                   &
-                       &     Sr,Vt,Vp,Br,Br,Br)
+                  call leg_polsphtor_to_spat(.true., nThetaStart, dLhb, bhG, bhC, &
+                       &                     Br, Bt, Bp)
+                  call leg_polsphtor_to_spat(.true., nThetaStart, dLhw, vhG, vhC, &
+                       &                     Vr, Vt, Vp)
+                  call leg_scal_to_spat(nThetaStart, s_ave_global, Sr)
                   if ( l_chemical_conv ) then
-                     call legTF(xi_ave_global,vhG,vhC,dLhw,vhG,vhC,      &
-                          &     l_max,minc,nThetaStart,sizeThetaB,       &
-                          &     Plm,dPlm,.false.,.false.,                &
-                          &     Xir,Vt,Vp,Br,Br,Br)
+                     call leg_scal_to_spat(nThetaStart, xi_ave_global, Xir)
                      if ( .not. l_axi ) call fft_thetab(Xir,1)
                   end if
-                  call legTF(p_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.false.,.false.,                   &
-                       &     Prer,Vt,Vp,Br,Br,Br)
+                  call leg_scal_to_spat(nThetaStart, p_ave_global, Prer)
                   if ( .not. l_axi ) then
                      call fft_thetab(Br,1)
                      call fft_thetab(Bp,1)

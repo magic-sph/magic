@@ -26,7 +26,7 @@ module graphOut_mod
 #else
    use fft
    use horizontal_data, only: dLh, Plm, dPlm
-   use legendre_spec_to_grid, only: legTF
+   use legendre_spec_to_grid, only: leg_polsphtor_to_spat
 #endif
    use leg_helper_mod, only: legPrep_IC
 
@@ -879,11 +879,10 @@ contains
 
 #ifndef WITH_SHTNS
             !------ Perform Legendre transform:
-            call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,nThetaStart, &
-                 &     sizeThetaB,Plm,dPlm,.true.,.false.,BrB,BtB,BpB,BrB, &
-                 &     BrB,BrB)
-
+            call leg_polsphtor_to_spat(.true., nThetaStart, dLhb, bhG, bhC, &
+                 &                     BrB, BtB, BpB)
             if ( .not. l_axi ) then
+               !-- Fourier transforms
                call fft_thetab(BrB,1)
                call fft_thetab(BtB,1)
                call fft_thetab(BpB,1)

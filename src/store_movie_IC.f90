@@ -21,7 +21,7 @@ module out_movie_IC
 #else
    use horizontal_data, only: dLh, Plm, dPlm
    use leg_helper_mod, only: legPrep_IC
-   use legendre_spec_to_grid, only: legTF
+   use legendre_spec_to_grid, only: leg_polsphtor_to_spat
    use fft, only: fft_thetab
 #endif
 
@@ -122,9 +122,10 @@ contains
 
 #ifndef WITH_SHTNS
                   !------ Perform Legendre transform:
-                  call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
-                       &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                       &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
+                       &                     BrB,BtB,BpB)
+                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
+                       &                     cBrB,cBtB,cBpB)
                   if ( .not. l_axi ) then
                      call fft_thetab(BrB,1)
                      call fft_thetab(BtB,1)
@@ -227,9 +228,8 @@ contains
 
 #ifndef WITH_SHTNS
                   !------ Perform Legendre transform:
-                  call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
-                       &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                       &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
+                       &                     BrB,BtB,BpB)
                   if ( .not. l_axi ) then
                      call fft_thetab(BrB,1)
                      call fft_thetab(BtB,1)
@@ -330,9 +330,10 @@ contains
 
 #ifndef WITH_SHTNS
                !------ Perform Legendre transform for 2 theta points
-               call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,  &
-                    &     nTheta,2,Plm,dPlm,.true.,.true.,BrB,BtB, &
-                    &     BpB,cBrB,cBtB,cBpB)
+               call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
+                    &                     BrB,BtB,BpB)
+               call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
+                    &                     cBrB,cBtB,cBpB)
                if ( .not. l_axi ) then
                   call fft_thetab(BrB,1)
                   call fft_thetab(BtB,1)
@@ -433,9 +434,10 @@ contains
                   else
 #ifndef WITH_SHTNS
                      !------ Perform Legendre transform:
-                     call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
-                          &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                          &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                     call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
+                          &                     BrB,BtB,BpB)
+                     call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
+                          &                     cBrB,cBtB,cBpB)
                      if ( .not. l_axi ) then
                         call fft_thetab(BrB,1)
                         call fft_thetab(BtB,1)
