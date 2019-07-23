@@ -677,58 +677,91 @@ contains
 
       if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 
-         !------ Get Advection:
-         nTheta=nThetaLast
-         do nThetaB=1,sizeThetaB ! loop over theta points in block
-            nTheta   =nTheta+1
-            nThetaNHS=(nTheta+1)/2
-            or4sn2   =or4(nR)*osn2(nThetaNHS)
-            csn2     =cosn2(nThetaNHS)
-            if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+         if ( l_adv_curl ) then ! Advection is u \omega
 
-            do nPhi=1,n_phi_max
-               this%Advr(nPhi,nThetaB)=          -or2(nR)*orho1(nR) * (  &
-               &                                this%vrc(nPhi,nThetaB) * &
-               &                     (       this%dvrdrc(nPhi,nThetaB) - &
-               &    ( two*or1(nR)+beta(nR) )*this%vrc(nPhi,nThetaB) ) +  &
-               &                               osn2(nThetaNHS) * (       &
-               &                                this%vtc(nPhi,nThetaB) * &
-               &                     (       this%dvrdtc(nPhi,nThetaB) - &
-               &                  r(nR)*      this%vtc(nPhi,nThetaB) ) + &
-               &                                this%vpc(nPhi,nThetaB) * &
-               &                     (       this%dvrdpc(nPhi,nThetaB) - &
-               &                    r(nR)*      this%vpc(nPhi,nThetaB) ) ) )
+            !------ Get Advection:
+            nTheta=nThetaLast
+            do nThetaB=1,sizeThetaB ! loop over theta points in block
+               nTheta   =nTheta+1
+               nThetaNHS=(nTheta+1)/2
+               or4sn2   =or4(nR)*osn2(nThetaNHS)
+               do nPhi=1,n_phi_max
+                  this%Advr(nPhi,nThetaB)=       - osn2(nThetaNHS) * (      &
+                  &        this%cvtc(nPhi,nThetaB)*this%vpc(nPhi,nThetaB) - &
+                  &        this%cvpc(nPhi,nThetaB)*this%vtc(nPhi,nThetaB) )
+
+                  this%Advt(nPhi,nThetaB)=        -        or4sn2 * (       &
+                  &        this%cvpc(nPhi,nThetaB)*this%vrc(nPhi,nThetaB) - &
+                  &        this%cvrc(nPhi,nThetaB)*this%vpc(nPhi,nThetaB) )
+
+                  this%Advp(nPhi,nThetaB)=        -        or4sn2 * (       &
+                  &        this%cvrc(nPhi,nThetaB)*this%vtc(nPhi,nThetaB) - &
+                  &        this%cvtc(nPhi,nThetaB)*this%vrc(nPhi,nThetaB) )
+               end do
+               this%Advr(n_phi_max+1,nThetaB)=0.0_cp
+               this%Advr(n_phi_max+2,nThetaB)=0.0_cp
+               this%Advt(n_phi_max+1,nThetaB)=0.0_cp
+               this%Advt(n_phi_max+2,nThetaB)=0.0_cp
+               this%Advp(n_phi_max+1,nThetaB)=0.0_cp
+               this%Advp(n_phi_max+2,nThetaB)=0.0_cp
             end do
-            this%Advr(n_phi_max+1,nThetaB)=0.0_cp
-            this%Advr(n_phi_max+2,nThetaB)=0.0_cp
-            do nPhi=1,n_phi_max
-               this%Advt(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
-               &                            -this%vrc(nPhi,nThetaB) * &
-               &                      (   this%dvtdrc(nPhi,nThetaB) - &
-               &                beta(nR)*this%vtc(nPhi,nThetaB) )   + &
-               &                             this%vtc(nPhi,nThetaB) * &
-               &                      ( csn2*this%vtc(nPhi,nThetaB) + &
-               &                          this%dvpdpc(nPhi,nThetaB) + &
-               &                      this%dvrdrc(nPhi,nThetaB) )   + &
-               &                             this%vpc(nPhi,nThetaB) * &
-               &                      ( csn2*this%vpc(nPhi,nThetaB) - &
-               &                          this%dvtdpc(nPhi,nThetaB) )  )
-            end do
-            this%Advt(n_phi_max+1,nThetaB)=0.0_cp
-            this%Advt(n_phi_max+2,nThetaB)=0.0_cp
-            do nPhi=1,n_phi_max
-               this%Advp(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
-               &                            -this%vrc(nPhi,nThetaB) * &
-               &                        ( this%dvpdrc(nPhi,nThetaB) - &
-               &                beta(nR)*this%vpc(nPhi,nThetaB) )   - &
-               &                             this%vtc(nPhi,nThetaB) * &
-               &                        ( this%dvtdpc(nPhi,nThetaB) + &
-               &                        this%cvrc(nPhi,nThetaB) )   - &
-               &       this%vpc(nPhi,nThetaB) * this%dvpdpc(nPhi,nThetaB) )
-            end do
-            this%Advp(n_phi_max+1,nThetaB)=0.0_cp
-            this%Advp(n_phi_max+2,nThetaB)=0.0_cp
-         end do ! theta loop
+
+         else ! Advection is u \grad u
+
+            !------ Get Advection:
+            nTheta=nThetaLast
+            do nThetaB=1,sizeThetaB ! loop over theta points in block
+               nTheta   =nTheta+1
+               nThetaNHS=(nTheta+1)/2
+               or4sn2   =or4(nR)*osn2(nThetaNHS)
+               csn2     =cosn2(nThetaNHS)
+               if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+
+               do nPhi=1,n_phi_max
+                  this%Advr(nPhi,nThetaB)=          -or2(nR)*orho1(nR) * (  &
+                  &                                this%vrc(nPhi,nThetaB) * &
+                  &                     (       this%dvrdrc(nPhi,nThetaB) - &
+                  &    ( two*or1(nR)+beta(nR) )*this%vrc(nPhi,nThetaB) ) +  &
+                  &                               osn2(nThetaNHS) * (       &
+                  &                                this%vtc(nPhi,nThetaB) * &
+                  &                     (       this%dvrdtc(nPhi,nThetaB) - &
+                  &                  r(nR)*      this%vtc(nPhi,nThetaB) ) + &
+                  &                                this%vpc(nPhi,nThetaB) * &
+                  &                     (       this%dvrdpc(nPhi,nThetaB) - &
+                  &                    r(nR)*      this%vpc(nPhi,nThetaB) ) ) )
+               end do
+               this%Advr(n_phi_max+1,nThetaB)=0.0_cp
+               this%Advr(n_phi_max+2,nThetaB)=0.0_cp
+               do nPhi=1,n_phi_max
+                  this%Advt(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
+                  &                            -this%vrc(nPhi,nThetaB) * &
+                  &                      (   this%dvtdrc(nPhi,nThetaB) - &
+                  &                beta(nR)*this%vtc(nPhi,nThetaB) )   + &
+                  &                             this%vtc(nPhi,nThetaB) * &
+                  &                      ( csn2*this%vtc(nPhi,nThetaB) + &
+                  &                          this%dvpdpc(nPhi,nThetaB) + &
+                  &                      this%dvrdrc(nPhi,nThetaB) )   + &
+                  &                             this%vpc(nPhi,nThetaB) * &
+                  &                      ( csn2*this%vpc(nPhi,nThetaB) - &
+                  &                          this%dvtdpc(nPhi,nThetaB) )  )
+               end do
+               this%Advt(n_phi_max+1,nThetaB)=0.0_cp
+               this%Advt(n_phi_max+2,nThetaB)=0.0_cp
+               do nPhi=1,n_phi_max
+                  this%Advp(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
+                  &                            -this%vrc(nPhi,nThetaB) * &
+                  &                        ( this%dvpdrc(nPhi,nThetaB) - &
+                  &                beta(nR)*this%vpc(nPhi,nThetaB) )   - &
+                  &                             this%vtc(nPhi,nThetaB) * &
+                  &                        ( this%dvtdpc(nPhi,nThetaB) + &
+                  &                        this%cvrc(nPhi,nThetaB) )   - &
+                  &       this%vpc(nPhi,nThetaB) * this%dvpdpc(nPhi,nThetaB) )
+               end do
+               this%Advp(n_phi_max+1,nThetaB)=0.0_cp
+               this%Advp(n_phi_max+2,nThetaB)=0.0_cp
+            end do ! theta loop
+
+         end if ! Curl form or non curl form
 
       end if  ! Navier-Stokes nonlinear advection term ?
 

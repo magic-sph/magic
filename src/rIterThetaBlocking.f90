@@ -16,7 +16,7 @@ module rIterThetaBlocking_mod
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
        &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_centrifuge, l_TO
+       &            l_centrifuge, l_TO, l_adv_curl
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -115,21 +115,47 @@ contains
       ! Local variables
       logical :: l_calc
 
-      l_calc = (this%nBc == 0) .or. this%lDeriv
+      l_calc = (this%nBc == 0) .or. this%lDeriv 
 
       !----- Legendre transform from (r,l,m) to (r,theta,m):
       call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhw,  &
            &                     this%leg_helper%vhG,this%leg_helper%vhC,  &
            &                     gsa%vrc,gsa%vtc,gsa%vpc)
-      if ( this%lDeriv ) then
-         call leg_scal_to_spat(nThetaStart, this%leg_helper%dLhz, gsa%cvrc)
-         call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
-              &                    gsa%dvrdtc)
-         call leg_dphi_vec(l_calc, nThetaStart, gsa%vrc, gsa%vtc, gsa%vpc, &
-              &            gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
-         call leg_polsphtor_to_spat(l_calc, nThetaStart,this%leg_helper%dLhdw,    &
-              &                     this%leg_helper%dvhdrG,this%leg_helper%dvhdrC,&
-              &                     gsa%dvrdrc,gsa%dvtdrc,gsa%dvpdrc)
+      if ( l_adv_curl ) then
+         if ( this%lDeriv ) then
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhz,   &
+                 &                     this%leg_helper%cvhG,this%leg_helper%cvhC, &
+                 &                     gsa%cvrc,gsa%cvtc,gsa%cvpc)
+         end if
+
+         !-- For some outputs one still need the other terms
+         if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+         &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+         &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+            call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
+                 &                    gsa%dvrdtc)
+            call leg_dphi_vec(l_calc, nThetaStart, gsa%vrc, gsa%vtc, gsa%vpc, &
+                 &            gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhdw, &
+                 &                     this%leg_helper%dvhdrG,                   &
+                 &                     this%leg_helper%dvhdrC,gsa%dvrdrc,        &
+                 &                     gsa%dvtdrc,gsa%dvpdrc)
+         end if
+
+      else
+
+         if ( this%lDeriv ) then
+            call leg_scal_to_spat(nThetaStart, this%leg_helper%dLhz, gsa%cvrc)
+            call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
+                 &                    gsa%dvrdtc)
+            call leg_dphi_vec(l_calc, nThetaStart, gsa%vrc, gsa%vtc, gsa%vpc, &
+                 &            gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhdw, &
+                 &                     this%leg_helper%dvhdrG,                   &
+                 &                     this%leg_helper%dvhdrC,gsa%dvrdrc,        &
+                 &                     gsa%dvtdrc,gsa%dvpdrc)
+         end if
+
       end if
 
       if ( l_mag ) then
@@ -210,15 +236,33 @@ contains
                call fft_thetab(gsa%vpc,1)
             end if
             if ( this%lDeriv .and. ( .not. l_axi ) ) then
-               call fft_thetab(gsa%dvrdrc,1)
-               call fft_thetab(gsa%dvtdrc,1)
-               call fft_thetab(gsa%dvpdrc,1)
-               call fft_thetab(gsa%cvrc,1)
-               call fft_thetab(gsa%dvrdtc,1)
-               call fft_thetab(gsa%dvrdpc,1)
 
-               call fft_thetab(gsa%dvtdpc,1)
-               call fft_thetab(gsa%dvpdpc,1)
+               if ( l_adv_curl ) then
+                  call fft_thetab(gsa%cvrc,1)
+                  call fft_thetab(gsa%cvtc,1)
+                  call fft_thetab(gsa%cvpc,1)
+
+                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+                  &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+                  &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+                     call fft_thetab(gsa%dvrdrc,1)
+                     call fft_thetab(gsa%dvtdrc,1)
+                     call fft_thetab(gsa%dvpdrc,1)
+                     call fft_thetab(gsa%dvrdtc,1)
+                     call fft_thetab(gsa%dvrdpc,1)
+                     call fft_thetab(gsa%dvtdpc,1)
+                     call fft_thetab(gsa%dvpdpc,1)
+                  end if
+               else
+                  call fft_thetab(gsa%dvrdrc,1)
+                  call fft_thetab(gsa%dvtdrc,1)
+                  call fft_thetab(gsa%dvpdrc,1)
+                  call fft_thetab(gsa%cvrc,1)
+                  call fft_thetab(gsa%dvrdtc,1)
+                  call fft_thetab(gsa%dvrdpc,1)
+                  call fft_thetab(gsa%dvtdpc,1)
+                  call fft_thetab(gsa%dvpdpc,1)
+               end if
             end if
          else if ( this%nBc == 1 ) then ! Stress free
             gsa%vrc = 0.0_cp
@@ -230,12 +274,27 @@ contains
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
                if ( .not. l_axi ) then
-                  call fft_thetab(gsa%dvrdrc,1)
-                  call fft_thetab(gsa%dvtdrc,1)
-                  call fft_thetab(gsa%dvpdrc,1)
-                  call fft_thetab(gsa%cvrc,1)
-                  call fft_thetab(gsa%dvtdpc,1)
-                  call fft_thetab(gsa%dvpdpc,1)
+                  if ( l_adv_curl ) then
+                     call fft_thetab(gsa%cvrc,1)
+                     call fft_thetab(gsa%cvtc,1)
+                     call fft_thetab(gsa%cvpc,1)
+                     if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+                     &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+                     &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+                        call fft_thetab(gsa%dvrdrc,1)
+                        call fft_thetab(gsa%dvtdrc,1)
+                        call fft_thetab(gsa%dvpdrc,1)
+                        call fft_thetab(gsa%dvtdpc,1)
+                        call fft_thetab(gsa%dvpdpc,1)
+                     end if
+                  else
+                     call fft_thetab(gsa%dvrdrc,1)
+                     call fft_thetab(gsa%dvtdrc,1)
+                     call fft_thetab(gsa%dvpdrc,1)
+                     call fft_thetab(gsa%cvrc,1)
+                     call fft_thetab(gsa%dvtdpc,1)
+                     call fft_thetab(gsa%dvpdpc,1)
+                  end if
                end if
             end if
          else if ( this%nBc == 2 ) then
