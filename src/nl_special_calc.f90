@@ -406,17 +406,10 @@ contains
       real(cp) :: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
 
+      !-- Remark: 2pi not used the normalization below
+      !-- this is why we have a 2pi factor after radial integration
+      !-- in the subroutine outHelicity()
       phiNorm=one/real(n_phi_max,cp)
-
-      !-- Zero lm coeffs for first theta block:
-      if ( nThetaStart == 1 ) then
-         do l=1,l_max+1
-            HelLMr(l) =0.0_cp
-            Hel2LMr(l)=0.0_cp
-            HelnaLMr(l) =0.0_cp
-            Helna2LMr(l)=0.0_cp
-         end do
-      end if
 
       !--- Helicity:
 #ifdef WITH_SHTNS
