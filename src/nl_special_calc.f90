@@ -524,13 +524,6 @@ contains
 
      phiNorm=two*pi/real(n_phi_max,cp)
 
-     !-- Zero lm coeffs for first theta block ## CHECK
-     if ( nThetaStart == 1 ) then
-        do l=1,l_max+1
-           magHelLMr(l) =0.0_cp
-        end do
-     end if
-
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
