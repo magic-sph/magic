@@ -62,7 +62,6 @@ contains
       phiNorm=one/real(n_phi_max,cp)
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
@@ -143,7 +142,6 @@ contains
 
       phiNorm=one/real(n_phi_max,cp)
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                 &
       !$OMP& private(nThetaB, nTheta, nPhi)             &
@@ -268,7 +266,6 @@ contains
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)         &
       !$OMP& private(nThetaB, nTheta, nPhi)     &
@@ -327,7 +324,6 @@ contains
 #endif
 
       if ( l_mag_nl) then
-         nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
          !$OMP PARALLEL DO default(shared)         &
          !$OMP& private(nThetaB, nTheta, nPhi)     &
@@ -423,7 +419,6 @@ contains
       end if
 
       !--- Helicity:
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
@@ -541,7 +536,6 @@ contains
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
