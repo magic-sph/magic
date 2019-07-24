@@ -291,7 +291,6 @@ contains
       if ( rank == 0 ) then
          !------ Integration over r:
          mag_Hel = rInt_R(magHelR_global,r,rscheme_oc)
-         ! mag_Hel = two*pi*mag_Hel  !! CHECK
 
          if ( l_save_out ) then
             open(newunit=n_magHel_file, file=magHel_file,   &
