@@ -62,7 +62,6 @@ contains
       phiNorm=one/real(n_phi_max,cp)
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
@@ -143,7 +142,6 @@ contains
 
       phiNorm=one/real(n_phi_max,cp)
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                 &
       !$OMP& private(nThetaB, nTheta, nPhi)             &
@@ -268,7 +266,6 @@ contains
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)         &
       !$OMP& private(nThetaB, nTheta, nPhi)     &
@@ -327,7 +324,6 @@ contains
 #endif
 
       if ( l_mag_nl) then
-         nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
          !$OMP PARALLEL DO default(shared)         &
          !$OMP& private(nThetaB, nTheta, nPhi)     &
@@ -410,20 +406,12 @@ contains
       real(cp) :: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
 
+      !-- Remark: 2pi not used the normalization below
+      !-- this is why we have a 2pi factor after radial integration
+      !-- in the subroutine outHelicity()
       phiNorm=one/real(n_phi_max,cp)
 
-      !-- Zero lm coeffs for first theta block:
-      if ( nThetaStart == 1 ) then
-         do l=1,l_max+1
-            HelLMr(l) =0.0_cp
-            Hel2LMr(l)=0.0_cp
-            HelnaLMr(l) =0.0_cp
-            Helna2LMr(l)=0.0_cp
-         end do
-      end if
-
       !--- Helicity:
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
@@ -541,7 +529,6 @@ contains
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
