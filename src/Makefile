@@ -498,9 +498,9 @@ out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
                         output_data.o legendre_helpers.o $(FFT_OBJS)\
                         legendre_spec_to_grid.o
 startFields.o         : truncation.o phys_param.o num_param.o constants.o\
-                        radial.o init_fields.o blocking.o logic.o\
+                        radial.o init_fields.o blocking.o logic.o output_data.o\
                         dt_fieldsLast.o special.o readCheckPoints.o\
-                        fields.o radial_derivatives_even.o\
+                        fields.o radial_derivatives_even.o timing.o\
                         radial_derivatives.o useful.o communications.o
 legendre_grid_to_spec.o : truncation.o horizontal.o blocking.o 
 getDlm.o              : truncation.o blocking.o num_param.o constants.o\

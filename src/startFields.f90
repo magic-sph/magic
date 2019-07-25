@@ -16,6 +16,7 @@ module start_fields
        &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
+   use output_data, only: n_log_file
    use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
@@ -26,6 +27,7 @@ module start_fields
        &                  start_file, init_xi1, topxi, xi_cond
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
+   use timing, only: timer_type
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
@@ -76,11 +78,11 @@ contains
 
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
 
+      type(timer_type) :: t_reader
       integer :: ierr, filehandle
 
-      !PERFON('getFlds')
-      !print*,"Starting getStartFields"
-      !write(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
+      call t_reader%initialize()
+
       !---- Computations for the Nusselt number if we are anelastic
       !     Can be done before setting the fields
       if ( l_heat ) then
@@ -195,6 +197,7 @@ contains
 
       if ( l_start_file ) then
 
+         call t_reader%start_count()
          if ( index(start_file, 'rst_') /= 0 ) then
             call readStartFields_old( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
                  &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
@@ -227,6 +230,9 @@ contains
                  &                time,dt,dtNew,n_time_step )
 #endif
          end if
+         call t_reader%stop_count()
+         call t_reader%finalize('! Time taken to read the checkpoint file:', &
+              &                 n_log_file)
 
          if ( dt > 0.0_cp ) then
             if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') dt
@@ -240,7 +246,6 @@ contains
             dsdtLast_LMloc(:,:)=zero
          end if
 
-            !PERFOFF
       else ! If there's no restart file
 
          ! Initialize with zero
