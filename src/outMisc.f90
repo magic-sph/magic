@@ -22,7 +22,7 @@ module outMisc_mod
        &            l_temperature_diff, l_chemical_conv, l_mag_hel,&
        &            l_gw
    use output_data, only: tag
-   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
+   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, ci
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
    use useful, only: cc2real, round_off
@@ -271,7 +271,6 @@ contains
       !-- Local stuff:
       integer :: nR, ierr
       integer :: lm20,lm21,lm22
-      complex(cp) :: J
       real(cp)    :: r2, prefactor
       !-- entropy contributions to density fluctuations
       real(cp) :: Qc_entropy_20_r(n_r_max)
@@ -319,8 +318,6 @@ contains
       real(cp) :: ddPhiQc_entropy_22
       real(cp) :: ddPhiQs_entropy_22
 
-      !-- constant
-      J = cmplx(0.0D+00,1.0D+00)
       !-- quadrupole indexes
       lm20 = lo_map%lm2(2,0)
       lm21 = lo_map%lm2(2,1)
@@ -363,10 +360,10 @@ contains
          Qs_entropy_21_r(nR) = r2*prefactor*aimag(s(lm21,nR))
          Qs_entropy_22_r(nR) = r2*prefactor*aimag(s(lm22,nR))
          !-- dphi
-         dPhiQc_entropy_21_r(nR)  = r2*prefactor* real(  J*s(lm21,nR))
-         dPhiQc_entropy_22_r(nR)  = r2*prefactor* real(2*J*s(lm22,nR))
-         dPhiQs_entropy_21_r(nR)  = r2*prefactor*aimag(  J*s(lm21,nR))
-         dPhiQs_entropy_22_r(nR)  = r2*prefactor*aimag(2*J*s(lm22,nR))
+         dPhiQc_entropy_21_r(nR)  = r2*prefactor* real(  ci*s(lm21,nR))
+         dPhiQc_entropy_22_r(nR)  = r2*prefactor* real(2*ci*s(lm22,nR))
+         dPhiQs_entropy_21_r(nR)  = r2*prefactor*aimag(  ci*s(lm21,nR))
+         dPhiQs_entropy_22_r(nR)  = r2*prefactor*aimag(2*ci*s(lm22,nR))
          !-- ddphi
          ddPhiQc_entropy_21_r(nR) = r2*prefactor* real(  -s(lm21,nR))
          ddPhiQc_entropy_22_r(nR) = r2*prefactor* real(-4*s(lm22,nR))
@@ -463,7 +460,6 @@ contains
       !-- Local stuff:
       integer :: nR, ierr
       integer :: lm20,lm21,lm22
-      complex(cp) :: J
       real(cp)    :: r2, prefactor
       !-- pressure contributions to density fluctuations
       real(cp) :: Qc_pressure_20_r(n_r_max)
@@ -511,8 +507,6 @@ contains
       real(cp) :: ddPhiQc_pressure_22
       real(cp) :: ddPhiQs_pressure_22
 
-      !-- constant
-      J = cmplx(0.0D+00,1.0D+00)
       !-- quadrupole indexes
       lm20 = lo_map%lm2(2,0)
       lm21 = lo_map%lm2(2,1)
@@ -560,10 +554,10 @@ contains
          Qs_pressure_21_r(nR) = r2*prefactor*aimag(p(lm21,nR))
          Qs_pressure_22_r(nR) = r2*prefactor*aimag(p(lm22,nR))
          !-- dphi
-         dPhiQc_pressure_21_r(nR)  = r2*prefactor* real(  J*p(lm21,nR))
-         dPhiQc_pressure_22_r(nR)  = r2*prefactor* real(2*J*p(lm22,nR))
-         dPhiQs_pressure_21_r(nR)  = r2*prefactor*aimag(  J*p(lm21,nR))
-         dPhiQs_pressure_22_r(nR)  = r2*prefactor*aimag(2*J*p(lm22,nR))
+         dPhiQc_pressure_21_r(nR)  = r2*prefactor* real(  ci*p(lm21,nR))
+         dPhiQc_pressure_22_r(nR)  = r2*prefactor* real(2*ci*p(lm22,nR))
+         dPhiQs_pressure_21_r(nR)  = r2*prefactor*aimag(  ci*p(lm21,nR))
+         dPhiQs_pressure_22_r(nR)  = r2*prefactor*aimag(2*ci*p(lm22,nR))
          !-- ddphi
          ddPhiQc_pressure_21_r(nR) = r2*prefactor* real(  -p(lm21,nR))
          ddPhiQc_pressure_22_r(nR) = r2*prefactor* real(-4*p(lm22,nR))
