@@ -22,7 +22,8 @@ module outMisc_mod
        &            l_temperature_diff, l_chemical_conv, l_mag_hel,&
        &            l_gw
    use output_data, only: tag
-   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, ci
+   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, ci, &
+        &               y20_norm, y21_norm, y22_norm
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
    use useful, only: cc2real, round_off
@@ -347,28 +348,28 @@ contains
             !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
             !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
             !      &               real(p(1,n_r)) )
-            prefactor = -osq4pi*ThExpNb*alpha0(nR)*rho0(nR)
+            prefactor = -ThExpNb*alpha0(nR)*rho0(nR)
          else
             ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
             !      &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
             !      &               ogrun(n_r)*real(p(1,n_r)) )
-            prefactor = -osq4pi*ThExpNb*alpha0(nR)*rho0(nR)*temp0(nR)
+            prefactor = -ThExpNb*alpha0(nR)*rho0(nR)*temp0(nR)
          end if
-         Qc_entropy_20_r(nR) = r2*prefactor* real(s(lm20,nR))
-         Qc_entropy_21_r(nR) = r2*prefactor* real(s(lm21,nR))
-         Qc_entropy_22_r(nR) = r2*prefactor* real(s(lm22,nR))
-         Qs_entropy_21_r(nR) = r2*prefactor*aimag(s(lm21,nR))
-         Qs_entropy_22_r(nR) = r2*prefactor*aimag(s(lm22,nR))
+         Qc_entropy_20_r(nR) = y20_norm*r2*prefactor* real(s(lm20,nR))
+         Qc_entropy_21_r(nR) = y21_norm*r2*prefactor* real(s(lm21,nR))
+         Qc_entropy_22_r(nR) = y22_norm*r2*prefactor* real(s(lm22,nR))
+         Qs_entropy_21_r(nR) = y21_norm*r2*prefactor*aimag(s(lm21,nR))
+         Qs_entropy_22_r(nR) = y22_norm*r2*prefactor*aimag(s(lm22,nR))
          !-- dphi
-         dPhiQc_entropy_21_r(nR)  = r2*prefactor* real(  ci*s(lm21,nR))
-         dPhiQc_entropy_22_r(nR)  = r2*prefactor* real(2*ci*s(lm22,nR))
-         dPhiQs_entropy_21_r(nR)  = r2*prefactor*aimag(  ci*s(lm21,nR))
-         dPhiQs_entropy_22_r(nR)  = r2*prefactor*aimag(2*ci*s(lm22,nR))
+         dPhiQc_entropy_21_r(nR)  = y21_norm*r2*prefactor* real(  ci*s(lm21,nR))
+         dPhiQc_entropy_22_r(nR)  = y22_norm*r2*prefactor* real(2*ci*s(lm22,nR))
+         dPhiQs_entropy_21_r(nR)  = y21_norm*r2*prefactor*aimag(  ci*s(lm21,nR))
+         dPhiQs_entropy_22_r(nR)  = y22_norm*r2*prefactor*aimag(2*ci*s(lm22,nR))
          !-- ddphi
-         ddPhiQc_entropy_21_r(nR) = r2*prefactor* real(  -s(lm21,nR))
-         ddPhiQc_entropy_22_r(nR) = r2*prefactor* real(-4*s(lm22,nR))
-         ddPhiQs_entropy_21_r(nR) = r2*prefactor*aimag(  -s(lm21,nR))
-         ddPhiQs_entropy_22_r(nR) = r2*prefactor*aimag(-4*s(lm22,nR))
+         ddPhiQc_entropy_21_r(nR) = y21_norm*r2*prefactor* real(  -s(lm21,nR))
+         ddPhiQc_entropy_22_r(nR) = y22_norm*r2*prefactor* real(-4*s(lm22,nR))
+         ddPhiQs_entropy_21_r(nR) = y21_norm*r2*prefactor*aimag(  -s(lm21,nR))
+         ddPhiQs_entropy_22_r(nR) = y22_norm*r2*prefactor*aimag(-4*s(lm22,nR))
       end do
 
       ! reduce over the ranks
@@ -548,21 +549,21 @@ contains
             !prefactor = osq4pi*ViscHeatFac*alpha0(nR)*beta(nR)/dLtemp0(nR) ! equivalent formula if adiabatic background
          end if
 
-         Qc_pressure_20_r(nR) = r2*prefactor* real(p(lm20,nR))
-         Qc_pressure_21_r(nR) = r2*prefactor* real(p(lm21,nR))
-         Qc_pressure_22_r(nR) = r2*prefactor* real(p(lm22,nR))
-         Qs_pressure_21_r(nR) = r2*prefactor*aimag(p(lm21,nR))
-         Qs_pressure_22_r(nR) = r2*prefactor*aimag(p(lm22,nR))
+         Qc_pressure_20_r(nR) = y20_norm*r2*prefactor* real(p(lm20,nR))
+         Qc_pressure_21_r(nR) = y21_norm*r2*prefactor* real(p(lm21,nR))
+         Qc_pressure_22_r(nR) = y22_norm*r2*prefactor* real(p(lm22,nR))
+         Qs_pressure_21_r(nR) = y21_norm*r2*prefactor*aimag(p(lm21,nR))
+         Qs_pressure_22_r(nR) = y22_norm*r2*prefactor*aimag(p(lm22,nR))
          !-- dphi
-         dPhiQc_pressure_21_r(nR)  = r2*prefactor* real(  ci*p(lm21,nR))
-         dPhiQc_pressure_22_r(nR)  = r2*prefactor* real(2*ci*p(lm22,nR))
-         dPhiQs_pressure_21_r(nR)  = r2*prefactor*aimag(  ci*p(lm21,nR))
-         dPhiQs_pressure_22_r(nR)  = r2*prefactor*aimag(2*ci*p(lm22,nR))
+         dPhiQc_pressure_21_r(nR)  = y21_norm*r2*prefactor* real(  ci*p(lm21,nR))
+         dPhiQc_pressure_22_r(nR)  = y22_norm*r2*prefactor* real(2*ci*p(lm22,nR))
+         dPhiQs_pressure_21_r(nR)  = y21_norm*r2*prefactor*aimag(  ci*p(lm21,nR))
+         dPhiQs_pressure_22_r(nR)  = y22_norm*r2*prefactor*aimag(2*ci*p(lm22,nR))
          !-- ddphi
-         ddPhiQc_pressure_21_r(nR) = r2*prefactor* real(  -p(lm21,nR))
-         ddPhiQc_pressure_22_r(nR) = r2*prefactor* real(-4*p(lm22,nR))
-         ddPhiQs_pressure_21_r(nR) = r2*prefactor*aimag(  -p(lm21,nR))
-         ddPhiQs_pressure_22_r(nR) = r2*prefactor*aimag(-4*p(lm22,nR))
+         ddPhiQc_pressure_21_r(nR) = y21_norm*r2*prefactor* real(  -p(lm21,nR))
+         ddPhiQc_pressure_22_r(nR) = y22_norm*r2*prefactor* real(-4*p(lm22,nR))
+         ddPhiQs_pressure_21_r(nR) = y21_norm*r2*prefactor*aimag(  -p(lm21,nR))
+         ddPhiQs_pressure_22_r(nR) = y22_norm*r2*prefactor*aimag(-4*p(lm22,nR))
       end do
 
       ! reduce over the ranks
