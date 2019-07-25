@@ -33,6 +33,9 @@ module start_fields
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
    use readCheckPoints, only: readStartFields_old, readStartFields
+#ifdef WITH_MPI
+   use readCheckPoints, only: readStartFields_mpi
+#endif
 
    implicit none
 
@@ -194,14 +197,26 @@ contains
 
          if ( index(start_file, 'rst_') /= 0 ) then
             call readStartFields_old( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
-                 &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
-                 &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
-                 &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
-                 &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
-                 &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
-                 &                lorentz_torque_icLast,lorentz_torque_maLast,    &
-                 &                time,dt,dtNew,n_time_step )
+                 &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
+                 &                    dsdtLast_LMloc,xi_LMloc,dxidtLast_LMloc,    &
+                 &                    b_LMloc,dbdtLast_LMloc,aj_LMloc,            &
+                 &                    djdtLast_LMloc,b_ic_LMloc,dbdt_icLast_LMloc,&
+                 &                    aj_ic_LMloc,djdt_icLast_LMloc,              &
+                 &                    omega_ic,omega_ma,lorentz_torque_icLast,    &
+                 &                    lorentz_torque_maLast,time,dt,dtNew,        &
+                 &                    n_time_step )
          else
+#ifdef WITH_MPI
+            call readStartFields_mpi( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
+                 &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
+                 &                    dsdtLast_LMloc,xi_LMloc,dxidtLast_LMloc,    &
+                 &                    b_LMloc,dbdtLast_LMloc,aj_LMloc,            &
+                 &                    djdtLast_LMloc,b_ic_LMloc,                  &
+                 &                    dbdt_icLast_LMloc,aj_ic_LMloc,              &
+                 &                    djdt_icLast_LMloc,omega_ic,omega_ma,        &
+                 &                    lorentz_torque_icLast,lorentz_torque_maLast,&
+                 &                    time,dt,dtNew,n_time_step )
+#else
             call readStartFields( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,     &
                  &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
                  &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
@@ -210,6 +225,7 @@ contains
                  &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
                  &                lorentz_torque_icLast,lorentz_torque_maLast,    &
                  &                time,dt,dtNew,n_time_step )
+#endif
          end if
 
          if ( dt > 0.0_cp ) then
