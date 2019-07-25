@@ -307,6 +307,10 @@ contains
       call MPI_File_Open(MPI_COMM_WORLD, rst_file, ior(MPI_MODE_WRONLY, &
            &             MPI_MODE_CREATE), info, fh, ierr)
 
+      disp = 0
+      call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
+           &                 info, ierr)
+
       !-- Only rank=0 writes the header of the file
       if ( rank == 0 ) then
          !-- Write the header of the file
@@ -389,7 +393,7 @@ contains
       call MPI_Type_Commit(datatype, ierr)
 
       !-- Set the view after the header
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Now finally write the fields
@@ -397,39 +401,39 @@ contains
       call MPI_File_Write_all(fh, w, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call lo2r%transp_lm2r(dwdtLast, work)
       call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Toroidal potential: z
       call MPI_File_Write_all(fh, z, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call lo2r%transp_lm2r(dzdtLast, work)
       call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Pressure: p
       call MPI_File_Write_all(fh, p, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call lo2r%transp_lm2r(dpdtLast, work)
       call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Entropy: s
@@ -437,13 +441,13 @@ contains
          call MPI_File_Write_all(fh, s, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(dsdtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
       end if
 
@@ -452,13 +456,13 @@ contains
          call MPI_File_Write_all(fh, xi, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(dxidtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
       end if
 
@@ -467,24 +471,24 @@ contains
          call MPI_File_Write_all(fh, b, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(dbdtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call MPI_File_Write_all(fh, aj, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(djdtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
       end if
 
@@ -492,7 +496,7 @@ contains
       offset = 0
       call MPI_File_Seek(fh, offset, MPI_SEEK_END, ierr)
       call MPI_File_get_byte_offset(fh, offset, disp, ierr)
-      call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
            &                 info, ierr)
 
       call MPI_Type_Free(datatype, ierr)

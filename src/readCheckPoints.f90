@@ -53,12 +53,11 @@ module readCheckPoints
 
 contains
 
-   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,   &
-              &                   xi,dxidt,b,dbdt,aj,djdt,b_ic,  &
-              &                   dbdt_ic,aj_ic,djdt_ic,omega_ic,&
-              &                   omega_ma,lorentz_torque_ic,    &
-              &                   lorentz_torque_ma,time,dt_old, &
-              &                   dt_new,n_time_step)
+   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,  &
+              &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic, &
+              &                   omega_ic,omega_ma,lorentz_torque_ic,     &
+              &                   lorentz_torque_ma,time,dt_old,dt_new,    &
+              &                   n_time_step)
       !
       ! This subroutine is used to read the old restart files produced
       ! by MagIC. This is now deprecated with the change of the file format.
@@ -87,29 +86,21 @@ contains
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
-      integer :: l_max_old,n_r_max_old
-      integer :: n_r_ic_max_old
-      real(cp) :: pr_old,ra_old,pm_old
-      real(cp) :: raxi_old,sc_old
-      real(cp) :: ek_old,radratio_old
-      real(cp) :: sigma_ratio_old
-      integer :: lm,nR
-      logical :: l_mag_old
-      logical :: startfile_does_exist
-      integer :: informOld,ioerr
-      integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old
+      integer :: l_max_old,n_r_max_old,n_r_ic_max_old,lm,nR
+      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
+      real(cp) :: ek_old,radratio_old,sigma_ratio_old
+      logical :: l_mag_old,startfile_does_exist
+      integer :: informOld,ioerr,n_r_maxL,n_r_ic_maxL,lm_max_old
       integer, allocatable :: lm2lmo(:)
 
-      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
-      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
-      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
-      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
+      real(cp) :: omega_ic1Old,omegaOsz_ic1Old,omega_ic2Old,omegaOsz_ic2Old
+      real(cp) :: omega_ma1Old,omegaOsz_ma1Old,omega_ma2Old,omegaOsz_ma2Old
 
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2
 
-      complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
+      complex(cp), allocatable :: wo(:,:),zo(:,:),po(:,:),so(:,:),xio(:,:)
       complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
       complex(cp), allocatable :: workD(:,:),workE(:,:)
       real(cp), allocatable :: r_old(:)
@@ -247,28 +238,30 @@ contains
 
          allocate( lm2lmo(lm_max) )
 
-         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-              &         m_max,minc,minc_old,inform,lm_max,   &
-              &         lm_max_old,n_data_oldP,lm2lmo)
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max, &
+              &         minc,minc_old,lm_max,lm_max_old,lm2lmo)
 
          ! allocation of local arrays.
          ! if this becomes a performance bottleneck, one can make a module
          ! and allocate the array only once in the initialization
-         allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
-         bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
+         allocate( wo(lm_max_old,n_r_max_old),zo(lm_max_old,n_r_max_old) )
+         allocate( po(lm_max_old,n_r_max_old),so(lm_max_old,n_r_max_old) )
+         bytes_allocated = bytes_allocated + 4*lm_max_old*n_r_max_old* &
+         &                 SIZEOF_DEF_COMPLEX
          ! end of allocation
 
          !PERFON('mD_rd')
          if ( lreadXi ) then
-            allocate(xio(n_data_oldP))
-            bytes_allocated = bytes_allocated + n_data_oldP*SIZEOF_DEF_COMPLEX
+            allocate(xio(lm_max_old,n_r_max_old))
+            bytes_allocated = bytes_allocated + lm_max_old*n_r_max_old* &
+            &                 SIZEOF_DEF_COMPLEX
             if ( lreadS ) then
                read(n_start_file) wo, zo, po, so, xio
             else
                read(n_start_file) wo, zo, po, xio
             end if
          else
-            allocate(xio(1))
+            allocate(xio(1,1))
             if ( lreadS ) then
                read(n_start_file) wo, zo, po, so
             else
@@ -418,8 +411,8 @@ contains
             read(n_start_file) so,wo,zo,po
 
             if ( l_mag ) then
-               call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
-                    &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,             &
+               call mapDataMag( wo,zo,po,so,r_old,n_r_max,n_r_max_old,   &
+                    &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,   &
                     &           .false.,workA,workB,workC,workD )
             end if
          else
@@ -464,12 +457,13 @@ contains
 
       if ( rank == 0 ) then
          ! deallocation of the local arrays
-         deallocate( lm2lmo )
          deallocate( wo,zo,po,so )
-         bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated - 4*(lm_max_old*n_r_max_old)*&
+         &                 SIZEOF_DEF_COMPLEX
 
          if ( lreadXi ) then
-            bytes_allocated = bytes_allocated - n_data_oldP*SIZEOF_DEF_COMPLEX
+            bytes_allocated = bytes_allocated - lm_max_old*n_r_max_old* &
+            &                 SIZEOF_DEF_COMPLEX
          end if
       end if
 
@@ -479,24 +473,20 @@ contains
 
             if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
                if ( rank == 0 ) then
-                  allocate( lm2lmo(lm_max) )
-                  call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                       &         m_max,minc,minc_old,inform,lm_max,         &
-                       &         lm_max_old,n_data_oldP,lm2lmo)
-
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
-                  allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
-                            so(n_data_oldP) )
+                  allocate( wo(lm_max_old,n_r_ic_max_old) )
+                  allocate( zo(lm_max_old,n_r_ic_max_old) )
+                  allocate( po(lm_max_old,n_r_ic_max_old) )
+                  allocate( so(lm_max_old,n_r_ic_max_old) )
 
                   read(n_start_file) so,wo,zo,po
                   if ( l_mag ) then
-                     call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
-                          &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL,    &
-                          &           lm2lmo,n_r_ic_maxMag,.true.,workA,        &
+                     call mapDataMag( wo,zo,po,so,r_old,n_r_ic_max,          &
+                          &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL, &
+                          &           lm2lmo,n_r_ic_maxMag,.true.,workA,     &
                           &           workB,workC,workD )
                   end if
 
-                  deallocate( lm2lmo )
                   deallocate( wo,zo,po,so )
                end if
 
@@ -542,7 +532,7 @@ contains
       dt_new           =dt_old
 
       if ( rank == 0 ) then
-         deallocate( r_old )
+         deallocate( r_old, lm2lmo )
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
 
          !-- Lorentz-torques:
@@ -691,30 +681,22 @@ contains
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
-      integer :: l_max_old,n_r_max_old
-      integer :: n_r_ic_max_old, io_status
-      real(cp) :: pr_old,ra_old,pm_old
-      real(cp) :: raxi_old,sc_old
-      real(cp) :: ek_old,radratio_old
-      real(cp) :: sigma_ratio_old
-      integer :: lm,nR
-      logical :: l_mag_old, l_heat_old
-      logical :: l_cond_ic_old, l_chemical_conv_old
+      integer :: l_max_old,n_r_max_old,n_r_ic_max_old, io_status,lm,nR
+      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
+      real(cp) :: ek_old,radratio_old,sigma_ratio_old
+      logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
       logical :: startfile_does_exist
-      integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old
+      integer :: n_r_maxL,n_r_ic_maxL,lm_max_old
       integer, allocatable :: lm2lmo(:)
 
-      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
-      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
-      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
-      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
+      real(cp) :: omega_ic1Old,omegaOsz_ic1Old,omega_ic2Old,omegaOsz_ic2Old
+      real(cp) :: omega_ma1Old,omegaOsz_ma1Old,omega_ma2Old,omegaOsz_ma2Old
 
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2, version
 
-      complex(cp), allocatable :: workOld(:,:)
-      complex(cp), allocatable :: work(:,:)
+      complex(cp), allocatable :: workOld(:,:), work(:,:)
       real(cp), allocatable :: r_old(:)
 
       if ( rscheme_oc%version == 'cheb') then
@@ -802,9 +784,8 @@ contains
 
          !-- Determine the old mapping
          allocate( lm2lmo(lm_max) )
-         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-              &         m_max,minc,minc_old,4,lm_max,        &
-              &         lm_max_old,n_data_oldP,lm2lmo)
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
+              &         minc_old,lm_max,lm_max_old,lm2lmo)
          n_r_maxL = max(n_r_max,n_r_max_old)
 
          !-- Read Lorentz torques and rotation rates:
@@ -1076,12 +1057,6 @@ contains
                   deallocate( work, workOld )
 
                   if ( rank == 0 ) then
-                     deallocate( lm2lmo )
-                     allocate( lm2lmo(lm_max) )
-                     call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                          &         m_max,minc,minc_old,4,lm_max,              &
-                          &         lm_max_old,n_data_oldP,lm2lmo)
-
                      n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                      allocate( work(lm_max,n_r_ic_max) )
                      allocate( workOld(lm_max_old,n_r_ic_max_old) )
@@ -1222,23 +1197,16 @@ contains
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
-      integer :: l_max_old,n_r_max_old
-      integer :: n_r_ic_max_old
-      real(cp) :: pr_old,ra_old,pm_old
-      real(cp) :: raxi_old,sc_old
-      real(cp) :: ek_old,radratio_old
-      real(cp) :: sigma_ratio_old
-      integer :: lm,nR
-      logical :: l_mag_old, l_heat_old
-      logical :: l_cond_ic_old, l_chemical_conv_old
+      integer :: l_max_old,n_r_max_old,lm,nR,n_r_ic_max_old
+      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
+      real(cp) :: ek_old,radratio_old,sigma_ratio_old
+      logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
       logical :: startfile_does_exist
-      integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old
+      integer :: n_r_maxL,n_r_ic_maxL,lm_max_old
       integer, allocatable :: lm2lmo(:)
 
-      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
-      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
-      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
-      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
+      real(cp) :: omega_ic1Old,omegaOsz_ic1Old,omega_ic2Old,omegaOsz_ic2Old
+      real(cp) :: omega_ma1Old,omegaOsz_ma1Old,omega_ma2Old,omegaOsz_ma2Old
 
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old
@@ -1273,12 +1241,20 @@ contains
          call abortRun('! The restart file does not exist !')
       end if
 
+      disp = 0
+      call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
+           &                 info, ierr)
+
       !-- Read the header
       call MPI_File_Read(fh, version, 1, MPI_INTEGER, istat, ierr)
       !-- Little trick if wrong-endianness is detected 
       !-- version gets crazy large, so flip back to default reader then
       if ( abs(version) > 100 ) then
          call MPI_File_close(fh, ierr)
+         if ( rank == 0 ) then
+            write(*,*) '! I cannot read it with MPI-IO'
+            write(*,*) '! I try to fall back on serial reader...'
+         end if
          call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
               &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
               &               omega_ma,lorentz_torque_ic,lorentz_torque_ma,&
@@ -1312,9 +1288,11 @@ contains
       end if
 
       !---- Compare parameters:
-      call print_info(ra_old,ek_old,pr_old,sc_old,raxi_old,pm_old, &
-           &          radratio_old,sigma_ratio_old,n_phi_tot_old,  &
-           &          nalias_old, l_max_old)
+      if ( rank == 0 ) then
+         call print_info(ra_old,ek_old,pr_old,sc_old,raxi_old,pm_old, &
+              &          radratio_old,sigma_ratio_old,n_phi_tot_old,  &
+              &          nalias_old, l_max_old)
+      end if
 
       allocate( r_old(n_r_max_old) )
       !-- Read scheme version (FD or CHEB)
@@ -1345,9 +1323,8 @@ contains
 
       !-- Determine the old mapping
       allocate( lm2lmo(lm_max) )
-      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-           &         m_max,minc,minc_old,4,lm_max,        &
-           &         lm_max_old,n_data_oldP,lm2lmo)
+      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
+           &         minc_old,lm_max,lm_max_old,lm2lmo)
       n_r_maxL = max(n_r_max,n_r_max_old)
 
       !-- Read Lorentz-torques and rotation rates:
@@ -1422,26 +1399,25 @@ contains
 
       !-- Set-up the first displacement
       disp = disp+(nRstart_old-1)*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Poloidal potential: w
       call MPI_File_Read(fh, workOld, lm_max_old*nR_per_rank_old, &
            &             MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
            &                nRstop_old, radial_balance_old, lm2lmo,        &
            &                r_old, n_r_maxL, n_r_max, .false., .false.,    &
            &                scale_v, w )
 
-
       !-- dwdt
       call MPI_File_Read(fh, workOld, lm_max_old*nR_per_rank_old, &
            &             MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
            &                nRstop_old, radial_balance_old, lm2lmo,        &
@@ -1452,7 +1428,7 @@ contains
       call MPI_File_Read(fh, workOld, lm_max_old*nR_per_rank_old, &
            &             MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
            &                nRstop_old, radial_balance_old, lm2lmo,        &
@@ -1463,7 +1439,7 @@ contains
       call MPI_File_Read(fh, workOld, lm_max_old*nR_per_rank_old, &
            &             MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
            &                nRstop_old, radial_balance_old, lm2lmo,        &
@@ -1474,7 +1450,7 @@ contains
       call MPI_File_Read(fh, workOld, lm_max_old*nR_per_rank_old, &
            &             MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
            &                nRstop_old, radial_balance_old, lm2lmo,        &
@@ -1485,7 +1461,7 @@ contains
       call MPI_File_Read(fh, workOld, lm_max_old*nR_per_rank_old, &
            &             MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
-      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "external32", &
+      call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
            &                nRstop_old, radial_balance_old, lm2lmo,        &
@@ -1498,7 +1474,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
 
          if ( l_heat ) then
             call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1512,7 +1488,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
 
          if ( l_heat ) then
             call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1528,7 +1504,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
 
          if ( l_chemical_conv ) then
             call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1542,7 +1518,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
 
          if ( l_heat ) then
             call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1567,7 +1543,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
               &                nRstop_old, radial_balance_old, lm2lmo,        &
               &                r_old, n_r_maxL, n_r_max, .false., .false.,    &
@@ -1578,7 +1554,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
               &                nRstop_old, radial_balance_old, lm2lmo,        &
               &                r_old, n_r_maxL, n_r_max, .true., .false.,    &
@@ -1589,7 +1565,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
               &                nRstop_old, radial_balance_old, lm2lmo,        &
               &                r_old, n_r_maxL, n_r_max, .false., .false.,    &
@@ -1600,7 +1576,7 @@ contains
               &             MPI_DEF_COMPLEX, istat, ierr)
          disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
-              &                 "external32", info, ierr)
+              &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
               &                nRstop_old, radial_balance_old, lm2lmo,        &
               &                r_old, n_r_maxL, n_r_max, .true., .false.,    &
@@ -1614,6 +1590,7 @@ contains
       if ( (l_mag .or. l_mag_LF) .and. l_cond_ic ) then
 
          if ( l_cond_ic_old ) then
+            n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
 
             if ( rank == 0 ) then
                allocate( workOld(lm_max_old, n_r_ic_max_old) )
@@ -1716,27 +1693,20 @@ contains
    end subroutine readStartFields_mpi
 !------------------------------------------------------------------------------
 #endif
-   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-              &         m_max,minc,minc_old,inform,lm_max,   &
-              &         lm_max_old,n_data_oldP,lm2lmo)
+   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
+              &         minc_old,lm_max,lm_max_old,lm2lmo)
 
       !--- Input variables
       integer, intent(in) :: n_r_max,l_max,m_max,minc
       integer, intent(in) :: n_r_max_old,l_max_old,minc_old
-      integer, intent(in) :: inform,lm_max
+      integer, intent(in) :: lm_max
 
       !--- Output variables
       integer,intent(out) :: lm2lmo(lm_max)
-      integer,intent(out) :: n_data_oldP
       integer,intent(out) :: lm_max_old
 
       !--- Local variables
-      integer :: n_data,n_data_old
-      integer :: m_max_old
-      integer :: l,m,lm,lmo,lo,mo
-
-      !-- Outer core fields:
-      n_data  = lm_max*n_r_max
+      integer :: m_max_old,l,m,lm,lmo,lo,mo
 
       if ( .not. l_axi_old ) then
          m_max_old=(l_max_old/minc_old)*minc_old
@@ -1748,43 +1718,29 @@ contains
       &    .and. m_max==m_max_old ) then
 
          !----- Direct reading of fields, grid not changed:
-         write(*,'(/,'' ! Reading fields directly.'')')
-
-         n_data_old=n_data
-         if ( inform>2 ) then
-            n_data_oldP=n_data
-         else
-            !----- In the past an 'extra' radial grid point has been
-            !      stored which was not really necessary
-            n_data_oldP=lm_max*(n_r_max+1)
-         end if
+         if (rank == 0 ) write(*,'(/,'' ! Reading fields directly.'')')
 
          lm_max_old=lm_max
       else
 
          !----- Mapping onto new grid !
-         write(*,'(/,'' ! Mapping onto new grid.'')')
+         if ( rank == 0 ) write(*,'(/,'' ! Mapping onto new grid.'')')
 
-         if ( mod(minc_old,minc) /= 0 )                                &
+         if ( mod(minc_old,minc) /= 0 .and. rank == 0)                &
          &     write(*,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
          &          m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
          &          l_max_old-m_max_old+1
 
-         n_data_old=lm_max_old*n_r_max_old
-         if ( inform>2 ) then
-            n_data_oldP=n_data_old
-         else
-            n_data_oldP=lm_max_old*(n_r_max_old+1)
-         end if
-
          !-- Write info to STdoUT:
-         write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
-         &            ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
-         &                l_max_old,l_max,m_max_old,m_max,            &
-         &                minc_old,minc,lm_max_old,lm_max
-         if ( n_r_max_old /= n_r_max )                                &
+         if ( rank == 0 ) then
+            write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
+            &            ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
+            &                l_max_old,l_max,m_max_old,m_max,            &
+            &                minc_old,minc,lm_max_old,lm_max
+         end if
+         if ( n_r_max_old /= n_r_max .and. rank == 0 )                   &
          &   write(*,'('' ! Old/New n_r_max='',2i4)') n_r_max_old,n_r_max
 
       end if
@@ -2007,10 +1963,12 @@ contains
       integer,     intent(in) :: n_r_maxL
       logical,     intent(in) :: lBc1,lBc2,lBc3,lBc4,lBc5
       integer,     intent(in) :: lm2lmo(lm_max)
-      complex(cp), intent(in) :: wo(:),zo(:)
-      complex(cp), intent(in) :: po(:),so(:)
       real(cp),    intent(in) :: r_old(:)
-      complex(cp), intent(in) :: xio(:)
+      complex(cp), intent(in) :: wo(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: zo(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: po(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: so(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: xio(lm_max_old,n_r_max_old)
 
       !--- Output variables
       complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
@@ -2018,10 +1976,10 @@ contains
       complex(cp), intent(out) :: xi(lm_max,n_r_max)
 
       !--- Local variables
-      integer :: lm,lmo,n,nR,lmStart,lmStop,n_proc
-      complex(cp),allocatable :: woR(:),zoR(:)
-      complex(cp),allocatable :: poR(:),soR(:)
-      complex(cp),allocatable :: xioR(:)
+      integer :: lm,lmo,lmStart,lmStop,n_proc
+      complex(cp), allocatable :: woR(:),zoR(:)
+      complex(cp), allocatable :: poR(:),soR(:)
+      complex(cp), allocatable :: xioR(:)
 
       allocate( woR(n_r_maxL),zoR(n_r_maxL),poR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 3*n_r_maxL*SIZEOF_DEF_COMPLEX
@@ -2047,14 +2005,11 @@ contains
                &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
                &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
 
-                  do nR=1,n_r_max_old  ! copy on help arrays
-                     n=lmo+(nR-1)*lm_max_old
-                     woR(nR)=wo(n)
-                     zoR(nR)=zo(n)
-                     poR(nR)=po(n)
-                     if ( lreadS .and. l_heat ) soR(nR)=so(n)
-                     if ( lreadXi .and. l_chemical_conv ) xioR(nR)=xio(n)
-                  end do
+                  woR(:)=wo(lmo,:)
+                  zoR(:)=zo(lmo,:)
+                  poR(:)=po(lmo,:)
+                  if ( lreadS .and. l_heat ) soR(:)=so(lmo,:)
+                  if ( lreadXi .and. l_chemical_conv ) xioR(:)=xio(lmo,:)
                   call mapDataR(woR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc1, &
                        &        .false.)
                   call mapDataR(zoR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc2, &
@@ -2069,44 +2024,36 @@ contains
                      call mapDataR(xioR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc5,&
                           &        .false.)
                   end if
-                  do nR=1,n_r_max
-                     if ( lm > 1 ) then
-                        w(lm,nR)=scale_v*woR(nR)
-                        z(lm,nR)=scale_v*zoR(nR)
-                     else
-                        w(1,nR)=zero
-                        z(1,nR)=zero
-                     end if
-                     p(lm,nR)=scale_v*poR(nR)
-                     if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*soR(nR)
-                     if ( lreadXi .and. l_chemical_conv ) &
-                     &     xi(lm,nR)=scale_xi*xioR(nR)
-                  end do
+                  if ( lm > 1 ) then
+                     w(lm,:)=scale_v*woR(:)
+                     z(lm,:)=scale_v*zoR(:)
+                  else
+                     w(1,:)=zero
+                     z(1,:)=zero
+                  end if
+                  p(lm,:)=scale_v*poR(:)
+                  if ( lreadS .and. l_heat ) s(lm,:)=scale_s*soR(:)
+                  if ( lreadXi .and. l_chemical_conv ) &
+                  &     xi(lm,:)=scale_xi*xioR(:)
                else
-                  do nR=1,n_r_max
-                     n=lmo+(nR-1)*lm_max_old
-                     if ( lm > 1 ) then
-                        w(lm,nR)=scale_v*wo(n)
-                        z(lm,nR)=scale_v*zo(n)
-                     else
-                        w(1,nR)=zero
-                        z(1,nR)=zero
-                     end if
-                     p(lm,nR)=scale_v*po(n)
-                     if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*so(n)
-                     if ( lreadXi .and. l_chemical_conv ) &
-                     &    xi(lm,nR)=scale_xi*xio(n)
-                  end do
+                  if ( lm > 1 ) then
+                     w(lm,:)=scale_v*wo(lmo,:)
+                     z(lm,:)=scale_v*zo(lmo,:)
+                  else
+                     w(1,:)=zero
+                     z(1,:)=zero
+                  end if
+                  p(lm,:)=scale_v*po(lmo,:)
+                  if ( lreadS .and. l_heat ) s(lm,:)=scale_s*so(lmo,:)
+                  if ( lreadXi .and. l_chemical_conv ) &
+                  &    xi(lm,:)=scale_xi*xio(lmo,:)
                end if
             else
-               do nR=1,n_r_max
-                  w(lm,nR)=zero
-                  z(lm,nR)=zero
-                  p(lm,nR)=zero
-                  if ( lreadS .and. l_heat ) s(lm,nR)=zero
-                  if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=zero
-
-               end do
+               w(lm,:)=zero
+               z(lm,:)=zero
+               p(lm,:)=zero
+               if ( lreadS .and. l_heat ) s(lm,:)=zero
+               if ( lreadXi .and. l_chemical_conv ) xi(lm,:)=zero
             end if
          end do
       end do
@@ -2124,24 +2071,26 @@ contains
 
    end subroutine mapDataHydro
 !------------------------------------------------------------------------------
-   subroutine mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_rad_tot,n_r_max_old, &
+   subroutine mapDataMag( wo,zo,po,so,r_old,n_rad_tot,n_r_max_old, &
               &           lm_max_old,n_r_maxL,lm2lmo,dim1,l_IC,w,z,p,s )
 
       !--- Input variables
       integer,     intent(in) :: n_rad_tot,n_r_max_old,lm_max_old
-      integer,     intent(in) :: n_r_maxL,n_data_oldP,dim1
+      integer,     intent(in) :: n_r_maxL,dim1
       integer,     intent(in) :: lm2lmo(lm_max)
       logical,     intent(in) :: l_IC
-      complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
       real(cp),    intent(in) :: r_old(:)
-      complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
+      complex(cp), intent(in) :: wo(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: zo(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: po(lm_max_old,n_r_max_old)
+      complex(cp), intent(in) :: so(lm_max_old,n_r_max_old)
 
       !--- Output variables
       complex(cp), intent(out) :: w(lm_maxMag,dim1),z(lm_maxMag,dim1)
       complex(cp), intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
 
       !--- Local variables
-      integer :: lm,lmo,n,nR,lmStart,lmStop,n_proc
+      integer :: lm,lmo,lmStart,lmStop,n_proc
       complex(cp), allocatable :: woR(:),zoR(:),poR(:),soR(:)
 
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
@@ -2160,39 +2109,29 @@ contains
                &    ratio2 /= ratio2_old .or.                                  &
                &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary &
                &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
-                  do nR=1,n_r_max_old  ! copy on help arrays
-                     n=lmo+(nR-1)*lm_max_old
-                     woR(nR)=wo(n)
-                     zoR(nR)=zo(n)
-                     poR(nR)=po(n)
-                     soR(nR)=so(n)
-                  end do
+                  woR(:)=wo(lmo,:)
+                  zoR(:)=zo(lmo,:)
+                  poR(:)=po(lmo,:)
+                  soR(:)=so(lmo,:)
                   call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
                   call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
                   call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
                   call mapDataR(soR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
-                  do nR=1,n_rad_tot
-                     w(lm,nR)=scale_b*woR(nR)
-                     z(lm,nR)=scale_b*zoR(nR)
-                     p(lm,nR)=scale_b*poR(nR)
-                     s(lm,nR)=scale_b*soR(nR)
-                  end do
+                  w(lm,:)=scale_b*woR(:)
+                  z(lm,:)=scale_b*zoR(:)
+                  p(lm,:)=scale_b*poR(:)
+                  s(lm,:)=scale_b*soR(:)
                else
-                  do nR=1,n_rad_tot
-                     n=lmo+(nR-1)*lm_max_old
-                     w(lm,nR)=scale_b*wo(n)
-                     z(lm,nR)=scale_b*zo(n)
-                     p(lm,nR)=scale_b*po(n)
-                     s(lm,nR)=scale_b*so(n)
-                  end do
+                  w(lm,:)=scale_b*wo(lmo,:)
+                  z(lm,:)=scale_b*zo(lmo,:)
+                  p(lm,:)=scale_b*po(lmo,:)
+                  s(lm,:)=scale_b*so(lmo,:)
                end if
             else
-               do nR=1,n_rad_tot
-                  w(lm,nR)=zero
-                  z(lm,nR)=zero
-                  p(lm,nR)=zero
-                  s(lm,nR)=zero
-               end do
+               w(lm,:)=zero
+               z(lm,:)=zero
+               p(lm,:)=zero
+               s(lm,:)=zero
             end if
          end do
       end do
