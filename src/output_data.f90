@@ -23,9 +23,6 @@ module output_data
    real(cp), public :: t_TOZ_start,t_TOZ_stop,dt_TOZ
    real(cp), public :: t_movie_start,t_movie_stop,dt_movie
    real(cp), public :: t_TOmovie_start,t_TOmovie_stop,dt_TOmovie
-   real(cp), public :: t_Bpot_start,t_Bpot_stop,dt_Bpot
-   real(cp), public :: t_Vpot_start,t_Vpot_stop,dt_Vpot
-   real(cp), public :: t_Tpot_start,t_Tpot_stop,dt_Tpot
    real(cp), public :: t_pot_start,t_pot_stop,dt_pot
    real(cp), public :: t_probe_start,t_probe_stop,dt_probe
    integer, public :: n_graph_step,n_graphs,n_t_graph
@@ -38,9 +35,6 @@ module output_data
    integer, public :: n_TO_step,n_TOs,n_t_TO
    integer, public :: n_TOZ_step,n_TOZs,n_t_TOZ
    integer, public :: n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie
-   integer, public :: n_Bpot_step,n_Bpots,n_t_Bpot      
-   integer, public :: n_Vpot_step,n_Vpots,n_t_Vpot      
-   integer, public :: n_Tpot_step,n_Tpots,n_t_Tpot      
    integer, public :: n_pot_step,n_pots,n_t_pot      
    integer, public :: n_probe_step,n_probe_out,n_t_probe
    integer, public, parameter :: n_time_hits=5000
@@ -54,9 +48,6 @@ module output_data
    real(cp), public ::  t_TO(n_time_hits)
    real(cp), public ::  t_TOZ(n_time_hits)
    real(cp), public ::  t_TOmovie(n_time_hits)
-   real(cp), public ::  t_Bpot(n_time_hits)
-   real(cp), public ::  t_Vpot(n_time_hits)
-   real(cp), public ::  t_Tpot(n_time_hits)
    real(cp), public ::  t_pot(n_time_hits)
    real(cp), public ::  t_probe(n_time_hits)
  

@@ -35,10 +35,6 @@ module logic
    logical :: l_true_time    ! Switch for times of outputs
    logical :: l_cmb_field    ! Switch for Bcoef files for gauss coefficients
    logical :: l_dt_cmb_field ! Switch for Bcoef files for secular variation of gauss coefs.
-   logical :: l_storeBpot    ! Switch for storing magnetic field potentials
-   logical :: l_storeVpot    ! Switch for storing velocity field potentials
-   logical :: l_storeTpot    ! Switch for storing entropy field potentials
-   logical :: l_storePot     ! Switch for storing all field potentials
    logical :: l_2D_spectra   ! Switch for storing of r-l-spectra
    logical :: l_2D_RMS       ! Switch for storing of time-averaged r-l-spectra of forces
    logical :: l_r_field      ! Switch for radial coefficients

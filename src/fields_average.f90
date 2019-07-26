@@ -201,14 +201,12 @@ contains
 
       character(len=72) :: graph_file
       character(len=80) :: outFile
-      integer :: nOut,n_cmb_sets
+      integer :: nOut,n_cmb_sets,nPotSets
 
       logical :: lGraphHeader
 
       real(cp) :: time
       real(cp) :: dt_norm
-
-      integer :: nBpotSets,nVpotSets,nTpotSets
 
       !-- Initialise average for first time step:
 
@@ -558,18 +556,20 @@ contains
 
          !--- Store potentials of averaged field:
          !    dw_ave and db_ave used as work arrays here.
-         nBpotSets=-1
-         nVpotSets=-1
-         nTpotSets=-1
+         nPotSets=-1
+         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,      &
+              &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
-            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nBpotSets,  &
+            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
                  &        'B_lmr_ave.',omega_ma,omega_ic)
          end if
-         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nVpotSets,      &
-              &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_heat ) then
-            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
+            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,   &
                  &        'T_lmr_ave.',omega_ma,omega_ic)
+         end if
+         if ( l_chemical_conv ) then
+            call write_Pot(time,xi_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
+                 &        'Xi_lmr_ave.',omega_ma,omega_ic)
          end if
 
          !--- Store checkpoint file

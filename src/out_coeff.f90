@@ -400,8 +400,7 @@ contains
       complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
       character(len=*), intent(in) :: root
       real(cp),         intent(in) :: omega_ma,omega_ic
-
-      integer,          intent(inout) :: nPotSets
+      integer,          intent(in) :: nPotSets
     
       !-- Work arrays:
       complex(cp), allocatable :: workA_global(:,:)
@@ -415,9 +414,8 @@ contains
       logical :: lVB
     
       head = trim(adjustl(root))
-      nPotSets=nPotSets+1
       lVB=.false.
-      if ( root(1:1) /= 'T' .and. root(1:1) /= 'Xi' ) lVB= .true.
+      if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
     
       ! now gather the fields on rank 0 and write them to file

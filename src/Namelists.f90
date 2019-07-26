@@ -103,10 +103,6 @@ contains
       &    t_cmb_start,t_cmb_stop,dt_cmb,                     &
       &    n_r_field_step,n_r_fields,t_r_field,               &
       &    t_r_field_start,t_r_field_stop,dt_r_field,         &
-      &    n_Bpot_step,n_Bpots,t_Bpot,t_Bpot_start,           &
-      &    t_Bpot_stop,dt_Bpot,n_Vpot_step,n_Vpots,t_Vpot,    &
-      &    t_Vpot_start,t_Vpot_stop,dt_Vpot,n_Tpot_step,      &
-      &    n_Tpots,t_Tpot,t_Tpot_start,t_Tpot_stop,dt_Tpot,   &
       &    n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
       &    dt_pot,runid,movie,n_movie_step,                   &
       &    n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
@@ -118,8 +114,7 @@ contains
       &    l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
       &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
-      &    lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
-      &    l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
+      &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
       &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
       &    l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
@@ -648,7 +643,6 @@ contains
          l_dt_cmb_field=.false.
          l_rMagSpec    =.false.
          l_DTrMagSpec  =.false.
-         l_storeBpot   =.false.
       end if
 
       l_b_nl_icb=.false.
@@ -1015,6 +1009,11 @@ contains
       write(n_out,'(''  t_graph_start   ='',ES14.6,'','')') t_graph_start
       write(n_out,'(''  t_graph_stop    ='',ES14.6,'','')') t_graph_stop
       write(n_out,'(''  dt_graph        ='',ES14.6,'','')') dt_graph
+      write(n_out,'(''  n_pot_step      ='',i5,'','')') n_pot_step
+      write(n_out,'(''  n_pots          ='',i5,'','')') n_pots
+      write(n_out,'(''  t_pot_start     ='',ES14.6,'','')') t_pot_start
+      write(n_out,'(''  t_pot_stop      ='',ES14.6,'','')') t_pot_stop
+      write(n_out,'(''  dt_pot          ='',ES14.6,'','')') dt_pot
       write(n_out,'(''  n_rst_step      ='',i5,'','')') n_rst_step
       write(n_out,'(''  n_rsts          ='',i5,'','')') n_rsts
       write(n_out,'(''  t_rst_start     ='',ES14.6,'','')') t_rst_start
@@ -1094,8 +1093,6 @@ contains
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
       write(n_out,'(''  l_TOmovie       ='',l3,'','')') l_TOmovie
       write(n_out,'(''  l_PV            ='',l3,'','')') l_PV
-      write(n_out,'(''  l_storeBpot     ='',l3,'','')') l_storeBpot
-      write(n_out,'(''  l_storeVpot     ='',l3,'','')') l_storeVpot
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
@@ -1461,32 +1458,7 @@ contains
       r_probe       =0.0_cp
       theta_probe   =0.0_cp
 
-      !----- Output of magnetic potentials:
-      l_storeBpot   =.false.
-      n_Bpot_step   =0
-      n_Bpots       =0
-      t_Bpot_start  =0.0_cp
-      t_Bpot_stop   =0.0_cp
-      dt_Bpot       =0.0_cp
-
-      !----- Output of flow potentials:
-      l_storeVpot   =.false.
-      n_Vpot_step   =0
-      n_Vpots       =0
-      t_Vpot_start  =0.0_cp
-      t_Vpot_stop   =0.0_cp
-      dt_Vpot       =0.0_cp
-
-      !----- Output of T potential:
-      l_storeTpot   =.false.
-      n_Tpot_step   =0
-      n_Tpots       =0
-      t_Tpot_start  =0.0_cp
-      t_Tpot_stop   =0.0_cp
-      dt_Tpot       =0.0_cp
-
       !----- Output of all potential:
-      l_storePot    =.false.
       n_pot_step    =0
       n_pots        =0
       t_pot_start   =0.0_cp
@@ -1523,9 +1495,6 @@ contains
          t_cmb(n)    =-one
          t_r_field(n)=-one
          t_movie(n)  =-one
-         t_Vpot(n)   =-one
-         t_Bpot(n)   =-one
-         t_Tpot(n)   =-one
          t_pot(n)    =-one
          t_TO(n)     =-one
          t_TOZ(n)    =-one
