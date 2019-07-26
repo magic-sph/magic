@@ -31,7 +31,7 @@ n_cheb_ic_max=15,
  kbotb       =3
 /
 &start_field
- l_start_file=.TRUE.,
+ l_start_file=.true.,
  start_file  ="../boussBenchSat/rst_end.start",
  inform      =5
  init_b1     =0,
@@ -52,6 +52,7 @@ n_r_field_step=10,
 l_dt_cmb_field=.true.,
  n_cmb_step  =10, 
  l_average   =.true.,
+ n_pots      =1,
 /
 &mantle 
  nRotMa      =0
