@@ -1213,7 +1213,7 @@ contains
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old
       integer :: nR_per_rank_old, datatype
       integer :: istat(MPI_STATUS_SIZE)
-      integer(lip) :: disp, offset
+      integer(lip) :: disp, offset, size_old
 
       complex(cp), allocatable :: workOld(:,:)
       complex(cp), allocatable :: work(:,:)
@@ -1398,14 +1398,18 @@ contains
       call MPI_Type_Commit(datatype, ierr)
 
       !-- Set-up the first displacement
-      disp = disp+(nRstart_old-1)*lm_max_old*SIZEOF_DEF_COMPLEX
+      size_old = int(nRstart_old-1,kind=lip)*int(lm_max_old,kind=lip)* &
+      &          int(SIZEOF_DEF_COMPLEX,kind=lip)
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Poloidal potential: w
       call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+      size_old = int(n_r_max_old,kind=lip)*int(lm_max_old,kind=lip)* &
+      &          int(SIZEOF_DEF_COMPLEX,kind=lip)
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1416,7 +1420,7 @@ contains
       !-- dwdt
       call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1427,7 +1431,7 @@ contains
       !-- Toroidal potential: z
       call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1438,7 +1442,7 @@ contains
       !-- dzdt
       call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1449,7 +1453,7 @@ contains
       !-- Pressure: p
       call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1460,7 +1464,7 @@ contains
       !-- dpdt
       call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+      disp = disp+size_old
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1472,7 +1476,7 @@ contains
          !-- Read entropy: s
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
 
@@ -1486,7 +1490,7 @@ contains
          !-- Read dsdt
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
 
@@ -1502,7 +1506,7 @@ contains
          !-- Read chemical composition: xi
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
 
@@ -1516,7 +1520,7 @@ contains
          !-- Read dxidt
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
 
@@ -1541,7 +1545,7 @@ contains
          !-- Read poloidal potential: b
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1552,7 +1556,7 @@ contains
          !-- Read poloidal potential: dbdt
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1563,7 +1567,7 @@ contains
          !-- Read toroidal potential: aj
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
@@ -1574,7 +1578,7 @@ contains
          !-- Read poloidal potential: dbdt
          call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
               &                 MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+n_r_max_old*lm_max_old*SIZEOF_DEF_COMPLEX
+         disp = disp+size_old
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
          call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &

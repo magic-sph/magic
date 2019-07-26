@@ -282,7 +282,7 @@ contains
       character(len=72) :: string, rst_file
       integer :: istat(MPI_STATUS_SIZE)
       integer :: arr_size(2), arr_loc_size(2), arr_start(2)
-      integer(lip) :: disp, offset
+      integer(lip) :: disp, offset, size_tmp
 
       version = 1
 
@@ -396,43 +396,45 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
+      size_tmp=int(lm_max,kind=lip)*int(n_r_max,kind=lip)* &
+      &        int(SIZEOF_DEF_COMPLEX,kind=lip)
       !-- Now finally write the fields
       !-- Poloidal potential: w
       call MPI_File_Write_all(fh, w, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call lo2r%transp_lm2r(dwdtLast, work)
       call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Toroidal potential: z
       call MPI_File_Write_all(fh, z, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call lo2r%transp_lm2r(dzdtLast, work)
       call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
       !-- Pressure: p
       call MPI_File_Write_all(fh, p, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
       call lo2r%transp_lm2r(dpdtLast, work)
       call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
-      disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
@@ -440,13 +442,13 @@ contains
       if ( l_heat ) then
          call MPI_File_Write_all(fh, s, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(dsdtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
       end if
@@ -455,13 +457,13 @@ contains
       if ( l_chemical_conv ) then
          call MPI_File_Write_all(fh, xi, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(dxidtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
       end if
@@ -470,24 +472,24 @@ contains
       if ( l_mag ) then
          call MPI_File_Write_all(fh, b, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(dbdtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call MPI_File_Write_all(fh, aj, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
          call lo2r%transp_lm2r(djdtLast, work)
          call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
               &                  MPI_DEF_COMPLEX, istat, ierr)
-         disp = disp+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
               &                 info, ierr)
       end if
