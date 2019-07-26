@@ -282,7 +282,7 @@ contains
       character(len=72) :: string, rst_file
       integer :: istat(MPI_STATUS_SIZE)
       integer :: arr_size(2), arr_loc_size(2), arr_start(2)
-      integer(kind=MPI_OFFSET_KIND) :: disp, offset
+      integer(lip) :: disp, offset
 
       version = 1
 

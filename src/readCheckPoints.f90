@@ -1213,7 +1213,7 @@ contains
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old
       integer :: nR_per_rank_old, datatype
       integer :: istat(MPI_STATUS_SIZE)
-      integer(kind=MPI_OFFSET_KIND) :: disp, offset
+      integer(lip) :: disp, offset
 
       complex(cp), allocatable :: workOld(:,:)
       complex(cp), allocatable :: work(:,:)
