@@ -100,17 +100,17 @@ def generateEkinFile(fileName='e_kin.test'):
                                    coeff.wlm[0, coeff.idx[5, 4]].imag )
     file.write(st+'\n')
 
-    pot = MagicPotential(field='B')
+    pot = MagicPotential(field='B', verbose=False)
     st = '%.5e %.5e %.5e %.5e' % ( pot.pol[5, 3].real, pot.pol[127, 15].imag, 
                                    pot.tor[183, 16].real, pot.tor[121, 9].imag )
     file.write(st+'\n')
 
-    pot = MagicPotential(field='V')
+    pot = MagicPotential(field='V', verbose=False)
     st = '%.5e %.5e %.5e %.5e' % ( pot.pol[65, 15].real, pot.pol[125, 17].imag, 
                                    pot.tor[63, 12].real, pot.tor[184, 13].imag )
     file.write(st+'\n')
 
-    pot = MagicPotential(field='T')
+    pot = MagicPotential(field='T', verbose=False)
     st = '%.5e %.5e' % ( pot.pol[0, 15].real, pot.pol[65, 9].real )
     file.write(st+'\n')
 

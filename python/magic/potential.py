@@ -66,7 +66,7 @@ class MagicPotential(MagicSetup):
     """
 
     def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None,
-                 precision=np.float32):
+                 precision=np.float32, verbose=True):
         """
         :param field: 'B', 'V' or 'T' (magnetic field, velocity field or
                       temperature)
@@ -82,6 +82,8 @@ class MagicPotential(MagicSetup):
         :type ipot: int
         :param precision: single or double precision
         :type precision: str
+        :param verbose: some info about the SHT layout
+        :type verbose: bool
         """
 
         if hasattr(self, 'radial_scheme'):
@@ -194,7 +196,8 @@ class MagicPotential(MagicSetup):
             if ( field != 'T' and field != 'Xi' ):
                 self.tor = Prd.tor
         t2 = time.time()
-        print('Time to read %s: %.2f' % (filename, t2-t1))
+        if verbose:
+            print('Time to read %s: %.2f' % (filename, t2-t1))
 
         self.n_theta_max = int(3*self.l_max/2)
         if self.n_theta_max % 2: # odd number
@@ -202,9 +205,12 @@ class MagicPotential(MagicSetup):
         self.n_phi_max = int(2*self.n_theta_max/self.minc)
         t1 = time.time()
         self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
-                                     lm_max=self.lm_max, n_theta_max=self.n_theta_max)
+                                     lm_max=self.lm_max,
+                                     n_theta_max=self.n_theta_max,
+                                     verbose=verbose)
         t2 = time.time()
-        print('Time to set up the spectral transforms: %.2f' % (t2-t1))
+        if verbose:
+            print('Time to set up the spectral transforms: %.2f' % (t2-t1))
         self.colat = self.sh.colat
 
         self.idx = self.sh.idx
