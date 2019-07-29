@@ -4,8 +4,8 @@ Poloidal and toroidal potentials in spectral and radial space
 ----------------------------------------------------------------
 
 The **[V|B|T]_lmr** outputs controls the output of potential files
-(:ref:`V_lmr_#.TAG <secVpotFile>`, :ref:`B_lmr_#.TAG <secBpotFile>` and 
-:ref:`T_lmr_#.TAG <secTpotFile>`). These are files contain
+(:ref:`V_lmr_#.TAG <secPotFiles>`, :ref:`B_lmr_#.TAG <secPotFiles>` and 
+:ref:`T_lmr_#.TAG <secPotFiles>`). These are files contain
 the poloidal and toroidal flow and magnetic field potentials (and entropy/temperature)
 written in spectral and radial spaces (for instance :code:`w(lm_max, n_r_max)`).
 These files can be quite handy since they can be possibly used to reconstruct any
