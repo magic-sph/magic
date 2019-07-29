@@ -708,7 +708,7 @@ contains
       end if
   
       if ( l_pot ) then
-#ifdef WITH_MPI_tout
+#ifdef WITH_MPI
          call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
               &             nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
