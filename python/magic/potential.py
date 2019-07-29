@@ -12,17 +12,19 @@ from .npfile import *
 if buildSo:
     if sys.version_info.major == 3:
         import magic.lmrreader_single3 as Psngl
-    elif  sys.version_info.major == 2:
+    elif sys.version_info.major == 2:
         import magic.lmrreader_single2 as Psngl
 
     readingMode = 'f2py'
+    readingMode = 'python'
 else:
     readingMode = 'python'
 
 
 def getPotEndianness(filename):
     """
-    This function determines the endianness of the potential files
+    This function determines the endianness of the potential files.
+    This also checks whether the file contains record marker or not.
 
     :param filename: input of the filename
     :type filename: str
@@ -30,15 +32,37 @@ def getPotEndianness(filename):
               'l'='little_endian')
     :rtype: str
     """
-    f = npfile(filename, endian='B')
     try:
-        f.fort_read('i4')
-        endian = 'B'
-    except TypeError:
-        endian = 'l'
-    f.close()
+        f = npfile(filename, endian='B')
+        try:
+            f.fort_read('i4')
+            endian = 'B'
+        except TypeError:
+            endian = 'l'
+        f.close()
+        record_marker = True
+    except ValueError:
+        f = open(filename, 'rb')
+        ver = np.fromfile(f, dtype='i4', count=1)[0]
+        if abs(ver) < 100:
+            endian = 'l'
+        else:
+            endian = 'B'
+        f.close()
+        record_marker = False
 
-    return endian
+    return endian, record_marker
+
+def getVersion(filename, endian='B'):
+
+    f = open(filename, 'rb')
+
+    if endian == 'B':
+        version = np.fromfile(f, dtype='>i4', count=1)[0]
+    elif endian == 'l':
+        version = np.fromfile(f, dtype='i4', count=1)[0]
+
+    return version
 
 
 class MagicPotential(MagicSetup):
@@ -131,49 +155,120 @@ class MagicPotential(MagicSetup):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
-
         # Determine file endianness
-        endian = getPotEndianness(filename)
+        endian, record_marker = getPotEndianness(filename)
+        if not record_marker:
+            self.version = getVersion(filename, endian=endian)
+        else:
+            self.version = 0
 
         t1 = time.time()
-        if readingMode  == 'python':
+        self.read(filename, field, endian, record_marker, precision=precision)
+        t2 = time.time()
+        if verbose:
+            print('Time to read %s: %.2e' % (filename, t2-t1))
 
-            infile = npfile(filename, endian=endian)
+        self.n_theta_max = int(3*self.l_max/2)
+        if self.n_theta_max % 2:  # odd number
+            self.n_theta_max += 1
+        self.n_phi_max = int(2*self.n_theta_max/self.minc)
+        t1 = time.time()
+        self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
+                                     lm_max=self.lm_max,
+                                     n_theta_max=self.n_theta_max,
+                                     verbose=verbose)
+        t2 = time.time()
+        if verbose:
+            print('Time to set up the spectral transforms: %.2e' % (t2-t1))
+        self.colat = self.sh.colat
 
-            # Read header
-            self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
-                                          self.lm_max = infile.fort_read('i4')
-            self.m_max = int((self.l_max/self.minc)*self.minc)
-            self.n_m_max = int(self.m_max/self.minc+1)
-            self.ra, self.ek, self.pr, self.prmag, self.radratio, self.sigma_ratio, \
-                         self.omega_ma, self.omega_ic = infile.fort_read(precision)
-            self.time = infile.fort_read(precision)
-            dat = infile.fort_read(precision)
+        self.idx = self.sh.idx
+        self.ell = self.sh.ell
 
-            # Read radius and density
-            self.radius = dat[:self.n_r_max]
-            self.rho0 = dat[self.n_r_max:]
 
-            # Read field in the outer core
-            self.pol = infile.fort_read(np.complex64)
-            self.pol = self.pol.reshape((self.n_r_max, self.lm_max))
-            self.pol = self.pol.T
-            if ( field != 'T' and field != 'Xi' ):
-                self.tor = infile.fort_read(np.complex64)
-                self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
-                self.tor = self.tor.T
+    def read(self, filename, field, endian, record_marker, precision=np.float32):
+        """
 
-            infile.close()
+        :param record_marker: a boolean to specify whether the file contains
+                              record marker
+        :type record_marker: bool
+        """
 
-        else: # F2py reader
+        if readingMode == 'python':
 
-            if ( field != 'T' and field != 'Xi' ):
+            if (self.version == 0 and record_marker):
+                infile = npfile(filename, endian=endian)
+
+                # Read header
+                self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
+                    self.lm_max = infile.fort_read('i4')
+                self.m_max = int((self.l_max/self.minc)*self.minc)
+                self.n_m_max = int(self.m_max/self.minc+1)
+                self.ra, self.ek, self.pr, self.prmag, self.radratio, \
+                    self.sigma_ratio, self.omega_ma, self.omega_ic = \
+                    infile.fort_read(precision)
+                self.time = infile.fort_read(precision)
+                dat = infile.fort_read(precision)
+
+                # Read radius and density
+                self.radius = dat[:self.n_r_max]
+                self.rho0 = dat[self.n_r_max:]
+
+                # Read field in the outer core
+                self.pol = infile.fort_read(np.complex64)
+                self.pol = self.pol.reshape((self.n_r_max, self.lm_max))
+                self.pol = self.pol.T
+                if (field != 'T' and field != 'Xi'):
+                    self.tor = infile.fort_read(np.complex64)
+                    self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
+                    self.tor = self.tor.T
+
+                infile.close()
+
+            else: # Stream-reader
+
+                f = open(filename, 'rb')
+                if endian == 'B':
+                    prefix = '>'
+                else:
+                    prefix = '<'
+
+                dt = np.dtype('%si4' % prefix)
+                self.version = np.fromfile(f, dtype=dt, count=1)[0]
+                dt = np.dtype('%s9f4' % prefix)
+                self.time, self.ra, self.pr, self.raxi, self.sc, self.prmag, \
+                    self.ekman, self.radratio, self.sigma_ratio = \
+                    np.fromfile(f, dtype=dt, count=1)[0]
+                dt = np.dtype('%s5i4' % prefix)
+                self.n_r_max, self.n_r_ic_max, self.l_max, self.minc, \
+                    self.lm_max = np.fromfile(f, dtype=dt, count=1)[0]
+                dt = np.dtype('%s2f4' % prefix)
+                self.omega_ic, self.omega_ma = \
+                    np.fromfile(f, dtype=dt, count=1)[0]
+                dt = np.dtype("%s%if4" % (prefix, self.n_r_max))
+                self.radius = np.fromfile(f, dtype=dt, count=1)[0]
+                self.rho0 = np.fromfile(f, dtype=dt, count=1)[0]
+
+                dt = np.dtype("%s(%i,%i)c8" % (prefix, self.n_r_max,
+                                               self.lm_max))
+                self.pol = np.fromfile(f, dtype=dt, count=1)[0]
+                self.pol = self.pol.T
+                if (field != 'T' and field != 'Xi'):
+                    self.tor = np.fromfile(f, dtype=dt, count=1)[0]
+                    self.tor = self.tor.T
+
+                f.close()
+
+        else:  # F2py reader
+
+            if (field != 'T' and field != 'Xi'):
                 l_read_tor = True
             else:
                 l_read_tor = False
 
             Prd = Psngl.potreader_single
-            Prd.readpot(filename, endian, l_read_tor)
+            Prd.readpot(filename, endian, l_read_tor, self.version)
+            self.version = Prd.version
             self.n_r_max = Prd.n_r_max
             self.l_max = Prd.l_max
             self.n_r_ic_max = Prd.n_r_ic_max
@@ -183,6 +278,8 @@ class MagicPotential(MagicSetup):
             self.n_m_max = int(self.m_max/self.minc+1)
             self.ra = Prd.ra
             self.ek = Prd.ek
+            self.raxi = Prd.raxi
+            self.sc = Prd.sc
             self.radratio = Prd.radratio
             self.sigma_ratio = Prd.sigma_ratio
             self.prmag = Prd.prmag
@@ -193,31 +290,11 @@ class MagicPotential(MagicSetup):
             self.rho0 = Prd.rho0
 
             self.pol = Prd.pol
-            if ( field != 'T' and field != 'Xi' ):
+            if (field != 'T' and field != 'Xi'):
                 self.tor = Prd.tor
-        t2 = time.time()
-        if verbose:
-            print('Time to read %s: %.2f' % (filename, t2-t1))
 
-        self.n_theta_max = int(3*self.l_max/2)
-        if self.n_theta_max % 2: # odd number
-            self.n_theta_max += 1
-        self.n_phi_max = int(2*self.n_theta_max/self.minc)
-        t1 = time.time()
-        self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
-                                     lm_max=self.lm_max,
-                                     n_theta_max=self.n_theta_max,
-                                     verbose=verbose)
-        t2 = time.time()
-        if verbose:
-            print('Time to set up the spectral transforms: %.2f' % (t2-t1))
-        self.colat = self.sh.colat
-
-        self.idx = self.sh.idx
-        self.ell = self.sh.ell
-
-    def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm, normed=True,
-            vmax=None, vmin=None, cbar=True, tit=True):
+    def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm,
+            normed=True, vmax=None, vmin=None, cbar=True, tit=True):
         """
         Plot the azimutal average of a given field.
 
@@ -256,8 +333,8 @@ class MagicPotential(MagicSetup):
             label = 'T'
         elif field in ('vr', 'Vr', 'ur', 'Ur'):
             for i in range(self.n_r_max):
-                field = self.pol[:,i]*self.ell*(self.ell+1)/self.radius[i]**2\
-                        /self.rho0[i]
+                field = self.pol[:, i]*self.ell*(self.ell+1) / \
+                        self.radius[i]**2 / self.rho0[i]
                 phiavg[:, i] = self.sh.spec_spat(field, l_axi=True)
             if labTex:
                 label = r'$v_r$'
@@ -266,7 +343,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'utheta', 'vtheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                vt, vp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                vt, vp = self.sh.spec_spat(field[:, i], self.tor[:, i],
+                                           l_axi=True)
                 phiavg[:, i] = vt/self.radius[i]/self.rho0[i]
             if labTex:
                 label = r'$v_\theta$'
@@ -275,7 +353,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vp', 'Vp', 'up', 'Up', 'uphi', 'vphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                vt, vp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                vt, vp = self.sh.spec_spat(field[:, i], self.tor[:, i],
+                                           l_axi=True)
                 phiavg[:, i] = vp/self.radius[i]/self.rho0[i]
             if labTex:
                 label = r'$v_\phi$'
@@ -283,7 +362,7 @@ class MagicPotential(MagicSetup):
                 label = 'vphi'
         elif field in ('br', 'Br'):
             for i in range(self.n_r_max):
-                field = self.pol[:,i]*self.ell*(self.ell+1)/self.radius[i]**2
+                field = self.pol[:, i]*self.ell*(self.ell+1)/self.radius[i]**2
 
                 phiavg[:, i] = self.sh.spec_spat(field, l_axi=True)
             if labTex:
@@ -293,7 +372,8 @@ class MagicPotential(MagicSetup):
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                bt, bp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                bt, bp = self.sh.spec_spat(field[:, i], self.tor[:, i],
+                                           l_axi=True)
                 phiavg[:, i] = bt.real/self.radius[i]
             if labTex:
                 label = r'$B_\theta$'
@@ -302,7 +382,8 @@ class MagicPotential(MagicSetup):
         elif field in ('bp', 'Bp', 'bphi', 'Bphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                bt, bp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                bt, bp = self.sh.spec_spat(field[:, i], self.tor[:, i],
+                                           l_axi=True)
                 phiavg[:, i] = bp.real/self.radius[i]
             if labTex:
                 label = r'$B_\phi$'
@@ -314,11 +395,12 @@ class MagicPotential(MagicSetup):
         if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
 
-        fig, xx, yy, im = merContour(phiavg, self.radius, label, levels, cm, normed,
-                                     vmax, vmin, cbar, tit)
+        fig, xx, yy, im = merContour(phiavg, self.radius, label, levels, cm,
+                                     normed, vmax, vmin, cbar, tit)
 
-    def equat(self, field='vr', levels=defaultLevels, cm=defaultCm, normed=True,
-              vmax=None, vmin=None, cbar=True, tit=True, normRad=False):
+    def equat(self, field='vr', levels=defaultLevels, cm=defaultCm,
+              normed=True, vmax=None, vmin=None, cbar=True, tit=True,
+              normRad=False):
         """
         Plot the equatorial cut of a given field
 
@@ -360,8 +442,8 @@ class MagicPotential(MagicSetup):
             label = 'T'
         elif field in ('vr', 'Vr', 'ur', 'Ur'):
             for i in range(self.n_r_max):
-                field = self.ell*(self.ell+1)/self.radius[i]**2/self.rho0[i]*\
-                        self.pol[:, i]
+                field = self.ell*(self.ell+1)/self.radius[i]**2 / \
+                        self.rho0[i] * self.pol[:, i]
                 equator[:, i] = self.sh.spec_spat_equat(field)
             if labTex:
                 label = r'$v_r$'
@@ -416,12 +498,13 @@ class MagicPotential(MagicSetup):
 
         equator = symmetrize(equator, self.minc)
 
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
+        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
+                     'b2', 'nrj'):
             normed = False
 
-        fig, xx, yy = equatContour( equator, self.radius, self.minc, label,
-                                    levels, cm, normed, vmax, vmin, cbar, tit,
-                                    normRad )
+        fig, xx, yy = equatContour(equator, self.radius, self.minc, label,
+                                   levels, cm, normed, vmax, vmin, cbar, tit,
+                                   normRad)
         ax = fig.get_axes()[0]
 
         # Variable conductivity: add a dashed line
@@ -431,8 +514,8 @@ class MagicPotential(MagicSetup):
                 ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--', lw=1.5)
 
     def surf(self, field='vr', proj='hammer', lon_0=0., r=0.85, vmax=None,
-             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, lon_shift=0,
-             normed=True, cbar=True, tit=True, lines=False):
+             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
+             lon_shift=0, normed=True, cbar=True, tit=True, lines=False):
         """
         Plot the surface distribution of an input field at a given
         input radius (normalised by the outer boundary radius).
@@ -455,7 +538,8 @@ class MagicPotential(MagicSetup):
         :param lat_0: central latitude (only used with Basemap)
         :type lat_0: float
         :param r: the radius at which you want to display the input
-                  data (in normalised units with the radius of the outer boundary)
+                  data (in normalised units with the radius of the
+                  outer boundary)
         :type r: float
         :param levels: the number of levels in the contour
         :type levels: int
@@ -476,9 +560,9 @@ class MagicPotential(MagicSetup):
         :type normed: bool
         """
 
-        r /= (1-self.radratio) # as we give a normalised radius
-        ind = np.nonzero(np.where(abs(self.radius-r) \
-                        == min(abs(self.radius-r)), 1, 0))
+        r /= (1-self.radratio)  # as we give a normalised radius
+        ind = np.nonzero(np.where(abs(self.radius-r) ==
+                         min(abs(self.radius-r)), 1, 0))
         indPlot = ind[0][0]
         rad = self.radius[indPlot] * (1.-self.radratio)
 
@@ -488,8 +572,8 @@ class MagicPotential(MagicSetup):
             rprof = self.sh.spec_spat(self.pol[:, indPlot])
             label = 'T'
         elif field in ('vr', 'Vr', 'ur', 'Ur'):
-            field = self.ell*(self.ell+1)/self.radius[indPlot]**2/self.rho0[indPlot]*\
-                    self.pol[:, indPlot]
+            field = self.ell*(self.ell+1)/self.radius[indPlot]**2 / \
+                    self.rho0[indPlot]*self.pol[:, indPlot]
             rprof = self.sh.spec_spat(field)
             if labTex:
                 label = r'$v_r$'
@@ -507,14 +591,14 @@ class MagicPotential(MagicSetup):
         elif field in ('vp', 'Vp', 'up', 'Up', 'uphi', 'vphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
-            vt, vp  = self.sh.spec_spat(field, self.tor[:, indPlot])
+            vt, vp = self.sh.spec_spat(field, self.tor[:, indPlot])
             rprof = vp/self.radius[indPlot]/self.rho0[indPlot]
             if labTex:
                 label = r'$v_\phi$'
             else:
                 label = 'vphi'
         elif field in ('br', 'Br'):
-            field = self.ell*(self.ell+1)/self.radius[indPlot]**2*\
+            field = self.ell*(self.ell+1)/self.radius[indPlot]**2 * \
                     self.pol[:, indPlot]
             rprof = self.sh.spec_spat(field)
             if labTex:
@@ -544,11 +628,12 @@ class MagicPotential(MagicSetup):
 
         rprof = symmetrize(rprof, self.minc)
 
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
+        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
+                     'b2', 'nrj'):
             normed = False
 
-        fig = radialContour(rprof, rad, label, proj, lon_0, vmax, vmin, lat_0, levels,
-                            cm, normed, cbar, tit, lines)
+        fig = radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
+                            lat_0, levels, cm, normed, cbar, tit, lines)
 
 
 if __name__ == '__main__':
