@@ -33,12 +33,12 @@ def getPotEndianness(filename):
     :rtype: str, bool
     """
     try:
-        f = npfile(filename, endian='B')
-        try:
+        f = npfile(filename, endian='l')
+        try:  # This test is not 100% safe but in principle it should work
             f.fort_read('i4')
-            endian = 'B'
-        except TypeError:
             endian = 'l'
+        except TypeError:
+            endian = 'B'
         f.close()
         record_marker = True
     except ValueError:
@@ -50,6 +50,8 @@ def getPotEndianness(filename):
             endian = 'B'
         f.close()
         record_marker = False
+
+    print(endian, record_marker)
 
     return endian, record_marker
 
