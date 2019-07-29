@@ -50,6 +50,9 @@ module output_mod
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
        &                     gather_from_lo_to_rank0
    use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
+#ifdef WITH_MPI
+   use out_coeff, only: write_Pot_mpi
+#endif
    use getDlm_mod, only: getDlm
    use movie_data, only: movie_gather_frames_to_rank0
    use dtB_mod, only: get_dtBLMfinish
@@ -705,6 +708,22 @@ contains
       end if
   
       if ( l_pot ) then
+#ifdef WITH_MPI_tout
+         call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+              &             nPotSets,'V_lmr.',omega_ma,omega_ic)
+         if ( l_heat ) then
+           call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                &             nPotSets,'T_lmr.',omega_ma,omega_ic)
+         end if
+         if ( l_chemical_conv ) then
+           call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+         end if
+         if ( l_mag ) then
+            call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &             nPotSets,'B_lmr.',omega_ma,omega_ic)
+         end if
+#else
          call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
               &         nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
@@ -717,8 +736,9 @@ contains
          end if
          if ( l_mag ) then
             call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-                           nPotSets,'B_lmr.',omega_ma,omega_ic)
+                 &         nPotSets,'B_lmr.',omega_ma,omega_ic)
          end if
+#endif
          nPotSets=nPotSets+1
       end if
 

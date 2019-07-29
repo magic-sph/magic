@@ -435,11 +435,11 @@ contains
             ! rank zero writes the Header
             disp = 0
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
-                 &                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+                 &                 MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
          else
             disp = size_of_header+(nRstart-1)*size_of_data_per_r
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
-                 &                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+                 &                 MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
          end if
 
          call MPI_FILE_GET_VIEW(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
@@ -708,11 +708,11 @@ contains
          ! rank zero writes the Header
          disp = 0
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
-                                MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+                                MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
       else
          disp = size_of_header+(nRstart-1)*size_of_data_per_r
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,&
-              & MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+              & MPI_CHARACTER,MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
       end if
 
       call mpi_file_get_view(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
