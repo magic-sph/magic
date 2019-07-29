@@ -51,8 +51,6 @@ def getPotEndianness(filename):
         f.close()
         record_marker = False
 
-    print(endian, record_marker)
-
     return endian, record_marker
 
 
