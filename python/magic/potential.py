@@ -16,7 +16,6 @@ if buildSo:
         import magic.lmrreader_single2 as Psngl
 
     readingMode = 'f2py'
-    readingMode = 'python'
 else:
     readingMode = 'python'
 
@@ -29,8 +28,9 @@ def getPotEndianness(filename):
     :param filename: input of the filename
     :type filename: str
     :returns: the endianness of the file ('B'='big_endian' or
-              'l'='little_endian')
-    :rtype: str
+              'l'='little_endian') and a boolean that specifies whether
+              the file contains record markers or not
+    :rtype: str, bool
     """
     try:
         f = npfile(filename, endian='B')
@@ -52,17 +52,6 @@ def getPotEndianness(filename):
         record_marker = False
 
     return endian, record_marker
-
-def getVersion(filename, endian='B'):
-
-    f = open(filename, 'rb')
-
-    if endian == 'B':
-        version = np.fromfile(f, dtype='>i4', count=1)[0]
-    elif endian == 'l':
-        version = np.fromfile(f, dtype='i4', count=1)[0]
-
-    return version
 
 
 class MagicPotential(MagicSetup):
@@ -92,8 +81,8 @@ class MagicPotential(MagicSetup):
     def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None,
                  precision=np.float32, verbose=True):
         """
-        :param field: 'B', 'V' or 'T' (magnetic field, velocity field or
-                      temperature)
+        :param field: 'B', 'V', 'T' or 'Xi' (magnetic field, velocity field,
+                      temperature or chemical composition)
         :type field: str
         :param datadir: the working directory
         :type datadir: str
@@ -157,10 +146,10 @@ class MagicPotential(MagicSetup):
 
         # Determine file endianness
         endian, record_marker = getPotEndianness(filename)
-        if not record_marker:
-            self.version = getVersion(filename, endian=endian)
-        else:
+        if record_marker:
             self.version = 0
+        else:
+            self.version = 1  # This will be over-written later
 
         t1 = time.time()
         self.read(filename, field, endian, record_marker, precision=precision)
@@ -185,13 +174,25 @@ class MagicPotential(MagicSetup):
         self.idx = self.sh.idx
         self.ell = self.sh.ell
 
-
-    def read(self, filename, field, endian, record_marker, precision=np.float32):
+    def read(self, filename, field, endian, record_marker,
+             precision=np.float32):
         """
+        This routine defines a reader for the various versions of the lmr
+        files.
 
+        :param filename: name of the input lmr file
+        :type filename: str
+        :param field: 'B', 'V', 'T' or 'Xi' (magnetic field, velocity field,
+                      temperature or chemical composition)
+        :type field: str
+        :param endian: a character string that specifies the endianness of the
+                       input file ('B' for big endian or 'l' for little endian)
+        :type endian: str
         :param record_marker: a boolean to specify whether the file contains
                               record marker
         :type record_marker: bool
+        :param precision: single or double precision
+        :type precision: str
         """
 
         if readingMode == 'python':
@@ -225,7 +226,7 @@ class MagicPotential(MagicSetup):
 
                 infile.close()
 
-            else: # Stream-reader
+            else:  # Stream-reader
 
                 f = open(filename, 'rb')
                 if endian == 'B':
