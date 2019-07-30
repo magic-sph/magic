@@ -14,7 +14,6 @@ module out_coeff
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
-   use parallel_mod, only: rank
    use blocking, only: lm2, llm, ulm
    use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
    use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
