@@ -717,7 +717,7 @@ contains
 
             read(n_start_file, iostat=io_status) version
 
-            if ( io_status /= 0 ) then
+            if ( io_status /= 0 .or. abs(version) > 100 ) then
                write(*,*) '! The checkpoint file does not have record markers'
                write(*,*) '! I try to read it with a stream access...'
                close(n_start_file)
