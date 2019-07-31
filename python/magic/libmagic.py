@@ -933,6 +933,8 @@ def getCpuTime(file):
     threads = re.compile(r'[\s]*\![\s]*nThreads\:[\s]*(.*)')
     ranks = re.compile(r'[\s]*\![\s\w]*ranks[\s\w]*\:[\s]*(.*)')
     runTime = re.compile(r'[\s\!\w]*time:[\s]*([0-9]*)d[\s\:]*([0-9]*)h[\s\:]*([0-9]*)m[\s\:]*([0-9]*)s[\s\:]*([0-9]*)ms.*')
+    runTime_new = re.compile(r' \! Total run time:[\s]*([0-9]*)[\s]*h[\s]*([0-9]*)[\s]*m[\s]*([0-9]*)[\s]*s[\s]*([0-9]*)[\s]*ms[\s]*')
+
     f = open(file, 'r')
     tab = f.readlines()
     nThreads = 1 # In case a pure MPI version is used
@@ -950,6 +952,12 @@ def getCpuTime(file):
             sec = int(runTime.search(line).groups()[3])
             ms = int(runTime.search(line).groups()[4])
             realTime = 24*days+hours+1./60*min+1./3600*sec+1./3.6e6*ms
+        elif runTime_new.match(line):
+            hours = int(runTime_new.search(line).groups()[0])
+            min = int(runTime_new.search(line).groups()[1])
+            sec = int(runTime_new.search(line).groups()[2])
+            ms = int(runTime_new.search(line).groups()[3])
+            realTime = hours+1./60*min+1./3600*sec+1./3.6e6*ms
     f.close()
     cpuTime = nThreads*nRanks*realTime
     return cpuTime
