@@ -46,7 +46,7 @@ opts="--enable-magic-layout --prefix=$HOME/local"
 if [[ -n $MKLROOT ]]
 then
    echo "MKL found, installing with MKL"
-   opts="$opts -enable-mkl"
+   opts="$opts --enable-mkl"
 else
    echo "MKL not found, will try to install with FFTW"
 fi
