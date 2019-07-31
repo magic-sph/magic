@@ -23,8 +23,8 @@ before_install:
 script:
     - ulimit -s unlimited
     - source sourceme.sh
-    - export FC=/usr/bin/gfortran-7
+    - export FC=mpif90
     - export CC=/usr/bin/gcc-7
     - cd samples
     - export OMP_NUM_THREADS=1
-    - ./magic_wizard.py --use-mpi --nranks 2 --use-openmp --nthreads 1 --level 0 --mpicmd mpirun
+    - ./magic_wizard.py --use-mpi --nranks 2 --level 0 --mpicmd mpirun
