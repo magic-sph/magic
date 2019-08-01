@@ -35,7 +35,9 @@ def getPotEndianness(filename):
     try:
         f = npfile(filename, endian='l')
         try:  # This test is not 100% safe but in principle it should work
-            f.fort_read('i4')
+            i = f.fort_read('i4')
+            if abs(i[0]) > 100:
+                raise TypeError
             endian = 'l'
         except TypeError:
             endian = 'B'
