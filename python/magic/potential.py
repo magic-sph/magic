@@ -291,6 +291,7 @@ class MagicPotential(MagicSetup):
             self.omega_ma = Prd.omega_ma
             self.radius = Prd.radius
             self.rho0 = Prd.rho0
+            self.time = Prd.time
 
             self.pol = Prd.pol
             if (field != 'T' and field != 'Xi'):
