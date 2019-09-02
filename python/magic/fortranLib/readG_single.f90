@@ -135,9 +135,12 @@ contains
                   exit ic_loop1
                else
                   radius_ic(int(ir)+1-nr) = rad
-                  read(10) Br_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
-                  read(10) Bt_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
-                  read(10) Bp_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+                  read(10, iostat=read_ok) Br_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+                  if ( read_ok /= 0 ) exit ic_loop1
+                  read(10, iostat=read_ok) Bt_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+                  if ( read_ok /= 0 ) exit ic_loop1
+                  read(10, iostat=read_ok) Bp_ic(:,int(ilat1):int(ilat2),int(ir+1-nr))
+                  if ( read_ok /= 0 ) exit ic_loop1
                end if
             end do ic_loop1
          end if
