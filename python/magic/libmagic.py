@@ -402,7 +402,7 @@ def fast_read(file, skiplines=0, binary=False, precision=np.float64):
         X = []
         for k, line in enumerate(f.readlines()):
             st = line.replace('D', 'E')
-            if k >= skiplines:
+	    if k >= skiplines:
                 X.append(st.split())
         X = np.array(X, dtype=precision)
         f.close()
@@ -1009,3 +1009,23 @@ def getTotalRunTime():
     for file in logFiles:
         totCpuTime += getCpuTime(file)
     return totCpuTime
+
+def prime_factors(n):
+    """
+    This function returns all prime factors of a number
+
+    :type n: int
+    :returns: all prime factors
+    :rtype: list
+    """
+    i = 2
+    factors = []
+    while i * i <= n:
+        if n % i:
+            i += 1
+        else:
+            n //= i
+            factors.append(i)
+    if n > 1:
+        factors.append(n)
+    return factors
