@@ -18,3 +18,8 @@ MPI related modules
 ----------------------
 
 .. f:automodule:: communications
+
+``mpi_transpose.f90``
+----------------------
+
+.. f:automodule:: mpi_transp
