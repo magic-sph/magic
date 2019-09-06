@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ver="3.2.2-r675"
+ver="3.3-r691"
 
 if test ! -d $HOME/local; then
     mkdir $HOME/local
