@@ -416,9 +416,7 @@ contains
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
       !$OMP& private(Hel, Helna)                            &
-      !$OMP& private(vras, cvras, vtas, vpas)               &
       !$OMP& private(vrna, cvrna, vtna, vpna)               &
-      !$OMP& private(dvrdpas, dvpdras, dvtdras, dvrdtas)    &
       !$OMP& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)
 #endif
       do nThetaB=1,sizeThetaB
