@@ -402,7 +402,7 @@ def fast_read(file, skiplines=0, binary=False, precision=np.float64):
         X = []
         for k, line in enumerate(f.readlines()):
             st = line.replace('D', 'E')
-	    if k >= skiplines:
+        if k >= skiplines:
                 X.append(st.split())
         X = np.array(X, dtype=precision)
         f.close()
