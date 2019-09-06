@@ -126,46 +126,57 @@ contains
 
       class(nonlinear_lm_t) :: this
 
-      this%AdvrLM(:)    =zero
-      this%AdvtLM(:)    =zero
-      this%AdvpLM(:)    =zero
-      this%LFrLM(:)     =zero
-      this%LFtLM(:)     =zero
-      this%LFpLM(:)     =zero
-      this%VxBrLM(:)    =zero
-      this%VxBtLM(:)    =zero
-      this%VxBpLM(:)    =zero
-      this%VSrLM(:)     =zero
-      this%VStLM(:)     =zero
-      this%VSpLM(:)     =zero
-      if ( l_anel ) then
-         this%ViscHeatLM(:)=zero
-         this%OhmLossLM(:) =zero
-      end if
+      !-- Local variable
+      integer :: lm
 
-      if ( l_TP_form ) then
-         this%VPrLM(:) =zero
-      end if
+#ifdef WITH_SHTNS
+      !$omp parallel do private(lm)
+#endif
+      do lm=1,lmP_max
+         this%AdvrLM(lm)=zero
+         this%AdvtLM(lm)=zero
+         this%AdvpLM(lm)=zero
+         this%LFrLM(lm) =zero
+         this%LFtLM(lm) =zero
+         this%LFpLM(lm) =zero
+         this%VxBrLM(lm)=zero
+         this%VxBtLM(lm)=zero
+         this%VxBpLM(lm)=zero
+         this%VSrLM(lm) =zero
+         this%VStLM(lm) =zero
+         this%VSpLM(lm) =zero
+         if ( l_anel ) then
+            this%ViscHeatLM(lm)=zero
+            this%OhmLossLM(lm) =zero
+         end if
 
-      if ( l_chemical_conv ) then
-         this%VXirLM(:) =zero
-         this%VXitLM(:) =zero
-         this%VXipLM(:) =zero
-      end if
+         if ( l_TP_form ) then
+            this%VPrLM(lm)=zero
+         end if
 
-      if ( l_RMS ) then
-         this%Advt2LM(:)=zero
-         this%Advp2LM(:)=zero
-         this%LFp2LM(:) =zero
-         this%LFt2LM(:) =zero
-         this%CFt2LM(:) =zero
-         this%CFp2LM(:) =zero
-         this%PFt2LM(:) =zero
-         this%PFp2LM(:) =zero
-         this%dtVtLM(:) =zero
-         this%dtVpLM(:) =zero
-         this%dtVrLM(:) =zero
-      end if
+         if ( l_chemical_conv ) then
+            this%VXirLM(lm)=zero
+            this%VXitLM(lm)=zero
+            this%VXipLM(lm)=zero
+         end if
+
+         if ( l_RMS ) then
+            this%Advt2LM(lm)=zero
+            this%Advp2LM(lm)=zero
+            this%LFp2LM(lm) =zero
+            this%LFt2LM(lm) =zero
+            this%CFt2LM(lm) =zero
+            this%CFp2LM(lm) =zero
+            this%PFt2LM(lm) =zero
+            this%PFp2LM(lm) =zero
+            this%dtVtLM(lm) =zero
+            this%dtVpLM(lm) =zero
+            this%dtVrLM(lm) =zero
+         end if
+      end do
+#ifdef WITH_SHTNS
+      !$omp end parallel do
+#endif
 
    end subroutine set_zero
 !----------------------------------------------------------------------------

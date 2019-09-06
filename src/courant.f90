@@ -22,7 +22,7 @@ module courant_mod
 contains
 
    subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp, &
-                      n_theta_min,n_theta_block)
+              &       n_theta_min,n_theta_block)
       !
       !  courant condition check: calculates Courant                      
       !  advection lengths in radial direction dtrkc                      
@@ -88,6 +88,12 @@ contains
     
          af2=alffac*alffac
     
+#ifdef WITH_SHTNS
+         !$omp parallel do default(shared) &
+         !$omp private(n_theta_rel,n_theta,n_theta_nhs,n_phi) &
+         !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
+         !$omp reduction(max:vr2max,vh2max)
+#endif
          do n_theta_rel=1,n_theta_block
     
             n_theta=n_theta_min+n_theta_rel-1
@@ -113,12 +119,21 @@ contains
             end do
     
          end do
+#ifdef WITH_SHTNS
+         !$omp end parallel do
+#endif
     
       else   ! Magnetic field ?
     
+#ifdef WITH_SHTNS
+         !$omp parallel do default(shared) &
+         !$omp private(n_theta_rel,n_theta,n_theta_nhs,n_phi) &
+         !$omp private(vflr2,vflh2) &
+         !$omp reduction(max:vr2max,vh2max)
+#endif
          do n_theta_rel=1,n_theta_block
     
-            n_theta=n_theta+1
+            n_theta=n_theta_min+n_theta_rel-1
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
     
             do n_phi=1,n_phi_max
@@ -134,14 +149,17 @@ contains
             end do
     
          end do
+#ifdef WITH_SHTNS
+         !$omp end parallel do
+#endif
     
       end if   ! Magnetic field ?
     
     
-      !$OMP CRITICAL
+      !$omp critical
       if ( vr2max /= 0.0_cp ) dtrkc=min(dtrkc,sqrt(delxr2(n_r)/vr2max))
       if ( vh2max /= 0.0_cp ) dthkc=min(dthkc,sqrt(delxh2(n_r)/vh2max))
-      !$OMP END CRITICAL
+      !$omp end critical
     
    end subroutine courant
 !------------------------------------------------------------------------------

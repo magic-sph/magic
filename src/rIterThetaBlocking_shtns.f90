@@ -134,7 +134,7 @@ contains
       integer :: lm
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
-      real(cp) :: c, lorentz_torques_ic
+      real(cp) :: lorentz_torques_ic
 
       this%nR=nR
       this%nBc=nBc
@@ -162,29 +162,6 @@ contains
       this%lorentz_torque_ma = 0.0_cp
       this%lorentz_torque_ic = 0.0_cp
       lorentz_torques_ic = 0.0_cp
-      c = 0.0_cp
-
-      br_vt_lm_cmb=zero
-      br_vp_lm_cmb=zero
-      br_vt_lm_icb=zero
-      br_vp_lm_icb=zero
-      HelLMr     =0.0_cp
-      Hel2LMr    =0.0_cp
-      HelnaLMr   =0.0_cp
-      Helna2LMr  =0.0_cp
-      viscLMr    =0.0_cp
-      uhLMr      =0.0_cp
-      duhLMr     =0.0_cp
-      gradsLMr   =0.0_cp
-      fconvLMr   =0.0_cp
-      fkinLMr    =0.0_cp
-      fviscLMr   =0.0_cp
-      fpoynLMr   =0.0_cp
-      fresLMr    =0.0_cp
-      EperpLMr   =0.0_cp
-      EparLMr    =0.0_cp
-      EperpaxiLMr=0.0_cp
-      EparaxiLMr =0.0_cp
 
       call this%nl_lm%set_zero()
 
@@ -221,11 +198,15 @@ contains
       !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
       !     These products are used in get_b_nl_bcs.
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
+         br_vt_lm_cmb(:)=zero
+         br_vp_lm_cmb(:)=zero
          call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
               &            this%gsa%vpc,this%leg_helper%omegaMA,    &
               &            or2(this%nR),orho1(this%nR), 1,          &
               &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
+         br_vt_lm_icb(:)=zero
+         br_vp_lm_icb(:)=zero
          call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
               &            this%gsa%vpc,this%leg_helper%omegaIC,    &
               &            or2(this%nR),orho1(this%nR), 1,          &
@@ -277,6 +258,10 @@ contains
 
       !--------- Helicity output:
       if ( this%lHelCalc ) then
+         HelLMr(:)   =0.0_cp
+         Hel2LMr(:)  =0.0_cp
+         HelnaLMr(:) =0.0_cp
+         Helna2LMr(:)=0.0_cp
          call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
               &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
               &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
@@ -285,6 +270,7 @@ contains
 
       !-- Viscous heating:
       if ( this%lPowerCalc ) then
+         viscLMr(:)=0.0_cp
          call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
               &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
               &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
@@ -294,6 +280,9 @@ contains
 
       !-- horizontal velocity :
       if ( this%lViscBcCalc ) then
+         gradsLMr(:)=0.0_cp
+         uhLMr(:)   =0.0_cp
+         duhLMr(:)  =0.0_cp
          call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
               &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
               &             this%gsa%dsdpc,uhLMr,duhLMr,gradsLMr,nR,1 )
@@ -301,18 +290,27 @@ contains
 
       !-- Radial flux profiles
       if ( this%lFluxProfCalc ) then
-          call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
-               &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
-               &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
-               &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
-               &          this%gsa%cbtc,this%gsa%cbpc,fconvLMr,fkinLMr,      &
-               &          fviscLMr,fpoynLMr,fresLMr,nR,1 )
+         fconvLMr(:)=0.0_cp
+         fkinLMr(:) =0.0_cp
+         fviscLMr(:)=0.0_cp
+         fpoynLMr(:)=0.0_cp
+         fresLMr(:) =0.0_cp
+         call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+              &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
+              &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
+              &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
+              &          this%gsa%cbtc,this%gsa%cbpc,fconvLMr,fkinLMr,      &
+              &          fviscLMr,fpoynLMr,fresLMr,nR,1 )
       end if
 
       !-- Kinetic energy parallel and perpendicular to rotation axis
       if ( this%lPerpParCalc ) then
-          call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpLMr, &
-               &           EparLMr,EperpaxiLMr,EparaxiLMr,nR,1 )
+         EperpLMr(:)   =0.0_cp
+         EparLMr(:)    =0.0_cp
+         EperpaxiLMr(:)=0.0_cp
+         EparaxiLMr(:) =0.0_cp
+         call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpLMr, &
+              &           EparLMr,EperpaxiLMr,EparaxiLMr,nR,1 )
       end if
 
 
