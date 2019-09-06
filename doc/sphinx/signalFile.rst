@@ -33,9 +33,11 @@ terminate its execution:
      by ``NOT``.
 
    * **POT**: Changing the word ``NOT`` to ``POT`` will cause the code to produce
-     the potential files :ref:`V_lmr_#.TAG <secVpotFile>` (and possibly 
-     :ref:`B_lmr_#.TAG <secBpotFile>` and `T_lmr_#.TAG <secTpotFile>` depending
-     if the run is magnetic or not, or if it solves a temperature/entropy equation).
+     the potential files :ref:`V_lmr_#.TAG <secPotFiles>` (and possibly 
+     :ref:`B_lmr_#.TAG <secBpotFile>`, `T_lmr_#.TAG <secPotFiles>` and
+     `Xi_lmr_#.TAG <secPotFiles>` depending
+     if the run is magnetic or not, or if it solves a temperature/entropy and/or
+     chemical composition equations).
      Once the potential files have been written, the keyword will be automatically replaced
      by ``NOT``.
 

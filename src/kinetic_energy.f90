@@ -9,12 +9,11 @@ module kinetic_energy
        &                       orho1, orho2, sigma
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map
+   use blocking, only: lo_map, st_map, llm, ulm
    use horizontal_data, only: dLh
    use logic, only: l_save_out, l_non_rot, l_anel
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
-   use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use integration, only: rInt_R
    use useful, only: cc2real

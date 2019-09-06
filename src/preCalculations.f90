@@ -11,12 +11,11 @@ module preCalculations
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
        &                  n_xi_bounds, omega_diff
    use parallel_mod, only: rank
-   use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,   &
-       &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
-       &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
-       &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
-       &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
-       &            l_temperature_diff, l_chemical_conv, l_probe,      &
+   use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,     &
+       &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,    &
+       &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
+       &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
+       &            l_temperature_diff, l_chemical_conv, l_probe,        &
        &            l_precession, l_diff_prec
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, r, r_ICB, dLtemp0,         &
@@ -769,7 +768,6 @@ contains
 
       !-- Local variables:
       logical :: l_time
-      integer :: n
 
       !----- Set time step:
       if ( l_reset_t ) then
@@ -785,6 +783,11 @@ contains
       call get_hit_times(t_graph,n_time_hits,n_t_graph,l_time, &
            &             t_graph_start,t_graph_stop,dt_graph,  &
            &             n_graphs,n_graph_step,'graph',time,tScale)
+      l_time_hits=l_time_hits .or. l_time
+
+      call get_hit_times(t_pot,n_time_hits,n_t_pot,l_time, &
+           &             t_pot_start,t_pot_stop,dt_pot,    &
+           &             n_pots,n_pot_step,'pot',time,tScale)
       l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_rst,n_time_hits,n_t_rst,l_time, &
@@ -857,57 +860,10 @@ contains
          l_time_hits=l_time_hits .or. l_time
       end if
 
-      if ( l_storePot ) then
-         l_storeVpot   =.true.
-         n_Vpot_step   =n_pot_step
-         n_Vpots       =n_pots
-         t_Vpot_start  =t_pot_start
-         t_Vpot_stop   =t_pot_stop
-         dt_Vpot       =dt_pot
-         l_storeBpot   =.true.
-         n_Bpot_step   =n_pot_step
-         n_Bpots       =n_pots
-         t_Bpot_start  =t_pot_start
-         t_Bpot_stop   =t_pot_stop
-         dt_Bpot       =dt_pot
-         l_storeTpot   =.true.
-         n_Tpot_step   =n_pot_step
-         n_Tpots       =n_pots
-         t_Tpot_start  =t_pot_start
-         t_Tpot_stop   =t_pot_stop
-         dt_Tpot       =dt_pot
-         do n=1,n_time_hits
-            t_Bpot(n)=t_pot(n)
-            t_Vpot(n)=t_pot(n)
-            t_Tpot(n)=t_pot(n)
-         end do
-      end if
-
-      if ( l_storeBpot ) then
-         call get_hit_times(t_Bpot,n_time_hits,n_t_Bpot,l_time, &
-                              t_Bpot_start,t_Bpot_stop,dt_Bpot, &
-                        n_Bpots,n_Bpot_step,'Bpot',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
-      end if
-
-      if ( l_storeVpot ) then
-         call get_hit_times(t_Vpot,n_time_hits,n_t_Vpot,l_time, &
-                              t_Vpot_start,t_Vpot_stop,dt_Vpot, &
-                        n_Vpots,n_Vpot_step,'Vpot',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
-      end if
-
-      if ( l_storeTpot ) then
-         call get_hit_times(t_Tpot,n_time_hits,n_t_Tpot,l_time, &
-                              t_Tpot_start,t_Tpot_stop,dt_Tpot, &
-                        n_Tpots,n_Tpot_step,'Tpot',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
-      end if
-
    end subroutine preCalcTimes
 !-------------------------------------------------------------------------------
    subroutine get_hit_times(t,n_t_max,n_t,l_t,t_start,t_stop,dt, &
-                             n_tot,n_step,string,time,tScale)
+              &              n_tot,n_step,string,time,tScale)
       !
       ! This subroutine checks whether any specific times t(*) are given
       ! on input. If so, it returns their number n_r and sets l_t        
@@ -953,7 +909,7 @@ contains
       !-- Check times should be constructed:
       if ( t_start < time ) t_start=time
       if ( .not. l_t .and. ( dt > 0.0_cp .or. &
-         ( n_tot > 0 .and. t_stop > t_start ) ) ) then
+      &  ( n_tot > 0 .and. t_stop > t_start ) ) ) then
 
          if ( n_tot > 0 .and. dt > 0.0_cp ) then
             n_t  =n_tot
@@ -1066,15 +1022,15 @@ contains
          write(n_out,*)
          write(n_out,*) '! Grid parameters:'
          write(n_out,'(''  n_r_max      ='',i6, &
-              &   '' = number of radial grid points'')') n_r_max
+         &        '' = number of radial grid points'')') n_r_max
          write(n_out,'(''  n_cheb_max   ='',i6)') n_cheb_max
          write(n_out,'(''  max cheb deg.='',i6)') n_cheb_max-1
          write(n_out,'(''  n_phi_max    ='',i6, &
-              &   '' = no of longitude grid points'')') n_phi_max
+         &        '' = no of longitude grid points'')') n_phi_max
          write(n_out,'(''  n_theta_max  ='',i6, &
-              &   '' = no of latitude grid points'')') n_theta_max
+         &        '' = no of latitude grid points'')') n_theta_max
          write(n_out,'(''  n_r_ic_max   ='',i6, &
-              &   '' = number of radial grid points in IC'')') n_r_ic_max
+         &        '' = number of radial grid points in IC'')') n_r_ic_max
          write(n_out,'(''  n_cheb_ic_max='',i6)') n_cheb_ic_max-1
          write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max

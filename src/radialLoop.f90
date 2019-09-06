@@ -161,8 +161,6 @@ contains
       integer :: nThetaStart!,nThetaStop
       logical :: lDeriv,lOutBc,lMagNlBc
       logical :: lGraphHeader    ! Write header into graph file
-      logical :: isRadialBoundaryPoint
-
 
       PERFON('rloop')
       !LIKWID_ON('rloop')
@@ -236,7 +234,6 @@ contains
          !nR = nRC
          nBc = 0
          lDeriv = .true.
-         isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
 
          if ( nR == n_r_cmb ) then
             if ( lOutBc ) then

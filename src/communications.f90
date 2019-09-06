@@ -7,9 +7,8 @@ module communications
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr
-   use LMLoop_data, only: llm, ulm
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi
-   use blocking, only: st_map, lo_map, lmStartB, lmStopB
+   use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
        &            l_mag_kin, l_TP_form, l_double_curl
@@ -304,7 +303,7 @@ contains
          gather_tag=1990
          if ( rank == 0 ) then
             do irank=1,n_procs-1
-               call MPI_Recv(temp_lo(lmStartB(irank+1),1),1,               &
+               call MPI_Recv(temp_lo(lm_balance(irank)%nStart,1),1,        &
                     &        self%gather_mpi_type(irank),irank,gather_tag, &
                     &        MPI_COMM_WORLD,status,ierr)
             end do
@@ -382,17 +381,13 @@ contains
       allocate(self%gather_mpi_type(0:n_procs-1))
       ! 1. Datatype for the data on one rank
       do proc=0,n_procs-1
-         call MPI_type_vector(dim2,lmStopB(proc+1)-lmStartB(proc+1)+1,&
-              &               lm_max,MPI_DEF_COMPLEX,                 &
+         call MPI_type_vector(dim2,lm_balance(proc)%n_per_rank,    &
+              &               lm_max,MPI_DEF_COMPLEX,              &
               &               self%gather_mpi_type(proc),ierr)
          call MPI_Type_commit(self%gather_mpi_type(proc),ierr)
       end do
 #endif
-      ! 2. Datatype for the data on the last rank
-      !call MPI_Type_vector(dim2,lmStopB(n_procs)-lmStartB(n_procs)+1,&
-      !     &lm_max,MPI_DEF_COMPLEX,&
-      !     & self%gather_mpi_type_end,ierr)
-      !call MPI_Type_commit(self%gather_mpi_type_end,ierr)
+
       self%dim2=dim2
 
    end subroutine create_gather_type
@@ -425,8 +420,8 @@ contains
       !complex(cp) :: temp_lo(1:lm_max)
 
       do irank=0,n_procs-1
-         sendcounts(irank) = lmStopB(irank+1)-lmStartB(irank+1)+1
-         displs(irank) = lmStartB(irank+1)-1 !irank*lm_per_rank
+         sendcounts(irank) = lm_balance(irank)%n_per_rank
+         displs(irank) = lm_balance(irank)%nStart-1 !irank*lm_per_rank
       end do
       !sendcounts(n_procs-1) = lm_on_last_rank
 
@@ -476,8 +471,8 @@ contains
       !complex(cp) :: temp_lo(1:lm_max)
 
       do irank=0,n_procs-1
-         sendcounts(irank) = lmStopB(irank+1)-lmStartB(irank+1)+1
-         displs(irank) = lmStartB(irank+1)-1
+         sendcounts(irank) = lm_balance(irank)%n_per_rank
+         displs(irank) = lm_balance(irank)%nStart-1
       end do
 
       if ( rank == 0 ) then
@@ -915,46 +910,25 @@ contains
       integer,     intent(in) :: dim1,dim2
       complex(cp), intent(inout) :: arr(dim1,dim2)
 
-      integer :: lmStart_on_rank,lmStop_on_rank
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: irank,nR
       !double precision :: local_sum, global_sum, recvd_sum
 
       !write(*,"(A,ES15.8)") "before: arr = ",sum(real(conjg(arr)*arr))
 
-      lmStart_on_rank = lmStartB(1+rank*nLMBs_per_rank)
-      lmStop_on_rank  = lmStopB(min((rank+1)*nLMBs_per_rank,nLMBs))
-      sendcount  = lmStop_on_rank-lmStart_on_rank+1
+      sendcount  = ulm-llm+1
       do irank=0,n_procs-1
-         recvcounts(irank) = lmStopB ( min((irank+1)*nLMBs_per_rank,nLMBs) ) &
-                           - lmStartB( 1+irank*nLMBs_per_rank ) + 1
+         recvcounts(irank) = lm_balance(irank)%n_per_rank
       end do
       do irank=0,n_procs-1
-         !displs(irank) = (nR-1)*dim1 + sum(recvcounts(0:irank-1))
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
-      !write(*,"(4X,2I4,A,I6)") rank,nR," displs = ",displs(rank)
-      !write(*,"(5(A,I4))") "LMBlocks ",1+rank*nLMBs_per_rank,"->", &
-      !     &                (rank+1)*nLMBs_per_rank,&
-      !     &", lm runs from ",lmStart_on_rank," to ",lmStop_on_rank,", &
-      !     &  recvcounts = ",recvcounts(rank)
+
       do nR=1,dim2
-         !local_sum = sum( real( conjg(arr(lmStart_on_rank:lmStop_on_rank,nR))*&
-         !     &           arr(lmStart_on_rank:lmStop_on_rank,nR) ) )
          call MPI_AllGatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,     &
               &              arr(1,nR),recvcounts,displs,MPI_DEF_COMPLEX,&
               &              MPI_COMM_WORLD,ierr)
-         !recvd_sum = sum( real( &
-         !     & conjg(arr( lmStartB(1+&
-         !     &(modulo(rank+1,2)*nLMBs_per_rank)):&
-         !     &lmStopB(1+(modulo(rank+1,2)+1)*nLMBs_per_rank-1),nR ))*&
-         !     &       arr( lmStartB(1+(modulo(rank+1,2)*nLMBs_per_rank)):&
-         !     &lmStopB(1+(modulo(rank+1,2)+1)*nLMBs_per_rank-1),nR ) ) )
-         !global_sum = sum( real( conjg(arr(:,nR))*arr(:,nR) ) )
-         !write(*,"(4X,A,I4,3(A,ES20.13))") "nR = ",nR,": l_sum = ",&
-         !&      local_sum,", r_sum = ",recvd_sum,", g_sum = ", global_sum
       end do
-      !write(*,"(A)") "---------------------------"
 
    end subroutine myAllGather
 !-------------------------------------------------------------------------------
@@ -993,7 +967,6 @@ contains
       integer,     intent(in) :: dim1,dim2
       complex(cp), intent(inout) :: arr(dim1,dim2)
 
-      integer :: lmStart_on_rank,lmStop_on_rank
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: irank,nR
       integer :: sendtype, new_sendtype
@@ -1009,15 +982,11 @@ contains
       call MPI_Type_create_resized(sendtype,lb,extent,new_sendtype,ierr)
       call MPI_Type_commit(new_sendtype,ierr)
 
-      lmStart_on_rank = lmStartB(1+rank*nLMBs_per_rank)
-      lmStop_on_rank  = lmStopB(1+(rank+1)*nLMBs_per_rank-1)
-      sendcount  = lmStop_on_rank-lmStart_on_rank+1
+      sendcount  = ulm-llm+1
       do irank=0,n_procs-1
-         recvcounts(irank) = lmStopB( (irank+1)*nLMBs_per_rank ) - &
-                            lmStartB( 1+irank*nLMBs_per_rank ) + 1
+         recvcounts(irank) = lm_balance(irank)%n_per_rank
       end do
       do irank=0,n_procs-1
-         !displs(irank) = (nR-1)*dim1 + sum(recvcounts(0:irank-1))
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
       PERFOFF

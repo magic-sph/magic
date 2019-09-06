@@ -26,7 +26,7 @@ module graphOut_mod
 #else
    use fft
    use horizontal_data, only: dLh, Plm, dPlm
-   use legendre_spec_to_grid, only: legTF
+   use legendre_spec_to_grid, only: leg_polsphtor_to_spat
 #endif
    use leg_helper_mod, only: legPrep_IC
 
@@ -59,13 +59,7 @@ contains
       !-- Local variables
       character(len=72) :: graph_file
       character(len=20) :: string
-#ifdef WITH_MPI
       integer :: info
-#endif
-
-#ifdef WITH_MPI
-      call MPI_INFO_CREATE(info,ierr)
-#endif
 
       n_graph = n_graph+1
       write(string, *) n_graph
@@ -89,29 +83,17 @@ contains
          if ( l_save_out ) close(n_log_file)
       end if
 
+      !-- Setup MPI/IO
+      call mpiio_setup(info)
+
 #ifdef WITH_MPI
-            !-- Enable collective buffering
-            call MPI_Info_set(info, "romio_cb_write", "automatic",ierr)
-            call MPI_Info_set(info, "romio_cb_read", "automatic",ierr)
-
-            !-- Disable data sieving (let the filesystem handles it)
-            call MPI_Info_set(info, "romio_ds_write", "disable",ierr)
-            call MPI_Info_set(info, "romio_ds_read", "disable",ierr)
-
-            !-- Set the stripping unit to 4M
-            call MPI_Info_set(info, "stripping_unit", "4194304",ierr)
-
-            !-- Set the buffer size to 4M
-            call MPI_Info_set(info,"cb_buffer_size","4194304",ierr)
-
-            call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
-                 &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
-                 &             MPI_INFO_NULL,graph_mpi_fh,ierr)
+      call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
+           &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
+           &             MPI_INFO_NULL,graph_mpi_fh,ierr)
 #else
-            open(newunit=n_graph_file,file=graph_file,status='new',  &
-            &    form='unformatted')
+      open(newunit=n_graph_file,file=graph_file,status='new',  &
+      &    form='unformatted')
 #endif
-
 
    end subroutine open_graph_file
 !--------------------------------------------------------------------------------
@@ -453,11 +435,11 @@ contains
             ! rank zero writes the Header
             disp = 0
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
-                 &                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+                 &                 MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
          else
             disp = size_of_header+(nRstart-1)*size_of_data_per_r
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
-                 &                 MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+                 &                 MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
          end if
 
          call MPI_FILE_GET_VIEW(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
@@ -726,11 +708,11 @@ contains
          ! rank zero writes the Header
          disp = 0
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
-                                MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+                                MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
       else
          disp = size_of_header+(nRstart-1)*size_of_data_per_r
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,&
-              & MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+              & MPI_CHARACTER,MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
       end if
 
       call mpi_file_get_view(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
@@ -879,11 +861,10 @@ contains
 
 #ifndef WITH_SHTNS
             !------ Perform Legendre transform:
-            call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,nThetaStart, &
-                 &     sizeThetaB,Plm,dPlm,.true.,.false.,BrB,BtB,BpB,BrB, &
-                 &     BrB,BrB)
-
+            call leg_polsphtor_to_spat(.true., nThetaStart, dLhb, bhG, bhC, &
+                 &                     BrB, BtB, BpB)
             if ( .not. l_axi ) then
+               !-- Fourier transforms
                call fft_thetab(BrB,1)
                call fft_thetab(BtB,1)
                call fft_thetab(BpB,1)

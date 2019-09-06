@@ -12,7 +12,7 @@ module output_mod
        &                  n_r_cmb, n_r_icb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use num_param, only: tScale,eScale
-   use blocking, only: st_map, lm2, lo_map
+   use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
@@ -25,7 +25,9 @@ module output_mod
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
        &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,     &
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
-       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc, dxi_LMloc
+       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
+       &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
+       &             aj_Rloc
    use fieldsLast, only: dwdtLast_LMloc, dzdtLast_lo, dpdtLast_LMloc,     &
        &                 dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc,  &
        &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast_LMloc
@@ -45,10 +47,12 @@ module output_mod
    use outPar_mod, only: outPar, outPerpPar
    use graphOut_mod, only: graphOut_IC
    use power, only: get_power
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
        &                     gather_from_lo_to_rank0
    use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
+#ifdef WITH_MPI
+   use out_coeff, only: write_Pot_mpi
+#endif
    use getDlm_mod, only: getDlm
    use movie_data, only: movie_gather_frames_to_rank0
    use dtB_mod, only: get_dtBLMfinish
@@ -63,7 +67,7 @@ module output_mod
  
    private
  
-   integer :: nBpotSets, nVpotSets, nTpotSets
+   integer :: nPotSets
    !-- Counter for output files/sets:
    integer :: n_dt_cmb_sets, n_cmb_setsMov
    integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
@@ -167,9 +171,7 @@ contains
       nTOsets      =0
       nTOmovSets   =0
       nTOrmsSets   =0
-      nBpotSets    =0
-      nVpotSets    =0
-      nTpotSets    =0
+      nPotSets     =1
       n_e_sets     =0
       nLogs        =0
       nRMS_sets    =0
@@ -301,15 +303,14 @@ contains
 
    end subroutine finalize_output
 !----------------------------------------------------------------------------
-   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,               &
-        &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,         &
-        &            l_store,l_new_rst_file,                              &
-        &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
-        &            l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
-        &            lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
-        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,     &
-        &            duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
-        &            fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,   &
+              &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
+              &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
+              &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
+              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
+              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,     &
+              &      duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
+              &      fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
       !
       !  This subroutine controls most of the output.                     
       !
@@ -318,7 +319,7 @@ contains
       real(cp),    intent(in) :: time,dt,dtNew
       integer,     intent(in) :: n_time_step
       logical,     intent(in) :: l_stop_time
-      logical,     intent(in) :: l_Bpot,l_Vpot,l_Tpot
+      logical,     intent(in) :: l_pot
       logical,     intent(in) :: l_log, l_graph, lRmsCalc, l_store
       logical,     intent(in) :: l_new_rst_file, l_spectrum
       logical,     intent(in) :: lTOCalc,lTOframe
@@ -646,7 +647,7 @@ contains
          if ( lRmsCalc ) then
             if ( lVerbose ) write(*,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
-            call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS)
+            call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS,l_stop_time)
             if ( l_mag ) call dtBrms(time)
             timePassedRMS=0.0_cp
          end if
@@ -706,15 +707,40 @@ contains
          PERFOFF
       end if
   
-      if ( l_Bpot )                                                          &
-           &     call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,&
-           &                   nBpotSets,'B_lmr.',omega_ma,omega_ic)
-      if ( l_Vpot )                                                          &
-           &     call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-           &                   nVpotSets,'V_lmr.',omega_ma,omega_ic)
-      if ( l_Tpot )                                                          &
-           &     call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-           &                   nTpotSets,'T_lmr.',omega_ma,omega_ic)
+      if ( l_pot ) then
+#ifdef WITH_MPI
+         call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+              &             nPotSets,'V_lmr.',omega_ma,omega_ic)
+         if ( l_heat ) then
+           call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                &             nPotSets,'T_lmr.',omega_ma,omega_ic)
+         end if
+         if ( l_chemical_conv ) then
+           call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+         end if
+         if ( l_mag ) then
+            call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &             nPotSets,'B_lmr.',omega_ma,omega_ic)
+         end if
+#else
+         call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+              &         nPotSets,'V_lmr.',omega_ma,omega_ic)
+         if ( l_heat ) then
+           call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                &         nPotSets,'T_lmr.',omega_ma,omega_ic)
+         end if
+         if ( l_chemical_conv ) then
+           call write_Pot(time,xi_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                &         nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+         end if
+         if ( l_mag ) then
+            call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &         nPotSets,'B_lmr.',omega_ma,omega_ic)
+         end if
+#endif
+         nPotSets=nPotSets+1
+      end if
 
       !--- Write spectra output that has partially been calculated in LMLoop
       if ( l_rMagSpec .and. n_time_step > 1 ) then
@@ -732,11 +758,20 @@ contains
       ! Writing of the restart file
       !
       if ( l_store ) then
+#ifdef WITH_MPI
+         call store_mpi(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file, &
+              &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
+              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,        &
+              &         dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,            &
+              &         dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,        &
+              &         dbdt_icLast_LMloc,djdt_icLast_LMloc)
+#else
          call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,.false.,&
               &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
               &     b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,           &
               &     dpdtLast_LMloc,dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,&
               &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
+#endif
       end if
   
   

@@ -16,12 +16,13 @@ module rIterThetaBlocking_mod
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
        &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_centrifuge
+       &            l_centrifuge, l_TO, l_adv_curl
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
-   use legendre_spec_to_grid, only: legTFG, legTFGnomag, leg_scal_to_grad_spat, &
-       &                            leg_scal_to_spat
+   use legendre_spec_to_grid, only: leg_scal_to_grad_spat, leg_scal_to_spat,    &
+       &                            leg_polsphtor_to_spat, leg_pol_to_grad_spat,&
+       &                            leg_dphi_vec
    use leg_helper_mod, only: leg_helper_t
    use fields, only: s_Rloc, ds_Rloc, xi_Rloc, p_Rloc
    use nonlinear_lm_mod, only:nonlinear_lm_t
@@ -73,12 +74,14 @@ contains
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
 
-      allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-      allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-      allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+ &
-      &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*&
-      &                SIZEOF_DEF_REAL
+      if ( l_TO ) then
+         allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+         allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+         allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+ &
+         &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*&
+         &                SIZEOF_DEF_REAL
+      end if
 
    end subroutine allocate_common_arrays
 !-------------------------------------------------------------------------------
@@ -87,9 +90,7 @@ contains
       class(rIterThetaBlocking_t) :: this
 
       call this%leg_helper%finalize()
-      deallocate( this%BsLast)
-      deallocate( this%BpLast)
-      deallocate( this%BzLast)
+      if ( l_TO ) deallocate( this%BsLast,this%BpLast,this%BzLast )
 
    end subroutine deallocate_common_arrays
 !-------------------------------------------------------------------------------
@@ -112,36 +113,60 @@ contains
       real(cp), intent(in) :: time
 
       ! Local variables
-      integer :: nTheta
-      logical :: DEBUG_OUTPUT=.false.
+      logical :: l_calc
+
+      l_calc = (this%nBc == 0) .or. this%lDeriv 
 
       !----- Legendre transform from (r,l,m) to (r,theta,m):
-      !      First version with PlmTF needed for first-touch policy
-      if ( l_mag ) then
-         !PERFON('legTFG')
-         !LIKWID_ON('legTFG')
-         call legTFG(this%nBc,this%lDeriv,nThetaStart,gsa%vrc,gsa%vtc,  &
-              &      gsa%vpc,gsa%dvrdrc,gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc, &
-              &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,       &
-              &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,                  &
-              &      gsa%cbtc, gsa%cbpc, this%leg_helper)
-         !LIKWID_OFF('legTFG')
-         !PERFOFF
-         if (DEBUG_OUTPUT) then
-            do nTheta=1,this%sizeThetaB
-               write(*,"(2I3,A,6ES20.12)") this%nR,nTheta,": sum v = ",&
-                    &sum(gsa%vrc(:,nTheta))!,sum(vtc(:,nTheta)),sum(vpc(:,nTheta))
-            end do
+      call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhw,  &
+           &                     this%leg_helper%vhG,this%leg_helper%vhC,  &
+           &                     gsa%vrc,gsa%vtc,gsa%vpc)
+      if ( l_adv_curl ) then
+         if ( this%lDeriv ) then
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhz,   &
+                 &                     this%leg_helper%cvhG,this%leg_helper%cvhC, &
+                 &                     gsa%cvrc,gsa%cvtc,gsa%cvpc)
          end if
+
+         !-- For some outputs one still need the other terms
+         if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+         &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+         &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+            call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
+                 &                    gsa%dvrdtc)
+            call leg_dphi_vec(l_calc, nThetaStart, gsa%vrc, gsa%vtc, gsa%vpc, &
+                 &            gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhdw, &
+                 &                     this%leg_helper%dvhdrG,                   &
+                 &                     this%leg_helper%dvhdrC,gsa%dvrdrc,        &
+                 &                     gsa%dvtdrc,gsa%dvpdrc)
+         end if
+
       else
-         !PERFON('legTFGnm')
-         !LIKWID_ON('legTFGnm')
-         call legTFGnomag(this%nBc,this%lDeriv,nThetaStart,gsa%vrc,gsa%vtc, &
-              &           gsa%vpc,gsa%dvrdrc,gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,&
-              &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
-              &           this%leg_helper)
-         !LIKWID_OFF('legTFGnm')
-         !PERFOFF
+
+         if ( this%lDeriv ) then
+            call leg_scal_to_spat(nThetaStart, this%leg_helper%dLhz, gsa%cvrc)
+            call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
+                 &                    gsa%dvrdtc)
+            call leg_dphi_vec(l_calc, nThetaStart, gsa%vrc, gsa%vtc, gsa%vpc, &
+                 &            gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhdw, &
+                 &                     this%leg_helper%dvhdrG,                   &
+                 &                     this%leg_helper%dvhdrC,gsa%dvrdrc,        &
+                 &                     gsa%dvtdrc,gsa%dvpdrc)
+         end if
+
+      end if
+
+      if ( l_mag ) then
+         call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhb,   &
+              &                     this%leg_helper%bhG,this%leg_helper%bhC,   &
+              &                     gsa%brc,gsa%btc,gsa%bpc)
+         if ( this%lDeriv ) then
+            call leg_polsphtor_to_spat(l_calc,nThetaStart,this%leg_helper%dLhj,   &
+                 &                     this%leg_helper%cbhG,this%leg_helper%cbhC, &
+                 &                     gsa%cbrc,gsa%cbtc,gsa%cbpc)
+         end if
       end if
 
       if ( l_heat ) then
@@ -211,15 +236,33 @@ contains
                call fft_thetab(gsa%vpc,1)
             end if
             if ( this%lDeriv .and. ( .not. l_axi ) ) then
-               call fft_thetab(gsa%dvrdrc,1)
-               call fft_thetab(gsa%dvtdrc,1)
-               call fft_thetab(gsa%dvpdrc,1)
-               call fft_thetab(gsa%cvrc,1)
-               call fft_thetab(gsa%dvrdtc,1)
-               call fft_thetab(gsa%dvrdpc,1)
 
-               call fft_thetab(gsa%dvtdpc,1)
-               call fft_thetab(gsa%dvpdpc,1)
+               if ( l_adv_curl ) then
+                  call fft_thetab(gsa%cvrc,1)
+                  call fft_thetab(gsa%cvtc,1)
+                  call fft_thetab(gsa%cvpc,1)
+
+                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+                  &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+                  &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+                     call fft_thetab(gsa%dvrdrc,1)
+                     call fft_thetab(gsa%dvtdrc,1)
+                     call fft_thetab(gsa%dvpdrc,1)
+                     call fft_thetab(gsa%dvrdtc,1)
+                     call fft_thetab(gsa%dvrdpc,1)
+                     call fft_thetab(gsa%dvtdpc,1)
+                     call fft_thetab(gsa%dvpdpc,1)
+                  end if
+               else
+                  call fft_thetab(gsa%dvrdrc,1)
+                  call fft_thetab(gsa%dvtdrc,1)
+                  call fft_thetab(gsa%dvpdrc,1)
+                  call fft_thetab(gsa%cvrc,1)
+                  call fft_thetab(gsa%dvrdtc,1)
+                  call fft_thetab(gsa%dvrdpc,1)
+                  call fft_thetab(gsa%dvtdpc,1)
+                  call fft_thetab(gsa%dvpdpc,1)
+               end if
             end if
          else if ( this%nBc == 1 ) then ! Stress free
             gsa%vrc = 0.0_cp
@@ -231,12 +274,27 @@ contains
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
                if ( .not. l_axi ) then
-                  call fft_thetab(gsa%dvrdrc,1)
-                  call fft_thetab(gsa%dvtdrc,1)
-                  call fft_thetab(gsa%dvpdrc,1)
-                  call fft_thetab(gsa%cvrc,1)
-                  call fft_thetab(gsa%dvtdpc,1)
-                  call fft_thetab(gsa%dvpdpc,1)
+                  if ( l_adv_curl ) then
+                     call fft_thetab(gsa%cvrc,1)
+                     call fft_thetab(gsa%cvtc,1)
+                     call fft_thetab(gsa%cvpc,1)
+                     if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
+                     &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+                     &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+                        call fft_thetab(gsa%dvrdrc,1)
+                        call fft_thetab(gsa%dvtdrc,1)
+                        call fft_thetab(gsa%dvpdrc,1)
+                        call fft_thetab(gsa%dvtdpc,1)
+                        call fft_thetab(gsa%dvpdpc,1)
+                     end if
+                  else
+                     call fft_thetab(gsa%dvrdrc,1)
+                     call fft_thetab(gsa%dvtdrc,1)
+                     call fft_thetab(gsa%dvpdrc,1)
+                     call fft_thetab(gsa%cvrc,1)
+                     call fft_thetab(gsa%dvtdpc,1)
+                     call fft_thetab(gsa%dvpdpc,1)
+                  end if
                end if
             end if
          else if ( this%nBc == 2 ) then
@@ -443,6 +501,14 @@ contains
             call legTF_spher_tor(nThetaStart,nl_lm%LFp2LM,nl_lm%LFt2LM, &
                  &               gsa%LFp2,gsa%LFt2)
          end if
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%dtVr,-1)
+            call fft_thetab(gsa%dtVt,-1)
+            call fft_thetab(gsa%dtVp,-1)
+         end if
+         call legTF1(nThetaStart,nl_lm%dtVrLM,gsa%dtVr)
+         call legTF_spher_tor(nThetaStart,nl_lm%dtVpLM,nl_lm%dtVtLM, &
+              &               gsa%dtVp,gsa%dtVt)
       end if
 
    end subroutine transform_to_lm_space

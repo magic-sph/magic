@@ -9,7 +9,7 @@ module leg_helper_mod
    use special, only: lGrenoble, b0, db0, ddb0
    use blocking, only: lm2l, lm2m, lm2
    use horizontal_data, only: dLh
-   use logic, only: l_conv, l_mag_kin, l_mag, l_movie_oc, l_mag_LF
+   use logic, only: l_conv, l_mag_kin, l_mag, l_movie_oc, l_mag_LF, l_adv_curl
    use fields, only: z_Rloc,dz_Rloc, b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc, &
        &             dj_Rloc, w_Rloc, dw_Rloc, ddw_Rloc, omega_ic,omega_ma
    use constants, only: zero, one, two
@@ -25,7 +25,7 @@ module leg_helper_mod
       complex(cp), allocatable :: dLhw(:), dLhdw(:), dLhz(:), dLhb(:), dLhj(:)
       complex(cp), allocatable :: vhG(:), vhC(:), dvhdrG(:), dvhdrC(:)
       complex(cp), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
-      complex(cp), allocatable :: bCMB(:)
+      complex(cp), allocatable :: bCMB(:), cvhG(:), cvhC(:)
       !----- R-distributed versions of scalar fields (see fields.f90):
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
@@ -47,21 +47,18 @@ contains
       integer,intent(in) :: lm_max,lm_maxMag,l_max
 
 #ifndef WITH_SHTNS
-      allocate( this%dLhw(lm_max) )
-      allocate( this%dLhdw(lm_max) )
-      allocate( this%dLhz(lm_max) )
-      allocate( this%dLhb(lm_max) )
-      allocate( this%dLhj(lm_max) )
-      allocate( this%vhG(lm_max) )
-      allocate( this%vhC(lm_max) )
-      allocate( this%dvhdrG(lm_max) )
-      allocate( this%dvhdrC(lm_max) )
-      bytes_allocated = bytes_allocated+7*lm_max*SIZEOF_DEF_COMPLEX
-      allocate( this%bhG(lm_maxMag) )
-      allocate( this%bhC(lm_maxMag) )
-      allocate( this%cbhG(lm_maxMag) )
-      allocate( this%cbhC(lm_maxMag) )
+      allocate( this%dLhw(lm_max), this%dLhdw(lm_max), this%dLhz(lm_max) )
+      allocate( this%dLhb(lm_max), this%dLhj(lm_max), this%vhG(lm_max) )
+      allocate( this%vhC(lm_max), this%dvhdrG(lm_max), this%dvhdrC(lm_max) )
+      bytes_allocated = bytes_allocated+9*lm_max*SIZEOF_DEF_COMPLEX
+      allocate( this%bhG(lm_maxMag), this%bhC(lm_maxMag) )
+      allocate( this%cbhG(lm_maxMag), this%cbhC(lm_maxMag) )
       bytes_allocated = bytes_allocated+4*lm_maxMag*SIZEOF_DEF_COMPLEX
+
+      if ( l_adv_curl ) then
+         allocate( this%cvhG(lm_max), this%cvhC(lm_max) )
+         bytes_allocated = bytes_allocated+2*lm_maxMag*SIZEOF_DEF_COMPLEX
+      end if
 #endif
 
       allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
@@ -80,6 +77,7 @@ contains
       deallocate( this%dLhw, this%dLhdw, this%dLhz, this%dLhb, this%dLhj )
       deallocate( this%vhG, this%vhC, this%dvhdrG, this%dvhdrC )
       deallocate( this%bhG, this%bhC, this%cbhG, this%cbhC )
+      if ( l_adv_curl ) deallocate( this%cvhC, this%cvhG )
 #endif
       deallocate( this%zAS, this%dzAS, this%ddzAS )
       deallocate( this%bCMB )
@@ -220,6 +218,16 @@ contains
                this%cbhG(lm)=this%cbhG(lm)+cmplx(0.0_cp,ddb0(nR),kind=cp)
                this%cbhC(lm)=this%cbhC(lm)-cmplx(0.0_cp,ddb0(nR),kind=cp)
             end if
+         end if
+
+         if ( l_adv_curl ) then
+            this%cvhG(1)=zero
+            this%cvhC(1)=zero
+            do lm=2,lm_max
+               dbd     =or2(nR)*this%dLhw(lm)-ddw_Rloc(lm,nR)
+               this%cvhG(lm)=dz_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd),kind=cp)
+               this%cvhC(lm)=dz_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd),kind=cp)
+            end do
          end if
 
       end if   ! magnetic terms required ?

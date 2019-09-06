@@ -11,50 +11,39 @@ module spectra
        &                       rscheme_oc, or2, r_icb, dr_fac_ic
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
-   use blocking, only: lo_map, st_map
+   use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh
    use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, &
        &            l_energy_modes, l_2D_spectra
    use output_data, only: tag, log_file, n_log_file, m_max_modes
-   use LMLoop_data,only: llm, ulm, llmMag, ulmMag
-   use useful, only: cc2real, cc22real, abortRun, get_mean_sd
+   use useful, only: cc2real, cc22real, abortRun
    use integration, only: rInt_R, rIntIC
    use constants, only: pi, vol_oc, half, one, four
+   use mean_sd, only: mean_sd_type, mean_sd_2D_type
 
    implicit none
  
    private
- 
-   real(cp), allocatable :: e_mag_p_l_ave(:), e_mag_p_m_ave(:)
-   real(cp), allocatable :: e_mag_p_l_SD(:), e_mag_p_m_SD(:)
-   real(cp), allocatable :: e_mag_t_l_ave(:), e_mag_t_m_ave(:)
-   real(cp), allocatable :: e_mag_t_l_SD(:), e_mag_t_m_SD(:)
-   real(cp), allocatable :: e_mag_cmb_l_ave(:), e_mag_cmb_m_ave(:)
-   real(cp), allocatable :: e_mag_cmb_l_SD(:), e_mag_cmb_m_SD(:)
 
-   real(cp), allocatable :: u2_p_l_ave(:), u2_p_m_ave(:)
-   real(cp), allocatable :: u2_p_l_SD(:), u2_p_m_SD(:)
-   real(cp), allocatable :: u2_t_l_ave(:), u2_t_m_ave(:)
-   real(cp), allocatable :: u2_t_l_SD(:), u2_t_m_SD(:)
+   type(mean_sd_type) :: e_mag_p_l_ave, e_mag_p_m_ave
+   type(mean_sd_type) :: e_mag_t_l_ave, e_mag_t_m_ave
+   type(mean_sd_type) :: e_mag_cmb_l_ave, e_mag_cmb_m_ave
 
-   real(cp), allocatable :: e_kin_p_l_ave(:), e_kin_p_m_ave(:)
-   real(cp), allocatable :: e_kin_p_l_SD(:), e_kin_p_m_SD(:)
-   real(cp), allocatable :: e_kin_t_l_ave(:), e_kin_t_m_ave(:)
-   real(cp), allocatable :: e_kin_t_l_SD(:), e_kin_t_m_SD(:)
+   type(mean_sd_type) :: u2_p_l_ave, u2_p_m_ave
+   type(mean_sd_type) :: u2_t_l_ave, u2_t_m_ave
 
-   real(cp), allocatable :: e_mag_p_r_l_ave(:,:), e_mag_p_r_m_ave(:,:)
-   real(cp), allocatable :: e_mag_t_r_l_ave(:,:), e_mag_t_r_m_ave(:,:)
+   type(mean_sd_type) :: e_kin_p_l_ave, e_kin_p_m_ave
+   type(mean_sd_type) :: e_kin_t_l_ave, e_kin_t_m_ave
 
-   real(cp), allocatable :: e_kin_p_r_l_ave(:,:), e_kin_p_r_m_ave(:,:)
-   real(cp), allocatable :: e_kin_t_r_l_ave(:,:), e_kin_t_r_m_ave(:,:)
+   type(mean_sd_2D_type) :: e_mag_p_r_l_ave, e_mag_p_r_m_ave
+   type(mean_sd_2D_type) :: e_mag_t_r_l_ave, e_mag_t_r_m_ave
 
-   real(cp), allocatable :: T_l_ave(:), T_ICB_l_ave(:), dT_ICB_l_ave(:)
-   real(cp), allocatable :: T_l_SD(:), T_ICB_l_SD(:), dT_ICB_l_SD(:)
-   real(cp), allocatable :: T_m_ave(:), T_ICB_m_ave(:), dT_ICB_m_ave(:)
-   real(cp), allocatable :: T_m_SD(:), T_ICB_m_SD(:), dT_ICB_m_SD(:)
+   type(mean_sd_2D_type) :: e_kin_p_r_l_ave, e_kin_p_r_m_ave
+   type(mean_sd_2D_type) :: e_kin_t_r_l_ave, e_kin_t_r_m_ave
 
-   integer :: n_kin_spec_file, n_u2_spec_file, n_mag_spec_file
-   integer :: n_temp_spec_file
+   type(mean_sd_type) :: T_l_ave, T_ICB_l_ave, dT_ICB_l_ave
+   type(mean_sd_type) :: T_m_ave, T_ICB_m_ave, dT_ICB_m_ave
+
    integer :: n_am_kpol_file, n_am_ktor_file
    integer :: n_am_mpol_file, n_am_mtor_file
    character(len=72) :: am_kpol_file, am_ktor_file
@@ -69,55 +58,49 @@ contains
    subroutine initialize_spectra
 
       if ( l_mag ) then
-         allocate( e_mag_p_l_ave(0:l_max),e_mag_p_m_ave(0:l_max) )
-         allocate( e_mag_p_l_SD(0:l_max),e_mag_p_m_SD(0:l_max) )
-         allocate( e_mag_t_l_ave(0:l_max),e_mag_t_m_ave(0:l_max) )
-         allocate( e_mag_t_l_SD(0:l_max),e_mag_t_m_SD(0:l_max) )
-         allocate( e_mag_cmb_l_ave(0:l_max),e_mag_cmb_m_ave(0:l_max) )
-         allocate( e_mag_cmb_l_SD(0:l_max),e_mag_cmb_m_SD(0:l_max) )
-         bytes_allocated = bytes_allocated+12*(l_max+1)*SIZEOF_DEF_REAL
+         call e_mag_p_l_ave%initialize(1,l_max)
+         call e_mag_p_m_ave%initialize(0,l_max)
+         call e_mag_t_l_ave%initialize(1,l_max)
+         call e_mag_t_m_ave%initialize(0,l_max)
+         call e_mag_cmb_l_ave%initialize(1,l_max)
+         call e_mag_cmb_m_ave%initialize(0,l_max)
       end if
 
       if ( l_anel ) then
-         allocate( u2_p_l_ave(0:l_max),u2_p_m_ave(0:l_max) )
-         allocate( u2_p_l_SD(0:l_max),u2_p_m_SD(0:l_max) )
-         allocate( u2_t_l_ave(0:l_max),u2_t_m_ave(0:l_max) )
-         allocate( u2_t_l_SD(0:l_max),u2_t_m_SD(0:l_max) )
-         bytes_allocated = bytes_allocated+8*(l_max+1)*SIZEOF_DEF_REAL
+         call u2_p_l_ave%initialize(1,l_max)
+         call u2_p_m_ave%initialize(0,l_max)
+         call u2_t_l_ave%initialize(1,l_max)
+         call u2_t_m_ave%initialize(0,l_max)
       end if
 
-      allocate( e_kin_p_l_ave(0:l_max),e_kin_p_m_ave(0:l_max) )
-      allocate( e_kin_p_l_SD(0:l_max),e_kin_p_m_SD(0:l_max) )
-      allocate( e_kin_t_l_ave(0:l_max),e_kin_t_m_ave(0:l_max) )
-      allocate( e_kin_t_l_SD(0:l_max),e_kin_t_m_SD(0:l_max) )
-      bytes_allocated = bytes_allocated+8*(l_max+1)*SIZEOF_DEF_REAL
+      call e_kin_p_l_ave%initialize(1,l_max)
+      call e_kin_p_m_ave%initialize(0,l_max)
+      call e_kin_t_l_ave%initialize(1,l_max)
+      call e_kin_t_m_ave%initialize(0,l_max)
 
       if ( l_2D_spectra ) then
 
          if ( l_mag ) then
-            allocate( e_mag_p_r_l_ave(n_r_max,l_max) )
-            allocate( e_mag_p_r_m_ave(n_r_max,0:l_max) )
-            allocate( e_mag_t_r_l_ave(n_r_max,l_max) )
-            allocate( e_mag_t_r_m_ave(n_r_max,0:l_max) )
-            bytes_allocated = bytes_allocated+(4*n_r_max*l_max+2*n_r_max)&
-            &                 *SIZEOF_DEF_REAL
+            call e_mag_p_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
+            call e_mag_p_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+            call e_mag_t_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
+            call e_mag_t_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
          end if
 
-         allocate( e_kin_p_r_l_ave(n_r_max,l_max) )
-         allocate( e_kin_p_r_m_ave(n_r_max,0:l_max) )
-         allocate( e_kin_t_r_l_ave(n_r_max,l_max) ) 
-         allocate( e_kin_t_r_m_ave(n_r_max,0:l_max) )
-         bytes_allocated = bytes_allocated+(4*n_r_max*l_max+2*n_r_max)&
-         &                 *SIZEOF_DEF_REAL
+         call e_kin_p_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
+         call e_kin_p_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+         call e_kin_t_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
+         call e_kin_t_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
 
       end if
 
       if ( l_heat ) then
-         allocate( T_l_ave(l_max+1), T_ICB_l_ave(l_max+1), dT_ICB_l_ave(l_max+1) )
-         allocate( T_l_SD(l_max+1), T_ICB_l_SD(l_max+1), dT_ICB_l_SD(l_max+1) )
-         allocate( T_m_ave(l_max+1), T_ICB_m_ave(l_max+1), dT_ICB_m_ave(l_max+1) )
-         allocate( T_m_SD(l_max+1), T_ICB_m_SD(l_max+1), dT_ICB_m_SD(l_max+1) )
-         bytes_allocated = bytes_allocated+12*(l_max+1)*SIZEOF_DEF_REAL
+         call T_l_ave%initialize(1,l_max+1)
+         call T_ICB_l_ave%initialize(1,l_max+1)
+         call dT_ICB_l_ave%initialize(1,l_max+1)
+         call T_m_ave%initialize(1,l_max+1)
+         call T_ICB_m_ave%initialize(1,l_max+1)
+         call dT_ICB_m_ave%initialize(1,l_max+1)
       end if
 
       am_kpol_file='am_kin_pol.'//tag
@@ -143,37 +126,46 @@ contains
    subroutine finalize_spectra
 
       if ( l_mag ) then
-         deallocate( e_mag_p_l_ave, e_mag_p_m_ave, e_mag_p_l_SD, e_mag_p_m_SD )
-         deallocate( e_mag_t_l_ave, e_mag_t_m_ave, e_mag_t_l_SD, e_mag_t_m_SD )
-         deallocate( e_mag_cmb_l_ave, e_mag_cmb_m_ave, e_mag_cmb_l_SD )
-         deallocate( e_mag_cmb_m_SD )
+         call e_mag_p_l_ave%finalize()
+         call e_mag_p_m_ave%finalize()
+         call e_mag_t_l_ave%finalize()
+         call e_mag_t_m_ave%finalize()
+         call e_mag_cmb_l_ave%finalize()
+         call e_mag_cmb_m_ave%finalize()
       end if
 
       if ( l_anel ) then
-         deallocate( u2_p_l_ave, u2_p_m_ave, u2_p_l_SD, u2_p_m_SD )
-         deallocate( u2_t_l_ave, u2_t_m_ave, u2_t_l_SD, u2_t_m_SD )
+         call u2_p_l_ave%finalize()
+         call u2_p_m_ave%finalize()
+         call u2_t_l_ave%finalize()
+         call u2_t_m_ave%finalize()
       end if
 
-      deallocate( e_kin_p_l_ave, e_kin_p_m_ave )
-      deallocate( e_kin_p_l_SD, e_kin_p_m_SD )
-      deallocate( e_kin_t_l_ave, e_kin_t_m_ave )
-      deallocate( e_kin_t_l_SD, e_kin_t_m_SD )
+      call e_kin_p_l_ave%finalize()
+      call e_kin_p_m_ave%finalize()
+      call e_kin_t_l_ave%finalize()
+      call e_kin_t_m_ave%finalize()
 
       if ( l_2D_spectra ) then
          if ( l_mag ) then
-            deallocate( e_mag_p_r_l_ave, e_mag_p_r_m_ave )
-            deallocate( e_mag_t_r_l_ave, e_mag_t_r_m_ave )
+            call e_mag_p_r_l_ave%finalize() 
+            call e_mag_p_r_m_ave%finalize()
+            call e_mag_t_r_l_ave%finalize()
+            call e_mag_t_r_m_ave%finalize()
          end if
-
-         deallocate( e_kin_p_r_l_ave, e_kin_p_r_m_ave )
-         deallocate( e_kin_t_r_l_ave, e_kin_t_r_m_ave )
+         call e_kin_p_r_l_ave%finalize()
+         call e_kin_p_r_m_ave%finalize()
+         call e_kin_t_r_l_ave%finalize()
+         call e_kin_t_r_m_ave%finalize()
       end if
 
       if ( l_heat ) then
-         deallocate( T_l_ave, T_ICB_l_ave, dT_ICB_l_ave )
-         deallocate( T_l_SD, T_ICB_l_SD, dT_ICB_l_SD )
-         deallocate( T_m_ave, T_ICB_m_ave, dT_ICB_m_ave )
-         deallocate( T_m_SD, T_ICB_m_SD, dT_ICB_m_SD )
+         call T_l_ave%finalize()
+         call T_ICB_l_ave%finalize()
+         call dT_ICB_l_ave%finalize()
+         call T_m_ave%finalize()
+         call T_ICB_m_ave%finalize()
+         call dT_ICB_m_ave%finalize()
       end if
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
@@ -238,6 +230,7 @@ contains
       !-- local:
       character(len=14) :: string
       character(len=72) :: mag_spec_file,kin_spec_file,u2_spec_file
+      integer :: n_mag_spec_file,n_kin_spec_file,n_u2_spec_file
       integer :: n_r,lm,ml,l,mc,m,n_const
     
       real(cp) :: r_ratio,O_r_icb_E_2
@@ -248,8 +241,6 @@ contains
       real(cp) :: fac_mag,fac_kin
       real(cp) :: nearSurfR
 
-      real(cp) :: sd(l_max+1)
-    
       real(cp) :: e_mag_p_r_l(n_r_max,l_max),e_mag_p_r_l_global(n_r_max,l_max)
       real(cp) :: e_mag_t_r_l(n_r_max,l_max),e_mag_t_r_l_global(n_r_max,l_max)
       real(cp) :: e_kin_p_r_l(n_r_max,l_max),e_kin_p_r_l_global(n_r_max,l_max)
@@ -450,74 +441,50 @@ contains
       !-- Averaging:
       if ( rank == 0 .and. l_avg ) then
          if ( l_mag ) then
-            call get_mean_sd(e_mag_p_l_ave(1:l_max), e_mag_p_l_SD(1:l_max),     &
-                 &           e_mag_p_l, n_time_ave, time_passed, time_norm)
-            call get_mean_sd(e_mag_t_l_ave(1:l_max), e_mag_t_l_SD(1:l_max),     &
-                 &           e_mag_t_l, n_time_ave, time_passed, time_norm)
-            call get_mean_sd(e_mag_p_m_ave, e_mag_p_m_SD, e_mag_p_m, n_time_ave,&
-                 &           time_passed, time_norm)
-            call get_mean_sd(e_mag_t_m_ave, e_mag_t_m_SD, e_mag_t_m, n_time_ave,&
-                 &           time_passed,time_norm)
-            call get_mean_sd(e_mag_cmb_l_ave(1:l_max), e_mag_cmb_l_SD(1:l_max), &
-                 &           e_mag_cmb_l, n_time_ave, time_passed, time_norm)
-            call get_mean_sd(e_mag_cmb_m_ave, e_mag_cmb_m_SD, e_mag_cmb_m,      &
-                 &           n_time_ave, time_passed, time_norm)
+            call e_mag_p_l_ave%compute(e_mag_p_l, n_time_ave, time_passed, time_norm)
+            call e_mag_t_l_ave%compute(e_mag_t_l, n_time_ave, time_passed, time_norm)
+            call e_mag_p_m_ave%compute(e_mag_p_m, n_time_ave, time_passed, time_norm)
+            call e_mag_t_m_ave%compute(e_mag_t_m, n_time_ave, time_passed, time_norm)
+            call e_mag_cmb_l_ave%compute(e_mag_cmb_l, n_time_ave, time_passed, &
+                 &                       time_norm)
+            call e_mag_cmb_m_ave%compute(e_mag_cmb_m, n_time_ave, time_passed, &
+                 &                       time_norm)
 
             !-- Averaging of 2D spectra
             if ( l_2D_spectra ) then
-               do n_r=1,n_r_max
-                  call get_mean_sd(e_mag_p_r_l_ave(n_r,:),sd(:l_max),   &
-                       &           e_mag_p_r_l_global(n_r,:),n_time_ave,&
-                       &           time_passed, time_norm)
-                  call get_mean_sd(e_mag_t_r_l_ave(n_r,:),sd(:l_max),   &
-                       &           e_mag_t_r_l_global(n_r,:),n_time_ave,&
-                       &           time_passed, time_norm)
-                  call get_mean_sd(e_mag_p_r_m_ave(n_r,:),sd,           &
-                       &           e_mag_p_r_m_global(n_r,:),n_time_ave,&
-                       &           time_passed, time_norm)
-                  call get_mean_sd(e_mag_t_r_m_ave(n_r,:),sd,           &
-                       &           e_mag_t_r_m_global(n_r,:),n_time_ave,&
-                       &           time_passed, time_norm)
-               end do
+               call e_mag_p_r_l_ave%compute(e_mag_p_r_l_global, n_time_ave, &
+                    &                       time_passed, time_norm)
+               call e_mag_t_r_l_ave%compute(e_mag_t_r_l_global, n_time_ave, &
+                    &                       time_passed, time_norm)
+               call e_mag_p_r_m_ave%compute(e_mag_p_r_m_global, n_time_ave, &
+                    &                       time_passed, time_norm)
+               call e_mag_t_r_m_ave%compute(e_mag_t_r_m_global, n_time_ave, &
+                    &                       time_passed, time_norm)
             end if
          end if
 
          if ( l_anel ) then
-            call get_mean_sd(u2_p_l_ave(1:l_max), u2_p_l_SD(1:l_max), u2_p_l,&
-                 &           n_time_ave, time_passed, time_norm)
-            call get_mean_sd(u2_t_l_ave(1:l_max), u2_t_l_SD(1:l_max), u2_t_l,&
-                 &           n_time_ave, time_passed, time_norm)
-            call get_mean_sd(u2_p_m_ave, u2_p_m_SD, u2_p_m, n_time_ave,      &
-                 &           time_passed, time_norm)
-            call get_mean_sd(u2_t_m_ave, u2_t_m_SD, u2_t_m, n_time_ave,      &
-                 &           time_passed, time_norm)
+            call u2_p_l_ave%compute(u2_p_l, n_time_ave, time_passed, time_norm)
+            call u2_t_l_ave%compute(u2_t_l, n_time_ave, time_passed, time_norm)
+            call u2_p_m_ave%compute(u2_p_m, n_time_ave, time_passed, time_norm)
+            call u2_t_m_ave%compute(u2_t_m, n_time_ave, time_passed, time_norm)
          end if
 
-         call get_mean_sd(e_kin_p_l_ave(1:l_max), e_kin_p_l_SD(1:l_max),     &
-              &           e_kin_p_l, n_time_ave, time_passed, time_norm)
-         call get_mean_sd(e_kin_t_l_ave(1:l_max), e_kin_t_l_SD(1:l_max),     &
-              &           e_kin_t_l, n_time_ave, time_passed, time_norm)
-         call get_mean_sd(e_kin_p_m_ave, e_kin_p_m_SD, e_kin_p_m, n_time_ave,&
-              &           time_passed, time_norm)
-         call get_mean_sd(e_kin_t_m_ave, e_kin_t_m_SD, e_kin_t_m, n_time_ave,&
-              &           time_passed, time_norm)
+         call e_kin_p_l_ave%compute(e_kin_p_l, n_time_ave, time_passed, time_norm)
+         call e_kin_t_l_ave%compute(e_kin_t_l, n_time_ave, time_passed, time_norm)
+         call e_kin_p_m_ave%compute(e_kin_p_m, n_time_ave, time_passed, time_norm)
+         call e_kin_t_m_ave%compute(e_kin_t_m, n_time_ave, time_passed, time_norm)
 
          !-- Averaging of 2D spectra
          if ( l_2D_spectra ) then
-            do n_r=1,n_r_max
-               call get_mean_sd(e_kin_p_r_l_ave(n_r,:),sd(:l_max),    &
-                    &           e_kin_p_r_l_global(n_r,:),n_time_ave, &
-                    &           time_passed, time_norm)
-               call get_mean_sd(e_kin_t_r_l_ave(n_r,:), sd(:l_max),   &
-                    &           e_kin_t_r_l_global(n_r,:), n_time_ave,&
-                    &           time_passed, time_norm)
-               call get_mean_sd(e_kin_p_r_m_ave(n_r,:), sd,           &
-                    &           e_kin_p_r_m_global(n_r,:), n_time_ave,&
-                    &           time_passed, time_norm)
-               call get_mean_sd(e_kin_t_r_m_ave(n_r,:), sd,           &
-                    &           e_kin_t_r_m_global(n_r,:), n_time_ave,&
-                    &           time_passed, time_norm)
-            end do
+            call e_kin_p_r_l_ave%compute(e_kin_p_r_l_global, n_time_ave, &
+                 &                       time_passed, time_norm)
+            call e_kin_t_r_l_ave%compute(e_kin_t_r_l_global, n_time_ave, &
+                 &                       time_passed, time_norm)
+            call e_kin_p_r_m_ave%compute(e_kin_p_r_m_global, n_time_ave, &
+                 &                       time_passed, time_norm)
+            call e_kin_t_r_m_ave%compute(e_kin_t_r_m_global, n_time_ave, &
+                 &                       time_passed, time_norm)
          end if
       end if
     
@@ -631,55 +598,55 @@ contains
                close(n_mag_spec_file)
             end if
             
-            if ( l_avg ) then
-               !-- Output: every 10th averaging step and at end of run
-               if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
-                  mag_spec_file='mag_spec_ave.'//tag
-                  open(newunit=n_mag_spec_file, file=mag_spec_file, &
-                  &    status='unknown')
-                  e_mag_p_l_SD(:)  =sqrt(e_mag_p_l_SD(:)/time_norm) 
-                  e_mag_t_l_SD(:)  =sqrt(e_mag_t_l_SD(:)/time_norm)
-                  e_mag_p_m_SD(:)  =sqrt(e_mag_p_m_SD(:)/time_norm)
-                  e_mag_t_m_SD(:)  =sqrt(e_mag_t_m_SD(:)/time_norm)
-                  e_mag_cmb_l_SD(:)=sqrt(e_mag_cmb_l_SD(:)/time_norm)
-                  e_mag_cmb_m_SD(:)=sqrt(e_mag_cmb_m_SD(:)/time_norm)
-                  do l=0,l_max
-                     write(n_mag_spec_file,'(2X,1P,I4,12ES16.8)') l,      &
-                     &            e_mag_p_l_ave(l), e_mag_p_m_ave(l),     &
-                     &            e_mag_t_l_ave(l), e_mag_t_m_ave(l),     &
-                     &            e_mag_cmb_l_ave(l), e_mag_cmb_m_ave(l), &
-                     &            e_mag_p_l_SD(l), e_mag_p_m_SD(l),       &
-                     &            e_mag_t_l_SD(l), e_mag_t_m_SD(l),       &
-                     &            e_mag_cmb_l_SD(l), e_mag_cmb_m_SD(l)
-                  end do
-                  close(n_mag_spec_file)
+            if ( l_avg .and. l_stop_time ) then
+               !-- Output: at end of run
+               mag_spec_file='mag_spec_ave.'//tag
+               open(newunit=n_mag_spec_file, file=mag_spec_file, &
+               &    status='unknown')
+               call e_mag_p_l_ave%finalize_SD(time_norm)
+               call e_mag_t_l_ave%finalize_SD(time_norm)
+               call e_mag_p_m_ave%finalize_SD(time_norm)
+               call e_mag_t_m_ave%finalize_SD(time_norm)
+               call e_mag_cmb_l_ave%finalize_SD(time_norm)
+               call e_mag_cmb_m_ave%finalize_SD(time_norm)
+               write(n_mag_spec_file,'(2X,1P,I4,12ES16.8)') 0,                  &
+               &     0.0_cp,e_mag_p_m_ave%mean(0),0.0_cp,e_mag_t_m_ave%mean(0), &
+               &     0.0_cp,e_mag_cmb_m_ave%mean(0),0.0_cp,e_mag_p_m_ave%SD(0), &
+               &     0.0_cp,e_mag_t_m_ave%SD(0),0.0_cp,e_mag_cmb_m_ave%SD(0)
+               do l=1,l_max
+                  write(n_mag_spec_file,'(2X,1P,I4,12ES16.8)') l,         &
+                  &     e_mag_p_l_ave%mean(l), e_mag_p_m_ave%mean(l),     &
+                  &     e_mag_t_l_ave%mean(l), e_mag_t_m_ave%mean(l),     &
+                  &     e_mag_cmb_l_ave%mean(l), e_mag_cmb_m_ave%mean(l), &
+                  &     e_mag_p_l_ave%SD(l), e_mag_p_m_ave%SD(l),         &
+                  &     e_mag_t_l_ave%SD(l), e_mag_t_m_ave%SD(l),         &
+                  &     e_mag_cmb_l_ave%SD(l), e_mag_cmb_m_ave%SD(l)
+               end do
+               close(n_mag_spec_file)
 
-                  if ( l_stop_time ) then
-                     if ( l_save_out ) then
-                        open(newunit=n_log_file, file=log_file, status='unknown',&
-                        &    position='append')
-                     end if
-                     write(n_log_file,"(/,A,A)")                        &
-                     &     ' ! TIME AVERAGED EMAG SPECTRA STORED IN FILE: ', &
-                     &     mag_spec_file 
-                     write(n_log_file,"(A,I5)")                         &
-                     &     ' !              No. of averaged spectra: ', &
-                     &     n_time_ave
-                     if ( l_save_out ) close(n_log_file)
-                  end if
-                  
-                  if ( l_2D_spectra ) then
-                     mag_spec_file='2D_mag_spec_ave.'//tag
-                     open(newunit=n_mag_spec_file, file=mag_spec_file, &
-                     &    status='unknown', form='unformatted')
-                     write(n_mag_spec_file) n_r_max,l_max,minc
-                     write(n_mag_spec_file) r
-                     write(n_mag_spec_file) fac_mag*e_mag_p_r_l_ave  
-                     write(n_mag_spec_file) fac_mag*e_mag_p_r_m_ave
-                     write(n_mag_spec_file) fac_mag*e_mag_t_r_l_ave
-                     write(n_mag_spec_file) fac_mag*e_mag_t_r_m_ave
-                     close(n_mag_spec_file)
-                  end if
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown',&
+                  &    position='append')
+               end if
+               write(n_log_file,"(/,A,A)")                             &
+               &     ' ! TIME AVERAGED EMAG SPECTRA STORED IN FILE: ', &
+               &     mag_spec_file 
+               write(n_log_file,"(A,I5)")                         &
+               &     ' !              No. of averaged spectra: ', &
+               &     n_time_ave
+               if ( l_save_out ) close(n_log_file)
+              
+               if ( l_2D_spectra ) then
+                  mag_spec_file='2D_mag_spec_ave.'//tag
+                  open(newunit=n_mag_spec_file, file=mag_spec_file, &
+                  &    status='unknown', form='unformatted')
+                  write(n_mag_spec_file) n_r_max,l_max,minc
+                  write(n_mag_spec_file) r
+                  write(n_mag_spec_file) fac_mag*e_mag_p_r_l_ave%mean
+                  write(n_mag_spec_file) fac_mag*e_mag_p_r_m_ave%mean
+                  write(n_mag_spec_file) fac_mag*e_mag_t_r_l_ave%mean
+                  write(n_mag_spec_file) fac_mag*e_mag_t_r_m_ave%mean
+                  close(n_mag_spec_file)
                end if
             end if
          end if
@@ -704,39 +671,38 @@ contains
             end do
             close(n_u2_spec_file)
     
-            if ( l_avg ) then
-               !-- Output: every 10th averaging step and at end of run
-               if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
-                  u2_spec_file='u2_spec_ave.'//tag
-                  open(newunit=n_u2_spec_file, file=u2_spec_file, &
-                  &    status='unknown')
-                  u2_p_l_SD(:)  =sqrt(u2_p_l_SD(:)/time_norm)
-                  u2_t_l_SD(:)  =sqrt(u2_t_l_SD(:)/time_norm)
-                  u2_p_m_SD(:)  =sqrt(u2_p_m_SD(:)/time_norm)
-                  u2_t_m_SD(:)  =sqrt(u2_t_m_SD(:)/time_norm)
-                  do l=0,l_max
-                     write(n_u2_spec_file,'(2X,1P,I4,8ES16.8)') l,   &
-                     &                u2_p_l_ave(l), u2_p_m_ave(l),  &
-                     &                u2_t_l_ave(l), u2_t_m_ave(l),  &
-                     &                u2_p_l_SD(l), u2_p_m_SD(l),    &
-                     &                u2_t_l_SD(l), u2_t_m_SD(l)
-                  end do
-                  close(n_u2_spec_file)
+            if ( l_avg .and. l_stop_time ) then
+               !-- Output: at end of run
+               u2_spec_file='u2_spec_ave.'//tag
+               open(newunit=n_u2_spec_file, file=u2_spec_file, &
+               &    status='unknown')
+               call u2_p_l_ave%finalize_SD(time_norm)
+               call u2_t_l_ave%finalize_SD(time_norm)
+               call u2_p_m_ave%finalize_SD(time_norm)
+               call u2_t_m_ave%finalize_SD(time_norm)
+               write(n_u2_spec_file,'(2X,1P,I4,8ES16.8)') 0,              &
+               &     0.0_cp,u2_p_m_ave%mean(0),0.0_cp,u2_t_m_ave%mean(0), &
+               &     0.0_cp,u2_p_m_ave%SD(0),0.0_cp,u2_t_m_ave%SD(0)
+               do l=1,l_max
+                  write(n_u2_spec_file,'(2X,1P,I4,8ES16.8)') l, &
+                  &     u2_p_l_ave%mean(l), u2_p_m_ave%mean(l), &
+                  &     u2_t_l_ave%mean(l), u2_t_m_ave%mean(l), &
+                  &     u2_p_l_ave%SD(l), u2_p_m_ave%SD(l),     &
+                  &     u2_t_l_ave%SD(l), u2_t_m_ave%SD(l)
+               end do
+               close(n_u2_spec_file)
 
-                  if ( l_stop_time ) then
-                     if ( l_save_out ) then
-                        open(newunit=n_log_file, file=log_file, status='unknown',&
-                        &    position='append')
-                     end if
-                     write(n_log_file,"(/,A,A)")                        &
-                     &     ' ! TIME AVERAGED U2 SPECTRA STORED IN FILE: ', &
-                     &     u2_spec_file
-                     write(n_log_file,"(A,I5)")                         &
-                     &     ' !              No. of averaged spectra: ', &
-                     &     n_time_ave
-                     if ( l_save_out ) close(n_log_file)
-                  end if
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown',&
+                  &    position='append')
                end if
+               write(n_log_file,"(/,A,A)")                           &
+               &     ' ! TIME AVERAGED U2 SPECTRA STORED IN FILE: ', &
+               &     u2_spec_file
+               write(n_log_file,"(A,I5)")                         &
+               &     ' !              No. of averaged spectra: ', &
+               &     n_time_ave
+               if ( l_save_out ) close(n_log_file)
             end if
          end if
     
@@ -775,50 +741,49 @@ contains
             close(n_kin_spec_file)
          end if
 
-         if ( l_avg ) then
-            !-- Output: every 10th averaging step and at end of run
-            if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
-               kin_spec_file='kin_spec_ave.'//tag
-               open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown')
-               e_kin_p_l_SD(:)  =sqrt(e_kin_p_l_SD(:)/time_norm)
-               e_kin_t_l_SD(:)  =sqrt(e_kin_t_l_SD(:)/time_norm)
-               e_kin_p_m_SD(:)  =sqrt(e_kin_p_m_SD(:)/time_norm)
-               e_kin_t_m_SD(:)  =sqrt(e_kin_t_m_SD(:)/time_norm)
-               do l=0,l_max
-                  write(n_kin_spec_file,'(2X,1P,I4,8ES16.8)') l,    &
-                  &             e_kin_p_l_ave(l), e_kin_p_m_ave(l), &
-                  &             e_kin_t_l_ave(l), e_kin_t_m_ave(l), &
-                  &             e_kin_p_l_SD(l), e_kin_p_m_SD(l),   &
-                  &             e_kin_t_l_SD(l), e_kin_t_m_SD(l)
-               end do
+         if ( l_avg .and. l_stop_time ) then
+            !-- Output: at end of run
+            kin_spec_file='kin_spec_ave.'//tag
+            open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown')
+            call e_kin_p_l_ave%finalize_SD(time_norm)
+            call e_kin_t_l_ave%finalize_SD(time_norm)
+            call e_kin_p_m_ave%finalize_SD(time_norm)
+            call e_kin_t_m_ave%finalize_SD(time_norm)
+            write(n_kin_spec_file,'(2X,1P,I4,8ES16.8)') 0, &
+            &     0.0_cp,e_kin_p_m_ave%mean(0),0.0_cp,e_kin_t_m_ave%mean(0), &
+            &     0.0_cp,e_kin_p_m_ave%SD(0),0.0_cp,e_kin_t_m_ave%SD(0)
+            do l=1,l_max
+               write(n_kin_spec_file,'(2X,1P,I4,8ES16.8)') l,      &
+               &     e_kin_p_l_ave%mean(l), e_kin_p_m_ave%mean(l), &
+               &     e_kin_t_l_ave%mean(l), e_kin_t_m_ave%mean(l), &
+               &     e_kin_p_l_ave%SD(l), e_kin_p_m_ave%SD(l),     &
+               &     e_kin_t_l_ave%SD(l), e_kin_t_m_ave%SD(l)
+            end do
+            close(n_kin_spec_file)
+
+            if ( l_save_out ) then
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_log_file,"(/,A,A)")                             &
+            &     ' ! TIME AVERAGED EKIN SPECTRA STORED IN FILE: ', &
+            &     kin_spec_file
+            write(n_log_file,"(A,I5)")                         &
+            &     ' !              No. of averaged spectra: ', &
+            &     n_time_ave
+            if ( l_save_out ) close(n_log_file)
+
+            if ( l_2D_spectra ) then
+               kin_spec_file='2D_kin_spec_ave.'//tag
+               open(newunit=n_kin_spec_file, file=kin_spec_file, &
+               &    status='unknown', form='unformatted')
+               write(n_kin_spec_file) n_r_max,l_max,minc
+               write(n_kin_spec_file) r
+               write(n_kin_spec_file) fac_kin*e_kin_p_r_l_ave%mean
+               write(n_kin_spec_file) fac_kin*e_kin_p_r_m_ave%mean
+               write(n_kin_spec_file) fac_kin*e_kin_t_r_l_ave%mean
+               write(n_kin_spec_file) fac_kin*e_kin_t_r_m_ave%mean
                close(n_kin_spec_file)
-
-               if ( l_stop_time ) then
-                  if ( l_save_out ) then
-                     open(newunit=n_log_file, file=log_file, status='unknown', &
-                     &    position='append')
-                  end if
-                  write(n_log_file,"(/,A,A)")                        &
-                  &     ' ! TIME AVERAGED EKIN SPECTRA STORED IN FILE: ', &
-                  &     kin_spec_file
-                  write(n_log_file,"(A,I5)")                         &
-                  &     ' !              No. of averaged spectra: ', &
-                  &     n_time_ave
-                  if ( l_save_out ) close(n_log_file)
-               end if
-
-               if ( l_2D_spectra ) then
-                  kin_spec_file='2D_kin_spec_ave.'//tag
-                  open(newunit=n_kin_spec_file, file=kin_spec_file, &
-                  &    status='unknown', form='unformatted')
-                  write(n_kin_spec_file) n_r_max,l_max,minc
-                  write(n_kin_spec_file) r
-                  write(n_kin_spec_file) fac_kin*e_kin_p_r_l_ave 
-                  write(n_kin_spec_file) fac_kin*e_kin_p_r_m_ave
-                  write(n_kin_spec_file) fac_kin*e_kin_t_r_l_ave
-                  write(n_kin_spec_file) fac_kin*e_kin_t_r_m_ave
-                  close(n_kin_spec_file)
-               end if
             end if
          end if
       end if
@@ -842,6 +807,7 @@ contains
       !-- Local:
       character(len=14) :: string
       character(len=72) :: spec_file
+      integer :: n_temp_spec_file
       integer :: n_r,lm,l,m,lc,mc
       real(cp) :: T_temp
       real(cp) :: dT_temp
@@ -925,37 +891,34 @@ contains
 
          if ( l_avg ) then
             !-- Averaging:
-            call get_mean_sd(T_l_ave, T_l_SD, T_l, n_time_ave, time_passed, time_norm)
-            call get_mean_sd(T_ICB_l_ave, T_ICB_l_SD, T_ICB_l, n_time_ave, &
-                 &           time_passed, time_norm)
-            call get_mean_sd(dT_ICB_l_ave, dT_ICB_l_SD, dT_ICB_l, n_time_ave, &
-                 &           time_passed, time_norm)
-            call get_mean_sd(T_m_ave, T_m_SD, T_l, n_time_ave, time_passed, time_norm)
-            call get_mean_sd(T_ICB_m_ave, T_ICB_m_SD, T_ICB_l, n_time_ave, &
-                 &           time_passed, time_norm)
-            call get_mean_sd(dT_ICB_m_ave, dT_ICB_m_SD, dT_ICB_l, n_time_ave, &
-                 &           time_passed, time_norm)
+            call T_l_ave%compute(T_l, n_time_ave, time_passed, time_norm)
+            call T_ICB_l_ave%compute(T_ICB_l, n_time_ave, time_passed, time_norm)
+            call dT_ICB_l_ave%compute(dT_ICB_l, n_time_ave, time_passed, time_norm)
+            call T_m_ave%compute(T_m, n_time_ave, time_passed, time_norm)
+            call T_ICB_m_ave%compute(T_ICB_m, n_time_ave, time_passed, time_norm)
+            call dT_ICB_m_ave%compute(dT_ICB_m, n_time_ave, time_passed, time_norm)
 
             !-- Output:
             if ( l_stop_time ) then
-
-               T_l_SD(:)     =sqrt(T_l_SD(:)/time_norm)
-               T_ICB_l_SD(:) =sqrt(T_ICB_l_SD(:)/time_norm)
-               dT_ICB_l_SD(:)=sqrt(dT_ICB_l_SD(:)/time_norm)
-               T_m_SD(:)     =sqrt(T_m_SD(:)/time_norm)
-               T_ICB_m_SD(:) =sqrt(T_ICB_m_SD(:)/time_norm)
-               dT_ICB_m_SD(:)=sqrt(dT_ICB_m_SD(:)/time_norm)
+               
+               call T_l_ave%finalize_SD(time_norm)
+               call T_ICB_l_ave%finalize_SD(time_norm)
+               call dT_ICB_l_ave%finalize_SD(time_norm)
+               call T_m_ave%finalize_SD(time_norm)
+               call T_ICB_m_ave%finalize_SD(time_norm)
+               call dT_ICB_m_ave%finalize_SD(time_norm)
 
                !------ Output:
                spec_file='T_spec_ave.'//tag
                open(newunit=nOut,file=spec_file,status='unknown')
                do l=1,l_max+1
-                  write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave(l), T_m_ave(l),  &
-                  &                              T_ICB_l_ave(l), T_ICB_m_ave(l),  &
-                  &                            dT_ICB_l_ave(l), dT_ICB_m_ave(l),  &
-                  &                                        T_l_SD(l), T_m_SD(l),  &
-                  &                                T_ICB_l_SD(l), T_ICB_m_SD(l),  &
-                  &                              dT_ICB_l_SD(l), dT_ICB_m_SD(l)
+                  write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave%mean(l), &
+                  &                T_m_ave%mean(l),  T_ICB_l_ave%mean(l), &
+                  &            T_ICB_m_ave%mean(l), dT_ICB_l_ave%mean(l), &
+                  &           dT_ICB_m_ave%mean(l),        T_l_ave%SD(l), &
+                  &                  T_m_ave%SD(l),    T_ICB_l_ave%SD(l), &
+                  &              T_ICB_m_ave%SD(l),   dT_ICB_l_ave%SD(l), &
+                  &             dT_ICB_m_ave%SD(l)
                end do
                close(nOut)
 
@@ -980,8 +943,8 @@ contains
             write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)')  &
             &     time*tScale
             do l=0,l_max
-               write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1),   &
-               &                                    T_ICB_l(l+1), T_ICB_m(l+1),   &
+               write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1), &
+               &                                    T_ICB_l(l+1), T_ICB_m(l+1), &
                &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
             end do
             close(n_temp_spec_file)
@@ -1051,8 +1014,8 @@ contains
                e_mag_p_r_m(n_r,m)=e_mag_p_r_m(n_r,m)+e_mag_p_temp
                e_mag_t_r_m(n_r,m)=e_mag_t_r_m(n_r,m)+e_mag_t_temp
             end if
-            e_kin_p_r_m(n_r,m)=e_kin_p_r_m(n_r,m)+e_kin_p_temp                 
-            e_kin_t_r_m(n_r,m)=e_kin_t_r_m(n_r,m)+e_kin_t_temp      
+            e_kin_p_r_m(n_r,m)=e_kin_p_r_m(n_r,m)+e_kin_p_temp
+            e_kin_t_r_m(n_r,m)=e_kin_t_r_m(n_r,m)+e_kin_t_temp
 
          end do    ! do loop over lms in block 
 
@@ -1075,7 +1038,7 @@ contains
                e_mag_p_m(m)= fac_mag*rInt_R(e_mag_p_r_m_global(:,m),r,rscheme_oc)
                e_mag_t_m(m)= fac_mag*rInt_R(e_mag_t_r_m_global(:,m),r,rscheme_oc)
             end if
-            e_kin_p_m(m)   =fac_kin*rInt_R(e_kin_p_r_m_global(:,m),r,rscheme_oc)       
+            e_kin_p_m(m)   =fac_kin*rInt_R(e_kin_p_r_m_global(:,m),r,rscheme_oc) 
             e_kin_t_m(m)   =fac_kin*rInt_R(e_kin_t_r_m_global(:,m),r,rscheme_oc)
          end do
 

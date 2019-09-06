@@ -8,7 +8,7 @@ module fields
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag
    use logic, only: l_chemical_conv
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+   use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop
    use parallel_mod, only: rank
 

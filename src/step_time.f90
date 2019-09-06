@@ -20,20 +20,18 @@ module step_time_mod
        &                phy2lm_counter, nl_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
-   use blocking, only: nLMBs, lmStartB, lmStopB
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
-       &            l_TOmovie, l_r_field, l_cmb_field, l_storeTpot,    &
-       &            l_storeVpot, l_storeBpot, l_HTmovie, l_DTrMagSpec, &
-       &            lVerbose, l_time_hits, l_b_nl_icb, l_b_nl_cmb,     &
-       &            l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
-       &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
-       &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
-       &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
-       &            l_double_curl, l_PressGraph, l_probe, l_AB1,       &
-       &            l_finite_diff
+       &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
+       &            l_DTrMagSpec, lVerbose, l_time_hits, l_b_nl_icb,   &
+       &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
+       &            l_HT, l_dtB, l_dtBmovie, l_heat, l_conv, l_movie,  &
+       &            l_true_time, l_runTimeLimit, l_save_out,           &
+       &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
+       &            l_power, l_TP_form, l_double_curl, l_PressGraph,   &
+       &            l_probe, l_AB1, l_finite_diff
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+   use blocking, only: llm, ulm, llmMag, ulmMag
    use LMLoop_mod, only: LMLoop
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
@@ -41,9 +39,7 @@ module step_time_mod
        &                  n_spec_step, n_specs, n_t_spec, t_spec,          &
        &                  n_movie_step, n_movie_frames, n_t_movie, t_movie,&
        &                  n_TOmovie_step, n_TOmovie_frames, n_t_TOmovie,   &
-       &                  t_TOmovie, n_Bpot_step, n_Bpots, n_t_Bpot,       &
-       &                  t_Bpot, n_Vpot_step, n_Vpots, n_t_Vpot, t_Vpot,  &
-       &                  n_Tpot_step, n_Tpots, n_t_Tpot, t_Tpot,          &
+       &                  t_TOmovie, n_pot_step, n_pots, n_t_pot, t_pot,   &
        &                  n_rst_step, n_rsts, n_t_rst, t_rst, n_stores,    &
        &                  n_log_step, n_logs, n_t_log, t_log, n_cmb_step,  &
        &                  n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
@@ -310,8 +306,7 @@ contains
       logical :: lTONext,lTONext2 ! TO stuff for next steps
       logical :: lTOframeNext,lTOframeNext2
       logical :: lTOZhelp,lTOZwrite
-      logical :: l_logNext
-      logical :: l_Bpot,l_Vpot,l_Tpot
+      logical :: l_logNext, l_pot
       logical :: lRmsCalc,lRmsNext
       logical :: lPressCalc,lPressNext
       logical :: lMat             ! update matricies
@@ -533,26 +528,10 @@ contains
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
          &          n_probe_step,n_probe_out,n_t_probe,t_probe,0)
 
-         if ( l_mag .or. l_mag_LF ) then
-            l_Bpot=l_storeBpot .and. (                                             &
-            &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-            &                            n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or.&
-            &                 n_time_steps == 1 )  .or. n_pot_signal == 1
-         else
-            l_Bpot=.false.
-         end if
-         l_Vpot=l_storeVpot .and. (                                              &
-         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_Vpot_step,n_Vpots,n_t_Vpot,t_Vpot,0).or. &
-         &                 n_time_steps == 1 ) .or. n_pot_signal == 1
-         if ( l_heat ) then
-            l_Tpot=l_storeTpot .and. (                                             &
-            &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-            &                            n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).or.&
-            &                 n_time_steps == 1 ) .or. n_pot_signal == 1
-         else
-            l_Tpot=.false.
-         end if
+         !-- Potential files
+         l_pot= l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
+         &                       n_pot_step,n_pots,n_t_pot,t_pot,0) .or. &
+         &                  n_pot_signal == 1
          n_pot_signal=0   ! reset interrupt signal !
 
          l_cour=.true.
@@ -617,7 +596,8 @@ contains
             lTOZwrite=.false.
          end if
 
-         lRmsCalc=l_RMS .and. l_log .and. (n_time_step > 1)
+         lRmsCalc=(l_RMS .and. l_log .and. (n_time_step > 1)) .or. &
+         &        (l_RMS .and. l_stop_time)
          if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
          lRmsNext=l_RMS .and. l_logNext ! Used for storing in update routines !
 
@@ -778,9 +758,8 @@ contains
          end if
          if ( lVerbose ) write(*,*) "! start real output"
          call io_counter%start_count()
-         call output(time,dt,dtNew,n_time_step,l_stop_time,                &
-              &      l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,          &
-              &      l_store,l_new_rst_file,                               &
+         call output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,    &
+              &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
@@ -917,7 +896,6 @@ contains
          ! ==================================================================
 
          if ( lVerbose ) write(*,*) '! starting lm-loop!'
-         if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
          if ( n_time_step == 1 .and. l_AB1 ) then
             if (rank == 0 ) write(*,*) '! 1st order Adams-Bashforth for 1st time step'

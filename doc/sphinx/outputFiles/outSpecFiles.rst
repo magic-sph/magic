@@ -356,6 +356,176 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    |               | at the ICB  versus order                                  |
    +---------------+-----------------------------------------------------------+
 
+
+.. _secRMSSpectra:
+
+``dtVrms_spec.TAG``
+--------------------
+
+.. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
+
+This file contains the time-averaged force balance spectra as well as their standard deviation.
+The calculations are done in the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
+
+   +---------------+-----------------------------------------------------------+
+   | No. of column | Contents                                                  |
+   +===============+===========================================================+
+   | 1             | degree + 1                                                |
+   +---------------+-----------------------------------------------------------+
+   | 2             | Time-averaged Inertia versus degree                       |
+   +---------------+-----------------------------------------------------------+
+   | 3             | Time-averaged Coriolis force versus degree                |
+   +---------------+-----------------------------------------------------------+
+   | 4             | Time-averaged Lorentz force versus degree                 |
+   +---------------+-----------------------------------------------------------+
+   | 5             | Time-averaged Advection term versus degree                |
+   +---------------+-----------------------------------------------------------+
+   | 6             | Time-averaged Viscous force versus degree                 |
+   +---------------+-----------------------------------------------------------+
+   | 7             | Time-averaged Buoyancy versus degree                      |
+   +---------------+-----------------------------------------------------------+
+   | 8             | Time-averaged Pressure gradient versus degree             |
+   +---------------+-----------------------------------------------------------+
+   | 9             | Time-averaged Pressure/Coriolis balance versus degree     |
+   +---------------+-----------------------------------------------------------+
+   | 10            | Time-averaged Pressure/Coriolis/Lorentz balance versus    |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 11            | Time-averaged Pressure/Coriolis/Buoyancy balance versus   |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 12            | Time-averaged Pressure/Coriolis/Lorentz/Buoyancy balance  |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 13            | Time-averaged Coriolis/Lorentz balance versus degree      |
+   +---------------+-----------------------------------------------------------+
+   | 14            | Time-averaged Pressure/Lorentz balance versus degree      |
+   +---------------+-----------------------------------------------------------+
+   | 15            | Time-averaged Coriolis/Inertia/Buoyancy balance versus    |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 16            | Standard deviation of Inertia versus degree               |
+   +---------------+-----------------------------------------------------------+
+   | 17            | Standard deviation of Coriolis force versus degree        |
+   +---------------+-----------------------------------------------------------+
+   | 18            | Standard deviation of Lorentz force versus degree         |
+   +---------------+-----------------------------------------------------------+
+   | 19            | Standard deviation of Advection term versus degree        |
+   +---------------+-----------------------------------------------------------+
+   | 20            | Standard deviation of Viscous force versus degree         |
+   +---------------+-----------------------------------------------------------+
+   | 21            | Standard deviation of Buoyancy versus degree              |
+   +---------------+-----------------------------------------------------------+
+   | 22            | Standard deviation of Pressure gradient versus degree     |
+   +---------------+-----------------------------------------------------------+
+   | 23            | Standard deviation of Pressure/Coriolis balance versus    |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 24            | Standard deviation of Pressure/Coriolis/Lorentz balance   |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 25            | Standard deviation of Pressure/Coriolis/Buoyancy balance  |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 26            | Standard deviation of Pressure/Coriolis/Lorentz/Buoyancy  |
+   |               | balance versus degree                                     |
+   +---------------+-----------------------------------------------------------+
+   | 27            | Standard deviation of Coriolis/Lorentz balance versus     |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 28            | Standard deviation of Pressure/Lorentz balance versus     |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 29            | Standard deviation of Coriolis/Inertia/Buoyancy balance   |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+
+
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``dtVrms_spec.test``:
+   >>> sp = MagicSpectrum(field='dtVrms', tag='test')
+
+
+.. _sec2DRMSSpectra:
+
+2D force balance spectra ``2D_dtVrms_spec.TAG``
+-----------------------------------------------
+
+.. note:: Those files are **only** written when :ref:`l_RMS=.true. <varl_RMS>` and :ref:`l_2D_RMS=.true. <varl_2D_RMS>`.
+
+Those files contain 2-D force balance spectra in the :math:`(r,\ell)` plane.
+The calculations are done in the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
+The output file is stored as a Fortran unformatted file.
+
+The structure of the 2D force balance spectra files are as follows:
+
+   .. code-block:: fortran
+
+       !-------------
+       ! Line 1
+       !-------------
+
+       n_r_max, l_max ! radial resolution, max(\ell)
+
+       !-------------
+       ! Line 2
+       !-------------
+
+       r(1), r(2), r(3), ..., r(n_r_max)                  ! Radius
+
+       !-------------
+       ! Line 3
+       !-------------
+
+       Cor_l(l=1,r=1), Cor_l(l=1,r=2), ..., Cor_l(l=1,r=n_r_max),      ! Coriolis force
+       ...                                                             ! versus degree
+       Cor_l(l=l_max,r=1), Cor_l(l=l_max,r=2), ..., Cor_l(l=l_max,r=n_r_max),
+
+       !-------------
+       ! Line 4
+       !-------------
+
+       Adv_l ! Advection
+
+       !-------------
+       ! Line 5
+       !-------------
+
+       LF_l ! Lorentz force
+
+       !-------------
+       ! Line 6
+       !-------------
+
+       Buo_l ! Buoyancy
+
+       !-------------
+       ! Line 7
+       !-------------
+
+       Pre_l ! Pressure
+
+       !-------------
+       ! Line 8
+       !-------------
+
+       Dif_l ! Viscosity
+
+       !-------------
+       ! Line 9
+       !-------------
+
+       Iner_l ! Inertia
+
+
+Those files can be read using the python class :py:class:`MagicSpectrum2D <magic.MagicSpectrum2D>` with the following options:
+
+   >>> # Read the file 2D_dtVrms_spec.ext
+   >>> sp = MagicSpectrum2D(tag='ext', field='dtVrms')
+   >>> # Print Cor_l
+   >>> print(sp.Cor_l)
+
 .. _secTimeSpectraFiles:
 
 2D spectra `am_[kin|mag]_[pol|tor].TAG`

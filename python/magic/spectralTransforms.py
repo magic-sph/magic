@@ -22,7 +22,8 @@ class SpectralTransforms(object):
     >>> T = sh.spec_spat(Tlm) # T[n_phi_max, n_theta_max]
     """
 
-    def __init__(self, l_max=32, minc=1, lm_max=561, n_theta_max=64):
+    def __init__(self, l_max=32, minc=1, lm_max=561, n_theta_max=64,
+                 verbose=True):
         """
         :param l_max: maximum spherical harmonic degree
         :type l_max: int
@@ -32,6 +33,8 @@ class SpectralTransforms(object):
         :type lm_max: int
         :param n_theta_max: number of grid points in the latitudinal direction
         :type n_theta_max: int
+        :param verbose: some info about the SHT layout
+        :type verbose: bool
         """
         self._legF90 = leg.legendre
         self._legF90.init(l_max, minc, lm_max, n_theta_max)
@@ -42,10 +45,12 @@ class SpectralTransforms(object):
         self.n_phi_max = self._legF90.n_phi_max
         self.m_max = int((self.l_max/self.minc) * self.minc)
 
-        print('Spectral transform setup:')
-        print('l_max, m_max, minc, lm_max: %i, %i, %i, %i' % (self.l_max, self.m_max,
-                                     self.minc, self.lm_max))
-        print('n_phi_max, n_theta_max: %i, %i' % (self.n_phi_max, self.n_theta_max))
+        if verbose:
+            print('Spectral transform setup:')
+            print('l_max, m_max, minc, lm_max: %i, %i, %i, %i' % \
+                (self.l_max, self.m_max, self.minc, self.lm_max))
+            print('n_phi_max, n_theta_max: %i, %i' % \
+                (self.n_phi_max, self.n_theta_max))
 
         self.colat = self._legF90.sinth
 

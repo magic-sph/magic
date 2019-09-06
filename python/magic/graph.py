@@ -36,7 +36,9 @@ def getGraphEndianness(filename):
     """
     f = npfile(filename, endian='B')
     try:
-        f.fort_read('S20')
+        st = f.fort_read('S20')
+        if len(st) > 1:
+            raise TypeError
         endian = 'B'
     except TypeError:
         endian = 'l'

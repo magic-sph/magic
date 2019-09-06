@@ -71,7 +71,7 @@ def cut(dat, vmax=None, vmin=None):
 
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
                  cm=defaultCm, normed=True, vmax=None, vmin=None, cbar=True,
-                 tit=True, normRad=False, deminc=True):
+                 tit=True, normRad=False, deminc=True, bounds=True):
     """
     Plot the equatorial cut of a given field
 
@@ -105,6 +105,9 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :param deminc: a logical to indicate if one wants do get rid of the
                    possible azimuthal symmetry
     :type deminc: bool
+    :param bounds: a boolean to determine if one wants to plot the limits
+                   of the domain (True by default)
+    :type bounds: bool
     """
 
     nphi, ntheta = data.shape
@@ -147,18 +150,19 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
 
-    ax.plot(radius[0]*np.cos(phi), radius[0]*np.sin(phi), 'k-', lw=1.5)
-    ax.plot(radius[-1]*np.cos(phi), radius[-1]*np.sin(phi), 'k-', lw=1.5)
+    if bounds:
+        ax.plot(radius[0]*np.cos(phi), radius[0]*np.sin(phi), 'k-', lw=1.5)
+        ax.plot(radius[-1]*np.cos(phi), radius[-1]*np.sin(phi), 'k-', lw=1.5)
 
-    if not deminc and minc > 1:
-        ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
-        xa = radius[-1]*np.cos(2.*np.pi/minc)
-        ya = radius[-1]*np.sin(2.*np.pi/minc)
-        xb = radius[0]*np.cos(2.*np.pi/minc)
-        x = np.linspace(xa, xb, 32)
-        y = np.tan(2.*np.pi/minc)*(x-xa)+ya
-        ax.plot(x, y, 'k-', lw=1.5)
-        ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
+        if not deminc and minc > 1:
+            ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
+            xa = radius[-1]*np.cos(2.*np.pi/minc)
+            ya = radius[-1]*np.sin(2.*np.pi/minc)
+            xb = radius[0]*np.cos(2.*np.pi/minc)
+            x = np.linspace(xa, xb, 32)
+            y = np.tan(2.*np.pi/minc)*(x-xa)+ya
+            ax.plot(x, y, 'k-', lw=1.5)
+            ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
 
     eps = 1e-4
     if xx.min() < -eps:

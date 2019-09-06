@@ -601,6 +601,39 @@ def den(k, j, nr):
         den = 2.*den
     return den
 
+def timeder(time,y):
+    """
+    time derivative of an input array
+
+    computed with central differences (numpy.gradient)
+
+    >>> ts = MagicTs(field='e_kin')
+    >>> dt_ekinpol = timeder(ts,field='ekin_pol')
+
+    """
+    out = np.gradient(y,
+                      time,
+                      edge_order=1)
+
+    return out
+
+def secondtimeder(time,y):
+    """
+    second time derivative of an input array
+
+    computed with central differences (numpy.gradient)
+
+    >>> ts = MagicTs(field='e_kin')
+    >>> dt_ekinpol = secondtimeder(ts,field='ekin_pol')
+
+    """
+    tmp = np.gradient(y,
+                      time,
+                      edge_order=1)
+    out = np.gradient(tmp,
+                      time,
+                      edge_order=1)
+    return out
 
 def phideravg(data, minc=1, order=4):
     """
@@ -900,6 +933,8 @@ def getCpuTime(file):
     threads = re.compile(r'[\s]*\![\s]*nThreads\:[\s]*(.*)')
     ranks = re.compile(r'[\s]*\![\s\w]*ranks[\s\w]*\:[\s]*(.*)')
     runTime = re.compile(r'[\s\!\w]*time:[\s]*([0-9]*)d[\s\:]*([0-9]*)h[\s\:]*([0-9]*)m[\s\:]*([0-9]*)s[\s\:]*([0-9]*)ms.*')
+    runTime_new = re.compile(r' \! Total run time:[\s]*([0-9]*)[\s]*h[\s]*([0-9]*)[\s]*m[\s]*([0-9]*)[\s]*s[\s]*([0-9]*)[\s]*ms[\s]*')
+
     f = open(file, 'r')
     tab = f.readlines()
     nThreads = 1 # In case a pure MPI version is used
@@ -917,9 +952,50 @@ def getCpuTime(file):
             sec = int(runTime.search(line).groups()[3])
             ms = int(runTime.search(line).groups()[4])
             realTime = 24*days+hours+1./60*min+1./3600*sec+1./3.6e6*ms
+        elif runTime_new.match(line):
+            hours = int(runTime_new.search(line).groups()[0])
+            min = int(runTime_new.search(line).groups()[1])
+            sec = int(runTime_new.search(line).groups()[2])
+            ms = int(runTime_new.search(line).groups()[3])
+            realTime = hours+1./60*min+1./3600*sec+1./3.6e6*ms
     f.close()
     cpuTime = nThreads*nRanks*realTime
     return cpuTime
+
+def ReadBinaryTimeseries(infile,
+                         ncols,
+                         datatype='f8',
+                         endianness='>'):
+    """
+    This function reads binary timeseries. It is then faster than
+    the fast_read function.
+
+    :param infile: the file to read
+    :type infile: string
+    :param ncols: number of columns of the file
+    :type ncols: int
+    :param datatype: 'f8' = 64-bit floating-point number
+                     'f4' = 32-bit floating-point number
+    :type datatype: string
+    :param endianness: '>' = big-endian ; '<' = small-endian
+    :type endianness: string
+    :returns: an array[nlines, ncols] that contains
+              the data of the binary file
+    :rtype: numpy.ndarray
+    """
+    DUMM = endianness+'i4'
+    FTYP = endianness+datatype
+
+    size = os.path.getsize(infile)
+    #nline = size/(2*4 + ncols*4) # line = 2*i4 + ncols*f4
+    typeG = np.dtype([('dum1',DUMM,1),
+                      ('line',FTYP,ncols),
+                      ('dum2',DUMM,1)])
+
+    with open(infile,'rb') as f:
+        data = np.fromfile(f,dtype=typeG,count=size)['line']
+
+    return data
 
 def getTotalRunTime():
     """
@@ -933,3 +1009,23 @@ def getTotalRunTime():
     for file in logFiles:
         totCpuTime += getCpuTime(file)
     return totCpuTime
+
+def prime_factors(n):
+    """
+    This function returns all prime factors of a number
+
+    :type n: int
+    :returns: all prime factors
+    :rtype: list
+    """
+    i = 2
+    factors = []
+    while i * i <= n:
+        if n % i:
+            i += 1
+        else:
+            n //= i
+            factors.append(i)
+    if n > 1:
+        factors.append(n)
+    return factors

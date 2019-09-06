@@ -1,10 +1,11 @@
 #-*- coding: utf-8 -*-
-import os, re
+import os, re, sys
 import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
 import glob
-from .libmagic import fast_read, scanDir, avgField
+from .libmagic import (fast_read, scanDir, avgField,
+                       timeder,secondtimeder, ReadBinaryTimeseries)
 
 
 class MagicTs(MagicSetup):
@@ -115,7 +116,7 @@ class MagicTs(MagicSetup):
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor',):
                     data = fast_read(filename, binary=True)
                 else:
                     data = fast_read(filename)
@@ -176,6 +177,8 @@ class MagicTs(MagicSetup):
             self.ekin_pol_asymeq = data[:, 7]
             self.ekin_tor_asymeq = data[:, 8]
             self.ekin_tot = self.ekin_pol + self.ekin_tor
+            self.ekin_es = self.ekin_pol_symeq+self.ekin_tor_symeq
+            self.ekin_eas = self.ekin_pol_asymeq+self.ekin_tor_asymeq
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]
@@ -189,6 +192,8 @@ class MagicTs(MagicSetup):
             self.emagoc_pol_eas = data[:, 9]
             self.emagoc_tor_eas = data[:, 10]
             self.emag_tot = self.emagoc_pol+self.emagoc_tor
+            self.emag_es = self.emagoc_pol_es+self.emagoc_tor_es
+            self.emag_eas = self.emagoc_pol_eas+self.emagoc_tor_eas
         elif self.field == 'e_mag_ic':
             self.time = data[:, 0]
             self.emagic_pol = data[:, 1]
@@ -210,9 +215,11 @@ class MagicTs(MagicSetup):
             self.e_dip = data[:, 11]
             self.e_dip_ax = data[:, 12]
             self.ecmb = data[:, 13]
+            self.egeo = data[:, 14]
             self.ratio = data[:, 17] # (e_cmb-e_as_cmb)/e_cmb
             self.epol_axi_cmb = (-self.ratio*self.ecmb+self.ecmb)
             self.dip3 = self.epol_axi_cmb/self.ecmb
+            self.e_tot = self.e_dip/self.dipTot
         elif self.field == 'AM':
             self.time = data[:, 0]
             self.am_oc_x = data[:, 1]
@@ -333,7 +340,7 @@ class MagicTs(MagicSetup):
             self.ekin_tot = self.eperp+self.epar
         elif self.field in ('dtVrms'):
             self.time = data[:, 0]
-            self.dtVRms = data[:, 1]
+            self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
             self.LFRms = data[:, 3]
             self.AdvRms = data[:, 4]
@@ -367,6 +374,11 @@ class MagicTs(MagicSetup):
             self.omega = data[:, 8]
             self.DynDipRms = data[:, 9]
             self.DynDipAxRms = data[:, 10]
+        elif self.field in ('dtE'):
+            self.time = data[:, 0]
+            self.dEdt = data[:, 1]
+            self.intdEdt = data[:, 2]
+            self.reldEdt = data[:, 3]
         elif self.field in ('power'):
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
@@ -388,6 +400,7 @@ class MagicTs(MagicSetup):
                 self.mantlePower = data[:, 7]
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
+                 self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
         elif self.field in ('SRIC'):
             self.time = data[:,0]
             self.omega_ic = data[:,1]
@@ -404,6 +417,7 @@ class MagicTs(MagicSetup):
 
         if iplot:
             self.plot()
+
 
     def plot(self):
         """
@@ -424,7 +438,6 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
-
         elif self.field == 'e_mag_oc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -440,6 +453,16 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Emag')
+
+            # fig,ax = plt.subplots(1)
+            # ax.plot(self.time, self.emag_es, ls='-',
+            #         label=r'${E_B}^S$')
+            # ax.plot(self.time, self.emag_eas, ls='-',
+            #         label=r'${E_B}^A$')
+            # ax.legend(loc='best', frameon=False)
+            # ax.set_xlabel('Time')
+            # ax.set_ylabel('Emag')
+
         elif self.field == 'e_mag_ic':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -455,13 +478,14 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
         elif self.field == 'dipole':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.theta_dip, label=r'$theta_{dip}$')
-            #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
-            ax.set_ylabel('Dipole angle')
-            ax.set_xlabel('Time')
-            ax.set_ylim(-1., 181)
+            if self.ktopb!=2:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.theta_dip, label='theta_dip')
+                #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
+                ax.set_ylabel('Dipole angle')
+                ax.set_xlabel('Time')
+                ax.set_ylim(-1., 181)
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -472,15 +496,16 @@ class MagicTs(MagicSetup):
                     label='Total dipolarity CMB')
             ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
                     label='Axisym dipolarity')
-            ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
-                    label='Axisym dip l=11')
-            ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
-                    label='Total dip l=11')
-            ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
-                    label='Epol axi/Ecmb')
+            # ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
+            #         label='Axisym dip l=11')
+            # ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
+            #         label='Total dip l=11')
+            # ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
+            #         label='Epol axi/Ecmb')
             ax.legend(loc='best', frameon=False)
             ax.set_ylabel('Dipolarity')
             ax.set_xlabel('Time')
+            ax.set_ylim(0,1)
         elif self.field == 'AM':
             fig = plt.figure()
             ax = fig.add_subplot(211)
@@ -513,6 +538,7 @@ class MagicTs(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Dipolarity')
+                ax.set_ylim(0,1)
         elif self.field == 'earth_like':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -546,11 +572,16 @@ class MagicTs(MagicSetup):
         elif self.field == 'heat':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.topnuss, label='Top Nusselt')
-            ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
+            if self.kbots==2 and self.ktops==2:
+                ax.plot(self.time, self.deltaTnuss, label=r'$Nu_{\Delta T}$')
+            else:
+                ax.plot(self.time, self.topnuss, label='Top Nusselt')
+                ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
             ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
+            ax.legend()
+
             if self.topsherwood.max() != 1.0:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
@@ -599,9 +630,8 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time, self.PreRms, label='Pressure')
             ax.semilogy(self.time, self.LFRms, label='Lorentz')
             ax.semilogy(self.time, self.BuoRms, label='Buoyancy')
-            ax.semilogy(self.time, self.AdvRms, label='Inertia')
+            ax.semilogy(self.time, self.InerRms, label='Inertia')
             ax.semilogy(self.time, self.DifRms, label='Diffusion')
-            ax.semilogy(self.time, self.dtVRms, label='Time derivative', zorder=0)
 
             ax.legend(loc='best', frameon=False, ncol=2)
             ax.set_xlabel('Time')
@@ -768,7 +798,6 @@ class AvgField:
         mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
         ind = np.nonzero(mask)[0][0]
 
-        ## raynaud
         self.integration_time = ts.time[ind:][-1]-ts.time[ind:][0]
 
         if self.std:
@@ -780,11 +809,14 @@ class AvgField:
                                                      ts.ekin_pol_axi[ind:], std=True)
             self.ekin_tora_avg, self.ekin_tora_std = avgField(ts.time[ind:],
                                                      ts.ekin_tor_axi[ind:], std=True)
+            self.ekin_tot_avg, self.ekin_tot_std = avgField(ts.time[ind:],
+                                                            ts.ekin_pol[ind:]+ts.ekin_tor[ind:],std=True)
         else:
             self.ekin_pol_avg = avgField(ts.time[ind:], ts.ekin_pol[ind:])
             self.ekin_tor_avg = avgField(ts.time[ind:], ts.ekin_tor[ind:])
             self.ekin_pola_avg = avgField(ts.time[ind:], ts.ekin_pol_axi[ind:])
             self.ekin_tora_avg = avgField(ts.time[ind:], ts.ekin_tor_axi[ind:])
+            self.ekin_tot_avg =  avgField(ts.time[ind:], ts.ekin_pol[ind:]+ts.ekin_tor[ind:])
 
         self.tavg = ts.time[-1]-ts.time[ind] # Averaging time
 
@@ -830,6 +862,10 @@ class AvgField:
                                        ts2.lvDiss[ind:], std=True)
             self.lbDiss, self.lbDiss_std = avgField(ts2.time[ind:],
                                        ts2.lbDiss[ind:], std=True)
+            self.elsassermod, self.elsassermod_std = avgField(ts2.time[ind:],
+                                                              0.5*(ts2.elsasser/(ts2.rm*ts2.lbDiss))[ind:],
+                                                              std=True)
+                                                    
 
         else:
             self.dip = avgField(ts2.time[ind:], ts2.dipolarity[ind:])
@@ -845,6 +881,8 @@ class AvgField:
             self.dlVc = avgField(ts2.time[ind:], ts2.dlVc[ind:])
             self.lvDiss = avgField(ts2.time[ind:], ts2.lvDiss[ind:])
             self.lbDiss = avgField(ts2.time[ind:], ts2.lbDiss[ind:])
+            self.elsassermod = avgField(ts2.time[ind:],
+                                        0.5*(ts2.elsasser/(ts2.rm*ts2.lbDiss))[ind:])
 
         # heat.TAG file
         if len(glob.glob('heat.*')) > 0:
@@ -859,12 +897,19 @@ class AvgField:
                 mask = np.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
                 ind = np.nonzero(mask)[0][0]
                 nuss = 0.5*(ts3.botnuss+ts3.topnuss)
-
+                
                 if self.std:
                     self.nuss, self.nuss_std = avgField(ts3.time[ind:], nuss[ind:], std=True)
+                    try:
+                        self.deltaTnuss, self.deltaTnuss_std = avgField(ts3.time[ind:], ts3.deltaTnuss[ind:], std=True)
+                    except AttributeError:
+                        pass
                 else:
                     self.nuss = avgField(ts3.time[ind:], nuss[ind:])
-                    ## raynaud
+                    try:
+                        self.deltaTnuss = avgField(ts3.time[ind:], ts3.deltaTnuss[ind:], std=True)
+                    except AttributeError:
+                        pass
                     self.nubot = avgField(ts3.time[ind:],ts3.botnuss[ind:])
                     self.nutop = avgField(ts3.time[ind:],ts3.topnuss[ind:])
 
@@ -888,6 +933,8 @@ class AvgField:
                                               ts4.emagoc_tor_axi[ind:], std=True)
                 self.emag_es_avg, self.emag_es_std = avgField(ts4.time[ind:],
                                               emag_es[ind:], std=True)
+                self.emag_tot_avg, self.emag_tot_std = avgField(ts4.time[ind:],
+                                                                ts4.emagoc_pol[ind:]+ts4.emagoc_tor[ind:],std=True)
             else:
                 self.emag_pol_avg = avgField(ts4.time[ind:], ts4.emagoc_pol[ind:])
                 self.emag_tor_avg = avgField(ts4.time[ind:], ts4.emagoc_tor[ind:])
@@ -896,6 +943,11 @@ class AvgField:
                 self.emag_tora_avg = avgField(ts4.time[ind:],
                                               ts4.emagoc_tor_axi[ind:])
                 self.emag_es_avg = avgField(ts4.time[ind:], emag_es[ind:])
+
+                self.emag_tot_avg = avgField(ts4.time[ind:], ts4.emagoc_pol[ind:]+ts4.emagoc_tor[ind:])
+
+            Emag_Ekin = (ts4.emagoc_pol[ind:]+ts4.emagoc_tor[ind:])/(ts.ekin_pol[ind:]+ts.ekin_tor[ind:])
+            self.Emag_Ekin, self.Emag_Ekin_std = avgField(ts4.time[ind:], Emag_Ekin,std=True)
 
             if self.dipExtra:
                 # dipole.TAG files
@@ -913,11 +965,62 @@ class AvgField:
                                                    ts5.dip_l11[ind:], std=True)
                     self.dip3, self.dip3_std = avgField(ts5.time[ind:],
                                                    ts5.dip3[ind:], std=True)
+                    self.e_dip, self.e_dip_std = avgField(ts5.time[ind:],
+                                                          ts5.e_dip[ind:], std=True)
+                    self.e_dip_ax, self.e_dip_ax_std = avgField(ts5.time[ind:],
+                                                                ts5.e_dip_ax[ind:],std=True)
+
+
                 else:
                     self.dipTot = avgField(ts5.time[ind:], ts5.dipTot_cmb[ind:])
                     self.dipTotl11 = avgField(ts5.time[ind:],ts5.dipTot_l11[ind:])
                     self.dipl11 = avgField(ts5.time[ind:],ts5.dip_l11[ind:])
                     self.dip3 = avgField(ts5.time[ind:],ts5.dip3[ind:])
+                    self.e_dip = avgField(ts5.time[ind:],ts5.e_dip[ind:])
+                    self.e_dip_ax = avgField(ts5.time[ind:], ts5.e_dip_ax[ind:])
+            
+        # if len(glob.glob('dtVrms.*')) > 0:
+        #     # dtVrms.TAG files
+        #     tsrms = MagicTs(field='dtVrms', all=True, iplot=False,
+        #                     tag=tag)
+        #     mask = np.where(abs(tsrms.time-tstart) == min(abs(tsrms.time-tstart)),
+        #                     1, 0)
+        #     ind = np.nonzero(mask)[0][0]
+
+        #     if self.std:
+        #         self.dtVRms, self.dtVRms_std = avgField(tsrms.time[ind:], tsrms.dtVRms[ind:],std=True)
+        #         self.CorRms, self.CorRms_std = avgField(tsrms.time[ind:], tsrms.CorRms[ind:],std=True) 
+        #         self.LFRms,  self.LFRms_std  = avgField(tsrms.time[ind:], tsrms.LFRms [ind:],std=True) 
+        #         self.AdvRms, self.AdvRms_std = avgField(tsrms.time[ind:], tsrms.AdvRms[ind:],std=True)
+        #         self.DifRms, self.DifRms_std = avgField(tsrms.time[ind:], tsrms.DifRms[ind:],std=True)
+        #         self.BuoRms, self.BuoRms_std = avgField(tsrms.time[ind:], tsrms.BuoRms[ind:],std=True)
+        #         self.PreRms, self.PreRms_std = avgField(tsrms.time[ind:], tsrms.PreRms[ind:],std=True)
+        #         self.geos,   self.geos_std   = avgField(tsrms.time[ind:], tsrms.geos[ind:]  ,std=True)
+        #         self.mageos, self.mageos_std = avgField(tsrms.time[ind:], tsrms.mageos[ind:],std=True)
+        #         self.arc,    self.arc_std    = avgField(tsrms.time[ind:], tsrms.arc[ind:]   ,std=True)
+        #         self.arcMag, self.arcMag_std = avgField(tsrms.time[ind:], tsrms.arcMag[ind:],std=True)
+        #         self.corLor, self.corLor_std = avgField(tsrms.time[ind:], tsrms.corLor[ind:],std=True)
+        #         self.preLor, self.preLor_std = avgField(tsrms.time[ind:], tsrms.preLor[ind:],std=True)
+        #         self.cia,    self.cia_std    = avgField(tsrms.time[ind:], tsrms.cia[ind:]   ,std=True)
+        #         self.Elsasser_rms, self.Elsasser_rms_std = avgField(tsrms.time[ind:], 
+        #                                                             tsrms.LFRms[ind:]/tsrms.CorRms[ind:],std=True) 
+        #     else:
+        #         self.dtVRms = avgField(tsrms.time[ind:], tsrms.dtVRms[ind:])
+        #         self.CorRms = avgField(tsrms.time[ind:], tsrms.CorRms[ind:]) 
+        #         self.LFRms  = avgField(tsrms.time[ind:], tsrms.LFRms [ind:]) 
+        #         self.AdvRms = avgField(tsrms.time[ind:], tsrms.AdvRms[ind:])
+        #         self.DifRms = avgField(tsrms.time[ind:], tsrms.DifRms[ind:])
+        #         self.BuoRms = avgField(tsrms.time[ind:], tsrms.BuoRms[ind:])
+        #         self.PreRms = avgField(tsrms.time[ind:], tsrms.PreRms[ind:])
+        #         self.geos   = avgField(tsrms.time[ind:], tsrms.geos  [ind:])
+        #         self.mageos = avgField(tsrms.time[ind:], tsrms.mageos[ind:])
+        #         self.arc    = avgField(tsrms.time[ind:], tsrms.arc   [ind:])
+        #         self.arcMag = avgField(tsrms.time[ind:], tsrms.arcMag[ind:])
+        #         self.corLor = avgField(tsrms.time[ind:], tsrms.corLor[ind:])
+        #         self.preLor = avgField(tsrms.time[ind:], tsrms.preLor[ind:])
+        #         self.cia    = avgField(tsrms.time[ind:], tsrms.cia   [ind:])
+        #         self.Elsasser_rms = avgField(tsrms.time[ind:], 
+        #                                      tsrms.LFRms[ind:]/tsrms.CorRms[ind:]) 
 
         if len(glob.glob('power.*')) > 0:
             # power.TAG files
@@ -957,6 +1060,7 @@ class AvgField:
                 self.buoPower_std = 0.
                 self.fohm_std = 0.
 
+
         if len(glob.glob('u_square.*')) > 0 and self.strat > 0:
             # u_square.TAG files
             ts = MagicTs(field='u_square', all=True, iplot=False)
@@ -964,8 +1068,12 @@ class AvgField:
             ind = np.nonzero(mask)[0][0]
 
             if self.std:
-                self.ureynolds, self.ureynolds_tsd = avgField(ts.time[ind:],
+                self.ureynolds, self.ureynolds_std = avgField(ts.time[ind:],
                                                  ts.rm[ind:], std=True)
+                self.urossby, self.urossby_std = avgField(ts.time[ind:],
+                                                           ts.ro[ind:], std=True)
+                self.o_urossby, self.o_urossby_std = avgField(ts.time[ind:],
+                                                              1./ts.ro[ind:], std=True)
                 self.urol, self.urol_std = avgField(ts.time[ind:],
                                            ts.rossby_l[ind:], std=True)
                 self.udlV, self.udlV_std = avgField(ts.time[ind:],
@@ -980,6 +1088,8 @@ class AvgField:
                                            ts.ekin_tor_axi[ind:], std=True)
             else:
                 self.ureynolds = avgField(ts.time[ind:], ts.rm[ind:])
+                self.urossby = avgField(ts.time[ind:], ts.ro[ind:])
+                self.o_urossby =  1./self.urossby
                 self.urol = avgField(ts.time[ind:], ts.rossby_l[ind:])
                 self.udlV = avgField(ts.time[ind:], ts.dl[ind:])
                 self.u2_pol = avgField(ts.time[ind:], ts.ekin_pol[ind:])

@@ -6,22 +6,26 @@ addons:
         sources:
             - ubuntu-toolchain-r-test
         packages:
-            - gfortran-5
-            - gcc-5
-            - g++-5
+            - gfortran
+            - gcc
+            - g++
             - cmake
-            - mpich2
+            - liblapack-dev
+            - liblapacke-dev
             - libgomp1
 
 before_install:
     - sudo apt-get -qq update
     - sudo apt-get -y install python-numpy python-matplotlib python-scipy
+    - sudo apt-get -y install mpich libmpich-dev # To make sure mpi is installed
+                                                 # after gcc suite
 
 script:
     - ulimit -s unlimited
     - source sourceme.sh
-    - export FC=/usr/bin/gfortran-5
-    - export CC=/usr/bin/gcc-5
+    - export FC=mpif90
+    - export CC=mpicc
+    - export CXX=mpicxx
     - cd samples
     - export OMP_NUM_THREADS=1
-    - ./magic_wizard.py --use-mpi --nranks 2 --use-openmp --nthreads 1 --level 0 --mpicmd mpirun
+    - ./magic_wizard.py --use-mpi --nranks 2 --level 0 --mpicmd mpiexec.hydra

@@ -5,16 +5,19 @@ module out_coeff
    !
   
    use precision_mod
+   use parallel_mod
    use mem_alloc, only: bytes_allocated
    use logic, only: l_r_field, l_cmb_field, l_save_out, l_average, &
        &            l_cond_ic
    use radial_functions, only: r, rho0
-   use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
-   use parallel_mod, only: rank
-   use blocking, only: lm2
+   use radial_data, only: nRstart, nRstop
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
+       &                          raxi, sc
+   use num_param, only: tScale
+   use blocking, only: lm2, llm, ulm
    use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
-   use communications, only: gather_from_lo_to_rank0
-   use LMLoop_data, only: llm, ulm
+   use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
+       &                     gt_IC, gt_OC
    use output_data, only: tag
    use constants, only: two, half
 
@@ -28,6 +31,9 @@ module out_coeff
 
    public :: write_Bcmb, write_coeff_r, initialize_coeffs, finalize_coeffs, &
    &         write_Pot
+#ifdef WITH_MPI
+   public :: write_Pot_mpi
+#endif
 
 contains
 
@@ -388,6 +394,185 @@ contains
 
    end subroutine write_coeff_r
 !-------------------------------------------------------------------------------
+#ifdef WITH_MPI
+   subroutine write_Pot_mpi(time,b,aj,b_ic,aj_ic,nPotSets,root,omega_ma,omega_ic)
+      !
+      ! This routine stores the fields in (lm,r) space using MPI-IO
+      !
+      !-- Input of variables:
+      real(cp),         intent(in) :: time ! Time
+      complex(cp),      intent(in) :: b(lm_max,nRstart:nRstop) ! Poloidal potential
+      complex(cp),      intent(in) :: aj(lm_max,nRstart:nRstop)! Toroidal potential
+      complex(cp),      intent(in) :: b_ic(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
+      character(len=*), intent(in) :: root
+      real(cp),         intent(in) :: omega_ma,omega_ic
+      integer,          intent(in) :: nPotSets
+
+      !-- Local variables
+      complex(outp), allocatable :: tmp(:,:)
+      complex(cp), allocatable :: work(:,:)
+      integer :: info, fh, version, istat(MPI_STATUS_SIZE), datatype
+      integer :: arr_size(2), arr_loc_size(2), arr_start(2)
+      integer(lip) :: disp, offset, size_tmp
+      character(80) :: string
+      character(:), allocatable :: head
+      character(80) :: fileName
+      logical :: lVB
+
+      version = 1 ! file version
+
+
+      allocate( tmp(lm_max,nRstart:nRstop) )
+
+      head = trim(adjustl(root))
+      lVB=.false.
+      if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
+
+      if ( nPotSets == 0 ) then ! nPotSets=-1 on call
+         fileName=head//tag
+      else
+         write(string, *) nPotSets
+         fileName=head(1:len(head)-1)//'_'//trim(adjustl(string))//'.'//tag
+         !         end if
+      end if
+
+      !--  MPI-IO setup
+      call mpiio_setup(info)
+
+
+      !-- Open file
+      call MPI_File_Open(MPI_COMM_WORLD, fileName, ior(MPI_MODE_WRONLY, &
+           &             MPI_MODE_CREATE), info, fh, ierr)
+
+
+      !-- Set the first view
+      disp = 0
+      call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
+           &                 info, ierr)
+
+      if ( rank == 0 ) then
+         !-- Write the header of the file
+         call MPI_File_Write(fh, version, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, real(time*tScale,outp), 1, MPI_OUT_REAL, &
+              &              istat, ierr)
+         call MPI_File_Write(fh, real(ra,outp), 1, MPI_OUT_REAL, istat, ierr)
+         call MPI_File_Write(fh, real(pr,outp), 1, MPI_OUT_REAL, istat, ierr)
+         call MPI_File_Write(fh, real(raxi,outp), 1, MPI_OUT_REAL, istat, ierr)
+         call MPI_File_Write(fh, real(sc,outp), 1, MPI_OUT_REAL, istat, ierr)
+         call MPI_File_Write(fh, real(prmag,outp), 1, MPI_OUT_REAL, istat, ierr)
+         call MPI_File_Write(fh, real(ek,outp), 1, MPI_OUT_REAL, istat, ierr)
+         call MPI_File_Write(fh, real(radratio,outp), 1, MPI_OUT_REAL, istat, &
+              &              ierr)
+         call MPI_File_Write(fh, real(sigma_ratio, outp), 1, MPI_OUT_REAL, &
+              &              istat, ierr)
+         call MPI_File_Write(fh, n_r_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, n_r_ic_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, lm_max, 1, MPI_INTEGER, istat, ierr)
+
+         call MPI_File_Write(fh, real(omega_ic,outp), 1, MPI_OUT_REAL, &
+              &              istat, ierr)
+         call MPI_File_Write(fh, real(omega_ma,outp), 1, MPI_OUT_REAL, &
+              &              istat, ierr)
+
+         call MPI_File_Write(fh, real(r,outp), n_r_max, MPI_OUT_REAL, &
+              &              istat, ierr)
+         call MPI_File_Write(fh, real(rho0,outp), n_r_max, MPI_OUT_REAL, &
+              &              istat, ierr)
+
+         !-- Rank 0 gets the displacement
+         call MPI_File_get_position(fh, offset, ierr)
+         call MPI_File_get_byte_offset(fh, offset, disp, ierr)
+      end if
+
+      !-- Broadcast the displacement
+      call MPI_Bcast(disp, 1, MPI_OFFSET, 0, MPI_COMM_WORLD, ierr)
+
+      arr_size(1) = lm_max
+      arr_size(2) = n_r_max
+      arr_loc_size(1) = lm_max
+      arr_loc_size(2) = nR_per_rank
+      arr_start(1) = 0
+      arr_start(2) = nRstart-1
+      call MPI_Type_Create_Subarray(2, arr_size, arr_loc_size, arr_start, &
+           &                        MPI_ORDER_FORTRAN, MPI_COMPLEX8,      &
+           &                        datatype, ierr)
+      call MPI_Type_Commit(datatype, ierr)
+
+      !-- Copy into a single precision  
+      tmp(:,:) = cmplx(b(:,:), kind=outp)
+
+
+      !-- Set the view after the header
+      call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
+           &                 info, ierr)
+
+      size_tmp=int(lm_max,kind=lip)*int(n_r_max,kind=lip)* &
+      &        int(2*SIZEOF_OUT_REAL,kind=lip)
+
+      !-- Poloidal potential
+      call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
+           &                  istat, ierr)
+      disp = disp+size_tmp
+      call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
+           &                 info, ierr)
+
+      !-- Toroidal potential
+      if ( lVB ) then
+         tmp(:,:) = cmplx(aj(:,:), kind=outp)
+         call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
+              &                  istat, ierr)
+         disp = disp+size_tmp
+         call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
+              &                 info, ierr)
+      end if
+
+
+      !-- Displacement at the end of the file
+      offset = 0
+      call MPI_File_Seek(fh, offset, MPI_SEEK_END, ierr)
+      call MPI_File_get_byte_offset(fh, offset, disp, ierr)
+      call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
+           &                 info, ierr)
+
+      call MPI_Type_Free(datatype, ierr)
+      deallocate( tmp )
+
+      !-- Now inner core field
+      if ( root(1:1) == 'B' .and. l_cond_ic ) then
+
+         if ( rank == 0 ) then
+            allocate ( work(lm_max, n_r_ic_max), tmp(lm_max, n_r_ic_max) ) 
+         else
+            allocate ( work(1,1), tmp(1,1) )
+         end if
+
+         call gather_all_from_lo_to_rank0(gt_IC, b_ic, work)
+         if ( rank == 0 ) then
+            tmp(:,:)=cmplx(work(:,:), kind=outp)
+            call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
+                 &              istat, ierr)
+         end if
+
+         call gather_all_from_lo_to_rank0(gt_IC, aj_ic, work)
+         if ( rank == 0 ) then
+            tmp(:,:)=cmplx(work(:,:), kind=outp)
+            call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
+                 &              istat, ierr)
+         end if
+
+         deallocate( tmp, work )
+
+      end if
+
+      call MPI_Info_Free(info, ierr)
+      call MPI_File_Close(fh, ierr)
+
+   end subroutine write_Pot_mpi
+!-------------------------------------------------------------------------------
+#endif
    subroutine write_Pot(time,b,aj,b_ic,aj_ic,nPotSets,root,omega_ma,omega_ic)
       !
       ! This routine stores the fields in spectral and radial space
@@ -401,8 +586,7 @@ contains
       complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
       character(len=*), intent(in) :: root
       real(cp),         intent(in) :: omega_ma,omega_ic
-
-      integer,          intent(inout) :: nPotSets
+      integer,          intent(in) :: nPotSets
     
       !-- Work arrays:
       complex(cp), allocatable :: workA_global(:,:)
@@ -411,14 +595,15 @@ contains
       !-- File outputs:
       character(80) :: string
       character(:), allocatable :: head
-      integer :: n_r,lm
+      integer :: n_r, lm, version
       character(80) :: fileName
       logical :: lVB
+
+      version = 1
     
       head = trim(adjustl(root))
-      nPotSets=nPotSets+1
       lVB=.false.
-      if ( root(1:1) /= 'T' .and. root(1:1) /= 'Xi' ) lVB= .true.
+      if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
     
       ! now gather the fields on rank 0 and write them to file
@@ -432,10 +617,8 @@ contains
          allocate(workB_global(1,n_r_max))
       end if
 
-      do n_r=1,n_r_max
-         call gather_from_lo_to_rank0(b(llm,n_r),workA_global(:,n_r))
-         call gather_from_lo_to_rank0(aj(llm,n_r),workB_global(:,n_r))
-      end do
+      call gather_all_from_lo_to_rank0(gt_OC, b, workA_global)
+      call gather_all_from_lo_to_rank0(gt_OC, aj, workB_global)
 
       if ( rank == 0 ) then
          !--- Write:
@@ -448,22 +631,24 @@ contains
          end if
 
          open(newunit=fileHandle, file=fileName, form='unformatted', &
-         &    status='unknown')
+         &    status='unknown', access='stream')
 
-         write(fileHandle) l_max,n_r_max,n_r_ic_max,minc,lm_max
-         write(fileHandle) real(ra,kind=outp), real(ek,kind=outp),     &
-         &                 real(pr,kind=outp), real(prmag,kind=outp),  &
+         write(fileHandle) version, real(time*tScale,kind=outp)
+         write(fileHandle) real(ra,kind=outp), real(pr,kind=outp),     &
+         &                 real(raxi,kind=outp), real(sc,kind=outp),   &
+         &                 real(prmag,kind=outp), real(ek,kind=outp),  &
          &                 real(radratio,kind=outp),                   &
-         &                 real(sigma_ratio,kind=outp),                &
-         &                 real(omega_ma,kind=outp),                   &
-         &                 real(omega_ic,kind=outp)
+         &                 real(sigma_ratio,kind=outp)
 
-         write(fileHandle) real(time, kind=outp)
+         write(fileHandle) n_r_max,n_r_ic_max,l_max,minc,lm_max
+
+         write(fileHandle) real(omega_ic,kind=outp), real(omega_ma,kind=outp)
+
          write(fileHandle) real(r,kind=outp), real(rho0, kind=outp)
 
          write(fileHandle) ((cmplx(real(workA_global(lm,n_r)),         &
          &                 aimag(workA_global(lm,n_r)),kind=outp ),    &
-         &                 lm=1,lm_max),n_r=1,n_r_max )
+         &                 lm=1,lm_max),n_r=1,n_r_max)
          if ( lVB ) then
             write(fileHandle) ((cmplx(real(workB_global(lm,n_r)),      &
             &                 aimag(workB_global(lm,n_r)),kind=outp ), &
@@ -475,10 +660,8 @@ contains
       !-- Now inner core field
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
 
-         do n_r=1,n_r_ic_max
-            call gather_from_lo_to_rank0(b_ic(llm,n_r),workA_global(:,n_r))
-            call gather_from_lo_to_rank0(aj_ic(llm,n_r),workB_global(:,n_r))
-         end do
+         call gather_all_from_lo_to_rank0(gt_IC, b_ic, workA_global)
+         call gather_all_from_lo_to_rank0(gt_IC, aj_ic, workB_global)
 
          if ( rank == 0 ) then
             write(fileHandle) ( (cmplx( real(workA_global(lm,n_r)),    &

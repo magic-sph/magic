@@ -97,8 +97,7 @@ program magic
    use torsional_oscillations
    use init_fields
    use special, only: initialize_Grenoble, finalize_Grenoble
-   use blocking, only: initialize_blocking, finalize_blocking
-   use LMLoop_data, only: llm, ulm
+   use blocking, only: initialize_blocking, finalize_blocking, llm, ulm
    use timing, only: timer_type
    use horizontal_data
    use logic
@@ -110,7 +109,6 @@ program magic
    use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
    use radial_data, only: initialize_radial_data, finalize_radial_data
    use radialLoop, only: initialize_radialLoop, finalize_radialLoop
-   use lmLoop_data, only: initialize_LMLoop_data
    use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop
    use preCalculations
    use start_fields, only: getStartFields
@@ -218,12 +216,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____ ______     '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____|____  |    '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__     / /     '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \   / /      '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | / /       '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_/        '
+      write(n_log_file,*) '!      __  __             _____ _____   _____  ___       '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____|/ _ \      '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__ | (_) |     '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \ > _ <      '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | (_) |     '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)___/      '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -256,7 +254,6 @@ program magic
    call initialize_blocking
    local_bytes_used=bytes_allocated
    call initialize_radial_data
-   call initialize_LMLoop_data ! needed before radial_functions
    call initialize_radial_functions
    call initialize_horizontal_data
    local_bytes_used=bytes_allocated-local_bytes_used

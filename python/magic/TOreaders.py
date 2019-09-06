@@ -2,6 +2,7 @@
 import glob
 import re
 import os
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from .npfile import *
@@ -126,6 +127,39 @@ class TOMovie:
         if iplot:
             cmap = plt.get_cmap(cm)
             self.plot(cut, levels, avg, cmap)
+
+    def __add__(self, new):
+        """
+        Built-in function to sum two TO movies
+
+        .. note:: So far this function only works for two TO movies with the same
+                  grid sizes. At some point, we might introduce grid
+                  extrapolation to allow any summation.
+        """
+
+        out = copy.deepcopy(new)
+
+        if new.time[0] == self.time[-1]:
+            out.time = np.concatenate((self.time, new.time[1:]), axis=0)
+            out.asVphi = np.concatenate((self.asVphi, new.asVphi[1:, ...]), axis=0)
+            out.rey = np.concatenate((self.rey, new.rey[1:, ...]), axis=0)
+            out.adv = np.concatenate((self.adv, new.adv[1:, ...]), axis=0)
+            out.visc = np.concatenate((self.visc, new.visc[1:, ...]), axis=0)
+            out.lorentz = np.concatenate((self.lorentz, new.lorentz[1:, ...]), axis=0)
+            out.coriolis = np.concatenate((self.coriolis, new.coriolis[1:, ...]),
+                                          axis=0)
+            out.dtVp = np.concatenate((self.dtVp, new.dtVp[1:, ...]), axis=0)
+        else:
+            out.time = np.concatenate((self.time, new.time), axis=0)
+            out.asVphi = np.concatenate((self.asVphi, new.asVphi), axis=0)
+            out.rey = np.concatenate((self.rey, new.rey), axis=0)
+            out.adv = np.concatenate((self.adv, new.adv), axis=0)
+            out.visc = np.concatenate((self.visc, new.visc), axis=0)
+            out.lorentz = np.concatenate((self.lorentz, new.lorentz), axis=0)
+            out.coriolis = np.concatenate((self.coriolis, new.coriolis), axis=0)
+            out.dtVp = np.concatenate((self.dtVp, new.dtVp), axis=0)
+
+        return out
 
     def plot(self, cut=0.8, levs=16, avg=True, cmap='RdYlBu_r'):
         """

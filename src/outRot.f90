@@ -7,14 +7,14 @@ module outRot
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc
    use physical_parameters, only: kbotv, ktopv
    use num_param, only: lScale, tScale, vScale
-   use blocking, only: lo_map,st_map,lmStartB,lmStopB, lm2
+   use blocking, only: lo_map, st_map, lm_balance, lm2, llm, ulm, &
+       &               llmMag, ulmMag
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
        &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift, &
        &            l_finite_diff
    use output_data, only: tag
    use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
        &            y10_norm, zero, two, third, four, half
-   use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt_R
    use horizontal_data, only: cosTheta, gauss
    use special, only: BIC, lGrenoble
@@ -163,7 +163,6 @@ contains
       integer :: status(MPI_STATUS_SIZE),ierr
 #endif
       logical :: rank_has_l1m0,rank_has_l1m1
-      logical :: DEBUG_OUTPUT=.false.
 
       ! some arbitrary tag for the send and recv
       sr_tag=12345
@@ -171,10 +170,8 @@ contains
       lm2(0:,0:) => lo_map%lm2
       l1m0=lm2(1,0)
 
-      if ( DEBUG_OUTPUT ) write(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",&
-                        lmStartB(rank+1),lmStopB(rank+1),l1m0
 
-      if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then
+      if ( llm <= l1m0 .and. ulm >= l1m0 ) then
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
             call get_viscous_torque(viscous_torque_ic, &
@@ -323,7 +320,7 @@ contains
          rank_has_l1m1=.false.
          l1m0=lo_map%lm2(1,0)
          l1m1=lo_map%lm2(1,1)
-         if ( (lmStartB(rank+1) <= l1m0) .and. (l1m0 <= lmStopB(rank+1)) ) then
+         if ( (llm <= l1m0) .and. (l1m0 <= ulm) ) then
             do nR=1,n_r_max
                z10(nR)=z(l1m0,nR)
             end do
@@ -337,7 +334,7 @@ contains
          end if
 
          if ( l1m1 > 0 ) then
-            if ( (lmStartB(rank+1) <= l1m1) .and. (l1m1 <= lmStopB(rank+1)) ) then
+            if ( (llm <= l1m1) .and. (l1m1 <= ulm) ) then
                do nR=1,n_r_max
                   z11(nR)=z(l1m1,nR)
                end do
@@ -657,14 +654,14 @@ contains
 
       do ilm=1,n_lm_vals
          lm=lm_vals(ilm)
-         if ( lmStartB(1) <= lm .and. lm <= lmStopB(1) ) then
+         if ( lm_balance(0)%nStart <= lm .and. lm <= lm_balance(0)%nStop ) then
             ! the value is already on rank 0
             if (rank == 0) vals_on_rank0(ilm)=field(lm,n_r)
          else
             tag=876+ilm
             ! on which process is the lm value?
 #ifdef WITH_MPI
-            if (lmStartB(rank+1) <= lm .and. lm <= lmStopB(rank+1)) then
+            if (llm <= lm .and. lm <= ulm) then
                call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,&
                     &        0,tag,MPI_COMM_WORLD,ierr)
             end if

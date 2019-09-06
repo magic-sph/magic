@@ -67,7 +67,7 @@ contains
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
       &    thermo_variable,radial_scheme,polo_flow_eq,      &
-      &    mpi_transp
+      &    mpi_transp,l_adv_curl
 
       namelist/phys_param/                                      &
       &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,    &
@@ -103,10 +103,6 @@ contains
       &    t_cmb_start,t_cmb_stop,dt_cmb,                     &
       &    n_r_field_step,n_r_fields,t_r_field,               &
       &    t_r_field_start,t_r_field_stop,dt_r_field,         &
-      &    n_Bpot_step,n_Bpots,t_Bpot,t_Bpot_start,           &
-      &    t_Bpot_stop,dt_Bpot,n_Vpot_step,n_Vpots,t_Vpot,    &
-      &    t_Vpot_start,t_Vpot_stop,dt_Vpot,n_Tpot_step,      &
-      &    n_Tpots,t_Tpot,t_Tpot_start,t_Tpot_stop,dt_Tpot,   &
       &    n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
       &    dt_pot,runid,movie,n_movie_step,                   &
       &    n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
@@ -118,14 +114,13 @@ contains
       &    l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
       &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
-      &    lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
-      &    l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
+      &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
       &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
       &    l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-      &    l_earth_likeness,l_max_comp,l_2D_spectra
+      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -134,10 +129,10 @@ contains
       &    amp_RiMaSym,omega_RiMaSym,m_RiMaSym
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
-         & omega_ic1,omegaOsz_ic1,tShift_ic1,              &
-         & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-         & amp_RiIcAsym,omega_RiIcAsym,m_RiIcAsym,         &
-         & amp_RiIcSym,omega_RiIcSym,m_RiIcSym
+      &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
+      &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
+      &    amp_RiIcAsym,omega_RiIcAsym,m_RiIcAsym,         &
+      &    amp_RiIcSym,omega_RiIcSym,m_RiIcSym
 
 
       do n=1,4*n_impS_max
@@ -485,6 +480,9 @@ contains
          l_anel=.true.
       end if
 
+      !-- If anelastic, the curl formulation is set to .false.
+      if ( l_anel ) l_adv_curl=.false.
+
       if ( prmag == 0.0_cp ) then
          l_mag   =.false.
          l_mag_nl=.false.
@@ -645,7 +643,6 @@ contains
          l_dt_cmb_field=.false.
          l_rMagSpec    =.false.
          l_DTrMagSpec  =.false.
-         l_storeBpot   =.false.
       end if
 
       l_b_nl_icb=.false.
@@ -822,6 +819,7 @@ contains
       write(n_out,'(''  l_correct_AMe   ='',l3,'','')') l_correct_AMe
       write(n_out,'(''  l_correct_AMz   ='',l3,'','')') l_correct_AMz
       write(n_out,'(''  l_non_rot       ='',l3,'','')') l_non_rot
+      write(n_out,'(''  l_adv_curl      ='',l3,'','')') l_adv_curl
       write(n_out,'(''  l_runTimeLimit  ='',l3,'','')') l_runTimeLimit
       write(n_out,'(''  runHours        ='',i6,'','')') runHours
       write(n_out,'(''  runMinutes      ='',i4,'','')') runMinutes
@@ -1011,6 +1009,11 @@ contains
       write(n_out,'(''  t_graph_start   ='',ES14.6,'','')') t_graph_start
       write(n_out,'(''  t_graph_stop    ='',ES14.6,'','')') t_graph_stop
       write(n_out,'(''  dt_graph        ='',ES14.6,'','')') dt_graph
+      write(n_out,'(''  n_pot_step      ='',i5,'','')') n_pot_step
+      write(n_out,'(''  n_pots          ='',i5,'','')') n_pots
+      write(n_out,'(''  t_pot_start     ='',ES14.6,'','')') t_pot_start
+      write(n_out,'(''  t_pot_stop      ='',ES14.6,'','')') t_pot_stop
+      write(n_out,'(''  dt_pot          ='',ES14.6,'','')') dt_pot
       write(n_out,'(''  n_rst_step      ='',i5,'','')') n_rst_step
       write(n_out,'(''  n_rsts          ='',i5,'','')') n_rsts
       write(n_out,'(''  t_rst_start     ='',ES14.6,'','')') t_rst_start
@@ -1090,14 +1093,13 @@ contains
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
       write(n_out,'(''  l_TOmovie       ='',l3,'','')') l_TOmovie
       write(n_out,'(''  l_PV            ='',l3,'','')') l_PV
-      write(n_out,'(''  l_storeBpot     ='',l3,'','')') l_storeBpot
-      write(n_out,'(''  l_storeVpot     ='',l3,'','')') l_storeVpot
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
       write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
       write(n_out,'(''  rDea            ='',ES14.6,'','')') rDea
       write(n_out,'(''  l_2D_spectra    ='',l3,'','')') l_2D_spectra
+      write(n_out,'(''  l_2D_RMS        ='',l3,'','')') l_2D_RMS
       write(n_out,*) "/"
 
       write(n_out,*) "&mantle"
@@ -1229,6 +1231,9 @@ contains
       difchem       =0.0_cp
       ldif          =1
       ldifexp       =-1
+
+      !-- In case one wants to treat the advection term as u \curl{u}
+      l_adv_curl=.false.
 
       !----- Namelist phys_param:
       ra         =0.0_cp
@@ -1395,6 +1400,7 @@ contains
       t_spec_stop   =0.0_cp
       dt_spec       =0.0_cp
       l_2D_spectra  =.false.  ! Produce r-l-spectra
+      l_2D_RMS      =.false.  ! Produce time-averaged r-l-spectra of forces
 
       !----- Output of poloidal magnetic field potential at CMB:
       !      also stored at times of movie frames
@@ -1452,32 +1458,7 @@ contains
       r_probe       =0.0_cp
       theta_probe   =0.0_cp
 
-      !----- Output of magnetic potentials:
-      l_storeBpot   =.false.
-      n_Bpot_step   =0
-      n_Bpots       =0
-      t_Bpot_start  =0.0_cp
-      t_Bpot_stop   =0.0_cp
-      dt_Bpot       =0.0_cp
-
-      !----- Output of flow potentials:
-      l_storeVpot   =.false.
-      n_Vpot_step   =0
-      n_Vpots       =0
-      t_Vpot_start  =0.0_cp
-      t_Vpot_stop   =0.0_cp
-      dt_Vpot       =0.0_cp
-
-      !----- Output of T potential:
-      l_storeTpot   =.false.
-      n_Tpot_step   =0
-      n_Tpots       =0
-      t_Tpot_start  =0.0_cp
-      t_Tpot_stop   =0.0_cp
-      dt_Tpot       =0.0_cp
-
       !----- Output of all potential:
-      l_storePot    =.false.
       n_pot_step    =0
       n_pots        =0
       t_pot_start   =0.0_cp
@@ -1514,9 +1495,6 @@ contains
          t_cmb(n)    =-one
          t_r_field(n)=-one
          t_movie(n)  =-one
-         t_Vpot(n)   =-one
-         t_Bpot(n)   =-one
-         t_Tpot(n)   =-one
          t_pot(n)    =-one
          t_TO(n)     =-one
          t_TOZ(n)    =-one

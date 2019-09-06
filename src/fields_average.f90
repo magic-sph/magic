@@ -9,7 +9,8 @@ module fields_average_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc
-   use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
+   use blocking,only: sizeThetaB, nThetaBs, lm2, nfs, llm, ulm, llmMag, &
+       &              ulmMag
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
        &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
@@ -21,10 +22,9 @@ module fields_average_mod
 #else
    use horizontal_data, only: Plm, dPlm, dLh
    use fft, only: fft_thetab
-   use legendre_spec_to_grid, only: legTF
+   use legendre_spec_to_grid, only: leg_scal_to_spat, leg_polsphtor_to_spat
 #endif
    use constants, only: zero, vol_oc, vol_ic, one
-   use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb, write_Pot
@@ -201,15 +201,12 @@ contains
 
       character(len=72) :: graph_file
       character(len=80) :: outFile
-      integer :: nOut,n_cmb_sets
+      integer :: nOut,n_cmb_sets,nPotSets
 
       logical :: lGraphHeader
 
       real(cp) :: time
       real(cp) :: dt_norm
-
-      integer :: nBpotSets,nVpotSets,nTpotSets
-      integer :: lmStart,lmStop
 
       !-- Initialise average for first time step:
 
@@ -331,33 +328,26 @@ contains
          end if
 
          !----- Get the radial derivatives:
-         lmStart=lmStartB(rank+1)
-         lmStop = lmStopB(rank+1)
-
-         call get_dr(w_ave,dw_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,   &
-              &      n_r_max,rscheme_oc,nocopy=.true.)
+         call get_dr(w_ave,dw_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+              &      nocopy=.true.)
          if ( l_mag ) then
-            call get_dr(b_ave,db_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
-                 &      n_r_max,rscheme_oc,nocopy=.true.)
+            call get_dr(b_ave,db_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+                 &      nocopy=.true.)
          end if
          if ( l_heat ) then
-            call get_dr(s_ave,ds_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
-                 &      n_r_max,rscheme_oc,nocopy=.true.)
+            call get_dr(s_ave,ds_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+                 &      nocopy=.true.)
          end if
          if ( l_chemical_conv ) then
-            call get_dr(xi_ave,dxi_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1, &
-                 &      n_r_max,rscheme_oc,nocopy=.true.)
+            call get_dr(xi_ave,dxi_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+                 &      nocopy=.true.)
          end if
          if ( l_cond_ic ) then
-            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,         &
-                 &              ulm-llm+1,lmStart-llm+1,               &
-                 &              lmStop-llm+1,n_r_ic_max,               &
-                 &              n_cheb_ic_max,dr_fac_ic,workA_LMloc,   &
-                 &              chebt_ic, chebt_ic_even)
-            call get_drNS_even(aj_ic_ave,dj_ic_ave,                    &
-                 &             ulm-llm+1,lmStart-llm+1,                &
-                 &             lmStop-llm+1,n_r_ic_max,                &
-                 &             n_cheb_ic_max,dr_fac_ic,workA_LMloc,    &
+            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,ulm-llm+1,1,     &
+                 &              ulm-llm+1,n_r_ic_max,n_cheb_ic_max,dr_fac_ic,  &
+                 &              workA_LMloc,chebt_ic, chebt_ic_even)
+            call get_drNS_even(aj_ic_ave,dj_ic_ave,ulm-llm+1,1,ulm-llm+1,      &
+                 &             n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc, &
                  &             chebt_ic,chebt_ic_even)
          end if
 
@@ -502,29 +492,16 @@ contains
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
 
                   !-------- Transform to grid space:
-                  call legTF(dLhb,bhG,bhC,dLhw,vhG,vhC,                  &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.true.,.false.,                    &
-                       &     Br,Bt,Bp,Br,Br,Br)
-                  call legTF(dLhw,vhG,vhC,dLhw,vhG,vhC,                  &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.true.,.false.,                    &
-                       &     Vr,Vt,Vp,Br,Br,Br)
-                  call legTF(s_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.false.,.false.,                   &
-                       &     Sr,Vt,Vp,Br,Br,Br)
+                  call leg_polsphtor_to_spat(.true., nThetaStart, dLhb, bhG, bhC, &
+                       &                     Br, Bt, Bp)
+                  call leg_polsphtor_to_spat(.true., nThetaStart, dLhw, vhG, vhC, &
+                       &                     Vr, Vt, Vp)
+                  call leg_scal_to_spat(nThetaStart, s_ave_global, Sr)
                   if ( l_chemical_conv ) then
-                     call legTF(xi_ave_global,vhG,vhC,dLhw,vhG,vhC,      &
-                          &     l_max,minc,nThetaStart,sizeThetaB,       &
-                          &     Plm,dPlm,.false.,.false.,                &
-                          &     Xir,Vt,Vp,Br,Br,Br)
+                     call leg_scal_to_spat(nThetaStart, xi_ave_global, Xir)
                      if ( .not. l_axi ) call fft_thetab(Xir,1)
                   end if
-                  call legTF(p_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
-                       &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,.false.,.false.,                   &
-                       &     Prer,Vt,Vp,Br,Br,Br)
+                  call leg_scal_to_spat(nThetaStart, p_ave_global, Prer)
                   if ( .not. l_axi ) then
                      call fft_thetab(Br,1)
                      call fft_thetab(Bp,1)
@@ -579,18 +556,20 @@ contains
 
          !--- Store potentials of averaged field:
          !    dw_ave and db_ave used as work arrays here.
-         nBpotSets=-1
-         nVpotSets=-1
-         nTpotSets=-1
+         nPotSets=-1
+         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,      &
+              &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
-            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nBpotSets,  &
+            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
                  &        'B_lmr_ave.',omega_ma,omega_ic)
          end if
-         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nVpotSets,      &
-              &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_heat ) then
-            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
+            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,   &
                  &        'T_lmr_ave.',omega_ma,omega_ic)
+         end if
+         if ( l_chemical_conv ) then
+            call write_Pot(time,xi_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
+                 &        'Xi_lmr_ave.',omega_ma,omega_ic)
          end if
 
          !--- Store checkpoint file

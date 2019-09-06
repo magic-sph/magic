@@ -20,12 +20,11 @@ module dtB_mod
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
        &                      dTheta1S, dTheta1A
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
-   use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
-                       lm2lmP, nfs
+                       lm2lmP, nfs, llmMag, ulmMag, llm, ulm
    use radial_spectra ! rBrSpec, rBpSpec
-   use fft
 #ifndef WITH_SHTNS
+   use fft
    use legendre_grid_to_spec, only: legTF2, legTF3
 #endif
    use constants, only: two
@@ -608,8 +607,9 @@ contains
          end do
       end do
 
-      call get_dr(TomeRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(TomeRLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,       &
+           &      nocopy=.true.)
 
       do nR=1,n_r_max
          do lm=llm,ulm
@@ -617,8 +617,9 @@ contains
          end do
       end do
 
-      call get_dr(TstrRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(TstrRLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,       &
+           &      nocopy=.true.)
 
       do nR=1,n_r_max
          do lm=llm,ulm
@@ -626,8 +627,9 @@ contains
          end do
       end do
 
-      call get_dr(TadvRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(TadvRLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,       &
+           &      nocopy=.true.)
 
       do nR=1,n_r_max
          do lm=llm,ulm

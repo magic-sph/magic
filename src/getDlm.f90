@@ -9,10 +9,9 @@ module getDlm_mod
    use truncation, only: minc, m_max, l_max, n_r_max
    use radial_functions, only: or2, r, rscheme_oc, orho1
    use num_param, only: eScale
-   use blocking, only: lo_map, st_map
+   use blocking, only: lo_map, st_map, llm, ulm
    use horizontal_data, only: dLh
    use constants, only: pi, half
-   use LMLoop_data,only: llm, ulm
    use useful, only: cc2real, cc22real
    use integration, only: rInt_R
    use useful, only: abortRun

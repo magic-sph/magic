@@ -163,7 +163,7 @@ class MagicSpectrum(MagicSetup):
             self.emagcmb_l_SD = data[:, 11]
             self.emagcmb_m_SD = data[:, 12]
         elif self.name == 'dtVrms_spec':
-            self.dtVRms = data[:, 1]
+            self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
             self.LFRms = data[:, 3]
             self.AdvRms = data[:, 4]
@@ -178,7 +178,7 @@ class MagicSpectrum(MagicSetup):
                 self.corLor = data[:, 12] # Coriolis/Lorentz
                 self.preLor = data[:, 13] # Pressure/Lorentz
                 self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
-                self.dtVRms_SD = data[:, 15]
+                self.InerRms_SD = data[:, 15]
                 self.CorRms_SD = data[:, 16]
                 self.LFRms_SD = data[:, 17]
                 self.AdvRms_SD = data[:, 18]
@@ -197,7 +197,7 @@ class MagicSpectrum(MagicSetup):
                 self.corLor = data[:, 11] # Coriolis/Lorentz
                 self.preLor = data[:, 12] # Pressure/Lorentz
                 self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
-                self.dtVRms_SD = data[:, 14]
+                self.InerRms_SD = data[:, 14]
                 self.CorRms_SD = data[:, 15]
                 self.LFRms_SD = data[:, 16]
                 self.AdvRms_SD = data[:, 17]
@@ -413,11 +413,11 @@ class MagicSpectrum(MagicSetup):
             if self.LFRms.max() > 1e-11:
                 ax.loglog(self.index, self.LFRms, label='Lorentz')
             ax.loglog(self.index, self.BuoRms, label='Buoyancy')
-            ax.loglog(self.index, self.AdvRms, label='Advection')
+            ax.loglog(self.index, self.InerRms, label='Inertia')
             ax.loglog(self.index, self.DifRms, label='Viscosity')
             ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
-            ax.loglog(self.index, self.dtVRms, label='Time derivative')
-            ax.loglog(self.index, self.arcMag, ls='--', label='Coriolis-Pressure-Buoyancy-Lorentz')
+            ax.loglog(self.index, self.arcMag, ls='--',
+                      label='Coriolis-Pressure-Buoyancy-Lorentz')
 
             if labTex:
                 ax.set_xlabel('$\ell+1$')
@@ -488,7 +488,7 @@ class MagicSpectrum2D(MagicSetup):
     >>> sp = MagicSpectrum2D(field='e_mag', tag='test', ispec=3)
     """
 
-    def __init__(self, datadir='.', field='e_mag', iplot=True, ispec=None,
+    def __init__(self, datadir='.', field='e_mag', iplot=False, ispec=None,
                  tag=None, cm='jet', levels=33, precision=np.float64,
                  ave=False):
         """
@@ -524,6 +524,8 @@ class MagicSpectrum2D(MagicSetup):
                 self.name = '2D_mag_spec_ave'
             else:
                 self.name = '2D_mag_spec_'
+        elif field in ('dtVrms'):
+            self.name = '2D_dtVrms_spec'
 
         if ave:
             self.version = 'ave'
@@ -569,21 +571,53 @@ class MagicSpectrum2D(MagicSetup):
 
         file = npfile(filename, endian='B')
 
-        if self.version == 'snap':
-            if precision == np.float64:
-                out = file.fort_read('f8,3i4')[0]
-            else:
-                out = file.fort_read('f4,3i4')[0]
-            self.time = out[0]
-            self.n_r_max, self.l_max, self.minc = out[1]
-        elif self.version == 'ave':
-            self.n_r_max, self.l_max, self.minc = file.fort_read('3i4')[0]
-            self.time = -1.
-        self.rad = file.fort_read(precision, shape=(self.n_r_max))
-        self.e_pol_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
-        self.e_pol_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
-        self.e_tor_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
-        self.e_tor_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+        if self.name == '2D_dtVrms_spec':
+            self.n_r_max, self.l_max = file.fort_read('2i4')[0]
+            self.rad = file.fort_read(precision, shape=(self.n_r_max))
+            self.Cor_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Adv_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.LF_r_l  = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Buo_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Pre_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Dif_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Iner_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                           self.l_max+1))
+            self.Geo_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Mag_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.Arc_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.ArcMag_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                             self.l_max+1))
+            self.CIA_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.CLF_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+            self.PLF_r_l = file.fort_read(precision, shape=(self.n_r_max, \
+                                          self.l_max+1))
+        else:
+            if self.version == 'snap':
+                if precision == np.float64:
+                    out = file.fort_read('f8,3i4')[0]
+                else:
+                    out = file.fort_read('f4,3i4')[0]
+                self.time = out[0]
+                self.n_r_max, self.l_max, self.minc = out[1]
+            elif self.version == 'ave':
+                self.n_r_max, self.l_max, self.minc = file.fort_read('3i4')[0]
+                self.time = -1.
+            self.rad = file.fort_read(precision, shape=(self.n_r_max))
+            self.e_pol_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
+            self.e_pol_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+            self.e_tor_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
+            self.e_tor_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
 
         self.ell = np.arange(self.l_max+1)
         file.close()
@@ -601,72 +635,157 @@ class MagicSpectrum2D(MagicSetup):
         :param cm: name of the colormap
         :type cm: str
         """
-        fig0 = plt.figure()
-        ax0 = fig0.add_subplot(111)
-        vmax = np.log10(self.e_pol_l).max()
-        vmin = vmax-7
-        levs = np.linspace(vmin, vmax, levels)
-        im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),
-                          levs, cmap=plt.get_cmap(cm), extend='both')
-        fig0.colorbar(im)
-        if labTex:
-            ax0.set_ylabel('Degree $\ell$')
-            ax0.set_xlabel('Radius $r$')
-        else:
-            ax0.set_ylabel('Degree l')
-            ax0.set_xlabel('Radius')
-        ax0.set_yscale('log')
-        ax0.set_title('E pol')
+        if self.name == '2D_dtVrms_spec':
+            vmax = np.log10(self.Geo_r_l).max()
+            vmin = vmax-4
+            levs = np.linspace(vmin, vmax, levels)
+            fig0 = plt.figure()
+            ax0 = fig0.add_subplot(111)
+            im = ax0.contourf(self.rad, self.ell[1:],
+                              np.log10(self.Geo_r_l[:,1:].transpose()), 
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            if labTex:
+                ax0.set_ylabel('Degree $\ell$')
+                ax0.set_xlabel('Radius $r$')
+            else:
+                ax0.set_ylabel('Degree l')
+                ax0.set_xlabel('Radius')
+            ax0.set_yscale('log')
+            ax0.set_title('Coriolis - Pressure')
+            plt.ylim([1,self.l_max])
+            fig0.colorbar(im)
 
-        fig1 = plt.figure()
-        ax1 = fig1.add_subplot(111)
-        vmax = np.log10(self.e_tor_l).max()
-        vmin = vmax-14
-        levs = np.linspace(vmin, vmax, levels)
-        im = ax1.contourf(self.rad, self.ell[1:], np.log10(self.e_tor_l),
-                          levs, cmap=plt.get_cmap(cm), extend='both')
-        fig1.colorbar(im)
-        if labTex:
-            ax1.set_ylabel('Degree $\ell$')
-            ax1.set_xlabel('Radius $r$')
-        else:
-            ax1.set_ylabel('Degree l')
-            ax1.set_xlabel('Radius')
-        ax1.set_yscale('log')
-        ax1.set_title('E tor')
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(111)
+            im = ax1.contourf(self.rad, self.ell[1:],
+                              np.log10(self.Buo_r_l[:,1:].transpose()), 
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            if labTex:
+                ax1.set_ylabel('Degree $\ell$')
+                ax1.set_xlabel('Radius $r$')
+            else:
+                ax1.set_ylabel('Degree l')
+                ax1.set_xlabel('Radius')
+            ax1.set_yscale('log')
+            ax1.set_title('Buoyancy')
+            plt.ylim([1,self.l_max])
+            fig1.colorbar(im)
 
-        fig2 = plt.figure()
-        ax2 = fig2.add_subplot(111)
-        vmax = np.log10(self.e_pol_m).max()
-        vmin = vmax-14
-        levs = np.linspace(vmin, vmax, levels)
-        im = ax2.contourf(self.rad, self.ell[::self.minc]+1,
-                          np.log10(self.e_pol_m[::self.minc,:]),
-                          levs, cmap=plt.get_cmap(cm), extend='both')
-        fig2.colorbar(im)
-        if labTex:
-            ax2.set_ylabel('Order $m+1$')
-            ax2.set_xlabel('Radius $r$')
-        else:
-            ax2.set_ylabel('Order m+1')
-            ax2.set_xlabel('Radius')
-        ax2.set_yscale('log')
-        ax2.set_title('E pol')
+            if abs(self.LF_r_l).max() > 0:
+                fig2 = plt.figure()
+                ax2 = fig2.add_subplot(111)
+                im = ax2.contourf(self.rad, self.ell[1:],
+                                  np.log10(self.LF_r_l[:,1:].transpose()), 
+                                  levs, cmap=plt.get_cmap(cm), extend='both')
+                if labTex:
+                    ax2.set_ylabel('Degree $\ell$')
+                    ax2.set_xlabel('Radius $r$')
+                else:
+                    ax2.set_ylabel('Degree l')
+                    ax2.set_xlabel('Radius')
+                ax2.set_yscale('log')
+                ax2.set_title('Lorentz force')
+                plt.ylim([1,self.l_max])
+                fig2.colorbar(im)
 
-        fig3 = plt.figure()
-        ax3 = fig3.add_subplot(111)
-        vmax = np.log10(self.e_tor_m).max()
-        vmin = vmax-14
-        levs = np.linspace(vmin, vmax, levels)
-        im = ax3.contourf(self.rad, self.ell[::self.minc]+1,
-                          np.log10(self.e_tor_m[::self.minc,:]),
-                          levs, cmap=plt.get_cmap(cm), extend='both')
-        fig3.colorbar(im)
-        if labTex:
-            ax3.set_ylabel('Order $m+1$')
-            ax3.set_xlabel('Radius $r$')
+            fig3 = plt.figure()
+            ax3 = fig3.add_subplot(111)
+            im = ax3.contourf(self.rad, self.ell[1:],
+                              np.log10(self.Iner_r_l[:,1:].transpose()), 
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            if labTex:
+                ax3.set_ylabel('Degree $\ell$')
+                ax3.set_xlabel('Radius $r$')
+            else:
+                ax3.set_ylabel('Degree l')
+                ax3.set_xlabel('Radius')
+            ax3.set_yscale('log')
+            ax3.set_title('Inertia')
+            plt.ylim([1,self.l_max])
+            fig3.colorbar(im)
+
+            fig4 = plt.figure()
+            ax4 = fig4.add_subplot(111)
+            im = ax4.contourf(self.rad, self.ell[1:], 
+                              np.log10(self.Dif_r_l[:,1:].transpose()), 
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            if labTex:
+                ax4.set_ylabel('Degree $\ell$')
+                ax4.set_xlabel('Radius $r$')
+            else:
+                ax4.set_ylabel('Degree l')
+                ax4.set_xlabel('Radius')
+            ax4.set_yscale('log')
+            ax4.set_title('Viscosity')
+            plt.ylim([1,self.l_max])
+            fig4.colorbar(im)
         else:
-            ax3.set_ylabel('Order m+1')
-            ax3.set_xlabel('Radius')
-        ax3.set_yscale('log')
-        ax3.set_title('E tor')
+            fig0 = plt.figure()
+            ax0 = fig0.add_subplot(111)
+            vmax = np.log10(self.e_pol_l).max()
+            vmin = vmax-7
+            levs = np.linspace(vmin, vmax, levels)
+            im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            fig0.colorbar(im)
+            if labTex:
+                ax0.set_ylabel('Degree $\ell$')
+                ax0.set_xlabel('Radius $r$')
+            else:
+                ax0.set_ylabel('Degree l')
+                ax0.set_xlabel('Radius')
+            ax0.set_yscale('log')
+            ax0.set_title('E pol')
+
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(111)
+            vmax = np.log10(self.e_tor_l).max()
+            vmin = vmax-14
+            levs = np.linspace(vmin, vmax, levels)
+            im = ax1.contourf(self.rad, self.ell[1:], np.log10(self.e_tor_l),
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            fig1.colorbar(im)
+            if labTex:
+                ax1.set_ylabel('Degree $\ell$')
+                ax1.set_xlabel('Radius $r$')
+            else:
+                ax1.set_ylabel('Degree l')
+                ax1.set_xlabel('Radius')
+            ax1.set_yscale('log')
+            ax1.set_title('E tor')
+
+            fig2 = plt.figure()
+            ax2 = fig2.add_subplot(111)
+            vmax = np.log10(self.e_pol_m).max()
+            vmin = vmax-14
+            levs = np.linspace(vmin, vmax, levels)
+            im = ax2.contourf(self.rad, self.ell[::self.minc]+1,
+                              np.log10(self.e_pol_m[::self.minc,:]),
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            fig2.colorbar(im)
+            if labTex:
+                ax2.set_ylabel('Order $m+1$')
+                ax2.set_xlabel('Radius $r$')
+            else:
+                ax2.set_ylabel('Order m+1')
+                ax2.set_xlabel('Radius')
+            ax2.set_yscale('log')
+            ax2.set_title('E pol')
+
+            fig3 = plt.figure()
+            ax3 = fig3.add_subplot(111)
+            vmax = np.log10(self.e_tor_m).max()
+            vmin = vmax-14
+            levs = np.linspace(vmin, vmax, levels)
+            im = ax3.contourf(self.rad, self.ell[::self.minc]+1,
+                              np.log10(self.e_tor_m[::self.minc,:]),
+                              levs, cmap=plt.get_cmap(cm), extend='both')
+            fig3.colorbar(im)
+            if labTex:
+                ax3.set_ylabel('Order $m+1$')
+                ax3.set_xlabel('Radius $r$')
+            else:
+                ax3.set_ylabel('Order m+1')
+                ax3.set_xlabel('Radius')
+            ax3.set_yscale('log')
+            ax3.set_title('E tor')

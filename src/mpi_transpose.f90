@@ -1,3 +1,4 @@
+#define KNL_BIG 0
 module mpi_transp
    !
    ! This is an abstract class that will be used to define MPI transposers
@@ -8,7 +9,7 @@ module mpi_transp
    use precision_mod
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop
-   use LMLoop_data, only: llm, ulm
+   use blocking, only: llm, ulm
 
    implicit none
 
@@ -67,8 +68,7 @@ module  mpi_alltoall_mod
    use radial_data, only: radial_balance
    use truncation, only: lm_max, n_r_max, l_max, minc, l_axi
    use radial_data, only: nRstart, nRstop
-   use LMLoop_data, only: llm, ulm
-   use blocking, only: lmStartB, lmStopB, lo_map, st_map
+   use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -117,7 +117,7 @@ contains
       bytes_allocated = bytes_allocated +4*n_procs*SIZEOF_INTEGER
 
       do p=0,n_procs-1
-         my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
+         my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
          this%scounts(p)=nR_per_rank*my_lm_counts*this%n_fields
          this%rcounts(p)=radial_balance(p)%n_per_rank*nlm_per_rank*this%n_fields
@@ -151,7 +151,7 @@ contains
       bytes_allocated = bytes_allocated+4*n_procs*SIZEOF_INTEGER
 
       do p=0,n_procs-1
-         my_lm_counts = lmStopB(p+1)-lmStartB(p+1)+1
+         my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
 
          this%counts(p)=1
@@ -163,7 +163,7 @@ contains
          arr_loc_size(1)=my_lm_counts
          arr_loc_size(2)=nR_per_rank
          arr_loc_size(3)=this%n_fields
-         arr_start(1)=lmStartB(p+1)-1
+         arr_start(1)=lm_balance(p)%nStart-1
          arr_start(2)=0
          arr_start(3)=0
 #ifdef WITH_MPI
@@ -260,7 +260,7 @@ contains
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=lmStartB(p+1),lmStopB(p+1)
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
@@ -328,8 +328,43 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
       !-- Local variables
-      complex(cp) :: sbuff(1:this%max_send)
-      complex(cp) :: rbuff(1:this%max_recv)
+      complex(cp) :: sbuff(1:this%max_send), rbuff(1:this%max_recv)
+#if (KNL_BIG==1)
+      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
+      integer :: p, ii, n_r, lm, l, m, n_f
+
+      !$omp barrier
+      !$omp parallel default(shared) private(p,ii,n_f,n_r,lm,l,m)
+      !$omp do collapse(3)
+      do n_f=1,this%n_fields
+         do n_r=nRstart,nRstop
+            do lm=1,lm_max
+               l = lo_map%lm2l(lm)
+               m = lo_map%lm2m(lm)
+               temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
+            end do
+         end do
+      end do
+      !$omp end do
+
+      !$omp do
+      do p = 0, n_procs-1
+         ii = this%sdisp(p)+1
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
+                  sbuff(ii)=temp_Rloc(lm,n_r,n_f)
+                  ii = ii +1
+               end do
+            end do
+         end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+
+
+#elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
       !$omp barrier
@@ -339,7 +374,7 @@ contains
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=lmStartB(p+1),lmStopB(p+1)
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
@@ -350,6 +385,7 @@ contains
          end do
       end do
       !$omp end parallel do
+#endif
 
 #ifdef WITH_MPI
       call MPI_Alltoallv(sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
@@ -436,8 +472,7 @@ module  mpi_ptop_mod
    use logic, only: l_finite_diff
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop, radial_balance
-   use LMLoop_data, only: llm, ulm
-   use blocking, only: lmStartB, lmStopB, st_map, lo_map
+   use blocking, only: lm_balance, st_map, lo_map, llm, ulm
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -463,15 +498,18 @@ module  mpi_ptop_mod
 
 contains
 
-   subroutine initialize_comm(this)
+   subroutine initialize_comm(this, n_fields)
 
       type(type_mpiptop) :: this
+
+      integer, intent(in) :: n_fields
 
 #ifdef WITH_MPI
       integer :: proc, my_lm_per_rank, i, nR_main_ranks, nR_last_rank
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer :: base_col_type,temptype
-      integer :: blocklengths(8),blocklengths_on_last(8),displs(8),displs_on_last(8)
+      integer :: blocklengths(n_fields),blocklengths_on_last(n_fields)
+      integer :: displs(n_fields),displs_on_last(n_fields)
 
 
       if (.not. l_finite_diff ) then
@@ -482,14 +520,14 @@ contains
          nR_last_rank = nR_main_ranks+n_r_max-n_procs*nR_main_ranks
       end if
 
-      allocate(this%s_transfer_type_cont(n_procs,8))
-      allocate(this%s_transfer_type_nr_end_cont(n_procs,8))
-      allocate(this%r_transfer_type_cont(n_procs,8))
-      allocate(this%r_transfer_type_nr_end_cont(n_procs,8))
-      bytes_allocated = bytes_allocated + 32*n_procs*SIZEOF_INTEGER
+      allocate(this%s_transfer_type_cont(n_procs,n_fields))
+      allocate(this%s_transfer_type_nr_end_cont(n_procs,n_fields))
+      allocate(this%r_transfer_type_cont(n_procs,n_fields))
+      allocate(this%r_transfer_type_nr_end_cont(n_procs,n_fields))
+      bytes_allocated = bytes_allocated + 4*n_fields*n_procs*SIZEOF_INTEGER
 
       do proc=0,n_procs-1
-         my_lm_per_rank=lmStopB(proc+1)-lmStartB(proc+1)+1
+         my_lm_per_rank=lm_balance(proc)%n_per_rank
 
          ! define the transfer types for the containers
          ! same schema as for the other types
@@ -501,14 +539,14 @@ contains
          extent=lm_max*sizeof_double_complex
          call MPI_Type_create_resized(temptype,zerolb,extent,base_col_type,ierr)
 
-         do i=1,8
+         do i=1,n_fields
             blocklengths(i)         = nR_main_ranks
             displs(i)               = (i-1)*nR_main_ranks
             blocklengths_on_last(i) = nR_last_rank
             displs_on_last(i)       = (i-1)*nR_last_rank
          end do
 
-         do i=1,8
+         do i=1,n_fields
             call MPI_Type_vector(i,nR_main_ranks*my_lm_per_rank,        &
                  &               n_r_max*my_lm_per_rank,MPI_DEF_COMPLEX,&
                  &               this%r_transfer_type_cont(proc+1,i),ierr)
@@ -561,7 +599,7 @@ contains
       bytes_allocated = bytes_allocated+&
       &                 lm_max*(nRstop-nRstart+1)*this%n_fields*SIZEOF_DEF_COMPLEX
 
-      call initialize_comm(this)
+      call initialize_comm(this, n_fields)
 
    end subroutine create_comm
 !----------------------------------------------------------------------------------
@@ -613,7 +651,7 @@ contains
                !PERFOFF
             else
                !PERFON('irecv')
-               call MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),             &
+               call MPI_Irecv(arr_Rloc(lm_balance(recv_pe)%nStart,nRstart,1),      &
                     &         1,this%s_transfer_type_cont(recv_pe+1,this%n_fields),&
                     &         recv_pe,transfer_tag,MPI_COMM_WORLD,                 &
                     &         this%r_request(irank),ierr)
@@ -659,7 +697,7 @@ contains
                !PERFOFF
             else
                !PERFON('irecv')
-               call MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),1,         &
+               call MPI_Irecv(arr_Rloc(lm_balance(recv_pe)%nStart,nRstart,1),1,  &
                     &         this%s_transfer_type_nr_end_cont(recv_pe+1,        &
                     &         this%n_fields),recv_pe,transfer_tag,MPI_COMM_WORLD,&
                     &         this%r_request(irank),ierr)
@@ -838,7 +876,7 @@ contains
                   &         arr_Rloc(llm:ulm,nRstart:nRstop,i)
                end do
             else
-               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),             &
+               call MPI_Isend(arr_Rloc(lm_balance(send_pe)%nStart,nRstart,1),      &
                     &         1,this%s_transfer_type_cont(send_pe+1,this%n_fields),&
                     &         send_pe,transfer_tag,MPI_COMM_WORLD,                 &
                     &         this%s_request(irank),ierr)
@@ -882,7 +920,7 @@ contains
                     &         1,this%r_transfer_type_cont(rank+1,this%n_fields), & 
                     &         recv_pe,transfer_tag,MPI_COMM_WORLD,               &
                     &         this%r_request(irank),ierr)
-               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),           &
+               call MPI_Isend(arr_Rloc(lm_balance(send_pe)%nStart,nRstart,1),    &
                     &         1,this%s_transfer_type_nr_end_cont(send_pe+1,      &
                     &         this%n_fields),send_pe,transfer_tag,MPI_COMM_WORLD,&
                     &         this%s_request(irank),ierr)
