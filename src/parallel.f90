@@ -169,8 +169,11 @@ contains
       call MPI_Info_set(info, "romio_ds_write", "disable", ierr)
       call MPI_Info_set(info, "romio_ds_read", "disable", ierr)
 
-      !-- Set the stripping unit to 4M
-      call MPI_Info_set(info, "stripping_unit", "4194304", ierr)
+      !-- Set the striping unit to 4M
+      call MPI_Info_set(info, "striping_unit", "4194304", ierr)
+
+      !-- Set the striping factor to 64
+      !call MPI_Info_set(info, "striping_factor", "64", ierr)
 
       !-- Set the buffer size to 4M
       call MPI_Info_set(info,"cb_buffer_size","4194304", ierr)
