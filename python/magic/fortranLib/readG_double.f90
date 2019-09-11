@@ -45,26 +45,31 @@ contains
       np=np/minc
       nThetasBs=int(nThetasBsF)
       nric=int(nricF)
-   
-      if ( allocated(colat) ) then
-         deallocate( colat )
-         deallocate( radius )
-         deallocate( entropy )
-         deallocate( vr )
-         deallocate( vt )
-         deallocate( vp )
-         if ( version == 'Graphout_Version_8' .or. version == 'Graphout_Version_10') then
-            deallocate( pre )
-         end if
-         if ( prmag /= 0. ) then
-            deallocate( Br )
-            deallocate( Bt )
-            deallocate( Bp )
-         end if
-         if ( (prmag /= 0.) .and. (nric > 1) ) then
-            deallocate( radius_ic )
-            deallocate( Br_ic, Bt_ic, Bp_ic )
-         end if
+
+      if ( allocated(colat) ) deallocate(colat)
+      if ( allocated(radius) ) deallocate(radius)
+      if ( allocated(entropy) ) deallocate(entropy)
+      if ( allocated(vr) ) deallocate(vr)
+      if ( allocated(vt) ) deallocate(vt)
+      if ( allocated(vp) ) deallocate(vp)
+      if ( version=='Graphout_Version_6' .or. version=='Graphout_Version_8'  &
+      & .or. version=='Graphout_Version_10' .or. version=='Graphout_Version_12') then
+         if ( allocated(pre) ) deallocate( pre )
+      end if
+      if ( version=='Graphout_Version_5' .or. version=='Graphout_Version_6' &
+      &  .or. version=='Graphout_Version_11'.or. version=='Graphout_Version_12') then
+         if ( allocated( xi ) ) deallocate( xi )
+      end if
+      if ( prmag /= 0. ) then
+        if ( allocated(Br) ) deallocate( Br )
+        if ( allocated(Bt) ) deallocate( Bt )
+        if ( allocated(Bp) ) deallocate( Bp )
+      end if
+      if ( (prmag /= 0.) .and. (nric > 1) ) then
+         if ( allocated(radius_ic) ) deallocate( radius_ic )
+         if ( allocated(Br_ic) ) deallocate( Br_ic )
+         if ( allocated(Bt_ic) ) deallocate( Bt_ic )
+         if ( allocated(Bp_ic) ) deallocate( Bp_ic )
       end if
    
       allocate( colat(1:nt) )
