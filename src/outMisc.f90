@@ -565,7 +565,7 @@ contains
             !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
             !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
             !      &               real(p(1,n_r)) )
-            prefactor = osq4pi*ThExpNb*alpha0(nR)*ViscHeatFac*(ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))
+            prefactor = ThExpNb*alpha0(nR)*ViscHeatFac*(ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))
          else
             ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
             !      &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
@@ -573,7 +573,7 @@ contains
             !prefactor = osq4pi*ThExpNb*alpha0(nR)*ViscHeatFac*ogrun(nR)
             !-- Rem: ogrun normalized at the outer radius in radial
             ! but it is then rescaled in preCalculation
-            prefactor = osq4pi*ThExpNb*ViscHeatFac*alpha0(nR)*ogrun(nR)
+            prefactor = ThExpNb*ViscHeatFac*alpha0(nR)*ogrun(nR)
             !prefactor = osq4pi*ViscHeatFac*alpha0(nR)*beta(nR)/dLtemp0(nR) ! equivalent formula if adiabatic background
          end if
 
