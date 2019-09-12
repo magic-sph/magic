@@ -270,9 +270,9 @@ contains
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
 
       !-- Local stuff:
-      integer :: nR, ierr
-      integer :: lm20,lm21,lm22, lm, l, m
-      real(cp)    :: r2, prefactor
+      integer  :: nR, ierr
+      integer  :: lm20,lm21,lm22, lm, l, m
+      real(cp) :: r4, prefactor
       !-- entropy contributions to density fluctuations
       real(cp) :: Qc_entropy_20_r(n_r_max)
       real(cp) :: Qc_entropy_21_r(n_r_max)
@@ -326,7 +326,7 @@ contains
 
       !-- radial loop
       do nR=1,n_r_max
-         r2 = r(nR)*r(nR)
+         r4 = r(nR)**4
          Qc_entropy_20_r(nR)=0.0
          Qc_entropy_21_r(nR)=0.0
          Qs_entropy_21_r(nR)=0.0
@@ -376,25 +376,25 @@ contains
             m=lo_map%lm2m(lm)
             if (l == 2) then
                if (m == 0) then
-                  Qc_entropy_20_r(nR) = y20_norm*r2*prefactor* real(s(lm,nR))
+                  Qc_entropy_20_r(nR) = y20_norm*r4*prefactor* real(s(lm,nR))
                else if (m == 1) then
-                  Qc_entropy_21_r(nR) = y21_norm*r2*prefactor* real(s(lm,nR))
-                  Qs_entropy_21_r(nR) = y21_norm*r2*prefactor*aimag(s(lm,nR))
+                  Qc_entropy_21_r(nR) = y21_norm*r4*prefactor* real(s(lm,nR))
+                  Qs_entropy_21_r(nR) = y21_norm*r4*prefactor*aimag(s(lm,nR))
 
-                  dPhiQc_entropy_21_r(nR)  = y21_norm*r2*prefactor* real(  ci*s(lm,nR))
-                  dPhiQs_entropy_21_r(nR)  = y21_norm*r2*prefactor*aimag(  ci*s(lm,nR))
+                  dPhiQc_entropy_21_r(nR)  = y21_norm*r4*prefactor* real(  ci*s(lm,nR))
+                  dPhiQs_entropy_21_r(nR)  = y21_norm*r4*prefactor*aimag(  ci*s(lm,nR))
 
-                  ddPhiQc_entropy_21_r(nR) = y21_norm*r2*prefactor* real(  -s(lm,nR))
-                  ddPhiQs_entropy_21_r(nR) = y21_norm*r2*prefactor*aimag(  -s(lm,nR))
+                  ddPhiQc_entropy_21_r(nR) = y21_norm*r4*prefactor* real(  -s(lm,nR))
+                  ddPhiQs_entropy_21_r(nR) = y21_norm*r4*prefactor*aimag(  -s(lm,nR))
                else if (m == 2) then
-                  Qc_entropy_22_r(nR) = y22_norm*r2*prefactor* real(s(lm,nR))
-                  Qs_entropy_22_r(nR) = y22_norm*r2*prefactor*aimag(s(lm,nR))
+                  Qc_entropy_22_r(nR) = y22_norm*r4*prefactor* real(s(lm,nR))
+                  Qs_entropy_22_r(nR) = y22_norm*r4*prefactor*aimag(s(lm,nR))
 
-                  dPhiQc_entropy_22_r(nR)  = y22_norm*r2*prefactor* real(2*ci*s(lm,nR))
-                  dPhiQs_entropy_22_r(nR)  = y22_norm*r2*prefactor*aimag(2*ci*s(lm,nR))
+                  dPhiQc_entropy_22_r(nR)  = y22_norm*r4*prefactor* real(2*ci*s(lm,nR))
+                  dPhiQs_entropy_22_r(nR)  = y22_norm*r4*prefactor*aimag(2*ci*s(lm,nR))
 
-                  ddPhiQc_entropy_22_r(nR) = y22_norm*r2*prefactor* real(-4*s(lm,nR))
-                  ddPhiQs_entropy_22_r(nR) = y22_norm*r2*prefactor*aimag(-4*s(lm,nR))
+                  ddPhiQc_entropy_22_r(nR) = y22_norm*r4*prefactor* real(-4*s(lm,nR))
+                  ddPhiQs_entropy_22_r(nR) = y22_norm*r4*prefactor*aimag(-4*s(lm,nR))
                end if
             end if
          end do
@@ -487,9 +487,9 @@ contains
       complex(cp), intent(in) :: p(llm:ulm,n_r_max)
 
       !-- Local stuff:
-      integer :: nR, ierr
-      integer :: lm20,lm21,lm22, lm, l, m
-      real(cp)    :: r2, prefactor
+      integer  :: nR, ierr
+      integer  :: lm20,lm21,lm22, lm, l, m
+      real(cp) :: r4, prefactor
       !-- pressure contributions to density fluctuations
       real(cp) :: Qc_pressure_20_r(n_r_max)
       real(cp) :: Qc_pressure_21_r(n_r_max)
@@ -543,7 +543,7 @@ contains
 
       !-- radial loop
       do nR=1,n_r_max
-         r2 = r(nR)*r(nR)
+         r4 = r(nR)**4
          Qc_pressure_20_r(nR)=0.0
          Qc_pressure_21_r(nR)=0.0
          Qs_pressure_21_r(nR)=0.0
@@ -598,25 +598,25 @@ contains
             m=lo_map%lm2m(lm)
             if (l == 2) then
                if (m == 0) then
-                  Qc_pressure_20_r(nR) = y20_norm*r2*prefactor* real(p(lm,nR))
+                  Qc_pressure_20_r(nR) = y20_norm*r4*prefactor* real(p(lm,nR))
                else if (m == 1) then
-                  Qc_pressure_21_r(nR) = y21_norm*r2*prefactor* real(p(lm,nR))
-                  Qs_pressure_21_r(nR) = y21_norm*r2*prefactor*aimag(p(lm,nR))
+                  Qc_pressure_21_r(nR) = y21_norm*r4*prefactor* real(p(lm,nR))
+                  Qs_pressure_21_r(nR) = y21_norm*r4*prefactor*aimag(p(lm,nR))
 
-                  dPhiQc_pressure_21_r(nR)  = y21_norm*r2*prefactor* real(  ci*p(lm,nR))
-                  dPhiQs_pressure_21_r(nR)  = y21_norm*r2*prefactor*aimag(  ci*p(lm,nR))
+                  dPhiQc_pressure_21_r(nR)  = y21_norm*r4*prefactor* real(  ci*p(lm,nR))
+                  dPhiQs_pressure_21_r(nR)  = y21_norm*r4*prefactor*aimag(  ci*p(lm,nR))
 
-                  ddPhiQc_pressure_21_r(nR) = y21_norm*r2*prefactor* real(  -p(lm,nR))
-                  ddPhiQs_pressure_21_r(nR) = y21_norm*r2*prefactor*aimag(  -p(lm,nR))
+                  ddPhiQc_pressure_21_r(nR) = y21_norm*r4*prefactor* real(  -p(lm,nR))
+                  ddPhiQs_pressure_21_r(nR) = y21_norm*r4*prefactor*aimag(  -p(lm,nR))
                else if (m == 2) then
-                  Qc_pressure_22_r(nR) = y22_norm*r2*prefactor* real(p(lm,nR))
-                  Qs_pressure_22_r(nR) = y22_norm*r2*prefactor*aimag(p(lm,nR))
+                  Qc_pressure_22_r(nR) = y22_norm*r4*prefactor* real(p(lm,nR))
+                  Qs_pressure_22_r(nR) = y22_norm*r4*prefactor*aimag(p(lm,nR))
 
-                  dPhiQc_pressure_22_r(nR)  = y22_norm*r2*prefactor* real(2*ci*p(lm,nR))
-                  dPhiQs_pressure_22_r(nR)  = y22_norm*r2*prefactor*aimag(2*ci*p(lm,nR))
+                  dPhiQc_pressure_22_r(nR)  = y22_norm*r4*prefactor* real(2*ci*p(lm,nR))
+                  dPhiQs_pressure_22_r(nR)  = y22_norm*r4*prefactor*aimag(2*ci*p(lm,nR))
 
-                  ddPhiQc_pressure_22_r(nR) = y22_norm*r2*prefactor* real(-4*p(lm,nR))
-                  ddPhiQs_pressure_22_r(nR) = y22_norm*r2*prefactor*aimag(-4*p(lm,nR))
+                  ddPhiQc_pressure_22_r(nR) = y22_norm*r4*prefactor* real(-4*p(lm,nR))
+                  ddPhiQs_pressure_22_r(nR) = y22_norm*r4*prefactor*aimag(-4*p(lm,nR))
                end if
             end if
          end do
