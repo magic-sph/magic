@@ -1566,7 +1566,7 @@ contains
 
       !----- Output GW:
       l_gw          =.false. ! Gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
-      n_gw_step     =10
+      n_gw_step     =1       ! Do not change this value
       n_gws         =0
       t_gw_start    =0.0_cp
       t_gw_stop     =0.0_cp
