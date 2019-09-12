@@ -1,5 +1,5 @@
 module courant_mod
- 
+
    use parallel_mod
    use precision_mod
    use truncation, only: nrp, n_phi_max
@@ -21,25 +21,24 @@ module courant_mod
 
 contains
 
-   subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp, &
-              &       n_theta_min,n_theta_block)
+   subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp,n_theta_min,n_theta_block)
       !
-      !  courant condition check: calculates Courant                      
-      !  advection lengths in radial direction dtrkc                      
-      !  and in horizontal direction dthkc                                
-      !  on the local radial level n_r                                   
-      !                                                                   
-      !  for the effective velocity, the abs. sum of fluid                
-      !  velocity and Alfven velocity is taken                            
-      !                                                                   
-      !  instead of the full Alfven velocity                              
-      !  a modified Alfven velocity is employed that takes                
-      !  viscous and Joule damping into account. Different               
-      !  Courant factors are used for the fluid velocity and              
-      !  the such modified Alfven velocity                                
-      !                                                                   
+      !  courant condition check: calculates Courant
+      !  advection lengths in radial direction dtrkc
+      !  and in horizontal direction dthkc
+      !  on the local radial level n_r
       !
-    
+      !  for the effective velocity, the abs. sum of fluid
+      !  velocity and Alfven velocity is taken
+      !
+      !  instead of the full Alfven velocity
+      !  a modified Alfven velocity is employed that takes
+      !  viscous and Joule damping into account. Different
+      !  Courant factors are used for the fluid velocity and
+      !  the such modified Alfven velocity
+      !
+      !
+
       !-- Input variable:
       integer,  intent(in) :: n_r           ! radial level
       integer,  intent(in) :: n_theta_min   ! first theta in block stored in fields
@@ -50,24 +49,24 @@ contains
       real(cp), intent(in) :: br(nrp,nfs)   ! radial magnetic field
       real(cp), intent(in) :: bt(nrp,nfs)   ! longitudinal magnetic field
       real(cp), intent(in) :: bp(nrp,nfs)   ! azimuthal magnetic field
-    
+
       !-- Output:
       real(cp), intent(inout) :: dtrkc    ! Courant step (based on radial advection)
                                           ! for the range of points covered
       real(cp), intent(inout) :: dthkc    ! Courant step based on horizontal advection
-    
+
       !-- Local  variables:
       integer :: n_theta       ! absolut no of theta
       integer :: n_theta_rel   ! no of theta in block
       integer :: n_theta_nhs   ! no of theta in NHS
       integer :: n_phi         ! no of longitude
-    
+
       real(cp) :: valri2,valhi2,valh2,valh2m
       real(cp) :: vr2max,vh2max
       real(cp) :: valr,valr2,vflr2,vflh2
       real(cp) :: O_r_E_2,O_r_E_4
       real(cp) :: cf2,af2
-    
+
       if ( l_cour_alf_damp ) then
          valri2=(half*(one+opm))**2/delxr2(n_r)
          valhi2=(half*(one+opm))**2/delxh2(n_r)
@@ -75,19 +74,19 @@ contains
          valri2=0.0_cp
          valhi2=0.0_cp
       end if
-    
+
       vr2max=0.0_cp
       vh2max=0.0_cp
       cf2=courfac*courfac
       O_r_E_4=or4(n_r)
       O_r_E_2=or2(n_r)
-    
+
       n_theta=n_theta_min-1
-    
+
       if ( l_mag .and. l_mag_LF .and. .not. l_mag_kin ) then
-    
+
          af2=alffac*alffac
-    
+
 #ifdef WITH_SHTNS
          !$omp parallel do default(shared) &
          !$omp private(n_theta_rel,n_theta,n_theta_nhs,n_phi) &
@@ -95,36 +94,36 @@ contains
          !$omp reduction(max:vr2max,vh2max)
 #endif
          do n_theta_rel=1,n_theta_block
-    
+
             n_theta=n_theta_min+n_theta_rel-1
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-    
+
             do n_phi=1,n_phi_max
-    
+
                vflr2=orho2(n_r)*vr(n_phi,n_theta_rel)*vr(n_phi,n_theta_rel)
                valr =br(n_phi,n_theta_rel)*br(n_phi,n_theta_rel) * &
-                     LFfac*orho1(n_r)
+               &     LFfac*orho1(n_r)
                valr2=valr*valr/(valr+valri2)
                vr2max=max(vr2max,O_r_e_4*(cf2*vflr2+af2*valr2))
-    
+
                vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) +  &
-                        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
-                        osn2(n_theta_nhs)*orho2(n_r)
+               &        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
+               &        osn2(n_theta_nhs)*orho2(n_r)
                valh2= ( bt(n_phi,n_theta_rel)*bt(n_phi,n_theta_rel) +  &
-                        bp(n_phi,n_theta_rel)*bp(n_phi,n_theta_rel) )* &
-                        LFfac*osn2(n_theta_nhs)*orho1(n_r)
+               &        bp(n_phi,n_theta_rel)*bp(n_phi,n_theta_rel) )* &
+               &        LFfac*osn2(n_theta_nhs)*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
                vh2max=max(vh2max,O_r_E_2*(cf2*vflh2+af2*valh2m))
-    
+
             end do
-    
+
          end do
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-    
+
       else   ! Magnetic field ?
-    
+
 #ifdef WITH_SHTNS
          !$omp parallel do default(shared) &
          !$omp private(n_theta_rel,n_theta,n_theta_nhs,n_phi) &
@@ -132,35 +131,35 @@ contains
          !$omp reduction(max:vr2max,vh2max)
 #endif
          do n_theta_rel=1,n_theta_block
-    
+
             n_theta=n_theta_min+n_theta_rel-1
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-    
+
             do n_phi=1,n_phi_max
-    
+
                vflr2=orho2(n_r)*vr(n_phi,n_theta_rel)*vr(n_phi,n_theta_rel)
                vr2max=max(vr2max,cf2*O_r_E_4*vflr2)
-    
-               vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) + &
-                        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
-                        osn2(n_theta_nhs)*orho2(n_r)
+
+               vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) +  &
+               &        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
+               &        osn2(n_theta_nhs)*orho2(n_r)
                vh2max=max(vh2max,cf2*O_r_E_2*vflh2)
-    
+
             end do
-    
+
          end do
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-    
+
       end if   ! Magnetic field ?
-    
-    
+
+
       !$omp critical
       if ( vr2max /= 0.0_cp ) dtrkc=min(dtrkc,sqrt(delxr2(n_r)/vr2max))
       if ( vh2max /= 0.0_cp ) dthkc=min(dthkc,sqrt(delxh2(n_r)/vh2max))
       !$omp end critical
-    
+
    end subroutine courant
 !------------------------------------------------------------------------------
    subroutine dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new,dtMax,dtrkc,dthkc)
@@ -184,20 +183,20 @@ contains
       real(cp), intent(in) :: dt
       real(cp), intent(in) :: dtMax
       real(cp), intent(in) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
-    
+
       !-- Output variables:
       logical,  intent(out) :: l_new_dt
       real(cp), intent(out) :: dt_new
       real(cp), intent(out) :: dt_r,dt_h
-    
+
       !-- Local:
       integer :: n_r
       real(cp) :: dt_rh,dt_2
       real(cp) :: dt_fac
-    
+
       character(len=200) :: message
-    
-    
+
+
       dt_fac=two
       dt_r  =1000.0_cp*dtMax
       dt_h  =dt_r
@@ -206,44 +205,44 @@ contains
          dt_h=min(dthkc(n_r),dt_h)
       end do
 #ifdef WITH_MPI
-      call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL, &
-                         MPI_MIN,MPI_COMM_WORLD,ierr)
-      call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DEF_REAL, &
-                         MPI_MIN,MPI_COMM_WORLD,ierr)
+      call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL,MPI_MIN, &
+           &             MPI_COMM_WORLD,ierr)
+      call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DEF_REAL,MPI_MIN, &
+           &             MPI_COMM_WORLD,ierr)
 #endif
-    
+
       dt_rh=min(dt_r,dt_h)
       dt_2 =min(half*(one/dt_fac+one)*dt_rh,dtMax)
 
       if ( dt > dtMax ) then
-    
+
          l_new_dt=.true.
          dt_new=dtMax
          write(message,'(1P," ! COURANT: dt=dtMax =",ES12.4,A)') dtMax,&
-              &" ! Think about changing dtMax !"
+         &     " ! Think about changing dtMax !"
          call logWrite(message)
-    
+
       else if ( dt > dt_rh ) then
-    
+
          l_new_dt=.true.
          dt_new  =dt_2
          write(message,'(1P," ! COURANT: dt=",ES11.4," > dt_r=",ES12.4, &
-              &       " and dt_h=",ES12.4)') dt,dt_r,dt_h
+         &            " and dt_h=",ES12.4)') dt,dt_r,dt_h
          call logWrite(message)
-    
+
       else if ( dt_fac*dt < dt_rh .and. dt < dtMax ) then
-    
+
          l_new_dt=.true.
          dt_new=dt_2
          write(message,'(" ! COURANT: ",F4.1,1P,"*dt=",ES11.4, &
-              &     " < dt_r=",ES12.4," and dt_h=",ES12.4)') &
-              &     dt_fac,dt_fac*dt,dt_r,dt_h
+         &          " < dt_r=",ES12.4," and dt_h=",ES12.4)')   &
+         &          dt_fac,dt_fac*dt,dt_r,dt_h
          call logWrite(message)
-    
+
       end if
-    
-      if ( dt == dt_new ) l_new_dt= .false. 
-       
+
+      if ( dt == dt_new ) l_new_dt= .false.
+
    end subroutine dt_courant
 !-----------------------------------------------------------------------
 end module courant_mod
