@@ -42,7 +42,7 @@ else
    fi
 fi
 
-opts="--enable-magic-layout --prefix=$HOME/local"
+opts="--enable-magic-layout --prefix=$HOME/local --enable-ishioka"
 if [[ -n $MKLROOT ]]
 then
    echo "MKL found, installing with MKL"
