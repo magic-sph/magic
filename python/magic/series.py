@@ -478,7 +478,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
         elif self.field == 'dipole':
-            if self.ktopb!=2:
+            if self.ktopb != 2:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.theta_dip, label='theta_dip')
@@ -496,10 +496,10 @@ class MagicTs(MagicSetup):
                     label='Total dipolarity CMB')
             ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
                     label='Axisym dipolarity')
-            # ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
-            #         label='Axisym dip l=11')
-            # ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
-            #         label='Total dip l=11')
+            ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
+                    label='Axisym dip l=11')
+            ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
+                    label='Total dip l=11')
             # ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
             #         label='Epol axi/Ecmb')
             ax.legend(loc='best', frameon=False)
