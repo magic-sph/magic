@@ -83,7 +83,7 @@ contains
 
       namelist/B_external/                                    &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
-      &    l_curr,amp_curr
+      &    amp_curr, loopRadRatio
 
       namelist/start_field/                                   &
       &    l_start_file,start_file,inform,l_reset_t,          &
@@ -125,14 +125,12 @@ contains
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-      &    amp_RiMaAsym,omega_RiMaAsym,m_RiMaAsym,        &
-      &    amp_RiMaSym,omega_RiMaSym,m_RiMaSym
+      &    amp_RiMa,omega_RiMa,m_RiMa,RiSymmMa
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
       &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-      &    amp_RiIcAsym,omega_RiIcAsym,m_RiIcAsym,         &
-      &    amp_RiIcSym,omega_RiIcSym,m_RiIcSym
+      &    amp_RiIc,omega_RiIc,m_RiIc,RiSymmIc
 
 
       do n=1,4*n_impS_max
@@ -297,7 +295,6 @@ contains
       l_heat_nl=.true.
       l_SRIC   =.false.
       l_SRMA   =.false.
-      l_Ri     =.false.
       l_AB1    =.false.
 
       if ( mode == 1 ) then
@@ -385,13 +382,6 @@ contains
       else if ( nRotMa == -1 ) then
          l_rot_ma=.true.
          l_SRMA  =.true.
-      end if
-
-      !-- Inertial mode forcing at boundaries
-
-      if ( amp_RiIcAsym /= 0.0_cp .or. amp_RiIcSym /= 0.0_cp .or. &
-      &    amp_RiMaAsym /= 0.0_cp .or. amp_RiMaSym /= 0.0_cp) then
-         l_Ri   = .true.
       end if
 
       if ( raxi > 0.0_cp .or. raxi < 0.0_cp ) then
@@ -591,8 +581,10 @@ contains
 
       !--- Stuff for current carrying loop at equator
 
-      if (l_curr .and. amp_curr == 0.0_cp) then
-         call abortRun('! For runs with l_curr please provide amp_curr')
+      if (amp_curr == 0.0_cp) then
+         l_curr = .false.
+      else
+         l_curr = .true.
       end if
 
       !--- Stuff for spherical magnetosphere boundary: rrMP=r(magnetosphere)/r_core
@@ -971,7 +963,6 @@ contains
       write(n_out,'(''  expo_imp        ='',ES14.6,'','')') expo_imp
       write(n_out,'(''  bmax_imp        ='',ES14.6,'','')') bmax_imp
 
-      write(n_out,'(''  l_curr          ='',l3,'','')') l_curr
       write(n_out,'(''  amp_curr        ='',ES14.6,'','')') amp_curr
 
       write(n_out,*) "/"
@@ -1112,12 +1103,10 @@ contains
       write(n_out,'(''  omega_ma2       ='',ES14.6,'','')') omega_ma2
       write(n_out,'(''  omegaOsz_ma2    ='',ES14.6,'','')') omegaOsz_ma2
       write(n_out,'(''  tShift_ma2      ='',ES14.6,'','')') tShift_ma2
-      write(n_out,'(''  amp_RiMaAsym    ='',ES14.6,'','')') amp_RiMaAsym
-      write(n_out,'(''  omega_RiMaAsym  ='',ES14.6,'','')') omega_RiMaAsym
-      write(n_out,'(''  m_RiMaAsym      ='',i4,'','')') m_RiMaAsym
-      write(n_out,'(''  amp_RiMaSym     ='',ES14.6,'','')') amp_RiMaSym
-      write(n_out,'(''  omega_RiMaSym   ='',ES14.6,'','')') omega_RiMaSym
-      write(n_out,'(''  m_RiMaSym       ='',i4,'','')')  m_RiMaSym
+      write(n_out,'(''  amp_RiMa        ='',ES14.6,'','')') amp_RiMa
+      write(n_out,'(''  omega_RiMa      ='',ES14.6,'','')') omega_RiMa
+      write(n_out,'(''  m_RiMa          ='',i4,'','')')  m_RiMa
+      write(n_out,'(''  RiSymmMa        ='',i4,'','')')  RiSymmMa
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1131,12 +1120,10 @@ contains
       write(n_out,'(''  omegaOsz_ic2    ='',ES14.6,'','')') omegaOsz_ic2
       write(n_out,'(''  tShift_ic2      ='',ES14.6,'','')') tShift_ic2
       write(n_out,'(''  BIC             ='',ES14.6,'','')') BIC
-      write(n_out,'(''  amp_RiIcAsym    ='',ES14.6,'','')') amp_RiIcAsym
-      write(n_out,'(''  omega_RiIcAsym  ='',ES14.6,'','')') omega_RiIcAsym
-      write(n_out,'(''  m_RiIcAsym      ='',i4,'','')') m_RiIcAsym
-      write(n_out,'(''  amp_RiIcSym     ='',ES14.6,'','')') amp_RiIcSym
-      write(n_out,'(''  omega_RiIcSym   ='',ES14.6,'','')') omega_RiIcSym
-      write(n_out,'(''  m_RiIcSym       ='',i4,'','')')  m_RiIcSym
+      write(n_out,'(''  amp_RiIc        ='',ES14.6,'','')') amp_RiIc
+      write(n_out,'(''  omega_RiIc      ='',ES14.6,'','')') omega_RiIc
+      write(n_out,'(''  m_RiIc          ='',i4,'','')') m_RiIc
+      write(n_out,'(''  RiSymmIc        ='',i4,'','')')  RiSymmIc
       write(n_out,*) "/"
       write(n_out,*) " "
 
@@ -1336,8 +1323,8 @@ contains
       bmax_imp       =0.0_cp
       l_imp          =1    ! Default external field is axial dipole
 
-      l_curr         =.false. !No current loop
       amp_curr       =0.0_cp  !Current loop switched off
+      loopRadRatio   =0.7725_cp ! 3m value
 
       !----- Namelist start_field:
       l_start_file  =.false.
@@ -1547,12 +1534,10 @@ contains
       omega_ma2     =0.0_cp    ! second mantle rotation rate
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
       tShift_ma2    =0.0_cp    ! time shift for second rotation
-      amp_RiMaAsym  =0.0_cp    ! amplitude of Rieutord forcing (eq anti-symm)
-      omega_RiMaAsym=0.0_cp    ! frequency of Rieutord forcing (eq anti-symm)
-      m_RiMaAsym    =0         ! default forcing -> axisymmetric (eq anti-symm)
-      amp_RiMaSym   =0.0_cp    ! amplitude of Rieutord forcing (eq symm)
-      omega_RiMaSym =0.0_cp    ! frequency of Rieutord forcing (eq symm)
-      m_RiMaSym     =0         ! default forcing -> axisymmetric (eq symm)
+      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
+      m_RiMa        =0         ! default forcing -> axisymmetric
+      RiSymmMa      =0         ! default symmetry -> eq antisymmetric
 
       !----- Inner core name list:
       sigma_ratio   =0.0_cp    ! no conducting inner core is default
@@ -1565,12 +1550,10 @@ contains
       omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
-      amp_RiIcAsym  =0.0_cp    ! amplitude of Rieutord forcing (eq anti-symm)
-      omega_RiIcAsym=0.0_cp    ! frequency of Rieutord forcing (eq anti-symm)
-      m_RiIcAsym    =0         ! default forcing -> axisymmetric (eq anti-symm)
-      amp_RiIcSym  =0.0_cp     ! amplitude of Rieutord forcing (eq symm)
-      omega_RiIcSym=0.0_cp     ! frequency of Rieutord forcing (eq symm)
-      m_RiIcSym    =0          ! default forcing -> axisymmetric (eq symm)
+      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
+      m_RiIc        =0         ! default forcing -> axisymmetric
+      RiSymmIc      =0         ! default symmetry -> eq antisymmetric
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

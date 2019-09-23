@@ -349,7 +349,7 @@ contains
                         prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp)
 
 
-                        bpeaktop=prefac*fac_loop(l1)*amp_curr*8.0e-1_cp/yl0_norm
+                        bpeaktop=prefac*fac_loop(l1)*amp_curr*loopRadRatio/yl0_norm
 
                         rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)
 

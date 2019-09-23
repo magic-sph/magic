@@ -35,7 +35,7 @@ module preCalculations
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
-   use special, only: l_curr, fac_loop
+   use special, only: l_curr, fac_loop, loopRadRatio
 
    implicit none
 
@@ -745,7 +745,7 @@ contains
                if(l==1) then
                   fac_loop(l)= half
                else
-                  fac_loop(l)= -fac_loop(l-2)*0.64_cp*real(l,kind=cp)/ &
+                  fac_loop(l)= -fac_loop(l-2)*loopRadRatio**2*real(l,kind=cp)/ &
                   &            real(l-1,kind=cp)
                end if
             end if

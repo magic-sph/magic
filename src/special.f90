@@ -29,24 +29,16 @@ module special
 
    logical, public :: l_curr      ! Switch for current loop at the equator
    real(cp), public :: amp_curr   ! Amplitude of magnetic field of current loop
+   real(cp), public :: loopRadRatio   ! Radius ratio of outer boundary/current loop
    real(cp), public, allocatable :: fac_loop(:)  ! Array of factors for computing magnetic field for loop
 
    !-- Parameters for a toroidal boundary forcing of symmetry (m,m) or (m+1,m)
    !-- to excite inertial modes of desired symmetry
    !-- Can be applied to inner or outer boundary
-   logical, public :: l_Ri             !Decide whether to use inertial-mode forcing
-   integer, public :: m_RiIcAsym       !Order of forcing at the inner boundary (eq anti symm)
-   integer, public :: m_RiMaAsym       !Order of forcing at the outer boundary (eq anti symm)
-   integer, public :: m_RiIcSym        !Order of forcing at the inner boundary (eq symm)
-   integer, public :: m_RiMaSym        !Order of forcing at the outer boundary (eq symm)
-   real(cp), public :: amp_RiIcAsym    !Amplitude of forcing at the inner boundary (eq anti symm)
-   real(cp), public :: omega_RiIcAsym  !Frequency of forcing at the inner boundary (eq anti symm)
-   real(cp), public :: amp_RiIcSym     !Amplitude of forcing at the inner boundary (eq symm)
-   real(cp), public :: omega_RiIcSym   !Frequency of forcing at the inner boundary (eq symm)
-   real(cp), public :: amp_RiMaAsym    !Amplitude of forcing at the outer boundary (eq anti symm)
-   real(cp), public :: omega_RiMaAsym  !Frequency of forcing at the outer boundary (eq anti symm)
-   real(cp), public :: amp_RiMaSym     !Amplitude of forcing at the outer boundary (eq symm)
-   real(cp), public :: omega_RiMaSym   !Frequency of forcing at the outer boundary (eq symm)
+   integer, public :: m_RiIc, m_RiMa !Order of forcing 
+   real(cp), public :: amp_RiIc, omega_RiIc  !Amplitude and frequency of forcing at the inner boundary
+   real(cp), public :: amp_RiMa, omega_RiMa  !Amplitude and frequency of forcing at the outer boundary
+   integer, public :: RiSymmMa, RiSymmIc     !Symmetry of forcing: 1 (0) for eq symm (antisymm)
 
    public :: initialize_Grenoble, finalize_Grenoble
 
