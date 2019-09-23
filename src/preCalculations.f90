@@ -743,7 +743,7 @@ contains
 
             if (mod(l,2)/=0) then
                if(l==1) then
-                  fac_loop(l)= half
+                  fac_loop(l)= r_cmb/loopRadRatio
                else
                   fac_loop(l)= -fac_loop(l-2)*loopRadRatio**2*real(l,kind=cp)/ &
                   &            real(l-1,kind=cp)

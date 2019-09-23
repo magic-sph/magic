@@ -964,6 +964,7 @@ contains
       write(n_out,'(''  bmax_imp        ='',ES14.6,'','')') bmax_imp
 
       write(n_out,'(''  amp_curr        ='',ES14.6,'','')') amp_curr
+      write(n_out,'(''  loopRadRatio    ='',ES14.6,'','')') loopRadRatio
 
       write(n_out,*) "/"
 
