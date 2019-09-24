@@ -83,7 +83,7 @@ contains
 
       namelist/B_external/                                    &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
-      &    amp_curr, loopRadRatio
+      &    Le, loopRadRatio
 
       namelist/start_field/                                   &
       &    l_start_file,start_file,inform,l_reset_t,          &
@@ -581,7 +581,7 @@ contains
 
       !--- Stuff for current carrying loop at equator
 
-      if (amp_curr == 0.0_cp) then
+      if (Le == 0.0_cp) then
          l_curr = .false.
       else
          l_curr = .true.
@@ -963,7 +963,7 @@ contains
       write(n_out,'(''  expo_imp        ='',ES14.6,'','')') expo_imp
       write(n_out,'(''  bmax_imp        ='',ES14.6,'','')') bmax_imp
 
-      write(n_out,'(''  amp_curr        ='',ES14.6,'','')') amp_curr
+      write(n_out,'(''  Le              ='',ES14.6,'','')') Le
       write(n_out,'(''  loopRadRatio    ='',ES14.6,'','')') loopRadRatio
 
       write(n_out,*) "/"
@@ -1324,8 +1324,8 @@ contains
       bmax_imp       =0.0_cp
       l_imp          =1    ! Default external field is axial dipole
 
-      amp_curr       =0.0_cp  !Current loop switched off
-      loopRadRatio   =0.7725_cp ! 3m value
+      Le             =0.0_cp  !Current loop switched off
+      loopRadRatio   =1.46_cp/1.89_cp ! 3m value
 
       !----- Namelist start_field:
       l_start_file  =.false.

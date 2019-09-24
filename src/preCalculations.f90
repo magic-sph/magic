@@ -35,7 +35,7 @@ module preCalculations
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
-   use special, only: l_curr, fac_loop, loopRadRatio
+   use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
 
    implicit none
 
@@ -751,7 +751,13 @@ contains
             end if
                
          end do
-          
+
+         if (l_non_rot) then
+            amp_curr = Le
+         else
+            amp_curr = Le * sqrt(prmag/ek)
+         end if
+
       end if
        
 
