@@ -7,8 +7,7 @@ module outRot
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc
    use physical_parameters, only: kbotv, ktopv
    use num_param, only: lScale, tScale, vScale
-   use blocking, only: lo_map, st_map, lm_balance, lm2, llm, ulm, &
-       &               llmMag, ulmMag
+   use blocking, only: lo_map, lm_balance, llm, ulm, llmMag, ulmMag
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
        &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift, &
        &            l_finite_diff
@@ -567,7 +566,6 @@ contains
 
    end subroutine get_lorentz_torque
 !-----------------------------------------------------------------------
-
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
               &                  angular_moment_ic,angular_moment_ma)
       !
@@ -587,14 +585,13 @@ contains
 
       !-- local variables:
       integer :: n_r,n
-      integer :: l1m0,l1m1
+      integer :: l1m1
       real(cp) :: f(n_r_max,3)
       real(cp) :: r_E_2             ! r**2
       real(cp) :: fac
 
       !----- Construct radial function:
-      l1m0=lm2(1,0)
-      l1m1=lm2(1,1)
+      l1m1=lo_map%lm2(1,1)
       do n_r=1,n_r_max
          r_E_2=r(n_r)*r(n_r)
          if ( l1m1 > 0 ) then
@@ -662,11 +659,11 @@ contains
             ! on which process is the lm value?
 #ifdef WITH_MPI
             if (llm <= lm .and. lm <= ulm) then
-               call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,&
+               call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,   &
                     &        0,tag,MPI_COMM_WORLD,ierr)
             end if
             if (rank == 0) then
-               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DEF_COMPLEX,&
+               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DEF_COMPLEX,        &
                     &        MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
             end if
 #endif
