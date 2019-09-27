@@ -373,7 +373,12 @@ program magic
 
    !-- Stop counting time and print
    call run_time%stop_count()
+   if ( rank == 0 .and. l_save_out ) then
+      open(newunit=n_log_file, file=log_file, status='unknown', &
+      &    position='append')
+   end if
    call run_time%finalize('! Total run time:', n_log_file)
+   if ( rank == 0 .and. l_save_out ) close(n_log_file)
 
    !--- Write stop time to SDTOUR and logfile:
    if ( rank == 0 ) then

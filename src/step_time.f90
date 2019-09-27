@@ -943,8 +943,13 @@ contains
             if ( rank == 0 ) then
                call formatTime(output_unit,' ! Mean wall time for time step:',  &
                &               run_time_passed)
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
                call formatTime(n_log_file,' ! Mean wall time for time step:', &
                &               run_time_passed)
+               if ( l_save_out ) close(n_log_file)
             end if
          end if
 
@@ -1000,6 +1005,11 @@ contains
          write(output_unit,*)
          call logWrite('')
       end if
+
+      if ( rank == 0 .and. l_save_out ) then
+         open(newunit=n_log_file, file=log_file, status='unknown', &
+         &    position='append')
+      end if
       call rLoop_counter%finalize('! Mean wall time for r Loop                 :', &
            &                      n_log_file)
       call phy2lm_counter%finalize('!    - Time taken for Spat->Spec            :',&
@@ -1026,6 +1036,7 @@ contains
            &                     n_log_file)
       call tot_counter%finalize('! Mean wall time for one time step          :', &
            &                    n_log_file)
+      if ( rank==0 .and. l_save_out ) close(n_log_file)
 
       !-- WORK IS DONE !
 

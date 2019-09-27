@@ -16,12 +16,13 @@ module start_fields
        &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
-   use output_data, only: n_log_file
+   use output_data, only: log_file, n_log_file
    use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
-       &            l_chemical_conv, l_TP_form, l_anelastic_liquid
+       &            l_chemical_conv, l_TP_form, l_anelastic_liquid,      &
+       &            l_save_out
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond, &
        &                  initV, initS, initB, initXi, ps_cond,          &
        &                  start_file, init_xi1, topxi, xi_cond
@@ -231,8 +232,13 @@ contains
 #endif
          end if
          call t_reader%stop_count()
+         if ( rank == 0 .and. l_save_out ) then
+            open(newunit=n_log_file, file=log_file, status='unknown', &
+            &    position='append')
+         end if
          call t_reader%finalize('! Time taken to read the checkpoint file:', &
               &                 n_log_file)
+         if ( rank == 0 .and. l_save_out ) close(n_log_file)
 
          if ( dt > 0.0_cp ) then
             if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') dt
