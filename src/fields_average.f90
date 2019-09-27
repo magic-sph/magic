@@ -362,7 +362,7 @@ contains
             call spectrum_temp(n_spec,time,.false.,0,l_stop_time,     &
                  &             0.0_cp,0.0_cp,s_ave,ds_ave)
          end if
-         if ( l_save_out ) then
+         if ( rank==0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
@@ -572,6 +572,8 @@ contains
                  &        'Xi_lmr_ave.',omega_ma,omega_ic)
          end if
 
+         if ( rank==0 .and. l_save_out ) close(n_log_file)
+
          !--- Store checkpoint file
          call store(simtime,dt,dtNew,-1,l_stop_time,.false.,.true.,         &
               &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,   &
@@ -583,8 +585,6 @@ contains
             ! call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
                  ! &        'Xi_lmr_ave.',omega_ma,omega_ic)
          ! end if
-
-         if ( l_save_out ) close(n_log_file)
 
          ! now correct the stored average fields by the factor which has been
          ! applied before
