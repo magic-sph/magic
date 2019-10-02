@@ -1524,7 +1524,7 @@ contains
          call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, &
               &                 "native", info, ierr)
 
-         if ( l_heat ) then
+         if ( l_chemical_conv ) then
             call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
                  &                nRstop_old, radial_balance_old, lm2lmo,        &
                  &                r_old, n_r_maxL, n_r_max, .true., .false.,     &
