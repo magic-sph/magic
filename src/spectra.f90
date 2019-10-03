@@ -82,15 +82,15 @@ contains
 
          if ( l_mag ) then
             call e_mag_p_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
-            call e_mag_p_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+            call e_mag_p_r_m_ave%initialize(1,n_r_max,1,l_max+1,.false.)
             call e_mag_t_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
-            call e_mag_t_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+            call e_mag_t_r_m_ave%initialize(1,n_r_max,1,l_max+1,.false.)
          end if
 
          call e_kin_p_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
-         call e_kin_p_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+         call e_kin_p_r_m_ave%initialize(1,n_r_max,1,l_max+1,.false.)
          call e_kin_t_r_l_ave%initialize(1,n_r_max,1,l_max,.false.)
-         call e_kin_t_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+         call e_kin_t_r_m_ave%initialize(1,n_r_max,1,l_max+1,.false.)
 
       end if
 
