@@ -6,13 +6,11 @@ module nonlinear_bcs
    use radial_functions, only: r_cmb, r_icb, rho0
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, nfs, &
        &               sizeThetaB
-   use physical_parameters, only: sigma_ratio, conductance_ma, prmag,&
-       &                          po_diff, diff_prec_angle, oek
+   use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
-       &                      dLh, sn2, cosTheta, sinTheta, phi
+       &                      dLh, sn2, cosTheta
    use fft, only: fft_thetab
    use constants, only: two
-   use logic, only: l_diff_prec
 #ifdef WITH_SHTNS
    use shtns, only: spat_to_SH
 #else
@@ -227,8 +225,6 @@ contains
 
       !-- Local variables:
       real(cp) :: r2
-      real(cp) :: omx,omy,omz
-      real(cp) :: sinPhi,cosPhi,cos2
       integer :: nTheta,nThetaNHS,nThetaCalc
       integer :: nPhi
 
@@ -244,44 +240,23 @@ contains
          return
       end if
 
-      omz = omega
-
-      if (l_diff_prec) then
-         omx = oek * sin(diff_prec_angle) * cos(po_diff * oek * time)
-         omy = oek * sin(diff_prec_angle) * sin(po_diff * oek * time)
-      else
-         omx = 0.0_cp
-         omy = 0.0_cp
-      end if
-
       do nTheta=1,sizeThetaB
          nThetaCalc = nThetaStart + nTheta - 1
          nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
          do nPhi=1,n_phi_max
 
-               cosPhi = cos(phi(nPhi))
-               sinPhi = sin(phi(nPhi))
-               cos2 = cosTheta(nThetaCalc)**2
-
                vrr(nPhi,nTheta)=0.0_cp
 
-               vtr(nPhi,nTheta)=r2*rho0(nR)*sinTheta(nThetaCalc)*(omx * sinPhi &
-               &                                               - omy * cosPhi)
+               vtr(nPhi,nTheta)=0.0_cp
 
-               vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omz             &
-               &              - r2*rho0(nR)*sinTheta(nThetaCalc)*          &
-               &                cosTheta(nThetaCalc)* (omx * cosPhi + omy * sinPhi)
+               vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
 
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR) *                           &
-               &         (two*cosTheta(nThetaCalc) * omz                   &
-               &     -(O_sin_theta(nThetaCalc) * (cos2 - sn2(nThetaNHS)))  &
-               &       * ( omx * cosPhi + omy * sinPhi ) )
+               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nThetaCalc)*omega
                dvrdtr(nPhi,nTheta)=0.0_cp
                dvrdpr(nPhi,nTheta)=0.0_cp
-               dvtdpr(nPhi,nTheta)=r2*rho0(nR) * (omx * cosPhi + omy * sinPhi)
-               dvpdpr(nPhi,nTheta)=r2*rho0(nR) * (omx * sinPhi - omy * cosPhi) &
-               &                     * cosTheta(nThetaCalc)
+               dvtdpr(nPhi,nTheta)=0.0_cp
+               dvpdpr(nPhi,nTheta)=0.0_cp
             end if
          end do
       end do

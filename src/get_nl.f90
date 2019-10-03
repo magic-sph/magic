@@ -28,7 +28,7 @@ module grid_space_arrays_mod
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_TP_form, l_precession,  &
-       &            l_diff_prec, l_centrifuge, l_adv_curl
+       &            l_centrifuge, l_adv_curl
 
    implicit none
 
@@ -489,18 +489,13 @@ contains
          else if ( nBc == 2 ) then  ! rigid boundary :
 
             !----- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
-            !----- During differential precession, vt /= 0 too.
+
             do n_th=nThStart,nThStop
                do n_phi=1,n_phi_max
                   this%VxBt(n_phi,n_th)= or4(nR) * orho1(nR) * &
                   &    this%vpc(n_phi,n_th)*this%brc(n_phi,n_th)
 
-                  if ( l_diff_prec ) then
-                     this%VxBp(n_phi,n_th)= -or4(nR) * orho1(nR) *  &
-                     &    this%vtc(n_phi,n_th)*this%brc(n_phi,n_th)
-                  else
-                     this%VxBp(n_phi,n_th)= 0.0_cp
-                  end if
+                  this%VxBp(n_phi,n_th)= 0.0_cp
                end do
             end do
 
@@ -957,7 +952,7 @@ contains
          else if ( nBc == 2 ) then  ! rigid boundary :
 
             !----- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
-            !----- During differential precession, vt /= 0 too.
+
             nTheta=nThetaLast
             do nThetaB=1,sizeThetaB
                nTheta   =nTheta+1
@@ -967,10 +962,6 @@ contains
                   this%VxBt(nPhi,nThetaB)= or4sn2 * orho1(nR) * &
                   &    this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                   this%VxBp(nPhi,nThetaB)= 0.0_cp
-
-                  if ( l_diff_prec )                             &
-                  this%VxBp(nPhi,nThetaB)= -or4sn2 * orho1(nR) * &
-                  &    this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                end do
                this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
                this%VxBt(n_phi_max+2,nThetaB)=0.0_cp
