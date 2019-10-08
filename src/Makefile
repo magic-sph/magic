@@ -408,8 +408,7 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
                         logic.o radial_data.o updateWPS.o\
                         output_data.o fields.o dt_fieldsLast.o\
                         updateS.o updateB.o mem_alloc.o updateXI.o\
-                        updateZ.o updateWP.o\
-                        debugging.o updateWPT.o
+                        updateZ.o updateWP.o  debugging.o
 mpi_transpose.o       : precision_mod.o truncation.o radial_data.o\
                         mem_alloc.o parallel.o blocking.o
 debugging.o           : precision_mod.o
@@ -450,10 +449,6 @@ updateWP.o            : truncation.o blocking.o num_param.o integration.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         RMS.o cosine_transform_odd.o radial_derivatives.o\
                         RMS_helpers.o mem_alloc.o fields.o
-updateWPT.o           : truncation.o blocking.o num_param.o fields.o\
-                        phys_param.o radial.o horizontal.o logic.o\
-                        cosine_transform_odd.o radial_derivatives.o\
-                        mem_alloc.o init_fields.o RMS.o
 updateWPS.o           : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         cosine_transform_odd.o radial_derivatives.o\

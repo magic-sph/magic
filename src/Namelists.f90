@@ -66,7 +66,7 @@ contains
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
-      &    thermo_variable,radial_scheme,polo_flow_eq,      &
+      &    radial_scheme,polo_flow_eq,                      &
       &    mpi_transp,l_adv_curl
 
       namelist/phys_param/                                      &
@@ -400,17 +400,6 @@ contains
          l_corr=.true.
       end if
 
-      !-- Choose between temperature and entropy (same in the Boussinesq limit)
-      call capitalize(thermo_variable)
-      if ( index(thermo_variable, 'T') /= 0 ) then
-         l_TP_form=.true.
-      else if ( index(thermo_variable, 'S') /= 0 .or. &
-      &         index(thermo_variable, 'ENT') /=0 ) then
-         l_TP_form=.false.
-      else
-         l_TP_form=.false.
-      end if
-
       !-- Choose between entropy diffusion and temperature diffusion
       call capitalize(anelastic_flavour)
       if ( index(anelastic_flavour, 'LBR') /= 0 .or. &
@@ -438,11 +427,11 @@ contains
          l_single_matrix    = .false.
       end if
 
-      if ( ktops > 2 .or. kbots > 2 .or. l_TP_form ) then
+      if ( ktops > 2 .or. kbots > 2 ) then
          l_single_matrix    = .true.
       end if
 
-      if ( l_anelastic_liquid .or. l_temperature_diff .or. l_TP_form ) l_anel=.true.
+      if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
 
       call capitalize(interior_model)
 
@@ -809,8 +798,6 @@ contains
       write(n_out,*) " polo_flow_eq    = """,polo_flow_eq(1:length),""","
       length=length_to_blank(anelastic_flavour)
       write(n_out,*) "anelastic_flavour= """,anelastic_flavour(1:length),""","
-      length=length_to_blank(thermo_variable)
-      write(n_out,*) " thermo_variable = """,thermo_variable(1:length),""","
       length=length_to_blank(mpi_transp)
       write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
       write(n_out,*) "/"
@@ -1171,7 +1158,6 @@ contains
       intfac        =0.15_cp
       n_cour_step   =10
       anelastic_flavour="None" ! Useless in Boussinesq
-      thermo_variable  ="None"
       polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
       mpi_transp       ="AUTO" ! automatic detection of the MPI strategy

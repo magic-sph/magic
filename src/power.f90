@@ -18,7 +18,7 @@ module power
        &               ulm, llmMag, ulmMag
    use horizontal_data, only: dLh, gauss
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
-       &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
+       &            l_conv, l_cond_ic, l_heat, l_mag,               &
        &            l_chemical_conv, l_anelastic_liquid
    use output_data, only: tag
    use mean_sd, only: mean_sd_type
@@ -82,7 +82,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine get_power(time,timePassed,timeNorm,l_stop_time, &
               &         omega_IC,omega_MA,lorentz_torque_IC,  &
-              &         lorentz_torque_MA,w,z,dz,s,p,         &
+              &         lorentz_torque_MA,w,z,dz,s,           &
               &         xi,b,ddb,aj,dj,db_ic,ddb_ic,aj_ic,    &
               &         dj_ic,viscLMr,viscDiss,ohmDiss)
       !
@@ -110,7 +110,6 @@ contains
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
       complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
@@ -204,25 +203,13 @@ contains
 
          if ( l_heat ) then
             buoy_r(n_r)=0.0_cp
-            if ( l_TP_form ) then
-               do lm=max(2,llm),ulm
-                  l=lo_map%lm2l(lm)
-                  m=lo_map%lm2m(lm)
-                  buoy_r(n_r)=buoy_r(n_r) + eScale*                         &
-                  &           dLh(st_map%lm2(l,m))*BuoFac*rgrav(n_r)*       &
-                  &           ( otemp1(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m) &
-                  &           -ViscHeatFac*ThExpNb*alpha0(n_r)*orho1(n_r)*  &
-                  &            cc22real(w(lm,n_r),p(lm,n_r),m) )
-               end do
-            else
-               do lm=max(2,llm),ulm
-                  l=lo_map%lm2l(lm)
-                  m=lo_map%lm2m(lm)
-                  buoy_r(n_r)=buoy_r(n_r) + eScale*                 &
-                  &           dLh(st_map%lm2(l,m))*BuoFac*          &
-                  &           rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
-               end do
-            end if
+            do lm=max(2,llm),ulm
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               buoy_r(n_r)=buoy_r(n_r) + eScale*                 &
+               &           dLh(st_map%lm2(l,m))*BuoFac*          &
+               &           rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
+            end do
          end if
          if ( l_chemical_conv ) then
             buoy_chem_r(n_r)=0.0_cp

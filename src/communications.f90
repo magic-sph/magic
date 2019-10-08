@@ -11,7 +11,7 @@ module communications
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_TP_form, l_double_curl
+       &            l_mag_kin, l_double_curl
    use useful, only: abortRun
    use output_data, only: n_log_file
    use iso_fortran_env, only: output_unit
@@ -128,11 +128,7 @@ contains
 
       if ( l_heat ) then
          call lo2r_s%create_comm(2)
-         if ( l_TP_form ) then
-            call r2lo_s%create_comm(3)
-         else
-            call r2lo_s%create_comm(2)
-         end if
+         call r2lo_s%create_comm(2)
       end if
       if ( l_chemical_conv ) then
          call lo2r_xi%create_comm(2)

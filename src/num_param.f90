@@ -51,7 +51,6 @@ module num_param
    integer, public :: n_lScale         ! Control length scale
 
    character(len=72), public :: anelastic_flavour ! version of the anelastic approximation
-   character(len=72), public :: thermo_variable ! thermodynamic variable: S or T
    character(len=72), public :: polo_flow_eq ! form of the poloidal flow equation: Pressure or Double Curl
 
    character(len=72), public :: mpi_transp ! Form of the MPI transpose (point to point or alltoall)

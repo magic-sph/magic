@@ -21,8 +21,7 @@ module start_fields
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
-       &            l_chemical_conv, l_TP_form, l_anelastic_liquid,      &
-       &            l_save_out
+       &            l_chemical_conv, l_anelastic_liquid, l_save_out
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond, &
        &                  initV, initS, initB, initXi, ps_cond,          &
        &                  start_file, init_xi1, topxi, xi_cond
@@ -90,7 +89,7 @@ contains
 
          if ( rank == 0 ) open(newunit=filehandle, file='pscond.dat')
 
-         if ( l_TP_form .or. l_anelastic_liquid ) then ! temperature
+         if ( l_anelastic_liquid ) then ! temperature
 
             call pt_cond(s0,p0)
 

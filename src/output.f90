@@ -520,7 +520,7 @@ contains
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
                  &          lorentz_torque_ma,w_LMloc,z_LMloc,               &
-                 &          dz_LMloc,s_LMloc,p_LMloc,xi_LMloc,               &
+                 &          dz_LMloc,s_LMloc,xi_LMloc,                       &
                  &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
                  &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
                  &          visDiss,ohmDiss)

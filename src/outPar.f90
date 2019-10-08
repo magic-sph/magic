@@ -12,7 +12,7 @@ module outPar_mod
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
-       &            l_anelastic_liquid, l_TP_form
+       &            l_anelastic_liquid
    use horizontal_data, only: gauss
    use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
@@ -243,7 +243,7 @@ contains
       end if
 
       if ( l_fluxProfs ) then
-         if ( l_TP_form .or. l_anelastic_liquid ) then
+         if ( l_anelastic_liquid ) then
             if ( l_temperature_diff ) then
                do nR=nRstart,nRstop
                   fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &

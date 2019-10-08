@@ -15,7 +15,7 @@ module rIterThetaBlocking_mod
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
-       &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession,  &
+       &            l_movie_oc, l_chemical_conv, l_precession,             &
        &            l_centrifuge, l_TO, l_adv_curl
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
@@ -435,12 +435,6 @@ contains
             end if
          end if
          !PERFOFF
-      end if
-      if ( (.not.this%isRadialBoundaryPoint) .and. l_TP_form ) then
-         if ( .not. l_axi ) then
-            call fft_thetab(gsa%VPr,-1)
-         end if
-         call legTF1(nThetaStart,nl_lm%VPrLM,gsa%VPr)
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
          if ( .not. l_axi ) then

@@ -35,7 +35,7 @@ module rIteration_mod
    !-----------------------------------------------------------------------------
       subroutine do_iteration_if(this,nR,nBc,time,dt,dtLast,             &
                  &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,    &
-                 &               dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,  &
+                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,         &
                  &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb, &
                  &               br_vp_lm_icb,lorentz_torque_ic,         &
                  &               lorentz_torque_ma,HelLMr,Hel2LMr,       &
@@ -53,7 +53,7 @@ module rIteration_mod
          !-- Output variables
          complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)
          complex(cp), intent(out) :: dbdt(:), djdt(:), dVxVhLM(:), dVxBhLM(:)
-         complex(cp), intent(out) :: dxidt(:), dVPrLM(:), dVXirLM(:)
+         complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
          !---- Output of nonlinear products for nonlinear
          !     magnetic boundary conditions (needed in s_updateB.f):
          complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB

@@ -13,7 +13,7 @@ module rIterThetaBlocking_OpenMP_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-       &            l_movie_oc, l_TO, l_chemical_conv, l_TP_form, l_probe
+       &            l_movie_oc, l_TO, l_chemical_conv, l_probe
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -121,7 +121,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
               &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
-              &           dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,      &
+              &           dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,             &
               &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
               &           lorentz_torque_ic, lorentz_torque_ma,            &
               &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
@@ -134,7 +134,7 @@ contains
       real(cp), intent(in) :: time,dt,dtLast
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(cp), intent(out) :: dxidt(:), dVPrLM(:),dVXirLM(:)
+      complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:),dVxVhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -579,13 +579,6 @@ contains
       end do
 
       !$OMP SECTION
-      if ( l_TP_form ) then
-         do iThread=1,this%nThreads-1
-            this%nl_lm(0)%VPrLM=this%nl_lm(0)%VPrLM + this%nl_lm(iThread)%VPrLM
-         end do
-      end if
-
-      !$OMP SECTION
       if ( l_chemical_conv ) then
          do iThread=1,this%nThreads-1
             this%nl_lm(0)%VXirLM=this%nl_lm(0)%VXirLM + this%nl_lm(iThread)%VXirLM
@@ -709,7 +702,7 @@ contains
       !PERFON('get_td')
       call td_counter%start_count()
       call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,             &
-           &                    this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,      &
+           &                    this%lPressCalc,dVSrLM,dVXirLM,             &
            &                    dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,  &
            &                    dbdt,djdt)
       call td_counter%stop_count(l_increment=.false.)

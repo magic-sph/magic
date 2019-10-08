@@ -17,7 +17,7 @@ module init_fields
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
        &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
-       &            l_temperature_diff, l_chemical_conv, l_TP_form, &
+       &            l_temperature_diff, l_chemical_conv,            &
        &            l_anelastic_liquid, l_non_adia
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
@@ -475,7 +475,7 @@ contains
          if ( rank_has_l0m0 ) then
 
             open(newunit=filehandle, file='scond.dat')
-            if ( l_TP_form .or. l_anelastic_liquid ) then
+            if ( l_anelastic_liquid ) then
                call pt_cond(s0,p0)
                do n_r=1,n_r_max
                   write(filehandle,'(5ES20.12)') r(n_r), osq4pi*otemp1(n_r)* &
@@ -512,9 +512,6 @@ contains
          x=two*r(n_r)-r_cmb-r_icb
          s1(n_r)=one-three*x**2+three*x**4-x**6
       end do
-
-      !-- In case 's' denotes temperature
-      if ( l_TP_form ) s1(:)=s1(:)*temp0(:)
 
       if ( init_s1 < 100 .and. init_s1 > 0 ) then
 

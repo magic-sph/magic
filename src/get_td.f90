@@ -10,7 +10,7 @@ module nonlinear_lm_mod
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
-       &             l_chemical_conv, l_TP_form, l_single_matrix, l_double_curl
+       &             l_chemical_conv, l_single_matrix, l_double_curl
    use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
        &                       or4, temp0, alpha0, ogrun, orho1
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
@@ -39,7 +39,6 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
       complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
-      complex(cp), allocatable :: VPrLM(:)
       complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
       !----- RMS calculations
       complex(cp), allocatable :: Advt2LM(:), Advp2LM(:), PFt2LM(:), PFp2LM(:)
@@ -75,11 +74,6 @@ contains
          bytes_allocated = bytes_allocated+14*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
-      if ( l_TP_form ) then
-         allocate( this%VPrLM(lmP_max) )
-         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
-      end if
-
       if ( l_chemical_conv ) then
          allocate(this%VXirLM(lmP_max),this%VXitLM(lmP_max),this%VXipLM(lmP_max))
          bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
@@ -108,8 +102,6 @@ contains
       deallocate( this%VSrLM, this%VStLM, this%VSpLM )
 
       if ( l_anel ) deallocate( this%ViscHeatLM, this%OhmLossLM )
-
-      if ( l_TP_form )deallocate( this%VPrLM )
 
       if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
 
@@ -150,10 +142,6 @@ contains
             this%OhmLossLM(lm) =zero
          end if
 
-         if ( l_TP_form ) then
-            this%VPrLM(lm)=zero
-         end if
-
          if ( l_chemical_conv ) then
             this%VXirLM(lm)=zero
             this%VXitLM(lm)=zero
@@ -190,7 +178,7 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,lPressCalc,dVSrLM,dVPrLM,dVXirLM, &
+   subroutine get_td(this,nR,nBc,lRmsCalc,lPressCalc,dVSrLM,dVXirLM,    &
               &      dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
@@ -217,7 +205,6 @@ contains
       complex(cp), intent(out) :: dVxVhLM(:)
       complex(cp), intent(out) :: dVSrLM(:)
       complex(cp), intent(out) :: dVXirLM(:)
-      complex(cp), intent(out) :: dVPrLM(:)
 
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
@@ -392,7 +379,7 @@ contains
 
                if ( lRmsCalc ) then ! RMS force balance
 
-                  if ( l_TP_form .or. l_anelastic_liquid ) then
+                  if ( l_anelastic_liquid ) then
                      Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(              &
                      &        rho0(nR)*s_Rloc(lm,nR)-ViscHeatFac*        &
                      &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
@@ -522,7 +509,7 @@ contains
                        &       Iner2hInt(:,nR),st_map,.true.)
                end if
 
-               if ( l_TP_form .or. l_anelastic_liquid ) then
+               if ( l_anelastic_liquid ) then
                   call hIntRms(dp_Rloc(:,nR),nR,1,lm_max,0, &
                        &       Pre2hInt(:,nR),st_map,.false.)
                else
@@ -688,9 +675,8 @@ contains
          if ( l_heat ) then
             dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
             dVSrLM(1)=this%VSrLM(1)
-            if ( l_TP_form ) dVPrLM(1)=this%VPrLM(1)
             if ( l_anel ) then
-               if ( l_anelastic_liquid .or. l_TP_form ) then
+               if ( l_anelastic_liquid ) then
                   if ( l_mag_nl ) then
                      dsdt_loc=dsdt_loc+                                        &
                      &    ViscHeatFac*hdif_V(1)*temp0(nR)*this%ViscHeatLM(1)+  &
@@ -717,7 +703,7 @@ contains
                dVSrLM(lm)=this%VSrLM(lmP)
                dsdt_loc = dLh(lm)*this%VStLM(lmP)
                if ( l_anel ) then
-                  if ( l_anelastic_liquid .or. l_TP_form ) then
+                  if ( l_anelastic_liquid ) then
                      dsdt_loc = dsdt_loc+ &
                      &          ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
@@ -734,7 +720,6 @@ contains
                   end if
                end if
                dsdt(lm) = dsdt_loc
-               if ( l_TP_form ) dVPrLM(lm)=this%VPrLM(lmP)
             end do
             !$omp end parallel do
 #else
@@ -762,7 +747,7 @@ contains
                !PERFOFF
                !PERFON('td_h2')
                if ( l_anel ) then
-                  if ( l_anelastic_liquid .or. l_TP_form ) then
+                  if ( l_anelastic_liquid ) then
                      dsdt_loc = dsdt_loc+ &
                      &          ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
@@ -785,7 +770,6 @@ contains
                !                    -dLh(lm)*w(lm,nR)*or2(nR)*dsR(1)
                dVSrLM(lm)=this%VSrLM(lmP)
                dsdt(lm) = dsdt_loc
-               if ( l_TP_form ) dVPrLM(lm)=this%VPrLM(lmP)
             end do
             !LIKWID_OFF('td_heat')
             !$omp end parallel do
@@ -968,12 +952,6 @@ contains
                dVXirLM(lm)=zero
             end do
          end if
-         if ( l_TP_form ) then
-            do lm=1,lm_max
-               dVPrLM(lm)=zero
-            end do
-         end if
-
       end if  ! boundary ? lvelo ?
 
    end subroutine get_td

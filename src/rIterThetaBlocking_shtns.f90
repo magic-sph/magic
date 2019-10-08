@@ -15,7 +15,7 @@ module rIterThetaBlocking_shtns_mod
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
-       &            l_TO, l_chemical_conv, l_TP_form, l_probe,       &
+       &            l_TO, l_chemical_conv, l_probe,                  &
        &            l_precession, l_centrifuge, l_adv_curl
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
@@ -101,7 +101,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,dt,dtLast, &
               &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,             &
-              &           dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,           &
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                  &
               &           br_vt_lm_cmb,br_vp_lm_cmb,                       &
               &           br_vt_lm_icb,br_vp_lm_icb,                       &
               &           lorentz_torque_ic, lorentz_torque_ma,            &
@@ -115,7 +115,7 @@ contains
       real(cp), intent(in) :: time,dt,dtLast
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(cp), intent(out) :: dxidt(:),dVPrLM(:),dVXirLM(:)
+      complex(cp), intent(out) :: dxidt(:),dVXirLM(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:),dVxVhLM(:),dVxBhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -380,7 +380,7 @@ contains
       !PERFON('get_td')
       call td_counter%start_count()
       call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,           &
-           &                 this%lPressCalc, dVSrLM, dVPrLM, dVXirLM,   &
+           &                 this%lPressCalc, dVSrLM, dVXirLM,           &
            &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt,   &
            &                 dxidt, dbdt, djdt)
       call td_counter%stop_count(l_increment=.false.)
@@ -625,11 +625,6 @@ contains
                call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM)
             end if
          end if
-         !PERFOFF
-      end if
-      if ( (.not.this%isRadialBoundaryPoint) .and. l_TP_form ) then
-         !PERFON('inner2')
-         call spat_to_SH(gsa%VPr, nl_lm%VPrLM)
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then

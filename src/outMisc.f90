@@ -19,7 +19,7 @@ module outMisc_mod
    use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
-       &            l_temperature_diff, l_chemical_conv, l_TP_form
+       &            l_temperature_diff, l_chemical_conv
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -275,7 +275,7 @@ contains
 
       if ( rank == 0 ) then
 
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             do n_r=1,n_r_max
                TMeanR(n_r)   = TMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
                PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
@@ -303,7 +303,7 @@ contains
          botpres=osq4pi*real(p(1,n_r_icb))
          if ( topcond /= 0.0_cp ) then
 
-            if ( l_anelastic_liquid .or. l_TP_form ) then
+            if ( l_anelastic_liquid ) then
 
                bottemp=osq4pi*real(s(1,n_r_icb))
                toptemp=osq4pi*real(s(1,n_r_cmb))

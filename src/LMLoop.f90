@@ -15,14 +15,12 @@ module LMLoop_mod
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
-       &            l_single_matrix, l_chemical_conv, l_TP_form,         &
-       &            l_save_out
+       &            l_single_matrix, l_chemical_conv, l_save_out
    use output_data, only: n_log_file, log_file
    use debugging,  only: debug_write
    use updateS_mod
    use updateZ_mod
    use updateWP_mod
-   use updateWPT_mod
    use updateWPS_mod
    use updateB_mod
    use updateXi_mod
@@ -42,11 +40,7 @@ contains
       local_bytes_used = bytes_allocated
 
       if ( l_single_matrix ) then
-         if ( l_TP_form ) then
-            call initialize_updateWPT
-         else
-            call initialize_updateWPS
-         end if
+         call initialize_updateWPS
       else
          call initialize_updateS
          call initialize_updateWP
@@ -66,11 +60,7 @@ contains
    subroutine finalize_LMLoop
 
       if ( l_single_matrix ) then
-         if ( l_TP_form ) then
-            call finalize_updateWPT
-         else
-            call finalize_updateWPS
-         end if
+         call finalize_updateWPS
       else
          call finalize_updateS
          call finalize_updateWP
@@ -84,7 +74,7 @@ contains
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
    subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM, &
-              &      dVxBhLM,dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,          &
+              &      dVxBhLM,dVSrLM,dVXirLM,dsdt,dwdt,                 &
               &      dzdt,dpdt,dxidt,dbdt,djdt,lorentz_torque_ma,      &
               &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,             &
               &      aj_nl_icb)
@@ -106,7 +96,6 @@ contains
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: dVxVhLM(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
-      complex(cp), intent(inout) :: dVPrLM(llm:ulm,n_r_max)  ! for dsdt in update_s
       complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)  ! for dxidt in update_xi
       !integer,     intent(in) :: n_time_step
 
@@ -148,11 +137,7 @@ contains
          lZ10mat=.false.
          do l=0,l_max
             if ( l_single_matrix ) then
-               if ( l_TP_form .or. l_anelastic_liquid ) then
-                  lWPTmat(l)=.false.
-               else
-                  lWPSmat(l)=.false.
-               end if
+               lWPSmat(l)=.false.
             else
                lWPmat(l)=.false.
                lSmat(l) =.false.
@@ -203,20 +188,11 @@ contains
             call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
                  &         MPI_COMM_WORLD,ierr)
 #endif
-            if ( l_TP_form ) then
-               call updateWPT( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,     &
-                    &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,     &
-                    &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,   &
-                    &          dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt,  &
-                    &          lRmsNext )
-            else
-               call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-                    &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
-                    &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
-                    &          dsdt, dsdtLast_LMloc, w1, coex, dt,         &
-                    &          lRmsNext )
-            end if
-
+            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
+                 &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
+                 &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
+                 &          dsdt, dsdtLast_LMloc, w1, coex, dt,         &
+                 &          lRmsNext )
          else
             PERFON('up_WP')
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dVxVhLM, dwdt,     &

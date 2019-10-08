@@ -85,7 +85,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
               &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,  &
-              &           dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,   &
+              &           dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,          &
               &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
               &           lorentz_torque_ic, lorentz_torque_ma,         &
               &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
@@ -101,7 +101,7 @@ contains
 
       !-- Output variables
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(cp), intent(out) :: dxidt(:), dVXirLM(:), dVPrLM(:)
+      complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:),dVxVhLM(:),dVxBhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -405,8 +405,8 @@ contains
       !     & SUM(this%nl_lm%VxBpLM)
       call td_counter%start_count()
       PERFON('get_td')
-      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,                 &
-           &                 this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,dVxVhLM,  &
+      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,             &
+           &                 this%lPressCalc,dVSrLM,dVXirLM,dVxVhLM,     &
            &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       PERFOFF
       call td_counter%stop_count(l_increment=.false.)

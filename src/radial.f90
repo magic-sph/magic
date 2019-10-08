@@ -11,7 +11,7 @@ module radial_functions
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
-       &            l_TP_form, l_temperature_diff, l_single_matrix,&
+       &            l_temperature_diff, l_single_matrix,           &
        &            l_finite_diff, l_newmap
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
@@ -581,11 +581,6 @@ contains
       if ( l_anel ) then
          call logWrite('')
          call logWrite('!      This is an anelastic model')
-         if ( l_TP_form ) then
-            call logWrite('! You use temperature and pressure as thermodynamic variables')
-         else
-            call logWrite('! You use entropy and pressure as thermodynamic variables')
-         end if
          if ( l_temperature_diff ) then
             call logWrite('! You use temperature diffusion')
          else
@@ -721,7 +716,7 @@ contains
       !real(cp) :: func(n_r_max)
       real(cp) :: kcond(n_r_max)
       real(cp) :: a0,a1,a2,a3,a4,a5
-      real(cp) :: kappatop,rrOcmb
+      real(cp) :: kappatop,rrOcmb, ampVisc, ampKap, slopeVisc, slopeKap
 
       !-- Variable conductivity:
 
@@ -787,6 +782,7 @@ contains
 
       !-- Variable thermal diffusivity
       if ( l_heat ) then
+
          if ( nVarDiff == 0 ) then
             kappa  =one
             dLkappa=0.0_cp
@@ -855,35 +851,67 @@ contains
             kappa=kcond/rho0
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
-         end if
+         else if ( nVarDiff == 6 ) then ! Jump in the stratified layer
+            ampKap = 10.0_cp
+            slopeKap = 100.0_cp
+            if ( rStrat <= r_icb ) then
+               kappa(:) = one
+            else
+               kappa(:)=(-half*(ampKap-one)*tanh(slopeKap*(r(:)-rStrat))+      &
+               &          half*(ampKap+one))*(half*(ampKap-one)*tanh(slopeKap* &
+               &          (r(:)-rStrat-thickStrat))+half*(ampKap+one))/ampKap
+            end if
+            dLkappa(:)=ampKap*(slopeKap*(-half*ampKap + half)*(-tanh(slopeKap*(r &
+            &         - rStrat))**2 + 1)*(half*ampKap + (half*ampKap - half)*    &
+            &         tanh(slopeKap*(r - rStrat - thickStrat)) + half)/ampKap +  &
+            &         slopeKap*(half*ampKap - half)*(-tanh(slopeKap*(r - rStrat -&
+            &         thickStrat))**2 + 1)*(half*ampKap + (-half*ampKap + half)* &
+            &         tanh(slopeKap*(r - rStrat)) + half)/ampKap)/((half*ampKap +&
+            &         (-half*ampKap + half)*tanh(slopeKap*(r - rStrat)) + half)* &
+            &         (half*ampKap + (half*ampKap - half)*tanh(slopeKap*(r -     &
+            &         rStrat - thickStrat)) + half))
+          else if ( nVarDiff == 7 ) then ! Bottom stratified
+             ampKap = 10.0_cp
+             slopeKap = 30.0_cp
+             if ( rStrat <= r_icb ) then
+                kappa(:) = one
+             else
+                kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
+                &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
+             end if
+             dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
+             &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
+             &         rStrat))+half)
+          end if
+
       end if
 
       !-- Eps profiles
       !-- The remaining division by rho will happen in updateS.f90
       if ( nVarEps == 0 ) then
          ! eps is constant
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=one
          else
             epscProf(:)=otemp1(:)
          end if
       else if ( nVarEps == 1 ) then
          ! rho*eps in the RHS
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=rho0(:)
          else
             epscProf(:)=rho0(:)*otemp1(:)
          end if
       else if ( nVarEps == 2 ) then
          ! rho*temp*eps in the RHS
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=rho0(:)*temp0(:)
          else
             epscProf(:)=rho0(:)
          end if
       else if ( nVarEps == 3 ) then
          ! eps*rho**2*temp**(-3)*exp(-Bn/T) in the RHS
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=rho0(:)**2*temp0(:)**(-3)*exp(-Bn/temp0(:))
          else
             epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
@@ -901,10 +929,84 @@ contains
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       else if ( nVarVisc == 2 ) then ! Profile
-         visc=(rho0/rho0(n_r_max))**difExp
+         visc(:)=(rho0/rho0(n_r_max))**difExp
          call get_dr(visc,dvisc,n_r_max,rscheme_oc)
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
+      else if ( nVarVisc == 3 ) then ! Jump in the stratified layer
+         ampVisc = 10.0_cp
+         slopeVisc = 100.0_cp
+         if ( rStrat <= r_icb ) then
+            visc(:) = one
+         else
+            visc(:)=(-half*(ampVisc-one)*tanh(slopeVisc*(r(:)-rStrat))+       &
+            &         half*(ampVisc+one))*(half*(ampVisc-one)*tanh(slopeVisc* &
+            &         (r(:)-rStrat-thickStrat))+half*(ampVisc+one))/ampVisc
+         end if
+         dLvisc(:)=ampVisc*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(r &
+         &         - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)*     &
+         &         tanh(slopeVisc*(r - rStrat - thickStrat)) + half)/ampVisc +   &
+         &         slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r - rStrat -&
+         &         thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*  &
+         &         tanh(slopeVisc*(r - rStrat)) + half)/ampVisc)/((half*ampVisc +&
+         &         (-half*ampVisc + half)*tanh(slopeVisc*(r - rStrat)) + half)*  &
+         &         (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r -     &
+         &         rStrat - thickStrat)) + half))
+
+         ddLvisc(:)=-ampVisc*slopeVisc*(-half*ampVisc + half)*(slopeVisc*(-half* &
+         &          ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*   &
+         &          (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - &
+         &          rStrat - thickStrat)) + half)/ampVisc + slopeVisc*(half*     &
+         &          ampVisc - half)*(-tanh(slopeVisc*(r(:) - rStrat - thickStrat)&
+         &          )**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*tanh(       &
+         &          slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(-tanh(slopeVisc*&
+         &          (r(:) - rStrat))**2 + 1)/((half*ampVisc + (-half*ampVisc +   &
+         &          half)*tanh(slopeVisc*(r(:) - rStrat)) + half)**2*(half*      &
+         &          ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat&
+         &          - thickStrat)) + half)) - ampVisc*slopeVisc*(half*ampVisc -  &
+         &          half)*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(   &
+         &          r(:) - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)&
+         &          *tanh(slopeVisc*(r(:) - rStrat - thickStrat)) + half)/ampVisc&
+         &          + slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r(:) -   &
+         &          rStrat - thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc &
+         &          + half)*tanh(slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(   &
+         &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)/((half*&
+         &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
+         &          rStrat)) + half)*(half*ampVisc + (half*ampVisc - half)*tanh( &
+         &          slopeVisc*(r(:) - rStrat - thickStrat)) + half)**2)+ampVisc*(&
+         &          2*slopeVisc**2*(-half*ampVisc + half)*(half*ampVisc - half)*(&
+         &          -tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*(-tanh(slopeVisc*(  &
+         &          r(:) - rStrat - thickStrat))**2 + 1)/ampVisc - 2*slopeVisc**2&
+         &          *(-half*ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 &
+         &          + 1)*(half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(  &
+         &          r(:) - rStrat - thickStrat)) + half)*tanh(slopeVisc*(r(:) -  &
+         &          rStrat))/ampVisc - 2*slopeVisc**2*(half*ampVisc - half)*(    &
+         &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)*(half* &
+         &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
+         &          rStrat)) + half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat))&
+         &          /ampVisc)/((half*ampVisc + (-half*ampVisc + half)*tanh(      &
+         &          slopeVisc*(r(:) - rStrat)) + half)*(half*ampVisc + (half*    &
+         &          ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat)) &
+         &          + half))
+      else if ( nVarVisc == 4 ) then ! Bottom stratified
+         ampVisc = 10.0_cp
+         slopeVisc = 30.0_cp
+         if ( rStrat <= r_icb ) then
+            visc(:) = one
+         else
+            visc(:)=(half*(ampVisc-one)*tanh(slopeVisc* &
+            &       (r(:)-rStrat))+half*(ampVisc+one))/ampVisc
+         end if
+         dLvisc(:)=slopeVisc*(half*ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2&
+         &         +one)/(half*ampVisc+(half*ampVisc-half)*tanh(slopeVisc*(r(:)-   &
+         &         rStrat))+half)
+         
+         ddLvisc(:)=-slopeVisc**2*(half*ampVisc-half)**2*(-tanh(slopeVisc*(r(:)- &
+         &          rStrat))**2+one)**2/(half*ampVisc+(half*ampVisc-half)*       &
+         &          tanh(slopeVisc*(r(:)-rStrat))+half)**2-2*slopeVisc**2*(half* &
+         &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2+one)*tanh(  &
+         &          slopeVisc*(r(:)-rStrat))/(half*ampVisc+(half*ampVisc-half)*  &
+         &          tanh(slopeVisc*(r(:)-rStrat))+half)
       end if
 
       if ( l_anelastic_liquid .or. l_non_adia ) then

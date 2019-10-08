@@ -86,7 +86,7 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
               &          lRmsCalc,lPressCalc,lViscBcCalc,lFluxProfCalc,  &
               &          lPerpParCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,   &
-              &          dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,  &
+              &          dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,         &
               &          dVXirLM,lorentz_torque_ic,lorentz_torque_ma,    &
               &          br_vt_lm_cmb,br_vp_lm_cmb,                      &
               &          br_vt_lm_icb,br_vp_lm_icb,                      &
@@ -117,7 +117,6 @@ contains
       complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dVPrLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
@@ -271,7 +270,7 @@ contains
          call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,              &
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),       &
               & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxVhLM(:,nR),dVxBhLM(:,nR_Mag), &
-              & dVSrLM(:,nR),dVPrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,          &
+              & dVSrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,                       &
               & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,      &
               & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),   &
               & Helna2LMr(:,nR),viscLMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),        &
