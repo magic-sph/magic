@@ -400,7 +400,7 @@ contains
       !$OMP CRITICAL
       if ( lGraphHeader ) then
          size_of_header = 8+len(version)+8+len(runid)+8+ &
-         &                13*SIZEOF_INTEGER+8+n_theta_max*SIZEOF_OUT_REAL
+         &                13*SIZEOF_OUT_REAL+8+n_theta_max*SIZEOF_OUT_REAL
 
 #ifdef ONE_LARGE_BLOCK
          size_of_data_per_thetaB = 8+4*SIZEOF_OUT_REAL+3* &
@@ -462,7 +462,8 @@ contains
             call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER, &
                  &              status,ierr)
 
-            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,13*SIZEOF_OUT_REAL,1, &
+                 &              MPI_INTEGER,status,ierr)
             call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_OUT_REAL, &
                  &              status,ierr)
             call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1, &
@@ -489,7 +490,8 @@ contains
                  &              MPI_OUT_REAL,status,ierr)
             call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
                  &              MPI_OUT_REAL,status,ierr)
-            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,13*SIZEOF_OUT_REAL,1, &
+                 &              MPI_INTEGER,status,ierr)
 
             !-------- Write colatitudes:
             call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_OUT_REAL,1, &
@@ -672,7 +674,7 @@ contains
          end if
       end if
 
-      size_of_header = 8+len(version)+8+len(runid)+8+13*SIZEOF_INTEGER+8+ &
+      size_of_header = 8+len(version)+8+len(runid)+8+13*SIZEOF_OUT_REAL+8+ &
       &                n_theta_max*SIZEOF_OUT_REAL
 
 #ifdef ONE_LARGE_BLOCK
@@ -732,7 +734,8 @@ contains
               &              MPI_CHARACTER,status,ierr)
          call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
 
-         call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+         call MPI_FILE_WRITE(graph_mpi_fh,13*SIZEOF_OUT_REAL,1, &
+              &              MPI_INTEGER,status,ierr)
          call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_OUT_REAL, &
               &              status,ierr)
          call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1,MPI_OUT_REAL,&
@@ -759,7 +762,8 @@ contains
               &              status,ierr)
          call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
               &              MPI_OUT_REAL,status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+         call MPI_FILE_WRITE(graph_mpi_fh,13*SIZEOF_OUT_REAL,1, &
+              &              MPI_INTEGER,status,ierr)
 
          !-------- Write colatitudes:
          call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_OUT_REAL,1, &
@@ -890,7 +894,8 @@ contains
          ! in process n_procs-1 the last oc fields have been written,
          ! Now just append on this process.
          if ( .not. l_avg_loc ) then
-            call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_OUT_REAL,1,  &
+                 &              MPI_INTEGER,status,ierr)
             call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max+nR-2,outp),1, &
                  &              MPI_OUT_REAL,status,ierr)
             call MPI_FILE_WRITE(graph_mpi_fh,real(r_ic(nR)/r_cmb,outp),1, &
@@ -899,7 +904,8 @@ contains
                  &              status,ierr)
             call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
                  &              MPI_OUT_REAL,status,ierr)
-            call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_OUT_REAL,1, &
+                 &              MPI_INTEGER,status,ierr)
          else
             write(n_graph_file) real(n_r_max+nR-2,outp),real(r_ic(nR)/r_cmb,outp),&
                  &              1.e0_outp,real(n_theta_max,outp)
