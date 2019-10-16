@@ -145,7 +145,7 @@ contains
       end do
 
       lm = 0
-      do m=0,l_max,minc
+      do m=0,m_max,minc
          do l=m,l_max
             lm = lm+1
             Qlm(lm) = rDep(l) * dLh(lm) * Jlm(lm)
@@ -188,7 +188,7 @@ contains
       end do
 
       lm = 0
-      do m=0,l_max,minc
+      do m=0,m_max,minc
          do l=m,l_max
             lm = lm+1
             Qlm(lm) = rDep(l) * dLh(lm) * Wlm(lm)
