@@ -122,10 +122,10 @@ contains
          if ( l_map ) then
             if ( index(map_function, 'TAN') /= 0 .or.    &
             &   index(map_function, 'BAY') /= 0 ) then
-               x(k)=half*(a2+tan(lbd*(y(k)-x0))/a1) + bpa
+               x(k)=bma*(a2+tan(lbd*(y(k)-x0))/a1) + bpa
             else if ( index(map_function, 'ARCSIN') /= 0 .or. &
             &         index(map_function, 'KTL') /= 0 ) then
-               x(k)=half*asin(a1*y(k))/asin(a1)+bpa
+               x(k)=bma*asin(a1*y(k))/asin(a1)+bpa
             end if
          else
             x(k)=bma * y(k) + bpa

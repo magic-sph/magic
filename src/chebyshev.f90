@@ -130,42 +130,35 @@ contains
          !-- Tangent mapping (see Bayliss et al. 1992)
          if ( index(map_function, 'TAN') /= 0 .or.      &
          &    index(map_function, 'BAY') /= 0 ) then
-
-            do n_r=1,n_r_max
-               this%drx(n_r)  =                         (two*this%alpha1) /        &
-               &    ((one+this%alpha1**2*(two*r(n_r)-ricb-rcmb-this%alpha2)**2)*   &
-               &    lambd)
-               this%ddrx(n_r) =-(8.0_cp*this%alpha1**3*(two*r(n_r)-ricb-rcmb-      &
-               &               this%alpha2)) / ((one+this%alpha1**2*(-two*r(n_r)+  &
-               &               ricb+rcmb+this%alpha2)**2)**2*lambd)
-               this%dddrx(n_r)=(16.0_cp*this%alpha1**3*(-one+three*this%alpha1**2* &
-               &               (-two*r(n_r)+ricb+rcmb+this%alpha2)**2)) /          &
-               &               ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+        &
-               &               this%alpha2)**2)**3*lambd)
-            end do
+            this%drx(:)  =two*this%alpha1*(rcmb - ricb)/(lambd*(this%alpha1**2* &
+            &             (this%alpha2*(rcmb-ricb)-two*r(:)+rcmb+ricb)**2+      &
+            &             (rcmb-ricb)**2))
+            this%ddrx(:) =8.0_cp*this%alpha1**3*(rcmb-ricb)*(this%alpha2*       &
+            &             (rcmb-ricb)-two*r(:)+rcmb+ricb)/(lambd*(              &
+            &             this%alpha1**2*(this%alpha2*(rcmb-ricb)-two*r(:)      &
+            &             +rcmb+ricb)**2+(rcmb-ricb)**2)**2)
+            this%dddrx(:)=16.0_cp*this%alpha1**3*(rcmb-ricb)*(three*            &
+            &             this%alpha1**2*(this%alpha2*(rcmb-ricb)-two*r(:)      &
+            &             +rcmb+ricb)**2-(rcmb-ricb)**2)/(lambd*(this%alpha1**2*&
+            &             (this%alpha2*(rcmb-ricb)-two*r(:)+rcmb+ricb)**2+      &
+            &             (rcmb-ricb)**2)**3)
 
          !-- Arcsin mapping (see Kosloff and Tal-Ezer, 1993)
          else if ( index(map_function, 'ARCSIN') /= 0 .or. &
          &         index(map_function, 'KTL') /= 0 ) then
-
-            do n_r=1,n_r_max
-               this%drx(n_r)  =two*asin(this%alpha1)/this%alpha1*sqrt(one-         &
-               &               this%alpha1**2*this%r_cheb(n_r)**2)
-               this%ddrx(n_r) =-four*asin(this%alpha1)**2*this%r_cheb(n_r)
-               this%dddrx(n_r)=-8.0_cp*asin(this%alpha1)**3*                       &
-               &               sqrt(one-this%alpha1**2*this%r_cheb(n_r)**2)/       &
-               &               this%alpha1
-            end do
-
+            this%drx(:)  =two*asin(this%alpha1)/this%alpha1*sqrt(one-           &
+            &             this%alpha1**2*this%r_cheb(:)**2)/(rcmb-ricb)
+            this%ddrx(:) =-four*asin(this%alpha1)**2*this%r_cheb(:)/            &
+            &              (rcmb-ricb)**2
+            this%dddrx(:)=-8.0_cp*asin(this%alpha1)**3*sqrt(one-this%alpha1**2* &
+            &             this%r_cheb(:)**2)/this%alpha1/(rcmb-ricb)**3
          end if
 
-      else
+      else !-- Regular affine mapping between ricb and rcmb
 
-         do n_r=1,n_r_max
-            this%drx(n_r)  =two/(rcmb-ricb)
-            this%ddrx(n_r) =0.0_cp
-            this%dddrx(n_r)=0.0_cp
-         end do
+         this%drx(:)  =two/(rcmb-ricb)
+         this%ddrx(:) =0.0_cp
+         this%dddrx(:)=0.0_cp
 
       end if
 
