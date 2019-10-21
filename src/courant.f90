@@ -17,10 +17,36 @@ module courant_mod
 
    private
 
-   public :: courant, dt_courant
+   integer :: file_handle
+
+   public :: courant, dt_courant, initialize_courant, finalize_courant
 
 contains
 
+   subroutine initialize_courant(time, dt, tag)
+      !
+      ! This subroutine opens the timestep.TAG file which stores the time step
+      ! changes of MagIC.
+      !
+
+      !-- Input variables
+      real(cp),         intent(in) :: time ! time
+      real(cp),         intent(in) :: dt   ! time step
+      character(len=*), intent(in) :: tag ! trailing of the fime
+
+      if ( rank == 0 ) then
+         open(newunit=file_handle, file='timestep.'//tag, status='new')
+         write(file_handle, '(1p, es20.12, es16.8)')  time, dt
+      end if
+
+   end subroutine initialize_courant
+!------------------------------------------------------------------------------
+   subroutine finalize_courant()
+
+      if ( rank == 0 ) close(file_handle)
+
+   end subroutine finalize_courant
+!------------------------------------------------------------------------------
    subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp,n_theta_min,n_theta_block)
       !
       !  courant condition check: calculates Courant
@@ -162,32 +188,25 @@ contains
 
    end subroutine courant
 !------------------------------------------------------------------------------
-   subroutine dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new,dtMax,dtrkc,dthkc)
+   subroutine dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new,dtMax,dtrkc,dthkc,time)
       !
       !     Check if Courant criterion based on combined
       !     fluid and Alfven velocity is satisfied
       !     Returns new value of time step dtnew
       !
-      !     dtr,dth: (output) radial/horizontal Courant time step
-      !     n_time_step: (input) time step number
-      !     l_new_dt: (output) flag indicating that time step is changed (=1) or not (=0)
-      !     dt: (input) old time step
-      !     dtnew: (output) new time step
-      !     dtMin: (input) lower limit for time step (termination if dtnew < dtMin)
-      !     dtMax: (input) upper limit for time step
-      !     dtrkc: (input) radial Courant time step as function of radial level
-      !     dthkc: (input) horizontal Courant time step as function of radial level
-      !
 
       !-- Input variables:
-      real(cp), intent(in) :: dt
-      real(cp), intent(in) :: dtMax
-      real(cp), intent(in) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
+      real(cp), intent(in) :: dt ! old time step size
+      real(cp), intent(in) :: dtMax ! Maximum time step size
+      real(cp), intent(in) :: dtrkc(nRstart:nRstop) ! radial Courant time step as function of radial level
+      real(cp), intent(in) :: dthkc(nRstart:nRstop) ! horizontal Courant time step as function of radial level
+      real(cp), intent(in) :: time ! Current time
 
       !-- Output variables:
-      logical,  intent(out) :: l_new_dt
-      real(cp), intent(out) :: dt_new
-      real(cp), intent(out) :: dt_r,dt_h
+      logical,  intent(out) :: l_new_dt ! flag indicating that time step is changed (=1) or not (=0)
+      real(cp), intent(out) :: dt_new ! new time step size
+      real(cp), intent(out) :: dt_r ! radial Courant time step
+      real(cp), intent(out) :: dt_h ! horizontal Courtant time step
 
       !-- Local:
       integer :: n_r
@@ -229,6 +248,9 @@ contains
          write(message,'(1P," ! COURANT: dt=",ES11.4," > dt_r=",ES12.4, &
          &            " and dt_h=",ES12.4)') dt,dt_r,dt_h
          call logWrite(message)
+         if ( rank == 0 ) then
+            write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
+         end if
 
       else if ( dt_fac*dt < dt_rh .and. dt < dtMax ) then
 
@@ -238,11 +260,14 @@ contains
          &          " < dt_r=",ES12.4," and dt_h=",ES12.4)')   &
          &          dt_fac,dt_fac*dt,dt_r,dt_h
          call logWrite(message)
+         if ( rank == 0 ) then
+            write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
+         end if
 
       end if
 
       if ( dt == dt_new ) l_new_dt= .false.
 
    end subroutine dt_courant
-!-----------------------------------------------------------------------
+!------------------------------------------------------------------------------
 end module courant_mod

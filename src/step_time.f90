@@ -787,7 +787,7 @@ contains
          if ( l_cour ) then
             !PRINT*,"dtrkc_Rloc = ",dtrkc_Rloc
             call dt_courant(dtr,dth,l_new_dtNext,dt,dtNew,dtMax, &
-                 &          dtrkc_Rloc,dthkc_Rloc)
+                 &          dtrkc_Rloc,dthkc_Rloc,time)
          end if
 
          !------ Checking whether we have to hit a specific time for output,

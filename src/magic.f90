@@ -90,6 +90,7 @@ program magic
    use precision_mod
    use physical_parameters
    use iso_fortran_env, only: output_unit
+   use courant_mod, only: initialize_courant, finalize_courant
    use radial_der, only: initialize_der_arrays, finalize_der_arrays
    use radial_functions, only: initialize_radial_functions, &
        &                       finalize_radial_functions
@@ -178,7 +179,7 @@ program magic
       call abortRun(message)
    end if
 #else
-   call mpi_init(ierr)
+   call MPI_Init(ierr)
 #endif
 #endif
 
@@ -186,7 +187,7 @@ program magic
    PERFON('main')
    LIKWID_INIT
    !LIKWID_ON('main')
-   call parallel
+   call parallel()
 
    call run_time%initialize()
    call run_time%start_count()
@@ -204,12 +205,12 @@ program magic
    end if
 
    !--- Read input parameters:
-   call readNamelists  ! includes sent to other procs !
+   call readNamelists()  ! includes sent to other procs !
 
-   call initialize_output
+   call initialize_output()
 
    !--- Check parameters and write info to SDTOUT
-   call checkTruncation
+   call checkTruncation()
 
    log_file='log.'//tag
 
@@ -248,64 +249,62 @@ program magic
       if ( l_save_out ) close(n_log_file)
    end if
 
-   call initialize_memory_counter
+   call initialize_memory_counter()
 
    !-- Blocking/radial/horizontal
-   call initialize_blocking
+   call initialize_blocking()
    local_bytes_used=bytes_allocated
-   call initialize_radial_data
-   call initialize_radial_functions
-   call initialize_horizontal_data
+   call initialize_radial_data()
+   call initialize_radial_functions()
+   call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
 
    !-- Radial/LM Loop
-   call initialize_radialLoop
-   !call initialize_rIterThetaBlocking
-   call initialize_LMLoop
+   call initialize_radialLoop()
+   call initialize_LMLoop()
 
-   call initialize_num_param
-   call initialize_init_fields
-   call initialize_Grenoble
+   call initialize_num_param()
+   call initialize_init_fields()
+   call initialize_Grenoble()
 
    local_bytes_used=bytes_allocated
-   call initialize_fields
-   call initialize_fieldsLast
+   call initialize_fields()
+   call initialize_fieldsLast()
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 
-   call initialize_step_time
-   call initialize_communications
+   call initialize_step_time()
+   call initialize_communications()
 
    call initialize_der_arrays(n_r_max,llm,ulm)
 
    !-- Array allocation for I/O
    local_bytes_used=bytes_allocated
-   call initialize_kinetic_energy
-   if ( l_mag ) call initialize_magnetic_energy
-   call initialize_spectra
-   call initialize_outPar_mod
-   call initialize_outMisc_mod
-   call initialize_outRot
-   if ( l_power ) call initialize_output_power
-   call initialize_coeffs
-   call initialize_fields_average_mod
-   if ( l_TO ) call initialize_TO
+   call initialize_kinetic_energy()
+   if ( l_mag ) call initialize_magnetic_energy()
+   call initialize_spectra()
+   call initialize_outPar_mod()
+   call initialize_outMisc_mod()
+   call initialize_outRot()
+   if ( l_power ) call initialize_output_power()
+   call initialize_coeffs()
+   call initialize_fields_average_mod()
+   if ( l_TO ) call initialize_TO()
 
 #ifdef WITH_SHTNS
    call init_shtns()
 #endif
 
-
    !--- Do pre-calculations:
-   call preCalc
+   call preCalc()
 
    if ( l_par .or. l_PV ) call initialize_geos_mod(l_par,l_PV) ! Needs to be called after preCalc, r_icb needed
-   if ( l_TO ) call initialize_outTO_mod ! Needs to be called after preCalc, r_icb needed
-   if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
-   if ( ldtBmem == 1 ) call initialize_dtB_mod ! Needs to be called after movie to make sure l_dtBmovie has been set
-   if (l_probe) call initialize_probes       !Needs to be called after preCalc to get correct coordinate values
-   if ( l_RMS ) call initialize_RMS
+   if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
+   if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
+   if ( ldtBmem == 1 ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
+   if (l_probe) call initialize_probes()       !Needs to be called after preCalc to get correct coordinate values
+   if ( l_RMS ) call initialize_RMS()
    local_bytes_used=bytes_allocated-local_bytes_used
 
    !local_bytes_used=bytes_allocated-local_bytes_used
@@ -328,6 +327,9 @@ program magic
 
    !--- Now read start-file or initialize fields:
    call getStartFields(time,dt,dtNew,n_time_step)
+
+   !-- Open time step file
+   call initialize_courant(time, dtNew, tag)
 
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
@@ -423,36 +425,38 @@ program magic
    if ( l_TO ) call finalize_TO
    if ( l_par .or. l_PV ) call finalize_geos_mod(l_par, l_PV)
    if ( ldtBmem == 1 ) call finalize_dtB_mod
-   call finalize_fields_average_mod
-   call finalize_coeffs
-   if ( l_power ) call finalize_output_power
-   call finalize_outRot
-   call finalize_outMisc_mod
-   call finalize_outPar_mod
-   call finalize_spectra
-   if ( l_mag ) call finalize_magnetic_energy
-   call finalize_kinetic_energy
-   if ( l_probe ) call finalize_probes
+   call finalize_fields_average_mod()
+   call finalize_coeffs()
+   if ( l_power ) call finalize_output_power()
+   call finalize_outRot()
+   call finalize_outMisc_mod()
+   call finalize_outPar_mod()
+   call finalize_spectra()
+   if ( l_mag ) call finalize_magnetic_energy()
+   call finalize_kinetic_energy()
+   if ( l_probe ) call finalize_probes()
 
-   call finalize_communications
-   call finalize_step_time
-   call finalize_fieldsLast
-   call finalize_fields
+   call finalize_courant()
 
-   call finalize_Grenoble
-   call finalize_init_fields
-   call finalize_num_param
-   call finalize_LMLoop
-   call finalize_radialLoop
+   call finalize_communications()
+   call finalize_step_time()
+   call finalize_fieldsLast()
+   call finalize_fields()
 
-   call finalize_der_arrays
+   call finalize_Grenoble()
+   call finalize_init_fields()
+   call finalize_num_param()
+   call finalize_LMLoop()
+   call finalize_radialLoop()
 
-   call finalize_horizontal_data
-   call finalize_radial_functions
-   call finalize_blocking
-   call finalize_radial_data
+   call finalize_der_arrays()
 
-   call finalize_output
+   call finalize_horizontal_data()
+   call finalize_radial_functions()
+   call finalize_blocking()
+   call finalize_radial_data()
+
+   call finalize_output()
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
 
