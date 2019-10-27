@@ -103,7 +103,6 @@ contains
       real(cp), intent(out) :: r(n_r_max)
 
       !-- Local variables:
-      integer :: n_r
       real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
       !--
