@@ -215,7 +215,10 @@ contains
       complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
       complex(cp) :: Buo(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
-      complex(cp) :: dsdt_loc, dxidt_loc
+      complex(cp) :: dsdt_loc
+#ifndef WITH_SHTNS
+      complex(cp) :: dxidt_loc
+#endif
 
       integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 

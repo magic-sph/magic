@@ -78,8 +78,8 @@ module  mpi_alltoall_mod
    type, public, extends(type_mpitransp) :: type_mpiatoav
       integer, allocatable :: rcounts(:)
       integer, allocatable :: scounts(:)
-      integer,     allocatable :: rdisp(:)
-      integer,     allocatable :: sdisp(:)
+      integer, allocatable :: rdisp(:)
+      integer, allocatable :: sdisp(:)
       integer :: max_send, max_recv
    contains
       procedure :: create_comm => create_comm_alltoallv

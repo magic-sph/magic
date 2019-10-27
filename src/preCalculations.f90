@@ -16,7 +16,7 @@ module preCalculations
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
-       &            l_precession
+       &            l_precession, l_finite_diff
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, r, r_ICB, dLtemp0,         &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -1021,8 +1021,10 @@ contains
          write(n_out,*) '! Grid parameters:'
          write(n_out,'(''  n_r_max      ='',i6, &
          &        '' = number of radial grid points'')') n_r_max
-         write(n_out,'(''  n_cheb_max   ='',i6)') n_cheb_max
-         write(n_out,'(''  max cheb deg.='',i6)') n_cheb_max-1
+         if ( .not. l_finite_diff ) then
+            write(n_out,'(''  n_cheb_max   ='',i6)') n_cheb_max
+            write(n_out,'(''  max cheb deg.='',i6)') n_cheb_max-1
+         end if
          write(n_out,'(''  n_phi_max    ='',i6, &
          &        '' = no of longitude grid points'')') n_phi_max
          write(n_out,'(''  n_theta_max  ='',i6, &

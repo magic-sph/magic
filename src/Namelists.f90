@@ -273,7 +273,8 @@ contains
       if ( l_finite_diff ) then
          l_double_curl=.true.
          l_PressGraph =.false.
-         write(*,*) '! Finite differences are used: I use the double-curl form !'
+         l_newmap     =.false.
+         if ( rank == 0 ) write(*,*) '! Finite differences are used: I use the double-curl form !'
       end if
 
       n_stores=max(n_stores,n_rsts)
