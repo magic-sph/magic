@@ -4,7 +4,7 @@ module truncation
    !
 
    use precision_mod, only: cp
-   use logic, only: l_finite_diff
+   use logic, only: l_finite_diff, l_cond_ic
    use useful, only: abortRun
 
    implicit none
@@ -106,7 +106,8 @@ contains
       ncp=nrp/2
 
       ! total number of radial grid points
-      n_r_tot=n_r_max+n_r_ic_max
+      n_r_tot = n_r_max
+      if ( l_cond_ic ) n_r_tot=n_r_max+n_r_ic_max
 
 
       !--- Now quantities for magnetic fields:
