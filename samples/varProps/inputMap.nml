@@ -1,15 +1,12 @@
 &grid
- n_r_max     =64,
+ n_r_max     =33,
+ n_cheb_max  =33,
  n_phi_tot   =96,
  minc        =1,
- fd_order    =4,
- fd_order_bound=2,
- fd_ratio    =0.1d0,
- fd_stretch  =0.3d0,
 /
 &control
  mode        =1,
- tag         ="fd",
+ tag         ="map",
  n_time_steps=250,
  courfac     =2.5D0,
  alffac      =1.0D0,
@@ -18,7 +15,9 @@
  alpha       =0.6D0,
  runHours    =12,
  runMinutes  =00,
-radial_scheme='FD',
+ l_newmap    =.true.,
+ map_function="arcsin",
+ alph1       =0.5d0,
 /
 &phys_param
  ra          =8.0D4,
