@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module algebra
 
    use omp_lib
@@ -6,23 +5,32 @@ module algebra
    use constants, only: one
    use useful, only: abortRun
 
-#ifdef WITH_LIKWID
-#include "likwid_f90.h"
-#endif
-
    implicit none
 
    private
 
    real(cp), parameter :: zero_tolerance=1.0e-15_cp
 
-   public :: prepare_mat, solve_mat
+   public :: prepare_mat, solve_mat, prepare_band, solve_band, &
+   &         prepare_tridiag, solve_tridiag
 
    interface solve_mat
       module procedure solve_mat_real_rhs
       module procedure solve_mat_complex_rhs
       module procedure solve_mat_complex_rhs_multi
    end interface solve_mat
+
+   interface solve_tridiag
+      module procedure solve_tridiag_real_rhs
+      module procedure solve_tridiag_complex_rhs
+      module procedure solve_tridiag_complex_rhs_multi
+   end interface solve_tridiag
+
+   interface solve_band
+      module procedure solve_band_real_rhs
+      module procedure solve_band_complex_rhs_multi
+      module procedure solve_band_complex_rhs
+   end interface solve_band
 
 contains
 
@@ -116,7 +124,6 @@ contains
       noddRHS= mod(nRHSs,2)
 
       !     permute vectors bc
-      LIKWID_ON('perm')
       do nRHS=1,nRHSs
          do k=1,nm1
             m=ip(k)
@@ -125,17 +132,14 @@ contains
             bc(k,nRHS) =help
          end do
       end do
-      LIKWID_OFF('perm')
 
       !     solve  l * y = b
 
-      LIKWID_ON('cgeslML_1')
       !write(*,"(A,I4,A,I2,A)") "OpenMP loop over ",(nRHSs-1)/2,&
       !     &" iterations on ",omp_get_num_threads()," threads"
       do nRHS=1,nRHSs-1,2
          nRHS2=nRHS+1
 
-         !PERFON('sol_1')
          do k=1,n-2,2
             k1=k+1
             bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(k1,k)
@@ -149,9 +153,8 @@ contains
             bc(n,nRHS) =bc(n,nRHS) -bc(nm1,nRHS)*a(n,nm1)
             bc(n,nRHS2)=bc(n,nRHS2)-bc(nm1,nRHS2)*a(n,nm1)
          end if
-         !PERFOFF
+
          !     solve  u * x = y
-         !PERFON('sol_2')
          do k=n,3,-2
             k1=k-1
             bc(k,nRHS)  =bc(k,nRHS)*a(k,k)
@@ -172,7 +175,6 @@ contains
             bc(1,nRHS)=bc(1,nRHS)*a(1,1)
             bc(1,nRHS2)=bc(1,nRHS2)*a(1,1)
          end if
-         !PERFOFF
 
       end do
 
@@ -203,7 +205,6 @@ contains
          end if
 
       end if
-      LIKWID_OFF('cgeslML_1')
 
    end subroutine solve_mat_complex_rhs_multi
 !-----------------------------------------------------------------------------
@@ -351,5 +352,421 @@ contains
       end do
 
    end subroutine prepare_mat
+!-----------------------------------------------------------------------------
+   subroutine solve_band_real_rhs(abd, n, kl, ku, pivot, rhs)
+
+      !-- Input variables
+      integer,  intent(in) :: kl
+      integer,  intent(in) :: ku
+      integer,  intent(in) :: n
+      integer,  intent(in) :: pivot(n)
+      real(cp), intent(in) :: abd(2*kl+ku+1, n)
+
+      !-- Output variable
+      real(cp), intent(out) :: rhs(n)
+
+      !-- Local variables
+      real(cp) :: t
+      integer :: k, kb, l, la, lb, lm, m, nm1
+
+      m = ku + kl + 1
+      nm1 = n - 1
+
+      !-- First solve Ly = rhs
+      if ( kl /= 0 .and. nm1 >= 1) then
+         do k = 1, nm1
+            lm = min(kl,n-k)
+            l = pivot(k)
+            t = rhs(l)
+            if (l /= k) then
+               rhs(l) = rhs(k)
+               rhs(k) = t
+            end if
+            rhs(k+1:k+lm)=rhs(k+1:k+lm)+t*abd(m+1:m+lm,k)
+         end do
+      end if
+
+      !-- Solve u*x =y
+      do kb = 1, n
+         k = n + 1 - kb
+         rhs(k) = rhs(k)/abd(m,k)
+         lm = min(k,m) - 1
+         la = m - lm
+         lb = k - lm
+         t = -rhs(k)
+         rhs(lb:lb+lm-1)=rhs(lb:lb+lm-1)+t*abd(la:la+lm-1,k)
+      end do
+
+   end subroutine solve_band_real_rhs
+!-----------------------------------------------------------------------------
+   subroutine solve_band_complex_rhs(abd, n, kl, ku, pivot, rhs)
+
+      !-- Input variables
+      integer,  intent(in) :: kl
+      integer,  intent(in) :: ku
+      integer,  intent(in) :: n
+      integer,  intent(in) :: pivot(n)
+      real(cp), intent(in) :: abd(2*kl+ku+1, n)
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(n)
+
+      !-- Local variables
+      complex(cp) :: t
+      integer :: k, kb, l, la, lb, lm, m, nm1
+
+      m = ku + kl + 1
+      nm1 = n - 1
+
+      !-- First solve Ly = rhs
+      if ( kl /= 0 .and. nm1 >= 1) then
+         do k = 1, nm1
+            lm = min(kl,n-k)
+            l = pivot(k)
+            t = rhs(l)
+            if (l /= k) then
+               rhs(l) = rhs(k)
+               rhs(k) = t
+            end if
+            rhs(k+1:k+lm)=rhs(k+1:k+lm)+t*abd(m+1:m+lm,k)
+         end do
+      end if
+
+      !-- Solve u*x =y
+      do kb = 1, n
+         k = n + 1 - kb
+         rhs(k) = rhs(k)/abd(m,k)
+         lm = min(k,m) - 1
+         la = m - lm
+         lb = k - lm
+         t = -rhs(k)
+         rhs(lb:lb+lm-1)=rhs(lb:lb+lm-1)+t*abd(la:la+lm-1,k)
+      end do
+
+   end subroutine solve_band_complex_rhs
+!-----------------------------------------------------------------------------
+   subroutine solve_band_complex_rhs_multi(abd, n, kl, ku, pivot, rhs, nRHSs)
+
+      !-- Input variables
+      integer,  intent(in) :: kl
+      integer,  intent(in) :: ku
+      integer,  intent(in) :: n
+      integer,  intent(in) :: nRHSs
+      integer,  intent(in) :: pivot(n)
+      real(cp), intent(in) :: abd(2*kl+ku+1, n)
+
+      !-- Output variable
+      complex(cp), intent(inout) :: rhs(:,:)
+
+      !-- Local variables
+      complex(cp) :: t
+      integer :: k, kb, l, la, lb, lm, m, nm1, nRHS
+
+      m = ku + kl + 1
+      nm1 = n - 1
+
+      !-- First solve Ly = rhs
+      if ( kl /= 0 .and. nm1 >= 1) then
+         do nRHS=1,nRHSs
+            do k = 1, nm1
+               lm = min(kl,n-k)
+               l = pivot(k)
+               t = rhs(l,nRHS)
+               if (l /= k) then
+                  rhs(l,nRHS) = rhs(k,nRHS)
+                  rhs(k,nRHS) = t
+               end if
+               rhs(k+1:k+lm,nRHS)=rhs(k+1:k+lm,nRHS)+t*abd(m+1:m+lm,k)
+            end do
+         end do
+      end if
+
+      !-- Solve u*x =y
+      do nRHS=1,nRHSs
+         do kb = 1, n
+            k = n + 1 - kb
+            rhs(k,nRHS) = rhs(k,nRHS)/abd(m,k)
+            lm = min(k,m) - 1
+            la = m - lm
+            lb = k - lm
+            t = -rhs(k,nRHS)
+            rhs(lb:lb+lm-1,nRHS)=rhs(lb:lb+lm-1,nRHS)+t*abd(la:la+lm-1,k)
+         end do
+      end do
+
+   end subroutine solve_band_complex_rhs_multi
+!-----------------------------------------------------------------------------
+   subroutine prepare_band(abd,n,kl,ku,pivot,info)
+
+      !-- Input variables
+      integer, intent(in) :: n
+      integer, intent(in) :: kl, ku
+      real(cp), intent(inout) :: abd(2*kl+ku+1,n)
+
+      !-- Output variables
+      integer, intent(out) :: pivot(n)
+      integer, intent(out) :: info
+
+      !-- Local variables
+      real(cp) ::  t
+      integer :: i, i0, j, ju, jz, j0, j1, k, kp1, l, lm, m, mm, nm1
+
+      m = kl + ku + 1
+      info = 0
+
+      j0 = ku + 2
+      j1 = min(n,m) - 1
+      if ( j1 >= j0 ) then
+         do jz = j0, j1
+            i0 = m + 1 - jz
+            do i = i0, kl
+               abd(i,jz) = 0.0_cp
+            end do
+         end do
+      end if
+      jz = j1
+      ju = 0
+
+      !-- Gaussian elimination
+      nm1 = n - 1
+      if (nm1 >= 1) then
+         do k = 1, nm1
+            kp1 = k + 1
+
+            jz = jz + 1
+            if ( jz <= n .and. kl >= 1 ) then
+               do i = 1, kl
+                  abd(i,jz) = 0.0_cp
+               end do
+            end if
+
+            lm = min(kl,n-k)
+            !l = isamax(lm+1,abd(m,k)) + m - 1
+            l = maxloc(abs(abd(m:m+lm,k)),dim=1)+m-1
+
+            pivot(k) = l + k - m
+
+            if ( abs(abd(l,k)) > zero_tolerance ) then
+
+               if (l /= m) then
+                  t = abd(l,k)
+                  abd(l,k) = abd(m,k)
+                  abd(m,k) = t
+               end if
+
+               !-- Compute multipliers
+               t = -1.0_cp/abd(m,k)
+               abd(m+1:,k)=t*abd(m+1:,k)
+
+               !-- Row elimination
+               ju = min(max(ju,ku+pivot(k)),n)
+               mm = m
+               if ( ju >=  kp1 ) then
+                  do j = kp1, ju
+                     l = l - 1
+                     mm = mm - 1
+                     t = abd(l,j)
+                     if ( l /= mm) then
+                        abd(l,j) = abd(mm,j)
+                        abd(mm,j) = t
+                     end if
+                     abd(mm+1:mm+lm,j)=abd(mm+1:mm+lm,j)+t*abd(m+1:m+lm,k)
+                  end do
+               end if
+            else
+               info = k
+            end if
+         end do
+      end if
+
+      pivot(n) = n
+
+      if ( abs(abd(m,n)) <= zero_tolerance ) info = n
+
+   end subroutine prepare_band
+!-----------------------------------------------------------------------------
+   subroutine solve_tridiag_real_rhs(dl,d,du,du2,n,pivot,rhs)
+
+      !-- Input variables:
+      integer,  intent(in) :: n         ! dim of problem
+      integer,  intent(in) :: pivot(:)  ! pivot information
+      real(cp), intent(in) :: d(:)      ! Diagonal
+      real(cp), intent(in) :: dl(:)     ! Lower 
+      real(cp), intent(in) :: du(:)     ! Lower 
+      real(cp), intent(in) :: du2(:)    ! Upper
+
+      !-- Output: solution stored in rhs(n)
+      real(cp), intent(inout) :: rhs(:)
+
+      !-- Local variables
+      integer :: i, ip
+      real(cp) :: temp
+
+      !-- Solve L*x = rhs.
+      do i = 1, n-1
+         ip = pivot(i)
+         temp = rhs(i+1-ip+i)-dl(i)*rhs(ip)
+         rhs(i) = rhs(ip)
+         rhs(i+1) = temp
+      end do
+
+      !-- Solve U*x = rhs.
+      rhs(n) = rhs(n)/d(n)
+      rhs(n-1) = (rhs(N-1)-du(n-1)*rhs(n)) / d(n-1)
+      do  i = n-2,1,-1
+         rhs(i) = (rhs(i)-du(i)*rhs(i+1)-du2(i)*rhs(i+2)) / d(i)
+      end do
+
+   end subroutine solve_tridiag_real_rhs
+!-----------------------------------------------------------------------------
+   subroutine solve_tridiag_complex_rhs(dl,d,du,du2,n,pivot,rhs)
+
+      !-- Input variables:
+      integer,  intent(in) :: n         ! dim of problem
+      integer,  intent(in) :: pivot(:)  ! pivot information
+      real(cp), intent(in) :: d(:)      ! Diagonal
+      real(cp), intent(in) :: dl(:)     ! Lower 
+      real(cp), intent(in) :: du(:)     ! Lower 
+      real(cp), intent(in) :: du2(:)    ! Upper
+
+      !-- Output: solution stored in rhs(n)
+      complex(cp), intent(inout) :: rhs(:)
+
+      !-- Local variables
+      integer :: i, ip
+      complex(cp) :: temp
+
+      !-- Solve L*x = rhs.
+      do i = 1, n-1
+         ip = pivot(i)
+         temp = rhs(i+1-ip+i)-dl(i)*rhs(ip)
+         rhs(i) = rhs(ip)
+         rhs(i+1) = temp
+      end do
+
+      !-- Solve U*x = rhs.
+      rhs(n) = rhs(n)/d(n)
+      rhs(n-1) = (rhs(N-1)-du(n-1)*rhs(n)) / d(n-1)
+      do  i = n-2,1,-1
+         rhs(i) = (rhs(i)-du(i)*rhs(i+1)-du2(i)*rhs(i+2)) / d(i)
+      end do
+
+   end subroutine solve_tridiag_complex_rhs
+!-----------------------------------------------------------------------------
+   subroutine solve_tridiag_complex_rhs_multi(dl,d,du,du2,n,pivot,rhs,nRHSs)
+
+      !-- Input variables:
+      integer,  intent(in) :: n         ! dim of problem
+      integer,  intent(in) :: pivot(:)  ! pivot information
+      real(cp), intent(in) :: d(:)      ! Diagonal
+      real(cp), intent(in) :: dl(:)     ! Lower 
+      real(cp), intent(in) :: du(:)     ! Lower 
+      real(cp), intent(in) :: du2(:)    ! Upper
+      integer,  intent(in) :: nRHSs     ! Number of right-hand side
+
+      !-- Output: solution stored in rhs(n)
+      complex(cp), intent(inout) :: rhs(:,:)
+
+      !-- Local variables
+      integer :: i, nRHS
+      complex(cp) :: temp
+
+      do nRHS = 1, nRHSs
+         !-- Solve L*x = rhs.
+         do i = 1, n-1
+            if ( pivot(i) == i ) then
+               rhs(i+1,nRHS) = rhs(i+1,nRHS) - dl(i)*rhs(i,nRHS)
+            else
+               temp = rhs(i,nRHS)
+               rhs(i,nRHS) = rhs(i+1,nRHS)
+               rhs(i+1,nRHS) = temp - dl(i)*RHS(i,nRHS)
+            end if
+         end do
+
+         !-- Solve U*x = rhs.
+         rhs(n,nRHS) = rhs(n,nRHS)/d(n)
+         rhs(n-1,nRHS) = (rhs(n-1,nRHS)-du(n-1)*rhs(n,nRHS))/d(n-1)
+         do i = n-2,1,-1
+            rhs(i,nRHS) = (rhs(i,nRHS)-du(i)*rhs(i+1,nRHS)-du2(i)* &
+            &              rhs(i+2,nRHS))/d(i)
+         end do
+      end do
+
+   end subroutine solve_tridiag_complex_rhs_multi
+!-----------------------------------------------------------------------------
+   subroutine prepare_tridiag(dl,d,du,du2,n,pivot,info)
+
+      !-- Input variable
+      integer, intent(in) :: n
+
+      !-- In/out variables:
+      real(cp), intent(inout) :: d(:)
+      real(cp), intent(inout) :: dl(:)
+      real(cp), intent(inout) :: du(:)
+
+      !-- Output variables
+      integer,  intent(out) :: info
+      integer,  intent(out) :: pivot(:)
+      real(cp), intent(out) :: du2(:)
+
+      !-- Local variables
+      integer :: i
+      real(cp) :: fact, temp
+
+      info = 0
+      !-- Initialize pivot(i) = i and du2(I) = 0
+      do i = 1, n
+         pivot(i) = i
+      end do
+
+      du2(:) = 0.0_cp
+      do i = 1, n-2
+         if ( abs(d(i)) >= abs(dl(i))) then
+            !-- No row interchange required, eliminate DL(I)
+            if ( d(i) > zero_tolerance ) then
+               fact = dl(i)/d(i)
+               dl(i) = fact
+               d(i+1) = d(i+1) - fact*du(i)
+            end if
+         else
+            !-- Interchange rows I and I+1, eliminate DL(I)
+            fact = d(i)/dl(i)
+            d(i) = dl(i)
+            dl(i) = fact
+            temp = du(i)
+            du(i) = d(i+1)
+            d(i+1) = temp - fact*d(i+1)
+            du2(i) = du(i+1)
+            du(i+1) = -fact*du(i+1)
+            pivot(i) = i + 1
+         end if
+      end do
+
+      i = n - 1
+      if ( abs(d(i)) >= abs(dl(i)) ) then
+         if ( d(i) > zero_tolerance ) then
+            fact = dl(i)/d(i)
+            dl(i) = fact
+            d(i+1) = d(i+1) - fact*du(i)
+         end if
+      else
+         fact = d(i) / dl(i)
+         d(i) = dl(i)
+         dl(i) = fact
+         temp = du(i)
+         du(i) = d(i+1)
+         d(i+1) = temp - fact*d(i+1)
+         pivot(i) = i + 1
+      end if
+
+      !-- Check for a zero on the diagonal of u.
+      outer: do i = 1, n
+         if ( d(i) <= zero_tolerance ) then
+            info = i
+            exit outer
+         end if
+      end do outer
+
+   end subroutine prepare_tridiag
 !-----------------------------------------------------------------------------
 end module algebra
