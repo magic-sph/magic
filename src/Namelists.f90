@@ -432,6 +432,8 @@ contains
          l_single_matrix    = .true.
       end if
 
+      if ( l_finite_diff ) l_single_matrix = .false.
+
       if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
 
       call capitalize(interior_model)
