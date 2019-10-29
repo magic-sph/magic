@@ -14,7 +14,7 @@ module updateB_mod
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
        &                       or1, cheb_ic, dcheb_ic,rscheme_oc
-   use radial_data, only: n_r_cmb,n_r_icb
+   use radial_data, only: n_r_cmb, n_r_icb
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
@@ -22,7 +22,7 @@ module updateB_mod
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-       &            l_b_nl_cmb, l_update_b, l_RMS
+       &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
@@ -33,6 +33,9 @@ module updateB_mod
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_dr, get_ddr
    use useful, only: abortRun
+   use dense_matrices
+   use band_matrices
+   use real_matrices
 
    implicit none
 
@@ -42,10 +45,7 @@ module updateB_mod
    complex(cp), allocatable :: workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
-   real(cp), allocatable :: bMat(:,:,:)
-   real(cp), allocatable :: jMat(:,:,:)
-   integer, allocatable :: bPivot(:,:)
-   integer, allocatable :: jPivot(:,:)
+   class(type_realmat), pointer :: bMat(:), jMat(:)
 #ifdef WITH_PRECOND_BJ
    real(cp), allocatable :: bMat_fac(:,:)
    real(cp), allocatable :: jMat_fac(:,:)
@@ -59,17 +59,43 @@ contains
    subroutine initialize_updateB
 
       integer, pointer :: nLMBs2(:)
-      integer :: maxThreads
+      integer :: maxThreads, ll, n_bandsJ, n_bandsB
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      allocate( bMat(n_r_tot,n_r_tot,nLMBs2(1+rank)) )
-      allocate( jMat(n_r_tot,n_r_totMag,nLMBs2(1+rank)) )
-      bytes_allocated = bytes_allocated+(2*n_r_tot*n_r_tot*nLMBs2(1+rank)) &
-      &                 *SIZEOF_DEF_REAL
-      allocate( bPivot(n_r_tot,nLMBs2(1+rank)) )
-      allocate( jPivot(n_r_tot,nLMBs2(1+rank)) )
-      bytes_allocated = bytes_allocated+2*n_r_tot*nLMBs2(1+rank)*SIZEOF_INTEGER
+      if ( l_finite_diff .and. (.not. l_cond_ic) ) then
+         allocate( type_bandmat :: jMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
+
+         if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
+         &    rscheme_oc%order  > 2 .or. rscheme_oc%order_boundary > 2 ) then
+            !-- Perfect conductor or conducting mantle
+            n_bandsJ = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+         else
+            n_bandsJ = rscheme_oc%order+1
+         end if
+
+         if ( conductance_ma /= 0 ) then
+            !-- Second derivative on the boundary
+            n_bandsB = max(2*rscheme_oc%order_boundary+3,rscheme_oc%order+1)
+         else
+            n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+         end if
+
+         !print*, 'J, B', n_bandsJ, n_bandsB
+         do ll=1,nLMBs2(1+rank)
+            call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
+            call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
+         end do
+      else
+         allocate( type_densemat :: jMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: bMat(nLMBs2(1+rank)) )
+
+         do ll=1,nLMBs2(1+rank)
+            call bMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
+            call jMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
+         end do
+      end if
 
 #ifdef WITH_PRECOND_BJ
       allocate(bMat_fac(n_r_tot,nLMBs2(1+rank)))
@@ -105,7 +131,17 @@ contains
 !-----------------------------------------------------------------------------
    subroutine finalize_updateB
 
-      deallocate( bMat, jMat, bPivot, jPivot, lBmat )
+      integer, pointer :: nLMBs2(:)
+      integer :: ll
+
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+
+      do ll=1,nLMBs2(1+rank)
+         call jMat(ll)%finalize()
+         call bMat(ll)%finalize()
+      end do
+
+      deallocate( lBmat )
 
 #ifdef WITH_PRECOND_BJ
       deallocate(bMat_fac,jMat_fac)
@@ -190,7 +226,6 @@ contains
       integer :: nLMB2, nLMB
       integer :: n_r_out             ! No of cheb polynome (degree+1)
       integer :: nR                  ! No of radial grid point
-      integer :: n_r_real            ! total number of used grid points
       integer :: n_r_top,n_r_bot
 
       complex(cp) :: fac
@@ -218,9 +253,6 @@ contains
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-
-      n_r_real=n_r_max
-      if ( l_cond_ic ) n_r_real=n_r_max+n_r_ic_max
 
       nLMB=1+rank
       lmStart_00=max(2,llmMag)
@@ -268,13 +300,12 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),                   &
-                    &        bMat(:,:,nLMB2),bPivot(:,nLMB2),bMat_fac(:,nLMB2),&
-                    &        jMat(:,:,nLMB2),jPivot(:,nLMB2),jMat_fac(:,nLMB2))
+               call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),   &
+                    &        bMat(nLMB2),bMat_fac(:,nLMB2),    &
+                    &        jMat(nLMB2),jMat_fac(:,nLMB2))
 #else
                call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),   &
-                    &        bMat(:,:,nLMB2),bPivot(:,nLMB2),  &
-                    &        jMat(:,:,nLMB2),jPivot(:,nLMB2) )
+                    &        bMat(nLMB2),jMat(nLMB2))
 #endif
                lBmat(l1)=.true.
             end if
@@ -307,7 +338,7 @@ contains
                      rhs1(1,lmB,threadid) =  b_nl_cmb(st_map%lm2(l1,m1))
                      rhs2(1,lmB,threadid) = aj_nl_cmb(st_map%lm2(l1,m1))
                   else
-                     rhs1(1,lmB,threadid) = 0.0_cp
+                     rhs1(1,lmB,threadid)=0.0_cp
                      rhs2(1,lmB,threadid) = 0.0_cp
                   end if
 
@@ -354,8 +385,6 @@ contains
                         rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)
 
                      end if
-
-
 
                      if ( n_imp > 1 .and. l1 == l_imp ) then
                          if ( l_LCR ) then
@@ -468,12 +497,14 @@ contains
                            dbdt_ic=fac*b_ic(lm1,nR)
                            djdt_ic=fac*aj_ic(lm1,nR)
                         end if
-                        rhs1(n_r_max+nR,lmB,threadid)=                 &
-                        &      ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) ) &
-                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * b_ic(lm1,nR)
-                        rhs2(n_r_max+nR,lmB,threadid)=                 &
-                        &      ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) ) &
-                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * aj_ic(lm1,nR)
+                        rhs1(n_r_max+nR,lmB,threadid)=                    &
+                        &      ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) )    &
+                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) *&
+                        &       b_ic(lm1,nR)
+                        rhs2(n_r_max+nR,lmB,threadid)=                    &
+                        &      ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) )    & 
+                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) *&
+                        &       aj_ic(lm1,nR)
 
                         !--------- Store the IC non-linear terms for the usage below:
                         dbdt_icLast(lm1,nR)=dbdt_ic
@@ -496,10 +527,8 @@ contains
 #endif
 
                !LIKWID_ON('upB_sol')
-               call solve_mat(bMat(:,:,nLMB2),n_r_tot,n_r_real, &
-                    &         bPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
-               call solve_mat(jMat(:,:,nLMB2),n_r_tot,n_r_real, &
-                    &         jPivot(:,nLMB2),rhs2(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call bMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call jMat(nLMB2)%solve(rhs2(:,lmB0+1:lmB,threadid),lmB-lmB0)
                !LIKWID_OFF('upB_sol')
             end if
 
@@ -533,8 +562,8 @@ contains
                      end do
                      if ( l_cond_ic ) then   ! inner core
                         do n_r_out=1,n_cheb_ic_max
-                           b_ic(lm1,n_r_out) = rhs1(n_r_max+n_r_out,lmB,threadid)
-                           aj_ic(lm1,n_r_out)= rhs2(n_r_max+n_r_out,lmB,threadid)
+                           b_ic(lm1,n_r_out) =rhs1(n_r_max+n_r_out,lmB,threadid)
+                           aj_ic(lm1,n_r_out)=rhs2(n_r_max+n_r_out,lmB,threadid)
                         end do
                      end if
                   else
@@ -731,9 +760,9 @@ contains
    end subroutine updateB
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_BJ
-   subroutine get_bMat(dt,l,hdif,bMat,bPivot,bMat_fac,jMat,jPivot,jMat_fac)
+   subroutine get_bMat(dt,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
 #else
-   subroutine get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
+   subroutine get_bMat(dt,l,hdif,bMat,jMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -746,10 +775,8 @@ contains
       real(cp), intent(in) :: hdif
 
       !-- Output variables:
-      real(cp), intent(out) :: bMat(n_r_totMag,n_r_totMag)
-      integer,  intent(out) :: bPivot(n_r_totMag)
-      real(cp), intent(out) :: jMat(n_r_totMag,n_r_totMag)
-      integer,  intent(out) :: jPivot(n_r_totMag)
+      class(type_realmat), intent(inout) :: bMat
+      class(type_realmat), intent(inout) :: jMat
 #ifdef WITH_PRECOND_BJ
       real(cp), intent(out) :: bMat_fac(n_r_totMag),jMat_fac(n_r_totMag)
 #endif
@@ -760,6 +787,8 @@ contains
       real(cp) :: l_P_1
       real(cp) :: O_dt,dLh
       real(cp) :: rRatio
+      real(cp) :: datJmat(n_r_tot,n_r_tot)
+      real(cp) :: datBmat(n_r_tot,n_r_tot)
 
 #undef MATRIX_CHECK
 #ifdef MATRIX_CHECK
@@ -781,19 +810,17 @@ contains
       !-- matricies depend on degree l but not on order m,
       !   we thus have to construct bmat and ajmat for each l:
 
-      !-- do loop limits introduced to get rid of compiler warning !
-
       l_P_1=real(l+1,kind=cp)
 
-      do nR=2,n_r_max-1
-         do nR_out=1,n_r_max
-            bMat(nR,nR_out)=                       rscheme_oc%rnorm * (     &
+      do nR_out=1,n_r_max
+         do nR=2,n_r_max-1
+            datBmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
             &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
             &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
             &                                rscheme_oc%d2rMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
 
-            jMat(nR,nR_out)=                       rscheme_oc%rnorm * (     &
+            datJmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
             &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
             &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
             &                                rscheme_oc%d2rMat(nR,nR_out) + &
@@ -806,141 +833,141 @@ contains
          do nR=2,n_r_max-1
             if ( nR<=n_r_LCR ) then
                do nR_out=1,n_r_max
-                  bMat(nR,nR_out)= rscheme_oc%rnorm*(                       &
+                  datBmat(nR,nR_out)= rscheme_oc%rnorm*(                    &
                   &                           rscheme_oc%drMat(nR,nR_out) + &
                   &    real(l,kind=cp)*or1(nR)*rscheme_oc%rMat(nR,nR_out) )
 
-                  jMat(nR,nR_out)= rscheme_oc%rnorm*rscheme_oc%rMat(nR,nR_out)
+                  datJmat(nR,nR_out)= rscheme_oc%rnorm*rscheme_oc%rMat(nR,nR_out)
                end do
             end if
          end do
       end if
 
       !----- boundary conditions for outer core field:
-      do nR_out=1,rscheme_oc%n_max
-
-         if ( ktopb == 1 .or. ktopb == 3 ) then
+      if ( ktopb == 1 .or. ktopb == 3 ) then
          !-------- at CMB (nR=1):
          !         the internal poloidal field should fit a potential
          !         field (matrix bmat) and the toroidal field has to
          !         vanish (matrix ajmat).
-            bMat(1,nR_out)=            rscheme_oc%rnorm * (     &
-            &                      rscheme_oc%drMat(1,nR_out) + &
-            &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,nR_out) + &
-            &                     conductance_ma* (             &
-            &                     rscheme_oc%d2rMat(1,nR_out) - &
-            &            dLh*or2(1)*rscheme_oc%rMat(1,nR_out) ) )
 
-            jMat(1,nR_out)=            rscheme_oc%rnorm * (     &
-            &                       rscheme_oc%rMat(1,nR_out) + &
-            &       conductance_ma*rscheme_oc%drMat(1,nR_out) )
-         else if ( ktopb == 2 ) then
-            call abortRun('! Boundary condition ktopb=2 not defined!')
-         else if ( ktopb == 4 ) then
+         datBmat(1,:)=            rscheme_oc%rnorm * (   &  
+         &                      rscheme_oc%drMat(1,:) +  &
+         &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
+         &                     conductance_ma* (         &
+         &                     rscheme_oc%d2rMat(1,:) -  &
+         &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
 
-            !----- pseudo vacuum condition, field has only
-            !      a radial component, horizontal components
-            !      vanish when aj and db are zero:
-            bMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
-            jMat(1,nR_out)=rscheme_oc%rnorm* rscheme_oc%rMat(1,nR_out)
+         datJmat(1,:)=            rscheme_oc%rnorm * (   &
+         &                       rscheme_oc%rMat(1,:) +  &
+         &       conductance_ma*rscheme_oc%drMat(1,:) )
+      else if ( ktopb == 2 ) then
+         call abortRun('! Boundary condition ktopb=2 not defined!')
+      else if ( ktopb == 4 ) then
+         !----- pseudo vacuum condition, field has only
+         !      a radial component, horizontal components
+         !      vanish when aj and db are zero:
+         datJmat(1,:)=rscheme_oc%rnorm* rscheme_oc%rMat(1,:)
+         datBmat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+      end if
+
+      !-------- at IC (nR=n_r_max):
+      if ( kbotb == 1 ) then
+         !----------- insulating IC, field has to fit a potential field:
+         datJmat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+
+         datBmat(n_r_max,:)=rscheme_oc%rnorm * (              &
+         &                      rscheme_oc%drMat(n_r_max,:) - &
+         &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
+      else if ( kbotb == 2 ) then
+         !----------- perfect conducting IC
+         datBmat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
+         datJmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
+      else if ( kbotb == 3 ) then
+         !---------- finite conducting IC, four boundary conditions:
+         !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
+         !           note: n_r=n_r_max and n_r=n_r_max+1 stand for IC radius
+         !           here we set the outer core part of the equations.
+         !           the conductivity ratio sigma_ratio is used as
+         !           an additional dimensionless parameter.
+         datBmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
+         datBmat(n_r_max+1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         datJmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
+         datJmat(n_r_max+1,:)=rscheme_oc%rnorm*sigma_ratio* &
+         &                      rscheme_oc%drMat(n_r_max,:)
+      else if ( kbotb == 4 ) then
+         !----- Pseudovacuum conduction at lower boundary:
+         datJmat(n_r_max,:)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         datBmat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      end if
+
+      !-------- Imposed fields: (overwrites above IC boundary cond.)
+      if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
+         datBmat(n_r_max,:)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
+      else if ( l == 3 .and. imagcon == -10 ) then
+         if ( l_LCR ) then
+            call abortRun('Imposed field not compatible with weak conducting region!')
          end if
-
-         !-------- at IC (nR=n_r_max):
-         if ( kbotb == 1 ) then
-            !----------- insulating IC, field has to fit a potential field:
-            bMat(n_r_max,nR_out)=rscheme_oc%rnorm * (                 &
-            &                      rscheme_oc%drMat(n_r_max,nR_out) - &
-            &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
-            jMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
-         else if ( kbotb == 2 ) then
-            !----------- perfect conducting IC
-            bMat(n_r_max-1,nR_out)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,nR_out)
-            jMat(n_r_max,nR_out)  =rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,nR_out)
-         else if ( kbotb == 3 ) then
-            !---------- finite conducting IC, four boundary conditions:
-            !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
-            !           note: n_r=n_r_max and n_r=n_r_max+1 stand for IC radius
-            !           here we set the outer core part of the equations.
-            !           the conductivity ratio sigma_ratio is used as
-            !           an additional dimensionless parameter.
-            bMat(n_r_max,nR_out)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,nR_out)
-            bMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
-            jMat(n_r_max,nR_out)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,nR_out)
-            jMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*sigma_ratio* &
-            &                      rscheme_oc%drMat(n_r_max,nR_out)
-         else if ( kbotb == 4 ) then
-            !----- Pseudovacuum conduction at lower boundary:
-            bMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
-            jMat(n_r_max,nR_out)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
-            end if
-
-         !-------- Imposed fields: (overwrites above IC boundary cond.)
-         if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-            bMat(n_r_max,nR_out)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,nR_out)
-         else if ( l == 3 .and. imagcon == -10 ) then
-            if ( l_LCR ) then
-               call abortRun('Imposed field not compatible with weak conducting region!')
-            end if
-            jMat(1,nR_out)      =  rscheme_oc%rnorm * rscheme_oc%rMat(1,nR_out)
-            jMat(n_r_max,nR_out)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,nR_out)
-         else if ( n_imp == 1 ) then
-            !-- This is the Uli Christensen idea where the external field is
-            !   not fixed but compensates the internal field so that the
-            !   radial field component vanishes at r/r_cmb=rrMP
-            if ( l_LCR ) then
-               call abortRun('Imposed field not compatible with weak conducting region!')
-            end if
-            rRatio=rrMP**real(2*l+1,kind=cp)
-            bMat(1,nR_out)=            rscheme_oc%rnorm * (     &
-            &                      rscheme_oc%drMat(1,nR_out) + &
-            &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,nR_out) - &
-            &    real(2*l+1,cp)*or1(1)/(1-rRatio) +             &
-            &                     conductance_ma* (             &
-            &                     rscheme_oc%d2rMat(1,nR_out) - &
-            &            dLh*or2(1)*rscheme_oc%rMat(1,nR_out) ) )
+         datJmat(1,:)      =rscheme_oc%rnorm * rscheme_oc%rMat(1,:)
+         datJmat(n_r_max,:)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
+      else if ( n_imp == 1 ) then
+         !-- This is Uli Christensen's idea where the external field is
+         !   not fixed but compensates the internal field so that the
+         !   radial field component vanishes at r/r_cmb=rrMP
+         if ( l_LCR ) then
+            call abortRun('Imposed field not compatible with weak conducting region!')
          end if
+         rRatio=rrMP**real(2*l+1,kind=cp)
 
-      end do ! loop over cheb modes !
+         datBmat(1,:)=        rscheme_oc%rnorm * (        &
+         &                      rscheme_oc%drMat(1,:) +   &
+         &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) -   &
+         &    real(2*l+1,cp)*or1(1)/(1-rRatio) +          &
+         &                     conductance_ma* (          &
+         &                     rscheme_oc%d2rMat(1,:) -   &
+         &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
+      end if
 
       !----- fill up with zeros:
       do nR_out=rscheme_oc%n_max+1,n_r_max
-         bMat(1,nR_out)=0.0_cp
-         jMat(1,nR_out)=0.0_cp
+         datBmat(1,nR_out)=0.0_cp
+         datJmat(1,nR_out)=0.0_cp
          if ( l_LCR ) then
             do nR=2,n_r_LCR
-               bMat(nR,nR_out)=0.0_cp
-               jMat(nR,nR_out)=0.0_cp
+               datBmat(nR,nR_out)=0.0_cp
+               datJmat(nR,nR_out)=0.0_cp
             end do
          end if
          if ( kbotb == 1 ) then
-            bMat(n_r_max,nR_out)  =0.0_cp
-            jMat(n_r_max,nR_out)  =0.0_cp
+            datBmat(n_r_max,nR_out)  =0.0_cp
+            datJmat(n_r_max,nR_out)  =0.0_cp
          else if ( kbotb == 2 ) then
-            bMat(n_r_max-1,nR_out)=0.0_cp
-            jMat(n_r_max,nR_out)  =0.0_cp
+            datBmat(n_r_max-1,nR_out)=0.0_cp
+            datJmat(n_r_max,nR_out)  =0.0_cp
          else if ( kbotb == 3 ) then
-            bMat(n_r_max,nR_out)  =0.0_cp
-            bMat(n_r_max+1,nR_out)=0.0_cp
-            jMat(n_r_max,nR_out)  =0.0_cp
-            jMat(n_r_max+1,nR_out)=0.0_cp
+            datBmat(n_r_max,nR_out)  =0.0_cp
+            datBmat(n_r_max+1,nR_out)=0.0_cp
+            datJmat(n_r_max,nR_out)  =0.0_cp
+            datJmat(n_r_max+1,nR_out)=0.0_cp
          else if ( kbotb == 4 ) then
-            bMat(n_r_max,nR_out)  =0.0_cp
-            jMat(n_r_max,nR_out)  =0.0_cp
+            datBmat(n_r_max,nR_out)  =0.0_cp
+            datJmat(n_r_max,nR_out)  =0.0_cp
          end if
       end do
 
       !----- normalization for highest and lowest Cheb mode:
       do nR=1,n_r_max
-         bMat(nR,1)      =rscheme_oc%boundary_fac*bMat(nR,1)
-         bMat(nR,n_r_max)=rscheme_oc%boundary_fac*bMat(nR,n_r_max)
-         jMat(nR,1)      =rscheme_oc%boundary_fac*jMat(nR,1)
-         jMat(nR,n_r_max)=rscheme_oc%boundary_fac*jMat(nR,n_r_max)
+         datBmat(nR,1)      =rscheme_oc%boundary_fac*datBmat(nR,1)
+         datBmat(nR,n_r_max)=rscheme_oc%boundary_fac*datBmat(nR,n_r_max)
+         datJmat(nR,1)      =rscheme_oc%boundary_fac*datJmat(nR,1)
+         datJmat(nR,n_r_max)=rscheme_oc%boundary_fac*datJmat(nR,n_r_max)
       end do
       if ( kbotb == 3 ) then
-         bMat(n_r_max+1,1)=rscheme_oc%boundary_fac*bMat(n_r_max+1,1)
-         bMat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac*bMat(n_r_max+1,n_r_max)
-         jMat(n_r_max+1,1)=rscheme_oc%boundary_fac*jMat(n_r_max+1,1)
-         jMat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac*jMat(n_r_max+1,n_r_max)
+         datBmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datBmat(n_r_max+1,1)
+         datBmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
+         &                          datBmat(n_r_max+1,n_r_max)
+         datJmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datJmat(n_r_max+1,1)
+         datJmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
+         &                          datJmat(n_r_max+1,n_r_max)
       end if
 
       !----- Conducting inner core:
@@ -955,64 +982,64 @@ contains
                !            where cheb_ic are even chebs only.
                !            NOTE: no hyperdiffusion in inner core !
 
-               bMat(n_r_max+nR,n_r_max+nCheb) =       &
+               datBmat(n_r_max+nR,n_r_max+nCheb) =    &
                &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
                &             O_dt*cheb_ic(nCheb,nR) - &
                &                   alpha*opm*O_sr * ( &
                &                d2cheb_ic(nCheb,nR) + &
                &    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
 
-               jMat(n_r_max+nR,n_r_max+nCheb)=bMat(n_r_max+nR,n_r_max+nCheb)
+               datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)
             end do
 
             !----- Special treatment for r=0, asymptotic of 1/r dr
             nR=n_r_ic_max
-            bMat(n_r_max+nR,n_r_max+nCheb) =       &
+            datBmat(n_r_max+nR,n_r_max+nCheb) =    &
             &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
             &             O_dt*cheb_ic(nCheb,nR) - &
             &                     alpha*opm*O_sr * &
             &    (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
 
-            jMat(n_r_max+nR,n_r_max+nCheb)=bMat(n_r_max+nR,n_r_max+nCheb)
+            datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)
          end do
 
          !-------- boundary condition at r_icb:
          do nCheb=1,n_cheb_ic_max
-            bMat(n_r_max,n_r_max+nCheb)=-cheb_norm_ic*cheb_ic(nCheb,1)
-            bMat(n_r_max+1,n_r_max+nCheb)=             &
-            &    -cheb_norm_ic * ( dcheb_ic(nCheb,1) + &
+            datBmat(n_r_max,n_r_max+nCheb)=-cheb_norm_ic*cheb_ic(nCheb,1)
+            datBmat(n_r_max+1,n_r_max+nCheb)=              &
+            &    -cheb_norm_ic * ( dcheb_ic(nCheb,1) +     &
             &    l_P_1*or1(n_r_max)*cheb_ic(nCheb,1) )
-            jMat(n_r_max,n_r_max+nCheb)=bMat(n_r_max,n_r_max+nCheb)
-            jMat(n_r_max+1,n_r_max+nCheb)=bMat(n_r_max+1,n_r_max+nCheb)
+            datJmat(n_r_max,n_r_max+nCheb)  =datBmat(n_r_max,n_r_max+nCheb)
+            datJmat(n_r_max+1,n_r_max+nCheb)=datBmat(n_r_max+1,n_r_max+nCheb)
          end do ! cheb modes
 
          !-------- fill with zeros:
          do nCheb=n_cheb_ic_max+1,n_r_ic_max
-            bMat(n_r_max,n_r_max+nCheb)  =0.0_cp
-            bMat(n_r_max+1,n_r_max+nCheb)=0.0_cp
-            jMat(n_r_max,n_r_max+nCheb)  =0.0_cp
-            jMat(n_r_max+1,n_r_max+nCheb)=0.0_cp
+            datBmat(n_r_max,n_r_max+nCheb)  =0.0_cp
+            datBmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
+            datJmat(n_r_max,n_r_max+nCheb)  =0.0_cp
+            datJmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
          end do
 
          !-------- normalization for lowest Cheb mode:
          do nR=n_r_max,n_r_tot
-            bMat(nR,n_r_max+1)=half*bMat(nR,n_r_max+1)
-            jMat(nR,n_r_max+1)=half*jMat(nR,n_r_max+1)
-            bMat(nR,n_r_tot)  =half*bMat(nR,n_r_tot)
-            jMat(nR,n_r_tot)  =half*jMat(nR,n_r_tot)
+            datBmat(nR,n_r_max+1)=half*datBmat(nR,n_r_max+1)
+            datJmat(nR,n_r_max+1)=half*datJmat(nR,n_r_max+1)
+            datBmat(nR,n_r_tot)  =half*datBmat(nR,n_r_tot)
+            datJmat(nR,n_r_tot)  =half*datJmat(nR,n_r_tot)
          end do
 
          !-------- fill matricies up with zeros:
          do nCheb=n_r_max+1,n_r_tot
             do nR=1,n_r_max-1
-               bMat(nR,nCheb)=0.0_cp
-               jMat(nR,nCheb)=0.0_cp
+               datBmat(nR,nCheb)=0.0_cp
+               datJmat(nR,nCheb)=0.0_cp
             end do
          end do
          do nCheb=1,n_r_max
             do nR=n_r_max+2,n_r_tot
-               bMat(nR,nCheb)=0.0_cp
-               jMat(nR,nCheb)=0.0_cp
+               datBmat(nR,nCheb)=0.0_cp
+               datJmat(nR,nCheb)=0.0_cp
             end do
          end do
 
@@ -1021,12 +1048,12 @@ contains
 #ifdef WITH_PRECOND_BJ
       ! compute the linesum of each line
       do nR=1,nRall
-         bMat_fac(nR)=one/maxval(abs(bMat(nR,1:nRall)))
-         bMat(nR,:) = bMat(nR,:)*bMat_fac(nR)
+         bMat_fac(nR)=one/maxval(abs(datBmat(nR,1:nRall)))
+         datBmat(nR,:) = datBmat(nR,:)*bMat_fac(nR)
       end do
       do nR=1,nRall
-         jMat_fac(nR)=one/maxval(abs(jMat(nR,1:nRall)))
-         jMat(nR,:) = jMat(nR,:)*jMat_fac(nR)
+         jMat_fac(nR)=one/maxval(abs(datJmat(nR,1:nRall)))
+         datJmat(nR,:) = datJmat(nR,:)*jMat_fac(nR)
       end do
 #endif
 
@@ -1038,12 +1065,12 @@ contains
 
       do i=1,n_r_tot
          do j=1,n_r_tot
-            write(filehandle,"(2ES20.12,1X)",advance="no") bMat(i,j)
+            write(filehandle,"(2ES20.12,1X)",advance="no") datBmat(i,j)
          end do
          write(filehandle,"(A)") ""
       end do
       close(filehandle)
-      temp_Mat=bMat
+      temp_Mat=datBmat
       anorm = 0.0_cp
       do i=1,n_r_tot
          linesum = 0.0_cp
@@ -1067,12 +1094,12 @@ contains
 
       do i=1,n_r_tot
          do j=1,n_r_tot
-            write(filehandle,"(2ES20.12,1X)",advance="no") jMat(i,j)
+            write(filehandle,"(2ES20.12,1X)",advance="no") datJmat(i,j)
          end do
          write(filehandle,"(A)") ""
       end do
       close(filehandle)
-      temp_Mat=jMat
+      temp_Mat=datJmat
       anorm = 0.0_cp
       do i=1,n_r_tot
          linesum = 0.0_cp
@@ -1089,18 +1116,18 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of jMat for l=",l," is ",rcond
 #endif
 
-      !----- LU decomposition:
-      call prepare_mat(bMat,n_r_tot,nRall,bPivot,info)
-
-      if ( info /= 0 ) then
-         call abortRun('Singular matrix bMat in get_bmat')
-      end if
+      !-- Array copy
+      call bMat%set_data(datBmat)
+      call jMat%set_data(datJmat)
 
       !----- LU decomposition:
-      call prepare_mat(jMat,n_r_tot,nRall,jPivot,info)
-      if ( info /= 0 ) then
-         call abortRun('! Singular matrix ajmat in get_bmat!')
-      end if
+      call bMat%prepare(info)
+
+      if ( info /= 0 ) call abortRun('Singular matrix bMat in get_bmat')
+
+      !----- LU decomposition:
+      call jMat%prepare(info)
+      if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
 
    end subroutine get_bMat
 !-----------------------------------------------------------------------------

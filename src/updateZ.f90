@@ -15,7 +15,7 @@ module updateZ_mod
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
-       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO
+       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO, l_finite_diff
    use RMS, only: DifTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
@@ -30,6 +30,9 @@ module updateZ_mod
    use fields, only: work_LMloc
    use useful, only: abortRun
    use special
+   use dense_matrices
+   use real_matrices
+   use band_matrices
 
    implicit none
 
@@ -38,16 +41,13 @@ module updateZ_mod
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: Dif(:)
-   real(cp), allocatable :: zMat(:,:,:)
-   real(cp), allocatable :: z10Mat(:,:)
+   class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
    real(cp), allocatable :: zMat_fac(:,:)
 #endif
 #ifdef WITH_PRECOND_Z10
    real(cp), allocatable :: z10Mat_fac(:)
 #endif
-   integer, allocatable :: z10Pivot(:)
-   integer, allocatable :: zPivot(:,:)
    logical, public :: lZ10mat
    logical, public, allocatable :: lZmat(:)
 
@@ -60,18 +60,35 @@ contains
    subroutine initialize_updateZ
 
       integer, pointer :: nLMBs2(:)
+      integer :: ll, n_bands
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      allocate( zMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
-      allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0
-      bytes_allocated = bytes_allocated+(n_r_max*n_r_max+ &
-      &                 n_r_max*n_r_max*nLMBs2(1+rank))*SIZEOF_DEF_REAL
+      if ( l_finite_diff ) then
+         allocate( type_bandmat :: zMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: z10Mat )
 
-      allocate( z10Pivot(n_r_max) )
-      allocate( zPivot(n_r_max,nLMBs2(1+rank)) )
-      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*nLMBs2(1+rank))*&
-      &                 SIZEOF_INTEGER
+         if ( ktopv /= 1 .and. kbotv /= 1 .and. rscheme_oc%order <= 2  .and. &
+         &    rscheme_oc%order_boundary <= 2 ) then ! Rigid at both boundaries
+            n_bands = rscheme_oc%order+1
+         else
+            n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+         end if
+
+         !print*, 'Z', n_bands
+         call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+         do ll=1,nLMBs2(1+rank)
+            call zMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+         end do
+      else
+         allocate( type_densemat :: zMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: z10Mat )
+
+         call z10Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+         do ll=1,nLMBs2(1+rank)
+            call zMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
+         end do
+      end if
 
 #ifdef WITH_PRECOND_Z10
       allocate(z10Mat_fac(n_r_max))
@@ -103,7 +120,16 @@ contains
 !-------------------------------------------------------------------------------
    subroutine finalize_updateZ
 
-      deallocate( z10Mat, zMat, z10Pivot, zPivot, lZmat )
+      integer, pointer :: nLMBs2(:)
+      integer :: ll
+
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+
+      do ll=1,nLMBs2(1+rank)
+         call zMat(ll)%finalize()
+      end do
+      call z10Mat%finalize()
+
 #ifdef WITH_PRECOND_Z10
       deallocate( z10Mat_fac )
 #endif
@@ -233,10 +259,10 @@ contains
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(:,:,nLMB2),zPivot(:,nLMB2),zMat_fac(:,nLMB2))
+                    &        zMat(nLMB2),zMat_fac(:,nLMB2))
 #else
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(:,:,nLMB2),zPivot(:,nLMB2))
+                    &        zMat(nLMB2))
 #endif
                lZmat(l1)=.true.
             !write(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
@@ -279,11 +305,11 @@ contains
 #ifdef WITH_PRECOND_Z10
                      call get_z10Mat(dt,l1,                                   &
                           &          hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                          &          z10Mat,z10Pivot,z10Mat_fac)
+                          &          z10Mat,z10Mat_fac)
 #else
                      call get_z10Mat(dt,l1,hdif_V(                     &
                           &          st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                          &          z10Mat,z10Pivot)
+                          &          z10Mat)
 #endif
                      lZ10mat=.true.
                   end if
@@ -316,7 +342,6 @@ contains
                      rhs(n_r_max)=0.0_cp
                   end if
 
-
                   !----- This is the normal RHS for the other radial grid points:
                   do nR=2,n_r_max-1
                      rhs(nR)=O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
@@ -324,10 +349,9 @@ contains
                      &       w2*dzdtLast(lm1,nR)
                   end do
 
+
 #ifdef WITH_PRECOND_Z10
-                  do nR=1,n_r_max
-                     rhs(nR) = z10Mat_fac(nR)*rhs(nR)
-                  end do
+                  rhs(:) = z10Mat_fac(:)*rhs(:)
 #endif
                   if ( DEBUG_OUTPUT ) then
                      rhs_sum=sum(rhs)
@@ -342,7 +366,7 @@ contains
                      !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
                      !end do
                   end if
-                  call solve_mat(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
+                  call z10Mat%solve(rhs)
                   if ( DEBUG_OUTPUT ) then
                      !do nR=1,n_r_max
                      !   write(*,"(3I4,A,2(I4,F20.16))")                        &
@@ -384,7 +408,6 @@ contains
                      end if
                   end if
 
-
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=O_dt*dLh(st_map%lm2(lm2l(lm1),  &
                      &                     lm2m(lm1)))*or2(nR)*z(lm1,nR) + &
@@ -394,19 +417,20 @@ contains
                         rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+prec_fac* &
                         &    cmplx(sin(oek*time),-cos(oek*time),kind=cp)
                      end if
+                  end do
 
 #ifdef WITH_PRECOND_Z
+                  do nR=1,n_r_max
                      rhs1(nR,lmB,threadid)=zMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
-#endif
                   end do
+#endif
                   !PERFOFF
                end if
             end do
 
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
-               call solve_mat(zMat(:,:,nLMB2),n_r_max,n_r_max, &
-                    &         zPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call zMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -591,16 +615,7 @@ contains
          n_r_top=n_r_cmb+1
          n_r_bot=n_r_icb-1
       end if
-      !if (DEBUG_OUTPUT) then
-      !   do nR=1,n_r_max
-      !      if ((nR == 1).or.(nR == 5)) then
-      !         do lm=llm,ulm
-      !            write(*,"(4X,A,2I3,4ES22.14)") "upZ_new: ",nR,lm,z(lm,nR),dz(lm,nR)
-      !         end do
-      !      end if
-      !      write(*,"(A,I3,4ES22.14)") "upZ_new: ",nR,get_global_SUM( z(:,nR) ),get_global_SUM( dz(:,nR) )
-      !   end do
-      !end if
+
       !-- Calculate explicit time step part:
       !$OMP PARALLEL default(shared) private(nR,lm1,Dif)
       !$OMP DO
@@ -670,9 +685,9 @@ contains
    end subroutine updateZ
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z10
-   subroutine get_z10Mat(dt,l,hdif,zMat,zPivot,zMat_fac)
+   subroutine get_z10Mat(dt,l,hdif,zMat,zMat_fac)
 #else
-   subroutine get_z10Mat(dt,l,hdif,zMat,zPivot)
+   subroutine get_z10Mat(dt,l,hdif,zMat)
 #endif
       !
       !  Purpose of this subroutine is to construct and LU-decompose the
@@ -688,8 +703,7 @@ contains
       integer,  intent(in) :: l       ! Variable to loop over l's
 
       !-- Output: z10Mat and pivot_z10
-      real(cp), intent(out) :: zMat(n_r_max,n_r_max) ! LHS matrix to calculate z
-      integer,  intent(out) :: zPivot(n_r_max)       ! Pivot to invert zMat
+      class(type_realmat), intent(inout) :: zMat
 #ifdef WITH_PRECOND_Z10
       real(cp), intent(out) :: zMat_fac(n_r_max)     ! Inverse of max(zMat) for inversion
 #endif
@@ -697,61 +711,64 @@ contains
       !-- local variables:
       integer :: nR,nR_out,info
       real(cp) :: O_dt,dLh
+      real(cp) :: dat(n_r_max,n_r_max)
 
       O_dt=one/dt
       dLh=real(l*(l+1),kind=cp)
 
       !-- Boundary conditions:
-      do nR_out=1,rscheme_oc%n_max
-         !----- CMB condition:
-         !        Note opposite sign of viscous torques (-dz+2 z /r )
-         !        for CMB and ICB!
+      !----- CMB condition:
+      !        Note opposite sign of viscous torques (-dz+2 z /r )
+      !        for CMB and ICB!
 
-         if ( ktopv == 1 ) then  ! free slip
-            zMat(1,nR_out)=                   rscheme_oc%rnorm *    &
-            &    ( (two*or1(1)+beta(1))*rscheme_oc%rMat(1,nR_out) - &
-            &                          rscheme_oc%drMat(1,nR_out) )
-         else if ( ktopv == 2 ) then ! no slip
-            if ( l_SRMA ) then
-               zMat(1,nR_out)= rscheme_oc%rnorm * c_z10_omega_ma* &
-               &               rscheme_oc%rMat(1,nR_out)
-            else if ( l_rot_ma ) then
-               zMat(1,nR_out)= rscheme_oc%rnorm *               (     &
-               &         c_dt_z10_ma*O_dt*rscheme_oc%rMat(1,nR_out) - &
-               &       alpha*( two*or1(1)*rscheme_oc%rMat(1,nR_out) - &
-               &                         rscheme_oc%drMat(1,nR_out) ) )
-            else
-               zMat(1,nR_out)= rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-            end if
+      if ( ktopv == 1 ) then  ! free slip
+         dat(1,:)=                   rscheme_oc%rnorm *     &
+         &    ( (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) - &
+         &                          rscheme_oc%drMat(1,:) )
+      else if ( ktopv == 2 ) then ! no slip
+         if ( l_SRMA ) then
+            dat(1,:)= rscheme_oc%rnorm * c_z10_omega_ma* &
+            &               rscheme_oc%rMat(1,:)
+         else if ( l_rot_ma ) then
+            dat(1,:)= rscheme_oc%rnorm *               (      &
+            &         c_dt_z10_ma*O_dt*rscheme_oc%rMat(1,:) - &
+            &       alpha*( two*or1(1)*rscheme_oc%rMat(1,:) - &
+            &                         rscheme_oc%drMat(1,:) ) )
+         else
+            dat(1,:)= rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
          end if
+      end if
 
-         !----- ICB condition:
-         if ( kbotv == 1 ) then  ! free slip
-            zMat(n_r_max,nR_out)=rscheme_oc%rnorm *               &
-            &            ( (two*or1(n_r_max)+beta(n_r_max))*      &
-            &                   rscheme_oc%rMat(n_r_max,nR_out) - &
-            &                  rscheme_oc%drMat(n_r_max,nR_out) )
-         else if ( kbotv == 2 ) then ! no slip
-            if ( l_SRIC ) then
-               zMat(n_r_max,nR_out)= rscheme_oc%rnorm * &
-               &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,nR_out)
-            else if ( l_rot_ic ) then     !  time integration of z10
-               zMat(n_r_max,nR_out)= rscheme_oc%rnorm *             (         &
-               &           c_dt_z10_ic*O_dt*rscheme_oc%rMat(n_r_max,nR_out) + &
-               &  alpha*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) - &
-               &                           rscheme_oc%drMat(n_r_max,nR_out) ) )
-            else
-               zMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
-               &                    rscheme_oc%rMat(n_r_max,nR_out)
-            end if
+      !----- ICB condition:
+      if ( kbotv == 1 ) then  ! free slip
+         dat(n_r_max,:)=rscheme_oc%rnorm *                  &
+         &            ( (two*or1(n_r_max)+beta(n_r_max))*   &
+         &                   rscheme_oc%rMat(n_r_max,:) -   &
+         &                  rscheme_oc%drMat(n_r_max,:) )
+      else if ( kbotv == 2 ) then ! no slip
+         if ( l_SRIC ) then
+            dat(n_r_max,:)= rscheme_oc%rnorm * &
+            &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:)
+         else if ( l_rot_ic ) then     !  time integration of z10
+            dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
+            &           c_dt_z10_ic*O_dt*rscheme_oc%rMat(n_r_max,:) + &
+            &  alpha*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
+            &                           rscheme_oc%drMat(n_r_max,:) ) )
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          end if
+      end if
 
+      !-- Fill up with zeros:
+      do nR_out=rscheme_oc%n_max+1,n_r_max
+         dat(1,nR_out)      =0.0_cp
+         dat(n_r_max,nR_out)=0.0_cp
       end do
 
       !----- Other points: (same as zMat)
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
-            zMat(nR,nR_out)=rscheme_oc%rnorm * (                        &
+            dat(nR,nR_out)=rscheme_oc%rnorm * (                         &
             &             O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
             &           alpha*hdif*dLh*visc(nR)*or2(nR) * (             &
             &                            rscheme_oc%d2rMat(nR,nR_out) + &
@@ -764,37 +781,32 @@ contains
 
       !-- Normalisation
       do nR=1,n_r_max
-         zMat(nR,1)      =rscheme_oc%boundary_fac*zMat(nR,1)
-         zMat(nR,n_r_max)=rscheme_oc%boundary_fac*zMat(nR,n_r_max)
-      end do
-
-      !-- Fill up with zeros:
-      do nR_out=rscheme_oc%n_max+1,n_r_max
-         zMat(1,nR_out)      =0.0_cp
-         zMat(n_r_max,nR_out)=0.0_cp
+         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
+         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_Z10
       ! compute the linesum of each line
       do nR=1,n_r_max
-         zMat_fac(nR)=one/maxval(abs(zMat(nR,:)))
-         zMat(nR,:) = zMat(nR,:)*zMat_fac(nR)
+         zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
+         dat(nR,:) = dat(nR,:)*zMat_fac(nR)
       end do
 #endif
 
-!-- LU-decomposition of z10mat:
-      call prepare_mat(zMat,n_r_max,n_r_max,zPivot,info)
+      !-- Array copy
+      call zMat%set_data(dat)
 
-      if ( info /= 0 ) then
-         call abortRun('Error from get_z10Mat: singular matrix!')
-      end if
+      !-- LU-decomposition of z10mat:
+      call zMat%prepare(info)
+
+      if ( info /= 0 ) call abortRun('Error from get_z10Mat: singular matrix!')
 
    end subroutine get_z10Mat
 !-----------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z
-   subroutine get_zMat(dt,l,hdif,zMat,zPivot,zMat_fac)
+   subroutine get_zMat(dt,l,hdif,zMat,zMat_fac)
 #else
-   subroutine get_zMat(dt,l,hdif,zMat,zPivot)
+   subroutine get_zMat(dt,l,hdif,zMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
@@ -807,8 +819,7 @@ contains
       real(cp), intent(in) :: hdif                   ! Hyperdiffusivity
 
       !-- Output variables:
-      real(cp), intent(out) :: zMat(n_r_max,n_r_max) ! Matrix with LHS of z equation
-      integer,  intent(out) :: zPivot(n_r_max)       ! Pivot for zMat inversion
+      class(type_realmat), intent(inout) :: zMat
 #ifdef WITH_PRECOND_Z
       real(cp), intent(out) :: zMat_fac(n_r_max)     !  Inverse of max(zMat) for the inversion
 #endif
@@ -817,6 +828,7 @@ contains
       integer :: nR,nR_out
       integer :: info
       real(cp) :: O_dt,dLh
+      real(cp) :: dat(n_r_max,n_r_max)
       character(len=80) :: message
       character(len=14) :: str, str_1
 
@@ -835,39 +847,34 @@ contains
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions, see above:
-      do nR_out=1,rscheme_oc%n_max
+      if ( ktopv == 1 ) then  ! free slip !
+         dat(1,:)=rscheme_oc%rnorm *             (      & 
+         &                     rscheme_oc%drMat(1,:) -  &
+         & (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) )
+      else                    ! no slip, note exception for l=1,m=0
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      end if
 
-         if ( ktopv == 1 ) then  ! free slip !
-            zMat(1,nR_out)=rscheme_oc%rnorm *             (     &
-            &                     rscheme_oc%drMat(1,nR_out) -  &
-            & (two*or1(1)+beta(1))*rscheme_oc%rMat(1,nR_out) )
-         else                    ! no slip, note exception for l=1,m=0
-            zMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-         end if
-
-         if ( kbotv == 1 ) then  ! free slip !
-            zMat(n_r_max,nR_out)=rscheme_oc%rnorm *            (  &
-            &                  rscheme_oc%drMat(n_r_max,nR_out) - &
-            &    (two*or1(n_r_max)+beta(n_r_max))*                &
-            &                   rscheme_oc%rMat(n_r_max,nR_out) )
-         else                    ! no slip, note exception for l=1,m=0
-            zMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
-            &                    rscheme_oc%rMat(n_r_max,nR_out)
-         end if
-
-      end do  !  loop over nR_out
+      if ( kbotv == 1 ) then  ! free slip !
+         dat(n_r_max,:)=rscheme_oc%rnorm *            (   &
+         &                  rscheme_oc%drMat(n_r_max,:) - &
+         &    (two*or1(n_r_max)+beta(n_r_max))*           &
+         &                   rscheme_oc%rMat(n_r_max,:) )
+      else                    ! no slip, note exception for l=1,m=0
+         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
-            zMat(1,nR_out)      =0.0_cp
-            zMat(n_r_max,nR_out)=0.0_cp
+            dat(1,nR_out)      =0.0_cp
+            dat(n_r_max,nR_out)=0.0_cp
          end do
       end if
 
-      !----- Other points:
+      !----- Bulk points:
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
-            zMat(nR,nR_out)=rscheme_oc%rnorm * (                         &
+            dat(nR,nR_out)=rscheme_oc%rnorm * (                          &
             &               O_dt*dLh*or2(nR)* rscheme_oc%rMat(nR,nR_out) &
             &   -alpha*hdif*dLh*visc(nR)*or2(nR) * (                     &
             &                               rscheme_oc%d2rMat(nR,nR_out) &
@@ -880,15 +887,15 @@ contains
 
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
-         zMat(nR,1)      =rscheme_oc%boundary_fac*zMat(nR,1)
-         zMat(nR,n_r_max)=rscheme_oc%boundary_fac*zMat(nR,n_r_max)
+         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
+         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_Z
       ! compute the linesum of each line
       do nR=1,n_r_max
-         zMat_fac(nR)=one/maxval(abs(zMat(nR,:)))
-         zMat(nR,:)  =zMat(nR,:)*zMat_fac(nR)
+         zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
+         dat(nR,:)   =dat(nR,:)*zMat_fac(nR)
       end do
 #endif
 
@@ -900,12 +907,12 @@ contains
 
       do i=1,n_r_max
          do j=1,n_r_max
-            write(filehandle,"(2ES20.12,1X)",advance="no") zMat(i,j)
+            write(filehandle,"(2ES20.12,1X)",advance="no") dat(i,j)
          end do
          write(filehandle,"(A)") ""
       end do
       close(filehandle)
-      temp_Mat=zMat
+      temp_Mat=dat
       anorm = 0.0_cp
       do i=1,n_r_max
          linesum = 0.0_cp
@@ -922,8 +929,11 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of zMat for l=",l," is ",rcond
 #endif
 
-  !----- LU decomposition:
-      call prepare_mat(zMat,n_r_max,n_r_max,zPivot,info)
+      !-- Array copy
+      call zMat%set_data(dat)
+
+      !-- LU decomposition:
+      call zMat%prepare(info)
 
       if ( info /= 0 ) then
          write(str, *) l

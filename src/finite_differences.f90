@@ -17,6 +17,9 @@ module finite_differences
    private
 
    type, public, extends(type_rscheme) :: type_fd
+      real(cp), allocatable :: ddddr(:,:)
+      real(cp), allocatable :: ddddr_top(:,:)
+      real(cp), allocatable :: ddddr_bot(:,:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -47,14 +50,17 @@ contains
       allocate( this%dr(this%n_max,0:order) )
       allocate( this%ddr(this%n_max,0:order) )
       allocate( this%dddr(this%n_max,0:order+2) )
+      allocate( this%ddddr(this%n_max,0:order+2) )
       allocate( this%dr_top(order/2,0:order_boundary) )
       allocate( this%dr_bot(order/2,0:order_boundary) )
       allocate( this%ddr_top(order/2,0:order_boundary+1) )
       allocate( this%ddr_bot(order/2,0:order_boundary+1) )
       allocate( this%dddr_top(order/2+1,0:order_boundary+2) )
       allocate( this%dddr_bot(order/2+1,0:order_boundary+2) )
+      allocate( this%ddddr_top(order/2+1,0:order_boundary+3) )
+      allocate( this%ddddr_bot(order/2+1,0:order_boundary+3) )
 
-      bytes_allocated=bytes_allocated+(this%n_max*(3*order+5)+         &
+      bytes_allocated=bytes_allocated+(this%n_max*(4*order+8)+         &
       &               order/2*(4*order_boundary+6)+                    &
       &               (order/2+1)*(2*order_boundary+6))*SIZEOF_DEF_REAL
 
@@ -62,8 +68,9 @@ contains
       allocate( this%drMat(this%n_max,this%n_max) )
       allocate( this%d2rMat(this%n_max,this%n_max) )
       allocate( this%d3rMat(this%n_max,this%n_max) )
+      allocate( this%d4rMat(this%n_max,this%n_max) )
 
-      bytes_allocated=bytes_allocated+4*this%n_max*this%n_max*SIZEOF_DEF_REAL
+      bytes_allocated=bytes_allocated+5*this%n_max*this%n_max*SIZEOF_DEF_REAL
 
    end subroutine initialize
 !---------------------------------------------------------------------------
@@ -74,11 +81,12 @@ contains
 
       class(type_fd) :: this
 
-      deallocate( this%dr, this%ddr, this%dddr )
+      deallocate( this%dr, this%ddr, this%dddr, this%ddddr )
       deallocate( this%dr_top, this%dr_bot )
       deallocate( this%ddr_top, this%ddr_bot )
       deallocate( this%dddr_top, this%dddr_bot )
-      deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
+      deallocate( this%ddddr_top, this%ddddr_bot )
+      deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat, this%d4rMat )
 
    end subroutine finalize
 !---------------------------------------------------------------------------
@@ -179,9 +187,23 @@ contains
       real(cp), intent(in) :: r(:) ! Radius
 
       !-- Local quantities:
+      real(cp) :: r_phantom(-this%order:size(r)+this%order+1)
+      !real(cp) :: r_phantom(-1:size(r)+2)
       real(cp), allocatable :: dr_spacing(:)
       real(cp), allocatable :: taylor_exp(:,:)
       integer :: n_r, od
+      real(cp) :: dr1, dr2
+
+      dr1 = r(1)-r(2)
+      dr2 = r(2)-r(3)
+
+      r_phantom(1:size(r)) = r(:)
+      r_phantom(0) = r(1)+dr1
+      r_phantom(-1) = r(1)+dr1+dr2
+      dr1 = r(this%n_max-1)-r(this%n_max)
+      dr2 = r(this%n_max-2)-r(this%n_max-1)
+      r_phantom(size(r)+1) = r(this%n_max)-dr1
+      r_phantom(size(r)+2) = r(this%n_max)-dr1-dr2
 
       !
       !-- Step 1: First and 2nd derivatives in the bulk
@@ -189,9 +211,9 @@ contains
       allocate( dr_spacing(this%order+1) )
       allocate( taylor_exp(0:this%order,0:this%order) )
 
-      do n_r=1+this%order/2,this%n_max-this%order/2
+      do n_r=1,this%n_max
          do od=0,this%order
-            dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
+            dr_spacing(od+1)=r_phantom(n_r-this%order/2+od)-r_phantom(n_r)
          end do
 
          call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
@@ -280,20 +302,21 @@ contains
       deallocate( dr_spacing, taylor_exp )
 
       !
-      !-- Step 6: 3rd derivative in the bulk
+      !-- Step 6: 3rd and 4th derivatives in the bulk
       !
       allocate( dr_spacing(this%order+3) )
       allocate( taylor_exp(0:this%order+2,0:this%order+2) )
 
-      do n_r=2+this%order/2,this%n_max-this%order/2-1
+      do n_r=1,this%n_max
          do od=0,this%order+2
-            dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
+            dr_spacing(od+1)=r_phantom(n_r-this%order/2-1+od)-r_phantom(n_r)
          end do
 
          call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &
               &                   taylor_exp)
          do od=0,this%order+2
             this%dddr(n_r,od) =taylor_exp(od,3)
+            this%ddddr(n_r,od)=taylor_exp(od,4)
          end do
       end do
 
@@ -334,6 +357,44 @@ contains
          end do
       end do
 
+      deallocate( dr_spacing, taylor_exp)
+
+      !
+      !-- Step 9: 4th derivative for the outer points
+      !
+      allocate( dr_spacing(this%order_boundary+4) )
+      allocate( taylor_exp(0:this%order_boundary+3,0:4) )
+
+      do n_r=1,this%order/2+1
+         do od=0,this%order_boundary+3
+            dr_spacing(od+1)=r(od+1)-r(n_r)
+         end do
+
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary+3, &
+              &                   4,taylor_exp)
+
+         do od=0,this%order_boundary+3
+            this%ddddr_top(n_r,od) =taylor_exp(od,4)
+         end do
+      end do
+
+      !
+      !-- Step 10: 4th derivative for the inner points
+      !
+      do n_r=1,this%order/2+1
+         do od=0,this%order_boundary+3
+            dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
+         end do
+
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary+3, &
+              &                   4,taylor_exp)
+
+         do od=0,this%order_boundary+3
+            this%ddddr_bot(n_r,od) =taylor_exp(od,4)
+         end do
+      end do
+
+
       deallocate( dr_spacing, taylor_exp )
 
    end subroutine get_FD_coeffs
@@ -368,6 +429,7 @@ contains
       !-- Bulk points for 3rd derivative
       do n_r=2+this%order/2,n_r_max-this%order/2-1
          this%d3rMat(n_r,n_r-this%order/2-1:n_r+this%order/2+1)=this%dddr(n_r,:)
+         this%d4rMat(n_r,n_r-this%order/2-1:n_r+this%order/2+1)=this%ddddr(n_r,:)
       end do
 
       !-- Boundary points for 1st derivative
@@ -387,6 +449,35 @@ contains
          this%d3rMat(n_r,1:this%order_boundary+3)                           =this%dddr_top(n_r,:)
          this%d3rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order_boundary-2:-1)=this%dddr_bot(n_r,:)
       end do
+
+      !-- Boundary points for 4th derivative
+      do n_r=1,this%order/2+1
+         this%d4rMat(n_r,1:this%order_boundary+4)                           =this%ddddr_top(n_r,:)
+         this%d4rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order_boundary-3:-1)=this%ddddr_bot(n_r,:)
+      end do
+
+!#define TOTO 1
+#ifdef TOTO
+      block
+
+         use radial_functions, only: r
+         integer :: file_handle
+
+         if ( rank == 0 ) then
+            open(newunit=file_handle, file='dMats', form='unformatted', &
+            &    access='stream')
+
+            write(file_handle) r
+            write(file_handle) this%drMat
+            write(file_handle) this%d2rMat
+            write(file_handle) this%d3rMat
+            write(file_handle) this%d4rMat
+
+            close(file_handle)
+         end if
+
+      end block
+#endif
 
    end subroutine get_der_mat
 !----------------------------------------------------------------------------

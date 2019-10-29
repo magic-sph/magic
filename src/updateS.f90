@@ -7,19 +7,22 @@ module updateS_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
-       &                       kappa, dLkappa, dLtemp0, temp0
+       &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: alpha, dct_counter, solve_counter
    use init_fields, only: tops,bots
    use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: dLh,hdif_S
-   use logic, only: l_update_s, l_anelastic_liquid
+   use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
    use fields, only:  work_LMloc
    use constants, only: zero, one, two
    use useful, only: abortRun
+   use dense_matrices
+   use real_matrices
+   use band_matrices
 
    implicit none
 
@@ -27,10 +30,7 @@ module updateS_mod
 
    !-- Local variables
    complex(cp), allocatable :: rhs1(:,:,:)
-   real(cp), allocatable :: s0Mat(:,:)     ! for l=m=0
-   real(cp), allocatable :: sMat(:,:,:)
-   integer, allocatable :: s0Pivot(:)
-   integer, allocatable :: sPivot(:,:)
+   class(type_realmat), pointer :: sMat(:), s0Mat
 #ifdef WITH_PRECOND_S
    real(cp), allocatable :: sMat_fac(:,:)
 #endif
@@ -48,17 +48,36 @@ contains
    subroutine initialize_updateS
 
       integer, pointer :: nLMBs2(:)
+      integer :: ll,n_bands
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0
-      allocate( sMat(n_r_max,n_r_max,nLMBs2(1+rank)) )
-      bytes_allocated = bytes_allocated+(n_r_max*n_r_max*(1+nLMBs2(1+rank)))* &
-      &                 SIZEOF_DEF_REAL
-      allocate( s0Pivot(n_r_max) )
-      allocate( sPivot(n_r_max,nLMBs2(1+rank)) )
-      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*nLMBs2(1+rank))* &
-      &                 SIZEOF_INTEGER
+      if ( l_finite_diff ) then
+         allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: s0Mat )
+
+         if ( ktops == 1 .and. kbots == 1 .and. rscheme_oc%order == 2 &
+          &   .and. rscheme_oc%order_boundary <= 2 ) then ! Fixed entropy at both boundaries
+            n_bands = rscheme_oc%order+1
+         else
+            n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+         end if
+
+         !print*, 'S', n_bands
+         call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+         do ll=1,nLMBs2(1+rank)
+            call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+         end do
+      else
+         allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: s0Mat )
+
+         call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+         do ll=1,nLMBs2(1+rank)
+            call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
+         end do
+      end if
+
 #ifdef WITH_PRECOND_S
       allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
       bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
@@ -83,7 +102,17 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_updateS
 
-      deallocate( s0Mat, sMat, s0Pivot, sPivot, lSmat )
+      integer, pointer :: nLMBs2(:)
+      integer :: ll
+
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+
+      do ll=1,nLMBs2(1+rank)
+         call sMat(ll)%finalize()
+      end do
+      call s0Mat%finalize()
+
+      deallocate( lSmat )
 #ifdef WITH_PRECOND_S
       deallocate( sMat_fac )
 #endif
@@ -186,9 +215,9 @@ contains
          if ( l1 == 0 ) then
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S0
-               call get_s0Mat(dt,s0Mat,s0Pivot,s0Mat_fac)
+               call get_s0Mat(dt,s0Mat,s0Mat_fac)
 #else
-               call get_s0Mat(dt,s0Mat,s0Pivot)
+               call get_s0Mat(dt,s0Mat)
 #endif
                lSmat(l1)=.true.
             end if
@@ -196,13 +225,11 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2),sMat_fac(:,nLMB2))
+                    &        sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2))
+               call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)),sMat(nLMB2))
 #endif
                lSmat(l1)=.true.
-               !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
             end if
           end if
 
@@ -226,7 +253,7 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)=      real(tops(0,0))
+                  rhs(1)      =real(tops(0,0))
                   rhs(n_r_max)=real(bots(0,0))
                   do nR=2,n_r_max-1
                      rhs(nR)=real(s(lm1,nR))*O_dt+w1*real(dsdt(lm1,nR))  + &
@@ -234,44 +261,55 @@ contains
                   end do
 
 #ifdef WITH_PRECOND_S0
-                  rhs = s0Mat_fac*rhs
+                  rhs(:) = s0Mat_fac(:)*rhs(:)
 #endif
 
-                  call solve_mat(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+                  call s0Mat%solve(rhs)
+
+#ifdef TOTO
+                  block
+                     use radial_functions, only: r
+                     integer :: ff, ii
+
+                     open(newunit=ff, file='s0.txt')
+                     do nR=1,n_r_max
+                        write(ff, '(2ES20.12)') r(nR), rhs(nR)
+                     end do
+                     close(ff)
+                     stop
+
+                  end block
+#endif
 
                else ! l1  /=  0
+
                   lmB=lmB+1
 
-                  rhs1(1,lmB,threadid)=      tops(l1,m1)
+                  rhs1(1,lmB,threadid)      =tops(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=bots(l1,m1)
-#ifdef WITH_PRECOND_S
-                  rhs1(1,lmB,threadid)=      sMat_fac(1,nLMB2)*rhs1(1,lmB,threadid)
-                  rhs1(n_r_max,lmB,threadid)=sMat_fac(1,nLMB2)*rhs1(n_r_max,lmB,threadid)
-#endif
+
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt+w1*dsdt(lm1,nR)  &
                      &                     +w2*dsdtLast(lm1,nR)
-#ifdef WITH_PRECOND_S
-                     rhs1(nR,lmB,threadid) = sMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
-#endif
                   end do
+
+#ifdef WITH_PRECOND_S
+                  rhs1(:,lmB,threadid) = sMat_fac(:,nLMB2)*rhs1(:,lmB,threadid)
+#endif
                end if
             end do
             !PERFOFF
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call solve_mat(sMat(:,:,nLMB2),n_r_max,n_r_max, &
-                    &         sPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call sMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
             lmB=lmB0
             !PERFON('upS_af')
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-             !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
                if ( l1 == 0 ) then
                   do n_r_out=1,rscheme_oc%n_max
@@ -340,7 +378,6 @@ contains
       !$omp end single
 
       !$omp end parallel
-
 
    end subroutine updateS
 !------------------------------------------------------------------------------
@@ -445,9 +482,9 @@ contains
          if ( l1 == 0 ) then
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S0
-               call get_s0Mat(dt,s0Mat,s0Pivot,s0Mat_fac)
+               call get_s0Mat(dt,s0Mat,s0Mat_fac)
 #else
-               call get_s0Mat(dt,s0Mat,s0Pivot)
+               call get_s0Mat(dt,s0Mat)
 #endif
                lSmat(l1)=.true.
             end if
@@ -455,10 +492,9 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2),sMat_fac(:,nLMB2))
+                    &        sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(:,:,nLMB2),sPivot(:,nLMB2))
+               call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)),sMat(nLMB2))
 #endif
                lSmat(l1)=.true.
              !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
@@ -485,7 +521,7 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)=      real(tops(0,0))
+                  rhs(1)=real(tops(0,0))
                   rhs(n_r_max)=real(bots(0,0))
                   do nR=2,n_r_max-1
                      rhs(nR)=real(s(lm1,nR))*O_dt+w1*real(dsdt(lm1,nR)) + &
@@ -493,35 +529,34 @@ contains
                   end do
 
 #ifdef WITH_PRECOND_S0
-                  rhs = s0Mat_fac*rhs
+                  rhs(:) = s0Mat_fac(:)*rhs(:)
 #endif
 
-                  call solve_mat(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+                  call s0Mat%solve(rhs)
 
                else ! l1  /=  0
                   lmB=lmB+1
 
-                  rhs1(1,lmB,threadid)=      tops(l1,m1)
+                  rhs1(1,lmB,threadid)=tops(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=bots(l1,m1)
-#ifdef WITH_PRECOND_S
-                  rhs1(1,lmB,threadid)=      sMat_fac(1,nLMB2)*rhs1(1,lmB,threadid)
-                  rhs1(n_r_max,lmB,threadid)=sMat_fac(1,nLMB2)*rhs1(n_r_max,lmB,threadid)
-#endif
+
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt + w1*dsdt(lm1,nR)  &
-                     &                     + w2*dsdtLast(lm1,nR)
-#ifdef WITH_PRECOND_S
-                     rhs1(nR,lmB,threadid) = sMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
-#endif
+                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt+w1*dsdt(lm1,nR)  &
+                     &                     +w2*dsdtLast(lm1,nR)
                   end do
+
+#ifdef WITH_PRECOND_S
+                  do nR=1,n_r_max
+                     rhs1(nR,lmB,threadid) = sMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
+                  end do
+#endif
                end if
             end do
             !PERFOFF
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call solve_mat(sMat(:,:,nLMB2),n_r_max,n_r_max, &
-                    &         sPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call sMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -601,9 +636,9 @@ contains
    end subroutine updateS_ala
 !-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
-   subroutine get_s0Mat(dt,sMat,sPivot,sMat_fac)
+   subroutine get_s0Mat(dt,sMat,sMat_fac)
 #else
-   subroutine get_s0Mat(dt,sMat,sPivot)
+   subroutine get_s0Mat(dt,sMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrix
@@ -614,96 +649,110 @@ contains
       real(cp), intent(in) :: dt
 
       !-- Output variables
-      real(cp), intent(out) :: sMat(n_r_max,n_r_max)
-      integer,  intent(out) :: sPivot(n_r_max)
+      class(type_realmat), intent(inout) :: sMat
 #ifdef WITH_PRECOND_S0
       real(cp), intent(out) :: sMat_fac(n_r_max)
 #endif
 
       !-- Local variables:
+      real(cp) :: dat(n_r_max,n_r_max)
       integer :: info,nR_out,nR
       real(cp) :: O_dt
 
       O_dt=one/dt
 
-      !----- Boundary condition:
-      do nR_out=1,rscheme_oc%n_max
+      !----- Boundary conditions:
+      if ( ktops == 1 ) then
+         !--------- Constant entropy at CMB:
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      else
+         !--------- Constant flux at CMB:
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+      end if
 
-         if ( ktops == 1 ) then
-            !--------- Constant entropy at CMB:
-            sMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-         else
-            !--------- Constant flux at CMB:
-            sMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
-         end if
-         if ( kbots == 1 ) then
-            !--------- Constant entropy at ICB:
-            sMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
-            &                    rscheme_oc%rMat(n_r_max,nR_out)
-         else
-            !--------- Constant flux at ICB:
-            sMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
-            &                    rscheme_oc%drMat(n_r_max,nR_out)
-         end if
-      end do
+      if ( kbots == 1 ) then
+         !--------- Constant entropy at ICB:
+         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      else
+         !--------- Constant flux at ICB:
+         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      end if
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
-            sMat(1,nR_out)      =0.0_cp
-            sMat(n_r_max,nR_out)=0.0_cp
+            dat(1,nR_out)      =0.0_cp
+            dat(n_r_max,nR_out)=0.0_cp
          end do
       end if
 
+      !-- Fill bulk points:
       if ( l_anelastic_liquid ) then
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
-               sMat(nR,nR_out)= rscheme_oc%rnorm * (                          &
-               &                            O_dt*rscheme_oc%rMat(nR,nR_out) - &
-               &      alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
-               & (beta(nR)+two*or1(nR)+dLkappa(nR))*                          &
-               &                                rscheme_oc%drMat(nR,nR_out) ) )
+               dat(nR,nR_out)= rscheme_oc%rnorm * (                      &
+               &                       O_dt*rscheme_oc%rMat(nR,nR_out) - &
+               & alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
+               & (beta(nR)+two*or1(nR)+dLkappa(nR))*                     &
+               &                           rscheme_oc%drMat(nR,nR_out) ) )
             end do
          end do
       else
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
-               sMat(nR,nR_out)= rscheme_oc%rnorm * (                         &
-               &                           O_dt*rscheme_oc%rMat(nR,nR_out) - &
-               &     alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
-               & (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*             &
-               &                               rscheme_oc%drMat(nR,nR_out) ) )
+               dat(nR,nR_out)= rscheme_oc%rnorm * (                     &
+               &                      O_dt*rscheme_oc%rMat(nR,nR_out) - &
+               &alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
+               & (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*        &
+               &                          rscheme_oc%drMat(nR,nR_out) ) )
             end do
          end do
       end if
 
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
-         sMat(nR,1)      =rscheme_oc%boundary_fac*sMat(nR,1)
-         sMat(nR,n_r_max)=rscheme_oc%boundary_fac*sMat(nR,n_r_max)
+         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
+         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_S0
       ! compute the linesum of each line
       do nR=1,n_r_max
-         sMat_fac(nR)=one/maxval(abs(sMat(nR,:)))
+         sMat_fac(nR)=one/maxval(abs(dat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,n_r_max
-         sMat(nR,:) = sMat(nR,:)*sMat_fac(nR)
+         dat(nR,:) = dat(nR,:)*sMat_fac(nR)
       end do
 #endif
 
+      !-- Array copy
+      call sMat%set_data(dat)
+
+#ifdef TOTO
+      block
+
+         integer :: fileHandle
+
+         open(newunit=fileHandle, file='s0Mat', form='unformatted', access='stream')
+
+         write(fileHandle) dat
+         write(fileHandle) sMat%dat
+
+         close(fileHandle)
+
+      end block
+#endif
+
       !---- LU decomposition:
-      call prepare_mat(sMat,n_r_max,n_r_max,sPivot,info)
-      if ( info /= 0 ) then
-         call abortRun('! Singular matrix sMat0!')
-      end if
+      call sMat%prepare(info)
+      if ( info /= 0 ) call abortRun('! Singular matrix sMat0!')
 
    end subroutine get_s0Mat
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
-   subroutine get_Smat(dt,l,hdif,sMat,sPivot,sMat_fac)
+   subroutine get_Smat(dt,l,hdif,sMat,sMat_fac)
 #else
-   subroutine get_Smat(dt,l,hdif,sMat,sPivot)
+   subroutine get_Smat(dt,l,hdif,sMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
@@ -716,8 +765,7 @@ contains
       integer,  intent(in) :: l
 
       !-- Output variables
-      real(cp), intent(out) :: sMat(n_r_max,n_r_max)
-      integer,  intent(out) :: sPivot(n_r_max)
+      class(type_realmat), intent(inout) :: sMat
 #ifdef WITH_PRECOND_S
       real(cp),intent(out) :: sMat_fac(n_r_max)
 #endif
@@ -725,6 +773,7 @@ contains
       !-- Local variables:
       integer :: info,nR_out,nR
       real(cp) :: O_dt,dLh
+      real(cp) :: dat(n_r_max,n_r_max)
 
 #ifdef MATRIX_CHECK
       integer :: i,j
@@ -741,33 +790,31 @@ contains
 
       dLh=real(l*(l+1),kind=cp)
 
-      !----- Boundary coditions:
-      do nR_out=1,rscheme_oc%n_max
-         if ( ktops == 1 ) then
-            sMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-         else
-            sMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
-         end if
-         if ( kbots == 1 ) then
-            sMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
-            &                    rscheme_oc%rMat(n_r_max,nR_out)
-         else
-            sMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
-            &                    rscheme_oc%drMat(n_r_max,nR_out)
-         end if
-      end do
+      !----- Boundary conditions:
+      if ( ktops == 1 ) then
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      else
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+      end if
+
+      if ( kbots == 1 ) then
+         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      else
+         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      end if
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
-            sMat(1,nR_out)      =0.0_cp
-            sMat(n_r_max,nR_out)=0.0_cp
+            dat(1,nR_out)      =0.0_cp
+            dat(n_r_max,nR_out)=0.0_cp
          end do
       end if
 
-      !----- Other points:
+      !----- Bulk points:
       if ( l_anelastic_liquid ) then
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
-               sMat(nR,nR_out)= rscheme_oc%rnorm * (                        &
+               dat(nR,nR_out)= rscheme_oc%rnorm * (                         &
                &                          O_dt*rscheme_oc%rMat(nR,nR_out) - &
                & alpha*opr*hdif*kappa(nR)*(  rscheme_oc%d2rMat(nR,nR_out) + &
                &( beta(nR)+two*or1(nR)+dLkappa(nR) )*                       &
@@ -778,7 +825,7 @@ contains
       else
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
-               sMat(nR,nR_out)= rscheme_oc%rnorm * (                        &
+               dat(nR,nR_out)= rscheme_oc%rnorm * (                         &
                &                          O_dt*rscheme_oc%rMat(nR,nR_out) - &
                & alpha*opr*hdif*kappa(nR)*(  rscheme_oc%d2rMat(nR,nR_out) + &
                & ( beta(nR)+dLtemp0(nR)+                                    &
@@ -790,18 +837,18 @@ contains
 
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
-         sMat(nR,1)      =rscheme_oc%boundary_fac*sMat(nR,1)
-         sMat(nR,n_r_max)=rscheme_oc%boundary_fac*sMat(nR,n_r_max)
+         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
+         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_S
       ! compute the linesum of each line
       do nR=1,n_r_max
-         sMat_fac(nR)=one/maxval(abs(sMat(nR,:)))
+         sMat_fac(nR)=one/maxval(abs(dat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,n_r_max
-         sMat(nR,:) = sMat(nR,:)*sMat_fac(nR)
+         dat(nR,:) = dat(nR,:)*sMat_fac(nR)
       end do
 #endif
 
@@ -813,12 +860,12 @@ contains
 
       do i=1,n_r_max
          do j=1,n_r_max
-            write(filehandle,"(2ES20.12,1X)",advance="no") sMat(i,j)
+            write(filehandle,"(2ES20.12,1X)",advance="no") dat(i,j)
          end do
          write(filehandle,"(A)") ""
       end do
       close(filehandle)
-      temp_Mat=sMat
+      temp_Mat=dat
       anorm = 0.0_cp
       do i=1,n_r_max
          linesum = 0.0_cp
@@ -835,11 +882,12 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of sMat for l=",l," is ",rcond
 #endif
 
-!----- LU decomposition:
-      call prepare_mat(sMat,n_r_max,n_r_max,sPivot,info)
-      if ( info /= 0 ) then
-         call abortRun('Singular matrix sMat!')
-      end if
+      !-- Array copy
+      call sMat%set_data(dat)
+
+      !-- LU decomposition:
+      call sMat%prepare(info)
+      if ( info /= 0 ) call abortRun('Singular matrix sMat!')
 
    end subroutine get_Smat
 !-----------------------------------------------------------------------------
