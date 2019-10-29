@@ -1,11 +1,11 @@
 &grid
- n_r_max     =64,
+ n_r_max     =96,
  n_phi_tot   =128,
  n_r_ic_max  =17,
 n_cheb_ic_max=15,
  minc        =4,
  fd_order    =4,
-fd_order_bound=4,
+fd_order_bound=2,
 /
 &control
  mode        =0,
