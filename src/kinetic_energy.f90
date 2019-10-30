@@ -119,7 +119,7 @@ contains
 
       !-- time averaging of e(r):
       character(len=80) :: filename
-      real(cp) :: dt,surf
+      real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
 
       !write(*,"(A,6ES22.14)") "ekin: w,dw,z = ",get_global_sum( w(llm:ulm,:) ),&
@@ -252,16 +252,16 @@ contains
             filename='eKinR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
             do nR=1,n_r_max
-               surf=four*pi*r(nR)**2
+               osurf=0.25_cp/pi*or2(nR)
                write(fileHandle,'(ES20.10,8ES15.7)') r(nR),         &
                &                    fac*e_pA(nR)/timetot,           &
                &                    fac*e_p_asA(nR)/timetot,        &
                &                    fac*e_tA(nR)/timetot,           &
                &                    fac*e_t_asA(nR)/timetot,        &
-               &                    fac*e_pA(nR)/timetot/surf,      &
-               &                    fac*e_p_asA(nR)/timetot/surf,   &
-               &                    fac*e_tA(nR)/timetot/surf,      &
-               &                    fac*e_t_asA(nR)/timetot/surf
+               &                    fac*e_pA(nR)/timetot*osurf,     &
+               &                    fac*e_p_asA(nR)/timetot*osurf,  &
+               &                    fac*e_tA(nR)/timetot*osurf,     &
+               &                    fac*e_t_asA(nR)/timetot*osurf
             end do
             close(fileHandle)
          end if
