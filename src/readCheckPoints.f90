@@ -2009,11 +2009,12 @@ contains
                &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
                &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
 
-                  woR(:)=wo(lmo,:)
-                  zoR(:)=zo(lmo,:)
-                  poR(:)=po(lmo,:)
-                  if ( lreadS .and. l_heat ) soR(:)=so(lmo,:)
-                  if ( lreadXi .and. l_chemical_conv ) xioR(:)=xio(lmo,:)
+                  woR(1:n_r_max_old)=wo(lmo,:)
+                  zoR(1:n_r_max_old)=zo(lmo,:)
+                  poR(1:n_r_max_old)=po(lmo,:)
+                  if ( lreadS .and. l_heat ) soR(1:n_r_max_old)=so(lmo,:)
+                  if ( lreadXi .and. l_chemical_conv ) &
+                  &            xioR(1:n_r_max_old)=xio(lmo,:)
                   call mapDataR(woR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc1, &
                        &        .false.)
                   call mapDataR(zoR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc2, &
@@ -2113,10 +2114,10 @@ contains
                &    ratio2 /= ratio2_old .or.                                  &
                &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary &
                &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
-                  woR(:)=wo(lmo,:)
-                  zoR(:)=zo(lmo,:)
-                  poR(:)=po(lmo,:)
-                  soR(:)=so(lmo,:)
+                  woR(1:n_r_max_old)=wo(lmo,:)
+                  zoR(1:n_r_max_old)=zo(lmo,:)
+                  poR(1:n_r_max_old)=po(lmo,:)
+                  soR(1:n_r_max_old)=so(lmo,:)
                   call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
                   call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
                   call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
