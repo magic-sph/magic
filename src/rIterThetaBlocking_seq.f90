@@ -14,7 +14,7 @@ module rIterThetaBlocking_seq_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
-       &            l_movie_oc, l_TO, l_probe
+       &            l_movie_oc, l_TO, l_probe, l_full_sphere
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
@@ -263,7 +263,7 @@ contains
          end if
          PERFOFF
          !--------- Calculate courant condition parameters:
-         if ( this%l_cour ) then
+         if ( this%l_cour .and. ( .not. l_full_sphere .or. this%nR /= n_r_icb) ) then
             !PRINT*,"Calling courant with this%nR=",this%nR
             call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc, &
                  &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,     &

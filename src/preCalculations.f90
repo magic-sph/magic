@@ -16,9 +16,9 @@ module preCalculations
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
-       &            l_precession, l_finite_diff
+       &            l_precession, l_finite_diff, l_full_sphere
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
-       &                       r_surface, visc, r, r_ICB, dLtemp0,         &
+       &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
        &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
        &                       dLvisc, dLlambda, divKtemp0, radial,        &
@@ -306,11 +306,11 @@ contains
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and inner core rotation rate:
-      c_z10_omega_ic=y10_norm/(r(n_r_max)*r(n_r_max))/rho0(n_r_max)
+      c_z10_omega_ic=y10_norm*or2(n_r_max)/rho0(n_r_max)
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and mantle rotation rate:
-      c_z10_omega_ma=y10_norm/(r(1)*r(1))/rho0(1)
+      c_z10_omega_ma=y10_norm*or2(1)/rho0(1)
     
       !----- Inner-core normalized moment of inertia:
       c_moi_ic=8.0_cp*pi/15.0_cp*r_icb**5*rho_ratio_ic*rho0(n_r_max)
@@ -333,11 +333,11 @@ contains
     
       !----- Proportionality factor for ic lorentz_torque as used in
       !      ic torque-equation (z10):
-      c_lorentz_ic=0.25_cp*sqrt(three/pi)/(r(n_r_max)*r(n_r_max))
+      c_lorentz_ic=0.25_cp*sqrt(three/pi)*or2(n_r_max)
     
       !----- Proportionality factor for mantle lorentz_torque as used in
       !      mantle torque-equation (z10):
-      c_lorentz_ma=0.25_cp*sqrt(three/pi)/(r(1)*r(1))
+      c_lorentz_ma=0.25_cp*sqrt(three/pi)*or2(1)
     
       !-- Set thermal boundary conditions for fixed temp. on both boundaries:
       !----- Extract tops and bots
@@ -1029,10 +1029,12 @@ contains
          &        '' = no of longitude grid points'')') n_phi_max
          write(n_out,'(''  n_theta_max  ='',i6, &
          &        '' = no of latitude grid points'')') n_theta_max
-         write(n_out,'(''  n_r_ic_max   ='',i6, &
-         &        '' = number of radial grid points in IC'')') n_r_ic_max
-         write(n_out,'(''  n_cheb_ic_max='',i6)') n_cheb_ic_max-1
-         write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
+         if ( .not. l_full_sphere ) then
+            write(n_out,'(''  n_r_ic_max   ='',i6, &
+            &        '' = number of radial grid points in IC'')') n_r_ic_max
+            write(n_out,'(''  n_cheb_ic_max='',i6)') n_cheb_ic_max-1
+            write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
+         end if
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
          write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
          write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max

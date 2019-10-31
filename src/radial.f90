@@ -12,7 +12,7 @@ module radial_functions
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
        &            l_temperature_diff, l_single_matrix,           &
-       &            l_finite_diff, l_newmap
+       &            l_finite_diff, l_newmap, l_full_sphere
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -138,19 +138,21 @@ contains
 
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 
-      nDi_costf1_ic=2*n_r_ic_max+2
-      nDd_costf1_ic=2*n_r_ic_max+5
-      nDi_costf2_ic=2*n_r_ic_max
-      nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
+      if ( .not. l_full_sphere ) then
+         nDi_costf1_ic=2*n_r_ic_max+2
+         nDd_costf1_ic=2*n_r_ic_max+5
+         nDi_costf2_ic=2*n_r_ic_max
+         nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
 
-      allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( cheb_int_ic(n_r_ic_max) )
-      bytes_allocated = bytes_allocated + &
-      &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+         allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( cheb_int_ic(n_r_ic_max) )
+         bytes_allocated = bytes_allocated + &
+         &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 
-      call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+         call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+      end if
 
       if ( .not. l_finite_diff ) then
 
@@ -188,13 +190,13 @@ contains
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
       deallocate( opressure0 )
 
-      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
-      call chebt_ic%finalize()
-      if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
-
-      if ( .not. l_finite_diff ) then
-         deallocate( cheb_int )
+      if ( .not. l_full_sphere ) then
+         deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
+         call chebt_ic%finalize()
+         if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       end if
+
+      if ( .not. l_finite_diff ) deallocate( cheb_int )
 
       call rscheme_oc%finalize()
 
@@ -255,10 +257,21 @@ contains
          close(fileHandle)
       end if
 
-      or1=one/r         ! 1/r
-      or2=or1*or1       ! 1/r**2
-      or3=or1*or2       ! 1/r**3
-      or4=or2*or2       ! 1/r**4
+      if ( l_full_sphere ) then
+         or1(:n_r_max-1)=one/r(:n_r_max-1)       ! 1/r
+         or2(:n_r_max-1)=or1(:n_r_max-1)*or1(:n_r_max-1)  ! 1/r**2
+         or3(:n_r_max-1)=or1(:n_r_max-1)*or2(:n_r_max-1)  ! 1/r**3
+         or4(:n_r_max-1)=or2(:n_r_max-1)*or2(:n_r_max-1)  ! 1/r**4
+         or1(n_r_max)=0.0_cp
+         or2(n_r_max)=0.0_cp
+         or3(n_r_max)=0.0_cp
+         or4(n_r_max)=0.0_cp
+      else
+         or1(:)=one/r(:)       ! 1/r
+         or2(:)=or1(:)*or1(:)  ! 1/r**2
+         or3(:)=or1(:)*or2(:)  ! 1/r**3
+         or4(:)=or2(:)*or2(:)  ! 1/r**4
+      end if
 
       !-- Get entropy gradient
       call getEntropyGradient ! By default this is zero
@@ -490,7 +503,7 @@ contains
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
          ! Default values: g0=0, g1=1, g2=0
          ! An easy way to change gravity
-         rgrav(:)=g0+g1*r(:)/r_cmb+g2*(r_cmb/r)**2
+         rgrav(:)=g0+g1*r(:)/r_cmb+g2*r_cmb**2*or2(:)
 
          if ( l_anel ) then
 

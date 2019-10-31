@@ -401,6 +401,36 @@ contains
          l_corr=.true.
       end if
 
+      !-- Full sphere if radratio is zero (modulo round-off)
+      if ( radratio <= 10.0_cp*epsilon(one) ) then
+         l_full_sphere=.true.
+      else
+         l_full_sphere=.false.
+      end if
+
+      !-- Only finite difference can handle full sphere for now
+      !if ( l_full_sphere .and. (.not. l_finite_diff) ) then
+      !   call abortRun('Full sphere not implemented with Chebushev collocation')
+      !end if
+
+      if ( l_full_sphere ) then
+         n_r_ic_max=0
+         n_cheb_ic_max=0
+         l_cond_ic=.false.
+         l_rot_ic=.false.
+         omega_ic1    =0.0_cp
+         omegaOsz_ic1 =0.0_cp
+         tShift_ic1   =0.0_cp
+         omega_ic2    =0.0_cp
+         omegaOsz_ic2 =0.0_cp
+         tShift_ic2   =0.0_cp
+         nRotIC = 0
+         l_SRIC=.false.
+         kbotv = 1
+         kbots = 2
+         kbotxi = 2
+      end if
+
       !-- Choose between entropy diffusion and temperature diffusion
       call capitalize(anelastic_flavour)
       if ( index(anelastic_flavour, 'LBR') /= 0 .or. &
@@ -1501,7 +1531,7 @@ contains
       nRotMa        =0         ! non rotating mantle is default
       rho_ratio_ma  =one       ! same density as outer core
       omega_ma1     =0.0_cp    ! prescribed rotation rate
-      omegaOsz_ma1  =0.0_cp    ! oszillation frequency of mantle rotation rate
+      omegaOsz_ma1  =0.0_cp    ! oscillation frequency of mantle rotation rate
       tShift_ma1    =0.0_cp    ! time shift
       omega_ma2     =0.0_cp    ! second mantle rotation rate
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
@@ -1516,10 +1546,10 @@ contains
       nRotIc        =0         ! non rotating inner core is default
       rho_ratio_ic  =one       ! same density as outer core
       omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
-      omegaOsz_ic1  =0.0_cp    ! oszillation frequency of IC rotation rate
+      omegaOsz_ic1  =0.0_cp    ! oscillation frequency of IC rotation rate
       tShift_ic1    =0.0_cp    ! time shift
       omega_ic2     =0.0_cp    ! second prescribed rotation rate
-      omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
+      omegaOsz_ic2  =0.0_cp    ! oscillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
       amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing

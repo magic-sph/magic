@@ -15,7 +15,8 @@ module updateZ_mod
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
-       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO, l_finite_diff
+       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO,             &
+       &            l_finite_diff, l_full_sphere
    use RMS, only: DifTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
@@ -740,22 +741,26 @@ contains
       end if
 
       !----- ICB condition:
-      if ( kbotv == 1 ) then  ! free slip
-         dat(n_r_max,:)=rscheme_oc%rnorm *                  &
-         &            ( (two*or1(n_r_max)+beta(n_r_max))*   &
-         &                   rscheme_oc%rMat(n_r_max,:) -   &
-         &                  rscheme_oc%drMat(n_r_max,:) )
-      else if ( kbotv == 2 ) then ! no slip
-         if ( l_SRIC ) then
-            dat(n_r_max,:)= rscheme_oc%rnorm * &
-            &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:)
-         else if ( l_rot_ic ) then     !  time integration of z10
-            dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
-            &           c_dt_z10_ic*O_dt*rscheme_oc%rMat(n_r_max,:) + &
-            &  alpha*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
-            &                           rscheme_oc%drMat(n_r_max,:) ) )
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      if ( l_full_sphere ) then
+         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      else
+         if ( kbotv == 1 ) then  ! free slip
+            dat(n_r_max,:)=rscheme_oc%rnorm *                  &
+            &            ( (two*or1(n_r_max)+beta(n_r_max))*   &
+            &                   rscheme_oc%rMat(n_r_max,:) -   &
+            &                  rscheme_oc%drMat(n_r_max,:) )
+         else if ( kbotv == 2 ) then ! no slip
+            if ( l_SRIC ) then
+               dat(n_r_max,:)= rscheme_oc%rnorm * &
+               &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:)
+            else if ( l_rot_ic ) then     !  time integration of z10
+               dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
+               &           c_dt_z10_ic*O_dt*rscheme_oc%rMat(n_r_max,:) + &
+               &  alpha*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
+               &                           rscheme_oc%drMat(n_r_max,:) ) )
+            else
+               dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+            end if
          end if
       end if
 
@@ -855,13 +860,17 @@ contains
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
       end if
 
-      if ( kbotv == 1 ) then  ! free slip !
-         dat(n_r_max,:)=rscheme_oc%rnorm *            (   &
-         &                  rscheme_oc%drMat(n_r_max,:) - &
-         &    (two*or1(n_r_max)+beta(n_r_max))*           &
-         &                   rscheme_oc%rMat(n_r_max,:) )
-      else                    ! no slip, note exception for l=1,m=0
+      if ( l_full_sphere ) then
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      else
+         if ( kbotv == 1 ) then  ! free slip !
+            dat(n_r_max,:)=rscheme_oc%rnorm *            (   &
+            &                  rscheme_oc%drMat(n_r_max,:) - &
+            &    (two*or1(n_r_max)+beta(n_r_max))*           &
+            &                   rscheme_oc%rMat(n_r_max,:) )
+         else                    ! no slip, note exception for l=1,m=0
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !

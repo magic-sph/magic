@@ -10,7 +10,7 @@ module outRot
    use blocking, only: lo_map, lm_balance, llm, ulm, llmMag, ulmMag
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
        &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift, &
-       &            l_finite_diff
+       &            l_finite_diff, l_full_sphere
    use output_data, only: tag
    use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
        &            y10_norm, zero, two, third, four, half
@@ -374,16 +374,26 @@ contains
             end if
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
             if ( abs(AMz) < tolerance ) AMz=0.0_cp
-            eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
-            &             angular_moment_ic(3)**2/c_moi_ic + &
-            &             angular_moment_ma(3)**2/c_moi_ma )
+            if ( l_full_sphere ) then
+               eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
+               &             angular_moment_ma(3)**2/c_moi_ma )
+            else
+               eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
+               &             angular_moment_ic(3)**2/c_moi_ic + &
+               &             angular_moment_ma(3)**2/c_moi_ma )
+            end if
             if ( abs(eKinAMz) < tolerance ) eKinAMz=0.0_cp
-            eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
+            if ( l_full_sphere ) then
+               eKinIC = 0.0_cp
+            else
+               eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
+            end if
             eKinOC=half*angular_moment_oc(3)**2/c_moi_oc
             eKinMA=half*angular_moment_ma(3)**2/c_moi_ma
             if ( AMzLast /= 0.0_cp ) then
                !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast, &
                !     &                  dt,(eKinAMz-eKinAMzLast)
+               print*, (AMz-AMzLast)/AMzLast, AMz, AMzLast
                write(n_angular_file,'(1p,2x,ES20.12,5ES14.6,3ES20.12)', advance='no') &
                &     time*tScale, angular_moment_oc,                                  &
                &     angular_moment_ic(3), angular_moment_ma(3),                      &

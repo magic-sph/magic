@@ -15,7 +15,7 @@ module updateWP_mod
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, dLh
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
-       &            l_fluxProfs, l_finite_diff
+       &            l_fluxProfs, l_finite_diff, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
@@ -724,14 +724,24 @@ contains
          end if
          wpMat%dat(n_r_max+1,nR_out_p)=0.0_cp
 
-         if ( kbotv == 1 ) then  ! free slip !
-            wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (       &
-            &                  rscheme_oc%d2rMat(n_r_max,nR_out) - &
-            &      ( two*or1(n_r_max)+beta(n_r_max))*              &
-            &                  rscheme_oc%drMat(n_r_max,nR_out))
-         else                 ! no slip, note exception for l=1,m=0
-            wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
-            &                       rscheme_oc%drMat(n_r_max,nR_out)
+         if ( l_full_sphere ) then
+            if ( l == 1 ) then
+               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
+               &                       rscheme_oc%drMat(n_r_max,nR_out)
+            else
+               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
+               &                       rscheme_oc%d2rMat(n_r_max,nR_out)
+            end if
+         else
+            if ( kbotv == 1 ) then  ! free slip !
+               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (       &
+               &                  rscheme_oc%d2rMat(n_r_max,nR_out) - &
+               &      ( two*or1(n_r_max)+beta(n_r_max))*              &
+               &                  rscheme_oc%drMat(n_r_max,nR_out))
+            else                 ! no slip, note exception for l=1,m=0
+               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
+               &                       rscheme_oc%drMat(n_r_max,nR_out)
+            end if
          end if
          wpMat%dat(2*n_r_max,nR_out_p)=0.0_cp
 
@@ -894,12 +904,20 @@ contains
          dat(2,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
-      if ( kbotv == 1 ) then  ! free slip
-         dat(n_r_max-1,:)=rscheme_oc%rnorm *(rscheme_oc%d2rMat(n_r_max,:)-  &
-         &                      (two*or1(n_r_max)+beta(n_r_max))*           &
-         &                                    rscheme_oc%drMat(n_r_max,:) )
-      else                 ! no slip
-         dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      if ( l_full_sphere ) then
+         if ( l == 1 ) then
+            dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         else
+            dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
+         end if
+      else
+         if ( kbotv == 1 ) then  ! free slip
+            dat(n_r_max-1,:)=rscheme_oc%rnorm *(rscheme_oc%d2rMat(n_r_max,:)-  &
+            &                      (two*or1(n_r_max)+beta(n_r_max))*           &
+            &                                    rscheme_oc%drMat(n_r_max,:) )
+         else                 ! no slip
+            dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !

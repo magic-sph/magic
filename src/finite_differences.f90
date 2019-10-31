@@ -125,18 +125,31 @@ contains
 
       else  ! irregular grid
 
+
          n_boundary_points = int( real(n_r_max-1,cp)/(two*(one+ratio1)) )
          ratio1 = real(n_r_max-1, cp)/real(two*n_boundary_points)-one
 
-         n_bulk_points = n_r_max-1-2*n_boundary_points
-         dr_after  = exp( log(ratio2)/real(n_boundary_points,cp) )
-         dr_before = one
+         if ( abs(ricb) <= 10.0_cp*epsilon(one) ) then ! Full sphere
+            n_bulk_points = n_r_max-1-n_boundary_points
+            dr_after  = exp( log(ratio2)/real(n_boundary_points,cp) )
+            dr_before = one
 
-         do n_r=1,n_boundary_points
-            dr_before=dr_before*dr_after
-         end do
-         dr_before=one/(real(n_bulk_points,cp)+two*dr_after*((one-dr_before) &
-         &         /(one-dr_after)))
+            do n_r=1,n_boundary_points
+               dr_before=dr_before*dr_after
+            end do
+            dr_before=one/(real(n_bulk_points,cp)+dr_after*((one-dr_before) &
+            &         /(one-dr_after)))
+         else
+            n_bulk_points = n_r_max-1-2*n_boundary_points
+            dr_after  = exp( log(ratio2)/real(n_boundary_points,cp) )
+            dr_before = one
+
+            do n_r=1,n_boundary_points
+               dr_before=dr_before*dr_after
+            end do
+            dr_before=one/(real(n_bulk_points,cp)+two*dr_after*((one-dr_before) &
+            &         /(one-dr_after)))
+         end if
 
          write(message,'(''!      drMax='',ES16.6)') dr_before
          call logWrite(message)
@@ -157,11 +170,13 @@ contains
             r(n_r+n_boundary_points+1)=r(n_r+n_boundary_points)-dr_before
          end do
 
-         do n_r=1,n_boundary_points
-            dr_before = dr_before*dr_after
-            r(n_r+n_boundary_points+n_bulk_points+1)=         &
-            &        r(n_r+n_boundary_points+n_bulk_points)-dr_before
-         end do
+         if ( abs(ricb) > 10.0_cp*epsilon(one) ) then ! Not full sphere
+            do n_r=1,n_boundary_points
+               dr_before = dr_before*dr_after
+               r(n_r+n_boundary_points+n_bulk_points+1)=         &
+               &        r(n_r+n_boundary_points+n_bulk_points)-dr_before
+            end do
+         end if
 
       end if
 
@@ -187,23 +202,9 @@ contains
       real(cp), intent(in) :: r(:) ! Radius
 
       !-- Local quantities:
-      real(cp) :: r_phantom(-this%order:size(r)+this%order+1)
-      !real(cp) :: r_phantom(-1:size(r)+2)
       real(cp), allocatable :: dr_spacing(:)
       real(cp), allocatable :: taylor_exp(:,:)
       integer :: n_r, od
-      real(cp) :: dr1, dr2
-
-      dr1 = r(1)-r(2)
-      dr2 = r(2)-r(3)
-
-      r_phantom(1:size(r)) = r(:)
-      r_phantom(0) = r(1)+dr1
-      r_phantom(-1) = r(1)+dr1+dr2
-      dr1 = r(this%n_max-1)-r(this%n_max)
-      dr2 = r(this%n_max-2)-r(this%n_max-1)
-      r_phantom(size(r)+1) = r(this%n_max)-dr1
-      r_phantom(size(r)+2) = r(this%n_max)-dr1-dr2
 
       !
       !-- Step 1: First and 2nd derivatives in the bulk
@@ -211,9 +212,10 @@ contains
       allocate( dr_spacing(this%order+1) )
       allocate( taylor_exp(0:this%order,0:this%order) )
 
-      do n_r=1,this%n_max
+
+      do n_r=1+this%order/2,this%n_max-this%order/2
          do od=0,this%order
-            dr_spacing(od+1)=r_phantom(n_r-this%order/2+od)-r_phantom(n_r)
+            dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
          end do
 
          call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
@@ -307,9 +309,9 @@ contains
       allocate( dr_spacing(this%order+3) )
       allocate( taylor_exp(0:this%order+2,0:this%order+2) )
 
-      do n_r=1,this%n_max
+      do n_r=2+this%order/2,this%n_max-this%order/2-1
          do od=0,this%order+2
-            dr_spacing(od+1)=r_phantom(n_r-this%order/2-1+od)-r_phantom(n_r)
+            dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
          end do
 
          call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &

@@ -17,7 +17,7 @@ module updateWPS_mod
    use init_fields, only: tops, bots
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, hdif_S, dLh
-   use logic, only: l_update_v, l_temperature_diff, l_RMS
+   use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
@@ -572,13 +572,24 @@ contains
          wpsMat(n_r_max+1,nR_out_p)=0.0_cp
          wpsMat(n_r_max+1,nR_out_s)=0.0_cp
 
-         if ( kbotv == 1 ) then  ! free slip !
-            wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (               &
-            &                       rscheme_oc%d2rMat(n_r_max,nR_out) - &
-            &                      (two*or1(n_r_max)+beta(n_r_max))*    &
-            &                        rscheme_oc%drMat(n_r_max,nR_out) )
-         else                 ! no slip, note exception for l=1,m=0
-            wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
+         if ( l_full_sphere ) then
+            if ( l == 1 ) then
+               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm* &
+               &                        rscheme_oc%drMat(n_r_max,nR_out)
+            else
+               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm* &
+               &                        rscheme_oc%d2rMat(n_r_max,nR_out)
+            end if
+         else
+            if ( kbotv == 1 ) then  ! free slip !
+               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (               &
+               &                       rscheme_oc%d2rMat(n_r_max,nR_out) - &
+               &                      (two*or1(n_r_max)+beta(n_r_max))*    &
+               &                        rscheme_oc%drMat(n_r_max,nR_out) )
+            else                 ! no slip, note exception for l=1,m=0
+               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm* &
+               &                        rscheme_oc%drMat(n_r_max,nR_out)
+            end if
          end if
          wpsMat(2*n_r_max,nR_out_p)=0.0_cp
          wpsMat(2*n_r_max,nR_out_s)=0.0_cp
@@ -606,30 +617,36 @@ contains
          end if
          wpsMat(2*n_r_max+1,nR_out)  =0.0_cp
 
-         if ( kbots == 1 ) then ! fixed entropy
-            wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*                &
+         if ( l_full_sphere ) then
+            wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm* &
             &                          rscheme_oc%rMat(n_r_max,nR_out)
             wpsMat(3*n_r_max,nR_out_p)=0.0_cp
-         else if ( kbots == 2) then ! fixed entropy flux
-            wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*                &
-            &                          rscheme_oc%drMat(n_r_max,nR_out)
-            wpsMat(3*n_r_max,nR_out_p)=0.0_cp
-         else if ( kbots == 3) then ! fixed temperature
-            wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*temp0(n_r_max)*     &
-            &                          rscheme_oc%rMat(n_r_max,nR_out)
-            wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*                     &
-            &                          rscheme_oc%rMat(n_r_max,nR_out)*      &
-            &                          orho1(n_r_max)*alpha0(n_r_max)*       &
-            &                          temp0(n_r_max)*ViscHeatFac*ThExpNb
-         else if ( kbots == 4) then ! fixed temperature flux
-            wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*temp0(n_r_max)*(            &
-            &                                     rscheme_oc%drMat(n_r_max,nR_out)+ &
-            &                     dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
-            wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*           &
-            &              alpha0(n_r_max)*temp0(n_r_max)*ViscHeatFac*ThExpNb*(   &
-            &                                rscheme_oc%drMat(n_r_max,nR_out)+    &
-            &              (dLalpha0(n_r_max)+dLtemp0(n_r_max)-                   &
-            &                  beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
+         else
+            if ( kbots == 1 ) then ! fixed entropy
+               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*                &
+               &                          rscheme_oc%rMat(n_r_max,nR_out)
+               wpsMat(3*n_r_max,nR_out_p)=0.0_cp
+            else if ( kbots == 2) then ! fixed entropy flux
+               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*                &
+               &                          rscheme_oc%drMat(n_r_max,nR_out)
+               wpsMat(3*n_r_max,nR_out_p)=0.0_cp
+            else if ( kbots == 3) then ! fixed temperature
+               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*temp0(n_r_max)*      &
+               &                          rscheme_oc%rMat(n_r_max,nR_out)
+               wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*                     &
+               &                          rscheme_oc%rMat(n_r_max,nR_out)*      &
+               &                          orho1(n_r_max)*alpha0(n_r_max)*       &
+               &                          temp0(n_r_max)*ViscHeatFac*ThExpNb
+            else if ( kbots == 4) then ! fixed temperature flux
+               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*temp0(n_r_max)*(     &
+               &                              rscheme_oc%drMat(n_r_max,nR_out)+ &
+               &              dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
+               wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*      &
+               &         alpha0(n_r_max)*temp0(n_r_max)*ViscHeatFac*ThExpNb*(   &
+               &                           rscheme_oc%drMat(n_r_max,nR_out)+    &
+               &         (dLalpha0(n_r_max)+dLtemp0(n_r_max)-                   &
+               &             beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
+            end if
          end if
          wpsMat(3*n_r_max,nR_out)  =0.0_cp
 
@@ -913,8 +930,8 @@ contains
 
                psMat(nR_p,nR_out)  = -rscheme_oc%rnorm*BuoFac*rho0(nR)* &
                &                     rgrav(nR)*rscheme_oc%rMat(nR,nR_out)
-               psMat(nR_p,nR_out_p)= rscheme_oc%rnorm*( rscheme_oc%drMat(nR,nR_out)- &
-               &                                beta(nR)*rscheme_oc%rMat(nR,nR_out) )
+               psMat(nR_p,nR_out_p)= rscheme_oc%rnorm*(rscheme_oc%drMat(nR,nR_out)- &
+               &                               beta(nR)*rscheme_oc%rMat(nR,nR_out) )
             end do
          end do
 
@@ -948,32 +965,37 @@ contains
             &                dLtemp0(1)-beta(1))*rscheme_oc%rMat(1,nR_out) )
          end if
 
-         if ( kbots == 1 ) then
-            !--------- Constant entropy at ICB:
-            psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
-            psMat(n_r_max,nR_out_p)=0.0_cp
-         else if ( kbots == 2) then
-            !--------- Constant entropy flux at ICB:
+         if ( l_full_sphere ) then
             psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
             psMat(n_r_max,nR_out_p)=0.0_cp
-         else if ( kbots == 3) then
-            !--------- Constant temperature at ICB:
-            psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*          &
-            &                       rscheme_oc%rMat(n_r_max,nR_out)*temp0(n_r_max)
-            psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*                      &
-            &                           rscheme_oc%rMat(n_r_max,nR_out)*   &
-            &                      alpha0(n_r_max)*temp0(n_r_max)*         &
-            &                      orho1(n_r_max)*ViscHeatFac*ThExpNb
-         else if ( kbots == 4) then
-            !--------- Constant temperature flux at ICB:
-            psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*temp0(n_r_max)*(           &
-            &                                 rscheme_oc%drMat(n_r_max,nR_out)+ &
-            &                 dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
-            psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*alpha0(n_r_max)* &
-            &              temp0(n_r_max)*ViscHeatFac*ThExpNb*(                      &
-            &                          rscheme_oc%drMat(n_r_max,nR_out)+             &
-            &              (dLalpha0(n_r_max)+dLtemp0(n_r_max)-                      &
-            &            beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
+         else
+            if ( kbots == 1 ) then
+               !--------- Constant entropy at ICB:
+               psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
+               psMat(n_r_max,nR_out_p)=0.0_cp
+            else if ( kbots == 2) then
+               !--------- Constant entropy flux at ICB:
+               psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
+               psMat(n_r_max,nR_out_p)=0.0_cp
+            else if ( kbots == 3) then
+               !--------- Constant temperature at ICB:
+               psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*          &
+               &                       rscheme_oc%rMat(n_r_max,nR_out)*temp0(n_r_max)
+               psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*                      &
+               &                           rscheme_oc%rMat(n_r_max,nR_out)*   &
+               &                      alpha0(n_r_max)*temp0(n_r_max)*         &
+               &                      orho1(n_r_max)*ViscHeatFac*ThExpNb
+            else if ( kbots == 4) then
+               !--------- Constant temperature flux at ICB:
+               psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*temp0(n_r_max)*(           &
+               &                                 rscheme_oc%drMat(n_r_max,nR_out)+ &
+               &             dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
+               psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*        &
+               &        alpha0(n_r_max)*temp0(n_r_max)*ViscHeatFac*ThExpNb*(   &
+               &                          rscheme_oc%drMat(n_r_max,nR_out)+    &
+               &              (dLalpha0(n_r_max)+dLtemp0(n_r_max)-             &
+               &            beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
+            end if
          end if
 
       end do

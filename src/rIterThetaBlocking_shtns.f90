@@ -16,7 +16,8 @@ module rIterThetaBlocking_shtns_mod
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
        &            l_TO, l_chemical_conv, l_probe,                  &
-       &            l_precession, l_centrifuge, l_adv_curl
+       &            l_precession, l_centrifuge, l_adv_curl,          &
+       &            l_full_sphere
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -230,7 +231,7 @@ contains
       end if
 
       !--------- Calculate courant condition parameters:
-      if ( this%l_cour ) then
+      if ( this%l_cour .and. ( .not. l_full_sphere .or. this%nR /= n_r_icb) ) then
          call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc,          &
               &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
               &       this%gsa%bpc,1 ,this%sizeThetaB)

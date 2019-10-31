@@ -19,7 +19,7 @@ module output_mod
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
-       &            l_chemical_conv, l_movie
+       &            l_chemical_conv, l_movie, l_full_sphere
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -667,10 +667,10 @@ contains
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                             &
-                    &    (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
-                    &    + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
-                    &      dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
+               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                    &
+               &         (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
+               &         + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
+               &           dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
             end do
 
             call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &
@@ -992,22 +992,37 @@ contains
   
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
-               write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
-               & " ! Energies at end of time integration:",                 &
-               & " !  (total,poloidal,toroidal,total density)",             &
-               & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
-               & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
-               & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
-               & e_mag_ic/vol_ic
-  
-               write(n_log_file,                                               &
-               &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
-               &    " ! Energies at end of time integration:",                 &
-               &    " !  (total,poloidal,toroidal,total density)",             &
-               &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
-               &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
-               &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
-               &    e_mag_ic/vol_ic
+               if ( l_full_sphere ) then
+                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')              &
+                  & " ! Energies at end of time integration:",                 &
+                  & " !  (total,poloidal,toroidal,total density)",             &
+                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
+                  write(n_log_file,                                               &
+                  &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')                    &
+                  &    " ! Energies at end of time integration:",                 &
+                  &    " !  (total,poloidal,toroidal,total density)",             &
+                  &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
+
+               else
+                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
+                  & " ! Energies at end of time integration:",                 &
+                  & " !  (total,poloidal,toroidal,total density)",             &
+                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+                  & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+                  & e_mag_ic/vol_ic
+     
+                  write(n_log_file,                                               &
+                  &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
+                  &    " ! Energies at end of time integration:",                 &
+                  &    " !  (total,poloidal,toroidal,total density)",             &
+                  &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+                  &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+                  &    e_mag_ic/vol_ic
+               end if
   
                write(n_log_file,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')        &
                & " ! Time averaged energies :",                                &

@@ -11,7 +11,7 @@ module updateXi_mod
    use init_fields, only: topxi, botxi
    use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: dLh, hdif_Xi
-   use logic, only: l_update_xi, l_finite_diff
+   use logic, only: l_update_xi, l_finite_diff, l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
@@ -250,7 +250,7 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)=real(topxi(0,0))
+                  rhs(1)      =real(topxi(0,0))
                   rhs(n_r_max)=real(botxi(0,0))
                   do nR=2,n_r_max-1
                      rhs(nR)=real(xi(lm1,nR))*O_dt+ &
@@ -267,7 +267,7 @@ contains
                else ! l1  /=  0
                   lmB=lmB+1
 
-                  rhs1(1,lmB,threadid)=topxi(l1,m1)
+                  rhs1(1,lmB,threadid)      =topxi(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=botxi(l1,m1)
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=xi(lm1,nR)*O_dt + &
@@ -397,12 +397,17 @@ contains
       else
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
-      if ( kbotxi == 1 ) then
-         !--------- Constant composition at ICB:
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-      else
-         !--------- Constant flux at ICB:
+
+      if ( l_full_sphere ) then
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      else
+         if ( kbotxi == 1 ) then
+            !--------- Constant composition at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            !--------- Constant flux at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
@@ -485,10 +490,15 @@ contains
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
-      if ( kbotxi == 1 ) then
+      if ( l_full_sphere ) then
+         !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
       else
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         if ( kbotxi == 1 ) then
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !

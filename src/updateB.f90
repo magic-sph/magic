@@ -22,7 +22,8 @@ module updateB_mod
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-       &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff
+       &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff,     &
+       &            l_full_sphere
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
@@ -850,14 +851,14 @@ contains
          !         field (matrix bmat) and the toroidal field has to
          !         vanish (matrix ajmat).
 
-         datBmat(1,:)=            rscheme_oc%rnorm * (   &  
+         datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &  
          &                      rscheme_oc%drMat(1,:) +  &
          &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
          &                     conductance_ma* (         &
          &                     rscheme_oc%d2rMat(1,:) -  &
          &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
 
-         datJmat(1,:)=            rscheme_oc%rnorm * (   &
+         datJmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
          &                       rscheme_oc%rMat(1,:) +  &
          &       conductance_ma*rscheme_oc%drMat(1,:) )
       else if ( ktopb == 2 ) then
@@ -866,49 +867,55 @@ contains
          !----- pseudo vacuum condition, field has only
          !      a radial component, horizontal components
          !      vanish when aj and db are zero:
-         datJmat(1,:)=rscheme_oc%rnorm* rscheme_oc%rMat(1,:)
-         datBmat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+         datJmat(1,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%rMat(1,:)
+         datBmat(1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
       !-------- at IC (nR=n_r_max):
-      if ( kbotb == 1 ) then
-         !----------- insulating IC, field has to fit a potential field:
-         datJmat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      if ( l_full_sphere ) then
+         datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      else
+         if ( kbotb == 1 ) then
+            !----------- insulating IC, field has to fit a potential field:
+            datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
 
-         datBmat(n_r_max,:)=rscheme_oc%rnorm * (              &
-         &                      rscheme_oc%drMat(n_r_max,:) - &
-         &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
-      else if ( kbotb == 2 ) then
-         !----------- perfect conducting IC
-         datBmat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
-         datJmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
-      else if ( kbotb == 3 ) then
-         !---------- finite conducting IC, four boundary conditions:
-         !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
-         !           note: n_r=n_r_max and n_r=n_r_max+1 stand for IC radius
-         !           here we set the outer core part of the equations.
-         !           the conductivity ratio sigma_ratio is used as
-         !           an additional dimensionless parameter.
-         datBmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
-         datBmat(n_r_max+1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         datJmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
-         datJmat(n_r_max+1,:)=rscheme_oc%rnorm*sigma_ratio* &
-         &                      rscheme_oc%drMat(n_r_max,:)
-      else if ( kbotb == 4 ) then
-         !----- Pseudovacuum conduction at lower boundary:
-         datJmat(n_r_max,:)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         datBmat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+            datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * (      &
+            &                      rscheme_oc%drMat(n_r_max,:) - &
+            &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
+         else if ( kbotb == 2 ) then
+            !----------- perfect conducting IC
+            datBmat(n_r_max-1,1:n_r_max)=  &
+            &        rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
+            datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
+         else if ( kbotb == 3 ) then
+            !---------- finite conducting IC, four boundary conditions:
+            !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
+            !           note: n_r=n_r_max and n_r=n_r_max+1 stand for IC radius
+            !           here we set the outer core part of the equations.
+            !           the conductivity ratio sigma_ratio is used as
+            !           an additional dimensionless parameter.
+            datBmat(n_r_max,1:n_r_max)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
+            datBmat(n_r_max+1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+            datJmat(n_r_max,1:n_r_max)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
+            datJmat(n_r_max+1,1:n_r_max)=rscheme_oc%rnorm*sigma_ratio* &
+            &                      rscheme_oc%drMat(n_r_max,:)
+         else if ( kbotb == 4 ) then
+            !----- Pseudovacuum conduction at lower boundary:
+            datJmat(n_r_max,1:n_r_max)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+            datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       !-------- Imposed fields: (overwrites above IC boundary cond.)
       if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-         datBmat(n_r_max,:)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
+         datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
       else if ( l == 3 .and. imagcon == -10 ) then
          if ( l_LCR ) then
             call abortRun('Imposed field not compatible with weak conducting region!')
          end if
-         datJmat(1,:)      =rscheme_oc%rnorm * rscheme_oc%rMat(1,:)
-         datJmat(n_r_max,:)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
+         datJmat(1,1:n_r_max)      =rscheme_oc%rnorm * rscheme_oc%rMat(1,:)
+         datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
       else if ( n_imp == 1 ) then
          !-- This is Uli Christensen's idea where the external field is
          !   not fixed but compensates the internal field so that the
@@ -918,7 +925,7 @@ contains
          end if
          rRatio=rrMP**real(2*l+1,kind=cp)
 
-         datBmat(1,:)=        rscheme_oc%rnorm * (        &
+         datBmat(1,1:n_r_max)=rscheme_oc%rnorm * (        &
          &                      rscheme_oc%drMat(1,:) +   &
          &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) -   &
          &    real(2*l+1,cp)*or1(1)/(1-rRatio) +          &

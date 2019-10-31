@@ -26,7 +26,7 @@ module init_fields
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
-       &                       rscheme_oc
+       &                       rscheme_oc, or1
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
@@ -318,7 +318,7 @@ contains
             amp_r=amp_v1*r_ICB**(rExp+1.)/y10_norm
          end if
          do nR=1,n_r_max
-            rDep(nR)=amp_r/r(nR)**(rExp-1.)
+            rDep(nR)=amp_r*or1(nR)**(rExp-1.)
             !write(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
             do lm=llm,ulm
                l=lo_map%lm2l(lm)
@@ -1258,17 +1258,17 @@ contains
                aj_ic2=(one-aj_ic1)*r_icb*sin(arg)/cos(arg)
                do n_r=1,n_r_ic_max
                   b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol*r_icb**2 * (    &
-                                            half*r_ic(n_r)**2/r_icb + &
-                                                         half*r_icb - &
-                                                    four*third*r_cmb )
+                  &                         half*r_ic(n_r)**2/r_icb + &
+                  &                                      half*r_icb - &
+                  &                                 four*third*r_cmb )
                end do
             else
                b_pol=amp_b1*sqrt(three*pi)/four
                do n_r=1,n_r_max
-                  b(l1m0,n_r)=b(l1m0,n_r)+ b_pol *     ( &
-                                             r(n_r)**3 - &
-                             four*third*r_cmb*r(n_r)**2 + &
-                          third*r_icb**4/r(n_r)    )
+                  b(l1m0,n_r)=b(l1m0,n_r)+ b_pol *     (  &
+                  &                          r(n_r)**3 -  &
+                  &          four*third*r_cmb*r(n_r)**2 + &
+                  &       third*r_icb**4*or1(n_r)    )
                end do
             end if
          end if
@@ -1285,8 +1285,8 @@ contains
                aj_ic2=(one-aj_ic1)*r_icb*sin(arg)/cos(arg)
                do n_r=1,n_r_ic_max
                   aj_ic(l2m0,n_r)=aj_ic(l2m0,n_r)+b_tor*             ( &
-                           aj_ic1*r_ic(n_r)*sin(pi*r_ic(n_r)/r_cmb) + &
-                                     aj_ic2*cos(pi*r_ic(n_r)/r_cmb) )
+                  &        aj_ic1*r_ic(n_r)*sin(pi*r_ic(n_r)/r_cmb) +  &
+                  &                  aj_ic2*cos(pi*r_ic(n_r)/r_cmb) )
                end do
             else
                b_pol=amp_b1*sqrt(three*pi)/four
@@ -1504,7 +1504,7 @@ contains
       ! equatorialy symmetric
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             do n_r=1,n_r_max
-               aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
+               aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
             end do
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l1m0,n_r)=aj(l1m0,n_r)+aj0(n_r)
@@ -1520,7 +1520,7 @@ contains
       ! equatorialy asymmetric
          if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
-               aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
+               aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
             end do
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l2m0,n_r)=aj(l2m0,n_r)+aj0(n_r)

@@ -91,5 +91,6 @@ module logic
    logical :: l_precession ! Use precession
    logical :: l_centrifuge ! Compute centrifugal acceleration
    logical :: l_adv_curl   ! Use \curl{u}\times u for the advection
+   logical :: l_full_sphere ! Set to .true. if this is a full sphere calculation
 
 end module logic

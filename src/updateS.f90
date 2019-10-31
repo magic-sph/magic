@@ -13,7 +13,8 @@ module updateS_mod
    use init_fields, only: tops,bots
    use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: dLh,hdif_S
-   use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff
+   use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
+       &            l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
@@ -670,12 +671,16 @@ contains
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
-      if ( kbots == 1 ) then
-         !--------- Constant entropy at ICB:
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-      else
-         !--------- Constant flux at ICB:
+      if ( l_full_sphere ) then
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      else
+         if ( kbots == 1 ) then
+            !--------- Constant entropy at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            !--------- Constant flux at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
@@ -750,9 +755,9 @@ contains
    end subroutine get_s0Mat
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
-   subroutine get_Smat(dt,l,hdif,sMat,sMat_fac)
+   subroutine get_sMat(dt,l,hdif,sMat,sMat_fac)
 #else
-   subroutine get_Smat(dt,l,hdif,sMat)
+   subroutine get_sMat(dt,l,hdif,sMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
@@ -797,10 +802,14 @@ contains
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
-      if ( kbots == 1 ) then
+      if ( l_full_sphere ) then
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
       else
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         if ( kbots == 1 ) then
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
