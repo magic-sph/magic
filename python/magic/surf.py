@@ -69,7 +69,7 @@ class Surf:
             del dr, dtheta, ds, rr3D, th3D, s3D
 
     def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None,
-             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
+             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, ic=False,
              lon_shift=0, normed=True, cbar=True, tit=True, lines=False):
         """
         Plot the surface distribution of an input field at a given
@@ -348,7 +348,7 @@ class Surf:
             else:
                 label = 'vortz'
         else:
-            data, data_ic, label = selectField(self.gr, field, labTex, ic=True)
+            data, data_ic, label = selectField(self.gr, field, labTex, ic=ic)
 
         if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
             normed = False
