@@ -254,7 +254,7 @@ program magic
    !-- Blocking/radial/horizontal
    call initialize_blocking()
    local_bytes_used=bytes_allocated
-   call initialize_radial_data()
+   call initialize_radial_data(n_r_max)
    call initialize_radial_functions()
    call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
