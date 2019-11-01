@@ -393,7 +393,6 @@ contains
             if ( AMzLast /= 0.0_cp ) then
                !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast, &
                !     &                  dt,(eKinAMz-eKinAMzLast)
-               print*, (AMz-AMzLast)/AMzLast, AMz, AMzLast
                write(n_angular_file,'(1p,2x,ES20.12,5ES14.6,3ES20.12)', advance='no') &
                &     time*tScale, angular_moment_oc,                                  &
                &     angular_moment_ic(3), angular_moment_ma(3),                      &
