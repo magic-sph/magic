@@ -22,7 +22,7 @@ module preCalculations
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
        &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
        &                       dLvisc, dLlambda, divKtemp0, radial,        &
-       &                       transportProperties
+       &                       transportProperties, l_R
    use physical_parameters, only: nVarEps, pr, prmag, ra, rascaled, ek,    &
        &                          ekscaled, opr, opm, o_sr, radratio,      &
        &                          sigma_ratio, CorFac, LFfac, BuoFac,      &
@@ -54,7 +54,7 @@ contains
       !
     
       !---- Local variables:
-      real(cp) :: c1,help,facIH
+      real(cp) :: help,facIH
       real(cp) :: delmin,sr_top,si_top,sr_bot,si_bot
       real(cp) :: xir_top,xii_top,xir_bot,xii_bot
       real(cp) :: topconduc, botconduc
@@ -289,13 +289,12 @@ contains
       end if
     
       !-- Calculate auxiliary arrays containing effective Courant grid intervals:
-      c1=one/real(l_max*(l_max+1),kind=cp)
-      delxh2(1)      =c1*r_cmb**2
-      delxh2(n_r_max)=c1*r_icb**2
+      delxh2(1)      =r_cmb**2/real(l_R(1)*(l_R(1)+1),kind=cp)
+      delxh2(n_r_max)=r_icb**2/real(l_R(n_r_max)*(l_R(n_r_max)+1),kind=cp)
       delxr2(1)      =(r(1)-r(2))**2
       delxr2(n_r_max)=(r(n_r_max-1)-r(n_r_max))**2
       do n_r=2,n_r_max-1
-         delxh2(n_r)=c1*r(n_r)**2
+         delxh2(n_r)=r(n_r)**2/real(l_R(n_r)*(l_R(n_r)+1),kind=cp)
          delmin=min((r(n_r-1)-r(n_r)),(r(n_r)-r(n_r+1)))
          delxr2(n_r)=delmin*delmin
       end do

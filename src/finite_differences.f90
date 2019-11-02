@@ -151,14 +151,15 @@ contains
             &         /(one-dr_after)))
          end if
 
-         write(message,'(''!      drMax='',ES16.6)') dr_before
+         call logWrite('! Using FD radial grid:')
+         write(message,'(''!    drMax='',ES16.6)') dr_before
          call logWrite(message)
 
          do n_r=1,n_boundary_points
             dr_before = dr_before*dr_after
          end do
 
-         write(message,'(''!      drMin='',ES16.6)') dr_before
+         write(message,'(''!    drMin='',ES16.6)') dr_before
          call logWrite(message)
 
          do n_r=2,n_boundary_points+1

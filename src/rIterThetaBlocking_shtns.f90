@@ -19,7 +19,7 @@ module rIterThetaBlocking_shtns_mod
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_full_sphere
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: or2, orho1
+   use radial_functions, only: or2, orho1, l_R
    use constants, only: zero
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
@@ -167,7 +167,7 @@ contains
       call this%nl_lm%set_zero()
 
       call lm2phy_counter%start_count()
-      call this%transform_to_grid_space_shtns(this%gsa, time)
+      call this%transform_to_grid_space_shtns(this%gsa)
       call lm2phy_counter%stop_count(l_increment=.false.)
 
       !--------- Calculation of nonlinear products in grid space:
@@ -411,20 +411,19 @@ contains
       end if
     end subroutine do_iteration_ThetaBlocking_shtns
 !-------------------------------------------------------------------------------
-   subroutine transform_to_grid_space_shtns(this, gsa, time)
+   subroutine transform_to_grid_space_shtns(this, gsa)
 
       class(rIterThetaBlocking_shtns_t) :: this
       type(grid_space_arrays_t) :: gsa
-      real(cp), intent(in) :: time
 
       integer :: nR
       nR = this%nR
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call scal_to_spat(s_Rloc(:,nR), gsa%sc)
+            call scal_to_spat(s_Rloc(:,nR), gsa%sc, l_R(nR))
             if ( this%lViscBcCalc ) then
-               call scal_to_grad_spat(s_Rloc(:,nR), gsa%dsdtc, gsa%dsdpc)
+               call scal_to_grad_spat(s_Rloc(:,nR), gsa%dsdtc, gsa%dsdpc, l_R(nR))
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -437,29 +436,29 @@ contains
          end if
 
          if ( this%lRmsCalc ) then
-            call scal_to_grad_spat(p_Rloc(:,nR), gsa%dpdtc, gsa%dpdpc)
+            call scal_to_grad_spat(p_Rloc(:,nR), gsa%dpdtc, gsa%dpdpc, l_R(nR))
          end if
 
          !-- Pressure
-         if ( this%lPressCalc ) call scal_to_spat(p_Rloc(:,nR), gsa%pc)
+         if ( this%lPressCalc ) call scal_to_spat(p_Rloc(:,nR), gsa%pc, l_R(nR))
 
          !-- Composition
-         if ( l_chemical_conv ) call scal_to_spat(xi_Rloc(:,nR), gsa%xic)
+         if ( l_chemical_conv ) call scal_to_spat(xi_Rloc(:,nR), gsa%xic, l_R(nR))
 
          if ( l_HT .or. this%lViscBcCalc ) then
-            call scal_to_spat(ds_Rloc(:,nR), gsa%drsc)
+            call scal_to_spat(ds_Rloc(:,nR), gsa%drsc, l_R(nR))
          endif
          if ( this%nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
             call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                 &              gsa%vrc, gsa%vtc, gsa%vpc)
+                 &              gsa%vrc, gsa%vtc, gsa%vpc, l_R(nR))
 
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
                call torpol_to_curl_spat(or2(nR), w_Rloc(:,nR), ddw_Rloc(:,nR), &
                     &                   z_Rloc(:,nR), dz_Rloc(:,nR),           &
-                    &                   gsa%cvrc, gsa%cvtc, gsa%cvpc)
+                    &                   gsa%cvrc, gsa%cvtc, gsa%cvpc, l_R(nR))
 
                !-- For some outputs one still need the other terms
                if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
@@ -468,65 +467,63 @@ contains
 
                   call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR),         &
                        &              dz_Rloc(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
-                       &              gsa%dvpdrc)
-                  call pol_to_grad_spat(w_Rloc(:,nR),gsa%dvrdtc,gsa%dvrdpc)
+                       &              gsa%dvpdrc, l_R(nR))
+                  call pol_to_grad_spat(w_Rloc(:,nR),gsa%dvrdtc,gsa%dvrdpc, l_R(nR))
                   call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                       &                 gsa%dvtdpc, gsa%dvpdpc)
+                       &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
                end if
 
             else ! Advection is treated as u\grad u
 
                call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                 &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
+                 &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
 
-               call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc)
+               call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc, l_R(nR))
 
-               call pol_to_grad_spat(w_Rloc(:,nR), gsa%dvrdtc, gsa%dvrdpc)
+               call pol_to_grad_spat(w_Rloc(:,nR), gsa%dvrdtc, gsa%dvrdpc, l_R(nR))
                call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                    &                 gsa%dvtdpc, gsa%dvpdpc)
+                    &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
             end if
 
          else if ( this%nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
             call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                 &              gsa%vrc, gsa%vtc, gsa%vpc)
+                 &              gsa%vrc, gsa%vtc, gsa%vpc, l_R(nR))
             gsa%vrc = 0.0_cp
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
                call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
-               call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc)
+                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
+               call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc, l_R(nR))
                call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                    &                 gsa%dvtdpc, gsa%dvpdpc)
+                    &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
             end if
          else if ( this%nBc == 2 ) then
             if ( this%nR == n_r_cmb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
-                    &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                1,time)
+                    &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,1)
             else if ( this%nR == n_r_icb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
-                    &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                1,time)
+                    &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,1)
             end if
             if ( this%lDeriv ) then
                call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
+                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
          call torpol_to_spat(b_Rloc(:,nR), db_Rloc(:,nR),  aj_Rloc(:,nR),    &
-              &              gsa%brc, gsa%btc, gsa%bpc)
+              &              gsa%brc, gsa%btc, gsa%bpc, l_R(nR))
 
          if ( this%lDeriv ) then
             call torpol_to_curl_spat(or2(nR), b_Rloc(:,nR), ddb_Rloc(:,nR), &
                  &                   aj_Rloc(:,nR), dj_Rloc(:,nR),          &
-                 &                   gsa%cbrc, gsa%cbtc, gsa%cbpc)
+                 &                   gsa%cbrc, gsa%cbtc, gsa%cbpc, l_R(nR))
          end if
       end if
 
@@ -601,58 +598,63 @@ contains
          end if
          !$omp end parallel
 
-         call spat_to_SH(gsa%Advr, nl_lm%AdvrLM)
-         call spat_to_SH(gsa%Advt, nl_lm%AdvtLM)
-         call spat_to_SH(gsa%Advp, nl_lm%AdvpLM)
+         call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
+         call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
+         call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
-            call spat_to_SH(gsa%LFr, nl_lm%LFrLM)
-            call spat_to_SH(gsa%LFt, nl_lm%LFtLM)
-            call spat_to_SH(gsa%LFp, nl_lm%LFpLM)
+            call spat_to_SH(gsa%LFr, nl_lm%LFrLM, l_R(this%nR))
+            call spat_to_SH(gsa%LFt, nl_lm%LFtLM, l_R(this%nR))
+            call spat_to_SH(gsa%LFp, nl_lm%LFpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
          call spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, nl_lm%VStLM, &
-              &           nl_lm%VSpLM)
+              &           nl_lm%VSpLM, l_R(this%nR))
 
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM)
-               call spat_to_SH(gsa%OhmLoss, nl_lm%OhmLossLM)
+               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH(gsa%OhmLoss, nl_lm%OhmLossLM, l_R(this%nR))
             else
-               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM)
+               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
             end if
          end if
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
          call spat_to_qst(gsa%VXir, gsa%VXit, gsa%VXip, nl_lm%VXirLM, &
-              &           nl_lm%VXitLM, nl_lm%VXipLM)
+              &           nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
             call spat_to_qst(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
-                 &           nl_lm%VxBtLM, nl_lm%VxBpLM)
+                 &           nl_lm%VxBtLM, nl_lm%VxBpLM, l_R(this%nR))
          else
-            call spat_to_sphertor(gsa%VxBt,gsa%VxBp,nl_lm%VxBtLM,nl_lm%VxBpLM)
+            call spat_to_sphertor(gsa%VxBt,gsa%VxBp,nl_lm%VxBtLM,nl_lm%VxBpLM, &
+                 &                l_R(this%nR))
          end if
          !PERFOFF
       end if
 
       if ( this%lRmsCalc ) then
-         call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, nl_lm%PFp2LM)
-         call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM)
+         call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, nl_lm%PFp2LM, &
+              &                l_R(this%nR))
+         call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM, &
+              &                l_R(this%nR))
          call spat_to_qst(gsa%dtVr, gsa%dtVt, gsa%dtVp, nl_lm%dtVrLM, &
-              &           nl_lm%dtVtLM, nl_lm%dtVpLM)
+              &           nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
          if ( l_conv_nl ) then
-            call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, nl_lm%Advp2LM)
+            call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, &
+                 &                nl_lm%Advp2LM, l_R(this%nR))
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, nl_lm%LFp2LM)
+            call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, &
+                 &                nl_lm%LFp2LM, l_R(this%nR))
          end if
       end if
 

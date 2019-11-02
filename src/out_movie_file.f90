@@ -1738,7 +1738,7 @@ contains
 
 #ifdef WITH_SHTNS
       zerosc(:)=zero
-      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p)
+      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
 #else
       !-- Build field components:
       !----- Loop over colatitudes:

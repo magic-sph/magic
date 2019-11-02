@@ -8,7 +8,7 @@ module fields_average_mod
    use mem_alloc, only: bytes_allocated
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
-       &                       rscheme_oc
+       &                       rscheme_oc, l_R
    use blocking,only: sizeThetaB, nThetaBs, lm2, nfs, llm, ulm, llmMag, &
        &              ulmMag
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
@@ -465,14 +465,14 @@ contains
 #ifdef WITH_SHTNS
                if ( l_mag ) then
                   call torpol_to_spat(b_ave_global, db_ave_global, &
-                       &              aj_ave_global, Br, Bt, Bp)
+                       &              aj_ave_global, Br, Bt, Bp, l_R(nR))
                end if
                call torpol_to_spat(w_ave_global, dw_ave_global, &
-                    &              z_ave_global, Vr, Vt, Vp)
-               call scal_to_spat(p_ave_global, Prer)
-               call scal_to_spat(s_ave_global, Sr)
+                    &              z_ave_global, Vr, Vt, Vp, l_R(nR))
+               call scal_to_spat(p_ave_global, Prer, l_R(nR))
+               call scal_to_spat(s_ave_global, Sr, l_R(nR))
                if ( l_chemical_conv ) then
-                  call scal_to_spat(xi_ave_global, Xir)
+                  call scal_to_spat(xi_ave_global, Xir, l_R(nR))
                end if
                call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
                &             Xir, 1, sizeThetaB, lGraphHeader)

@@ -54,7 +54,8 @@ contains
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
-      &     fd_order,fd_order_bound,fd_ratio,fd_stretch
+      &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
+      &     l_var_l
 
       namelist/control/                                     &
       &    mode,tag,n_time_steps,                           &
@@ -429,6 +430,8 @@ contains
          kbotv = 1
          kbots = 2
          kbotxi = 2
+         g0 = 0.0_cp ! Cannot be constant gravity
+         g2 = 0.0_cp ! Cannot be 1/r^2 gravity in full sphere
       end if
 
       !-- Choose between entropy diffusion and temperature diffusion
@@ -783,6 +786,7 @@ contains
       write(n_out,'(''  fd_ratio        ='',ES14.6,'','')') fd_ratio
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
       write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
+      write(n_out,'(''  l_var_l         ='',l3,'','')') l_var_l
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -1168,6 +1172,7 @@ contains
       !   20 <= nalias <= 30
       nalias        =20
       l_axi         =.false.
+      l_var_l       =.false. ! l is a function of radius
 
       !-- Finite differences
       fd_order      =2

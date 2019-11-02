@@ -5,14 +5,15 @@ module radial_functions
    !
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
-       &                 fd_stretch, fd_order, fd_order_bound
+       &                 fd_stretch, fd_order, fd_order_bound, l_max
    use algebra, only: prepare_mat, solve_mat
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
-       &            l_temperature_diff, l_single_matrix,           &
+       &            l_temperature_diff, l_single_matrix, l_var_l,  &
        &            l_finite_diff, l_newmap, l_full_sphere
+   use radial_data, only: nRstart, nRstop
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -102,6 +103,8 @@ module radial_functions
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
 
+   integer, public, allocatable :: l_R(:) ! Variable degree with radius
+
    public :: initialize_radial_functions, radial, transportProperties, &
    &         finalize_radial_functions
 
@@ -135,8 +138,12 @@ contains
       allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       allocate( opressure0(n_r_max) )
-
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
+
+      !allocate ( l_R(nRstart:nRstop) )
+      !bytes_allocated = bytes_allocated +(nRstop-nRstart+1)*SIZEOF_INTEGER
+      allocate ( l_R(1:n_r_max) )
+      bytes_allocated = bytes_allocated +n_r_max*SIZEOF_INTEGER
 
       if ( .not. l_full_sphere ) then
          nDi_costf1_ic=2*n_r_ic_max+2
@@ -182,6 +189,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_radial_functions
 
+      deallocate( l_R )
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
       deallocate( ddLtemp0, orho1, orho2, beta, dbeta, ddbeta, alpha0 )
@@ -202,7 +210,7 @@ contains
 
    end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------
-   subroutine radial
+   subroutine radial()
       !
       !  Calculates everything needed for radial functions, transforms etc.
       !
@@ -273,8 +281,25 @@ contains
          or4(:)=or2(:)*or2(:)  ! 1/r**4
       end if
 
+      !-- Determine the max. degree for each radial level
+      if ( l_var_l ) then ! Nat's form from Marti et al. (2014)
+         !l_R(:) = int(one+(l_max-one)*sqrt(r(nRstart:nRstop)/r_cmb))
+         l_R(:) = int(one+(l_max-one)*sqrt(r(:)/r_cmb))
+         call logWrite('! Spherical harmonic degree varies with radius')
+         call logWrite('! It increases between l_min and l_max following:')
+         write(message,'(''!   l_min ='',i5, '' at r ='', f7.4)') minval(l_R(:)), &
+         &     r(minloc(l_R(:),dim=1))
+         call logWrite(message)
+         write(message,'(''!   l_max ='',i5, '' at r ='', f7.4)') maxval(l_R(:)), &
+         &     r(maxloc(l_R(:),dim=1))
+         call logWrite(message)
+         call logWrite('')
+      else ! Default is constant l
+         l_R(:) = l_max
+      end if
+
       !-- Get entropy gradient
-      call getEntropyGradient ! By default this is zero
+      call getEntropyGradient() ! By default this is zero
 
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
@@ -533,8 +558,12 @@ contains
             else !-- Adiabatic reference state
 
                if ( l_isothermal ) then ! Gruneisen is zero in this limit
-                  fac        =strat / ( g0+half*g1*(one+radratio)+g2/radratio ) &
-                  &           / (r_cmb-r_icb)
+                  if ( l_full_sphere ) then
+                     fac = strat/(half*g1*(one+radratio))/(r_cmb-r_icb)
+                  else
+                     fac=strat / ( g0+half*g1*(one+radratio)+g2/radratio ) &
+                     &         / (r_cmb-r_icb)
+                  end if
                   DissNb     =0.0_cp
                   GrunNb     =0.0_cp
                   ogrun(:)   =0.0_cp
@@ -550,18 +579,28 @@ contains
                   ddLtemp0(:)=0.0_cp
                else
                   if ( strat == 0.0_cp .and. DissNb /= 0.0_cp ) then
-                     strat = polind* log( (g0+half*g1*(one+radratio)+g2/radratio)*&
-                     &                    (r_cmb-r_icb)*DissNb+1 )
+                     if ( l_full_sphere ) then
+                        strat = polind* log( (half*g1*(one+radratio))*  &
+                        &                    (r_cmb-r_icb)*DissNb+1 )
+                     else
+                        strat = polind* log( (g0+half*g1*(one+radratio)+g2/radratio)*&
+                        &                    (r_cmb-r_icb)*DissNb+1 )
+                     end if
                   else
-                     DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
-                            ( g0+half*g1*(one+radratio) +g2/radratio )
+                     if ( l_full_sphere ) then
+                        DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
+                        &      ( half*g1*(one+radratio) )
+                     else
+                        DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
+                        &      ( g0+half*g1*(one+radratio) +g2/radratio )
+                     end if
                   end if
-                  GrunNb      =one/polind
-                  ogrun(:)    =one/GrunNb
-                  temp0(:)    =-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb- &
-                  &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb* &
-                  &            (g0+half*g1-g2)
-                  rho0(:)     =temp0**polind
+                  GrunNb  =one/polind
+                  ogrun(:)=one/GrunNb
+                  temp0(:)=-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb-   &
+                  &         g2*r_cmb**2*or1(:) ) + one + DissNb*r_cmb* &
+                  &         (g0+half*g1-g2)
+                  rho0(:) =temp0**polind
 
                   if (l_centrifuge) opressure0(:) = temp0**(-polind-1)
 

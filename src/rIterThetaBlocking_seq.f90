@@ -198,7 +198,7 @@ contains
          !      & nThetaStop
 
          call lm2phy_counter%start_count()
-         call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa,time)
+         call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa)
          call lm2phy_counter%stop_count(l_increment=.false.)
 
          !--------- Calculation of nonlinear products in grid space:

@@ -260,7 +260,7 @@ contains
          call lm2phy_counter%start_count()
          !PERFON('lm2grid')
          call this%transform_to_grid_space(nThetaStart,nThetaStop,&
-              &                            this%gsa(threadid),time)
+              &                            this%gsa(threadid))
          !PERFOFF
          call lm2phy_counter%stop_count(l_increment=.false.)
 
