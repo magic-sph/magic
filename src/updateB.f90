@@ -27,7 +27,6 @@ module updateB_mod
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
-   use algebra, only: prepare_mat, solve_mat
    use parallel_mod, only:  rank, chunksize, n_procs, get_openmp_blocks
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc

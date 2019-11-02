@@ -13,7 +13,6 @@ module updateXi_mod
    use horizontal_data, only: dLh, hdif_Xi
    use logic, only: l_update_xi, l_finite_diff, l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
-   use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
    use fields, only: work_LMloc

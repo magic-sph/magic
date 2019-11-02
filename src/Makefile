@@ -349,12 +349,12 @@ storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
 updateS.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mem_alloc.o\
-                        $(LAPACK_OBJS) cosine_transform_odd.o\
-                        radial_derivatives.o
+                        matrices.o cosine_transform_odd.o\
+                        radial_derivatives.o matrices.o
 updateXI.o            : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mem_alloc.o\
-                        $(LAPACK_OBJS) cosine_transform_odd.o\
+                        matrices.o cosine_transform_odd.o\
                         radial_derivatives.o
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
@@ -448,7 +448,7 @@ RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
 updateWP.o            : truncation.o blocking.o num_param.o integration.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         RMS.o cosine_transform_odd.o radial_derivatives.o\
-                        RMS_helpers.o mem_alloc.o fields.o
+                        RMS_helpers.o mem_alloc.o fields.o matrices.o
 updateWPS.o           : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         cosine_transform_odd.o radial_derivatives.o\
@@ -485,7 +485,7 @@ radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
 updateZ.o             : truncation.o blocking.o phys_param.o\
                         num_param.o constants.o radial.o horizontal.o\
                         logic.o init_fields.o RMS.o TO.o\
-                        $(LAPACK_OBJS) cosine_transform_odd.o\
+                        matrices.o cosine_transform_odd.o\
                         radial_derivatives.o outRot.o RMS_helpers.o \
                         communications.o mem_alloc.o special.o
 out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
@@ -507,7 +507,7 @@ out_dtB_frame.o       : truncation.o blocking.o radial.o logic.o\
 updateB.o             : truncation.o blocking.o horizontal.o fields.o\
                         phys_param.o num_param.o init_fields.o\
                         logic.o radial.o special.o constants.o\
-                        RMS.o $(LAPACK_OBJS) radial_derivatives.o\
+                        RMS.o matrices.o radial_derivatives.o\
                         cosine_transform_odd.o radial_derivatives_even.o\
                         RMS_helpers.o mem_alloc.o
 outGeos.o             : truncation.o phys_param.o num_param.o\
@@ -547,8 +547,8 @@ RMS.o	              : truncation.o blocking.o mem_alloc.o
 init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) legendre_grid_to_spec.o\
                         useful.o phys_param.o mpi_transpose.o\
-                        cosine_transform_odd.o mem_alloc.o parallel.o
-mean_sd.o             : precision_mod.o mem_alloc.o
+                        cosine_transform_odd.o mem_alloc.o parallel.o 
+mean_sd.o             : precision_mod.o mem_alloc.o matrices.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
                         horizontal.o char_manip.o useful.o
@@ -568,6 +568,7 @@ special.o             : precision_mod.o mem_alloc.o truncation.o
 probes.o              : parallel.o precision_mod.o truncation.o radial.o num_param.o\
                         blocking.o horizontal.o output_data.o constants.o
 radial_data.o         : truncation.o parallel.o logic.o
+matrices.o            : precision_mod.o mem_alloc.o ${LAPACK_OBJS}
 plms.o                : constants.o precision_mod.o useful.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
@@ -579,7 +580,7 @@ rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
                         out_movie_file.o outRot.o nl_special_calc.o courant.o\
 			TO_arrays.o dtB_arrays.o probes.o
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
-                        precision_mod.o constants.o
+                        precision_mod.o constants.o blocking.o
 radialLoop.o          : rIterThetaBlocking_shtns.o
 magic.o               : shtns.o
 endif

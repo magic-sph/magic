@@ -17,7 +17,6 @@ module updateWP_mod
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs, l_finite_diff, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
-   use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
    use RMS_helpers, only:  hInt2Pol

@@ -23,7 +23,6 @@ module updateZ_mod
        &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
        &                pi, third
    use parallel_mod
-   use algebra, only: prepare_mat, solve_mat
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
    use RMS_helpers, only: hInt2Tor
