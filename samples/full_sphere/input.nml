@@ -1,0 +1,58 @@
+&grid
+ n_r_max       =96,
+ n_phi_tot     =96,
+ nalias        =20,
+ minc          =3,
+ fd_order      =4,
+ fd_order_bound=2,
+ fd_stretch    =0.3d0,
+ fd_ratio      =0.2d0,
+ l_var_l       =.true.,
+/
+&control
+ mode        =1,
+ tag         ="test",
+ n_time_steps=100,
+ courfac     =2.5D0,
+ alffac      =1.0D0,
+ dtmax       =5.0D-6,
+ n_cour_step =5,
+ alpha       =0.5D0,
+ runHours    =00,
+ runMinutes  =29,
+ l_adv_curl  =.true.,
+ l_correct_AMz=.true.,
+ radial_scheme='FD',
+/
+&phys_param
+ ra          =3.16666666666666D5,
+ pr          =1.0d0,
+ ek          =6.0D-4,
+ epsc0       =3.0d0,
+ radratio    =0.0D0,
+ ktops       =1,
+ ktopv       =1,
+/
+&start_field
+ l_start_file=.true.,
+ start_file  ="checkpoint_end.start",
+ init_b1     =0,
+ amp_b1      =5,
+ init_s1     =0,
+ amp_s1      =1.0d-2,
+/
+&output_control
+ n_log_step  =10,
+ n_graphs    =1,
+ n_rsts      =1,
+ n_stores    =0,
+ runid       ="Marti et al. (2014) full sphere benchmark",
+ l_RMS       =.false.,
+/
+&mantle 
+ nRotMa      =0
+/
+&inner_core 
+ sigma_ratio =0.d0,
+ nRotIC      =0,
+/
