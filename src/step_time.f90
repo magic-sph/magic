@@ -1030,8 +1030,10 @@ contains
               &               p_LMloc, dp_LMloc, dwdt%old(:,:,1), dpdt%old(:,:,1),&
               &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true.,         &
               &               .false., .false.)
-         call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),    &
-              &               dzdt%impl(:,:,1), .true., .false.)
+         call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
+              &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
+              &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
+              &               domega_ic_dt%impl(1), .true., .false.)
 
          if ( l_heat ) call get_entropy_rhs_imp(s_LMloc,ds_LMloc,    &
                             &                   dsdt%old(:,:,1),     &

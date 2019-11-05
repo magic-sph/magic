@@ -24,7 +24,9 @@ module multistep_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
+      procedure :: rotate_imex_scalar
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
    end type type_multistep
@@ -419,6 +421,40 @@ contains
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
+   subroutine set_imex_rhs_scalar(this, rhs, dfdt)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme
+      !
+
+      class(type_multistep) :: this
+
+      !-- Input variables:
+      type(type_tscalar), intent(in) :: dfdt
+
+      !-- Output variable
+      real(cp), intent(out) :: rhs
+
+      !-- Local variables
+      integer :: n_o
+
+      do n_o=1,this%norder_imp-1
+         if ( n_o == 1 ) then
+            rhs=this%wimp(n_o+1)*dfdt%old(n_o)
+         else
+            rhs=rhs+this%wimp(n_o+1)*dfdt%old(n_o)
+         end if
+      end do
+
+      do n_o=1,this%norder_imp_lin-1
+         rhs=rhs+this%wimp_lin(n_o+1)*dfdt%impl(n_o)
+      end do
+
+      do n_o=1,this%norder_exp
+         rhs=rhs+this%wexp(n_o)*dfdt%expl(n_o)
+      end do
+
+   end subroutine set_imex_rhs_scalar
+!------------------------------------------------------------------------------
    subroutine rotate_imex(this, dfdt, lmStart, lmStop, n_r_max)
       !
       ! This subroutine is used to roll the time arrays from one time step
@@ -462,6 +498,34 @@ contains
       end do
 
    end subroutine rotate_imex
+!------------------------------------------------------------------------------
+   subroutine rotate_imex_scalar(this, dfdt)
+      !
+      ! This subroutine is used to roll the time arrays from one time step
+      !
+
+      class(type_multistep) :: this
+
+      !-- Output variables:
+      type(type_tscalar), intent(inout) :: dfdt
+
+      !-- Local variables:
+      integer :: n_o, lm, n_r
+
+      do n_o=this%norder_exp,2,-1
+         dfdt%expl(n_o)=dfdt%expl(n_o-1)
+      end do
+
+      do n_o=this%norder_imp-1,2,-1
+         dfdt%old(n_o)=dfdt%old(n_o-1)
+      end do
+
+      do n_o=this%norder_imp_lin-1,2,-1
+         dfdt%impl(n_o)=dfdt%impl(n_o-1)
+      end do
+
+
+   end subroutine rotate_imex_scalar
 !------------------------------------------------------------------------------
    subroutine bridge_with_cnab2(this)
 

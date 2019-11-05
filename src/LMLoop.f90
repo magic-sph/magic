@@ -113,7 +113,6 @@ contains
       integer :: l,nR,ierr
 
       !--- Inner core rotation from last time step
-      real(cp), save :: omega_icLast
       real(cp) :: z10(n_r_max)
 
 
@@ -124,7 +123,6 @@ contains
          &    position='append')
       end if
 
-      omega_icLast=omega_ic
 
       if ( lMat ) then ! update matrices:
       !---- The following logicals tell whether the respective inversion
@@ -166,11 +164,8 @@ contains
       if ( l_conv ) then
          PERFON('up_Z')
          call updateZ( z_LMloc, dz_LMloc, dzdt, time,           &
-              &        omega_ma,d_omega_ma_dtLast,              &
-              &        omega_ic,d_omega_ic_dtLast,              &
-              &        lorentz_torque_ma,lorentz_torque_maLast, &
-              &        lorentz_torque_ic,lorentz_torque_icLast, &
-              &        w1,coex,dt,tscheme,lRmsNext)
+              &        omega_ma, omega_ic, lorentz_torque_ma, &
+              &        lorentz_torque_ic, tscheme,lRmsNext)
          PERFOFF
 
          if ( l_single_matrix ) then
@@ -202,13 +197,11 @@ contains
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
               &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
               &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb,                &
-              &        omega_icLast, time, tscheme, lRmsNext )
+              &        time, tscheme, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
       end if
 
-      lorentz_torque_maLast=lorentz_torque_ma
-      lorentz_torque_icLast=lorentz_torque_ic
 
       if ( lVerbose .and. l_save_out ) close(n_log_file)
 

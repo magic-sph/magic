@@ -35,6 +35,8 @@ module fieldsLast
 
    type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
    type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic
+   type(type_tscalar), public :: domega_ma_dt
+   type(type_tscalar), public :: domega_ic_dt
 
    real(cp), public :: d_omega_ma_dtLast,d_omega_ic_dtLast
    real(cp), public :: lorentz_torque_maLast,lorentz_torque_icLast
@@ -75,6 +77,9 @@ contains
       bytes_allocated = bytes_allocated + &
       &                 2*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
+      call domega_ma_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
+      call domega_ic_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
+
       if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
                          &               norder_imp_lin)
       if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, n_r_max, norder_imp, &
@@ -105,6 +110,8 @@ contains
 !-------------------------------------------------------------------------------
    subroutine finalize_fieldsLast
 
+      call domega_ma_dt%finalize()
+      call domega_ic_dt%finalize()
       call dzdt%finalize()
       call dpdt%finalize()
       call dwdt%finalize()

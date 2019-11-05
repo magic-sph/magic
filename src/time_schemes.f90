@@ -30,7 +30,9 @@ module time_schemes
       procedure(set_weights_if), deferred :: set_weights
       procedure(set_dt_array_if), deferred :: set_dt_array
       procedure(set_imex_rhs_if),  deferred :: set_imex_rhs
+      procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
+      procedure(rotate_imex_scalar_if), deferred :: rotate_imex_scalar
       procedure(bridge_with_cnab2_if), deferred :: bridge_with_cnab2
       procedure(start_with_ab1_if), deferred :: start_with_ab1
       procedure :: print_info
@@ -79,6 +81,13 @@ module time_schemes
          complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
       end subroutine set_imex_rhs_if
 
+      subroutine set_imex_rhs_scalar_if(this, rhs, dfdt)
+         import
+         class(type_tscheme) :: this
+         type(type_tscalar), intent(in) :: dfdt
+         real(cp), intent(out) :: rhs
+      end subroutine set_imex_rhs_scalar_if
+
       subroutine rotate_imex_if(this, dfdt, lmStart, lmStop, n_r_max)
          import
          class(type_tscheme) :: this
@@ -87,6 +96,12 @@ module time_schemes
          integer,     intent(in) :: n_r_max
          type(type_tarray), intent(inout) :: dfdt
       end subroutine rotate_imex_if
+
+      subroutine rotate_imex_scalar_if(this, dfdt)
+         import
+         class(type_tscheme) :: this
+         type(type_tscalar), intent(inout) :: dfdt
+      end subroutine rotate_imex_scalar_if
 
       subroutine bridge_with_cnab2_if(this)
          import

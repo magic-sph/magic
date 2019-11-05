@@ -25,6 +25,7 @@ module updateZ_mod
    use parallel_mod
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
+   use fieldsLast, only: domega_ic_dt, domega_ma_dt
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
    use fields, only: work_LMloc
@@ -142,10 +143,10 @@ contains
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
-   subroutine updateZ(z,dz,dzdt,time,omega_ma,d_omega_ma_dtLast, &
-              &       omega_ic,d_omega_ic_dtLast,lorentz_torque_ma,       &
-              &       lorentz_torque_maLast,lorentz_torque_ic,            &
-              &       lorentz_torque_icLast,w1,coex,dt,tscheme,lRmsNext)
+   subroutine updateZ(z,dz,dzdt,time,omega_ma,        &
+              &       omega_ic,lorentz_torque_ma,     &
+              &       lorentz_torque_ic,     &
+              &       tscheme,lRmsNext)
       !
       !  updates the toroidal potential z and its radial derivatives
       !  adds explicit part to time derivatives of z
@@ -155,18 +156,13 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)        ! Toroidal velocity potential z
       type(type_tarray), intent(inout) :: dzdt
-      real(cp),    intent(inout) :: d_omega_ma_dtLast         ! Time derivative of OC rotation of previous step
-      real(cp),    intent(inout) :: d_omega_ic_dtLast         ! Time derivative of IC rotation of previous step
+      !type(type_tscalar), intent(inout) :: domega_ic_dt
+      !type(type_tscalar), intent(inout) :: domega_ma_dt
       real(cp),    intent(in) :: lorentz_torque_ma            ! Lorentz torque (for OC rotation)
-      real(cp),    intent(in) :: lorentz_torque_maLast        ! Lorentz torque (for OC rotation) of previous step
       real(cp),    intent(in) :: lorentz_torque_ic            ! Lorentz torque (for IC rotation)
-      real(cp),    intent(in) :: lorentz_torque_icLast        ! Lorentz torque (for IC rotation) of previous step
 
       !-- Input of other variables:
       real(cp),    intent(in) :: time       ! Current time
-      real(cp),    intent(in) :: w1         ! Weight for time step
-      real(cp),    intent(in) :: coex       ! Factor depending on alpha
-      real(cp),    intent(in) :: dt         ! Time step interval
       logical,     intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
 
       !-- Output variables
@@ -175,9 +171,6 @@ contains
       real(cp),    intent(out) :: omega_ic              ! Calculated IC rotation
 
       !-- local variables:
-      real(cp) :: w2                  ! weight of second time step
-      real(cp) :: O_dt
-      real(cp) :: d_omega_ic_dt,d_omega_ma_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
       integer :: lmStart_00         ! excluding l=0,m=0
@@ -196,6 +189,7 @@ contains
       real(cp) :: r_E_2             ! =r**2
       real(cp) :: nomi              ! nominator for Z10 AM correction
       real(cp) :: prec_fac
+      real(cp) :: dom_ma, dom_ic
       integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: i                  ! counter
       logical :: l10
@@ -206,10 +200,8 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      logical :: DEBUG_OUTPUT=.false.
       integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-      complex(cp) :: rhs_sum
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -233,14 +225,25 @@ contains
       lmStart_00 =max(2,llm)
       l1m0       =lm2(1,0)
 
-      w2  =one-w1
-      O_dt=one/dt
-
       !-- Calculation of the implicit part
       call get_tor_rhs_imp(z, dz, dzdt%old(:,:,tscheme%istage),    &
            &               dzdt%impl(:,:,tscheme%istage),          &
+           &               domega_ma_dt%old(tscheme%istage),       &
+           &               domega_ic_dt%old(tscheme%istage),       &
+           &               domega_ma_dt%impl(tscheme%istage),      &
+           &               domega_ic_dt%impl(tscheme%istage),      &
            &               tscheme%l_imp_calc_rhs(tscheme%istage), &
            &               lRmsNext)
+
+      if ( ktopv == 2 .and. l_rot_ma ) then
+         domega_ma_dt%expl(tscheme%istage)=LFfac*c_lorentz_ma*lorentz_torque_ma
+         call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
+      end if
+
+      if ( kbotv == 2 .and. l_rot_ic ) then
+         domega_ic_dt%expl(tscheme%istage)=LFfac*c_lorentz_ic*lorentz_torque_ic
+         call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
+      end if
 
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dzdt, llm, ulm, n_r_max)
@@ -332,9 +335,7 @@ contains
                      &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
                      rhs(1)=omega_ma
                   else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
-                     d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_ma
-                     rhs(1)=O_dt*c_dt_z10_ma*z(lm1,1) + &
-                     &      w1*d_omega_ma_dt + w2*d_omega_ma_dtLast
+                     rhs(1)=dom_ma
                   else
                      rhs(1)=0.0_cp
                   end if
@@ -346,9 +347,7 @@ contains
                      &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
                      rhs(n_r_max)=omega_ic
                   else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-                     d_omega_ic_dt = LFfac*c_lorentz_ic*lorentz_torque_ic
-                     rhs(n_r_max)=O_dt*c_dt_z10_ic*z(lm1,n_r_max) + &
-                     &            w1*d_omega_ic_dt + w2*d_omega_ic_dtLast
+                     rhs(n_r_max)=dom_ic
                   else
                      rhs(n_r_max)=0.0_cp
                   end if
@@ -361,34 +360,8 @@ contains
 #ifdef WITH_PRECOND_Z10
                   rhs(:) = z10Mat_fac(:)*rhs(:)
 #endif
-                  if ( DEBUG_OUTPUT ) then
-                     rhs_sum=sum(rhs)
-                     write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,             &
-                     &      ":rhs_sum (z10) before = ",                     &
-                     &      exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
-                     &      exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
-                     !do nR=1,n_r_max
-                     !   write(*,"(3I4,A,2(I4,F20.16))")                        &
-                     !        &nLMB2,lm1,nR,":rhs (z10) before = ",             &
-                     !        & EXPONENT(real(rhs(nR))),FRACTION(real(rhs(nR))),&
-                     !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
-                     !end do
-                  end if
-                  call z10Mat%solve(rhs)
-                  if ( DEBUG_OUTPUT ) then
-                     !do nR=1,n_r_max
-                     !   write(*,"(3I4,A,2(I4,F20.16))")                        &
-                     !        & nLMB2,lm1,nR,":rhs (z10) after = ",             &
-                     !        & EXPONENT(real(rhs(nR))),FRACTION(real(rhs(nR))),&
-                     !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
-                     !end do
-                     rhs_sum=sum(rhs)
-                     write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,             &
-                     &      ":rhs_sum (z10) after = ",                      &
-                     &      exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
-                     &      exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
-                  end if
 
+                  call z10Mat%solve(rhs)
 
                else if ( l1 /= 0 ) then
                   !PERFON('upZ_ln0')
@@ -505,9 +478,11 @@ contains
       if ( l10 ) then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-               omega_ma=O_dt*omega_ma + LFfac/c_moi_ma * &
-               &        ( w1*lorentz_torque_ma+w2*lorentz_torque_maLast )
-               omega_ma=dt*omega_ma
+               call get_rot_rates(omega_ma, lorentz_torque_ma, c_moi_ma, &
+                    &             domega_ma_dt%old(tscheme%istage),      &
+                    &             domega_ma_dt%impl(tscheme%istage) )
+               call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
+               omega_ma=dom_ma
             else if ( ktopv == 2 ) then ! no slip, omega given by z10
                omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
             end if
@@ -515,14 +490,15 @@ contains
          end if
          if ( l_rot_ic .and. .not. l_SRIC ) then
             if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-               omega_ic=O_dt*omega_ic + LFfac/c_moi_ic * &
-               &        ( w1*lorentz_torque_ic+w2*lorentz_torque_icLast )
-               omega_ic=dt*omega_ic
+               call get_rot_rates(omega_ic, lorentz_torque_ic, c_moi_ic, &
+                    &             domega_ic_dt%old(tscheme%istage),      &
+                    &             domega_ic_dt%impl(tscheme%istage) )
+               call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
+               omega_ic=dom_ic
             else if ( kbotv == 2 ) then ! no slip, omega given by z10
                omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
             end if
             omega_ic1=omega_ic
-            !write(*,"(A,I4,A,ES20.13)") "after ic update, nLMB = ",nLMB,", omega_ic = ",omega_ic
          end if
       end if  ! l=1,m=0 contained in block ?
       !PERFOFF
@@ -567,8 +543,8 @@ contains
             dz(l1m0,nR) =dz(l1m0,nR) - rho0(nR)*( &
             &            two*r(nR)+r_E_2*beta(nR))*corr_l1m0
             work_LMloc(l1m0,nR)=work_LMloc(l1m0,nR)-rho0(nR)*( &
-            &              two+four*beta(nR)*r(nR) + &
-            &              dbeta(nR)*r_E_2 +         &
+            &              two+four*beta(nR)*r(nR) +           &
+            &              dbeta(nR)*r_E_2 +                   &
             &              beta(nR)*beta(nR)*r_E_2 )*corr_l1m0
          end do
          !$OMP END PARALLEL DO
@@ -645,25 +621,10 @@ contains
          end do
       end if
 
-      !----- Special thing for l=1,m=0 for rigid boundaries and
-      !      if IC or mantle are allowed to rotate:
-      if ( l10 .and. l_z10mat ) then ! z10 term !
-         lm1=lm2(1,0)
-         !----- NOTE opposite sign of visouse torque on ICB and CMB:
-         if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
-            d_omega_ma_dtLast=d_omega_ma_dt -            &
-            &    coex * ( two*or1(1)*real(z(lm1,1))-real(dz(lm1,1)) )
-         end if
-         if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) THEn
-            d_omega_ic_dtLast=d_omega_ic_dt +                    &
-            &    coex * ( two*or1(n_r_max)*real(z(lm1,n_r_max))- &
-            &    real(dz(lm1,n_r_max)) )
-         end if
-      end if
-      !PERFOFF
-
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dzdt, llm, ulm, n_r_max)
+      call tscheme%rotate_imex_scalar(domega_ma_dt)
+      call tscheme%rotate_imex_scalar(domega_ic_dt)
 
    end subroutine updateZ
 !-----------------------------------------------------------------------------
@@ -789,8 +750,9 @@ contains
 
    end subroutine get_z10Mat
 !-----------------------------------------------------------------------
-   subroutine get_tor_rhs_imp(z, dz, z_last, dz_imp_last, l_calc_lin_rhs, &
-              &               lRmsNext)
+   subroutine get_tor_rhs_imp(z, dz, z_last, dz_imp_last, domega_ma_old,     &
+              &               domega_ic_old, domega_ma_last, domega_ic_last, &
+              &               l_calc_lin_rhs, lRmsNext)
 
       !-- Input variables
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
@@ -801,12 +763,17 @@ contains
       complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(out) :: z_last(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dz_imp_last(llm:ulm,n_r_max)
+      real(cp),    intent(out) :: domega_ma_old
+      real(cp),    intent(out) :: domega_ic_old
+      real(cp),    intent(out) :: domega_ma_last
+      real(cp),    intent(out) :: domega_ic_last
 
       !-- Local variables
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top
-      integer :: lmStart_00, l1, m1
-      integer, pointer :: lm2l(:),lm2m(:)
+      integer :: lmStart_00, l1, m1, l1m0
+      integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
 
+      lm2(0:, 0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llm)
@@ -860,7 +827,36 @@ contains
       end if
       !$omp end parallel
 
+      l1m0 = lm2(1,0)
+      if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
+         !----- NOTE opposite sign of viscous torque on ICB and CMB:
+         if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
+            domega_ma_last=two*or1(1)*real(z(l1m0,1))-real(dz(l1m0,1))
+            domega_ma_old =c_dt_z10_ma*real(z(l1m0,1))
+         end if
+         if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
+            domega_ic_last=-two*or1(n_r_max)*real(z(l1m0,n_r_max))+ &
+            &                  real(dz(l1m0,n_r_max))
+            domega_ic_old =c_dt_z10_ic*real(z(l1m0,n_r_max))
+         end if
+      end if
+
    end subroutine get_tor_rhs_imp
+!-----------------------------------------------------------------------
+   subroutine get_rot_rates(omega, lorentz_torque, c_moi, &
+              &             domega_old, domega_last)
+
+      real(cp), intent(in) :: omega
+      real(cp), intent(in) :: lorentz_torque
+      real(cp), intent(in) :: c_moi
+
+      real(cp), intent(out) :: domega_old
+      real(cp), intent(out) :: domega_last
+
+      domega_old = omega
+      domega_last = LFfac/c_moi * lorentz_torque
+
+   end subroutine get_rot_rates
 !-----------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z
    subroutine get_zMat(tscheme,l,hdif,zMat,zMat_fac)

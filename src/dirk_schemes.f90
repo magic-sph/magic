@@ -24,7 +24,9 @@ module dirk_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
+      procedure :: rotate_imex_scalar
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
    end type type_dirk
@@ -354,6 +356,34 @@ contains
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
+   subroutine set_imex_rhs_scalar(this, rhs, dfdt)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme
+      !
+
+      class(type_dirk) :: this
+
+      !-- Input variables:
+      type(type_tscalar), intent(in) :: dfdt
+
+      !-- Output variable
+      real(cp), intent(out) :: rhs
+
+      !-- Local variables
+      integer :: n_stage
+
+      rhs=dfdt%old(1)
+
+      do n_stage=1,this%istage
+         rhs=rhs+this%butcher_exp(this%istage+1,n_stage)*dfdt%expl(n_stage)
+      end do
+
+      do n_stage=1,this%istage
+         rhs=rhs+this%butcher_imp(this%istage+1,n_stage)*dfdt%impl(n_stage)
+      end do
+
+   end subroutine set_imex_rhs_scalar
+!------------------------------------------------------------------------------
    subroutine rotate_imex(this, dfdt, lmStart, lmStop, n_r_max)
       !
       ! This subroutine is used to roll the time arrays from one time step
@@ -362,14 +392,26 @@ contains
       class(type_dirk) :: this
 
       !-- Input variables:
-      integer,     intent(in) :: lmStart
-      integer,     intent(in) :: lmStop
-      integer,     intent(in) :: n_r_max
+      integer, intent(in) :: lmStart
+      integer, intent(in) :: lmStop
+      integer, intent(in) :: n_r_max
 
       !-- Output variables:
       type(type_tarray), intent(inout) :: dfdt
 
    end subroutine rotate_imex
+!------------------------------------------------------------------------------
+   subroutine rotate_imex_scalar(this, dfdt)
+      !
+      ! This subroutine is used to roll the time arrays from one time step
+      !
+
+      class(type_dirk) :: this
+
+      !-- Output variables:
+      type(type_tscalar), intent(inout) :: dfdt
+
+   end subroutine rotate_imex_scalar
 !------------------------------------------------------------------------------
    subroutine bridge_with_cnab2(this)
 
