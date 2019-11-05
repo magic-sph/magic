@@ -67,7 +67,7 @@ contains
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
-      &    radial_scheme,polo_flow_eq,                      &
+      &    radial_scheme,polo_flow_eq, time_scheme,         &
       &    mpi_transp,l_adv_curl
 
       namelist/phys_param/                                      &
@@ -271,6 +271,8 @@ contains
          l_finite_diff = .false.
       end if
 
+      call capitalize(time_scheme)
+
       if ( l_finite_diff ) then
          l_double_curl=.true.
          l_PressGraph =.false.
@@ -298,6 +300,7 @@ contains
       l_SRIC   =.false.
       l_SRMA   =.false.
       l_AB1    =.false.
+      l_bridge_step=.true.
 
       if ( mode == 1 ) then
          !-- Only convection:
@@ -831,6 +834,8 @@ contains
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
       length=length_to_blank(radial_scheme)
       write(n_out,*) " radial_scheme   = """,radial_scheme(1:length),""","
+      length=length_to_blank(time_scheme)
+      write(n_out,*) " time_scheme     = """,time_scheme(1:length),""","
       length=length_to_blank(polo_flow_eq)
       write(n_out,*) " polo_flow_eq    = """,polo_flow_eq(1:length),""","
       length=length_to_blank(anelastic_flavour)
@@ -1196,9 +1201,10 @@ contains
       intfac        =0.15_cp
       n_cour_step   =10
       anelastic_flavour="None" ! Useless in Boussinesq
-      polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
-      radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
-      mpi_transp       ="AUTO" ! automatic detection of the MPI strategy
+      polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
+      radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
+      time_scheme   ="CNAB2"   
+      mpi_transp    ="AUTO" ! automatic detection of the MPI strategy
 
       cacheblock_size_in_B=4096
 

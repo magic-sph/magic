@@ -161,7 +161,6 @@ program magic
    type(timer_type) :: run_time, run_time_start
 
    integer :: n_stop_signal=0     ! signal returned from step_time
-   character(len=72) :: time_scheme ! Time scheme
 
 
    ! MPI specific variables
@@ -213,8 +212,6 @@ program magic
    !--- Read input parameters:
    call readNamelists()  ! includes sent to other procs !
 
-
-   time_scheme='CNAB2'
    !-- Select the kind of time-integrator (multi-step or implicit R-K):
    call select_tscheme(time_scheme, tscheme)
 

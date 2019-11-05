@@ -15,7 +15,7 @@ module updateWP_mod
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, dLh
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
-       &            l_fluxProfs, l_finite_diff, l_full_sphere
+       &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
    use RMS, only: DifPol2hInt, DifPolLMr
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
@@ -47,7 +47,7 @@ module updateWP_mod
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, &
-   &         finish_exp_pol
+   &         finish_exp_pol, get_pol_rhs_imp
 
 contains
 
@@ -167,7 +167,8 @@ contains
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
-   subroutine updateWP(s, dsdt, xi, w,dw,ddw,dwdt,p,dp,dpdt,tscheme,lRmsNext,lPressNext)
+   subroutine updateWP(s, dsdt, xi, dxidt, w, dw, ddw, dwdt, p, dp, dpdt, &
+              &        tscheme, lRmsNext, lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -179,6 +180,7 @@ contains
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
       type(type_tarray),   intent(in) :: dsdt
+      type(type_tarray),   intent(in) :: dxidt
 
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dwdt
@@ -222,7 +224,8 @@ contains
       nLMB       =1+rank
       lmStart_00 =max(2,llm)
 
-      call get_pol_rhs_imp(dsdt%old(:,:,tscheme%istage), xi, w, dw, ddw, p, dp,               &
+      call get_pol_rhs_imp(dsdt%old(:,:,tscheme%istage),           &
+           &               dxidt%old(:,:,tscheme%istage), w, dw, ddw, p, dp,  &
            &               dwdt%old(:,:,tscheme%istage),           &
            &               dpdt%old(:,:,tscheme%istage),           &
            &               dwdt%impl(:,:,tscheme%istage),          &
@@ -342,17 +345,46 @@ contains
                      rhs1(2,lmB,threadid)        =0.0_cp
                      rhs1(n_r_max-1,lmB,threadid)=0.0_cp
                      do nR=3,n_r_max-2
-                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)+ &
-                        &         tscheme%wimp_lin(1)*BuoFac*rgrav(nR)*s(lm1,nR)
+                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
                      end do
+
+                     if ( l_heat ) then
+                        do nR=3,n_r_max-2
+                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+      &
+                           &      tscheme%wimp_lin(1)*dLh(st_map%lm2(l1,m1))*&
+                           &      or2(nR)*BuoFac*rgrav(nR)*s(lm1,nR)
+                        end do
+                     end if
+
+                     if ( l_chemical_conv ) then
+                        do nR=3,n_r_max-2
+                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+      &
+                           &      tscheme%wimp_lin(1)*dLh(st_map%lm2(l1,m1))*&
+                           &      or2(nR)*ChemFac*rgrav(nR)*xi(lm1,nR)
+                        end do
+                     end if
                   else
                      rhs1(n_r_max+1,lmB,threadid)=0.0_cp
                      rhs1(2*n_r_max,lmB,threadid)=0.0_cp
                      do nR=2,n_r_max-1
-                        rhs1(nR,lmB,threadid)        =work_LMloc(lm1,nR)+ &
-                        & tscheme%wimp_lin(1)*BuoFac*rgrav(nR)*s(lm1,nR)
+                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR) 
                         rhs1(nR+n_r_max,lmB,threadid)=work1_LMloc(lm1,nR)
                      end do
+
+                     if ( l_heat ) then
+                        do nR=2,n_r_max-1
+                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+ &
+                           & tscheme%wimp_lin(1)*BuoFac*rgrav(nR)*s(lm1,nR)
+                        end do
+                     end if
+
+                     if ( l_chemical_conv ) then
+                        do nR=2,n_r_max-1
+                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+ &
+                           & tscheme%wimp_lin(1)*ChemFac*rgrav(nR)*xi(lm1,nR)
+                        end do
+                     end if
+
                   end if
                end if
             end do
@@ -628,8 +660,11 @@ contains
                   &           (two*dLvisc(n_r)-beta(n_r)-three*or1(n_r))+           &
                   &           dLh(st_map%lm2(l1,m1))*or2(n_r) ) *       w(lm,n_r) )
 
-                  Buo(lm) = BuoFac*dLh(st_map%lm2(l1,m1))*or2(n_r)*rgrav(n_r)* &
-                  &         s(lm,n_r)
+                  Buo(lm) = zero
+                  if ( l_heat ) then
+                     Buo(lm) = BuoFac*dLh(st_map%lm2(l1,m1))*or2(n_r)*rgrav(n_r)* &
+                     &         s(lm,n_r)
+                  end if
                   if ( l_chemical_conv ) then
                      Buo(lm) = Buo(lm)+ChemFac*dLh(st_map%lm2(l1,m1))*or2(n_r)*&
                      &          rgrav(n_r)*xi(lm,n_r)
@@ -694,7 +729,8 @@ contains
                   &             +(three*dLvisc(n_r)+beta(n_r))*or1(n_r) )   )*    &
                   &                                                 w(lm,n_r)  )
                   Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
-                  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  Buo(lm) = zero
+                  if ( l_heat )  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
                   if ( l_chemical_conv ) then
                      Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)*rgrav(n_r)*xi(lm,n_r)
                   end if

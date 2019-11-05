@@ -55,7 +55,8 @@ module updateB_mod
 #endif
    logical, public, allocatable :: lBmat(:)
 
-   public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag
+   public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
+   &         get_mag_rhs_imp, get_mag_ic_rhs_imp
 
 contains
 

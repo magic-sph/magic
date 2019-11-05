@@ -33,7 +33,7 @@ module fieldsLast
    complex(cp), public, allocatable :: dbdt_icLast_LMloc(:,:)
    complex(cp), public, allocatable :: djdt_icLast_LMloc(:,:)
 
-   type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt
+   type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
    type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic
 
    real(cp), public :: d_omega_ma_dtLast,d_omega_ic_dtLast
@@ -75,10 +75,10 @@ contains
       bytes_allocated = bytes_allocated + &
       &                 2*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
-      if ( l_heat ) then
-         call dsdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
-              &               norder_imp_lin)
-      end if
+      if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
+                         &               norder_imp_lin)
+      if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, n_r_max, norder_imp, &
+                                  &                norder_exp, norder_imp_lin)
 
       if ( l_mag ) then
          call dbdt%initialize(llmMag, ulmMag, n_r_maxMag, norder_imp, norder_exp, &
@@ -109,6 +109,7 @@ contains
       call dpdt%finalize()
       call dwdt%finalize()
       if ( l_heat ) call dsdt%finalize()
+      if ( l_chemical_conv ) call dxidt%finalize()
       if ( l_mag ) then
          call dbdt%finalize()
          call djdt%finalize()

@@ -77,10 +77,9 @@ contains
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
    subroutine LMLoop(tscheme,w1,coex,time,dt,lMat,lRmsNext,lPressNext, &
-              &      dsdt,dVXirLM,dwdt,                        &
-              &      dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,lorentz_torque_ma,      &
-              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,             &
-              &      aj_nl_icb)
+              &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
+              &      djdt_ic,lorentz_torque_ma,lorentz_torque_ic,      &
+              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -88,16 +87,19 @@ contains
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),    intent(in) :: w1,coex
-      real(cp),    intent(in) :: dt,time
-      logical,     intent(in) :: lMat
-      logical,     intent(in) :: lRmsNext
-      logical,     intent(in) :: lPressNext
+      real(cp),            intent(in) :: w1,coex
+      real(cp),            intent(in) :: dt,time
+      logical,             intent(in) :: lMat
+      logical,             intent(in) :: lRmsNext
+      logical,             intent(in) :: lPressNext
+      real(cp),            intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+      complex(cp),         intent(in) :: b_nl_cmb(lm_max)   ! nonlinear bc for b at CMB
+      complex(cp),         intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
+      complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Input from radialLoop:
-      !    These fields are provided in the R-distributed space!
-      ! for djdt in update_b
       type(type_tarray), intent(inout) :: dsdt
+      type(type_tarray), intent(inout) :: dxidt
       type(type_tarray), intent(inout) :: dwdt
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dzdt
@@ -105,15 +107,7 @@ contains
       type(type_tarray), intent(inout) :: djdt
       type(type_tarray), intent(inout) :: dbdt_ic
       type(type_tarray), intent(inout) :: djdt_ic
-      complex(cp),       intent(inout) :: dVXirLM(llm:ulm,n_r_max)  ! for dxidt in update_xi
       !integer,     intent(in) :: n_time_step
-
-      !--- Input from radialLoop and then redistributed:
-      complex(cp), intent(inout) :: dxidt(llm:ulm,n_r_max)
-      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
-      complex(cp), intent(in) :: b_nl_cmb(lm_max)   ! nonlinear bc for b at CMB
-      complex(cp), intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
-      complex(cp), intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Local counter
       integer :: l,nR,ierr
@@ -166,17 +160,16 @@ contains
       end if
 
       if ( l_chemical_conv ) then ! dp,workA usead as work arrays
-         call updateXi(xi_LMloc,dxi_LMloc,dVXirLM,dxidt,dxidtLast_LMloc, &
-              &        w1,coex,dt)
+         call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
       end if
 
       if ( l_conv ) then
          PERFON('up_Z')
-         call updateZ( z_LMloc, dz_LMloc, dzdt, time, &
-              &        omega_ma,d_omega_ma_dtLast,                 &
-              &        omega_ic,d_omega_ic_dtLast,                 &
-              &        lorentz_torque_ma,lorentz_torque_maLast,    &
-              &        lorentz_torque_ic,lorentz_torque_icLast,    &
+         call updateZ( z_LMloc, dz_LMloc, dzdt, time,           &
+              &        omega_ma,d_omega_ma_dtLast,              &
+              &        omega_ic,d_omega_ic_dtLast,              &
+              &        lorentz_torque_ma,lorentz_torque_maLast, &
+              &        lorentz_torque_ic,lorentz_torque_icLast, &
               &        w1,coex,dt,tscheme,lRmsNext)
          PERFOFF
 
@@ -197,9 +190,9 @@ contains
             !     &          lRmsNext )
          else
             PERFON('up_WP')
-            call updateWP( s_LMloc, dsdt, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, dwdt, &
-                 &         p_LMloc, dp_LMloc, dpdt, tscheme, lRmsNext,   &
-                 &         lPressNext )
+            call updateWP( s_LMloc, dsdt, xi_LMLoc, dxidt, w_LMloc, dw_LMloc, &
+                 &         ddw_LMloc, dwdt, p_LMloc, dp_LMloc, dpdt, tscheme, &
+                 &         lRmsNext, lPressNext )
             PERFOFF
          end if
       end if
@@ -223,23 +216,30 @@ contains
       PERFOFF
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly(w, dVSr_LMloc, dVxVh_LMloc, dVxBh_LMloc, &
-              &                        dsdt, dwdt, djdt, tscheme)
+   subroutine finish_explicit_assembly(w, dVSr_LMloc, dVXir_LMloc, dVxVh_LMloc, &
+              &                        dVxBh_LMloc, dsdt, dxidt, dwdt, djdt,    &
+              &                        tscheme)
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: dVSr_LMloc(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: dVXir_LMloc(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: dVxVh_LMloc(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: dVxBh_LMloc(llmMag:ulmMag,n_r_maxMag)
 
       !-- Output variables
       type(type_tarray),   intent(inout) :: dsdt
+      type(type_tarray),   intent(inout) :: dxidt
       type(type_tarray),   intent(inout) :: djdt
       type(type_tarray),   intent(inout) :: dwdt
 
       if ( l_heat ) then
          call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
+      end if
+
+      if ( l_chemical_conv ) then
+         call finish_exp_comp(dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
       end if
 
       if ( l_double_curl ) then

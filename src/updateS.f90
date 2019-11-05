@@ -44,7 +44,7 @@ module updateS_mod
    integer :: maxThreads
 
    public :: initialize_updateS, updateS, finalize_updateS, &
-   &         finish_exp_entropy
+   &         finish_exp_entropy, get_entropy_rhs_imp
 
 contains
 
@@ -136,10 +136,10 @@ contains
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
-      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
       type(type_tarray), intent(inout) :: dsdt
-      !-- Output: udpated s,ds,dsdtLast
-      complex(cp), intent(out) :: ds(llm:ulm,n_r_max)
+      !-- Output: ds
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
 
       !-- Local variables:
       integer :: l1,m1              ! degree and order

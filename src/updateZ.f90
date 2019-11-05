@@ -55,7 +55,7 @@ module updateZ_mod
 
    integer :: maxThreads
 
-   public :: updateZ, initialize_updateZ, finalize_updateZ
+   public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp
 
 contains
 

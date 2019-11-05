@@ -93,5 +93,6 @@ module logic
    logical :: l_adv_curl   ! Use \curl{u}\times u for the advection
    logical :: l_full_sphere ! Set to .true. if this is a full sphere calculation
    logical :: l_var_l ! When set to .true., degree varies with radius
+   logical :: l_bridge_step ! Used to bridge missing steps when changing the time integrator
 
 end module logic

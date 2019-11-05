@@ -73,6 +73,7 @@ module num_param
    type(timer_type), public :: phy2lm_counter
    type(timer_type), public :: nl_counter
    type(timer_type), public :: td_counter
+   character(len=72), public :: time_scheme ! Time scheme
 
    public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
    public :: finalize_num_param        ! Subroutine that deallocates arrays
