@@ -18,7 +18,7 @@ module updateB_mod
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
-   use num_param, only: alpha, solve_counter, dct_counter
+   use num_param, only: solve_counter, dct_counter
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
@@ -33,6 +33,8 @@ module updateB_mod
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_dr, get_ddr
    use useful, only: abortRun
+   use time_schemes, only: type_tscheme
+   use time_array, only: type_tarray
    use dense_matrices
    use band_matrices
    use real_matrices
@@ -42,7 +44,8 @@ module updateB_mod
    private
 
    !-- Local work arrays:
-   complex(cp), allocatable :: workB(:,:)
+   complex(cp), allocatable :: workB(:,:), work1_LMloc(:,:)
+   complex(cp), allocatable :: work_ic_LMloc(:,:), work1_ic_LMloc(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
    class(type_realmat), pointer :: bMat(:), jMat(:)
@@ -52,7 +55,7 @@ module updateB_mod
 #endif
    logical, public, allocatable :: lBmat(:)
 
-   public :: initialize_updateB, finalize_updateB, updateB
+   public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag
 
 contains
 
@@ -112,6 +115,17 @@ contains
          &                 SIZEOF_DEF_COMPLEX
       end if
 
+      if ( l_cond_ic ) then
+         allocate( work_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
+         allocate( work1_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
+         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_ic_max* &
+         &                 SIZEOF_DEF_COMPLEX
+      end if
+
+      allocate( work1_LMloc(llmMag:ulmMag,n_r_max) )
+      bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_max* &
+      &                 SIZEOF_DEF_COMPLEX
+
       allocate( dtT(llmMag:ulmMag) )
       allocate( dtP(llmMag:ulmMag) )
       bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
@@ -141,7 +155,8 @@ contains
          call bMat(ll)%finalize()
       end do
 
-      deallocate( lBmat )
+      if ( l_cond_ic ) deallocate ( work_ic_LMloc, work1_ic_LMloc )
+      deallocate( lBmat, work1_LMLoc )
 
 #ifdef WITH_PRECOND_BJ
       deallocate(bMat_fac,jMat_fac)
@@ -151,10 +166,9 @@ contains
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
-   subroutine updateB(b,db,ddb,aj,dj,ddj,dVxBhLM,dbdt,dbdtLast,djdt,djdtLast, &
-       &              b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,dbdt_icLast,       &
-       &              djdt_icLast,b_nl_cmb,aj_nl_cmb,aj_nl_icb,omega_ic,      &
-       &              w1,coex,dt,time,lRmsNext)
+   subroutine updateB(b,db,ddb,aj,dj,ddj,dbdt,djdt,b_ic,db_ic,ddb_ic,aj_ic,  &
+              &       dj_ic,ddj_ic,dbdt_ic,djdt_ic,b_nl_cmb,aj_nl_cmb,       &
+              &       aj_nl_icb,omega_ic,time,tscheme,lRmsNext)
       !
       !
       !  Calculated update of magnetic field potential and the time
@@ -182,28 +196,23 @@ contains
       !
 
       !-- Input variables:
-      complex(cp), intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
-      complex(cp), intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
-      complex(cp), intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
-      complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
-      real(cp),    intent(in) :: omega_ic
-      real(cp),    intent(in) :: w1    ! weight for time step !
-      real(cp),    intent(in) :: coex  ! factor depending on alpha
-      real(cp),    intent(in) :: dt
-      real(cp),    intent(in) :: time
-      logical,     intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
+      complex(cp),         intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
+      complex(cp),         intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
+      real(cp),            intent(in) :: omega_ic
+      real(cp),            intent(in) :: time
+      logical,             intent(in) :: lRmsNext
 
       !-- Input/output of scalar potentials and time stepping arrays:
-      complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: dbdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: djdt(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: djdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(inout) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(inout) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
+      type(type_tarray), intent(inout) :: dbdt
+      type(type_tarray), intent(inout) :: djdt
+      type(type_tarray), intent(inout) :: dbdt_ic
+      type(type_tarray), intent(inout) :: djdt_ic
+      complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Output variables:
       complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
@@ -216,8 +225,6 @@ contains
       complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables:
-      real(cp) :: w2             ! weight of second time step
-      real(cp) :: O_dt
       real(cp) :: yl0_norm,prefac!External magnetic field of general l
 
       integer :: l1,m1               ! degree and order
@@ -226,10 +233,9 @@ contains
       integer :: nLMB2, nLMB
       integer :: n_r_out             ! No of cheb polynome (degree+1)
       integer :: nR                  ! No of radial grid point
-      integer :: n_r_top,n_r_bot
 
       complex(cp) :: fac
-      complex(cp) :: dbdt_ic,djdt_ic  ! they are calculated here !
+      !complex(cp) :: dbdt_ic,djdt_ic  ! they are calculated here !
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -257,26 +263,37 @@ contains
       nLMB=1+rank
       lmStart_00=max(2,llmMag)
 
-      w2  =one-w1
-      O_dt=one/dt
+      call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,                 &
+           &               dbdt%old(:,:,tscheme%istage),            &
+           &               djdt%old(:,:,tscheme%istage),            &
+           &               dbdt%impl(:,:,tscheme%istage),           &
+           &               djdt%impl(:,:,tscheme%istage),           &
+           &               tscheme%l_imp_calc_rhs(tscheme%istage),  &
+           &               lRmsNext)
 
-      !--- Start with finishing djdt:
-      !PERFON('upB_fin')
-      !$omp parallel default(shared) private(start_lm, stop_lm)
+      !-- Now assemble the right hand side and store it in work_LMloc
+      call tscheme%set_imex_rhs(work_LMloc, dbdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%set_imex_rhs(work1_LMloc, djdt, llmMag, ulmMag, n_r_maxMag)
+
+      if ( l_cond_ic ) then
+         call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+              &                  dbdt_ic%old(:,:,tscheme%istage),            &
+              &                  djdt_ic%old(:,:,tscheme%istage),            &
+              &                  dbdt_ic%impl(:,:,tscheme%istage),           &
+              &                  djdt_ic%impl(:,:,tscheme%istage),           &
+              &                  tscheme%l_imp_calc_rhs(tscheme%istage))
+
+         !-- Now assemble the right hand side and store it in work_LMloc
+         call tscheme%set_imex_rhs(work_ic_LMloc, dbdt_ic, llmMag, ulmMag, &
+              &                    n_r_ic_max)
+         call tscheme%set_imex_rhs(work1_ic_LMloc, djdt_ic, llmMag, ulmMag, &
+              &                    n_r_ic_max)
+      end if
+
+
+      !$omp parallel default(shared) private(start_lm,stop_lm)
       start_lm=lmStart_00; stop_lm=ulmMag
-      call get_openmp_blocks(start_lm, stop_lm)
-      call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
-      !$omp barrier
-
-      !$omp do private(nR)
-      do nR=1,n_r_max
-         do lm=lmStart_00,ulmMag
-            djdt(lm,nR)=djdt(lm,nR)+or2(nR)*work_LMloc(lm,nR)
-         end do
-      end do
-      !$omp end do
-      !PERFOFF
+      call get_openmp_blocks(start_lm,stop_lm)
 
       !$omp single
       call solve_counter%start_count()
@@ -288,7 +305,7 @@ contains
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
          !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-         !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff,cimp,aimp,threadid)
+         !$OMP private(fac,bpeaktop,ff,cimp,aimp,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -300,11 +317,11 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),   &
-                    &        bMat(nLMB2),bMat_fac(:,nLMB2),    &
+               call get_bMat(tscheme,l1,hdif_B(st_map%lm2(l1,0)),   &
+                    &        bMat(nLMB2),bMat_fac(:,nLMB2),         &
                     &        jMat(nLMB2),jMat_fac(:,nLMB2))
 #else
-               call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),   &
+               call get_bMat(tscheme,l1,hdif_B(st_map%lm2(l1,0)),   &
                     &        bMat(nLMB2),jMat(nLMB2))
 #endif
                lBmat(l1)=.true.
@@ -315,7 +332,7 @@ contains
             !$OMP TASK if (nChunks>1) default(shared) &
             !$OMP firstprivate(iChunk) &
             !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff) &
+            !$OMP private(fac,bpeaktop,ff) &
             !$OMP private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -469,10 +486,8 @@ contains
                         rhs1(nR,lmB,threadid)=0.0_cp
                         rhs2(nR,lmB,threadid)=0.0_cp
                      else
-                        rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR)+w2*dbdtLast(lm1,nR) ) &
-                        &          + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
-                        rhs2(nR,lmB,threadid)= ( w1*djdt(lm1,nR)+w2*djdtLast(lm1,nR) ) &
-                        &          + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR)
+                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
+                        rhs2(nR,lmB,threadid)=work1_LMloc(lm1,nR)
                      end if
                   end do
 
@@ -487,28 +502,18 @@ contains
                      end if
 
                      do nR=2,n_r_ic_max
-                        if ( omega_ic == 0.0_cp .or. .not. l_rot_ic .or. &
-                        &    .not. l_mag_nl ) then
-                           dbdt_ic=zero
-                           djdt_ic=zero
-                        else
-                           fac=-omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
-                           &    dLh(st_map%lm2(l1,m1))
-                           dbdt_ic=fac*b_ic(lm1,nR)
-                           djdt_ic=fac*aj_ic(lm1,nR)
-                        end if
-                        rhs1(n_r_max+nR,lmB,threadid)=                    &
-                        &      ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) )    &
-                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) *&
-                        &       b_ic(lm1,nR)
-                        rhs2(n_r_max+nR,lmB,threadid)=                    &
-                        &      ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) )    & 
-                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) *&
-                        &       aj_ic(lm1,nR)
-
-                        !--------- Store the IC non-linear terms for the usage below:
-                        dbdt_icLast(lm1,nR)=dbdt_ic
-                        djdt_icLast(lm1,nR)=djdt_ic
+                        !if ( omega_ic == 0.0_cp .or. .not. l_rot_ic .or. &
+                        !&    .not. l_mag_nl ) then
+                        !   dbdt_ic=zero
+                        !   djdt_ic=zero
+                        !else
+                        !   fac=-omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
+                        !   &    dLh(st_map%lm2(l1,m1))
+                        !   dbdt_ic=fac*b_ic(lm1,nR)
+                        !   djdt_ic=fac*aj_ic(lm1,nR)
+                        !end if
+                        rhs1(n_r_max+nR,lmB,threadid)=work_ic_LMloc(lm1,nR)
+                        rhs2(n_r_max+nR,lmB,threadid)=work1_ic_LMloc(lm1,nR)
                      end do
                   end if
 
@@ -633,17 +638,17 @@ contains
       !-- Same for inner core:
       if ( l_cond_ic ) then
          call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &                stop_lm-llmMag+1, dbdtLast)
+              &                stop_lm-llmMag+1, work_LMloc)
          call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
               &             start_lm-llmMag+1,stop_lm-llmMag+1, &
               &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
-              &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
+              &             work_LMloc,work1_LMloc, chebt_ic, chebt_ic_even )
          call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &               stop_lm-llmMag+1, dbdtLast)
+              &               stop_lm-llmMag+1, work_LMloc)
          call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
               &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
               &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
-              &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
+              &             work_LMloc,work1_LMloc, chebt_ic, chebt_ic_even )
       end if
       !$omp barrier
       !PERFOFF
@@ -678,91 +683,236 @@ contains
          !$omp end do
       end if
 
-      if ( lRmsNext ) then
-         n_r_top=n_r_cmb
-         n_r_bot=n_r_icb
-      else
-         n_r_top=n_r_cmb+1
-         n_r_bot=n_r_icb-1
+      !$omp end parallel
+
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dbdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%rotate_imex(djdt, llmMag, ulmMag, n_r_maxMag)
+      if ( l_cond_ic ) then
+         call tscheme%rotate_imex(dbdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%rotate_imex(djdt_ic, llmMag, ulmMag, n_r_ic_max)
       end if
 
-      !$omp do private(nR,lm1,l1,m1,dtP,dtT)
-      do nR=n_r_top,n_r_bot
-         do lm1=lmStart_00,ulmMag
-            l1=lm2l(lm1)
-            m1=lm2m(lm1)
-            dbdtLast(lm1,nR)= dbdt(lm1,nR) -                    &
-            &    coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
-            &                  dLh(st_map%lm2(l1,m1))*or2(nR) * &
-            &    ( ddb(lm1,nR) - dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR) )
-            djdtLast(lm1,nR)= djdt(lm1,nR) -                    &
-            &    coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
-            &                  dLh(st_map%lm2(l1,m1))*or2(nR) * &
-            &    ( ddj(lm1,nR) + dLlambda(nR)*dj(lm1,nR) -      &
-            &      dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR) )
-            if ( lRmsNext ) then
-               dtP(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
-               &             * (  b(lm1,nR)-work_LMloc(lm1,nR) )
-               dtT(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
-               &             * ( aj(lm1,nR)-workB(lm1,nR) )
-            end if
+   end subroutine updateB
+!-----------------------------------------------------------------------------	
+   subroutine finish_exp_mag(dVxBhLM, dj_exp_last)
+
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_maxMag)
+
+      !-- Local variables
+      integer :: n_r, lm, start_lm, stop_lm, lmStart_00
+
+      lmStart_00 =max(2,llmMag)
+
+      !$omp parallel default(shared) private(start_lm,stop_lm)
+      start_lm=lmStart_00; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm, stop_lm)
+
+      call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
+      !$omp barrier
+
+      !$omp do private(n_r,lm)
+      do n_r=1,n_r_max
+         do lm=lmStart_00,ulmMag
+            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
          end do
-         if ( lRmsNext ) then
-            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,ulmMag, &
-                 &          dtBPolLMr(llmMag:ulmMag,nR),            &
-                 &          dtBPol2hInt(llmMag:ulmMag,nR),lo_map)
-            call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,ulmMag, &
-                 &          dtBTor2hInt(llmMag:ulmMag,nR),lo_map)
-         end if
       end do
       !$omp end do
-      !PERFOFF
+      !$omp end parallel
 
-      !----- equations for inner core are different:
-      !      D_lP1(lm1)=l+1, O_sr=sigma/sigma_ic
-      !      NOTE: no hyperdiffusion in inner core !
-      if ( l_cond_ic ) then
-         !PERFON('upB_ic')
-         !$omp do private(nR,lm1,l1,m1)
-         do nR=2,n_r_ic_max-1
-            do lm1=lmStart_00,ulmMag
-               l1=lm2l(lm1)
-               m1=lm2m(lm1)
-               dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
-               &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-               &    (                        ddb_ic(lm1,nR) +           &
-               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*db_ic(lm1,nR) )
-               djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
-               &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-               &    (                        ddj_ic(lm1,nR) +           &
-               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
+   end subroutine finish_exp_mag
+!-----------------------------------------------------------------------------	
+   subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+              &                  b_ic_last, aj_ic_last, db_ic_imp_last,      &
+              &                  dj_ic_imp_last, l_calc_lin_rhs)
+
+
+      !-- Input variables
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      logical,     intent(in) :: l_calc_lin_rhs
+
+      !-- Output variable
+      complex(cp), intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: b_ic_last(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: aj_ic_last(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: db_ic_imp_last(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(out) :: dj_ic_imp_last(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Local variables 
+      integer :: l1, m1, lmStart_00
+      integer :: n_r, lm, start_lm, stop_lm
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llmMag)
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llmMag; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
+           &             start_lm-llmMag+1,stop_lm-llmMag+1, &
+           &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
+           &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
+      call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
+           &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
+           &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
+           &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
+
+      !$omp do private(n_r,lm,l1,m1)
+      do n_r=1,n_r_ic_max
+         do lm=llmMag,ulmMag
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            b_ic_last(lm,n_r) =dLh(st_map%lm2(l1,m1))*or2(n_r)*b_ic(lm,n_r)
+            aj_ic_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*aj_ic(lm,n_r)
+         end do
+      end do
+      !$omp end do
+
+      if ( l_calc_lin_rhs ) then
+         !$omp do private(n_r,lm,l1,m1)
+         do n_r=2,n_r_ic_max-1
+            do lm=lmStart_00,ulmMag
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+               &                or2(n_r_max) *  (   ddb_ic(lm,n_r) +    &
+               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*db_ic(lm,n_r) )
+               dj_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+               &                or2(n_r_max) *  (   ddj_ic(lm,n_r) +    &
+               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*dj_ic(lm,n_r) )
             end do
          end do
          !$omp end do
-         nR=n_r_ic_max
-         !$omp do
-         do lm1=lmStart_00,ulmMag
-            l1=lm2l(lm1)
-            m1=lm2m(lm1)
-            dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
-            &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm1,nR)
-            djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
-            &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
+         n_r=n_r_ic_max
+         !$omp do private(lm,l1,m1)
+         do lm=lmStart_00,ulmMag
+            l1=lm2l(lm)
+            m1=lm2m(lm)
+            db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+            &                                         or2(n_r_max) * &
+            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm,n_r)
+            dj_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+            &                                         or2(n_r_max) * &
+            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm,n_r)
          end do
          !$omp end do
-         !PERFOFF
       end if
 
       !$omp end parallel
 
-   end subroutine updateB
+   end subroutine get_mag_ic_rhs_imp
+!-----------------------------------------------------------------------------
+   subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,  b_last, aj_last, &
+              &               db_imp_last, dj_imp_last, l_calc_lin_rhs,  &
+              &               lRmsNext)
+
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_max)
+      logical,     intent(in) :: l_calc_lin_rhs
+      logical,     intent(in) :: lRmsNext
+
+      !-- Output variable
+      complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: dj(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: ddj(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: ddb(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: b_last(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: aj_last(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: db_imp_last(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(out) :: dj_imp_last(llmMag:ulmMag,n_r_max)
+
+      !-- Local variables 
+      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
+      integer :: n_r, lm, start_lm, stop_lm
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llmMag)
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=lmStart_00; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
+      call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
+
+      !$omp do private(n_r,lm,l1,m1)
+      do n_r=1,n_r_max
+         do lm=lmStart_00,ulmMag
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            b_last(lm,n_r) =dLh(st_map%lm2(l1,m1))*or2(n_r)*b(lm,n_r)
+            aj_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r)
+         end do
+      end do
+      !$omp end do
+
+      if ( l_calc_lin_rhs ) then
+         if ( lRmsNext ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         else
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
+         end if
+
+         !$omp do private(n_r,lm,l1,m1,dtP,dtT)
+         do n_r=n_r_top,n_r_bot
+            do lm=lmStart_00,ulmMag
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               db_imp_last(lm,n_r)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
+               &                             dLh(st_map%lm2(l1,m1))*or2(n_r) * &
+               &    ( ddb(lm,n_r) - dLh(st_map%lm2(l1,m1))*or2(n_r)*b(lm,n_r) )
+               dj_imp_last(lm,n_r)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
+               &                             dLh(st_map%lm2(l1,m1))*or2(n_r) * &
+               &               ( ddj(lm,n_r) + dLlambda(n_r)*dj(lm,n_r) -      &
+               &                  dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r) )
+               if ( lRmsNext ) then
+                  !dtP(lm)=O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r) &
+                  !&             * (  b(lm,n_r)-work_LMloc(lm,n_r) )
+                  !dtT(lm)=O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r) &
+                  !&             * ( aj(lm,n_r)-workB(lm,n_r) )
+               end if
+            end do
+            if ( lRmsNext ) then
+               call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
+                    &          dtBPolLMr(llmMag:ulmMag,n_r),            &
+                    &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)
+               call hInt2TorLM(dtT,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
+                    &          dtBTor2hInt(llmMag:ulmMag,n_r),lo_map)
+            end if
+         end do
+         !$omp end do
+
+      end if
+      !$omp end parallel
+
+   end subroutine get_mag_rhs_imp
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_BJ
-   subroutine get_bMat(dt,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
+   subroutine get_bMat(tscheme,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
 #else
-   subroutine get_bMat(dt,l,hdif,bMat,jMat)
+   subroutine get_bMat(tscheme,l,hdif,bMat,jMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -770,9 +920,9 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: dt
-      integer,  intent(in) :: l
-      real(cp), intent(in) :: hdif
+      class(type_tscheme), intent(in) :: tscheme        ! time step
+      integer,             intent(in) :: l
+      real(cp),            intent(in) :: hdif
 
       !-- Output variables:
       class(type_realmat), intent(inout) :: bMat
@@ -785,7 +935,7 @@ contains
       integer :: nR,nCheb,nR_out,nRall
       integer :: info
       real(cp) :: l_P_1
-      real(cp) :: O_dt,dLh
+      real(cp) :: dLh
       real(cp) :: rRatio
       real(cp) :: datJmat(n_r_tot,n_r_tot)
       real(cp) :: datBmat(n_r_tot,n_r_tot)
@@ -804,7 +954,6 @@ contains
 
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
-      O_dt=one/dt
       dLh=real(l*(l+1),kind=cp)
 
       !-- matricies depend on degree l but not on order m,
@@ -815,14 +964,14 @@ contains
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             datBmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
-            &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
-            &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
+            &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
+            &    tscheme%wimp_lin(1)*opm*lambda(nR)*hdif*dLh*or2(nR) * (    &
             &                                rscheme_oc%d2rMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
 
             datJmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
-            &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
-            &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
+            &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
+            &   tscheme%wimp_lin(1)*opm*lambda(nR)*hdif*dLh*or2(nR) * (     &
             &                                rscheme_oc%d2rMat(nR,nR_out) + &
             &                    dLlambda(nR)*rscheme_oc%drMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
@@ -990,8 +1139,8 @@ contains
 
                datBmat(n_r_max+nR,n_r_max+nCheb) =    &
                &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
-               &             O_dt*cheb_ic(nCheb,nR) - &
-               &                   alpha*opm*O_sr * ( &
+               &             cheb_ic(nCheb,nR) -      &
+               &     tscheme%wimp_lin(1)*opm*O_sr * ( &
                &                d2cheb_ic(nCheb,nR) + &
                &    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
 
@@ -1002,8 +1151,8 @@ contains
             nR=n_r_ic_max
             datBmat(n_r_max+nR,n_r_max+nCheb) =    &
             &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
-            &             O_dt*cheb_ic(nCheb,nR) - &
-            &                     alpha*opm*O_sr * &
+            &                  cheb_ic(nCheb,nR) - &
+            &       tscheme%wimp_lin(1)*opm*O_sr * &
             &    (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
 
             datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)

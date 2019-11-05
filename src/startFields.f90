@@ -35,6 +35,7 @@ module start_fields
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
    use readCheckPoints, only: readStartFields_old, readStartFields
+   use time_schemes, only: type_tscheme
 #ifdef WITH_MPI
    use readCheckPoints, only: readStartFields_mpi
 #endif
@@ -54,7 +55,7 @@ module start_fields
 
 contains
 
-   subroutine getStartFields(time,dt,dtNew,n_time_step)
+   subroutine getStartFields(time,dt,dtNew,n_time_step,tscheme)
       !
       !  Purpose of this subroutine is to initialize the fields and
       !  other auxiliary parameters.
@@ -63,6 +64,7 @@ contains
       !---- Output variables:
       real(cp), intent(out) :: time,dt,dtNew
       integer,  intent(out) :: n_time_step
+      class(type_tscheme), intent(inout) :: tscheme
 
       !-- Local variables:
       integer :: nR,l1m0,l,m
@@ -78,6 +80,7 @@ contains
 
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
 
+      logical :: lMat
       type(timer_type) :: t_reader
       integer :: ierr, filehandle
 
@@ -284,6 +287,7 @@ contains
          end if
 
          time =0.0_cp
+         tscheme%dt(:)=dtMax
          dt   =dtMax
          dtNew=dtMax
          n_time_step=0
@@ -294,6 +298,9 @@ contains
 #ifdef WITH_MPI
       call MPI_Barrier(MPI_COMM_WORLD, ierr)
 #endif
+
+      !-- Initialize the weights of the time scheme
+      call tscheme%set_weights(lMat)
 
       allocate( workA_LMloc(llm:ulm,n_r_max) )
       allocate( workB_LMloc(llm:ulm,n_r_max) )

@@ -133,6 +133,9 @@ program magic
    use mem_alloc
    use useful, only: abortRun
    use probe_mod, only: initialize_probes, finalize_probes
+   use time_schemes, only: type_tscheme
+   use select_time_scheme
+
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -154,9 +157,12 @@ program magic
    real(cp) :: time
    real(cp) :: dt
    real(cp) :: dtNew
+   class(type_tscheme), pointer :: tscheme
    type(timer_type) :: run_time, run_time_start
 
    integer :: n_stop_signal=0     ! signal returned from step_time
+   character(len=72) :: time_scheme ! Time scheme
+
 
    ! MPI specific variables
 #ifdef WITHOMP
@@ -206,6 +212,11 @@ program magic
 
    !--- Read input parameters:
    call readNamelists()  ! includes sent to other procs !
+
+
+   time_scheme='CNAB2'
+   !-- Select the kind of time-integrator (multi-step or implicit R-K):
+   call select_tscheme(time_scheme, tscheme)
 
    call initialize_output()
 
@@ -260,6 +271,9 @@ program magic
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
 
+   !-- Initialize time scheme
+   call tscheme%initialize(time_scheme, courfac)
+
    !-- Radial/LM Loop
    call initialize_radialLoop()
    call initialize_LMLoop()
@@ -270,11 +284,12 @@ program magic
 
    local_bytes_used=bytes_allocated
    call initialize_fields()
-   call initialize_fieldsLast()
+   call initialize_fieldsLast(tscheme%norder_imp, tscheme%norder_exp, &
+        &                     tscheme%norder_imp_lin)
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 
-   call initialize_step_time()
+   call initialize_step_time(tscheme%norder_exp)
    call initialize_communications()
 
    call initialize_der_arrays(n_r_max,llm,ulm)
@@ -291,6 +306,8 @@ program magic
    call initialize_coeffs()
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
+
+
 
 #ifdef WITH_SHTNS
    call init_shtns()
@@ -326,10 +343,10 @@ program magic
    end if
 
    !--- Now read start-file or initialize fields:
-   call getStartFields(time,dt,dtNew,n_time_step)
+   call getStartFields(time,dt,dtNew,n_time_step,tscheme)
 
    !-- Open time step file
-   call initialize_courant(time, dtNew, tag)
+   call initialize_courant(time, tscheme%dt(1), tag)
 
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
@@ -359,8 +376,7 @@ program magic
          write(nO,'(/,'' ! STARTING TIME INTEGRATION AT:'')')
          write(nO,'(''   start_time ='',1p,ES18.10)') tScale*time
          write(nO,'(''   step no    ='',i10)') n_time_step
-         write(nO,'(''   start dt   ='',1p,ES16.4)') dt
-         write(nO,'(''   start dtNew='',1p,ES16.4)') dtNew
+         write(nO,'(''   start dt   ='',1p,ES16.4)') tscheme%dt(1)
       end do
       if ( l_save_out ) close(n_log_file)
    end if
@@ -371,7 +387,7 @@ program magic
    call run_time_start%stop_count()
 
    !--- Call time-integration routine:
-   call step_time(time,dt,dtNew,n_time_step,run_time_start)
+   call step_time(time,tscheme,dt,dtNew,n_time_step,run_time_start)
 
    !-- Stop counting time and print
    call run_time%stop_count()
@@ -456,6 +472,7 @@ program magic
    call finalize_blocking()
    call finalize_radial_data()
 
+   call tscheme%finalize()
    call finalize_output()
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
@@ -466,6 +483,7 @@ program magic
    LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI
-   call mpi_finalize(ierr)
+   call MPI_Finalize(ierr)
 #endif
+
 end program magic

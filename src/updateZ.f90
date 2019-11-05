@@ -10,7 +10,7 @@ module updateZ_mod
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
    use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek
-   use num_param, only: alpha, AMstart, dct_counter, solve_counter
+   use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
    use horizontal_data, only: dLh, hdif_V
@@ -29,6 +29,8 @@ module updateZ_mod
    use radial_der, only: get_ddr
    use fields, only: work_LMloc
    use useful, only: abortRun
+   use time_schemes, only: type_tscheme
+   use time_array, only: type_tarray
    use special
    use dense_matrices
    use real_matrices
@@ -140,19 +142,19 @@ contains
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
-   subroutine updateZ(z,dz,dzdt,dzdtLast,time,omega_ma,d_omega_ma_dtLast, &
+   subroutine updateZ(z,dz,dzdt,time,omega_ma,d_omega_ma_dtLast, &
               &       omega_ic,d_omega_ic_dtLast,lorentz_torque_ma,       &
               &       lorentz_torque_maLast,lorentz_torque_ic,            &
-              &       lorentz_torque_icLast,w1,coex,dt,lRmsNext)
+              &       lorentz_torque_icLast,w1,coex,dt,tscheme,lRmsNext)
       !
       !  updates the toroidal potential z and its radial derivatives
       !  adds explicit part to time derivatives of z
       !
 
       !-- Input/output of scalar fields:
+      class(type_tscheme), intent(in) :: tscheme
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)        ! Toroidal velocity potential z
-      complex(cp), intent(in)    :: dzdt(llm:ulm,n_r_max)     ! Time derivative of z
-      complex(cp), intent(inout) :: dzdtLast(llm:ulm,n_r_max) ! Time derivative of z of previous step
+      type(type_tarray), intent(inout) :: dzdt
       real(cp),    intent(inout) :: d_omega_ma_dtLast         ! Time derivative of OC rotation of previous step
       real(cp),    intent(inout) :: d_omega_ic_dtLast         ! Time derivative of IC rotation of previous step
       real(cp),    intent(in) :: lorentz_torque_ma            ! Lorentz torque (for OC rotation)
@@ -207,7 +209,6 @@ contains
       logical :: DEBUG_OUTPUT=.false.
       integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-      integer :: n_r_bot, n_r_top
       complex(cp) :: rhs_sum
 
       if ( l_precession ) then
@@ -235,6 +236,16 @@ contains
       w2  =one-w1
       O_dt=one/dt
 
+      !-- Calculation of the implicit part
+      call get_tor_rhs_imp(z, dz, dzdt%old(:,:,tscheme%istage),    &
+           &               dzdt%impl(:,:,tscheme%istage),          &
+           &               tscheme%l_imp_calc_rhs(tscheme%istage), &
+           &               lRmsNext)
+
+      !-- Now assemble the right hand side and store it in work_LMloc
+      call tscheme%set_imex_rhs(work_LMloc, dzdt, llm, ulm, n_r_max)
+
+
       !$OMP parallel default(shared) private(start_lm, stop_lm)
 
       call solve_counter%start_count()
@@ -258,10 +269,10 @@ contains
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
-               call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
+               call get_zMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)), &
                     &        zMat(nLMB2),zMat_fac(:,nLMB2))
 #else
-               call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
+               call get_zMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)), &
                     &        zMat(nLMB2))
 #endif
                lZmat(l1)=.true.
@@ -303,11 +314,11 @@ contains
                   !      Note: no angular momentum correction necessary for this case !
                   if ( .not. lZ10mat ) then
 #ifdef WITH_PRECOND_Z10
-                     call get_z10Mat(dt,l1,                                   &
+                     call get_z10Mat(tscheme,l1,                              &
                           &          hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
                           &          z10Mat,z10Mat_fac)
 #else
-                     call get_z10Mat(dt,l1,hdif_V(                     &
+                     call get_z10Mat(tscheme,l1,hdif_V(                &
                           &          st_map%lm2(lm2l(lm1),lm2m(lm1))), &
                           &          z10Mat)
 #endif
@@ -344,11 +355,8 @@ contains
 
                   !----- This is the normal RHS for the other radial grid points:
                   do nR=2,n_r_max-1
-                     rhs(nR)=O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
-                     &       or2(nR)*z(lm1,nR)+ w1*dzdt(lm1,nR)+        &
-                     &       w2*dzdtLast(lm1,nR)
+                     rhs(nR)=work_LMloc(lm1,nR)
                   end do
-
 
 #ifdef WITH_PRECOND_Z10
                   rhs(:) = z10Mat_fac(:)*rhs(:)
@@ -409,10 +417,7 @@ contains
                   end if
 
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=O_dt*dLh(st_map%lm2(lm2l(lm1),  &
-                     &                     lm2m(lm1)))*or2(nR)*z(lm1,nR) + &
-                     &                     w1*dzdt(lm1,nR) +               &
-                     &                     w2*dzdtLast(lm1,nR)
+                     rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
                      if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
                         rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+prec_fac* &
                         &    cmplx(sin(oek*time),-cos(oek*time),kind=cp)
@@ -608,34 +613,8 @@ contains
          !$OMP END PARALLEL DO
       end if ! l=1,m=1 contained in lm-block ?
 
-      if ( lRmsNext ) then
-         n_r_top=n_r_cmb
-         n_r_bot=n_r_icb
-      else
-         n_r_top=n_r_cmb+1
-         n_r_bot=n_r_icb-1
-      end if
-
       !-- Calculate explicit time step part:
       !$OMP PARALLEL default(shared) private(nR,lm1,Dif)
-      !$OMP DO
-      do nR=n_r_top,n_r_bot
-         do lm1=lmStart_00,ulm
-            Dif(lm1)=hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1)))*                &
-            &        dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*visc(nR)*  &
-            &      ( work_LMloc(lm1,nR)   +(dLvisc(nR)-beta(nR)) *dz(lm1,nR) &
-            &        -( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)           &
-            &           + dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)       &
-            &           + dbeta(nR)+ two*beta(nR)*or1(nR) ) * z(lm1,nR) )
-
-            dzdtLast(lm1,nR)=dzdt(lm1,nR)-coex*Dif(lm1)
-         end do
-         if ( lRmsNext ) then
-            call hInt2Tor(Dif,llm,ulm,nR,lmStart_00,ulm, &
-                 &        DifTor2hInt(:,nR),lo_map)
-         end if
-      end do
-      !$OMP end do
 
       !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
@@ -682,12 +661,16 @@ contains
          end if
       end if
       !PERFOFF
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dzdt, llm, ulm, n_r_max)
+
    end subroutine updateZ
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z10
-   subroutine get_z10Mat(dt,l,hdif,zMat,zMat_fac)
+   subroutine get_z10Mat(tscheme,l,hdif,zMat,zMat_fac)
 #else
-   subroutine get_z10Mat(dt,l,hdif,zMat)
+   subroutine get_z10Mat(tscheme,l,hdif,zMat)
 #endif
       !
       !  Purpose of this subroutine is to construct and LU-decompose the
@@ -698,9 +681,9 @@ contains
       !  chosen to rotate freely (either kbotv=1 and/or ktopv=1).
       !
 
-      real(cp), intent(in) :: dt      ! Time step internal
-      real(cp), intent(in) :: hdif    ! Value of hyperdiffusivity in zMat terms
-      integer,  intent(in) :: l       ! Variable to loop over l's
+      class(type_tscheme), intent(in) :: tscheme ! Time step internal
+      real(cp),            intent(in) :: hdif    ! Value of hyperdiffusivity in zMat terms
+      integer,             intent(in) :: l       ! Variable to loop over l's
 
       !-- Output: z10Mat and pivot_z10
       class(type_realmat), intent(inout) :: zMat
@@ -710,10 +693,9 @@ contains
 
       !-- local variables:
       integer :: nR,nR_out,info
-      real(cp) :: O_dt,dLh
+      real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
 
-      O_dt=one/dt
       dLh=real(l*(l+1),kind=cp)
 
       !-- Boundary conditions:
@@ -730,9 +712,9 @@ contains
             dat(1,:)= rscheme_oc%rnorm * c_z10_omega_ma* &
             &               rscheme_oc%rMat(1,:)
          else if ( l_rot_ma ) then
-            dat(1,:)= rscheme_oc%rnorm *               (      &
-            &         c_dt_z10_ma*O_dt*rscheme_oc%rMat(1,:) - &
-            &       alpha*( two*or1(1)*rscheme_oc%rMat(1,:) - &
+            dat(1,:)= rscheme_oc%rnorm *               (        &
+            &         c_dt_z10_ma*rscheme_oc%rMat(1,:) -        &
+            &       tscheme%wimp_lin(1)*( two*or1(1)*rscheme_oc%rMat(1,:) - &
             &                         rscheme_oc%drMat(1,:) ) )
          else
             dat(1,:)= rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
@@ -754,8 +736,8 @@ contains
                &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:)
             else if ( l_rot_ic ) then     !  time integration of z10
                dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
-               &           c_dt_z10_ic*O_dt*rscheme_oc%rMat(n_r_max,:) + &
-               &  alpha*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
+               &           c_dt_z10_ic*rscheme_oc%rMat(n_r_max,:) + &
+               &  tscheme%wimp_lin(1)*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
                &                           rscheme_oc%drMat(n_r_max,:) ) )
             else
                dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
@@ -773,8 +755,8 @@ contains
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             dat(nR,nR_out)=rscheme_oc%rnorm * (                         &
-            &             O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
-            &           alpha*hdif*dLh*visc(nR)*or2(nR) * (             &
+            &             dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
+            &         tscheme%wimp_lin(1)*hdif*dLh*visc(nR)*or2(nR) * ( &
             &                            rscheme_oc%d2rMat(nR,nR_out) + &
             &    (dLvisc(nR)- beta(nR))*  rscheme_oc%drMat(nR,nR_out) - &
             &    ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)  +        &
@@ -807,10 +789,83 @@ contains
 
    end subroutine get_z10Mat
 !-----------------------------------------------------------------------
+   subroutine get_tor_rhs_imp(z, dz, z_last, dz_imp_last, l_calc_lin_rhs, &
+              &               lRmsNext)
+
+      !-- Input variables
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      logical,     intent(in) :: l_calc_lin_rhs
+      logical,     intent(in) :: lRmsNext
+
+      !-- Output variable
+      complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: z_last(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dz_imp_last(llm:ulm,n_r_max)
+
+      !-- Local variables
+      integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top
+      integer :: lmStart_00, l1, m1
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llm)
+
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp do private(n_r,lm,l1,m1)
+      do n_r=1,n_r_max
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            z_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*z(lm,n_r)
+         end do
+      end do
+      !$omp end do
+
+      if ( l_calc_lin_rhs ) then
+         call get_ddr( z, dz, work_LMloc, ulm-llm+1,                  &
+              &        start_lm-llm+1, stop_lm-llm+1, n_r_max, rscheme_oc)
+
+         if ( lRmsNext ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         else
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
+         end if
+
+         !$omp do default(shared) private(n_r,lm,Dif)
+         do n_r=n_r_top,n_r_bot
+            do lm=lmStart_00,ulm
+               Dif(lm)=hdif_V(st_map%lm2(lm2l(lm),lm2m(lm)))*                     &
+               &        dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*visc(n_r)*    &
+               &      ( work_LMloc(lm,n_r)   +(dLvisc(n_r)-beta(n_r)) *dz(lm,n_r) &
+               &        -( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)         &
+               &           + dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)          &
+               &           + dbeta(n_r)+ two*beta(n_r)*or1(n_r) ) * z(lm,n_r) )
+
+               dz_imp_last(lm,n_r)=Dif(lm)
+            end do
+            if ( lRmsNext ) then
+               call hInt2Tor(Dif,llm,ulm,n_r,lmStart_00,ulm, &
+                    &        DifTor2hInt(:,n_r),lo_map)
+            end if
+         end do
+         !$omp end do
+
+      end if
+      !$omp end parallel
+
+   end subroutine get_tor_rhs_imp
+!-----------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z
-   subroutine get_zMat(dt,l,hdif,zMat,zMat_fac)
+   subroutine get_zMat(tscheme,l,hdif,zMat,zMat_fac)
 #else
-   subroutine get_zMat(dt,l,hdif,zMat)
+   subroutine get_zMat(tscheme,l,hdif,zMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
@@ -818,9 +873,9 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: dt                     ! Time interval
-      integer,  intent(in) :: l                      ! Variable to loop over degrees
-      real(cp), intent(in) :: hdif                   ! Hyperdiffusivity
+      class(type_tscheme), intent(in) :: tscheme  ! time step
+      integer,             intent(in) :: l        ! Variable to loop over degrees
+      real(cp),            intent(in) :: hdif     ! Hyperdiffusivity
 
       !-- Output variables:
       class(type_realmat), intent(inout) :: zMat
@@ -831,7 +886,7 @@ contains
       !-- local variables:
       integer :: nR,nR_out
       integer :: info
-      real(cp) :: O_dt,dLh
+      real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
       character(len=80) :: message
       character(len=14) :: str, str_1
@@ -847,7 +902,6 @@ contains
       character(len=100) :: filename
 #endif
 
-      O_dt=one/dt
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions, see above:
@@ -883,8 +937,8 @@ contains
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             dat(nR,nR_out)=rscheme_oc%rnorm * (                          &
-            &               O_dt*dLh*or2(nR)* rscheme_oc%rMat(nR,nR_out) &
-            &   -alpha*hdif*dLh*visc(nR)*or2(nR) * (                     &
+            &               dLh*or2(nR)* rscheme_oc%rMat(nR,nR_out)      &
+            &   -tscheme%wimp_lin(1)*hdif*dLh*visc(nR)*or2(nR) * (       &
             &                               rscheme_oc%d2rMat(nR,nR_out) &
             &   + (dLvisc(nR)- beta(nR)) *   rscheme_oc%drMat(nR,nR_out) &
             &      - ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)        &

@@ -32,7 +32,7 @@ module step_time_mod
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use blocking, only: llm, ulm, llmMag, ulmMag
-   use LMLoop_mod, only: LMLoop
+   use LMLoop_mod, only: LMLoop, finish_explicit_assembly
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -49,6 +49,7 @@ module step_time_mod
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
    use output_mod, only: output
+   use time_schemes, only: type_tscheme
    use charmanip, only: dble2str
    use useful, only: l_correct_step, logWrite, abortRun
    use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
@@ -78,15 +79,13 @@ module step_time_mod
    complex(cp), pointer :: dbdt_Rloc(:,:)
 
    ! The same arrays, but now the LM local part
-   complex(cp), allocatable, target  :: dflowdt_LMloc_container(:,:,:)
-   complex(cp), allocatable, target  :: dsdt_LMloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dflowdt_LMloc_container(:,:,:,:)
+   complex(cp), allocatable, target  :: dsdt_LMloc_container(:,:,:,:)
    complex(cp), allocatable, target  :: dxidt_LMloc_container(:,:,:)
-   complex(cp), allocatable, target  :: dbdt_LMloc_container(:,:,:)
-   complex(cp), pointer :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
-   complex(cp), pointer :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
+   complex(cp), allocatable, target  :: dbdt_LMloc_container(:,:,:,:)
+   complex(cp), pointer :: dVSrLM_LMloc(:,:,:)
    complex(cp), pointer :: dxidt_LMloc(:,:), dVXirLM_LMloc(:,:)
-   complex(cp), pointer :: dVxVhLM_LMloc(:,:)
-   complex(cp), pointer :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
+   complex(cp), pointer :: dVxVhLM_LMloc(:,:,:), dVxBhLM_LMloc(:,:,:)
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
 
@@ -94,7 +93,10 @@ module step_time_mod
 
 contains
 
-   subroutine initialize_step_time
+   subroutine initialize_step_time(norder_exp)
+
+      !-- Input variable
+      integer, intent(in) :: norder_exp
 
       !-- Local variables
       integer :: nR,lm
@@ -188,25 +190,28 @@ contains
 
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
-         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:4))
-         dwdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1)
-         dzdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2)
-         dpdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3)
-         dVxVhLM_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4)
-         bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:4,1:norder_exp))
+         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
+         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
+         dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:norder_exp)
+         dVxVhLM_LMloc(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:norder_exp)
+         bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*norder_exp* &
+         &                 SIZEOF_DEF_COMPLEX
       else
-         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3))
-         dwdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1)
-         dzdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2)
-         dpdt_LMloc(llm:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3)
-         allocate( dVxVhLM_LMloc(1:1,1:1) )
-         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3,1:norder_exp))
+         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
+         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
+         dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:norder_exp)
+         allocate( dVxVhLM_LMloc(1:1,1:1,1:1) )
+         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*norder_exp* &
+         &                 SIZEOF_DEF_COMPLEX
       end if
 
-      allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
-      dsdt_LMloc(llm:,1:)   => dsdt_LMloc_container(llm:ulm,1:n_r_max,1)
-      dVSrLM_LMloc(llm:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2)
-      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2,1:norder_exp))
+      dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
+      dVSrLM_LMloc(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
+      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*norder_exp* &
+      &                 SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
          allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2))
@@ -219,13 +224,13 @@ contains
          dVXirLM_LMloc(1:,1:) => dxidt_LMloc_container(1:1,1:1,2)
       end if
 
-      allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3))
-      dbdt_LMloc(llmMag:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1)
-      djdt_LMloc(llmMag:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2)
-      dVxBhLM_LMloc(llmMag:,1:) => &
-      &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3)
+      allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3,1:norder_exp))
+      dbdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1,1:norder_exp)
+      djdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2,1:norder_exp)
+      dVxBhLM_LMloc(llmMag:,1:,1:) => &
+      &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3,1:norder_exp)
       bytes_allocated = bytes_allocated+ &
-      &                 3*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      &                 3*norder_exp*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed
@@ -249,7 +254,7 @@ contains
 
    end subroutine finalize_step_time
 !-------------------------------------------------------------------------------
-   subroutine step_time(time,dt,dtNew,n_time_step,run_time_start)
+   subroutine step_time(time, tscheme, dt,dtNew,n_time_step,run_time_start)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -257,6 +262,7 @@ contains
       !-- Input from initialization:
       !   time and n_time_step updated and returned to magic.f
       real(cp),         intent(inout) :: time
+      class(type_tscheme), intent(inout) :: tscheme
       real(cp),         intent(inout) :: dt,dtNew
       integer,          intent(inout) :: n_time_step
       type(timer_type), intent(in) :: run_time_start
@@ -299,6 +305,7 @@ contains
       !--- Counter:
       integer :: n_frame          ! No. of movie frames
       integer :: n_cmb_sets       ! No. of stored sets of b at CMB
+      integer :: n_stage
 
       !--- Stuff needed to construct output files:
       character(len=255) :: message
@@ -605,297 +612,284 @@ contains
 
          if ( l_graph ) call open_graph_file(n_time_step, timeScaled)
 
-         !--- Now the real work starts with the radial loop that calculates
-         !    the nonlinear terms:
-         if ( lVerbose ) then
-            write(*,*)
-            write(*,*) '! Starting radial loop!'
-         end if
+         tscheme%istage = 1
 
-         ! Here now comes the block where the LM distributed fields
-         ! are redistributed to Rloc distribution which is needed for the radialLoop.
-         ! s,ds
-         ! z,dz
-         ! w,dw,ddw,p,dp
-         ! b,db,ddb,aj,dj,ddj
-         ! b_ic,db_ic, ddb_ic,aj_ic,dj_ic,ddj_ic
+         do n_stage=1,tscheme%nstages
 
-         ! Waiting for the completion before we continue to the radialLoop
-         ! put the waits before signals to avoid cross communication
-         call comm_counter%start_count()
-         if ( l_heat ) then
-            call lo2r_s%transp_lm2r(s_LMloc_container, s_Rloc_container)
-         end if
-         if ( l_chemical_conv ) then
-            call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
-         end if
-         if ( l_conv .or. l_mag_kin ) then
-            call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
-         end if
-         if ( lPressCalc ) then
-            call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
-         end if
-         if ( l_mag ) then
-            call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
-         end if
-         call comm_counter%stop_count(l_increment=.false.)
+            !--- Now the real work starts with the radial loop that calculates
+            !    the nonlinear terms:
+            if ( lVerbose ) then
+               write(*,*)
+               write(*,*) '! Starting radial loop!'
+            end if
+
+            ! Here now comes the block where the LM distributed fields
+            ! are redistributed to Rloc distribution which is needed for the radialLoop.
+            ! s,ds
+            ! z,dz
+            ! w,dw,ddw,p,dp
+            ! b,db,ddb,aj,dj,ddj
+            ! b_ic,db_ic, ddb_ic,aj_ic,dj_ic,ddj_ic
+
+            ! Waiting for the completion before we continue to the radialLoop
+            ! put the waits before signals to avoid cross communication
+            call comm_counter%start_count()
+            if ( l_heat ) then
+               call lo2r_s%transp_lm2r(s_LMloc_container, s_Rloc_container)
+            end if
+            if ( l_chemical_conv ) then
+               call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
+            end if
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
+            end if
+            if ( l_mag ) then
+               call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
+            end if
+            call comm_counter%stop_count(l_increment=.false.)
 
 
-         !PERFOFF
-         ! =============================== BARRIER ===========================
-         !PERFON('barr_2')
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFOFF
-         ! ===================================================================
+            !PERFOFF
+            ! =============================== BARRIER ===========================
+            !PERFON('barr_2')
+            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+            !PERFOFF
+            ! ===================================================================
 
-         call rLoop_counter%start_count()
-         call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
-              &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
-              &           lPowerCalc,lRmsCalc,lPressCalc,                      &
-              &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,  &
-              &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
-              &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,       &
-              &           dVSrLM_Rloc,dVXirLM_Rloc,                            &
-              &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
-              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,  &
-              &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,           &
-              &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,   &
-              &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,            &
-              &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,            &
-              &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
-              &           dtrkc_Rloc,dthkc_Rloc)
-         call rLoop_counter%stop_count()
-         phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
-         lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
-         nl_counter%n_counts=nl_counter%n_counts+1
-         td_counter%n_counts=td_counter%n_counts+1
+            call rLoop_counter%start_count()
+            call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
+                 &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
+                 &           lPowerCalc,lRmsCalc,lPressCalc,                      &
+                 &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,  &
+                 &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
+                 &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,       &
+                 &           dVSrLM_Rloc,dVXirLM_Rloc,                            &
+                 &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
+                 &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,  &
+                 &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,           &
+                 &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,   &
+                 &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,            &
+                 &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,            &
+                 &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
+                 &           dtrkc_Rloc,dthkc_Rloc)
+            call rLoop_counter%stop_count()
+            phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
+            lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
+            nl_counter%n_counts=nl_counter%n_counts+1
+            td_counter%n_counts=td_counter%n_counts+1
 
-         if ( lVerbose ) write(*,*) '! r-loop finished!'
+            if ( lVerbose ) write(*,*) '! r-loop finished!'
 
-         !---------------------------------------
-         !--- Gather all r-distributed arrays ---
-         !---------------------------------------
-         ! we have here the following arrays from radialLoopG:
-         !  dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM
-         !  TstrRLM,TadvRLM,TomeRLM,
-         !  HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,dtrkc,dthkc
-         !
-         ! gather in-place, we need allgatherV because auf the unequal
-         ! number of points on the processes (last block is one larger)
+            !---------------------------------------
+            !--- Gather all r-distributed arrays ---
+            !---------------------------------------
+            ! we have here the following arrays from radialLoopG:
+            !  dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM
+            !  TstrRLM,TadvRLM,TomeRLM,
+            !  HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,dtrkc,dthkc
+            !
+            ! gather in-place, we need allgatherV because auf the unequal
+            ! number of points on the processes (last block is one larger)
 
-         ! ===================================== BARRIER =======================
-         !PERFON('barr_rad')
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFOFF
-         ! =====================================================================
-         if ( lVerbose ) write(*,*) "! start r2lo redistribution"
+            ! ===================================== BARRIER =======================
+            !PERFON('barr_rad')
+            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+            !PERFOFF
+            ! =====================================================================
+            if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
-         call comm_counter%start_count()
-         PERFON('r2lo_dst')
-         if ( l_conv .or. l_mag_kin ) then
-            call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,dflowdt_LMloc_container)
-         end if
+            call comm_counter%start_count()
+            PERFON('r2lo_dst')
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
+                    &                     dflowdt_LMloc_container(:,:,:,tscheme%istage))
+            end if
 
-         if ( l_heat ) then
-            call r2lo_s%transp_r2lm(dsdt_Rloc_container,dsdt_LMloc_container)
-         end if
+            if ( l_heat ) then
+               call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
+                    &                  dsdt_LMloc_container(:,:,:,tscheme%istage))
+            end if
 
-         if ( l_chemical_conv ) then
-            call r2lo_xi%transp_r2lm(dxidt_Rloc_container,dxidt_LMloc_container)
-         end if
+            if ( l_chemical_conv ) then
+               call r2lo_xi%transp_r2lm(dxidt_Rloc_container,dxidt_LMloc_container)
+            end if
 
-         if ( l_mag ) then
-            call r2lo_field%transp_r2lm(dbdt_Rloc_container,dbdt_LMloc_container)
-         end if
-         call comm_counter%stop_count()
+            if ( l_mag ) then
+               call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
+                    &                      dbdt_LMloc_container(:,:,:,tscheme%istage))
+            end if
+            call comm_counter%stop_count()
 
 #ifdef WITH_MPI
-         ! ------------------
-         ! also exchange the lorentz_torques which are only set at the boundary points
-         ! but are needed on all processes.
-         call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
-              &         n_procs-1,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
-              &         0,MPI_COMM_WORLD,ierr)
+            ! ------------------
+            ! also exchange the lorentz_torques which are only set at the boundary points
+            ! but are needed on all processes.
+            call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
+                 &         n_procs-1,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
+                 &         0,MPI_COMM_WORLD,ierr)
 #endif
-         PERFOFF
-         if ( lVerbose ) write(*,*) "! r2lo redistribution finished"
+            PERFOFF
+            if ( lVerbose ) write(*,*) "! r2lo redistribution finished"
 
-         !PERFOFF
+            !---------------
+            ! Finish assembing the explicit terms
+            !---------------
+            call finish_explicit_assembly(w_LMloc,dVSrLM_LMLoc(:,:,tscheme%istage), &
+                 &                        dVxVhLM_LMloc(:,:,tscheme%istage),        &
+                 &                        dVxBhLM_LMloc(:,:,tscheme%istage),        &
+                 &                        dsdt, dwdt, djdt, tscheme)
 
-         !--- Output before update of fields in LMLoop:
-         ! =================================== BARRIER ======================
-         !PERFON('barr_4')
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFOFF
-         ! ==================================================================
-         if ( lVerbose ) write(*,*) "! start output"
-         PERFON('output')
-         !if ( nRstart <= n_r_cmb .and. l_cmb .and. l_dt_cmb_field ) then
-         if ( l_cmb .and. l_dt_cmb_field ) then
-            call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
-         end if
-         if ( lVerbose ) write(*,*) "! start real output"
-         call io_counter%start_count()
-         call output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,    &
-              &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
-              &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
-              &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
-              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
-              &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-              &      viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
-              &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
-              &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
-              &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
-         call io_counter%stop_count()
-         PERFOFF
-         if ( lVerbose ) write(*,*) "! output finished"
+            !PERFOFF
 
-         if ( l_graph ) call close_graph_file()
-
-         !----- Finish time stepping, the last step is only for output!
-         if ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
-
-         !------ Nonlinear magnetic boundary conditions:
-         !       For stressfree conducting boundaries
-         PERFON('nl_m_bnd')
-         if ( l_b_nl_cmb ) then
-            b_nl_cmb(1) =(1.0_cp,1.0_cp)
-            aj_nl_cmb(1)=(1.0_cp,1.0_cp)
-            call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
-                 &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
-         end if
-         if ( l_b_nl_icb ) then
-            aj_nl_icb(1)=(1.0_cp,1.0_cp)
-            call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
-                 &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
-         end if
-         PERFOFF
-
-         PERFON('t_check')
-         !---- Time-step check and change if needed (l_new_dtNext=.true.)
-         !     I anticipate the dt change here that is only used in
-         !     the next time step cause its needed for coex=(alpha-1)/w2 !
-         dtLast=dt
-         dt=dtNew        ! Update to new time step
-         w2=w2New        ! Weight for time-derivatives of last time step
-         w1=one-w2      ! Weight for currect time step
-         l_new_dt    =l_new_dtNext
-         l_new_dtNext=.false.
-
-         !------ Checking Courant criteria, l_new_dt and dtNew are output
-         if ( l_cour ) then
-            !PRINT*,"dtrkc_Rloc = ",dtrkc_Rloc
-            call dt_courant(dtr,dth,l_new_dtNext,dt,dtNew,dtMax, &
-                 &          dtrkc_Rloc,dthkc_Rloc,time)
-         end if
-
-         !------ Checking whether we have to hit a specific time for output,
-         !       dtNew is changed accordingly and l_new_dt is set .true.
-         if ( l_true_time .and. l_time_hits ) then
-            call check_time_hits(l_new_dtHit,time,dt,dtNew)
-            l_new_dtNext=l_new_dtNext .or. l_new_dtHit
-         end if
-
-         !----- Stop if time step has become too small:
-         if ( dtNew < dtMin ) then
-            if ( rank == 0 ) then
-               write(*,'(1p,/,A,ES14.4,/,A)')            &
-               &    " ! TIME STEP TOO SMALL, dt=",dtNew, &
-               &    " ! I THUS stop THE RUN !"
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-               write(n_log_file,'(1p,/,A,ES14.4,/,A)')     &
-               &    " ! TIME STEP TOO SMALL, dt=",dtNew,   &
-               &    " ! I THUS stop THE RUN !"
-               if ( l_save_out ) close(n_log_file)
+            !--- Output before update of fields in LMLoop:
+            ! =================================== BARRIER ======================
+            !PERFON('barr_4')
+            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+            !PERFOFF
+            ! ==================================================================
+            if ( lVerbose ) write(*,*) "! start output"
+            PERFON('output')
+            !if ( nRstart <= n_r_cmb .and. l_cmb .and. l_dt_cmb_field ) then
+            if ( l_cmb .and. l_dt_cmb_field ) then
+               call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
             end if
-            call abortRun('Stop run in steptime')
-         end if
-         if ( l_new_dtNext ) then
-            !------ Writing info and getting new weights:
-            w2New=-half*dtNew/dt ! Weight I will be using for next update !
-            n_dt_changed=0
-            lCourChecking=.true.
-            if ( rank == 0 ) then
-               write(*,'(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')  &
-               &    " ! Changing time step at time=",(time+dt)*tScale,   &
-               &    "                 time step no=",n_time_step+1,      &
-               &    "                      last dt=",dt*tScale,          &
-               &    "                       new dt=",dtNew*tScale
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-               write(n_log_file,                                         &
-               &    '(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')     &
-               &    " ! Changing time step at time=",(time+dt)*tScale,   &
-               &    "                 time step no=",n_time_step+1,      &
-               &    "                      last dt=",dt*tScale,          &
-               &    "                       new dt=",dtNew*tScale
-               if ( l_save_out ) close(n_log_file)
+            if ( lVerbose ) write(*,*) "! start real output"
+            call io_counter%start_count()
+            call output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,    &
+                 &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
+                 &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
+                 &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
+                 &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
+                 &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
+                 &      viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
+                 &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
+                 &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
+                 &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
+            call io_counter%stop_count()
+            PERFOFF
+            if ( lVerbose ) write(*,*) "! output finished"
+
+            if ( l_graph ) call close_graph_file()
+
+            !----- Finish time stepping, the last step is only for output!
+            if ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
+
+            !------ Nonlinear magnetic boundary conditions:
+            !       For stressfree conducting boundaries
+            PERFON('nl_m_bnd')
+            if ( l_b_nl_cmb ) then
+               b_nl_cmb(1) =(1.0_cp,1.0_cp)
+               aj_nl_cmb(1)=(1.0_cp,1.0_cp)
+               call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
+                    &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
             end if
-         else
-            w2New=-half ! Normal weight if timestep is not changed !
-            n_dt_changed=n_dt_changed+1
-            if ( n_dt_changed <= n_dt_check  ) then
+            if ( l_b_nl_icb ) then
+               aj_nl_icb(1)=(1.0_cp,1.0_cp)
+               call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
+                    &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
+            end if
+            PERFOFF
+
+            PERFON('t_check')
+            !---- Time-step check and change if needed (l_new_dtNext=.true.)
+            !     I anticipate the dt change here that is only used in
+            !     the next time step cause its needed for coex=(alpha-1)/w2 !
+            dtLast=dt
+            dt=dtNew        ! Update to new time step
+            w2=w2New        ! Weight for time-derivatives of last time step
+            w1=one-w2      ! Weight for currect time step
+            l_new_dt    =l_new_dtNext
+            l_new_dtNext=.false.
+
+            !------ Checking Courant criteria, l_new_dt and dtNew are output
+            if ( l_cour .and. tscheme%istage == 1 ) then
+               !PRINT*,"dtrkc_Rloc = ",dtrkc_Rloc
+               call dt_courant(dtr,dth,l_new_dtNext,tscheme%dt(1),dtNew,dtMax, &
+                    &          dtrkc_Rloc,dthkc_Rloc,time)
+
+               call tscheme%set_dt_array(dtNew,dtMin,time,n_log_file,n_time_step,&
+                    &                    l_new_dt)
+
+               !-- Store the old weight factor of matrices
+               !-- if it changes because of dt factors moving
+               !-- matrix also needs to be rebuilt
+               call tscheme%set_weights(lMat)
+
+            end if
+
+            !----- Stop if time step has become too small:
+            if ( l_new_dtNext ) then
+               !------ Writing info and getting new weights:
+               w2New=-half*dtNew/dt ! Weight I will be using for next update !
+               n_dt_changed=0
                lCourChecking=.true.
             else
-               lCourChecking=.false.
+               w2New=-half ! Normal weight if timestep is not changed !
+               n_dt_changed=n_dt_changed+1
+               if ( n_dt_changed <= n_dt_check  ) then
+                  lCourChecking=.true.
+               else
+                  lCourChecking=.false.
+               end if
             end if
-         end if
-         PERFOFF
+            PERFOFF
 
 
-         !----- UPDATING THE FIELDS:
-         !      This is the second parallel part. Here we parallize over lm.
+            !----- UPDATING THE FIELDS:
+            !      This is the second parallel part. Here we parallize over lm.
 
-         !----- Advancing time:
-         coex  =(alpha-one)/w2New
-         timeLast        =time               ! Time of last time step
-         time            =time+dt            ! Update time
-         timeScaled      =time*tScale
+            !----- Advancing time:
+            coex  =(alpha-one)/w2New
+            timeLast        =time               ! Time of last time step
+            time            =time+dt            ! Update time
+            timeScaled      =time*tScale
 
-         lMat=.false.
-         if ( l_new_dt ) then
-            !----- Calculate matricies for new time step if dt /= dtLast
-            lMat=.true.
-            if ( rank == 0 ) then
-               write(*,'(1p,/,'' ! BUILDING MATRICIES AT STEP/TIME:'',   &
-               &                   i8,ES16.6)') n_time_step,timeScaled
+            lMat=.false.
+            if ( l_new_dt ) then
+               !----- Calculate matricies for new time step if dt /= dtLast
+               lMat=.true.
+               if ( rank == 0 ) then
+                  write(*,'(1p,/,'' ! BUILDING MATRICIES AT STEP/TIME:'',   &
+                  &                   i8,ES16.6)') n_time_step,timeScaled
+               end if
             end if
-         end if
 
-         ! =================================== BARRIER ======================
-         !PERFON('barr_6')
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFOFF
-         ! ==================================================================
+            ! =================================== BARRIER ======================
+            !PERFON('barr_6')
+            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+            !PERFOFF
+            ! ==================================================================
 
-         if ( lVerbose ) write(*,*) '! starting lm-loop!'
+            if ( lVerbose ) write(*,*) '! starting lm-loop!'
 
-         if ( n_time_step == 1 .and. l_AB1 ) then
-            if (rank == 0 ) write(*,*) '! 1st order Adams-Bashforth for 1st time step'
-            w1 = one
-            l_AB1 = .false.
-         end if
+            if ( n_time_step == 1 .and. l_AB1 ) then
+               if (rank == 0 ) write(*,*) '! 1st order Adams-Bashforth for 1st time step'
+               w1 = one
+               l_AB1 = .false.
+            end if
 
-         call lmLoop_counter%start_count()
-         call LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM_LMloc, &
-              &      dVxBhLM_LMloc,dVSrLM_LMloc,dVXirLM_LMloc,               &
-              &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,&
-              &      dbdt_LMloc,djdt_LMloc,lorentz_torque_ma,                &
-              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+            call lmLoop_counter%start_count()
+            call LMLoop(tscheme,w1,coex,time,dt,lMat,lRmsNext,lPressNext, &
+                 &      dsdt,dVXirLM_LMloc,                               &
+                 &      dwdt,dzdt,dpdt,dxidt_LMloc,                       &
+                 &      dbdt,djdt,dbdt_ic, djdt_ic, lorentz_torque_ma,    &
+                 &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
-         if ( lVerbose ) write(*,*) '! lm-loop finished!'
+            if ( lVerbose ) write(*,*) '! lm-loop finished!'
 
-         !-- Timer counters
-         call lmLoop_counter%stop_count()
-         if ( lMat ) call mat_counter%stop_count()
-         if ( .not. lMat .and. .not. l_log ) call pure_counter%stop_count()
-         call tot_counter%stop_count()
+            !-- Timer counters
+            call lmLoop_counter%stop_count()
+            if ( lMat ) call mat_counter%stop_count()
+            if ( .not. lMat .and. .not. l_log ) call pure_counter%stop_count()
+            call tot_counter%stop_count()
+
+            ! Increment current stage
+            tscheme%istage = tscheme%istage+1
+         end do
 
          !----- Timing and info of advancement:
          ! =================================== BARRIER ======================
