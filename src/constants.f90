@@ -40,9 +40,9 @@ module constants
 
    character(len=4), parameter :: codeVersion='5.9'
 
-   real(cp), parameter :: y20_norm = sqrt(5.0_cp/pi)/four
-   real(cp), parameter :: y21_norm = sqrt(15.0_cp/( 8.0_cp*pi))
-   real(cp), parameter :: y22_norm = sqrt(15.0_cp/(32.0_cp*pi))
+   real(cp), parameter :: y20_norm = half   *sqrt(5.0_cp/pi)
+   real(cp), parameter :: y21_norm = half   *sqrt(5.0_cp/(6.0_cp*pi))
+   real(cp), parameter :: y22_norm = 0.25_cp*sqrt(5.0_cp/(6.0_cp*pi))
 
 
 end module constants
