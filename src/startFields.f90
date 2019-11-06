@@ -279,8 +279,7 @@ contains
       !----- Initialize/add magnetic field:
       if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
            & .and. ( l_mag .or. l_mag_LF ) ) then
-         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,      &
-              &     lorentz_torque_icLast, lorentz_torque_maLast)
+         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
       end if
 
       !----- Initialize/add velocity, set IC and ma rotation:

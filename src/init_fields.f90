@@ -1079,7 +1079,7 @@ contains
 
    end subroutine initXi
 !---------------------------------------------------------------------------
-   subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma)
+   subroutine initB(b, aj, b_ic, aj_ic)
       !
       ! Purpose of this subroutine is to initialize the magnetic field
       ! according to the control parameters imagcon and init_b1/2.
@@ -1088,9 +1088,6 @@ contains
       !
 
       !-- Output variables:
-      real(cp), intent(out) :: lorentz_torque_ic
-      real(cp), intent(out) :: lorentz_torque_ma
-
       complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
@@ -1533,10 +1530,6 @@ contains
          end if
 
       end if
-
-      !-- Too lazy to calculate these:
-      lorentz_torque_ic=0.0_cp
-      lorentz_torque_ma=0.0_cp
 
    end subroutine initB
 !-----------------------------------------------------------------------
