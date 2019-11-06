@@ -33,11 +33,10 @@ module fields_average_mod
    use leg_helper_mod, only: legPrep
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
-   use fieldsLast, only: dwdtLast_LMloc, dpdtLast_LMloc, dzdtLast_lo,     &
-       &                 dsdtLast_LMloc, dxidtLast_LMloc, dbdtLast_LMloc, &
-       &                 djdtLast_LMloc, dbdt_icLast_LMloc,               &
-       &                 djdt_icLast_LMloc
+   use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
+       &                 djdt_ic, domega_ma_dt, domega_ic_dt
    use storeCheckPoints, only: store
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -128,7 +127,7 @@ contains
 
    end subroutine finalize_fields_average_mod
 !----------------------------------------------------------------------------
-   subroutine fields_average(simtime,dt,dtNew,nAve,l_stop_time,       &
+   subroutine fields_average(simtime,tscheme,nAve,l_stop_time,        &
       &                      time_passed,time_norm,omega_ic,omega_ma, &
       &                      w,z,p,s,xi,b,aj,b_ic,aj_ic)
       !
@@ -136,22 +135,22 @@ contains
       !
 
       !-- Input of variables:
-      integer,     intent(in) :: nAve         ! number for averaged time steps
-      logical,     intent(in) :: l_stop_time  ! true if this is the last time step
-      real(cp),    intent(in) :: time_passed  ! time passed since last log
-      real(cp),    intent(in) :: time_norm    ! time passed since start of time loop
-      real(cp),    intent(in) :: omega_ic,omega_ma
-      real(cp),    intent(in) :: dt,dtNew
-      real(cp),    intent(in) :: simtime
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      integer,             intent(in) :: nAve         ! number for averaged time steps
+      logical,             intent(in) :: l_stop_time  ! true if this is the last time step
+      real(cp),            intent(in) :: time_passed  ! time passed since last log
+      real(cp),            intent(in) :: time_norm    ! time passed since start of time loop
+      real(cp),            intent(in) :: omega_ic,omega_ma
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: simtime
+      complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local stuff:
       ! fields for the gathering
@@ -575,11 +574,10 @@ contains
          if ( rank==0 .and. l_save_out ) close(n_log_file)
 
          !--- Store checkpoint file
-         call store(simtime,dt,dtNew,-1,l_stop_time,.false.,.true.,         &
+         call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,          &
               &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,   &
-              &     aj_ic_ave,dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,    &
-              &     dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,          &
-              &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &     aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,  &
+              &     djdt_ic,domega_ma_dt,domega_ic_dt)
 
          ! if ( l_chemical_conv ) then
             ! call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &

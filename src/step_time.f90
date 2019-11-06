@@ -259,18 +259,17 @@ contains
 
    end subroutine finalize_step_time
 !-------------------------------------------------------------------------------
-   subroutine step_time(time, tscheme, dt,dtNew,n_time_step,run_time_start)
+   subroutine step_time(time, tscheme, n_time_step, run_time_start)
       !
       !  This subroutine performs the actual time-stepping.
       !
 
       !-- Input from initialization:
       !   time and n_time_step updated and returned to magic.f
-      real(cp),         intent(inout) :: time
+      real(cp),            intent(inout) :: time
       class(type_tscheme), intent(inout) :: tscheme
-      real(cp),         intent(inout) :: dt,dtNew
-      integer,          intent(inout) :: n_time_step
-      type(timer_type), intent(in) :: run_time_start
+      integer,             intent(inout) :: n_time_step
+      type(timer_type),    intent(in) :: run_time_start
 
       !--- Local variables:
 
@@ -304,7 +303,7 @@ contains
       !-- Timers:
       type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
       type(timer_type) :: mat_counter, tot_counter, io_counter, pure_counter
-      real(cp) :: run_time_passed
+      real(cp) :: run_time_passed, dt_new
 
       !--- Counter:
       integer :: n_frame          ! No. of movie frames
@@ -359,7 +358,6 @@ contains
       !--- Various stuff for time control:
       real(cp) :: timeLast
       real(cp) :: dtLast
-      real(cp) :: w1,coex
       integer :: n_time_steps_go,n_time_cour
       logical :: l_new_dt        ! causes call of matbuild !
       real(cp) :: timeScaled        ! Scaled time for output.
@@ -538,9 +536,9 @@ contains
          &                            n_r_field_step,n_r_fields,n_t_r_field,     &
          &                            t_r_field,0)
          l_logNext=.false.
-         if ( n_time_step+1 <= n_time_steps+1 )                       &
-         &             l_logNext=                                     &
-         &             l_correct_step(n_time_step,time+dt,timeLast,   &
+         if ( n_time_step+1 <= n_time_steps+1 )                                  &
+         &             l_logNext=                                                &
+         &             l_correct_step(n_time_step,time+tscheme%dt(1),timeLast,   &
          &                   n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
          lTOCalc= n_time_step > 2 .and. l_TO .and.                   &
          &               l_correct_step(n_time_step-1,time,timeLast, &
@@ -549,24 +547,24 @@ contains
          lTOframeNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 ) then
             lTONext= l_TO .and.                                            &
-            &                l_correct_step(n_time_step,time+dt,timeLast,  &
-            &                 n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
+            &                l_correct_step(n_time_step,time+tscheme%dt(1),&
+            &                timeLast,n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
             lTOframeNext= l_TOmovie .and.                                   &
-            &                l_correct_step(n_time_step,time+dt,timeLast,   &
-            &               n_time_steps,n_TOmovie_step,n_TOmovie_frames,   &
-            &                                    n_t_TOmovie,t_TOmovie,0)
+            &                l_correct_step(n_time_step,time+tscheme%dt(1), &
+            &                timeLast,n_time_steps,n_TOmovie_step,          &
+            &                n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
          end if
          lTONext      =lTOnext.or.lTOframeNext
          lTONext2     =.false.
          lTOframeNext2=.false.
          if ( n_time_step+2 <= n_time_steps+1 ) then
-            lTONext2= l_TO .and.                                              &
-            &                l_correct_step(n_time_step+1,time+2*dt,timeLast, &
-            &                                         n_time_steps,n_TO_step, &
+            lTONext2= l_TO .and.                                                 &
+            &                l_correct_step(n_time_step+1,time+2*tscheme%dt(1),  &
+            &                                timeLast,n_time_steps,n_TO_step,    &
             &                                            n_TOs,n_t_TO,t_TO,0)
-            lTOframeNext2= l_TOmovie .and.                                    &
-            &                l_correct_step(n_time_step+1,time+2*dt,timeLast, &
-            &                                    n_time_steps,n_TOmovie_step, &
+            lTOframeNext2= l_TOmovie .and.                                      &
+            &                l_correct_step(n_time_step+1,time+2*tscheme%dt(1), &
+            &                             timeLast,n_time_steps,n_TOmovie_step, &
             &                       n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
          end if
          lTONext2=lTOnext2.or.lTOframeNext2
@@ -647,7 +645,7 @@ contains
 
 
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
+               call radialLoopG(l_graph,l_cour,l_frame,time,tscheme%dt(1),dtLast,              &
                     &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
                     &           lPowerCalc,lRmsCalc,lPressCalc,                      &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,  &
@@ -748,7 +746,7 @@ contains
                end if
                if ( lVerbose ) write(*,*) "! start real output"
                call io_counter%start_count()
-               call output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,    &
+               call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,     &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
                     &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
@@ -766,10 +764,10 @@ contains
                !----- Finish time stepping, the last step is only for output!
                if ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
 
-               call dt_courant(dtr,dth,l_new_dt,tscheme%dt(1),dtNew,dtMax, &
+               call dt_courant(dtr,dth,l_new_dt,tscheme%dt(1),dt_new,dtMax, &
                     &          dtrkc_Rloc,dthkc_Rloc,time)
 
-               call tscheme%set_dt_array(dtNew,dtMin,time,n_log_file,n_time_step,&
+               call tscheme%set_dt_array(dt_new,dtMin,time,n_log_file,n_time_step,&
                     &                    l_new_dt)
 
                !-- Store the old weight factor of matrices
@@ -805,7 +803,7 @@ contains
             !---------------
             if ( lVerbose ) write(*,*) '! starting lm-loop!'
             call lmLoop_counter%start_count()
-            call LMLoop(tscheme,w1,coex,time,dt,lMat,lRmsNext,lPressNext, &
+            call LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,            &
                  &      dsdt,dwdt,dzdt,dpdt,dxidt,                        &
                  &      dbdt,djdt,dbdt_ic, djdt_ic, lorentz_torque_ma,    &
                  &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)

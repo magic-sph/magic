@@ -94,9 +94,9 @@ contains
 
       if ( l_cond_ic ) then
          call dbdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, norder_imp, &
-              &                  norder_exp, norder_imp_lin)
+              &                  norder_exp, norder_imp_lin, l_allocate_exp=.true.)
          call djdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, norder_imp, &
-              &                  norder_exp, norder_imp_lin)
+              &                  norder_exp, norder_imp_lin, l_allocate_exp=.true.)
       end if
 
       call dwdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &

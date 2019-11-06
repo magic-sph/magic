@@ -32,7 +32,6 @@ module logic
    logical :: l_movie_oc     ! Switch for recording of movie files for OC
    logical :: l_movie_ic     ! Switch for recording of movie files for IC
    logical :: l_save_out     ! Switch off outputs
-   logical :: l_true_time    ! Switch for times of outputs
    logical :: l_cmb_field    ! Switch for Bcoef files for gauss coefficients
    logical :: l_dt_cmb_field ! Switch for Bcoef files for secular variation of gauss coefs.
    logical :: l_2D_spectra   ! Switch for storing of r-l-spectra

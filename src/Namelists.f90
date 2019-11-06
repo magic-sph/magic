@@ -112,7 +112,7 @@ contains
       &    t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
       &    t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
       &    dt_TOmovie,l_movie,l_average,l_save_out,           &
-      &    l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
+      &    l_cmb_field,l_rMagSpec,l_DTrMagSpec,               &
       &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
@@ -1070,7 +1070,6 @@ contains
       write(n_out,'(''  l_cmb_field     ='',l3,'','')') l_cmb_field
       write(n_out,'(''  l_dt_cmb_field  ='',l3,'','')') l_dt_cmb_field
       write(n_out,'(''  l_save_out      ='',l3,'','')') l_save_out
-      write(n_out,'(''  l_true_time     ='',l3,'','')') l_true_time
       write(n_out,'(''  lVerbose        ='',l3,'','')') lVerbose
       write(n_out,'(''  l_rMagSpec      ='',l3,'','')') l_rMagSpec
       write(n_out,'(''  l_DTrMagSpec    ='',l3,'','')') l_DTrMagSpec
@@ -1367,7 +1366,6 @@ contains
 
       !----- Namelist output_control:
       l_save_out    =.false.  ! Save output
-      l_true_time   =.false.  ! Use exact requested output times
       lVerbose      =.false.  ! Tell me what you are doing
       l_average     =.false.  ! Average various quantities in time
 

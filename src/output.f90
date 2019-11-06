@@ -28,9 +28,8 @@ module output_mod
        &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
        &             aj_Rloc
-   use fieldsLast, only: dwdtLast_LMloc, dzdtLast_lo, dpdtLast_LMloc,     &
-       &                 dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc,  &
-       &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast_LMloc
+   use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
+       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -61,6 +60,7 @@ module output_mod
    use RMS, only: zeroRms, dtVrms, dtBrms
    use useful, only:  logWrite
    use radial_spectra  ! rBrSpec, rBpSpec
+   use time_schemes, only: type_tscheme
    use storeCheckPoints
 
    implicit none
@@ -303,7 +303,7 @@ contains
 
    end subroutine finalize_output
 !----------------------------------------------------------------------------
-   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,   &
+   subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
@@ -316,23 +316,24 @@ contains
       !
   
       !--- Input of variables
-      real(cp),    intent(in) :: time,dt,dtNew
-      integer,     intent(in) :: n_time_step
-      logical,     intent(in) :: l_stop_time
-      logical,     intent(in) :: l_pot
-      logical,     intent(in) :: l_log, l_graph, lRmsCalc, l_store
-      logical,     intent(in) :: l_new_rst_file, l_spectrum
-      logical,     intent(in) :: lTOCalc,lTOframe
-      logical,     intent(in) :: l_frame, l_cmb, l_r
-      logical,     intent(inout) :: lTOZwrite
-      integer,     intent(inout) :: n_frame
-      integer,     intent(inout) :: n_cmb_sets
+      real(cp),            intent(in) :: time
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: n_time_step
+      logical,             intent(in) :: l_stop_time
+      logical,             intent(in) :: l_pot
+      logical,             intent(in) :: l_log, l_graph, lRmsCalc, l_store
+      logical,             intent(in) :: l_new_rst_file, l_spectrum
+      logical,             intent(in) :: lTOCalc,lTOframe
+      logical,             intent(in) :: l_frame, l_cmb, l_r
+      logical,             intent(inout) :: lTOZwrite
+      integer,             intent(inout) :: n_frame
+      integer,             intent(inout) :: n_cmb_sets
   
       !--- Input of Lorentz torques and dbdt calculated in radialLoopG
       !    Parallelization note: Only the contribution at the CMB must be 
       !    collected and is (likely) stored on the processor (#0) that performs 
       !    this routine anyway.
-      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+      real(cp),            intent(in) :: lorentz_torque_ma,lorentz_torque_ic
   
       !--- Input of scales fields via common block in fields.f90:
       !    Parallelization note: these fields are LM-distributed.
@@ -414,7 +415,7 @@ contains
       logical :: DEBUG_OUTPUT=.false.
   
       timeScaled=tScale*time
-      timePassedLog=timePassedLog+dt
+      timePassedLog=timePassedLog+tscheme%dt(1)
   
       ! We start with the computation of the energies
       ! in parallel.
@@ -424,8 +425,9 @@ contains
   
          !----- Write torques and rotation rates:
          PERFON('out_rot')
-         call write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_LMloc,dz_LMloc,b_LMloc,  &
-              &          omega_ic,omega_ma,lorentz_torque_ic,lorentz_torque_ma)
+         call write_rot( time,tscheme%dt(1),eKinIC,eKinMA,w_LMloc,z_LMloc, &
+              &          dz_LMloc,b_LMloc,omega_ic,omega_ma,               &
+              &          lorentz_torque_ic,lorentz_torque_ma)
          PERFOFF
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on rank ",rank
   
@@ -487,7 +489,7 @@ contains
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
             end if
             
-            call fields_average(time,dt,dtNew,nLogs,l_stop_time,timePassedLog, &
+            call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
                  &              b_ic_LMloc,aj_ic_LMloc)
@@ -643,7 +645,7 @@ contains
             timePassedRMS=0.0_cp
             call zeroRms
          end if
-         timePassedRMS=timePassedRMS+dt
+         timePassedRMS=timePassedRMS+tscheme%dt(1)
          if ( lRmsCalc ) then
             if ( lVerbose ) write(*,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
@@ -759,18 +761,16 @@ contains
       !
       if ( l_store ) then
 #ifdef WITH_MPI
-         call store_mpi(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file, &
+         call store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
               &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,        &
-              &         dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,            &
-              &         dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,        &
-              &         dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,   &
+              &         dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,         &
+              &         domega_ic_dt)
 #else
-         call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,.false.,&
+         call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
               &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
-              &     b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,           &
-              &     dpdtLast_LMloc,dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,&
-              &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &     b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,       &
+              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
 #endif
       end if
   

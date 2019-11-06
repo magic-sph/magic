@@ -510,7 +510,7 @@ contains
       type(type_tscalar), intent(inout) :: dfdt
 
       !-- Local variables:
-      integer :: n_o, lm, n_r
+      integer :: n_o
 
       do n_o=this%norder_exp,2,-1
          dfdt%expl(n_o)=dfdt%expl(n_o-1)

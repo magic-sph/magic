@@ -155,8 +155,6 @@ program magic
    integer :: values(8)
    character(len=72) :: date
    real(cp) :: time
-   real(cp) :: dt
-   real(cp) :: dtNew
    class(type_tscheme), pointer :: tscheme
    type(timer_type) :: run_time, run_time_start
 
@@ -340,7 +338,7 @@ program magic
    end if
 
    !--- Now read start-file or initialize fields:
-   call getStartFields(time,dt,dtNew,n_time_step,tscheme)
+   call getStartFields(time, tscheme, n_time_step)
 
    !-- Open time step file
    call initialize_courant(time, tscheme%dt(1), tag)
@@ -384,7 +382,7 @@ program magic
    call run_time_start%stop_count()
 
    !--- Call time-integration routine:
-   call step_time(time,tscheme,dt,dtNew,n_time_step,run_time_start)
+   call step_time(time, tscheme, n_time_step, run_time_start)
 
    !-- Stop counting time and print
    call run_time%stop_count()

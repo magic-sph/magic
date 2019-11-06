@@ -180,7 +180,6 @@ contains
 
       end if   ! Magnetic field ?
 
-
       !$omp critical
       if ( vr2max /= 0.0_cp ) dtrkc=min(dtrkc,sqrt(delxr2(n_r)/vr2max))
       if ( vh2max /= 0.0_cp ) dthkc=min(dthkc,sqrt(delxh2(n_r)/vh2max))
@@ -214,7 +213,6 @@ contains
       real(cp) :: dt_fac
 
       character(len=200) :: message
-
 
       dt_fac=two
       dt_r  =1000.0_cp*dtMax
@@ -264,9 +262,12 @@ contains
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
          end if
 
-      end if
+      else
 
-      if ( dt == dt_new ) l_new_dt= .false.
+         l_new_dt = .false.
+         dt_new = dt
+
+      end if
 
    end subroutine dt_courant
 !------------------------------------------------------------------------------

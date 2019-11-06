@@ -55,22 +55,19 @@ module start_fields
 
 contains
 
-   subroutine getStartFields(time,dt,dtNew,n_time_step,tscheme)
+   subroutine getStartFields(time,tscheme,n_time_step)
       !
       !  Purpose of this subroutine is to initialize the fields and
       !  other auxiliary parameters.
       !
 
       !---- Output variables:
-      real(cp), intent(out) :: time,dt,dtNew
-      integer,  intent(out) :: n_time_step
+      real(cp),            intent(out) :: time ! Time of the restart
+      integer,             intent(out) :: n_time_step ! Number of past iterations
       class(type_tscheme), intent(inout) :: tscheme
 
       !-- Local variables:
-      integer :: nR,l1m0,l,m
-      integer :: lm, n_r
-      real(cp) :: coex
-      real(cp) :: d_omega_ma_dt,d_omega_ic_dt
+      integer :: l, m, lm, n_r
       character(len=76) :: message
 
       real(cp) :: sEA,sES,sAA
@@ -202,35 +199,26 @@ contains
 
          call t_reader%start_count()
          if ( index(start_file, 'rst_') /= 0 ) then
-            call readStartFields_old( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
-                 &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
-                 &                    dsdtLast_LMloc,xi_LMloc,dxidtLast_LMloc,    &
-                 &                    b_LMloc,dbdtLast_LMloc,aj_LMloc,            &
-                 &                    djdtLast_LMloc,b_ic_LMloc,dbdt_icLast_LMloc,&
-                 &                    aj_ic_LMloc,djdt_icLast_LMloc,              &
-                 &                    omega_ic,omega_ma,lorentz_torque_icLast,    &
-                 &                    lorentz_torque_maLast,time,dt,dtNew,        &
+            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt, &
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,    &
+                 &                    dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,  &
+                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,  &
+                 &                    domega_ic_dt,domega_ma_dt,time,tscheme, &
                  &                    n_time_step )
          else
 #ifdef WITH_MPI
-            call readStartFields_mpi( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
-                 &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
-                 &                    dsdtLast_LMloc,xi_LMloc,dxidtLast_LMloc,    &
-                 &                    b_LMloc,dbdtLast_LMloc,aj_LMloc,            &
-                 &                    djdtLast_LMloc,b_ic_LMloc,                  &
-                 &                    dbdt_icLast_LMloc,aj_ic_LMloc,              &
-                 &                    djdt_icLast_LMloc,omega_ic,omega_ma,        &
-                 &                    lorentz_torque_icLast,lorentz_torque_maLast,&
-                 &                    time,dt,dtNew,n_time_step )
+            call readStartFields_mpi( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,dbdt, &
+                 &                    aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
+                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
+                 &                    domega_ic_dt,domega_ma_dt,time,tscheme,   &
+                 &                    n_time_step )
 #else
-            call readStartFields( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,     &
-                 &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
-                 &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
-                 &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
-                 &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
-                 &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
-                 &                lorentz_torque_icLast,lorentz_torque_maLast,    &
-                 &                time,dt,dtNew,n_time_step )
+            call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
+                 &                dsdt,xi_LMloc,dxidt,b_LMloc,dbdt,aj_LMloc,djdt,&
+                 &                b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,        &
+                 &                omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,   &
+                 &                time,tscheme,n_time_step )
 #endif
          end if
          call t_reader%stop_count()
@@ -242,55 +230,37 @@ contains
               &                 n_log_file)
          if ( rank == 0 .and. l_save_out ) close(n_log_file)
 
-         if ( dt > 0.0_cp ) then
-            if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') dt
+         if ( tscheme%dt(1) > 0.0_cp ) then
+            if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') tscheme%dt(1)
          else
-            dt=dtMax
+            tscheme%dt(1)=dtMax
             if ( rank==0 ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
 
-         if ( .not. l_heat ) then
-            s_LMloc(:,:)       =zero
-            dsdtLast_LMloc(:,:)=zero
-         end if
+         if ( .not. l_heat ) s_LMloc(:,:)=zero
 
       else ! If there's no restart file
 
          ! Initialize with zero
          if ( l_conv .or. l_mag_kin ) then
-            w_LMloc(:,:)       =zero
-            dwdtLast_LMloc(:,:)=zero
-            z_LMloc(:,:)       =zero
-            dzdtLast_lo(:,:)   =zero
-            p_LMloc(:,:)       =zero
-            dpdtLast_LMloc(:,:)=zero
+            w_LMloc(:,:)=zero
+            z_LMloc(:,:)=zero
+            p_LMloc(:,:)=zero
          end if
-         if ( l_heat ) then
-            s_LMloc(:,:)       =zero
-            dsdtLast_LMloc(:,:)=zero
-         end if
-         if ( l_chemical_conv ) then
-            xi_LMloc(:,:)       =zero
-            dxidtLast_LMloc(:,:)=zero
-         end if
+         if ( l_heat ) s_LMloc(:,:)=zero
+         if ( l_chemical_conv ) xi_LMloc(:,:)=zero
          if ( l_mag ) then
-            b_LMloc(:,:)       =zero
-            dbdtLast_LMloc(:,:)=zero
-            aj_LMloc(:,:)      =zero
-            djdtLast_LMloc(:,:)=zero
+            b_LMloc(:,:) =zero
+            aj_LMloc(:,:)=zero
          end if
          if ( l_cond_ic ) then
-            b_ic_LMloc(:,:)       =zero
-            dbdt_icLast_LMloc(:,:)=zero
-            aj_ic_LMloc(:,:)      =zero
-            djdt_icLast_LMloc(:,:)=zero
+            b_ic_LMloc(:,:) =zero
+            aj_ic_LMloc(:,:)=zero
          end if
 
-         time =0.0_cp
+         time         =0.0_cp
          tscheme%dt(:)=dtMax
-         dt   =dtMax
-         dtNew=dtMax
-         n_time_step=0
+         n_time_step  =0
          if (rank == 0) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
       end if
       call logWrite(message)
@@ -354,22 +324,22 @@ contains
       end if
 
       if ( l_LCR ) then
-         do nR=n_r_cmb,n_r_icb-1
-            if ( nR<=n_r_LCR ) then
+         do n_r=n_r_cmb,n_r_icb-1
+            if ( n_r<=n_r_LCR ) then
                do lm=llm,ulm
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
 
-                  b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
+                  b_LMloc(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)* &
                   &               b_LMloc(lm,n_r_LCR)
-                  db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                  &               (r(nR))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
-                  ddb_LMloc(lm,nR)=real(l,cp)*real(l+1,cp)*    &
-                  &                (r(n_r_LCR))**(real(l,cp))/ &
-                  &                (r(nR))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
-                  aj_LMloc(lm,nR)=zero
-                  dj_LMloc(lm,nR)=zero
-                  ddj_LMloc(lm,nR)=zero
+                  db_LMloc(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
+                  &               (r(n_r))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
+                  ddb_LMloc(lm,n_r)=real(l,cp)*real(l+1,cp)*    &
+                  &                (r(n_r_LCR))**(real(l,cp))/  &
+                  &                (r(n_r))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
+                  aj_LMloc(lm,n_r)=zero
+                  dj_LMloc(lm,n_r)=zero
+                  ddj_LMloc(lm,n_r)=zero
                end do
             end if
          end do
@@ -475,6 +445,7 @@ contains
       end if
 
       !----- Get changes in mantle and ic rotation rate:
+#ifdef TOTO
       if ( .not. l_mag_LF ) then
          lorentz_torque_icLast=0.0_cp
          lorentz_torque_maLast=0.0_cp
@@ -500,6 +471,7 @@ contains
          d_omega_ma_dtLast=0.0_cp
          d_omega_ic_dtLast=0.0_cp
       end if
+#endif
 
    end subroutine getStartFields
 !------------------------------------------------------------------------------

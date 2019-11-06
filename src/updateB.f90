@@ -169,7 +169,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine updateB(b,db,ddb,aj,dj,ddj,dbdt,djdt,b_ic,db_ic,ddb_ic,aj_ic,  &
               &       dj_ic,ddj_ic,dbdt_ic,djdt_ic,b_nl_cmb,aj_nl_cmb,       &
-              &       aj_nl_icb,time,tscheme,lRmsNext)
+              &       aj_nl_icb,omega_ic,time,tscheme,lRmsNext)
       !
       !
       !  Calculated update of magnetic field potential and the time
@@ -201,7 +201,7 @@ contains
       complex(cp),         intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
       complex(cp),         intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
       complex(cp),         intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
-      !real(cp),            intent(in) :: omega_ic
+      real(cp),            intent(in) :: omega_ic
       real(cp),            intent(in) :: time
       logical,             intent(in) :: lRmsNext
 

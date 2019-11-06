@@ -76,7 +76,7 @@ contains
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(tscheme,w1,coex,time,dt,lMat,lRmsNext,lPressNext, &
+   subroutine LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,            &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
               &      djdt_ic,lorentz_torque_ma,lorentz_torque_ic,      &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
@@ -87,8 +87,7 @@ contains
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: w1,coex
-      real(cp),            intent(in) :: dt,time
+      real(cp),            intent(in) :: time
       logical,             intent(in) :: lMat
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
@@ -113,6 +112,7 @@ contains
       integer :: l,nR,ierr
 
       !--- Inner core rotation from last time step
+      real(cp) :: omega_icLast
       real(cp) :: z10(n_r_max)
 
 
@@ -123,6 +123,7 @@ contains
          &    position='append')
       end if
 
+      omega_icLast=omega_ic
 
       if ( lMat ) then ! update matrices:
       !---- The following logicals tell whether the respective inversion
@@ -196,7 +197,7 @@ contains
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
               &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
-              &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb,                &
+              &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, omega_icLast,  &
               &        time, tscheme, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
