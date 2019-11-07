@@ -990,7 +990,7 @@ contains
              dLlambda=dsigma/lambda
           else if ( nVarCond == 5 ) then
              ! 'PNS magnetic diffusivity profile'
-             ! this formula assume generate protons
+             ! this formula assume degenerate protons
              lambda = temp0**2/rho0**(3./2.)
              sigma = one/lambda
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
@@ -1319,7 +1319,7 @@ contains
          &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2+one)*tanh(  &
          &          slopeVisc*(r(:)-rStrat))/(half*ampVisc+(half*ampVisc-half)*  &
          &          tanh(slopeVisc*(r(:)-rStrat))+half)
-      else if ( nVarVisc == 5 ) then
+      else if ( nVarVisc == 5 ) then ! neutrino viscosity
          ! Neutrino viscosity
          ! Guilet et al, MNRAS 447, 3992-4003 (2015)
          ! Eq. (10)

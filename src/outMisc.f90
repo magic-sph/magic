@@ -22,8 +22,7 @@ module outMisc_mod
        &            l_temperature_diff, l_chemical_conv, l_mag_hel,&
        &            l_gw
    use output_data, only: tag
-   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, ci, &
-        &               y20_norm, y21_norm, y22_norm
+   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, ci
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
    use useful, only: cc2real, round_off
@@ -343,7 +342,7 @@ contains
          ddPhiQc_entropy_22_r(nR)=0.0
          ddPhiQs_entropy_22_r(nR)=0.0
 
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
             !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
             !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
@@ -545,7 +544,7 @@ contains
          ddPhiQc_pressure_22_r(nR)=0.0
          ddPhiQs_pressure_22_r(nR)=0.0
 
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
             !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
             !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &

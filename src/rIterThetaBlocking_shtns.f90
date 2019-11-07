@@ -537,9 +537,9 @@ contains
          if (this%lMagHelCalc) then
             !! replace (poloidal => 0, toroidal => poloidal)
             call torpol_to_spat(zeros_alike_b_Rloc, zeros_alike_b_Rloc,  b_Rloc(:,nR),    &
-                 &              gsa%arc, gsa%atc, gsa%apc)
+                 &              gsa%arc, gsa%atc, gsa%apc, l_R(nR))
             !! radial component of potential vector A == B_toroidal
-            call scal_to_spat(aj_Rloc(:,nR), gsa%arc)
+            call scal_to_spat(aj_Rloc(:,nR), gsa%arc, l_R(nR))
          end if
       end if
 
