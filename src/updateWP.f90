@@ -367,21 +367,23 @@ contains
                      rhs1(n_r_max+1,lmB,threadid)=0.0_cp
                      rhs1(2*n_r_max,lmB,threadid)=0.0_cp
                      do nR=2,n_r_max-1
-                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR) 
+                        rhs1(nR,lmB,threadid)        =work_LMloc(lm1,nR) 
                         rhs1(nR+n_r_max,lmB,threadid)=work1_LMloc(lm1,nR)
                      end do
 
                      if ( l_heat ) then
                         do nR=2,n_r_max-1
                            rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+ &
-                           & tscheme%wimp_lin(1)*BuoFac*rgrav(nR)*s(lm1,nR)
+                           & tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
+                           &                       rgrav(nR)*s(lm1,nR)
                         end do
                      end if
 
                      if ( l_chemical_conv ) then
                         do nR=2,n_r_max-1
                            rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+ &
-                           & tscheme%wimp_lin(1)*ChemFac*rgrav(nR)*xi(lm1,nR)
+                           & tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
+                           &                      rgrav(nR)*xi(lm1,nR)
                         end do
                      end if
 

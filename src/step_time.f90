@@ -765,6 +765,7 @@ contains
                !----- Finish time stepping, the last step is only for output!
                if ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
 
+               dtLast = tscheme%dt(1) ! Old time step (needed for some TO outputs)
                call dt_courant(dtr,dth,l_new_dt,tscheme%dt(1),dt_new,dtMax, &
                     &          dtrkc_Rloc,dthkc_Rloc,time)
 
@@ -938,81 +939,6 @@ contains
       !-- WORK IS DONE !
 
    end subroutine step_time
-!------------------------------------------------------------------------------
-   subroutine check_time_hits(l_new_dt,time,dt,dt_new)
-      !
-      !  Checks whether a certain dt is required to hit a
-      !  specific output-time.
-      !
-
-      !-- Output: ev. modified dt
-      logical,  intent(out) :: l_new_dt ! signfies change of dt !
-      real(cp), intent(inout) :: time,dt,dt_new
-
-      !-- Local variables:
-      integer :: n_dt_hit
-      integer, parameter :: n_dt_hit_max=10
-      real(cp) ::  dt_hit(n_dt_hit_max) ! dt for different hit times
-      integer :: n                          ! counter
-      real(cp) ::  time_new             ! Next time step
-
-      time_new=time+dt
-      l_new_dt=.false.
-
-      n_dt_hit=7
-
-      do n=1,n_dt_hit
-         dt_hit(n)=0.0_cp
-      end do
-
-      do n=1,n_time_hits
-         if ( t_rst(n) > time .and. t_rst(n) < time_new ) &
-         &    dt_hit(1)=t_rst(n)-time
-         if ( t_graph(n) > time .and. t_graph(n) < time_new ) &
-         &    dt_hit(2)=t_graph(n)-time
-         if ( t_log(n) > time .and. t_log(n) < time_new ) &
-         &    dt_hit(3)=t_log(n)-time
-         if ( t_spec(n) > time .and. t_spec(n) < time_new ) &
-         &    dt_hit(4)=t_spec(n)-time
-         if ( t_cmb(n) > time .and. t_cmb(n) < time_new ) &
-         &    dt_hit(5)=t_cmb(n)-time
-         if ( t_movie(n) > time .and. t_movie(n) < time_new ) &
-         &    dt_hit(6)=t_movie(n)-time
-         if ( t_TO(n) > time .and. t_TO(n) < time_new ) &
-         &    dt_hit(7)=t_TO(n)-time
-         if ( t_TOmovie(n) > time .and. t_TOmovie(n) < time_new ) &
-         &    dt_hit(7)=t_TOmovie(n)-time
-      end do
-
-      do n=1,n_dt_hit
-         if ( dt_hit(n) /= 0.0_cp .and. dt_hit(n) < dt_new ) then
-            l_new_dt=.true.
-            dt_new=dt_hit(n)
-         end if
-      end do
-
-      if ( l_new_dt ) then
-         if ( dt_new < dtMin ) dt_new=dtMin
-         time_new=time+dt_new
-         write(*, '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
-         &     time_new*tScale,time*tScale
-         if ( rank == 0 ) then
-            if ( l_save_out ) then
-               open(newunit=n_log_file, file=log_file, status='unknown', &
-               &    position='append')
-               write(n_log_file,                                                &
-               &          '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
-               &          time_new*tScale,time*tScale
-               close(n_log_file)
-            else
-               write(n_log_file,                                               &
-               &         '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
-               &         time_new*tScale,time*tScale
-            end if
-         end if
-      end if
-
-   end subroutine check_time_hits
 !------------------------------------------------------------------------------
    subroutine start_from_another_scheme(l_bridge_step, n_time_step, tscheme)
 

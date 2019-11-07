@@ -228,7 +228,7 @@ contains
             rscheme_version_old='cheb'
             n_in  =n_r_max_old-2 ! Just a guess here
             n_in_2=0 ! Regular grid
-            ratio1_old=0.0_cp
+            ratio1_old=ratio1
             ratio2_old=0.0_cp
             allocate ( type_cheb_odd :: rscheme_oc_old )
          end if
@@ -507,6 +507,7 @@ contains
          end if
       end if
 
+
       !-- Inner core fields:
       if ( l_mag .or. l_mag_LF ) then
          if ( l_mag_old ) then
@@ -530,12 +531,15 @@ contains
                   deallocate( wo,zo,po,so )
                end if
 
-               do nR=1,n_r_ic_max
-                  call scatter_from_rank0_to_lo(workA(:,nR),aj_ic(llm:ulm,nR))
-                  call scatter_from_rank0_to_lo(workD(:,nR),b_ic(llm:ulm,nR))
-               end do
+               if ( l_cond_ic ) then
+                  do nR=1,n_r_ic_max
+                     call scatter_from_rank0_to_lo(workA(:,nR),aj_ic(llm:ulm,nR))
+                     call scatter_from_rank0_to_lo(workD(:,nR),b_ic(llm:ulm,nR))
+                  end do
+               end if
 
-               if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
+               if ( l_cond_ic .and. tscheme%family == 'MULTISTEP' .and. &
+               &    tscheme%norder_exp >=2 ) then
                   do nR=1,n_r_ic_max
                      call scatter_from_rank0_to_lo(workB(:,nR), &
                           &                        dbdt_ic%expl(llm:ulm,nR,2))
@@ -731,6 +735,7 @@ contains
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
+
 
    end subroutine readStartFields_old
 !------------------------------------------------------------------------------
