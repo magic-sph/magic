@@ -11,12 +11,12 @@ module LMLoop_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
+   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
        &            l_single_matrix, l_chemical_conv, l_save_out,        &
-       &            l_double_curl
+       &            l_double_curl, l_cond_ic
    use output_data, only: n_log_file, log_file
    use debugging,  only: debug_write
    use time_array, only: type_tarray
@@ -112,7 +112,6 @@ contains
       integer :: l,nR,ierr
 
       !--- Inner core rotation from last time step
-      real(cp) :: omega_icLast
       real(cp) :: z10(n_r_max)
 
 
@@ -122,8 +121,6 @@ contains
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
       end if
-
-      omega_icLast=omega_ic
 
       if ( lMat ) then ! update matrices:
       !---- The following logicals tell whether the respective inversion
@@ -197,8 +194,8 @@ contains
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
               &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
-              &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, omega_icLast,  &
-              &        time, tscheme, lRmsNext )
+              &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
+              &        lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
       end if
@@ -210,13 +207,17 @@ contains
       PERFOFF
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly(w, dVSr_LMloc, dVXir_LMloc, dVxVh_LMloc, &
-              &                        dVxBh_LMloc, dsdt, dxidt, dwdt, djdt,    &
-              &                        tscheme)
+   subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,  &
+              &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc, &
+              &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,      &
+              &                        djdt_ic, tscheme)
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: omega_ic
       complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),         intent(inout) :: dVSr_LMloc(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: dVXir_LMloc(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: dVxVh_LMloc(llm:ulm,n_r_max)
@@ -227,6 +228,8 @@ contains
       type(type_tarray),   intent(inout) :: dxidt
       type(type_tarray),   intent(inout) :: djdt
       type(type_tarray),   intent(inout) :: dwdt
+      type(type_tarray),   intent(inout) :: dbdt_ic
+      type(type_tarray),   intent(inout) :: djdt_ic
 
       if ( l_heat ) then
          call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
@@ -242,6 +245,12 @@ contains
 
       if ( l_mag ) then
          call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
+      end if
+
+      if ( l_cond_ic ) then
+         call finish_exp_mag_ic(b_ic, aj_ic, omega_ic,            &
+              &                 dbdt_ic%expl(:,:,tscheme%istage), &
+              &                 djdt_ic%expl(:,:,tscheme%istage))
       end if
 
    end subroutine finish_explicit_assembly

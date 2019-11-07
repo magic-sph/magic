@@ -56,7 +56,7 @@ module updateB_mod
    logical, public, allocatable :: lBmat(:)
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
-   &         get_mag_rhs_imp, get_mag_ic_rhs_imp
+   &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic
 
 contains
 
@@ -169,7 +169,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine updateB(b,db,ddb,aj,dj,ddj,dbdt,djdt,b_ic,db_ic,ddb_ic,aj_ic,  &
               &       dj_ic,ddj_ic,dbdt_ic,djdt_ic,b_nl_cmb,aj_nl_cmb,       &
-              &       aj_nl_icb,omega_ic,time,tscheme,lRmsNext)
+              &       aj_nl_icb,time,tscheme,lRmsNext)
       !
       !
       !  Calculated update of magnetic field potential and the time
@@ -201,7 +201,6 @@ contains
       complex(cp),         intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
       complex(cp),         intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
       complex(cp),         intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
-      real(cp),            intent(in) :: omega_ic
       real(cp),            intent(in) :: time
       logical,             intent(in) :: lRmsNext
 
@@ -234,9 +233,6 @@ contains
       integer :: nLMB2, nLMB
       integer :: n_r_out             ! No of cheb polynome (degree+1)
       integer :: nR                  ! No of radial grid point
-
-      complex(cp) :: fac
-      !complex(cp) :: dbdt_ic,djdt_ic  ! they are calculated here !
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -503,16 +499,6 @@ contains
                      end if
 
                      do nR=2,n_r_ic_max
-                        !if ( omega_ic == 0.0_cp .or. .not. l_rot_ic .or. &
-                        !&    .not. l_mag_nl ) then
-                        !   dbdt_ic=zero
-                        !   djdt_ic=zero
-                        !else
-                        !   fac=-omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
-                        !   &    dLh(st_map%lm2(l1,m1))
-                        !   dbdt_ic=fac*b_ic(lm1,nR)
-                        !   djdt_ic=fac*aj_ic(lm1,nR)
-                        !end if
                         rhs1(n_r_max+nR,lmB,threadid)=work_ic_LMloc(lm1,nR)
                         rhs2(n_r_max+nR,lmB,threadid)=work1_ic_LMloc(lm1,nR)
                      end do
@@ -696,6 +682,42 @@ contains
       end if
 
    end subroutine updateB
+!-----------------------------------------------------------------------------	
+   subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
+
+      !-- Input variables
+      real(cp),    intent(in) :: omega_ic
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: db_exp_last(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Local variables
+      complex(cp) :: fac
+      integer :: n_r, lm, l1, m1
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
+         !$omp parallel do default(shared) private(lm,n_r,fac)
+         do n_r=2,n_r_ic_max-1
+            do lm=llmMag, ulmMag
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               fac = -omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
+               &    dLh(st_map%lm2(l1,m1))
+               db_exp_last(lm,n_r)=fac*b_ic(lm,n_r)
+               dj_exp_last(lm,n_r)=fac*aj_ic(lm,n_r)
+            end do
+         end do
+         !$omp end parallel do
+      end if
+
+   end subroutine finish_exp_mag_ic
 !-----------------------------------------------------------------------------	
    subroutine finish_exp_mag(dVxBhLM, dj_exp_last)
 

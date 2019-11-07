@@ -7,6 +7,9 @@ module readCheckPoints
    use precision_mod
    use parallel_mod
    use communications, only: scatter_from_rank0_to_lo
+   use fields, only: dw_LMloc, ddw_LMloc, ds_LMloc, dp_LMloc, dz_LMloc,   &
+       &             dxi_LMloc, db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc, &
+       &             db_ic_LMloc, ddb_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem,fd_stretch,fd_ratio
@@ -22,7 +25,7 @@ module readCheckPoints
        &                  tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,   &
        &                  scale_s,scale_xi
    use radial_functions, only: rscheme_oc, chebt_ic, cheb_norm_ic, r
-   use num_param, only: alph1, alph2
+   use num_param, only: alph1, alph2, alpha
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          kbotv, ktopv, sc, raxi
@@ -33,6 +36,11 @@ module readCheckPoints
    use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation, abortRun
    use constants, only: one
+   use updateWP_mod, only: get_pol_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp
+   use updateS_mod, only: get_entropy_rhs_imp
+   use updateXI_mod, only: get_comp_rhs_imp
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
 
@@ -94,7 +102,7 @@ contains
       real(cp) :: omega_ma1Old,omegaOsz_ma1Old,omega_ma2Old,omegaOsz_ma2Old
 
       character(len=72) :: rscheme_version_old
-      real(cp) :: r_icb_old, r_cmb_old, dom_ic, dom_ma
+      real(cp) :: r_icb_old, r_cmb_old, dom_ic, dom_ma, coex
       integer :: n_in, n_in_2
 
       complex(cp), allocatable :: wo(:,:),zo(:,:),po(:,:),so(:,:),xio(:,:)
@@ -287,6 +295,8 @@ contains
            &         MPI_COMM_WORLD,ierr)
 #endif
 
+      coex = two*(one-alpha)
+
       if ( rank == 0 ) then
          allocate( workA(lm_max,n_r_max), workB(lm_max,n_r_max) )
          allocate( workC(lm_max,n_r_max) )
@@ -375,6 +385,29 @@ contains
                call scatter_from_rank0_to_lo(workE(:,nR),dxidt%expl(llm:ulm,nR,2))
             end if
          end do
+
+         call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+              &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
+              &               .false., .false.)
+         dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
+         dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
+              &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
+              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+              &               .true., .false.)
+         dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
+
+         if ( l_heat ) then
+            call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
+                 &                   dsdt%impl(:,:,1), .true.)
+            dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
+         end if
+         if ( l_chemical_conv ) then
+            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
+                 &                dxidt%impl(:,:,1), .true.)
+            dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
+         end if
       end if
 
       deallocate(workA, workB, workC, workD, workE)
@@ -431,6 +464,12 @@ contains
                call scatter_from_rank0_to_lo(workB(:,nR),dbdt%expl(llm:ulm,nR,2))
                call scatter_from_rank0_to_lo(workC(:,nR),djdt%expl(llm:ulm,nR,2))
             end do
+
+            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc,  &
+                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                 &
+                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), .true., .false.)
+            dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
+            djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
       end if
 
@@ -503,6 +542,14 @@ contains
                      call scatter_from_rank0_to_lo(workC(:,nR), &
                           &                        djdt_ic%expl(llm:ulm,nR,2))
                   end do
+
+                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  & 
+                       &                  dj_ic_LMloc, ddj_ic_LMloc,               &
+                       &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),  &
+                       &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1),&
+                       &                  .true.)
+                  dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
+                  djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
                end if
 
             else if ( l_cond_ic ) then
@@ -677,8 +724,8 @@ contains
 
       !-- Put the torques correctly in the time step array
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
-         domega_ic_dt%expl(2)=dom_ic
-         domega_ma_dt%expl(2)=dom_ma
+         domega_ic_dt%expl(2)=dom_ic+coex*domega_ic_dt%impl(1)
+         domega_ma_dt%expl(2)=dom_ma+coex*domega_ma_dt%impl(1)
       end if
 
       !-- Finish computation to restart

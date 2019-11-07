@@ -360,7 +360,6 @@ contains
       real(cp) :: dtLast
       integer :: n_time_steps_go,n_time_cour
       logical :: l_new_dt        ! causes call of matbuild !
-      real(cp) :: timeScaled        ! Scaled time for output.
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
 
@@ -605,7 +604,7 @@ contains
          &            .or. lFluxProfCalc
          lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
 
-         if ( l_graph ) call open_graph_file(n_time_step, timeScaled)
+         if ( l_graph ) call open_graph_file(n_time_step, time)
 
          tscheme%istage = 1
 
@@ -729,11 +728,13 @@ contains
             !---------------
             ! Finish assembing the explicit terms
             !---------------
-            call finish_explicit_assembly(w_LMloc,dVSrLM_LMLoc(:,:,tscheme%istage), &
+            call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,aj_ic_LMloc,  &
+                 &                        dVSrLM_LMLoc(:,:,tscheme%istage),         &
                                           dVXirLM_LMLoc(:,:,tscheme%istage),        &
                  &                        dVxVhLM_LMloc(:,:,tscheme%istage),        &
                  &                        dVxBhLM_LMloc(:,:,tscheme%istage),        &
-                 &                        dsdt, dxidt, dwdt, djdt, tscheme)
+                 &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,         &
+                 &                        djdt_ic, tscheme)
 
             !------------
             !--- Output before update of fields in LMLoop:
@@ -776,7 +777,8 @@ contains
                call tscheme%set_weights(lMatNext)
 
                !----- Advancing time:
-               time=time+tscheme%dt(1) ! Update time
+               timeLast=time               ! Time of the previous time step
+               time    =time+tscheme%dt(1) ! Update time
 
             end if
 
