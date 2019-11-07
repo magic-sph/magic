@@ -86,7 +86,6 @@ contains
             n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         !print*, 'J, B', n_bandsJ, n_bandsB
          do ll=1,nLMBs2(1+rank)
             call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
             call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
@@ -286,7 +285,6 @@ contains
          call tscheme%set_imex_rhs(work1_ic_LMloc, djdt_ic, llmMag, ulmMag, &
               &                    n_r_ic_max)
       end if
-
 
       !$omp parallel default(shared) private(start_lm,stop_lm)
       start_lm=lmStart_00; stop_lm=ulmMag
@@ -703,7 +701,7 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
-         !$omp parallel do default(shared) private(lm,n_r,fac)
+         !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
          do n_r=2,n_r_ic_max-1
             do lm=llmMag, ulmMag
                l1=lm2l(lm)
@@ -715,6 +713,15 @@ contains
             end do
          end do
          !$omp end parallel do
+      else
+         !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
+         do n_r=2,n_r_ic_max-1
+            do lm=llmMag, ulmMag
+               db_exp_last(:,:)=zero
+               dj_exp_last(:,:)=zero
+            end do
+         end do
+         !$omp end do
       end if
 
    end subroutine finish_exp_mag_ic
@@ -794,28 +801,28 @@ contains
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
            &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
 
-      !$omp do private(n_r,lm,l1,m1)
+      !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_ic_max
-         do lm=llmMag,ulmMag
+         do lm=lmStart_00,ulmMag
             l1 = lm2l(lm)
             m1 = lm2m(lm)
-            b_ic_last(lm,n_r) =dLh(st_map%lm2(l1,m1))*or2(n_r)*b_ic(lm,n_r)
-            aj_ic_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*aj_ic(lm,n_r)
+            b_ic_last(lm,n_r) =dLh(st_map%lm2(l1,m1))*or2(n_r_max)* b_ic(lm,n_r)
+            aj_ic_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r_max)*aj_ic(lm,n_r)
          end do
       end do
       !$omp end do
 
       if ( l_calc_lin_rhs ) then
-         !$omp do private(n_r,lm,l1,m1)
+         !$omp do private(n_r,lm,l1,m1) collapse(2)
          do n_r=2,n_r_ic_max-1
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
-               db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-               &                or2(n_r_max) *  (   ddb_ic(lm,n_r) +    &
+               db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*    &
+               &                or2(n_r_max) *  (   ddb_ic(lm,n_r) +      &
                &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*db_ic(lm,n_r) )
                dj_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-               &                or2(n_r_max) *  (   ddj_ic(lm,n_r) +    &
+               &                or2(n_r_max) *  (   ddj_ic(lm,n_r) +     &
                &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*dj_ic(lm,n_r) )
             end do
          end do
@@ -826,10 +833,10 @@ contains
             l1=lm2l(lm)
             m1=lm2m(lm)
             db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-            &                                         or2(n_r_max) * &
+            &                                         or2(n_r_max) *  &
             &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm,n_r)
             dj_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-            &                                         or2(n_r_max) * &
+            &                                         or2(n_r_max) *  &
             &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm,n_r)
          end do
          !$omp end do
