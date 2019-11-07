@@ -702,7 +702,7 @@ contains
 
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
-         do n_r=2,n_r_ic_max-1
+         do n_r=2,n_r_ic_max
             do lm=llmMag, ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
@@ -715,7 +715,7 @@ contains
          !$omp end parallel do
       else
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
-         do n_r=2,n_r_ic_max-1
+         do n_r=2,n_r_ic_max
             do lm=llmMag, ulmMag
                db_exp_last(:,:)=zero
                dj_exp_last(:,:)=zero
