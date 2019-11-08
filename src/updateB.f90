@@ -263,7 +263,7 @@ contains
            &               dbdt%old(:,:,tscheme%istage),            &
            &               djdt%old(:,:,tscheme%istage),            &
            &               dbdt%impl(:,:,tscheme%istage),           &
-           &               djdt%impl(:,:,tscheme%istage),           &
+           &               djdt%impl(:,:,tscheme%istage), tscheme,  &
            &               tscheme%l_imp_calc_rhs(tscheme%istage),  &
            &               lRmsNext)
 
@@ -522,13 +522,13 @@ contains
                !LIKWID_OFF('upB_sol')
             end if
 
-            if ( lRmsNext ) then ! Store old b,aj
+            if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
                do nR=1,n_r_max
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                      !do lm=1,sizeLMB2(nLMB2,nLMB)
                      lm1=lm22lm(lm,nLMB2,nLMB)
-                     work_LMloc(lm1,nR)=b(lm1,nR)
-                     workB(lm1,nR)=aj(lm1,nR)
+                     work_LMloc(lm1,nR)= b(lm1,nR)
+                     workB(lm1,nR)     =aj(lm1,nR)
                   end do
                end do
             end if
@@ -748,7 +748,7 @@ contains
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(n_r,lm)
+      !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=lmStart_00,ulmMag
             dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
@@ -847,15 +847,16 @@ contains
    end subroutine get_mag_ic_rhs_imp
 !-----------------------------------------------------------------------------
    subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,  b_last, aj_last, &
-              &               db_imp_last, dj_imp_last, l_calc_lin_rhs,  &
-              &               lRmsNext)
+              &               db_imp_last, dj_imp_last, tscheme,         &
+              &               l_calc_lin_rhs, lRmsNext)
 
 
       !-- Input variables
-      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_max)
-      logical,     intent(in) :: l_calc_lin_rhs
-      logical,     intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_max)
+      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_max)
+      logical,             intent(in) :: l_calc_lin_rhs
+      logical,             intent(in) :: lRmsNext
 
       !-- Output variable
       complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_max)
@@ -885,7 +886,7 @@ contains
       call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
 
-      !$omp do private(n_r,lm,l1,m1)
+      !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_max
          do lm=lmStart_00,ulmMag
             l1 = lm2l(lm)
@@ -896,7 +897,7 @@ contains
       end do
       !$omp end do
 
-      if ( l_calc_lin_rhs ) then
+      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
          if ( lRmsNext ) then
             n_r_top=n_r_cmb
             n_r_bot=n_r_icb
@@ -905,7 +906,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,l1,m1,dtP,dtT)
+         !$omp do private(n_r,lm,l1,m1,dtP,dtT) collapse(2)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
@@ -917,14 +918,14 @@ contains
                &                             dLh(st_map%lm2(l1,m1))*or2(n_r) * &
                &               ( ddj(lm,n_r) + dLlambda(n_r)*dj(lm,n_r) -      &
                &                  dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r) )
-               if ( lRmsNext ) then
-                  !dtP(lm)=O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r) &
-                  !&             * (  b(lm,n_r)-work_LMloc(lm,n_r) )
-                  !dtT(lm)=O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r) &
-                  !&             * ( aj(lm,n_r)-workB(lm,n_r) )
+               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+                  dtP(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
+                  &             * (  b(lm,n_r)-work_LMloc(lm,n_r) )
+                  dtT(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
+                  &             * ( aj(lm,n_r)-workB(lm,n_r) )
                end if
             end do
-            if ( lRmsNext ) then
+            if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
                call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
                     &          dtBPolLMr(llmMag:ulmMag,n_r),            &
                     &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)

@@ -229,6 +229,7 @@ contains
            &               domega_ic_dt%old(tscheme%istage),       &
            &               domega_ma_dt%impl(tscheme%istage),      &
            &               domega_ic_dt%impl(tscheme%istage),      &
+           &               tscheme,                                &
            &               tscheme%l_imp_calc_rhs(tscheme%istage), &
            &               lRmsNext)
 
@@ -753,12 +754,13 @@ contains
 !-----------------------------------------------------------------------
    subroutine get_tor_rhs_imp(z, dz, z_last, dz_imp_last, domega_ma_old,     &
               &               domega_ic_old, domega_ma_last, domega_ic_last, &
-              &               l_calc_lin_rhs, lRmsNext)
+              &               tscheme, l_calc_lin_rhs, lRmsNext)
 
       !-- Input variables
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      logical,     intent(in) :: l_calc_lin_rhs
-      logical,     intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: z(llm:ulm,n_r_max)
+      logical,             intent(in) :: l_calc_lin_rhs
+      logical,             intent(in) :: lRmsNext
 
       !-- Output variable
       complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
@@ -779,12 +781,11 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llm)
 
-
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
 
-      !$omp do private(n_r,lm,l1,m1)
+      !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             l1 = lm2l(lm)
@@ -794,7 +795,7 @@ contains
       end do
       !$omp end do
 
-      if ( l_calc_lin_rhs ) then
+      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
          call get_ddr( z, dz, work_LMloc, ulm-llm+1,                  &
               &        start_lm-llm+1, stop_lm-llm+1, n_r_max, rscheme_oc)
 
@@ -806,7 +807,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do default(shared) private(n_r,lm,Dif)
+         !$omp do default(shared) private(n_r,lm,Dif) collapse(2)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                Dif(lm)=hdif_V(st_map%lm2(lm2l(lm),lm2m(lm)))*                     &
@@ -818,7 +819,7 @@ contains
 
                dz_imp_last(lm,n_r)=Dif(lm)
             end do
-            if ( lRmsNext ) then
+            if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                call hInt2Tor(Dif,llm,ulm,n_r,lmStart_00,ulm, &
                     &        DifTor2hInt(:,n_r),lo_map)
             end if

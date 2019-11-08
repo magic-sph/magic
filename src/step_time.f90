@@ -969,12 +969,12 @@ contains
 
          call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,    &
               &               p_LMloc, dp_LMloc, dwdt%old(:,:,1), dpdt%old(:,:,1),&
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true.,         &
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme, .true.,&
               &               .false., .false.)
          call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
               &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
               &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
-              &               domega_ic_dt%impl(1), .true., .false.)
+              &               domega_ic_dt%impl(1), tscheme, .true., .false.)
 
          if ( l_heat ) call get_entropy_rhs_imp(s_LMloc,ds_LMloc,    &
                             &                   dsdt%old(:,:,1),     &
@@ -988,7 +988,7 @@ contains
                            &               aj_LMLoc, dj_LMloc, ddj_LMloc,      &
                            &               dbdt%old(:,:,1), djdt%old(:,:,1),   &
                            &               dbdt%impl(:,:,1), djdt%impl(:,:,1), &
-                           &               .true., .false.)
+                           &               tscheme, .true., .false.)
 
          if ( l_cond_ic ) call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
                                &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &

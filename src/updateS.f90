@@ -362,7 +362,7 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(nR,lm)
+      !$omp do private(nR,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-       &
@@ -376,8 +376,7 @@ contains
 
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
-   subroutine get_entropy_rhs_imp(s, ds, s_last, &
-              &                   ds_imp_last, l_calc_lin_rhs)
+   subroutine get_entropy_rhs_imp(s, ds, s_last, ds_imp_last, l_calc_lin_rhs)
 
       !-- Input variables
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
@@ -399,7 +398,7 @@ contains
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
 
-      !$omp do private(n_r,lm)
+      !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             s_last(lm,n_r)=s(lm,n_r)
@@ -413,7 +412,7 @@ contains
          !$omp barrier
 
          !-- Calculate explicit time step part:
-         !$omp do private(n_r,lm)
+         !$omp do private(n_r,lm) collapse(2)
          do n_r=1,n_r_max
             do lm=llm,ulm
                ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &

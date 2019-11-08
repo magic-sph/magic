@@ -390,15 +390,15 @@ contains
 
          call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
               &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
-              &               .false., .false.)
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+              &               .true., .false., .false.)
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
 
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
-              &               .true., .false.)
+              &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_heat ) then
@@ -468,9 +468,10 @@ contains
                call scatter_from_rank0_to_lo(workC(:,nR),djdt%expl(llm:ulm,nR,2))
             end do
 
-            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc,  &
-                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                 &
-                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), .true., .false.)
+            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
+                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                &
+                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), tscheme,     &
+                 &               .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
@@ -1385,8 +1386,8 @@ contains
          coex = two*(one-alpha)
          call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
               &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
-              &               .false., .false.)
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+              &               .true., .false., .false.)
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) then
             dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
@@ -1395,7 +1396,7 @@ contains
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
-              &               .true., .false.)
+              &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_heat ) then
@@ -1410,9 +1411,10 @@ contains
          end if
 
          if ( l_mag ) then
-            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc,  &
-                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                 &
-                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), .true., .false.)
+            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
+                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                &
+                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1),              &
+                 &               tscheme, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
@@ -1481,8 +1483,6 @@ contains
          read(fh) wOld
          call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
               &            n_r_maxL,dim1,.false.,.false.,work )
-         !-- Cancel the spherically symmetric part for poloidal flow
-         work(1,:)=zero
       end if
       if ( l_map ) then
          do nR=1,dim1
@@ -1497,8 +1497,6 @@ contains
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
-               !-- Cancel the spherically symmetric part for poloidal flow
-               work(1,:)=zero
             end if
             if ( n_o <= tscheme%norder_exp .and. l_map .and. &
             &    tscheme%family == 'MULTISTEP') then
@@ -1513,8 +1511,6 @@ contains
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
-               !-- Cancel the spherically symmetric part for poloidal flow
-               work(1,:)=zero
             end if
             if ( n_o <= tscheme%norder_imp_lin-1 .and. l_map .and. &
             &    tscheme%family=='MULTISTEP') then
@@ -1529,8 +1525,6 @@ contains
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
-               !-- Cancel the spherically symmetric part for poloidal flow
-               work(1,:)=zero
             end if
             if ( n_o <= tscheme%norder_imp-1 .and. l_map .and. &
             &    tscheme%family == 'MULTISTEP' ) then
@@ -2189,15 +2183,15 @@ contains
          coex = two*(one-alpha)
          call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
               &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
-              &               .false., .false.)
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+              &               .true., .false., .false.)
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
 
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
-              &               .true., .false.)
+              &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_heat ) then
@@ -2212,9 +2206,10 @@ contains
          end if
 
          if ( l_mag ) then
-            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc,  &
-                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                 &
-                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), .true., .false.)
+            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
+                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                &
+                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), tscheme,     &
+                 &               .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if

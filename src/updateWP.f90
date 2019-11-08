@@ -9,7 +9,7 @@ module updateWP_mod
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun,      &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
-   use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
+   use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: dct_counter, solve_counter
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
@@ -230,7 +230,7 @@ contains
            &               dwdt%old(:,:,tscheme%istage),           &
            &               dpdt%old(:,:,tscheme%istage),           &
            &               dwdt%impl(:,:,tscheme%istage),          &
-           &               dpdt%impl(:,:,tscheme%istage),          &
+           &               dpdt%impl(:,:,tscheme%istage), tscheme, &
            &               tscheme%l_imp_calc_rhs(tscheme%istage), &
            &               lPressNext, lRmsNext)
 
@@ -411,7 +411,8 @@ contains
             end if
             !PERFOFF
 
-            if ( l_double_curl .and. lPressNext ) then ! Store old dw
+            if ( l_double_curl .and. lPressNext .and.  &
+            &    tscheme%istage == 1) then ! Store old dw
                do nR=1,n_r_max
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                      lm1=lm22lm(lm,nLMB2,nLMB)
@@ -546,17 +547,18 @@ contains
    end subroutine finish_exp_pol
 !------------------------------------------------------------------------------
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, w_last, dw_last, &
-              &               dw_imp_last, dp_imp_last, l_calc_lin_rhs,  &
-              &               lPressNext, lRmsNext)
+              &               dw_imp_last, dp_imp_last, tscheme,         &
+              &               l_calc_lin_rhs, lPressNext, lRmsNext)
 
       !-- Input variables
-      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
-      logical,     intent(in) :: l_calc_lin_rhs
-      logical,     intent(in) :: lPressNext
-      logical,     intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: p(llm:ulm,n_r_max)
+      logical,             intent(in) :: l_calc_lin_rhs
+      logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lRmsNext
 
       !-- Output variable
       complex(cp), intent(out) :: dp(llm:ulm,n_r_max)
@@ -605,7 +607,7 @@ contains
       end do
       !$omp end do
 
-      if ( l_calc_lin_rhs ) then
+      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
          if ( l_double_curl ) then
             call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1,                  &
@@ -619,7 +621,7 @@ contains
          end if
 
 
-         if ( lRmsNext ) then
+         if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
             n_r_top=n_r_cmb
             n_r_bot=n_r_icb
          else
@@ -679,22 +681,23 @@ contains
                      ! if required.
 
                      !----- O_dt missing
-                     !p(lm,n_r)=-r(n_r)*r(n_r)/dLh(st_map%lm2(l1,m1))*dpdt(lm,n_r)   &
-                     !&                -O_dt*(dw(lm,n_r)-dwold(lm,n_r))+           &
-                     !&                 hdif_V(st_map%lm2(l1,m1))*visc(n_r)*      &
-                     !&                                    ( work_LMloc(lm,n_r)   &
+                     !p(lm,n_r)=-r(n_r)*r(n_r)/dLh(st_map%lm2(l1,m1))*              &
+                     !&                           dpdt%expl(lm,n_r,tscheme%istage)  &
+                     !&            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     !&                 hdif_V(st_map%lm2(l1,m1))*visc(n_r)*        &
+                     !&                                    ( work_LMloc(lm,n_r)     &
                      !&                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
-                     !&               - ( dLh(st_map%lm2(l1,m1))*or2(n_r)         &
+                     !&               - ( dLh(st_map%lm2(l1,m1))*or2(n_r)           &
                      !&                  + dLvisc(n_r)*beta(n_r)+ dbeta(n_r)        &
                      !&                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
-                     !&                                           ) * dw(lm,n_r)  &
-                     !&               + dLh(st_map%lm2(l1,m1))*or2(n_r)           &
-                     !&                  * ( two*or1(n_r)+two*third*beta(n_r)      &
-                     !&                     +dLvisc(n_r) )   *         w(lm,n_r)   &
+                     !&                                              ) * dw(lm,n_r) &
+                     !&               + dLh(st_map%lm2(l1,m1))*or2(n_r)             &
+                     !&                  * ( two*or1(n_r)+two*third*beta(n_r)       &
+                     !&                     +dLvisc(n_r) )   *            w(lm,n_r) &
                      !&                                         )
                   end if
 
-                  if ( lRmsNext ) then
+                  if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
@@ -707,7 +710,7 @@ contains
                      &                                                 w(lm,n_r)  )
                   end if
                end do
-               if ( lRmsNext ) then
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                   call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
                        &        DifPolLMr(llm:ulm,n_r),         &
                        &        DifPol2hInt(:,n_r),lo_map)
@@ -751,7 +754,7 @@ contains
                   &                     +dLvisc(n_r) )   *           w(lm,n_r)  &
                   &                                         )
                end do
-               if ( lRmsNext ) then
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                   call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
                        &        DifPolLMr(llm:ulm,n_r),         &
                        &        DifPol2hInt(:,n_r),lo_map)
