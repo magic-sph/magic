@@ -7,6 +7,8 @@ module dirk_schemes
    use constants, only: one, half, two, ci, zero
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
+   use logic, only: l_save_out
+   use output_data, only: log_file
    use radial_functions, only: or1
    use time_schemes, only: type_tscheme
    use time_array
@@ -298,9 +300,14 @@ contains
             write(output_unit,'(1p,/,A,ES14.4,/,A)')   &
             &    " ! Time step too small, dt=",dt_new, &
             &    " ! I thus stop the run !"
+            if ( l_save_out ) then
+               open(n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
             write(n_log_file,'(1p,/,A,ES14.4,/,A)')    &
             &    " ! Time step too small, dt=",dt_new, &
             &    " ! I thus stop the run !"
+            if ( l_save_out ) close(n_log_file)
          end if
          call abortRun('Stop run in steptime!')
       end if
@@ -313,12 +320,17 @@ contains
             &    "                 time step no=",n_time_step,                  &
             &    "                      last dt=",dt_old,                       &
             &    "                       new dt=",dt_new
+            if ( l_save_out ) then
+               open(n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
             write(n_log_file,                                         &
             &    '(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')     &
             &    " ! Changing time step at time=",(time+this%dt(1)),  &
             &    "                 time step no=",n_time_step,        &
             &    "                      last dt=",dt_old,             &
             &    "                       new dt=",dt_new
+            if ( l_save_out ) close(n_log_file)
          end if
       end if
 

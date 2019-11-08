@@ -45,7 +45,7 @@ module updateB_mod
 
    !-- Local work arrays:
    complex(cp), allocatable :: workB(:,:)
-   complex(cp), allocatable :: work_ic_LMloc(:,:), work1_ic_LMloc(:,:)
+   complex(cp), allocatable :: work_ic_LMloc(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
    class(type_realmat), pointer :: bMat(:), jMat(:)
@@ -117,8 +117,7 @@ contains
 
       if ( l_cond_ic ) then
          allocate( work_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
-         allocate( work1_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
-         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_ic_max* &
+         bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_ic_max* &
          &                 SIZEOF_DEF_COMPLEX
       end if
 
@@ -151,7 +150,7 @@ contains
          call bMat(ll)%finalize()
       end do
 
-      if ( l_cond_ic ) deallocate ( work_ic_LMloc, work1_ic_LMloc )
+      if ( l_cond_ic ) deallocate ( work_ic_LMloc )
       deallocate( lBmat )
 
 #ifdef WITH_PRECOND_BJ
@@ -276,9 +275,9 @@ contains
               &                  tscheme%l_imp_calc_rhs(tscheme%istage))
 
          !-- Now assemble the right hand side and store it in work_LMloc
-         call tscheme%set_imex_rhs(work_ic_LMloc, dbdt_ic, llmMag, ulmMag, &
+         call tscheme%set_imex_rhs(ddb_ic, dbdt_ic, llmMag, ulmMag, &
               &                    n_r_ic_max)
-         call tscheme%set_imex_rhs(work1_ic_LMloc, djdt_ic, llmMag, ulmMag, &
+         call tscheme%set_imex_rhs(ddj_ic, djdt_ic, llmMag, ulmMag, &
               &                    n_r_ic_max)
       end if
 
@@ -493,8 +492,8 @@ contains
                      end if
 
                      do nR=2,n_r_ic_max
-                        rhs1(n_r_max+nR,lmB,threadid)=work_ic_LMloc(lm1,nR)
-                        rhs2(n_r_max+nR,lmB,threadid)=work1_ic_LMloc(lm1,nR)
+                        rhs1(n_r_max+nR,lmB,threadid)=ddb_ic(lm1,nR) ! ddb_ic as work array
+                        rhs2(n_r_max+nR,lmB,threadid)=ddj_ic(lm1,nR)
                      end do
                   end if
 
@@ -623,13 +622,13 @@ contains
          call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
               &             start_lm-llmMag+1,stop_lm-llmMag+1, &
               &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
-              &             work_LMloc,work1_ic_LMloc, chebt_ic, chebt_ic_even )
+              &             work_LMloc,work_ic_LMloc, chebt_ic, chebt_ic_even )
          call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
               &               stop_lm-llmMag+1, work_LMloc)
          call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
               &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
               &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
-              &             work_LMloc,work1_ic_LMloc, chebt_ic, chebt_ic_even )
+              &             work_LMloc,work_ic_LMloc, chebt_ic, chebt_ic_even )
       end if
       !$omp barrier
       !PERFOFF
