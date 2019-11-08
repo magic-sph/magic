@@ -37,7 +37,7 @@ module updateWP_mod
 
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: ddddw(:,:)
-   complex(cp), allocatable :: dwold(:,:), work1_LMloc(:,:)
+   complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    complex(cp), allocatable :: rhs1(:,:,:)
@@ -112,9 +112,6 @@ contains
          end if
       end if
 
-      allocate( work1_LMloc(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-
       allocate( work(n_r_max) )
       bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 
@@ -155,8 +152,7 @@ contains
       end do
       call p0Mat%finalize()
 
-      deallocate( wpMat_fac,lWPmat, work1_LMloc )
-      deallocate( rhs1, work )
+      deallocate( wpMat_fac,lWPmat, rhs1, work )
       deallocate( Dif, Pre, Buo )
       if ( l_double_curl ) then
          deallocate( ddddw )
@@ -237,7 +233,7 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dwdt, llm, ulm, n_r_max)
       if ( .not. l_double_curl ) then
-         call tscheme%set_imex_rhs(work1_LMloc, dpdt, llm, ulm, n_r_max)
+         call tscheme%set_imex_rhs(ddw, dpdt, llm, ulm, n_r_max)
       end if
 
       !$omp parallel default(shared) private(start_lm,stop_lm)
@@ -368,7 +364,7 @@ contains
                      rhs1(2*n_r_max,lmB,threadid)=0.0_cp
                      do nR=2,n_r_max-1
                         rhs1(nR,lmB,threadid)        =work_LMloc(lm1,nR) 
-                        rhs1(nR+n_r_max,lmB,threadid)=work1_LMloc(lm1,nR)
+                        rhs1(nR+n_r_max,lmB,threadid)=ddw(lm1,nR) ! ddw is a work array
                      end do
 
                      if ( l_heat ) then
