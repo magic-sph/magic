@@ -100,8 +100,8 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,dt,dtLast, &
-              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,             &
+   subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,timeStage, &
+              &           dt,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,   &
               &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                  &
               &           br_vt_lm_cmb,br_vp_lm_cmb,                       &
               &           br_vt_lm_icb,br_vp_lm_icb,                       &
@@ -113,7 +113,7 @@ contains
 
       class(rIterThetaBlocking_shtns_t) :: this
       integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,dt,dtLast
+      real(cp), intent(in) :: time,dt,dtLast,timeStage
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:),dVXirLM(:)
@@ -175,7 +175,7 @@ contains
 
          call nl_counter%start_count()
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(time, dt, this%nR, this%nBc, this%lRmsCalc)
+         call this%gsa%get_nl_shtns(timeStage, dt, this%nR, this%nBc, this%lRmsCalc)
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 

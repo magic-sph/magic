@@ -119,9 +119,9 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_OpenMP
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
-              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
-              &           dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,             &
+   subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,timeStage,&
+              &           dt,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,   &
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,     &
               &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
               &           lorentz_torque_ic, lorentz_torque_ma,            &
               &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
@@ -131,7 +131,7 @@ contains
 
       class(rIterThetaBlocking_OpenMP_t) :: this
       integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,dt,dtLast
+      real(cp), intent(in) :: time,timeStage,dt,dtLast
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
@@ -265,7 +265,7 @@ contains
 
             call nl_counter%start_count()
             !PERFON('get_nl')
-            call this%gsa(threadid)%get_nl(time, dt, this%nR, this%nBc,  &
+            call this%gsa(threadid)%get_nl(timeStage, dt, this%nR, this%nBc,  &
                  &                         nThetaStart, this%lRmsCalc )
             !PERFOFF
             call nl_counter%stop_count(l_increment=.false.)

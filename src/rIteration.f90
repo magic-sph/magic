@@ -32,7 +32,7 @@ module rIteration_mod
          class(rIteration_t) :: this
       end subroutine empty_if
    !-----------------------------------------------------------------------------
-      subroutine do_iteration_if(this,nR,nBc,time,dt,dtLast,             &
+      subroutine do_iteration_if(this,nR,nBc,time,timeStage,dt,dtLast,   &
                  &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,    &
                  &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,         &
                  &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb, &
@@ -47,7 +47,7 @@ module rIteration_mod
  
          !-- Input variables
          integer,  intent(in) :: nR,nBc
-         real(cp), intent(in) :: time,dt,dtLast
+         real(cp), intent(in) :: time,timeStage,dt,dtLast
      
          !-- Output variables
          complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)

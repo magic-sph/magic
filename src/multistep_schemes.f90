@@ -29,6 +29,7 @@ module multistep_schemes
       procedure :: rotate_imex_scalar
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
+      procedure :: get_time_stage
    end type type_multistep
 
 contains
@@ -563,5 +564,15 @@ contains
       this%wexp(2:this%norder_exp)=0.0_cp
 
    end subroutine start_with_ab1
+!------------------------------------------------------------------------------
+   subroutine get_time_stage(this, tlast, tstage)
+
+      class(type_multistep) :: this
+      real(cp), intent(in) :: tlast
+      real(cp), intent(out) :: tstage
+
+      tstage = tlast+this%dt(1)
+
+   end subroutine get_time_stage
 !------------------------------------------------------------------------------
 end module multistep_schemes

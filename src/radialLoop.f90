@@ -82,7 +82,7 @@ contains
 
    end subroutine finalize_radialLoop
 !----------------------------------------------------------------------------
-   subroutine radialLoopG(l_graph,l_frame,time,dt,dtLast,                &
+   subroutine radialLoopG(l_graph,l_frame,time,timeStage,dt,dtLast,      &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
               &          lRmsCalc,lPressCalc,lViscBcCalc,lFluxProfCalc,  &
               &          lPerpParCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,   &
@@ -106,7 +106,7 @@ contains
       logical,      intent(in) :: lRmsCalc
       logical,      intent(in) :: l_probe_out
       logical,      intent(in) :: lPressCalc
-      real(cp),     intent(in) :: time,dt,dtLast
+      real(cp),     intent(in) :: time,timeStage,dt,dtLast
 
       !---- Output of explicit time step:
       !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
@@ -242,7 +242,7 @@ contains
               & lMagNlBc,l_graph,lViscBcCalc,lFluxProfCalc,lPerpParCalc,  &
               & lPressCalc, l_probe_out)
 
-         call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,              &
+         call this_rIteration%do_iteration(nR,nBc,time,timeStage,dt,dtLast,    &
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),       &
               & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxVhLM(:,nR),dVxBhLM(:,nR_Mag), &
               & dVSrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,                       &

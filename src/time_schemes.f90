@@ -35,6 +35,7 @@ module time_schemes
       procedure(rotate_imex_scalar_if), deferred :: rotate_imex_scalar
       procedure(bridge_with_cnab2_if), deferred :: bridge_with_cnab2
       procedure(start_with_ab1_if), deferred :: start_with_ab1
+      procedure(get_time_stage_if), deferred :: get_time_stage
       procedure :: print_info
 
    end type type_tscheme
@@ -112,6 +113,13 @@ module time_schemes
          import
          class(type_tscheme) :: this
       end subroutine start_with_ab1_if
+
+      subroutine get_time_stage_if(this, tlast, tstage)
+         import
+         class(type_tscheme) :: this
+         real(cp), intent(in) :: tlast
+         real(cp), intent(out) :: tstage
+      end subroutine get_time_stage_if
 
    end interface
 

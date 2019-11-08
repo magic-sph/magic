@@ -344,7 +344,7 @@ contains
       complex(cp) :: aj_nl_icb(lm_max)        ! nonlinear bc for dr aj at ICB
 
       !--- Various stuff for time control:
-      real(cp) :: timeLast
+      real(cp) :: timeLast, timeStage
       real(cp) :: dtLast
       integer :: n_time_steps_go
       logical :: l_new_dt         ! causes call of matbuild !
@@ -366,6 +366,8 @@ contains
       l_stop_time =.false.
       l_new_dt    =.true.   ! Invokes calculation of t-step matricies
       lMatNext    =.true.
+      timeLast    =time
+      timeStage   =time
 
       tenth_n_time_steps=real(n_time_steps,kind=cp)/10.0_cp
       nPercent=9
@@ -647,8 +649,8 @@ contains
                call comm_counter%stop_count(l_increment=.false.)
 
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph, l_frame,time,tscheme%dt(1),dtLast,        &
-                    &           lTOCalc,lTONext,lTONext2,lHelCalc,                 &
+               call radialLoopG(l_graph, l_frame,time,timeStage,tscheme%dt(1),     &
+                    &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
                     &           lPowerCalc,lRmsCalc,lPressCalc,                    &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
                     &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
@@ -796,6 +798,8 @@ contains
 
             end if
 
+            call tscheme%get_time_stage(timeLast, timeStage)
+
             lMat = lMatNext
             if ( (l_new_dt .or. lMat) .and. (tscheme%istage==1) ) then
                !----- Calculate matricies for new time step if dt /= dtLast
@@ -817,8 +821,8 @@ contains
             !---------------
             if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
             call lmLoop_counter%start_count()
-            call LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,dsdt,dwdt,  &
-                 &      dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
+            call LMLoop(timeStage,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
+                 &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,   &
                  &      lorentz_torque_ma,lorentz_torque_ic,b_nl_cmb,     &
                  &      aj_nl_cmb,aj_nl_icb)
 

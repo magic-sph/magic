@@ -18,6 +18,7 @@ module dirk_schemes
    type, public, extends(type_tscheme) :: type_dirk
       real(cp), allocatable :: butcher_imp(:,:)
       real(cp), allocatable :: butcher_exp(:,:)
+      real(cp), allocatable :: butcher_c(:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -29,6 +30,7 @@ module dirk_schemes
       procedure :: rotate_imex_scalar
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
+      procedure :: get_time_stage
    end type type_dirk
 
 contains
@@ -128,6 +130,9 @@ contains
       this%l_imp_calc_rhs(:) = .true.
       bytes_allocated=bytes_allocated+2*this%nstages*SIZEOF_LOGICAL
 
+      allocate( this%butcher_c(this%nstages) )
+      bytes_allocated=bytes_allocated+this%nstages*SIZEOF_LOGICAL
+
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
@@ -135,7 +140,7 @@ contains
       class(type_dirk) :: this
 
       deallocate( this%dt, this%wimp_lin, this%butcher_exp, this%butcher_imp )
-      deallocate( this%l_exp_calc, this%l_imp_calc_rhs )
+      deallocate( this%l_exp_calc, this%l_imp_calc_rhs, this%butcher_c )
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -163,6 +168,7 @@ contains
                                     &             del, one-del, 0.0_cp], &
                                     &          [3,3],order=[2,1])
             this%l_imp_calc_rhs(1)=.false.
+            this%butcher_c(:) = [gam, one]
          case ('LZ232')
             this%wimp_lin(1) = half
             this%butcher_imp(:,:) = reshape([  0.0_cp,  0.0_cp, 0.0_cp,  &
@@ -173,6 +179,7 @@ contains
                                     &         0.25_cp, 0.0_cp, 0.0_cp,  &
                                     &            -one,    two, 0.0_cp], &
                                     &          [3,3],order=[2,1])
+            this%butcher_c(:) = [0.25_cp, one]
          case ('CK232')
             gam = one-half*sqrt(two)
             this%wimp_lin(1) = gam
@@ -185,6 +192,7 @@ contains
                                     &         2.0_cp/3.0_cp,  0.0_cp, 0.0_cp,  &
                                     &               0.25_cp, 0.75_cp, 0.0_cp], &
                                     &        [3,3],order=[2,1])
+            this%butcher_c(:) = [2.0_cp/3.0_cp, one]
          case ('ARS443')
             this%wimp_lin(1) = half
             this%butcher_imp(:,:) = reshape(                               &
@@ -202,6 +210,7 @@ contains
             &                 0.25_cp,       1.75_cp, 0.75_cp, -1.75_cp, 0.0_cp],&
             &         [5,5],order=[2,1])
             this%l_imp_calc_rhs(1)=.false.
+            this%butcher_c(:) = [half, 2.0_cp/3.0_cp, half, one]
          case ('BPR353')
             this%wimp_lin(1) = half
             this%butcher_imp(:,:) = reshape(                                   &
@@ -219,6 +228,7 @@ contains
             &               0.25_cp,       0.0_cp, 0.75_cp,   0.0_cp, 0.0_cp], &
             &         [5,5],order=[2,1])
             this%l_exp_calc(4)=.false. ! No need to calculte the explicit solve
+            this%butcher_c(:) = [one, 2.0_cp/3.0_cp, one, one]
          case ('LZ453')
             this%wimp_lin(1) = 1.2_cp
             this%butcher_imp(:,:) = reshape(                                                        &
@@ -235,6 +245,8 @@ contains
             &  -281.0_cp/336.0_cp, 187.0_cp/112.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,  &
             &             0.1_cp,             0.0_cp, 0.5_cp, 0.4_cp, 0.0_cp], &
             &  [5,5],order=[2,1])
+            this%butcher_c(:) = [2.0_cp/9.0_cp, 1.0_cp/3.0_cp, 5.0_cp/6.0_cp,  &
+            &                    one]
          case ('PC2')
             this%wimp_lin(1) = half
             this%butcher_imp(:,:) = reshape([ 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, &
@@ -247,6 +259,7 @@ contains
             &                                   half,   half, 0.0_cp, 0.0_cp, &
             &                                   half, 0.0_cp,   half, 0.0_cp],&
             &                               [4,4],order=[2,1])
+            this%butcher_c(:) = [one, one, one]
       end select
 
       this%wimp_lin(1)      = this%dt(1)*this%wimp_lin(1)
@@ -424,5 +437,15 @@ contains
       class(type_dirk) :: this
 
    end subroutine start_with_ab1
+!------------------------------------------------------------------------------
+   subroutine get_time_stage(this, tlast, tstage)
+
+      class(type_dirk) :: this
+      real(cp), intent(in) :: tlast
+      real(cp), intent(out) :: tstage
+
+      tstage = tlast+this%dt(1)*this%butcher_c(this%istage)
+
+   end subroutine get_time_stage
 !------------------------------------------------------------------------------
 end module dirk_schemes

@@ -201,7 +201,7 @@ contains
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( l_precession ) then
-         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
+         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)*tscheme%dt(1)
       else
          prec_fac = 0.0_cp
       end if
