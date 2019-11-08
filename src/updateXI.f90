@@ -349,7 +349,7 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(nR,lm)
+      !$omp do private(nR,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
@@ -383,7 +383,7 @@ contains
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
 
-      !$omp do private(n_r,lm)
+      !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             xi_last(lm,n_r)=xi(lm,n_r)
@@ -397,10 +397,10 @@ contains
          !$omp barrier
 
 
-         !$omp do private(n_r,lm)
+         !$omp do private(n_r,lm) collapse(2)
          do n_r=1,n_r_max
             do lm=llm,ulm
-            dxi_imp_last(lm,n_r)= osc*hdif_Xi(st_map%lm2(lm2l(lm),lm2m(lm))) *   &
+               dxi_imp_last(lm,n_r)= osc*hdif_Xi(st_map%lm2(lm2l(lm),lm2m(lm))) *   &
                  &   ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
                  &     - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)* xi(lm,n_r) )
             end do

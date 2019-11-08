@@ -795,6 +795,7 @@ contains
            &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
            &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
+      !$omp barrier
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_ic_max
@@ -880,6 +881,7 @@ contains
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
       call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
+      !$omp barrier
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_max

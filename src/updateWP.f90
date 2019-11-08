@@ -531,7 +531,7 @@ contains
            &       stop_lm-llm+1,n_r_max,rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(n_r,lm)
+      !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             dw_exp_last(lm,n_r)= dw_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
@@ -581,9 +581,11 @@ contains
       if ( l_double_curl ) then
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
                  &       stop_lm-llm+1, n_r_max, rscheme_oc )
+         !$omp barrier
       else
          call get_dr( w, dw, ulm-llm+1, start_lm-llm+1,  &
               &         stop_lm-llm+1, n_r_max, rscheme_oc)
+         !$omp barrier
       end if
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
@@ -608,12 +610,13 @@ contains
          if ( l_double_curl ) then
             call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1,                  &
                  &        start_lm-llm+1, stop_lm-llm+1, n_r_max, rscheme_oc)
-
+            !$omp barrier
          else
             call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
                  &         stop_lm-llm+1, n_r_max, rscheme_oc)
             call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
                  &       n_r_max, rscheme_oc)
+            !$omp barrier
          end if
 
 
@@ -634,7 +637,7 @@ contains
                n_r_bot=n_r_icb
             end if
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Buo)
+            !$omp do private(n_r,lm,l1,m1,Dif,Buo) collapse(2)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
@@ -672,7 +675,8 @@ contains
 
                   dw_imp_last(lm,n_r)=Dif(lm)+Buo(lm)
 
-                  if ( l1 /= 0 .and. lPressNext ) then
+                  if ( l1 /= 0 .and. lPressNext .and. &
+                  &    tscheme%istage==tscheme%nstages) then
                      ! In the double curl formulation, we can estimate the pressure
                      ! if required.
 
@@ -716,7 +720,7 @@ contains
 
          else
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Buo,Pre)
+            !$omp do private(n_r,lm,l1,m1,Dif,Buo,Pre) collapse(2)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)

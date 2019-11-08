@@ -798,6 +798,7 @@ contains
       if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
          call get_ddr( z, dz, work_LMloc, ulm-llm+1,                  &
               &        start_lm-llm+1, stop_lm-llm+1, n_r_max, rscheme_oc)
+         !$omp barrier
 
          if ( lRmsNext ) then
             n_r_top=n_r_cmb

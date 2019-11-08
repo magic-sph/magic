@@ -161,6 +161,8 @@ contains
          end if
          if ( inform == -1 ) inform=informOld
 
+         dt_array_old(3:tscheme%norder_exp)=dt_array_old(2)
+
          !---- Compare parameters:
          if ( ra /= ra_old ) &
          &    write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
