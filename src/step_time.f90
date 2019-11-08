@@ -180,17 +180,6 @@ contains
          end do
          !$OMP END PARALLEL DO
       end do
-      !call print_address("dbdt_Rloc"//C_NULL_CHAR,dbdt_Rloc)
-      !call print_address("djdt_Rloc"//C_NULL_CHAR,djdt_Rloc)
-      !call print_address("dsdt_Rloc"//C_NULL_CHAR,dsdt_Rloc)
-      !call print_address("dVSrLM_Rloc"//C_NULL_CHAR,dVSrLM_Rloc)
-      !call print_address("dVxBhLM"//C_NULL_CHAR,dVxBhLM_Rloc)
-
-      !do lm=1,lm_maxMag,4
-      !   write(str,"(A,I3,A)") "djdt_Rloc(",lm,")"//C_NULL_CHAR
-      !   call print_address(str,djdt_Rloc(lm,nRStartMag))
-      !end do
-
 
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
@@ -643,20 +632,20 @@ contains
                call comm_counter%stop_count(l_increment=.false.)
 
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph,l_cour,l_frame,time,tscheme%dt(1),dtLast,              &
-                    &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
-                    &           lPowerCalc,lRmsCalc,lPressCalc,                      &
-                    &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,  &
-                    &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
-                    &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,       &
-                    &           dVSrLM_Rloc,dVXirLM_Rloc,                            &
-                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
-                    &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,  &
-                    &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,           &
-                    &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,   &
-                    &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,            &
-                    &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,            &
-                    &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
+               call radialLoopG(l_graph,l_cour,l_frame,time,tscheme%dt(1),dtLast,  &
+                    &           lTOCalc,lTONext,lTONext2,lHelCalc,                 &
+                    &           lPowerCalc,lRmsCalc,lPressCalc,                    &
+                    &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
+                    &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
+                    &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,     &
+                    &           dVSrLM_Rloc,dVXirLM_Rloc,                          &
+                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
+                    &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,&
+                    &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,         &
+                    &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc, &
+                    &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,          &
+                    &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,          &
+                    &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,     &
                     &           dtrkc_Rloc,dthkc_Rloc)
                call rLoop_counter%stop_count()
                phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
@@ -675,22 +664,22 @@ contains
                PERFON('r2lo_dst')
                if ( l_conv .or. l_mag_kin ) then
                   call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
-                       &                     dflowdt_LMloc_container(:,:,:,tscheme%istage))
+                       &             dflowdt_LMloc_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_heat ) then
                   call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
-                       &                  dsdt_LMloc_container(:,:,:,tscheme%istage))
+                       &             dsdt_LMloc_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_chemical_conv ) then
                   call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
-                       &                   dxidt_LMloc_container(:,:,:,tscheme%istage))
+                       &             dxidt_LMloc_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_mag ) then
                   call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
-                       &                      dbdt_LMloc_container(:,:,:,tscheme%istage))
+                       &             dbdt_LMloc_container(:,:,:,tscheme%istage))
                end if
                call comm_counter%stop_count()
 
@@ -729,7 +718,7 @@ contains
             !---------------
             call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,aj_ic_LMloc,  &
                  &                        dVSrLM_LMLoc(:,:,tscheme%istage),         &
-                                          dVXirLM_LMLoc(:,:,tscheme%istage),        &
+                 &                        dVXirLM_LMLoc(:,:,tscheme%istage),        &
                  &                        dVxVhLM_LMloc(:,:,tscheme%istage),        &
                  &                        dVxBhLM_LMloc(:,:,tscheme%istage),        &
                  &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,         &
@@ -765,6 +754,10 @@ contains
                if ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
 
                dtLast = tscheme%dt(1) ! Old time step (needed for some TO outputs)
+
+               !---------------------
+               !-- Checking Courant criteria, l_new_dt and dt_new are output
+               !---------------------
                call dt_courant(dtr,dth,l_new_dt,tscheme%dt(1),dt_new,dtMax, &
                     &          dtrkc_Rloc,dthkc_Rloc,time)
 
@@ -805,10 +798,10 @@ contains
             !---------------
             if ( lVerbose ) write(*,*) '! starting lm-loop!'
             call lmLoop_counter%start_count()
-            call LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,            &
-                 &      dsdt,dwdt,dzdt,dpdt,dxidt,                        &
-                 &      dbdt,djdt,dbdt_ic, djdt_ic, lorentz_torque_ma,    &
-                 &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+            call LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,dsdt,dwdt,  &
+                 &      dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
+                 &      lorentz_torque_ma,lorentz_torque_ic,b_nl_cmb,     &
+                 &      aj_nl_cmb,aj_nl_icb)
 
             if ( lVerbose ) write(*,*) '! lm-loop finished!'
 
