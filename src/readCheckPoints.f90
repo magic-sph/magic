@@ -864,6 +864,7 @@ contains
             norder_exp_old = 2
             tscheme_family_old = 'MULTISTEP'
             read(n_start_file) dt_array_old(2)
+            dt_array_old(norder_exp_old+1:)=dt_array_old(norder_exp_old)
          else
             read(n_start_file) tscheme_family_old
             read(n_start_file) norder_exp_old
@@ -874,6 +875,7 @@ contains
                allocate( dt_array_old(max(norder_exp_old,tscheme%norder_exp) ) )
                dt_array_old(:)=0.0_cp
                read(n_start_file) dt_array_old(1:norder_exp_old)
+               dt_array_old(norder_exp_old+1:)=dt_array_old(norder_exp_old)
             else if ( tscheme_family_old == 'DIRK' ) then
                allocate( dt_array_old(max(1,size(tscheme%dt))) )
                dt_array_old(:)=0.0_cp
@@ -1122,7 +1124,7 @@ contains
       if ( rank == 0 ) then
          allocate( work(lm_max,n_r_max), workOld(lm_max_old,n_r_max_old) )
       else
-         allocate( work(1,n_r_max), workOld(1,1) )
+         allocate( work(1,n_r_max), workOld(1,1), r_old(1), lm2lmo(1) )
       end if
 
       !-- Read the poloidal flow
@@ -1224,7 +1226,8 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_exp ) then
+                     if ( n_o <= tscheme%norder_exp .and. &
+                     &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                dbdt_ic%expl(llm:ulm,nR,n_o))
@@ -1241,7 +1244,8 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_imp_lin-1 ) then
+                     if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                     &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                dbdt_ic%impl(llm:ulm,nR,n_o))
@@ -1258,7 +1262,8 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_imp-1 ) then
+                     if ( n_o <= tscheme%norder_imp-1 .and. &
+                     &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                dbdt_ic%old(llm:ulm,nR,n_o))
@@ -1293,7 +1298,8 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_exp ) then
+                     if ( n_o <= tscheme%norder_exp  .and.   &
+                     &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                djdt_ic%expl(llm:ulm,nR,n_o))
@@ -1310,7 +1316,8 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_imp_lin-1 ) then
+                     if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                     &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                djdt_ic%impl(llm:ulm,nR,n_o))
@@ -1327,7 +1334,8 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_imp-1 ) then
+                     if ( n_o <= tscheme%norder_imp-1 .and. &
+                     &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                djdt_ic%old(llm:ulm,nR,n_o))
@@ -1335,8 +1343,6 @@ contains
                      end if
                   end do
                end if
-
-               if ( rank == 0 ) deallocate( lm2lmo )
 
             else
                !-- No inner core fields provided by start_file, we thus assume that
@@ -1360,11 +1366,10 @@ contains
       end if
 
       !-- Free memory
-      deallocate( work, workOld, dt_array_old )
+      deallocate( work, workOld, dt_array_old, r_old, lm2lmo )
 
       !-- Close file
       if ( rank == 0 ) then
-         deallocate( r_old )
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
          close(n_start_file)
       end if ! rank == 0
@@ -1383,7 +1388,9 @@ contains
               &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
               &               .false., .false.)
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
-         dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+         if ( .not. l_double_curl ) then
+            dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+         end if
 
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
@@ -1463,7 +1470,7 @@ contains
       !--- Output variables
       complex(cp),       intent(inout) :: wOld(:,:)
       complex(cp),       intent(inout) :: work(:,:)
-      complex(cp),       intent(out) :: w(lm_max,dim1)
+      complex(cp),       intent(out) :: w(llm:ulm,dim1)
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variable
@@ -1493,13 +1500,14 @@ contains
                !-- Cancel the spherically symmetric part for poloidal flow
                work(1,:)=zero
             end if
-            if ( n_o <= tscheme%norder_exp .and. l_map) then
+            if ( n_o <= tscheme%norder_exp .and. l_map .and. &
+            &    tscheme%family == 'MULTISTEP') then
                do nR=1,n_r_max
                   call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
                end do
             end if
          end do
-         do n_o=2,norder_imp_lin_old
+         do n_o=2,norder_imp_lin_old-1
             if ( rank == 0 ) then
                work(:,:)=zero
                read(fh) wOld
@@ -1508,13 +1516,14 @@ contains
                !-- Cancel the spherically symmetric part for poloidal flow
                work(1,:)=zero
             end if
-            if ( n_o <= tscheme%norder_imp_lin-1 .and. l_map) then
+            if ( n_o <= tscheme%norder_imp_lin-1 .and. l_map .and. &
+            &    tscheme%family=='MULTISTEP') then
                do nR=1,n_r_max
                   call scatter_from_rank0_to_lo(work(:,nR),dwdt%impl(llm:ulm,nR,n_o))
                end do
             end if
          end do
-         do n_o=2,norder_imp_old
+         do n_o=2,norder_imp_old-1
             if ( rank == 0 ) then
                work(:,:)=zero
                read(fh) wOld
@@ -1523,7 +1532,8 @@ contains
                !-- Cancel the spherically symmetric part for poloidal flow
                work(1,:)=zero
             end if
-            if ( n_o <= tscheme%norder_imp-1 .and. l_map) then
+            if ( n_o <= tscheme%norder_imp-1 .and. l_map .and. &
+            &    tscheme%family == 'MULTISTEP' ) then
                do nR=1,n_r_max
                   call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
                end do
@@ -1641,6 +1651,7 @@ contains
          norder_exp_old = 2
          tscheme_family_old = 'MULTISTEP'
          call MPI_File_Read(fh, dt_array_old(2), 1, MPI_DEF_REAL, istat, ierr)
+         dt_array_old(norder_exp_old+1:)=dt_array_old(norder_exp_old)
       else
          call MPI_File_Read(fh, tscheme_family_old, len(tscheme%family), &
               &              MPI_CHARACTER, istat, ierr)
@@ -1652,6 +1663,7 @@ contains
             dt_array_old(:)=0.0_cp
             call MPI_File_Read(fh, dt_array_old(1:norder_exp_old), norder_exp_old, &
                  &             MPI_DEF_REAL, istat, ierr)
+            dt_array_old(norder_exp_old+1:)=dt_array_old(norder_exp_old)
          else if ( tscheme_family_old == 'DIRK' ) then
             allocate( dt_array_old(max(1,size(tscheme%dt))) )
             dt_array_old(:)=0.0_cp
@@ -2014,7 +2026,8 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_exp ) then
+                  if ( n_o <= tscheme%norder_exp .and. &
+                  &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        dbdt_ic%expl(llm:ulm,nR,n_o))
@@ -2033,7 +2046,8 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_imp_lin-1 ) then
+                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                  &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        dbdt_ic%impl(llm:ulm,nR,n_o))
@@ -2052,7 +2066,8 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_imp-1 ) then
+                  if ( n_o <= tscheme%norder_imp-1 .and. &
+                  &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        dbdt_ic%old(llm:ulm,nR,n_o))
@@ -2089,7 +2104,8 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_exp ) then
+                  if ( n_o <= tscheme%norder_exp .and. &
+                  &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        djdt_ic%expl(llm:ulm,nR,n_o))
@@ -2108,7 +2124,8 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_imp_lin-1 ) then
+                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                  &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        djdt_ic%impl(llm:ulm,nR,n_o))
@@ -2127,7 +2144,8 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_imp-1 ) then
+                  if ( n_o <= tscheme%norder_imp-1 .and.  &
+                  &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        djdt_ic%old(llm:ulm,nR,n_o))
@@ -2298,7 +2316,8 @@ contains
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%norder_exp .and. l_map ) then
+            if ( n_o <= tscheme%norder_exp .and. l_map .and. &
+            &    tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
@@ -2311,7 +2330,8 @@ contains
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%norder_imp_lin-1 .and. l_map ) then
+            if ( n_o <= tscheme%norder_imp_lin-1 .and. l_map .and. &
+            &    tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
@@ -2324,7 +2344,8 @@ contains
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%norder_imp-1 .and. l_map ) then
+            if ( n_o <= tscheme%norder_imp-1 .and. l_map .and. & 
+            &    tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
