@@ -82,7 +82,7 @@ contains
 
    end subroutine finalize_radialLoop
 !----------------------------------------------------------------------------
-   subroutine radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,         &
+   subroutine radialLoopG(l_graph,l_frame,time,dt,dtLast,                &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
               &          lRmsCalc,lPressCalc,lViscBcCalc,lFluxProfCalc,  &
               &          lPerpParCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,   &
@@ -99,7 +99,7 @@ contains
       !
 
       !--- Input of variables:
-      logical,      intent(in) :: l_graph,l_cour,l_frame
+      logical,      intent(in) :: l_graph,l_frame
       logical,      intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,      intent(in) :: lPowerCalc
       logical,      intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
@@ -158,7 +158,7 @@ contains
       integer :: nR,nr_Mag,nBc,lm
       !integer :: nTheta,nThetaB,nThetaLast
       integer :: nThetaStart!,nThetaStop
-      logical :: lDeriv,lOutBc,lMagNlBc
+      logical :: lDeriv,lMagNlBc
       logical :: lGraphHeader    ! Write header into graph file
 
       PERFON('rloop')
@@ -172,14 +172,12 @@ contains
 #endif
       end if
 
-      if ( l_cour ) then
-         if ( rank == 0 ) then
-            dtrkc(n_r_cmb)=1.e10_cp
-            dthkc(n_r_cmb)=1.e10_cp
-         elseif (rank == n_procs-1) then
-            dtrkc(n_r_icb)=1.e10_cp
-            dthkc(n_r_icb)=1.e10_cp
-         end if
+      if ( rank == 0 ) then
+         dtrkc(n_r_cmb)=1.e10_cp
+         dthkc(n_r_cmb)=1.e10_cp
+      elseif (rank == n_procs-1) then
+         dtrkc(n_r_icb)=1.e10_cp
+         dthkc(n_r_icb)=1.e10_cp
       end if
 
       !------ Set nonlinear terms that are possibly needed at the boundaries.
@@ -207,20 +205,6 @@ contains
            &          ( kbotv == 2 .and. l_rot_ic ) ) )               &
            &     lMagNlBc=.true.
 
-      !------ When boundary output, Courant criterion, or non-magnetic
-      !       boundary conditions are required I have to calculate
-      !       the fields at the boundaries. This is done in one thread and
-      !       is triggered by lOutBc=.true.
-      lOutBc=.false.
-      if ( lTOCalc .or. lHelCalc .or. l_frame .or.         &
-           & l_cour .or. l_dtB .or. lMagNlBc .or. l_graph  &
-           & .or. lPerpParCalc .or. lViscBcCalc .or.       &
-           & lFluxProfCalc .or. lRmsCalc .or. lPowerCalc   &
-           & .or. l_single_matrix ) lOutBc=.true.
-
-      !nRstart=n_r_cmb
-      !nRstop =n_r_icb-1
-
       !--- Start the big do loop over the radial threads:
 
       !nThreadsRmax=1
@@ -235,25 +219,16 @@ contains
          lDeriv = .true.
 
          if ( nR == n_r_cmb ) then
-            if ( lOutBc ) then
-               !nR  = n_r_cmb
-               nBc = ktopv
-               lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc   &
-               &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-               &       lPowerCalc
-            else
-               cycle   ! Nothing needs to be done by thread one !
-            end if
+            !nR  = n_r_cmb
+            nBc = ktopv
+            lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc   &
+            &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
+            &       lPowerCalc
          else if ( nR == n_r_icb ) then
-            if ( lOutBc ) then
-               !nR = n_r_icb
-               nBc = kbotv
-               lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
-               &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-               &       lPowerCalc
-            else
-               cycle
-            end if
+            nBc = kbotv
+            lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
+            &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
+            &       lPowerCalc
          end if
 
          if ( l_mag .or. l_mag_LF ) then
@@ -262,9 +237,9 @@ contains
             nR_Mag=1
          end if
 
-         call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext, &
-              & lTOnext2,lDeriv,lRmsCalc,lHelCalc,lPowerCalc,l_frame,        &
-              & lMagNlBc,l_graph,lViscBcCalc,lFluxProfCalc,lPerpParCalc,     &
+         call this_rIteration%set_steering_variables(lTOCalc,lTOnext,     &
+              & lTOnext2,lDeriv,lRmsCalc,lHelCalc,lPowerCalc,l_frame,     &
+              & lMagNlBc,l_graph,lViscBcCalc,lFluxProfCalc,lPerpParCalc,  &
               & lPressCalc, l_probe_out)
 
          call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,              &

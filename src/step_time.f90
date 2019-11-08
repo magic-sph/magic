@@ -265,7 +265,6 @@ contains
       !--- Logicals controlling output/calculation:
       logical :: l_graph          !
       logical :: l_spectrum
-      logical :: l_cour           ! Check Courant criteria
       logical :: l_store          ! Store output in restart file
       logical :: l_new_rst_file   ! Use new rst file
       logical :: l_log            ! Log output
@@ -435,9 +434,11 @@ contains
               &         MPI_COMM_WORLD,ierr)
 #endif
 
-         !This dealing with a signal file is quite expensive
-         ! as the file can be read only on one rank and the result
-         ! must be distributed to all other ranks.
+         !----------------
+         !-- This handling of the signal files is quite expensive
+         !-- as the file can be read only on one rank and the result
+         !-- must be distributed to all other ranks.
+         !----------------
          call check_signals(run_time_passed, signals)
          n_stop_signal =signals(1)
          n_graph_signal=signals(2)
@@ -445,7 +446,6 @@ contains
          n_spec_signal =signals(4)
          n_pot_signal  =signals(5)
 
-         PERFON('chk_stop')
          !--- Various reasons to stop the time integration:
          if ( l_runTimeLimit ) then
             tTot = tot_counter%tTot+run_time_start%tTot
@@ -465,13 +465,11 @@ contains
 
          !--- Another reasons to stop the time integration:
          if ( time >= tEND .and. tEND /= 0.0_cp ) l_stop_time=.true.
-         PERFOFF
-         !PERFON('logics')
+
          !-- Checking logic for output:
          l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,       &
          &                       n_graph_step,n_graphs,n_t_graph,t_graph,0) .or. &
          &                  n_graph_signal == 1
-         !l_graph=.false.
          n_graph_signal=0   ! reset interrupt signal !
          l_spectrum=                                                             &
          &              l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
@@ -500,8 +498,6 @@ contains
          &                       n_pot_step,n_pots,n_t_pot,t_pot,0) .or. &
          &                  n_pot_signal == 1
          n_pot_signal=0   ! reset interrupt signal !
-
-         l_cour=.true.
 
          l_new_rst_file=                                                         &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
@@ -600,11 +596,30 @@ contains
             !--- Now the real work starts with the radial loop that calculates
             !    the nonlinear terms:
             if ( lVerbose ) then
-               write(*,*)
-               write(*,*) '! Starting radial loop!'
+               write(output_unit,*)
+               write(output_unit,*) '! Starting radial loop!'
             end if
 
+            !------------------------
+            !-- Storage or special calculatons computed in radial loop need to be
+            !-- only done on the first sub-stage
+            !------------------------
+            l_graph       = l_graph       .and. (tscheme%istage==1)
+            l_frame       = l_frame       .and. (tscheme%istage==1)
+            lTOCalc       = lTOCalc       .and. (tscheme%istage==1)
+            lTONext       = lTONext       .and. (tscheme%istage==1)
+            lTONext2      = lTONext2      .and. (tscheme%istage==1)
+            lHelCalc      = lHelCalc      .and. (tscheme%istage==1)
+            lPowerCalc    = lPowerCalc    .and. (tscheme%istage==1)
+            lRmsCalc      = lRmsCalc      .and. (tscheme%istage==1)
+            lPressCalc    = lPressCalc    .and. (tscheme%istage==1)
+            lViscBcCalc   = lViscBcCalc   .and. (tscheme%istage==1)
+            lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1)
+            lperpParCalc  = lperpParCalc  .and. (tscheme%istage==1)
+            l_probe_out   = l_probe_out   .and. (tscheme%istage==1)
+
             if ( tscheme%l_exp_calc(n_stage) ) then
+
                !----------------------
                ! Here now comes the block where the LM distributed fields
                ! are redistributed to Rloc distribution which is needed for 
@@ -632,7 +647,7 @@ contains
                call comm_counter%stop_count(l_increment=.false.)
 
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph,l_cour,l_frame,time,tscheme%dt(1),dtLast,  &
+               call radialLoopG(l_graph, l_frame,time,tscheme%dt(1),dtLast,        &
                     &           lTOCalc,lTONext,lTONext2,lHelCalc,                 &
                     &           lPowerCalc,lRmsCalc,lPressCalc,                    &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
@@ -653,12 +668,12 @@ contains
                nl_counter%n_counts=nl_counter%n_counts+1
                td_counter%n_counts=td_counter%n_counts+1
 
-               if ( lVerbose ) write(*,*) '! r-loop finished!'
+               if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
                !---------------------------------------
                !- MPI transposition from r-distributed to LM-distributed
                !---------------------------------------
-               if ( lVerbose ) write(*,*) "! start r2lo redistribution"
+               if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
 
                call comm_counter%start_count()
                PERFON('r2lo_dst')
@@ -693,47 +708,50 @@ contains
                call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
                     &         0,MPI_COMM_WORLD,ierr)
 #endif
-               if ( lVerbose ) write(*,*) "! r2lo redistribution finished"
+               if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
+
+
+               !------ Nonlinear magnetic boundary conditions:
+               !       For stressfree conducting boundaries
+               PERFON('nl_m_bnd')
+               if ( l_b_nl_cmb ) then
+                  b_nl_cmb(1) =(1.0_cp,1.0_cp)
+                  aj_nl_cmb(1)=(1.0_cp,1.0_cp)
+                  call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
+                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
+               end if
+               if ( l_b_nl_icb ) then
+                  aj_nl_icb(1)=(1.0_cp,1.0_cp)
+                  call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
+                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
+               end if
+               PERFOFF
+
+               !---------------
+               ! Finish assembing the explicit terms
+               !---------------
+               call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,       &
+                    &                        aj_ic_LMloc,                       &
+                    &                        dVSrLM_LMLoc(:,:,tscheme%istage),  &
+                    &                        dVXirLM_LMLoc(:,:,tscheme%istage), &
+                    &                        dVxVhLM_LMloc(:,:,tscheme%istage), &
+                    &                        dVxBhLM_LMloc(:,:,tscheme%istage), &
+                    &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,  &
+                    &                        djdt_ic, tscheme)
 
             end if
-
-            !------ Nonlinear magnetic boundary conditions:
-            !       For stressfree conducting boundaries
-            PERFON('nl_m_bnd')
-            if ( l_b_nl_cmb ) then
-               b_nl_cmb(1) =(1.0_cp,1.0_cp)
-               aj_nl_cmb(1)=(1.0_cp,1.0_cp)
-               call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
-                    &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
-            end if
-            if ( l_b_nl_icb ) then
-               aj_nl_icb(1)=(1.0_cp,1.0_cp)
-               call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
-                    &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
-            end if
-            PERFOFF
-
-            !---------------
-            ! Finish assembing the explicit terms
-            !---------------
-            call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,aj_ic_LMloc,  &
-                 &                        dVSrLM_LMLoc(:,:,tscheme%istage),         &
-                 &                        dVXirLM_LMLoc(:,:,tscheme%istage),        &
-                 &                        dVxVhLM_LMloc(:,:,tscheme%istage),        &
-                 &                        dVxBhLM_LMloc(:,:,tscheme%istage),        &
-                 &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,         &
-                 &                        djdt_ic, tscheme)
 
             !------------
             !--- Output before update of fields in LMLoop:
             !------------
             if ( tscheme%istage == 1 ) then
-               if ( lVerbose ) write(*,*) "! start output"
-               !if ( nRstart <= n_r_cmb .and. l_cmb .and. l_dt_cmb_field ) then
+               if ( lVerbose ) write(output_unit,*) "! start output"
+
                if ( l_cmb .and. l_dt_cmb_field ) then
                   call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
                end if
-               if ( lVerbose ) write(*,*) "! start real output"
+
+               if ( lVerbose ) write(output_unit,*) "! start real output"
                call io_counter%start_count()
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,     &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
@@ -746,7 +764,7 @@ contains
                     &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
                     &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
                call io_counter%stop_count()
-               if ( lVerbose ) write(*,*) "! output finished"
+               if ( lVerbose ) write(output_unit,*) "! output finished"
 
                if ( l_graph ) call close_graph_file()
 
@@ -761,6 +779,9 @@ contains
                call dt_courant(dtr,dth,l_new_dt,tscheme%dt(1),dt_new,dtMax, &
                     &          dtrkc_Rloc,dthkc_Rloc,time)
 
+               !--------------------
+               !-- Set weight arrays
+               !--------------------
                call tscheme%set_dt_array(dt_new,dtMin,time,n_log_file,n_time_step,&
                     &                    l_new_dt)
 
@@ -776,7 +797,6 @@ contains
             end if
 
             lMat = lMatNext
-
             if ( (l_new_dt .or. lMat) .and. (tscheme%istage==1) ) then
                !----- Calculate matricies for new time step if dt /= dtLast
                lMat=.true.
@@ -792,18 +812,17 @@ contains
             !-- we have to use a different starting scheme
             call start_from_another_scheme(l_bridge_step, n_time_step, tscheme)
 
-
             !---------------
-            !-- LM Loop (update routines
+            !-- LM Loop (update routines)
             !---------------
-            if ( lVerbose ) write(*,*) '! starting lm-loop!'
+            if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
             call lmLoop_counter%start_count()
             call LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,dsdt,dwdt,  &
                  &      dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
                  &      lorentz_torque_ma,lorentz_torque_ic,b_nl_cmb,     &
                  &      aj_nl_cmb,aj_nl_icb)
 
-            if ( lVerbose ) write(*,*) '! lm-loop finished!'
+            if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
             !-- Timer counters
             call lmLoop_counter%stop_count()

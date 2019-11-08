@@ -8,7 +8,6 @@ module rIteration_mod
  
    type, abstract, public :: rIteration_t
       integer :: nR,nBc
-      logical :: l_cour
       logical :: lTOCalc,lTOnext,lTOnext2
       logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
       logical :: lPowerCalc, l_probe_out
@@ -82,19 +81,18 @@ module rIteration_mod
 
 contains
 
-   subroutine set_steering_variables(this,l_cour,lTOCalc,lTOnext,lTOnext2, &
+   subroutine set_steering_variables(this,lTOCalc,lTOnext,lTOnext2,        &
               &                      lDeriv,lRmsCalc,lHelCalc,lPowerCalc,  &
               &                      l_frame,lMagNlBc,l_graph,lViscBcCalc, &
               &                      lFluxProfCalc,lPerpParCalc,lPressCalc,&
               &                      l_probe_out)
 
       class(rIteration_t) :: this
-      logical, intent(in) :: l_cour,lDeriv,lRmsCalc
+      logical, intent(in) :: lDeriv,lRmsCalc
       logical, intent(in) :: lHelCalc,lPowerCalc,l_frame,l_probe_out
       logical, intent(in) :: lTOCalc,lTOnext,lTOnext2, lMagNlBc,l_graph
       logical, intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc
 
-      this%l_cour = l_cour
       this%lTOCalc = lTOCalc
       this%lTOnext = lTOnext
       this%lTOnext2 = lTOnext2

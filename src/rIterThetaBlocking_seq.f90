@@ -118,7 +118,7 @@ contains
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
       !-- Local variables
-      integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+      integer :: l,lm,nThetaB,nThetaLast,nThetaStart
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
 
@@ -126,10 +126,9 @@ contains
       this%nBc=nBc
       this%isRadialBoundaryPoint = (nR == n_r_cmb) .or. (nR == n_r_icb)
 
-      if ( this%l_cour ) then
-         this%dtrkc=1.e10_cp
-         this%dthkc=1.e10_cp
-      end if
+      this%dtrkc=1.e10_cp
+      this%dthkc=1.e10_cp
+
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
          do l=0,l_max
@@ -193,12 +192,9 @@ contains
       do nThetaB=1,this%nThetaBs
          nThetaLast =(nThetaB-1) * this%sizeThetaB
          nThetaStart=nThetaLast+1
-         nThetaStop =nThetaLast + this%sizeThetaB
-         !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ", &
-         !      & nThetaStop
 
          call lm2phy_counter%start_count()
-         call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa)
+         call this%transform_to_grid_space(nThetaStart,this%gsa)
          call lm2phy_counter%stop_count(l_increment=.false.)
 
          !--------- Calculation of nonlinear products in grid space:
@@ -213,7 +209,7 @@ contains
             call nl_counter%stop_count(l_increment=.false.)
 
             call phy2lm_counter%start_count()
-            call this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)
+            call this%transform_to_lm_space(nThetaStart,this%gsa,this%nl_lm)
             call phy2lm_counter%stop_count(l_increment=.false.)
 
          else if ( l_mag ) then
@@ -263,8 +259,7 @@ contains
          end if
          PERFOFF
          !--------- Calculate courant condition parameters:
-         if ( this%l_cour .and. ( .not. l_full_sphere .or. this%nR /= n_r_icb) ) then
-            !PRINT*,"Calling courant with this%nR=",this%nR
+         if ( .not. l_full_sphere .or. this%nR /= n_r_icb  ) then
             call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc, &
                  &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,     &
                  &       this%gsa%btc,this%gsa%bpc,nThetaStart,      &

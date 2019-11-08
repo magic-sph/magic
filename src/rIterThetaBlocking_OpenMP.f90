@@ -150,7 +150,7 @@ contains
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
-      integer :: lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+      integer :: lm,nThetaB,nThetaLast,nThetaStart
       integer :: threadid,iThread
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
@@ -160,10 +160,9 @@ contains
       this%nBc=nBc
       this%isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
 
-      if ( this%l_cour ) then
-         this%dtrkc=1.e10_cp
-         this%dthkc=1.e10_cp
-      end if
+      this%dtrkc=1.e10_cp
+      this%dthkc=1.e10_cp
+
       !----- Prepare legendre transform:
       !      legPrepG collects all the different modes necessary
       !      to calculate the non-linear terms at a radial grid point nR
@@ -196,7 +195,7 @@ contains
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
       !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
-      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,c) &
+      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,c) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
       !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
@@ -253,30 +252,16 @@ contains
       do nThetaB=1,this%nThetaBs
          nThetaLast =(nThetaB-1) * this%sizeThetaB
          nThetaStart=nThetaLast+1
-         nThetaStop =nThetaLast + this%sizeThetaB
-         !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ", &
-         !      &                  nThetaStart," to ",nThetaStop
 
          call lm2phy_counter%start_count()
          !PERFON('lm2grid')
-         call this%transform_to_grid_space(nThetaStart,nThetaStop,&
-              &                            this%gsa(threadid))
+         call this%transform_to_grid_space(nThetaStart,this%gsa(threadid))
          !PERFOFF
          call lm2phy_counter%stop_count(l_increment=.false.)
 
          !--------- Calculation of nonlinear products in grid space:
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
          &     this%lRmsCalc ) then
-
-            !if (DEBUG_OUTPUT) then
-               !if (this%nR == 2) then
-               !   write(*,"(A,I2,A,I2)") &
-               !        &  "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
-               !   call this%gsa(threadid)%output_nl_input()
-               !   write(*,"(A,I2,A,I2)") &
-               !        & "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
-               !end if
-            !end if
 
             call nl_counter%start_count()
             !PERFON('get_nl')
@@ -285,19 +270,9 @@ contains
             !PERFOFF
             call nl_counter%stop_count(l_increment=.false.)
 
-            !if (DEBUG_OUTPUT) then
-            !   if (this%nR == 2) then
-            !      write(*,"(A,I2,A,I2)") &
-            !           & "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
-            !      call this%gsa(threadid)%output()
-            !      write(*,"(A,I2,A,I2)") &
-            !           & "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
-            !   end if
-            !end if
             call phy2lm_counter%start_count()
             !PERFON('grid2lm')
-            call this%transform_to_lm_space(nThetaStart,nThetaStop, &
-                 &                          this%gsa(threadid),     &
+            call this%transform_to_lm_space(nThetaStart,this%gsa(threadid), &
                  &                          this%nl_lm(threadid))
             !PERFOFF
             call phy2lm_counter%stop_count(l_increment=.false.)
@@ -357,8 +332,7 @@ contains
          !PERFOFF
 
          !--------- Calculate courant condition parameters:
-         if ( this%l_cour .and. ( .not. l_full_sphere .or. this%nR /= n_r_icb) ) then
-            !PRINT*,"Calling courant with this%nR=",this%nR
+         if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then
             call courant(this%nR,this%dtrkc,this%dthkc,this%gsa(threadid)%vrc, &
                  &       this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,        &
                  &       this%gsa(threadid)%brc,this%gsa(threadid)%btc,        &

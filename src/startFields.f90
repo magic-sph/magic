@@ -300,7 +300,7 @@ contains
          call initXi(xi_LMloc)
       end if
 
-      !  Computing derivatives
+      !----- Computing derivatives
       if ( l_conv .or. l_mag_kin ) then
          call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,1, &
               &        ulm-llm+1,n_r_max,rscheme_oc )

@@ -105,10 +105,10 @@ contains
 
    end subroutine set_ThetaBlocking
 !-------------------------------------------------------------------------------
-   subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa)
+   subroutine transform_to_grid_space(this,nThetaStart,gsa)
 
       class(rIterThetaBlocking_t), target :: this
-      integer, intent(in) :: nThetaStart,nThetaStop
+      integer, intent(in) :: nThetaStart
       type(grid_space_arrays_t) :: gsa
 
       ! Local variables
@@ -330,10 +330,10 @@ contains
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space(this,nThetaStart,nThetaStop,gsa,nl_lm)
+   subroutine transform_to_lm_space(this,nThetaStart,gsa,nl_lm)
 
       class(rIterThetaBlocking_t) :: this
-      integer,intent(in) :: nThetaStart, nThetaStop
+      integer,intent(in) :: nThetaStart
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
 

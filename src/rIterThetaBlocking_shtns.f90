@@ -141,10 +141,9 @@ contains
       this%nBc=nBc
       this%isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
 
-      if ( this%l_cour ) then
-         this%dtrkc=1.e10_cp
-         this%dthkc=1.e10_cp
-      end if
+      this%dtrkc=1.e10_cp
+      this%dthkc=1.e10_cp
+
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
          call this%TO_arrays%set_zero()
@@ -231,7 +230,7 @@ contains
       end if
 
       !--------- Calculate courant condition parameters:
-      if ( this%l_cour .and. ( .not. l_full_sphere .or. this%nR /= n_r_icb) ) then
+      if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then
          call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc,          &
               &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
               &       this%gsa%bpc,1 ,this%sizeThetaB)
