@@ -588,9 +588,9 @@ contains
               &         stop_lm-llm+1, n_r_max, rscheme_oc)
       end if
 
-      !$omp do private(n_r,lm,l1,m1)
-      do n_r=1,n_r_max
-         do lm=llm,ulm
+      !$omp do private(n_r,lm,l1,m1) collapse(2)
+      do n_r=2,n_r_max-1
+         do lm=lmStart_00,ulm
             l1 = lm2l(lm)
             m1 = lm2m(lm)
             if ( l_double_curl ) then

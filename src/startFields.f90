@@ -199,25 +199,28 @@ contains
 
          call t_reader%start_count()
          if ( index(start_file, 'rst_') /= 0 ) then
-            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt, &
-                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,    &
-                 &                    dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,  &
-                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,  &
-                 &                    domega_ic_dt,domega_ma_dt,time,tscheme, &
-                 &                    n_time_step )
+            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,      &
+                 &                    dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,    &
+                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
+                 &                    domega_ic_dt,domega_ma_dt,                &
+                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
+                 &                    time,tscheme,n_time_step )
          else
 #ifdef WITH_MPI
             call readStartFields_mpi( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
                  &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,dbdt, &
                  &                    aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
                  &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
-                 &                    domega_ic_dt,domega_ma_dt,time,tscheme,   &
-                 &                    n_time_step )
+                 &                    domega_ic_dt,domega_ma_dt,                &
+                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
+                 &                    time,tscheme,n_time_step )
 #else
             call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
                  &                dsdt,xi_LMloc,dxidt,b_LMloc,dbdt,aj_LMloc,djdt,&
                  &                b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,        &
                  &                omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,   &
+                 &                lorentz_torque_ic_dt,lorentz_torque_ma_dt,     &
                  &                time,tscheme,n_time_step )
 #endif
          end if

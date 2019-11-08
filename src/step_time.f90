@@ -358,8 +358,8 @@ contains
       !--- Various stuff for time control:
       real(cp) :: timeLast
       real(cp) :: dtLast
-      integer :: n_time_steps_go,n_time_cour
-      logical :: l_new_dt        ! causes call of matbuild !
+      integer :: n_time_steps_go
+      logical :: l_new_dt         ! causes call of matbuild !
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
 
@@ -412,7 +412,6 @@ contains
       call io_counter%initialize()
 
       !!!!! Time loop starts !!!!!!
-      n_time_cour=-2 ! Causes a Courant check after first update
       if ( n_time_steps == 1 ) then
          n_time_steps_go=1 ! Output only, for example G-file/movie etc.
       else if ( n_time_steps == 2 ) then
@@ -428,7 +427,6 @@ contains
       PERFON('tloop')
       !LIKWID_ON('tloop')
       outer: do n_time_step=1,n_time_steps_go
-         n_time_cour=n_time_cour+1
 
          if ( lVerbose ) then
             write(*,*)
@@ -631,17 +629,18 @@ contains
                   call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
                end if
                if ( l_conv .or. l_mag_kin ) then
-                  call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
+                  call lo2r_flow%transp_lm2r(flow_LMloc_container, &
+                       &                     flow_Rloc_container)
                end if
                if ( lPressCalc ) then
-                  call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
+                  call lo2r_press%transp_lm2r(press_LMloc_container, &
+                       &                      press_Rloc_container)
                end if
                if ( l_mag ) then
-                  call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
+                  call lo2r_field%transp_lm2r(field_LMloc_container, &
+                       &                      field_Rloc_container)
                end if
                call comm_counter%stop_count(l_increment=.false.)
-
-
 
                call rLoop_counter%start_count()
                call radialLoopG(l_graph,l_cour,l_frame,time,tscheme%dt(1),dtLast,              &

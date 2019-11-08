@@ -24,8 +24,8 @@ module fieldsLast
 
    type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
    type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic
-   type(type_tscalar), public :: domega_ma_dt
-   type(type_tscalar), public :: domega_ic_dt
+   type(type_tscalar), public :: domega_ma_dt, domega_ic_dt
+   type(type_tscalar), public :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
    public :: initialize_fieldsLast, finalize_fieldsLast
 
@@ -40,6 +40,9 @@ contains
 
       call domega_ma_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
       call domega_ic_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
+
+      call lorentz_torque_ic_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
+      call lorentz_torque_ma_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
 
       if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
                          &               norder_imp_lin)
@@ -71,6 +74,8 @@ contains
 !-------------------------------------------------------------------------------
    subroutine finalize_fieldsLast
 
+      call lorentz_torque_ma_dt%finalize()
+      call lorentz_torque_ic_dt%finalize()
       call domega_ma_dt%finalize()
       call domega_ic_dt%finalize()
       call dzdt%finalize()

@@ -40,10 +40,10 @@ module storeCheckPoints
 
 contains
 
-   subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,     &
-              &     l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,  &
-              &     dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,&
-              &     djdt_ic,domega_ma_dt,domega_ic_dt)
+   subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,    &
+              &     l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,        &
+              &     dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt, &
+              &     domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
@@ -72,17 +72,10 @@ contains
       complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(in) :: dwdt
-      type(type_tarray),   intent(in) :: dzdt
-      type(type_tarray),   intent(in) :: dpdt
-      type(type_tarray),   intent(in) :: dsdt
-      type(type_tarray),   intent(in) :: dxidt
-      type(type_tarray),   intent(in) :: dbdt
-      type(type_tarray),   intent(in) :: djdt
-      type(type_tarray),   intent(in) :: dbdt_ic
-      type(type_tarray),   intent(in) :: djdt_ic
-      type(type_tscalar),  intent(in) :: domega_ic_dt
-      type(type_tscalar),  intent(in) :: domega_ma_dt
+      type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
+      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
+      type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !-- Local variables
       complex(cp), allocatable :: work(:,:)
@@ -150,6 +143,25 @@ contains
             end do
             do n_o=2,tscheme%norder_imp-1
                write(n_rst_file) domega_ma_dt%old(n_o)
+            end do
+
+            do n_o=2,tscheme%norder_exp
+               write(n_rst_file) lorentz_torque_ic_dt%expl(n_o)
+            end do
+            do n_o=2,tscheme%norder_imp_lin-1
+               write(n_rst_file) lorentz_torque_ic_dt%impl(n_o)
+            end do
+            do n_o=2,tscheme%norder_imp-1
+               write(n_rst_file) lorentz_torque_ic_dt%old(n_o)
+            end do
+            do n_o=2,tscheme%norder_exp
+               write(n_rst_file) lorentz_torque_ma_dt%expl(n_o)
+            end do
+            do n_o=2,tscheme%norder_imp_lin-1
+               write(n_rst_file) lorentz_torque_ma_dt%impl(n_o)
+            end do
+            do n_o=2,tscheme%norder_imp-1
+               write(n_rst_file) lorentz_torque_ma_dt%old(n_o)
             end do
          end if
          write(n_rst_file) omega_ic1,omegaOsz_ic1,tOmega_ic1,     &
@@ -306,7 +318,7 @@ contains
    subroutine store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
               &         l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,dpdt, &
               &         dsdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,    &
-              &         domega_ic_dt)
+              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
@@ -335,17 +347,10 @@ contains
       complex(cp),         intent(in) :: aj(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(in) :: dwdt
-      type(type_tarray),   intent(in) :: dzdt
-      type(type_tarray),   intent(in) :: dpdt
-      type(type_tarray),   intent(in) :: dsdt
-      type(type_tarray),   intent(in) :: dxidt
-      type(type_tarray),   intent(in) :: dbdt
-      type(type_tarray),   intent(in) :: djdt
-      type(type_tarray),   intent(in) :: dbdt_ic
-      type(type_tarray),   intent(in) :: djdt_ic
-      type(type_tscalar),  intent(in) :: domega_ic_dt
-      type(type_tscalar),  intent(in) :: domega_ma_dt
+      type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
+      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
+      type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !-- Local variables
       complex(cp), allocatable :: work(:,:)
@@ -458,6 +463,31 @@ contains
             do n_o=2,tscheme%norder_imp-1
                call MPI_File_Write(fh, domega_ma_dt%old(n_o), 1, MPI_DEF_REAL, &
                     &              istat, ierr)
+            end do
+
+            do n_o=2,tscheme%norder_exp
+               call MPI_File_Write(fh, lorentz_torque_ic_dt%expl(n_o), 1, &
+                    &              MPI_DEF_REAL, istat, ierr)
+            end do
+            do n_o=2,tscheme%norder_imp_lin-1
+               call MPI_File_Write(fh, lorentz_torque_ic_dt%impl(n_o), 1, &
+                    &              MPI_DEF_REAL, istat, ierr)
+            end do
+            do n_o=2,tscheme%norder_imp-1
+               call MPI_File_Write(fh, lorentz_torque_ic_dt%old(n_o), 1, &
+                    &              MPI_DEF_REAL, istat, ierr)
+            end do
+            do n_o=2,tscheme%norder_exp
+               call MPI_File_Write(fh, lorentz_torque_ma_dt%expl(n_o), 1, &
+                    &              MPI_DEF_REAL, istat, ierr)
+            end do
+            do n_o=2,tscheme%norder_imp_lin-1
+               call MPI_File_Write(fh, lorentz_torque_ma_dt%impl(n_o), 1, &
+                    &              MPI_DEF_REAL, istat, ierr)
+            end do
+            do n_o=2,tscheme%norder_imp-1
+               call MPI_File_Write(fh, lorentz_torque_ma_dt%old(n_o), 1, &
+                    &              MPI_DEF_REAL, istat, ierr)
             end do
          end if
          call MPI_File_Write(fh, omega_ic1, 1, MPI_DEF_REAL, istat, ierr)

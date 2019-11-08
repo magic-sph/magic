@@ -34,7 +34,8 @@ module fields_average_mod
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
-       &                 djdt_ic, domega_ma_dt, domega_ic_dt
+       &                 djdt_ic, domega_ma_dt, domega_ic_dt,                &
+       &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt
    use storeCheckPoints, only: store
    use time_schemes, only: type_tscheme
 
@@ -577,12 +578,8 @@ contains
          call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,          &
               &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,   &
               &     aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,  &
-              &     djdt_ic,domega_ma_dt,domega_ic_dt)
-
-         ! if ( l_chemical_conv ) then
-            ! call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
-                 ! &        'Xi_lmr_ave.',omega_ma,omega_ic)
-         ! end if
+              &     djdt_ic,domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt, &
+              &     lorentz_torque_ic_dt)
 
          ! now correct the stored average fields by the factor which has been
          ! applied before

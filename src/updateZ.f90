@@ -25,7 +25,8 @@ module updateZ_mod
    use parallel_mod
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
-   use fieldsLast, only: domega_ic_dt, domega_ma_dt
+   use fieldsLast, only: domega_ic_dt, domega_ma_dt, lorentz_torque_ic_dt, &
+       &                 lorentz_torque_ma_dt
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
    use fields, only: work_LMloc
@@ -78,7 +79,6 @@ contains
             n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         !print*, 'Z', n_bands
          call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
          do ll=1,nLMBs2(1+rank)
             call zMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
@@ -143,10 +143,8 @@ contains
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
-   subroutine updateZ(z,dz,dzdt,time,omega_ma,        &
-              &       omega_ic,lorentz_torque_ma,     &
-              &       lorentz_torque_ic,     &
-              &       tscheme,lRmsNext)
+   subroutine updateZ(z,dz,dzdt,time,omega_ma,omega_ic,lorentz_torque_ma,     &
+              &       lorentz_torque_ic,tscheme,lRmsNext)
       !
       !  updates the toroidal potential z and its radial derivatives
       !  adds explicit part to time derivatives of z
@@ -178,7 +176,6 @@ contains
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
       complex(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
-      !complex(cp) :: rhs1(n_r_max,lo_sub_map%sizeLMB2max) ! RHS for other modes
       complex(cp) :: z10(n_r_max),z11(n_r_max) ! toroidal flow scalar components
       real(cp) :: angular_moment(3)   ! total angular momentum
       real(cp) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
@@ -189,7 +186,7 @@ contains
       real(cp) :: r_E_2             ! =r**2
       real(cp) :: nomi              ! nominator for Z10 AM correction
       real(cp) :: prec_fac
-      real(cp) :: dom_ma, dom_ic
+      real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
       integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: i                  ! counter
       logical :: l10
@@ -235,12 +232,12 @@ contains
            &               tscheme%l_imp_calc_rhs(tscheme%istage), &
            &               lRmsNext)
 
-      if ( ktopv == 2 .and. l_rot_ma ) then
+      if ( ktopv == 2 .and. l_rot_ma  .and. (.not. l_SRMA)) then
          domega_ma_dt%expl(tscheme%istage)=LFfac*c_lorentz_ma*lorentz_torque_ma
          call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
       end if
 
-      if ( kbotv == 2 .and. l_rot_ic ) then
+      if ( kbotv == 2 .and. l_rot_ic .and. (.not. l_SRIC)) then
          domega_ic_dt%expl(tscheme%istage)=LFfac*c_lorentz_ic*lorentz_torque_ic
          call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
       end if
@@ -478,11 +475,11 @@ contains
       if ( l10 ) then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-               call get_rot_rates(omega_ma, lorentz_torque_ma, c_moi_ma, &
-                    &             domega_ma_dt%old(tscheme%istage),      &
-                    &             domega_ma_dt%impl(tscheme%istage) )
-               call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
-               omega_ma=dom_ma
+               call get_rot_rates(omega_ma, lorentz_torque_ma, c_moi_ma,    &
+                    &             lorentz_torque_ma_dt%old(tscheme%istage), &
+                    &             lorentz_torque_ma_dt%expl(tscheme%istage) )
+               call tscheme%set_imex_rhs_scalar(lo_ma, lorentz_torque_ma_dt)
+               omega_ma=lo_ma
             else if ( ktopv == 2 ) then ! no slip, omega given by z10
                omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
             end if
@@ -490,11 +487,11 @@ contains
          end if
          if ( l_rot_ic .and. .not. l_SRIC ) then
             if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-               call get_rot_rates(omega_ic, lorentz_torque_ic, c_moi_ic, &
-                    &             domega_ic_dt%old(tscheme%istage),      &
-                    &             domega_ic_dt%impl(tscheme%istage) )
-               call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
-               omega_ic=dom_ic
+               call get_rot_rates(omega_ic, lorentz_torque_ic, c_moi_ic,    &
+                    &             lorentz_torque_ic_dt%old(tscheme%istage), &
+                    &             lorentz_torque_ic_dt%expl(tscheme%istage) )
+               call tscheme%set_imex_rhs_scalar(lo_ic, lorentz_torque_ic_dt)
+               omega_ic=lo_ic
             else if ( kbotv == 2 ) then ! no slip, omega given by z10
                omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
             end if
@@ -549,9 +546,9 @@ contains
          end do
          !$OMP END PARALLEL DO
          if ( ktopv == 2 .and. l_rot_ma ) &
-              omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
+         &    omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
          if ( kbotv == 2 .and. l_rot_ic ) &
-              omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
+         &    omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
          omega_ic1=omega_ic
          omega_ma1=omega_ma
 
@@ -625,6 +622,8 @@ contains
       call tscheme%rotate_imex(dzdt, llm, ulm, n_r_max)
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
+      call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
+      call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
 
    end subroutine updateZ
 !-----------------------------------------------------------------------------
@@ -674,9 +673,10 @@ contains
             &               rscheme_oc%rMat(1,:)
          else if ( l_rot_ma ) then
             dat(1,:)= rscheme_oc%rnorm *               (        &
-            &         c_dt_z10_ma*rscheme_oc%rMat(1,:) -        &
-            &       tscheme%wimp_lin(1)*( two*or1(1)*rscheme_oc%rMat(1,:) - &
-            &                         rscheme_oc%drMat(1,:) ) )
+            &                c_dt_z10_ma*rscheme_oc%rMat(1,:) - &
+            &       tscheme%wimp_lin(1)*(                       &
+            &                 two*or1(1)*rscheme_oc%rMat(1,:) - &
+            &                           rscheme_oc%drMat(1,:) ) )
          else
             dat(1,:)= rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
          end if
@@ -697,8 +697,9 @@ contains
                &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:)
             else if ( l_rot_ic ) then     !  time integration of z10
                dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
-               &           c_dt_z10_ic*rscheme_oc%rMat(n_r_max,:) + &
-               &  tscheme%wimp_lin(1)*(  two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
+               &                c_dt_z10_ic*rscheme_oc%rMat(n_r_max,:) + &
+               &       tscheme%wimp_lin(1)*(                             &
+               &           two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
                &                           rscheme_oc%drMat(n_r_max,:) ) )
             else
                dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)

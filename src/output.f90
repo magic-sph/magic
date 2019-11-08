@@ -29,7 +29,8 @@ module output_mod
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
        &             aj_Rloc
    use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
-       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt
+       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,   &
+       &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -765,12 +766,13 @@ contains
               &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
               &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,   &
               &         dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,         &
-              &         domega_ic_dt)
+              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #else
          call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
               &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
               &     b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,       &
-              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
+              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,              &
+              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #endif
       end if
   

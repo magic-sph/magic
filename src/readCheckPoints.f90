@@ -15,7 +15,7 @@ module readCheckPoints
        &                 minc,lMagMem,fd_stretch,fd_ratio
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,        &
-       &            l_double_curl
+       &            l_double_curl, l_z10Mat
    use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
        &               ulmMag, st_map
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
@@ -28,14 +28,14 @@ module readCheckPoints
    use num_param, only: alph1, alph2, alpha
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
-       &                          kbotv, ktopv, sc, raxi
+       &                          kbotv, ktopv, sc, raxi, LFfac
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use finite_differences, only: type_fd
    use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation, abortRun
-   use constants, only: one
+   use constants, only: one, c_lorentz_ma, c_lorentz_ic
    use updateWP_mod, only: get_pol_rhs_imp
    use updateZ_mod, only: get_tor_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
@@ -66,6 +66,7 @@ contains
    subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,     &
               &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,    &
               &                   omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,&
+              &                   lorentz_torque_ic_dt,lorentz_torque_ma_dt,  &
               &                   time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the old restart files produced
@@ -88,6 +89,7 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
@@ -103,7 +105,7 @@ contains
 
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old, dom_ic, dom_ma, coex
-      integer :: n_in, n_in_2
+      integer :: n_in, n_in_2, l1m0
 
       complex(cp), allocatable :: wo(:,:),zo(:,:),po(:,:),so(:,:),xio(:,:)
       complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
@@ -392,6 +394,7 @@ contains
               &               .false., .false.)
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
@@ -566,8 +569,6 @@ contains
                   do nR=1,n_r_ic_max
                      b_ic(lm,nR)   =b(lm,n_r_CMB)
                      aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                     !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                     !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
                   end do
                end do
             end if
@@ -728,21 +729,43 @@ contains
 
       !-- Put the torques correctly in the time step array
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
-         domega_ic_dt%expl(2)=dom_ic+coex*domega_ic_dt%impl(1)
-         domega_ma_dt%expl(2)=dom_ma+coex*domega_ma_dt%impl(1)
+         lorentz_torque_ic_dt%expl(2) = dom_ic
+         lorentz_torque_ma_dt%expl(2) = dom_ma
       end if
 
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
+      !----- Get changes in mantle and ic rotation rate:
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
+         if ( .not. l_mag_LF ) then
+            lorentz_torque_ic_dt%expl(2)=0.0_cp
+            lorentz_torque_ma_dt%expl(2)=0.0_cp
+         end if
+         if ( l_z10mat ) then
+            l1m0=lo_map%lm2(1,0)
+            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
+            &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
+               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*dom_ma
+            end if
+            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
+                 & (l1m0 >= llm .and. l1m0 <= ulm) ) then
+               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*dom_ic
+            end if
+         else
+            domega_ma_dt%expl(2)=0.0_cp
+            domega_ic_dt%expl(2)=0.0_cp
+         end if
+      end if
 
    end subroutine readStartFields_old
 !------------------------------------------------------------------------------
    subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
               &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
-              &               omega_ma,domega_ic_dt,domega_ma_dt,time,     &
-              &               tscheme,n_time_step)
+              &               omega_ma,domega_ic_dt,domega_ma_dt,          &
+              &               lorentz_torque_ic_dt,lorentz_torque_ma_dt,   &
+              &               time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC.
@@ -764,12 +787,13 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,n_r_ic_max_old, io_status,lm,nR
       real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
-      real(cp) :: ek_old,radratio_old,sigma_ratio_old
+      real(cp) :: ek_old,radratio_old,sigma_ratio_old,coex
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
       logical :: startfile_does_exist
       integer :: norder_imp_lin_old, norder_exp_old, norder_imp_old
@@ -783,7 +807,7 @@ contains
       character(len=10) :: tscheme_family_old
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old
-      integer :: n_in, n_in_2, version
+      integer :: n_in, n_in_2, version, l1m0
 
       complex(cp), allocatable :: workOld(:,:), work(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
@@ -912,29 +936,56 @@ contains
 
          !-- Read Lorentz-torques and rotation rates:
          if ( tscheme_family_old == 'MULTISTEP' ) then
+            if ( version > 1 ) then
+               do n_o=2,norder_exp_old
+                  read(n_start_file) dom_ic
+                  if ( n_o <= tscheme%norder_exp ) domega_ic_dt%expl(n_o)=dom_ic
+               end do
+               do n_o=2,norder_imp_lin_old-1
+                  read(n_start_file) dom_ic
+                  if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ic_dt%impl(n_o)=dom_ic
+               end do
+               do n_o=2,norder_imp_old-1
+                  read(n_start_file) dom_ic
+                  if ( n_o <= tscheme%norder_imp-1 ) domega_ic_dt%old(n_o)=dom_ic
+               end do
+               do n_o=2,norder_exp_old
+                  read(n_start_file) dom_ma
+                  if ( n_o <= tscheme%norder_exp ) domega_ma_dt%expl(n_o)=dom_ma
+               end do
+               do n_o=2,norder_imp_lin_old-1
+                  read(n_start_file) dom_ma
+                  if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ma_dt%impl(n_o)=dom_ma
+               end do
+               do n_o=2,norder_imp_old-1
+                  read(n_start_file) dom_ma
+                  if ( n_o <= tscheme%norder_imp-1 ) domega_ma_dt%old(n_o)=dom_ma
+               end do
+            end if
+
             do n_o=2,norder_exp_old
                read(n_start_file) dom_ic
-               if ( n_o <= tscheme%norder_exp ) domega_ic_dt%expl(n_o)=dom_ic
+               if ( n_o <= tscheme%norder_exp ) lorentz_torque_ic_dt%expl(n_o)=dom_ic
             end do
             do n_o=2,norder_imp_lin_old-1
                read(n_start_file) dom_ic
-               if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ic_dt%impl(n_o)=dom_ic
+               if ( n_o <= tscheme%norder_imp_lin-1 ) lorentz_torque_ic_dt%impl(n_o)=dom_ic
             end do
             do n_o=2,norder_imp_old-1
                read(n_start_file) dom_ic
-               if ( n_o <= tscheme%norder_imp-1 ) domega_ic_dt%old(n_o)=dom_ic
+               if ( n_o <= tscheme%norder_imp-1 ) lorentz_torque_ic_dt%old(n_o)=dom_ic
             end do
             do n_o=2,norder_exp_old
                read(n_start_file) dom_ma
-               if ( n_o <= tscheme%norder_exp ) domega_ma_dt%expl(n_o)=dom_ma
+               if ( n_o <= tscheme%norder_exp ) lorentz_torque_ma_dt%expl(n_o)=dom_ma
             end do
             do n_o=2,norder_imp_lin_old-1
                read(n_start_file) dom_ma
-               if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ma_dt%impl(n_o)=dom_ma
+               if ( n_o <= tscheme%norder_imp_lin-1 ) lorentz_torque_ma_dt%impl(n_o)=dom_ma
             end do
             do n_o=2,norder_imp_old-1
                read(n_start_file) dom_ma
-               if ( n_o <= tscheme%norder_imp-1 ) domega_ma_dt%old(n_o)=dom_ma
+               if ( n_o <= tscheme%norder_imp-1 ) lorentz_torque_ma_dt%old(n_o)=dom_ma
             end do
          end if
 
@@ -1026,6 +1077,18 @@ contains
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, &
+           &         0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%norder_imp_lin-1, &
+           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, &
+           &         0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, &
+           &         0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%norder_imp_lin-1, &
+           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, &
+           &         0, MPI_COMM_WORLD, ierr)
 #endif
 
       !-- Fill the time step array
@@ -1044,7 +1107,8 @@ contains
          if ( tscheme_family_old == 'DIRK' ) then
             l_bridge_step = .true.
          else
-            if ( tscheme%norder_imp > norder_imp_old .or. tscheme%norder_imp_lin > norder_imp_lin_old ) then
+            if ( tscheme%norder_imp > norder_imp_old .or. &
+            &    tscheme%norder_imp_lin > norder_imp_lin_old ) then
                l_bridge_step = .true.
             else
                l_bridge_step = .false.
@@ -1309,6 +1373,74 @@ contains
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
+      !-- Correct explicit arrays if old version with CNAB2 was stored
+      !-- Back then the d?dtLast arrays did not carry the same meaning
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >= 2 .and. &
+      &    version == 1 ) then
+         coex = two*(one-alpha)
+         call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+              &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
+              &               .false., .false.)
+         dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
+         dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
+              &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
+              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+              &               .true., .false.)
+         dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
+
+         if ( l_heat ) then
+            call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
+                 &                   dsdt%impl(:,:,1), .true.)
+            dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
+         end if
+         if ( l_chemical_conv ) then
+            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
+                 &                dxidt%impl(:,:,1), .true.)
+            dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
+         end if
+
+         if ( l_mag ) then
+            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc,  &
+                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                 &
+                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), .true., .false.)
+            dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
+            djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
+         end if
+
+         if ( l_cond_ic ) then
+            call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
+                 &                  dj_ic_LMloc, ddj_ic_LMloc,               &
+                 &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),  &
+                 &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1),&
+                 &                  .true.)
+            dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
+            djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
+         end if
+
+         if ( .not. l_mag_LF ) then
+            lorentz_torque_ic_dt%expl(2)=0.0_cp
+            lorentz_torque_ma_dt%expl(2)=0.0_cp
+         end if
+         if ( l_z10mat ) then
+            l1m0=lo_map%lm2(1,0)
+            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
+            &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
+               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*dom_ma
+            end if
+            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
+                 & (l1m0 >= llm .and. l1m0 <= ulm) ) then
+               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*dom_ic
+            end if
+         else
+            domega_ma_dt%expl(2)=0.0_cp
+            domega_ic_dt%expl(2)=0.0_cp
+         end if
+
+      end if
+
    end subroutine readStartFields
 !------------------------------------------------------------------------------
    subroutine read_map_one_field( fh, tscheme, wOld, work, scale_w, r_old, lm2lmo,&
@@ -1405,7 +1537,9 @@ contains
    subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,   &
               &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,  &
               &                   omega_ic,omega_ma,domega_ic_dt,           &
-              &                   domega_ma_dt,time,tscheme,n_time_step)   
+              &                   domega_ma_dt,lorentz_torque_ic_dt,        &
+              &                   lorentz_torque_ma_dt,time,tscheme,        &
+              &                   n_time_step)   
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC using MPI-IO
@@ -1426,11 +1560,12 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,lm,nR,n_r_ic_max_old
-      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
+      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,coex
       real(cp) :: ek_old,radratio_old,sigma_ratio_old
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
       logical :: startfile_does_exist
@@ -1444,7 +1579,7 @@ contains
       character(len=10) :: tscheme_family_old
       real(cp) :: r_icb_old, r_cmb_old, dom_ma, dom_ic
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old, n_o
-      integer :: nR_per_rank_old, datatype
+      integer :: nR_per_rank_old, datatype, l1m0
       integer :: istat(MPI_STATUS_SIZE)
       integer :: norder_imp_lin_old, norder_exp_old, norder_imp_old
       logical :: l_press_store_old
@@ -1493,6 +1628,7 @@ contains
          call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
               &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
               &               omega_ma,domega_ic_dt, domega_ma_dt,         &
+              &               lorentz_torque_ic_dt, lorentz_torque_ma_dt,  &
               &               time,tscheme,n_time_step)
          return
       end if
@@ -1593,6 +1729,38 @@ contains
 
       !-- Read Lorentz-torques and rotation rates:
       if ( tscheme_family_old == 'MULTISTEP' ) then
+         if ( version > 1 ) then
+            do n_o=2,norder_exp_old
+               call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
+               if ( n_o <= tscheme%norder_exp )  &
+               &                     lorentz_torque_ic_dt%expl(n_o)=dom_ic
+            end do
+            do n_o=2,norder_imp_lin_old-1
+               call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
+               if ( n_o <= tscheme%norder_imp_lin-1 ) &
+               &                     lorentz_torque_ic_dt%impl(n_o)=dom_ic
+            end do
+            do n_o=2,norder_imp_old-1
+               call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
+               if ( n_o <= tscheme%norder_imp-1 )  &
+               &                     lorentz_torque_ic_dt%old(n_o)=dom_ic
+            end do
+            do n_o=2,norder_exp_old
+               call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
+               if ( n_o <= tscheme%norder_exp )   &
+               &                     lorentz_torque_ma_dt%expl(n_o)=dom_ma
+            end do
+            do n_o=2,norder_imp_lin_old-1
+               call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
+               if ( n_o <= tscheme%norder_imp_lin-1 ) &
+               &                     lorentz_torque_ma_dt%impl(n_o)=dom_ma
+            end do
+            do n_o=2,norder_imp_old-1
+               call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
+               if ( n_o <= tscheme%norder_imp-1 ) &
+               &                     lorentz_torque_ma_dt%old(n_o)=dom_ma
+            end do
+         end if
          do n_o=2,norder_exp_old
             call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
             if ( n_o <= tscheme%norder_exp ) domega_ic_dt%expl(n_o)=dom_ic
@@ -1995,6 +2163,75 @@ contains
       !-- Deallocate work_arrays
       deallocate(radial_balance_old, r_old, dt_array_old)
       call rscheme_oc_old%finalize()
+
+      !-- Correct explicit arrays if old version with CNAB2 was stored
+      !-- Back then the d?dtLast arrays did not carry the same meaning
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >= 2 .and. &
+      &    version == 1 ) then
+         coex = two*(one-alpha)
+         call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+              &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), .true., &
+              &               .false., .false.)
+         dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
+         dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
+              &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
+              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+              &               .true., .false.)
+         dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
+
+         if ( l_heat ) then
+            call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
+                 &                   dsdt%impl(:,:,1), .true.)
+            dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
+         end if
+         if ( l_chemical_conv ) then
+            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
+                 &                dxidt%impl(:,:,1), .true.)
+            dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
+         end if
+
+         if ( l_mag ) then
+            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc,  &
+                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                 &
+                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), .true., .false.)
+            dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
+            djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
+         end if
+
+         if ( l_cond_ic ) then
+            call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
+                 &                  dj_ic_LMloc, ddj_ic_LMloc,               &
+                 &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),  &
+                 &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1),&
+                 &                  .true.)
+            dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
+            djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
+         end if
+
+         if ( .not. l_mag_LF ) then
+            lorentz_torque_ic_dt%expl(2)=0.0_cp
+            lorentz_torque_ma_dt%expl(2)=0.0_cp
+         end if
+         if ( l_z10mat ) then
+            l1m0=lo_map%lm2(1,0)
+            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
+            &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
+               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*dom_ma
+            end if
+            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
+                 & (l1m0 >= llm .and. l1m0 <= ulm) ) then
+               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*dom_ic
+            end if
+         else
+            domega_ma_dt%expl(2)=0.0_cp
+            domega_ic_dt%expl(2)=0.0_cp
+         end if
+
+      end if
+
 
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
