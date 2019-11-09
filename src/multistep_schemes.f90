@@ -398,17 +398,21 @@ contains
       complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
 
       !-- Local variables
-      integer :: n_o, n_r, lm
+      integer :: n_o, n_r, lm, startR, stopR
 
+      !$omp parallel default(shared) private(startR, stopR,lm,n_r)
+      startR=1; stopR=len_rhs
+      call get_openmp_blocks(startR,stopR)
+      
       do n_o=1,this%norder_imp-1
          if ( n_o == 1 ) then
-            do n_r=1,len_rhs
+            do n_r=startR,stopR
                do lm=lmStart,lmStop
                   rhs(lm,n_r)=this%wimp(n_o+1)*dfdt%old(lm,n_r,n_o)
                end do
             end do
          else
-            do n_r=1,len_rhs
+            do n_r=startR,stopR
                do lm=lmStart,lmStop
                   rhs(lm,n_r)=rhs(lm,n_r)+this%wimp(n_o+1)*dfdt%old(lm,n_r,n_o)
                end do
@@ -417,7 +421,7 @@ contains
       end do
 
       do n_o=1,this%norder_imp_lin-1
-         do n_r=1,len_rhs
+         do n_r=startR,stopR
             do lm=lmStart,lmStop
                rhs(lm,n_r)=rhs(lm,n_r)+this%wimp_lin(n_o+1)*dfdt%impl(lm,n_r,n_o)
             end do
@@ -425,12 +429,14 @@ contains
       end do
 
       do n_o=1,this%norder_exp
-         do n_r=1,len_rhs
+         do n_r=startR,stopR
             do lm=lmStart,lmStop
                rhs(lm,n_r)=rhs(lm,n_r)+this%wexp(n_o)*dfdt%expl(lm,n_r,n_o)
             end do
          end do
       end do
+
+      !$omp end parallel
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
@@ -484,10 +490,14 @@ contains
       type(type_tarray), intent(inout) :: dfdt
 
       !-- Local variables:
-      integer :: n_o, lm, n_r
+      integer :: n_o, lm, n_r, startR, stopR
+
+      !$omp parallel default(shared) private(startR, stopR,lm,n_r)
+      startR=1; stopR=n_r_max
+      call get_openmp_blocks(startR,stopR)
 
       do n_o=this%norder_exp,2,-1
-         do n_r=1,n_r_max
+         do n_r=startR,stopR
             do lm=lmStart,lmStop
                dfdt%expl(lm,n_r,n_o)=dfdt%expl(lm,n_r,n_o-1)
             end do
@@ -495,7 +505,7 @@ contains
       end do
 
       do n_o=this%norder_imp-1,2,-1
-         do n_r=1,n_r_max
+         do n_r=startR,stopR
             do lm=lmStart,lmStop
                dfdt%old(lm,n_r,n_o)=dfdt%old(lm,n_r,n_o-1)
             end do
@@ -503,12 +513,14 @@ contains
       end do
 
       do n_o=this%norder_imp_lin-1,2,-1
-         do n_r=1,n_r_max
+         do n_r=startR,stopR
             do lm=lmStart,lmStop
                dfdt%impl(lm,n_r,n_o)=dfdt%impl(lm,n_r,n_o-1)
             end do
          end do
       end do
+
+      !$omp end parallel
 
    end subroutine rotate_imex
 !------------------------------------------------------------------------------
