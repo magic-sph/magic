@@ -295,7 +295,7 @@ contains
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
          !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-         !$OMP private(fac,bpeaktop,ff,cimp,aimp,threadid)
+         !$OMP private(bpeaktop,ff,cimp,aimp,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -322,8 +322,7 @@ contains
             !$OMP TASK if (nChunks>1) default(shared) &
             !$OMP firstprivate(iChunk) &
             !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$OMP private(fac,bpeaktop,ff) &
-            !$OMP private(threadid)
+            !$OMP private(bpeaktop,ff,threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -716,7 +715,7 @@ contains
                dj_exp_last(:,:)=zero
             end do
          end do
-         !$omp end do
+         !$omp end parallel do
       end if
 
    end subroutine finish_exp_mag_ic
@@ -903,7 +902,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,l1,m1,dtP,dtT) collapse(2)
+         !$omp do private(n_r,lm,l1,m1,dtP,dtT)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)

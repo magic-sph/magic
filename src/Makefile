@@ -371,11 +371,11 @@ magic.o               : truncation.o num_param.o parallel.o logic.o\
 			magnetic_energy.o horizontal.o fields_average.o \
 			outGeos.o spectra.o out_TO.o output_data.o outMisc.o probes.o\
                         Namelists.o blocking.o out_coeff.o
-step_time.o           : truncation.o blocking.o phys_param.o\
-                        num_param.o radial_data.o mem_alloc.o\
-                        logic.o output_data.o output.o movie.o\
-                        char_manip.o timing.o courant.o signals.o\
-                        radialLoop.o nonlinear_bcs.o\
+step_time.o           : truncation.o blocking.o phys_param.o updateB.o updateZ.o\
+                        num_param.o radial_data.o mem_alloc.o updateWP.o\
+                        logic.o output_data.o output.o movie.o updateS.o\
+                        char_manip.o timing.o courant.o signals.o updateXI.o\
+                        radialLoop.o nonlinear_bcs.o updateWPS.o\
                         LMLoop.o dt_fieldsLast.o \
 			c_utils.o useful.o probes.o
 phys_param.o          : precision_mod.o
@@ -479,7 +479,8 @@ cosine_transform_odd.o : truncation.o fft_fac.o constants.o useful.o\
 readCheckPoints.o     : truncation.o blocking.o phys_param.o\
                         init_fields.o constants.o radial.o\
                         logic.o cosine_transform_odd.o finite_differences.o\
-                        chebyshev.o radial_scheme.o num_param.o
+                        chebyshev.o radial_scheme.o num_param.o updateB.o\
+			updateWP.o updateS.o updateZ.o updateXI.o updateWPS.o
 radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
                         cosine_transform_even.o
 updateZ.o             : truncation.o blocking.o phys_param.o\

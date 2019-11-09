@@ -637,7 +637,7 @@ contains
                n_r_bot=n_r_icb
             end if
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Buo) collapse(2)
+            !$omp do private(n_r,lm,l1,m1,Dif,Buo)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
@@ -720,7 +720,7 @@ contains
 
          else
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Buo,Pre) collapse(2)
+            !$omp do private(n_r,lm,l1,m1,Dif,Buo,Pre)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
@@ -765,6 +765,7 @@ contains
          end if
 
       end if
+      !$omp end parallel
 
    end subroutine get_pol_rhs_imp
 !------------------------------------------------------------------------------

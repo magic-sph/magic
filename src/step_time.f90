@@ -25,10 +25,10 @@ module step_time_mod
        &            l_DTrMagSpec, lVerbose, l_time_hits, l_b_nl_icb,   &
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
        &            l_HT, l_dtB, l_dtBmovie, l_heat, l_conv, l_movie,  &
-       &            l_true_time, l_runTimeLimit, l_save_out,           &
+       &            l_runTimeLimit, l_save_out, l_bridge_step,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
-       &            l_AB1, l_finite_diff, l_cond_ic, l_bridge_step
+       &            l_AB1, l_finite_diff, l_cond_ic
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use blocking, only: llm, ulm, llmMag, ulmMag

@@ -181,6 +181,7 @@ contains
       !PERFON('upS_fin')
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
       !PERFOFF
 
       !$omp single
@@ -362,7 +363,7 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(nR,lm) collapse(2)
+      !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-       &

@@ -349,7 +349,7 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(nR,lm) collapse(2)
+      !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
          do lm=llm,ulm
             dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &

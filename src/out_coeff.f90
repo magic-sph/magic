@@ -48,9 +48,7 @@ contains
 !-------------------------------------------------------------------------------
    subroutine finalize_coeffs()
 
-      if ( l_r_field .or. l_cmb_field .or. l_average ) then
-         deallocate( work )
-      end if
+      if ( l_r_field .or. l_cmb_field .or. l_average ) deallocate( work )
 
    end subroutine finalize_coeffs
 !-------------------------------------------------------------------------------
@@ -93,7 +91,7 @@ contains
       integer :: n_data         ! No of output data
       integer :: n_r_cmb        ! Position of cmb-radius on grid
 
-      real(cp), allocatable ::  out(:) ! Output array
+      real(cp), allocatable ::  output(:) ! Output array
 
       call gather_from_lo_to_rank0(b_LMloc, work)
 
@@ -107,12 +105,12 @@ contains
 
          !--- Calculate no of data for l_max_cmb:
          m_max_cmb=(l_max_cmb/minc)*minc
-         lm_max_cmb= m_max_cmb*(l_max_cmb+1)/minc &
-              &     -m_max_cmb*(m_max_cmb-minc)/(2*minc) &
-              &     +l_max_cmb-m_max_cmb+1
+         lm_max_cmb= m_max_cmb*(l_max_cmb+1)/minc        &
+         &          -m_max_cmb*(m_max_cmb-minc)/(2*minc) &
+         &          +l_max_cmb-m_max_cmb+1
          n_data=2*lm_max_cmb-l_max_cmb-2
 
-         allocate(out(n_data))
+         allocate(output(n_data))
 
          !--- Increase no. of cmb_sets:
          n_cmb_sets=n_cmb_sets+1
@@ -126,14 +124,14 @@ contains
          !--- If this is the first set write l_max_cmb and minc into file:
          if ( n_cmb_sets <= 1 ) write(n_cmb_file) l_max_cmb,minc,n_data
 
-         !--- Write b(*) into output array out(*):
+         !--- Write b(*) into output array output(*):
          n_out=0
 
          !--- Axisymmetric part: (m=0) only real part stored
          do l=1,l_max_cmb
             lm=lm2(l,0)
             n_out=n_out+1
-            out(n_out)=real(work(lm))
+            output(n_out)=real(work(lm))
          end do
 
          !--- Non-axisymmetric part: store real and imag part
@@ -141,28 +139,28 @@ contains
             do l=m,l_max_cmb
                lm=lm2(l,m)
                n_out=n_out+1
-               out(n_out)=real(work(lm))
+               output(n_out)=real(work(lm))
                n_out=n_out+1
-               out(n_out)=aimag(work(lm))
+               output(n_out)=aimag(work(lm))
             end do
          end do
 
-         !--- Finally write output array out(*) into cmb_file:
-         write(n_cmb_file) time,(out(n),n=1,n_out)
+         !--- Finally write output array output(*) into cmb_file:
+         write(n_cmb_file) time,(output(n),n=1,n_out)
 
          !--- Close cmb_file
          if ( l_save_out .or. n_cmb_sets == 0 ) then
             close(n_cmb_file)
          end if
 
-         deallocate(out)
+         deallocate(output)
 
       end if
 
    end subroutine write_Bcmb
 !----------------------------------------------------------------------
    subroutine write_coeff_r(time,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,r,  &
-      &                     l_max_r,n_sets,file,n_file,nVBS)
+              &             l_max_r,n_sets,file,n_file,nVBS)
       !
       ! Each call of this subroutine writes time and the poloidal and     
       ! toroidal coeffitients w,dw,z at a specific radius up to degree    
@@ -216,32 +214,31 @@ contains
       integer :: lm_max_r       ! Max no of combinations l,m for output
       integer :: n_data         ! No of output data
 
-      real(cp), allocatable ::  out(:)! Output array
+      real(cp), allocatable ::  output(:)! Output array
 
       !--- Definition of max degree for output
       if ( l_max < l_max_r ) l_max_r=l_max
 
       !--- Calculate no of data for l_max_r:
       m_max_r=(l_max_r/minc)*minc
-      lm_max_r=m_max_r*(l_max_r+1)/minc- &
-           m_max_r*(m_max_r-minc)/(2*minc) + &
-           l_max_r-m_max_r+1
+      lm_max_r=m_max_r*(l_max_r+1)/minc- m_max_r*(m_max_r-minc)/(2*minc) + &
+      &        l_max_r-m_max_r+1
       n_data=2*lm_max_r-l_max_r-2
 
       if ( rank == 0 ) then
          if ( nVBS == 1 ) then
-            allocate(out(3*n_data))
+            allocate(output(3*n_data))
          else if ( nVBS == 2 ) then
-            allocate(out(4*n_data))
+            allocate(output(4*n_data))
          else if ( nVBS == 3 ) then
-            allocate(out(n_data+1))
+            allocate(output(n_data+1))
          end if
       end if
 
       !--- Increase no. of sets:
       n_sets=n_sets+1
 
-      !--- Write b(*) into output array out(*):
+      !--- Write b(*) into output array output(*):
       n_out=0
 
       call gather_from_lo_to_rank0(w_LMloc, work)
@@ -253,7 +250,7 @@ contains
                lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(work(lm))
+                  output(n_out)=real(work(lm))
                end if
             end do
          else
@@ -262,7 +259,7 @@ contains
                lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(work(lm))
+                  output(n_out)=real(work(lm))
                end if
             end do
          end if
@@ -273,9 +270,9 @@ contains
                lm=lm2(l,m)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(work(lm))
+                  output(n_out)=real(work(lm))
                   n_out=n_out+1
-                  out(n_out)=aimag(work(lm))
+                  output(n_out)=aimag(work(lm))
                end if
             end do
          end do
@@ -292,7 +289,7 @@ contains
                lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(work(lm))
+                  output(n_out)=real(work(lm))
                end if
             end do
             !--- Non-axisymmetric part of dv: store real and imag part
@@ -301,9 +298,9 @@ contains
                   lm=lm2(l,m)
                   if ( l <= l_max_r ) then
                      n_out=n_out+1
-                     out(n_out)=real(work(lm))
+                     output(n_out)=real(work(lm))
                      n_out=n_out+1
-                     out(n_out)=aimag(work(lm))
+                     output(n_out)=aimag(work(lm))
                   end if
                end do
             end do
@@ -317,7 +314,7 @@ contains
                lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(work(lm))
+                  output(n_out)=real(work(lm))
                end if
             end do
             !--- Non-axisymmetric part of z: store real and imag part
@@ -326,9 +323,9 @@ contains
                   lm=lm2(l,m)
                   if ( l <= l_max_r ) then
                      n_out=n_out+1
-                     out(n_out)=real(work(lm))
+                     output(n_out)=real(work(lm))
                      n_out=n_out+1
-                     out(n_out)=aimag(work(lm))
+                     output(n_out)=aimag(work(lm))
                   end if
                end do
             end do
@@ -347,7 +344,7 @@ contains
                lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(work(lm))
+                  output(n_out)=real(work(lm))
                end if
             end do
             !--- Non-axisymmetric part of ddw: store real and imag part
@@ -356,9 +353,9 @@ contains
                   lm=lm2(l,m)
                   if ( l <= l_max_r ) then
                      n_out=n_out+1
-                     out(n_out)=real(work(lm))
+                     output(n_out)=real(work(lm))
                      n_out=n_out+1
-                     out(n_out)=aimag(work(lm))
+                     output(n_out)=aimag(work(lm))
                   end if
                end do
             end do
@@ -370,7 +367,7 @@ contains
          !--- Open output file with name $file:
          if ( l_save_out ) then
             open(newunit=n_file, file=file, form='unformatted', status='unknown', &
-                 position='append')
+            &    position='append')
          end if
 
          !--- If this is the first set write, l_max_r and minc into first line:
@@ -379,18 +376,17 @@ contains
          end if
 
 
-         !--- Finally write output array out(*) into file:
-         write(n_file) time,(out(n),n=1,n_out)
+         !--- Finally write output array output(*) into file:
+         write(n_file) time,(output(n),n=1,n_out)
 
          !--- Close file
          if ( l_save_out ) then
             close(n_file)
          end if
 
-         deallocate(out)
+         deallocate(output)
 
       end if
-
 
    end subroutine write_coeff_r
 !-------------------------------------------------------------------------------
@@ -673,7 +669,6 @@ contains
          end if
 
       end if
-
 
       if ( rank == 0 ) then
          close(fileHandle)

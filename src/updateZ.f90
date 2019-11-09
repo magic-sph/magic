@@ -248,6 +248,8 @@ contains
 
 
       !$OMP parallel default(shared) private(start_lm, stop_lm)
+      start_lm=lmStart_00; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
 
       call solve_counter%start_count()
       l10=.false.
@@ -258,7 +260,7 @@ contains
          !$OMP private(lmB,lm,lm1,l1,m1,n_r_out,nR) &
          !$OMP private(nChunks,size_of_last_chunk,iChunk) &
          !$OMP private(tOmega_ma1,tOmega_ma2,threadid) &
-         !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum)
+         !$OMP private(tOmega_ic1,tOmega_ic2)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -286,7 +288,7 @@ contains
             !$OMP firstprivate(iChunk) &
             !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
             !$OMP private(tOmega_ma1,tOmega_ma2) &
-            !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum) &
+            !$OMP private(tOmega_ic1,tOmega_ic2) &
             !$OMP private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -808,7 +810,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do default(shared) private(n_r,lm,Dif) collapse(2)
+         !$omp do private(n_r,lm,Dif)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                Dif(lm)=hdif_V(st_map%lm2(lm2l(lm),lm2m(lm)))*                     &
