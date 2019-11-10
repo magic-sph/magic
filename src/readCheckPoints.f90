@@ -857,8 +857,6 @@ contains
             l_AB1=.true.
          end if
 
-         read(n_start_file) time
-
          if ( version == 1 ) then ! This was CN/AB2 in the initial version
             allocate( dt_array_old(max(2,tscheme%norder_exp)) )
             dt_array_old(:)=0.0_cp
@@ -866,13 +864,15 @@ contains
             norder_imp_old = 2
             norder_exp_old = 2
             tscheme_family_old = 'MULTISTEP'
-            read(n_start_file) dt_array_old(2)
+            read(n_start_file) time, dt_array_old(2), n_time_step
             dt_array_old(norder_exp_old+1:)=dt_array_old(norder_exp_old)
          else
+            read(n_start_file) time
             read(n_start_file) tscheme_family_old
             read(n_start_file) norder_exp_old
             read(n_start_file) norder_imp_lin_old
             read(n_start_file) norder_imp_old
+            read(n_start_file) n_time_step
 
             if ( tscheme_family_old == 'MULTISTEP' ) then
                allocate( dt_array_old(max(norder_exp_old,tscheme%norder_exp) ) )
@@ -888,7 +888,6 @@ contains
          end if
 
 
-         read(n_start_file) n_time_step
          read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
          &                  ek_old,radratio_old,sigma_ratio_old
          read(n_start_file) n_r_max_old,n_theta_max_old,n_phi_tot_old,&
@@ -939,68 +938,97 @@ contains
               &         minc_old,lm_max,lm_max_old,lm2lmo)
          n_r_maxL = max(n_r_max,n_r_max_old)
 
-         !-- Read Lorentz-torques and rotation rates:
-         if ( tscheme_family_old == 'MULTISTEP' ) then
-            if ( version > 1 ) then
+         !-- Read Lorentz torques and rotation rates:
+         if ( version == 1 ) then
+            read(n_start_file) dom_ic, dom_ma, omega_ic1Old,            &
+            &                  omegaOsz_ic1Old,tOmega_ic1,              &
+            &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
+            &                  omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
+            &                  omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
+            &                  dt_array_old(1)
+            if ( tscheme%norder_exp >=2 .and. tscheme%family=='MULTISTEP' ) then
+               lorentz_torque_ic_dt%expl(2)=dom_ic
+               lorentz_torque_ma_dt%expl(2)=dom_ma
+            end if
+
+         else ! New version
+
+            if ( tscheme_family_old == 'MULTISTEP' ) then
                do n_o=2,norder_exp_old
                   read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_exp ) domega_ic_dt%expl(n_o)=dom_ic
+                  if ( n_o <= tscheme%norder_exp .and.  &
+                  &    tscheme%family=='MULTISTEP') domega_ic_dt%expl(n_o)=dom_ic
                end do
                do n_o=2,norder_imp_lin_old-1
                   read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ic_dt%impl(n_o)=dom_ic
+                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                  &    tscheme%family=='MULTISTEP' ) domega_ic_dt%impl(n_o)=dom_ic
                end do
                do n_o=2,norder_imp_old-1
                   read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_imp-1 ) domega_ic_dt%old(n_o)=dom_ic
+                  if ( n_o <= tscheme%norder_imp-1 .and. &
+                  &    tscheme%family=='MULTISTEP') domega_ic_dt%old(n_o)=dom_ic
                end do
                do n_o=2,norder_exp_old
                   read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_exp ) domega_ma_dt%expl(n_o)=dom_ma
+                  if ( n_o <= tscheme%norder_exp .and. &
+                  &    tscheme%family=='MULTISTEP') domega_ma_dt%expl(n_o)=dom_ma
                end do
                do n_o=2,norder_imp_lin_old-1
                   read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ma_dt%impl(n_o)=dom_ma
+                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                  &    tscheme%family=='MULTISTEP' ) domega_ma_dt%impl(n_o)=dom_ma
                end do
                do n_o=2,norder_imp_old-1
                   read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_imp-1 ) domega_ma_dt%old(n_o)=dom_ma
+                  if ( n_o <= tscheme%norder_imp-1 .and. &
+                  &    tscheme%family=='MULTISTEP' ) domega_ma_dt%old(n_o)=dom_ma
+               end do
+
+               do n_o=2,norder_exp_old
+                  read(n_start_file) dom_ic
+                  if ( n_o <= tscheme%norder_exp .and. &
+                  &    tscheme%family=='MULTISTEP' )   &
+                  &    lorentz_torque_ic_dt%expl(n_o)=dom_ic
+               end do
+               do n_o=2,norder_imp_lin_old-1
+                  read(n_start_file) dom_ic
+                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                  &    tscheme%family=='MULTISTEP')          &
+                  &    lorentz_torque_ic_dt%impl(n_o)=dom_ic
+               end do
+               do n_o=2,norder_imp_old-1
+                  read(n_start_file) dom_ic
+                  if ( n_o <= tscheme%norder_imp-1 .and. &
+                  &    tscheme%family=='MULTISTEP' )     &
+                  &    lorentz_torque_ic_dt%old(n_o)=dom_ic
+               end do
+               do n_o=2,norder_exp_old
+                  read(n_start_file) dom_ma
+                  if ( n_o <= tscheme%norder_exp .and. &
+                  &    tscheme%family=='MULTISTEP' )   &
+                  &    lorentz_torque_ma_dt%expl(n_o)=dom_ma
+               end do
+               do n_o=2,norder_imp_lin_old-1
+                  read(n_start_file) dom_ma
+                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+                  &    tscheme%family=='MULTISTEP' )         &
+                  &    lorentz_torque_ma_dt%impl(n_o)=dom_ma
+               end do
+               do n_o=2,norder_imp_old-1
+                  read(n_start_file) dom_ma
+                  if ( n_o <= tscheme%norder_imp-1 .and. &
+                  &    tscheme%family=='MULTISTEP' )     &
+                  &    lorentz_torque_ma_dt%old(n_o)=dom_ma
                end do
             end if
 
-            do n_o=2,norder_exp_old
-               read(n_start_file) dom_ic
-               if ( n_o <= tscheme%norder_exp ) lorentz_torque_ic_dt%expl(n_o)=dom_ic
-            end do
-            do n_o=2,norder_imp_lin_old-1
-               read(n_start_file) dom_ic
-               if ( n_o <= tscheme%norder_imp_lin-1 ) lorentz_torque_ic_dt%impl(n_o)=dom_ic
-            end do
-            do n_o=2,norder_imp_old-1
-               read(n_start_file) dom_ic
-               if ( n_o <= tscheme%norder_imp-1 ) lorentz_torque_ic_dt%old(n_o)=dom_ic
-            end do
-            do n_o=2,norder_exp_old
-               read(n_start_file) dom_ma
-               if ( n_o <= tscheme%norder_exp ) lorentz_torque_ma_dt%expl(n_o)=dom_ma
-            end do
-            do n_o=2,norder_imp_lin_old-1
-               read(n_start_file) dom_ma
-               if ( n_o <= tscheme%norder_imp_lin-1 ) lorentz_torque_ma_dt%impl(n_o)=dom_ma
-            end do
-            do n_o=2,norder_imp_old-1
-               read(n_start_file) dom_ma
-               if ( n_o <= tscheme%norder_imp-1 ) lorentz_torque_ma_dt%old(n_o)=dom_ma
-            end do
+            read(n_start_file) omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
+            &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
+            &                  omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
+            &                  omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
+
          end if
-
-         !-- Read Lorentz torques and rotation rates:
-         read(n_start_file) omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
-         &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
-         &                  omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
-         &                  omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
-
-         if ( version == 1 ) read(n_start_file) dt_array_old(1)
 
          if ( l_SRIC ) then
             if ( omega_ic1Old /= omega_ic1 )                       &
@@ -1740,58 +1768,66 @@ contains
          if ( version > 1 ) then
             do n_o=2,norder_exp_old
                call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_exp )  &
-               &                     lorentz_torque_ic_dt%expl(n_o)=dom_ic
+               if ( n_o <= tscheme%norder_exp .and. &
+               &    tscheme%family=='MULTISTEP') domega_ic_dt%expl(n_o)=dom_ic
             end do
             do n_o=2,norder_imp_lin_old-1
                call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp_lin-1 ) &
-               &                     lorentz_torque_ic_dt%impl(n_o)=dom_ic
+               if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+               &    tscheme%family=='MULTISTEP' ) domega_ic_dt%impl(n_o)=dom_ic
             end do
             do n_o=2,norder_imp_old-1
                call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp-1 )  &
-               &                     lorentz_torque_ic_dt%old(n_o)=dom_ic
+               if ( n_o <= tscheme%norder_imp-1 .and. &
+               &    tscheme%family=='MULTISTEP' ) domega_ic_dt%old(n_o)=dom_ic
             end do
             do n_o=2,norder_exp_old
                call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_exp )   &
-               &                     lorentz_torque_ma_dt%expl(n_o)=dom_ma
+               if ( n_o <= tscheme%norder_exp .and. &
+               &    tscheme%family=='MULTISTEP' ) domega_ma_dt%expl(n_o)=dom_ma
             end do
             do n_o=2,norder_imp_lin_old-1
                call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp_lin-1 ) &
-               &                     lorentz_torque_ma_dt%impl(n_o)=dom_ma
+               if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+               &    tscheme%family=='MULTISTEP' ) domega_ma_dt%impl(n_o)=dom_ma
             end do
             do n_o=2,norder_imp_old-1
                call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp-1 ) &
-               &                     lorentz_torque_ma_dt%old(n_o)=dom_ma
+               if ( n_o <= tscheme%norder_imp-1 .and. &
+               &    tscheme%family=='MULTISTEP' ) domega_ma_dt%old(n_o)=dom_ma
             end do
          end if
          do n_o=2,norder_exp_old
             call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_exp ) domega_ic_dt%expl(n_o)=dom_ic
+            if ( n_o <= tscheme%norder_exp .and. tscheme%family=='MULTISTEP' ) &
+            &   lorentz_torque_ic_dt%expl(n_o)=dom_ic
          end do
          do n_o=2,norder_imp_lin_old-1
             call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ic_dt%impl(n_o)=dom_ic
+            if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+            &    tscheme%family=='MULTISTEP' )         &
+            &    lorentz_torque_ic_dt%impl(n_o)=dom_ic
          end do
          do n_o=2,norder_imp_old-1
             call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp-1 ) domega_ic_dt%old(n_o)=dom_ic
+            if ( n_o <= tscheme%norder_imp-1 .and. tscheme%family=='MULTISTEP' )&
+            &    lorentz_torque_ic_dt%old(n_o)=dom_ic
          end do
          do n_o=2,norder_exp_old
             call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_exp ) domega_ma_dt%expl(n_o)=dom_ma
+            if ( n_o <= tscheme%norder_exp .and. tscheme%family=='MULTISTEP' ) &
+            &    lorentz_torque_ma_dt%expl(n_o)=dom_ma
          end do
          do n_o=2,norder_imp_lin_old-1
             call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp_lin-1 ) domega_ma_dt%impl(n_o)=dom_ma
+            if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+            &    tscheme%family=='MULTISTEP' )         &
+            &    lorentz_torque_ma_dt%impl(n_o)=dom_ma
          end do
          do n_o=2,norder_imp_old-1
             call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp-1 ) domega_ma_dt%old(n_o)=dom_ma
+            if ( n_o <= tscheme%norder_imp-1 .and. tscheme%family=='MULTISTEP' )&
+            &     lorentz_torque_ma_dt%old(n_o)=dom_ma
          end do
       end if
 
