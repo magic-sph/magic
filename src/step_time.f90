@@ -832,11 +832,12 @@ contains
             call lmLoop_counter%stop_count()
             if ( lMat ) call mat_counter%stop_count()
             if ( .not. lMat .and. .not. l_log ) call pure_counter%stop_count()
-            call tot_counter%stop_count()
 
             ! Increment current stage
             tscheme%istage = tscheme%istage+1
          end do
+
+         call tot_counter%stop_count()
 
          !-----------------------
          !----- Timing and info of advance:

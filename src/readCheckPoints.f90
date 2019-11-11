@@ -940,6 +940,7 @@ contains
 
          !-- Read Lorentz torques and rotation rates:
          if ( version == 1 ) then
+
             read(n_start_file) dom_ic, dom_ma, omega_ic1Old,            &
             &                  omegaOsz_ic1Old,tOmega_ic1,              &
             &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
@@ -953,75 +954,18 @@ contains
 
          else ! New version
 
-            if ( tscheme_family_old == 'MULTISTEP' ) then
-               do n_o=2,norder_exp_old
-                  read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_exp .and.  &
-                  &    tscheme%family=='MULTISTEP') domega_ic_dt%expl(n_o)=dom_ic
-               end do
-               do n_o=2,norder_imp_lin_old-1
-                  read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-                  &    tscheme%family=='MULTISTEP' ) domega_ic_dt%impl(n_o)=dom_ic
-               end do
-               do n_o=2,norder_imp_old-1
-                  read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_imp-1 .and. &
-                  &    tscheme%family=='MULTISTEP') domega_ic_dt%old(n_o)=dom_ic
-               end do
-               do n_o=2,norder_exp_old
-                  read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_exp .and. &
-                  &    tscheme%family=='MULTISTEP') domega_ma_dt%expl(n_o)=dom_ma
-               end do
-               do n_o=2,norder_imp_lin_old-1
-                  read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-                  &    tscheme%family=='MULTISTEP' ) domega_ma_dt%impl(n_o)=dom_ma
-               end do
-               do n_o=2,norder_imp_old-1
-                  read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_imp-1 .and. &
-                  &    tscheme%family=='MULTISTEP' ) domega_ma_dt%old(n_o)=dom_ma
-               end do
-
-               do n_o=2,norder_exp_old
-                  read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_exp .and. &
-                  &    tscheme%family=='MULTISTEP' )   &
-                  &    lorentz_torque_ic_dt%expl(n_o)=dom_ic
-               end do
-               do n_o=2,norder_imp_lin_old-1
-                  read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-                  &    tscheme%family=='MULTISTEP')          &
-                  &    lorentz_torque_ic_dt%impl(n_o)=dom_ic
-               end do
-               do n_o=2,norder_imp_old-1
-                  read(n_start_file) dom_ic
-                  if ( n_o <= tscheme%norder_imp-1 .and. &
-                  &    tscheme%family=='MULTISTEP' )     &
-                  &    lorentz_torque_ic_dt%old(n_o)=dom_ic
-               end do
-               do n_o=2,norder_exp_old
-                  read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_exp .and. &
-                  &    tscheme%family=='MULTISTEP' )   &
-                  &    lorentz_torque_ma_dt%expl(n_o)=dom_ma
-               end do
-               do n_o=2,norder_imp_lin_old-1
-                  read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-                  &    tscheme%family=='MULTISTEP' )         &
-                  &    lorentz_torque_ma_dt%impl(n_o)=dom_ma
-               end do
-               do n_o=2,norder_imp_old-1
-                  read(n_start_file) dom_ma
-                  if ( n_o <= tscheme%norder_imp-1 .and. &
-                  &    tscheme%family=='MULTISTEP' )     &
-                  &    lorentz_torque_ma_dt%old(n_o)=dom_ma
-               end do
-            end if
+            call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
+                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   tscheme_family_old, domega_ic_dt)
+            call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
+                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   tscheme_family_old, domega_ma_dt)
+            call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
+                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   tscheme_family_old, lorentz_torque_ic_dt)
+            call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
+                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   tscheme_family_old, lorentz_torque_ma_dt)
 
             read(n_start_file) omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
             &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
@@ -1465,13 +1409,13 @@ contains
          end if
          if ( l_z10mat ) then
             l1m0=lo_map%lm2(1,0)
-            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
+            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) .and. &
             &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
-               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*dom_ma
+               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*lorentz_torque_ma_dt%expl(2)
             end if
-            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
-                 & (l1m0 >= llm .and. l1m0 <= ulm) ) then
-               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*dom_ic
+            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) .and. &
+            &     (l1m0 >= llm .and. l1m0 <= ulm) ) then
+               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*lorentz_torque_ic_dt%expl(2)
             end if
          else
             domega_ma_dt%expl(2)=0.0_cp
@@ -1481,6 +1425,44 @@ contains
       end if
 
    end subroutine readStartFields
+!------------------------------------------------------------------------------
+   subroutine read_map_one_scalar(fh, tscheme, norder_exp_old, norder_imp_lin_old,&
+              &                   norder_imp_old, tscheme_family_old, dscal_dt)
+
+      !-- Input variables
+      integer,             intent(in) :: fh, norder_imp_old
+      integer,             intent(in) :: norder_exp_old, norder_imp_lin_old
+      character(len=*),    intent(in) :: tscheme_family_old
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variable
+      type(type_tscalar), intent(inout) :: dscal_dt
+
+      !-- Local variables
+      integer :: n_o
+      real(cp) :: scal
+
+      if ( tscheme_family_old == 'MULTISTEP' ) then
+
+         do n_o=2,norder_exp_old
+            read(fh) scal
+            if ( n_o <= tscheme%norder_exp .and.  &
+            &    tscheme%family=='MULTISTEP') dscal_dt%expl(n_o)=scal
+         end do
+         do n_o=2,norder_imp_lin_old-1
+            read(fh) scal
+            if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+            &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal
+         end do
+         do n_o=2,norder_imp_old-1
+            read(fh) scal
+            if ( n_o <= tscheme%norder_imp-1 .and. &
+            &    tscheme%family=='MULTISTEP') dscal_dt%old(n_o)=scal
+         end do
+
+      end if
+
+   end subroutine read_map_one_scalar
 !------------------------------------------------------------------------------
    subroutine read_map_one_field( fh, tscheme, wOld, work, scale_w, r_old, lm2lmo,&
               &                   n_r_max_old,  n_r_maxL, dim1, norder_exp_old,   &
@@ -1611,7 +1593,7 @@ contains
 
       character(len=72) :: rscheme_version_old
       character(len=10) :: tscheme_family_old
-      real(cp) :: r_icb_old, r_cmb_old, dom_ma, dom_ic
+      real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old, n_o
       integer :: nR_per_rank_old, datatype, l1m0
       integer :: istat(MPI_STATUS_SIZE)
@@ -1764,72 +1746,21 @@ contains
       n_r_maxL = max(n_r_max,n_r_max_old)
 
       !-- Read Lorentz-torques and rotation rates:
-      if ( tscheme_family_old == 'MULTISTEP' ) then
-         if ( version > 1 ) then
-            do n_o=2,norder_exp_old
-               call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_exp .and. &
-               &    tscheme%family=='MULTISTEP') domega_ic_dt%expl(n_o)=dom_ic
-            end do
-            do n_o=2,norder_imp_lin_old-1
-               call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-               &    tscheme%family=='MULTISTEP' ) domega_ic_dt%impl(n_o)=dom_ic
-            end do
-            do n_o=2,norder_imp_old-1
-               call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp-1 .and. &
-               &    tscheme%family=='MULTISTEP' ) domega_ic_dt%old(n_o)=dom_ic
-            end do
-            do n_o=2,norder_exp_old
-               call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_exp .and. &
-               &    tscheme%family=='MULTISTEP' ) domega_ma_dt%expl(n_o)=dom_ma
-            end do
-            do n_o=2,norder_imp_lin_old-1
-               call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-               &    tscheme%family=='MULTISTEP' ) domega_ma_dt%impl(n_o)=dom_ma
-            end do
-            do n_o=2,norder_imp_old-1
-               call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-               if ( n_o <= tscheme%norder_imp-1 .and. &
-               &    tscheme%family=='MULTISTEP' ) domega_ma_dt%old(n_o)=dom_ma
-            end do
-         end if
-         do n_o=2,norder_exp_old
-            call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_exp .and. tscheme%family=='MULTISTEP' ) &
-            &   lorentz_torque_ic_dt%expl(n_o)=dom_ic
-         end do
-         do n_o=2,norder_imp_lin_old-1
-            call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-            &    tscheme%family=='MULTISTEP' )         &
-            &    lorentz_torque_ic_dt%impl(n_o)=dom_ic
-         end do
-         do n_o=2,norder_imp_old-1
-            call MPI_File_Read(fh, dom_ic, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp-1 .and. tscheme%family=='MULTISTEP' )&
-            &    lorentz_torque_ic_dt%old(n_o)=dom_ic
-         end do
-         do n_o=2,norder_exp_old
-            call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_exp .and. tscheme%family=='MULTISTEP' ) &
-            &    lorentz_torque_ma_dt%expl(n_o)=dom_ma
-         end do
-         do n_o=2,norder_imp_lin_old-1
-            call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp_lin-1 .and. &
-            &    tscheme%family=='MULTISTEP' )         &
-            &    lorentz_torque_ma_dt%impl(n_o)=dom_ma
-         end do
-         do n_o=2,norder_imp_old-1
-            call MPI_File_Read(fh, dom_ma, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp-1 .and. tscheme%family=='MULTISTEP' )&
-            &     lorentz_torque_ma_dt%old(n_o)=dom_ma
-         end do
-      end if
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
+           &                       norder_imp_lin_old, norder_imp_old, &
+           &                       tscheme_family_old, domega_ic_dt)
+
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
+           &                       norder_imp_lin_old, norder_imp_old, &
+           &                       tscheme_family_old, domega_ma_dt)
+
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
+           &                       norder_imp_lin_old, norder_imp_old, &
+           &                       tscheme_family_old, lorentz_torque_ic_dt)
+
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
+           &                       norder_imp_lin_old, norder_imp_old, &
+           &                       tscheme_family_old, lorentz_torque_ma_dt)
 
       call MPI_File_Read(fh, omega_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, omegaOsz_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
@@ -2268,13 +2199,13 @@ contains
          end if
          if ( l_z10mat ) then
             l1m0=lo_map%lm2(1,0)
-            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
+            if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) .and. &
             &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
-               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*dom_ma
+               domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*lorentz_torque_ma_dt%expl(2)
             end if
-            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
-                 & (l1m0 >= llm .and. l1m0 <= ulm) ) then
-               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*dom_ic
+            if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) .and. &
+            &      (l1m0 >= llm .and. l1m0 <= ulm) ) then
+               domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*lorentz_torque_ic_dt%expl(2)
             end if
          else
             domega_ma_dt%expl(2)=0.0_cp
@@ -2283,12 +2214,51 @@ contains
 
       end if
 
-
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
    end subroutine readStartFields_mpi
+!------------------------------------------------------------------------------
+   subroutine read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
+              &                       norder_imp_lin_old, norder_imp_old, &
+              &                       tscheme_family_old, dscal_dt)
+
+      !-- Input variables
+      integer,             intent(in) :: fh, norder_imp_old
+      integer,             intent(in) :: norder_exp_old, norder_imp_lin_old
+      character(len=*),    intent(in) :: tscheme_family_old
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variable
+      type(type_tscalar), intent(inout) :: dscal_dt
+
+      !-- Local variables
+      integer :: n_o
+      integer :: istat(MPI_STATUS_SIZE)
+      real(cp) :: scal
+
+      if ( tscheme_family_old == 'MULTISTEP' ) then
+
+         do n_o=2,norder_exp_old
+            call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
+            if ( n_o <= tscheme%norder_exp .and.  &
+            &    tscheme%family=='MULTISTEP') dscal_dt%expl(n_o)=scal
+         end do
+         do n_o=2,norder_imp_lin_old-1
+            call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
+            if ( n_o <= tscheme%norder_imp_lin-1 .and. &
+            &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal
+         end do
+         do n_o=2,norder_imp_old-1
+            call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
+            if ( n_o <= tscheme%norder_imp-1 .and. &
+            &    tscheme%family=='MULTISTEP') dscal_dt%old(n_o)=scal
+         end do
+
+      end if
+
+   end subroutine read_map_one_scalar_mpi
 !------------------------------------------------------------------------------
    subroutine read_map_one_field_mpi(fh, info, datatype, tscheme, wOld,      &
               &                      lm_max_old, n_r_max_old, nRstart_old,   &
