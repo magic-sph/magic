@@ -14,9 +14,9 @@ module LMLoop_mod
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
-   use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
-       &            l_single_matrix, l_chemical_conv, l_save_out,        &
-       &            l_double_curl, l_cond_ic
+   use logic, only: l_mag, l_conv, lVerbose, l_heat, l_single_matrix, &
+       &            l_double_curl, l_chemical_conv, l_save_out,       &
+       &            l_cond_ic
    use output_data, only: n_log_file, log_file
    use debugging,  only: debug_write
    use time_array, only: type_tarray
@@ -43,16 +43,16 @@ contains
       local_bytes_used = bytes_allocated
 
       if ( l_single_matrix ) then
-         call initialize_updateWPS
+         call initialize_updateWPS()
       else
-         call initialize_updateS
-         call initialize_updateWP
+         if ( l_heat ) call initialize_updateS()
+         call initialize_updateWP()
       end if
 
-      if ( l_chemical_conv ) call initialize_updateXi
+      if ( l_chemical_conv ) call initialize_updateXi()
 
-      call initialize_updateZ
-      if ( l_mag ) call initialize_updateB
+      call initialize_updateZ()
+      if ( l_mag ) call initialize_updateB()
 
       local_bytes_used = bytes_allocated-local_bytes_used
 
@@ -63,16 +63,15 @@ contains
    subroutine finalize_LMLoop
 
       if ( l_single_matrix ) then
-         call finalize_updateWPS
+         call finalize_updateWPS()
       else
-         call finalize_updateS
-         call finalize_updateWP
+         if ( l_heat ) call finalize_updateS()
+         call finalize_updateWP()
       end if
+      call finalize_updateZ()
 
-      if ( l_chemical_conv ) call finalize_updateXi
-
-      call finalize_updateZ
-      if ( l_mag ) call finalize_updateB
+      if ( l_chemical_conv ) call finalize_updateXi()
+      if ( l_mag ) call finalize_updateB()
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
@@ -141,29 +140,18 @@ contains
          end do
       end if
 
-      if ( l_heat ) then ! dp,workA usead as work arrays
-         if ( .not. l_single_matrix ) then
-            PERFON('up_S')
-            if ( l_anelastic_liquid ) then
-               !call updateS_ala(s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt,  &
-               !     &           dsdtLast_LMloc, w1, coex, dt)
-            else
-               call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
-            end if
-            PERFOFF
-         end if
-
+      if ( l_heat .and. .not. l_single_matrix ) then
+         PERFON('up_S')
+         call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
+         PERFOFF
       end if
 
-      if ( l_chemical_conv ) then ! dp,workA usead as work arrays
-         call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
-      end if
+      if ( l_chemical_conv ) call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
 
       if ( l_conv ) then
          PERFON('up_Z')
-         call updateZ( z_LMloc, dz_LMloc, dzdt, time,           &
-              &        omega_ma, omega_ic, lorentz_torque_ma, &
-              &        lorentz_torque_ic, tscheme,lRmsNext)
+         call updateZ( z_LMloc, dz_LMloc, dzdt, time, omega_ma, omega_ic, &
+              &        lorentz_torque_ma, lorentz_torque_ic, tscheme,lRmsNext)
          PERFOFF
 
          if ( l_single_matrix ) then
@@ -199,7 +187,6 @@ contains
          PERFOFF
          !LIKWID_OFF('up_B')
       end if
-
 
       if ( lVerbose .and. l_save_out ) close(n_log_file)
 

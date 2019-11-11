@@ -363,16 +363,30 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(n_r,lm) collapse(2)
-      do n_r=1,n_r_max
-         do lm=llm,ulm
-            ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-       &
-            &                             or2(n_r)*work_LMloc(lm,n_r)- &
-            &           dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*   &
-            &           dentropy0(n_r)*w(lm,n_r))
+      if ( l_anelastic_liquid ) then
+         !$omp do private(n_r,lm) collapse(2)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
+               &        or2(n_r)*orho1(n_r)*        work_LMloc(lm,n_r) + &
+               &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
+               &        dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*     &
+               &        orho1(n_r)*temp0(n_r)*dentropy0(n_r)*w(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      else
+         !$omp do private(n_r,lm) collapse(2)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-       &
+               &                             or2(n_r)*work_LMloc(lm,n_r)- &
+               &           dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*   &
+               &           dentropy0(n_r)*w(lm,n_r))
+            end do
+         end do
+         !$omp end do
+      end if
       !$omp end parallel
 
    end subroutine finish_exp_entropy
@@ -413,18 +427,31 @@ contains
          !$omp barrier
 
          !-- Calculate explicit time step part:
-         !$omp do private(n_r,lm) collapse(2)
-         do n_r=1,n_r_max
-            do lm=llm,ulm
-               ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &
-               &        kappa(n_r) *                  ( work_LMloc(lm,n_r)      &
-               &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
-               &                                              * ds(lm,n_r)      &
-               &        - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)           &
-               &                                              *  s(lm,n_r) )
+         if ( l_anelastic_liquid ) then
+            !$omp do private(n_r,lm) collapse(2)
+            do n_r=1,n_r_max
+               do lm=llm,ulm
+                  ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm)))*&
+                  &            kappa(n_r) *  (               work_LMloc(lm,n_r) &
+                  &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
+                  &     - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*s(lm,n_r) )
+               end do
             end do
-         end do
-         !$omp end do
+            !$omp end do
+         else
+            !$omp do private(n_r,lm) collapse(2)
+            do n_r=1,n_r_max
+               do lm=llm,ulm
+                  ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &
+                  &        kappa(n_r) *                  ( work_LMloc(lm,n_r)      &
+                  &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
+                  &                                              * ds(lm,n_r)      &
+                  &        - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)           &
+                  &                                              *  s(lm,n_r) )
+               end do
+            end do
+            !$omp end do
+         end if
 
       end if
 
