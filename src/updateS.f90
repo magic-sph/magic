@@ -153,8 +153,7 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: start_lm,stop_lm,threadid
-      integer :: iChunk,nChunks,size_of_last_chunk,lmB0
+      integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
       if ( .not. l_update_s ) return
 
@@ -169,20 +168,10 @@ contains
 
       nLMB=1+rank
 
-      !-- Calculation of the implicit part
-      call get_entropy_rhs_imp(s, ds,                         &
-           &                   dsdt%old(:,:,tscheme%istage),  &
-           &                   dsdt%impl(:,:,tscheme%istage), &
-           &                   tscheme%l_imp_calc_rhs(tscheme%istage))
-
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dsdt, llm, ulm, n_r_max)
 
-      !PERFON('upS_fin')
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=llm; stop_lm=ulm
-      call get_openmp_blocks(start_lm,stop_lm)
-      !PERFOFF
+      !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
@@ -313,30 +302,29 @@ contains
       !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp single
+      !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             s(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end single
-
-      !$omp single
-      call dct_counter%start_count()
-      !$omp end single
-
-      call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-      !$omp barrier
-
-      !PERFOFF
-      !$omp single
-      call dct_counter%stop_count(l_increment=.false.)
-      !$omp end single
-
+      !$omp end do
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dsdt, llm, ulm, n_r_max)
+
+      !-- Calculation of the implicit part
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_entropy_rhs_imp(s, ds, dsdt%old(:,:,1), dsdt%impl(:,:,1), &
+              &                   tscheme%l_imp_calc_rhs(1),                & 
+              &                   l_in_cheb_space=.true.)
+      else
+         call get_entropy_rhs_imp(s, ds, dsdt%old(:,:,tscheme%istage+1),   &
+              &                   dsdt%impl(:,:,tscheme%istage+1),         &
+              &                   tscheme%l_imp_calc_rhs(tscheme%istage+1),&
+              &                   l_in_cheb_space=.true.)
+      end if
 
    end subroutine updateS
 !------------------------------------------------------------------------------
@@ -391,20 +379,29 @@ contains
 
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
-   subroutine get_entropy_rhs_imp(s, ds, s_last, ds_imp_last, l_calc_lin_rhs)
+   subroutine get_entropy_rhs_imp(s, ds, s_last, ds_imp_last, l_calc_lin_rhs, &
+              &                   l_in_cheb_space)
 
       !-- Input variables
-      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      logical,     intent(in) :: l_calc_lin_rhs
+      logical,           intent(in) :: l_calc_lin_rhs
+      logical, optional, intent(in) :: l_in_cheb_space
 
       !-- Output variable
+      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
       complex(cp), intent(out) :: ds(llm:ulm,n_r_max)
       complex(cp), intent(out) :: s_last(llm:ulm,n_r_max)
       complex(cp), intent(out) :: ds_imp_last(llm:ulm,n_r_max)
 
       !-- Local variables
       integer :: n_r, lm, start_lm, stop_lm
+      logical :: l_in_cheb
       integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -412,6 +409,18 @@ contains
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr(s, ds, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
+           &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
       !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
@@ -422,9 +431,6 @@ contains
       !$omp end do
 
       if ( l_calc_lin_rhs ) then
-         call get_ddr(s, ds, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
-              &       stop_lm-llm+1,n_r_max, rscheme_oc)
-         !$omp barrier
 
          !-- Calculate explicit time step part:
          if ( l_anelastic_liquid ) then
@@ -552,21 +558,6 @@ contains
 
       !-- Array copy
       call sMat%set_data(dat)
-
-#ifdef TOTO
-      block
-
-         integer :: fileHandle
-
-         open(newunit=fileHandle, file='s0Mat', form='unformatted', access='stream')
-
-         write(fileHandle) dat
-         write(fileHandle) sMat%dat
-
-         close(fileHandle)
-
-      end block
-#endif
 
       !---- LU decomposition:
       call sMat%prepare(info)

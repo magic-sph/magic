@@ -237,7 +237,6 @@ contains
 
       real(cp), save :: direction
 
-      integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( .not. l_update_b ) RETURN
@@ -254,26 +253,11 @@ contains
       nLMB=1+rank
       lmStart_00=max(2,llmMag)
 
-      call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,                 &
-           &               dbdt%old(:,:,tscheme%istage),            &
-           &               djdt%old(:,:,tscheme%istage),            &
-           &               dbdt%impl(:,:,tscheme%istage),           &
-           &               djdt%impl(:,:,tscheme%istage), tscheme,  &
-           &               tscheme%l_imp_calc_rhs(tscheme%istage),  &
-           &               lRmsNext)
-
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dbdt, llmMag, ulmMag, n_r_maxMag)
       call tscheme%set_imex_rhs(ddb, djdt, llmMag, ulmMag, n_r_maxMag)
 
       if ( l_cond_ic ) then
-         call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
-              &                  dbdt_ic%old(:,:,tscheme%istage),            &
-              &                  djdt_ic%old(:,:,tscheme%istage),            &
-              &                  dbdt_ic%impl(:,:,tscheme%istage),           &
-              &                  djdt_ic%impl(:,:,tscheme%istage),           &
-              &                  tscheme%l_imp_calc_rhs(tscheme%istage))
-
          !-- Now assemble the right hand side and store it in work_LMloc
          call tscheme%set_imex_rhs(ddb_ic, dbdt_ic, llmMag, ulmMag, &
               &                    n_r_ic_max)
@@ -281,9 +265,7 @@ contains
               &                    n_r_ic_max)
       end if
 
-      !$omp parallel default(shared) private(start_lm,stop_lm)
-      start_lm=lmStart_00; stop_lm=ulmMag
-      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
@@ -411,8 +393,9 @@ contains
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                            if ( real(b(2,1)) > 1.0e-9_cp ) &
-                                direction=real(b(2,1))/abs(real(b(2,1)))
-                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)*direction
+                           &    direction=real(b(2,1))/abs(real(b(2,1)))
+                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)* &
+                           &                    direction
                         else if ( n_imp == 4 ) then
                            !  I have forgotten what this was supposed to do:
                            bpeaktop=three/r_cmb*amp_imp*real(b(2,1))**2
@@ -580,17 +563,17 @@ contains
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
-      !$omp single
+      !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart_00,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end single
+      !$omp end do
 
       if ( l_cond_ic ) then
-         !$omp do private(n_r_out, lm1)
+         !$omp do private(n_r_out, lm1) collapse(2)
          do n_r_out=n_cheb_ic_max+1,n_r_ic_max
             do lm1=lmStart_00,ulmMag
                b_ic(lm1,n_r_out) =zero
@@ -600,45 +583,57 @@ contains
          !$omp end do
       end if
 
-      !$omp single
-      call dct_counter%start_count()
-      !$omp end single
-      !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
-      call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
-      call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &                 stop_lm-llmMag+1)
+      !$omp end parallel
 
-      call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
-      call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1, &
-           &                 stop_lm-llmMag+1)
-
-      !-- Same for inner core:
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dbdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%rotate_imex(djdt, llmMag, ulmMag, n_r_maxMag)
       if ( l_cond_ic ) then
-         call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &                stop_lm-llmMag+1, work_LMloc)
-         call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
-              &             start_lm-llmMag+1,stop_lm-llmMag+1, &
-              &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
-              &             work_LMloc,work_ic_LMloc, chebt_ic, chebt_ic_even )
-         call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &               stop_lm-llmMag+1, work_LMloc)
-         call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
-              &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
-              &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
-              &             work_LMloc,work_ic_LMloc, chebt_ic, chebt_ic_even )
+         call tscheme%rotate_imex(dbdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%rotate_imex(djdt_ic, llmMag, ulmMag, n_r_ic_max)
       end if
-      !$omp barrier
-      !PERFOFF
-      !$omp single
-      call dct_counter%stop_count(l_increment=.false.)
-      !$omp end single
-      !-- We are now back in radial space !
 
-      !PERFON('upB_last')
+
+      !-- Get implicit terms
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt%old(:,:,1),  &
+              &               djdt%old(:,:,1), dbdt%impl(:,:,1),         &
+              &               djdt%impl(:,:,1), tscheme,                 &
+              &               tscheme%l_imp_calc_rhs(1), lRmsNext,       &
+              &               l_in_cheb_space=.true.)
+
+         if ( l_cond_ic ) then
+            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
+                 &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),   &
+                 &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1), &
+                 &                  tscheme%l_imp_calc_rhs(1),                &
+                 &                  l_in_cheb_space=.true.)
+         end if
+
+      else
+         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,                   &
+              &               dbdt%old(:,:,tscheme%istage+1),            &
+              &               djdt%old(:,:,tscheme%istage+1),            &
+              &               dbdt%impl(:,:,tscheme%istage+1),           &
+              &               djdt%impl(:,:,tscheme%istage+1), tscheme,  &
+              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
+              &               lRmsNext,l_in_cheb_space=.true.)
+
+         if ( l_cond_ic ) then
+            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+                 &                  dbdt_ic%old(:,:,tscheme%istage+1),          &
+                 &                  djdt_ic%old(:,:,tscheme%istage+1),          &
+                 &                  dbdt_ic%impl(:,:,tscheme%istage+1),         &
+                 &                  djdt_ic%impl(:,:,tscheme%istage+1),         &
+                 &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
+                 &                  l_in_cheb_space=.true.)
+         end if
+
+      end if
+
+
       if ( l_LCR ) then
-         !$omp do private(nR,lm1,l1,m1)
+         !$omp parallel do private(nR,lm1,l1,m1)
          do nR=n_r_cmb,n_r_icb-1
             if ( nR<=n_r_LCR ) then
                do lm1=lmStart_00,ulmMag
@@ -659,18 +654,7 @@ contains
                end do
             end if
          end do
-         !$omp end do
-      end if
-
-      !$omp end parallel
-
-
-      !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dbdt, llmMag, ulmMag, n_r_maxMag)
-      call tscheme%rotate_imex(djdt, llmMag, ulmMag, n_r_maxMag)
-      if ( l_cond_ic ) then
-         call tscheme%rotate_imex(dbdt_ic, llmMag, ulmMag, n_r_ic_max)
-         call tscheme%rotate_imex(djdt_ic, llmMag, ulmMag, n_r_ic_max)
+         !$omp end parallel do
       end if
 
    end subroutine updateB
@@ -755,15 +739,17 @@ contains
 !-----------------------------------------------------------------------------	
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  b_ic_last, aj_ic_last, db_ic_imp_last,      &
-              &                  dj_ic_imp_last, l_calc_lin_rhs)
+              &                  dj_ic_imp_last, l_calc_lin_rhs,             &
+              &                  l_in_cheb_space)
 
 
       !-- Input variables
-      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      logical,     intent(in) :: l_calc_lin_rhs
+      logical,           intent(in) :: l_calc_lin_rhs
+      logical, optional, intent(in) :: l_in_cheb_space
 
       !-- Output variable
+      complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp), intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp), intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp), intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
@@ -774,9 +760,16 @@ contains
       complex(cp), intent(out) :: dj_ic_imp_last(llmMag:ulmMag,n_r_ic_max)
 
       !-- Local variables 
+      logical :: l_in_cheb
       integer :: l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -786,15 +779,27 @@ contains
       start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm,stop_lm)
 
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      if ( l_in_cheb ) call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, &
+                            &                start_lm-llmMag+1,     &
+                            &                stop_lm-llmMag+1, work_LMloc)
       call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
            &             start_lm-llmMag+1,stop_lm-llmMag+1, &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
            &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
+      if ( l_in_cheb ) call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, &
+                            &                start_lm-llmMag+1,      &
+                            &                stop_lm-llmMag+1, work_LMloc)
       call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
            &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
            &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
       !$omp barrier
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_ic_max
@@ -843,17 +848,18 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,  b_last, aj_last, &
               &               db_imp_last, dj_imp_last, tscheme,         &
-              &               l_calc_lin_rhs, lRmsNext)
+              &               l_calc_lin_rhs, lRmsNext, l_in_cheb_space)
 
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
-      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_max)
-      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_max)
       logical,             intent(in) :: l_calc_lin_rhs
       logical,             intent(in) :: lRmsNext
+      logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
+      complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_max)
+      complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_max)
       complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_max)
       complex(cp), intent(out) :: dj(llmMag:ulmMag,n_r_max)
       complex(cp), intent(out) :: ddj(llmMag:ulmMag,n_r_max)
@@ -864,9 +870,16 @@ contains
       complex(cp), intent(out) :: dj_imp_last(llmMag:ulmMag,n_r_max)
 
       !-- Local variables 
+      logical :: l_in_cheb
       integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -876,11 +889,23 @@ contains
       start_lm=lmStart_00; stop_lm=ulmMag
       call get_openmp_blocks(start_lm,stop_lm)
 
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
       call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,        &
+           &       l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
+                            &                 stop_lm-llmMag+1)
       call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,         &
+           &       l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(aj,ulmMag-llmMag+1,start_lm-llmMag+1,&
+                            &                 stop_lm-llmMag+1)
       !$omp barrier
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_max

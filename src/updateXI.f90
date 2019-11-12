@@ -151,8 +151,7 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: threadid, start_lm, stop_lm
-      integer :: iChunk,nChunks,size_of_last_chunk,lmB0
+      integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
       if ( .not. l_update_xi ) return
 
@@ -167,18 +166,10 @@ contains
 
       nLMB=1+rank
 
-      !-- Calculation of the implicit part
-      call get_comp_rhs_imp(xi, dxi,                        &
-           &                dxidt%old(:,:,tscheme%istage),  &
-           &                dxidt%impl(:,:,tscheme%istage), &
-           &                tscheme%l_imp_calc_rhs(tscheme%istage))
-
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dxidt, llm, ulm, n_r_max)
 
-      !$omp parallel default(shared) private(start_lm,stop_lm)
-      start_lm=llm; stop_lm=ulm
-      call get_openmp_blocks(start_lm, stop_lm)
+      !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
@@ -303,31 +294,30 @@ contains
       !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp single
+      !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             xi(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end single
-
-      !$omp single
-      call dct_counter%start_count()
-      !$omp end single
-      call get_dr(xi, dxi, ulm-llm+1, start_lm-llm+1, &
-           &     stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
-      call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-      !$omp barrier
-
-      !$omp single
-      call dct_counter%stop_count(l_increment=.false.)
-      !$omp end single
+      !$omp end do
 
       !$omp end parallel
 
-
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dxidt, llm, ulm, n_r_max)
+
+      !-- Calculation of the implicit part
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_comp_rhs_imp(xi, dxi, dxidt%old(:,:,1), dxidt%impl(:,:,1), &
+              &                tscheme%l_imp_calc_rhs(1),                    &
+              &                l_in_cheb_space=.true.)
+      else
+         call get_comp_rhs_imp(xi, dxi,dxidt%old(:,:,tscheme%istage+1),  &
+              &                dxidt%impl(:,:,tscheme%istage+1),         &
+              &                tscheme%l_imp_calc_rhs(tscheme%istage+1), &
+              &                l_in_cheb_space=.true.)
+      end if
 
    end subroutine updateXi
 !------------------------------------------------------------------------------
@@ -361,20 +351,30 @@ contains
 
    end subroutine finish_exp_comp
 !------------------------------------------------------------------------------
-   subroutine get_comp_rhs_imp(xi, dxi, xi_last, dxi_imp_last, l_calc_lin_rhs)
+   subroutine get_comp_rhs_imp(xi, dxi, xi_last, dxi_imp_last, l_calc_lin_rhs, &
+              &                l_in_cheb_space)
 
       !-- Input variables
-      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
-      logical,     intent(in) :: l_calc_lin_rhs
+      logical,           intent(in) :: l_calc_lin_rhs
+      logical, optional, intent(in) :: l_in_cheb_space
+
 
       !-- Output variable
+      complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dxi(llm:ulm,n_r_max)
       complex(cp), intent(out) :: xi_last(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dxi_imp_last(llm:ulm,n_r_max)
 
       !-- Local variables
+      logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -382,6 +382,18 @@ contains
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr(xi, dxi, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
+           &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
 
       !$omp do private(n_r,lm) collapse(2)
       do n_r=1,n_r_max
@@ -392,10 +404,6 @@ contains
       !$omp end do
 
       if ( l_calc_lin_rhs ) then
-         call get_ddr(xi, dxi, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
-              &       stop_lm-llm+1,n_r_max, rscheme_oc)
-         !$omp barrier
-
 
          !$omp do private(n_r,lm) collapse(2)
          do n_r=1,n_r_max

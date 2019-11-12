@@ -203,7 +203,6 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( .not. l_update_v ) return
@@ -220,25 +219,13 @@ contains
       nLMB       =1+rank
       lmStart_00 =max(2,llm)
 
-      call get_pol_rhs_imp(dsdt%old(:,:,tscheme%istage),           &
-           &               dxidt%old(:,:,tscheme%istage),          &
-           &               w, dw, ddw, p, dp,                      &
-           &               dwdt%old(:,:,tscheme%istage),           &
-           &               dpdt%old(:,:,tscheme%istage),           &
-           &               dwdt%impl(:,:,tscheme%istage),          &
-           &               dpdt%impl(:,:,tscheme%istage), tscheme, &
-           &               tscheme%l_imp_calc_rhs(tscheme%istage), &
-           &               lPressNext, lRmsNext)
-
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dwdt, llm, ulm, n_r_max)
       if ( .not. l_double_curl ) then
          call tscheme%set_imex_rhs(ddw, dpdt, llm, ulm, n_r_max)
       end if
 
-      !$omp parallel default(shared) private(start_lm,stop_lm)
-      start_lm=llm; stop_lm=ulm
-      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
@@ -469,47 +456,39 @@ contains
       !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp single
+      !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             w(lm1,n_r_out)=zero
             p(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end single
-
-      !$omp single
-      call dct_counter%start_count()
-      !$omp end single
-
-      call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
-           &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
-      call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-      if ( .not. l_double_curl ) then
-         call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max, rscheme_oc, l_dct_in=.false. )
-         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-      end if
-      !$omp barrier
-
-      !$omp single
-      call dct_counter%stop_count()
-      !$omp end single
-
-      ! In case pressure is needed in the double curl formulation
-      ! we also have to compute the radial derivative of p
-      if ( lPressNext .and. l_double_curl ) then
-         call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max, rscheme_oc)
-         !$omp barrier
-      end if
+      !$omp end do
 
       !$omp end parallel
-
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dwdt, llm, ulm, n_r_max)
       if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt, llm, ulm, n_r_max)
+
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w, dw,     &
+              &               ddw, p, dp, dwdt%old(:,:,1), dpdt%old(:,:,1), &
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,  &
+              &               tscheme%l_imp_calc_rhs(1), lPressNext,        &
+              &               lRmsNext, l_in_cheb_space=.true.)
+      else
+         call get_pol_rhs_imp(dsdt%old(:,:,tscheme%istage+1),             &
+              &               dxidt%old(:,:,tscheme%istage+1),            &
+              &               w, dw, ddw, p, dp,                          &
+              &               dwdt%old(:,:,tscheme%istage+1),             &
+              &               dpdt%old(:,:,tscheme%istage+1),             &
+              &               dwdt%impl(:,:,tscheme%istage+1),            &
+              &               dpdt%impl(:,:,tscheme%istage+1), tscheme,   &
+              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
+              &               lPressNext, lRmsNext, l_in_cheb_space=.true.)
+      end if
+
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
@@ -544,19 +523,21 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, w_last, dw_last, &
               &               dw_imp_last, dp_imp_last, tscheme,         &
-              &               l_calc_lin_rhs, lPressNext, lRmsNext)
+              &               l_calc_lin_rhs, lPressNext, lRmsNext,      &
+              &               l_in_cheb_space)
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: p(llm:ulm,n_r_max)
       logical,             intent(in) :: l_calc_lin_rhs
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
+      logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
+      complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dp(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dw(llm:ulm,n_r_max)
       complex(cp), intent(out) :: ddw(llm:ulm,n_r_max)
@@ -566,9 +547,16 @@ contains
       complex(cp), intent(out) :: dp_imp_last(llm:ulm,n_r_max)
 
       !-- Local variables 
+      logical :: l_in_cheb
       integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -578,15 +566,30 @@ contains
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
 
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
       if ( l_double_curl ) then
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
-                 &       stop_lm-llm+1, n_r_max, rscheme_oc )
-         !$omp barrier
+              &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
+              &       l_dct_in=.not. l_in_cheb )
+         call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1, start_lm-llm+1,  &
+              &       stop_lm-llm+1, n_r_max, rscheme_oc )
       else
-         call get_dr( w, dw, ulm-llm+1, start_lm-llm+1,  &
-              &         stop_lm-llm+1, n_r_max, rscheme_oc)
-         !$omp barrier
+         call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+              &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
+              &         l_dct_in=.not. l_in_cheb)
+         call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+         if ( l_in_cheb ) call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
+                               &                 stop_lm-llm+1)
       end if
+      if ( l_in_cheb ) call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count()
+      !$omp end single
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=2,n_r_max-1
@@ -606,19 +609,6 @@ contains
       !$omp end do
 
       if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
-
-         if ( l_double_curl ) then
-            call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1,                  &
-                 &        start_lm-llm+1, stop_lm-llm+1, n_r_max, rscheme_oc)
-            !$omp barrier
-         else
-            call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-                 &         stop_lm-llm+1, n_r_max, rscheme_oc)
-            call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-                 &       n_r_max, rscheme_oc)
-            !$omp barrier
-         end if
-
 
          if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
             n_r_top=n_r_cmb
@@ -765,6 +755,15 @@ contains
          end if
 
       end if
+
+      ! In case pressure is needed in the double curl formulation
+      ! we also have to compute the radial derivative of p
+      if ( lPressNext .and. l_double_curl ) then
+         call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max, rscheme_oc)
+         !$omp barrier
+      end if
+
       !$omp end parallel
 
    end subroutine get_pol_rhs_imp

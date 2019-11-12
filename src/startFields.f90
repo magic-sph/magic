@@ -32,13 +32,18 @@ module start_fields
        &            one, two
    use useful, only: cc2real, logWrite
    use parallel_mod, only: rank, n_procs
-   use radial_der, only: get_dr, get_ddr
-   use radial_der_even, only: get_ddr_even
+   use radial_der, only: get_dr
    use readCheckPoints, only: readStartFields_old, readStartFields
    use time_schemes, only: type_tscheme
 #ifdef WITH_MPI
    use readCheckPoints, only: readStartFields_mpi
 #endif
+   use updateWP_mod, only: get_pol_rhs_imp
+   use updateS_mod, only: get_entropy_rhs_imp
+   use updateXI_mod, only: get_comp_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+
 
    implicit none
 
@@ -74,8 +79,6 @@ contains
       real(cp) :: xiEA,xiES,xiAA
 
       real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
-
-      complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
 
       logical :: lMat
       type(timer_type) :: t_reader
@@ -275,9 +278,6 @@ contains
       !-- Initialize the weights of the time scheme
       call tscheme%set_weights(lMat)
 
-      allocate( workA_LMloc(llm:ulm,n_r_max) )
-      allocate( workB_LMloc(llm:ulm,n_r_max) )
-
       !-- Initialize/add fields
       !----- Initialize/add magnetic field:
       if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
@@ -300,29 +300,46 @@ contains
          call initXi(xi_LMloc)
       end if
 
-      !----- Computing derivatives
+      !----- Assemble initial implicit terms
+      if ( l_heat ) then
+         !-- Get radial derivatives of entropy:
+         if ( l_single_matrix ) then
+            call get_dr( p_LMloc,dp_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
+         end if
+         call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt%old(:,:,1), &
+              &                   dsdt%impl(:,:,1), .true.)
+      end if
+
+      if ( l_chemical_conv ) then
+         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt%old(:,:,1),  &
+              &                dxidt%impl(:,:,1), .true.)
+      end if
+
       if ( l_conv .or. l_mag_kin ) then
-         call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,1, &
-              &        ulm-llm+1,n_r_max,rscheme_oc )
-         call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, 1,ulm-llm+1, &
-              &       n_r_max,rscheme_oc )
+         call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w_LMloc,  &
+              &               dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc,      &
+              &               dwdt%old(:,:,1), dpdt%old(:,:,1),            &
+              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme, &
+              &               .true., .false., .false.)
+         call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
+              &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
+              &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
+              &               domega_ic_dt%impl(1), tscheme, .true.,     &
+              &               .false.)
       end if
 
       if ( l_mag .or. l_mag_kin  ) then
-         call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1,  &
-              &        1,ulmMag-llmMag+1,n_r_max,rscheme_oc )
-         call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
-              &        1,ulmMag-llmMag+1,n_r_max,rscheme_oc )
+         call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,    &
+              &               dj_LMloc, ddj_LMloc, dbdt%old(:,:,1),      &
+              &               djdt%old(:,:,1), dbdt%impl(:,:,1),         &
+              &               djdt%impl(:,:,1), tscheme, .true., .false.)
       end if
       if ( l_cond_ic ) then
-         call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,ulmMag-llmMag+1, &
-              &            1,ulmMag-llmMag+1,n_r_ic_max,n_cheb_ic_max,          &
-              &            dr_fac_ic,workA_LMloc,workB_LMloc,chebt_ic,          &
-              &            chebt_ic_even)
-         call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,ulmMag-llmMag+1,&
-              &            1,ulmMag-llmMag+1,n_r_ic_max,n_cheb_ic_max,          &
-              &            dr_fac_ic,workA_LMloc,workB_LMloc,chebt_ic,          &
-              &            chebt_ic_even)
+         call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &
+              &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
+              &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),   &
+              &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1), &
+              &                  .true.)
       end if
 
       if ( l_LCR ) then
@@ -332,37 +349,21 @@ contains
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
 
-                  b_LMloc(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)* &
-                  &               b_LMloc(lm,n_r_LCR)
-                  db_LMloc(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                  &               (r(n_r))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
-                  ddb_LMloc(lm,n_r)=real(l,cp)*real(l+1,cp)*    &
-                  &                (r(n_r_LCR))**(real(l,cp))/  &
-                  &                (r(n_r))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
-                  aj_LMloc(lm,n_r)=zero
-                  dj_LMloc(lm,n_r)=zero
+                  b_LMloc(lm,n_r)  =(r(n_r_LCR)/r(n_r))**real(l,cp)* &
+                  &                  b_LMloc(lm,n_r_LCR)
+                  db_LMloc(lm,n_r) =-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
+                  &                 (r(n_r))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
+                  ddb_LMloc(lm,n_r)=real(l,cp)*real(l+1,cp)*     &
+                  &                 (r(n_r_LCR))**(real(l,cp))/  &
+                  &                 (r(n_r))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
+                  aj_LMloc(lm,n_r) =zero
+                  dj_LMloc(lm,n_r) =zero
                   ddj_LMloc(lm,n_r)=zero
                end do
             end if
          end do
       end if
 
-
-      if ( l_heat ) then
-         !-- Get radial derivatives of entropy:
-         call get_dr( s_LMloc,ds_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-         if ( l_single_matrix ) then
-            call get_dr( p_LMloc,dp_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-         end if
-      end if
-
-      if ( l_chemical_conv ) then
-         !-- Get radial derivatives of chemical composition:
-         call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-      end if
-
-      deallocate(workA_LMloc)
-      deallocate(workB_LMloc)
 
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp
@@ -445,35 +446,6 @@ contains
             call logWrite(message)
          end if
       end if
-
-      !----- Get changes in mantle and ic rotation rate:
-#ifdef TOTO
-      if ( .not. l_mag_LF ) then
-         lorentz_torque_icLast=0.0_cp
-         lorentz_torque_maLast=0.0_cp
-      end if
-      if ( l_z10mat ) then
-         l1m0=lo_map%lm2(1,0)
-         coex=-two*(alpha-one)
-         if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
-              & (l1m0 >= llm .and.l1m0 <= ulm) ) then
-            d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
-            d_omega_ma_dtLast=d_omega_ma_dt -                              &
-            &                 coex * ( two*or1(1)*real( z_LMloc(l1m0,1)) - &
-            &                                     real(dz_LMloc(l1m0,1)) )
-         end if
-         if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
-              & (l1m0 >= llm .and. l1m0 <= ulm) ) then
-            d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
-            d_omega_ic_dtLast= d_omega_ic_dt +coex * (                         &
-            &                  two*or1(n_r_max)*real( z_LMloc(l1m0,n_r_max)) - &
-            &                                   real(dz_LMloc(l1m0,n_r_max)) )
-         end if
-      else
-         d_omega_ma_dtLast=0.0_cp
-         d_omega_ic_dtLast=0.0_cp
-      end if
-#endif
 
    end subroutine getStartFields
 !------------------------------------------------------------------------------
