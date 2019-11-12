@@ -10,14 +10,12 @@ n_cheb_ic_max=11,
 &control
  mode        =1,
  tag         ="test",
- n_time_steps=500,
- courfac     =2.5,
- alffac      =1.0,
- alpha       =0.6,
+ n_time_steps=150,
  dtmax       =1.0E-3,
  n_cour_step =4,
  runHours    =0,
  runMinutes  =50,
+ time_scheme ='PC2',
 /
 &phys_param
  ra          =1.D6,
@@ -39,7 +37,7 @@ n_cheb_ic_max=11,
  amp_s1      =0.5,  
 /
 &output_control
- n_log_step  =10,
+ n_log_step  =5,
  n_graphs    =3,
  n_rsts      =3,
  runid       ="Inhomogeneous heat flux",
