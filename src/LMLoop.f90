@@ -132,7 +132,7 @@ contains
                lWPSmat(l)=.false.
             else
                lWPmat(l)=.false.
-               lSmat(l) =.false.
+               if ( l_heat ) lSmat(l) =.false.
             end if
             lZmat(l) =.false.
             if ( l_mag ) lBmat(l) =.false.
