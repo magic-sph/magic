@@ -19,6 +19,7 @@ n_cheb_ic_max=17,
  runHours    =12,
  runMinutes  =00,
  l_adv_curl  =.true.,
+ anelastic_flavour='SINGLEMAT',
 /
 &phys_param
  ra          =1.0D5,
