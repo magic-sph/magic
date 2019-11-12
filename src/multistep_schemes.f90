@@ -36,16 +36,18 @@ module multistep_schemes
 
 contains
 
-   subroutine initialize(this, time_scheme, courfac_nml)
+   subroutine initialize(this, time_scheme, courfac_nml, intfac_nml, alffac_nml)
 
       class(type_multistep) :: this
 
       !-- Input/output variables
       real(cp),          intent(in) :: courfac_nml
+      real(cp),          intent(in) :: intfac_nml
+      real(cp),          intent(in) :: alffac_nml
       character(len=72), intent(inout) :: time_scheme
 
       !-- Local variables
-      real(cp) :: courfac_loc
+      real(cp) :: courfac_loc, alffac_loc, intfac_loc
 
       !-- Number of stages per iteration is always one in this case
       this%nstages = 1
@@ -63,52 +65,78 @@ contains
          this%norder_imp_lin = 2
          this%norder_imp = 2
          this%norder_exp = 2
-         courfac_loc = 3.0_cp
+         courfac_loc = 2.5_cp
+         alffac_loc  = 1.0_cp
+         intfac_loc  = 0.15_cp
       else if ( index(time_scheme, 'MODCNAB') /= 0 ) then
          this%time_scheme = 'MODCNAB'
          this%norder_imp = 3
          this%norder_imp_lin = 3
          this%norder_exp = 2
-         courfac_loc = 2.9_cp
+         courfac_loc = 2.5_cp
+         alffac_loc  = 1.0_cp
+         intfac_loc  = 0.15_cp
       else if ( index(time_scheme, 'CNLF') /= 0 ) then
          this%time_scheme = 'CNLF'
          this%norder_imp = 3
          this%norder_imp_lin = 3
          this%norder_exp = 2
-         courfac_loc = 3.0_cp
-      else if ( index(time_scheme, 'BDF2AB2') /= 0 ) then
-         this%time_scheme = 'BDF2AB2'
+         courfac_loc = 2.5_cp
+         alffac_loc  = 1.0_cp
+         intfac_loc  = 0.15_cp
+      else if ( index(time_scheme, 'SBDF2') /= 0 ) then
+         this%time_scheme = 'SBDF2'
          this%norder_imp = 3
          this%norder_imp_lin = 2 ! it should be one but we need to restart
          this%norder_exp = 2
          this%l_imp_calc_rhs(1) = .false.
-         courfac_loc = 2.8_cp
-      else if ( index(time_scheme, 'BDF3AB3') /= 0 ) then
-         this%time_scheme = 'BDF3AB3'
+         courfac_loc = 2.5_cp
+         alffac_loc  = 1.0_cp
+         intfac_loc  = 0.15_cp
+      else if ( index(time_scheme, 'SBDF3') /= 0 ) then
+         this%time_scheme = 'SBDF3'
          this%norder_imp = 4
          this%norder_imp_lin = 2 ! it should be one but we need to restart
          this%norder_exp = 3
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 4.0_cp
+         alffac_loc  = 1.6_cp
+         intfac_loc  = 0.09_cp
       else if ( index(time_scheme, 'TVB33') /= 0 ) then
          this%time_scheme = 'TVB33'
          this%norder_imp = 4
          this%norder_imp_lin = 4 ! it should be one but we need to restart
          this%norder_exp = 3
          courfac_loc = 4.0_cp
-      else if ( index(time_scheme, 'BDF4AB4') /= 0 ) then
-         this%time_scheme = 'BDF4AB4'
+         alffac_loc  = 1.6_cp
+         intfac_loc  = 0.09_cp
+      else if ( index(time_scheme, 'SBDF4') /= 0 ) then
+         this%time_scheme = 'SBDF4'
          this%norder_imp = 5
          this%norder_imp_lin = 2 ! it should be one but we need to restart
          this%norder_exp = 4
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 5.5_cp
+         alffac_loc  = 2.2_cp
+         intfac_loc  = 0.065_cp
       end if
 
       if ( abs(courfac_nml) >= 1.0e3_cp ) then
          this%courfac=courfac_loc
       else
          this%courfac=courfac_nml
+      end if
+
+      if ( abs(alffac_nml) >= 1.0e3_cp ) then
+         this%alffac=alffac_loc
+      else
+         this%alffac=alffac_nml
+      end if
+
+      if ( abs(intfac_nml) >= 1.0e3_cp ) then
+         this%intfac=intfac_loc
+      else
+         this%intfac=intfac_nml
       end if
 
       allocate ( this%dt(this%norder_exp) )
@@ -179,7 +207,7 @@ contains
 
             this%wexp(1)=(one+half*delta)*this%dt(1)
             this%wexp(2)=-half*delta*this%dt(1)
-         case ('BDF2AB2')
+         case ('SBDF2')
             delta = this%dt(1)/this%dt(2)
             this%wimp_lin(1)=(one+delta)/(one+two*delta)*this%dt(1)
             this%wimp_lin(2)=0.0_cp
@@ -189,7 +217,7 @@ contains
 
             this%wexp(1)=(one+delta)*(one+delta)*this%dt(1)/(one+two*delta)
             this%wexp(2)=-delta*(one+delta)*this%dt(1)/(one+two*delta)
-         case ('BDF3AB3')
+         case ('SBDF3')
             delta_n   = this%dt(2)/this%dt(1)
             delta_n_1 = this%dt(3)/this%dt(1)
             a0 = one+one/(one+delta_n)+one/(one+delta_n+delta_n_1)
@@ -268,7 +296,7 @@ contains
             this%wexp(2)=b1/a0 * this%dt(1)
             this%wexp(3)=b2/a0 * this%dt(1)
 
-         case ('BDF4AB4')
+         case ('SBDF4')
             delta_n = this%dt(1)/this%dt(2)
             delta_n_1 = this%dt(2)/this%dt(3)
             delta_n_2 = this%dt(3)/this%dt(4)

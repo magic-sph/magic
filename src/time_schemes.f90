@@ -2,6 +2,8 @@ module time_schemes
 
    use iso_fortran_env, only: output_unit
    use time_array
+   use logic, only: l_save_out
+   use output_data, only: log_file
    use precision_mod
 
    implicit none
@@ -22,6 +24,8 @@ module time_schemes
       logical,  allocatable :: l_exp_calc(:)
       logical, allocatable :: l_imp_calc_rhs(:)
       real(cp) :: courfac ! Courant factor
+      real(cp) :: alffac ! Courant factor for Alven waves
+      real(cp) :: intfac ! Coriolis factor
 
    contains 
 
@@ -42,10 +46,13 @@ module time_schemes
 
    interface
 
-      subroutine initialize_if(this, time_scheme, courfac_nml)
+      subroutine initialize_if(this, time_scheme, courfac_nml, intfac_nml, &
+                 &             alffac_nml)
          import
          class(type_tscheme) :: this
          real(cp),          intent(in)    :: courfac_nml
+         real(cp),          intent(in)    :: intfac_nml
+         real(cp),          intent(in)    :: alffac_nml
          character(len=72), intent(inout) :: time_scheme
       end subroutine initialize_if
 
@@ -137,10 +144,17 @@ contains
       do n=1,2
          if ( n == 1 ) n_out=output_unit
          if ( n == 2 ) n_out=n_log_file
+         if ( l_save_out ) then
+            open(n_log_file, file=log_file, status='unknown', &
+            &    position='append')
+         end if
          write(n_out,*) ''
          write(n_out, '('' ! Time integrator  :'',1p,A10)') this%time_scheme
-         write(n_out, '('' ! CFL value        :'',es12.4)') this%courfac
+         write(n_out, '('' ! CFL (flow) value :'',es12.4)') this%courfac
+         write(n_out, '('' ! CFL (Alven) value:'',es12.4)') this%alffac
+         write(n_out, '('' ! CFL (Ekman) value:'',es12.4)') this%intfac
          write(n_out,*) ''
+         if ( l_save_out ) close(n_log_file)
       end do
 
    end subroutine print_info

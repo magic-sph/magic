@@ -812,10 +812,7 @@ contains
       write(n_out,'(''  alph2           ='',ES14.6,'','')') alph2
       write(n_out,'(''  dtstart         ='',ES14.6,'','')') dtstart*tScale
       write(n_out,'(''  dtMax           ='',ES14.6,'','')') tScale*dtMax
-      write(n_out,'(''  courfac         ='',ES14.6,'','')') courfac
-      write(n_out,'(''  alffac          ='',ES14.6,'','')')  alffac
       write(n_out,'(''  l_cour_alf_damp ='',l3,'','')') l_cour_alf_damp
-      write(n_out,'(''  intfac          ='',ES14.6,'','')')  intfac
       write(n_out,'(''  n_cour_step     ='',i5,'','')') n_cour_step
       write(n_out,'(''  difnu           ='',ES14.6,'','')') difnu
       write(n_out,'(''  difeta          ='',ES14.6,'','')') difeta
@@ -1194,10 +1191,10 @@ contains
       enscale       =one
       dtstart       =0.0_cp
       dtMax         =1.0e-4_cp
-      courfac       =2.5_cp
+      courfac       =1.0e3_cp
       l_cour_alf_damp=.true. ! By default, use Christensen's (GJI, 1999) CFL
-      alffac        =one
-      intfac        =0.15_cp
+      alffac        =1.0e3_cp
+      intfac        =1.0e3_cp
       n_cour_step   =10
       anelastic_flavour="None" ! Useless in Boussinesq
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)

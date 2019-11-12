@@ -267,7 +267,7 @@ program magic
    call memWrite('radial/horizontal', local_bytes_used)
 
    !-- Initialize time scheme
-   call tscheme%initialize(time_scheme, courfac)
+   call tscheme%initialize(time_scheme, courfac, intfac, alffac)
 
    !-- Radial/LM Loop
    call initialize_radialLoop()
@@ -308,8 +308,12 @@ program magic
    call init_shtns()
 #endif
 
+   if ( rank == 0 ) then
+      call tscheme%print_info(n_log_file)
+   end if
+
    !--- Do pre-calculations:
-   call preCalc()
+   call preCalc(tscheme)
 
    if ( l_par .or. l_PV ) call initialize_geos_mod(l_par,l_PV) ! Needs to be called after preCalc, r_icb needed
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed

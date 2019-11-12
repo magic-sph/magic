@@ -338,7 +338,8 @@ contains
             call courant(this%nR,this%dtrkc,this%dthkc,this%gsa(threadid)%vrc, &
                  &       this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,        &
                  &       this%gsa(threadid)%brc,this%gsa(threadid)%btc,        &
-                 &       this%gsa(threadid)%bpc,nThetaStart,this%sizeThetaB)
+                 &       this%gsa(threadid)%bpc,nThetaStart,this%sizeThetaB,   &
+                 &       tscheme%courfac, tscheme%alffac)
          end if
 
          !--------- Since the fields are given at gridpoints here, this is a good

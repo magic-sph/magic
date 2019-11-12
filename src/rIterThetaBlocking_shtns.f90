@@ -236,7 +236,8 @@ contains
       if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then
          call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc,          &
               &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-              &       this%gsa%bpc,1 ,this%sizeThetaB)
+              &       this%gsa%bpc,1 ,this%sizeThetaB, tscheme%courfac,    &
+              &       tscheme%alffac)
       end if
 
       !--------- Since the fields are given at gridpoints here, this is a good

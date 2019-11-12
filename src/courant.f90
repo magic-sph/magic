@@ -6,7 +6,7 @@ module courant_mod
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: orho1, orho2, or4, or2
    use physical_parameters, only: LFfac, opm
-   use num_param, only: courfac, delxr2, delxh2, alffac
+   use num_param, only: delxr2, delxh2
    use blocking, only: nfs
    use horizontal_data, only: osn2
    use logic, only: l_mag, l_mag_LF, l_mag_kin, l_cour_alf_damp
@@ -47,7 +47,8 @@ contains
 
    end subroutine finalize_courant
 !------------------------------------------------------------------------------
-   subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp,n_theta_min,n_theta_block)
+   subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp,n_theta_min, &
+              &       n_theta_block,courfac,alffac)
       !
       !  courant condition check: calculates Courant
       !  advection lengths in radial direction dtrkc
@@ -75,6 +76,8 @@ contains
       real(cp), intent(in) :: br(nrp,nfs)   ! radial magnetic field
       real(cp), intent(in) :: bt(nrp,nfs)   ! longitudinal magnetic field
       real(cp), intent(in) :: bp(nrp,nfs)   ! azimuthal magnetic field
+      real(cp), intent(in) :: courfac
+      real(cp), intent(in) :: alffac
 
       !-- Output:
       real(cp), intent(inout) :: dtrkc    ! Courant step (based on radial advection)

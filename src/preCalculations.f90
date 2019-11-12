@@ -36,6 +36,7 @@ module preCalculations
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -45,13 +46,16 @@ module preCalculations
 
 contains
 
-   subroutine preCalc
+   subroutine preCalc(tscheme)
       !
       !  Purpose of this subroutine is to initialize the calc values,     
       !  arrays, constants that are used all over the code.               
       !  The stuff is stored in the common blocks.                        
       !  MPI: This is called by every processors.                         
       !
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
     
       !---- Local variables:
       real(cp) :: help,facIH
@@ -171,7 +175,7 @@ contains
     
       dtStart=dtStart/tScale
       dtMax  =dtMax/tScale
-      if ( .not. l_non_rot ) dtMax=min(dtMax,intfac*ekScaled)
+      if ( .not. l_non_rot ) dtMax=min(dtMax,tscheme%intfac*ekScaled)
       dtMin  =dtMax/1.0e6_cp
     
       !-- Calculate radial functions for all threads (chebs,r,.....):
