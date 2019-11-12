@@ -28,7 +28,7 @@ module step_time_mod
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
-       &            l_AB1, l_finite_diff, l_cond_ic
+       &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use blocking, only: llm, ulm, llmMag, ulmMag
@@ -50,6 +50,7 @@ module step_time_mod
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
    use updateWP_mod, only: get_pol_rhs_imp
+   use updateWPS_mod, only: get_single_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
    use updateZ_mod, only: get_tor_rhs_imp
@@ -968,18 +969,26 @@ contains
            n_time_step <= tscheme%norder_imp-2 .and.                 &
            tscheme%family=='MULTISTEP' ) then
 
-         call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,    &
-              &               p_LMloc, dp_LMloc, dwdt%old(:,:,1), dpdt%old(:,:,1),&
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme, .true.,&
-              &               .false., .false.)
+         if ( l_single_matrix ) then
+            call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,          &
+                 &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt%old(:,:,1), &
+                 &                  dwdt%old(:,:,1), dpdt%old(:,:,1),              &
+                 &                  dsdt%impl(:,:,1), dwdt%impl(:,:,1),            &
+                 &                  dpdt%impl(:,:,1), tscheme, .true., .false.)
+         else
+            call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
+                 &               p_LMloc, dp_LMloc, dwdt%old(:,:,1),               &
+                 &               dpdt%old(:,:,1), dwdt%impl(:,:,1),                &
+                 &               dpdt%impl(:,:,1), tscheme, .true., .false., .false.)
+            if ( l_heat ) call get_entropy_rhs_imp(s_LMloc,ds_LMloc,    &
+                               &                   dsdt%old(:,:,1),     &
+                               &                   dsdt%impl(:,:,1),.true.)
+         end if
+
          call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
               &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
               &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
               &               domega_ic_dt%impl(1), tscheme, .true., .false.)
-
-         if ( l_heat ) call get_entropy_rhs_imp(s_LMloc,ds_LMloc,    &
-                            &                   dsdt%old(:,:,1),     &
-                            &                   dsdt%impl(:,:,1),.true.)
 
          if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc,dxi_LMloc,    &
                                      &                dxidt%old(:,:,1),      &

@@ -108,7 +108,7 @@ contains
       !integer,     intent(in) :: n_time_step
 
       !--- Local counter
-      integer :: l,nR,ierr
+      integer :: l,ierr
 
       !--- Inner core rotation from last time step
       real(cp) :: z10(n_r_max)
@@ -156,19 +156,15 @@ contains
 
          if ( l_single_matrix ) then
             if ( rank == rank_with_l1m0 ) then
-               do nR=1,n_r_max
-                  z10(nR)=real(z_LMloc(lo_map%lm2(1,0),nR))
-               end do
+               z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
             end if
 #ifdef WITH_MPI
             call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
                  &         MPI_COMM_WORLD,ierr)
 #endif
-            !call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-            !     &          dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
-            !     &          dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
-            !     &          dsdt, dsdtLast_LMloc, w1, coex, dt,         &
-            !     &          lRmsNext )
+            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
+                 &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
+                 &          dsdt, tscheme, lRmsNext )
          else
             PERFON('up_WP')
             call updateWP( s_LMloc, dsdt, xi_LMLoc, dxidt, w_LMloc, dw_LMloc, &
@@ -218,16 +214,19 @@ contains
       type(type_tarray),   intent(inout) :: dbdt_ic
       type(type_tarray),   intent(inout) :: djdt_ic
 
-      if ( l_heat ) then
-         call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
-      end if
-
       if ( l_chemical_conv ) then
          call finish_exp_comp(dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
       end if
 
-      if ( l_double_curl ) then
-         call finish_exp_pol(dVxVh_LMloc, dwdt%expl(:,:,tscheme%istage))
+      if ( l_single_matrix ) then
+         call finish_exp_smat(dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
+      else
+         if ( l_heat ) then
+            call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
+         end if
+         if ( l_double_curl ) then
+            call finish_exp_pol(dVxVh_LMloc, dwdt%expl(:,:,tscheme%istage))
+         end if
       end if
 
       if ( l_mag ) then

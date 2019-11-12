@@ -15,7 +15,7 @@ module readCheckPoints
        &                 minc,lMagMem,fd_stretch,fd_ratio
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,        &
-       &            l_double_curl, l_z10Mat
+       &            l_double_curl, l_z10Mat, l_single_matrix
    use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
        &               ulmMag, st_map
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
@@ -41,6 +41,7 @@ module readCheckPoints
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+   use updateWPS_mod, only: get_single_rhs_imp
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
 
@@ -390,12 +391,25 @@ contains
             end if
          end do
 
-         call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
-              &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-              &               .true., .false., .false.)
+         if ( l_single_matrix ) then
+            call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
+                 &                  dp_LMloc, dsdt%old(:,:,1), dwdt%old(:,:,1), &
+                 &                  dpdt%old(:,:,1), dsdt%impl(:,:,1),          &
+                 &                  dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+                 &                  .true., .false.)
+         else
+            call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+                 &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
+                 &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+                 &               .true., .false., .false.)
+            if ( l_heat ) then
+               call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
+                    &                   dsdt%impl(:,:,1), .true.)
+            end if
+         end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+         if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
@@ -403,11 +417,6 @@ contains
               &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
-         if ( l_heat ) then
-            call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
-                 &                   dsdt%impl(:,:,1), .true.)
-            dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
-         end if
          if ( l_chemical_conv ) then
             call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
                  &                dxidt%impl(:,:,1), .true.)

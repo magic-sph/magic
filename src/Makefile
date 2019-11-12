@@ -376,8 +376,7 @@ step_time.o           : truncation.o blocking.o phys_param.o updateB.o updateZ.o
                         logic.o output_data.o output.o movie.o updateS.o\
                         char_manip.o timing.o courant.o signals.o updateXI.o\
                         radialLoop.o nonlinear_bcs.o updateWPS.o\
-                        LMLoop.o dt_fieldsLast.o \
-			c_utils.o useful.o probes.o
+                        LMLoop.o dt_fieldsLast.o c_utils.o useful.o probes.o
 phys_param.o          : precision_mod.o
 char_manip.o          : precision_mod.o
 constants.o           : precision_mod.o
@@ -495,7 +494,7 @@ out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
                         legendre_spec_to_grid.o
 startFields.o         : truncation.o phys_param.o num_param.o constants.o\
                         radial.o init_fields.o blocking.o logic.o output_data.o\
-                        dt_fieldsLast.o special.o readCheckPoints.o\
+                        dt_fieldsLast.o special.o readCheckPoints.o updateWPS.o\
                         fields.o updateS.o updateZ.o updateWP.o updateB.o timing.o\
                         radial_derivatives.o useful.o communications.o updateXI.o
 legendre_grid_to_spec.o : truncation.o horizontal.o blocking.o 

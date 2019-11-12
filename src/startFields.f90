@@ -38,6 +38,7 @@ module start_fields
 #ifdef WITH_MPI
    use readCheckPoints, only: readStartFields_mpi
 #endif
+   use updateWPS_mod, only: get_single_rhs_imp
    use updateWP_mod, only: get_pol_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
@@ -301,32 +302,33 @@ contains
       end if
 
       !----- Assemble initial implicit terms
-      if ( l_heat ) then
-         !-- Get radial derivatives of entropy:
-         if ( l_single_matrix ) then
-            call get_dr( p_LMloc,dp_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-         end if
-         call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt%old(:,:,1), &
-              &                   dsdt%impl(:,:,1), .true.)
-      end if
-
       if ( l_chemical_conv ) then
          call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt%old(:,:,1),  &
               &                dxidt%impl(:,:,1), .true.)
       end if
 
-      if ( l_conv .or. l_mag_kin ) then
+      if ( l_single_matrix ) then
+         call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,          &
+              &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt%old(:,:,1), &
+              &                  dwdt%old(:,:,1), dpdt%old(:,:,1),              &
+              &                  dsdt%impl(:,:,1), dwdt%impl(:,:,1),            &
+              &                  dpdt%impl(:,:,1), tscheme, .true., .false.)
+      else
+         if ( l_heat ) then
+            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt%old(:,:,1), &
+                 &                   dsdt%impl(:,:,1), .true.)
+         end if
          call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w_LMloc,  &
               &               dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc,      &
               &               dwdt%old(:,:,1), dpdt%old(:,:,1),            &
               &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme, &
               &               .true., .false., .false.)
-         call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
-              &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
-              &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
-              &               domega_ic_dt%impl(1), tscheme, .true.,     &
-              &               .false.)
       end if
+      call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
+           &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
+           &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
+           &               domega_ic_dt%impl(1), tscheme, .true.,     &
+           &               .false.)
 
       if ( l_mag .or. l_mag_kin  ) then
          call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,    &
