@@ -33,6 +33,7 @@ module rIterThetaBlocking_OpenMP_mod
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs
+   use time_schemes, only: type_tscheme
    use nl_special_calc
    use probe_mod
 
@@ -119,19 +120,20 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_OpenMP
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,timeStage,&
-              &           dt,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,   &
-              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,     &
-              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
-              &           lorentz_torque_ic, lorentz_torque_ma,            &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
-              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
-              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
+   subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,timeStage,   &
+              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt, &
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,        &
+              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,             &
+              &           lorentz_torque_ic, lorentz_torque_ma,               &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,          &
+              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
+              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,      &
               &           EparaxiLMr)
 
       class(rIterThetaBlocking_OpenMP_t) :: this
-      integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,timeStage,dt,dtLast
+      integer,             intent(in) :: nR,nBc
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time,timeStage,dtLast
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
@@ -194,7 +196,7 @@ contains
       !$OMP SHARED(this,l_mag,l_b_nl_cmb,l_b_nl_icb,l_mag_LF,l_rot_ic,l_cond_ic) &
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
-      !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
+      !$OMP SHARED(or2,orho1,time,tscheme,dtLast,DEBUG_OUTPUT) &
       !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,c) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
@@ -265,7 +267,7 @@ contains
 
             call nl_counter%start_count()
             !PERFON('get_nl')
-            call this%gsa(threadid)%get_nl(timeStage, dt, this%nR, this%nBc,  &
+            call this%gsa(threadid)%get_nl(timeStage, tscheme, this%nR, this%nBc, &
                  &                         nThetaStart, this%lRmsCalc )
             !PERFOFF
             call nl_counter%stop_count(l_increment=.false.)
@@ -488,10 +490,10 @@ contains
          !--------- Torsional oscillation terms:
          PERFON('TO_terms')
          if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-            call getTOnext(this%leg_helper%zAS,this%gsa(threadid)%brc,   &
-                 &         this%gsa(threadid)%btc,this%gsa(threadid)%bpc,&
-                 &         this%lTONext,this%lTONext2,dt,dtLast,this%nR, &
-                 &         nThetaStart,this%sizeThetaB,this%BsLast,      &
+            call getTOnext(this%leg_helper%zAS,this%gsa(threadid)%brc,      &
+                 &         this%gsa(threadid)%btc,this%gsa(threadid)%bpc,   &
+                 &         this%lTONext,this%lTONext2,tscheme%dt(1),dtLast, &
+                 &         this%nR,nThetaStart,this%sizeThetaB,this%BsLast, &
                  &         this%BpLast,this%BzLast)
          end if
 

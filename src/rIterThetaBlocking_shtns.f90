@@ -43,6 +43,7 @@ module rIterThetaBlocking_shtns_mod
    use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
        &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc
+   use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
 
@@ -100,20 +101,21 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,timeStage, &
-              &           dt,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,   &
-              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                  &
-              &           br_vt_lm_cmb,br_vp_lm_cmb,                       &
-              &           br_vt_lm_icb,br_vp_lm_icb,                       &
-              &           lorentz_torque_ic, lorentz_torque_ma,            &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
-              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
-              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
+   subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,timeStage,   &
+              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,&
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                    &
+              &           br_vt_lm_cmb,br_vp_lm_cmb,                         &
+              &           br_vt_lm_icb,br_vp_lm_icb,                         &
+              &           lorentz_torque_ic, lorentz_torque_ma,              &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,         &
+              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,   &
+              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,     &
               &           EparaxiLMr)
 
       class(rIterThetaBlocking_shtns_t) :: this
-      integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,dt,dtLast,timeStage
+      integer,             intent(in) :: nR,nBc
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time,dtLast,timeStage
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:),dVXirLM(:)
@@ -175,7 +177,8 @@ contains
 
          call nl_counter%start_count()
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(timeStage, dt, this%nR, this%nBc, this%lRmsCalc)
+         call this%gsa%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
+              &                     this%lRmsCalc)
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 
@@ -345,9 +348,9 @@ contains
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,     &
-              &         this%gsa%bpc,this%lTONext,this%lTONext2,dt,dtLast, &
-              &         this%nR,1,this%sizeThetaB,this%BsLast,this%BpLast, &
+         call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,           &
+              &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),   &
+              &         dtLast,this%nR,1,this%sizeThetaB,this%BsLast,this%BpLast,&
               &         this%BzLast)
       end if
 

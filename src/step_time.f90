@@ -650,7 +650,7 @@ contains
                call comm_counter%stop_count(l_increment=.false.)
 
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph, l_frame,time,timeStage,tscheme%dt(1),     &
+               call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
                     &           lPowerCalc,lRmsCalc,lPressCalc,                    &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
@@ -979,7 +979,8 @@ contains
             call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
                  &               p_LMloc, dp_LMloc, dwdt%old(:,:,1),               &
                  &               dpdt%old(:,:,1), dwdt%impl(:,:,1),                &
-                 &               dpdt%impl(:,:,1), tscheme, .true., .false., .false.)
+                 &               dpdt%impl(:,:,1), tscheme, .true., .false.,       &
+                 &               .false., work_LMloc)
             if ( l_heat ) call get_entropy_rhs_imp(s_LMloc,ds_LMloc,    &
                                &                   dsdt%old(:,:,1),     &
                                &                   dsdt%impl(:,:,1),.true.)

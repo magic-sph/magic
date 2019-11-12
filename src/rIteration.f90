@@ -1,6 +1,7 @@
 module rIteration_mod
 
    use precision_mod
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -32,22 +33,23 @@ module rIteration_mod
          class(rIteration_t) :: this
       end subroutine empty_if
    !-----------------------------------------------------------------------------
-      subroutine do_iteration_if(this,nR,nBc,time,timeStage,dt,dtLast,   &
-                 &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,    &
-                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,         &
-                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb, &
-                 &               br_vp_lm_icb,lorentz_torque_ic,         &
-                 &               lorentz_torque_ma,HelLMr,Hel2LMr,       &
-                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,&
-                 &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
-                 &               fpoynLMr,fresLMr,EperpLMr,EparLMr,      &
+      subroutine do_iteration_if(this,nR,nBc,time,timeStage,tscheme,dtLast,&
+                 &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,      &
+                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,           &
+                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,   &
+                 &               br_vp_lm_icb,lorentz_torque_ic,           &
+                 &               lorentz_torque_ma,HelLMr,Hel2LMr,         &
+                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,  &
+                 &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,       &
+                 &               fpoynLMr,fresLMr,EperpLMr,EparLMr,        &
                  &               EperpaxiLMr,EparaxiLMr)
          import
          class(rIteration_t) :: this
  
          !-- Input variables
-         integer,  intent(in) :: nR,nBc
-         real(cp), intent(in) :: time,timeStage,dt,dtLast
+         integer,             intent(in) :: nR,nBc
+         class(type_tscheme), intent(in) :: tscheme
+         real(cp),            intent(in) :: time,timeStage,dtLast
      
          !-- Output variables
          complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)

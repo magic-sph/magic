@@ -44,7 +44,7 @@ module updateB_mod
    private
 
    !-- Local work arrays:
-   complex(cp), allocatable :: workB(:,:)
+   complex(cp), allocatable :: workA(:,:), workB(:,:)
    complex(cp), allocatable :: work_ic_LMloc(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
@@ -110,8 +110,9 @@ contains
 
 
       if ( l_RMS ) then
+         allocate( workA(llmMag:ulmMag,n_r_max) )
          allocate( workB(llmMag:ulmMag,n_r_max) )
-         bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_max* &
+         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* &
          &                 SIZEOF_DEF_COMPLEX
       end if
 
@@ -157,7 +158,7 @@ contains
       deallocate(bMat_fac,jMat_fac)
 #endif
       deallocate( dtT, dtP, rhs1, rhs2 )
-      if ( l_RMS ) deallocate( workB )
+      if ( l_RMS ) deallocate( workA, workB )
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
@@ -502,10 +503,9 @@ contains
             if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
                do nR=1,n_r_max
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     !do lm=1,sizeLMB2(nLMB2,nLMB)
                      lm1=lm22lm(lm,nLMB2,nLMB)
-                     work_LMloc(lm1,nR)= b(lm1,nR)
-                     workB(lm1,nR)     =aj(lm1,nR)
+                     workA(lm1,nR)= b(lm1,nR)
+                     workB(lm1,nR)=aj(lm1,nR)
                   end do
                end do
             end if
@@ -514,9 +514,7 @@ contains
             !PERFON('upB_set')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 > 0 ) then
@@ -941,7 +939,7 @@ contains
                &                  dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r) )
                if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
                   dtP(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
-                  &             * (  b(lm,n_r)-work_LMloc(lm,n_r) )
+                  &             * (  b(lm,n_r)-workA(lm,n_r) )
                   dtT(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
                   &             * ( aj(lm,n_r)-workB(lm,n_r) )
                end if

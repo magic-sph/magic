@@ -401,7 +401,7 @@ contains
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
                  &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-                 &               .true., .false., .false.)
+                 &               .true., .false., .false., z) ! z is a work array
             if ( l_heat ) then
                call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
                     &                   dsdt%impl(:,:,1), .true.)
@@ -1378,7 +1378,7 @@ contains
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
                  &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-                 &               .true., .false., .false.)
+                 &               .true., .false., .false., z) ! z is a work array
             if ( l_heat ) then
                call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
                     &                   dsdt%impl(:,:,1), .true.)
@@ -2173,7 +2173,7 @@ contains
          call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
               &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
               &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-              &               .true., .false., .false.)
+              &               .true., .false., .false., z) ! z is a work array
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
 

@@ -394,8 +394,8 @@ contains
             end if
             !PERFOFF
 
-            if ( l_double_curl .and. lPressNext .and.  &
-            &    tscheme%istage == 1) then ! Store old dw
+            if ( l_double_curl .and. lPressNext .and. tscheme%istage == 1) then
+               ! Store old dw
                do nR=1,n_r_max
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                      lm1=lm22lm(lm,nLMB2,nLMB)
@@ -476,7 +476,8 @@ contains
               &               ddw, p, dp, dwdt%old(:,:,1), dpdt%old(:,:,1), &
               &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,  &
               &               tscheme%l_imp_calc_rhs(1), lPressNext,        &
-              &               lRmsNext, l_in_cheb_space=.true.)
+              &               lRmsNext, dpdt%expl(:,:,tscheme%istage),      &
+              &               l_in_cheb_space=.true.)
       else
          call get_pol_rhs_imp(dsdt%old(:,:,tscheme%istage+1),             &
               &               dxidt%old(:,:,tscheme%istage+1),            &
@@ -486,7 +487,9 @@ contains
               &               dwdt%impl(:,:,tscheme%istage+1),            &
               &               dpdt%impl(:,:,tscheme%istage+1), tscheme,   &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
-              &               lPressNext, lRmsNext, l_in_cheb_space=.true.)
+              &               lPressNext, lRmsNext,                       &
+              &               dpdt%expl(:,:,tscheme%istage),              &
+              &               l_in_cheb_space=.true.)
       end if
 
 
@@ -524,7 +527,7 @@ contains
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, w_last, dw_last, &
               &               dw_imp_last, dp_imp_last, tscheme,         &
               &               l_calc_lin_rhs, lPressNext, lRmsNext,      &
-              &               l_in_cheb_space)
+              &               dp_expl, l_in_cheb_space)
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
@@ -534,6 +537,7 @@ contains
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
       logical, optional,   intent(in) :: l_in_cheb_space
+      complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
 
       !-- Output variable
       complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
@@ -671,20 +675,20 @@ contains
                      ! if required.
 
                      !----- O_dt missing
-                     !p(lm,n_r)=-r(n_r)*r(n_r)/dLh(st_map%lm2(l1,m1))*              &
-                     !&                           dpdt%expl(lm,n_r,tscheme%istage)  &
-                     !&            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                     !&                 hdif_V(st_map%lm2(l1,m1))*visc(n_r)*        &
-                     !&                                    ( work_LMloc(lm,n_r)     &
-                     !&                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
-                     !&               - ( dLh(st_map%lm2(l1,m1))*or2(n_r)           &
-                     !&                  + dLvisc(n_r)*beta(n_r)+ dbeta(n_r)        &
-                     !&                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
-                     !&                                              ) * dw(lm,n_r) &
-                     !&               + dLh(st_map%lm2(l1,m1))*or2(n_r)             &
-                     !&                  * ( two*or1(n_r)+two*third*beta(n_r)       &
-                     !&                     +dLvisc(n_r) )   *            w(lm,n_r) &
-                     !&                                         )
+                     p(lm,n_r)=-r(n_r)*r(n_r)/dLh(st_map%lm2(l1,m1))*              &
+                     &                                            dp_expl(lm,n_r)  &
+                     &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     &                 hdif_V(st_map%lm2(l1,m1))*visc(n_r)*        &
+                     &                                    ( work_LMloc(lm,n_r)     &
+                     &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                     &               - ( dLh(st_map%lm2(l1,m1))*or2(n_r)           &
+                     &                  + dLvisc(n_r)*beta(n_r)+ dbeta(n_r)        &
+                     &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                     &                                              ) * dw(lm,n_r) &
+                     &               + dLh(st_map%lm2(l1,m1))*or2(n_r)             &
+                     &                  * ( two*or1(n_r)+two*third*beta(n_r)       &
+                     &                     +dLvisc(n_r) )   *            w(lm,n_r) &
+                     &                                         )
                   end if
 
                   if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then

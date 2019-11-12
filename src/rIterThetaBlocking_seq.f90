@@ -29,6 +29,7 @@ module rIterThetaBlocking_seq_mod
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs
    use constants, only: zero
+   use time_schemes, only: type_tscheme
    use nl_special_calc
    use probe_mod
 
@@ -83,21 +84,22 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,timeStage,&
-              &           dt,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,&
-              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,  &
-              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
-              &           lorentz_torque_ic, lorentz_torque_ma,         &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
-              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
-              &           fviscLMr,fpoynLMr,fresLMr,EperpLMr,EparLMr,   &
-              &           EperpaxiLMr,EparaxiLmr)
+   subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,timeStage, &
+              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt, &
+              &           djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,           &
+              &           br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,        &
+              &           br_vp_lm_icb,lorentz_torque_ic,                &
+              &           lorentz_torque_ma,HelLMr,Hel2LMr,HelnaLMr,     &
+              &           Helna2LMr,viscLMr,uhLMr,duhLMr,gradsLMr,       &
+              &           fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,    &
+              &           EperpLMr,EparLMr,EperpaxiLMr,EparaxiLmr)
 
       class(rIterThetaBlocking_seq_t) :: this
 
       !-- Input variables
-      integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,timeStage,dt,dtLast
+      integer,             intent(in) :: nR,nBc
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time,timeStage,dtLast
 
       !-- Output variables
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
@@ -203,7 +205,7 @@ contains
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             call nl_counter%start_count()
             PERFON('get_nl')
-            call this%gsa%get_nl(timeStage, dt, this%nR, this%nBc, nThetaStart, &
+            call this%gsa%get_nl(timeStage, tscheme, this%nR, this%nBc, nThetaStart, &
                  &               this%lRmsCalc)
             PERFOFF
             call nl_counter%stop_count(l_increment=.false.)
@@ -370,9 +372,9 @@ contains
          !--------- Torsional oscillation terms:
          PERFON('TO_terms')
          if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-            call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc, &
-                 &         this%gsa%bpc,this%lTONext,this%lTONext2,dt,    &
-                 &         dtLast,this%nR,nThetaStart,this%sizeThetaB,    &
+            call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,        &
+                 &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),&
+                 &         dtLast,this%nR,nThetaStart,this%sizeThetaB,           &
                  &         this%BsLast,this%BpLast,this%BzLast)
          end if
 

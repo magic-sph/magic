@@ -13,6 +13,7 @@ module radialLoop
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
        &                 n_r_icb
+   use time_schemes, only: type_tscheme
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif
@@ -82,7 +83,7 @@ contains
 
    end subroutine finalize_radialLoop
 !----------------------------------------------------------------------------
-   subroutine radialLoopG(l_graph,l_frame,time,timeStage,dt,dtLast,      &
+   subroutine radialLoopG(l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
               &          lRmsCalc,lPressCalc,lViscBcCalc,lFluxProfCalc,  &
               &          lPerpParCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,   &
@@ -99,14 +100,15 @@ contains
       !
 
       !--- Input of variables:
-      logical,      intent(in) :: l_graph,l_frame
-      logical,      intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
-      logical,      intent(in) :: lPowerCalc
-      logical,      intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,      intent(in) :: lRmsCalc
-      logical,      intent(in) :: l_probe_out
-      logical,      intent(in) :: lPressCalc
-      real(cp),     intent(in) :: time,timeStage,dt,dtLast
+      logical,             intent(in) :: l_graph,l_frame
+      logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
+      logical,             intent(in) :: lPowerCalc
+      logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
+      logical,             intent(in) :: lRmsCalc
+      logical,             intent(in) :: l_probe_out
+      logical,             intent(in) :: lPressCalc
+      real(cp),            intent(in) :: time,timeStage,dtLast
+      class(type_tscheme), intent(in) :: tscheme
 
       !---- Output of explicit time step:
       !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
@@ -242,15 +244,15 @@ contains
               & lMagNlBc,l_graph,lViscBcCalc,lFluxProfCalc,lPerpParCalc,  &
               & lPressCalc, l_probe_out)
 
-         call this_rIteration%do_iteration(nR,nBc,time,timeStage,dt,dtLast,    &
-              & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),       &
-              & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxVhLM(:,nR),dVxBhLM(:,nR_Mag), &
-              & dVSrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,                       &
-              & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,      &
-              & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),   &
-              & Helna2LMr(:,nR),viscLMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),        &
-              & gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),    &
-              & fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),EperpLMr(:,nR),           &
+         call this_rIteration%do_iteration(nR,nBc,time,timeStage,tscheme,dtLast,&
+              & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),        &
+              & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxVhLM(:,nR),dVxBhLM(:,nR_Mag),  &
+              & dVSrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,                        &
+              & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,       &
+              & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),    &
+              & Helna2LMr(:,nR),viscLMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),         &
+              & gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),     &
+              & fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),EperpLMr(:,nR),            &
               & EparLMr(:,nR),EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
 
          dtrkc(nR)=this_rIteration%dtrkc

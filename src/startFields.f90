@@ -322,7 +322,7 @@ contains
               &               dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc,      &
               &               dwdt%old(:,:,1), dpdt%old(:,:,1),            &
               &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme, &
-              &               .true., .false., .false.)
+              &               .true., .false., .false., work_LMloc)
       end if
       call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
            &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
