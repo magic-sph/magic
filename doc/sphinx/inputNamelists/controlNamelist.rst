@@ -107,6 +107,10 @@ GJI, 1999) is included.
   +-----------------------+-------------------------------------------------------+
   | time_scheme='CNAB2'   | Crank-Nicolson and 2nd order Adams-Bashforth scheme   |
   +-----------------------+-------------------------------------------------------+
+  | time_scheme='CNLF'    | Crank-Nicolson and Leap-Frog scheme                   |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='MODCNAB' | Modified CN/AB2                                       |
+  +-----------------------+-------------------------------------------------------+
   | time_scheme='SBDF2'   | Semi-implicit backward difference scheme of 2nd order |
   +-----------------------+-------------------------------------------------------+
   | time_scheme='SBDF3'   | Semi-implicit backward difference scheme of 3rd order |

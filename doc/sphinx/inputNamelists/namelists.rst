@@ -62,15 +62,15 @@ to initiate and quickly run one of the anelastic benchmarks by (`Jones et al., 2
      /
      &control
       mode        =1,            ! This is a non-magnetic case
-      tag         ="test",
+      tag         ="test",       ! Trailing name of the outputs produced by the code
       n_time_steps=50000,        ! Number of time steps
-      courfac     =2.5D0,
-      alffac      =1.0D0,
+      courfac     =2.5D0,        ! Courant factor (flow)
+      alffac      =1.0D0,        ! Courant factor (magnetic field)
       dtmax       =1.0D-4,       ! Maximum allowed time-step
-      n_cour_step =5,
       alpha       =0.6D0,
       runHours    =23,           ! Run time (hours)
       runMinutes  =30,           ! Run time (minutes)
+      time_scheme ='CNAB2',      ! Name of the time stepper
      /
      &phys_param
       ra          =1.48638035D5, ! Rayleigh number
@@ -101,11 +101,11 @@ to initiate and quickly run one of the anelastic benchmarks by (`Jones et al., 2
       runid       ="C.Jones bench", 
      /
      &mantle
-      nRotMa      =0
+      nRotMa      =0             ! Non-rotating mantle
      /
      &inner_core
       sigma_ratio =0.d0,         ! Non-conducting inner core
-      nRotIC      =0,
+      nRotIC      =0,            ! Non-rotating inner core
      /
 
 This example might then be easily adapted to your desired configuration.
