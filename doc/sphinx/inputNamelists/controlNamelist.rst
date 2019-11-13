@@ -92,17 +92,39 @@ The parameter **l_cour_alf_damp** allows to choose wheter the actual Alven speed
 is used to estimate the Courant condition or if damping (see Christensen et al.,
 GJI, 1999) is included.
 
-* **dtstart** (default :f:var:`dtstart=0.0 <dtstart>`) is a real, which is used as the initial time step if the starting solution is initialized (see below) and :math:`\hbox{dtstart}>0`.
+* **dtMax** (default :f:var:`dtMax=1e-4 <dtmax>`) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtMax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
 
-* **dtMax** (default :f:var:`dtMax=1e-4 <dtmax>`) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtmax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
+* **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in Courant criteria.
 
-* **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in courant criteria.
+* **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in Courant criteria.
 
-* **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in courant criteria.
+* **intfac** (default :f:var:`intfac=0.15 <intfac>`) is a  real, used to scale Coriolis factor in Courant criteria.
 
 * **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves is taken into account when estimating the Courant condition (see Christensen et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead to spurious oscillations/instabilities of the code.
 
-* **n_cour_step** (default :f:var:`n_cour_step=10 <n_cour_step>`) is an integer. This is the number of time steps before consecutive checking of courant criteria. Note: the courant criteria is checked always after the time step has been changed if ``n_cour_step>0``.
+* **time_scheme** (default :f:var:`time_scheme='CNAB2' <time_scheme>`) is a character string. This is used to choose the time step integrator used in the code among the following implicit-explicit time schemes:
+
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='CNAB2'   | Crank-Nicolson and 2nd order Adams-Bashforth scheme   |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='SBDF2'   | Semi-implicit backward difference scheme of 2nd order |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='SBDF3'   | Semi-implicit backward difference scheme of 3rd order |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='SBDF4'   | Semi-implicit backward difference scheme of 4th order |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='ARS222'  | Semi-implicit S-DIRK of 2nd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='CK232'   | Semi-implicit S-DIRK of 2nd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='LZ232'   | Semi-implicit S-DIRK of 2nd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='ARS443'  | Semi-implicit S-DIRK of 3rd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='BPR353'  | Semi-implicit S-DIRK of 3rd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='LZ453'   | Semi-implicit S-DIRK of 3rd order                     |
+  +-----------------------+-------------------------------------------------------+
 
 
 Run time
