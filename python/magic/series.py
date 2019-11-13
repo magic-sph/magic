@@ -200,6 +200,9 @@ class MagicTs(MagicSetup):
             self.emagic_tor = data[:, 2]
             self.emagic_pol_axi = data[:, 3]
             self.emagic_tor_axi = data[:, 4]
+        elif self.field == 'timestep':
+            self.time = data[:, 0]
+            self.dt = data[:, 1]
         elif self.field == 'dipole':
             self.time = data[:, 0]
             self.theta_dip = data[:, 1]
@@ -477,6 +480,13 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
+        elif self.field == 'timestep':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.step(self.time, self.dt)
+            ax.set_yscale('log')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Time step size')
         elif self.field == 'dipole':
             if self.ktopb != 2:
                 fig = plt.figure()
