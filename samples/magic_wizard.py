@@ -15,6 +15,7 @@ import dynamo_benchmark.unitTest
 import full_sphere.unitTest
 import varProps.unitTest
 import finite_differences.unitTest
+import time_schemes.unitTest
 import doubleDiffusion.unitTest
 import testRestart.unitTest
 import testMapping.unitTest
@@ -229,7 +230,11 @@ def getSuite(startdir, cmd, precision, args):
                                                   '%s/varProps' % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
-
+        # Time schemes
+        suite.addTest(time_schemes.unitTest.TimeSchemes('outputFileDiff',
+                                                  '%s/time_schemes' % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
         # Finite differences
         suite.addTest(finite_differences.unitTest.FiniteDifferences('outputFileDiff',
                                                   '%s/finite_differences' % startdir, 

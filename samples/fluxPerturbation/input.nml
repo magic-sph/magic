@@ -10,12 +10,11 @@ n_cheb_ic_max=11,
 &control
  mode        =1,
  tag         ="test",
- n_time_steps=150,
+ n_time_steps=400,
  dtmax       =1.0E-3,
- n_cour_step =4,
  runHours    =0,
  runMinutes  =50,
- time_scheme ='PC2',
+ time_scheme ='TVB33',
 /
 &phys_param
  ra          =1.D6,
