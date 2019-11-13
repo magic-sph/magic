@@ -229,6 +229,11 @@ contains
       if ( l_chemical_conv ) call reduce_radial(buoy_chem_r, buoy_chem_r_global, 0)
       if ( l_conv ) call gather_from_Rloc(viscHeatR, viscHeatR_global, 0)
 
+      curlB2   =0.0_cp
+      viscHeat =0.0_cp
+      buoy     =0.0_cp
+      buoy_chem=0.0_cp
+
       if ( rank == 0 ) then
          n_calls = n_calls+1
          !-- Transform to cheb space:
@@ -237,27 +242,19 @@ contains
             !curlU2=rInt_R(curlU2_r_global,r,rscheme_oc)
             call visc_ave%compute(viscHeatR_global, n_calls, timePassed, timeNorm)
             viscHeat=rInt_R(viscHeatR_global,r,rscheme_oc)
-         else
-            viscHeat=0.0_cp
          end if
          if ( l_mag )  then
             call ohm_ave%compute(curlB2_r_global, n_calls, timePassed, timeNorm)
             curlB2=rInt_R(curlB2_r_global,r,rscheme_oc)
-         else
-            curlB2=0.0_cp
          end if
          if ( l_heat ) then
             call buo_ave%compute(buoy_r_global, n_calls, timePassed, timeNorm)
             buoy=rInt_R(buoy_r_global,r,rscheme_oc)
-         else
-            buoy=0.0_cp
          end if
          if ( l_chemical_conv ) then
             call buo_chem_ave%compute(buoy_chem_r_global, n_calls, timePassed, &
                  &                    timeNorm)
             buoy_chem=rInt_R(buoy_chem_r_global,r,rscheme_oc)
-         else
-            buoy_chem=0.0_cp
          end if
       end if
 

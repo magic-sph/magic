@@ -173,7 +173,6 @@ contains
          ChemFac=0.0_cp
       end if
     
-      dtStart=dtStart/tScale
       dtMax  =dtMax/tScale
       if ( .not. l_non_rot ) dtMax=min(dtMax,tscheme%intfac*ekScaled)
       dtMin  =dtMax/1.0e6_cp

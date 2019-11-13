@@ -15,7 +15,6 @@ module num_param
    !-- Time step control:
    integer, public :: n_time_steps     ! Total number of time steps requested in the name list
    real(cp), public :: alpha           ! Weight for implicit time step
-   real(cp), public :: dtstart         ! Initial time step if start solution is initialized
    real(cp), public :: dtMin           ! Minimum allowed time step
    real(cp), public :: dtMax           ! Maximum allowed time step
    real(cp), public :: timeStart       ! Numerical time where run should start
@@ -25,7 +24,6 @@ module num_param
    real(cp), public :: AMstart
 
    !-- Courant criteria:
-   integer, public :: n_cour_step      ! Step for controlling  Courant criteria
    real(cp), public :: courfac         ! Value to scale velocity in courant criteria
    real(cp), public :: alffac          ! Value to scale Alfen-velocity in courant criteria
    real(cp), public :: intfac          ! Value to re-scale dtMax during simulation

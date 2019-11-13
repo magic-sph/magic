@@ -47,7 +47,7 @@ contains
       logical :: log_does_exist, nml_exist
       integer :: length
       integer :: argument_count
-      integer :: res
+      integer :: res,n_cour_step
       integer :: inputHandle
       character(len=100) :: input_filename
 
@@ -58,10 +58,10 @@ contains
       &     l_var_l
 
       namelist/control/                                     &
-      &    mode,tag,n_time_steps,                           &
+      &    mode,tag,n_time_steps,n_cour_step,               &
       &    n_tScale,n_lScale,alpha,enscale,                 &
       &    l_update_v,l_update_b,l_update_s,l_update_xi,    &
-      &    dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
+      &    dtMax,courfac,alffac,intfac,                     &
       &    difnu,difeta,difkap,difchem,ldif,ldifexp,        &
       &    l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
@@ -670,9 +670,6 @@ contains
       if ( ( l_rot_ma .and. ktopv == 2 ) .or. &
       &    ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true.
 
-      !-- Check Courant criteria at even time steps:
-      if ( mod(n_cour_step,2) /= 0 ) n_cour_step=n_cour_step+1
-
       !-- Check whether memory has been reserved:
       if ( l_TO ) lStressMem=1
       if ( l_RMS .or. l_DTrMagSpec ) ldtBMem=1
@@ -810,10 +807,8 @@ contains
       write(n_out,*) " map_function    = """,map_function(1:length),""","
       write(n_out,'(''  alph1           ='',ES14.6,'','')') alph1
       write(n_out,'(''  alph2           ='',ES14.6,'','')') alph2
-      write(n_out,'(''  dtstart         ='',ES14.6,'','')') dtstart*tScale
       write(n_out,'(''  dtMax           ='',ES14.6,'','')') tScale*dtMax
       write(n_out,'(''  l_cour_alf_damp ='',l3,'','')') l_cour_alf_damp
-      write(n_out,'(''  n_cour_step     ='',i5,'','')') n_cour_step
       write(n_out,'(''  difnu           ='',ES14.6,'','')') difnu
       write(n_out,'(''  difeta          ='',ES14.6,'','')') difeta
       write(n_out,'(''  difkap          ='',ES14.6,'','')') difkap
@@ -1189,13 +1184,11 @@ contains
       n_lScale      =0
       alpha         =half
       enscale       =one
-      dtstart       =0.0_cp
       dtMax         =1.0e-4_cp
       courfac       =1.0e3_cp
       l_cour_alf_damp=.true. ! By default, use Christensen's (GJI, 1999) CFL
       alffac        =1.0e3_cp
       intfac        =1.0e3_cp
-      n_cour_step   =10
       anelastic_flavour="None" ! Useless in Boussinesq
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
