@@ -312,7 +312,7 @@ contains
       !$OMP END SINGLE
       !PERFOFF
       !$omp single
-      call solve_counter%stop_count(l_increment=.false.)
+      call solve_counter%stop_count()
       !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
@@ -449,7 +449,7 @@ contains
                             &                 stop_lm-llm+1)
       !$omp barrier
       !$omp single
-      call dct_counter%stop_count(l_increment=.false.)
+      call dct_counter%stop_count()
       !$omp end single
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)

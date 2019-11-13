@@ -284,7 +284,7 @@ contains
       logical :: lTOframeNext,lTOframeNext2
       logical :: lTOZhelp,lTOZwrite
       logical :: l_logNext, l_pot
-      logical :: lRmsCalc,lRmsNext
+      logical :: lRmsCalc,lRmsNext, l_pure, l_mat_time
       logical :: lPressCalc,lPressNext
       logical :: lMat, lMatNext   ! update matricies
       logical :: l_probe_out      ! Sensor output
@@ -428,6 +428,8 @@ contains
          call mat_counter%start_count()
          call tot_counter%start_count()
          call pure_counter%start_count()
+         l_pure=.false.
+         l_mat_time=.false.
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
@@ -733,6 +735,7 @@ contains
                !---------------
                ! Finish assembing the explicit terms
                !---------------
+               call lmLoop_counter%start_count()
                call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,       &
                     &                        aj_ic_LMloc,                       &
                     &                        dVSrLM_LMLoc(:,:,tscheme%istage),  &
@@ -741,6 +744,7 @@ contains
                     &                        dVxBhLM_LMloc(:,:,tscheme%istage), &
                     &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,  &
                     &                        djdt_ic, tscheme)
+               call lmLoop_counter%stop_count(l_increment=.false.)
 
             end if
 
@@ -831,13 +835,17 @@ contains
 
             !-- Timer counters
             call lmLoop_counter%stop_count()
-            if ( lMat ) call mat_counter%stop_count()
-            if ( .not. lMat .and. .not. l_log ) call pure_counter%stop_count()
+            if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
+            if (  tscheme%istage == 1 .and. .not. lMat .and. &
+            &     .not. l_log ) l_pure=.true.
 
             ! Increment current stage
             tscheme%istage = tscheme%istage+1
          end do
 
+         !-- Update counters
+         if ( l_mat_time ) call mat_counter%stop_count()
+         if ( l_pure ) call pure_counter%stop_count()
          call tot_counter%stop_count()
 
          !-----------------------
