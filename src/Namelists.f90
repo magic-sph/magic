@@ -3,6 +3,7 @@ module Namelists
    ! Read and print the input namelist
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use constants
    use truncation
@@ -165,73 +166,73 @@ contains
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading grid parameters!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading grid parameters!'
          read(inputHandle,nml=grid,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No grid namelist found!'
+            write(output_unit,*) '! No grid namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading control parameters!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading control parameters!'
          read(inputHandle,nml=control,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No control namelist found!'
+            write(output_unit,*) '! No control namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading physical parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading physical parameters!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading physical parameters!'
          read(inputHandle,nml=phys_param,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No phys_param namelist found!'
+            write(output_unit,*) '! No phys_param namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading start field info from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading start information!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading start information!'
          read(inputHandle,nml=start_field,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No start_field namelist found!'
+            write(output_unit,*) '! No start_field namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading output parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading output information!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading output information!'
          read(inputHandle,nml=output_control,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No output_control namelist found!'
+            write(output_unit,*) '! No output_control namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading inner-core parameter from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading inner core information!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading inner core information!'
          read(inputHandle,nml=inner_core,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No inner_core namelist found!'
+            write(output_unit,*) '! No inner_core namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading mantle parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading mantle information!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading mantle information!'
          read(inputHandle,nml=mantle,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No mantle namelist found!'
+            write(output_unit,*) '! No mantle namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading external field parameters for feedback:
-         if ( rank == 0 ) write(*,*) '!  Reading B external parameters!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading B external parameters!'
          read(inputHandle,nml=B_external,iostat=res)
          if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No B_external namelist found!'
+            write(output_unit,*) '! No B_external namelist found!'
          end if
          close(inputHandle)
 
@@ -248,9 +249,9 @@ contains
 #endif
       if (log_does_exist) then
          if ( rank == 0 ) then
-            write(*,*)
-            write(*,*) '! The log-file exists already !'
-            write(*,*) '! I add _BIS to the tag and create new files!'
+            write(output_unit,*)
+            write(output_unit,*) '! The log-file exists already !'
+            write(output_unit,*) '! I add _BIS to the tag and create new files!'
          end if
          length=length_to_blank(tag)
          tag=tag(1:length)//'_BIS'
@@ -277,7 +278,7 @@ contains
          l_double_curl=.true.
          l_PressGraph =.false.
          l_newmap     =.false.
-         if ( rank == 0 ) write(*,*) '! Finite differences are used: I use the double-curl form !'
+         if ( rank == 0 ) write(output_unit,*) '! Finite differences are used: I use the double-curl form !'
       end if
 
       n_stores=max(n_stores,n_rsts)
@@ -634,12 +635,16 @@ contains
       end if
 
       if ( l_rot_ma ) then
-         write(*,*)
-         write(*,*) '! I ALLOW FOR ROTATING MANTLE.'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! I ALLOW FOR ROTATING MANTLE.'
+         end if
          if ( ktopv == 1 .and. .not. l_cond_ma ) then
-            write(*,*)
-            write(*,*) '! No torques on mantle!'
-            write(*,*) '! I dont update mantle rotation omega_ma.'
+            if ( rank == 0 ) then
+               write(output_unit,*)
+               write(output_unit,*) '! No torques on mantle!'
+               write(output_unit,*) '! I dont update mantle rotation omega_ma.'
+            end if
             l_rot_ma=.false.
          end if
       end if
@@ -653,15 +658,19 @@ contains
 
       l_b_nl_icb=.false.
       if ( l_mag_nl .and. kbotv == 1 .and. l_cond_ic ) then
-         write(*,*)
-         write(*,*) '! Nonlinear magnetic BC required at ICB!'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! Nonlinear magnetic BC required at ICB!'
+         end if
          l_b_nl_icb=.true.
       end if
 
       l_b_nl_cmb=.false.
       if ( l_mag_nl .and. ktopv == 1 .and. l_cond_ma ) then
-         write(*,*)
-         write(*,*) '! Nonlinear magnetic BC required at CMB!'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! Nonlinear magnetic BC required at CMB!'
+         end if
          l_b_nl_cmb=.true.
       end if
 
@@ -713,8 +722,10 @@ contains
       lGrenoble=.false.
       if ( BIC /= 0.0_cp .and. l_mag ) then
          lGrenoble=.true.
-         write(*,*)
-         write(*,*) '! Running the Grenoble case !'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! Running the Grenoble case !'
+         end if
       end if
 
       ! Setting up truncation is required to set up ldif and l_max_r

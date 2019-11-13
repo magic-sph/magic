@@ -29,6 +29,7 @@ module step_time_mod
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix
+   use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use blocking, only: llm, ulm, llmMag, ulmMag
@@ -997,7 +998,8 @@ contains
          call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
               &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
               &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
-              &               domega_ic_dt%impl(1), tscheme, .true., .false.)
+              &               domega_ic_dt%impl(1), omega_ic, omega_ma,  &
+              &               omega_ic1, omega_ma1, tscheme, .true., .false.)
 
          if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc,dxi_LMloc,    &
                                      &                dxidt%old(:,:,1),      &

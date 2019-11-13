@@ -414,6 +414,7 @@ contains
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
               &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
@@ -1394,6 +1395,7 @@ contains
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
               &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
@@ -2180,6 +2182,7 @@ contains
          call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
               &               tscheme, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 

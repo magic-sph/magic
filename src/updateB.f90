@@ -630,31 +630,6 @@ contains
       end if
 
 
-      if ( l_LCR ) then
-         !$omp parallel do private(nR,lm1,l1,m1)
-         do nR=n_r_cmb,n_r_icb-1
-            if ( nR<=n_r_LCR ) then
-               do lm1=lmStart_00,ulmMag
-                  l1=lm2l(lm1)
-                  m1=lm2m(lm1)
-
-                  b(lm1,nR)=(r(n_r_LCR)/r(nR))**D_l(st_map%lm2(l1,m1))*b(lm1,n_r_LCR)
-                  db(lm1,nR)=-real(D_l(st_map%lm2(l1,m1)),kind=cp)*     &
-                  &          (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/      &
-                  &          (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
-                  ddb(lm1,nR)=real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
-                  &           (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
-                  &           *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
-                  &           (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
-                  aj(lm1,nR)=zero
-                  dj(lm1,nR)=zero
-                  ddj(lm1,nR)=zero
-               end do
-            end if
-         end do
-         !$omp end parallel do
-      end if
-
    end subroutine updateB
 !-----------------------------------------------------------------------------	
    subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
@@ -904,6 +879,31 @@ contains
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
+
+      if ( l_LCR ) then
+         !$omp do private(n_r,lm,l1,m1)
+         do n_r=n_r_cmb,n_r_icb-1
+            if ( n_r<=n_r_LCR ) then
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  m1=lm2m(lm)
+
+                  b(lm,n_r)=(r(n_r_LCR)/r(n_r))**D_l(st_map%lm2(l1,m1))*b(lm,n_r_LCR)
+                  db(lm,n_r)=-real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
+                  &          (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/          &
+                  &          (r(n_r))**(D_l(st_map%lm2(l1,m1))+1)*b(lm,n_r_LCR)
+                  ddb(lm,n_r)=real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
+                  &           (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
+                  &           *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/      &
+                  &           (r(n_r))**(D_l(st_map%lm2(l1,m1))+2)*b(lm,n_r_LCR)
+                  aj(lm,n_r) =zero
+                  dj(lm,n_r) =zero
+                  ddj(lm,n_r)=zero
+               end do
+            end if
+         end do
+         !$omp end do
+      end if
 
       !$omp do private(n_r,lm,l1,m1) collapse(2)
       do n_r=1,n_r_max

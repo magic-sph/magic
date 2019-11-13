@@ -22,9 +22,10 @@ module start_fields
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out
-   use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond, &
-       &                  initV, initS, initB, initXi, ps_cond,          &
-       &                  start_file, init_xi1, topxi, xi_cond
+   use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
+       &                  initV, initS, initB, initXi, ps_cond,           &
+       &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
+       &                  omega_ma1
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
@@ -327,7 +328,8 @@ contains
       call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
            &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
            &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
-           &               domega_ic_dt%impl(1), tscheme, .true.,     &
+           &               domega_ic_dt%impl(1), omega_ic, omega_ma,  &
+           &               omega_ic1, omega_ma1, tscheme, .true.,     &
            &               .false.)
 
       if ( l_mag .or. l_mag_kin  ) then

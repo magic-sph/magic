@@ -176,15 +176,6 @@ contains
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
       complex(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
-      complex(cp) :: z10(n_r_max),z11(n_r_max) ! toroidal flow scalar components
-      real(cp) :: angular_moment(3)   ! total angular momentum
-      real(cp) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
-      real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
-      real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
-      complex(cp) :: corr_l1m0      ! correction factor for z(l=1,m=0)
-      complex(cp) :: corr_l1m1      ! correction factor for z(l=1,m=1)
-      real(cp) :: r_E_2             ! =r**2
-      real(cp) :: nomi              ! nominator for Z10 AM correction
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
       integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
@@ -457,6 +448,7 @@ contains
          call get_tor_rhs_imp(z, dz, dzdt%old(:,:,1), dzdt%impl(:,:,1),     &
               &               domega_ma_dt%old(1), domega_ic_dt%old(1),     &
               &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),   &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,     &
               &               tscheme, tscheme%l_imp_calc_rhs(1), lRmsNext, &
               &               l_in_cheb_space=.true.)
       else
@@ -466,6 +458,7 @@ contains
               &               domega_ic_dt%old(tscheme%istage+1),       &
               &               domega_ma_dt%impl(tscheme%istage+1),      &
               &               domega_ic_dt%impl(tscheme%istage+1),      &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, &
               &               tscheme,                                  &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1), &
               &               lRmsNext,l_in_cheb_space=.true.)
@@ -513,102 +506,13 @@ contains
          end if
       end if  ! l=1,m=0 contained in block ?
       !PERFOFF
-      !PERFON('upZ_ang')
-      !--- We correct so that the angular moment about axis in the equatorial plane
-      !    vanish and the angular moment about the (planetary) rotation axis
-      !    is kept constant.
-      l1m1=lm2(1,1)
-      if ( l_correct_AMz .and.  l1m0 > 0 .and. &
-         & lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
-
-         do nR=1,n_r_max
-            z10(nR)=z(l1m0,nR)
-         end do
-         call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
-              &                  angular_moment_oc,angular_moment_ic,&
-              &                  angular_moment_ma)
-         do i=1,3
-            angular_moment(i)=angular_moment_oc(i) + angular_moment_ic(i) + &
-            &                 angular_moment_ma(i)
-         end do
-         if ( ( ktopv == 2 .and. l_rot_ma ) .and. &
-              ( kbotv == 2 .and. l_rot_ic ) ) then
-            nomi=c_moi_ma*c_z10_omega_ma*r_cmb*r_cmb + &
-            &    c_moi_ic*c_z10_omega_ic*r_icb*r_icb + &
-            &    c_moi_oc*y10_norm
-         else if ( ktopv == 2 .and. l_rot_ma ) then
-            nomi=c_moi_ma*c_z10_omega_ma*r_cmb*r_cmb+c_moi_oc*y10_norm
-         else if ( kbotv == 2 .and. l_rot_ic ) then
-            nomi=c_moi_ic*c_z10_omega_ic*r_icb*r_icb+c_moi_oc*y10_norm
-         else
-            nomi=c_moi_oc*y10_norm
-         end if
-         corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
-
-         !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
-         !         derivatives:
-         !$omp parallel do default(shared) private(r_E_2,nR)
-         do nR=1,n_r_max
-            r_E_2=r(nR)*r(nR)
-            z(l1m0,nR)  =z(l1m0,nR)  - rho0(nR)*r_E_2*corr_l1m0
-            dz(l1m0,nR) =dz(l1m0,nR) - rho0(nR)*( &
-            &            two*r(nR)+r_E_2*beta(nR))*corr_l1m0
-            work_LMloc(l1m0,nR)=work_LMloc(l1m0,nR)-rho0(nR)*( &
-            &              two+four*beta(nR)*r(nR) +           &
-            &              dbeta(nR)*r_E_2 +                   &
-            &              beta(nR)*beta(nR)*r_E_2 )*corr_l1m0
-         end do
-         !$omp end parallel do
-         if ( ktopv == 2 .and. l_rot_ma ) &
-         &    omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
-         if ( kbotv == 2 .and. l_rot_ic ) &
-         &    omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
-         omega_ic1=omega_ic
-         omega_ma1=omega_ma
-
-      end if ! l=1,m=0 contained in lm-block ?
-
-      if ( l_correct_AMe .and.  l1m1 > 0 .and. &
-           lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
-
-         do nR=1,n_r_max
-            z11(nR)=z(l1m1,nR)
-         end do
-         call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
-              &                  angular_moment_oc,angular_moment_ic,&
-              &                  angular_moment_ma)
-         do i=1,3
-            angular_moment(i)=angular_moment_oc(i) + angular_moment_ic(i) + &
-            &                 angular_moment_ma(i)
-         end do
-         corr_l1m1=cmplx(angular_moment(1),-angular_moment(2),kind=cp) / &
-         &         (two*y11_norm*c_moi_oc)
-
-         !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
-         !         derivatives:
-         !$omp parallel do default(shared) private(nR,r_E_2)
-         do nR=1,n_r_max
-            r_E_2=r(nR)*r(nR)
-            z(l1m1,nR)  =z(l1m1,nR)  -  rho0(nR)*r_E_2*corr_l1m1
-            dz(l1m1,nR) =dz(l1m1,nR) -  rho0(nR)*( &
-            &            two*r(nR)+r_E_2*beta(nR))*corr_l1m1
-            work_LMloc(l1m1,nR)=work_LMloc(l1m1,nR)-rho0(nR)*(    &
-            &             two+four*beta(nR)*r(nR) +               &
-            &                        dbeta(nR)*r_E_2 +            &
-            &                beta(nR)*beta(nR)*r_E_2 )*corr_l1m1
-         end do
-         !$omp end parallel do
-      end if ! l=1,m=1 contained in lm-block ?
-
-      !-- Calculate explicit time step part:
-      !$omp parallel default(shared) private(nR,lm1,Dif)
 
       !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
       !    Parallization note: Very likely, all axisymmetric modes m=0 are
       !    located on the first processor #0.
       if ( l_TO ) then
-         !$omp do private(nR,lm1,l1,m1)
+         !$omp parallel do default(shared) private(nR,lm1,l1,m1)
          do nR=1,n_r_max
             ddzASL_loc(:,nR)=0.0_cp
             do lm1=lmStart_00,ulm
@@ -617,9 +521,8 @@ contains
                if ( m1 == 0 ) ddzASL_loc(l1+1,nR)=real(work_LMloc(lm1,nR))
             end do
          end do
-         !$omp end do
+         !$omp end parallel do
       end if
-      !$omp end parallel
 
       if ( l_TO ) then
          do nR=1,n_r_max
@@ -636,6 +539,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_tor_rhs_imp(z, dz, z_last, dz_imp_last, domega_ma_old,     &
               &               domega_ic_old, domega_ma_last, domega_ic_last, &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
               &               tscheme, l_calc_lin_rhs, lRmsNext,             &
               &               l_in_cheb_space)
 
@@ -646,6 +550,10 @@ contains
       logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
+      real(cp),    intent(inout) :: omega_ic
+      real(cp),    intent(inout) :: omega_ma
+      real(cp),    intent(inout) :: omega_ic1
+      real(cp),    intent(inout) :: omega_ma1
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(out) :: z_last(llm:ulm,n_r_max)
@@ -656,9 +564,16 @@ contains
       real(cp),    intent(out) :: domega_ic_last
 
       !-- Local variables
+      real(cp) :: angular_moment(3)   ! total angular momentum
+      real(cp) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
+      real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
+      real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
+      complex(cp) :: z10(n_r_max), z11(n_r_max)
+      complex(cp) :: corr_l1m0, corr_l1m1
+      real(cp) :: r_E_2, nomi
       logical :: l_in_cheb
-      integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top
-      integer :: lmStart_00, l1, m1, l1m0
+      integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
+      integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
 
       if ( present(l_in_cheb_space) ) then
@@ -686,6 +601,80 @@ contains
       !$omp barrier
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
+
+      !--- We correct so that the angular moment about axis in the equatorial plane
+      !    vanish and the angular moment about the (planetary) rotation axis
+      !    is kept constant.
+      l1m0=lm2(1,0)
+      l1m1=lm2(1,1)
+      !$omp single
+      if ( l_correct_AMz .and.  l1m0 > 0 .and. &
+         & lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
+
+         z10(:)=z(l1m0,:)
+         call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
+              &                  angular_moment_oc,angular_moment_ic,&
+              &                  angular_moment_ma)
+         do i=1,3
+            angular_moment(i)=angular_moment_oc(i) + angular_moment_ic(i) + &
+            &                 angular_moment_ma(i)
+         end do
+         if ( ( ktopv == 2 .and. l_rot_ma ) .and. ( kbotv == 2 .and. l_rot_ic ) ) then
+            nomi=c_moi_ma*c_z10_omega_ma*r_cmb*r_cmb + &
+            &    c_moi_ic*c_z10_omega_ic*r_icb*r_icb + &
+            &    c_moi_oc*y10_norm
+         else if ( ktopv == 2 .and. l_rot_ma ) then
+            nomi=c_moi_ma*c_z10_omega_ma*r_cmb*r_cmb+c_moi_oc*y10_norm
+         else if ( kbotv == 2 .and. l_rot_ic ) then
+            nomi=c_moi_ic*c_z10_omega_ic*r_icb*r_icb+c_moi_oc*y10_norm
+         else
+            nomi=c_moi_oc*y10_norm
+         end if
+         corr_l1m0=cmplx(angular_moment(3)-AMstart,-1.0_cp,kind=cp)/nomi
+
+         !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
+         !         derivatives:
+         do n_r=1,n_r_max
+            r_E_2=r(n_r)*r(n_r)
+            z(l1m0,n_r)  =z(l1m0,n_r)  - rho0(n_r)*r_E_2*corr_l1m0
+            dz(l1m0,n_r) =dz(l1m0,n_r) - rho0(n_r)*(          &
+            &            two*r(n_r)+r_E_2*beta(n_r))*corr_l1m0
+            work_LMloc(l1m0,n_r)=work_LMloc(l1m0,n_r)-rho0(n_r)*( &
+            &               two+four*beta(n_r)*r(n_r) +           &
+            &                dbeta(n_r)*r_E_2 +                   &
+            &              beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m0
+         end do
+
+      end if ! l=1,m=0 contained in lm-block ?
+
+      if ( l_correct_AMe .and.  l1m1 > 0 .and. &
+           lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
+
+         z11(:)=z(l1m1,:)
+         call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
+              &                  angular_moment_oc,angular_moment_ic,&
+              &                  angular_moment_ma)
+         do i=1,3
+            angular_moment(i)=angular_moment_oc(i) + angular_moment_ic(i) + &
+            &                 angular_moment_ma(i)
+         end do
+         corr_l1m1=cmplx(angular_moment(1),-angular_moment(2),kind=cp) / &
+         &         (two*y11_norm*c_moi_oc)
+
+         !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
+         !         derivatives:
+         do n_r=1,n_r_max
+            r_E_2=r(n_r)*r(n_r)
+            z(l1m1,n_r)  =z(l1m1,n_r)  -  rho0(n_r)*r_E_2*corr_l1m1
+            dz(l1m1,n_r) =dz(l1m1,n_r) -  rho0(n_r)*(            &
+            &            two*r(n_r)+r_E_2*beta(n_r))*corr_l1m1
+            work_LMloc(l1m1,n_r)=work_LMloc(l1m1,n_r)-rho0(n_r)*(    &
+            &              two+four*beta(n_r)*r(n_r) +               &
+            &                          dbeta(n_r)*r_E_2 +            &
+            &                beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m1
+         end do
+      end if ! l=1,m=1 contained in lm-block ?
       !$omp end single
 
 
@@ -729,9 +718,9 @@ contains
          !$omp end do
 
       end if
+
       !$omp end parallel
 
-      l1m0 = lm2(1,0)
       if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
