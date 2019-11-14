@@ -316,11 +316,10 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_entropy_rhs_imp(s, ds, dsdt, tscheme, 1,   &
-              &                   tscheme%l_imp_calc_rhs(1), &
+         call get_entropy_rhs_imp(s, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1), &
               &                   l_in_cheb_space=.true.)
       else
-         call get_entropy_rhs_imp(s, ds, dsdt, tscheme, tscheme%istage+1,   &
+         call get_entropy_rhs_imp(s, ds, dsdt, tscheme%istage+1,            &
               &                   tscheme%l_imp_calc_rhs(tscheme%istage+1), &
               &                   l_in_cheb_space=.true.)
       end if
@@ -378,11 +377,9 @@ contains
 
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
-   subroutine get_entropy_rhs_imp(s, ds, dsdt, tscheme, istage, l_calc_lin, &
-              &                   l_in_cheb_space)
+   subroutine get_entropy_rhs_imp(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
 
       !-- Input variables
-      class(type_tscheme), intent(in) :: tscheme
       integer,             intent(in) :: istage
       logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
@@ -616,7 +613,11 @@ contains
       end if
 
       if ( l_full_sphere ) then
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         if ( l == 1 ) then
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       else
          if ( kbots == 1 ) then
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)

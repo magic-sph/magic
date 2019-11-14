@@ -304,7 +304,7 @@ contains
 
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then
-         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, tscheme, 1, .true.)
+         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
       end if
 
       if ( l_single_matrix ) then
@@ -313,7 +313,7 @@ contains
               &                  dpdt, tscheme, 1, .true., .false.)
       else
          if ( l_heat ) then
-            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, tscheme, 1, .true.)
+            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
          end if
          call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w_LMloc,  &
               &               dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc,      &
@@ -332,7 +332,7 @@ contains
       if ( l_cond_ic ) then
          call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &
               &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
-              &                  dbdt_ic, djdt_ic, tscheme, 1, .true.)
+              &                  dbdt_ic, djdt_ic, 1, .true.)
       end if
 
       if ( l_LCR ) then

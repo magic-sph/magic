@@ -599,9 +599,8 @@ contains
               &               l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
-            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, &
-                 &                  dbdt_ic, djdt_ic, tscheme, 1,              &
-                 &                  tscheme%l_imp_calc_rhs(1),                 &
+            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
+                 &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
                  &                  l_in_cheb_space=.true.)
          end if
 
@@ -613,7 +612,7 @@ contains
 
          if ( l_cond_ic ) then
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
-                 &                  dbdt_ic, djdt_ic, tscheme, tscheme%istage+1,&
+                 &                  dbdt_ic, djdt_ic, tscheme%istage+1,         &
                  &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
                  &                  l_in_cheb_space=.true.)
          end if
@@ -700,13 +699,12 @@ contains
 
    end subroutine finish_exp_mag
 !-----------------------------------------------------------------------------	
-   subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
-              &                  dbdt_ic, djdt_ic, tscheme, istage, l_calc_lin, &
+   subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+              &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
               &                  l_in_cheb_space)
 
 
       !-- Input variables
-      class(type_tscheme), intent(in) :: tscheme
       integer,             intent(in) :: istage
       logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space

@@ -812,8 +812,7 @@ contains
             call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
                  &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1,        &
                  &               .true., .false., .false., work_LMloc)
-            if ( l_heat ) call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, &
-                               &                   tscheme, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
          end if
 
          call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
@@ -821,7 +820,7 @@ contains
               &               1, .true., .false.)
 
          if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc,dxi_LMloc,    &
-                                     &                dxidt, tscheme, 1, .true.)
+                                     &                dxidt, 1, .true.)
 
          if ( l_mag ) call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc,       &
                            &               aj_LMLoc, dj_LMloc, ddj_LMloc,      &
@@ -831,8 +830,7 @@ contains
          if ( l_cond_ic ) call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
                                &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
                                &                  dj_ic_LMloc, ddj_ic_LMloc,   &
-                               &                  dbdt_ic, djdt_ic, tscheme,   &
-                               &                  1, .true.)  
+                               &                  dbdt_ic, djdt_ic, 1, .true.)
 
          call tscheme%bridge_with_cnab2()
 

@@ -309,11 +309,10 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_comp_rhs_imp(xi, dxi, dxidt, tscheme, 1, &
-              &                tscheme%l_imp_calc_rhs(1),  & 
+         call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1),  & 
               &                l_in_cheb_space=.true.)
       else
-         call get_comp_rhs_imp(xi, dxi, dxidt, tscheme, tscheme%istage+1, &
+         call get_comp_rhs_imp(xi, dxi, dxidt, tscheme%istage+1,          &
               &                tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
               &                l_in_cheb_space=.true.)
       end if
@@ -350,11 +349,9 @@ contains
 
    end subroutine finish_exp_comp
 !------------------------------------------------------------------------------
-   subroutine get_comp_rhs_imp(xi, dxi, dxidt, tscheme, istage, l_calc_lin, &
-              &                l_in_cheb_space)
+   subroutine get_comp_rhs_imp(xi, dxi, dxidt, istage, l_calc_lin, l_in_cheb_space)
 
       !-- Input variables
-      class(type_tscheme), intent(in) :: tscheme
       integer,             intent(in) :: istage
       logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
