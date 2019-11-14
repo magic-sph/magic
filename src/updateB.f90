@@ -594,41 +594,31 @@ contains
 
       !-- Get implicit terms
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt%old(:,:,1),  &
-              &               djdt%old(:,:,1), dbdt%impl(:,:,1),         &
-              &               djdt%impl(:,:,1), tscheme,                 &
-              &               tscheme%l_imp_calc_rhs(1), lRmsNext,       &
+         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
+              &               tscheme%l_imp_calc_rhs(1), lRmsNext,             &
               &               l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
-            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
-                 &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),   &
-                 &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1), &
-                 &                  tscheme%l_imp_calc_rhs(1),                &
+            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, &
+                 &                  dbdt_ic, djdt_ic, tscheme, 1,              &
+                 &                  tscheme%l_imp_calc_rhs(1),                 &
                  &                  l_in_cheb_space=.true.)
          end if
 
       else
-         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,                   &
-              &               dbdt%old(:,:,tscheme%istage+1),            &
-              &               djdt%old(:,:,tscheme%istage+1),            &
-              &               dbdt%impl(:,:,tscheme%istage+1),           &
-              &               djdt%impl(:,:,tscheme%istage+1), tscheme,  &
-              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
-              &               lRmsNext,l_in_cheb_space=.true.)
+         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
+              &               tscheme%istage+1,                             &
+              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),     &
+              &               lRmsNext, l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
-                 &                  dbdt_ic%old(:,:,tscheme%istage+1),          &
-                 &                  djdt_ic%old(:,:,tscheme%istage+1),          &
-                 &                  dbdt_ic%impl(:,:,tscheme%istage+1),         &
-                 &                  djdt_ic%impl(:,:,tscheme%istage+1),         &
+                 &                  dbdt_ic, djdt_ic, tscheme, tscheme%istage+1,&
                  &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
                  &                  l_in_cheb_space=.true.)
          end if
 
       end if
-
 
    end subroutine updateB
 !-----------------------------------------------------------------------------	
@@ -710,29 +700,29 @@ contains
 
    end subroutine finish_exp_mag
 !-----------------------------------------------------------------------------	
-   subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
-              &                  b_ic_last, aj_ic_last, db_ic_imp_last,      &
-              &                  dj_ic_imp_last, l_calc_lin_rhs,             &
+   subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
+              &                  dbdt_ic, djdt_ic, tscheme, istage, l_calc_lin, &
               &                  l_in_cheb_space)
 
 
       !-- Input variables
-      logical,           intent(in) :: l_calc_lin_rhs
-      logical, optional, intent(in) :: l_in_cheb_space
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
-      complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: b_ic_last(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: aj_ic_last(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: db_ic_imp_last(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: dj_ic_imp_last(llmMag:ulmMag,n_r_ic_max)
+      type(type_tarray), intent(inout) :: dbdt_ic
+      type(type_tarray), intent(inout) :: djdt_ic
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
 
       !-- Local variables 
+      complex(cp) :: tmp(llmMag:ulmMag,n_r_ic_max)
       logical :: l_in_cheb
       integer :: l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
@@ -761,41 +751,45 @@ contains
       call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
            &             start_lm-llmMag+1,stop_lm-llmMag+1, &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
-           &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
+           &             work_ic_LMloc,tmp, chebt_ic, chebt_ic_even )
       if ( l_in_cheb ) call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, &
                             &                start_lm-llmMag+1,      &
                             &                stop_lm-llmMag+1, work_LMloc)
       call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
            &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
-           &             b_ic_last,aj_ic_last, chebt_ic, chebt_ic_even )
+           &             work_ic_LMloc,tmp, chebt_ic, chebt_ic_even )
       !$omp barrier
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
 
-      !$omp do private(n_r,lm,l1,m1) collapse(2)
-      do n_r=1,n_r_ic_max
-         do lm=lmStart_00,ulmMag
-            l1 = lm2l(lm)
-            m1 = lm2m(lm)
-            b_ic_last(lm,n_r) =dLh(st_map%lm2(l1,m1))*or2(n_r_max)* b_ic(lm,n_r)
-            aj_ic_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r_max)*aj_ic(lm,n_r)
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         do n_r=1,n_r_ic_max
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dbdt_ic%old(lm,n_r,istage)= &
+               &                  dLh(st_map%lm2(l1,m1))*or2(n_r_max)* b_ic(lm,n_r)
+               djdt_ic%old(lm,n_r,istage)= &
+               &                  dLh(st_map%lm2(l1,m1))*or2(n_r_max)*aj_ic(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs ) then
+      if ( l_calc_lin ) then
          !$omp do private(n_r,lm,l1,m1) collapse(2)
          do n_r=2,n_r_ic_max-1
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
-               db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*    &
-               &                or2(n_r_max) *  (   ddb_ic(lm,n_r) +      &
+               dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+               &                    or2(n_r_max) *  (       ddb_ic(lm,n_r) +  &
                &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*db_ic(lm,n_r) )
-               dj_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-               &                or2(n_r_max) *  (   ddj_ic(lm,n_r) +     &
+               djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+               &                     or2(n_r_max) *  (      ddj_ic(lm,n_r) +  &
                &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*dj_ic(lm,n_r) )
             end do
          end do
@@ -805,11 +799,11 @@ contains
          do lm=lmStart_00,ulmMag
             l1=lm2l(lm)
             m1=lm2m(lm)
-            db_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-            &                                         or2(n_r_max) *  &
+            dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+            &                                             or2(n_r_max) *  &
             &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm,n_r)
-            dj_ic_imp_last(lm,n_r)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-            &                                         or2(n_r_max) *  &
+            djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
+            &                                              or2(n_r_max) *  &
             &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm,n_r)
          end do
          !$omp end do
@@ -819,28 +813,26 @@ contains
 
    end subroutine get_mag_ic_rhs_imp
 !-----------------------------------------------------------------------------
-   subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj,  b_last, aj_last, &
-              &               db_imp_last, dj_imp_last, tscheme,         &
-              &               l_calc_lin_rhs, lRmsNext, l_in_cheb_space)
+   subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
+              &               istage, l_calc_lin, lRmsNext, l_in_cheb_space)
 
 
       !-- Input variables
+      integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
-      logical,             intent(in) :: l_calc_lin_rhs
       logical,             intent(in) :: lRmsNext
+      logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
-      complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: dj(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: ddj(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: ddb(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: b_last(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: aj_last(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: db_imp_last(llmMag:ulmMag,n_r_max)
-      complex(cp), intent(out) :: dj_imp_last(llmMag:ulmMag,n_r_max)
+      type(type_tarray), intent(inout) :: dbdt
+      type(type_tarray), intent(inout) :: djdt
+      complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: db(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: dj(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: ddj(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_max)
 
       !-- Local variables 
       logical :: l_in_cheb
@@ -905,18 +897,20 @@ contains
          !$omp end do
       end if
 
-      !$omp do private(n_r,lm,l1,m1) collapse(2)
-      do n_r=1,n_r_max
-         do lm=lmStart_00,ulmMag
-            l1 = lm2l(lm)
-            m1 = lm2m(lm)
-            b_last(lm,n_r) =dLh(st_map%lm2(l1,m1))*or2(n_r)*b(lm,n_r)
-            aj_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r)
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         do n_r=1,n_r_max
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dbdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)* b(lm,n_r)
+               djdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
          if ( lRmsNext ) then
             n_r_top=n_r_cmb
             n_r_bot=n_r_icb
@@ -930,13 +924,13 @@ contains
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
-               db_imp_last(lm,n_r)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
-               &                             dLh(st_map%lm2(l1,m1))*or2(n_r) * &
-               &    ( ddb(lm,n_r) - dLh(st_map%lm2(l1,m1))*or2(n_r)*b(lm,n_r) )
-               dj_imp_last(lm,n_r)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
-               &                             dLh(st_map%lm2(l1,m1))*or2(n_r) * &
-               &               ( ddj(lm,n_r) + dLlambda(n_r)*dj(lm,n_r) -      &
-               &                  dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r) )
+               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
+               &                                 dLh(st_map%lm2(l1,m1))*or2(n_r) * &
+               &       ( ddb(lm,n_r) - dLh(st_map%lm2(l1,m1))*or2(n_r)*b(lm,n_r) )
+               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))*&
+               &                                 dLh(st_map%lm2(l1,m1))*or2(n_r) * &
+               &                   ( ddj(lm,n_r) + dLlambda(n_r)*dj(lm,n_r) -      &
+               &                      dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r) )
                if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
                   dtP(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
                   &             * (  b(lm,n_r)-workA(lm,n_r) )

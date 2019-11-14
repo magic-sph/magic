@@ -316,13 +316,12 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_entropy_rhs_imp(s, ds, dsdt%old(:,:,1), dsdt%impl(:,:,1), &
-              &                   tscheme%l_imp_calc_rhs(1),                & 
+         call get_entropy_rhs_imp(s, ds, dsdt, tscheme, 1,   &
+              &                   tscheme%l_imp_calc_rhs(1), &
               &                   l_in_cheb_space=.true.)
       else
-         call get_entropy_rhs_imp(s, ds, dsdt%old(:,:,tscheme%istage+1),   &
-              &                   dsdt%impl(:,:,tscheme%istage+1),         &
-              &                   tscheme%l_imp_calc_rhs(tscheme%istage+1),&
+         call get_entropy_rhs_imp(s, ds, dsdt, tscheme, tscheme%istage+1,   &
+              &                   tscheme%l_imp_calc_rhs(tscheme%istage+1), &
               &                   l_in_cheb_space=.true.)
       end if
 
@@ -379,18 +378,19 @@ contains
 
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
-   subroutine get_entropy_rhs_imp(s, ds, s_last, ds_imp_last, l_calc_lin_rhs, &
+   subroutine get_entropy_rhs_imp(s, ds, dsdt, tscheme, istage, l_calc_lin, &
               &                   l_in_cheb_space)
 
       !-- Input variables
-      logical,           intent(in) :: l_calc_lin_rhs
-      logical, optional, intent(in) :: l_in_cheb_space
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
-      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: ds(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: s_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: ds_imp_last(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dsdt
 
       !-- Local variables
       integer :: n_r, lm, start_lm, stop_lm
@@ -422,22 +422,25 @@ contains
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
 
-      !$omp do private(n_r,lm) collapse(2)
-      do n_r=1,n_r_max
-         do lm=llm,ulm
-            s_last(lm,n_r)=s(lm,n_r)
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm) collapse(2)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               dsdt%old(lm,n_r,istage)=s(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs ) then
+      if ( l_calc_lin ) then
 
          !-- Calculate explicit time step part:
          if ( l_anelastic_liquid ) then
             !$omp do private(n_r,lm) collapse(2)
             do n_r=1,n_r_max
                do lm=llm,ulm
-                  ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm)))*&
+                  dsdt%impl(lm,n_r,istage)=                                     &
+                  &                   opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm)))*&
                   &            kappa(n_r) *  (               work_LMloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &     - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*s(lm,n_r) )
@@ -448,7 +451,8 @@ contains
             !$omp do private(n_r,lm) collapse(2)
             do n_r=1,n_r_max
                do lm=llm,ulm
-                  ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &
+                  dsdt%impl(lm,n_r,istage)=                                        &
+                  &                   opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &
                   &        kappa(n_r) *                  ( work_LMloc(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &

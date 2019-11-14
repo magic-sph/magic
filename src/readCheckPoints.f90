@@ -393,34 +393,27 @@ contains
 
          if ( l_single_matrix ) then
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
-                 &                  dp_LMloc, dsdt%old(:,:,1), dwdt%old(:,:,1), &
-                 &                  dpdt%old(:,:,1), dsdt%impl(:,:,1),          &
-                 &                  dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+                 &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
-                 &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-                 &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-                 &               .true., .false., .false., z) ! z is a work array
-            if ( l_heat ) then
-               call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
-                    &                   dsdt%impl(:,:,1), .true.)
-            end if
+                 &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
+                 &               .false., z)
+            !-- z is a work array in the above expression
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, tscheme, 1, &
+                               &                   .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
-              &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
-              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, .true., .false.)
+              &               tscheme, 1, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
-                 &                dxidt%impl(:,:,1), .true.)
+            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, tscheme, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
       end if
@@ -481,9 +474,7 @@ contains
             end do
 
             call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
-                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                &
-                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), tscheme,     &
-                 &               .true., .false.)
+                 &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
@@ -564,10 +555,8 @@ contains
                   end do
 
                   call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  & 
-                       &                  dj_ic_LMloc, ddj_ic_LMloc,               &
-                       &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),  &
-                       &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1),&
-                       &                  .true.)
+                       &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
+                       &                  djdt_ic, tscheme, 1, .true.)
                   dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
                   djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
                end if
@@ -1371,19 +1360,15 @@ contains
 
          if ( l_single_matrix ) then
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
-                 &                  dp_LMloc, dsdt%old(:,:,1), dwdt%old(:,:,1), &
-                 &                  dpdt%old(:,:,1), dsdt%impl(:,:,1),          &
-                 &                  dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
+                 &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
-                 &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-                 &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-                 &               .true., .false., .false., z) ! z is a work array
-            if ( l_heat ) then
-               call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
-                    &                   dsdt%impl(:,:,1), .true.)
-            end if
+                 &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
+                 &               .false., z)
+            !-- z is a work array in the above expression
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, tscheme, 1, &
+                               &                   .true.)
          end if
 
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
@@ -1392,35 +1377,28 @@ contains
          end if
          if ( l_heat) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
-              &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
-              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, .true., .false.)
+              &               tscheme, 1, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
-                 &                dxidt%impl(:,:,1), .true.)
+            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, tscheme, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
 
          if ( l_mag ) then
             call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
-                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                &
-                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1),              &
-                 &               tscheme, .true., .false.)
+                 &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
 
          if ( l_cond_ic ) then
             call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
-                 &                  dj_ic_LMloc, ddj_ic_LMloc,               &
-                 &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),  &
-                 &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1),&
-                 &                  .true.)
+                 &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
+                 &                  djdt_ic, tscheme, 1, .true.)
             dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
             djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
          end if
@@ -2172,46 +2150,43 @@ contains
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >= 2 .and. &
       &    version == 1 ) then
          coex = two*(one-alpha)
-         call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
-              &               dwdt%old(:,:,1), dpdt%old(:,:,1),           &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,&
-              &               .true., .false., .false., z) ! z is a work array
+         if ( l_single_matrix ) then
+            call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
+                 &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
+                 &                  .true., .false.)
+         else
+            call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+                 &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
+                 &               .false., z)
+            !-- z is a work array in the above expression
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, tscheme, &
+                               &                   1, .true.)
+         end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
+         if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(z, dz_LMloc, dzdt%old(:,:,1), dzdt%impl(:,:,1),&
-              &               domega_ma_dt%old(1), domega_ic_dt%old(1),      &
-              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),    &
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, .true., .false.)
+              &               tscheme, 1, .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
-         if ( l_heat ) then
-            call get_entropy_rhs_imp(s, ds_LMloc, dsdt%old(:,:,1), &
-                 &                   dsdt%impl(:,:,1), .true.)
-            dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
-         end if
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt%old(:,:,1), &
-                 &                dxidt%impl(:,:,1), .true.)
+            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, tscheme, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
 
          if ( l_mag ) then
             call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
-                 &               dbdt%old(:,:,1), djdt%old(:,:,1),                &
-                 &               dbdt%impl(:,:,1), djdt%impl(:,:,1), tscheme,     &
-                 &               .true., .false.)
+                 &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
 
          if ( l_cond_ic ) then
             call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
-                 &                  dj_ic_LMloc, ddj_ic_LMloc,               &
-                 &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),  &
-                 &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1),&
-                 &                  .true.)
+                 &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
+                 &                  djdt_ic, tscheme, 1, .true.)
             dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
             djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
          end if

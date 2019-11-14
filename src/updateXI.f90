@@ -309,13 +309,12 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_comp_rhs_imp(xi, dxi, dxidt%old(:,:,1), dxidt%impl(:,:,1), &
-              &                tscheme%l_imp_calc_rhs(1),                    &
+         call get_comp_rhs_imp(xi, dxi, dxidt, tscheme, 1, &
+              &                tscheme%l_imp_calc_rhs(1),  & 
               &                l_in_cheb_space=.true.)
       else
-         call get_comp_rhs_imp(xi, dxi,dxidt%old(:,:,tscheme%istage+1),  &
-              &                dxidt%impl(:,:,tscheme%istage+1),         &
-              &                tscheme%l_imp_calc_rhs(tscheme%istage+1), &
+         call get_comp_rhs_imp(xi, dxi, dxidt, tscheme, tscheme%istage+1, &
+              &                tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
               &                l_in_cheb_space=.true.)
       end if
 
@@ -351,19 +350,19 @@ contains
 
    end subroutine finish_exp_comp
 !------------------------------------------------------------------------------
-   subroutine get_comp_rhs_imp(xi, dxi, xi_last, dxi_imp_last, l_calc_lin_rhs, &
+   subroutine get_comp_rhs_imp(xi, dxi, dxidt, tscheme, istage, l_calc_lin, &
               &                l_in_cheb_space)
 
       !-- Input variables
-      logical,           intent(in) :: l_calc_lin_rhs
-      logical, optional, intent(in) :: l_in_cheb_space
-
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
-      complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dxi(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: xi_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dxi_imp_last(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: xi(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dxi(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dxidt
 
       !-- Local variables
       logical :: l_in_cheb
@@ -395,22 +394,25 @@ contains
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
 
-      !$omp do private(n_r,lm) collapse(2)
-      do n_r=1,n_r_max
-         do lm=llm,ulm
-            xi_last(lm,n_r)=xi(lm,n_r)
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm) collapse(2)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               dxidt%old(lm,n_r,istage) = xi(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs ) then
+      if ( l_calc_lin ) then
 
          !$omp do private(n_r,lm) collapse(2)
          do n_r=1,n_r_max
             do lm=llm,ulm
-               dxi_imp_last(lm,n_r)= osc*hdif_Xi(st_map%lm2(lm2l(lm),lm2m(lm))) *   &
-                 &   ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
-                 &     - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)* xi(lm,n_r) )
+               dxidt%impl(lm,n_r,istage)=                                        &
+               &                  osc*hdif_Xi(st_map%lm2(lm2l(lm),lm2m(lm))) *   &
+               &     ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
+               &       - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)* xi(lm,n_r) )
             end do
          end do
          !$omp end do

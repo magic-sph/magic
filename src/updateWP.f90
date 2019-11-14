@@ -163,8 +163,8 @@ contains
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
-   subroutine updateWP(s, dsdt, xi, dxidt, w, dw, ddw, dwdt, p, dp, dpdt, &
-              &        tscheme, lRmsNext, lPressNext)
+   subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
+              &        lRmsNext, lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -175,8 +175,6 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
-      type(type_tarray),   intent(in) :: dsdt
-      type(type_tarray),   intent(in) :: dxidt
 
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dwdt
@@ -472,20 +470,14 @@ contains
       if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt, llm, ulm, n_r_max)
 
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w, dw,     &
-              &               ddw, p, dp, dwdt%old(:,:,1), dpdt%old(:,:,1), &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,  &
-              &               tscheme%l_imp_calc_rhs(1), lPressNext,        &
-              &               lRmsNext, dpdt%expl(:,:,tscheme%istage),      &
+         call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
+              &               tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
+              &               lPressNext, lRmsNext,                       &
+              &               dpdt%expl(:,:,tscheme%istage),              &
               &               l_in_cheb_space=.true.)
       else
-         call get_pol_rhs_imp(dsdt%old(:,:,tscheme%istage+1),             &
-              &               dxidt%old(:,:,tscheme%istage+1),            &
-              &               w, dw, ddw, p, dp,                          &
-              &               dwdt%old(:,:,tscheme%istage+1),             &
-              &               dpdt%old(:,:,tscheme%istage+1),             &
-              &               dwdt%impl(:,:,tscheme%istage+1),            &
-              &               dpdt%impl(:,:,tscheme%istage+1), tscheme,   &
+         call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
+              &               tscheme, tscheme%istage+1,                  &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
               &               lPressNext, lRmsNext,                       &
               &               dpdt%expl(:,:,tscheme%istage),              &
@@ -524,31 +516,29 @@ contains
 
    end subroutine finish_exp_pol
 !------------------------------------------------------------------------------
-   subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, w_last, dw_last, &
-              &               dw_imp_last, dp_imp_last, tscheme,         &
-              &               l_calc_lin_rhs, lPressNext, lRmsNext,      &
-              &               dp_expl, l_in_cheb_space)
+   subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, tscheme,     &
+              &               istage, l_calc_lin, lPressNext, lRmsNext, dp_expl, &
+              &               l_in_cheb_space)
 
       !-- Input variables
+      integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
-      logical,             intent(in) :: l_calc_lin_rhs
+      logical,             intent(in) :: l_calc_lin
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
       logical, optional,   intent(in) :: l_in_cheb_space
       complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
 
       !-- Output variable
-      complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dp(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: ddw(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: w_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dw_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dw_imp_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dp_imp_last(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: p(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dp(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dw(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables 
       logical :: l_in_cheb
@@ -595,24 +585,26 @@ contains
       call dct_counter%stop_count()
       !$omp end single
 
-      !$omp do private(n_r,lm,l1,m1) collapse(2)
-      do n_r=2,n_r_max-1
-         do lm=lmStart_00,ulm
-            l1 = lm2l(lm)
-            m1 = lm2m(lm)
-            if ( l_double_curl ) then
-               w_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)* (             &
-               &             -orho1(n_r)*( ddw(lm,n_r)-beta(n_r)*dw(lm,n_r)- &
-               &              dLh(st_map%lm2(l1,m1))*or2(n_r)* w(lm,n_r) ) )
-            else
-               w_last(lm,n_r) = dLh(st_map%lm2(l1,m1))*or2(n_r)*w(lm,n_r)
-               dw_last(lm,n_r)=-dLh(st_map%lm2(l1,m1))*or2(n_r)*dw(lm,n_r)
-            end if
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         do n_r=2,n_r_max-1
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l_double_curl ) then
+                  dwdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)* (    &
+                  &             -orho1(n_r)*( ddw(lm,n_r)-beta(n_r)*dw(lm,n_r)- &
+                  &              dLh(st_map%lm2(l1,m1))*or2(n_r)* w(lm,n_r) ) )
+               else
+                  dwdt%old(lm,n_r,istage)= dLh(st_map%lm2(l1,m1))*or2(n_r)*w(lm,n_r)
+                  dpdt%old(lm,n_r,istage)=-dLh(st_map%lm2(l1,m1))*or2(n_r)*dw(lm,n_r)
+               end if
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
          if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
             n_r_top=n_r_cmb
@@ -667,14 +659,12 @@ contains
                      &          rgrav(n_r)*xi(lm,n_r)
                   end if
 
-                  dw_imp_last(lm,n_r)=Dif(lm)+Buo(lm)
+                  dwdt%impl(lm,n_r,istage)=Dif(lm)+Buo(lm)
 
                   if ( l1 /= 0 .and. lPressNext .and. &
                   &    tscheme%istage==tscheme%nstages) then
                      ! In the double curl formulation, we can estimate the pressure
                      ! if required.
-
-                     !----- O_dt missing
                      p(lm,n_r)=-r(n_r)*r(n_r)/dLh(st_map%lm2(l1,m1))*              &
                      &                                            dp_expl(lm,n_r)  &
                      &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
@@ -733,8 +723,9 @@ contains
                   if ( l_chemical_conv ) then
                      Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)*rgrav(n_r)*xi(lm,n_r)
                   end if
-                  dw_imp_last(lm,n_r)=Pre(lm)+Dif(lm)+Buo(lm)
-                  dp_imp_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*p(lm,n_r) &
+                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)+Buo(lm)
+                  dpdt%impl(lm,n_r,istage)=                                     &
+                  &                   dLh(st_map%lm2(l1,m1))*or2(n_r)*p(lm,n_r) &
                   &               + hdif_V(st_map%lm2(l1,m1))*                  &
                   &                 visc(n_r)*dLh(st_map%lm2(l1,m1))*or2(n_r)   &
                   &                                  * ( -work_LMloc(lm,n_r)    &

@@ -334,21 +334,13 @@ contains
       call tscheme%rotate_imex(dsdt, llm, ulm, n_r_max)
 
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt%old(:,:,1),         &
-              &                  dwdt%old(:,:,1), dpdt%old(:,:,1), dsdt%impl(:,:,1),&
-              &                  dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme,       &
-              &                  tscheme%l_imp_calc_rhs(1), lRmsNext,               &
-              &                  l_in_cheb_space=.true.)
-
+         call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
+              &                  tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
+              &                  lRmsNext, l_in_cheb_space=.true.)
       else
-         call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp,                 &
-              &                  dsdt%old(:,:,tscheme%istage+1),           &
-              &                  dwdt%old(:,:,tscheme%istage+1),           &
-              &                  dpdt%old(:,:,tscheme%istage+1),           &
-              &                  dsdt%impl(:,:,tscheme%istage+1),          &
-              &                  dwdt%impl(:,:,tscheme%istage+1),          &
-              &                  dpdt%impl(:,:,tscheme%istage+1), tscheme, &
-              &                  tscheme%l_imp_calc_rhs(tscheme%istage+1), & 
+         call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
+              &                  tscheme, tscheme%istage+1,                  &
+              &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
               &                  lRmsNext, l_in_cheb_space=.true.)
       end if
 
@@ -384,32 +376,28 @@ contains
 
    end subroutine finish_exp_smat
 !------------------------------------------------------------------------------
-   subroutine get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, s_last, w_last,      &
-              &                  dw_last, ds_imp_last, dw_imp_last, dp_imp_last,&
-              &                  tscheme,  l_calc_lin_rhs, lRmsNext,            &
+   subroutine get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
+              &                  tscheme, istage, l_calc_lin, lRmsNext,      &
               &                  l_in_cheb_space)
 
-
       !-- Input variables
+      integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
-      logical,             intent(in) :: l_calc_lin_rhs
+      logical,             intent(in) :: l_calc_lin
       logical,             intent(in) :: lRmsNext
       logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
-      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: ds(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dp(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: ddw(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: s_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: w_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dw_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: ds_imp_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dw_imp_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dp_imp_last(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dsdt
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: p(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dp(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dw(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables 
       logical :: l_in_cheb
@@ -452,19 +440,21 @@ contains
       call dct_counter%stop_count()
       !$omp end single
 
-      !$omp do private(n_r,lm,l1,m1) collapse(2)
-      do n_r=2,n_r_max-1
-         do lm=llm,ulm
-            l1 = lm2l(lm)
-            m1 = lm2m(lm)
-            s_last(lm,n_r) = s(lm,n_r)
-            w_last(lm,n_r) = dLh(st_map%lm2(l1,m1))*or2(n_r)*w(lm,n_r)
-            dw_last(lm,n_r)=-dLh(st_map%lm2(l1,m1))*or2(n_r)*dw(lm,n_r)
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         do n_r=2,n_r_max-1
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dsdt%old(lm,n_r,istage)= s(lm,n_r)
+               dwdt%old(lm,n_r,istage)= dLh(st_map%lm2(l1,m1))*or2(n_r)*w(lm,n_r)
+               dpdt%old(lm,n_r,istage)=-dLh(st_map%lm2(l1,m1))*or2(n_r)*dw(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
          if ( lRmsNext ) then
             n_r_top=n_r_cmb
@@ -491,8 +481,9 @@ contains
                   &                                                    w(lm,n_r) )
                   Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
                   Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  dw_imp_last(lm,n_r)=Pre(lm)+Buo(lm)+Dif(lm)
-                  dp_imp_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*p(lm,n_r)&
+                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
+                  dpdt%impl(lm,n_r,istage)=                                    &
+                  &                   dLh(st_map%lm2(l1,m1))*or2(n_r)*p(lm,n_r)&
                   &                 + hdif_V(st_map%lm2(l1,m1))*               &
                   &                 visc(n_r)*dLh(st_map%lm2(l1,m1))*or2(n_r)  &
                   &                                    * ( -work_LMloc(lm,n_r) &
@@ -504,8 +495,8 @@ contains
                   &                - dLh(st_map%lm2(l1,m1))*or2(n_r)           &
                   &                  * ( two*or1(n_r)+two*third*beta(n_r)      &
                   &                      +dLvisc(n_r) )   *         w(lm,n_r) ) 
-                  ds_imp_last(lm,n_r)=opr*hdif_S(st_map%lm2(l1,m1))*kappa(n_r)* &
-                  &         (             workB(lm,n_r)                         &
+                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(st_map%lm2(l1,m1))*       &
+                  &      kappa(n_r)*(             workB(lm,n_r)                 &
                   &          + ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+       &
                   &         dLkappa(n_r) ) * ds(lm,n_r) +                       &
                   &        ( ddLtemp0(n_r)+ dLtemp0(n_r)*(                      &
@@ -548,8 +539,9 @@ contains
                   &                                                    w(lm,n_r) )
                   Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
                   Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  dw_imp_last(lm,n_r)=Pre(lm)+Buo(lm)+Dif(lm)
-                  dp_imp_Last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*p(lm,n_r)&
+                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
+                  dpdt%impl(lm,n_r,istage)=                                    &
+                  &                   dLh(st_map%lm2(l1,m1))*or2(n_r)*p(lm,n_r)&
                   &                + hdif_V(st_map%lm2(l1,m1))*                &
                   &                  visc(n_r)*dLh(st_map%lm2(l1,m1))*or2(n_r) &
                   &                                   * ( -work_LMloc(lm,n_r)  &
@@ -561,7 +553,8 @@ contains
                   &                - dLh(st_map%lm2(l1,m1))*or2(n_r)           &
                   &                   * ( two*or1(n_r)+two*third*beta(n_r)     &
                   &                      +dLvisc(n_r) )   *         w(lm,n_r) )
-                  ds_imp_Last(lm,n_r)=opr*hdif_S(st_map%lm2(l1,m1))*kappa(n_r)*&
+                  dsdt%impl(lm,n_r,istage)=                                    &
+                  &                   opr*hdif_S(st_map%lm2(l1,m1))*kappa(n_r)*&
                   &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
                   &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
                   &          - dLh(st_map%lm2(l1,m1))*or2(n_r) * s(lm,n_r) )   &

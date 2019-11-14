@@ -32,7 +32,7 @@ module updateZ_mod
    use fields, only: work_LMloc
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
-   use time_array, only: type_tarray
+   use time_array, only: type_tarray, type_tscalar
    use special
    use dense_matrices
    use real_matrices
@@ -178,8 +178,7 @@ contains
       complex(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
-      integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
-      integer :: i                  ! counter
+      integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       logical :: l10
       integer :: nLMB
       real(cp) :: ddzASL_loc(l_max+1,n_r_max)
@@ -445,23 +444,16 @@ contains
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
-         call get_tor_rhs_imp(z, dz, dzdt%old(:,:,1), dzdt%impl(:,:,1),     &
-              &               domega_ma_dt%old(1), domega_ic_dt%old(1),     &
-              &               domega_ma_dt%impl(1), domega_ic_dt%impl(1),   &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1,     &
-              &               tscheme, tscheme%l_imp_calc_rhs(1), lRmsNext, &
-              &               l_in_cheb_space=.true.)
-      else
-         call get_tor_rhs_imp(z, dz, dzdt%old(:,:,tscheme%istage+1),    &
-              &               dzdt%impl(:,:,tscheme%istage+1),          &
-              &               domega_ma_dt%old(tscheme%istage+1),       &
-              &               domega_ic_dt%old(tscheme%istage+1),       &
-              &               domega_ma_dt%impl(tscheme%istage+1),      &
-              &               domega_ic_dt%impl(tscheme%istage+1),      &
+         call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,  &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, &
-              &               tscheme,                                  &
+              &               tscheme, 1, tscheme%l_imp_calc_rhs(1),    &
+              &               lRmsNext, l_in_cheb_space=.true.)
+      else
+         call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,  &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, &
+              &               tscheme, tscheme%istage+1,                &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1), &
-              &               lRmsNext,l_in_cheb_space=.true.)
+              &               lRmsNext, l_in_cheb_space=.true.)
       end if
 
 
@@ -537,31 +529,28 @@ contains
 
    end subroutine updateZ
 !-----------------------------------------------------------------------------
-   subroutine get_tor_rhs_imp(z, dz, z_last, dz_imp_last, domega_ma_old,     &
-              &               domega_ic_old, domega_ma_last, domega_ic_last, &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, l_calc_lin_rhs, lRmsNext,             &
+   subroutine get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,    &
+              &               tscheme, istage, l_calc_lin, lRmsNext,       &
               &               l_in_cheb_space)
 
       !-- Input variables
+      integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
-      logical,             intent(in) :: l_calc_lin_rhs
       logical,             intent(in) :: lRmsNext
+      logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
 
       !-- Output variable
+      type(type_tarray),  intent(inout) :: dzdt
+      type(type_tscalar), intent(inout) :: domega_ic_dt
+      type(type_tscalar), intent(inout) :: domega_ma_dt
       real(cp),    intent(inout) :: omega_ic
       real(cp),    intent(inout) :: omega_ma
       real(cp),    intent(inout) :: omega_ic1
       real(cp),    intent(inout) :: omega_ma1
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
       complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: z_last(llm:ulm,n_r_max)
-      complex(cp), intent(out) :: dz_imp_last(llm:ulm,n_r_max)
-      real(cp),    intent(out) :: domega_ma_old
-      real(cp),    intent(out) :: domega_ic_old
-      real(cp),    intent(out) :: domega_ma_last
-      real(cp),    intent(out) :: domega_ic_last
 
       !-- Local variables
       real(cp) :: angular_moment(3)   ! total angular momentum
@@ -646,6 +635,14 @@ contains
             &              beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m0
          end do
 
+         if ( ktopv == 2 .and. l_rot_ma ) &
+              omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
+         if ( kbotv == 2 .and. l_rot_ic ) &
+              omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
+         omega_ic1=omega_ic
+         omega_ma1=omega_ma
+
+
       end if ! l=1,m=0 contained in lm-block ?
 
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
@@ -678,17 +675,19 @@ contains
       !$omp end single
 
 
-      !$omp do private(n_r,lm,l1,m1) collapse(2)
-      do n_r=1,n_r_max
-         do lm=llm,ulm
-            l1 = lm2l(lm)
-            m1 = lm2m(lm)
-            z_last(lm,n_r)=dLh(st_map%lm2(l1,m1))*or2(n_r)*z(lm,n_r)
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dzdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)*z(lm,n_r)
+            end do
          end do
-      end do
-      !$omp end do
+         !$omp end do
+      end if
 
-      if ( l_calc_lin_rhs .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
          if ( lRmsNext ) then
             n_r_top=n_r_cmb
@@ -708,7 +707,7 @@ contains
                &           + dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)          &
                &           + dbeta(n_r)+ two*beta(n_r)*or1(n_r) ) * z(lm,n_r) )
 
-               dz_imp_last(lm,n_r)=Dif(lm)
+               dzdt%impl(lm,n_r,istage)=Dif(lm)
             end do
             if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                call hInt2Tor(Dif,llm,ulm,n_r,lmStart_00,ulm, &
@@ -724,13 +723,14 @@ contains
       if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
-            domega_ma_last=two*or1(1)*real(z(l1m0,1))-real(dz(l1m0,1))
-            domega_ma_old =c_dt_z10_ma*real(z(l1m0,1))
+            domega_ma_dt%impl(istage)=two*or1(1)*real(z(l1m0,1))-real(dz(l1m0,1))
+            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
          end if
          if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
-            domega_ic_last=-two*or1(n_r_max)*real(z(l1m0,n_r_max))+ &
-            &                  real(dz(l1m0,n_r_max))
-            domega_ic_old =c_dt_z10_ic*real(z(l1m0,n_r_max))
+            domega_ic_dt%impl(istage)=-two*or1(n_r_max)*real(z(l1m0,n_r_max))+ &
+            &                         real(dz(l1m0,n_r_max))
+            if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
+            &                                           real(z(l1m0,n_r_max))
          end if
       end if
 

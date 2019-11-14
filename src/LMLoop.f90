@@ -167,8 +167,8 @@ contains
                  &          dsdt, tscheme, lRmsNext )
          else
             PERFON('up_WP')
-            call updateWP( s_LMloc, dsdt, xi_LMLoc, dxidt, w_LMloc, dw_LMloc, &
-                 &         ddw_LMloc, dwdt, p_LMloc, dp_LMloc, dpdt, tscheme, &
+            call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
+                 &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
                  &         lRmsNext, lPressNext )
             PERFOFF
          end if

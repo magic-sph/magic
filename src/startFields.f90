@@ -304,46 +304,35 @@ contains
 
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then
-         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt%old(:,:,1),  &
-              &                dxidt%impl(:,:,1), .true.)
+         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, tscheme, 1, .true.)
       end if
 
       if ( l_single_matrix ) then
-         call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,          &
-              &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt%old(:,:,1), &
-              &                  dwdt%old(:,:,1), dpdt%old(:,:,1),              &
-              &                  dsdt%impl(:,:,1), dwdt%impl(:,:,1),            &
-              &                  dpdt%impl(:,:,1), tscheme, .true., .false.)
+         call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
+              &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
+              &                  dpdt, tscheme, 1, .true., .false.)
       else
          if ( l_heat ) then
-            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt%old(:,:,1), &
-                 &                   dsdt%impl(:,:,1), .true.)
+            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, tscheme, 1, .true.)
          end if
          call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w_LMloc,  &
               &               dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc,      &
-              &               dwdt%old(:,:,1), dpdt%old(:,:,1),            &
-              &               dwdt%impl(:,:,1), dpdt%impl(:,:,1), tscheme, &
-              &               .true., .false., .false., work_LMloc)
+              &               dwdt, dpdt, tscheme, 1, .true., .false.,     &
+              &               .false., work_LMloc)
       end if
-      call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt%old(:,:,1),        &
-           &               dzdt%impl(:,:,1), domega_ma_dt%old(1),     &
-           &               domega_ic_dt%old(1), domega_ma_dt%impl(1), &
-           &               domega_ic_dt%impl(1), omega_ic, omega_ma,  &
-           &               omega_ic1, omega_ma1, tscheme, .true.,     &
-           &               .false.)
+      call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt,       &
+           &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
+           &               omega_ma1, tscheme, 1, .true., .false.)
 
       if ( l_mag .or. l_mag_kin  ) then
-         call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,    &
-              &               dj_LMloc, ddj_LMloc, dbdt%old(:,:,1),      &
-              &               djdt%old(:,:,1), dbdt%impl(:,:,1),         &
-              &               djdt%impl(:,:,1), tscheme, .true., .false.)
+         call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,     &
+              &               dj_LMloc, ddj_LMloc, dbdt, djdt, tscheme, 1,&
+              &               .true., .false.)
       end if
       if ( l_cond_ic ) then
          call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &
               &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
-              &                  dbdt_ic%old(:,:,1), djdt_ic%old(:,:,1),   &
-              &                  dbdt_ic%impl(:,:,1), djdt_ic%impl(:,:,1), &
-              &                  .true.)
+              &                  dbdt_ic, djdt_ic, tscheme, 1, .true.)
       end if
 
       if ( l_LCR ) then
