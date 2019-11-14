@@ -1,0 +1,55 @@
+&grid
+ n_r_max     =33,
+ n_cheb_max  =31,
+ n_phi_tot   =128,
+ n_r_ic_max  =17,
+n_cheb_ic_max=15,
+ minc        =4,
+/
+&control
+ mode        =0,
+ tag         ="modcnab",
+ n_time_steps=50,
+ dtmax       =1.0D-4,
+ alpha       =0.6D0,
+ runHours    =12,
+ runMinutes  =00,
+ time_scheme ='MODCNAB',
+/
+&phys_param
+ ra          =1.0d5,
+ ek          =1.0D-3,
+ pr          =1.0D0,
+ prmag       =5.0D0
+ radratio    =0.35D0,
+ ktops       =1,
+ kbots       =1,
+ ktopv       =2,
+ kbotv       =2,
+ kbotb       =4,
+ ktopb       =4,
+/
+&start_field
+ l_start_file=.true.,
+ start_file  ="checkpoint_end.bpr353",
+ init_b1     =0,
+ amp_b1      =5,
+ init_s1     =0,
+ amp_s1      =0.1d0,
+/
+&output_control
+ n_log_step  =10,
+ n_graphs    =0,
+ n_rsts      =1,
+ n_stores    =0,
+ runid       ="Pseudo-Vaccuum benchmark",
+ l_movie     =.false.,
+ l_RMS       =.false.,
+/
+&mantle 
+ nRotMa      =0
+/
+&inner_core 
+ sigma_ratio =0.d0,
+ nRotIC      =0,
+/

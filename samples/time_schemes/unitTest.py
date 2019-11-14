@@ -85,7 +85,16 @@ class TimeSchemes(unittest.TestCase):
         cmd = '%s %s/input_BPR353.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
-        cmd = 'cat e_kin.sbdf3 e_kin.ars222 e_kin.ars443 e_kin.cnab2 e_kin.sbdf4 e_kin.pc2 e_kin.sbdf2 e_kin.bpr353 > e_kin.test'
+        cmd = '%s %s/input_MODCNAB.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+
+        cmd = '%s %s/input_CNLF.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+
+        cmd = '%s %s/input_LZ232.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+
+        cmd = 'cat e_kin.sbdf3 e_kin.ars222 e_kin.ars443 e_kin.cnab2 e_kin.sbdf4 e_kin.pc2 e_kin.sbdf2 e_kin.bpr353 e_kin.modcnab e_kin.cnlf e_kin.lz232 > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):
@@ -107,6 +116,12 @@ class TimeSchemes(unittest.TestCase):
         for f in glob.glob('%s/*.bpr353' % self.dir):
             os.remove(f)
         for f in glob.glob('%s/*.pc2' % self.dir):
+            os.remove(f)
+        for f in glob.glob('%s/*.modcnab' % self.dir):
+            os.remove(f)
+        for f in glob.glob('%s/*.cnlf' % self.dir):
+            os.remove(f)
+        for f in glob.glob('%s/*.lz232' % self.dir):
             os.remove(f)
 
         t = time.time()-self.startTime
