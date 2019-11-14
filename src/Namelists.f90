@@ -21,6 +21,9 @@ module Namelists
    use blocking, only: cacheblock_size_in_B
    use probe_mod
    use useful, only: abortRun
+   use dirk_schemes, only: type_dirk
+   use multistep_schemes, only: type_multistep
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -32,13 +35,16 @@ module Namelists
 
 contains
 
-   subroutine readNamelists
+   subroutine readNamelists(tscheme)
       !
       !
       !  Purpose of this subroutine is to read the input namelists.
       !  This program also determins logical parameters that are stored
       !  in logic.f90.
       !
+
+      !-- Input/Ouput variable
+      class(type_tscheme), pointer :: tscheme
 
       !-- Local stuff
       integer :: n
@@ -272,7 +278,8 @@ contains
          l_finite_diff = .false.
       end if
 
-      call capitalize(time_scheme)
+      !-- Select the kind of time-integrator (multi-step or implicit R-K):
+      call select_tscheme(time_scheme, tscheme)
 
       if ( l_finite_diff ) then
          l_double_curl=.true.
@@ -1568,5 +1575,30 @@ contains
       RiSymmIc      =0         ! default symmetry -> eq antisymmetric
 
    end subroutine defaultNamelists
+!------------------------------------------------------------------------------
+   subroutine select_tscheme(scheme_name, tscheme)
+      !
+      ! This routine determines which family of time stepper should be initiated
+      ! depending on the name found in the input namelist.
+      !
+
+      class(type_tscheme), pointer :: tscheme
+      character(len=72), intent(inout) :: scheme_name ! Name of the time scheme
+
+      call capitalize(scheme_name)
+
+      if ( (index(scheme_name, 'ARS222') /= 0) .or. &
+      &    (index(scheme_name, 'ARS443') /= 0) .or. &
+      &    (index(scheme_name, 'BPR353') /= 0) .or. &
+      &    (index(scheme_name, 'PC2') /= 0)    .or. &
+      &    (index(scheme_name, 'LZ453') /= 0)  .or. &
+      &    (index(scheme_name, 'CK232') /= 0)  .or. &
+      &    (index(scheme_name, 'LZ232') /= 0) ) then
+         allocate ( type_dirk :: tscheme )
+      else
+         allocate ( type_multistep :: tscheme )
+      end if
+
+   end subroutine select_tscheme
 !------------------------------------------------------------------------------
 end module Namelists

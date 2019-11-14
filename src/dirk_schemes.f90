@@ -1,15 +1,20 @@
 module dirk_schemes
+   !
+   ! This module defines the type_dirk which inherits from the
+   ! abstract type_tscheme. It actually implements all the routine required
+   ! to time-advance an diagonally implicit Runge-Kutta scheme. It makes use
+   ! of Butcher tables to construct the right-hand-sides.
+   !
 
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
    use num_param, only: alpha
-   use constants, only: one, half, two, ci, zero
+   use constants, only: one, half, two, zero
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
    use logic, only: l_save_out
    use output_data, only: log_file
-   use radial_functions, only: or1
    use time_schemes, only: type_tscheme
    use time_array
 
@@ -18,9 +23,9 @@ module dirk_schemes
    private
 
    type, public, extends(type_tscheme) :: type_dirk
-      real(cp), allocatable :: butcher_imp(:,:)
-      real(cp), allocatable :: butcher_exp(:,:)
-      real(cp), allocatable :: butcher_c(:)
+      real(cp), allocatable :: butcher_imp(:,:) ! Implicit Butcher table
+      real(cp), allocatable :: butcher_exp(:,:) ! Explicit Butcher table
+      real(cp), allocatable :: butcher_c(:)     ! Stage time Butcher vector
    contains
       procedure :: initialize
       procedure :: finalize

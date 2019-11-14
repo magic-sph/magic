@@ -330,14 +330,14 @@ courant.o             : truncation.o blocking.o num_param.o\
 nonlinear_bcs.o       : truncation.o horizontal.o $(FFT_OBJS)\
                         legendre_grid_to_spec.o blocking.o phys_param.o\
                         radial.o radial_data.o
-fields_average.o      : truncation.o output_data.o blocking.o\
+fields_average.o      : truncation.o output_data.o blocking.o time_schemes.o\
                         logic.o constants.o radial.o horizontal.o\
                         radial_derivatives.o radial_derivatives_even.o\
                         spectra.o kinetic_energy.o out_graph_file.o\
                         magnetic_energy.o legendre_spec_to_grid.o\
                         $(FFT_OBJS) out_coeff.o storeCheckPoints.o\
                         legendre_helpers.o mem_alloc.o
-get_nl.o              : truncation.o horizontal.o logic.o\
+get_nl.o              : truncation.o horizontal.o logic.o time_schemes.o\
                         phys_param.o radial.o blocking.o mem_alloc.o
 out_movie_file.o      : truncation.o output_data.o blocking.o\
                         radial.o horizontal.o movie.o fields.o\
@@ -345,15 +345,16 @@ out_movie_file.o      : truncation.o output_data.o blocking.o\
                         out_dtB_frame.o parallel.o communications.o
 storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
                         output_data.o init_fields.o dt_fieldsLast.o\
-                        communications.o parallel.o char_manip.o
-updateS.o             : truncation.o blocking.o horizontal.o\
+                        communications.o parallel.o char_manip.o time_array.o\
+                        time_schemes.o
+updateS.o             : truncation.o blocking.o horizontal.o time_array.o\
                         phys_param.o radial.o logic.o output_data.o\
-                        init_fields.o constants.o mem_alloc.o\
+                        init_fields.o constants.o mem_alloc.o time_schemes.o\
                         matrices.o cosine_transform_odd.o\
                         radial_derivatives.o matrices.o
-updateXI.o            : truncation.o blocking.o horizontal.o\
+updateXI.o            : truncation.o blocking.o horizontal.o time_array.o\
                         phys_param.o radial.o logic.o output_data.o\
-                        init_fields.o constants.o mem_alloc.o\
+                        init_fields.o constants.o mem_alloc.o time_schemes.o\
                         matrices.o cosine_transform_odd.o\
                         radial_derivatives.o
 power.o               : truncation.o blocking.o horizontal.o\
@@ -366,15 +367,15 @@ out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         mem_alloc.o radial.o output_data.o phys_param.o
 magic.o               : truncation.o num_param.o parallel.o logic.o\
                         output_data.o timing.o constants.o precision_mod.o\
-                        useful.o startFields.o preCalculations.o\
+                        useful.o startFields.o preCalculations.o time_schemes.o\
                         step_time.o kinetic_energy.o mem_alloc.o\
 			magnetic_energy.o horizontal.o fields_average.o \
 			outGeos.o spectra.o out_TO.o output_data.o outMisc.o probes.o\
                         Namelists.o blocking.o out_coeff.o
-step_time.o           : truncation.o blocking.o phys_param.o updateB.o updateZ.o\
-                        num_param.o radial_data.o mem_alloc.o updateWP.o\
+step_time.o           : truncation.o phys_param.o updateB.o updateZ.o\
+                        num_param.o radial_data.o updateWP.o time_schemes.o\
                         logic.o output_data.o output.o movie.o updateS.o\
-                        char_manip.o timing.o courant.o signals.o updateXI.o\
+                        timing.o courant.o signals.o updateXI.o\
                         radialLoop.o nonlinear_bcs.o updateWPS.o\
                         LMLoop.o dt_fieldsLast.o c_utils.o useful.o probes.o
 phys_param.o          : precision_mod.o
@@ -385,25 +386,25 @@ outMisc.o             : truncation.o num_param.o phys_param.o logic.o\
                         horizontal.o legendre_spec_to_grid.o\
                         integration.o startFields.o
 chebyshev_polynoms.o  : constants.o logic.o precision_mod.o num_param.o
-rIteration.o          : precision_mod.o
-radialLoop.o          : truncation.o blocking.o parallel.o\
+rIteration.o          : precision_mod.o time_schemes.o
+radialLoop.o          : truncation.o blocking.o parallel.o time_schemes.o\
                         phys_param.o logic.o output_data.o\
                         constants.o legendre_spec_to_grid.o\
                         get_td.o out_graph_file.o radial_data.o rIteration.o \
 			rIterThetaBlocking.o rIterThetaBlocking_OpenMP.o \
 			rIterThetaBlocking_seq.o mem_alloc.o
 rIterThetaBlocking.o  : rIteration.o truncation.o blocking.o \
-			logic.o radial.o radial_data.o\
+			logic.o radial.o radial_data.o time_schemes.o\
 			$(FFT_OBJS) legendre_spec_to_grid.o get_nl.o\
                         legendre_helpers.o get_td.o nonlinear_bcs.o\
                         legendre_grid_to_spec.o  out_graph_file.o
 rIterThetaBlocking_OpenMP.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o courant.o\
-			TO_arrays.o dtB_arrays.o probes.o
+			TO_arrays.o dtB_arrays.o probes.o time_schemes.o
 rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o\
-			TO_arrays.o dtB_arrays.o probes.o
-LMLoop.o              : truncation.o blocking.o parallel.o\
+			TO_arrays.o dtB_arrays.o probes.o time_schemes.o
+LMLoop.o              : truncation.o blocking.o parallel.o time_array.o\
                         logic.o radial_data.o updateWPS.o\
                         output_data.o fields.o dt_fieldsLast.o\
                         updateS.o updateB.o mem_alloc.o updateXI.o\
@@ -421,12 +422,11 @@ legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
-                        out_movie_file.o outGeos.o\
+                        out_movie_file.o outGeos.o time_schemes.o\
                         outRot.o kinetic_energy.o magnetic_energy.o\
                         spectra.o fields_average.o power.o getDlm.o\
                         useful.o out_TO.o outMisc.o out_graph_file.o\
-                        storeCheckPoints.o\
-                        integration.o outOmega.o parallel.o \
+                        storeCheckPoints.o integration.o outOmega.o parallel.o \
                         communications.o out_coeff.o outPar.o dtB.o\
                         store_movie_IC.o RMS.o
 communications.o      : blocking.o parallel.o truncation.o\
@@ -447,11 +447,12 @@ RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
 updateWP.o            : truncation.o blocking.o num_param.o integration.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         RMS.o cosine_transform_odd.o radial_derivatives.o\
-                        RMS_helpers.o mem_alloc.o fields.o matrices.o
-updateWPS.o           : truncation.o blocking.o num_param.o\
+                        RMS_helpers.o mem_alloc.o fields.o matrices.o\
+                        time_array.o time_schemes.o
+updateWPS.o           : truncation.o blocking.o num_param.o time_array.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         cosine_transform_odd.o radial_derivatives.o\
-                        mem_alloc.o init_fields.o RMS.o
+                        mem_alloc.o init_fields.o RMS.o time_schemes.o
 chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
                         radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\
@@ -475,16 +476,16 @@ cosine_transform_even.o: truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o
 cosine_transform_odd.o : truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o
-readCheckPoints.o     : truncation.o blocking.o phys_param.o\
-                        init_fields.o constants.o radial.o\
+readCheckPoints.o     : truncation.o blocking.o phys_param.o time_array.o\
+                        init_fields.o constants.o radial.o time_schemes.o\
                         logic.o cosine_transform_odd.o finite_differences.o\
                         chebyshev.o radial_scheme.o num_param.o updateB.o\
 			updateWP.o updateS.o updateZ.o updateXI.o updateWPS.o
 radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
                         cosine_transform_even.o
-updateZ.o             : truncation.o blocking.o phys_param.o\
+updateZ.o             : truncation.o blocking.o phys_param.o time_array.o\
                         num_param.o constants.o radial.o horizontal.o\
-                        logic.o init_fields.o RMS.o TO.o\
+                        logic.o init_fields.o RMS.o TO.o time_schemes.o\
                         matrices.o cosine_transform_odd.o\
                         radial_derivatives.o outRot.o RMS_helpers.o \
                         communications.o mem_alloc.o special.o
@@ -496,7 +497,8 @@ startFields.o         : truncation.o phys_param.o num_param.o constants.o\
                         radial.o init_fields.o blocking.o logic.o output_data.o\
                         dt_fieldsLast.o special.o readCheckPoints.o updateWPS.o\
                         fields.o updateS.o updateZ.o updateWP.o updateB.o timing.o\
-                        radial_derivatives.o useful.o communications.o updateXI.o
+                        radial_derivatives.o useful.o communications.o updateXI.o\
+                        time_schemes.o
 legendre_grid_to_spec.o : truncation.o horizontal.o blocking.o 
 getDlm.o              : truncation.o blocking.o num_param.o constants.o\
                         horizontal.o radial.o constants.o\
@@ -505,8 +507,8 @@ out_dtB_frame.o       : truncation.o blocking.o radial.o logic.o\
                         horizontal.o dtB.o radial_derivatives.o\
                         radial_derivatives_even.o $(FFT_OBJS) constants.o
 updateB.o             : truncation.o blocking.o horizontal.o fields.o\
-                        phys_param.o num_param.o init_fields.o\
-                        logic.o radial.o special.o constants.o\
+                        phys_param.o num_param.o init_fields.o time_array.o\
+                        logic.o radial.o special.o constants.o time_schemes.o\
                         RMS.o matrices.o radial_derivatives.o\
                         cosine_transform_odd.o radial_derivatives_even.o\
                         RMS_helpers.o mem_alloc.o
@@ -516,7 +518,7 @@ outGeos.o             : truncation.o phys_param.o num_param.o\
                         plms.o $(FFT_OBJS) communications.o\
                         mem_alloc.o TO_helpers.o
 preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
-                        radial.o horizontal.o init_fields.o\
+                        radial.o horizontal.o init_fields.o time_schemes.o\
                         blocking.o logic.o output_data.o\
                         useful.o integration.o parallel.o special.o
 RMS_helpers.o         : truncation.o blocking.o radial.o constants.o\
@@ -561,7 +563,16 @@ TO.o                  : truncation.o blocking.o horizontal.o\
                         radial_data.o phys_param.o radial.o logic.o\
                         legendre_grid_to_spec.o mem_alloc.o
 $(LAPACK_OBJS)        : precision_mod.o constants.o useful.o
-dt_fieldsLast.o       : truncation.o blocking.o precision_mod.o time_array.o
+time_schemes.o        : time_array.o logic.o output_data.o precision_mod.o
+time_array.o          : precision_mod.o constants.o mem_alloc.o
+dirk_schemes.o        : parallel.o precision_mod.o num_param.o constants.o\
+                        mem_alloc.o useful.o logic.o output_data.o time_schemes.o\
+                        time_array.o
+multistep_schemes.o   : parallel.o precision_mod.o num_param.o constants.o\
+                        mem_alloc.o useful.o logic.o output_data.o time_schemes.o\
+                        time_array.o
+dt_fieldsLast.o       : truncation.o blocking.o precision_mod.o time_array.o\
+                        logic.o mem_alloc.o constants.o
 fields.o              : truncation.o blocking.o radial_data.o\
                         precision_mod.o	mem_alloc.o logic.o
 special.o             : precision_mod.o mem_alloc.o truncation.o
@@ -572,13 +583,15 @@ matrices.o            : precision_mod.o mem_alloc.o ${LAPACK_OBJS}
 plms.o                : constants.o precision_mod.o useful.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
-			init_fields.o output_data.o parallel.o movie.o\
-			TO.o special.o radial.o char_manip.o probes.o
+                        init_fields.o output_data.o parallel.o movie.o\
+                        TO.o special.o radial.o char_manip.o probes.o\
+                        time_schemes.o dirk_schemes.o multistep_schemes.o
+
 
 ifeq ($(USE_SHTNS),yes)
 rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
                         out_movie_file.o outRot.o nl_special_calc.o courant.o\
-			TO_arrays.o dtB_arrays.o probes.o
+			TO_arrays.o dtB_arrays.o probes.o time_schemes.o
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
                         precision_mod.o constants.o blocking.o
 radialLoop.o          : rIterThetaBlocking_shtns.o

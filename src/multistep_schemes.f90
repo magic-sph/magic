@@ -1,15 +1,20 @@
 module multistep_schemes
+   !
+   ! This module defines the type_multistep which inherits from the
+   ! abstract type_tscheme. It actually implements all the routine required
+   ! to time-advance an IMEX multistep scheme such as CN/AB2, SBDF(2,3,4),
+   ! CNLF, ...
+   !
 
    use precision_mod
    use iso_fortran_env, only: output_unit
    use parallel_mod
    use num_param, only: alpha
-   use constants, only: one, half, two, ci, zero
+   use constants, only: one, half, two, zero
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
    use output_data, only: log_file
    use logic, only: l_save_out
-   use radial_functions, only: or1
    use time_schemes, only: type_tscheme
    use time_array
 
@@ -18,8 +23,8 @@ module multistep_schemes
    private
 
    type, public, extends(type_tscheme) :: type_multistep
-      real(cp), allocatable :: wimp(:)
-      real(cp), allocatable :: wexp(:)
+      real(cp), allocatable :: wimp(:) ! Weighting factors for the implicit terms
+      real(cp), allocatable :: wexp(:) ! Weighting factors for the explicit terms
    contains
       procedure :: initialize
       procedure :: finalize

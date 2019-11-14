@@ -1,4 +1,8 @@
 module time_schemes
+   !
+   ! This module defines an abstract class type_tscheme which is employed for
+   ! the time advance of the code.
+   !
 
    use iso_fortran_env, only: output_unit
    use time_array
@@ -133,10 +137,14 @@ module time_schemes
 contains
 
    subroutine print_info(this, n_log_file)
+      !
+      ! This subroutine prints some informations about the time stepping scheme
+      !
 
       class(type_tscheme) :: this
 
-      integer, intent(in) :: n_log_file
+      !-- Input variable
+      integer, intent(in) :: n_log_file ! File unit of the log.TAG file
 
       !-- Local variables
       integer :: n, n_out

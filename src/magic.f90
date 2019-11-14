@@ -123,7 +123,7 @@ program magic
    use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
    use parallel_mod
    use Namelists
-   use step_time_mod, only: initialize_step_time, step_time, finalize_step_time
+   use step_time_mod, only: initialize_step_time, step_time
    use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
@@ -134,7 +134,6 @@ program magic
    use useful, only: abortRun
    use probe_mod, only: initialize_probes, finalize_probes
    use time_schemes, only: type_tscheme
-   use select_time_scheme
 
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
@@ -208,10 +207,7 @@ program magic
    end if
 
    !--- Read input parameters:
-   call readNamelists()  ! includes sent to other procs !
-
-   !-- Select the kind of time-integrator (multi-step or implicit R-K):
-   call select_tscheme(time_scheme, tscheme)
+   call readNamelists(tscheme)  ! includes sent to other procs !
 
    call initialize_output()
 
@@ -283,7 +279,7 @@ program magic
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 
-   call initialize_step_time(tscheme%nexp)
+   call initialize_step_time()
    call initialize_communications()
 
    call initialize_der_arrays(n_r_max,llm,ulm)
@@ -453,7 +449,6 @@ program magic
    call finalize_courant()
 
    call finalize_communications()
-   call finalize_step_time()
    call finalize_fieldsLast()
    call finalize_fields()
 
