@@ -561,7 +561,7 @@ TO.o                  : truncation.o blocking.o horizontal.o\
                         radial_data.o phys_param.o radial.o logic.o\
                         legendre_grid_to_spec.o mem_alloc.o
 $(LAPACK_OBJS)        : precision_mod.o constants.o useful.o
-dt_fieldsLast.o       : truncation.o blocking.o precision_mod.o mem_alloc.o
+dt_fieldsLast.o       : truncation.o blocking.o precision_mod.o time_array.o
 fields.o              : truncation.o blocking.o radial_data.o\
                         precision_mod.o	mem_alloc.o logic.o
 special.o             : precision_mod.o mem_alloc.o truncation.o

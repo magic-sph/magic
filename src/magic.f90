@@ -279,8 +279,7 @@ program magic
 
    local_bytes_used=bytes_allocated
    call initialize_fields()
-   call initialize_fieldsLast(tscheme%nold, tscheme%norder_exp, &
-        &                     tscheme%norder_imp_lin)
+   call initialize_fieldsLast(tscheme%nold, tscheme%norder_exp, tscheme%nimp)
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 

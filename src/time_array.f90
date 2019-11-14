@@ -29,8 +29,8 @@ module time_array
 
 contains
 
-   subroutine initialize(this, nMstart, nMstop, n_r_max, nold, norder_exp, &
-              &          norder_imp_lin, l_allocate_exp)
+   subroutine initialize(this, nMstart, nMstop, n_r_max, nold, nexp, nimp, &
+              &          l_allocate_exp)
 
       class(type_tarray) :: this
 
@@ -39,8 +39,8 @@ contains
       integer,           intent(in) :: nMstop
       integer,           intent(in) :: n_r_max
       integer,           intent(in) :: nold
-      integer,           intent(in) :: norder_exp
-      integer,           intent(in) :: norder_imp_lin
+      integer,           intent(in) :: nexp
+      integer,           intent(in) :: nimp
       logical, optional, intent(in) :: l_allocate_exp
 
       !-- Local variable
@@ -54,19 +54,19 @@ contains
 
       this%l_exp = l_allocate
 
-      allocate( this%impl(nMstart:nMstop,n_r_max,norder_imp_lin-1) )
+      allocate( this%impl(nMstart:nMstop,n_r_max,nimp) )
       allocate( this%old(nMstart:nMstop,n_r_max,nold) )
 
       bytes_allocated = bytes_allocated + (nMstop-nMstart+1)*n_r_max*(&
-      &                 nold+norder_imp_lin-1)*SIZEOF_DEF_COMPLEX
+      &                 nold+nimp)*SIZEOF_DEF_COMPLEX
 
       this%old(:,:,:) =zero
       this%impl(:,:,:)=zero
 
       if ( l_allocate ) then
-         allocate( this%expl(nMstart:nMstop,n_r_max,norder_exp) )
+         allocate( this%expl(nMstart:nMstop,n_r_max,nexp) )
          bytes_allocated = bytes_allocated + (nMstop-nMstart+1)*n_r_max*&
-         &                 norder_exp*SIZEOF_DEF_COMPLEX
+         &                 nexp*SIZEOF_DEF_COMPLEX
          this%expl(:,:,:)=zero
       end if
 
@@ -81,20 +81,20 @@ contains
 
    end subroutine finalize
 !----------------------------------------------------------------------------------
-   subroutine initialize_scalar(this, nold, norder_exp, norder_imp_lin )
+   subroutine initialize_scalar(this, nold, nexp, nimp )
 
       class(type_tscalar) :: this
 
       !-- Input variables
       integer, intent(in) :: nold
-      integer, intent(in) :: norder_exp
-      integer, intent(in) :: norder_imp_lin
+      integer, intent(in) :: nexp
+      integer, intent(in) :: nimp
 
-      allocate( this%expl(norder_exp) )
+      allocate( this%expl(nexp) )
       allocate( this%old(nold) )
-      allocate( this%impl(norder_imp_lin-1) )
+      allocate( this%impl(nimp) )
 
-      bytes_allocated = bytes_allocated + (norder_exp+nold+norder_imp_lin-1)*&
+      bytes_allocated = bytes_allocated + (nexp+nold+nimp)*&
       &                 SIZEOF_DEF_REAL
 
       this%expl(:)=0.0_cp

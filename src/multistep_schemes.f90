@@ -62,7 +62,7 @@ contains
 
       if ( index(time_scheme, 'CNAB2') /= 0 ) then
          this%time_scheme = 'CNAB2'
-         this%norder_imp_lin = 2
+         this%nimp = 1
          this%nold = 1
          this%norder_exp = 2
          courfac_loc = 2.5_cp
@@ -71,7 +71,7 @@ contains
       else if ( index(time_scheme, 'MODCNAB') /= 0 ) then
          this%time_scheme = 'MODCNAB'
          this%nold = 2
-         this%norder_imp_lin = 3
+         this%nimp = 2
          this%norder_exp = 2
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
@@ -79,7 +79,7 @@ contains
       else if ( index(time_scheme, 'CNLF') /= 0 ) then
          this%time_scheme = 'CNLF'
          this%nold = 2
-         this%norder_imp_lin = 3
+         this%nimp = 2
          this%norder_exp = 2
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
@@ -87,7 +87,7 @@ contains
       else if ( index(time_scheme, 'SBDF2') /= 0 ) then
          this%time_scheme = 'SBDF2'
          this%nold = 2
-         this%norder_imp_lin = 2 ! it should be one but we need to restart
+         this%nimp = 1 ! it should be zero but we need to restart
          this%norder_exp = 2
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 2.5_cp
@@ -96,7 +96,7 @@ contains
       else if ( index(time_scheme, 'SBDF3') /= 0 ) then
          this%time_scheme = 'SBDF3'
          this%nold = 3
-         this%norder_imp_lin = 2 ! it should be one but we need to restart
+         this%nimp = 1 ! it should be zero but we need to restart
          this%norder_exp = 3
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 4.0_cp
@@ -105,7 +105,7 @@ contains
       else if ( index(time_scheme, 'TVB33') /= 0 ) then
          this%time_scheme = 'TVB33'
          this%nold = 3
-         this%norder_imp_lin = 4 ! it should be one but we need to restart
+         this%nimp = 3
          this%norder_exp = 3
          courfac_loc = 4.0_cp
          alffac_loc  = 1.6_cp
@@ -113,7 +113,7 @@ contains
       else if ( index(time_scheme, 'SBDF4') /= 0 ) then
          this%time_scheme = 'SBDF4'
          this%nold = 4
-         this%norder_imp_lin = 2 ! it should be one but we need to restart
+         this%nimp = 1 ! it should be zero but we need to restart
          this%norder_exp = 4
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 5.5_cp
@@ -141,7 +141,7 @@ contains
 
       allocate ( this%dt(this%norder_exp) )
       allocate ( this%wimp(this%nold) )
-      allocate ( this%wimp_lin(this%norder_imp_lin) )
+      allocate ( this%wimp_lin(this%nimp+1) )
       allocate ( this%wexp(this%norder_exp) )
 
       this%dt(:)       = 0.0_cp
@@ -150,7 +150,7 @@ contains
       this%wexp(:)     = 0.0_cp
 
       bytes_allocated = bytes_allocated+(2*this%norder_exp+this%nold+&
-      &                 this%norder_imp_lin)*SIZEOF_DEF_REAL
+      &                 this%nimp+1)*SIZEOF_DEF_REAL
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -441,7 +441,7 @@ contains
          end if
       end do
 
-      do n_o=1,this%norder_imp_lin-1
+      do n_o=1,this%nimp
          do n_r=startR,stopR
             do lm=lmStart,lmStop
                rhs(lm,n_r)=rhs(lm,n_r)+this%wimp_lin(n_o+1)*dfdt%impl(lm,n_r,n_o)
@@ -485,7 +485,7 @@ contains
          end if
       end do
 
-      do n_o=1,this%norder_imp_lin-1
+      do n_o=1,this%nimp
          rhs=rhs+this%wimp_lin(n_o+1)*dfdt%impl(n_o)
       end do
 
@@ -533,7 +533,7 @@ contains
          end do
       end do
 
-      do n_o=this%norder_imp_lin-1,2,-1
+      do n_o=this%nimp,2,-1
          do n_r=startR,stopR
             do lm=lmStart,lmStop
                dfdt%impl(lm,n_r,n_o)=dfdt%impl(lm,n_r,n_o-1)
@@ -566,10 +566,9 @@ contains
          dfdt%old(n_o)=dfdt%old(n_o-1)
       end do
 
-      do n_o=this%norder_imp_lin-1,2,-1
+      do n_o=this%nimp,2,-1
          dfdt%impl(n_o)=dfdt%impl(n_o-1)
       end do
-
 
    end subroutine rotate_imex_scalar
 !------------------------------------------------------------------------------
@@ -584,8 +583,8 @@ contains
 
       if (rank == 0 ) write(output_unit,*) '! Crank-Nicolson for this time-step'
 
-      old_order=this%norder_imp_lin
-      this%norder_imp_lin=2
+      old_order=this%nimp
+      this%nimp=1
 
       old_scheme         =this%time_scheme
       this%time_scheme='CNAB2'
@@ -595,7 +594,7 @@ contains
       this%wimp_lin(3:size(this%wimp_lin))=0.0_cp
       this%wexp(3:size(this%wexp))=0.0_cp
       this%time_scheme   =old_scheme
-      this%norder_imp_lin=old_order
+      this%nimp          =old_order
 
    end subroutine bridge_with_cnab2
 !------------------------------------------------------------------------------
