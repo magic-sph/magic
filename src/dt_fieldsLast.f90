@@ -32,45 +32,44 @@ module fieldsLast
 
 contains
 
-   subroutine initialize_fieldsLast(norder_imp, norder_exp,        &
-              &                     norder_imp_lin)
+   subroutine initialize_fieldsLast(nold, norder_exp, norder_imp_lin)
 
-      integer, intent(in) :: norder_imp
+      integer, intent(in) :: nold
       integer, intent(in) :: norder_exp
       integer, intent(in) :: norder_imp_lin
 
-      call domega_ma_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
-      call domega_ic_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
+      call domega_ma_dt%initialize(nold, norder_exp, norder_imp_lin)
+      call domega_ic_dt%initialize(nold, norder_exp, norder_imp_lin)
 
-      call lorentz_torque_ic_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
-      call lorentz_torque_ma_dt%initialize(norder_imp, norder_exp, norder_imp_lin)
+      call lorentz_torque_ic_dt%initialize(nold, norder_exp, norder_imp_lin)
+      call lorentz_torque_ma_dt%initialize(nold, norder_exp, norder_imp_lin)
 
-      if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
+      if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, nold, norder_exp, &
                          &               norder_imp_lin)
-      if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, n_r_max, norder_imp, &
+      if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, n_r_max, nold, &
                                   &                norder_exp, norder_imp_lin)
 
       if ( l_mag ) then
-         call dbdt%initialize(llmMag, ulmMag, n_r_maxMag, norder_imp, norder_exp, &
+         call dbdt%initialize(llmMag, ulmMag, n_r_maxMag, nold, norder_exp, &
               &               norder_imp_lin)
-         call djdt%initialize(llmMag, ulmMag, n_r_maxMag, norder_imp, norder_exp, &
+         call djdt%initialize(llmMag, ulmMag, n_r_maxMag, nold, norder_exp, &
               &               norder_imp_lin)
       end if
 
       if ( l_cond_ic ) then
-         call dbdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, norder_imp, &
+         call dbdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, nold, &
               &                  norder_exp, norder_imp_lin, l_allocate_exp=.true.)
-         call djdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, norder_imp, &
+         call djdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, nold, &
               &                  norder_exp, norder_imp_lin, l_allocate_exp=.true.)
       end if
 
-      call dwdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
+      call dwdt%initialize(llm, ulm, n_r_max, nold, norder_exp, &
            &               norder_imp_lin)
       if ( (.not. l_double_curl) .or. l_RMS ) then
-         call dpdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
+         call dpdt%initialize(llm, ulm, n_r_max, nold, norder_exp, &
               &               norder_imp_lin)
       end if
-      call dzdt%initialize(llm, ulm, n_r_max, norder_imp, norder_exp, &
+      call dzdt%initialize(llm, ulm, n_r_max, nold, norder_exp, &
            &               norder_imp_lin)
 
    end subroutine initialize_fieldsLast

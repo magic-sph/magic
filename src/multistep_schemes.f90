@@ -63,14 +63,14 @@ contains
       if ( index(time_scheme, 'CNAB2') /= 0 ) then
          this%time_scheme = 'CNAB2'
          this%norder_imp_lin = 2
-         this%norder_imp = 2
+         this%nold = 1
          this%norder_exp = 2
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
          intfac_loc  = 0.15_cp
       else if ( index(time_scheme, 'MODCNAB') /= 0 ) then
          this%time_scheme = 'MODCNAB'
-         this%norder_imp = 3
+         this%nold = 2
          this%norder_imp_lin = 3
          this%norder_exp = 2
          courfac_loc = 2.5_cp
@@ -78,7 +78,7 @@ contains
          intfac_loc  = 0.15_cp
       else if ( index(time_scheme, 'CNLF') /= 0 ) then
          this%time_scheme = 'CNLF'
-         this%norder_imp = 3
+         this%nold = 2
          this%norder_imp_lin = 3
          this%norder_exp = 2
          courfac_loc = 2.5_cp
@@ -86,7 +86,7 @@ contains
          intfac_loc  = 0.15_cp
       else if ( index(time_scheme, 'SBDF2') /= 0 ) then
          this%time_scheme = 'SBDF2'
-         this%norder_imp = 3
+         this%nold = 2
          this%norder_imp_lin = 2 ! it should be one but we need to restart
          this%norder_exp = 2
          this%l_imp_calc_rhs(1) = .false.
@@ -95,7 +95,7 @@ contains
          intfac_loc  = 0.15_cp
       else if ( index(time_scheme, 'SBDF3') /= 0 ) then
          this%time_scheme = 'SBDF3'
-         this%norder_imp = 4
+         this%nold = 3
          this%norder_imp_lin = 2 ! it should be one but we need to restart
          this%norder_exp = 3
          this%l_imp_calc_rhs(1) = .false.
@@ -104,7 +104,7 @@ contains
          intfac_loc  = 0.09_cp
       else if ( index(time_scheme, 'TVB33') /= 0 ) then
          this%time_scheme = 'TVB33'
-         this%norder_imp = 4
+         this%nold = 3
          this%norder_imp_lin = 4 ! it should be one but we need to restart
          this%norder_exp = 3
          courfac_loc = 4.0_cp
@@ -112,7 +112,7 @@ contains
          intfac_loc  = 0.09_cp
       else if ( index(time_scheme, 'SBDF4') /= 0 ) then
          this%time_scheme = 'SBDF4'
-         this%norder_imp = 5
+         this%nold = 4
          this%norder_imp_lin = 2 ! it should be one but we need to restart
          this%norder_exp = 4
          this%l_imp_calc_rhs(1) = .false.
@@ -140,7 +140,7 @@ contains
       end if
 
       allocate ( this%dt(this%norder_exp) )
-      allocate ( this%wimp(this%norder_imp) )
+      allocate ( this%wimp(this%nold) )
       allocate ( this%wimp_lin(this%norder_imp_lin) )
       allocate ( this%wexp(this%norder_exp) )
 
@@ -149,7 +149,7 @@ contains
       this%wimp_lin(:) = 0.0_cp
       this%wexp(:)     = 0.0_cp
 
-      bytes_allocated = bytes_allocated+(2*this%norder_exp+this%norder_imp+&
+      bytes_allocated = bytes_allocated+(2*this%norder_exp+this%nold+&
       &                 this%norder_imp_lin)*SIZEOF_DEF_REAL
 
    end subroutine initialize
@@ -179,7 +179,6 @@ contains
       select case ( this%time_scheme )
          case ('CNAB2') 
             this%wimp(1)    =one
-            this%wimp(2)    =one
             this%wimp_lin(1)=alpha*this%dt(1)
             this%wimp_lin(2)=(1-alpha)*this%dt(1)
 
@@ -187,9 +186,8 @@ contains
             this%wexp(2)=-half*this%dt(1)*this%dt(1)/this%dt(2)
          case ('CNLF')
             delta = this%dt(1)/this%dt(2)
-            this%wimp(1)    =one
-            this%wimp(2)    =(one-delta)*(one+delta)
-            this%wimp(3)    =delta*delta
+            this%wimp(1)    =(one-delta)*(one+delta)
+            this%wimp(2)    =delta*delta
             this%wimp_lin(1)=half*(one+delta)/delta*this%dt(1)
             this%wimp_lin(2)=half*(one+delta)*(delta-one)/delta*this%dt(1)
             this%wimp_lin(3)=half*(one+delta)*this%dt(1)
@@ -199,8 +197,7 @@ contains
          case ('MODCNAB') 
             delta = this%dt(1)/this%dt(2)
             this%wimp(1)    =one
-            this%wimp(2)    =one
-            this%wimp(3)    =0.0_cp
+            this%wimp(2)    =0.0_cp
             this%wimp_lin(1)=(half+1.0_cp/delta/16.0_cp)*this%dt(1)
             this%wimp_lin(2)=(7.0_cp/16.0_cp-1.0_cp/delta/16.0_cp)*this%dt(1)
             this%wimp_lin(3)=1.0_cp/16.0_cp*this%dt(1)
@@ -211,9 +208,8 @@ contains
             delta = this%dt(1)/this%dt(2)
             this%wimp_lin(1)=(one+delta)/(one+two*delta)*this%dt(1)
             this%wimp_lin(2)=0.0_cp
-            this%wimp(1)=one
-            this%wimp(2)=(one+delta)*(one+delta)/(one+two*delta)
-            this%wimp(3)=-delta*delta/(one+two*delta)
+            this%wimp(1)=(one+delta)*(one+delta)/(one+two*delta)
+            this%wimp(2)=-delta*delta/(one+two*delta)
 
             this%wexp(1)=(one+delta)*(one+delta)*this%dt(1)/(one+two*delta)
             this%wexp(2)=-delta*(one+delta)*this%dt(1)/(one+two*delta)
@@ -235,10 +231,9 @@ contains
             this%wimp_lin(1)=one/a0 * this%dt(1)
             this%wimp_lin(2)=0.0_cp
 
-            this%wimp(1)=one
-            this%wimp(2)=a1/a0
-            this%wimp(3)=a2/a0
-            this%wimp(4)=a3/a0
+            this%wimp(1)=a1/a0
+            this%wimp(2)=a2/a0
+            this%wimp(3)=a3/a0
 
             this%wexp(1)=b0/a0 * this%dt(1)
             this%wexp(2)=b1/a0 * this%dt(1)
@@ -287,10 +282,9 @@ contains
             this%wimp_lin(4)=c3/a0 * this%dt(1)
             !this%wimp_lin(5)=0.0_cp
 
-            this%wimp(1)=one
-            this%wimp(2)=-a1/a0
-            this%wimp(3)=-a2/a0
-            this%wimp(4)=-a3/a0
+            this%wimp(1)=-a1/a0
+            this%wimp(2)=-a2/a0
+            this%wimp(3)=-a3/a0
 
             this%wexp(1)=b0/a0 * this%dt(1)
             this%wexp(2)=b1/a0 * this%dt(1)
@@ -325,11 +319,10 @@ contains
             this%wimp_lin(1)=one/a0 * this%dt(1)
             this%wimp_lin(2)=0.0_cp
 
-            this%wimp(1)=one
-            this%wimp(2)=-a1/a0
-            this%wimp(3)=-a2/a0
-            this%wimp(4)=-a3/a0
-            this%wimp(5)=-a4/a0
+            this%wimp(1)=-a1/a0
+            this%wimp(2)=-a2/a0
+            this%wimp(3)=-a3/a0
+            this%wimp(4)=-a4/a0
 
             this%wexp(1)=b0/a0 * this%dt(1)
             this%wexp(2)=b1/a0 * this%dt(1)
@@ -432,17 +425,17 @@ contains
       startR=1; stopR=len_rhs
       call get_openmp_blocks(startR,stopR)
       
-      do n_o=1,this%norder_imp-1
+      do n_o=1,this%nold
          if ( n_o == 1 ) then
             do n_r=startR,stopR
                do lm=lmStart,lmStop
-                  rhs(lm,n_r)=this%wimp(n_o+1)*dfdt%old(lm,n_r,n_o)
+                  rhs(lm,n_r)=this%wimp(n_o)*dfdt%old(lm,n_r,n_o)
                end do
             end do
          else
             do n_r=startR,stopR
                do lm=lmStart,lmStop
-                  rhs(lm,n_r)=rhs(lm,n_r)+this%wimp(n_o+1)*dfdt%old(lm,n_r,n_o)
+                  rhs(lm,n_r)=rhs(lm,n_r)+this%wimp(n_o)*dfdt%old(lm,n_r,n_o)
                end do
             end do
          end if
@@ -484,11 +477,11 @@ contains
       !-- Local variables
       integer :: n_o
 
-      do n_o=1,this%norder_imp-1
+      do n_o=1,this%nold
          if ( n_o == 1 ) then
-            rhs=this%wimp(n_o+1)*dfdt%old(n_o)
+            rhs=this%wimp(n_o)*dfdt%old(n_o)
          else
-            rhs=rhs+this%wimp(n_o+1)*dfdt%old(n_o)
+            rhs=rhs+this%wimp(n_o)*dfdt%old(n_o)
          end if
       end do
 
@@ -532,7 +525,7 @@ contains
          end do
       end do
 
-      do n_o=this%norder_imp-1,2,-1
+      do n_o=this%nold,2,-1
          do n_r=startR,stopR
             do lm=lmStart,lmStop
                dfdt%old(lm,n_r,n_o)=dfdt%old(lm,n_r,n_o-1)
@@ -569,7 +562,7 @@ contains
          dfdt%expl(n_o)=dfdt%expl(n_o-1)
       end do
 
-      do n_o=this%norder_imp-1,2,-1
+      do n_o=this%nold,2,-1
          dfdt%old(n_o)=dfdt%old(n_o-1)
       end do
 
@@ -598,7 +591,7 @@ contains
       this%time_scheme='CNAB2'
       call this%set_weights(lMatNext)
       !-- Since CN has only two coefficients, one has to set the remainings to zero
-      this%wimp(3:size(this%wimp))=0.0_cp
+      this%wimp(2:size(this%wimp))=0.0_cp
       this%wimp_lin(3:size(this%wimp_lin))=0.0_cp
       this%wexp(3:size(this%wexp))=0.0_cp
       this%time_scheme   =old_scheme

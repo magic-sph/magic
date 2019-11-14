@@ -57,10 +57,10 @@ contains
 
       this%family='DIRK'
 
+      this%nold = 1
       if ( index(time_scheme, 'ARS222') /= 0 ) then
          this%time_scheme = 'ARS222'
          this%norder_imp_lin = 3
-         this%norder_imp = 2
          this%norder_exp = 2
          this%nstages = 2
          this%istage = 1
@@ -70,7 +70,6 @@ contains
       else if ( index(time_scheme, 'LZ232') /= 0 ) then
          this%time_scheme = 'LZ232'
          this%norder_imp_lin = 3
-         this%norder_imp = 2
          this%norder_exp = 2
          this%nstages = 2
          this%istage = 1
@@ -80,7 +79,6 @@ contains
       else if ( index(time_scheme, 'CK232') /= 0 ) then
          this%time_scheme = 'CK232'
          this%norder_imp_lin = 3
-         this%norder_imp = 2
          this%norder_exp = 2
          this%nstages = 2
          this%istage = 1
@@ -89,7 +87,6 @@ contains
          intfac_loc  = 0.3_cp
       else if ( index(time_scheme, 'ARS443') /= 0 ) then
          this%time_scheme = 'ARS443'
-         this%norder_imp = 2
          this%norder_imp_lin = 5
          this%norder_exp = 4
          this%nstages = 4
@@ -99,7 +96,6 @@ contains
          intfac_loc  = 0.35_cp
       else if ( index(time_scheme, 'LZ453') /= 0 ) then
          this%time_scheme = 'LZ453'
-         this%norder_imp = 2
          this%norder_imp_lin = 5
          this%norder_exp = 4
          this%nstages = 4
@@ -109,7 +105,6 @@ contains
          intfac_loc  = 0.3_cp
       else if ( index(time_scheme, 'BPR353') /= 0 ) then
          this%time_scheme = 'BPR353'
-         this%norder_imp = 2
          this%norder_imp_lin = 5
          this%norder_exp = 4
          this%nstages = 4
@@ -119,7 +114,6 @@ contains
          intfac_loc  = 0.46_cp
       else if ( index(time_scheme, 'PC2') /= 0 ) then
          this%time_scheme = 'PC2'
-         this%norder_imp = 2
          this%norder_imp_lin = 4
          this%norder_exp = 3
          this%nstages = 3

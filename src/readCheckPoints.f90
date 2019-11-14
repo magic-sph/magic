@@ -716,7 +716,7 @@ contains
 
       !-- If old and new schemes differ in precision, one has to use a bridging step
       if ( tscheme%family == 'MULTISTEP' ) then
-         if ( tscheme%norder_imp > 2 .or. tscheme%norder_imp_lin > 2 ) then
+         if ( tscheme%nold > 1 .or. tscheme%norder_imp_lin > 2 ) then
             l_bridge_step = .true.
          else
             l_bridge_step = .false.
@@ -798,7 +798,7 @@ contains
       real(cp) :: ek_old,radratio_old,sigma_ratio_old,coex
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
       logical :: startfile_does_exist
-      integer :: norder_imp_lin_old, norder_exp_old, norder_imp_old
+      integer :: norder_imp_lin_old, norder_exp_old, nold_old
       logical :: l_press_store_old
       integer :: n_r_maxL,n_r_ic_maxL,lm_max_old, n_o
       integer, allocatable :: lm2lmo(:)
@@ -860,7 +860,7 @@ contains
             allocate( dt_array_old(max(2,tscheme%norder_exp)) )
             dt_array_old(:)=0.0_cp
             norder_imp_lin_old = 2
-            norder_imp_old = 2
+            nold_old = 1
             norder_exp_old = 2
             tscheme_family_old = 'MULTISTEP'
             read(n_start_file) time, dt_array_old(2), n_time_step
@@ -870,7 +870,7 @@ contains
             read(n_start_file) tscheme_family_old
             read(n_start_file) norder_exp_old
             read(n_start_file) norder_imp_lin_old
-            read(n_start_file) norder_imp_old
+            read(n_start_file) nold_old
             read(n_start_file) n_time_step
 
             if ( tscheme_family_old == 'MULTISTEP' ) then
@@ -954,16 +954,16 @@ contains
          else ! New version
 
             call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
-                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   norder_imp_lin_old, nold_old,          &
                  &                   tscheme_family_old, domega_ic_dt)
             call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
-                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   norder_imp_lin_old, nold_old,          &
                  &                   tscheme_family_old, domega_ma_dt)
             call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
-                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   norder_imp_lin_old, nold_old,          &
                  &                   tscheme_family_old, lorentz_torque_ic_dt)
             call read_map_one_scalar(n_start_file, tscheme, norder_exp_old, &
-                 &                   norder_imp_lin_old, norder_imp_old,    &
+                 &                   norder_imp_lin_old, nold_old,          &
                  &                   tscheme_family_old, lorentz_torque_ma_dt)
 
             read(n_start_file) omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
@@ -1016,7 +1016,7 @@ contains
 #ifdef WITH_MPI
       call MPI_Bcast(version,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(norder_exp_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(norder_imp_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(nold_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(norder_imp_lin_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tscheme_family_old,len(tscheme_family_old),MPI_CHARACTER,0, &
            &         MPI_COMM_WORLD,ierr)
@@ -1045,25 +1045,25 @@ contains
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ic_dt%impl, tscheme%norder_imp_lin-1, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(domega_ic_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, 0, &
+      call MPI_Bcast(domega_ic_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%impl, tscheme%norder_imp_lin-1, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(domega_ma_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, 0, &
+      call MPI_Bcast(domega_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%norder_imp_lin-1, &
            &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, &
+      call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%nold, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%norder_imp_lin-1, &
            &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%norder_imp-1, MPI_DEF_REAL, &
+      call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%nold, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
 #endif
 
@@ -1083,7 +1083,7 @@ contains
          if ( tscheme_family_old == 'DIRK' ) then
             l_bridge_step = .true.
          else
-            if ( tscheme%norder_imp > norder_imp_old .or. &
+            if ( tscheme%nold > nold_old .or. &
             &    tscheme%norder_imp_lin > norder_imp_lin_old ) then
                l_bridge_step = .true.
             else
@@ -1105,14 +1105,14 @@ contains
       call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,  &
            &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
            &                   norder_exp_old, norder_imp_lin_old,             &
-           &                   norder_imp_old,  tscheme_family_old, w, dwdt,   &
+           &                   nold_old,  tscheme_family_old, w, dwdt,         &
            &                   .true.)
 
       !-- Read the toroidal flow
       call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,  &
            &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
            &                   norder_exp_old, norder_imp_lin_old,             &
-           &                   norder_imp_old,  tscheme_family_old, z, dzdt,   &
+           &                   nold_old,  tscheme_family_old, z, dzdt,         &
            &                   .true.)
 
       !-- Read the pressure
@@ -1120,7 +1120,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,  &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
               &                   norder_exp_old, norder_imp_lin_old,             &
-              &                   norder_imp_old,  tscheme_family_old, p, dpdt,   &
+              &                   nold_old,  tscheme_family_old, p, dpdt,         &
               &                   .not. l_double_curl)
       end if
 
@@ -1129,7 +1129,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_s,  &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
               &                   norder_exp_old, norder_imp_lin_old,             &
-              &                   norder_imp_old,  tscheme_family_old, s, dsdt,   &
+              &                   nold_old,  tscheme_family_old, s, dsdt,         &
               &                   l_heat)
       end if
 
@@ -1138,7 +1138,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_xi, &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
               &                   norder_exp_old, norder_imp_lin_old,             &
-              &                   norder_imp_old,  tscheme_family_old, xi, dxidt, &
+              &                   nold_old,  tscheme_family_old, xi, dxidt,       &
               &                   l_chemical_conv)
       end if
       if ( l_heat .and. .not. l_heat_old ) s(:,:)=zero
@@ -1151,14 +1151,14 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_b,  &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
               &                   norder_exp_old, norder_imp_lin_old,             &
-              &                   norder_imp_old,  tscheme_family_old, b, dbdt,   &
+              &                   nold_old,  tscheme_family_old, b, dbdt,         &
               &                   .true. )
 
          !-- Read the toroidal magnetic field
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_b,  &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,  &
               &                   norder_exp_old, norder_imp_lin_old,             &
-              &                   norder_imp_old,  tscheme_family_old, aj, djdt,  &
+              &                   nold_old,  tscheme_family_old, aj, djdt,        &
               &                   .true. )
 
          if ( l_cond_ic ) then
@@ -1226,7 +1226,7 @@ contains
                         end do
                      end if
                   end do
-                  do n_o=2,norder_imp_old-1
+                  do n_o=2,nold_old
                      if ( rank == 0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
@@ -1236,7 +1236,7 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_imp-1 .and. &
+                     if ( n_o <= tscheme%nold .and. &
                      &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
@@ -1298,7 +1298,7 @@ contains
                         end do
                      end if
                   end do
-                  do n_o=2,norder_imp_old-1
+                  do n_o=2,nold_old
                      if ( rank == 0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
@@ -1308,7 +1308,7 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_imp-1 .and. &
+                     if ( n_o <= tscheme%nold .and. &
                      &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
@@ -1427,10 +1427,10 @@ contains
    end subroutine readStartFields
 !------------------------------------------------------------------------------
    subroutine read_map_one_scalar(fh, tscheme, norder_exp_old, norder_imp_lin_old,&
-              &                   norder_imp_old, tscheme_family_old, dscal_dt)
+              &                   nold_old, tscheme_family_old, dscal_dt)
 
       !-- Input variables
-      integer,             intent(in) :: fh, norder_imp_old
+      integer,             intent(in) :: fh, nold_old
       integer,             intent(in) :: norder_exp_old, norder_imp_lin_old
       character(len=*),    intent(in) :: tscheme_family_old
       class(type_tscheme), intent(in) :: tscheme
@@ -1454,9 +1454,9 @@ contains
             if ( n_o <= tscheme%norder_imp_lin-1 .and. &
             &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal
          end do
-         do n_o=2,norder_imp_old-1
+         do n_o=2,nold_old
             read(fh) scal
-            if ( n_o <= tscheme%norder_imp-1 .and. &
+            if ( n_o <= tscheme%nold .and. &
             &    tscheme%family=='MULTISTEP') dscal_dt%old(n_o)=scal
          end do
 
@@ -1466,12 +1466,12 @@ contains
 !------------------------------------------------------------------------------
    subroutine read_map_one_field( fh, tscheme, wOld, work, scale_w, r_old, lm2lmo,&
               &                   n_r_max_old,  n_r_maxL, dim1, norder_exp_old,   &
-              &                   norder_imp_lin_old,  norder_imp_old,            &
+              &                   norder_imp_lin_old, nold_old,                   &
               &                   tscheme_family_old, w, dwdt, l_map)
 
       !--- Input variables
       logical,             intent(in) :: l_map
-      integer,             intent(in) :: fh, norder_imp_old
+      integer,             intent(in) :: fh, nold_old
       integer,             intent(in) :: norder_exp_old, norder_imp_lin_old
       character(len=*),    intent(in) :: tscheme_family_old
       class(type_tscheme), intent(in) :: tscheme
@@ -1531,14 +1531,14 @@ contains
                end do
             end if
          end do
-         do n_o=2,norder_imp_old-1
+         do n_o=2,nold_old
             if ( rank == 0 ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
-            if ( n_o <= tscheme%norder_imp-1 .and. l_map .and. &
+            if ( n_o <= tscheme%nold .and. l_map .and. &
             &    tscheme%family == 'MULTISTEP' ) then
                do nR=1,n_r_max
                   call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
@@ -1597,7 +1597,7 @@ contains
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old, n_o
       integer :: nR_per_rank_old, datatype, l1m0
       integer :: istat(MPI_STATUS_SIZE)
-      integer :: norder_imp_lin_old, norder_exp_old, norder_imp_old
+      integer :: norder_imp_lin_old, norder_exp_old, nold_old
       logical :: l_press_store_old
       integer(lip) :: disp, offset, size_old
 
@@ -1653,7 +1653,7 @@ contains
          allocate( dt_array_old(max(2,tscheme%norder_exp)) )
          dt_array_old(:)=0.0_cp
          norder_imp_lin_old = 2
-         norder_imp_old = 2
+         nold_old = 1
          norder_exp_old = 2
          tscheme_family_old = 'MULTISTEP'
          call MPI_File_Read(fh, dt_array_old(2), 1, MPI_DEF_REAL, istat, ierr)
@@ -1663,7 +1663,7 @@ contains
               &              MPI_CHARACTER, istat, ierr)
          call MPI_File_Read(fh, norder_exp_old, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Read(fh, norder_imp_lin_old, 1, MPI_INTEGER, istat, ierr)
-         call MPI_File_Read(fh, norder_imp_old, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Read(fh, nold_old, 1, MPI_INTEGER, istat, ierr)
          if ( tscheme_family_old == 'MULTISTEP' ) then
             allocate( dt_array_old(max(norder_exp_old,tscheme%norder_exp) ) )
             dt_array_old(:)=0.0_cp
@@ -1746,20 +1746,20 @@ contains
       n_r_maxL = max(n_r_max,n_r_max_old)
 
       !-- Read Lorentz-torques and rotation rates:
-      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
-           &                       norder_imp_lin_old, norder_imp_old, &
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,     &
+           &                       norder_imp_lin_old, nold_old,    &
            &                       tscheme_family_old, domega_ic_dt)
 
-      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
-           &                       norder_imp_lin_old, norder_imp_old, &
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,     &
+           &                       norder_imp_lin_old, nold_old,    &
            &                       tscheme_family_old, domega_ma_dt)
 
-      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
-           &                       norder_imp_lin_old, norder_imp_old, &
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,     &
+           &                       norder_imp_lin_old, nold_old,    &
            &                       tscheme_family_old, lorentz_torque_ic_dt)
 
-      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
-           &                       norder_imp_lin_old, norder_imp_old, &
+      call read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,     &
+           &                       norder_imp_lin_old, nold_old,    &
            &                       tscheme_family_old, lorentz_torque_ma_dt)
 
       call MPI_File_Read(fh, omega_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
@@ -1794,7 +1794,7 @@ contains
          if ( tscheme_family_old == 'DIRK' ) then
             l_bridge_step = .true.
          else
-            if ( tscheme%norder_imp > norder_imp_old .or. &
+            if ( tscheme%nold > nold_old .or. &
             &    tscheme%norder_imp_lin > norder_imp_lin_old ) then
                l_bridge_step = .true.
             else
@@ -1876,7 +1876,7 @@ contains
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      norder_exp_old, norder_imp_lin_old,     &
-           &                      norder_imp_old, tscheme_family_old,     &
+           &                      nold_old, tscheme_family_old,           &
            &                      w, dwdt, disp, .true. )
 
       !-- Toroidal potential: z
@@ -1885,7 +1885,7 @@ contains
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      norder_exp_old, norder_imp_lin_old,     &
-           &                      norder_imp_old, tscheme_family_old,     &
+           &                      nold_old, tscheme_family_old,           &
            &                      z, dzdt, disp, .true. )
 
       !-- Pressure: p
@@ -1895,7 +1895,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_v,      &
               &                      norder_exp_old, norder_imp_lin_old,     &
-              &                      norder_imp_old, tscheme_family_old,     &
+              &                      nold_old, tscheme_family_old,           &
               &                      p, dpdt, disp, .not. l_double_curl )
       end if
 
@@ -1906,7 +1906,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_s,      &
               &                      norder_exp_old, norder_imp_lin_old,     &
-              &                      norder_imp_old, tscheme_family_old,     &
+              &                      nold_old, tscheme_family_old,           &
               &                      s, dsdt, disp, l_heat )
       end if
 
@@ -1917,7 +1917,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_xi,     &
               &                      norder_exp_old, norder_imp_lin_old,     &
-              &                      norder_imp_old, tscheme_family_old,     &
+              &                      nold_old, tscheme_family_old,           &
               &                      xi, dxidt, disp, l_chemical_conv )
       end if
 
@@ -1932,7 +1932,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      norder_exp_old, norder_imp_lin_old,     &
-              &                      norder_imp_old, tscheme_family_old,     &
+              &                      nold_old, tscheme_family_old,           &
               &                      b, dbdt, disp, .true. )
 
          !-- Read toroidal potential: aj
@@ -1941,7 +1941,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      norder_exp_old, norder_imp_lin_old,     &
-              &                      norder_imp_old, tscheme_family_old,     &
+              &                      nold_old, tscheme_family_old,           & 
               &                      aj, djdt, disp, .true. )
       end if
 
@@ -2018,7 +2018,7 @@ contains
                   end if
                end do
 
-               do n_o=2,norder_imp_old-1
+               do n_o=2,nold_old
                   if ( rank == 0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
@@ -2029,7 +2029,7 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_imp-1 .and. &
+                  if ( n_o <= tscheme%nold .and. &
                   &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
@@ -2096,7 +2096,7 @@ contains
                   end if
                end do
 
-               do n_o=2,norder_imp_old-1
+               do n_o=2,nold_old
                   if ( rank == 0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
@@ -2107,7 +2107,7 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_imp-1 .and.  &
+                  if ( n_o <= tscheme%nold .and.  &
                   &    tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
@@ -2218,12 +2218,12 @@ contains
 
    end subroutine readStartFields_mpi
 !------------------------------------------------------------------------------
-   subroutine read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,        &
-              &                       norder_imp_lin_old, norder_imp_old, &
+   subroutine read_map_one_scalar_mpi(fh, tscheme, norder_exp_old,    &
+              &                       norder_imp_lin_old, nold_old,   &
               &                       tscheme_family_old, dscal_dt)
 
       !-- Input variables
-      integer,             intent(in) :: fh, norder_imp_old
+      integer,             intent(in) :: fh, nold_old
       integer,             intent(in) :: norder_exp_old, norder_imp_lin_old
       character(len=*),    intent(in) :: tscheme_family_old
       class(type_tscheme), intent(in) :: tscheme
@@ -2248,9 +2248,9 @@ contains
             if ( n_o <= tscheme%norder_imp_lin-1 .and. &
             &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal
          end do
-         do n_o=2,norder_imp_old-1
+         do n_o=2,nold_old
             call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_imp-1 .and. &
+            if ( n_o <= tscheme%nold .and. &
             &    tscheme%family=='MULTISTEP') dscal_dt%old(n_o)=scal
          end do
 
@@ -2263,13 +2263,13 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, dim1, scale_w,         &
               &                      norder_exp_old, norder_imp_lin_old,     &
-              &                      norder_imp_old, tscheme_family_old,     &
+              &                      nold_old, tscheme_family_old,           &
               &                      w, dwdt, disp, l_map )
 
       !--- Input variables
       logical,             intent(in) :: l_map
       integer,             intent(in) :: norder_exp_old, norder_imp_lin_old
-      integer,             intent(in) :: norder_imp_old
+      integer,             intent(in) :: nold_old
       character(len=*),    intent(in) :: tscheme_family_old
       integer,             intent(in) :: fh, info, datatype
       class(type_tscheme), intent(in) :: tscheme
@@ -2339,13 +2339,13 @@ contains
                     &                scale_v, dwdt%impl(:,:,n_o) )
             end if
          end do
-         do n_o=2,norder_imp_old-1
+         do n_o=2,nold_old
             call MPI_File_Read_All(fh, wOld, lm_max_old*nR_per_rank_old, &
                  &                 MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%norder_imp-1 .and. l_map .and. & 
+            if ( n_o <= tscheme%nold .and. l_map .and. & 
             &    tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &

@@ -16,7 +16,7 @@ module time_schemes
       integer :: nstages
       integer :: istage
       integer :: norder_exp
-      integer :: norder_imp
+      integer :: nold
       integer :: norder_imp_lin
       character(len=8) :: time_scheme
       real(cp), allocatable :: dt(:)

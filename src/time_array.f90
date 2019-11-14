@@ -29,7 +29,7 @@ module time_array
 
 contains
 
-   subroutine initialize(this, nMstart, nMstop, n_r_max, norder_imp, norder_exp, &
+   subroutine initialize(this, nMstart, nMstop, n_r_max, nold, norder_exp, &
               &          norder_imp_lin, l_allocate_exp)
 
       class(type_tarray) :: this
@@ -38,7 +38,7 @@ contains
       integer,           intent(in) :: nMstart
       integer,           intent(in) :: nMstop
       integer,           intent(in) :: n_r_max
-      integer,           intent(in) :: norder_imp
+      integer,           intent(in) :: nold
       integer,           intent(in) :: norder_exp
       integer,           intent(in) :: norder_imp_lin
       logical, optional, intent(in) :: l_allocate_exp
@@ -55,10 +55,10 @@ contains
       this%l_exp = l_allocate
 
       allocate( this%impl(nMstart:nMstop,n_r_max,norder_imp_lin-1) )
-      allocate( this%old(nMstart:nMstop,n_r_max,norder_imp-1) )
+      allocate( this%old(nMstart:nMstop,n_r_max,nold) )
 
       bytes_allocated = bytes_allocated + (nMstop-nMstart+1)*n_r_max*(&
-      &                 norder_imp+norder_imp_lin-2)*SIZEOF_DEF_COMPLEX
+      &                 nold+norder_imp_lin-1)*SIZEOF_DEF_COMPLEX
 
       this%old(:,:,:) =zero
       this%impl(:,:,:)=zero
@@ -81,20 +81,20 @@ contains
 
    end subroutine finalize
 !----------------------------------------------------------------------------------
-   subroutine initialize_scalar(this, norder_imp, norder_exp, norder_imp_lin )
+   subroutine initialize_scalar(this, nold, norder_exp, norder_imp_lin )
 
       class(type_tscalar) :: this
 
       !-- Input variables
-      integer, intent(in) :: norder_imp
+      integer, intent(in) :: nold
       integer, intent(in) :: norder_exp
       integer, intent(in) :: norder_imp_lin
 
       allocate( this%expl(norder_exp) )
-      allocate( this%old(norder_imp-1) )
+      allocate( this%old(nold) )
       allocate( this%impl(norder_imp_lin-1) )
 
-      bytes_allocated = bytes_allocated + (norder_exp+norder_imp+norder_imp_lin-2)*&
+      bytes_allocated = bytes_allocated + (norder_exp+nold+norder_imp_lin-1)*&
       &                 SIZEOF_DEF_REAL
 
       this%expl(:)=0.0_cp
