@@ -12,17 +12,17 @@ module time_schemes
 
    type, abstract, public :: type_tscheme
 
-      character(len=10) :: family
-      integer :: nstages
-      integer :: istage
-      integer :: norder_exp
-      integer :: nold
-      integer :: nimp
-      character(len=8) :: time_scheme
-      real(cp), allocatable :: dt(:)
-      real(cp), allocatable :: wimp_lin(:)
-      logical,  allocatable :: l_exp_calc(:)
-      logical, allocatable :: l_imp_calc_rhs(:)
+      character(len=10) :: family ! Family of the time integrator: MULTISTEP, DIRK
+      integer :: nstages ! Total number of stages
+      integer :: istage ! index of the current stage
+      integer :: nexp ! Number of explicit terms
+      integer :: nold ! Number of old state
+      integer :: nimp ! Number of implicit terms
+      character(len=8) :: time_scheme ! Name of the time scheme
+      real(cp), allocatable :: dt(:) ! Array that contains the timesteps
+      real(cp), allocatable :: wimp_lin(:) ! Weighting factor 
+      logical,  allocatable :: l_exp_calc(:) ! Array of booleans to specify the calculation of an explicit stage
+      logical, allocatable :: l_imp_calc_rhs(:) ! Array of booleans to specify the calculation of an implicit stage
       real(cp) :: courfac ! Courant factor
       real(cp) :: alffac ! Courant factor for Alven waves
       real(cp) :: intfac ! Coriolis factor

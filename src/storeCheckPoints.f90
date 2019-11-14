@@ -105,8 +105,7 @@ contains
          !-- Write the header of the file
          write(n_rst_file) version
          write(n_rst_file) time*tScale
-         write(n_rst_file) tscheme%family, tscheme%norder_exp, &
-         &                 tscheme%nimp, tscheme%nold
+         write(n_rst_file) tscheme%family, tscheme%nexp, tscheme%nimp, tscheme%nold
          write(n_rst_file) tscheme%dt(:)*tScale
          write(n_rst_file) n_time_step
          write(n_rst_file) ra,pr,raxi,sc,prmag,ek,radratio,sigma_ratio
@@ -126,7 +125,7 @@ contains
 
          !-- Store Lorentz-torques and rotation rates:
          if ( tscheme%family == 'MULTISTEP' ) then
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                write(n_rst_file) domega_ic_dt%expl(n_o)
             end do
             do n_o=2,tscheme%nimp
@@ -135,7 +134,7 @@ contains
             do n_o=2,tscheme%nold
                write(n_rst_file) domega_ic_dt%old(n_o)
             end do
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                write(n_rst_file) domega_ma_dt%expl(n_o)
             end do
             do n_o=2,tscheme%nimp
@@ -145,7 +144,7 @@ contains
                write(n_rst_file) domega_ma_dt%old(n_o)
             end do
 
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                write(n_rst_file) lorentz_torque_ic_dt%expl(n_o)
             end do
             do n_o=2,tscheme%nimp
@@ -154,7 +153,7 @@ contains
             do n_o=2,tscheme%nold
                write(n_rst_file) lorentz_torque_ic_dt%old(n_o)
             end do
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                write(n_rst_file) lorentz_torque_ma_dt%expl(n_o)
             end do
             do n_o=2,tscheme%nimp
@@ -216,7 +215,7 @@ contains
          call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
          if ( rank == 0 ) write(n_rst_file) work
          if ( tscheme%family == 'MULTISTEP' ) then
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
                if ( rank == 0 ) write(n_rst_file) work
             end do
@@ -232,7 +231,7 @@ contains
          call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
          if ( rank == 0 ) write(n_rst_file) work
          if ( tscheme%family == 'MULTISTEP' ) then
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
                if ( rank == 0 ) write(n_rst_file) work
             end do
@@ -296,7 +295,7 @@ contains
       if ( rank == 0 ) write(fh) work
 
       if ( tscheme%family == 'MULTISTEP' ) then
-         do n_o=2,tscheme%norder_exp
+         do n_o=2,tscheme%nexp
             call gather_all_from_lo_to_rank0(gt_OC, dwdt%expl(:,:,n_o), work)
             if ( rank == 0 ) write(fh) work
          end do
@@ -398,7 +397,7 @@ contains
          call MPI_File_Write(fh, time*tScale, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, tscheme%family, len(tscheme%family), MPI_CHARACTER,&
               &              istat, ierr)
-         call MPI_File_Write(fh, tscheme%norder_exp, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, tscheme%nexp, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%nimp, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%nold, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%dt*tScale, size(tscheme%dt), MPI_DEF_REAL, &
@@ -440,7 +439,7 @@ contains
 
          !-- Store Lorentz-torques and rotation rates:
          if ( tscheme%family == 'MULTISTEP' ) then
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call MPI_File_Write(fh, domega_ic_dt%expl(n_o), 1, MPI_DEF_REAL, &
                     &              istat, ierr)
             end do
@@ -452,7 +451,7 @@ contains
                call MPI_File_Write(fh, domega_ic_dt%old(n_o), 1, MPI_DEF_REAL, &
                     &              istat, ierr)
             end do
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call MPI_File_Write(fh, domega_ma_dt%expl(n_o), 1, MPI_DEF_REAL, &
                     &              istat, ierr)
             end do
@@ -465,7 +464,7 @@ contains
                     &              istat, ierr)
             end do
 
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call MPI_File_Write(fh, lorentz_torque_ic_dt%expl(n_o), 1, &
                     &              MPI_DEF_REAL, istat, ierr)
             end do
@@ -477,7 +476,7 @@ contains
                call MPI_File_Write(fh, lorentz_torque_ic_dt%old(n_o), 1, &
                     &              MPI_DEF_REAL, istat, ierr)
             end do
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call MPI_File_Write(fh, lorentz_torque_ma_dt%expl(n_o), 1, &
                     &              MPI_DEF_REAL, istat, ierr)
             end do
@@ -599,7 +598,7 @@ contains
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
@@ -628,7 +627,7 @@ contains
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
-            do n_o=2,tscheme%norder_exp
+            do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
@@ -715,7 +714,7 @@ contains
 
       if ( tscheme%family == 'MULTISTEP' ) then
 
-         do n_o=2,tscheme%norder_exp
+         do n_o=2,tscheme%nexp
             call lo2r%transp_lm2r(dwdt%expl(:,:,n_o), work)
             call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)

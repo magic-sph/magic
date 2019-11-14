@@ -121,7 +121,7 @@ contains
          ratio2 = fd_ratio
       end if
 
-      allocate( dt_array_old(max(2,tscheme%norder_exp)) )
+      allocate( dt_array_old(max(2,tscheme%nexp)) )
       dt_array_old(:)=0.0_cp
 
       if ( rank == 0 ) then
@@ -162,7 +162,7 @@ contains
          end if
          if ( inform == -1 ) inform=informOld
 
-         dt_array_old(3:tscheme%norder_exp)=dt_array_old(2)
+         dt_array_old(3:tscheme%nexp)=dt_array_old(2)
 
          !---- Compare parameters:
          if ( ra /= ra_old ) &
@@ -377,7 +377,7 @@ contains
       end if
 
       !-- Scatter everything
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
          do nR=1,n_r_max
             call scatter_from_rank0_to_lo(workA(:,nR),dwdt%expl(llm:ulm,nR,2))
             call scatter_from_rank0_to_lo(workB(:,nR),dzdt%expl(llm:ulm,nR,2))
@@ -466,7 +466,7 @@ contains
             call scatter_from_rank0_to_lo(workD(:,nR),b(llm:ulm,nR))
          end do
       end if
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
          if ( l_mag_old .and. l_mag ) then
             do nR=1,n_r_maxMag
                call scatter_from_rank0_to_lo(workB(:,nR),dbdt%expl(llm:ulm,nR,2))
@@ -546,7 +546,7 @@ contains
                end if
 
                if ( l_cond_ic .and. tscheme%family == 'MULTISTEP' .and. &
-               &    tscheme%norder_exp >=2 ) then
+               &    tscheme%nexp >=2 ) then
                   do nR=1,n_r_ic_max
                      call scatter_from_rank0_to_lo(workB(:,nR), &
                           &                        dbdt_ic%expl(llm:ulm,nR,2))
@@ -730,7 +730,7 @@ contains
       deallocate ( dt_array_old )
 
       !-- Put the torques correctly in the time step array
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
          lorentz_torque_ic_dt%expl(2) = dom_ic
          lorentz_torque_ma_dt%expl(2) = dom_ma
       end if
@@ -740,7 +740,7 @@ contains
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
       !----- Get changes in mantle and ic rotation rate:
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >=2 ) then
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
          if ( .not. l_mag_LF ) then
             lorentz_torque_ic_dt%expl(2)=0.0_cp
             lorentz_torque_ma_dt%expl(2)=0.0_cp
@@ -857,7 +857,7 @@ contains
          end if
 
          if ( version == 1 ) then ! This was CN/AB2 in the initial version
-            allocate( dt_array_old(max(2,tscheme%norder_exp)) )
+            allocate( dt_array_old(max(2,tscheme%nexp)) )
             dt_array_old(:)=0.0_cp
             nimp_old = 1
             nold_old = 1
@@ -874,7 +874,7 @@ contains
             read(n_start_file) n_time_step
 
             if ( tscheme_family_old == 'MULTISTEP' ) then
-               allocate( dt_array_old(max(nexp_old,tscheme%norder_exp) ) )
+               allocate( dt_array_old(max(nexp_old,tscheme%nexp) ) )
                dt_array_old(:)=0.0_cp
                read(n_start_file) dt_array_old(1:nexp_old)
                dt_array_old(nexp_old+1:)=dt_array_old(nexp_old)
@@ -946,7 +946,7 @@ contains
             &                  omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
             &                  omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
             &                  dt_array_old(1)
-            if ( tscheme%norder_exp >=2 .and. tscheme%family=='MULTISTEP' ) then
+            if ( tscheme%nexp >=2 .and. tscheme%family=='MULTISTEP' ) then
                lorentz_torque_ic_dt%expl(2)=dom_ic
                lorentz_torque_ma_dt%expl(2)=dom_ma
             end if
@@ -1019,7 +1019,7 @@ contains
       call MPI_Bcast(tscheme_family_old,len(tscheme_family_old),MPI_CHARACTER,0, &
            &         MPI_COMM_WORLD,ierr)
       if ( tscheme_family_old == 'MULTISTEP' ) then
-         if ( rank /= 0 ) allocate( dt_array_old(max(nexp_old,tscheme%norder_exp)) )
+         if ( rank /= 0 ) allocate( dt_array_old(max(nexp_old,tscheme%nexp)) )
       else if ( tscheme_family_old == 'DIRK' ) then
          if ( rank /= 0 ) allocate( dt_array_old(max(1,size(tscheme%dt))) )
       end if
@@ -1039,25 +1039,25 @@ contains
       call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(domega_ic_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, 0, &
+      call MPI_Bcast(domega_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ic_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ic_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(domega_ma_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, 0, &
+      call MPI_Bcast(domega_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, &
+      call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%nimp, &
            &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%nold, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%norder_exp, MPI_DEF_REAL, &
+      call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
            &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%nimp, &
            &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
@@ -1190,8 +1190,7 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_exp .and. &
-                     &   tscheme%family=='MULTISTEP' ) then
+                     if ( n_o <= tscheme%nexp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                dbdt_ic%expl(llm:ulm,nR,n_o))
@@ -1261,8 +1260,7 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%norder_exp  .and.   &
-                     &   tscheme%family=='MULTISTEP' ) then
+                     if ( n_o <= tscheme%nexp  .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
                                 &                djdt_ic%expl(llm:ulm,nR,n_o))
@@ -1342,7 +1340,7 @@ contains
 
       !-- Correct explicit arrays if old version with CNAB2 was stored
       !-- Back then the d?dtLast arrays did not carry the same meaning
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >= 2 .and. &
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >= 2 .and. &
       &    version == 1 ) then
          coex = two*(one-alpha)
 
@@ -1434,7 +1432,7 @@ contains
 
          do n_o=2,nexp_old
             read(fh) scal
-            if ( n_o <= tscheme%norder_exp .and.  &
+            if ( n_o <= tscheme%nexp .and.  &
             &    tscheme%family=='MULTISTEP') dscal_dt%expl(n_o)=scal
          end do
          do n_o=2,nimp_old
@@ -1498,8 +1496,7 @@ contains
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
-            if ( n_o <= tscheme%norder_exp .and. l_map .and. &
-            &    tscheme%family == 'MULTISTEP') then
+            if ( n_o <= tscheme%nexp .and. l_map .and. tscheme%family == 'MULTISTEP') then
                do nR=1,n_r_max
                   call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
                end do
@@ -1637,7 +1634,7 @@ contains
       end if
       call MPI_File_Read(fh, time, 1, MPI_DEF_REAL, istat, ierr)
       if ( version == 1 ) then ! This was CN/AB2 in the initial version
-         allocate( dt_array_old(max(2,tscheme%norder_exp)) )
+         allocate( dt_array_old(max(2,tscheme%nexp)) )
          dt_array_old(:)=0.0_cp
          nimp_old = 1
          nold_old = 1
@@ -1652,7 +1649,7 @@ contains
          call MPI_File_Read(fh, nimp_old, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Read(fh, nold_old, 1, MPI_INTEGER, istat, ierr)
          if ( tscheme_family_old == 'MULTISTEP' ) then
-            allocate( dt_array_old(max(nexp_old,tscheme%norder_exp) ) )
+            allocate( dt_array_old(max(nexp_old,tscheme%nexp) ) )
             dt_array_old(:)=0.0_cp
             call MPI_File_Read(fh, dt_array_old(1:nexp_old), nexp_old, &
                  &             MPI_DEF_REAL, istat, ierr)
@@ -1966,8 +1963,7 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_exp .and. &
-                  &    tscheme%family=='MULTISTEP' ) then
+                  if ( n_o <= tscheme%nexp .and. tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        dbdt_ic%expl(llm:ulm,nR,n_o))
@@ -2043,8 +2039,7 @@ contains
                      !-- Cancel the spherically-symmetric part
                      work(1,:)=zero
                   end if
-                  if ( n_o <= tscheme%norder_exp .and. &
-                  &    tscheme%family=='MULTISTEP' ) then
+                  if ( n_o <= tscheme%nexp .and. tscheme%family=='MULTISTEP' ) then
                      do nR=1,n_r_ic_max
                         call scatter_from_rank0_to_lo(work(:,nR), &
                              &                        djdt_ic%expl(llm:ulm,nR,n_o))
@@ -2122,7 +2117,7 @@ contains
 
       !-- Correct explicit arrays if old version with CNAB2 was stored
       !-- Back then the d?dtLast arrays did not carry the same meaning
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%norder_exp >= 2 .and. &
+      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >= 2 .and. &
       &    version == 1 ) then
          coex = two*(one-alpha)
          if ( l_single_matrix ) then
@@ -2214,7 +2209,7 @@ contains
 
          do n_o=2,nexp_old
             call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%norder_exp .and.  &
+            if ( n_o <= tscheme%nexp .and.  &
             &    tscheme%family=='MULTISTEP') dscal_dt%expl(n_o)=scal
          end do
          do n_o=2,nimp_old
@@ -2290,8 +2285,7 @@ contains
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%norder_exp .and. l_map .and. &
-            &    tscheme%family=='MULTISTEP' ) then
+            if ( n_o <= tscheme%nexp .and. l_map .and. tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &

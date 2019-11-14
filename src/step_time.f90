@@ -99,10 +99,10 @@ module step_time_mod
 
 contains
 
-   subroutine initialize_step_time(norder_exp)
+   subroutine initialize_step_time(nexp)
 
       !-- Input variable
-      integer, intent(in) :: norder_exp
+      integer, intent(in) :: nexp
 
       !-- Local variables
       integer :: nR,lm
@@ -185,34 +185,34 @@ contains
 
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
-         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:4,1:norder_exp))
-         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
-         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
-         dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:norder_exp)
-         dVxVhLM_LMloc(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:norder_exp)
-         bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*norder_exp* &
+         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:4,1:nexp))
+         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+         dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
+         dVxVhLM_LMloc(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:nexp)
+         bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
       else
-         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3,1:norder_exp))
-         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
-         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
-         dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:norder_exp)
+         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3,1:nexp))
+         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+         dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
          allocate( dVxVhLM_LMloc(1:1,1:1,1:1) )
-         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*norder_exp* &
+         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
       end if
 
-      allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2,1:norder_exp))
-      dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
-      dVSrLM_LMloc(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
-      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*norder_exp* &
+      allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
+      dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+      dVSrLM_LMloc(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
       &                 SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
-         allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2,1:norder_exp))
-         dxidt%expl(llm:,1:,1:)   => dxidt_LMloc_container(llm:ulm,1:n_r_max,1,1:norder_exp)
-         dVXirLM_LMloc(llm:,1:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2,1:norder_exp)
-         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*norder_exp* &
+         allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
+         dxidt%expl(llm:,1:,1:)   => dxidt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+         dVXirLM_LMloc(llm:,1:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
       else
          allocate(dxidt_LMloc_container(1,1,1:2,1))
@@ -220,13 +220,13 @@ contains
          dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:)
       end if
 
-      allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3,1:norder_exp))
-      dbdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1,1:norder_exp)
-      djdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2,1:norder_exp)
+      allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3,1:nexp))
+      dbdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1,1:nexp)
+      djdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2,1:nexp)
       dVxBhLM_LMloc(llmMag:,1:,1:) => &
-      &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3,1:norder_exp)
+      &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3,1:nexp)
       bytes_allocated = bytes_allocated+ &
-      &                 3*norder_exp*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      &                 3*nexp*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed

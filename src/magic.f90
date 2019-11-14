@@ -279,11 +279,11 @@ program magic
 
    local_bytes_used=bytes_allocated
    call initialize_fields()
-   call initialize_fieldsLast(tscheme%nold, tscheme%norder_exp, tscheme%nimp)
+   call initialize_fieldsLast(tscheme%nold, tscheme%nexp, tscheme%nimp)
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 
-   call initialize_step_time(tscheme%norder_exp)
+   call initialize_step_time(tscheme%nexp)
    call initialize_communications()
 
    call initialize_der_arrays(n_r_max,llm,ulm)

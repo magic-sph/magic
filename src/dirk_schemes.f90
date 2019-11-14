@@ -61,7 +61,7 @@ contains
       if ( index(time_scheme, 'ARS222') /= 0 ) then
          this%time_scheme = 'ARS222'
          this%nimp = 2
-         this%norder_exp = 2
+         this%nexp = 2
          this%nstages = 2
          this%istage = 1
          courfac_loc = 1.35_cp
@@ -70,7 +70,7 @@ contains
       else if ( index(time_scheme, 'LZ232') /= 0 ) then
          this%time_scheme = 'LZ232'
          this%nimp = 2
-         this%norder_exp = 2
+         this%nexp = 2
          this%nstages = 2
          this%istage = 1
          courfac_loc = 1.25_cp
@@ -79,7 +79,7 @@ contains
       else if ( index(time_scheme, 'CK232') /= 0 ) then
          this%time_scheme = 'CK232'
          this%nimp = 2
-         this%norder_exp = 2
+         this%nexp = 2
          this%nstages = 2
          this%istage = 1
          courfac_loc = 1.25_cp
@@ -88,7 +88,7 @@ contains
       else if ( index(time_scheme, 'ARS443') /= 0 ) then
          this%time_scheme = 'ARS443'
          this%nimp = 4
-         this%norder_exp = 4
+         this%nexp = 4
          this%nstages = 4
          this%istage = 1
          courfac_loc = 1.0_cp
@@ -97,7 +97,7 @@ contains
       else if ( index(time_scheme, 'LZ453') /= 0 ) then
          this%time_scheme = 'LZ453'
          this%nimp = 4
-         this%norder_exp = 4
+         this%nexp = 4
          this%nstages = 4
          this%istage = 1
          courfac_loc = 1.15_cp
@@ -106,7 +106,7 @@ contains
       else if ( index(time_scheme, 'BPR353') /= 0 ) then
          this%time_scheme = 'BPR353'
          this%nimp = 4
-         this%norder_exp = 4
+         this%nexp = 4
          this%nstages = 4
          this%istage = 1
          courfac_loc = 0.8_cp
@@ -115,7 +115,7 @@ contains
       else if ( index(time_scheme, 'PC2') /= 0 ) then
          this%time_scheme = 'PC2'
          this%nimp = 3
-         this%norder_exp = 3
+         this%nexp = 3
          this%nstages = 3
          this%istage = 1
          courfac_loc = 0.7_cp

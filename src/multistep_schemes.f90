@@ -64,7 +64,7 @@ contains
          this%time_scheme = 'CNAB2'
          this%nimp = 1
          this%nold = 1
-         this%norder_exp = 2
+         this%nexp = 2
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
          intfac_loc  = 0.15_cp
@@ -72,7 +72,7 @@ contains
          this%time_scheme = 'MODCNAB'
          this%nold = 2
          this%nimp = 2
-         this%norder_exp = 2
+         this%nexp = 2
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
          intfac_loc  = 0.15_cp
@@ -80,7 +80,7 @@ contains
          this%time_scheme = 'CNLF'
          this%nold = 2
          this%nimp = 2
-         this%norder_exp = 2
+         this%nexp = 2
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
          intfac_loc  = 0.15_cp
@@ -88,7 +88,7 @@ contains
          this%time_scheme = 'SBDF2'
          this%nold = 2
          this%nimp = 1 ! it should be zero but we need to restart
-         this%norder_exp = 2
+         this%nexp = 2
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 2.5_cp
          alffac_loc  = 1.0_cp
@@ -97,7 +97,7 @@ contains
          this%time_scheme = 'SBDF3'
          this%nold = 3
          this%nimp = 1 ! it should be zero but we need to restart
-         this%norder_exp = 3
+         this%nexp = 3
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 4.0_cp
          alffac_loc  = 1.6_cp
@@ -106,7 +106,7 @@ contains
          this%time_scheme = 'TVB33'
          this%nold = 3
          this%nimp = 3
-         this%norder_exp = 3
+         this%nexp = 3
          courfac_loc = 4.0_cp
          alffac_loc  = 1.6_cp
          intfac_loc  = 0.09_cp
@@ -114,7 +114,7 @@ contains
          this%time_scheme = 'SBDF4'
          this%nold = 4
          this%nimp = 1 ! it should be zero but we need to restart
-         this%norder_exp = 4
+         this%nexp = 4
          this%l_imp_calc_rhs(1) = .false.
          courfac_loc = 5.5_cp
          alffac_loc  = 2.2_cp
@@ -139,17 +139,15 @@ contains
          this%intfac=intfac_nml
       end if
 
-      allocate ( this%dt(this%norder_exp) )
-      allocate ( this%wimp(this%nold) )
-      allocate ( this%wimp_lin(this%nimp+1) )
-      allocate ( this%wexp(this%norder_exp) )
+      allocate ( this%dt(this%nexp), this%wexp(this%nexp) )
+      allocate ( this%wimp(this%nold), this%wimp_lin(this%nimp+1) )
 
       this%dt(:)       = 0.0_cp
       this%wimp(:)     = 0.0_cp
       this%wimp_lin(:) = 0.0_cp
       this%wexp(:)     = 0.0_cp
 
-      bytes_allocated = bytes_allocated+(2*this%norder_exp+this%nold+&
+      bytes_allocated = bytes_allocated+(2*this%nexp+this%nold+&
       &                 this%nimp+1)*SIZEOF_DEF_REAL
 
    end subroutine initialize
@@ -356,7 +354,7 @@ contains
       dt_old = this%dt(1)
 
       !-- First roll the dt array
-      this%dt   =cshift(this%dt,shift=this%norder_exp-1)
+      this%dt   =cshift(this%dt,shift=this%nexp-1)
       !-- Then overwrite the first element by the new timestep
       this%dt(1)=dt_new
 
@@ -449,7 +447,7 @@ contains
          end do
       end do
 
-      do n_o=1,this%norder_exp
+      do n_o=1,this%nexp
          do n_r=startR,stopR
             do lm=lmStart,lmStop
                rhs(lm,n_r)=rhs(lm,n_r)+this%wexp(n_o)*dfdt%expl(lm,n_r,n_o)
@@ -489,7 +487,7 @@ contains
          rhs=rhs+this%wimp_lin(n_o+1)*dfdt%impl(n_o)
       end do
 
-      do n_o=1,this%norder_exp
+      do n_o=1,this%nexp
          rhs=rhs+this%wexp(n_o)*dfdt%expl(n_o)
       end do
 
@@ -517,7 +515,7 @@ contains
       startR=1; stopR=n_r_max
       call get_openmp_blocks(startR,stopR)
 
-      do n_o=this%norder_exp,2,-1
+      do n_o=this%nexp,2,-1
          do n_r=startR,stopR
             do lm=lmStart,lmStop
                dfdt%expl(lm,n_r,n_o)=dfdt%expl(lm,n_r,n_o-1)
@@ -558,7 +556,7 @@ contains
       !-- Local variables:
       integer :: n_o
 
-      do n_o=this%norder_exp,2,-1
+      do n_o=this%nexp,2,-1
          dfdt%expl(n_o)=dfdt%expl(n_o-1)
       end do
 
@@ -604,8 +602,8 @@ contains
 
       if (rank == 0 ) write(output_unit,*) &
       &                  '! 1st order Adams-Bashforth for 1st time step'
-      this%wexp(1)=this%dt(1) ! Instead of one
-      this%wexp(2:this%norder_exp)=0.0_cp
+      this%wexp(1)          =this%dt(1) ! Instead of one
+      this%wexp(2:this%nexp)=0.0_cp
 
    end subroutine start_with_ab1
 !------------------------------------------------------------------------------
