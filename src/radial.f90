@@ -1006,6 +1006,28 @@ contains
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
           else if ( nVarCond == 7 ) then
+             ! PNS magnetic diffusivity profile
+             ! Thompson & Duncan, ApJ (1993)
+             ! lambda \propto (\rho Y_e)**(-1/3)
+             if ( index(interior_model, 'PNS_5S') /= 0 ) then
+                !! Y_e polynomial fit
+                a0 = 3.6070973312516563
+                a1 = 0.024205264127999757
+                a2 = -1.623849893276523
+                a3 = 1.9655839620692974
+                a4 = -2.9551512201779615
+                do n_r=1,n_r_max
+                   rrOcmb = r(n_r)/r_cmb*r_cut_model
+                   lambda(n_r)= (rho0(n_r)*(a0 + a1*rrOcmb + a2*rrOcmb**2 + a3*rrOcmb**3 + a4*rrOcmb**4))**(-1./3.)
+                end do
+             else
+                call abortRun('Conductivity profile not defined at this time')
+             end if
+             lambda = lambda/lambda(1)
+             sigma = one/lambda
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+             dLlambda=dsigma/lambda
+          else if ( nVarCond == 8 ) then ! fit PNS magnetic diffusivity
              if ( index(interior_model, 'PNS_2S') /= 0 ) then
                 a0 = -29.3468638288
                 a1 = 335.929657508
@@ -1134,7 +1156,7 @@ contains
              dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
              &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
              &         rStrat))+half)
-         else if (nVarDiff == 8) then ! PNS thermal diffusivity
+         else if (nVarDiff == 8) then ! fit PNS thermal diffusivity
             ! warning: reversed order for coefficients a_i
             ! compared to nVarDiff==3 above
             if ( index(interior_model,'PNS_0V2S') /= 0 ) then
@@ -1191,6 +1213,14 @@ contains
             ! PNS thermal diffusivity
             ! approximation given by Thompson & Duncan (93), Eq. 7
             kappa = otemp1*rho0**(-2.0/3.0)
+            kappatop=kappa(1) ! normalise by the value at the top
+            kappa=kappa/kappatop
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+            dLkappa=dkappa/kappa
+         else if ( nVarDiff == 10 ) then
+            ! PNS thermal diffusivity
+            ! approximation given by Thompson & Duncan (93), Eq. 7
+            kappa = rho0**(-4.0/3.0)
             kappatop=kappa(1) ! normalise by the value at the top
             kappa=kappa/kappatop
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
@@ -1324,6 +1354,7 @@ contains
          ! Guilet et al, MNRAS 447, 3992-4003 (2015)
          ! Eq. (10)
          visc = temp0**2*rho0**(-2)
+         visc = visc/visc(1)
          call get_dr(visc,dvisc,n_r_max,rscheme_oc)
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
