@@ -22,7 +22,7 @@ module out_movie
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      dLh, osn1, phi, theta_ord
-   use fields, only: w_Rloc, b_Rloc, b_ic, b
+   use fields, only: w_Rloc, b_Rloc, b_ic, bICB
 #ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat
 #else
@@ -1658,7 +1658,7 @@ contains
                if ( l_cond_ic ) then
                   fl_1=r_dep(l)*real(b_ic(lm,n_r))*dPlm(lm,n_theta_nhs)
                else
-                  fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(b(lm,n_r_icb))
+                  fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(bICB(lm))
                end if
             else             ! Outer Core
                fl_1=O_r*dPlm(lm,n_theta_nhs) * real(b_Rloc(lm,n_r))

@@ -27,7 +27,7 @@ module output_mod
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
        &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-       &             aj_Rloc
+       &             aj_Rloc, bICB
    use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
        &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,   &
        &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt
@@ -104,7 +104,6 @@ module output_mod
    character(len=72), allocatable :: v_r_file(:)
    character(len=72), allocatable :: t_r_file(:)
    character(len=72), allocatable :: b_r_file(:)
-   complex(cp), allocatable :: bICB(:)
 
    public :: output, initialize_output, finalize_output
 
@@ -114,15 +113,6 @@ contains
 
       integer :: n
       character(len=72) :: string
-
-      if ( l_mag ) then
-         if ( rank == 0 ) then 
-            allocate( bICB(lm_max) )
-            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate( bICB(1) )
-         end if
-      end if
 
       if ( l_r_field .or. l_r_fieldT ) then
          allocate ( n_coeff_r(n_coeff_r_max))
@@ -261,8 +251,6 @@ contains
    subroutine finalize_output
 
       integer :: n
-
-      if ( l_mag ) deallocate( bICB )
 
       if ( rank == 0 .and. ( .not. l_save_out ) ) then
          if ( l_mag .and. l_cmb_field ) then
