@@ -13,7 +13,7 @@ module updateZ_mod
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
-   use horizontal_data, only: dLh, hdif_V
+   use horizontal_data, only: hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO,             &
        &            l_finite_diff, l_full_sphere
@@ -559,7 +559,7 @@ contains
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(n_r_max), z11(n_r_max)
       complex(cp) :: corr_l1m0, corr_l1m1
-      real(cp) :: r_E_2, nomi
+      real(cp) :: r_E_2, nomi, dL
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
       integer :: lmStart_00, l1, m1, l1m0, l1m1
@@ -676,12 +676,13 @@ contains
 
 
       if ( istage == 1 ) then
-         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         !$omp do private(n_r,lm,l1,dL)
          do n_r=1,n_r_max
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               dzdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)*z(lm,n_r)
+               dL = real(l1*(l1+1),cp)
+               dzdt%old(lm,n_r,istage)=dL*or2(n_r)*z(lm,n_r)
             end do
          end do
          !$omp end do
@@ -697,15 +698,15 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,Dif)
+         !$omp do private(n_r,lm,Dif,l1,dL)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
-               Dif(lm)=hdif_V(st_map%lm2(lm2l(lm),lm2m(lm)))*                     &
-               &        dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*visc(n_r)*    &
-               &      ( work_LMloc(lm,n_r)   +(dLvisc(n_r)-beta(n_r)) *dz(lm,n_r) &
-               &        -( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)         &
-               &           + dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)          &
-               &           + dbeta(n_r)+ two*beta(n_r)*or1(n_r) ) * z(lm,n_r) )
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               Dif(lm)=hdif_V(st_map%lm2(lm2l(lm),lm2m(lm)))*dL*or2(n_r)*visc(n_r)*&
+               &       ( work_LMloc(lm,n_r)   +(dLvisc(n_r)-beta(n_r)) *dz(lm,n_r) &
+               &        -( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)          &
+               &       + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*z(lm,n_r) )
 
                dzdt%impl(lm,n_r,istage)=Dif(lm)
             end do

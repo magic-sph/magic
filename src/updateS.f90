@@ -12,7 +12,7 @@ module updateS_mod
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops,bots
    use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
-   use horizontal_data, only: dLh,hdif_S
+   use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
        &            l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
@@ -336,7 +336,8 @@ contains
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
 
       !-- Local variables
-      integer :: n_r, lm, start_lm, stop_lm
+      real(cp) :: dL
+      integer :: n_r, lm, start_lm, stop_lm, l1
       integer, pointer :: lm2l(:),lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -350,25 +351,28 @@ contains
       !$omp barrier
 
       if ( l_anelastic_liquid ) then
-         !$omp do private(n_r,lm) collapse(2)
+         !$omp do private(n_r,l1,lm,dL)
          do n_r=1,n_r_max
             do lm=llm,ulm
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
                &        or2(n_r)*orho1(n_r)*        work_LMloc(lm,n_r) + &
                &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
-               &        dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*     &
-               &        orho1(n_r)*temp0(n_r)*dentropy0(n_r)*w(lm,n_r)
+               &        dL*or2(n_r)*orho1(n_r)*temp0(n_r)*dentropy0(n_r)*&
+               &                                             w(lm,n_r)
             end do
          end do
          !$omp end do
       else
-         !$omp do private(n_r,lm) collapse(2)
+         !$omp do private(n_r,l1,dL,lm)
          do n_r=1,n_r_max
             do lm=llm,ulm
-               ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-       &
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
                &                             or2(n_r)*work_LMloc(lm,n_r)- &
-               &           dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*   &
-               &           dentropy0(n_r)*w(lm,n_r))
+               &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
             end do
          end do
          !$omp end do
@@ -390,9 +394,10 @@ contains
       type(type_tarray), intent(inout) :: dsdt
 
       !-- Local variables
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, lm, start_lm, stop_lm, l1
       logical :: l_in_cheb
       integer, pointer :: lm2l(:),lm2m(:)
+      real(cp) :: dL
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -420,11 +425,9 @@ contains
       !$omp end single
 
       if ( istage == 1 ) then
-         !$omp do private(n_r,lm) collapse(2)
+         !$omp do private(n_r)
          do n_r=1,n_r_max
-            do lm=llm,ulm
-               dsdt%old(lm,n_r,istage)=s(lm,n_r)
-            end do
+            dsdt%old(:,n_r,istage)=s(:,n_r)
          end do
          !$omp end do
       end if
@@ -433,28 +436,31 @@ contains
 
          !-- Calculate explicit time step part:
          if ( l_anelastic_liquid ) then
-            !$omp do private(n_r,lm) collapse(2)
+            !$omp do private(n_r,lm,l1,dL)
             do n_r=1,n_r_max
                do lm=llm,ulm
+                  l1 = lm2l(lm)
+                  dL = real(l1*(l1+1),cp)
                   dsdt%impl(lm,n_r,istage)=                                     &
                   &                   opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm)))*&
                   &            kappa(n_r) *  (               work_LMloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
-                  &     - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)*s(lm,n_r) )
+                  &                                     - dL*or2(n_r)*s(lm,n_r) )
                end do
             end do
             !$omp end do
          else
-            !$omp do private(n_r,lm) collapse(2)
+            !$omp do private(n_r,lm,l1,dL)
             do n_r=1,n_r_max
                do lm=llm,ulm
+                  l1 = lm2l(lm)
+                  dL = real(l1*(l1+1),cp)
                   dsdt%impl(lm,n_r,istage)=                                        &
                   &                   opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &
                   &        kappa(n_r) *                  ( work_LMloc(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &
-                  &        - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)           &
-                  &                                              *  s(lm,n_r) )
+                  &        - dL*or2(n_r)                         *  s(lm,n_r) )
                end do
             end do
             !$omp end do

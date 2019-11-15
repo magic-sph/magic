@@ -10,7 +10,7 @@ module updateXi_mod
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: topxi, botxi
    use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
-   use horizontal_data, only: dLh, hdif_Xi
+   use horizontal_data, only: hdif_Xi
    use logic, only: l_update_xi, l_finite_diff, l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use radial_der, only: get_ddr, get_dr
@@ -328,7 +328,7 @@ contains
       complex(cp), intent(inout) :: dxi_exp_last(llm:ulm,n_r_max)
 
       !-- Local variables
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, start_lm, stop_lm
 
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -337,12 +337,10 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(n_r,lm) collapse(2)
+      !$omp do
       do n_r=1,n_r_max
-         do lm=llm,ulm
-            dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
-            &                          or2(n_r)*work_LMloc(lm,n_r) )
-         end do
+         dxi_exp_last(:,n_r)=orho1(n_r)*( dxi_exp_last(:,n_r)-   &
+         &                         or2(n_r)*work_LMloc(:,n_r) )
       end do
       !$omp end do
       !$omp end parallel
@@ -363,7 +361,8 @@ contains
 
       !-- Local variables
       logical :: l_in_cheb
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, lm, start_lm, stop_lm, l1
+      real(cp) :: dL
       integer, pointer :: lm2l(:),lm2m(:)
 
       if ( present(l_in_cheb_space) ) then
@@ -392,24 +391,24 @@ contains
       !$omp end single
 
       if ( istage == 1 ) then
-         !$omp do private(n_r,lm) collapse(2)
+         !$omp do
          do n_r=1,n_r_max
-            do lm=llm,ulm
-               dxidt%old(lm,n_r,istage) = xi(lm,n_r)
-            end do
+            dxidt%old(:,n_r,istage) = xi(:,n_r)
          end do
          !$omp end do
       end if
 
       if ( l_calc_lin ) then
 
-         !$omp do private(n_r,lm) collapse(2)
+         !$omp do private(n_r,lm,l1,dL)
          do n_r=1,n_r_max
             do lm=llm,ulm
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
                dxidt%impl(lm,n_r,istage)=                                        &
                &                  osc*hdif_Xi(st_map%lm2(lm2l(lm),lm2m(lm))) *   &
                &     ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
-               &       - dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(n_r)* xi(lm,n_r) )
+               &                                       - dL*or2(n_r)* xi(lm,n_r) )
             end do
          end do
          !$omp end do
@@ -543,7 +542,11 @@ contains
 
       if ( l_full_sphere ) then
          !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         if ( l == 1 ) then
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       else
          if ( kbotxi == 1 ) then
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)

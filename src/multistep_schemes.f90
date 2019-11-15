@@ -422,41 +422,36 @@ contains
       complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
 
       !-- Local variables
-      integer :: n_o, n_r, lm, startR, stopR
+      integer :: n_o, n_r, startR, stopR
 
-      !$omp parallel default(shared) private(startR, stopR,lm,n_r)
+      !$omp parallel default(shared) private(startR, stopR,n_r)
       startR=1; stopR=len_rhs
       call get_openmp_blocks(startR,stopR)
       
       do n_o=1,this%nold
          if ( n_o == 1 ) then
             do n_r=startR,stopR
-               do lm=lmStart,lmStop
-                  rhs(lm,n_r)=this%wimp(n_o)*dfdt%old(lm,n_r,n_o)
-               end do
+               rhs(lmStart:lmStop,n_r)=this%wimp(n_o)*dfdt%old(lmStart:lmStop,n_r,n_o)
             end do
          else
             do n_r=startR,stopR
-               do lm=lmStart,lmStop
-                  rhs(lm,n_r)=rhs(lm,n_r)+this%wimp(n_o)*dfdt%old(lm,n_r,n_o)
-               end do
+               rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+&
+               &       this%wimp(n_o)*dfdt%old(lmStart:lmStop,n_r,n_o)
             end do
          end if
       end do
 
       do n_o=1,this%nimp
          do n_r=startR,stopR
-            do lm=lmStart,lmStop
-               rhs(lm,n_r)=rhs(lm,n_r)+this%wimp_lin(n_o+1)*dfdt%impl(lm,n_r,n_o)
-            end do
+            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl(lmStart:lmStop,n_r,n_o)
          end do
       end do
 
       do n_o=1,this%nexp
          do n_r=startR,stopR
-            do lm=lmStart,lmStop
-               rhs(lm,n_r)=rhs(lm,n_r)+this%wexp(n_o)*dfdt%expl(lm,n_r,n_o)
-            end do
+            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl(lmStart:lmStop,n_r,n_o)
          end do
       end do
 
@@ -514,33 +509,27 @@ contains
       type(type_tarray), intent(inout) :: dfdt
 
       !-- Local variables:
-      integer :: n_o, lm, n_r, startR, stopR
+      integer :: n_o, n_r, startR, stopR
 
-      !$omp parallel default(shared) private(startR, stopR,lm,n_r)
+      !$omp parallel default(shared) private(startR,stopR,n_r)
       startR=1; stopR=n_r_max
       call get_openmp_blocks(startR,stopR)
 
       do n_o=this%nexp,2,-1
          do n_r=startR,stopR
-            do lm=lmStart,lmStop
-               dfdt%expl(lm,n_r,n_o)=dfdt%expl(lm,n_r,n_o-1)
-            end do
+            dfdt%expl(lmStart:lmStop,n_r,n_o)=dfdt%expl(lmStart:lmStop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nold,2,-1
          do n_r=startR,stopR
-            do lm=lmStart,lmStop
-               dfdt%old(lm,n_r,n_o)=dfdt%old(lm,n_r,n_o-1)
-            end do
+            dfdt%old(lmStart:lmStop,n_r,n_o)=dfdt%old(lmStart:lmStop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nimp,2,-1
          do n_r=startR,stopR
-            do lm=lmStart,lmStop
-               dfdt%impl(lm,n_r,n_o)=dfdt%impl(lm,n_r,n_o-1)
-            end do
+            dfdt%impl(lmStart:lmStop,n_r,n_o)=dfdt%impl(lmStart:lmStop,n_r,n_o-1)
          end do
       end do
 

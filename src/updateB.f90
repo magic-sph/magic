@@ -20,7 +20,7 @@ module updateB_mod
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: solve_counter, dct_counter
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
-   use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
+   use horizontal_data, only: hdif_B
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
        &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff,     &
        &            l_full_sphere
@@ -641,13 +641,14 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
-         !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
+         !$omp parallel do default(shared) private(lm,n_r,fac,l1,m1) collapse(2)
          do n_r=2,n_r_ic_max
             do lm=llmMag, ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
-               fac = -omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
-               &    dLh(st_map%lm2(l1,m1))
+
+               fac = -omega_ic*or2(n_r_max)*cmplx(0.0_cp,real(m1,cp),cp)* &
+               &      real(l1*(l1+1),cp)
                db_exp_last(lm,n_r)=fac*b_ic(lm,n_r)
                dj_exp_last(lm,n_r)=fac*aj_ic(lm,n_r)
             end do
@@ -657,8 +658,8 @@ contains
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
          do n_r=2,n_r_ic_max
             do lm=llmMag, ulmMag
-               db_exp_last(:,:)=zero
-               dj_exp_last(:,:)=zero
+               db_exp_last(lm,n_r)=zero
+               dj_exp_last(lm,n_r)=zero
             end do
          end do
          !$omp end parallel do
@@ -688,7 +689,7 @@ contains
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(n_r,lm) collapse(2)
+      !$omp do private(n_r,lm)
       do n_r=1,n_r_max
          do lm=lmStart_00,ulmMag
             dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
@@ -721,8 +722,9 @@ contains
 
       !-- Local variables 
       complex(cp) :: tmp(llmMag:ulmMag,n_r_ic_max)
+      real(cp) :: dL
       logical :: l_in_cheb
-      integer :: l1, m1, lmStart_00
+      integer :: l1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
 
@@ -763,46 +765,42 @@ contains
       !$omp end single
 
       if ( istage == 1 ) then
-         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         !$omp do private(n_r,lm,l1,dL) collapse(2)
          do n_r=1,n_r_ic_max
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               dbdt_ic%old(lm,n_r,istage)= &
-               &                  dLh(st_map%lm2(l1,m1))*or2(n_r_max)* b_ic(lm,n_r)
-               djdt_ic%old(lm,n_r,istage)= &
-               &                  dLh(st_map%lm2(l1,m1))*or2(n_r_max)*aj_ic(lm,n_r)
+               dL = real(l1*(l1+1),cp)
+               dbdt_ic%old(lm,n_r,istage)=dL*or2(n_r_max)* b_ic(lm,n_r)
+               djdt_ic%old(lm,n_r,istage)=dL*or2(n_r_max)*aj_ic(lm,n_r)
             end do
          end do
          !$omp end do
       end if
 
       if ( l_calc_lin ) then
-         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         !$omp do private(n_r,lm,l1,dL) collapse(2)
          do n_r=2,n_r_ic_max-1
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
-               m1=lm2m(lm)
-               dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-               &                    or2(n_r_max) *  (       ddb_ic(lm,n_r) +  &
-               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*db_ic(lm,n_r) )
-               djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-               &                     or2(n_r_max) *  (      ddj_ic(lm,n_r) +  &
-               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(n_r)*dj_ic(lm,n_r) )
+               dL = real(l1*(l1+1),cp)
+               dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL*or2(n_r_max)* (  &
+               &                                      ddb_ic(lm,n_r) +  &
+               &         two*real(l1+1,cp)*O_r_ic(n_r)*db_ic(lm,n_r) )
+               djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL*or2(n_r_max) *  (&
+               &                                      ddj_ic(lm,n_r) +  &
+               &         two*real(l1+1,cp)*O_r_ic(n_r)*dj_ic(lm,n_r) )
             end do
          end do
          !$omp end do
          n_r=n_r_ic_max
-         !$omp do private(lm,l1,m1)
+         !$omp do private(lm,l1,dL)
          do lm=lmStart_00,ulmMag
             l1=lm2l(lm)
-            m1=lm2m(lm)
-            dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-            &                                             or2(n_r_max) *  &
-            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm,n_r)
-            djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dLh(st_map%lm2(l1,m1))*   &
-            &                                              or2(n_r_max) *  &
-            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm,n_r)
+            dL = real(l1*(l1+1),cp)
+            dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL*or2(n_r_max) *  &
+            &                           (one+two*real(l1+1,cp))*ddb_ic(lm,n_r)
+            djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL* or2(n_r_max) *  &
+            &                           (one+two*real(l1+1,cp))*ddj_ic(lm,n_r)
          end do
          !$omp end do
       end if
@@ -833,6 +831,7 @@ contains
       complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_max)
 
       !-- Local variables 
+      real(cp) :: dL
       logical :: l_in_cheb
       integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
@@ -878,14 +877,11 @@ contains
                   l1=lm2l(lm)
                   m1=lm2m(lm)
 
-                  b(lm,n_r)=(r(n_r_LCR)/r(n_r))**D_l(st_map%lm2(l1,m1))*b(lm,n_r_LCR)
-                  db(lm,n_r)=-real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
-                  &          (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/          &
-                  &          (r(n_r))**(D_l(st_map%lm2(l1,m1))+1)*b(lm,n_r_LCR)
-                  ddb(lm,n_r)=real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
-                  &           (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
-                  &           *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/      &
-                  &           (r(n_r))**(D_l(st_map%lm2(l1,m1))+2)*b(lm,n_r_LCR)
+                  b(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l1,cp)*b(lm,n_r_LCR)
+                  db(lm,n_r)=-real(l1,cp)*(r(n_r_LCR))**real(l1,cp)/  &
+                  &          (r(n_r))**(real(l1,cp)+1)*b(lm,n_r_LCR)
+                  ddb(lm,n_r)=real(l1,cp)*real(l1+1,cp)*(r(n_r_LCR))**real(l1,cp)/ &
+                  &           (r(n_r))**(real(l1,cp)+2)*b(lm,n_r_LCR)
                   aj(lm,n_r) =zero
                   dj(lm,n_r) =zero
                   ddj(lm,n_r)=zero
@@ -896,13 +892,13 @@ contains
       end if
 
       if ( istage == 1 ) then
-         !$omp do private(n_r,lm,l1,m1) collapse(2)
+         !$omp do private(n_r,lm,l1,dL)
          do n_r=1,n_r_max
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               dbdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)* b(lm,n_r)
-               djdt%old(lm,n_r,istage)=dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r)
+               dL = real(l1*(l1+1),cp)
+               dbdt%old(lm,n_r,istage)=dL*or2(n_r)* b(lm,n_r)
+               djdt%old(lm,n_r,istage)=dL*or2(n_r)*aj(lm,n_r)
             end do
          end do
          !$omp end do
@@ -917,23 +913,20 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,l1,m1,dtP,dtT)
+         !$omp do private(n_r,lm,l1,m1,dtP,dtT,dL)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
+               dL=real(l1*(l1+1),cp)
                dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
-               &                                 dLh(st_map%lm2(l1,m1))*or2(n_r) * &
-               &       ( ddb(lm,n_r) - dLh(st_map%lm2(l1,m1))*or2(n_r)*b(lm,n_r) )
+               &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
                djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))*&
-               &                                 dLh(st_map%lm2(l1,m1))*or2(n_r) * &
-               &                   ( ddj(lm,n_r) + dLlambda(n_r)*dj(lm,n_r) -      &
-               &                      dLh(st_map%lm2(l1,m1))*or2(n_r)*aj(lm,n_r) )
+               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*       &
+               &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
                if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-                  dtP(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
-                  &             * (  b(lm,n_r)-workA(lm,n_r) )
-                  dtT(lm)=dLh(st_map%lm2(l1,m1))*or2(n_r)/tscheme%dt(1) &
-                  &             * ( aj(lm,n_r)-workB(lm,n_r) )
+                  dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  b(lm,n_r)-workA(lm,n_r) )
+                  dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( aj(lm,n_r)-workB(lm,n_r) )
                end if
             end do
             if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
