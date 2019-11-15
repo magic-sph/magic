@@ -1187,7 +1187,7 @@ contains
             kappa=kappa/kappatop
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
-         else if ( nVarDiff == 7 ) then
+         else if ( nVarDiff == 9 ) then
             ! PNS thermal diffusivity
             ! approximation given by Thompson & Duncan (93), Eq. 7
             kappa = otemp1*rho0**(-2.0/3.0)
