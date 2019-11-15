@@ -1621,7 +1621,7 @@ contains
             if ( l_cond_ic ) then
                Tl_AX(l+1)=r_dep(l)*b_ic(lm,n_r)
             else
-               Tl_AX(l+1)=r_dep(l)*b(lm,n_r_icb)
+               Tl_AX(l+1)=r_dep(l)*bICB(lm)
             end if
          else             ! Outer Core
             Tl_AX(l+1)=O_r*b_Rloc(lm,n_r)
