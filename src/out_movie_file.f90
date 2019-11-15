@@ -21,7 +21,7 @@ module out_movie
    use blocking, only: nfs, lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
-       &                      dLh, osn1, D_l, phi, theta_ord
+       &                      dLh, osn1, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, b
 #ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat
@@ -1728,12 +1728,13 @@ contains
       cs1(1)=zero
       cs2(1)=zero
       do lm=2,lm_max
+         l = lm2l(lm)
 #ifdef WITH_SHTNS
-         cs1(lm) = bCMB(lm)*r_dep(lm2l(lm)) ! multiplication by l(l+1) in shtns.f90
+         cs1(lm) = bCMB(lm)*r_dep(l) ! multiplication by l(l+1) in shtns.f90
 #else
-         cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(lm2l(lm))
+         cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(l)
 #endif
-         cs2(lm)= -bCMB(lm)*D_l(lm)*r_dep(lm2l(lm))
+         cs2(lm)= -bCMB(lm)*real(l,cp)*r_dep(l)
       end do
 
 #ifdef WITH_SHTNS

@@ -9,7 +9,7 @@ module updateXi_mod
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: topxi, botxi
-   use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
+   use blocking, only: lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: hdif_Xi
    use logic, only: l_update_xi, l_finite_diff, l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
@@ -201,10 +201,10 @@ contains
          else
             if ( .not. lXimat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_xiMat(tscheme,l1,hdif_Xi(st_map%lm2(l1,0)), &
+               call get_xiMat(tscheme,l1,hdif_Xi(lm2(l1,0)), &
                     &         xiMat(nLMB2),xiMat_fac(:,nLMB2))
 #else
-               call get_xiMat(tscheme,l1,hdif_Xi(st_map%lm2(l1,0)),xiMat(nLMB2))
+               call get_xiMat(tscheme,l1,hdif_Xi(lm2(l1,0)),xiMat(nLMB2))
 #endif
                 lXimat(l1)=.true.
             end if
@@ -405,8 +405,7 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                dL = real(l1*(l1+1),cp)
-               dxidt%impl(lm,n_r,istage)=                                        &
-               &                  osc*hdif_Xi(st_map%lm2(lm2l(lm),lm2m(lm))) *   &
+               dxidt%impl(lm,n_r,istage)=                    osc*hdif_Xi(lm) *   &
                &     ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
                &                                       - dL*or2(n_r)* xi(lm,n_r) )
             end do

@@ -12,7 +12,7 @@ module updateZ_mod
    use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
-   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO,             &
@@ -249,11 +249,10 @@ contains
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
-               call get_zMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(nLMB2),zMat_fac(:,nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(lm2(l1,0)),zMat(nLMB2), &
+                    &        zMat_fac(:,nLMB2))
 #else
-               call get_zMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(lm2(l1,0)),zMat(nLMB2))
 #endif
                lZmat(l1)=.true.
             !write(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
@@ -294,13 +293,9 @@ contains
                   !      Note: no angular momentum correction necessary for this case !
                   if ( .not. lZ10mat ) then
 #ifdef WITH_PRECOND_Z10
-                     call get_z10Mat(tscheme,l1,                              &
-                          &          hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                          &          z10Mat,z10Mat_fac)
+                     call get_z10Mat(tscheme,l1,hdif_V(lm1),z10Mat,z10Mat_fac)
 #else
-                     call get_z10Mat(tscheme,l1,hdif_V(                &
-                          &          st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                          &          z10Mat)
+                     call get_z10Mat(tscheme,l1,hdif_V(lm1),z10Mat)
 #endif
                      lZ10mat=.true.
                   end if
@@ -562,7 +557,7 @@ contains
       real(cp) :: r_E_2, nomi, dL
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
-      integer :: lmStart_00, l1, m1, l1m0, l1m1
+      integer :: lmStart_00, l1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
 
       if ( present(l_in_cheb_space) ) then
@@ -680,7 +675,6 @@ contains
          do n_r=1,n_r_max
             do lm=llm,ulm
                l1 = lm2l(lm)
-               m1 = lm2m(lm)
                dL = real(l1*(l1+1),cp)
                dzdt%old(lm,n_r,istage)=dL*or2(n_r)*z(lm,n_r)
             end do
@@ -703,10 +697,11 @@ contains
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                dL = real(l1*(l1+1),cp)
-               Dif(lm)=hdif_V(st_map%lm2(lm2l(lm),lm2m(lm)))*dL*or2(n_r)*visc(n_r)*&
-               &       ( work_LMloc(lm,n_r)   +(dLvisc(n_r)-beta(n_r)) *dz(lm,n_r) &
-               &        -( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)          &
-               &       + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*z(lm,n_r) )
+               Dif(lm)=hdif_V(lm)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
+               &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
+               &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                                    z(lm,n_r) )
 
                dzdt%impl(lm,n_r,istage)=Dif(lm)
             end do

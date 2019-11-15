@@ -290,12 +290,10 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(tscheme,l1,hdif_B(st_map%lm2(l1,0)),   &
-                    &        bMat(nLMB2),bMat_fac(:,nLMB2),         &
-                    &        jMat(nLMB2),jMat_fac(:,nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(lm2(l1,0)),bMat(nLMB2), &
+                    &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
 #else
-               call get_bMat(tscheme,l1,hdif_B(st_map%lm2(l1,0)),   &
-                    &        bMat(nLMB2),jMat(nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(lm2(l1,0)),bMat(nLMB2),jMat(nLMB2))
 #endif
                lBmat(l1)=.true.
             end if
@@ -833,7 +831,7 @@ contains
       !-- Local variables 
       real(cp) :: dL
       logical :: l_in_cheb
-      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
+      integer :: n_r_top, n_r_bot, l1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
 
@@ -870,12 +868,11 @@ contains
       !$omp end single
 
       if ( l_LCR ) then
-         !$omp do private(n_r,lm,l1,m1)
+         !$omp do private(n_r,lm,l1)
          do n_r=n_r_cmb,n_r_icb-1
             if ( n_r<=n_r_LCR ) then
                do lm=lmStart_00,ulmMag
                   l1=lm2l(lm)
-                  m1=lm2m(lm)
 
                   b(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l1,cp)*b(lm,n_r_LCR)
                   db(lm,n_r)=-real(l1,cp)*(r(n_r_LCR))**real(l1,cp)/  &
@@ -913,16 +910,15 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,l1,m1,dtP,dtT,dL)
+         !$omp do private(n_r,lm,l1,dtP,dtT,dL)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
-               m1=lm2m(lm)
                dL=real(l1*(l1+1),cp)
-               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))* &
+               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(lm)*     &
                &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
-               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(st_map%lm2(l1,m1))*&
-               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*       &
+               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(lm)*           &
+               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
                &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
                if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
                   dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  b(lm,n_r)-workA(lm,n_r) )

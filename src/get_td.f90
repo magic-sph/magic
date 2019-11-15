@@ -17,7 +17,7 @@ module nonlinear_lm_mod
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ThExpNb
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
-       &               lm2lmS, st_map
+       &               lm2lmS, st_map, lo_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
        &                      dTheta3A, dTheta4A, dPhi0, dTheta2S,     &
        &                      dTheta3S, dTheta4S, hdif_V, hdif_B
@@ -681,44 +681,44 @@ contains
             if ( l_anel ) then
                if ( l_anelastic_liquid ) then
                   if ( l_mag_nl ) then
-                     dsdt_loc=dsdt_loc+                                        &
-                     &    ViscHeatFac*hdif_V(1)*temp0(nR)*this%ViscHeatLM(1)+  &
-                     &     OhmLossFac*hdif_B(1)*temp0(nR)*this%OhmLossLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(1)+ &
+                     &        OhmLossFac*temp0(nR)*this%OhmLossLM(1)
                   else
-                     dsdt_loc=dsdt_loc+ &
-                     &    ViscHeatFac*hdif_V(1)*temp0(nR)*this%ViscHeatLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(1)
                   end if
                else
                   if ( l_mag_nl ) then
-                     dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*this%ViscHeatLM(1)+ &
-                     &                  OhmLossFac*hdif_B(1)*this%OhmLossLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(1)+ &
+                     &        OhmLossFac*this%OhmLossLM(1)
                   else
-                     dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*this%ViscHeatLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(1)
                   end if
                end if
             end if
             dsdt(1)=dsdt_loc
 
 #ifdef WITH_SHTNS
-            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc)
+            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l,m)
             do lm=2,lm_max
+               l   =lm2l(lm)
+               m   =lm2m(lm)
                lmP =lm2lmP(lm)
                dVSrLM(lm)=this%VSrLM(lmP)
                dsdt_loc = dLh(lm)*this%VStLM(lmP)
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ &
-                     &          ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
+                     &          temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+ &
-                        &          OhmLossFac*hdif_B(lm)*temp0(nR)*this%OhmLossLM(lmP)
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m)) * &
+                        &          temp0(nR)*this%OhmLossLM(lmP)
                      end if
                   else
-                     dsdt_loc = dsdt_loc+ &
-                     &          ViscHeatFac*hdif_V(lm)*this%ViscHeatLM(lmP)
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m)) * &
+                     &          this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+ &
-                        &          OhmLossFac*hdif_B(lm)*this%OhmLossLM(lmP)
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m)) * &
+                        &          this%OhmLossLM(lmP)
                      end if
                   end if
                end if
@@ -751,18 +751,18 @@ contains
                !PERFON('td_h2')
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ &
-                     &          ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
+                     &          temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+ &
-                        &          OhmLossFac*hdif_B(lm)*temp0(nR)*this%OhmLossLM(lmP)
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m))*&
+                        &          temp0(nR)*this%OhmLossLM(lmP)
                      end if
                   else
-                     dsdt_loc = dsdt_loc+ &
-                     &          ViscHeatFac*hdif_V(lm)*this%ViscHeatLM(lmP)
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
+                     &          this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+ &
-                        &          OhmLossFac*hdif_B(lm)*this%OhmLossLM(lmP)
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m))* &
+                        &          this%OhmLossLM(lmP)
                      end if
                   end if
                end if

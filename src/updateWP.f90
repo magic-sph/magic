@@ -12,7 +12,7 @@ module updateWP_mod
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: dct_counter, solve_counter
-   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
@@ -254,10 +254,10 @@ contains
             if ( .not. lWPmat(l1) ) then
                !PERFON('upWP_mat')
                if ( l_double_curl ) then
-                  call get_wMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)),    &
+                  call get_wMat(tscheme,l1,hdif_V(lm2(l1,0)),    &
                        &        wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                else
-                  call get_wpMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)),   &
+                  call get_wpMat(tscheme,l1,hdif_V(lm2(l1,0)),   &
                        &         wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
@@ -290,7 +290,7 @@ contains
                      if ( rscheme_oc%version == 'cheb' ) then
                         do nR=1,n_r_max
                            work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
-                           &        r(nR)*real(s(st_map%lm2(0,0),nR))
+                           &        r(nR)*real(s(lm2(0,0),nR))
                         end do
                         rhs(1)=rInt_R(work,r,rscheme_oc)
                      else
@@ -302,17 +302,14 @@ contains
 
                   if ( l_chemical_conv ) then
                      do nR=2,n_r_max
-                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*    &
-                        &       real(s(st_map%lm2(0,0),nR))+  &
-                        &       rho0(nR)*ChemFac*rgrav(nR)*   &
-                        &       real(xi(st_map%lm2(0,0),nR))+ &
-                        &       real(dwdt%expl(st_map%lm2(0,0),nR,tscheme%istage))
+                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm2(0,0),nR))+   &
+                        &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(lm2(0,0),nR))+ &
+                        &       real(dwdt%expl(lm2(0,0),nR,tscheme%istage))
                      end do
                   else
                      do nR=2,n_r_max
-                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*    &
-                        &       real(s(st_map%lm2(0,0),nR))+  &
-                        &       real(dwdt%expl(st_map%lm2(0,0),nR,tscheme%istage))
+                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm2(0,0),nR))+  &
+                        &       real(dwdt%expl(lm2(0,0),nR,tscheme%istage))
                      end do
                   end if
 
@@ -540,7 +537,7 @@ contains
 
       !-- Local variables 
       logical :: l_in_cheb
-      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
+      integer :: n_r_top, n_r_bot, l1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
       real(cp) :: dL
@@ -630,15 +627,14 @@ contains
                n_r_bot=n_r_icb
             end if
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Buo,dL)
+            !$omp do private(n_r,lm,l1,Dif,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
-                  m1=lm2m(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(st_map%lm2(l1,m1))*dL*or2(n_r)*visc(n_r)*         &
-                  &                               orho1(n_r)*      ( ddddw(lm,n_r)  &
+                  Dif(lm)=-hdif_V(lm)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  &                                                  ddddw(lm,n_r)  &
                   &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
                   &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
@@ -669,8 +665,7 @@ contains
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
                      &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                     &                 hdif_V(st_map%lm2(l1,m1))*visc(n_r)*        &
-                     &                                    ( work_LMloc(lm,n_r)     &
+                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
                      &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                      &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                      &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
@@ -683,8 +678,7 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(st_map%lm2(l1,m1))*dL*or2(n_r)*visc(n_r) *  (&
-                     &                                               ddw(lm,n_r)   &
+                     Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                      &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
                      &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
                      &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
@@ -701,15 +695,13 @@ contains
 
          else
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Buo,Pre,dL)
+            !$omp do private(n_r,lm,l1,Dif,Buo,Pre,dL)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
-                  m1=lm2m(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(st_map%lm2(l1,m1))*dL*or2(n_r)*visc(n_r)*(     &
-                  &                                                  ddw(lm,n_r)  & 
+                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  & 
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
@@ -721,7 +713,7 @@ contains
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)+Buo(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r) &
-                  &         + hdif_V(st_map%lm2(l1,m1))*visc(n_r)*dL*or2(n_r)   &
+                  &            + hdif_V(lm)*visc(n_r)*dL*or2(n_r)               &
                   &                                     * ( -work_LMloc(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &

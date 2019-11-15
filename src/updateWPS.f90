@@ -15,7 +15,7 @@ module updateWPS_mod
        &                          CorFac, ktopp
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
-   use blocking, only: lo_sub_map, lo_map, st_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
@@ -188,10 +188,9 @@ contains
             end if
          else
             if ( .not. lWPSmat(l1) ) then
-               call get_wpsMat(tscheme,l1,hdif_V(st_map%lm2(l1,0)),  &
-                    &          hdif_S(st_map%lm2(l1,0)),             &
-                    &          wpsMat(:,:,nLMB2),wpsPivot(:,nLMB2),  &
-                    &          wpsMat_fac(:,:,nLMB2))
+               call get_wpsMat(tscheme, l1, hdif_V(lm2(l1,0)),       &
+                    &          hdif_S(lm2(l1,0)), wpsMat(:,:,nLMB2), &
+                    &          wpsPivot(:,nLMB2), wpsMat_fac(:,:,nLMB2))
                lWPSmat(l1)=.true.
             end if
          end if
@@ -400,7 +399,7 @@ contains
       !-- Local variables 
       logical :: l_in_cheb
       real(cp) :: dL
-      integer :: n_r_top, n_r_bot, l1, m1
+      integer :: n_r_top, n_r_bot, l1
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
 
@@ -465,15 +464,13 @@ contains
 
          !-- Calculate explicit time step part:
          if ( l_temperature_diff ) then
-            !$omp do private(n_r,lm,l1,m1,Dif,Pre,Buo,dL)
+            !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
-                  m1=lm2m(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(st_map%lm2(l1,m1))*dL*or2(n_r)*visc(n_r) *  ( &
-                  &                                                  ddw(lm,n_r) &
+                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
                   &        -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
@@ -482,7 +479,7 @@ contains
                   Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)  &
-                  &           + hdif_V(st_map%lm2(l1,m1))*visc(n_r)*dL*or2(n_r)  &
+                  &           + hdif_V(lm)*visc(n_r)*dL*or2(n_r)                 &
                   &                                     * ( -work_LMloc(lm,n_r)  &
                   &                   + (beta(n_r)-dLvisc(n_r))    *ddw(lm,n_r)  &
                   &           + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r)   &
@@ -490,8 +487,8 @@ contains
                   &                                                  dw(lm,n_r)  &
                   &           - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)   &
                   &                      +dLvisc(n_r) )   *           w(lm,n_r) ) 
-                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(st_map%lm2(l1,m1))*        &
-                  &               kappa(n_r)*(                    workB(lm,n_r)  &
+                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(lm)* kappa(n_r)*(          &
+                  &                                               workB(lm,n_r)  &
                   &          + ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+        &
                   &              dLkappa(n_r) )                    * ds(lm,n_r)  &
                   &          + ( ddLtemp0(n_r)+ dLtemp0(n_r)*( two*or1(n_r)+     &
@@ -516,15 +513,13 @@ contains
 
          else ! entropy diffusion
 
-            !$omp do private(n_r,lm,l1,m1,Dif,Pre,Buo,dL)
+            !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
-                  m1=lm2m(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(st_map%lm2(l1,m1))*dL*or2(n_r)*visc(n_r) *  ( &
-                  &                                                  ddw(lm,n_r) &
+                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
                   &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
@@ -533,7 +528,7 @@ contains
                   Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)&
-                  &         + hdif_V(st_map%lm2(l1,m1))* visc(n_r)*dL*or2(n_r) &
+                  &                        + hdif_V(lm)* visc(n_r)*dL*or2(n_r) &
                   &                                   * ( -work_LMloc(lm,n_r)  &
                   &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
                   &        + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+ dbeta(n_r)   &
@@ -541,8 +536,7 @@ contains
                   &                                            ) * dw(lm,n_r)  &
                   &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
                   &                      +dLvisc(n_r) )   *         w(lm,n_r) )
-                  dsdt%impl(lm,n_r,istage)=                                    &
-                  &                   opr*hdif_S(st_map%lm2(l1,m1))*kappa(n_r)*&
+                  dsdt%impl(lm,n_r,istage)=          opr*hdif_S(lm)*kappa(n_r)*&
                   &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
                   &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
                   &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &

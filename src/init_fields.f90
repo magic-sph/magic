@@ -15,7 +15,7 @@ module init_fields
    use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
        &               llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
-       &                      phi, cosTheta, hdif_B, D_lP1
+       &                      phi, cosTheta, hdif_B
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv,            &
        &            l_anelastic_liquid, l_non_adia, l_finite_diff
@@ -1547,7 +1547,7 @@ contains
       complex(cp), intent(out) :: aj0_ic(:) ! aj(l=0,m=0) in the inner core
 
       !-- Local variables
-      integer :: n_cheb,n_r,info,n_r_real,n_r_out
+      integer :: n_cheb,n_r,info,n_r_real,n_r_out, l
       complex(cp) :: rhs(n_r_tot)
       complex(cp) :: work_l_ic(n_r_ic_max)
       real(cp), allocatable :: jMat(:,:)
@@ -1555,6 +1555,8 @@ contains
 
       allocate( jMat(n_r_tot,n_r_tot) )
       allocate( jPivot(n_r_tot) )
+
+      l = lo_map%lm2l(lm0)
 
       n_r_real = n_r_max
       if ( l_cond_ic ) n_r_real = n_r_real+n_r_ic_max
@@ -1613,19 +1615,19 @@ contains
 
          do n_cheb=1,n_r_ic_max ! counts even IC cheb modes
             do n_r=2,n_r_ic_max ! counts IC radial grid point
-               jMat(n_r_max+n_r,n_r_max+n_cheb) =               &
-                  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
-                                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
-                            two*D_lP1(lm0)*dcheb_ic(n_cheb,n_r) )
+               jMat(n_r_max+n_r,n_r_max+n_cheb) =                 &
+               &  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
+               &                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
+               &            two*real(l+1,cp)*dcheb_ic(n_cheb,n_r) )
             end do
          end do
 
          !-------- boundary conditions:
          do n_cheb=1,n_cheb_ic_max
             jMat(n_r_max,n_r_max+n_cheb)=-cheb_norm_ic*cheb_ic(n_cheb,1)
-            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (   &
-                                             dcheb_ic(n_cheb,1) + &
-                      D_lP1(lm0)*or1(n_r_max)*cheb_ic(n_cheb,1) )
+            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      & 
+            &                                 dcheb_ic(n_cheb,1) + &
+            &         real(l+1,cp)*or1(n_r_max)*cheb_ic(n_cheb,1) )
          end do
          do n_cheb=n_r_max+n_cheb_ic_max+1,n_r_tot
             jMat(n_r_max,n_cheb)  =0.0_cp

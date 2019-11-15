@@ -11,7 +11,7 @@ module updateS_mod
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops,bots
-   use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
+   use blocking, only: lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
        &            l_full_sphere
@@ -203,10 +203,10 @@ contains
          else
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(st_map%lm2(l1,0)), &
+               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)), &
                     &        sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(tscheme,l1,hdif_S(st_map%lm2(l1,0)),sMat(nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)),sMat(nLMB2))
 #endif
                lSmat(l1)=.true.
             end if
@@ -441,9 +441,8 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=                                     &
-                  &                   opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm)))*&
-                  &            kappa(n_r) *  (               work_LMloc(lm,n_r) &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)* kappa(n_r) *  (    &
+                  &                                          work_LMloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                     - dL*or2(n_r)*s(lm,n_r) )
                end do
@@ -455,9 +454,8 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=                                        &
-                  &                   opr*hdif_S(st_map%lm2(lm2l(lm),lm2m(lm))) *  &
-                  &        kappa(n_r) *                  ( work_LMloc(lm,n_r)      &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)*kappa(n_r) *   (       &
+                  &                                        work_LMloc(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &
                   &        - dL*or2(n_r)                         *  s(lm,n_r) )

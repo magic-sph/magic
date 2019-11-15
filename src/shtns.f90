@@ -6,7 +6,7 @@ module shtns
    use constants, only: ci, one, zero
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
        &                 minc, lm_max, lmP_max
-   use horizontal_data, only: dLh, D_m, O_sin_theta_E2, O_sin_theta
+   use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
 
    implicit none
@@ -252,7 +252,7 @@ contains
       !$omp parallel do default(shared) private(lm, m, l)
       do lm = 1, lm_max
          l = st_map%lm2l(lm)
-         m = D_m(lm)
+         m = st_map%lm2m(lm)
          if ( l <= lcut ) then
             Slm(lm) = ci*m*dWlm(lm)
             Tlm(lm) = ci*m*Zlm(lm)
