@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Magic documentation build configuration file, created by
 # sphinx-quickstart2 on Tue Sep  1 16:47:54 2015.
@@ -56,9 +55,9 @@ source_suffix = '.rst'
 master_doc = 'contents'
 
 # General information about the project.
-project = u'Magic'
-copyright = u'2015, Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
-author = u'Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
+project = 'Magic'
+copyright = '2015, Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
+author = 'Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -239,8 +238,8 @@ for macro in f.readlines():
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  (master_doc, 'magic_manual.tex', u'MAGIC Documentation',
-   u'The MAGIC dev team', 'manual'),
+  (master_doc, 'magic_manual.tex', 'MAGIC Documentation',
+   'The MAGIC dev team', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -269,7 +268,7 @@ latex_logo = '.themes/magic/static/logo_tex.png'
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'magic', u'Magic Documentation',
+    (master_doc, 'magic', 'Magic Documentation',
      [author], 1)
 ]
 
@@ -283,7 +282,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  (master_doc, 'Magic', u'Magic Documentation',
+  (master_doc, 'Magic', 'Magic Documentation',
    author, 'Magic', 'One line description of project.',
    'Miscellaneous'),
 ]

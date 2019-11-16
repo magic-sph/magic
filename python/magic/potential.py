@@ -59,8 +59,8 @@ def getPotEndianness(filename):
 class MagicPotential(MagicSetup):
     """
     This class allows to load and display the content of the potential
-    files: :ref:`V_lmr.TAG <secVpotFile>`, :ref:`B_lmr.TAG <secBpotFile>`
-    and :ref:`T_lmr.TAG <secTpotFile>`. This class allows to transform
+    files: :ref:`V_lmr.TAG <secPotFiles>`, :ref:`B_lmr.TAG <secPotFiles>`
+    and :ref:`T_lmr.TAG <secPotFiles>`. This class allows to transform
     the poloidal/toroidal potential in spectral space to the physical
     quantities in the physical space. It allows to plot radial and
     equatorial cuts as well as phi-averages.
