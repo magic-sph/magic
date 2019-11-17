@@ -1729,11 +1729,13 @@ contains
       n_r_maxL = max(n_r_max,n_r_max_old)
 
       !-- Read Lorentz-torques and rotation rates:
-      call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
-           &                       tscheme_family_old, domega_ic_dt)
+      if ( version > 1 ) then
+         call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
+              &                       tscheme_family_old, domega_ic_dt)
 
-      call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
-           &                       tscheme_family_old, domega_ma_dt)
+         call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
+              &                       tscheme_family_old, domega_ma_dt)
+      end if
 
       call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
            &                       tscheme_family_old, lorentz_torque_ic_dt)
