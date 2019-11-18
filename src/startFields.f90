@@ -315,10 +315,9 @@ contains
          if ( l_heat ) then
             call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
          end if
-         call get_pol_rhs_imp(dsdt%old(:,:,1), dxidt%old(:,:,1), w_LMloc,  &
-              &               dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc,      &
-              &               dwdt, dpdt, tscheme, 1, .true., .false.,     &
-              &               .false., work_LMloc)
+         call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
+              &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
+              &               .false., .false., work_LMloc)
       end if
       call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt,       &
            &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
