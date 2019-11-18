@@ -152,7 +152,7 @@ contains
       do n=1,2
          if ( n == 1 ) n_out=output_unit
          if ( n == 2 ) n_out=n_log_file
-         if ( l_save_out ) then
+         if ( n == 2 .and. l_save_out ) then
             open(n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
@@ -162,7 +162,7 @@ contains
          write(n_out, '('' ! CFL (Alven) value:'',es12.4)') this%alffac
          write(n_out, '('' ! CFL (Ekman) value:'',es12.4)') this%intfac
          write(n_out,*) ''
-         if ( l_save_out ) close(n_log_file)
+         if ( n == 2 .and. l_save_out ) close(n_log_file)
       end do
 
    end subroutine print_info
