@@ -1694,7 +1694,7 @@ contains
       allocate( r_old(n_r_max_old) )
       !-- Read scheme version (FD or CHEB)
       call MPI_File_Read(fh, rscheme_version_old, len(rscheme_version_old), &
-           &              MPI_CHARACTER, istat, ierr)
+           &             MPI_CHARACTER, istat, ierr)
       call MPI_File_Read(fh, n_in, 1, MPI_INTEGER, istat, ierr)
       call MPI_File_Read(fh, n_in_2, 1, MPI_INTEGER, istat, ierr)
       call MPI_File_Read(fh, ratio1_old, 1, MPI_DEF_REAL, istat, ierr)
@@ -1899,8 +1899,8 @@ contains
       end if
 
       if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
-      if ( l_heat .and. .not. l_heat_old ) s(:,:)   =zero
-      if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)   =zero
+      if ( l_heat .and. (.not. l_heat_old) ) s(:,:)=zero
+      if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and. l_mag_old ) then
          !-- Read poloidal potential: b
@@ -2203,25 +2203,31 @@ contains
       !-- Local variables
       integer :: n_o
       integer :: istat(MPI_STATUS_SIZE)
-      real(cp) :: scal
+      real(cp) :: scal_exp(nexp_old-1), scal_old(nold_old-1), scal_imp(nimp_old-1)
 
       if ( tscheme_family_old == 'MULTISTEP' ) then
 
-         do n_o=2,nexp_old
-            call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%nexp .and.  &
-            &    tscheme%family=='MULTISTEP') dscal_dt%expl(n_o)=scal
-         end do
-         do n_o=2,nimp_old
-            call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%nimp .and. &
-            &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal
-         end do
-         do n_o=2,nold_old
-            call MPI_File_Read(fh, scal, 1, MPI_DEF_REAL, istat, ierr)
-            if ( n_o <= tscheme%nold .and. &
-            &    tscheme%family=='MULTISTEP') dscal_dt%old(n_o)=scal
-         end do
+         if ( nexp_old >= 2 ) then
+            call MPI_File_Read(fh, scal_exp, nexp_old-1, MPI_DEF_REAL, istat, ierr)
+            do n_o=2,nexp_old
+               if ( n_o <= tscheme%nexp .and.  &
+               &    tscheme%family=='MULTISTEP') dscal_dt%expl(n_o)=scal_exp(n_o-1)
+            end do
+         end if
+         if ( nimp_old >= 2 ) then
+            call MPI_File_Read(fh, scal_imp, nimp_old-1, MPI_DEF_REAL, istat, ierr)
+            do n_o=2,nimp_old
+               if ( n_o <= tscheme%nimp .and. &
+               &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal_imp(n_o-1)
+            end do
+         end if
+         if(  nold_old  >= 2 ) then
+            call MPI_File_Read(fh, scal_old, nold_old-1, MPI_DEF_REAL, istat, ierr)
+            do n_o=2,nold_old
+               if ( n_o <= tscheme%nold .and. &
+               &    tscheme%family=='MULTISTEP') dscal_dt%old(n_o)=scal_old(n_o-1)
+            end do
+         end if
 
       end if
 
