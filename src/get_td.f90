@@ -15,18 +15,18 @@ module nonlinear_lm_mod
        &                       or4, temp0, alpha0, ogrun, orho1
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
-       &                          BuoFac, ThExpNb
+       &                          BuoFac, ChemFac, ThExpNb
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS, st_map, lo_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
        &                      dTheta3A, dTheta4A, dTheta2S,  hdif_B,   &
        &                      dTheta3S, dTheta4S, hdif_V
-   use RMS, only: Adv2hInt, Pre2hInt, Buo2hInt, Cor2hInt, LF2hInt,  &
+   use RMS, only: Adv2hInt, Pre2hInt, Cor2hInt, LF2hInt, Iner2hInt,    &
        &          Geo2hInt, Mag2hInt, ArcMag2hInt, CLF2hInt, PLF2hInt, &
-       &          CIA2hInt, Arc2hInt, Iner2hInt
+       &          CIA2hInt, Arc2hInt, Buo_temp2hInt, Buo_xi2hint
    use constants, only: zero, two
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc, s_Rloc, &
-       &             p_Rloc, dp_Rloc
+       &             p_Rloc, dp_Rloc, xi_Rloc
    use RMS_helpers, only: hIntRms
 
 
@@ -66,12 +66,17 @@ contains
       allocate( this%AdvpLM(lmP_max), this%LFrLM(lmP_max) )
       allocate( this%LFtLM(lmP_max), this%LFpLM(lmP_max) )
       allocate( this%VxBrLM(lmP_max), this%VxBtLM(lmP_max) )
-      allocate( this%VxBpLM(lmP_max), this%VSrLM(lmP_max) )
-      allocate( this%VStLM(lmP_max), this%VSpLM(lmP_max) )
+      allocate( this%VxBpLM(lmP_max))
       bytes_allocated = bytes_allocated + 12*lmP_max*SIZEOF_DEF_COMPLEX
+
       if ( l_anel) then
          allocate( this%ViscHeatLM(lmP_max), this%OhmLossLM(lmP_max) )
          bytes_allocated = bytes_allocated+14*lmP_max*SIZEOF_DEF_COMPLEX
+      end if
+
+      if ( l_heat ) then
+         allocate(this%VSrLM(lmP_max),this%VStLM(lmP_max),this%VSpLM(lmP_max))
+         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_chemical_conv ) then
@@ -99,11 +104,12 @@ contains
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
       deallocate( this%LFrLM, this%LFtLM, this%LFpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
-      deallocate( this%VSrLM, this%VStLM, this%VSpLM )
 
       if ( l_anel ) deallocate( this%ViscHeatLM, this%OhmLossLM )
 
       if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
+
+      if ( l_heat ) deallocate( this%VSrLM, this%VStLM, this%VSpLM )
 
       !-- RMS calculations
       if ( l_RMS ) then
@@ -134,9 +140,11 @@ contains
          this%VxBrLM(lm)=zero
          this%VxBtLM(lm)=zero
          this%VxBpLM(lm)=zero
-         this%VSrLM(lm) =zero
-         this%VStLM(lm) =zero
-         this%VSpLM(lm) =zero
+         if ( l_heat ) then
+            this%VSrLM(lm) =zero
+            this%VStLM(lm) =zero
+            this%VSpLM(lm) =zero
+         end if
          if ( l_anel ) then
             this%ViscHeatLM(lm)=zero
             this%OhmLossLM(lm) =zero
@@ -213,7 +221,8 @@ contains
       complex(cp) :: LFPol(lm_max),LFTor(lm_max)
       complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
       complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
-      complex(cp) :: Buo(lm_max)
+      complex(cp) :: Buo_temp(lm_max)
+      complex(cp) :: Buo_xi(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
       complex(cp) :: dsdt_loc
 #ifndef WITH_SHTNS
@@ -264,8 +273,16 @@ contains
             dzdt(lm)=AdvTor_loc+CorTor_loc
 
             if ( lRmsCalc ) then
-
-               Buo(lm) =BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm,nR)
+               if (l_heat) then
+                  Buo_temp(lm) =BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm,nR)
+               else
+                  Buo_temp(lm) =0.0_cp
+               end if
+               if (l_chemical_conv) then
+                  Buo_xi(lm) =ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm,nR)
+               else
+                  Buo_xi(lm)=0.0_cp
+               end if
                if ( l_mag_LF .and. nR>n_r_LCR ) then
                   LFPol(lm) =      or2(nR)*this%LFrLM(lm)
                   LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
@@ -378,12 +395,33 @@ contains
                if ( lRmsCalc ) then ! RMS force balance
 
                   if ( l_anelastic_liquid ) then
-                     Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(              &
-                     &        rho0(nR)*s_Rloc(lm,nR)-ViscHeatFac*        &
-                     &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
-                     &        p_Rloc(lm,nR) )
+                     if (l_heat) then
+                        Buo_temp(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(      &
+                        &       rho0(nR)*s_Rloc(lm,nR)-ViscHeatFac*      &
+                        &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
+                        &     p_Rloc(lm,nR) )
+                     else
+                        Buo_temp(lm) =0.0_cp
+                     end if
+                     if (l_chemical_conv) then
+                        Buo_xi(lm) =ChemFac*alpha0(nR)*rgrav(nR)*(       &
+                        &     rho0(nR)*xi_Rloc(lm,nR)-ViscHeatFac*       &
+                        &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
+                        &     p_Rloc(lm,nR) )
+                     else
+                        Buo_xi(lm) =0.0_cp
+                     end if
                   else
-                     Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm,nR)
+                     if (l_heat) then
+                        Buo_temp(lm) =BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm,nR)
+                     else
+                        Buo_temp(lm) =0.0_cp
+                     end if
+                     if (l_chemical_conv) then
+                        Buo_xi(lm) =ChemFac*rho0(nR)*rgrav(nR)*xi_Rloc(lm,nR)
+                     else
+                        Buo_xi(lm)=0.0_cp
+                     end if
                   end if
 
                   if ( l_double_curl ) then
@@ -516,8 +554,14 @@ contains
                call hIntRms(this%PFp2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
 
                ! rho* grad(p/rho) = grad(p) - beta*p
-               if ( ra /= 0.0_cp ) &
-                  call hIntRms(Buo,nR,1,lm_max,0,Buo2hInt(:,nR),st_map,.false.)
+               if ( l_heat ) then
+                  call hIntRms(Buo_temp,nR,1,lm_max,0,Buo_temp2hInt(:,nR),&
+                       &       st_map,.false.)
+               end if
+               if ( l_chemical_conv ) then
+                  call hIntRms(Buo_xi,nR,1,lm_max,0,Buo_xi2hInt(:,nR),&
+                       &       st_map,.false.)
+               end if
                if ( l_corr ) then
                   call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map,.false.)
                   call hIntRms(this%CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
@@ -536,10 +580,10 @@ contains
                   CLF(lm)=CorPol(lm)+LFPol(lm)
                   PLF(lm)=LFPol(lm)-dp_Rloc(lm,nR)+beta(nR)*p_Rloc(lm,nR)
                   Mag(lm)=Geo(lm)+LFPol(lm)
-                  Arc(lm)=Geo(lm)+Buo(lm)
-                  ArcMag(lm)=Mag(lm)+Buo(lm)
+                  Arc(lm)=Geo(lm)+Buo_temp(lm)+Buo_xi(lm)
+                  ArcMag(lm)=Mag(lm)+Buo_temp(lm)+Buo_xi(lm)
                   CIA(lm)=ArcMag(lm)+AdvPol(lm)-this%dtVrLM(lmP)
-                  !CIA(lm)=CorPol(lm)+Buo(lm)+AdvPol(lm)
+                  !CIA(lm)=CorPol(lm)+Buo_temp(lm)+Buo_xi(lm)+AdvPol(lm)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)

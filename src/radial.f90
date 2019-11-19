@@ -1080,7 +1080,7 @@ contains
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
          l_non_adia = .false.
-      else if ( nVarEntropyGrad == 1 ) then ! Takehiro
+      else if ( nVarEntropyGrad == 1  .or. rStrat >= r_cmb) then ! Takehiro
          if ( rStrat <= r_icb ) then
             dentropy0(:) = ampStrat
          else
@@ -1088,12 +1088,12 @@ contains
             &              + ampStrat
          end if
          l_non_adia = .true.
-      else if ( nVarEntropyGrad == 2 ) then ! Flat + linear
+      else if ( nVarEntropyGrad == 2  .or. rStrat >= r_cmb) then ! Flat + linear
          if ( rStrat <= r_icb ) then
             dentropy0(:) = ampStrat
          else
             do n_r=1,n_r_max
-               if ( r(n_r) <= rStrat ) then
+               if ( r(n_r) <= rStrat  .or. rStrat >= r_cmb) then
                   dentropy0(n_r)=-one
                else
                   dentropy0(n_r)=(ampStrat+one)*(r(n_r)-r_cmb)/(r_cmb-rStrat) + &
@@ -1103,7 +1103,7 @@ contains
          end if
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 3 ) then ! SSL
-         if ( rStrat <= r_icb ) then
+         if ( rStrat <= r_icb  .or. rStrat >= r_cmb) then
             dentropy0(:) = -one
          else
             dentropy0(:) = 0.25_cp*(ampStrat+one)*(one+tanh(slopeStrat*(r(:)-rStrat)))&
@@ -1111,13 +1111,18 @@ contains
             &              - one
          end if
          l_non_adia = .true.
-      else if ( nVarEntropyGrad == 4 ) then ! SSL
-         if ( rStrat <= r_icb ) then
-            dentropy0(:) = -one
+      else if ( nVarEntropyGrad == 4 ) then ! modified Takehiro
+         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)&
+            &              *(r_icb/r(:))**2
          else
-            dentropy0(:) = half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
-            &              - one
+            dentropy0(:) = half*(-ampStrat+(r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)*(r_icb/r(:))**2)*&
+            &               (one-tanh(slopeStrat*(r(:)-rStrat))) + ampStrat
          end if
+         l_non_adia = .true.
+      else if ( nVarEntropyGrad == 5 ) then ! uniform volumic heat without strat
+         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)&
+& *(r_icb/r(:))**2
          l_non_adia = .true.
       end if
 

@@ -425,7 +425,7 @@ contains
             fileName='powerR.'//tag
             open(newunit=fileHandle, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(fileHandle,'(ES20.10,4ES15.7, 4ES13.5)')                    &
+               write(fileHandle,'(ES20.10,4ES15.7,4ES13.5)')                     &
                &     r(n_r),round_off(buo_ave%mean(n_r),maxval(buo_ave%mean)),   &
                &     round_off(buo_chem_ave%mean(n_r),maxval(buo_chem_ave%mean)),&
                &     round_off(visc_ave%mean(n_r),maxval(visc_ave%mean)),        &
