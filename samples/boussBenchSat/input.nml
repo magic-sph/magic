@@ -40,14 +40,14 @@ n_cheb_ic_max=15,
 /
 &output_control
  n_log_step  =10,
- n_graphs    =0,
+ n_graphs    =1,
  n_rsts      =1,
  n_stores    =0,
  runid       ="Benchmark 2",
  l_movie     =.FALSE.,
  l_RMS       =.FALSE.,
  l_power     =.TRUE.,
- l_average   =.TRUE.,
+ l_average   =.false.,
 /
 &mantle 
  nRotMa      =0
