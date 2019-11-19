@@ -99,7 +99,7 @@ This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with
    >>> # To read the file ``u2_spec_1.test``:
    >>> sp = MagicSpectrum(field='u2', ispec=1, tag='test')
 
-                                             
+
 .. _secTSpecFile:
 
 ``T_spec_#.TAG``
@@ -141,9 +141,9 @@ versus degree :math:`\ell` or versus order :math:`m` are computed for all
 radii. There are two kinds of those files that correspond to the
 aforementioned spectra, namely **2D_kin_spec_#.TAG**, **2D_mag_spec_#.TAG**.
 In case time-averages are requested, **2D_kin_spec_ave.TAG** and
-**2D_mag_spec_ave.TAG** will also be stored. The calculations are done 
+**2D_mag_spec_ave.TAG** will also be stored. The calculations are done
 in the subroutine
-:f:subr:`spectrum <spectra/spectrum()>`. The structure of the output files 
+:f:subr:`spectrum <spectra/spectrum()>`. The structure of the output files
 are same for these three outputs. They are stored as fortran unformatted files.
 
 Unformatted files are not directly human readable, and are used to store binary
@@ -222,7 +222,7 @@ the following options:
 
 
 This file contains the time-average kinetic energy spectra as well as squared quantities
-to allow a possible further reconstruction of the standard deviation. 
+to allow a possible further reconstruction of the standard deviation.
 This file is written by the subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+------------------------------------------------------------+
@@ -382,61 +382,65 @@ The calculations are done in the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
    +---------------+-----------------------------------------------------------+
    | 6             | Time-averaged Viscous force versus degree                 |
    +---------------+-----------------------------------------------------------+
-   | 7             | Time-averaged Buoyancy versus degree                      |
+   | 7             | Time-averaged thermal Buoyancy versus degree              |
    +---------------+-----------------------------------------------------------+
-   | 8             | Time-averaged Pressure gradient versus degree             |
+   | 8             | Time-averaged chemical Buoyancy versus degree             |
    +---------------+-----------------------------------------------------------+
-   | 9             | Time-averaged Pressure/Coriolis balance versus degree     |
+   | 9             | Time-averaged Pressure gradient versus degree             |
    +---------------+-----------------------------------------------------------+
-   | 10            | Time-averaged Pressure/Coriolis/Lorentz balance versus    |
+   | 10             | Time-averaged Pressure/Coriolis balance versus degree    |
+   +---------------+-----------------------------------------------------------+
+   | 11            | Time-averaged Pressure/Coriolis/Lorentz balance versus    |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 11            | Time-averaged Pressure/Coriolis/Buoyancy balance versus   |
+   | 12            | Time-averaged Pressure/Coriolis/Buoyancy balance versus   |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 12            | Time-averaged Pressure/Coriolis/Lorentz/Buoyancy balance  |
+   | 13            | Time-averaged Pressure/Coriolis/Lorentz/Buoyancy balance  |
    |               | versus degree                                             |
    +---------------+-----------------------------------------------------------+
-   | 13            | Time-averaged Coriolis/Lorentz balance versus degree      |
+   | 14            | Time-averaged Coriolis/Lorentz balance versus degree      |
    +---------------+-----------------------------------------------------------+
-   | 14            | Time-averaged Pressure/Lorentz balance versus degree      |
+   | 15            | Time-averaged Pressure/Lorentz balance versus degree      |
    +---------------+-----------------------------------------------------------+
-   | 15            | Time-averaged Coriolis/Inertia/Buoyancy balance versus    |
+   | 16            | Time-averaged Coriolis/Inertia/Buoyancy balance versus    |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 16            | Standard deviation of Inertia versus degree               |
+   | 17            | Standard deviation of Inertia versus degree               |
    +---------------+-----------------------------------------------------------+
-   | 17            | Standard deviation of Coriolis force versus degree        |
+   | 18            | Standard deviation of Coriolis force versus degree        |
    +---------------+-----------------------------------------------------------+
-   | 18            | Standard deviation of Lorentz force versus degree         |
+   | 19            | Standard deviation of Lorentz force versus degree         |
    +---------------+-----------------------------------------------------------+
-   | 19            | Standard deviation of Advection term versus degree        |
+   | 20            | Standard deviation of Advection term versus degree        |
    +---------------+-----------------------------------------------------------+
-   | 20            | Standard deviation of Viscous force versus degree         |
+   | 21            | Standard deviation of Viscous force versus degree         |
    +---------------+-----------------------------------------------------------+
-   | 21            | Standard deviation of Buoyancy versus degree              |
+   | 22            | Standard deviation of thermal Buoyancy versus degree      |
    +---------------+-----------------------------------------------------------+
-   | 22            | Standard deviation of Pressure gradient versus degree     |
+   | 23            | Standard deviation of chemical Buoyancy versus degree      |
    +---------------+-----------------------------------------------------------+
-   | 23            | Standard deviation of Pressure/Coriolis balance versus    |
+   | 24            | Standard deviation of Pressure gradient versus degree     |
+   +---------------+-----------------------------------------------------------+
+   | 25            | Standard deviation of Pressure/Coriolis balance versus    |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 24            | Standard deviation of Pressure/Coriolis/Lorentz balance   |
+   | 26            | Standard deviation of Pressure/Coriolis/Lorentz balance   |
    |               | versus degree                                             |
    +---------------+-----------------------------------------------------------+
-   | 25            | Standard deviation of Pressure/Coriolis/Buoyancy balance  |
+   | 27            | Standard deviation of Pressure/Coriolis/Buoyancy balance  |
    |               | versus degree                                             |
    +---------------+-----------------------------------------------------------+
-   | 26            | Standard deviation of Pressure/Coriolis/Lorentz/Buoyancy  |
+   | 28            | Standard deviation of Pressure/Coriolis/Lorentz/Buoyancy  |
    |               | balance versus degree                                     |
    +---------------+-----------------------------------------------------------+
-   | 27            | Standard deviation of Coriolis/Lorentz balance versus     |
+   | 29            | Standard deviation of Coriolis/Lorentz balance versus     |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 28            | Standard deviation of Pressure/Lorentz balance versus     |
+   | 30            | Standard deviation of Pressure/Lorentz balance versus     |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 29            | Standard deviation of Coriolis/Inertia/Buoyancy balance   |
+   | 31            | Standard deviation of Coriolis/Inertia/Buoyancy balance   |
    |               | versus degree                                             |
    +---------------+-----------------------------------------------------------+
 
@@ -462,20 +466,26 @@ The structure of the 2D force balance spectra files are as follows:
 
    .. code-block:: fortran
 
-       !-------------
+       !------------
        ! Line 1
-       !-------------
+       !------------
 
-       n_r_max, l_max ! radial resolution, max(\ell)
+       version
 
        !-------------
        ! Line 2
        !-------------
 
-       r(1), r(2), r(3), ..., r(n_r_max)                  ! Radius
+       n_r_max, l_max ! radial resolution, max(\ell)
 
        !-------------
        ! Line 3
+       !-------------
+
+       r(1), r(2), r(3), ..., r(n_r_max)                  ! Radius
+
+       !-------------
+       ! Line 4
        !-------------
 
        Cor_l(l=1,r=1), Cor_l(l=1,r=2), ..., Cor_l(l=1,r=n_r_max),      ! Coriolis force
@@ -483,40 +493,88 @@ The structure of the 2D force balance spectra files are as follows:
        Cor_l(l=l_max,r=1), Cor_l(l=l_max,r=2), ..., Cor_l(l=l_max,r=n_r_max),
 
        !-------------
-       ! Line 4
+       ! Line 5
        !-------------
 
        Adv_l ! Advection
 
        !-------------
-       ! Line 5
+       ! Line 6
        !-------------
 
        LF_l ! Lorentz force
 
        !-------------
-       ! Line 6
-       !-------------
-
-       Buo_l ! Buoyancy
-
-       !-------------
        ! Line 7
        !-------------
 
-       Pre_l ! Pressure
+       Buo_temp_l ! Thermal buoyancy
 
-       !-------------
+       !------------
        ! Line 8
-       !-------------
+       !------------
 
-       Dif_l ! Viscosity
+       Buo_xi_l ! Chemical buoyancy
 
        !-------------
        ! Line 9
        !-------------
 
+       Pre_l ! Pressure
+
+       !-------------
+       ! Line 10
+       !-------------
+
+       Dif_l ! Viscosity
+
+       !-------------
+       ! Line 11
+       !-------------
+
        Iner_l ! Inertia
+
+       !-------------
+       ! Line 12
+       !-------------
+
+       Geo_l ! Sum of force terms: geostrophic balance
+
+       !-------------
+       ! Line 13
+       !-------------
+
+       Mag_l ! Sum of force terms: pressure, Coriolis and Lorentz
+
+       !-------------
+       ! Line 14
+       !-------------
+
+       Arc_l ! Sum of force terms: pressure, buoyancy and Coriolis
+
+       !-------------
+       ! Line 15
+       !-------------
+
+       ArcMag_l ! Sum of force terms: pressure, buoyancy, Coriolis and Lorentz
+
+       !-------------
+       ! Line 16
+       !-------------
+
+       CIA_l ! Sum of force terms Coriolis/Inertia/Archimedean
+
+       !-------------
+       ! Line 17
+       !-------------
+
+       CLF_l ! Sum of force terms Coriolis/Lorentz
+
+       !-------------
+       ! Line 18
+       !-------------
+
+       PLF_l ! Sum of force terms Pression/Lorentz
 
 
 Those files can be read using the python class :py:class:`MagicSpectrum2D <magic.MagicSpectrum2D>` with the following options:
@@ -548,7 +606,7 @@ files):
 
        time(t=0), e_p_m(m=0,t=0), e_p_m(m=1,t=0), ..., e_p_m(m=m_max_modes,t=0)
 
-       ...                                                           
+       ...
 
        !-------------
        ! Line N
@@ -556,7 +614,7 @@ files):
 
        time(t=N), e_p_m(m=0,t=N), e_p_m(m=1,t=N), ..., e_p_m(m=m_max_modes,t=N)
 
-       ... 
+       ...
 
 
 Those files can be read using the python class :py:class:`MagicTs
