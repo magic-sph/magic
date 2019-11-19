@@ -60,6 +60,15 @@ Fourier transforms
 Linear algebra
 ==============
 
+``matrices.f90``
+-----------------
+
+.. f:automodule:: real_matrices
+
+.. f:automodule:: dense_matrices
+
+.. f:automodule:: band_matrices
+
 ``algebra.f90``
 ---------------
 
