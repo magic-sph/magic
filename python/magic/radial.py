@@ -76,8 +76,8 @@ class MagicRadial(MagicSetup):
 
         if tags is None:
             if tag is not None:
-                file = '%s.%s' % (self.name, tag)
-                filename = os.path.join(datadir, file)
+                f = '%s.%s' % (self.name, tag)
+                filename = os.path.join(datadir, f)
                 if os.path.exists('log.%s' % tag):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                         nml='log.%s' % tag)
@@ -109,8 +109,8 @@ class MagicRadial(MagicSetup):
             for k, tag in enumerate(tags):
                 nml = MagicSetup(quiet=True, datadir=datadir, nml='log.%s' % tag)
                 self.nsteps += int(nml.steps_gone)
-                file = '%s.%s' % (self.name, tag)
-                filename = os.path.join(datadir, file)
+                f = '%s.%s' % (self.name, tag)
+                filename = os.path.join(datadir, f)
                 if k == 0:
                     self.tstart = nml.start_time
                     if self.name == 'bLayersR':
@@ -158,6 +158,13 @@ class MagicRadial(MagicSetup):
                             dat = fast_read(filename, skiplines=0)
                             for i in [0, 1, 3, 4, 5, 6, 7, 8]:
                                 data[:, i] += dat[:, i]*(nml.stop_time-nml.start_time)
+                    elif self.name == 'heatR':
+                        if os.path.exists(filename):
+                            dat = fast_read(filename, skiplines=0)
+                            if dat.shape[1] == 6:
+                                zero = np.zeros((dat.shape[0],5), np.float64)
+                                dat = np.append(dat, zero, axis=1)
+                            data += dat*(nml.stop_time-nml.start_time)
                     else:
                         if os.path.exists(filename):
                             data += fast_read(filename, skiplines=0)*(nml.stop_time-nml.start_time)
@@ -303,6 +310,13 @@ class MagicRadial(MagicSetup):
             self.temperature = data[:, 2]
             self.pressure = data[:, 3]
             self.density = data[:, 4]
+            self.xi = data[:, 5]
+            if data.shape[1] == 11:
+                self.entropy_sd = data[:, 6]
+                self.temperature_sd = data[:, 7]
+                self.pressure_sd = data[:, 8]
+                self.density_sd = data[:, 9]
+                self.xi_sd = data[:, 10]
         elif self.name == 'perpParR':
             self.radius = data[:, 0]
             self.Eperp = data[:, 1]
@@ -443,8 +457,9 @@ class MagicRadial(MagicSetup):
         elif self.name == 'powerR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.buoPower, label='Power')
-            ax.plot(x_axis, self.viscDiss, label='visc diss')
+            ax.plot(self.radius, self.buoPower, label='Power therm')
+            ax.plot(self.radius, self.viscDiss, label='visc diss')
+            ax.plot(self.radius, self.buoPower_chem, label='Power chem')
             if self.ohmDiss.max() != 0.:
                 ax.plot(x_axis, self.ohmDiss, label='ohm diss')
             ax.set_xlabel('Radius')
@@ -503,10 +518,20 @@ class MagicRadial(MagicSetup):
         elif self.name == 'heatR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.entropy, label='s')
-            ax.plot(x_axis, self.temperature, label='T')
+            ax.plot(x_axis, self.entropy, label='s', color='#30a2da')
+            ax.fill_between(x_axis, self.entropy-self.entropy_sd,
+                            self.entropy+self.entropy_sd,
+                            color='#30a2da',alpha=0.3)
+            ax.plot(x_axis, self.temperature, label='T', color='#6d904f')
+            ax.fill_between(x_axis, self.temperature-self.temperature_sd,
+                            self.temperature+self.temperature_sd,
+                            color='#6d904f', alpha=0.3)
+            ax.plot(x_axis, self.xi, label='xi', color='#fc4f30')
+            ax.fill_between(x_axis, self.xi-self.xi_sd,
+                            self.xi+self.xi_sd,
+                            color='#fc4f30', alpha=0.3)
             ax.set_xlabel('Radius')
-            ax.set_ylabel('Temperature, Entropy')
+            ax.set_ylabel('Temperature, Entropy, Composition')
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(x_axis[-1], x_axis[0])
 

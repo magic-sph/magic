@@ -102,8 +102,13 @@ class MagicTs(MagicSetup):
                             data = np.vstack((data, datanew[1:,:]))
                     else: # If the number of columns has changed
                         if self.field == 'dtVrms':
-                            data = np.insert(data, 10, 0., axis=1)
-                            nColRef += 1
+                            if ncolRef == 15:
+                                data = np.insert(data, 10, 0., axis=1)
+                                nColRef += 1
+                            elif ncolRef == 16:
+                                data = np.insert(data, 7, 0., axis=1)
+                                data = np.insert(data, 11, 0., axis=1)
+                                nColRef += 2
                             data = np.vstack((data, datanew))
                         elif self.field in ('AM', 'power', 'dtBrms'):
                             data = np.vstack((data, datanew[:, 0:ncolRef]))
@@ -158,8 +163,13 @@ class MagicTs(MagicSetup):
                                 data = np.vstack((data, datanew[:, (0,1,3,4,5,6,
                                                                     7,8,9,10)]))
                             elif self.field == 'dtVrms':
-                                data = np.insert(data, 10, 0., axis=1)
-                                ncolRef += 1
+                                if ncolRef == 15:
+                                    data = np.insert(data, 10, 0., axis=1)
+                                    ncolRef += 1
+                                elif ncolRef == 16:
+                                    data = np.insert(data, 7, 0., axis=1)
+                                    data = np.insert(data, 11, 0., axis=1)
+                                    ncolRef += 2
                                 data = np.vstack((data, datanew))
                             elif self.field in ('AM', 'dtBrms'):
                                 data = np.vstack((data, datanew[:, 0:ncolRef]))
@@ -349,21 +359,37 @@ class MagicTs(MagicSetup):
             self.AdvRms = data[:, 4]
             self.DifRms = data[:, 5]
             self.BuoRms = data[:, 6]
-            self.PreRms = data[:, 7]
-            self.geos = data[:, 8] # geostrophic balance
-            self.mageos = data[:, 9] # magnetostrophic balance
-            try:
-                self.arc    = data[:, 10] # Coriolis/Pressure/Buoyancy
-                self.arcMag = data[:, 11] # Coriolis/Pressure/Buoyancy/Lorentz
-                self.corLor = data[:, 12] # Coriolis/Lorentz
-                self.preLor = data[:, 13] # Pressure/Lorentz
-                self.cia = data[:, 14] # Coriolis/Inertia/Archmedean
-            except IndexError:
+
+            if data.shape[1] == 14:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
                 self.arcMag = data[:, 10] # Coriolis/Pressure/Buoyancy/Lorentz
                 self.corLor = data[:, 11] # Coriolis/Lorentz
                 self.preLor = data[:, 12] # Pressure/Lorentz
                 self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
                 self.arc = np.zeros_like(self.geos)
+                self.ChemRms = np.zeros_like(self.geos)
+            elif data.shape[1] == 15:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arc    = data[:, 10] # Coriolis/Pressure/Buoyancy
+                self.arcMag = data[:, 11] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archmedean
+                self.ChemRms = np.zeros_like(self.geos)
+            else:
+                self.ChemRms = data[:, 7]
+                self.PreRms = data[:, 8]
+                self.geos = data[:, 9] # geostrophic balance
+                self.mageos = data[:, 10] # magnetostrophic balance
+                self.arc    = data[:, 11] # Coriolis/Pressure/Buoyancy
+                self.arcMag = data[:, 12] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 13] # Coriolis/Lorentz
+                self.preLor = data[:, 14] # Pressure/Lorentz
+                self.cia = data[:, 15] # Coriolis/Inertia/Archmedean
 
         elif self.field in ('dtBrms'):
             self.time = data[:, 0]
@@ -639,7 +665,8 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time, self.CorRms, label='Coriolis')
             ax.semilogy(self.time, self.PreRms, label='Pressure')
             ax.semilogy(self.time, self.LFRms, label='Lorentz')
-            ax.semilogy(self.time, self.BuoRms, label='Buoyancy')
+            ax.semilogy(self.time, self.BuoRms, label='Thermal Buoyancy')
+            ax.semilogy(self.time, self.ChemRms, label='Chemical Buoyancy')
             ax.semilogy(self.time, self.InerRms, label='Inertia')
             ax.semilogy(self.time, self.DifRms, label='Diffusion')
 
@@ -875,7 +902,7 @@ class AvgField:
             self.elsassermod, self.elsassermod_std = avgField(ts2.time[ind:],
                                                               0.5*(ts2.elsasser/(ts2.rm*ts2.lbDiss))[ind:],
                                                               std=True)
-                                                    
+
 
         else:
             self.dip = avgField(ts2.time[ind:], ts2.dipolarity[ind:])
@@ -907,7 +934,7 @@ class AvgField:
                 mask = np.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
                 ind = np.nonzero(mask)[0][0]
                 nuss = 0.5*(ts3.botnuss+ts3.topnuss)
-                
+
                 if self.std:
                     self.nuss, self.nuss_std = avgField(ts3.time[ind:], nuss[ind:], std=True)
                     try:
@@ -988,7 +1015,7 @@ class AvgField:
                     self.dip3 = avgField(ts5.time[ind:],ts5.dip3[ind:])
                     self.e_dip = avgField(ts5.time[ind:],ts5.e_dip[ind:])
                     self.e_dip_ax = avgField(ts5.time[ind:], ts5.e_dip_ax[ind:])
-            
+
         # if len(glob.glob('dtVrms.*')) > 0:
         #     # dtVrms.TAG files
         #     tsrms = MagicTs(field='dtVrms', all=True, iplot=False,
@@ -999,8 +1026,8 @@ class AvgField:
 
         #     if self.std:
         #         self.dtVRms, self.dtVRms_std = avgField(tsrms.time[ind:], tsrms.dtVRms[ind:],std=True)
-        #         self.CorRms, self.CorRms_std = avgField(tsrms.time[ind:], tsrms.CorRms[ind:],std=True) 
-        #         self.LFRms,  self.LFRms_std  = avgField(tsrms.time[ind:], tsrms.LFRms [ind:],std=True) 
+        #         self.CorRms, self.CorRms_std = avgField(tsrms.time[ind:], tsrms.CorRms[ind:],std=True)
+        #         self.LFRms,  self.LFRms_std  = avgField(tsrms.time[ind:], tsrms.LFRms [ind:],std=True)
         #         self.AdvRms, self.AdvRms_std = avgField(tsrms.time[ind:], tsrms.AdvRms[ind:],std=True)
         #         self.DifRms, self.DifRms_std = avgField(tsrms.time[ind:], tsrms.DifRms[ind:],std=True)
         #         self.BuoRms, self.BuoRms_std = avgField(tsrms.time[ind:], tsrms.BuoRms[ind:],std=True)
@@ -1012,12 +1039,12 @@ class AvgField:
         #         self.corLor, self.corLor_std = avgField(tsrms.time[ind:], tsrms.corLor[ind:],std=True)
         #         self.preLor, self.preLor_std = avgField(tsrms.time[ind:], tsrms.preLor[ind:],std=True)
         #         self.cia,    self.cia_std    = avgField(tsrms.time[ind:], tsrms.cia[ind:]   ,std=True)
-        #         self.Elsasser_rms, self.Elsasser_rms_std = avgField(tsrms.time[ind:], 
-        #                                                             tsrms.LFRms[ind:]/tsrms.CorRms[ind:],std=True) 
+        #         self.Elsasser_rms, self.Elsasser_rms_std = avgField(tsrms.time[ind:],
+        #                                                             tsrms.LFRms[ind:]/tsrms.CorRms[ind:],std=True)
         #     else:
         #         self.dtVRms = avgField(tsrms.time[ind:], tsrms.dtVRms[ind:])
-        #         self.CorRms = avgField(tsrms.time[ind:], tsrms.CorRms[ind:]) 
-        #         self.LFRms  = avgField(tsrms.time[ind:], tsrms.LFRms [ind:]) 
+        #         self.CorRms = avgField(tsrms.time[ind:], tsrms.CorRms[ind:])
+        #         self.LFRms  = avgField(tsrms.time[ind:], tsrms.LFRms [ind:])
         #         self.AdvRms = avgField(tsrms.time[ind:], tsrms.AdvRms[ind:])
         #         self.DifRms = avgField(tsrms.time[ind:], tsrms.DifRms[ind:])
         #         self.BuoRms = avgField(tsrms.time[ind:], tsrms.BuoRms[ind:])
@@ -1029,8 +1056,8 @@ class AvgField:
         #         self.corLor = avgField(tsrms.time[ind:], tsrms.corLor[ind:])
         #         self.preLor = avgField(tsrms.time[ind:], tsrms.preLor[ind:])
         #         self.cia    = avgField(tsrms.time[ind:], tsrms.cia   [ind:])
-        #         self.Elsasser_rms = avgField(tsrms.time[ind:], 
-        #                                      tsrms.LFRms[ind:]/tsrms.CorRms[ind:]) 
+        #         self.Elsasser_rms = avgField(tsrms.time[ind:],
+        #                                      tsrms.LFRms[ind:]/tsrms.CorRms[ind:])
 
         if len(glob.glob('power.*')) > 0:
             # power.TAG files
