@@ -20,7 +20,7 @@ module step_time_mod
        &                  n_r_icb, n_r_cmb
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
-       &            l_DTrMagSpec, lVerbose, l_time_hits, l_b_nl_icb,   &
+       &            l_DTrMagSpec, lVerbose, l_b_nl_icb,                &
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
        &            l_HT, l_dtB, l_dtBmovie, l_heat, l_conv, l_movie,  &
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &

@@ -12,7 +12,7 @@ module preCalculations
        &                  n_xi_bounds
    use parallel_mod, only: rank
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,     &
-       &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,    &
+       &            l_anel, l_heat, l_anelastic_liquid,                  &
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
@@ -778,32 +778,26 @@ contains
       tmagcon=tmagcon+time
 
       !-- Get output times:
-      l_time_hits=.false.
 
       call get_hit_times(t_graph,n_time_hits,n_t_graph,l_time, &
            &             t_graph_start,t_graph_stop,dt_graph,  &
            &             n_graphs,n_graph_step,'graph',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_pot,n_time_hits,n_t_pot,l_time, &
            &             t_pot_start,t_pot_stop,dt_pot,    &
            &             n_pots,n_pot_step,'pot',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_rst,n_time_hits,n_t_rst,l_time, &
            &             t_rst_start,t_rst_stop,dt_rst,    &
            &             n_rsts,n_rst_step,'rst',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_log,n_time_hits,n_t_log,l_time, &
            &             t_log_start,t_log_stop,dt_log,    &
            &             n_logs,n_log_step,'log',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_spec,n_time_hits,n_t_spec,l_time, &
            &             t_spec_start,t_spec_stop,dt_spec,   &
            &             n_specs,n_spec_step,'spec',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       if ( l_probe ) then
          l_probe=.false.
@@ -811,7 +805,6 @@ contains
               &             t_probe_start,t_probe_stop,dt_probe,  &
               &             n_probe_out,n_probe_step,'probe',time,tScale)
          if ( n_probe_out > 0 .or. n_probe_step > 0 .or. l_time ) l_probe= .true.
-         l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_cmb_field ) then
@@ -820,7 +813,6 @@ contains
                                t_cmb_start,t_cmb_stop,dt_cmb, &
                          n_cmbs,n_cmb_step,'cmb',time,tScale)
          if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true. 
-         l_time_hits=l_time_hits .or. l_time
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
@@ -830,14 +822,12 @@ contains
                            t_r_field_start,t_r_field_stop,dt_r_field, &
                           n_r_fields,n_r_field_step,'r_field',time,tScale)
          if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true. 
-         l_time_hits=l_time_hits .or. l_time
       end iF
 
       if ( l_movie ) then
          call get_hit_times(t_movie,n_time_hits,n_t_movie,l_time, &
                             t_movie_start,t_movie_stop,dt_movie,  &
                   n_movie_frames,n_movie_step,'movie',time,tScale)
-          l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_TO ) then
@@ -845,19 +835,16 @@ contains
          call get_hit_times(t_TO,n_time_hits,n_t_TO,l_time, &
                                 t_TO_start,t_TO_stop,dt_TO, &
                           n_TOs,n_TO_step,'TO',time,tScale)
-         l_time_hits=l_time_hits.or.l_time
          if ( n_TOZs == 0 .and. n_t_TOZ == 0 ) n_TOZs=3
          call get_hit_times(t_TOZ,n_time_hits,n_t_TOZ,l_time, &
                                t_TOZ_start,t_TOZ_stop,dt_TOZ, &
                          n_TOZs,n_TOZ_step,'TOZ',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_TOmovie ) then
          call get_hit_times(t_TOmovie,n_time_hits,n_t_TOmovie,l_time, &
                            t_TOmovie_start,t_TOmovie_stop,dt_TOmovie, &
                n_TOmovie_frames,n_TOmovie_step,'TOmovie',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
       end if
 
    end subroutine preCalcTimes

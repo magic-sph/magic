@@ -25,7 +25,6 @@ module logic
    logical :: l_z10mat       ! Switch for solid body rotation
    logical :: l_cond_ic      ! Switch for conducting IC
    logical :: l_cond_ma      ! Switch for conducting OC
-   logical :: l_time_hits    ! Switch for time for outputs
    logical :: l_average      ! Switch for calculation of time-averages
    logical :: l_energy_modes ! Switch for calculation of distribution of energies over m's
    logical :: l_movie        ! Switch for recording of movie files
