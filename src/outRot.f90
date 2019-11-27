@@ -5,7 +5,7 @@ module outRot
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc
-   use physical_parameters, only: kbotv, ktopv
+   use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map, lm_balance, llm, ulm, llmMag, ulmMag
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
@@ -303,7 +303,7 @@ contains
                open(newunit=n_rot_file, file=rot_file, status='unknown', &
                &    position='append')
             end if
-            write(n_rot_file,'(1P,2X,ES20.12,6ES14.6)')  &
+            write(n_rot_file,'(1P,2X,ES20.12,6ES16.8)')  &
             &     time*tScale, omega_ic/tScale,          &
             &     lScale**2*vScale*lorentz_torque_ic,    &
             &     lScale**2*vScale*viscous_torque_ic,    &
@@ -533,7 +533,7 @@ contains
       end if
 
       !lorentz_torque_local=0.0_cp
-      fac=two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
+      fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
       nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
@@ -558,20 +558,13 @@ contains
          end if
 
          do nPhi=1,n_phi_max
-            !lorentz_torque_local=lorentz_torque_local + &
-            !                          gauss(nThetaNHS) * &
-            !       (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
             lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
             &              (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
          end do
-         !lorentz_torque_local = lorentz_torque_local + gauss(nThetaNHS)*phisum
       end do
 #ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
 #endif
-
-      !-- normalisation of phi-integration and division by Pm:
-      !lorentz_torque=lorentz_torque+fac*lorentz_torque_local
 
    end subroutine get_lorentz_torque
 !-----------------------------------------------------------------------

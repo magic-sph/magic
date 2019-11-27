@@ -9,7 +9,7 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek
+   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
@@ -212,12 +212,12 @@ contains
       l1m0       =lm2(1,0)
 
       if ( ktopv == 2 .and. l_rot_ma  .and. (.not. l_SRMA)) then
-         domega_ma_dt%expl(tscheme%istage)=LFfac*c_lorentz_ma*lorentz_torque_ma
+         domega_ma_dt%expl(tscheme%istage)=c_lorentz_ma*lorentz_torque_ma
          call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
       end if
 
       if ( kbotv == 2 .and. l_rot_ic .and. (.not. l_SRIC)) then
-         domega_ic_dt%expl(tscheme%istage)=LFfac*c_lorentz_ic*lorentz_torque_ic
+         domega_ic_dt%expl(tscheme%istage)=c_lorentz_ic*lorentz_torque_ic
          call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
       end if
 
@@ -243,8 +243,6 @@ contains
 
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
-         !write(*,"(3(A,I3),A)") "Launching task for nLMB2=", &
-         !     &   nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
 
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
@@ -255,7 +253,6 @@ contains
                call get_zMat(tscheme,l1,hdif_V(lm2(l1,0)),zMat(nLMB2))
 #endif
                lZmat(l1)=.true.
-            !write(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
             end if
          end if
 
@@ -276,9 +273,7 @@ contains
             lmB=lmB0
 
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
                if ( lm1 == l1m0 ) l10= .true.
 
@@ -386,9 +381,7 @@ contains
 
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
@@ -523,7 +516,7 @@ contains
       end if
 
    end subroutine updateZ
-!-----------------------------------------------------------------------------
+!------------------------------------------------------------------------------
    subroutine get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1,    &
               &               tscheme, istage, l_calc_lin, lRmsNext,       &
@@ -731,22 +724,23 @@ contains
       end if
 
    end subroutine get_tor_rhs_imp
-!-----------------------------------------------------------------------
-   subroutine get_rot_rates(omega, lorentz_torque, c_moi, &
-              &             domega_old, domega_last)
+!------------------------------------------------------------------------------
+   subroutine get_rot_rates(omega, lorentz_torque, c_moi, domega_old, domega_last)
 
-      real(cp), intent(in) :: omega
-      real(cp), intent(in) :: lorentz_torque
-      real(cp), intent(in) :: c_moi
+      !-- Input variables
+      real(cp), intent(in) :: omega ! Rotation rate
+      real(cp), intent(in) :: lorentz_torque ! Lorentz torque
+      real(cp), intent(in) :: c_moi ! Moment of inertia
 
-      real(cp), intent(out) :: domega_old
-      real(cp), intent(out) :: domega_last
+      !-- Output variable
+      real(cp), intent(out) :: domega_old ! Old value of the rotation rate
+      real(cp), intent(out) :: domega_last ! Old value of the implicit term
 
       domega_old = omega
-      domega_last = LFfac/c_moi * lorentz_torque
+      domega_last = lorentz_torque/c_moi
 
    end subroutine get_rot_rates
-!-----------------------------------------------------------------------
+!------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z10
    subroutine get_z10Mat(tscheme,l,hdif,zMat,zMat_fac)
 #else
@@ -870,7 +864,7 @@ contains
       if ( info /= 0 ) call abortRun('Error from get_z10Mat: singular matrix!')
 
    end subroutine get_z10Mat
-!-----------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z
    subroutine get_zMat(tscheme,l,hdif,zMat,zMat_fac)
 #else
@@ -1015,5 +1009,5 @@ contains
       end if
 
    end subroutine get_zMat
-!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 end module updateZ_mod
