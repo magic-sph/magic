@@ -244,12 +244,12 @@ class MagicTs(MagicSetup):
             self.damzdt = data[:, 7]
         elif self.field == 'rot':
             self.time = data[:, 0]
-            self.ic_rot = data[:, 1]
-            self.lo_ic_rot = data[:, 2]
-            self.visc_ic_rot = data[:, 3]
-            self.mantle_rot = data[:, 4]
-            self.lo_mantle_rot = data[:, 5]
-            self.visc_mantle_rot = data[:, 6]
+            self.omega_ic = data[:, 1]
+            self.lorentz_torque_ic = data[:, 2]
+            self.viscous_torque_ic = data[:, 3]
+            self.omega_ma = data[:, 4]
+            self.lorentz_torque_ma = data[:, 5]
+            self.viscous_torque_ma = data[:, 6]
         elif self.field == 'par':
             self.time = data[:, 0]
             self.rm = data[:, 1]
