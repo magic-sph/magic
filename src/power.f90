@@ -352,8 +352,8 @@ contains
 
          if ( l_conv ) then
             viscDiss= -viscHeat
-            if ( l_rot_IC ) viscDiss=viscDiss - two*z10ICB*drz10ICB
-            if ( l_rot_MA ) viscDiss=viscDiss + two*z10CMB*drz10CMB
+            !if ( l_rot_IC ) viscDiss=viscDiss - two*z10ICB*drz10ICB
+            !if ( l_rot_MA ) viscDiss=viscDiss + two*z10CMB*drz10CMB
          else
             viscDiss=0.0_cp
          end if
