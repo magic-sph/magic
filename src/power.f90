@@ -10,7 +10,7 @@ module power
    use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
        &                       or2, O_r_ic2, lambda, temp0,           &
        &                       O_r_ic, rgrav, r_ic, dr_fac_ic,        &
-       &                       alpha0, orho1, otemp1
+       &                       alpha0, orho1, otemp1, beta, visc
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
@@ -131,7 +131,7 @@ contains
       real(cp) :: r_ratio
       real(cp) :: viscHeatR(nRstart:nRstop)
       real(cp) :: viscHeatR_global(n_r_max)
-      real(cp) :: visc(nfs)
+      real(cp) :: viscTheta(nfs)
       real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat
       real(cp) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)
       real(cp) :: buoy_r(n_r_max),buoy_r_global(n_r_max)
@@ -155,18 +155,19 @@ contains
       do n_r=nRstart,nRstop
          viscHeatR(n_r)=0.0_cp
 #ifdef WITH_SHTNS
-         call axi_to_spat(viscLMr(:,n_r), visc)
+         call axi_to_spat(viscLMr(:,n_r), viscTheta)
 #endif
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
 #ifndef WITH_SHTNS
-            call lmAS2pt(viscLMr(:,n_r),visc,nThetaStart,sizeThetaB)
+            call lmAS2pt(viscLMr(:,n_r),viscTheta,nThetaStart,sizeThetaB)
 #endif
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2
-               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*eScale*visc(nThetaBlock)
+               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*eScale* &
+               &              viscTheta(nThetaBlock)
             end do
          end do
       end do
@@ -362,19 +363,22 @@ contains
 
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
-            call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb)
+            call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb, &
+                 &                  beta(n_r_max),visc(n_r_max))
          else
             viscous_torque_ic=0.0_cp
          end if
          if ( l_rot_ma .and. ktopv == 2 ) then
-            call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb)
+            call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb, &
+                 &                  beta(1),visc(1))
          else
             viscous_torque_ma=0.0_cp
          end if
 
          if ( l_rot_IC .and. .not. l_SRIC ) then
             if ( kbotv == 2 ) then
-               call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb)
+               call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb,&
+                    &                  beta(n_r_max),visc(n_r_max))
             else
                viscous_torque_ic=0.0_cp
             end if
@@ -384,7 +388,8 @@ contains
          end if
          if ( l_rot_MA ) then
             if ( ktopv == 2 ) then
-               call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb)
+               call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb, &
+                    &                  beta(1),visc(1))
             else
                viscous_torque_ma=0.0_cp
             end if

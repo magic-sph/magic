@@ -587,7 +587,7 @@ contains
       l1m1=lm2(1,1)
       !$omp single
       if ( l_correct_AMz .and.  l1m0 > 0 .and. &
-         & lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
+      &    lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
 
          z10(:)=z(l1m0,:)
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
@@ -624,17 +624,16 @@ contains
          end do
 
          if ( ktopv == 2 .and. l_rot_ma ) &
-              omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
+         &    omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
          if ( kbotv == 2 .and. l_rot_ic ) &
-              omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
+         &    omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
          omega_ic1=omega_ic
          omega_ma1=omega_ma
-
 
       end if ! l=1,m=0 contained in lm-block ?
 
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
-           lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
+      &    lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
 
          z11(:)=z(l1m1,:)
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
@@ -712,12 +711,14 @@ contains
       if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
-            domega_ma_dt%impl(istage)=two*or1(1)*real(z(l1m0,1))-real(dz(l1m0,1))
+            domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
+            &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
             if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
          end if
          if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
-            domega_ic_dt%impl(istage)=-two*or1(n_r_max)*real(z(l1m0,n_r_max))+ &
-            &                         real(dz(l1m0,n_r_max))
+            domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
+            &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
+            &                          real(dz(l1m0,n_r_max)) )
             if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
             &                                           real(z(l1m0,n_r_max))
          end if
@@ -774,7 +775,7 @@ contains
 
       !-- Boundary conditions:
       !----- CMB condition:
-      !        Note opposite sign of viscous torques (-dz+2 z /r )
+      !        Note opposite sign of viscous torques (-dz+(2/r+beta) z )*visc
       !        for CMB and ICB!
 
       if ( ktopv == 1 ) then  ! free slip
@@ -788,8 +789,8 @@ contains
          else if ( l_rot_ma ) then
             dat(1,:)= rscheme_oc%rnorm *               (        &
             &                c_dt_z10_ma*rscheme_oc%rMat(1,:) - &
-            &       tscheme%wimp_lin(1)*(                       &
-            &                 two*or1(1)*rscheme_oc%rMat(1,:) - &
+            &       tscheme%wimp_lin(1)*visc(1)*(               &
+            &       (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) - &
             &                           rscheme_oc%drMat(1,:) ) )
          else
             dat(1,:)= rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
@@ -812,8 +813,9 @@ contains
             else if ( l_rot_ic ) then     !  time integration of z10
                dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
                &                c_dt_z10_ic*rscheme_oc%rMat(n_r_max,:) + &
-               &       tscheme%wimp_lin(1)*(                             &
-               &           two*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) - &
+               &       tscheme%wimp_lin(1)*visc(n_r_max)*(               &
+               &           (two*or1(n_r_max)+beta(n_r_max))*             &
+               &                            rscheme_oc%rMat(n_r_max,:) - &
                &                           rscheme_oc%drMat(n_r_max,:) ) )
             else
                dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)

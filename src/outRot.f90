@@ -4,7 +4,7 @@ module outRot
    use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
-   use radial_functions, only: r_icb, r_cmb, r, rscheme_oc
+   use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map, lm_balance, llm, ulm, llmMag, ulmMag
@@ -22,11 +22,6 @@ module outRot
    implicit none
 
    private
-
-   interface get_viscous_torque
-      module procedure get_viscous_torque_real
-      module procedure get_viscous_torque_complex
-   end interface get_viscous_torque
 
    integer :: n_SRMA_file, n_SRIC_file
    integer :: n_angular_file, n_rot_file
@@ -173,13 +168,15 @@ contains
       if ( llm <= l1m0 .and. ulm >= l1m0 ) then
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
-            call get_viscous_torque(viscous_torque_ic, &
-                 &                  z(l1m0,n_r_max),dz(l1m0,n_r_max),r_icb)
+            call get_viscous_torque(viscous_torque_ic,real(z(l1m0,n_r_max)),    &
+                 &                  real(dz(l1m0,n_r_max)),r_icb,beta(n_r_max), &
+                 &                  visc(n_r_max))
          else
             viscous_torque_ic=0.0_cp
          end if
          if ( l_rot_ma .and. ktopv == 2 ) then
-            call get_viscous_torque(viscous_torque_ma,z(l1m0,1),dz(l1m0,1),r_cmb)
+            call get_viscous_torque(viscous_torque_ma,real(z(l1m0,1)), &
+                 &                  real(dz(l1m0,1)),r_cmb,beta(1),visc(1))
          else
             viscous_torque_ma=0.0_cp
          end if
@@ -450,41 +447,29 @@ contains
 
    end subroutine write_rot
 !-----------------------------------------------------------------------
-   subroutine get_viscous_torque_real(viscous_torque,z10,dz10,r)
+   subroutine get_viscous_torque(viscous_torque,z10,dz10,r,dLrho,nu)
       !
       !  Purpose of this subroutine is to calculate the viscous torque
       !  on mantle or inner core respectively.
-      !  NOTE: sign is wrong for torque on mantle!
+      !
+      !  .. math:`\Gamma_\nu=4\sqrt{\pi/3}\nu r\left[ z_{10}'-
+      !           (\frac{2}{r}+\beta)z_{10}\right]
+      !
       !
 
       !-- Input:
       real(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
-      real(cp), intent(in) :: r               ! radius (ICB or CMB)
+      real(cp), intent(in) :: r           ! radius (ICB or CMB)
+      real(cp), intent(in) :: dLrho       ! dln(rho)/dr
+      real(cp), intent(in) :: nu          ! viscosity
 
       !-- Output:
       real(cp), intent(out) :: viscous_torque
 
-      viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
+      viscous_torque=-four*sqrt(third*pi)*nu*r*( (two+dLrho*r)*real(z10)- &
+      &               r*real(dz10) )
 
-   end subroutine get_viscous_torque_real
-!-----------------------------------------------------------------------
-   subroutine get_viscous_torque_complex(viscous_torque,z10,dz10,r)
-      !
-      !  Purpose of this subroutine is to calculate the viscous torque
-      !  on mantle or inner core respectively.
-      !  NOTE: sign is wrong for torque on mantle!
-      !
-
-      !-- Input:
-      complex(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
-      real(cp),    intent(in) :: r               ! radius (ICB or CMB)
-
-      !-- Output:
-      real(cp), intent(out) :: viscous_torque
-
-      viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
-
-   end subroutine get_viscous_torque_complex
+   end subroutine get_viscous_torque
 !-----------------------------------------------------------------------
    subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
               &                  sizeThetaB,br,bp,nR)
