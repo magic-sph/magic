@@ -15,14 +15,14 @@ import sys
 if buildSo:
     try:
         if sys.version_info.major == 3:
-			from cylavg3 import *
+            from cylavg3 import *
         elif sys.version_info.major == 2:
-			from cylavg2 import *
+            from cylavg2 import *
         zavgMode = 'f2py'
     except ImportError:
         zavgMode = 'python'
 else:
-	zavgMode = 'python'
+    zavgMode = 'python'
 
 
 def sph2cyl_plane(data, rad, ns, nz):
