@@ -1555,11 +1555,33 @@ angular momentum replaces condition :eq:`eqBcRigid3` for the mode
 :math:`(\ell =1,m=0)`:
 
 .. math::
-  \mathsf{I} \dfrac{\partial\vec{\omega}}{\partial t}= \vec{\Gamma}\;\;.
+   \mathsf{I} \dfrac{\partial\omega}{\partial t}= \Gamma_L+\Gamma_\nu\,.
 
 The tensor :math:`\mathsf{I}` denotes the moment of inertia of inner core or mantle,
-respectively, :math:`\vec{\omega}` is the mantle or inner-core rotation rate relative
-to that of the reference frame, and :math:`\vec{\Gamma}` is the respective torque.
+respectively, :math:`\omega` is the mantle or inner-core rotation rate relative
+to that of the reference frame, and :math:`\Gamma_{L,\nu}` are the respective torques
+associated with Lorentz or viscous forces. The torques are expressed by
+
+.. math::
+   \Gamma_L = \dfrac{1}{E\,Pm}\oint B_r B_\phi\,r\sin_{\theta}\,\mathrm{d}S\,,
+
+and
+
+.. math::
+   \Gamma_\nu = \oint \tilde{\rho} \tilde{\nu} r\dfrac{\partial}{\partial r}\left(\dfrac{u_\phi}{r}\right) r\sin_{\theta}\,\mathrm{d}S\,,
+
+where :math:`\mathrm{d}S = r^2\sin\theta \mathrm{d}\theta\mathrm{d}\phi` and :math:`r\in[r_i,r_o]` in the above expressions. Using the fact that
+
+.. math::
+   \oint \tilde{\rho} r\sin\theta u_\phi \mathrm{d} S=4\sqrt{\dfrac{\pi}{3}}Z_{10}r^2,
+   
+The viscous torques can be expressed by
+
+.. math::
+   \Gamma_\nu = \pm4\sqrt{\dfrac{\pi}{3}}\tilde{\nu}r^2\left[\dfrac{\partial Z_{10}}{\partial r}-\left(\dfrac{2}{r}+\beta\right)Z_{10}\right]\,,
+
+where the sign in front depends whether :math:`r=r_o` or :math:`r=r_i`.
+
 
 **Free-slip boundary conditions** require that the viscous stress vanishes, which
 in turn implies that the non-diagonal components :math:`\mathsf{Sr}_{r\phi}` and
