@@ -120,7 +120,10 @@ if zavgMode == 'f2py':
         ro = radius[0]
         ri = radius[-1]
         cylRad = np.linspace(ro, 0., ns)
-        ntheta = input[0].shape[1]
+        if len(input[0].shape) == 3:
+            ntheta = input[0].shape[1]
+        elif len(input[0].shape) == 2:
+            ntheta = input[0].shape[0]
         theta = np.linspace(0., np.pi, ntheta)
 
         height = np.zeros_like(cylRad)
@@ -147,12 +150,13 @@ if zavgMode == 'f2py':
             return height, cylRad, phi, output
 
         elif len(input[0].shape) == 2:
-            outIntZ = cylmean(input, radius, cylRad, theta)
             output = []
-            outIntZ = np.zeros((ns), dtype=input[0].dtype)
-            if not normed:
-                outIntZ *= height
-            output.append(outIntZ)
+            for dat in input:
+                outIntZ = np.zeros(ns, dtype=dat.dtype)
+                outIntZ = cylmean(dat, radius, cylRad, theta)
+                if not normed:
+                    outIntZ *= height
+                output.append(outIntZ)
 
             if save:
                 file = open(filename, 'wb')
