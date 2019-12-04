@@ -209,4 +209,28 @@ if buildSo:
             sp.call(['mv', 'vtklib2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
+    # For the cyl averaging
+    t2 = os.stat('fortranLib/cyl.f90').st_mtime
+    if os.path.exists('cylavg%i.so' % pythonVersion):
+        t1 = os.stat('cylavg%i.so' % pythonVersion).st_mtime
+    else: # in case the file does not exist t2 is set to t1
+        t1 = t2
+    if not os.path.exists('cylavg%i.so' % pythonVersion) or t2 > t1:
+        os.chdir('fortranLib')
+        print("Please wait: building cylavg...")
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '--opt=%s' % f90options,
+                 '-c', '-m',
+                 'cylavg%i' % pythonVersion,
+                 'cyl.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+        if pythonVersion == 3:
+            cmd = "mv cylavg3.cpython-%sm*.so %s/cylavg3.so" % \
+                  (pythonSuffix, magicdir)
+            sp.call(cmd, shell=True)
+        elif pythonVersion == 2:
+            sp.call(['mv', 'cylavg2.so', '%s' % magicdir])
+        os.chdir(magicdir)
+
     os.chdir(startdir)

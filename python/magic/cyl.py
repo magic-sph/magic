@@ -1,13 +1,28 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
-from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, progressbar
+from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, \
+                      progressbar
 from .plotlib import cut
 from magic import MagicGraph, MagicSetup
-from magic.setup import labTex
+from magic.setup import labTex, buildSo
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
-import os, pickle
+import os
+import pickle
+import sys
+
+if buildSo:
+    try:
+        if sys.version_info.major == 3:
+			from cylavg3 import *
+        elif sys.version_info.major == 2:
+			from cylavg2 import *
+        zavgMode = 'f2py'
+    except ImportError:
+        zavgMode = 'python'
+else:
+	zavgMode = 'python'
 
 
 def sph2cyl_plane(data, rad, ns, nz):
@@ -69,88 +84,174 @@ def sph2cyl_plane(data, rad, ns, nz):
 
     return Z, S, output
 
+if zavgMode == 'f2py':
 
-def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
-    """
-    This function computes a z-integration of a list of input arrays (on the spherical
-    grid). This works well for 2-D (phi-slice) arrays. In case of 3-D arrays, only
-    one element is allowed (too demanding otherwise).
+    def zavg(input, radius, ns, minc, save=True, filename='vp.pickle',
+             normed=True):
+        """
+        This function computes a z-integration of a list of input arrays 
+        (on the spherical grid). This works well for 2-D (phi-slice) arrays.
+        In case of 3-D arrays, only one element is allowed (too demanding
+        otherwise).
 
-    :param input: a list of 2-D or 3-D arrays
-    :type input: list(numpy.ndarray)
-    :param radius: spherical radius
-    :type radius: numpy.ndarray
-    :param ns: radial resolution of the cylindrical grid (nz=2*ns)
-    :type ns: int
-    :param minc: azimuthal symmetry
-    :type minc: int
-    :param save: a boolean to specify if one wants to save the outputs into
-                 a pickle (default is True)
-    :type save: bool
-    :param filename: name of the output pickle when save=True
-    :type filename: str
-    :param normed: a boolean to specify if ones wants to simply integrate over
-                   z or compute a z-average (default is True: average)
-    :type normed: bool
-    :returns: a python tuple that contains two numpy.ndarray and a list (height,cylRad,output)
-              height[ns] is the height of the spherical shell for all radii.
-              cylRad[ns] is the cylindrical radius. output=[arr1[ns], ..., arrN[ns]] contains
-              the z-integrated output arrays.
-    :rtype: tuple
-    """
-    nz = 2*ns
-    ro = radius[0]
-    ri = radius[-1]
-    z = np.linspace(-ro, ro, nz)
-    cylRad = np.linspace(0., ro, ns)
-    cylRad = cylRad[1:-1]
+        :param input: a list of 2-D or 3-D arrays
+        :type input: list(numpy.ndarray)
+        :param radius: spherical radius
+        :type radius: numpy.ndarray
+        :param ns: radial resolution of the cylindrical grid (nz=2*ns)
+        :type ns: int
+        :param minc: azimuthal symmetry
+        :type minc: int
+        :param save: a boolean to specify if one wants to save the outputs into
+                     a pickle (default is True)
+        :type save: bool
+        :param filename: name of the output pickle when save=True
+        :type filename: str
+        :param normed: a boolean to specify if ones wants to simply integrate 
+                       over z or compute a z-average (default is True: average)
+        :type normed: bool
+        :returns: a python tuple that contains two numpy.ndarray and a list
+                  (height,cylRad,output) height[ns] is the height of the
+                  spherical shell for all radii. cylRad[ns] is the cylindrical
+                  radius. output=[arr1[ns], ..., arrN[ns]] contains
+                  the z-integrated output arrays.
+        :rtype: tuple
+        """
+        ro = radius[0]
+        ri = radius[-1]
+        cylRad = np.linspace(ro, 0., ns)
+        ntheta = input[0].shape[1]
+        theta = np.linspace(0., np.pi, ntheta)
 
-    height = np.zeros_like(cylRad)
-    height[cylRad>=ri] = 2.*np.sqrt(ro**2-cylRad[cylRad>=ri]**2)
-    height[cylRad<ri] = 2.*(np.sqrt(ro**2-cylRad[cylRad<ri]**2)\
-                                 -np.sqrt(ri**2-cylRad[cylRad<ri]**2))
+        height = np.zeros_like(cylRad)
+        height[cylRad >= ri] = 2.*np.sqrt(ro**2-cylRad[cylRad >= ri]**2)
+        height[cylRad < ri] = 2.*(np.sqrt(ro**2-cylRad[cylRad < ri]**2)
+                                  -np.sqrt(ri**2-cylRad[cylRad < ri]**2))
 
-    if len(input[0].shape) == 3:
-        nphi = input[0].shape[0]
-        phi = np.linspace(0., 2.*np.pi/minc, nphi)
-        output = np.zeros((nphi, ns-2), dtype=input[0].dtype)
-        for iphi in progressbar(range(nphi)):
-            Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns, nz)
-            S = S[:, 1:-1]
-            Z = Z[:, 1:-1]
-            output[iphi, :] = np.trapz(out2D[0][:, 1:-1], z, axis=0)
-            if normed:
-                output[iphi, :] /= height
+        if len(input[0].shape) == 3:
+            nphi = input[0].shape[0]
+            phi = np.linspace(0., 2.*np.pi/minc, nphi)
+            output = np.zeros((nphi, ns), dtype=input[0].dtype)
+            for iphi in progressbar(range(nphi)):
+                output[iphi, :] = cylmean(input[0][iphi, ...], radius, cylRad,
+                                          theta)
+                if not normed:
+                    output[iphi, :] *= height
 
-        if save:
-            nphi, ntheta, nr = input[0].shape
-            file = open(filename, 'wb')
-            pickle.dump([cylRad, phi, output], file) # cylindrical average
-            pickle.dump([radius, phi, input[0][:, ntheta/2, :]], file) # equatorial cut
-            file.close()
-        return height, cylRad, phi, output
-    elif len(input[0].shape) == 2:
-        Z, S, out2D = sph2cyl_plane(input, radius, ns, nz)
-        S = S[:, 1:-1]
-        Z = Z[:, 1:-1]
-        output = []
-        outIntZ = np.zeros((ns-2), dtype=input[0].dtype)
-        for k,out in enumerate(out2D):
-            outIntZ = np.trapz(out[:, 1:-1], z, axis=0)
-            if normed:
-                outIntZ /= height
+            if save:
+                nphi, ntheta, nr = input[0].shape
+                file = open(filename, 'wb')
+                pickle.dump([cylRad, phi, output], file) # cylindrical average
+                pickle.dump([radius, phi, input[0][:, ntheta/2, :]], file) # equatorial cut
+                file.close()
+            return height, cylRad, phi, output
+
+        elif len(input[0].shape) == 2:
+            outIntZ = cylmean(input, radius, cylRad, theta)
+            output = []
+            outIntZ = np.zeros((ns), dtype=input[0].dtype)
+            if not normed:
+                outIntZ *= height
             output.append(outIntZ)
 
-        if save:
-            file = open(filename, 'wb')
-            pickle.dump([radius,  cylRad, height], file) # cylindrical average
-            for k,out in enumerate(output):
-                pickle.dump(out, file) # cylindrical average
-                ntheta, nr = input[k].shape
-                pickle.dump(input[k][ntheta/2, :], file) # equatorial cut
-            file.close()
+            if save:
+                file = open(filename, 'wb')
+                pickle.dump([radius,  cylRad, height], file) # cylindrical average
+                for k,out in enumerate(output):
+                    pickle.dump(out, file) # cylindrical average
+                    ntheta, nr = input[k].shape
+                    pickle.dump(input[k][ntheta/2, :], file) # equatorial cut
+                file.close()
 
-        return height, cylRad, output
+            return height, cylRad, output
+
+else:
+
+    def zavg(input, radius, ns, minc, save=True, filename='vp.pickle',
+             normed=True):
+        """
+        This function computes a z-integration of a list of input arrays 
+        (on the spherical grid). This works well for 2-D (phi-slice) 
+        arrays. In case of 3-D arrays, only one element is allowed
+        (too demanding otherwise).
+
+        :param input: a list of 2-D or 3-D arrays
+        :type input: list(numpy.ndarray)
+        :param radius: spherical radius
+        :type radius: numpy.ndarray
+        :param ns: radial resolution of the cylindrical grid (nz=2*ns)
+        :type ns: int
+        :param minc: azimuthal symmetry
+        :type minc: int
+        :param save: a boolean to specify if one wants to save the outputs into
+                     a pickle (default is True)
+        :type save: bool
+        :param filename: name of the output pickle when save=True
+        :type filename: str
+        :param normed: a boolean to specify if ones wants to simply integrate
+                       over z or compute a z-average (default is True: average)
+        :type normed: bool
+        :returns: a python tuple that contains two numpy.ndarray and a
+                  list (height,cylRad,output) height[ns] is the height of the
+                  spherical shell for all radii. cylRad[ns] is the cylindrical
+                  radius. output=[arr1[ns], ..., arrN[ns]] contains
+                  the z-integrated output arrays.
+        :rtype: tuple
+        """
+        nz = 2*ns
+        ro = radius[0]
+        ri = radius[-1]
+        z = np.linspace(-ro, ro, nz)
+        cylRad = np.linspace(0., ro, ns)
+        cylRad = cylRad[1:-1]
+
+        height = np.zeros_like(cylRad)
+        height[cylRad >= ri] = 2.*np.sqrt(ro**2-cylRad[cylRad >= ri]**2)
+        height[cylRad < ri] = 2.*(np.sqrt(ro**2-cylRad[cylRad < ri]**2)
+                                  -np.sqrt(ri**2-cylRad[cylRad < ri]**2))
+
+        if len(input[0].shape) == 3:
+            nphi = input[0].shape[0]
+            phi = np.linspace(0., 2.*np.pi/minc, nphi)
+            output = np.zeros((nphi, ns-2), dtype=input[0].dtype)
+            for iphi in progressbar(range(nphi)):
+                Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns,
+                                            nz)
+                S = S[:, 1:-1]
+                Z = Z[:, 1:-1]
+                output[iphi, :] = np.trapz(out2D[0][:, 1:-1], z, axis=0)
+                if normed:
+                    output[iphi, :] /= height
+
+            if save:
+                nphi, ntheta, nr = input[0].shape
+                file = open(filename, 'wb')
+                pickle.dump([cylRad, phi, output], file) # cylindrical average
+                pickle.dump([radius, phi, input[0][:, ntheta/2, :]], file) # equatorial cut
+                file.close()
+            return height, cylRad, phi, output
+        elif len(input[0].shape) == 2:
+            Z, S, out2D = sph2cyl_plane(input, radius, ns, nz)
+            S = S[:, 1:-1]
+            Z = Z[:, 1:-1]
+            output = []
+            outIntZ = np.zeros((ns-2), dtype=input[0].dtype)
+            for k,out in enumerate(out2D):
+                outIntZ = np.trapz(out[:, 1:-1], z, axis=0)
+                if normed:
+                    outIntZ /= height
+                output.append(outIntZ)
+
+            if save:
+                file = open(filename, 'wb')
+                pickle.dump([radius,  cylRad, height], file) # cylindrical average
+                for k,out in enumerate(output):
+                    pickle.dump(out, file) # cylindrical average
+                    ntheta, nr = input[k].shape
+                    pickle.dump(input[k][ntheta/2, :], file) # equatorial cut
+                file.close()
+
+            return height, cylRad, output
 
 
 def sph2cyl(g, ns=None, nz=None):
