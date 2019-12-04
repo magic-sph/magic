@@ -1563,19 +1563,19 @@ to that of the reference frame, and :math:`\Gamma_{L,\nu}` are the respective to
 associated with Lorentz or viscous forces. The torques are expressed by
 
 .. math::
-   \Gamma_L = \dfrac{1}{E\,Pm}\oint B_r B_\phi\,r\sin_{\theta}\,\mathrm{d}S\,,
+   \Gamma_L = \dfrac{1}{E\,Pm}\oint B_r B_\phi\,r\sin\theta\,\mathrm{d}S\,,
 
 and
 
 .. math::
-   \Gamma_\nu = \oint \tilde{\rho} \tilde{\nu} r\dfrac{\partial}{\partial r}\left(\dfrac{u_\phi}{r}\right) r\sin_{\theta}\,\mathrm{d}S\,,
+   \Gamma_\nu = \oint \tilde{\rho} \tilde{\nu} r\dfrac{\partial}{\partial r}\left(\dfrac{u_\phi}{r}\right) r\sin\theta\,\mathrm{d}S\,,
 
-where :math:`\mathrm{d}S = r^2\sin\theta \mathrm{d}\theta\mathrm{d}\phi` and :math:`r\in[r_i,r_o]` in the above expressions. Using the fact that
+where :math:`\mathrm{d}S = r^2\sin\theta \mathrm{d}\theta\mathrm{d}\phi` and :math:`r\in[r_i,r_o]` in the above expressions. Using the following equality
 
 .. math::
-   \oint \tilde{\rho} r\sin\theta u_\phi \mathrm{d} S=4\sqrt{\dfrac{\pi}{3}}Z_{10}r^2,
+   \oint \tilde{\rho} r\sin\theta u_\phi\,\mathrm{d} S=4\sqrt{\dfrac{\pi}{3}}Z_{10}r^2,
    
-The viscous torques can be expressed by
+the viscous torques can be expressed by
 
 .. math::
    \Gamma_\nu = \pm4\sqrt{\dfrac{\pi}{3}}\tilde{\nu}r^2\left[\dfrac{\partial Z_{10}}{\partial r}-\left(\dfrac{2}{r}+\beta\right)Z_{10}\right]\,,

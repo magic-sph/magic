@@ -113,7 +113,7 @@ where :math:`u_{F,r}` is the radial component of the fluid velocity and :math:`u
 
 * **intfac** (default :f:var:`intfac=0.15 <intfac>`) is a  real, used to scale Coriolis factor in Courant criteria. This parameter corresponds to :math:`c_I` in the above equation.
 
-* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves is taken into account when estimating the Courant condition (see Christensen et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead to spurious oscillations/instabilities of the code. When turn to False, :math:`{|u_r|}=c_F{|u_{F,r}|}+c_A{|u_{A,r}|}.
+* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves is taken into account when estimating the Courant condition (see Christensen et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead to spurious oscillations/instabilities of the code. When turn to False, :math:`{|u_r|}=c_F{|u_{F,r}|}+c_A{|u_{A,r}|}`.
 
 * **time_scheme** (default :f:var:`time_scheme='CNAB2' <time_scheme>`) is a character string. This is used to choose the time step integrator used in the code among the following implicit-explicit time schemes:
 

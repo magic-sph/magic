@@ -418,7 +418,7 @@ The calculations are done in the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
    +---------------+-----------------------------------------------------------+
    | 22            | Standard deviation of thermal Buoyancy versus degree      |
    +---------------+-----------------------------------------------------------+
-   | 23            | Standard deviation of chemical Buoyancy versus degree      |
+   | 23            | Standard deviation of chemical Buoyancy versus degree     |
    +---------------+-----------------------------------------------------------+
    | 24            | Standard deviation of Pressure gradient versus degree     |
    +---------------+-----------------------------------------------------------+
