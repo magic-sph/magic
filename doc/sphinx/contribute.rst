@@ -68,7 +68,7 @@ The ``--level LEV`` option defines the priority level of check and validation of
   +---------+-----------------------------------------------------------+
   | Level   |  Cases to check (subdirectories)                          |
   +=========+===========================================================+
-  | 0       | * Boussinesq dynamo benchmark                             |
+  | 0       | * Boussinesq dynamo benchmark (BM1)                       |
   |         |   (`Christensen et al., 2001                              |
   |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_)    |
   |         |   - start from zero (``dynamo_benchmark``)                |
@@ -78,7 +78,7 @@ The ``--level LEV`` option defines the priority level of check and validation of
   |         | * Test of a case that uses finite differences             |
   |         |   - restart from a case that used Chebyshev polynomials   |
   |         |   (``finite_differences``)                                |
-  |         | * Boussinesq dynamo benchmark                             |
+  |         | * Boussinesq dynamo benchmark (BM2)                       |
   |         |   (`Christensen et al., 2001                              |
   |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_)    |
   |         |   - start from a saturated state (``boussBenchSat``)      |
@@ -89,6 +89,11 @@ The ``--level LEV`` option defines the priority level of check and validation of
   |         | * Axisymmetric spherical Couette flow - this auto-test    |
   |         |   checks the axisymmetric version of MagIC                |
   |         |   (``couetteAxi``)                                        |
+  |         | * Test Precession (``precession``)                        |
+  |         | * Whole sphere benchmark                                  |
+  |         |   (`Marti et al., 2014                                    |
+  |         |   <http://dx.doi.org/10.1093/gji/ggt518>`_)               |
+  |         |   - start from a saturated state (``full_sphere``)        |
   +---------+-----------------------------------------------------------+
   | 1       | * Test reading and writing of                             |
   |         |   restart files (``testRestart``)                         |
