@@ -4,15 +4,13 @@ import os
 import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from .libmagic import scanDir
 try:
     import configparser as CoPa
 except ImportError:
     import ConfigParser as CoPa
 
 pythonVersion = sys.version_info.major
-
-if pythonVersion == 3:
-    pythonSuffix = '%i%i' % (pythonVersion, sys.version_info.minor)
 
 if 'MAGIC_HOME' in os.environ:
     path = os.environ['MAGIC_HOME']
@@ -85,152 +83,116 @@ if buildSo:
 
     if fcompiler.startswith('intel'):
         f90options = '-O3 -xHost'
-    elif fcompiler == 'gnu' or fcompiler == 'g95':
+        omp_options = "--f90flags='-qopenmp'"
+        omp_link = '-liomp5'
+    elif fcompiler == 'gnu' or fcompiler == 'g95' or fcompiler == 'gnu95':
         f90options = '-O3 -march=native'
+        omp_options = "--f90flags='-fopenmp'"
+        omp_link = '-lgomp'
     else:
         f90options = '-O3'
+        omp_options = ''
+        omp_link = ''
 
     # For reading G files
     t2 = os.stat('fortranLib/readG_single.f90').st_mtime
-    if os.path.exists('greader_single%i.so' % pythonVersion):
-        t1 = os.stat('greader_single%i.so' % pythonVersion).st_mtime
+    sos = scanDir('greader_single.*')
+    if len(sos) >= 1:
+        t1 = os.stat(sos[-1]).st_mtime
     else: # in case the file does not exist t2 is set to t1
         t1 = t2
-    if not os.path.exists('greader_single%i.so' % pythonVersion) or t2 > t1:
-        os.chdir('fortranLib')
+    if len(sos) < 1  or t2 > t1:
         print("Please wait: building greader_single...")
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
                  '-c', '-m',
-                 'greader_single%i' % pythonVersion,
-                 'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv greader_single3.cpython-*.so %s/greader_single3.so" % \
-                  (magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'greader_single2.so', '%s' % magicdir])
-        os.chdir(magicdir)
+                 'greader_single',
+                 'fortranLib/readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
 
     t2 = os.stat('fortranLib/readG_double.f90').st_mtime
-    if os.path.exists('greader_double%i.so' % pythonVersion):
-        t1 = os.stat('greader_double%i.so' % pythonVersion).st_mtime
+    sos = scanDir('greader_double.*')
+    if len(sos) >= 1:
+        t1 = os.stat(sos[-1]).st_mtime
     else: # in case the file does not exist t2 is set to t1
         t1 = t2
-    if not os.path.exists('greader_double%i.so' % pythonVersion) or t2 > t1:
-        os.chdir('fortranLib')
+    if len(sos) < 1 or t2 > t1:
         print("Please wait: building greader_double...")
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
                  '-c', '-m',
-                 'greader_double%i' % pythonVersion,
-                 'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv greader_double3.cpython-*.so %s/greader_double3.so" % \
-                  (magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
-        os.chdir(magicdir)
+                 'greader_double',
+                 'fortranLib/readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
 
     # For the reader of the potential files
     t2 = os.stat('fortranLib/readPot_single.f90').st_mtime
-    if os.path.exists('lmrreader_single%i.so' % pythonVersion):
-        t1 = os.stat('lmrreader_single%i.so' % pythonVersion).st_mtime
+    sos = scanDir('lmrreader_single.*')
+    if len(sos) >= 1:
+        t1 = os.stat(sos[-1]).st_mtime
     else: # in case the file does not exist t2 is set to t1
         t1 = t2
-    if not os.path.exists('lmrreader_single%i.so' % pythonVersion) or t2 > t1:
-        os.chdir('fortranLib')
+    if len(sos) < 1 or t2 > t1:
         print("Please wait: building lmrreader_single...")
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
                  '-c', '-m',
-                 'lmrreader_single%i' % pythonVersion,
-                 'readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv lmrreader_single3.cpython-*.so %s/lmrreader_single3.so" % \
-                  (magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'lmrreader_single2.so', '%s' % magicdir])
-        os.chdir(magicdir)
+                 'lmrreader_single',
+                 'fortranLib/readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
 
     # For the Legendre transforms
     t2 = os.stat('fortranLib/legendre.f90').st_mtime
-    if os.path.exists('legendre%i.so' % pythonVersion):
-        t1 = os.stat('legendre%i.so' % pythonVersion).st_mtime
+    sos = scanDir('legendre.*')
+    if len(sos) >= 1:
+        t1 = os.stat(sos[-1]).st_mtime
     else: # in case the file does not exist t2 is set to t1
         t1 = t2
-    if not os.path.exists('legendre%i.so' % pythonVersion) or t2 > t1:
-        os.chdir('fortranLib')
+    if len(sos) < 1 or t2 > t1:
         print("Please wait: building Legendre transforms...")
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
                  '-c', '-m',
-                 'legendre%i' % pythonVersion,
-                 'legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv legendre3.cpython-*.so %s/legendre3.so" % \
-                  (magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'legendre2.so', '%s' % magicdir])
-        os.chdir(magicdir)
+                 'legendre',
+                 'fortranLib/legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
 
     # For the vtk file format convertion
     t2 = os.stat('fortranLib/vtkLib.f90').st_mtime
-    if os.path.exists('vtklib%i.so' % pythonVersion):
-        t1 = os.stat('vtklib%i.so' % pythonVersion).st_mtime
+    sos = scanDir('vtklib.*')
+    if len(sos) >= 1:
+        t1 = os.stat(sos[-1]).st_mtime
     else: # in case the file does not exist t2 is set to t1
         t1 = t2
-    if not os.path.exists('vtklib%i.so' % pythonVersion) or t2 > t1:
-        os.chdir('fortranLib')
+    if len(sos) < 1 or t2 > t1:
         print("Please wait: building vtklib...")
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
                  '-c', '-m',
-                 'vtklib%i' % pythonVersion,
-                 'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv vtklib3.cpython-*.so %s/vtklib3.so" % \
-                  ( magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'vtklib2.so', '%s' % magicdir])
-        os.chdir(magicdir)
+                 'vtklib',
+                 'fortranLib/vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
 
     # For the cyl averaging
     t2 = os.stat('fortranLib/cyl.f90').st_mtime
-    if os.path.exists('cylavg%i.so' % pythonVersion):
-        t1 = os.stat('cylavg%i.so' % pythonVersion).st_mtime
+    sos = scanDir('cylavg.*')
+    if len(sos) >= 1:
+        t1 = os.stat(sos[-1]).st_mtime
     else: # in case the file does not exist t2 is set to t1
         t1 = t2
-    if not os.path.exists('cylavg%i.so' % pythonVersion) or t2 > t1:
-        os.chdir('fortranLib')
+    if len(sos) < 1 or t2 > t1:
         print("Please wait: building cylavg...")
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
-                 '-c', '-m',
-                 'cylavg%i' % pythonVersion,
-                 'cyl.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv cylavg3.cpython-*.so %s/cylavg3.so" % \
-                  (magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'cylavg2.so', '%s' % magicdir])
-        os.chdir(magicdir)
+                 omp_options, '-c', '-m', 
+                 'cylavg', omp_link,
+                 'fortranLib/cyl.f90'], stderr=sp.PIPE, stdout=sp.PIPE)
 
     os.chdir(startdir)

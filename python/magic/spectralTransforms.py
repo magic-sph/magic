@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
-import sys
 import numpy as np
 from .setup import buildSo
 
 if buildSo:
-    if sys.version_info.major == 3:
-        import magic.legendre3 as leg
-    elif  sys.version_info.major == 2:
-        import magic.legendre2 as leg
-
+    import magic.legendre as leg
 
 
 class SpectralTransforms(object):

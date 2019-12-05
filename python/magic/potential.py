@@ -4,17 +4,13 @@ from .setup import labTex, defaultCm, defaultLevels, labTex, buildSo
 from .libmagic import *
 from .spectralTransforms import SpectralTransforms
 from .plotlib import radialContour, merContour, equatContour
-import os, re, sys, time
+import os, re, time
 import numpy as np
 import matplotlib.pyplot as plt
 from .npfile import *
 
 if buildSo:
-    if sys.version_info.major == 3:
-        import magic.lmrreader_single3 as Psngl
-    elif sys.version_info.major == 2:
-        import magic.lmrreader_single2 as Psngl
-
+    import magic.lmrreader_single as Psngl
     readingMode = 'f2py'
 else:
     readingMode = 'python'

@@ -10,20 +10,15 @@ from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 import os
 import pickle
-import sys
 
 if buildSo:
     try:
-        if sys.version_info.major == 3:
-            from cylavg3 import *
-        elif sys.version_info.major == 2:
-            from cylavg2 import *
+        from cylavg import *
         zavgMode = 'f2py'
     except ImportError:
         zavgMode = 'python'
 else:
     zavgMode = 'python'
-
 
 def sph2cyl_plane(data, rad, ns, nz):
     """
