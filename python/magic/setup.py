@@ -107,8 +107,8 @@ if buildSo:
                  'greader_single%i' % pythonVersion,
                  'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv greader_single3.cpython-%sm*.so %s/greader_single3.so" % \
-                  (pythonSuffix, magicdir)
+            cmd = "mv greader_single3.cpython-*.so %s/greader_single3.so" % \
+                  (magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
             sp.call(['mv', 'greader_single2.so', '%s' % magicdir])
@@ -130,8 +130,8 @@ if buildSo:
                  'greader_double%i' % pythonVersion,
                  'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv greader_double3.cpython-%sm*.so %s/greader_double3.so" % \
-                  (pythonSuffix, magicdir)
+            cmd = "mv greader_double3.cpython-*.so %s/greader_double3.so" % \
+                  (magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
             sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
@@ -154,8 +154,8 @@ if buildSo:
                  'lmrreader_single%i' % pythonVersion,
                  'readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv lmrreader_single3.cpython-%sm*.so %s/lmrreader_single3.so" % \
-                  (pythonSuffix, magicdir)
+            cmd = "mv lmrreader_single3.cpython-*.so %s/lmrreader_single3.so" % \
+                  (magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
             sp.call(['mv', 'lmrreader_single2.so', '%s' % magicdir])
@@ -178,8 +178,8 @@ if buildSo:
                  'legendre%i' % pythonVersion,
                  'legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv legendre3.cpython-%sm*.so %s/legendre3.so" % \
-                  (pythonSuffix, magicdir)
+            cmd = "mv legendre3.cpython-*.so %s/legendre3.so" % \
+                  (magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
             sp.call(['mv', 'legendre2.so', '%s' % magicdir])
@@ -202,8 +202,8 @@ if buildSo:
                  'vtklib%i' % pythonVersion,
                  'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv vtklib3.cpython-%sm*.so %s/vtklib3.so" % \
-                  (pythonSuffix, magicdir)
+            cmd = "mv vtklib3.cpython-*.so %s/vtklib3.so" % \
+                  ( magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
             sp.call(['mv', 'vtklib2.so', '%s' % magicdir])
@@ -226,8 +226,8 @@ if buildSo:
                  'cylavg%i' % pythonVersion,
                  'cyl.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = "mv cylavg3.cpython-%sm*.so %s/cylavg3.so" % \
-                  (pythonSuffix, magicdir)
+            cmd = "mv cylavg3.cpython-*.so %s/cylavg3.so" % \
+                  (magicdir)
             sp.call(cmd, shell=True)
         elif pythonVersion == 2:
             sp.call(['mv', 'cylavg2.so', '%s' % magicdir])
