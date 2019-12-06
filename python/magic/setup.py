@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import subprocess as sp
 import os
-import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from .libmagic import scanDir
@@ -9,8 +8,6 @@ try:
     import configparser as CoPa
 except ImportError:
     import ConfigParser as CoPa
-
-pythonVersion = sys.version_info.major
 
 if 'MAGIC_HOME' in os.environ:
     path = os.environ['MAGIC_HOME']

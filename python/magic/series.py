@@ -1,5 +1,6 @@
 #-*- coding: utf-8 -*-
-import os, re, sys
+import os
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
