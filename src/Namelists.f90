@@ -56,7 +56,7 @@ contains
       integer :: argument_count
       integer :: res,n_cour_step
       integer :: inputHandle
-      character(len=100) :: input_filename
+      character(len=100) :: input_filename, errmess
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
@@ -173,8 +173,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading grid parameters!'
-         read(inputHandle,nml=grid,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=grid,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No grid namelist found!'
          end if
          close(inputHandle)
@@ -182,8 +185,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading control parameters!'
-         read(inputHandle,nml=control,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=control,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No control namelist found!'
          end if
          close(inputHandle)
@@ -191,8 +197,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading physical parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading physical parameters!'
-         read(inputHandle,nml=phys_param,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=phys_param,iostat=res, iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No phys_param namelist found!'
          end if
          close(inputHandle)
@@ -200,8 +209,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading start field info from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading start information!'
-         read(inputHandle,nml=start_field,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=start_field,iostat=res, iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No start_field namelist found!'
          end if
          close(inputHandle)
@@ -209,8 +221,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading output parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading output information!'
-         read(inputHandle,nml=output_control,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=output_control,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No output_control namelist found!'
          end if
          close(inputHandle)
@@ -218,8 +233,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading inner-core parameter from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading inner core information!'
-         read(inputHandle,nml=inner_core,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=inner_core,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No inner_core namelist found!'
          end if
          close(inputHandle)
@@ -227,8 +245,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading mantle parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading mantle information!'
-         read(inputHandle,nml=mantle,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=mantle,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No mantle namelist found!'
          end if
          close(inputHandle)
@@ -236,8 +257,11 @@ contains
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading external field parameters for feedback:
          if ( rank == 0 ) write(output_unit,*) '!  Reading B external parameters!'
-         read(inputHandle,nml=B_external,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
+         read(inputHandle,nml=B_external,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0) then
+            call abortRun(errmess)
+         endif
+         if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No B_external namelist found!'
          end if
          close(inputHandle)
