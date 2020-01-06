@@ -180,6 +180,7 @@ if(USE_LAPACKLIB MATCHES LIBFLAME)
    else()
       message(STATUS "BLIS: '${BLIS}'")
       message(STATUS "LIBFLAME: '${FLAME}'")
+      add_definitions(-DWITH_LIBFLAME)
    endif()
 endif()
 
