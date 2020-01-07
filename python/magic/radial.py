@@ -28,7 +28,8 @@ class MagicRadial(MagicSetup):
     >>> print(rad.radius, rad.ekin_pol_axi) # print radius and poloidal energy
     """
 
-    def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None, normalize_radius=False):
+    def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None,
+                 normalize_radius=False):
         """
         :param datadir: working directory
         :type datadir: str
@@ -78,7 +79,7 @@ class MagicRadial(MagicSetup):
             if tag is not None:
                 f = '%s.%s' % (self.name, tag)
                 filename = os.path.join(datadir, f)
-                if os.path.exists('log.%s' % tag):
+                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                         nml='log.%s' % tag)
             else:
@@ -88,10 +89,10 @@ class MagicRadial(MagicSetup):
                 # Determine the setup
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 ending = mask.search(files[-1]).groups(0)[0]
-                if os.path.exists('log.%s' % ending):
+                if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                        nml='log.%s' % ending)
+                                            nml='log.%s' % ending)
                     except AttributeError:
                         pass
 

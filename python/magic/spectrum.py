@@ -654,6 +654,7 @@ class MagicSpectrum2D(MagicSetup):
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Buo_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
+                self.Chem_r_l = np.zeros_like(self.Buo_r_l)
                 self.Pre_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Dif_r_l = f.fort_read(precision,
@@ -699,23 +700,24 @@ class MagicSpectrum2D(MagicSetup):
             self.plot(levels, cm)
 
 
-    def plot(self, levels, cm):
+    def plot(self, levels, cm, cut=1.):
         """
         Plotting function
 
         :param levels: number of contour levels
         :type levels: int
         :param cm: name of the colormap
-        :type cm: str
+        :param cut: adjust the contour maximum to max(abs(data))*cut
+        :type cut: float
         """
         if self.name == '2D_dtVrms_spec':
-            vmax = np.log10(self.Geo_r_l).max()
+            vmax = np.log10(cut*self.Geo_r_l).max()
             vmin = vmax-4
             levs = np.linspace(vmin, vmax, levels)
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
             im = ax0.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Geo_r_l[:,1:].transpose()),
+                              np.log10(self.Geo_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax0.set_ylabel('Degree $\ell$')
@@ -729,9 +731,9 @@ class MagicSpectrum2D(MagicSetup):
             fig0.colorbar(im)
 
             fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
+            ax1 = fig1.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax1.contourf(self.rad, self.ell[1:],
-                              np.log10((self.Buo_r_l[:,1:]+self.Chem_r_l[:,1:]).transpose()),
+                              np.log10((self.Buo_r_l[:, 1:]+self.Chem_r_l[:, 1:]).T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax1.set_ylabel('Degree $\ell$')
@@ -746,9 +748,9 @@ class MagicSpectrum2D(MagicSetup):
 
             if abs(self.LF_r_l).max() > 0:
                 fig2 = plt.figure()
-                ax2 = fig2.add_subplot(111)
+                ax2 = fig2.add_subplot(111,sharex=ax0, sharey=ax0)
                 im = ax2.contourf(self.rad, self.ell[1:],
-                                  np.log10(self.LF_r_l[:,1:].transpose()),
+                                  np.log10(self.LF_r_l[:, 1:].T),
                                   levs, cmap=plt.get_cmap(cm), extend='both')
                 if labTex:
                     ax2.set_ylabel('Degree $\ell$')
@@ -762,9 +764,9 @@ class MagicSpectrum2D(MagicSetup):
                 fig2.colorbar(im)
 
             fig3 = plt.figure()
-            ax3 = fig3.add_subplot(111)
+            ax3 = fig3.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax3.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Iner_r_l[:,1:].transpose()),
+                              np.log10(self.Iner_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax3.set_ylabel('Degree $\ell$')
@@ -778,9 +780,9 @@ class MagicSpectrum2D(MagicSetup):
             fig3.colorbar(im)
 
             fig4 = plt.figure()
-            ax4 = fig4.add_subplot(111)
+            ax4 = fig4.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax4.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Dif_r_l[:,1:].transpose()),
+                              np.log10(self.Dif_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax4.set_ylabel('Degree $\ell$')
@@ -795,7 +797,7 @@ class MagicSpectrum2D(MagicSetup):
         else:
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
-            vmax = np.log10(self.e_pol_l).max()
+            vmax = np.log10(cut*self.e_pol_l).max()
             vmin = vmax-7
             levs = np.linspace(vmin, vmax, levels)
             im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),
