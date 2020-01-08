@@ -388,8 +388,9 @@ contains
          end if
 
          if (this%l_probe_out ) then
-            call probe_out(time,this%nR,this%gsa(threadid)%vpc, nThetaStart, &
-                 &        this%sizeThetaB)
+            call probe_out(time,this%nR,this%gsa(threadid)%vpc,                &
+                 & this%gsa(threadid)%brc,this%gsa(threadid)%btc, nThetaStart, &
+                 & this%sizeThetaB)
          end if
          !--------- Helicity output:
          if ( this%lHelCalc ) then

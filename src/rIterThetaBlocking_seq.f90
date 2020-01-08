@@ -292,7 +292,8 @@ contains
          end if
 
          if ( this%l_probe_out ) then
-            call probe_out(time,this%nR,this%gsa%vpc, nThetaStart,this%sizeThetaB)
+            call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
+            &              nThetaStart,this%sizeThetaB)
          end if
 
          !--------- Helicity output:

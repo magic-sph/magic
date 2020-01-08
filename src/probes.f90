@@ -30,8 +30,9 @@ module probe_mod
 
    real(cp), public :: r_probe,theta_probe                !probe locations, r_probe in terms of r_cmb and theta in degrees
    integer, public  :: n_phi_probes                       !number of probes in phi - symmetrically distributed
-   integer  :: n_theta_usr,rad_usr, n_out_probes, rad_rank
-   character(len=72) :: probe_file
+   integer  :: n_theta_usr,rad_usr, rad_rank
+   integer  :: n_probeVp, n_probeBr, n_probeBt
+   character(len=72) :: probe_fileVp, probe_fileBr, probe_fileBt
     
    public   :: initialize_probes, finalize_probes, probe_out 
  
@@ -42,7 +43,9 @@ contains
       real(cp) :: deg2rad
 
       deg2rad = pi/180.0_cp
-      probe_file = "probeVp."//tag
+      probe_fileVp = "probeVp."//tag
+      probe_fileBr = "probeBr."//tag
+      probe_fileBt = "probeBt."//tag
       
       r_probe = r_probe + r_icb
       
@@ -52,8 +55,11 @@ contains
       rad_usr = minloc(abs(r_probe - r),1)
 
       if((nRstart <= rad_usr) .and. (rad_usr <= nRstop)) then
-         if ( .not. l_save_out )                                       &
-         &  open(newunit=n_out_probes, file=probe_file, status='new')
+         if ( .not. l_save_out ) then
+            open(newunit=n_probeVp, file=probe_fileVp, status='new')
+            open(newunit=n_probeBr, file=probe_fileBr, status='new')
+            open(newunit=n_probeBt, file=probe_fileBt, status='new')
+         end if
          rad_rank = rank
       end if
 
@@ -63,18 +69,22 @@ contains
 
    subroutine finalize_probes
 
-      if ( rank==rad_rank .and. (.not. l_save_out) ) close(n_out_probes)
+      if ( rank==rad_rank .and. (.not. l_save_out) ) then
+         close(n_probeVp)
+         close(n_probeBr)
+         close(n_probeBt)
+      end if
 
    end subroutine finalize_probes
 
 
-   subroutine probe_out(time,n_r,vp, n_theta_start,n_theta_block_size)
+   subroutine probe_out(time,n_r,vp,br,bt,n_theta_start,n_theta_block_size)
       
       real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                    ! radial grod point no.
       integer,  intent(in) :: n_theta_start          ! start theta no.
       integer,  intent(in) :: n_theta_block_size     ! size of theta block
-      real(cp), intent(in) :: vp(nrp,*)
+      real(cp), intent(in) :: vp(nrp,*), br(nrp,*), bt(nrp,*)
 
       !-- Local variables:
       integer  :: n_theta       ! counter for colatitude
@@ -103,22 +113,45 @@ contains
       
       probe_phi_step = n_phi_max/n_phi_probes
       
-      fac_r=or1(n_r)*vScale*orho1(n_r)
-      fac=fac_r*O_sin_theta(n_theta_cal)
       
       write(fmtstr,'(i3)') 2*n_phi_probes       ! 2*n_phi_probes columns for data
 
       if ( rank == rad_rank ) then
-         if ( l_save_out )                                                 &
-         &  open(newunit=n_out_probes,file=probe_file,status='unknown', &
-         &       position='append')
+         if ( l_save_out ) then
+            open(newunit=n_probeVp,file=probe_fileVp,status='unknown', &
+                 position='append')
+            open(newunit=n_probeBr,file=probe_fileBr,status='unknown', &
+                 position='append')
+            open(newunit=n_probeBt,file=probe_fileBt,status='unknown', &
+                 position='append')
+         end if
 
-         write(n_out_probes,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
+         ! Vp
+         
+         fac_r=or1(n_r)*vScale*orho1(n_r)
+         fac=fac_r*O_sin_theta(n_theta_cal)
+
+         write(n_probeVp,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
          & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
          &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
 
-         if ( l_save_out ) close(n_out_probes)
+         fac=or2(n_r)
 
+         write(n_probeBr,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
+         & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
+         &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
+
+         fac=or1(n_r)*O_sin_theta(n_theta_cal)
+         
+         write(n_probeBt,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
+         & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
+         &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
+
+         if ( l_save_out ) then
+            close(n_probeVp)
+            close(n_probeBr)
+            close(n_probeBt)
+         end if
       end if
    end subroutine probe_out
 
