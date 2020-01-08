@@ -161,8 +161,26 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
       include_directories(${MKLROOT}/include)
    else()
       message(STATUS "MKL was not found")
-      set(USE_LAPACKLIB "LAPACK")
+      set(USE_LAPACKLIB "LIBFLAME")
       set(USE_FFTLIB "JW")
+   endif()
+endif()
+
+# Detect BLIS and LIBFLAME
+if(USE_LAPACKLIB MATCHES LIBFLAME)
+   find_library(FLAME NAME flame
+       PATHS $ENV{HOME}/local/lib
+             $ENV{HOME}/local/lib64)
+   find_library(BLIS NAME blis
+       PATHS $ENV{HOME}/local/lib
+             $ENV{HOME}/local/lib64)
+   if ( FLAME MATCHES FLAME-NOTFOUND )
+      message(STATUS "LIBFLAME was not found")
+      set(USE_LAPACKLIB "LAPACK")
+   else()
+      message(STATUS "BLIS: '${BLIS}'")
+      message(STATUS "LIBFLAME: '${FLAME}'")
+      add_definitions(-DWITH_LIBFLAME)
    endif()
 endif()
 
@@ -182,15 +200,19 @@ message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
 message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 
 find_library(FFTW3 NAME fftw3
-    PATHS /usr/local/fftw/3.3.4_openmp/lib
-         $ENV{FFTW_ROOT}/lib
-         $ENV{FFTW_HOME}/lib                 #Hydra
-         $ENV{FFTWDIR})                      #GWDG
+    PATHS $ENV{HOME}/local/lib
+          $ENV{HOME}/local/lib64
+          /usr/local/fftw/3.3.4_openmp/lib
+          $ENV{FFTW_ROOT}/lib
+          $ENV{FFTW_HOME}/lib                 #Hydra
+          $ENV{FFTWDIR})                      #GWDG
 message(STATUS "FFTW3: '${FFTW3}'")
 
 if(USE_OMP)
    find_library(FFTW3_OMP NAME fftw3_omp
-       PATHS /usr/local/fftw/3.3.4_openmp/lib
+       PATH $ENV{HOME}/local/lib
+            $ENV{HOME}/local/lib64
+            /usr/local/fftw/3.3.4_openmp/lib
             $ENV{FFTW_ROOT}/lib
             $ENV{FFTW_HOME}/lib              #Hydra
             $ENV{FFTWDIR})                   #GWDG

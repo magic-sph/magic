@@ -14,6 +14,9 @@ Support for ``G_#.TAG`` files
    :private-members:
    :special-members:
 
+.. automodule:: magic.graph2rst
+   :members:
+
 .. _secPythonMovieFiles:
 
 Support for movie files ``*_mov.TAG``

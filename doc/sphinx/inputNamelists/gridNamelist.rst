@@ -32,13 +32,21 @@ Outer Core
 
 * **fd_order** (default :f:var:`fd_order=2 <fd_order>`) is an integer. This is the order of the finite difference scheme for the bulk points (possible values are 2, 4, 6).
 
-* **fd_order_bound** (default :f:var:`fd_order_bound=2 <fd_order_bound>`) is an integer. This is the order of the finite difference scheme for the boundary points (possible values are 1,2,3,4,5,6, ...).
+* **fd_order_bound** (default :f:var:`fd_order_bound=2 <fd_order_bound>`) is an integer. This is the order of the finite difference scheme for the boundary points (possible values are 1,2,3,4,5,6, ...). This has to be smaller than the order of the scheme used for the bulk points.
 
 * **fd_stretch** (default :f:var:`fd_stretch=0.3 <fd_stretch>`) is a real. It controls the ratio between the number of points in the boundary layers and in the bulk.
 
 * **fd_ratio** (default :f:var:`fd_ratio=0.1 <fd_ratio>`) is a real. It controls the ratio between the smallest grid spacing and the largest grid spacing.  
 
   .. note:: When `fd_ratio` is set to 1, the radial grid is regularly-spaced.
+
+* **l_var_l** (default :f:var:`l_var_l=.false. <l_var_l>`) is a logical. The spherical harmonic degree is a function of radius, when set to true. This practically reduces the number of spherical harmonic transforms in parts of the fluid domain but it comes at the price of an MPI inbalance. This feature is useful when computing full sphere geometry to avoid a too severe time step limitation close to the center. Right now the form of the radial dependence follows:
+
+  .. math::
+     \ell(r) = 1+(\ell_{\hbox{max}}-1)\sqrt{\frac{r}{r_o}}
+
+  ..
+
 
 Inner Core
 ----------
@@ -57,9 +65,7 @@ Symmetry and aliasing
 * **nalias** (default :f:var:`nalias=20 <nalias>`) is an integer which determines antialiasing used in the spherical harmonic representation. Note that ``20 <= nalias <= 30``.
 
 
-The number of grid points in latitude :f:var:`n_theta_max = n_phi_tot/2 <n_theta_max>`. The
-maximum degree (:f:var:`l_max`) and maximum order (:f:var:`m_max`) of the spherical
-harmonic expansion are determined by :f:var:`nalias`:
+The number of grid points in latitude :f:var:`n_theta_max = n_phi_tot/2 <n_theta_max>`. The maximum degree (:f:var:`l_max`) and maximum order (:f:var:`m_max`) of the spherical harmonic expansion are determined by :f:var:`nalias`:
 
   .. code-block:: fortran
 

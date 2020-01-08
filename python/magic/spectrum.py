@@ -67,6 +67,7 @@ class MagicSpectrum(MagicSetup):
         elif field in ('T','temperature','S','entropy'):
             self.name = 'T_spec_'
 
+
         if tag is not None:
             if ispec is not None:
                 file = '%s%i.%s' % (self.name, ispec, tag)
@@ -169,30 +170,11 @@ class MagicSpectrum(MagicSetup):
             self.AdvRms = data[:, 4]
             self.DifRms = data[:, 5]
             self.BuoRms = data[:, 6]
-            self.PreRms = data[:, 7]
-            self.geos = data[:, 8] # geostrophic balance
-            self.mageos = data[:, 9] # magnetostrophic balance
-            try:
-                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
-                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
-                self.corLor = data[:, 12] # Coriolis/Lorentz
-                self.preLor = data[:, 13] # Pressure/Lorentz
-                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
-                self.InerRms_SD = data[:, 15]
-                self.CorRms_SD = data[:, 16]
-                self.LFRms_SD = data[:, 17]
-                self.AdvRms_SD = data[:, 18]
-                self.DifRms_SD = data[:, 19]
-                self.BuoRms_SD = data[:, 20]
-                self.PreRms_SD = data[:, 21]
-                self.geos_SD = data[:, 22]
-                self.mageos_SD = data[:, 23]
-                self.arc_SD = data[:, 24]
-                self.arcMag_SD = data[:, 25]
-                self.corLor_SD = data[:, 26]
-                self.preLor_SD = data[:, 27]
-                self.cia_SD = data[:, 28]
-            except IndexError:
+
+            if data.shape[1] == 27:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
                 self.arcMag = data[:, 10] # Pressure/Coriolis/Lorentz/Buoyancy
                 self.corLor = data[:, 11] # Coriolis/Lorentz
                 self.preLor = data[:, 12] # Pressure/Lorentz
@@ -212,6 +194,58 @@ class MagicSpectrum(MagicSetup):
                 self.cia_SD = data[:, 26]
                 self.arc = np.zeros_like(self.cia)
                 self.arc_SD = np.zeros_like(self.cia)
+                self.ChemRms = np.zeros_like(self.cia)
+                self.ChemRms_SD = np.zeros_like(self.cia)
+            elif data.shape[1] == 29:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 15]
+                self.CorRms_SD = data[:, 16]
+                self.LFRms_SD = data[:, 17]
+                self.AdvRms_SD = data[:, 18]
+                self.DifRms_SD = data[:, 19]
+                self.BuoRms_SD = data[:, 20]
+                self.PreRms_SD = data[:, 21]
+                self.geos_SD = data[:, 22]
+                self.mageos_SD = data[:, 23]
+                self.arc_SD = data[:, 24]
+                self.arcMag_SD = data[:, 25]
+                self.corLor_SD = data[:, 26]
+                self.preLor_SD = data[:, 27]
+                self.cia_SD = data[:, 28]
+                self.ChemRms = np.zeros_like(self.cia)
+                self.ChemRms_SD = np.zeros_like(self.cia)
+            else:
+                self.ChemRms = data[:,7]
+                self.PreRms = data[:, 8]
+                self.geos = data[:, 9] # geostrophic balance
+                self.mageos = data[:,10] # magnetostrophic balance
+                self.arc = data[:, 11] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 12] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 13] # Coriolis/Lorentz
+                self.preLor = data[:, 14] # Pressure/Lorentz
+                self.cia = data[:, 15] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 16]
+                self.CorRms_SD = data[:, 17]
+                self.LFRms_SD = data[:, 18]
+                self.AdvRms_SD = data[:, 19]
+                self.DifRms_SD = data[:, 20]
+                self.BuoRms_SD = data[:, 21]
+                self.ChemRms_SD = data[:, 22]
+                self.PreRms_SD = data[:, 23]
+                self.geos_SD = data[:, 24]
+                self.mageos_SD = data[:, 25]
+                self.arc_SD = data[:, 26]
+                self.arcMag_SD = data[:, 27]
+                self.corLor_SD = data[:, 28]
+                self.preLor_SD = data[:, 29]
+                self.cia_SD = data[:, 30]
         elif self.name == 'T_spec_':
             self.T_l = data[:,1]
             self.T_m = data[:,2]
@@ -219,6 +253,7 @@ class MagicSpectrum(MagicSetup):
             self.T_icb_m = data[:,4]
             self.dT_icb_l = data[:,5]
             self.dT_icb_m = data[:,6]
+
         if iplot:
             self.plot()
 
@@ -412,7 +447,7 @@ class MagicSpectrum(MagicSetup):
             ax.loglog(self.index, self.PreRms, label='Pressure')
             if self.LFRms.max() > 1e-11:
                 ax.loglog(self.index, self.LFRms, label='Lorentz')
-            ax.loglog(self.index, self.BuoRms, label='Buoyancy')
+            ax.loglog(self.index, self.BuoRms + self.ChemRms, label='Buoyancy')
             ax.loglog(self.index, self.InerRms, label='Inertia')
             ax.loglog(self.index, self.DifRms, label='Viscosity')
             ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
@@ -457,7 +492,8 @@ class MagicSpectrum(MagicSetup):
             else:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.T_l, color='g')
+                ax.loglog(self.index, self.T_l)
+                ax.loglog(self.index, self.T_icb_l)
                 if labTex:
                     ax.set_xlabel('$\ell$')
                 else:
@@ -569,80 +605,119 @@ class MagicSpectrum2D(MagicSetup):
             print('No such file')
             return
 
-        file = npfile(filename, endian='B')
+        f = npfile(filename, endian='B')
 
         if self.name == '2D_dtVrms_spec':
-            self.n_r_max, self.l_max = file.fort_read('2i4')[0]
-            self.rad = file.fort_read(precision, shape=(self.n_r_max))
-            self.Cor_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Adv_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.LF_r_l  = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Buo_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Pre_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Dif_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Iner_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                           self.l_max+1))
-            self.Geo_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Mag_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Arc_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.ArcMag_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                             self.l_max+1))
-            self.CIA_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.CLF_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.PLF_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
+            l_one = f.fort_read('i4')
+            if len(l_one) == 1:
+                self.version = l_one[0]
+                self.n_r_max, self.l_max = f.fort_read('i4')
+                self.rad = f.fort_read(precision, shape=(self.n_r_max))
+                self.Cor_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Adv_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.LF_r_l  = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Buo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Chem_r_l = f.fort_read(precision,
+                                            shape=(self.n_r_max, self.l_max+1))
+                self.Pre_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Dif_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Iner_r_l = f.fort_read(precision,
+                                            shape=(self.n_r_max, self.l_max+1))
+                self.Geo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Mag_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Arc_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.ArcMag_r_l = f.fort_read(precision,
+                                              shape=(self.n_r_max, self.l_max+1))
+                self.CIA_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.CLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.PLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+            else:
+                self.n_r_max, self.l_max = l_one
+                self.rad = f.fort_read(precision, shape=(self.n_r_max))
+                self.Cor_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Adv_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.LF_r_l  = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Buo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Chem_r_l = np.zeros_like(self.Buo_r_l)
+                self.Pre_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Dif_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Iner_r_l = f.fort_read(precision,
+                                            shape=(self.n_r_max, self.l_max+1))
+                self.Geo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Mag_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Arc_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.ArcMag_r_l = f.fort_read(precision,
+                                              shape=(self.n_r_max, self.l_max+1))
+                self.CIA_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.CLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.PLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+
         else:
             if self.version == 'snap':
                 if precision == np.float64:
-                    out = file.fort_read('f8,3i4')[0]
+                    out = f.fort_read('f8,3i4')[0]
                 else:
-                    out = file.fort_read('f4,3i4')[0]
+                    out = f.fort_read('f4,3i4')[0]
                 self.time = out[0]
                 self.n_r_max, self.l_max, self.minc = out[1]
             elif self.version == 'ave':
-                self.n_r_max, self.l_max, self.minc = file.fort_read('3i4')[0]
+                self.n_r_max, self.l_max, self.minc = f.fort_read('3i4')[0]
                 self.time = -1.
-            self.rad = file.fort_read(precision, shape=(self.n_r_max))
-            self.e_pol_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
-            self.e_pol_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
-            self.e_tor_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
-            self.e_tor_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+            self.rad = f.fort_read(precision, shape=(self.n_r_max))
+            self.e_pol_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
+            self.e_pol_m = f.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+            self.e_tor_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
+            self.e_tor_m = f.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
 
         self.ell = np.arange(self.l_max+1)
-        file.close()
+        f.close()
 
         if iplot:
             self.plot(levels, cm)
 
 
-    def plot(self, levels, cm):
+    def plot(self, levels, cm, cut=1.):
         """
         Plotting function
 
         :param levels: number of contour levels
         :type levels: int
         :param cm: name of the colormap
-        :type cm: str
+        :param cut: adjust the contour maximum to max(abs(data))*cut
+        :type cut: float
         """
         if self.name == '2D_dtVrms_spec':
-            vmax = np.log10(self.Geo_r_l).max()
+            vmax = np.log10(cut*self.Geo_r_l).max()
             vmin = vmax-4
             levs = np.linspace(vmin, vmax, levels)
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
             im = ax0.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Geo_r_l[:,1:].transpose()), 
+                              np.log10(self.Geo_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax0.set_ylabel('Degree $\ell$')
@@ -656,9 +731,9 @@ class MagicSpectrum2D(MagicSetup):
             fig0.colorbar(im)
 
             fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
+            ax1 = fig1.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax1.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Buo_r_l[:,1:].transpose()), 
+                              np.log10((self.Buo_r_l[:, 1:]+self.Chem_r_l[:, 1:]).T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax1.set_ylabel('Degree $\ell$')
@@ -673,9 +748,9 @@ class MagicSpectrum2D(MagicSetup):
 
             if abs(self.LF_r_l).max() > 0:
                 fig2 = plt.figure()
-                ax2 = fig2.add_subplot(111)
+                ax2 = fig2.add_subplot(111,sharex=ax0, sharey=ax0)
                 im = ax2.contourf(self.rad, self.ell[1:],
-                                  np.log10(self.LF_r_l[:,1:].transpose()), 
+                                  np.log10(self.LF_r_l[:, 1:].T),
                                   levs, cmap=plt.get_cmap(cm), extend='both')
                 if labTex:
                     ax2.set_ylabel('Degree $\ell$')
@@ -689,9 +764,9 @@ class MagicSpectrum2D(MagicSetup):
                 fig2.colorbar(im)
 
             fig3 = plt.figure()
-            ax3 = fig3.add_subplot(111)
+            ax3 = fig3.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax3.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Iner_r_l[:,1:].transpose()), 
+                              np.log10(self.Iner_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax3.set_ylabel('Degree $\ell$')
@@ -705,9 +780,9 @@ class MagicSpectrum2D(MagicSetup):
             fig3.colorbar(im)
 
             fig4 = plt.figure()
-            ax4 = fig4.add_subplot(111)
-            im = ax4.contourf(self.rad, self.ell[1:], 
-                              np.log10(self.Dif_r_l[:,1:].transpose()), 
+            ax4 = fig4.add_subplot(111, sharex=ax0, sharey=ax0)
+            im = ax4.contourf(self.rad, self.ell[1:],
+                              np.log10(self.Dif_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax4.set_ylabel('Degree $\ell$')
@@ -722,7 +797,7 @@ class MagicSpectrum2D(MagicSetup):
         else:
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
-            vmax = np.log10(self.e_pol_l).max()
+            vmax = np.log10(cut*self.e_pol_l).max()
             vmin = vmax-7
             levs = np.linspace(vmin, vmax, levels)
             im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),

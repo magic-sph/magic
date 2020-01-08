@@ -123,7 +123,7 @@ program magic
    use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
    use parallel_mod
    use Namelists
-   use step_time_mod, only: initialize_step_time, step_time, finalize_step_time
+   use step_time_mod, only: initialize_step_time, step_time
    use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
@@ -133,6 +133,8 @@ program magic
    use mem_alloc
    use useful, only: abortRun
    use probe_mod, only: initialize_probes, finalize_probes
+   use time_schemes, only: type_tscheme
+
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -152,11 +154,11 @@ program magic
    integer :: values(8)
    character(len=72) :: date
    real(cp) :: time
-   real(cp) :: dt
-   real(cp) :: dtNew
+   class(type_tscheme), pointer :: tscheme
    type(timer_type) :: run_time, run_time_start
 
    integer :: n_stop_signal=0     ! signal returned from step_time
+
 
    ! MPI specific variables
 #ifdef WITHOMP
@@ -205,7 +207,7 @@ program magic
    end if
 
    !--- Read input parameters:
-   call readNamelists()  ! includes sent to other procs !
+   call readNamelists(tscheme)  ! includes sent to other procs !
 
    call initialize_output()
 
@@ -217,12 +219,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____  ___       '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____|/ _ \      '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__ | (_) |     '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \ > _ <      '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | (_) |     '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)___/      '
+      write(n_log_file,*) '!      __  __             _____ _____   _____ ___        '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/ _ \       '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| (_) |      '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\__, |      '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | / /       '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_/        '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -254,11 +256,14 @@ program magic
    !-- Blocking/radial/horizontal
    call initialize_blocking()
    local_bytes_used=bytes_allocated
-   call initialize_radial_data()
+   call initialize_radial_data(n_r_max)
    call initialize_radial_functions()
    call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
+
+   !-- Initialize time scheme
+   call tscheme%initialize(time_scheme, courfac, intfac, alffac)
 
    !-- Radial/LM Loop
    call initialize_radialLoop()
@@ -270,7 +275,7 @@ program magic
 
    local_bytes_used=bytes_allocated
    call initialize_fields()
-   call initialize_fieldsLast()
+   call initialize_fieldsLast(tscheme%nold, tscheme%nexp, tscheme%nimp)
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 
@@ -292,12 +297,18 @@ program magic
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
 
+
+
 #ifdef WITH_SHTNS
    call init_shtns()
 #endif
 
+   if ( rank == 0 ) then
+      call tscheme%print_info(n_log_file)
+   end if
+
    !--- Do pre-calculations:
-   call preCalc()
+   call preCalc(tscheme)
 
    if ( l_par .or. l_PV ) call initialize_geos_mod(l_par,l_PV) ! Needs to be called after preCalc, r_icb needed
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
@@ -326,10 +337,10 @@ program magic
    end if
 
    !--- Now read start-file or initialize fields:
-   call getStartFields(time,dt,dtNew,n_time_step)
+   call getStartFields(time, tscheme, n_time_step)
 
    !-- Open time step file
-   call initialize_courant(time, dtNew, tag)
+   call initialize_courant(time, tscheme%dt(1), tag)
 
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
@@ -359,8 +370,7 @@ program magic
          write(nO,'(/,'' ! STARTING TIME INTEGRATION AT:'')')
          write(nO,'(''   start_time ='',1p,ES18.10)') tScale*time
          write(nO,'(''   step no    ='',i10)') n_time_step
-         write(nO,'(''   start dt   ='',1p,ES16.4)') dt
-         write(nO,'(''   start dtNew='',1p,ES16.4)') dtNew
+         write(nO,'(''   start dt   ='',1p,ES16.4)') tscheme%dt(1)
       end do
       if ( l_save_out ) close(n_log_file)
    end if
@@ -371,7 +381,7 @@ program magic
    call run_time_start%stop_count()
 
    !--- Call time-integration routine:
-   call step_time(time,dt,dtNew,n_time_step,run_time_start)
+   call step_time(time, tscheme, n_time_step, run_time_start)
 
    !-- Stop counting time and print
    call run_time%stop_count()
@@ -439,7 +449,6 @@ program magic
    call finalize_courant()
 
    call finalize_communications()
-   call finalize_step_time()
    call finalize_fieldsLast()
    call finalize_fields()
 
@@ -456,6 +465,7 @@ program magic
    call finalize_blocking()
    call finalize_radial_data()
 
+   call tscheme%finalize()
    call finalize_output()
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
@@ -466,6 +476,7 @@ program magic
    LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI
-   call mpi_finalize(ierr)
+   call MPI_Finalize(ierr)
 #endif
+
 end program magic

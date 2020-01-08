@@ -45,9 +45,9 @@ class ThetaHeat(MagicSetup):
         angle = angle * np.pi / 180
 
         if os.path.exists('tInitAvg'):
-            file = open('tInitAvg', 'r')
-            tstart = float(file.readline())
-            file.close()
+            f = open('tInitAvg', 'r')
+            tstart = float(f.readline())
+            f.close()
             logFiles = scanDir('log.*')
             tags = []
             for lg in logFiles:
@@ -71,27 +71,27 @@ class ThetaHeat(MagicSetup):
             # reading ATmov
             k = 0
             for tag in tags:
-                file = 'ATmov.%s' % tag
-                if os.path.exists(file):
+                f = 'ATmov.%s' % tag
+                if os.path.exists(f):
                     if k == 0:
-                        m = Movie(file=file, iplot=False)
-                        print(file)
+                        m = Movie(file=f, iplot=False)
+                        print(f)
                     else:
-                        m += Movie(file=file, iplot=False)
-                        print(file)
+                        m += Movie(file=f, iplot=False)
+                        print(f)
                     k += 1
 
             # reading AHF_mov
             kk = 0
             for tag in tags:
-                file = 'AHF_mov.%s' % tag
-                if os.path.exists(file):
+                f = 'AHF_mov.%s' % tag
+                if os.path.exists(f):
                     if kk == 0:
-                        m1 = Movie(file=file, iplot=False)
-                        print(file)
+                        m1 = Movie(file=f, iplot=False)
+                        print(f)
                     else:
-                        m1 += Movie(file=file, iplot=False)
-                        print(file)
+                        m1 += Movie(file=f, iplot=False)
+                        print(f)
                     kk += 1
 
             self.tempmean = m.data[0, ...].mean(axis=0)
@@ -109,13 +109,13 @@ class ThetaHeat(MagicSetup):
                                         exclude=False, spectral=False)
 
             # Pickle saving
-            file = open(pickleName, 'wb')
+            f = open(pickleName, 'wb')
             pickle.dump([self.colat, self.tempmean, self.tempstd,\
-                         self.fluxmean, self.fluxstd], file)
-            file.close()
+                         self.fluxmean, self.fluxstd], f)
+            f.close()
         else:
-            file = open(pickleName, 'r')
-            dat = pickle.load(file)
+            f = open(pickleName, 'r')
+            dat = pickle.load(f)
             if len(dat) == 5:
                 self.colat, self.tempmean, self.tempstd, \
                             self.fluxmean, self.fluxstd = dat
@@ -123,7 +123,7 @@ class ThetaHeat(MagicSetup):
                 self.colat, self.tempmean, self.fluxmean = dat
                 self.fluxstd = np.zeros_like(self.fluxmean)
                 self.tempstd = np.zeros_like(self.fluxmean)
-            file.close()
+            f.close()
 
         self.ri = self.radratio/(1.-self.radratio)
         self.ro = 1./(1.-self.radratio)

@@ -1465,6 +1465,7 @@ contains
                     & "       at time/step",time*tScale,n_time_step
                call logWrite(message)
             end if
+            if ( l_save_out ) close(n_log_file)
 
             !--- Realtive importance of azimuthal and geostrophic flow
             VRMS   =sqrt(two*eKin/vol_oc)

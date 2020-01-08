@@ -1,7 +1,7 @@
 module nonlinear_bcs
 
    use precision_mod
-   use truncation, only: nrp, lmP_max, n_phi_max, l_axi
+   use truncation, only: nrp, lmP_max, n_phi_max, l_axi, l_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, nfs, &
@@ -94,8 +94,8 @@ contains
 
       !-- Fourier transform phi 2 m (real 2 complex!)
 #ifdef WITH_SHTNS
-      call spat_to_SH(br_vt, br_vt_lm)
-      call spat_to_SH(br_vp, br_vp_lm)
+      call spat_to_SH(br_vt, br_vt_lm, l_max)
+      call spat_to_SH(br_vp, br_vp_lm, l_max)
 #else
       if ( .not. l_axi ) then
          call fft_thetab(br_vt, -1)
@@ -194,7 +194,7 @@ contains
    end subroutine get_b_nl_bcs
 !-------------------------------------------------------------------------
    subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
-              &                dvrdpr,dvtdpr,dvpdpr, nThetaStart,time)
+              &                dvrdpr,dvtdpr,dvpdpr, nThetaStart)
       !
       !  Purpose of this subroutine is to set the velocities and their
       !  derivatives at a fixed boundary.
@@ -211,7 +211,6 @@ contains
 
       !-- Input of boundary rotation rate
       real(cp), intent(in) :: omega
-      real(cp), intent(in) :: time
 
       !-- output:
       real(cp), intent(out) :: vrr(nrp,nfs)

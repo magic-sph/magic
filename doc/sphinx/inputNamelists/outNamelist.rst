@@ -58,19 +58,6 @@ total calculation interval is assumed
    ..
 
 
-An important parameter in this context is :ref:`l_true_time <varl_true_time>`.
-If this is set to ``.true.``, the time steps of the program are modified to
-meet a desired output time. This forces a recalculation of the inversion
-matricies and therefore requires some additional computing time. When
-``l_true_time=.false.``, the values at the timestep closest to the desired
-output time are chosen. Since the timesteps are generally small, this option
-suffices for most applications.
-
-
-.. _varl_true_time:
-
-* **l_true_time** (default :f:var:`l_true_time=.false. <l_true_time>`) is a logical. It causes the code to change time steps to exactly meet the requested output times.
-
 The different possible outputs control parameters are then extensively described in the following pages:
 
 .. topic:: Possible outputs

@@ -4,13 +4,12 @@ import re
 import os
 import numpy as np
 from magic.libmagic import symmetrize
+from magic.setup import buildSo
 from magic import ExtraPot
 from .npfile import *
 import sys
-if sys.version_info.major == 3:
-    from .vtklib3 import *
-elif  sys.version_info.major == 2:
-    from .vtklib2 import *
+if buildSo:
+    from .vtklib import *
 
 
 class Movie3D:

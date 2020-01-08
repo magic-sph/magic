@@ -25,14 +25,12 @@ module logic
    logical :: l_z10mat       ! Switch for solid body rotation
    logical :: l_cond_ic      ! Switch for conducting IC
    logical :: l_cond_ma      ! Switch for conducting OC
-   logical :: l_time_hits    ! Switch for time for outputs
    logical :: l_average      ! Switch for calculation of time-averages
    logical :: l_energy_modes ! Switch for calculation of distribution of energies over m's
    logical :: l_movie        ! Switch for recording of movie files
    logical :: l_movie_oc     ! Switch for recording of movie files for OC
    logical :: l_movie_ic     ! Switch for recording of movie files for IC
    logical :: l_save_out     ! Switch off outputs
-   logical :: l_true_time    ! Switch for times of outputs
    logical :: l_cmb_field    ! Switch for Bcoef files for gauss coefficients
    logical :: l_dt_cmb_field ! Switch for Bcoef files for secular variation of gauss coefs.
    logical :: l_2D_spectra   ! Switch for storing of r-l-spectra
@@ -91,5 +89,8 @@ module logic
    logical :: l_precession ! Use precession
    logical :: l_centrifuge ! Compute centrifugal acceleration
    logical :: l_adv_curl   ! Use \curl{u}\times u for the advection
+   logical :: l_full_sphere ! Set to .true. if this is a full sphere calculation
+   logical :: l_var_l ! When set to .true., degree varies with radius
+   logical :: l_bridge_step ! Used to bridge missing steps when changing the time integrator
 
 end module logic

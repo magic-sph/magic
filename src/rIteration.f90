@@ -1,6 +1,7 @@
 module rIteration_mod
 
    use precision_mod
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -8,7 +9,6 @@ module rIteration_mod
  
    type, abstract, public :: rIteration_t
       integer :: nR,nBc
-      logical :: l_cour
       logical :: lTOCalc,lTOnext,lTOnext2
       logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
       logical :: lPowerCalc, l_probe_out
@@ -33,22 +33,23 @@ module rIteration_mod
          class(rIteration_t) :: this
       end subroutine empty_if
    !-----------------------------------------------------------------------------
-      subroutine do_iteration_if(this,nR,nBc,time,dt,dtLast,             &
-                 &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,    &
-                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,         &
-                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb, &
-                 &               br_vp_lm_icb,lorentz_torque_ic,         &
-                 &               lorentz_torque_ma,HelLMr,Hel2LMr,       &
-                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,&
-                 &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
-                 &               fpoynLMr,fresLMr,EperpLMr,EparLMr,      &
+      subroutine do_iteration_if(this,nR,nBc,time,timeStage,tscheme,dtLast,&
+                 &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,      &
+                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,           &
+                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,   &
+                 &               br_vp_lm_icb,lorentz_torque_ic,           &
+                 &               lorentz_torque_ma,HelLMr,Hel2LMr,         &
+                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,  &
+                 &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,       &
+                 &               fpoynLMr,fresLMr,EperpLMr,EparLMr,        &
                  &               EperpaxiLMr,EparaxiLMr)
          import
          class(rIteration_t) :: this
  
          !-- Input variables
-         integer,  intent(in) :: nR,nBc
-         real(cp), intent(in) :: time,dt,dtLast
+         integer,             intent(in) :: nR,nBc
+         class(type_tscheme), intent(in) :: tscheme
+         real(cp),            intent(in) :: time,timeStage,dtLast
      
          !-- Output variables
          complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)
@@ -82,19 +83,18 @@ module rIteration_mod
 
 contains
 
-   subroutine set_steering_variables(this,l_cour,lTOCalc,lTOnext,lTOnext2, &
+   subroutine set_steering_variables(this,lTOCalc,lTOnext,lTOnext2,        &
               &                      lDeriv,lRmsCalc,lHelCalc,lPowerCalc,  &
               &                      l_frame,lMagNlBc,l_graph,lViscBcCalc, &
               &                      lFluxProfCalc,lPerpParCalc,lPressCalc,&
               &                      l_probe_out)
 
       class(rIteration_t) :: this
-      logical, intent(in) :: l_cour,lDeriv,lRmsCalc
+      logical, intent(in) :: lDeriv,lRmsCalc
       logical, intent(in) :: lHelCalc,lPowerCalc,l_frame,l_probe_out
       logical, intent(in) :: lTOCalc,lTOnext,lTOnext2, lMagNlBc,l_graph
       logical, intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc
 
-      this%l_cour = l_cour
       this%lTOCalc = lTOCalc
       this%lTOnext = lTOnext
       this%lTOnext2 = lTOnext2

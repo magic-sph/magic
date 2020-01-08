@@ -9,7 +9,7 @@ module horizontal_data
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
-   use blocking, only: lmP2l, lmP2lm, lm2l, lm2m
+   use blocking, only: lmP2l, lmP2lm, lm2l, lm2m, lo_map
    use logic, only: l_non_rot, l_RMS
    use plms_theta, only: plm_theta
    use fft
@@ -47,13 +47,11 @@ module horizontal_data
 
    !-- Arrays depending on l and m:
    complex(cp), public, allocatable :: dPhi(:)
-   complex(cp), public, allocatable :: dPhi0(:)
    real(cp), public, allocatable :: dLh(:)
    real(cp), public, allocatable :: dTheta1S(:),dTheta1A(:)
    real(cp), public, allocatable :: dTheta2S(:),dTheta2A(:)
    real(cp), public, allocatable :: dTheta3S(:),dTheta3A(:)
    real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
-   real(cp), public, allocatable :: D_m(:),D_l(:),D_lP1(:)
    real(cp), public, allocatable :: D_mc2m(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
 
@@ -105,18 +103,15 @@ contains
 #endif
 
       !-- Arrays depending on l and m:
-      allocate( dPhi(lm_max) )
-      allocate( dPhi0(lm_max) )
-      allocate( dLh(lm_max) )
+      allocate( dPhi(lm_max), dLh(lm_max) )
       allocate( dTheta1S(lm_max),dTheta1A(lm_max) )
       allocate( dTheta2S(lm_max),dTheta2A(lm_max) )
       allocate( dTheta3S(lm_max),dTheta3A(lm_max) )
       allocate( dTheta4S(lm_max),dTheta4A(lm_max) )
-      allocate( D_m(lm_max),D_l(lm_max),D_lP1(lm_max) )
       allocate( D_mc2m(n_m_max) )
       allocate( hdif_B(lm_max),hdif_V(lm_max),hdif_S(lm_max) )
       allocate( hdif_Xi(lm_max) )
-      bytes_allocated = bytes_allocated+(18*lm_max+n_m_max)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(14*lm_max+n_m_max)*SIZEOF_DEF_REAL
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
@@ -135,9 +130,9 @@ contains
       deallocate( Plm, wPlm, dPlm )
       if ( l_RMS ) deallocate( wdPlm )
 #endif
-      deallocate( dPhi, dPhi0, dLh, dTheta1S, dTheta1A )
+      deallocate( dPhi, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
-      deallocate( D_m, D_l, D_lP1, D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
+      deallocate( D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
       deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
 
       if ( .not. l_axi ) call finalize_fft()
@@ -252,20 +247,10 @@ contains
          l=lm2l(lm)
          m=lm2m(lm)
 
-         !-- Help arrays:
-         D_l(lm)  =real(l,cp)
-         D_lP1(lm)=real(l+1,cp)
-         D_m(lm)  =real(m,cp)
-
          !---- Operators for derivatives:
 
-         !-- Phi derivate:
+         !-- Phi derivative:
          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
-         if ( l < l_max ) then
-            dPhi0(lm)=cmplx(0.0_cp,real(m,cp),cp)
-         else
-            dPhi0(lm)=zero
-         end if
          !-- Negative horizontal Laplacian *r^2
          dLh(lm)     =real(l*(l+1),cp)                 ! = qll1
          !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 )
@@ -281,10 +266,16 @@ contains
          dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
          dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
 
+      end do ! lm
+
+      !-- Hyperdiffusion is rather defined with the local mapping
+      do lm=1,lm_max
+         l=lo_map%lm2l(lm)
+
          !-- Hyperdiffusion
-         hdif_B(lm)=one
-         hdif_V(lm)=one
-         hdif_S(lm)=one
+         hdif_B(lm) =one
+         hdif_V(lm) =one
+         hdif_S(lm) =one
          hdif_Xi(lm)=one
          if ( ldifexp > 0 ) then
 
@@ -336,8 +327,7 @@ contains
 
          end if
 
-      end do ! lm
-
+      end do
 
       !-- Build auxiliary index arrays for Legendre transform:
       !   lStartP, lStopP give start and end positions in lmP-block.

@@ -15,7 +15,7 @@ module init_fields
    use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
        &               llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
-       &                      phi, cosTheta, hdif_B, D_lP1
+       &                      phi, cosTheta, hdif_B
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv,            &
        &            l_anelastic_liquid, l_non_adia, l_finite_diff
@@ -26,7 +26,7 @@ module init_fields
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
-       &                       rscheme_oc
+       &                       rscheme_oc, or1
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
@@ -202,7 +202,7 @@ contains
 #endif
             end do ! End of loop over theta blocks
 #ifdef WITH_SHTNS
-            call spat_to_SH(ome, omeLM)
+            call spat_to_SH(ome, omeLM, l_max)
 #endif
 
             !------- ome now in spherical harmonic space,
@@ -270,7 +270,7 @@ contains
 #endif
             end do ! End of loop over theta blocks
 #ifdef WITH_SHTNS
-            call spat_to_SH(ome, omeLM)
+            call spat_to_SH(ome, omeLM, l_max)
 #endif
 
             !------------ ome now in spherical harmonic space,
@@ -318,7 +318,7 @@ contains
             amp_r=amp_v1*r_ICB**(rExp+1.)/y10_norm
          end if
          do nR=1,n_r_max
-            rDep(nR)=amp_r/r(nR)**(rExp-1.)
+            rDep(nR)=amp_r*or1(nR)**(rExp-1.)
             !write(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
             do lm=llm,ulm
                l=lo_map%lm2l(lm)
@@ -666,7 +666,7 @@ contains
 
          end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-         call spat_to_SH(sCMB, sLM)
+         call spat_to_SH(sCMB, sLM, l_max)
 #endif
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
@@ -746,7 +746,7 @@ contains
 
       end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-      call spat_to_SH(sCMB, sLM)
+      call spat_to_SH(sCMB, sLM, l_max)
 #endif
 
 
@@ -982,7 +982,7 @@ contains
 
          end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-         call spat_to_SH(xiCMB, xiLM)
+         call spat_to_SH(xiCMB, xiLM, l_max)
 #endif
 
       !--- xiFac describes the linear dependence of the (l=0,m=0) mode
@@ -1062,7 +1062,7 @@ contains
 
       end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-      call spat_to_SH(xiCMB, xiLM)
+      call spat_to_SH(xiCMB, xiLM, l_max)
 #endif
 
       !--- Finally store the boundary condition and care for
@@ -1079,7 +1079,7 @@ contains
 
    end subroutine initXi
 !---------------------------------------------------------------------------
-   subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma)
+   subroutine initB(b, aj, b_ic, aj_ic)
       !
       ! Purpose of this subroutine is to initialize the magnetic field
       ! according to the control parameters imagcon and init_b1/2.
@@ -1088,9 +1088,6 @@ contains
       !
 
       !-- Output variables:
-      real(cp), intent(out) :: lorentz_torque_ic
-      real(cp), intent(out) :: lorentz_torque_ma
-
       complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
@@ -1258,17 +1255,17 @@ contains
                aj_ic2=(one-aj_ic1)*r_icb*sin(arg)/cos(arg)
                do n_r=1,n_r_ic_max
                   b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol*r_icb**2 * (    &
-                                            half*r_ic(n_r)**2/r_icb + &
-                                                         half*r_icb - &
-                                                    four*third*r_cmb )
+                  &                         half*r_ic(n_r)**2/r_icb + &
+                  &                                      half*r_icb - &
+                  &                                 four*third*r_cmb )
                end do
             else
                b_pol=amp_b1*sqrt(three*pi)/four
                do n_r=1,n_r_max
-                  b(l1m0,n_r)=b(l1m0,n_r)+ b_pol *     ( &
-                                             r(n_r)**3 - &
-                             four*third*r_cmb*r(n_r)**2 + &
-                          third*r_icb**4/r(n_r)    )
+                  b(l1m0,n_r)=b(l1m0,n_r)+ b_pol *     (  &
+                  &                          r(n_r)**3 -  &
+                  &          four*third*r_cmb*r(n_r)**2 + &
+                  &       third*r_icb**4*or1(n_r)    )
                end do
             end if
          end if
@@ -1285,8 +1282,8 @@ contains
                aj_ic2=(one-aj_ic1)*r_icb*sin(arg)/cos(arg)
                do n_r=1,n_r_ic_max
                   aj_ic(l2m0,n_r)=aj_ic(l2m0,n_r)+b_tor*             ( &
-                           aj_ic1*r_ic(n_r)*sin(pi*r_ic(n_r)/r_cmb) + &
-                                     aj_ic2*cos(pi*r_ic(n_r)/r_cmb) )
+                  &        aj_ic1*r_ic(n_r)*sin(pi*r_ic(n_r)/r_cmb) +  &
+                  &                  aj_ic2*cos(pi*r_ic(n_r)/r_cmb) )
                end do
             else
                b_pol=amp_b1*sqrt(three*pi)/four
@@ -1504,7 +1501,7 @@ contains
       ! equatorialy symmetric
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             do n_r=1,n_r_max
-               aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
+               aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
             end do
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l1m0,n_r)=aj(l1m0,n_r)+aj0(n_r)
@@ -1520,7 +1517,7 @@ contains
       ! equatorialy asymmetric
          if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
-               aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
+               aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
             end do
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l2m0,n_r)=aj(l2m0,n_r)+aj0(n_r)
@@ -1533,10 +1530,6 @@ contains
          end if
 
       end if
-
-      !-- Too lazy to calculate these:
-      lorentz_torque_ic=0.0_cp
-      lorentz_torque_ma=0.0_cp
 
    end subroutine initB
 !-----------------------------------------------------------------------
@@ -1554,7 +1547,7 @@ contains
       complex(cp), intent(out) :: aj0_ic(:) ! aj(l=0,m=0) in the inner core
 
       !-- Local variables
-      integer :: n_cheb,n_r,info,n_r_real,n_r_out
+      integer :: n_cheb,n_r,info,n_r_real,n_r_out, l
       complex(cp) :: rhs(n_r_tot)
       complex(cp) :: work_l_ic(n_r_ic_max)
       real(cp), allocatable :: jMat(:,:)
@@ -1562,6 +1555,8 @@ contains
 
       allocate( jMat(n_r_tot,n_r_tot) )
       allocate( jPivot(n_r_tot) )
+
+      l = lo_map%lm2l(lm0)
 
       n_r_real = n_r_max
       if ( l_cond_ic ) n_r_real = n_r_real+n_r_ic_max
@@ -1620,19 +1615,19 @@ contains
 
          do n_cheb=1,n_r_ic_max ! counts even IC cheb modes
             do n_r=2,n_r_ic_max ! counts IC radial grid point
-               jMat(n_r_max+n_r,n_r_max+n_cheb) =               &
-                  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
-                                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
-                            two*D_lP1(lm0)*dcheb_ic(n_cheb,n_r) )
+               jMat(n_r_max+n_r,n_r_max+n_cheb) =                 &
+               &  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
+               &                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
+               &            two*real(l+1,cp)*dcheb_ic(n_cheb,n_r) )
             end do
          end do
 
          !-------- boundary conditions:
          do n_cheb=1,n_cheb_ic_max
             jMat(n_r_max,n_r_max+n_cheb)=-cheb_norm_ic*cheb_ic(n_cheb,1)
-            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (   &
-                                             dcheb_ic(n_cheb,1) + &
-                      D_lP1(lm0)*or1(n_r_max)*cheb_ic(n_cheb,1) )
+            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      & 
+            &                                 dcheb_ic(n_cheb,1) + &
+            &         real(l+1,cp)*or1(n_r_max)*cheb_ic(n_cheb,1) )
          end do
          do n_cheb=n_r_max+n_cheb_ic_max+1,n_r_tot
             jMat(n_r_max,n_cheb)  =0.0_cp

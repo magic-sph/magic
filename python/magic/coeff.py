@@ -264,7 +264,7 @@ class MagicCoeffCmb(MagicSetup):
             else:
                 self.taul = np.zeros_like(self.ElM[1:])
 
-        if iplot:
+        if iplot and not ave:
             self.plot()
 
     def __add__(self, new):

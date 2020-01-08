@@ -829,67 +829,58 @@ also results in a much larger (albeit sparse) inversion matrix.
 We consequently adopt in **MagIC** a mixed implicit/explicit algorithm.
 The general differential equation in time can be written in the form
 
-.. math:: \dfrac{\partial }{\partial t} x + \mathcal{I}(x,t) = \mathcal{E}(x,t)\;\;.
+.. math:: \dfrac{\partial }{\partial t} y = \mathcal{I}(y,t) + \mathcal{E}(y,t),\quad y(t_o)=y_o\;.
+  :label: eqTstep
 
 where :math:`\mathcal{I}` denotes the terms treated in an implicit time step 
-and :math:`\mathcal{E}` the terms treated explicitly, i.e.~the nonlinear and Coriolis contributions.  
-The discretized implicit time step is given by 
+and :math:`\mathcal{E}` the terms treated explicitly, i.e. the nonlinear and Coriolis contributions.  In MagIC, two families of time-stepping schemes are supported: IMEX multistep and IMEX multistage methods.
 
-.. math:: \left(\dfrac{x(t+\delta t) - x(t)}{\delta t}\right)_I = -\alpha\;\mathcal{I}(x,t+\delta t) - (1-\alpha)\;\mathcal{I}(x,t)\;\;.
+First of all, the IMEX multistep methods correpond to time schemes where the solution results from the combination of several previous steps (such as for instance the Crank-Nicolson/Adams-Bashforth scheme). In this case, a general :math:`k`-step IMEX multistep scheme reads
 
-where :math:`\alpha` is the weight of the new time step. 
-For :math:`\alpha=0.5` we recover a classic 
-`Crank-Nicolson
-<https://en.wikipedia.org/wiki/Crank–Nicolson_method>`_ algorithm.
+.. math:: \left(I-b_o^{\mathcal I} \delta t\,\mathcal{I}\right)y_{n+1}=\sum_{j=1}^k a_j y_{n+1-j}+\delta t\sum_{j=1}^k \left(b_j^\mathcal{E} \mathcal{E}_{n+1-j}+b_{j}^\mathcal{I}\mathcal{I}_{n+1-j}\right)\,,
 
-A  second order
-`Adams-Bashforth <https://en.wikipedia.org/wiki/Linear_multistep_method>`_ 
-scheme is used for the explicit time step:
+where :math:`I` is the identity matrix. The vectors :math:`\vec{a}`, :math:`\vec{b}^\mathcal{E}` and :math:`\vec{b}^\mathcal{I}` correspond to the weighting factors of an IMEX multistep scheme.  For instance, the commonly-used second-order scheme assembled from the combination of a Crank-Nicolson for the implicit terms and a second-order Adams-Bashforth for the explicit terms (hereafter CNAB2) corresponds to the following vectors: :math:`\vec{a}=(1,0)`, :math:`\vec{b}^{\mathcal{I}}=(1/2,1/2)` and :math:`\vec{b}^{\mathcal{E}}=(3/2,-1/2)` for a constant timestep size :math:`\delta t`.  
 
-.. math:: \left(\dfrac{x(t+\delta t) - x(t)}{\delta t}\right)_E = \dfrac{3}{2}\;\mathcal{E}(x,t)
-          - \dfrac{1}{2}\;\mathcal{E} (x,t-\delta t)\;\;.
+In addition to CNAB2, MagIC supports several semi-implicit backward differentiation schemes of second, third and fourth order that are known to have good stability properties (heareafter SBDF2, SBDF3 and SBDF4), a modified CNAB2 from `Ascher et al. (1995) <https://doi.org/10.1137/0732037>`_ (termed MODCNAB) and the CNLF scheme (combination of Crank-Nicolson and Leap-Frog for the explicit terms).
 
-The combination of both steps yields 
+MagIC also supports several IMEX Runge-Kutta multistage methods, frequently
+called DIRK, an acronym that stands for *Diagonally Implicit Runge Kutta*. For
+such schemes, the equation :eq:`eqTstep` is time-advanced from :math:`t_n` to :math:`t_{n+1}` by solving :math:`\nu` sub-stages
 
-.. math::
-    \dfrac{x(t+\delta t)}{\delta t}  + \alpha\;\mathcal{I}(x,t+\delta t) =  
-    \dfrac{x(t)}{\delta t} - (1-\alpha)\;\mathcal{I}(x,t) + 
-    \frac{3}{2}\;\mathcal{E}(x,t) - \dfrac{1}{2}\;\mathcal{E}(x,t-\delta t)\;\;.
-    
-In the code such an equation is formulated for each unknown spectral coefficient  
+.. math:: (I-a_{ii}^\mathcal{I}\delta t \mathcal{I})y_{i}=y_n+\delta t \sum_{j=1}^{i-1}\left(a_{i,j}^{\mathcal{E}}\mathcal{E}_j+a_{i,j}^\mathcal{I}\mathcal{I}_j\right), \quad 1\leq i\leq \nu,
+
+where :math:`y_i` is the intermediate solution at the stage :math:`i`. The matrices :math:`a_{i,j}^\mathcal{E}` and :math:`a_{i,j}^\mathcal{I}` constitute the so-called Butcher tables that correspond to a DIRK scheme. MagIC supports several second and third order schemes: ARS222 and ARS443 from `Ascher et al. (1997) <https://doi.org/10.1016/S0168-9274(97)00056-1>`_, LZ232 from `Liu and Zou (2006) <https://doi.org/10.1016/j.cam.2005.02.020>`_, PC2 from `Jameson et al. (1981) <https://doi.org/10.2514/6.1981-1259>`_ and  BPR353 from `Boscarino et al. (2013) <https://doi.org/10.1137/110842855>`_.
+
+
+In the code the equation :eq:`eqTstep` is formulated for each unknown spectral coefficient  
 (expect pressure) of spherical harmonic degree :math:`\ell` and order :math:`m` 
 and for each radial grid point :math:`r_k`. 
 Because non-linear terms and the Coriolis force are treated explicitly, 
-the equations decouple for all spherical modes.
+the equations decouple for all spherical harmonic modes.
 The different radial grid points, however, couple via the 
 Chebychev modes and form a linear algebraic system of equations that can 
 be solved with standard methods for the different spectral contributions. 
 
-For example the respective system of equations for the modes of the poloidal magnetic potential :math:`g` 
-results from considering the radial component of the dynamo equation:  
+For example the respective system of equations for the poloidal magnetic potential :math:`g` time advanced with a CNAB2 reads
 
 .. math::
-      \left( \mathcal{A}_{kn} + \alpha\;\mathcal{I}_{kn}\right)\;g_{\ell mn}(t+\delta t) =
-      \left( \mathcal{A}_{kn} - (1 - \alpha)\;\mathcal{I}_{kn} \right)\;g_{\ell mn}(t) +
-      \frac{3}{2}\;\mathcal{E}_{k\ell m}(t) - \frac{1}{2}\;\mathcal{E}_{k\ell m}(t-\delta t) 
+      \left( \mathcal{A}_{kn} - \dfrac{1}{2}\,\delta t\,\mathcal{I}_{kn}\right)\;g_{\ell mn}(t+\delta t) =
+      \left( \mathcal{A}_{kn} + \dfrac{1}{2}\,\delta t\,\mathcal{I}_{kn} \right)\;g_{\ell mn}(t) +
+      \frac{3}{2}\,\delta t\,\mathcal{E}_{k\ell m}(t) - \frac{1}{2}\,\delta t\,\mathcal{E}_{k\ell m}(t-\delta t) 
       :label: imex
 
 with 
 
 .. math::
-    \mathcal{A}_{kn} = \dfrac{\ell (\ell+1)}{r_k^2}\,\dfrac{1}{\delta t} {\cal C}_{nk}\;,
-
+    \mathcal{A}_{kn} = \dfrac{\ell (\ell+1)}{r_k^2}\,{\cal C}_{nk}\;,
 
 .. math::
-    \mathcal{I}_{kn}=\dfrac{\ell(\ell+1)}{r_k^2}\,\dfrac{1}{Pm}\left( \dfrac{\ell(\ell+1)}{r_k^2}\; 
-    {\cal C}_{nk}-{\cal C}''_{nk} \right)\;,
+    \mathcal{I}_{kn}=\dfrac{\ell(\ell+1)}{r_k^2}\,\dfrac{1}{Pm}\left({\cal C}''_{nk} - \dfrac{\ell(\ell+1)}{r_k^2}\; 
+    {\cal C}_{nk}\right)\;,
 
 and :math:`{\cal C}_{nk}={\cal C}_n(r_k)`.
 :math:`\mathcal{A}_{kn}` is a matrix that converts the poloidal field modes :math:`g_{\ell mn}` 
-to the radial magnetic field :math:`B_r(r_k,\ell m)` for a given spherical harmonic contribution 
-with an additional division by the time step :math:`\delta t`:
-
-.. math: \dfrac{B_r(r_k,\ell m)}{\delta t} = \mathcal{A}_{kn}\;g_{\ell m n}. 
+to the radial magnetic field :math:`B_r(r_k,\ell,m)` for a given spherical harmonic contribution.
 
 Here :math:`k` and :math:`n` number the radial grid points and the Chebychev coefficients, respectively. 
 Note that the Einstein sum convention is used for Chebychev modes :math:`n`.
@@ -905,50 +896,6 @@ The only explicit contribution is the nonlinear dynamo term
 :math:`\mathcal{E}_{k\ell m}` is a one dimensional vector for all spherical harmonic combinations 
 :math:`\ell m`.
   
-How are these operations organized in the code? Within MagIC the poloidal magnetic field potential 
-is called ``b``. 
-The implicit step for the current time :math:`t` and the explicit step for the previous 
-time :math:`t-\delta t` is combined into one two-dimensional array 
-
-.. math:: \texttt{dbdtLast}(k,lm) =  - \frac{1}{2}\;\mathcal{E}_{k \ell m}(t-\delta t) - 
-          (1 - \alpha)\;\mathcal{I}_{kn} \;g_{\ell mn}(t)\;.
-
-where :math:`k` numbers the first dimension and the second dimension :math:`lm` numbers the spherical harmonic modes. 
-The explicit time step part is called ``dbdt`` in MagIC:
-
-.. math:: \texttt{dbdt}(k,\ell m) = \mathcal{E}_{k\ell m}.
-
-The combination of left hand side of :eq:`imex` provides the time stepping matrix for :math:`g`:
-
-.. math:: \texttt{bmat}(k,n,\ell) = {A}_{kn} + \alpha \mathcal{I}_{kn}\;.
-
-There is a different time stepping matrix for each spherical harmonic degree :math:`\ell`. 
-The linear system of equations solved for the mode :math:`\texttt{b}(k,\ell m)` at 
-time  :math:`t=t+\delta t` is then
-
-.. math:: 
-      \begin{split}
-        \texttt{bmat}(k,n,\ell) \star \texttt{b}_{i+1}(n,\ell m)  = &
-       \texttt{w1}\star\texttt{dbdt}(k,\ell m) + \texttt{w2}\star\texttt{dbdtLast}(k,\ell m)\; + \\
-        & \texttt{Odt}\star\texttt{dLh}(\ell)\star\texttt{Or2}(k)\star\texttt{b}_i(n,\ell m) \\
-        = & \texttt{rhs}(k,\ell m)
-       \end{split}\;
-       
-with
-
-..  math:: \texttt{w2}=-1/2 \dfrac{\delta t}{\delta t_{old}}\;\; , \;\; \texttt{w1}=1-\texttt{w2}\;\; , \;\;
-           \texttt{Odt}=1/\delta t\;\;,\;\;\texttt{dLh}(\ell)=\ell (\ell+1)
-           \;\;,\;\;\texttt{Or2}(k)=1/r_k^2.
-  
-
-The respective equations for the poloidal flow potential are somewhat more complex and involve coupling 
-to the pressure.....
-
-.. note::  The poloidal flow potential :eq:`eqSpecW` and the pressure :eq:`eqSpecP`
-           are nevertheless coupled for a given spherical harmonic mode. Likewise 
-           the poloidal flow and entropy (or temperature) equations should also
-           couple, but here MagIC takes the shortcut of updating entropy first 
-           and using the already updated value for an explicit treatment of buoyancy.
 
 **Courant's condition** offers a guideline
 concerning the value of :math:`\delta t`, demanding that :math:`\delta t` should be smaller
@@ -1555,11 +1502,33 @@ angular momentum replaces condition :eq:`eqBcRigid3` for the mode
 :math:`(\ell =1,m=0)`:
 
 .. math::
-  \mathsf{I} \dfrac{\partial\vec{\omega}}{\partial t}= \vec{\Gamma}\;\;.
+   \mathsf{I} \dfrac{\partial\omega}{\partial t}= \Gamma_L+\Gamma_\nu\,.
 
 The tensor :math:`\mathsf{I}` denotes the moment of inertia of inner core or mantle,
-respectively, :math:`\vec{\omega}` is the mantle or inner-core rotation rate relative
-to that of the reference frame, and :math:`\vec{\Gamma}` is the respective torque.
+respectively, :math:`\omega` is the mantle or inner-core rotation rate relative
+to that of the reference frame, and :math:`\Gamma_{L,\nu}` are the respective torques
+associated with Lorentz or viscous forces. The torques are expressed by
+
+.. math::
+   \Gamma_L = \dfrac{1}{E\,Pm}\oint B_r B_\phi\,r\sin\theta\,\mathrm{d}S\,,
+
+and
+
+.. math::
+   \Gamma_\nu = \oint \tilde{\rho} \tilde{\nu} r\dfrac{\partial}{\partial r}\left(\dfrac{u_\phi}{r}\right) r\sin\theta\,\mathrm{d}S\,,
+
+where :math:`\mathrm{d}S = r^2\sin\theta \mathrm{d}\theta\mathrm{d}\phi` and :math:`r\in[r_i,r_o]` in the above expressions. Using the following equality
+
+.. math::
+   \oint \tilde{\rho} r\sin\theta u_\phi\,\mathrm{d} S=4\sqrt{\dfrac{\pi}{3}}Z_{10}r^2,
+   
+the viscous torques can be expressed by
+
+.. math::
+   \Gamma_\nu = \pm4\sqrt{\dfrac{\pi}{3}}\tilde{\nu}r^2\left[\dfrac{\partial Z_{10}}{\partial r}-\left(\dfrac{2}{r}+\beta\right)Z_{10}\right]\,,
+
+where the sign in front depends whether :math:`r=r_o` or :math:`r=r_i`.
+
 
 **Free-slip boundary conditions** require that the viscous stress vanishes, which
 in turn implies that the non-diagonal components :math:`\mathsf{Sr}_{r\phi}` and

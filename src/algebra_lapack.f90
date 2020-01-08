@@ -153,10 +153,16 @@ contains
       integer, intent(out) :: pivot(n)   ! pivoting information
       integer, intent(out) :: info
 
+#ifdef WITH_LIBFLAME
+      !$omp critical
+#endif
 #if (DEFAULT_PRECISION==sngl)
       call sgetrf(n,n,a(1:n,1:n),n,pivot(1:n),info)
 #elif (DEFAULT_PRECISION==dble)
       call dgetrf(n,n,a(1:n,1:n),n,pivot(1:n),info)
+#endif
+#ifdef WITH_LIBFLAME
+      !$omp end critical
 #endif
 
    end subroutine prepare_mat
@@ -275,10 +281,16 @@ contains
       integer, intent(out) :: pivot(n)   ! pivoting information
       integer, intent(out) :: info
 
+#ifdef WITH_LIBFLAME
+      !$omp critical
+#endif
 #if (DEFAULT_PRECISION==sngl)
       call sgttrf(n,dl,d,du,du2,pivot(1:n),info)
 #elif (DEFAULT_PRECISION==dble)
       call dgttrf(n,dl,d,du,du2,pivot(1:n),info)
+#endif
+#ifdef WITH_LIBFLAME
+      !$omp end critical
 #endif
 
    end subroutine prepare_tridiag
@@ -404,10 +416,16 @@ contains
 
       n_bands = 2*kl+ku+1
 
+#ifdef WITH_LIBFLAME
+      !$omp critical
+#endif
 #if (DEFAULT_PRECISION==sngl)
       call sgbtrf(lenA, lenA, kl, ku, A, n_bands, pivot, info)
 #elif (DEFAULT_PRECISION==dble)
       call dgbtrf(lenA, lenA, kl, ku, A, n_bands, pivot, info)
+#endif
+#ifdef WITH_LIBFLAME
+      !$omp end critical
 #endif
 
    end subroutine prepare_band

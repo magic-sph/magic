@@ -7,7 +7,6 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use communications, only: gather_from_Rloc
-   use mem_alloc, only: bytes_allocated
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: r_icb, rscheme_oc, kappa,         &
@@ -17,6 +16,7 @@ module outMisc_mod
    use physical_parameters, only: ViscHeatFac, ThExpNb
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
+   use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
        &            l_temperature_diff, l_chemical_conv
@@ -24,7 +24,7 @@ module outMisc_mod
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
-   use useful, only: cc2real
+   use useful, only: cc2real, round_off
    use integration, only: rInt_R
 #ifdef WITH_SHTNS
    use shtns, only: axi_to_spat
@@ -36,8 +36,8 @@ module outMisc_mod
 
    private
 
-   real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:), XiMeanR(:)
-   integer :: n_heat_file, n_helicity_file
+   type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR,RhoMeanR
+   integer :: n_heat_file, n_helicity_file, n_calls
    character(len=72) :: heat_file, helicity_file
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod
@@ -46,17 +46,14 @@ contains
 
    subroutine initialize_outMisc_mod
 
-      if ( l_heat .or. l_chemical_conv ) then
-         allocate( TMeanR(n_r_max) )
-         allocate( SMeanR(n_r_max) )
-         allocate( PMeanR(n_r_max) )
-         allocate( XiMeanR(n_r_max) )
-         TMeanR(:)  = 0.0_cp
-         SMeanR(:)  = 0.0_cp
-         PMeanR(:)  = 0.0_cp
-         XiMeanR(:) = 0.0_cp
-      end if
-      bytes_allocated=bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL
+      if (l_heat .or. l_chemical_conv) then
+         call TMeanR%initialize(1,n_r_max)
+         call SMeanR%initialize(1,n_r_max)
+         call PMeanR%initialize(1,n_r_max)
+         call XiMeanR%initialize(1,n_r_max)
+         call RhoMeanR%initialize(1,n_r_max)
+      endif
+      n_calls = 0
 
       helicity_file='helicity.'//tag
       heat_file    ='heat.'//tag
@@ -74,7 +71,12 @@ contains
    subroutine finalize_outMisc_mod
 
       if ( l_heat .or. l_chemical_conv ) then
-         deallocate( TMeanR, SMeanR, PMeanR, XiMeanR )
+         !deallocate( TMeanR, SMeanR, PMeanR, XiMeanR )
+         call TMeanR%finalize()
+         call SMeanR%finalize()
+         call PMeanR%finalize()
+         call XiMeanR%finalize()
+         call RhoMeanR%finalize()
       end if
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
@@ -261,7 +263,6 @@ contains
       complex(cp), intent(in) :: dxi(llm:ulm,n_r_max)
 
       !-- Local stuff:
-      real(cp) :: rhoprime(n_r_max)
       real(cp) :: tmp(n_r_max)
       real(cp) :: topnuss,botnuss,deltanuss
       real(cp) :: topsherwood,botsherwood,deltasherwood
@@ -274,28 +275,38 @@ contains
       integer :: n_r, filehandle
 
       if ( rank == 0 ) then
-
+         n_calls = n_calls + 1
          if ( l_anelastic_liquid ) then
-            do n_r=1,n_r_max
-               TMeanR(n_r)   = TMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
-               PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
-               SMeanR(n_r)   = otemp1(n_r)*TMeanR(n_r)-ViscHeatFac*ThExpNb* &
-               &               alpha0(n_r)*orho1(n_r)*PMeanR(n_r)
-               rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-               &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
-               &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
-               &               real(p(1,n_r)) )
-            end do
+            if ( l_heat ) then
+               call TMeanR%compute(osq4pi*real(s(1,:)),n_calls,timePassed,timeNorm)
+               tmp(:)   = otemp1(:)*TMeanR%mean(:)-ViscHeatFac*ThExpNb* &
+               &          alpha0(n_r)*orho1(n_r)*PmeanR%mean(n_r)
+               call SMeanR%compute(tmp(:),n_calls,timePassed,timeNorm)
+            endif
+            if ( l_chemical_conv ) then
+               call XiMeanR%compute(osq4pi*real(xi(1,:)),n_calls,timePassed,timeNorm)
+            endif
+            call PMeanR%compute(osq4pi*real(p(1,:)),n_calls,timePassed,timeNorm)
+            tmp(:) = osq4pi*ThExpNb*alpha0(:)*( -rho0(:)*    &
+               &     real(s(1,:))+ViscHeatFac*(ThExpNb*      &
+               &     alpha0(:)*temp0(:)+ogrun(:))*           &
+               &     real(p(1,:)) )
+            call RhoMeanR%compute(tmp(:),n_calls,timePassed,timeNorm)
          else
-            do n_r=1,n_r_max
-               SMeanR(n_r)   = SMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
-               PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
-               TMeanR(n_r)   = temp0(n_r)*SMeanR(n_r)+ViscHeatFac*ThExpNb* &
-               &               alpha0(n_r)*temp0(n_r)*orho1(n_r)*PMeanR(n_r)
-               rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-               &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
-               &               ogrun(n_r)*real(p(1,n_r)) )
-            end do
+            if ( l_heat ) then
+               call SMeanR%compute(osq4pi*real(s(1,:)),n_calls,timePassed,timeNorm)
+               tmp(:) = temp0(:)*SMeanR%mean(:)+ViscHeatFac*ThExpNb* &
+               &        alpha0(:)*temp0(:)*orho1(:)*PMeanR%mean(:)
+               call TMeanR%compute(tmp(:), n_calls, timePassed, timeNorm)
+            endif
+            if ( l_chemical_conv ) then
+               call XiMeanR%compute(osq4pi*real(xi(1,:)),n_calls,timePassed,timeNorm)
+            endif
+            call PMeanR%compute(osq4pi*real(p(1,:)),n_calls,timePassed,timeNorm)
+            tmp(:) = osq4pi*ThExpNb*alpha0(:)*( -rho0(:)* &
+               &     temp0(:)*real(s(1,:))+ViscHeatFac*   &
+               &     ogrun(:)*real(p(1,:)) )
+            call RhoMeanR%compute(tmp(:),n_calls,timePassed,timeNorm)
          end if
 
          !-- Evaluate nusselt numbers (boundary heat flux density):
@@ -409,9 +420,6 @@ contains
 
          if ( l_chemical_conv ) then
             if ( topxicond/=0.0_cp ) then
-               do n_r=1,n_r_max
-                  XiMeanR(n_r)  = XiMeanR(n_r)+timePassed*osq4pi*real(xi(1,n_r))
-               end do
                topxi=osq4pi*real(xi(1,n_r_cmb))
                botxi=osq4pi*real(xi(1,n_r_icb))
                botsherwood=-osq4pi/botxicond*real(dxi(1,n_r_icb))/lScale
@@ -432,7 +440,7 @@ contains
             deltasherwood=one
          end if
 
-         tmp(:)=rhoprime(:)*r(:)*r(:)
+         tmp(:)=tmp(:)*r(:)*r(:)
          mass=four*pi*rInt_R(tmp,r,rscheme_oc)
 
          if ( l_save_out ) then
@@ -454,20 +462,26 @@ contains
          if ( l_save_out ) close(n_heat_file)
 
          if ( l_stop_time ) then
-            SMeanR(:)=SMeanR(:)/timeNorm
-            TMeanR(:)=TMeanR(:)/timeNorm
-            PMeanR(:)=PMeanR(:)/timeNorm
-            XiMeanR(:)=XiMeanR(:)/timeNorm
-
-            rhoPrime(:)=ThExpNb*alpha0(:)*(-rho0(:)*temp0(:)*SMeanR(:)+ &
-               &         ViscHeatFac*ogrun(:)*PMeanR(:) )
+            call SMeanR%finalize_SD(timeNorm)
+            call TMeanR%finalize_SD(timeNorm)
+            call PMeanR%finalize_SD(timeNorm)
+            call XiMeanR%finalize_SD(timeNorm)
+            call RhoMeanR%finalize_SD(timeNorm)
 
             filename='heatR.'//tag
             open(newunit=filehandle, file=filename, status='unknown')
             do n_r=1,n_r_max
-               write(filehandle, '(ES20.10,5ES15.7)' ) &
-               &      r(n_r),SMeanR(n_r),TMeanR(n_r),  &
-               &      PMeanR(n_r),rhoprime(n_r),XiMeanR(n_r)
+               write(filehandle, '(ES20.10,5ES15.7,5ES13.5)' )                &
+               &      r(n_r),round_off(SMeanR%mean(n_r),maxval(SMeanR%mean)), &
+               &      round_off(TMeanR%mean(n_r),maxval(TMeanR%mean)),        &
+               &      round_off(PMeanR%mean(n_r),maxval(PMeanR%mean)),        &
+               &      round_off(RhoMeanR%mean(n_r),maxval(RhoMeanR%mean)),    &
+               &      round_off(XiMeanR%mean(n_r),maxval(XiMeanR%mean)),      &
+               &      round_off(SMeanR%SD(n_r),maxval(SMeanR%SD)),            &
+               &      round_off(TMeanR%SD(n_r),maxval(TMeanR%SD)),            &
+               &      round_off(PMeanR%SD(n_r),maxval(PMeanR%SD)),            &
+               &      round_off(RhoMeanR%SD(n_r),maxval(RhoMeanR%SD)),        &
+               &      round_off(XiMeanR%SD(n_r),maxval(XiMeanR%SD))
             end do
 
             close(filehandle)

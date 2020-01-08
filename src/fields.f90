@@ -44,7 +44,7 @@ module fields
    complex(cp), public, pointer :: p_Rloc(:,:), dp_Rloc(:,:)
 
    !-- Magnetic field potentials:
-   complex(cp), public, allocatable :: b(:,:)
+   complex(cp), public, allocatable :: bICB(:)
    complex(cp), public, allocatable, target :: field_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: field_Rloc_container(:,:,:)
    complex(cp), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
@@ -81,9 +81,8 @@ contains
 
       !-- Velocity potentials:
       if ( rank == 0 ) then
-         allocate( b(lm_maxMag,n_r_maxMag) )
-         bytes_allocated = bytes_allocated +  &
-         &                 lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
+         allocate( bICB(lm_maxMag) )
+         bytes_allocated = bytes_allocated + lm_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( db_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
@@ -94,7 +93,7 @@ contains
          &                 6*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
       else
-         allocate( b(1,n_r_maxMag) )
+         allocate( bICB(1) )
          bytes_allocated = bytes_allocated + n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(1,n_r_ic_maxMag) )
          allocate( db_ic(1,n_r_ic_maxMag) )
@@ -202,7 +201,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_fields
 
-      deallocate( b, b_ic, db_ic, ddb_ic )
+      deallocate( bICB, b_ic, db_ic, ddb_ic )
       deallocate( aj_ic, dj_ic, ddj_ic, flow_LMloc_container )
       deallocate( press_LMloc_container, press_Rloc_container )
       deallocate( flow_Rloc_container, s_LMloc_container, s_Rloc_container )

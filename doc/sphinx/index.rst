@@ -36,15 +36,12 @@ Welcome
      a temperature (or entropy) equation and an equation for chemical composition
      under both the anelastic and the Boussinesq approximations.
 
-     **MagIC** uses Chebyshev polynomials in the radial direction and spherical
-     harmonic decomposition in the azimuthal and latitudinal directions. The
-     time-stepping scheme relies on a semi-implicit `Crank-Nicolson
-     <https://en.wikipedia.org/wiki/Crank–Nicolson_method>`_ for the linear terms of
-     the MHD equations and a `Adams-Bashforth
-     <https://en.wikipedia.org/wiki/Linear_multistep_method>`_ scheme for the
-     non-linear terms and the Coriolis force.
-     
-     
+     **MagIC** uses Chebyshev polynomials or finite difference in the radial 
+     direction and spherical harmonic decomposition in the azimuthal and latitudinal
+     directions. MagIC supports several Implicit-Explicit time schemes where the
+     nonlinear terms and the Coriolis force are treated explicitly, while the
+     remaining linear terms are treated implicitly.
+          
      **MagIC** is written in Fortran and designed to be used on supercomputing
      clusters.  It thus relies on a hybrid parallelisation scheme using both `OpenMP
      <http://openmp.org/wp/>`_ and `MPI <http://www.open-mpi.org/>`_. Postprocessing
@@ -52,16 +49,15 @@ Welcome
      and `scipy <http://www.scipy.org/>`_) are also provided to allow a useful data
      analysis.
 
-     .. figure:: figs/Magic_stampede_scaling.png
+     .. figure:: figs/magic_occigen.png
         :width: 450px
         :align: center
         :alt: caption
 
-        Walltime of MagIC on `stampede
-        <https://www.tacc.utexas.edu/stampede/>`_ versus number of CPUs 
-        for a dynamo model computed at three different numerical resolutions
-        :math:`(N_\phi,N_\theta,N_r)`.
-
+        Walltime of MagIC on `Occigen
+        <https://www.cines.fr/en/supercomputing-2/hardwares/the-supercomputer-occigen/>`_ versus number of cores
+        for a Boussinesq dynamo model computed at three different numerical resolutions
+        :math:`(N_r,\ell_{\text{max}})`.
      
      
      **MagIC** is a free software. It can be used, modified and redistributed under the 

@@ -3,7 +3,6 @@ module radial_data
    ! This module defines the MPI decomposition in the radial direction.
    !
 
-   use truncation, only: n_r_max
    use parallel_mod, only: rank, n_procs, nR_per_rank, load, getBlocks
    use logic, only: l_mag, lVerbose, l_finite_diff
  
@@ -20,11 +19,12 @@ module radial_data
 
 contains
 
-   subroutine initialize_radial_data
+   subroutine initialize_radial_data(n_r_max)
       !
       ! This subroutine is used to set up the MPI decomposition in the
       ! radial direction
       !
+      integer, intent(in) :: n_r_max ! Number of radial grid points
 
       n_r_cmb=1
       n_r_icb=n_r_max

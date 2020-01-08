@@ -4,17 +4,13 @@ from .setup import labTex, defaultCm, defaultLevels, labTex, buildSo
 from .libmagic import *
 from .spectralTransforms import SpectralTransforms
 from .plotlib import radialContour, merContour, equatContour
-import os, re, sys, time
+import os, re, time
 import numpy as np
 import matplotlib.pyplot as plt
 from .npfile import *
 
 if buildSo:
-    if sys.version_info.major == 3:
-        import magic.lmrreader_single3 as Psngl
-    elif sys.version_info.major == 2:
-        import magic.lmrreader_single2 as Psngl
-
+    import magic.lmrreader_single as Psngl
     readingMode = 'f2py'
 else:
     readingMode = 'python'
@@ -59,8 +55,8 @@ def getPotEndianness(filename):
 class MagicPotential(MagicSetup):
     """
     This class allows to load and display the content of the potential
-    files: :ref:`V_lmr.TAG <secVpotFile>`, :ref:`B_lmr.TAG <secBpotFile>`
-    and :ref:`T_lmr.TAG <secTpotFile>`. This class allows to transform
+    files: :ref:`V_lmr.TAG <secPotFiles>`, :ref:`B_lmr.TAG <secPotFiles>`
+    and :ref:`T_lmr.TAG <secPotFiles>`. This class allows to transform
     the poloidal/toroidal potential in spectral space to the physical
     quantities in the physical space. It allows to plot radial and
     equatorial cuts as well as phi-averages.

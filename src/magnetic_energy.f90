@@ -12,7 +12,8 @@ module magnetic_energy
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, llmMag, ulmMag
    use horizontal_data, only: dLh
-   use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness
+   use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness, &
+       &            l_full_sphere
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
        &                 movieDipStrengthGeo
    use output_data, only: tag, l_max_comp
@@ -69,7 +70,9 @@ contains
       dipole_file  ='dipole.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, status='new')
-         open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, status='new')
+         if ( .not. l_full_sphere ) then
+            open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, status='new')
+         end if
          open(newunit=n_dipole_file, file=dipole_file, status='new')
       end if
 
@@ -131,7 +134,7 @@ contains
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_e_mag_oc_file)
-         close(n_e_mag_ic_file)
+         if ( .not. l_full_sphere ) close(n_e_mag_ic_file)
          close(n_dipole_file)
       end if
 
@@ -226,7 +229,7 @@ contains
 
       !-- time averaging of e(r):
       character(len=80) :: filename
-      real(cp) :: dt,surf
+      real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
       logical :: rank_has_l1m0,rank_has_l1m1
 #ifdef WITH_MPI
@@ -437,16 +440,16 @@ contains
                else
                   eDR=e_dipA(nR)/eTot
                end if
-               surf=four*pi*r(nR)**2
+               osurf=0.25_cp/pi*or2(nR)
                write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
                &                    fac*e_pA(nR)/timetot,           &
                &                    fac*e_p_asA(nR)/timetot,        &
                &                    fac*e_tA(nR)/timetot,           &
                &                    fac*e_t_asA(nR)/timetot,        &
-               &                    fac*e_pA(nR)/timetot/surf,      &
-               &                    fac*e_p_asA(nR)/timetot/surf,   &
-               &                    fac*e_tA(nR)/timetot/surf,      &
-               &                    fac*e_t_asA(nR)/timetot/surf,   &
+               &                    fac*e_pA(nR)/timetot*osurf,     &
+               &                    fac*e_p_asA(nR)/timetot*osurf,  &
+               &                    fac*e_tA(nR)/timetot*osurf,     &
+               &                    fac*e_t_asA(nR)/timetot*osurf,  &
                &                    eDR
             end do
             close(fileHandle)
@@ -554,7 +557,7 @@ contains
             e_t_as_ic=fac*e_t_as_ic
          end if
 
-      else
+      else if ( (.not. l_cond_ic) .and. (.not. l_full_sphere) ) then
 
          !do lm=2,lm_max
          do lm=max(2,llmMag),ulmMag
@@ -651,7 +654,7 @@ contains
          end if
 
          !-- Output of IC energies:
-         if ( l_write ) then
+         if ( l_write .and. .not. l_full_sphere ) then
             if ( l_save_out ) then
                open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, &
                &    status='unknown', position='append')

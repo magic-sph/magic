@@ -19,7 +19,7 @@ module output_mod
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
-       &            l_chemical_conv, l_movie
+       &            l_chemical_conv, l_movie, l_full_sphere
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -27,10 +27,10 @@ module output_mod
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
        &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-       &             aj_Rloc
-   use fieldsLast, only: dwdtLast_LMloc, dzdtLast_lo, dpdtLast_LMloc,     &
-       &                 dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc,  &
-       &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast_LMloc
+       &             aj_Rloc, bICB
+   use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
+       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,   &
+       &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -61,6 +61,7 @@ module output_mod
    use RMS, only: zeroRms, dtVrms, dtBrms
    use useful, only:  logWrite
    use radial_spectra  ! rBrSpec, rBpSpec
+   use time_schemes, only: type_tscheme
    use storeCheckPoints
 
    implicit none
@@ -103,7 +104,6 @@ module output_mod
    character(len=72), allocatable :: v_r_file(:)
    character(len=72), allocatable :: t_r_file(:)
    character(len=72), allocatable :: b_r_file(:)
-   complex(cp), allocatable :: bICB(:)
 
    public :: output, initialize_output, finalize_output
 
@@ -113,15 +113,6 @@ contains
 
       integer :: n
       character(len=72) :: string
-
-      if ( l_mag ) then
-         if ( rank == 0 ) then 
-            allocate( bICB(lm_max) )
-            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate( bICB(1) )
-         end if
-      end if
 
       if ( l_r_field .or. l_r_fieldT ) then
          allocate ( n_coeff_r(n_coeff_r_max))
@@ -261,8 +252,6 @@ contains
 
       integer :: n
 
-      if ( l_mag ) deallocate( bICB )
-
       if ( rank == 0 .and. ( .not. l_save_out ) ) then
          if ( l_mag .and. l_cmb_field ) then
             close(n_cmb_file)
@@ -303,7 +292,7 @@ contains
 
    end subroutine finalize_output
 !----------------------------------------------------------------------------
-   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,   &
+   subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
@@ -316,23 +305,24 @@ contains
       !
   
       !--- Input of variables
-      real(cp),    intent(in) :: time,dt,dtNew
-      integer,     intent(in) :: n_time_step
-      logical,     intent(in) :: l_stop_time
-      logical,     intent(in) :: l_pot
-      logical,     intent(in) :: l_log, l_graph, lRmsCalc, l_store
-      logical,     intent(in) :: l_new_rst_file, l_spectrum
-      logical,     intent(in) :: lTOCalc,lTOframe
-      logical,     intent(in) :: l_frame, l_cmb, l_r
-      logical,     intent(inout) :: lTOZwrite
-      integer,     intent(inout) :: n_frame
-      integer,     intent(inout) :: n_cmb_sets
+      real(cp),            intent(in) :: time
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: n_time_step
+      logical,             intent(in) :: l_stop_time
+      logical,             intent(in) :: l_pot
+      logical,             intent(in) :: l_log, l_graph, lRmsCalc, l_store
+      logical,             intent(in) :: l_new_rst_file, l_spectrum
+      logical,             intent(in) :: lTOCalc,lTOframe
+      logical,             intent(in) :: l_frame, l_cmb, l_r
+      logical,             intent(inout) :: lTOZwrite
+      integer,             intent(inout) :: n_frame
+      integer,             intent(inout) :: n_cmb_sets
   
       !--- Input of Lorentz torques and dbdt calculated in radialLoopG
       !    Parallelization note: Only the contribution at the CMB must be 
       !    collected and is (likely) stored on the processor (#0) that performs 
       !    this routine anyway.
-      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+      real(cp),            intent(in) :: lorentz_torque_ma,lorentz_torque_ic
   
       !--- Input of scales fields via common block in fields.f90:
       !    Parallelization note: these fields are LM-distributed.
@@ -414,7 +404,7 @@ contains
       logical :: DEBUG_OUTPUT=.false.
   
       timeScaled=tScale*time
-      timePassedLog=timePassedLog+dt
+      timePassedLog=timePassedLog+tscheme%dt(1)
   
       ! We start with the computation of the energies
       ! in parallel.
@@ -424,8 +414,9 @@ contains
   
          !----- Write torques and rotation rates:
          PERFON('out_rot')
-         call write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_LMloc,dz_LMloc,b_LMloc,  &
-              &          omega_ic,omega_ma,lorentz_torque_ic,lorentz_torque_ma)
+         call write_rot( time,tscheme%dt(1),eKinIC,eKinMA,w_LMloc,z_LMloc, &
+              &          dz_LMloc,b_LMloc,omega_ic,omega_ma,               &
+              &          lorentz_torque_ic,lorentz_torque_ma)
          PERFOFF
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on rank ",rank
   
@@ -487,7 +478,7 @@ contains
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
             end if
             
-            call fields_average(time,dt,dtNew,nLogs,l_stop_time,timePassedLog, &
+            call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
                  &              b_ic_LMloc,aj_ic_LMloc)
@@ -643,7 +634,7 @@ contains
             timePassedRMS=0.0_cp
             call zeroRms
          end if
-         timePassedRMS=timePassedRMS+dt
+         timePassedRMS=timePassedRMS+tscheme%dt(1)
          if ( lRmsCalc ) then
             if ( lVerbose ) write(*,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
@@ -667,10 +658,10 @@ contains
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                             &
-                    &    (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
-                    &    + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
-                    &      dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
+               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                    &
+               &         (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
+               &         + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
+               &           dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
             end do
 
             call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &
@@ -759,18 +750,17 @@ contains
       !
       if ( l_store ) then
 #ifdef WITH_MPI
-         call store_mpi(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file, &
+         call store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
               &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,        &
-              &         dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,            &
-              &         dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,        &
-              &         dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,   &
+              &         dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,         &
+              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #else
-         call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,.false.,&
+         call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
               &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
-              &     b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,           &
-              &     dpdtLast_LMloc,dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,&
-              &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &     b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,       &
+              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,              &
+              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #endif
       end if
   
@@ -992,22 +982,37 @@ contains
   
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
-               write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
-               & " ! Energies at end of time integration:",                 &
-               & " !  (total,poloidal,toroidal,total density)",             &
-               & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
-               & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
-               & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
-               & e_mag_ic/vol_ic
-  
-               write(n_log_file,                                               &
-               &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
-               &    " ! Energies at end of time integration:",                 &
-               &    " !  (total,poloidal,toroidal,total density)",             &
-               &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
-               &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
-               &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
-               &    e_mag_ic/vol_ic
+               if ( l_full_sphere ) then
+                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')              &
+                  & " ! Energies at end of time integration:",                 &
+                  & " !  (total,poloidal,toroidal,total density)",             &
+                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
+                  write(n_log_file,                                               &
+                  &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')                    &
+                  &    " ! Energies at end of time integration:",                 &
+                  &    " !  (total,poloidal,toroidal,total density)",             &
+                  &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
+
+               else
+                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
+                  & " ! Energies at end of time integration:",                 &
+                  & " !  (total,poloidal,toroidal,total density)",             &
+                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+                  & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+                  & e_mag_ic/vol_ic
+     
+                  write(n_log_file,                                               &
+                  &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
+                  &    " ! Energies at end of time integration:",                 &
+                  &    " !  (total,poloidal,toroidal,total density)",             &
+                  &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+                  &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+                  &    e_mag_ic/vol_ic
+               end if
   
                write(n_log_file,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')        &
                & " ! Time averaged energies :",                                &

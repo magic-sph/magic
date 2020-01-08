@@ -105,12 +105,11 @@ contains
 
    end subroutine set_ThetaBlocking
 !-------------------------------------------------------------------------------
-   subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa,time)
+   subroutine transform_to_grid_space(this,nThetaStart,gsa)
 
       class(rIterThetaBlocking_t), target :: this
-      integer, intent(in) :: nThetaStart,nThetaStop
+      integer, intent(in) :: nThetaStart
       type(grid_space_arrays_t) :: gsa
-      real(cp), intent(in) :: time
 
       ! Local variables
       logical :: l_calc
@@ -302,12 +301,12 @@ contains
                call v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                nThetaStart,time)
+                    &                nThetaStart)
             else if ( this%nR == n_r_icb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                nThetaStart,time)
+                    &                nThetaStart)
             end if
             if ( this%lDeriv .and. ( .not. l_axi ) ) then
                call fft_thetab(gsa%dvrdrc,1)
@@ -331,10 +330,10 @@ contains
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space(this,nThetaStart,nThetaStop,gsa,nl_lm)
+   subroutine transform_to_lm_space(this,nThetaStart,gsa,nl_lm)
 
       class(rIterThetaBlocking_t) :: this
-      integer,intent(in) :: nThetaStart, nThetaStop
+      integer,intent(in) :: nThetaStart
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
 

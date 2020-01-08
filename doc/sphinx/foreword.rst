@@ -10,14 +10,9 @@ optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD),
 a temperature (or entropy) equation and an equation for chemical composition
 under both the anelastic and the Boussinesq approximations.
 
-**MagIC** uses Chebyshev polynomials in the radial direction and spherical
-harmonic decomposition in the azimuthal and latitudinal directions. The
-time-stepping scheme relies on a semi-implicit `Crank-Nicolson
-<https://en.wikipedia.org/wiki/Crank–Nicolson_method>`_ for the linear terms of
-the MHD equations and a `Adams-Bashforth
-<https://en.wikipedia.org/wiki/Linear_multistep_method>`_ scheme for the
-non-linear terms and the Coriolis force.
-
+**MagIC** uses Chebyshev polynomials or finite difference in the radial direction and spherical
+harmonic decomposition in the azimuthal and latitudinal directions. MagIC supports
+several Implicit-Explicit time schemes where the nonlinear terms and the Coriolis force are treated explicitly, while the remaining linear terms are treated implicitly.
 
 **MagIC** is written in Fortran and designed to be used on supercomputing
 clusters.  It thus relies on a hybrid parallelisation scheme using both `OpenMP
@@ -26,16 +21,16 @@ functions written in python (requiring `matplotlib <http://matplotlib.org/>`_
 and `scipy <http://www.scipy.org/>`_) are also provided to allow a useful data
 analysis.
 
-.. figure:: figs/Magic_stampede_scaling.png
+.. figure:: figs/magic_occigen.png
    :scale: 90%
    :align: center
    :alt: caption
 
-   Mean walltime of the MagIC code on the supercomputer `stampede
-   <https://www.tacc.utexas.edu/stampede/>`_ versus number of CPUs 
-   for a dynamo model computed at three different numerical resolutions
-   :math:`(N_\phi,N_\theta,N_r)`. The solid black lines show the ideal scalings.
-
+   Mean walltime of the MagIC code on the supercomputer `Occigen
+   <https://www.cines.fr/en/supercomputing-2/hardwares/the-supercomputer-occigen/>`_ 
+   versus number of cores for a Boussinesq dynamo model computed at three 
+   different numerical resolutions :math:`(N_r,\ell_{\text{max}})`. The dashed 
+   grey lines show the ideal scalings.
 
 **MagIC** is a free software. It can be used, modified and redistributed under the 
 terms of the `GNU GPL v3 licence <http://www.gnu.org/licenses/gpl-3.0.en.html>`_.

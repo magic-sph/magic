@@ -29,6 +29,7 @@ module grid_space_arrays_mod
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_precession,             &
        &            l_centrifuge, l_adv_curl
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -206,7 +207,7 @@ contains
    end subroutine output_nl_input
 !----------------------------------------------------------------------------
 #ifdef WITH_SHTNS
-   subroutine get_nl_shtns(this, time, dt, nR, nBc, lRmsCalc)
+   subroutine get_nl_shtns(this, time, tscheme, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -223,11 +224,11 @@ contains
       class(grid_space_arrays_t) :: this
 
       !-- Input of variables:
-      real(cp), intent(in) :: time
-      real(cp), intent(in) :: dt
-      integer,  intent(in) :: nR
-      logical,  intent(in) :: lRmsCalc
-      integer,  intent(in) :: nBc
+      real(cp),            intent(in) :: time
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: nR
+      logical,             intent(in) :: lRmsCalc
+      integer,             intent(in) :: nBc
 
       !-- Local variables:
       integer :: n_th, nThetaNHS, n_phi, nThStart, nThStop
@@ -549,8 +550,8 @@ contains
          end do
       end if
 
-      if ( l_RMS ) then
-         O_dt = 1.0_cp/dt
+      if ( l_RMS .and. tscheme%istage == 1 ) then
+         O_dt = 1.0_cp/tscheme%dt(1)
          do n_th=nThStart,nThStop
             do n_phi=1,n_phi_max
                this%dtVr(n_phi,n_th)=O_dt*or2(nR)*(this%vrc(n_phi,n_th)- &
@@ -573,7 +574,7 @@ contains
    end subroutine get_nl_shtns
 #endif
 !----------------------------------------------------------------------------
-   subroutine get_nl(this,time,dt,nR,nBc,nThetaStart,lRmsCalc)
+   subroutine get_nl(this,time,tscheme,nR,nBc,nThetaStart,lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -590,12 +591,12 @@ contains
       class(grid_space_arrays_t) :: this
 
       !-- Input of variables:
-      real(cp), intent(in) :: time
-      real(cp), intent(in) :: dt
-      integer,  intent(in) :: nR
-      integer,  intent(in) :: nBc
-      integer,  intent(in) :: nThetaStart
-      logical,  intent(in) :: lRmsCalc
+      real(cp),            intent(in) :: time
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: nR
+      integer,             intent(in) :: nBc
+      integer,             intent(in) :: nThetaStart
+      logical,             intent(in) :: lRmsCalc
 
       !-- Local variables:
       integer :: nTheta
@@ -1018,8 +1019,8 @@ contains
          end do
       end if
 
-      if ( l_RMS ) then
-         O_dt = 1.0_cp/dt
+      if ( l_RMS .and. tscheme%istage == 1 ) then
+         O_dt = 1.0_cp/tscheme%dt(1)
          nTheta=nThetaLast
          do nThetaB=1,sizeThetaB ! loop over theta points in block
             nTheta   =nTheta+1

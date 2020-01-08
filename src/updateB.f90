@@ -18,21 +18,23 @@ module updateB_mod
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
-   use num_param, only: alpha, solve_counter, dct_counter
+   use num_param, only: solve_counter, dct_counter
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
-   use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
+   use horizontal_data, only: hdif_B
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-       &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff
+       &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff,     &
+       &            l_full_sphere
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
-   use algebra, only: prepare_mat, solve_mat
    use parallel_mod, only:  rank, chunksize, n_procs, get_openmp_blocks
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_dr, get_ddr
    use useful, only: abortRun
+   use time_schemes, only: type_tscheme
+   use time_array, only: type_tarray
    use dense_matrices
    use band_matrices
    use real_matrices
@@ -42,7 +44,8 @@ module updateB_mod
    private
 
    !-- Local work arrays:
-   complex(cp), allocatable :: workB(:,:)
+   complex(cp), allocatable :: workA(:,:), workB(:,:)
+   complex(cp), allocatable :: work_ic_LMloc(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
    class(type_realmat), pointer :: bMat(:), jMat(:)
@@ -52,7 +55,8 @@ module updateB_mod
 #endif
    logical, public, allocatable :: lBmat(:)
 
-   public :: initialize_updateB, finalize_updateB, updateB
+   public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
+   &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic
 
 contains
 
@@ -82,7 +86,6 @@ contains
             n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         !print*, 'J, B', n_bandsJ, n_bandsB
          do ll=1,nLMBs2(1+rank)
             call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
             call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
@@ -107,8 +110,15 @@ contains
 
 
       if ( l_RMS ) then
+         allocate( workA(llmMag:ulmMag,n_r_max) )
          allocate( workB(llmMag:ulmMag,n_r_max) )
-         bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_max* &
+         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* &
+         &                 SIZEOF_DEF_COMPLEX
+      end if
+
+      if ( l_cond_ic ) then
+         allocate( work_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
+         bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_ic_max* &
          &                 SIZEOF_DEF_COMPLEX
       end if
 
@@ -141,20 +151,20 @@ contains
          call bMat(ll)%finalize()
       end do
 
+      if ( l_cond_ic ) deallocate ( work_ic_LMloc )
       deallocate( lBmat )
 
 #ifdef WITH_PRECOND_BJ
       deallocate(bMat_fac,jMat_fac)
 #endif
       deallocate( dtT, dtP, rhs1, rhs2 )
-      if ( l_RMS ) deallocate( workB )
+      if ( l_RMS ) deallocate( workA, workB )
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
-   subroutine updateB(b,db,ddb,aj,dj,ddj,dVxBhLM,dbdt,dbdtLast,djdt,djdtLast, &
-       &              b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,dbdt_icLast,       &
-       &              djdt_icLast,b_nl_cmb,aj_nl_cmb,aj_nl_icb,omega_ic,      &
-       &              w1,coex,dt,time,lRmsNext)
+   subroutine updateB(b,db,ddb,aj,dj,ddj,dbdt,djdt,b_ic,db_ic,ddb_ic,aj_ic,  &
+              &       dj_ic,ddj_ic,dbdt_ic,djdt_ic,b_nl_cmb,aj_nl_cmb,       &
+              &       aj_nl_icb,time,tscheme,lRmsNext)
       !
       !
       !  Calculated update of magnetic field potential and the time
@@ -182,28 +192,22 @@ contains
       !
 
       !-- Input variables:
-      complex(cp), intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
-      complex(cp), intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
-      complex(cp), intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
-      complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
-      real(cp),    intent(in) :: omega_ic
-      real(cp),    intent(in) :: w1    ! weight for time step !
-      real(cp),    intent(in) :: coex  ! factor depending on alpha
-      real(cp),    intent(in) :: dt
-      real(cp),    intent(in) :: time
-      logical,     intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
+      complex(cp),         intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
+      complex(cp),         intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
+      real(cp),            intent(in) :: time
+      logical,             intent(in) :: lRmsNext
 
       !-- Input/output of scalar potentials and time stepping arrays:
-      complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: dbdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: djdt(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: djdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(inout) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(inout) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
+      type(type_tarray), intent(inout) :: dbdt
+      type(type_tarray), intent(inout) :: djdt
+      type(type_tarray), intent(inout) :: dbdt_ic
+      type(type_tarray), intent(inout) :: djdt_ic
+      complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Output variables:
       complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
@@ -216,8 +220,6 @@ contains
       complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables:
-      real(cp) :: w2             ! weight of second time step
-      real(cp) :: O_dt
       real(cp) :: yl0_norm,prefac!External magnetic field of general l
 
       integer :: l1,m1               ! degree and order
@@ -226,10 +228,6 @@ contains
       integer :: nLMB2, nLMB
       integer :: n_r_out             ! No of cheb polynome (degree+1)
       integer :: nR                  ! No of radial grid point
-      integer :: n_r_top,n_r_bot
-
-      complex(cp) :: fac
-      complex(cp) :: dbdt_ic,djdt_ic  ! they are calculated here !
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -240,7 +238,6 @@ contains
 
       real(cp), save :: direction
 
-      integer :: start_lm, stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( .not. l_update_b ) RETURN
@@ -257,26 +254,19 @@ contains
       nLMB=1+rank
       lmStart_00=max(2,llmMag)
 
-      w2  =one-w1
-      O_dt=one/dt
+      !-- Now assemble the right hand side and store it in work_LMloc
+      call tscheme%set_imex_rhs(work_LMloc, dbdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%set_imex_rhs(ddb, djdt, llmMag, ulmMag, n_r_maxMag)
 
-      !--- Start with finishing djdt:
-      !PERFON('upB_fin')
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=lmStart_00; stop_lm=ulmMag
-      call get_openmp_blocks(start_lm, stop_lm)
-      call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
-      !$omp barrier
+      if ( l_cond_ic ) then
+         !-- Now assemble the right hand side and store it in work_LMloc
+         call tscheme%set_imex_rhs(ddb_ic, dbdt_ic, llmMag, ulmMag, &
+              &                    n_r_ic_max)
+         call tscheme%set_imex_rhs(ddj_ic, djdt_ic, llmMag, ulmMag, &
+              &                    n_r_ic_max)
+      end if
 
-      !$omp do private(nR)
-      do nR=1,n_r_max
-         do lm=lmStart_00,ulmMag
-            djdt(lm,nR)=djdt(lm,nR)+or2(nR)*work_LMloc(lm,nR)
-         end do
-      end do
-      !$omp end do
-      !PERFOFF
+      !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
@@ -288,7 +278,7 @@ contains
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
          !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-         !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff,cimp,aimp,threadid)
+         !$OMP private(bpeaktop,ff,cimp,aimp,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -300,12 +290,10 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),   &
-                    &        bMat(nLMB2),bMat_fac(:,nLMB2),    &
-                    &        jMat(nLMB2),jMat_fac(:,nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(lm2(l1,0)),bMat(nLMB2), &
+                    &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
 #else
-               call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),   &
-                    &        bMat(nLMB2),jMat(nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(lm2(l1,0)),bMat(nLMB2),jMat(nLMB2))
 #endif
                lBmat(l1)=.true.
             end if
@@ -315,8 +303,7 @@ contains
             !$OMP TASK if (nChunks>1) default(shared) &
             !$OMP firstprivate(iChunk) &
             !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff) &
-            !$OMP private(threadid)
+            !$OMP private(bpeaktop,ff,threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -405,8 +392,9 @@ contains
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                            if ( real(b(2,1)) > 1.0e-9_cp ) &
-                                direction=real(b(2,1))/abs(real(b(2,1)))
-                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)*direction
+                           &    direction=real(b(2,1))/abs(real(b(2,1)))
+                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)* &
+                           &                    direction
                         else if ( n_imp == 4 ) then
                            !  I have forgotten what this was supposed to do:
                            bpeaktop=three/r_cmb*amp_imp*real(b(2,1))**2
@@ -469,10 +457,8 @@ contains
                         rhs1(nR,lmB,threadid)=0.0_cp
                         rhs2(nR,lmB,threadid)=0.0_cp
                      else
-                        rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR)+w2*dbdtLast(lm1,nR) ) &
-                        &          + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
-                        rhs2(nR,lmB,threadid)= ( w1*djdt(lm1,nR)+w2*djdtLast(lm1,nR) ) &
-                        &          + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR)
+                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
+                        rhs2(nR,lmB,threadid)=ddb(lm1,nR) ! ddb is used as a work array here 
                      end if
                   end do
 
@@ -487,28 +473,8 @@ contains
                      end if
 
                      do nR=2,n_r_ic_max
-                        if ( omega_ic == 0.0_cp .or. .not. l_rot_ic .or. &
-                        &    .not. l_mag_nl ) then
-                           dbdt_ic=zero
-                           djdt_ic=zero
-                        else
-                           fac=-omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
-                           &    dLh(st_map%lm2(l1,m1))
-                           dbdt_ic=fac*b_ic(lm1,nR)
-                           djdt_ic=fac*aj_ic(lm1,nR)
-                        end if
-                        rhs1(n_r_max+nR,lmB,threadid)=                    &
-                        &      ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) )    &
-                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) *&
-                        &       b_ic(lm1,nR)
-                        rhs2(n_r_max+nR,lmB,threadid)=                    &
-                        &      ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) )    & 
-                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) *&
-                        &       aj_ic(lm1,nR)
-
-                        !--------- Store the IC non-linear terms for the usage below:
-                        dbdt_icLast(lm1,nR)=dbdt_ic
-                        djdt_icLast(lm1,nR)=djdt_ic
+                        rhs1(n_r_max+nR,lmB,threadid)=ddb_ic(lm1,nR) ! ddb_ic as work array
+                        rhs2(n_r_max+nR,lmB,threadid)=ddj_ic(lm1,nR)
                      end do
                   end if
 
@@ -532,12 +498,11 @@ contains
                !LIKWID_OFF('upB_sol')
             end if
 
-            if ( lRmsNext ) then ! Store old b,aj
+            if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
                do nR=1,n_r_max
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     !do lm=1,sizeLMB2(nLMB2,nLMB)
                      lm1=lm22lm(lm,nLMB2,nLMB)
-                     work_LMloc(lm1,nR)=b(lm1,nR)
+                     workA(lm1,nR)= b(lm1,nR)
                      workB(lm1,nR)=aj(lm1,nR)
                   end do
                end do
@@ -547,9 +512,7 @@ contains
             !PERFON('upB_set')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 > 0 ) then
@@ -596,17 +559,17 @@ contains
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
-      !$omp single
+      !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart_00,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end single
+      !$omp end do
 
       if ( l_cond_ic ) then
-         !$omp do private(n_r_out, lm1)
+         !$omp do private(n_r_out, lm1) collapse(2)
          do n_r_out=n_cheb_ic_max+1,n_r_ic_max
             do lm1=lmStart_00,ulmMag
                b_ic(lm1,n_r_out) =zero
@@ -616,153 +579,371 @@ contains
          !$omp end do
       end if
 
+      !$omp end parallel
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dbdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%rotate_imex(djdt, llmMag, ulmMag, n_r_maxMag)
+      if ( l_cond_ic ) then
+         call tscheme%rotate_imex(dbdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%rotate_imex(djdt_ic, llmMag, ulmMag, n_r_ic_max)
+      end if
+
+
+      !-- Get implicit terms
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
+              &               tscheme%l_imp_calc_rhs(1), lRmsNext,             &
+              &               l_in_cheb_space=.true.)
+
+         if ( l_cond_ic ) then
+            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
+                 &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
+                 &                  l_in_cheb_space=.true.)
+         end if
+
+      else
+         call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
+              &               tscheme%istage+1,                             &
+              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),     &
+              &               lRmsNext, l_in_cheb_space=.true.)
+
+         if ( l_cond_ic ) then
+            call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+                 &                  dbdt_ic, djdt_ic, tscheme%istage+1,         &
+                 &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
+                 &                  l_in_cheb_space=.true.)
+         end if
+
+      end if
+
+   end subroutine updateB
+!-----------------------------------------------------------------------------	
+   subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
+
+      !-- Input variables
+      real(cp),    intent(in) :: omega_ic
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: db_exp_last(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Local variables
+      complex(cp) :: fac
+      integer :: n_r, lm, l1, m1
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
+         !$omp parallel do default(shared) private(lm,n_r,fac,l1,m1) collapse(2)
+         do n_r=2,n_r_ic_max
+            do lm=llmMag, ulmMag
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+
+               fac = -omega_ic*or2(n_r_max)*cmplx(0.0_cp,real(m1,cp),cp)* &
+               &      real(l1*(l1+1),cp)
+               db_exp_last(lm,n_r)=fac*b_ic(lm,n_r)
+               dj_exp_last(lm,n_r)=fac*aj_ic(lm,n_r)
+            end do
+         end do
+         !$omp end parallel do
+      else
+         !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
+         do n_r=2,n_r_ic_max
+            do lm=llmMag, ulmMag
+               db_exp_last(lm,n_r)=zero
+               dj_exp_last(lm,n_r)=zero
+            end do
+         end do
+         !$omp end parallel do
+      end if
+
+   end subroutine finish_exp_mag_ic
+!-----------------------------------------------------------------------------	
+   subroutine finish_exp_mag(dVxBhLM, dj_exp_last)
+
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_maxMag)
+
+      !-- Local variables
+      integer :: n_r, lm, start_lm, stop_lm, lmStart_00
+
+      lmStart_00 =max(2,llmMag)
+
+      !$omp parallel default(shared) private(start_lm,stop_lm)
+      start_lm=lmStart_00; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm, stop_lm)
+
+      call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
+      !$omp barrier
+
+      !$omp do private(n_r,lm)
+      do n_r=1,n_r_max
+         do lm=lmStart_00,ulmMag
+            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
+         end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_mag
+!-----------------------------------------------------------------------------	
+   subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+              &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
+              &                  l_in_cheb_space)
+
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
+
+      !-- Output variable
+      type(type_tarray), intent(inout) :: dbdt_ic
+      type(type_tarray), intent(inout) :: djdt_ic
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Local variables 
+      complex(cp) :: tmp(llmMag:ulmMag,n_r_ic_max)
+      real(cp) :: dL
+      logical :: l_in_cheb
+      integer :: l1, lmStart_00
+      integer :: n_r, lm, start_lm, stop_lm
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llmMag)
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llmMag; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm,stop_lm)
+
       !$omp single
       call dct_counter%start_count()
       !$omp end single
-      !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
-      call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
-      call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &                 stop_lm-llmMag+1)
-
-      call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,l_dct_in=.false.)
-      call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1, &
-           &                 stop_lm-llmMag+1)
-
-      !-- Same for inner core:
-      if ( l_cond_ic ) then
-         call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &                stop_lm-llmMag+1, dbdtLast)
-         call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
-              &             start_lm-llmMag+1,stop_lm-llmMag+1, &
-              &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
-              &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
-         call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-              &               stop_lm-llmMag+1, dbdtLast)
-         call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
-              &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
-              &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
-              &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
-      end if
+      if ( l_in_cheb ) call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, &
+                            &                start_lm-llmMag+1,     &
+                            &                stop_lm-llmMag+1, work_LMloc)
+      call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
+           &             start_lm-llmMag+1,stop_lm-llmMag+1, &
+           &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
+           &             work_ic_LMloc,tmp, chebt_ic, chebt_ic_even )
+      if ( l_in_cheb ) call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, &
+                            &                start_lm-llmMag+1,      &
+                            &                stop_lm-llmMag+1, work_LMloc)
+      call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
+           &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
+           &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
+           &             work_ic_LMloc,tmp, chebt_ic, chebt_ic_even )
       !$omp barrier
-      !PERFOFF
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
-      !-- We are now back in radial space !
 
-      !PERFON('upB_last')
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,dL) collapse(2)
+         do n_r=1,n_r_ic_max
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               dbdt_ic%old(lm,n_r,istage)=dL*or2(n_r_max)* b_ic(lm,n_r)
+               djdt_ic%old(lm,n_r,istage)=dL*or2(n_r_max)*aj_ic(lm,n_r)
+            end do
+         end do
+         !$omp end do
+      end if
+
+      if ( l_calc_lin ) then
+         !$omp do private(n_r,lm,l1,dL) collapse(2)
+         do n_r=2,n_r_ic_max-1
+            do lm=lmStart_00,ulmMag
+               l1=lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL*or2(n_r_max)* (  &
+               &                                      ddb_ic(lm,n_r) +  &
+               &         two*real(l1+1,cp)*O_r_ic(n_r)*db_ic(lm,n_r) )
+               djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL*or2(n_r_max) *  (&
+               &                                      ddj_ic(lm,n_r) +  &
+               &         two*real(l1+1,cp)*O_r_ic(n_r)*dj_ic(lm,n_r) )
+            end do
+         end do
+         !$omp end do
+         n_r=n_r_ic_max
+         !$omp do private(lm,l1,dL)
+         do lm=lmStart_00,ulmMag
+            l1=lm2l(lm)
+            dL = real(l1*(l1+1),cp)
+            dbdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL*or2(n_r_max) *  &
+            &                           (one+two*real(l1+1,cp))*ddb_ic(lm,n_r)
+            djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL* or2(n_r_max) *  &
+            &                           (one+two*real(l1+1,cp))*ddj_ic(lm,n_r)
+         end do
+         !$omp end do
+      end if
+
+      !$omp end parallel
+
+   end subroutine get_mag_ic_rhs_imp
+!-----------------------------------------------------------------------------
+   subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
+              &               istage, l_calc_lin, lRmsNext, l_in_cheb_space)
+
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
+
+      !-- Output variable
+      type(type_tarray), intent(inout) :: dbdt
+      type(type_tarray), intent(inout) :: djdt
+      complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: db(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: dj(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: ddj(llmMag:ulmMag,n_r_max)
+      complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_max)
+
+      !-- Local variables 
+      real(cp) :: dL
+      logical :: l_in_cheb
+      integer :: n_r_top, n_r_bot, l1, lmStart_00
+      integer :: n_r, lm, start_lm, stop_lm
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llmMag)
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=lmStart_00; stop_lm=ulmMag
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,        &
+           &       l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
+                            &                 stop_lm-llmMag+1)
+      call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,         &
+           &       l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(aj,ulmMag-llmMag+1,start_lm-llmMag+1,&
+                            &                 stop_lm-llmMag+1)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
+
       if ( l_LCR ) then
-         !$omp do private(nR,lm1,l1,m1)
-         do nR=n_r_cmb,n_r_icb-1
-            if ( nR<=n_r_LCR ) then
-               do lm1=lmStart_00,ulmMag
-                  l1=lm2l(lm1)
-                  m1=lm2m(lm1)
+         !$omp do private(n_r,lm,l1)
+         do n_r=n_r_cmb,n_r_icb-1
+            if ( n_r<=n_r_LCR ) then
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
 
-                  b(lm1,nR)=(r(n_r_LCR)/r(nR))**D_l(st_map%lm2(l1,m1))*b(lm1,n_r_LCR)
-                  db(lm1,nR)=-real(D_l(st_map%lm2(l1,m1)),kind=cp)*     &
-                  &          (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/      &
-                  &          (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
-                  ddb(lm1,nR)=real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
-                  &           (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
-                  &           *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
-                  &           (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
-                  aj(lm1,nR)=zero
-                  dj(lm1,nR)=zero
-                  ddj(lm1,nR)=zero
+                  b(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l1,cp)*b(lm,n_r_LCR)
+                  db(lm,n_r)=-real(l1,cp)*(r(n_r_LCR))**real(l1,cp)/  &
+                  &          (r(n_r))**(real(l1,cp)+1)*b(lm,n_r_LCR)
+                  ddb(lm,n_r)=real(l1,cp)*real(l1+1,cp)*(r(n_r_LCR))**real(l1,cp)/ &
+                  &           (r(n_r))**(real(l1,cp)+2)*b(lm,n_r_LCR)
+                  aj(lm,n_r) =zero
+                  dj(lm,n_r) =zero
+                  ddj(lm,n_r)=zero
                end do
             end if
          end do
          !$omp end do
       end if
 
-      if ( lRmsNext ) then
-         n_r_top=n_r_cmb
-         n_r_bot=n_r_icb
-      else
-         n_r_top=n_r_cmb+1
-         n_r_bot=n_r_icb-1
-      end if
-
-      !$omp do private(nR,lm1,l1,m1,dtP,dtT)
-      do nR=n_r_top,n_r_bot
-         do lm1=lmStart_00,ulmMag
-            l1=lm2l(lm1)
-            m1=lm2m(lm1)
-            dbdtLast(lm1,nR)= dbdt(lm1,nR) -                    &
-            &    coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
-            &                  dLh(st_map%lm2(l1,m1))*or2(nR) * &
-            &    ( ddb(lm1,nR) - dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR) )
-            djdtLast(lm1,nR)= djdt(lm1,nR) -                    &
-            &    coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
-            &                  dLh(st_map%lm2(l1,m1))*or2(nR) * &
-            &    ( ddj(lm1,nR) + dLlambda(nR)*dj(lm1,nR) -      &
-            &      dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR) )
-            if ( lRmsNext ) then
-               dtP(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
-               &             * (  b(lm1,nR)-work_LMloc(lm1,nR) )
-               dtT(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
-               &             * ( aj(lm1,nR)-workB(lm1,nR) )
-            end if
-         end do
-         if ( lRmsNext ) then
-            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,ulmMag, &
-                 &          dtBPolLMr(llmMag:ulmMag,nR),            &
-                 &          dtBPol2hInt(llmMag:ulmMag,nR),lo_map)
-            call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,ulmMag, &
-                 &          dtBTor2hInt(llmMag:ulmMag,nR),lo_map)
-         end if
-      end do
-      !$omp end do
-      !PERFOFF
-
-      !----- equations for inner core are different:
-      !      D_lP1(lm1)=l+1, O_sr=sigma/sigma_ic
-      !      NOTE: no hyperdiffusion in inner core !
-      if ( l_cond_ic ) then
-         !PERFON('upB_ic')
-         !$omp do private(nR,lm1,l1,m1)
-         do nR=2,n_r_ic_max-1
-            do lm1=lmStart_00,ulmMag
-               l1=lm2l(lm1)
-               m1=lm2m(lm1)
-               dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
-               &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-               &    (                        ddb_ic(lm1,nR) +           &
-               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*db_ic(lm1,nR) )
-               djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
-               &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-               &    (                        ddj_ic(lm1,nR) +           &
-               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l1,dL)
+         do n_r=1,n_r_max
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               dbdt%old(lm,n_r,istage)=dL*or2(n_r)* b(lm,n_r)
+               djdt%old(lm,n_r,istage)=dL*or2(n_r)*aj(lm,n_r)
             end do
          end do
          !$omp end do
-         nR=n_r_ic_max
-         !$omp do
-         do lm1=lmStart_00,ulmMag
-            l1=lm2l(lm1)
-            m1=lm2m(lm1)
-            dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
-            &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm1,nR)
-            djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
-            &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
-         end do
-         !$omp end do
-         !PERFOFF
       end if
 
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+         if ( lRmsNext ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         else
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
+         end if
+
+         !$omp do private(n_r,lm,l1,dtP,dtT,dL)
+         do n_r=n_r_top,n_r_bot
+            do lm=lmStart_00,ulmMag
+               l1=lm2l(lm)
+               dL=real(l1*(l1+1),cp)
+               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(lm)*     &
+               &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
+               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(lm)*           &
+               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
+               &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
+               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+                  dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  b(lm,n_r)-workA(lm,n_r) )
+                  dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( aj(lm,n_r)-workB(lm,n_r) )
+               end if
+            end do
+            if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+               call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
+                    &          dtBPolLMr(llmMag:ulmMag,n_r),            &
+                    &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)
+               call hInt2TorLM(dtT,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
+                    &          dtBTor2hInt(llmMag:ulmMag,n_r),lo_map)
+            end if
+         end do
+         !$omp end do
+
+      end if
       !$omp end parallel
 
-   end subroutine updateB
+   end subroutine get_mag_rhs_imp
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_BJ
-   subroutine get_bMat(dt,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
+   subroutine get_bMat(tscheme,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
 #else
-   subroutine get_bMat(dt,l,hdif,bMat,jMat)
+   subroutine get_bMat(tscheme,l,hdif,bMat,jMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -770,9 +951,9 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: dt
-      integer,  intent(in) :: l
-      real(cp), intent(in) :: hdif
+      class(type_tscheme), intent(in) :: tscheme        ! time step
+      integer,             intent(in) :: l
+      real(cp),            intent(in) :: hdif
 
       !-- Output variables:
       class(type_realmat), intent(inout) :: bMat
@@ -785,7 +966,7 @@ contains
       integer :: nR,nCheb,nR_out,nRall
       integer :: info
       real(cp) :: l_P_1
-      real(cp) :: O_dt,dLh
+      real(cp) :: dLh
       real(cp) :: rRatio
       real(cp) :: datJmat(n_r_tot,n_r_tot)
       real(cp) :: datBmat(n_r_tot,n_r_tot)
@@ -804,7 +985,6 @@ contains
 
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
-      O_dt=one/dt
       dLh=real(l*(l+1),kind=cp)
 
       !-- matricies depend on degree l but not on order m,
@@ -815,14 +995,14 @@ contains
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             datBmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
-            &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
-            &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
+            &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
+            &    tscheme%wimp_lin(1)*opm*lambda(nR)*hdif*dLh*or2(nR) * (    &
             &                                rscheme_oc%d2rMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
 
             datJmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
-            &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
-            &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
+            &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
+            &   tscheme%wimp_lin(1)*opm*lambda(nR)*hdif*dLh*or2(nR) * (     &
             &                                rscheme_oc%d2rMat(nR,nR_out) + &
             &                    dLlambda(nR)*rscheme_oc%drMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
@@ -850,14 +1030,14 @@ contains
          !         field (matrix bmat) and the toroidal field has to
          !         vanish (matrix ajmat).
 
-         datBmat(1,:)=            rscheme_oc%rnorm * (   &  
+         datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &  
          &                      rscheme_oc%drMat(1,:) +  &
          &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
          &                     conductance_ma* (         &
          &                     rscheme_oc%d2rMat(1,:) -  &
          &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
 
-         datJmat(1,:)=            rscheme_oc%rnorm * (   &
+         datJmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
          &                       rscheme_oc%rMat(1,:) +  &
          &       conductance_ma*rscheme_oc%drMat(1,:) )
       else if ( ktopb == 2 ) then
@@ -866,49 +1046,55 @@ contains
          !----- pseudo vacuum condition, field has only
          !      a radial component, horizontal components
          !      vanish when aj and db are zero:
-         datJmat(1,:)=rscheme_oc%rnorm* rscheme_oc%rMat(1,:)
-         datBmat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+         datJmat(1,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%rMat(1,:)
+         datBmat(1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
       !-------- at IC (nR=n_r_max):
-      if ( kbotb == 1 ) then
-         !----------- insulating IC, field has to fit a potential field:
-         datJmat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      if ( l_full_sphere ) then
+         datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      else
+         if ( kbotb == 1 ) then
+            !----------- insulating IC, field has to fit a potential field:
+            datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
 
-         datBmat(n_r_max,:)=rscheme_oc%rnorm * (              &
-         &                      rscheme_oc%drMat(n_r_max,:) - &
-         &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
-      else if ( kbotb == 2 ) then
-         !----------- perfect conducting IC
-         datBmat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
-         datJmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
-      else if ( kbotb == 3 ) then
-         !---------- finite conducting IC, four boundary conditions:
-         !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
-         !           note: n_r=n_r_max and n_r=n_r_max+1 stand for IC radius
-         !           here we set the outer core part of the equations.
-         !           the conductivity ratio sigma_ratio is used as
-         !           an additional dimensionless parameter.
-         datBmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
-         datBmat(n_r_max+1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         datJmat(n_r_max,:)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
-         datJmat(n_r_max+1,:)=rscheme_oc%rnorm*sigma_ratio* &
-         &                      rscheme_oc%drMat(n_r_max,:)
-      else if ( kbotb == 4 ) then
-         !----- Pseudovacuum conduction at lower boundary:
-         datJmat(n_r_max,:)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         datBmat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+            datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * (      &
+            &                      rscheme_oc%drMat(n_r_max,:) - &
+            &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
+         else if ( kbotb == 2 ) then
+            !----------- perfect conducting IC
+            datBmat(n_r_max-1,1:n_r_max)=  &
+            &        rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
+            datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
+         else if ( kbotb == 3 ) then
+            !---------- finite conducting IC, four boundary conditions:
+            !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
+            !           note: n_r=n_r_max and n_r=n_r_max+1 stand for IC radius
+            !           here we set the outer core part of the equations.
+            !           the conductivity ratio sigma_ratio is used as
+            !           an additional dimensionless parameter.
+            datBmat(n_r_max,1:n_r_max)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
+            datBmat(n_r_max+1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+            datJmat(n_r_max,1:n_r_max)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
+            datJmat(n_r_max+1,1:n_r_max)=rscheme_oc%rnorm*sigma_ratio* &
+            &                      rscheme_oc%drMat(n_r_max,:)
+         else if ( kbotb == 4 ) then
+            !----- Pseudovacuum conduction at lower boundary:
+            datJmat(n_r_max,1:n_r_max)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+            datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       !-------- Imposed fields: (overwrites above IC boundary cond.)
       if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-         datBmat(n_r_max,:)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
+         datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
       else if ( l == 3 .and. imagcon == -10 ) then
          if ( l_LCR ) then
             call abortRun('Imposed field not compatible with weak conducting region!')
          end if
-         datJmat(1,:)      =rscheme_oc%rnorm * rscheme_oc%rMat(1,:)
-         datJmat(n_r_max,:)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
+         datJmat(1,1:n_r_max)      =rscheme_oc%rnorm * rscheme_oc%rMat(1,:)
+         datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
       else if ( n_imp == 1 ) then
          !-- This is Uli Christensen's idea where the external field is
          !   not fixed but compensates the internal field so that the
@@ -918,7 +1104,7 @@ contains
          end if
          rRatio=rrMP**real(2*l+1,kind=cp)
 
-         datBmat(1,:)=        rscheme_oc%rnorm * (        &
+         datBmat(1,1:n_r_max)=rscheme_oc%rnorm * (        &
          &                      rscheme_oc%drMat(1,:) +   &
          &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) -   &
          &    real(2*l+1,cp)*or1(1)/(1-rRatio) +          &
@@ -984,8 +1170,8 @@ contains
 
                datBmat(n_r_max+nR,n_r_max+nCheb) =    &
                &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
-               &             O_dt*cheb_ic(nCheb,nR) - &
-               &                   alpha*opm*O_sr * ( &
+               &             cheb_ic(nCheb,nR) -      &
+               &     tscheme%wimp_lin(1)*opm*O_sr * ( &
                &                d2cheb_ic(nCheb,nR) + &
                &    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
 
@@ -996,8 +1182,8 @@ contains
             nR=n_r_ic_max
             datBmat(n_r_max+nR,n_r_max+nCheb) =    &
             &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
-            &             O_dt*cheb_ic(nCheb,nR) - &
-            &                     alpha*opm*O_sr * &
+            &                  cheb_ic(nCheb,nR) - &
+            &       tscheme%wimp_lin(1)*opm*O_sr * &
             &    (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
 
             datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)

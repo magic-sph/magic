@@ -9,13 +9,8 @@ from .npfile import npfile
 
 if buildSo:
     try:
-        import sys
-        if sys.version_info.major == 3:
-            import magic.greader_single3 as Gsngl
-            import magic.greader_double3 as Gdble
-        elif sys.version_info.major == 2:
-            import magic.greader_single2 as Gsngl
-            import magic.greader_double2 as Gdble
+        import magic.greader_single as Gsngl
+        import magic.greader_double as Gdble
         readingMode = 'f2py'
     except ImportError:
         readingMode = 'python'

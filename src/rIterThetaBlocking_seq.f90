@@ -14,7 +14,7 @@ module rIterThetaBlocking_seq_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
-       &            l_movie_oc, l_TO, l_probe
+       &            l_movie_oc, l_TO, l_probe, l_full_sphere
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
@@ -29,6 +29,7 @@ module rIterThetaBlocking_seq_mod
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs
    use constants, only: zero
+   use time_schemes, only: type_tscheme
    use nl_special_calc
    use probe_mod
 
@@ -83,21 +84,22 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
-              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,  &
-              &           dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,          &
-              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
-              &           lorentz_torque_ic, lorentz_torque_ma,         &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
-              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
-              &           fviscLMr,fpoynLMr,fresLMr,EperpLMr,EparLMr,   &
-              &           EperpaxiLMr,EparaxiLmr)
+   subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,timeStage, &
+              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt, &
+              &           djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,           &
+              &           br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,        &
+              &           br_vp_lm_icb,lorentz_torque_ic,                &
+              &           lorentz_torque_ma,HelLMr,Hel2LMr,HelnaLMr,     &
+              &           Helna2LMr,viscLMr,uhLMr,duhLMr,gradsLMr,       &
+              &           fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,    &
+              &           EperpLMr,EparLMr,EperpaxiLMr,EparaxiLmr)
 
       class(rIterThetaBlocking_seq_t) :: this
 
       !-- Input variables
-      integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,dt,dtLast
+      integer,             intent(in) :: nR,nBc
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time,timeStage,dtLast
 
       !-- Output variables
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
@@ -118,7 +120,7 @@ contains
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
       !-- Local variables
-      integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+      integer :: l,lm,nThetaB,nThetaLast,nThetaStart
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
 
@@ -126,10 +128,9 @@ contains
       this%nBc=nBc
       this%isRadialBoundaryPoint = (nR == n_r_cmb) .or. (nR == n_r_icb)
 
-      if ( this%l_cour ) then
-         this%dtrkc=1.e10_cp
-         this%dthkc=1.e10_cp
-      end if
+      this%dtrkc=1.e10_cp
+      this%dthkc=1.e10_cp
+
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
          do l=0,l_max
@@ -193,12 +194,9 @@ contains
       do nThetaB=1,this%nThetaBs
          nThetaLast =(nThetaB-1) * this%sizeThetaB
          nThetaStart=nThetaLast+1
-         nThetaStop =nThetaLast + this%sizeThetaB
-         !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ", &
-         !      & nThetaStop
 
          call lm2phy_counter%start_count()
-         call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa,time)
+         call this%transform_to_grid_space(nThetaStart,this%gsa)
          call lm2phy_counter%stop_count(l_increment=.false.)
 
          !--------- Calculation of nonlinear products in grid space:
@@ -207,13 +205,13 @@ contains
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             call nl_counter%start_count()
             PERFON('get_nl')
-            call this%gsa%get_nl(time, dt, this%nR, this%nBc, nThetaStart, &
+            call this%gsa%get_nl(timeStage, tscheme, this%nR, this%nBc, nThetaStart, &
                  &               this%lRmsCalc)
             PERFOFF
             call nl_counter%stop_count(l_increment=.false.)
 
             call phy2lm_counter%start_count()
-            call this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)
+            call this%transform_to_lm_space(nThetaStart,this%gsa,this%nl_lm)
             call phy2lm_counter%stop_count(l_increment=.false.)
 
          else if ( l_mag ) then
@@ -263,12 +261,12 @@ contains
          end if
          PERFOFF
          !--------- Calculate courant condition parameters:
-         if ( this%l_cour ) then
-            !PRINT*,"Calling courant with this%nR=",this%nR
+         if ( .not. l_full_sphere .or. this%nR /= n_r_icb  ) then
             call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc, &
                  &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,     &
                  &       this%gsa%btc,this%gsa%bpc,nThetaStart,      &
-                 &       this%sizeThetaB)
+                 &       this%sizeThetaB, tscheme%courfac,           &
+                 &       tscheme%alffac)
          end if
 
          !--------- Since the fields are given at gridpoints here, this is a good
@@ -376,9 +374,9 @@ contains
          !--------- Torsional oscillation terms:
          PERFON('TO_terms')
          if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-            call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc, &
-                 &         this%gsa%bpc,this%lTONext,this%lTONext2,dt,    &
-                 &         dtLast,this%nR,nThetaStart,this%sizeThetaB,    &
+            call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,        &
+                 &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),&
+                 &         dtLast,this%nR,nThetaStart,this%sizeThetaB,           &
                  &         this%BsLast,this%BpLast,this%BzLast)
          end if
 

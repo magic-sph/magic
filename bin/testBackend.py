@@ -32,21 +32,22 @@ def getMyMatplotlibEnv():
             except ImportError:
                 pass
 
-            # Qt4
-            try:
-                try:
-                    plt.switch_backend('Qt4Agg')
-                    return 'Qt4Agg'
-                except Warning:
-                    pass
-            except ImportError:
-                pass
-
             # Qt5
             try:
                 try:
                     plt.switch_backend('Qt5Agg')
                     return 'Qt5Agg'
+                except Warning:
+                    pass
+            except ImportError:
+                pass
+
+
+            # Qt4
+            try:
+                try:
+                    plt.switch_backend('Qt4Agg')
+                    return 'Qt4Agg'
                 except Warning:
                     pass
             except ImportError:

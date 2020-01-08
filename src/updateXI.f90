@@ -7,18 +7,19 @@ module updateXi_mod
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r
    use physical_parameters, only: osc, kbotxi, ktopxi
-   use num_param, only: alpha, dct_counter, solve_counter
+   use num_param, only: dct_counter, solve_counter
    use init_fields, only: topxi, botxi
-   use blocking, only: st_map, lo_map, lo_sub_map, llm, ulm
-   use horizontal_data, only: dLh, hdif_Xi
-   use logic, only: l_update_xi, l_finite_diff
+   use blocking, only: lo_map, lo_sub_map, llm, ulm
+   use horizontal_data, only: hdif_Xi
+   use logic, only: l_update_xi, l_finite_diff, l_full_sphere
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
-   use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
    use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
+   use time_schemes, only: type_tscheme
+   use time_array, only: type_tarray
    use dense_matrices
    use real_matrices
    use band_matrices
@@ -40,7 +41,8 @@ module updateXi_mod
 #endif
    logical, public, allocatable :: lXimat(:)
 
-   public :: initialize_updateXi, finalize_updateXi, updateXi
+   public :: initialize_updateXi, finalize_updateXi, updateXi, &
+   &         finish_exp_comp, get_comp_rhs_imp
 
 contains
 
@@ -122,28 +124,22 @@ contains
 
    end subroutine finalize_updateXI
 !------------------------------------------------------------------------------
-   subroutine updateXi(xi,dxi,dVXirLM,dxidt,dxidtLast,w1,coex,dt)
+   subroutine updateXi(xi, dxi, dxidt, tscheme)
       !
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
       !
 
       !-- Input of variables:
-      real(cp),    intent(in) :: w1        ! weight for time step !
-      real(cp),    intent(in) :: coex      ! factor depending on alpha
-      real(cp),    intent(in) :: dt        ! time step
-      complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)
+      class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
-      complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: dxidt(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: dxidtLast(llm:ulm,n_r_max)
-      !-- Output: udpated s,ds,dxidtLast
-      complex(cp), intent(out) :: dxi(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: xi(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dxidt
+      !-- Output: dxi
+      complex(cp),       intent(out) :: dxi(llm:ulm,n_r_max)
 
       !-- Local variables:
-      real(cp) :: w2            ! weight of second time step
-      real(cp) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
       integer :: nLMB2,nLMB
@@ -155,8 +151,7 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: threadid, start_lm, stop_lm
-      integer :: iChunk,nChunks,size_of_last_chunk,lmB0
+      integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
       if ( .not. l_update_xi ) return
 
@@ -170,27 +165,11 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       nLMB=1+rank
-      w2  =one-w1
-      O_dt=one/dt
 
+      !-- Now assemble the right hand side and store it in work_LMloc
+      call tscheme%set_imex_rhs(work_LMloc, dxidt, llm, ulm, n_r_max)
 
-      !PERFON('upS_fin')
-      !$omp parallel default(shared) private(start_lm,stop_lm)
-      start_lm=llm; stop_lm=ulm
-      call get_openmp_blocks(start_lm, stop_lm)
-      !--- Finish calculation of dxidt:
-      call get_dr( dVXirLM,work_LMloc,ulm-llm+1,start_lm-llm+1,       &
-           &       stop_lm-llm+1,n_r_max, rscheme_oc, nocopy=.true. )
-      !$omp barrier
-
-      !$omp do private(nR,lm)
-      do nR=1,n_r_max
-         do lm=llm,ulm
-            dxidt(lm,nR)=orho1(nR)*(dxidt(lm,nR)-or2(nR)*work_LMloc(lm,nR))
-         end do
-      end do
-      !$OMP end do
-      !PERFOFF
+      !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
@@ -209,24 +188,23 @@ contains
 
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
-         !write(*,"(3(A,I3),A)") "Launching task for nLMB2=",nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
 
          if ( l1 == 0 ) then
             if ( .not. lXimat(l1) ) then
 #ifdef WITH_PRECOND_S0
-               call get_xi0Mat(dt,xi0Mat,xi0Mat_fac)
+               call get_xi0Mat(tscheme,xi0Mat,xi0Mat_fac)
 #else
-               call get_xi0Mat(dt,xi0Mat)
+               call get_xi0Mat(tscheme,xi0Mat)
 #endif
                lXimat(l1)=.true.
             end if
          else
             if ( .not. lXimat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_xiMat(dt,l1,hdif_Xi(st_map%lm2(l1,0)), &
+               call get_xiMat(tscheme,l1,hdif_Xi(lm2(l1,0)), &
                     &         xiMat(nLMB2),xiMat_fac(:,nLMB2))
 #else
-               call get_xiMat(dt,l1,hdif_Xi(st_map%lm2(l1,0)),xiMat(nLMB2))
+               call get_xiMat(tscheme,l1,hdif_Xi(lm2(l1,0)),xiMat(nLMB2))
 #endif
                 lXimat(l1)=.true.
             end if
@@ -250,12 +228,10 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)=real(topxi(0,0))
+                  rhs(1)      =real(topxi(0,0))
                   rhs(n_r_max)=real(botxi(0,0))
                   do nR=2,n_r_max-1
-                     rhs(nR)=real(xi(lm1,nR))*O_dt+ &
-                     &     w1*real(dxidt(lm1,nR)) + &
-                     &     w2*real(dxidtLast(lm1,nR))
+                     rhs(nR)=real(work_LMloc(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_S0
@@ -267,12 +243,10 @@ contains
                else ! l1  /=  0
                   lmB=lmB+1
 
-                  rhs1(1,lmB,threadid)=topxi(l1,m1)
+                  rhs1(1,lmB,threadid)      =topxi(l1,m1)
                   rhs1(n_r_max,lmB,threadid)=botxi(l1,m1)
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=xi(lm1,nR)*O_dt + &
-                     &                    w1*dxidt(lm1,nR) + &
-                     &                    w2*dxidtLast(lm1,nR)
+                     rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
                   end do
 
 #ifdef WITH_PRECOND_S
@@ -283,16 +257,12 @@ contains
 
                end if
             end do
-            !PERFOFF
 
-            !PERFON('upXi_sol')
             if ( lmB  >  lmB0 ) then
                call xiMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
-            !PERFOFF
 
             lmB=lmB0
-            !PERFON('upXi_af')
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
@@ -314,7 +284,6 @@ contains
                   end if
                end if
             end do
-            !PERFOFF
             !$OMP END TASK
          end do
          !$OMP END TASK
@@ -325,49 +294,134 @@ contains
       !$omp end single
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp single
+      !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             xi(lm1,n_r_out)=zero
          end do
       end do
-      !$omp end single
+      !$omp end do
 
-      !PERFON('upXi_drv')
+      !$omp end parallel
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dxidt, llm, ulm, n_r_max)
+
+      !-- Calculation of the implicit part
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1),  & 
+              &                l_in_cheb_space=.true.)
+      else
+         call get_comp_rhs_imp(xi, dxi, dxidt, tscheme%istage+1,          &
+              &                tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
+              &                l_in_cheb_space=.true.)
+      end if
+
+   end subroutine updateXi
+!------------------------------------------------------------------------------
+   subroutine finish_exp_comp(dVXirLM, dxi_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dxi_exp_last(llm:ulm,n_r_max)
+
+      !-- Local variables
+      integer :: n_r, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+      call get_dr( dVXirLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
+           &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
+      !$omp barrier
+
+      !$omp do
+      do n_r=1,n_r_max
+         dxi_exp_last(:,n_r)=orho1(n_r)*( dxi_exp_last(:,n_r)-   &
+         &                         or2(n_r)*work_LMloc(:,n_r) )
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_comp
+!------------------------------------------------------------------------------
+   subroutine get_comp_rhs_imp(xi, dxi, dxidt, istage, l_calc_lin, l_in_cheb_space)
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
+
+      !-- Output variable
+      complex(cp),       intent(inout) :: xi(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dxi(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dxidt
+
+      !-- Local variables
+      logical :: l_in_cheb
+      integer :: n_r, lm, start_lm, stop_lm, l1
+      real(cp) :: dL
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
       !$omp single
       call dct_counter%start_count()
       !$omp end single
-      call get_ddr(xi, dxi, work_LMloc, ulm-llm+1, start_lm-llm+1, &
-           &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
-      call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+      call get_ddr(xi, dxi, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
+           &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1)
       !$omp barrier
-
-
-      !-- Calculate explicit time step part:
-      !$omp do private(nR,lm1)
-      do nR=n_r_cmb+1,n_r_icb-1
-         do lm1=llm,ulm
-            dxidtLast(lm1,nR)=dxidt(lm1,nR)                                      &
-                 & - coex*osc*hdif_Xi(st_map%lm2(lm2l(lm1),lm2m(lm1))) *         &
-                 &   ( work_LMloc(lm1,nR)                                        &
-                 &     + ( beta(nR)+two*or1(nR) ) * dxi(lm1,nR)                  &
-                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*xi(lm1,nR) &
-                 &   )
-         end do
-      end do
-      !$omp end do
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
 
+      if ( istage == 1 ) then
+         !$omp do
+         do n_r=1,n_r_max
+            dxidt%old(:,n_r,istage) = xi(:,n_r)
+         end do
+         !$omp end do
+      end if
+
+      if ( l_calc_lin ) then
+
+         !$omp do private(n_r,lm,l1,dL)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               dxidt%impl(lm,n_r,istage)=                    osc*hdif_Xi(lm) *   &
+               &     ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
+               &                                       - dL*or2(n_r)* xi(lm,n_r) )
+            end do
+         end do
+         !$omp end do
+
+      end if
+
       !$omp end parallel
 
-   end subroutine updateXi
+   end subroutine get_comp_rhs_imp
 !------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
-   subroutine get_xi0Mat(dt,xiMat,xiMat_fac)
+   subroutine get_xi0Mat(tscheme,xiMat,xiMat_fac)
 #else
-   subroutine get_xi0Mat(dt,xiMat)
+   subroutine get_xi0Mat(tscheme,xiMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrix
@@ -375,7 +429,7 @@ contains
       !
 
       !-- Input variables
-      real(cp), intent(in) :: dt
+      class(type_tscheme), intent(in) :: tscheme        ! time step
 
       !-- Output variables
       class(type_realmat), intent(inout) :: xiMat
@@ -386,9 +440,6 @@ contains
       !-- Local variables:
       real(cp) :: dat(n_r_max,n_r_max)
       integer :: info, nR_out, nR
-      real(cp) :: O_dt
-
-      O_dt=one/dt
 
       !----- Boundary condition:
       if ( ktopxi == 1 ) then
@@ -397,12 +448,17 @@ contains
       else
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
-      if ( kbotxi == 1 ) then
-         !--------- Constant composition at ICB:
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-      else
-         !--------- Constant flux at ICB:
+
+      if ( l_full_sphere ) then
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      else
+         if ( kbotxi == 1 ) then
+            !--------- Constant composition at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            !--------- Constant flux at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
@@ -415,10 +471,10 @@ contains
       !-- Fill bulk points
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
-            dat(nR,nR_out)= rscheme_oc%rnorm * (                        &
-            &                         O_dt*rscheme_oc%rMat(nR,nR_out) - &
-            &             alpha*osc*(    rscheme_oc%d2rMat(nR,nR_out) + &
-            &  (beta(nR)+two*or1(nR))*    rscheme_oc%drMat(nR,nR_out) ) )
+            dat(nR,nR_out)= rscheme_oc%rnorm * (                          &
+            &                                rscheme_oc%rMat(nR,nR_out) - &
+            & tscheme%wimp_lin(1)*osc*(    rscheme_oc%d2rMat(nR,nR_out) + &
+            &    (beta(nR)+two*or1(nR))*    rscheme_oc%drMat(nR,nR_out) ) )
          end do
       end do
 
@@ -449,9 +505,9 @@ contains
    end subroutine get_xi0Mat
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
-   subroutine get_xiMat(dt,l,hdif,xiMat,xiMat_fac)
+   subroutine get_xiMat(tscheme,l,hdif,xiMat,xiMat_fac)
 #else
-   subroutine get_xiMat(dt,l,hdif,xiMat)
+   subroutine get_xiMat(tscheme,l,hdif,xiMat)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matricies
@@ -459,9 +515,9 @@ contains
       !
 
       !-- Input variables
-      real(cp), intent(in) :: dt
-      real(cp), intent(in) :: hdif
-      integer,  intent(in) :: l
+      class(type_tscheme), intent(in) :: tscheme        ! time step
+      real(cp),            intent(in) :: hdif
+      integer,             intent(in) :: l
 
       !-- Output variables
       class(type_realmat), intent(inout) :: xiMat
@@ -471,10 +527,8 @@ contains
 
       !-- Local variables:
       integer :: info, nR_out, nR
-      real(cp) :: O_dt, dLh
+      real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
-
-      O_dt=one/dt
 
       dLh=real(l*(l+1),kind=cp)
 
@@ -485,10 +539,19 @@ contains
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
       end if
 
-      if ( kbotxi == 1 ) then
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      if ( l_full_sphere ) then
+         !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         if ( l == 1 ) then
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       else
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         if ( kbotxi == 1 ) then
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
@@ -501,11 +564,11 @@ contains
       !----- Bulk points
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
-            dat(nR,nR_out)= rscheme_oc%rnorm * (                         &
-            &                          O_dt*rscheme_oc%rMat(nR,nR_out) - &
-            & alpha*osc*hdif*(            rscheme_oc%d2rMat(nR,nR_out) + &
-            & ( beta(nR)+two*or1(nR) )*    rscheme_oc%drMat(nR,nR_out) - &
-            &      dLh*or2(nR)*             rscheme_oc%rMat(nR,nR_out) ) )
+            dat(nR,nR_out)= rscheme_oc%rnorm * (                           &
+            &                                 rscheme_oc%rMat(nR,nR_out) - &
+            & tscheme%wimp_lin(1)*osc*hdif*(rscheme_oc%d2rMat(nR,nR_out) + &
+            &   ( beta(nR)+two*or1(nR) )*    rscheme_oc%drMat(nR,nR_out) - &
+            &        dLh*or2(nR)*             rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
 

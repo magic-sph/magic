@@ -121,22 +121,32 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 
 .. note:: This file is **only** written when an equation for the heat transport (temperature or entropy) is solved.
 
-This file contains several time and horizontally averaged thermodynamic properties (temperature, pressure, entropy, etc.). This file is calculated by the subroutine :f:var:`outHeat <outmisc_mod/outheat()>`.
+This file contains several time and horizontally averaged thermodynamic properties (temperature, pressure, entropy, etc.) and their variance. This file is calculated by the subroutine :f:var:`outHeat <outmisc_mod/outheat()>`.
 
    +---------------+------------------------------------------------------------+
    | No. of column | Contents                                                   |
    +===============+============================================================+
-   | 1             | radial level                                               |
+   | 1             | Radial level                                               |
    +---------------+------------------------------------------------------------+
-   | 2             | entropy (spherically-symetric contribution)                |
+   | 2             | Entropy (spherically-symetric contribution)                |
    +---------------+------------------------------------------------------------+
-   | 3             | temperature (spherically-symetric contribution)            |
+   | 3             | Temperature (spherically-symetric contribution)            |
    +---------------+------------------------------------------------------------+
-   | 4             | pressure (spherically-symetric contribution)               |
+   | 4             | Pressure (spherically-symetric contribution)               |
    +---------------+------------------------------------------------------------+
-   | 5             | density (spherically-symetric contribution)                |
+   | 5             | Density (spherically-symetric contribution)                |
    +---------------+------------------------------------------------------------+
-   | 6             | chemical composition (spherically-symetric contribution)   |
+   | 6             | Chemical composition (spherically-symetric contribution)   |
+   +---------------+------------------------------------------------------------+
+   | 7             | Standard deviation of entropy                              |
+   +---------------+------------------------------------------------------------+
+   | 8             | Standard deviation of temperature                          |
+   +---------------+------------------------------------------------------------+
+   | 9             | Standard deviation of pressure                             |
+   +---------------+------------------------------------------------------------+
+   | 10            | Standard deviation of density                              |
+   +---------------+------------------------------------------------------------+
+   | 11            | Standard deviation of chemical composition                 |
    +---------------+------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:

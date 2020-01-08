@@ -6,11 +6,7 @@ from .setup import labTex
 from .libmagic import symmetrize, thetaderavg, rderavg, phideravg
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
-if sys.version_info.major == 3:
-    from .vtklib3 import *
-elif  sys.version_info.major == 2:
-    from .vtklib2 import *
+from .vtklib import *
 
 def sph2cart_scal(scals, radius, nx=96, ny=96, nz=96, minc=1):
     """
