@@ -21,8 +21,9 @@ module probe_mod
    use blocking, only: nThetaBs, sizeThetaB, nfs
    use horizontal_data, only: O_sin_theta, theta 
    use output_data, only: tag
-   use constants, only: pi
+   use constants, only: pi, one
    use logic, only: l_save_out
+   use physical_parameters, only: radratio
 
    implicit none
 
@@ -47,8 +48,8 @@ contains
       probe_fileBr = "probeBr."//tag
       probe_fileBt = "probeBt."//tag
       
-      r_probe = r_probe + r_icb
-      
+      r_probe = r_probe/(one - radratio)
+
       theta_probe = mod(abs(theta_probe),180.0_cp)            !Make sure theta is positive and between 0 and 90
       if(theta_probe > 90.0_cp) theta_probe = 180.0_cp - theta_probe
 
@@ -135,6 +136,8 @@ contains
          & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
          &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
 
+         ! Br
+
          fac=or2(n_r)
 
          write(n_probeBr,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
@@ -143,6 +146,8 @@ contains
 
          fac=or1(n_r)*O_sin_theta(n_theta_cal)
          
+         ! Btheta
+
          write(n_probeBt,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
          & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
          &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
