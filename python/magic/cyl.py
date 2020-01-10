@@ -13,7 +13,7 @@ import pickle
 
 if buildSo:
     try:
-        from cylavg import *
+        from magic.cylavg import *
         zavgMode = 'f2py'
     except ImportError:
         zavgMode = 'python'
