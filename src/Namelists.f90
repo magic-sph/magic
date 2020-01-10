@@ -174,9 +174,7 @@ contains
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading grid parameters!'
          read(inputHandle,nml=grid,iostat=res,iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank == 0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No grid namelist found!'
          end if
@@ -186,9 +184,7 @@ contains
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading control parameters!'
          read(inputHandle,nml=control,iostat=res,iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No control namelist found!'
          end if
@@ -198,9 +194,7 @@ contains
          !-- Reading physical parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading physical parameters!'
          read(inputHandle,nml=phys_param,iostat=res, iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No phys_param namelist found!'
          end if
@@ -210,9 +204,7 @@ contains
          !-- Reading start field info from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading start information!'
          read(inputHandle,nml=start_field,iostat=res, iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No start_field namelist found!'
          end if
@@ -222,9 +214,7 @@ contains
          !-- Reading output parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading output information!'
          read(inputHandle,nml=output_control,iostat=res,iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No output_control namelist found!'
          end if
@@ -234,9 +224,7 @@ contains
          !-- Reading inner-core parameter from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading inner core information!'
          read(inputHandle,nml=inner_core,iostat=res,iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No inner_core namelist found!'
          end if
@@ -246,9 +234,7 @@ contains
          !-- Reading mantle parameters from namelists in STDIN:
          if ( rank == 0 ) write(output_unit,*) '!  Reading mantle information!'
          read(inputHandle,nml=mantle,iostat=res,iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No mantle namelist found!'
          end if
@@ -258,9 +244,7 @@ contains
          !-- Reading external field parameters for feedback:
          if ( rank == 0 ) write(output_unit,*) '!  Reading B external parameters!'
          read(inputHandle,nml=B_external,iostat=res,iomsg=errmess)
-         if ( res > 0 .and. rank==0) then
-            call abortRun(errmess)
-         endif
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
          if ( res < 0 .and. rank == 0 ) then
             write(output_unit,*) '! No B_external namelist found!'
          end if
@@ -566,32 +550,32 @@ contains
       if ( l_precession ) prec_angle = prec_angle*pi/180.0_cp
 
       !-- New checking of magnetic boundary condition.
-      if ( kbotb > 4 ) then
+      if ( l_mag .and. kbotb > 4 ) then
          call abortRun('! Only outer boundary conditions kbotb<=4 implemented!')
       end if
       if ( sigma_ratio == 0.0_cp ) then
          l_cond_ic=.false.
-         if ( kbotb == 3 ) then
+         if ( l_mag .and. kbotb == 3 ) then
             call abortRun('! For an insulating  IC with sigma_ratio=0, kbotb=3 is not appropriate')
          end if
       else
          l_cond_ic=.true.      ! tell the code to use a conducting inner core
-         if ( kbotb  /=  3 ) then
+         if ( l_mag .and. kbotb  /=  3 ) then
             call abortRun('! For a conducting IC with sigma_ratio>0, kbotb=3 is appropriate')
          end if
       end if
 
-      if ( ktopb > 4 ) then
+      if ( l_mag .and. ktopb > 4 ) then
          call abortRun('! Only outer boundary conditions ktopb<=4 implemented!')
       end if
       if ( conductance_ma == 0.0_cp ) then
          l_cond_ma=.false.
-         if ( ktopb == 3 ) then
+         if ( l_mag .and. ktopb == 3 ) then
             call abortRun('! For an insulating mantle with conductance_ma=0, ktopb=3 is not appropriate')
          end if
       else
          l_cond_ma=.true.      ! tell the code to use a conducting mantle
-         if ( ktopb  /=  3 ) then
+         if ( l_mag .and. ktopb  /=  3 ) then
             call abortRun('! For a conducting mantle with conductance_ma>0, ktopb=3 is appropriate')
          end if
       end if

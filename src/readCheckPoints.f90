@@ -247,9 +247,9 @@ contains
          call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, &
               &                       ratio1_old, ratio2_old, r_old)
 
-         if ( rscheme_oc%version /= rscheme_oc_old%version )         &
-         &    write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
-         &    rscheme_oc_old%version, rscheme_oc%version
+         if ( rscheme_oc%version /= rscheme_oc_old%version )             &
+         &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
+         &    rscheme_oc_old%version,'/', rscheme_oc%version
 
          allocate( lm2lmo(lm_max) )
 
@@ -927,9 +927,9 @@ contains
             read(n_start_file) r_old(:)
          end if
 
-         if ( rscheme_oc%version /= rscheme_oc_old%version )         &
-         &    write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
-         &    rscheme_oc_old%version, rscheme_oc%version
+         if ( rscheme_oc%version /= rscheme_oc_old%version )             &
+         &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
+         &    rscheme_oc_old%version,'/', rscheme_oc%version
 
          !-- Determine the old mapping
          allocate( lm2lmo(lm_max) )
@@ -1718,9 +1718,9 @@ contains
          call MPI_File_Read(fh, r_old(:), n_r_max_old, MPI_DEF_REAL, istat, ierr)
       end if
 
-      if ( rscheme_oc%version /= rscheme_oc_old%version )         &
-      &    write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
-      &    rscheme_oc_old%version, rscheme_oc%version
+      if ( rank == 0 .and. rscheme_oc%version /= rscheme_oc_old%version )&
+      &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')   &
+      &    rscheme_oc_old%version,'/', rscheme_oc%version
 
       !-- Determine the old mapping
       allocate( lm2lmo(lm_max) )
