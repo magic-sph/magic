@@ -690,9 +690,9 @@ contains
       end if
 
       !-- Right now it seems Finite differences don't cope very well with rot IC
-      if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
-         call abortRun('! There might be stability issues with rotating IC + FD')
-      end if
+      !if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
+      !   call abortRun('! There might be stability issues with rotating IC + FD')
+      !end if
 
       !-- Special matrix for z(l=1,m=0) which is the solid body rotation:
       l_z10mat=.false.
