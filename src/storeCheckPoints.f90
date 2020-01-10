@@ -286,7 +286,7 @@ contains
       type(type_tarray),   intent(in) :: dwdt
 
       !-- Output variables
-      complex(cp),      intent(inout) :: work(llm:ulm,n_r_max)
+      complex(cp),      intent(inout) :: work(:,:)
 
       !-- Local variables
       integer :: n_o
