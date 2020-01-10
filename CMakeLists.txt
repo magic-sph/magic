@@ -210,12 +210,12 @@ message(STATUS "FFTW3: '${FFTW3}'")
 
 if(USE_OMP)
    find_library(FFTW3_OMP NAME fftw3_omp
-       PATH $ENV{HOME}/local/lib
-            $ENV{HOME}/local/lib64
-            /usr/local/fftw/3.3.4_openmp/lib
-            $ENV{FFTW_ROOT}/lib
-            $ENV{FFTW_HOME}/lib              #Hydra
-            $ENV{FFTWDIR})                   #GWDG
+       PATHS $ENV{HOME}/local/lib
+             $ENV{HOME}/local/lib64
+             /usr/local/fftw/3.3.4_openmp/lib
+             $ENV{FFTW_ROOT}/lib
+             $ENV{FFTW_HOME}/lib              #Hydra
+             $ENV{FFTWDIR})                   #GWDG
    message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
 endif()
 
