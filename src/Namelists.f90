@@ -689,6 +689,11 @@ contains
          l_b_nl_cmb=.true.
       end if
 
+      !-- Right now it seems Finite differences don't cope very well with rot IC
+      if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
+         call abortRun('! There might be stability issues with rotating IC + FD')
+      end if
+
       !-- Special matrix for z(l=1,m=0) which is the solid body rotation:
       l_z10mat=.false.
       if ( ( l_rot_ma .and. ktopv == 2 ) .or. &
@@ -744,7 +749,7 @@ contains
       end if
 
       ! Setting up truncation is required to set up ldif and l_max_r
-      call initialize_truncation
+      call initialize_truncation()
 
       !-- Coeffs at radial levels:
       if ( l_r_fieldT ) l_r_field=.true.
