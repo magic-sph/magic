@@ -818,9 +818,9 @@ class MagicCoeffR(MagicSetup):
         self.l_max_r = lCut
         self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
 
-        self.lm_max_r = self.m_max_r*(self.l_max_r+1)/self.minc - \
+        self.lm_max_r = int(self.m_max_r*(self.l_max_r+1)/self.minc - \
                         self.m_max_r*(self.m_max_r-self.minc)/(2*self.minc) + \
-                        self.l_max_r-self.m_max_r+1
+                        self.l_max_r-self.m_max_r+1)
 
         # Get indices location
         idx_new = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
@@ -867,7 +867,6 @@ class MagicCoeffR(MagicSetup):
         self.zlm = zlm_new
         if field == 'B':
             self.ddwlm = ddwlm_new
-
 
     def movieRad(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
                  normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,
