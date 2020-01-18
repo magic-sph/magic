@@ -79,10 +79,21 @@ contains
             n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
          do ll=1,nLMBs2(1+rank)
             call zMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
+
+         !-- Special care when Inner Core or Mantle is free to rotate
+         if ( ktopv /= 1 .and. kbotv /= 1 .and. rscheme_oc%order <= 2  .and. &
+         &    rscheme_oc%order_boundary <= 2 .and. (.not. l_rot_ic) .and.    &
+         &    (.not. l_rot_ma) ) then ! Rigid at both boundaries
+            n_bands = rscheme_oc%order+1
+         else
+            n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+         end if
+
+         call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+
       else
          allocate( type_densemat :: zMat(nLMBs2(1+rank)) )
          allocate( type_densemat :: z10Mat )
