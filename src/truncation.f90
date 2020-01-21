@@ -3,11 +3,36 @@ module truncation
    ! This module defines the grid points and the truncation 
    !
 
+   use parallel_mod
    use precision_mod, only: cp
-   use logic, only: l_finite_diff, l_cond_ic
+   use logic, only: l_finite_diff, l_cond_ic, l_mag, lVerbose
    use useful, only: abortRun
 
+   
    implicit none
+   
+   public
+   
+   !---------------------------------
+   !-- Global Dimensions:
+   !---------------------------------
+   !   
+   !   minc here is sort of the inverse of mres in SHTns. In MagIC, the number
+   !   of m modes stored is m_max/minc+1. In SHTns, it is simply m_max. 
+   !   Conversely, there are m_max m modes in MagIC, though not all of them are 
+   !   effectivelly stored/computed. In SHTns, the number of m modes is 
+   !   m_max*minc+1 (therein called mres). This makes things very confusing 
+   !   specially because lm2 and lmP2 arrays (and their relatives) store m_max 
+   !   m points, and sets those which are not multiple of minc to 0.
+   !   
+   !   In other words, this:
+   !   > call shtns_lmidx(lm_idx, l_idx, m_idx/minc)
+   !   returns the same as 
+   !   > lm_idx = lm2(l_idx, m_idx)
+   !   
+   !-- TODO: ask Thomas about converting all variables associated with the 
+   !   global geometry (e.g. n_r_max, n_phi_max) to the "glb" suffix
+   !   (e.g. n_r_glb, n_phi_glb) to highlight the differences
 
    integer :: n_r_max       ! number of radial grid points
    integer :: n_cheb_max    ! max degree-1 of cheb polynomia
@@ -22,6 +47,8 @@ module truncation
    real(cp) :: fd_ratio      ! drMin over drMax (only when FD are used)
    integer :: fd_order       ! Finite difference order (for now only 2 and 4 are safe)
    integer :: fd_order_bound ! Finite difference order on the  boundaries
+   integer :: n_r_cmb
+   integer :: n_r_icb
  
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points
@@ -58,7 +85,67 @@ module truncation
    integer :: n_r_maxStr     ! Number of radial points for stress output
    integer :: n_theta_maxStr ! Number of theta points for stress output
    integer :: n_phi_maxStr   ! Number of phi points for stress output
- 
+   
+   !---------------------------------
+   !-- Distributed Dimensions
+   !---------------------------------
+   !  
+   !   Notation for continuous variables:
+   !   dist_V(i,1) = lower bound of direction V in rank i
+   !   dist_V(i,2) = upper bound of direction V in rank i
+   !   dist_V(i,0) = shortcut to dist_V(i,2) - dist_V(i,1) + 1
+   !   
+   !   Because continuous variables are simple, we can define some shortcuts:
+   !   l_V: dist_V(this_rank,1)
+   !   u_V: dist_V(this_rank,2)
+   !   n_V_loc: u_V - l_V + 1  (number of local points in V direction)
+   !   n_V_max: global dimensions of variable V. Basically, the result of 
+   !   > MPI_ALLREDUCE(n_V_loc,n_V_max,MPI_SUM)
+   !   
+   !   For discontinuous variables:
+   !   dist_V(i,0)  = how many V points are there for rank i
+   !   dist_V(i,1:) = an array containing all of the V points in rank i of 
+   !      communicator comm_V. Since the number of points is not necessarily 
+   !      the same in all ranks, make sure that all points of rank i are in 
+   !      dist_V(i,1:n_V_loc) and the remaining dist_V(i,n_V_loc+1:) points 
+   !      are set to a negative number.
+   !      
+   !   Notice that n_lm_loc, n_lmP_loc, n_lm, n_lmP and etc are not the same
+   !   as lm_max and lmP_max. The former stores the number of *local* points,
+   !   the later stores the total number of points in all ranks.
+   !   
+   !   V_tsid(x) = the inverse of dist_V (quite literally; the name is just 
+   !      written backwards; sorry!) V_tsid(x) returns which coord_V of 
+   !      comm_V stores/computes the point x. This is not necessary for all
+   !      dist_V, specially not for the contiguous ones (e.g. dist_r)
+   !   
+
+   !-- Distributed Grid Space 
+   integer, protected :: n_theta_loc, nThetaStart, nThetaStop
+   integer, protected :: n_r_loc, nRstart, nRstop
+   
+   !   Helpers
+   integer, protected :: nRstartMag
+   integer, protected :: nRstartChe
+   integer, protected :: nRstartTP 
+   integer, protected :: nRstartDC 
+   integer, protected :: nRstopMag 
+   integer, protected :: nRstopChe 
+   integer, protected :: nRstopTP  
+   integer, protected :: nRstopDC  
+   integer, protected :: n_lmMag_loc
+   integer, protected :: n_lmChe_loc
+   integer, protected :: n_lmTP_loc
+   integer, protected :: n_lmDC_loc
+   
+   type, public :: load
+      integer :: nStart
+      integer :: nStop
+      integer :: n_per_rank
+   end type load
+   
+   type(load), public, allocatable :: radial_balance(:)
+   
 contains
 
    subroutine initialize_truncation
@@ -142,6 +229,46 @@ contains
       n_phi_maxStr  =max(n_phi_maxSL,1)
 
    end subroutine initialize_truncation
+   
+   subroutine initialize_radial_data(n_r_max)
+      !
+      ! This subroutine is used to set up the MPI decomposition in the
+      ! radial direction
+      !
+      integer, intent(in) :: n_r_max ! Number of radial grid points
+
+      n_r_cmb=1
+      n_r_icb=n_r_max
+
+      allocate(radial_balance(0:n_procs-1))
+      call getBlocks(radial_balance, n_r_max, n_procs)   
+
+      nRstart = radial_balance(rank)%nStart
+      nRstop = radial_balance(rank)%nStop
+      n_r_loc = radial_balance(rank)%n_per_rank
+
+      if ( l_mag ) then
+         nRstartMag = nRstart
+         nRstopMag  = nRstop
+      else
+         nRstartMag = 1
+         nRstopMag  = 1
+      end if
+
+      if ( lVerbose ) then
+         write(*,"(4(A,I4))") "On rank ",rank," nR is in (", &
+               nRstart,",",nRstop,"), n_r_loc is ",n_r_loc
+      end if
+
+   end subroutine initialize_radial_data
+!------------------------------------------------------------------------------
+   subroutine finalize_radial_data
+
+      deallocate( radial_balance )
+
+   end subroutine finalize_radial_data
+   
+   
 !--------------------------------------------------------------------------------
    subroutine checkTruncation
       !  This function checks truncations and writes it
@@ -188,5 +315,85 @@ contains
       end if
 
    end subroutine checkTruncation
+   
+!------------------------------------------------------------------------------
+   subroutine getBlocks(bal, n_points, n_procs)
+
+      type(load), intent(inout) :: bal(0:)
+      integer, intent(in) :: n_procs
+      integer, intent(in) :: n_points
+
+      integer :: n_points_loc, check, p
+
+      n_points_loc = n_points/n_procs
+
+      check = mod(n_points,n_procs)!-1
+
+      bal(0)%nStart = 1
+
+      do p =0, n_procs-1
+         if ( p /= 0 ) bal(p)%nStart=bal(p-1)%nStop+1
+         bal(p)%n_per_rank=n_points_loc
+         if ( p == n_procs-1 ) then
+            bal(p)%n_per_rank=n_points_loc+check
+         end if
+         bal(p)%nStop=bal(p)%nStart+bal(p)%n_per_rank-1
+      end do
+
+   end subroutine getBlocks
+!------------------------------------------------------------------------------
+   subroutine get_openmp_blocks(nStart, nStop)
+
+      !--Input/Outputs variables:
+      integer, intent(inout) :: nStart
+      integer, intent(inout) :: nStop
+
+      !-- Local variables
+      integer :: n_threads, threadid, n_points_per_thread, n_points_left
+      integer :: n_points, n_glob_start
+#ifdef WITHOMP
+      integer :: n_max_threads
+#endif
+
+      n_points=nStop-nStart+1
+      n_glob_start=nStart
+
+#ifdef WITHOMP
+      n_threads=omp_get_num_threads()
+      threadid =omp_get_thread_num()
+      if ( n_points < n_threads) then
+         call omp_set_num_threads(n_points)
+         n_points_per_thread=1
+         n_points_left=0
+      else
+         n_points_per_thread=n_points/n_threads
+         n_points_left=n_points-n_threads*n_points_per_thread
+      end if
+#else
+      n_threads=1
+      threadid =0
+      n_points_per_thread=n_points
+      n_points_left=0
+#endif
+
+      !-- This is a way to reshuffle the points which are not in-balance
+      !-- more regularly
+      if ( threadid+1 <= n_points_left ) then
+         nStart = n_glob_start+threadid*n_points_per_thread+threadid
+         nStop  = nStart+n_points_per_thread
+      else
+         nStart = n_glob_start+threadid*n_points_per_thread+n_points_left
+         nStop  = nStart+n_points_per_thread-1
+      end if
+
+#ifdef WITHOMP
+      if ( n_points < n_threads) then
+         n_max_threads=omp_get_max_threads()
+         call omp_set_num_threads(n_max_threads)
+      end if
+#endif
+
+   end subroutine get_openmp_blocks
+   
 !-----------------------------------------------------------------------------
 end module truncation

@@ -5,7 +5,7 @@ module out_movie
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
-       &                 n_r_ic_max, n_r_max, l_axi
+       &                 n_r_ic_max, n_r_max, l_axi, n_r_icb
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
@@ -13,7 +13,6 @@ module out_movie
        &                 movieDipStrengthGeo, t_movieS, n_movie_type,       &
        &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
        &                 movie_file, movie_const
-   use radial_data, only: n_r_icb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
        &                       r_surface, r_cmb, r, r_ic
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag

@@ -7,8 +7,8 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use communications, only: gather_from_Rloc
-   use truncation, only: l_max, n_r_max, lm_max
-   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
+   use truncation, only: l_max, n_r_max, lm_max, n_r_icb,        &
+       & n_r_cmb, nRstart, nRstop
    use radial_functions, only: r_icb, rscheme_oc, kappa,         &
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &

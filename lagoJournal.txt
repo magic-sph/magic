@@ -1,0 +1,970 @@
+MERGING NOTES
+============================================
+
+nR_per_rank => n_r_loc 
+   Old name was misleading, as the number of radial points per rank is not the same.
+
+type(load), getBlocks, 
+get_openmp_blocks => from parallel.f90 to truncation.f90
+   Parallel module is for MPI setup only in the newest version. Distribution of points
+   is done in truncation.f90 (or somewhere else, where?)
+
+radial_data.f90 merged into truncation.f90
+   All the distribution of thetas, radial points and lms are done in truncation.f90
+   module, it complicates the module dependencies if we split them.
+
+
+lagoJournal [from lago-paral]
+============================================
+
+2019-09-20
+-------------------------------------------------------------------------------
+- [FIXED] "bug" in get_dr and etc, where work variable is alloacated as
+  (1:ulm-llm+1,1:n_rmax) but used as (1:n_f_max,1:n_rmax). This confuses the 
+  code when using the new layout, but should be okay when using the old layout
+- converted most of updateWP, only the hInt2Pol functions are missing
+
+2019-09-17
+-------------------------------------------------------------------------------
+- updateWP done until the update of w, p and ddw. I reordered the rescaling of 
+  rhs by wpMat_fac to a more efficient version.
+
+2019-09-10
+-------------------------------------------------------------------------------
+- [fixed] problem where matrices in updateS were being allocated for l_max
+  instead of for n_lo_loc.
+- updateWP done up to the computation of RHS and solution of linear system
+- Just a reminder: to compile with perflib, clean the build folder, 
+  uncomment the WITHPERF lines from CMakeList.txt and then call cmake as
+  cmake .. -DUSE_MPI=yes -DCMAKE_BUILD_TYPE=Release -DUSE_PRECOND=yes -DUSE_FFTLIB=MKL -DUSE_LAPACKLIB=MKL -DUSE_OMP=no -DUSE_SHTNS=yes
+
+
+2019-02-05
+-------------------------------------------------------------------------------
+- [BUG] in finalize_updateB. Something is wrong here and it will freeze 
+  the application, depending on the MPI ranks splitting. I commented the call
+  inside of finalize_LMLoop function to prevent this behaviour, but that's 
+  obviously not idea. Someone needs to look into that later.
+- [TODO] Parallelize legTFAS and similar functions. They are holding back 
+  several of the testsuite modules...
+
+2019-01-30
+-------------------------------------------------------------------------------
+- Found the bug in the transposition, and it was dumber than I could have 
+  possibly imagined
+- Cleaned the code; added the ml2r_transp object to handle transpositions
+- [fixed] a bug in geometry.f90:540
+  (n_procs_r=4, n_procs_theta=8)
+  - dynamo_benchmark
+  - varProps
+  - precession
+  - testTruncations
+  - testRadialOutputs
+  - hydro_bench_anel
+  - isothermal_nrho3
+  - dynamo_benchmark_condICrotIC
+- The following tests are now disabled:
+  ✘ finite_differences: uses lPowerCalc
+  ✘ boussBenchSat: uses lPowerCalc 
+  ✘ doubleDiffusion: uses lPowerCalc and updateXi (not yet parallelized)
+  ✘ testRestart: not sure, but it uses l_TO (not yet parallelized)
+  ✘ testMapping: not sure, but it uses l_TO (not yet parallelized)
+  ✘ testCoeffOutputs: diagnostics not parallelized
+  ✘ testOutputs: diagnostics not parallelized
+  ✘ testRMSOutputs: diagnostics not parallelized
+  ✘ testTOGeosOutputs: diagnostics not parallelized
+  ✘ testGraphMovieOutputs: diagnostics not parallelize
+  ✘ fluxPerturbation: [BUG]; check entry of 2018-11-20 for more details
+  ✘ varCond: uses movie_gather_frames_to_rank0 (not yet parallelized)
+  ✘ couetteAxi: m=0 and it confuses my implementation
+  
+  Command:
+  ./magic_wizard.py --use-mpi --use-mkl --use-shtns --mpicmd=srun --extracmd="n_procs_r=4 n_procs_theta=8" --nranks=32 --link --name="dynamo_benchmark, varProps, precession, testTruncations, hydro_bench_anel, isothermal_nrho3, dynamo_benchmark_condICrotIC"
+  
+
+2019-01-14
+-------------------------------------------------------------------------------
+- Alghouth I implemented the transposition successfully, something that I 
+  changed affected updateS function. It doesn't work anymore. I am reverting
+  back to 6d83b17963c and then re-introducting the transposition function.
+  I hope that this will work...
+
+2018-11-23
+-------------------------------------------------------------------------------
+- transform_old2new and transform_new2old working. Now I can start porting
+  the LMloop portion of the code
+- Added a ml_mapping for the LMLoop. The name of the LMLoop should be MLloop
+  (because it is transposed of LM)
+- I serisouly need to lay down the nomeclature. I think the following is
+  very reasonable:
+  - dist_A(rank,info) : contains info about each rank
+  - loc_A(info) : a pointer to dist_A(myrank). It is the same information, but
+    only for the current rank
+  - glb_A(info) : only occurs in mappings. This reflects the position of the
+    information in the local rank in the global coordinates, e.g. point
+    (m,l) in loc_A is index 10, but in the global coordinates, this point
+    would have index 133. This is important for converting from (lm,lr,ur)
+    to (llm:ulm,r), for instance.
+  - There is still a serious problem with this approach, and that is that
+    sometimes there is only "A" (without prefixes or suffixes) and sometimes
+    it refers to dist_, sometimes to _loc, sometimes to glb usw. So far only 
+    the map_mlo is using this nomenclature
+
+
+2018-11-20
+-------------------------------------------------------------------------------
+- Re-taking MagIC. Current status of magic_wizard tests:
+  (n_procs_r=8, n_procs_theta=4)
+  - dynamo_benchmark
+  - varProps
+  ✘ finite_differences: for some reason, this simply does not find the required
+    files. I'll check this later...
+  ✘ boussBenchSat: this enables lPowerCalc flag, which calls some of the 
+    diagnostics. This test passes with BUILD_TYPE=Release, but not 
+    BUILD_TYPE=Debug (it fires floating point invalid error) 
+  - doubleDiffusion
+  ✘ couetteAxi: here m=0. It confuses my implementation. I need to 
+                rethink the distribution in this case, or force 
+                n_procs_theta=1.
+  - precession
+  - testRestart
+  ✘ testTruncations: problem in geometry.f90:506; I may have done something extra 
+    dumb here...
+  - testMapping
+  - testRadialOutputs
+  - hydro_bench_anel
+  ✘ fluxPerturbation: there is a [BUG] here. It happens at line output.f90:809 
+    and it is only fired if cmake is called with BUILD_TYPE=Debug. In this 
+    line, it generates a NaN (sqrt of a negative real number) which is 
+    neglected at BUILD_TYPE=Release. I've reported this before, but even in 
+    the master branch (779796945c82) this bug is still present.
+  - isothermal_nrho3
+  - dynamo_benchmark_condICrotIC
+  ✘ varCond: it calls movie_gather_frames_to_rank0 which is not yet parallelized
+  
+  Command:
+  ./magic_wizard.py --use-mpi --use-mkl --use-shtns --mpicmd=srun --extracmd="n_procs_r=4 n_procs_theta=8" --nranks=32 --link --name="dynamo_benchmark, varProps, finite_differences, boussBenchSat, doubleDiffusion, couetteAxi, precession, testRestart, testTruncations, testMapping, hydro_bench_anel, fluxPerturbation, isothermal_nrho3, dynamo_benchmark_condICrotIC, varCond"
+
+2018-06-19
+-------------------------------------------------------------------------------
+- [created] created distribute_mlo
+- First implementation of distribute_mlo. There are two patterns possible 
+  patterns, "lfirst" and "mfirst". None are optimal but "mfirst" is a little 
+  bit fairer.
+
+2018-06-12
+-------------------------------------------------------------------------------
+- [created] radial_map in LMMapping
+- [replaced] st_map by map_glbl_st
+- [todo] replace map_glbl_st by map_dist_st. This is for the distant future.
+
+2018-06-12
+-------------------------------------------------------------------------------
+- [merged] distribute_theta -> LMmapping
+  - initialize_mappings will allocate all mappings (instead of 
+    initialize_blocking)
+- Refactored fft_mkl a little bit too (just stylistic changes)
+- [deleted] lm_dist and lmP_dist. Those were redundant, as all the information
+  is already in dist_map%lm2 and dist_map%lmP2.
+
+2018-06-11
+-------------------------------------------------------------------------------
+- [moved] initialize_shtns and initialize_fft_phi to magic.f90
+- [created] mapping.f90
+- I will remove the type "mappings". This removes the abstraction but also 
+  simplifies several calls and removes the need for the lm2, lmP2 (and so on) 
+  pointers from blocking, which were quite redundant. Also, the notation was 
+  somewhat misleading (though I'm not fully certain of what notation would be 
+  really the best in this case.
+
+2018-06-07
+-------------------------------------------------------------------------------
+- [removed] all rIterThetaBlocking_* excpet _sthns. The others were deprecated
+  and adding a lot of complexity in the refactoring.
+  In any case it doesn't fell like a good idea to have those options 
+  implemented if now MagIC is assumed to always run with SHtns.
+
+- [removed] radial_data
+
+- magic_wizard passes all (relevant) tests. 
+
+- [renamed] truncation.f90 -> geometry.f90
+   - [renamed] initialize_truncation -> initialize_global_geometry
+   - [created] initialize_distributed_geometry
+      - [calls] initialize_gs (grid space)
+      - [calls] initialize_lm
+      - [calls] initialize_ml
+- [reordered] several initialization calls in magic.f90
+   - initialize_memory_counter after readNamelists
+   - initialize_global_geometry (from readNamelists)
+   - initialize_num_param
+   - initialize_mpi_decomposition
+   - initialize_output
+   - several calls reorganized:
+     - ldif moved from readNamelists to num_param
+     - several initializations from readNamelist moved into initialize_output
+    
+2018-06-05
+-------------------------------------------------------------------------------
+- [TODO] Checks if everything is correct for n_r_cmb/=1 and n_r_icb/=n_r_max
+  - dist_r is taking n_r_cmb into account! See distribute_gs function for more
+    details
+
+2018-05-29
+-------------------------------------------------------------------------------
+- A large restructuring is incoming!
+- Adopting one comment structure. Comments follow the indentation of the 
+  subroutine, e.g.
+  
+      subroutine foo
+         !
+         !   This subroutine does X
+         !
+         !   This line
+         !   > call my_function
+         !   is more performant than this line
+         !   > call another_function.
+         !   
+         !   Comments are allowed to go as far as 80 characters width, with 
+         !   many exceptions
+         !   
+         !   Author: Rafael Lago
+         !
+         !-- TODO blablabal
+         !
+      end subroutine
+         
+   This change will take a while to consolidate, as I re-write the modules.
+    
+- parallel_mod.f90 
+   - Big header explaining some of the changes.
+   - [renamed] n_procs_* -> n_ranks_*
+   - [renamed] comm_*. Several modifications. Read comments.
+   - [renamed] initialize_cartesian -> initialize_mpi_decomposition 
+   - [renamed] parallel -> initialize_mpi_world
+   - [renamed] finalize_cartesian -> finalize_mpi_decomposition
+
+- communications.f90 
+  - [moved] slice_* and gather_* from truncation.f90
+  - [moved] transpose_* from truncation.f90
+
+- truncation.f90 
+  - [moved] slice_* and gather_* to communications.f90
+  - [moved] transpose_* to communications.f90
+
+- [moved] everything from radial_data.f90 into truncation.f90 
+   
+   
+- After some further reading of the code, I've decided to re-rename some of the
+  variables.
+  - Rloc had been renamed to "dist". But now that I'm parallelizing the LMloc
+    variables, I'll need to distinguish them again. I'm renaming all "dist"
+    fields into Rdist instead. In the future, they will all be re-re-renamed
+    to Rloc again
+  - LMloc fields will have a distributed version: MLdist
+    Yes, M first, then L, because M is the fast direction for this part of the
+    code. I will have to modify the name of some other variables for that to be
+    clear though. The whole module "LMLoop" might need renaming also!
+    In the future, they will be re-renamed to MLloc again.
+
+- The following bash tricks may help future porting/modification.
+
+   ⚫ change STRING_A for STRING_B in every .F90 file:
+   for x in *.f90 ; do sed -i "s/STRING_A/STRING_B/g" $x ; done
+   
+   ⚫ delete all lines containing STRING_A in every .F90 file:
+   for x in *.f90 ; do sed -i "/STRING_A/d" $x ; done
+
+2018-05-28
+-------------------------------------------------------------------------------
+- Snake ordering for m-distribution implemented
+
+2018-05-02
+-------------------------------------------------------------------------------
+- I honestly have no idea what is going on with lorentz_torque_ic and the likes
+  inside of do_iteration. It is set to zero, then passed, then copied, never 
+  used, then set to zero again... I'll just not touch anything related to 
+  lorentz_torque_ic, but I think that some of the allreduces inside 
+  get_lorentz_torque can be merged with the BCAST in the step_time cll, or at 
+  least put side-by-side.
+- step_time.f90
+   - [renamed] br_vt_lm_cmb_dist -> br_vt_lm_cmb
+   - [renamed] br_vp_lm_cmb_dist -> br_vp_lm_cmb
+   - [renamed] br_vt_lm_icb_dist -> br_vt_lm_icb
+   - [renamed] br_vp_lm_icb_dist -> br_vp_lm_icb
+- nonlinear_bcs.f90
+   - [parallelized] get_b_nl_bcs. Some arguments have been removed too.
+   - [TODO] test get_b_nl_bcs. It is not called with currently working 
+     parameters, for any of the tests from the magic_wizard
+
+2018-04-23
+-------------------------------------------------------------------------------
+- rIterThetaBlocking_shtns.f90
+   - Some memory optimization:
+      - [renamed] nl_lm_glb -> nl_lm
+      - [renamed] gsa_glb -> gsa
+      - [WARNING] Diagnostic functions will step outside the bounds
+      - [TODO] parallelize diagnostics
+- out_movie_file.f90
+   - [renamed] w_Rloc and b_Rloc -> *_dist
+      - [WARNING] Do not call this function! It will step outside of the bounds
+- outPar.f90
+   - [renamed] s_Rloc, ds_Rloc, p_Rloc, dp_Rloc -> *_dist
+      - [WARNING] Do not call this function! It will step outside of the bounds
+      - [TODO] parallelize this module
+- communication.f90
+   - [new] r2lo_redist_start_dist
+   - [new] lo2r_redist_start_dist
+   - [new] lo2r_redist_wait_dist
+      -[TODO] These is not "properly" parallel; it is just a quick cheat 
+- fields.f90
+   - Some memory optimization:
+       - [renamed] *_Rloc_container -> *_dist_container
+       - [renamed] *_Rloc -> *_dist
+       - all those variables are now (r,θ)-distributed
+- step_time.f90
+   - Some memory optimization:
+       - [renamed] dflowdt_Rloc_container => dflowdt_dist_container
+       - [renamed] dxidt_Rloc_container => dxidt_dist_container
+       - [renamed] dsdt_Rloc_container => dsdt_dist_container
+       - [renamed] dbdt_Rloc_container => dbdt_dist_container
+       - all those variables are now (r,θ)-distributed
+
+2018-04-19
+-------------------------------------------------------------------------------
+- rIterThetaBlocking_shtns.f90
+   - [deleted] transform_to_lm_space_shtns
+   - [deleted] transform_to_grid_space_shtns
+   - [renamed] transform_to_grid_space_dist -> transform_to_grid_space_shtns 
+   - [renamed] transform_to_lm_space_dist -> transform_to_lm_space_shtns 
+   - [renamed] nl_lm -> nl_lm_glb (should not be used)
+   - [renamed] nl_lm_dist -> nl_lm
+   - [renamed] gsa -> gsa_glb (should not be used)
+   - [renamed] gsa_dist -> gsa
+   - [commented] graphOut_mpi (in both branches)
+   - [moved] slice_all to step_time.f90
+   - [moved] gather_all to step_time.f90
+   - l_TO has been disabled in Namelists.f90 both in master and my branch!
+
+- step_time.f90
+   - [moved] slice_all from rIterThetaBlocking_shtns.f90
+   - [moved] gather_all from rIterThetaBlocking_shtns.f90
+
+2018-04-18
+-------------------------------------------------------------------------------
+- I'm removing boussBenchSat test from the pool too. It has lPowerCalc flag
+  activated, which calls get_visc_heat, which calls legTFAS2. The 
+  parallelization of anything calling legTFAS2 has been postponed. As of now, 
+  boussBenchSat test passes whenever BUILD_TYPE=Release but fails for Debug 
+  (because of floating point invalid error).
+
+✔ Namelists.f90
+   - line 314 sets l_TO = .false., since the TO.f90 module has not been
+     parallelized yet
+
+2018-04-13
+-------------------------------------------------------------------------------
+- I've been using the following commit as "original-magic":
+  - 1a90f4c4248bf766b0816cc652ae3ce11fe89368
+  - Date:   Tue Jun 27 10:12:47 2017 +0200
+
+✔ leg_helper.f90
+  - [parallelized] initialize: I basically changed the name of the variables to
+    reflect their functionality.
+  - [parallelized] legPrepG: This won't work for sequential cases
+  ✘ [TODO] legPrep_IC
+  ✘ [TODO] legPrep
+  
+✘ [TODO] replace MPI_DOUBLE_COMPLEX by MPI_DEF_COMPLEX in 
+  truncation.f90 (in special for the gather functions)
+
+✔ added rank2cart_r, rank2cart_theta and cart2rank variables to help
+  identifying the distribution of the cartesian grid.
+  
+✔ dimensions of cart_comm flipped to favour theta-locality
+
+✔ Current status of magic_wizard tests:
+  (n_procs_r=8, n_procs_theta=4)
+  - dynamo_benchmark
+  - varProps
+  - finite_differences
+  ✘ boussBenchSat: this enables lPowerCalc flag, which calls some of the 
+                diagnostics. This test passes with BUILD_TYPE=Release, but not 
+                BUILD_TYPE=Debug (it fires floating point invalid error)
+  - doubleDiffusion
+  ✘ couetteAxi: here m=0. It confuses my implementation. I need to 
+                rethink the distribution in this case, or force 
+                n_procs_theta=1.
+  - precession
+  - testRestart
+  - testTruncations
+  - testMapping
+  - testRadialOutputs
+  - hydro_bench_anel
+  ✘ fluxPerturbation: there is a [BUG] here. It happens at line output.f90:809 
+                and it is only fired if cmake is called with BUILD_TYPE=Debug. 
+                In this line, it generates a NaN (sqrt of a negative real 
+                number) which is neglected at BUILD_TYPE=Release. I've reported
+                this before, but even in the master branch (779796945c82) this
+                bug is still present.
+  - isothermal_nrho3
+  - dynamo_benchmark_condICrotIC
+  ✘ varCond: it calls movie_gather_frames_to_rank0 which is not yet parallelized
+  ✘ testOutputs:           diagnostics not yet parallelized
+  ✘ testRMSOutputs:        diagnostics not yet parallelized
+  ✘ testCoeffOutputs:      diagnostics not yet parallelized
+  ✘ testGraphMovieOutputs: diagnostics not yet parallelized
+  ✘ testTOGeosOutputs:     diagnostics not yet parallelized
+  
+  Command:
+  ./magic_wizard.py --use-mpi --use-mkl --use-shtns --mpicmd=srun --extracmd="n_procs_r=4 n_procs_theta=8" --nranks=32 --link --name="dynamo_benchmark, varProps, finite_differences, boussBenchSat, doubleDiffusion, couetteAxi, precession, testRestart, testTruncations, testMapping, hydro_bench_anel, fluxPerturbation, isothermal_nrho3, dynamo_benchmark_condICrotIC, varCond"
+
+
+2018-04-03
+-------------------------------------------------------------------------------
+✔ distributed_theta.f90
+  - Created this module to workaround some circular dependencies. Lots
+  of things which are in blocking.f90, truncation.f90 and parallel.f90
+  should be moved in here in the future, if possible. For the moment,
+  this is merely doing the distributed mapping part. In the future, we 
+  will maybe have the following replacements
+    - initialize_distributed_theta => initialize_blocking
+
+
+✔ get_td.f90
+  - copied get_td function into arrays_dist's get_td_dist. It receives
+  nl_lm_glb as argument
+  - I'm reworking those indexes because they are quite confusing.
+  First, I'm not using anything like lm2 mapping arrays. I just store
+  the first position in lm_dist(coord_theta,m,3) and the last in 
+  lm_dist(coord_theta,m,4). Here are some equivalences:
+    - lm   = lm_dist(coord_theta,m,3) + l
+    - lmP  = the same as lm, but for l_max+1 (use lmP_dist)
+    - lmA  = the same as lm, but for l+1 (shifted)
+    - lmPA = the same as lmP, but for l+1 (shifted)
+
+2018-03-29
+-------------------------------------------------------------------------------
+✔ Theta Blocking
+  - in the shtns version, the Theta Blocking is mostly disabled already,
+  because sizeThetaB is set to n_theta_max (n_theta_loc, after the 
+  parallelization) and thetaStart is always equal 1. So these are the
+  common changes:
+  - sizeThetaB => n_theta_loc
+  - nThetaStart = n_theta_beg
+  - nThetaStop = n_theta_end (eq. n_theta_beg + n_theta_loc - 1)
+  - nThetaBlocks = 1
+
+
+- The reviewed callstack for the do_iteration, starting from do_iteration is:
+   ⚫    this%TO_arrays%set_zero
+   ⚫    this%leg_helper%legPrepG
+   ⚫    this%nl_lm%set_zero
+   ⚫    this%transform_to_grid_space
+   ⚫    this%gsa%get_nl              
+   ⚫    this%transform_to_lm_space   
+   ⚫    get_br_v_bcs                 
+   ⚫    get_lorentz_torque           
+   ⚫    courant                      
+   ⚪    graphOut_mpi                 
+   ⚪    probe_out                    
+   ⚪    get_helicity     [nl_special_calc]            
+   ⚪    get_visc_heat    [nl_special_calc]            
+   ⚪    get_nlBLayers    [nl_special_calc]            
+   ⚪    get_fluxes       [nl_special_calc]            
+   ⚪    get_perpPar      [nl_special_calc]            
+   ⚪    store_movie_frame            
+   ?    get_dtBLM                    
+   ?    getTOnext                    
+   ?    getTO                        
+   ⚫    this%nl_lm%get_td            
+   ?    getTOfinish                  
+   ?    get_dH_dtBLM                 
+
+2018-03-28
+-------------------------------------------------------------------------------
+✔ courant.f90:courant parallelized
+    - OMP & thetaBlock removed
+    - (nrp,nfs) => (n_phi_max,n_theta_beg:n_theta_end)
+    - n_theta_rel=1,n_theta_block => n_theta=n_theta_beg,n_theta_end
+    
+    
+✔ outRot.f90:get_lorentz_torque parallelized
+    - OMP & thetaBlock removed
+    - (nrp,*) => (n_phi_max,n_theta_beg:n_theta_end)
+    - added mpi_allreduce 
+
+✘ [TODO] in do_iteration_ThetaBlocking_shtns, do I need to set the 
+  br_vt_lm_cmb (and its relatives) to zero *every* function call, or 
+  just when n_r_cmb (and relatives) are true?
+
+✔ Some equivalence between variables if n_procs_theta=1
+   - n_theta_beg = 1
+   - nfs = n_theta_end = n_theta_max = n_theta_loc
+   - lmP_loc = lmP_max
+   - nrp = n_phi_max
+   - rIterThetaBlocking_shtns_t%sizeThetaB = n_theta_loc
+
+✔ nonlinear_bcs.f90: 
+   ✔ get_br_v_bcs parallelized
+   ✔ v_rigid_boundary parallelized
+   ✘ (get_b_nl_bcs) [TODO]
+   - OMP & thetaBlock removed
+   - thetaBlock removed
+   - lmP_max => lmP_loc
+   - (nrp,*) => (n_phi_max,n_theta_beg:n_theta_end)
+
+✔ get_nl.f90:get_nl_shtns parallelized
+    - nTheta=1,sizeThetaB => nTheta=n_theta_beg,n_theta_end (loops)
+
+✔ To run interactive tests:
+    ./run_interactive n_procs_r=8 n_procs_theta=4
+  for instance. 
+
+2017-12-18
+-------------------------------------------------------------------------------
+✔ Scalability tests performed (added in the beamer). Little loop used to 
+  submit many jobs at once:
+  for i in 1 2 4 8 16 32 64 128 256 ; do  ./draco_job.sh -n_procs_theta=$i -r0=8 -theta0=6144 -template=strong -name=strong_r2_t$i ; done;
+
+✘ [TODO] Modify  gather_all and slice_all subroutines to start with
+     if (n_procs_theta <= 1) return
+  so that I can freely call it without checking n_procs_theta
+✘ [TODO] Modify transform_to_grid_space_dist to have 
+     if (n_procs_theta <= 1) call this%transform_to_grid_space_shtns(this%gsa)
+  so that I can freely call it without having to check n_procs_theta 
+✔ [TODO] Continue the porting of do_iteration procedure. Next step is get_br_v_bcs
+  
+
+2017-12-12
+-------------------------------------------------------------------------------
+✔ Temporarily adding this to CMakeLists.txt
+   add_definitions(-DWITHPERF)
+   add_library(ooperf SHARED IMPORTED)
+   set_property(TARGET ooperf PROPERTY IMPORTED_LOCATION /u/system/soft/SLES122/common/perflib/3.2/amd64_sles12/gnu-6.3/lib/libooperf.so)
+   include_directories(/u/system/soft/SLES122/common/perflib/3.2/amd64_sles12/gnu-6.3/include/)
+   link_libraries(ooperf)
+   add_library(spina SHARED IMPORTED)
+   set_property(TARGET spina PROPERTY IMPORTED_LOCATION /u/lrafa/local/libspina/intel-17/impi-17.3/lib/libspina.so)
+   include_directories(/u/lrafa/local/libspina/intel-17/impi-17.3/include)
+  to include and link against perflib and libspina. I am yet to properly add 
+  those options to cmake.
+
+2017-12-12
+-------------------------------------------------------------------------------
+✔ git-rebase completed
+   ✘ Many problems were found because I have duplicated some
+     modules. For instance, rIterDistributed was a minor-modified clone of 
+     rIterThetaBlocking_shtns. Git updated rIterThetaBlocking_shtns, but let
+     rIterDistributed untouched.
+
+✔ to solve the aforementioned problem, I merged rIterDistributed 
+  with rIterThetaBlocking_shtns. This is will speed up future git-rebases
+
+✔ Wizard script updated. Following options were added:
+   ⚫  name: runs only a specific test, instead of all of them
+   ⚫  extracmd: passes this argument, as a string, to the magic.exe executable. 
+      Used mostly for n_procs_*
+   ⚫  link: creates a symlink to the executabe in build/ directory, instead of
+      rebuilding the whole thing
+
+✔ Validating the modifications with the following command:
+   module purge && module load intel/17.0 impi/2017.3 hdf5-mpi fftw mkl cmake anaconda/2
+   export FC=mpiifort
+   export CC=mpiicc
+   export CXX=mpiicpc
+   ./magic_wizard.py --use-mpi --use-mkl --use-shtns --mpicmd=srun --extracmd="n_procs_r=4 n_procs_theta=2" --nranks=8
+   run from samples directory.
+
+✘ [TODO] Some of the notation is inconsistent; I'm not sure if the name of the input
+  of some of the functions make sense (specially the torpol_ and pol_ ones). 
+  That can be arranged later.
+
+✘ [TODO] The code uses nRStart:nRStop for the partition of the radial
+  points, but nThetaStart:nThetaStop are related to the blocking.f90 
+  module (implemented to favour cache-hit). I cannot use the same nomenclature
+  for θ-partition. At the moment, I'm using n_theta_beg:n_theta_end.
+  
+✔ Build command:
+   module purge && module load intel/17.0 impi/2017.3 hdf5-mpi fftw mkl cmake anaconda/2
+   export FC=mpiifort
+   export CC=mpiicc
+   export CXX=mpiicpc
+   cmake .. -DUSE_MPI=yes -DCMAKE_BUILD_TYPE=Release -DUSE_PRECOND=yes -DUSE_FFTLIB=MKL -DUSE_LAPACKLIB=MKL -DUSE_OMP=no -DUSE_SHTNS=yes
+   make -j VERBOSE=1
+
+✘ [TODO] review the callstack (it changed, since now I'm using shtns)
+   
+2017-12-10
+-------------------------------------------------------------------------------
+✔ Spherical Harmonics Transform porting completed.
+
+New modules:
+
+⚫ arrays_dist - copy of nonlinear_lm_t and grid_space_arrays_t,
+   implemented with a "gather_all" and "slice_all" function. Those will be used
+   to aid the porting (bottom-up strategy)
+
+⚫ rIterThetaDistributed - replaces rIterThetaParallel (the name makes more
+   sense). Acts just like rIterThetaBlocking_shtns, but has in addition:
+   ⚫ nonlinear_lm_dist_t
+   ⚫ grid_space_arrays_dist_t
+   ⚫ transform_to_grid_space_dist
+   ⚫ transform_to_lm_space_dist
+   ⚫ slice_all
+   ⚫ gather_all
+   Those are in *addition* to their already existing fields (for the moment).
+   The slice and gather functions merely call the respective gather and slice
+   functions from the arrays_dist_t, but also slices some of the variables in
+   field.f90
+
+Modified modules:
+
+⚫ fields - added the following fields:
+   ⚫ s_dist
+   ⚫ ds_dist
+   ⚫ z_dist
+   ⚫ dz_dist
+   ⚫ p_dist
+   ⚫ dp_dist
+   ⚫ b_dist
+   ⚫ db_dist
+   ⚫ ddb_dist
+   ⚫ aj_dist
+   ⚫ dj_dist
+   ⚫ w_dist
+   ⚫ dw_dist
+   ⚫ ddw_dist
+   ⚫ xi_dist
+   which are the θ-distributed counterpart of their _Rloc versions.
+   TODO: Allocate them using containers just like the others
+   These fields will be later deleted; the _Rloc fields will be used for 
+   the distributed version as well, once the whole code is aware of the 
+   distribution.
+
+⚫ nonlinear_bcs - added
+   ⚫ v_rigid_boundary_dist
+    which is called in transform_to_grid_space
+    -> old v_rigid_boundary removed
+    -> v_rigid_boundary_dist renamed to v_rigid_boundary
+
+
+⚫ fft_mkl
+   ⚫ init_fft_phi
+   ⚫ fft_phi_loc (does not transpose! it merely performs the FFT locally)
+
+⚫ truncation - added the following functions
+   ⚫ gather_f   
+   ⚫ gather_Flm
+   ⚫ gather_FlmP
+   ⚫ slice_f   
+   ⚫ slice_Flm
+   ⚫ slice_FlmP
+   ⚫ transpose_theta_m
+   ⚫ transpose_m_theta
+   ⚫ lmP_dist(:,:,:)
+   ⚫ lm_dist(:,:,:)
+   The domain is distributed like this:
+   
+   n_theta_dist(i,1): first theta point in the i-th rank
+   n_theta_dist(i,2): last theta ppoint in the i-th rank
+   n_theta_beg: shortcut to n_theta_dist(coord_theta,1)
+   n_theta_end: shortcut to n_theta_dist(coord_theta,2)
+   n_theta_loc: number of theta points in the local rank
+   
+   lm_dist - (n_procs_theta, n_m_ext, 4)
+   lm_dist(i,j,1): value of the j-th "m" in the i-th rank
+   lm_dist(i,j,2): length of the j-th row in Flm_loc
+   lm_dist(i,j,3): where the j-th row begins in Flm_loc
+   lm_dist(i,j,4): where the j-th row ends in Flm_loc
+   
+   lmP_dist(i,j,k) : same as above, but for l_max+1 instead of l_max
+   Those modules are richly commented.
+   
+2017-07-27
+-------------------------------------------------------------------------------
+✔ Implemented the following functions:
+
+initialize_fft_phi  (fft_mkl.f90)
+fft_phi             (fft_mkl.f90)
+finalize_fft_phi    (fft_mkl.f90)
+
+spat_to_SH_parallel (shtns.f90)
+
+spat_to_SH_parallel in shtns.f90, calls the spat_to_SH, then calls the 
+spat_to_SH_ml in a loop and compare the results. At this moment this is 
+merely for debugging, but later I'll clean it up.
+
+fft_phi performs n_theta_max times a 1D DFT on an (n_phi_max,n_theta_max)
+input, with a (m_max, n_theta_max) output.
+
+The spat_to_SH_parallel is particularly verbose at the moment (output
+file is now 500MB more or less!!) but as mentioned, this is just for 
+debugging. In draco:
+
+srun -n 8 --label ${binary} n_procs_r=4 n_procs_theta=2 ${namelist_file}) > output.txt
+cat ./output.txt | grep "^0:" | head -n 1000
+
+
+2017-07-21
+-------------------------------------------------------------------------------
+Currently compiling SHtns with:
+./configure --enable-mkl --enable-magic-layout --disable-openmp --prefix=$HOME/local/
+make
+make install
+
+Use nm ~/local/lib/libshtns.a to see all the comprised functions.
+
+Currently compiling magIC with:
+cd build
+rm -Rf ./*
+cmake .. -DUSE_SHTNS=yes -DUSE_OMP=no
+make VERBOSE=1
+
+Test magIC with
+cd ./
+
+
+2017-07-20
+-------------------------------------------------------------------------------
+Functions from SHtns relevant for the parallelization (according to 
+Thomas):
+
+⚫ void spat_to_SH_ml (shtns_cfg, int im, cplx *Vr, cplx *Ql, int ltr)
+⚫ void SH_to_spat_ml (shtns_cfg, int im, cplx *Ql, cplx *Vr, int ltr)
+⚫ void spat_to_SHsphtor_ml (shtns_cfg, int im, cplx *Vt, cplx *Vp, cplx *Sl, cplx *Tl, int ltr)
+⚫ void SHsphtor_to_spat_ml (shtns_cfg, int im, cplx *Sl, cplx *Tl, cplx *Vt, cplx *Vp, int ltr)
+⚫ void SHsph_to_spat_ml (shtns_cfg, int im, cplx *Sl, cplx *Vt, cplx *Vp, int ltr)
+⚫ void SHtor_to_spat_ml (shtns_cfg, int im, cplx *Tl, cplx *Vt, cplx *Vp, int ltr)
+⚫ void spat_to_SHqst_ml (shtns_cfg, int im, cplx *Vr, cplx *Vt, cplx *Vp, cplx *Ql, cplx *Sl, cplx *Tl, int ltr)
+⚫ void SHqst_to_spat_ml (shtns_cfg, int im, cplx *Ql, cplx *Sl, cplx *Tl, cplx *Vr, cplx *Vt, cplx *Vp, int ltr)
+
+Currently called functions in magIC:
+⚫ void spat_to_SH (shtns_cfg shtns, double *Vr, cplx *Qlm)
+⚫ void SH_to_spat (shtns_cfg shtns, cplx *Qlm, double *Vr)
+⚫ void spat_to_SHsphtor (shtns_cfg, double *Vt, double *Vp, cplx *Slm, cplx *Tlm)
+⚫ void SHsphtor_to_spat (shtns_cfg, cplx *Slm, cplx *Tlm, double *Vt, double *Vp)
+⚫ void SHsph_to_spat (shtns_cfg, cplx *Slm, double *Vt, double *Vp)
+⚫ void SHtor_to_spat (shtns_cfg, cplx *Tlm, double *Vt, double *Vp)
+⚫ void spat_to_SHqst (shtns_cfg, double *Vr, double *Vt, double *Vp, cplx *Qlm, cplx *Slm, cplx *Tlm)
+⚫ void SHqst_to_spat (shtns_cfg, cplx *Qlm, cplx *Slm, cplx *Tlm, double *Vr, double *Vt, double *Vp)
+
+Function call is practically the same, except that second argument is 
+the m index (im), and the last argument is the ltr (which is lmax, 
+obtained from shtns_calc_nlm()). Also, the V, Q, S and T are all COMPLEX for the 
+_ml functions, because no FFT is performed for them.
+
+Relevant dimensions from magIC:
+⚫ lmP_max=lm_max + n_m_max                   @truncation:95
+⚫ nrp = n_phi_max  , used for real fields    @truncation:102 (for SHTNS only)
+⚫ ncp = n_phi_max/2, used for complex fields @truncation:106 (for SHTNS only) 
+⚫ nfs = n_theta_max                          @blocking:269   (for SHTNS only)
+
+Relevant fields from magIC:
+⚫ general_arrays_t%*  REAL  nrp×nfs     allocated@get_nl:79~93
+⚫ nonlinear_lm_t%*    CMPLX lmP_max     allocated@get_td:67~80
+
+Initialization of shtns:
+Config_0:
+⚫ call shtns_set_size(l_max  , m_max/minc, minc, SHT_ORTHONORMAL + SHT_NO_CS_PHASE)
+Config_1:
+⚫ call shtns_set_size(l_max+1, m_max/minc, minc, SHT_ORTHONORMAL + SHT_NO_CS_PHASE)
+
+Notation Conversion:
+✘ shtns's lmax => magIC's l_max (+1 for Config_1)
+✘ shtns's mmax => magIC's m_max/minc
+✘ shtns's mres => magIC's minc
+
+2017-07-18
+-------------------------------------------------------------------------------
+Total change of plans after last conversation with Thomas.
+
+The parallel implementation is to be taken from the _shtns version
+of the rIterTheta. SHtns library already supports the transforms
+to a specific m and a specific l range, meaning that it should be
+trivial to simply call those routines.
+
+So now rIterThetaParallel is a copy of rIterThetaBlocking_shtns
+merged with rIteration (to get rid of the transform_to_grid_space
+defined in the later module).
+
+2017-06-21
+-------------------------------------------------------------------------------
+Module legendre_grid_to_spec will be dropped in favour of 
+legendre_parallel for MPI version. I'll copy the functions as they are
+needed and adapt them accordingly.
+
+legendre_spec_to_grid module is overcomplicated because of the blocking
+nThetaStart < nTheta < nThetaStart-1+sizeThetaB (implemented to favour 
+cache-hit). 
+
+Dunno if I should keep it or throw it all away. Cache-Hit will be 
+secondary if it incurs in extra allreduces, and if I understood 
+correctly, this is basically a whole bunch of inner-products (which 
+require an allreduce in parallel cases).
+
+Maybe for the MPI sake it would be better to group the leg_helper
+vectors into a matrix and assign them pointers e.g. 
+leg_helper%matrix(:,sR) instead of leg_helper%sR.
+
+This would turn lots of things into a simple matrix-vector product,
+and therefore linearly scalable. This is all speculation, maybe it will
+be better to keep current structure.
+
+
+
+2017-06-02
+-------------------------------------------------------------------------------
+The callstack for the do_iteration, starting from rIterThetaParallel is:
+
+- do_iteration_ThetaParallel (rIterThetaParallel:450)
+-    loop                (rIterThetaParallel:557)
+✔    this%transform_to_grid_space (rIterThetaParallel:154)
+-       legTFG           (legendre_spec_to_grid:27)
+-          leg_helper_t%__ATTRIBUTES__    
+-       loop             (legendre_spec_to_grid:181)
+-       legTFGnomag      (legendre_spec_to_grid:733)
+-          leg_helper_t%__ATTRIBUTES__    
+-       fft_thetab       (fft:156)
+-         fftJW          (fft:169)
+-           fft99aJW     (fft:383)
+-           wpass2JW     (fft:483)
+-           wpass3JW     (fft:518)
+-           wpass4JW     (fft:621)
+-           wpass5JW     (fft:729)
+-           fft99bJW     (fft:426)
+-       v_rigid_boundary (nonlinear_bcs:195)
+✔    this%gsa%get_nl                      ?
+✔    this%transform_to_lm_space           ?
+✔    get_br_v_bcs                         ?
+✔    get_lorentz_torque                   ?
+✔    courant                              ?
+⚪    graphOut_mpi                         ?
+⚪    probe_out                            ?
+⚪    get_helicity                         ?
+⚪    get_visc_heat                        ?
+⚪    get_nlBLayers                        ?
+⚪    get_fluxes                           ?
+⚪    get_perpPar                          ?
+⚪    store_movie_frame                    ?
+⚪    get_dtBLM                            ?
+⚪    getTOnext                            ?
+⚪    getTO                                ?
+⚪    this%nl_lm%get_td                    ?
+⚪    getTOfinish                          ?
+⚪    get_dH_dtBLM                         ?
+
+
+
+2017-05-31
+-------------------------------------------------------------------------------
+ ✔ Adding rThetaParallel module; at the moment, it merely merges
+   rThetaBlocking with rThetaBlocking_seq. I will slowly adapt it from
+   now on
+ ✔ I'm validating the modifications with the following command
+      ./magic_wizard.py --link --use-mpi --mpicmd=srun --extracmd="n_procs_r=4 n_procs_theta=2 n_procs_m=2" --nranks=16 --name=couetteAxi
+   called from samples/ directory. The modules/environment variables are:
+      export FC=mpiifort
+      export CC=mpiicc
+      module purge && module load   git/2.8 impi/5.1.3  cmake/3.5  intel/16.0  anaconda/2
+
+
+2017-05-18
+-------------------------------------------------------------------------------
+ ✔ fixed a bug in output.f90 which would allocate the array with the 
+   proper size only for rank=0 (instead of coord_r = 0). That caused a
+   glibc error
+ ✔ All diagnostics tests passed
+
+
+2017-04-27
+-------------------------------------------------------------------------------
+ ✔ Transition to GitHub completed (I'll be pushing the changes soon) but 
+   head is still 212f85cde21e3e942e62.
+ ✔ "parallel" namelist can be read from command line too, e.g.:
+   magic.exe n_procs_r=4 n_procs_theta=2 input.nml
+   will use n_procs_m from the parameter file and the n_procs_r n_procs_theta
+   from command line. Command line overrides input.nml, if both are present.
+ ✔ input file (e.g. input.nml) is now the ***last*** command line argument
+   when calling magic (because of the new command line arguments)
+ ✔ magic_wizard.py was updated to accept --extracmd argument, which passes
+   a string directly onto magic.exe, for the supracited purpose.
+
+This will make it easier to run diagnostics withouth having to consistently
+manipulate the various input.nml from samples directory.
+
+
+2017-04-24
+-------------------------------------------------------------------------------
+ ✔ there was a lot of trouble with the output. That is because multiple
+   processes tried to open the same file simultaneously (since there are
+   n_proc_phi x n_proc_theta processes whose coord_r = 0). Mostly, I have
+   no idea if some of the computations done inside "if rank == 0" are to be
+   later used, or if they are *merely* for outputing purpose! For this reason,
+   in some of the occurrences I have replaced it for "if coord_r=0" and have
+   introduced a "if rank == 0" before open/close/write. I have also enforced
+   that l_save_out = .false. unless rank = 0. There might be problems lingering
+   with respect to output!
+ ✔ most of the occurrences of "rank" variable have been replaced by 
+   "coord_r", which is basically the rank in comm_r
+ ✔ most occurrences of MPI_COMM_WORLD have been replaced by comm_r
+ ✔ comm_r created (in initialize_cartesian). Every computation is cloned
+   now for each disjoint comm_r
+ ✔ rank is now the rank in cart_comm, whereas coord_X are the coordinates
+   in the cart_comm. The variable rank should still match the same rank as
+   previously.
+ ✔ added cart_comm
+ ✔ added coord_r, coord_theta, coord_phi to replace "rank"
+ ✔ added initialize_cartesian in parallel.f90
+   
+
+2017-04-19 and earlier
+---------------------------------------------
+As we discussed last year in the Skype call, as a first step, I was planning 
+to parallelize the environment "very inefficiently", by merely cloning everything 
+for every theta and phi. So, a run with 32 processes partitioned as 
+(r,θ,φ)=(8,2,2) would yield 4 copies of the same computation, and each copy 
+would only communicated with the 8 processes in the r direction. Once that 
+would be settled, we could work on doing the real parallelization.
+
+1) I have noticed that there is a problem with your ms2time routine in timing.f90. 
+It seems that the integers do not have enough bytes. I've changed the msecSecond, 
+msecMinute and msecHour variables to integer(lip), and modified the function to:
+
+hours   =int(mSeconds/msecHour)
+mSeconds=mSeconds-int(hours*msecHour,kind=lip)
+minutes =int(mSeconds/msecMinute)
+mSeconds=mSeconds-int(minutes*msecMinute,kind=lip)
+seconds =int(mSeconds/msecSecond)
+mSeconds=mSeconds-int(seconds*msecSecond,kind=lip)
+
+2) which then seems to have the correct result. However, it prints things like 17000 
+days or more, and I have no idea if that is expected. If this doesn't look correct, 
+then I'll doublecheck the result of MPI_Wtime.
+
+3) There are A LOT of temporary arrays being created as a result of the call to 
+ZGETRS in algebra_lapack.f90 line 59. Have you looked into that?
+
+4) There is quite a substantial amount of code which is executed only for 
+process 0, if I understood it correctly, those are meant for diagnostics and 
+checkpointing in most of the cases. Have you ever checked the loadbalance of 
+this code?
+
+5) I don't fully understand what is going on with nLMBs_per_rank, set in 
+blocking.f90. It seems that it is always set to 1, am I correct (lines 139 
+and 140)?
+
+---------------------------------------------
+---------------------------------------------
+
+  JUST BECAUSE I KEEP FORGETTING:
+  This is the proper loop in Fortran!
+---------------------------------------------
+---------------------------------------------
+
+do j = 1, n
+    do i = 1, n
+        ! operate on A(i,j) ...
+    end do
+end do
+ 

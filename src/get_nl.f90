@@ -15,8 +15,8 @@ module grid_space_arrays_mod
    use general_arrays_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: nrp, n_phi_max, n_theta_max
-   use radial_data, only: nRstart, nRstop
+   use truncation, only: nrp, n_phi_max, n_theta_max, nRstart, nRstop, &
+       &                 get_openmp_blocks
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
@@ -24,7 +24,6 @@ module grid_space_arrays_mod
         &                         dilution_fac, ra, opr, polind, strat, radratio
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi
-   use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_precession,             &

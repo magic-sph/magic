@@ -5,6 +5,7 @@ module mem_alloc
    !
 
    use parallel_mod
+   use truncation
    use precision_mod, only: lip, cp
    use output_data, only: tag
 

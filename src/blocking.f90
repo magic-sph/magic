@@ -5,9 +5,9 @@ module blocking
 
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use parallel_mod, only: nThreads, rank, n_procs, rank_with_l1m0, load, getBlocks
+   use parallel_mod, only: nThreads, rank, n_procs
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
-       &                 minc, n_r_max, m_max, l_axi
+       &                 minc, n_r_max, m_max, l_axi, rank_with_l1m0, load, getBlocks
    use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &

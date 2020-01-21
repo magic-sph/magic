@@ -4,8 +4,7 @@ module magnetic_energy
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max, &
-       &                 lm_max, minc
-   use radial_data, only: n_r_cmb
+       &                 lm_max, minc, n_r_cmb
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, &
        &                       sigma, orho1, r, or2, rscheme_oc
    use physical_parameters, only: LFfac, kbotb, ktopb

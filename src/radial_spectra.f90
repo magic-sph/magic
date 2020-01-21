@@ -3,8 +3,8 @@ module radial_spectra
    use precision_mod
    use parallel_mod
    use communications, only: reduce_radial
-   use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_tot
-   use radial_data, only: n_r_icb
+   use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, & 
+       &                 n_r_tot, n_r_icb
    use radial_functions, only: or2, r_icb, r_ic
    use num_param, only: eScale
    use blocking, only: st_map, llm, ulm

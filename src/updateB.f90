@@ -10,13 +10,13 @@ module updateB_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max,             &
        &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
-       &                 n_r_totMag, lm_max, l_maxMag
+       &                 n_r_totMag, lm_max, l_maxMag, n_r_cmb,    &
+       &                 n_r_icb, get_openmp_blocks
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
        &                       or1, cheb_ic, dcheb_ic,rscheme_oc
-   use radial_data, only: n_r_cmb, n_r_icb
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
-       &                         sigma_ratio, conductance_ma, ktopb, kbotb
+       &                          sigma_ratio, conductance_ma, ktopb, kbotb
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: solve_counter, dct_counter
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
@@ -27,7 +27,7 @@ module updateB_mod
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
-   use parallel_mod, only:  rank, chunksize, n_procs, get_openmp_blocks
+   use parallel_mod, only:  rank, chunksize, n_procs
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even

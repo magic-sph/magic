@@ -6,7 +6,6 @@ module fields_average_mod
    use truncation
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc, l_R
    use blocking,only: sizeThetaB, nThetaBs, lm2, nfs, llm, ulm, llmMag, &

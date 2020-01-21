@@ -2,8 +2,8 @@ module outRot
 
    use parallel_mod
    use precision_mod
-   use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
-   use radial_data, only: n_r_CMB, n_r_ICB
+   use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max, &
+       &                 n_r_CMB, n_r_ICB
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: lScale, tScale, vScale

@@ -3,8 +3,7 @@ module courant_mod
 
    use parallel_mod
    use precision_mod
-   use truncation, only: nrp, n_phi_max
-   use radial_data, only: nRstart, nRstop
+   use truncation, only: nrp, n_phi_max, nRstart, nRstop 
    use radial_functions, only: orho1, orho2, or4, or2
    use physical_parameters, only: LFfac, opm
    use num_param, only: delxr2, delxh2

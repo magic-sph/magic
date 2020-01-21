@@ -5,8 +5,8 @@ module updateZ_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, l_max
-   use radial_data, only: n_r_cmb, n_r_icb
+   use truncation, only: n_r_max, lm_max, l_max, n_r_cmb, n_r_icb, &
+       &                 get_openmp_blocks
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
    use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek

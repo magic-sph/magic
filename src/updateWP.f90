@@ -4,8 +4,8 @@ module updateWP_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max
-   use radial_data, only: n_r_cmb, n_r_icb
+   use truncation, only: lm_max, n_r_max, l_max, n_r_cmb, n_r_icb,     &
+       &                 get_openmp_blocks
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun,      &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
@@ -18,7 +18,7 @@ module updateWP_mod
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
    use RMS, only: DifPol2hInt, DifPolLMr
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
+   use parallel_mod, only: chunksize, rank, n_procs
    use RMS_helpers, only:  hInt2Pol
    use radial_der, only: get_dddr, get_ddr, get_dr
    use integration, only: rInt_R

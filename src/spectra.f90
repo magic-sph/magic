@@ -5,8 +5,8 @@ module spectra
    use communications, only: reduce_radial
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
-       &                 n_r_ic_max, l_max, minc
-   use radial_data, only: n_r_cmb, n_r_icb
+       &                 n_r_ic_max, l_max, minc, n_r_cmb,   &
+       &                 n_r_icb
    use radial_functions, only: orho1, orho2, r_ic, chebt_ic, r,   &
        &                       rscheme_oc, or2, r_icb, dr_fac_ic
    use physical_parameters, only: LFfac

@@ -8,7 +8,9 @@ module outPar_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc
-   use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag
+   use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag,&
+       &                 n_r_icb, nRstart, nRstop, nRstartMag,        &
+       &                 nRstopMag
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
@@ -22,8 +24,6 @@ module outPar_mod
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
        &                       rscheme_oc, orho1, dLalpha0,       &
        &                       dLtemp0, beta, alpha0
-   use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
-       &                  nRstopMag
    use num_param, only: tScale
    use output_data, only: tag
    use useful, only: cc2real

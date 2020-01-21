@@ -5,7 +5,8 @@ module radial_functions
    !
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
-       &                 fd_stretch, fd_order, fd_order_bound, l_max
+       &                 fd_stretch, fd_order, fd_order_bound,      &
+       &                 l_max, nRstart, nRstop
    use algebra, only: prepare_mat, solve_mat
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
@@ -13,7 +14,6 @@ module radial_functions
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
        &            l_temperature_diff, l_single_matrix, l_var_l,  &
        &            l_finite_diff, l_newmap, l_full_sphere
-   use radial_data, only: nRstart, nRstop
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even

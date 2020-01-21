@@ -10,10 +10,9 @@ module graphOut_mod
    use precision_mod
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
        &                 n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
-       &                 n_phi_max, nrp, n_r_ic_max, l_axi
+       &                 n_phi_max, nrp, n_r_ic_max, l_axi, nRstart
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
-   use radial_data, only: nRstart
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
    use num_param, only: vScale
    use blocking, only: nThetaBs, sizeThetaB, nfs

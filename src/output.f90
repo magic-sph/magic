@@ -5,11 +5,10 @@ module output_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
-       &                 n_r_maxMag, lm_max
+       &                 n_r_maxMag, lm_max, nRstart, nRstop,        &
+       &                 nRstartMag, nRstopMag, n_r_cmb, n_r_icb
    use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb,  &
        &                       orho1, sigma
-   use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag,    &
-       &                  n_r_cmb, n_r_icb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag

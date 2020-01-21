@@ -5,8 +5,7 @@ module power
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc, reduce_radial
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, l_max, &
-       &                 n_r_maxMag
-   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
+       &                 n_r_maxMag, n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
        &                       or2, O_r_ic2, lambda, temp0,           &
        &                       O_r_ic, rgrav, r_ic, dr_fac_ic,        &

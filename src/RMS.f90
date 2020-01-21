@@ -14,9 +14,9 @@ module RMS
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB, fd_ratio, fd_stretch
+       &                 lm_max_dtB, fd_ratio, fd_stretch, nRstop, nRstart,  &
+       &                 radial_balance, n_r_loc
    use physical_parameters, only: ra, ek, pr, prmag, radratio
-   use radial_data, only: nRstop, nRstart, radial_balance
    use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
    use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF, &
        &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS
@@ -518,7 +518,7 @@ contains
 #ifdef WITH_MPI
 
       ! The following fields are only 1D and R distributed.
-      sendcount = nR_per_rank*(l_max+1)
+      sendcount = n_r_loc*(l_max+1)
       do irank=0,n_procs-1
          recvcounts(irank) = radial_balance(irank)%n_per_rank*(l_max+1)
       end do

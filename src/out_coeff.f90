@@ -10,12 +10,12 @@ module out_coeff
    use logic, only: l_r_field, l_cmb_field, l_save_out, l_average, &
        &            l_cond_ic
    use radial_functions, only: r, rho0
-   use radial_data, only: nRstart, nRstop
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
    use blocking, only: lm2, llm, ulm
-   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
+   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc,    &
+       &                 nRstart, nRstop, n_r_loc
    use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
        &                     gt_IC, gt_OC
    use output_data, only: tag
@@ -489,7 +489,7 @@ contains
       arr_size(1) = lm_max
       arr_size(2) = n_r_max
       arr_loc_size(1) = lm_max
-      arr_loc_size(2) = nR_per_rank
+      arr_loc_size(2) = n_r_loc
       arr_start(1) = 0
       arr_start(2) = nRstart-1
       call MPI_Type_Create_Subarray(2, arr_size, arr_loc_size, arr_start, &
@@ -509,7 +509,7 @@ contains
       &        int(2*SIZEOF_OUT_REAL,kind=lip)
 
       !-- Poloidal potential
-      call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
+      call MPI_File_Write_all(fh, tmp, lm_max*n_r_loc, MPI_COMPLEX8, &
            &                  istat, ierr)
       disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
@@ -518,7 +518,7 @@ contains
       !-- Toroidal potential
       if ( lVB ) then
          tmp(:,:) = cmplx(aj(:,:), kind=outp)
-         call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
+         call MPI_File_Write_all(fh, tmp, lm_max*n_r_loc, MPI_COMPLEX8, &
               &                  istat, ierr)
          disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &

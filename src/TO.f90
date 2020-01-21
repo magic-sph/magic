@@ -5,8 +5,8 @@ module torsional_oscillations
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr
-   use radial_data, only: n_r_cmb, nRstart, nRstop
+   use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, &
+       &                 n_r_cmb, nRstart, nRstop
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
    use blocking, only: nfs, lm2, llmMag, ulmMag, lo_map

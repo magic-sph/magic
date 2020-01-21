@@ -6,10 +6,9 @@ module fields
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
-       &                 n_r_ic_maxMag
+       &                 n_r_ic_maxMag, nRstart, nRstop
    use logic, only: l_chemical_conv
    use blocking, only: llm, ulm, llmMag, ulmMag
-   use radial_data, only: nRstart, nRstop
    use parallel_mod, only: rank
 
    implicit none

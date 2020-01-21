@@ -7,12 +7,12 @@ module fieldsLast
 
    use precision_mod
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
-       &                 n_r_ic_maxMag
+       &                 n_r_ic_maxMag, nRstart, nRstop,         &
+       &                 nRstartMag, nRstopMag
    use blocking, only: llm, ulm, llmMag, ulmMag
    use logic, only: l_chemical_conv, l_heat, l_mag, l_cond_ic, l_double_curl, &
        &            l_RMS
    use constants, only: zero
-   use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use mem_alloc, only: bytes_allocated
    use time_array
 

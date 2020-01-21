@@ -11,13 +11,13 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max
+   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
+       &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
+       &                 n_r_icb, n_r_cmb
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
        &                phy2lm_counter, nl_counter
-   use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
-       &                  n_r_icb, n_r_cmb
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
        &            l_DTrMagSpec, lVerbose, l_b_nl_icb,                &

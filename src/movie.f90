@@ -4,11 +4,11 @@ module movie_data
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max,      &
        &                 ldtBMem, minc, n_r_ic_max, lMovieMem, &
-       &                 n_r_tot
+       &                 n_r_tot, nRstart,nRstop, n_r_icb,     &
+       &                 n_r_cmb, radial_balance, n_r_loc
    use logic, only:  l_store_frame, l_save_out, l_movie, &
        &             l_movie_oc, l_movie_ic, l_HTmovie,  &
        &             l_dtBmovie, l_store_frame, l_save_out
-   use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
@@ -1369,7 +1369,7 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_phi_max*n_theta_max
-               local_end  =local_start+nR_per_rank*n_phi_max*n_theta_max-1
+               local_end  =local_start+n_r_loc*n_phi_max*n_theta_max-1
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
@@ -1424,7 +1424,7 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_phi_max
-               local_end  =local_start+nR_per_rank*n_phi_max-1
+               local_end  =local_start+n_r_loc*n_phi_max-1
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
@@ -1454,7 +1454,7 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_theta_max
-               local_end  =local_start+nR_per_rank*n_theta_max-1
+               local_end  =local_start+n_r_loc*n_theta_max-1
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if

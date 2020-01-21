@@ -3,7 +3,9 @@ module radialLoop
 
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
+   use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max,   &
+       &                 nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
+       &                 n_r_icb
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
@@ -11,8 +13,6 @@ module radialLoop
        &            l_single_matrix, l_double_curl, l_chemical_conv
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
-   use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
-       &                 n_r_icb
    use time_schemes, only: type_tscheme
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"

@@ -6,7 +6,6 @@ module start_fields
 #endif
    use truncation
    use precision_mod
-   use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: dr_fac_ic, chebt_ic, rscheme_oc,          &
        &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &

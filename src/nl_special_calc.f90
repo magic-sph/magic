@@ -5,11 +5,11 @@ module nl_special_calc
    !
 
    use precision_mod
-   use truncation, only: nrp, n_phi_max, l_max, l_maxMag
+   use truncation, only: nrp, n_phi_max, l_max, l_maxMag, n_r_icb, &
+       &                 n_r_cmb
    use constants, only: pi, one, two, third, half
    use logic, only: l_mag_nl, l_anelastic_liquid
    use physical_parameters, only: ek, ViscHeatFac, ThExpNb
-   use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
        &                       visc, or4, r, alpha0
    use blocking, only: sizeThetaB, nfs

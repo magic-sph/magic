@@ -4,8 +4,8 @@ module updateWPS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max
-   use radial_data, only: n_r_cmb,n_r_icb
+   use truncation, only: lm_max, n_r_max, l_max, n_r_cmb,n_r_icb,         &
+       &                 get_openmp_blocks
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
@@ -22,7 +22,7 @@ module updateWPS_mod
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
+   use parallel_mod, only: chunksize, rank, n_procs
    use radial_der, only: get_dddr, get_ddr, get_dr
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
    use fields, only: work_LMloc

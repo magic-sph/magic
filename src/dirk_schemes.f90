@@ -17,6 +17,7 @@ module dirk_schemes
    use output_data, only: log_file
    use time_schemes, only: type_tscheme
    use time_array
+   use truncation, only: get_openmp_blocks
 
    implicit none
 

@@ -7,10 +7,10 @@ module rIterThetaBlocking_shtns_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
-   use parallel_mod, only: get_openmp_blocks
    use truncation, only: lm_max, lmP_max, l_max, lmP_max_dtB,      &
        &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr, &
-       &                 n_theta_max, n_phi_max, nrp, n_r_max
+       &                 n_theta_max, n_phi_max, nrp, n_r_max,     &
+       &                 n_r_cmb, n_r_icb, get_openmp_blocks
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -18,7 +18,6 @@ module rIterThetaBlocking_shtns_mod
        &            l_TO, l_chemical_conv, l_probe,                  &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_full_sphere
-   use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1, l_R
    use constants, only: zero
    use leg_helper_mod, only: leg_helper_t

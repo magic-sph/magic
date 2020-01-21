@@ -10,7 +10,8 @@ module init_fields
    use mpi_transp, only: type_mpitransp
    use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
-       &                 l_axi,minc,n_cheb_ic_max,lm_max
+       &                 l_axi,minc,n_cheb_ic_max,lm_max, n_r_icb,    &
+       &                 n_r_cmb, nRstart, nRstop
    use mem_alloc, only: bytes_allocated
    use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
        &               llm, ulm, llmMag, ulmMag
@@ -27,7 +28,6 @@ module init_fields
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
        &                       rscheme_oc, or1
-   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
    use useful, only: random, abortRun

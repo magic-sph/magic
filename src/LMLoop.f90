@@ -11,8 +11,8 @@ module LMLoop_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
-   use radial_data, only: n_r_icb, n_r_cmb
+   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag,          &
+       &            n_r_ic_max, n_r_icb, n_r_cmb
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, lVerbose, l_heat, l_single_matrix, &
        &            l_double_curl, l_chemical_conv, l_save_out,       &

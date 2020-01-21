@@ -2,8 +2,7 @@ module leg_helper_mod
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, n_m_max, l_axi
-   use radial_data, only: n_r_icb, n_r_cmb
+   use truncation, only: lm_max, l_max, n_m_max, l_axi, n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
    use special, only: lGrenoble, b0, db0, ddb0

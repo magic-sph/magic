@@ -4,8 +4,8 @@ module updateS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, l_max
-   use radial_data, only: n_r_cmb, n_r_icb
+   use truncation, only: n_r_max, lm_max, l_max, n_r_cmb, n_r_icb, &
+       &                 get_openmp_blocks
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops
@@ -15,7 +15,7 @@ module updateS_mod
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
        &            l_full_sphere
-   use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
+   use parallel_mod, only: rank, chunksize, n_procs
    use radial_der, only: get_ddr, get_dr
    use fields, only:  work_LMloc
    use constants, only: zero, one, two
