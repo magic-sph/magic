@@ -20,8 +20,8 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('%s/*.test' % dir):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
+    ########if os.path.exists('%s/stdout.out' % dir):
+        ########os.remove('%s/stdout.out' % dir)
     for f in glob.glob('%s/*.pyc' % dir):
         os.remove(f)
     if os.path.exists('%s/__pycache__' % dir):
@@ -35,13 +35,17 @@ def readData(file):
 class AnelasticBenchmark(unittest.TestCase):
 
     def __init__(self, testName, dir, execCmd='mpirun -n 8 ../tmp/magic.exe', 
-                 precision=1e-8):
+                 log=False,precision=1e-8):
         super(AnelasticBenchmark, self).__init__(testName)
         self.dir = dir
         self.precision = precision
         self.execCmd = execCmd
         self.startDir = os.getcwd()
         self.description = "Anelastic non-magnetic benchmark (Jones et al.)"
+        if log:
+            self.outFile = open("%s/stdout.out" % (self.dir), 'w') 
+        else: 
+            self.outFile = open(os.devnull,'wb')
 
     def list2reason(self, exc_list):
         if exc_list and exc_list[-1][0] is self:
@@ -55,8 +59,10 @@ class AnelasticBenchmark(unittest.TestCase):
         cleanDir(self.dir)
         os.chdir(self.dir)
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
-                stderr=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=self.outFile,
+            stderr=sp.STDOUT)
+        self.outFile.write("asssssddddddddddddddddioi")
+        self.outFile.close()
 
     def tearDown(self):
         # Cleaning when leaving

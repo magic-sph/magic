@@ -20,8 +20,8 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('%s/*.test' % dir):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
+    #if os.path.exists('%s/stdout.out' % dir):
+        #os.remove('%s/stdout.out' % dir)
     for f in glob.glob('%s/*.pyc' % dir):
         os.remove(f)
     if os.path.exists('%s/__pycache__' % dir):
@@ -35,13 +35,17 @@ def readData(file):
 class VariableProperties(unittest.TestCase):
 
     def __init__(self, testName, dir, execCmd='mpirun -n 8 ../tmp/magic.exe', 
-                 precision=1e-8):
+                 log=False,precision=1e-8):
         super(VariableProperties, self).__init__(testName)
         self.dir = dir
         self.precision = precision
         self.execCmd = execCmd
         self.startDir = os.getcwd()
         self.description = "Variable transport properties (anelastic, both Cheb and FD)"
+        if log:
+            self.outFile = open("%s/stdout.out" % (self.dir), 'w') 
+        else: 
+            self.outFile = open(os.devnull,'wb')
 
     def list2reason(self, exc_list):
         if exc_list and exc_list[-1][0] is self:
@@ -56,16 +60,17 @@ class VariableProperties(unittest.TestCase):
         os.chdir(self.dir)
         # First run the Chebyshev case
         cmd = '%s %s/inputCheb.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
-                stderr=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=self.outFile,
+            stderr=sp.STDOUT)
         # First run the Chebyshev + Mapping case
         cmd = '%s %s/inputMap.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
-                stderr=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=self.outFile,
+            stderr=sp.STDOUT)
         # Second run the Finite Differences case
         cmd = '%s %s/inputFD.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
-                stderr=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=self.outFile,
+            stderr=sp.STDOUT)
+        self.outFile.close()
         cmd = 'cat e_kin.cheb e_kin.map e_kin.fd > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 

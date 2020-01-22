@@ -20,8 +20,8 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('%s/*.test' % dir):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
+    #if os.path.exists('%s/stdout.out' % dir):
+        #os.remove('%s/stdout.out' % dir)
     for f in glob.glob('%s/*.pyc' % dir):
         os.remove(f)
     if os.path.exists('%s/__pycache__' % dir):
@@ -41,7 +41,7 @@ def readStack(file):
 class TestTruncations(unittest.TestCase):
 
     def __init__(self, testName, dir, execCmd='mpirun -n 8 ../tmp/magic.exe', 
-                 precision=1e-8):
+                 log=False,precision=1e-8):
         super(TestTruncations, self).__init__(testName)
         self.dir = dir
         self.precision = precision
@@ -54,6 +54,10 @@ class TestTruncations(unittest.TestCase):
                      'test400m4', 'test512', 'test512m4', 'test640', 'test640m4',
                      'test768', 'test768m4', 'test800', 'test800m4', 'test864m4',
                      'test1024m4']
+        if log:
+            self.outFile = open("%s/stdout.out" % (self.dir), 'w') 
+        else: 
+            self.outFile = open(os.devnull,'wb')
 
     def list2reason(self, exc_list):
         if exc_list and exc_list[-1][0] is self:
@@ -82,14 +86,14 @@ class TestTruncations(unittest.TestCase):
 
             # Run MagIC
             cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
-            sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
-                    stderr=open(os.devnull, 'wb'))
+            sp.call(cmd, shell=True, stdout=self.outFile, stderr=sp.STDOUT)
 
             # Concatenate e_kin files
             str += 'e_kin.%s ' % tag
             cmd = "cat e_kin.%s >> e_kin.test" % tag
         cmd = str+ '> e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+        self.outFile.close()
 
     def tearDown(self):
         # Clean up

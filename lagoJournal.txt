@@ -1,15 +1,18 @@
 MERGING NOTES
 ============================================
 
-nR_per_rank => n_r_loc 
+> Merged magic_wizard.py script for more options when running testsuite:
+  --log, --name, --use-exec and --extra-arg. Call --help to see their description.
+
+> nR_per_rank => n_r_loc 
    Old name was misleading, as the number of radial points per rank is not the same.
 
-type(load), getBlocks, 
+> type(load), getBlocks, 
 get_openmp_blocks => from parallel.f90 to truncation.f90
    Parallel module is for MPI setup only in the newest version. Distribution of points
    is done in truncation.f90 (or somewhere else, where?)
 
-radial_data.f90 merged into truncation.f90
+> radial_data.f90 merged into truncation.f90
    All the distribution of thetas, radial points and lms are done in truncation.f90
    module, it complicates the module dependencies if we split them.
 

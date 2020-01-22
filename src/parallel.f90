@@ -120,10 +120,10 @@ contains
       !
       !-- Get number (name) of processor
       !
+#ifdef WITH_MPI
       integer :: world_group, intra_group, i, j
       integer, allocatable :: tmp(:)
 
-#ifdef WITH_MPI
       call mpi_comm_rank(MPI_COMM_WORLD,rank,    ierr)
       call mpi_comm_size(MPI_COMM_WORLD,n_procs, ierr)
 
