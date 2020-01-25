@@ -40,7 +40,7 @@ module updateWP_mod
    complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
-   complex(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: wpMat_fac(:,:,:)
    class(type_realmat), allocatable :: wpMat(:), p0Mat
    logical, public, allocatable :: lWPmat(:)
@@ -128,12 +128,12 @@ contains
 
       if ( l_double_curl ) then
          size_rhs1 = n_r_max
-         allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
          bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
       else
          size_rhs1 = 2*n_r_max
-         allocate( rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         allocate( rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
          bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
       end if
@@ -317,51 +317,72 @@ contains
 
                else ! l1 /= 0
                   lmB=lmB+1
-                  rhs1(1,lmB,threadid)      =0.0_cp
-                  rhs1(n_r_max,lmB,threadid)=0.0_cp
+                  rhs1(1,2*lmB-1,threadid)      =0.0_cp
+                  rhs1(1,2*lmB,threadid)        =0.0_cp
+                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
+                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
                   if ( l_double_curl ) then
-                     rhs1(2,lmB,threadid)        =0.0_cp
-                     rhs1(n_r_max-1,lmB,threadid)=0.0_cp
+                     rhs1(2,2*lmB-1,threadid)        =0.0_cp
+                     rhs1(2,2*lmB,threadid)          =0.0_cp
+                     rhs1(n_r_max-1,2*lmB-1,threadid)=0.0_cp
+                     rhs1(n_r_max-1,2*lmB,threadid)  =0.0_cp
                      do nR=3,n_r_max-2
-                        rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
+                        rhs1(nR,2*lmB-1,threadid)= real(work_LMloc(lm1,nR))
+                        rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
                      end do
 
                      if ( l_heat ) then
                         do nR=3,n_r_max-2
-                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+    &
-                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
-                           &      or2(nR)*BuoFac*rgrav(nR)*s(lm1,nR)
+                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *      &
+                           &      or2(nR)*BuoFac*rgrav(nR)*real(s(lm1,nR))
+                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
+                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *      &
+                           &      or2(nR)*BuoFac*rgrav(nR)*aimag(s(lm1,nR))
                         end do
                      end if
 
                      if ( l_chemical_conv ) then
                         do nR=3,n_r_max-2
-                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+    &
+                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
                            &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
-                           &      or2(nR)*ChemFac*rgrav(nR)*xi(lm1,nR)
+                           &      or2(nR)*ChemFac*rgrav(nR)*real(xi(lm1,nR))
+                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
+                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
+                           &      or2(nR)*ChemFac*rgrav(nR)*aimag(xi(lm1,nR))
                         end do
                      end if
                   else
-                     rhs1(n_r_max+1,lmB,threadid)=0.0_cp
-                     rhs1(2*n_r_max,lmB,threadid)=0.0_cp
+                     rhs1(n_r_max+1,2*lmB-1,threadid)=0.0_cp
+                     rhs1(n_r_max+1,2*lmB,threadid)  =0.0_cp
+                     rhs1(2*n_r_max,2*lmB-1,threadid)=0.0_cp
+                     rhs1(2*n_r_max,2*lmB,threadid)  =0.0_cp
                      do nR=2,n_r_max-1
-                        rhs1(nR,lmB,threadid)        =work_LMloc(lm1,nR) 
-                        rhs1(nR+n_r_max,lmB,threadid)=ddw(lm1,nR) ! ddw is a work array
+                        rhs1(nR,2*lmB-1,threadid)        = real(work_LMloc(lm1,nR))
+                        rhs1(nR,2*lmB,threadid)          =aimag(work_LMloc(lm1,nR))
+                        rhs1(nR+n_r_max,2*lmB-1,threadid)= real(ddw(lm1,nR)) ! ddw is a work array
+                        rhs1(nR+n_r_max,2*lmB,threadid)  =aimag(ddw(lm1,nR))
                      end do
 
                      if ( l_heat ) then
                         do nR=2,n_r_max-1
-                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+ &
-                           & tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
-                           &                       rgrav(nR)*s(lm1,nR)
+                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                           &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
+                           &                      rgrav(nR)*real(s(lm1,nR))
+                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
+                           &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
+                           &                      rgrav(nR)*aimag(s(lm1,nR))
                         end do
                      end if
 
                      if ( l_chemical_conv ) then
                         do nR=2,n_r_max-1
-                           rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+ &
-                           & tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
-                           &                      rgrav(nR)*xi(lm1,nR)
+                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                           &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
+                           &                      rgrav(nR)*real(xi(lm1,nR))
+                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
+                           &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
+                           &                      rgrav(nR)*aimag(xi(lm1,nR))
                         end do
                      end if
 
@@ -376,14 +397,21 @@ contains
                ! use the mat_fac(:,1) to scale the rhs
                do lm=lmB0+1,lmB
                   do nR=1,size_rhs1
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,1,nLMB2)
+                     rhs1(nR,2*lm-1,threadid)=rhs1(nR,2*lm-1,threadid)* &
+                     &                        wpMat_fac(nR,1,nLMB2)
+                     rhs1(nR,2*lm,threadid)  =rhs1(nR,2*lm,threadid)* &
+                     &                        wpMat_fac(nR,1,nLMB2)
                   end do
                end do
-               call wpMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call wpMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
+                                       2*(lmB-lmB0))
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,size_rhs1
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,2,nLMB2)
+                     rhs1(nR,2*lm-1,threadid)=rhs1(nR,2*lm-1,threadid)* &
+                     &                        wpMat_fac(nR,2,nLMB2)
+                     rhs1(nR,2*lm,threadid)  =rhs1(nR,2*lm,threadid)* &
+                     &                        wpMat_fac(nR,2,nLMB2)
                   end do
                end do
             end if
@@ -414,26 +442,30 @@ contains
                   if ( l_double_curl ) then
                      if ( m1 > 0 ) then
                         do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)  =rhs1(n_r_out,lmB,threadid)
+                           w(lm1,n_r_out)  =cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                           &                      rhs1(n_r_out,2*lmB,threadid),cp)
                         end do
                      else
                         do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)  = cmplx(real(rhs1(n_r_out,lmB,threadid)),&
+                           w(lm1,n_r_out)  = cmplx(rhs1(n_r_out,2*lmB-1,threadid),&
                            &                       0.0_cp,kind=cp)
                         end do
                      end if
                   else
                      if ( m1 > 0 ) then
                         do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)=rhs1(n_r_out,lmB,threadid)
-                           p(lm1,n_r_out)=rhs1(n_r_max+n_r_out,lmB,threadid)
+                           w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                           &                    rhs1(n_r_out,2*lmB,threadid),cp)
+                           p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,   &
+                           &                    threadid),rhs1(n_r_max+n_r_out, &
+                           &                    2*lmB,threadid),cp)
                         end do
                      else
                         do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)= cmplx(real(rhs1(n_r_out,lmB,threadid)), &
+                           w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
                            &                    0.0_cp,kind=cp)
-                           p(lm1,n_r_out)= cmplx(real(rhs1(n_r_max+n_r_out,lmB, &
-                           &                    threadid)),0.0_cp,kind=cp)
+                           p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1, &
+                           &                    threadid),0.0_cp,kind=cp)
                         end do
                      end if
                   end if

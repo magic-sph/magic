@@ -31,7 +31,7 @@ module updateS_mod
    private
 
    !-- Local variables
-   complex(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: rhs1(:,:,:)
    class(type_realmat), pointer :: sMat(:), s0Mat
 #ifdef WITH_PRECOND_S
    real(cp), allocatable :: sMat_fac(:,:)
@@ -97,7 +97,7 @@ contains
 #else
       maxThreads=1
 #endif
-      allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
       &                 maxThreads*SIZEOF_DEF_COMPLEX
 
@@ -248,15 +248,19 @@ contains
 
                   lmB=lmB+1
 
-                  rhs1(1,lmB,threadid)      =tops(l1,m1)
-                  rhs1(n_r_max,lmB,threadid)=bots(l1,m1)
+                  rhs1(1,2*lmB-1,threadid)      = real(tops(l1,m1))
+                  rhs1(1,2*lmB,threadid)        =aimag(tops(l1,m1))
+                  rhs1(n_r_max,2*lmB-1,threadid)= real(bots(l1,m1))
+                  rhs1(n_r_max,2*lmB,threadid)  =aimag(bots(l1,m1))
 
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
+                     rhs1(nR,2*lmB-1,threadid)= real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_S
-                  rhs1(:,lmB,threadid) = sMat_fac(:,nLMB2)*rhs1(:,lmB,threadid)
+                  rhs1(:,2*lmB-1,threadid)=sMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
+                  rhs1(:,2*lmB,threadid)  =sMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
 #endif
                end if
             end do
@@ -264,7 +268,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call sMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call sMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
+                    &                 2*(lmB-lmB0))
             end if
             !PERFOFF
 
@@ -281,12 +286,13 @@ contains
                   lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        s(lm1,n_r_out)=rhs1(n_r_out,lmB,threadid)
+                        s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        &                     rhs1(n_r_out,2*lmB,threadid),kind=cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
-                        s(lm1,n_r_out)= cmplx(real(rhs1(n_r_out,lmB,threadid)), &
-                        &                    0.0_cp,kind=cp)
+                        s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        &                     0.0_cp,kind=cp)
                      end do
                   end if
                end if
