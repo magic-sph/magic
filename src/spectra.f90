@@ -7,7 +7,7 @@ module spectra
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
        &                 n_r_ic_max, l_max, minc
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: orho1, orho2, r_ic, chebt_ic, r,   &
+   use radial_functions, only: orho1, orho2, r_ic, chebt_ic, r, r_cmb,  &
        &                       rscheme_oc, or2, r_icb, dr_fac_ic
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
@@ -371,7 +371,7 @@ contains
     
       if ( rank == 0 ) then
          ! Getting appropriate radius index for e_kin_nearSurf spectra
-         nearSurfR = r_icb+0.99_cp
+         nearSurfR = r_cmb-0.01_cp
          do n_r=2,n_r_max
             if ( r(n_r-1) > nearSurfR .and. r(n_r)  <= nearSurfR ) then
                if ( r(n_r-1)-nearSurfR < nearSurfR-r(n_r) ) then
