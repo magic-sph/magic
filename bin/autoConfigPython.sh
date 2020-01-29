@@ -59,14 +59,29 @@ hasPython3Mpl() {
   echo $backendValue
 }
 
-# Figure out which f2py executable is available on your machine
+hasf2py () {
+  if hash f2py 2>/dev/null; then
+    local f2pyExec="f2py";
+  else
+    local f2pyExec="NotFound";
+  fi
+  echo $f2pyExec
+}
+
 hasf2py2 () {
   if hash f2py2 2>/dev/null; then
     local f2pyExec="f2py2";
-  elif hash f2py 2>/dev/null; then
-    local f2pyExec="f2py";
   elif hash f2py2.7 2>/dev/null; then
     local f2pyExec="f2py2.7";
+  else
+    local f2pyExec="NotFound";
+  fi
+  echo $f2pyExec
+}
+
+hasf2py3 () {
+  if hash f2py3 2>/dev/null; then
+    local f2pyExec="f2py3";
   else
     local f2pyExec="NotFound";
   fi
@@ -77,15 +92,6 @@ whichPython () {
   local cmd=`python -c 'import sys; print(sys.version_info[0])'`
   local pythonVersion=$cmd;
   echo $pythonVersion
-}
-
-hasf2py3 () {
-  if hash f2py3 2>/dev/null; then
-    local f2pyExec="f2py3";
-  else
-    local f2pyExec="NotFound";
-  fi
-  echo $f2pyExec
 }
 
 # Set sed command depending on OS type
@@ -144,26 +150,31 @@ whichf2pycompiler () {
 buildLibs () {
 
   local pythonVersion=$(whichPython)
+  local f2pyStdExec=$(hasf2py)
   local f2py2Exec=$(hasf2py2)
   local f2py3Exec=$(hasf2py3)
 
-  if [ $f2py2Exec != "NotFound" ]; then
-    if [ $f2py3Exec != "NotFound" ]; then
-      if [ $pythonVersion  == "3" ]; then
-	local f2pyExec=$f2py3Exec
+  if [ $f2pyStdExec != "NotFound" ]; then
+    local f2pyExec=$f2pyStdExec
+  else
+    if [ $f2py2Exec != "NotFound" ]; then
+      if [ $f2py3Exec != "NotFound" ]; then
+        if [ $pythonVersion  == "3" ]; then
+          local f2pyExec=$f2py3Exec
+        else
+          local f2pyExec=$f2py2Exec
+        fi
       else
         local f2pyExec=$f2py2Exec
       fi
     else
-      local f2pyExec=$f2py2Exec
-    fi
-  else
-    if [ $f2py3Exec == "NotFound" ]; then
-      echo "f2py was not found"
-      echo "f2py can't be set in $MAGIC_HOME/python/magic/magic.cfg"
-      local f2pyExec="NotFound"
-    else
-      local f2pyExec=$f2py3Exec
+      if [ $f2py3Exec == "NotFound" ]; then
+        echo "f2py was not found"
+        echo "f2py can't be set in $MAGIC_HOME/python/magic/magic.cfg"
+        local f2pyExec="NotFound"
+      else
+        local f2pyExec=$f2py3Exec
+      fi
     fi
   fi
 
@@ -199,9 +210,11 @@ getBackend () {
     if [ $backend2 != "NotFound" ]; then
       if [ $backend3 != "NotFound" ]; then
         echo "matplotlib is installed for both python2 and python3"
-        echo "python2 is selected"
+        echo "python3 is selected"
+        local backendValue=$backend3
+      else
+        local backendValue=$backend2
       fi
-      local backendValue=$backend2
     else 
       if [ $backend3 == "NotFound" ]; then
         echo "matplotlib was not found"
