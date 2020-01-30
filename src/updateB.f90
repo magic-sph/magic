@@ -520,10 +520,12 @@ contains
                !write(*,"(2(A,I5))") "updateB: Calling cgeslML for l1=",l1," WITH lmB=",lmB
 #ifdef WITH_PRECOND_BJ
                do lm=lmB0+1,lmB
-                  rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*bMat_fac(:,nLMB2)
-                  rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*bMat_fac(:,nLMB2)
-                  rhs2(:,2*lm-1,threadid)=rhs2(:,2*lm-1,threadid)*jMat_fac(:,nLMB2)
-                  rhs2(:,2*lm,threadid)  =rhs2(:,2*lm,threadid)*jMat_fac(:,nLMB2)
+                  do nR=1,n_r_tot
+                     rhs1(nR,2*lm-1,threadid)=rhs1(nR,2*lm-1,threadid)*bMat_fac(nR,nLMB2)
+                     rhs1(nR,2*lm,threadid)  =rhs1(nR,2*lm,threadid)*bMat_fac(nR,nLMB2)
+                     rhs2(nR,2*lm-1,threadid)=rhs2(nR,2*lm-1,threadid)*jMat_fac(nR,nLMB2)
+                     rhs2(nR,2*lm,threadid)  =rhs2(nR,2*lm,threadid)*jMat_fac(nR,nLMB2)
+                  end do
                end do
 #endif
 
