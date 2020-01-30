@@ -246,7 +246,8 @@ contains
                   rhs1(2*n_r_max,2*lmB,threadid)    =0.0_cp
                   rhs1(2*n_r_max+1,2*lmB-1,threadid)= real(tops(l1,m1))
                   rhs1(2*n_r_max+1,2*lmB,threadid)  =aimag(tops(l1,m1))
-                  rhs1(3*n_r_max,lmB,threadid)  =bots(l1,m1)
+                  rhs1(3*n_r_max,2*lmB-1,threadid)  = real(bots(l1,m1))
+                  rhs1(3*n_r_max,2*lmB,threadid)    =aimag(bots(l1,m1))
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
                      rhs1(nR,2*lmB-1,threadid)          = real(work_LMloc(lm1,nR))
