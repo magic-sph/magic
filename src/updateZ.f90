@@ -371,8 +371,6 @@ contains
                      rhs1(nR,2*lmB-1,threadid)=real(work_LMloc(lm1,nR))
                      rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
                      if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
-                        rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+prec_fac* &
-                        &    cmplx(sin(oek*time),-cos(oek*time),kind=cp)
                         rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
                         &                         prec_fac*sin(oek*time)
                         rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)- &
