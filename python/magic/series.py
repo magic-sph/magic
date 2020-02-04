@@ -507,6 +507,25 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
+        elif self.field == 'rot':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.omega_ic, ls='-', c='#30a2da',
+                    label='Omega IC')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Rotation inner core')
+            ax.legend(loc='best', frameon=False)
+            
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='#fc4f30',
+                    label='Lorentz torque on IC')
+            ax1.plot(self.time,self.viscous_torque_ic, ls='-', c='#6d904f',
+                    label='Viscous torque on IC')
+            ax1.legend(loc='best', frameon=False)
+            ax1.set_xlabel('Time')
+            ax1.set_ylabel('Torque on IC')
+            ax1.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
         elif self.field == 'timestep':
             fig = plt.figure()
             ax = fig.add_subplot(111)
