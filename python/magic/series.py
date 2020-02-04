@@ -165,11 +165,11 @@ class MagicTs(MagicSetup):
                                                                     7,8,9,10)]))
                             elif self.field == 'dtVrms':
                                 if ncolRef == 15:
-                                    data = np.insert(data, 10, 0., axis=1)
+                                    data = np.insert(data, 10, 0., axis=1)#self.arc
                                     ncolRef += 1
-                                elif ncolRef == 16:
-                                    data = np.insert(data, 7, 0., axis=1)
-                                    data = np.insert(data, 11, 0., axis=1)
+                                elif ncolRef == 14:
+                                    data = np.insert(data, 7, 0., axis=1)#self.chemRms
+                                    data = np.insert(data, 11, 0., axis=1)#self.arc
                                     ncolRef += 2
                                 data = np.vstack((data, datanew))
                             elif self.field in ('AM', 'dtBrms'):
