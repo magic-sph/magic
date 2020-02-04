@@ -104,11 +104,11 @@ class MagicTs(MagicSetup):
                     else: # If the number of columns has changed
                         if self.field == 'dtVrms':
                             if ncolRef == 15:
-                                data = np.insert(data, 10, 0., axis=1)
+                                data = np.insert(data, 10, 0., axis=1)#self.arc
                                 nColRef += 1
-                            elif ncolRef == 16:
-                                data = np.insert(data, 7, 0., axis=1)
-                                data = np.insert(data, 11, 0., axis=1)
+                            elif ncolRef == 14:
+                                data = np.insert(data, 7, 0., axis=1)#self.ChemRms
+                                data = np.insert(data, 11, 0., axis=1)#self.arc
                                 nColRef += 2
                             data = np.vstack((data, datanew))
                         elif self.field in ('AM', 'power', 'dtBrms'):
@@ -168,8 +168,8 @@ class MagicTs(MagicSetup):
                                     data = np.insert(data, 10, 0., axis=1)#self.arc
                                     ncolRef += 1
                                 elif ncolRef == 14:
-                                    data = np.insert(data, 7, 0., axis=1)#self.chemRms
-                                    data = np.insert(data, 11, 0., axis=1)#self.arc
+                                    data = np.insert(data, 7, 0., axis=1) #self.ChemRms
+                                    data = np.insert(data, 11, 0., axis=1) #self.arc
                                     ncolRef += 2
                                 data = np.vstack((data, datanew))
                             elif self.field in ('AM', 'dtBrms'):
