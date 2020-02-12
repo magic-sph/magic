@@ -1322,7 +1322,7 @@ contains
 
 #ifdef WITH_MPI
       integer :: n_fields,n_surface,n_movie,n_const
-      integer :: n_start,n_stop,n_field
+      integer :: n_start,n_stop,n_field,n_field_type
       integer :: myTag, status(MPI_STATUS_SIZE)
       integer :: local_start,local_end,irank,sendcount
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -1444,33 +1444,65 @@ contains
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
                end if
             end do  ! Do loop over field for one movie
+
          else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
             ! all ranks have a part of the frames array for each movie
             ! we need to gather
 
             do n_field=1,n_fields
-               n_start = n_movie_field_start(n_field,n_movie)
-               n_stop  = n_movie_field_stop(n_field,n_movie)
+               n_start      = n_movie_field_start(n_field,n_movie)
+               n_stop       = n_movie_field_stop(n_field,n_movie)
+               n_field_type = n_movie_field_type(n_field,n_movie)
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_theta_max
                local_end  =local_start+nR_per_rank*n_theta_max-1
-               if (local_end > n_stop) then
-                  call abortRun('local_end exceeds n_stop')
-               end if
                do irank=0,n_procs-1
                   recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
                end do
+               if (local_end > n_stop) then
+                  call abortRun('local_end exceeds n_stop')
+               end if
                displs(0)=0
                do irank=1,n_procs-1
                   displs(irank)=displs(irank-1)+recvcounts(irank-1)
                end do
                sendcount=local_end-local_start+1
-               call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                    &           field_frames_global,recvcounts,displs,      &
-                    &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-               if (rank == 0) then
-                  frames(n_start:n_stop)=field_frames_global(1:field_length)
+
+               !-- Either only the axisymmetric or both slices
+               if ( n_field_type == 9 .or. n_field_type == 11 .or.  &
+               &    n_field_type == 12 .or. n_field_type == 92 .or. &
+               &    n_field_type == 94 .or. n_field_type == 95 .or. &
+               &    n_field_type == 96 .or. n_field_type == 97 .or. &
+               &    n_field_type == 98 .or. n_field_type == 99 .or. &
+               &    n_field_type == 19 ) then
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if (rank == 0) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length)
+                  end if
+
+               else ! Two phi slices
+
+                  n_stop=n_start+field_length/2-1
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if (rank == 0) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length/2)
+                  end if
+                  n_start=n_stop+1
+                  n_stop =n_start+field_length/2-1
+                  local_start = local_start+field_length/2
+                  local_end = local_end+field_length/2
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if (rank == 0) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length/2)
+                  end if
+
                end if
             end do  ! Do loop over field for one movie
 

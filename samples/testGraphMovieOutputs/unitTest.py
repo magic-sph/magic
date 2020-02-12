@@ -66,12 +66,18 @@ def generateEkinFile(fileName='e_kin.test'):
     Br3D = Movie(file='Br_3D_mov.start', iplot=False)
     vt3D = Movie(file='Vt_3D_mov.start', iplot=False)
     fl = Movie(file='FL_mov.start', iplot=False)
-    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( \
+    vr_slice = Movie(file='Vr_P=C1_mov.start', iplot=False)
+    vp_slice = Movie(file='Vp_P=C2_mov.start', iplot=False)
+    Br_slice = Movie(file='Br_P=C3_mov.start', iplot=False)
+
+    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( \
          av.data[0, 1, 121, 12], ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128],
          vtr.data[0, 0, 33, 87], vreq.data[0, 0, 28, 31], teq.data[0, 1, 29, 29],
          vortz.data[0, 1, 1, 1], hel.data[0, 0, 3, 4], Bteq.data_ic[0, -1, 10, 5], 
          Br3D.data[0, -1, 10, 31, 12], Br3D.data_ic[0, -1, 20, 11, 4],
-         vt3D.data[0, 0, 15, 16, 13], fl.data[0, -1, 10, 12])
+         vt3D.data[0, 0, 15, 16, 13], fl.data[0, -1, 10, 12],
+         vr_slice.data[0, -1, 10, 10], vp_slice.data[0, -1, 73, 13],
+         Br_slice.data[0, 0, 212, 13], Br_slice.data_ic[0, -1, 193, 7])
 
     # Write output for movie files
     file.write(st)
