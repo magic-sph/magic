@@ -273,7 +273,7 @@ class Movie:
                     dat = dat.reshape(shape)
                     if self.movtype in [1, 2, 3]:
                         datic = dat[self.n_r_max:, ...].T
-                        dat = dat[:self.n_r_max, :].T
+                        dat = dat[:self.n_r_max, ...].T
                         self.data[ll, k, ...] = dat
                         self.data_ic[ll, k, ...] = datic
                     else:

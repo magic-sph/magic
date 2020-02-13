@@ -206,11 +206,13 @@ class Movie2Vtk:
                 dat = infile.fort_read(precision)
                 if n_surface == 0:
                     dat = dat.reshape(shape)
-                    # if self.movtype in [1, 2, 3]:
-                    #    datic = dat[self.n_r_max:, ...].T
-                    #    dat = dat[:self.n_r_max, :].T
-                    # else:
-                    #    self.data[ll, k, ...] = dat.T
+                    fname = '%s%s%s_3D_%05d' % (dir, os.sep, fieldName, k+1)
+                    if self.movtype in [1, 2, 3]:
+                        # datic = dat[self.n_r_max:, ...].T
+                        dat = dat[:self.n_r_max, ...].T
+                        self.scal3D2vtk(fname, dat, fieldName)
+                    else:
+                        self.scal3D2vtk(fname, dat.T, fieldName)
                 elif n_surface == 2:
                     fname = '%s%s%s_eq_%05d' % (dir, os.sep, fieldName, k+1)
                     dat = dat.reshape(shape)
@@ -264,6 +266,36 @@ class Movie2Vtk:
                     self.rcut2vtk(fname, dat.T, self.rCut, fieldName)
 
         infile.close()
+
+    def scal3D2vtk(self, fname, data, name):
+        """
+        This routine transforms a 3-D scalar field of dimension
+        (n_phi,n_theta,n_r) into a vts file.
+
+        :param fname: file name
+        :type fname: str
+        :param data: input data
+        :type data: numpy.ndarray
+        :param r: radius of the selected cut
+        :type r: float
+        :param name: name of the physical field stored in the vts file
+        :type name: str
+        """
+        data = symmetrize(data, self.minc)
+        phi = np.linspace(0., 2.*np.pi, data.shape[0])
+        X = np.zeros(data.shape, dtype=np.float32)
+        Y = np.zeros_like(X)
+        Z = np.zeros_like(X)
+        ttheta, pphi, rr = np.meshgrid(self.theta, phi, self.radius)
+        X = rr*np.sin(ttheta)*np.cos(pphi)
+        Y = rr*np.sin(ttheta)*np.sin(pphi)
+        Z = rr*np.cos(ttheta)*np.ones_like(pphi)
+
+        point_data = {}
+        point_data[name] = data
+
+        gridToVTK(fname, X, Y, Z, pointData=point_data)
+        print('Store %s.vts' % fname)
 
     def rcut2vtk(self, fname, data, r, name):
         """
