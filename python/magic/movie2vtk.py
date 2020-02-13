@@ -240,7 +240,7 @@ class Movie2Vtk:
                             name = name[:8]
                         fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
                                                         name, k+1)
-                        self.mer2vtk(fname, datoc1.T, self.phiCut+np.pi/2,
+                        self.mer2vtk(fname, datoc1.T, self.phiCut+np.pi,
                                      fieldName)
                         # datic0 = datic[:len(datic)/2].reshape(self.n_r_ic_max+2,
                         #                                       self.n_theta_max)
@@ -257,7 +257,7 @@ class Movie2Vtk:
                             name = name[:8]
                         fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
                                                         name, k+1)
-                        self.mer2vtk(fname, dat1.T, self.phiCut+np.pi/2,
+                        self.mer2vtk(fname, dat1.T, self.phiCut+np.pi,
                                      fieldName)
                 else:
                     fname = '%s%s%s_rcut%s_%05d' % (dir, os.sep, fieldName,
