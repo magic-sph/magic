@@ -12,7 +12,8 @@ module movie_data
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
-   use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
+   use charmanip, only: capitalize, delete_string, str2dble, length_to_blank, &
+       &                dble2str
    use useful, only: logWrite, abortRun
    use constants, only: pi, one
    use mem_alloc, only: bytes_allocated
@@ -403,7 +404,6 @@ contains
       integer :: n_field_size_ic
       integer :: n_field_start
       integer :: n_field_type(n_movie_fields_max)
-      integer :: n_rc,n_tc,n_pc
 
       logical :: lStore,lIC,foundGridPoint
 
@@ -419,10 +419,6 @@ contains
       l_HTmovie    =.false.
       l_dtBmovie   =.false.
       l_store_frame=.false.
-
-      n_rc=0
-      n_tc=0
-      n_pc=0
 
       do i=1,n_movies_max
 
@@ -1007,10 +1003,6 @@ contains
          else if ( index(string,'R=') /= 0 .or. &
          &    index(string,'RAD=') /= 0 .or. index(string,'RADIUS=') /= 0 ) then
             n_surface=1  ! R=const.
-            n_rc=n_rc+1
-            write(stringC,'(''R=C'',i1,''_'')') n_rc
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
 
@@ -1043,6 +1035,11 @@ contains
                const = r_ic(n_const)
             end if
 
+            call dble2str(r_movie,word)
+            stringC='R='//trim(word)//'_'
+            lengthC=length_to_blank(stringC)
+            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+
          else if ( index(string,'EQ') /= 0 .or. lEquator ) then
 
             n_surface=2    ! Equator
@@ -1055,10 +1052,6 @@ contains
          else if ( index(string,'T=') /= 0 .or. index(string,'THETA=') /= 0 ) then
 
             n_surface=2    ! Theta=const.
-            n_tc=n_tc+1
-            write(stringC,'(''T=C'',i1,''_'')') n_tc
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
             n_field_size=n_r_max*n_phi_max
             n_field_size_ic=n_r_ic_max*n_phi_max
 
@@ -1104,14 +1097,15 @@ contains
                n_const=2*(n_theta_max-n_const+1)
             end if
 
+            call dble2str(theta_movie,word)
+            stringC='T='//trim(word)//'_'
+            lengthC=length_to_blank(stringC)
+            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+
          else if ( index(string,'MER' ) /= 0 .or.  &
               index(string,'P='  ) /= 0  .or. index(string,'PHI=') /= 0 ) then
 
             n_surface=3  ! PHI=const.
-            n_pc=n_pc+1
-            write(stringC,'(''P=C'',i1,''_'')') n_pc
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
             n_field_size=2*n_r_max*n_theta_max
             n_field_size_ic=2*n_r_ic_max*n_theta_max
 
@@ -1156,6 +1150,11 @@ contains
             end if
 
             const=rad*phi(n_const)
+
+            call dble2str(phi_movie,word)
+            stringC='P='//trim(word)//'_'
+            lengthC=length_to_blank(stringC)
+            file_name=file_name(1:length_fn)//stringC(1:lengthC)
 
          else
             message = 'Couldnt interpret movie surface from string:'//string

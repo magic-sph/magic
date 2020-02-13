@@ -57,18 +57,18 @@ def generateEkinFile(fileName='e_kin.test'):
     av = Movie(file='AV_mov.start', iplot=False)
     ahf = Movie(file='AHF_mov.start', iplot=False)
     brcmb = Movie(file='Br_CMB_mov.start', iplot=False)
-    vtr = Movie(file='Vt_R=C1_mov.start', iplot=False)
+    vtr = Movie(file='Vt_R=1_338461_mov.start', iplot=False)
     vreq = Movie(file='Vr_EQU_mov.start', iplot=False)
     teq = Movie(file='T_EQU_mov.start', iplot=False)
     vortz = Movie(file='VorZ_EQU_mov.start', iplot=False)
-    hel = Movie(file='HE_R=C2_mov.start', iplot=False)
+    hel = Movie(file='HE_R=1_438461_mov.start', iplot=False)
     Bteq = Movie(file='Bt_EQU_mov.start', iplot=False)
     Br3D = Movie(file='Br_3D_mov.start', iplot=False)
     vt3D = Movie(file='Vt_3D_mov.start', iplot=False)
     fl = Movie(file='FL_mov.start', iplot=False)
-    vr_slice = Movie(file='Vr_P=C1_mov.start', iplot=False)
-    vp_slice = Movie(file='Vp_P=C2_mov.start', iplot=False)
-    Br_slice = Movie(file='Br_P=C3_mov.start', iplot=False)
+    vr_slice = Movie(file='Vr_P=0_000000_mov.start', iplot=False)
+    vp_slice = Movie(file='Vp_P=0_000000_mov.start', iplot=False)
+    Br_slice = Movie(file='Br_P=0_000000_mov.start', iplot=False)
 
     st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( \
          av.data[0, 1, 121, 12], ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128],
