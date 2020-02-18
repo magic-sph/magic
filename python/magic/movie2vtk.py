@@ -228,10 +228,10 @@ class Movie2Vtk:
                         datoc = dat[:len1]
                         # datic = dat[len1:]
 
-                        datoc0 = datoc[:len(datoc)/2].reshape(self.n_r_max,
-                                                              self.n_theta_max)
-                        datoc1 = datoc[len(datoc)/2:].reshape(self.n_r_max,
-                                                              self.n_theta_max)
+                        datoc0 = datoc[:len(datoc)//2].reshape(self.n_r_max,
+                                                               self.n_theta_max)
+                        datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
+                                                               self.n_theta_max)
                         fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
                                                         str(self.phiCut), k+1)
                         self.mer2vtk(fname, datoc0.T, self.phiCut, fieldName)
