@@ -514,7 +514,7 @@ contains
    subroutine get_xiMat(tscheme,l,hdif,xiMat)
 #endif
       !
-      !  Purpose of this subroutine is to contruct the time step matricies
+      !  Purpose of this subroutine is to contruct the time step matrices
       !  xiMat(i,j) for the equation for the chemical composition.
       !
 

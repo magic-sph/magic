@@ -582,7 +582,7 @@ contains
    subroutine get_sMat(tscheme,l,hdif,sMat)
 #endif
       !
-      !  Purpose of this subroutine is to contruct the time step matricies
+      !  Purpose of this subroutine is to contruct the time step matrices
       !  sMat(i,j) and s0mat for the entropy equation.
       !
 

@@ -887,7 +887,7 @@ contains
    subroutine get_zMat(tscheme,l,hdif,zMat)
 #endif
       !
-      !  Purpose of this subroutine is to contruct the time step matricies
+      !  Purpose of this subroutine is to contruct the time step matrices
       !  zmat(i,j) for the NS equation.
       !
 

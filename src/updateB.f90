@@ -1032,7 +1032,7 @@ contains
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
       dLh=real(l*(l+1),kind=cp)
 
-      !-- matricies depend on degree l but not on order m,
+      !-- matrices depend on degree l but not on order m,
       !   we thus have to construct bmat and ajmat for each l:
 
       l_P_1=real(l+1,kind=cp)
@@ -1203,7 +1203,7 @@ contains
 
       !----- Conducting inner core:
       if ( l_cond_ic ) then
-         !----- inner core implicit time step matricies for the grid
+         !----- inner core implicit time step matrices for the grid
          !      points n_r=n_r_max+1,...,n_r_max+n_r_ic
          do nCheb=1,n_r_ic_max ! counts even IC cheb modes
             do nR=2,n_r_ic_max-1 ! counts IC radial grid points
@@ -1260,7 +1260,7 @@ contains
             datJmat(nR,n_r_tot)  =half*datJmat(nR,n_r_tot)
          end do
 
-         !-------- fill matricies up with zeros:
+         !-------- fill matrices up with zeros:
          do nCheb=n_r_max+1,n_r_tot
             do nR=1,n_r_max-1
                datBmat(nR,nCheb)=0.0_cp
