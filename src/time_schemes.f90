@@ -28,7 +28,7 @@ module time_schemes
       logical,  allocatable :: l_exp_calc(:) ! Array of booleans to specify the calculation of an explicit stage
       logical, allocatable :: l_imp_calc_rhs(:) ! Array of booleans to specify the calculation of an implicit stage
       real(cp) :: courfac ! Courant factor
-      real(cp) :: alffac ! Courant factor for Alven waves
+      real(cp) :: alffac ! Courant factor for Alfven waves
       real(cp) :: intfac ! Coriolis factor
 
    contains 
@@ -157,10 +157,10 @@ contains
             &    position='append')
          end if
          write(n_out,*) ''
-         write(n_out, '('' ! Time integrator  :'',1p,A10)') this%time_scheme
-         write(n_out, '('' ! CFL (flow) value :'',es12.4)') this%courfac
-         write(n_out, '('' ! CFL (Alven) value:'',es12.4)') this%alffac
-         write(n_out, '('' ! CFL (Ekman) value:'',es12.4)') this%intfac
+         write(n_out, '('' ! Time integrator   :'',1p,A10)') this%time_scheme
+         write(n_out, '('' ! CFL (flow) value  :'',es12.4)') this%courfac
+         write(n_out, '('' ! CFL (Alfven) value:'',es12.4)') this%alffac
+         write(n_out, '('' ! CFL (Ekman) value :'',es12.4)') this%intfac
          write(n_out,*) ''
          if ( n == 2 .and. l_save_out ) close(n_log_file)
       end do
