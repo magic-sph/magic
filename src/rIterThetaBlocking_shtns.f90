@@ -8,9 +8,7 @@ module rIterThetaBlocking_shtns_mod
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
    use parallel_mod, only: get_openmp_blocks
-   use truncation, only: lm_max, lmP_max, l_max, lmP_max_dtB,      &
-       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr, &
-       &                 n_theta_max, n_phi_max, nrp, n_r_max
+   use truncation, only: lmP_max, n_theta_max, n_phi_max
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -40,9 +38,9 @@ module rIterThetaBlocking_shtns_mod
    use nl_special_calc
    use shtns
    use horizontal_data
-   use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
-       &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
-       &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc
+   use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,   &
+       &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc, &
+       &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
@@ -257,7 +255,8 @@ contains
       end if
 
       if ( this%l_probe_out ) then
-         call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1,this%sizeThetaB)
+         call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1, &
+              &         this%sizeThetaB)
       end if
 
       !--------- Helicity output:
@@ -379,8 +378,6 @@ contains
       !   get_td finally calculates the d*dt terms needed for the
       !   time step performed in s_LMLoop.f . This should be distributed
       !   over the different models that s_LMLoop.f parallelizes over.
-      !write(*,"(A,I4,2ES20.13)") "before_td: ", &
-      !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
       call td_counter%start_count()
       call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,           &
@@ -390,8 +387,6 @@ contains
       call td_counter%stop_count(l_increment=.false.)
 
       !PERFOFF
-      !write(*,"(A,I4,ES20.13)") "after_td:  ", &
-      !     & this%nR,sum(real(conjg(dVxBhLM(:,this%nR_Mag))*dVxBhLM(:,this%nR_Mag)))
       !-- Finish calculation of TO variables:
       if ( this%lTOcalc ) then
          call getTOfinish(this%nR, dtLast, this%leg_helper%zAS,             &
@@ -419,7 +414,9 @@ contains
       class(rIterThetaBlocking_shtns_t) :: this
       type(grid_space_arrays_t) :: gsa
 
+      !-- Local variables
       integer :: nR
+
       nR = this%nR
 
       if ( l_conv .or. l_mag_kin ) then
@@ -438,9 +435,8 @@ contains
             end if
          end if
 
-         if ( this%lRmsCalc ) then
-            call scal_to_grad_spat(p_Rloc(:,nR), gsa%dpdtc, gsa%dpdpc, l_R(nR))
-         end if
+         if ( this%lRmsCalc ) call scal_to_grad_spat(p_Rloc(:,nR), gsa%dpdtc, &
+                                   &                 gsa%dpdpc, l_R(nR))
 
          !-- Pressure
          if ( this%lPressCalc ) call scal_to_spat(p_Rloc(:,nR), gsa%pc, l_R(nR))
@@ -464,10 +460,9 @@ contains
                     &                   gsa%cvrc, gsa%cvtc, gsa%cvpc, l_R(nR))
 
                !-- For some outputs one still need the other terms
-               if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
-               &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+               if ( this%lViscBcCalc .or. this%lPowerCalc .or. this%lRmsCalc  &
+               &    .or. this%lFluxProfCalc .or. this%lTOCalc .or.            &
                &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
-
                   call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR),         &
                        &              dz_Rloc(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
                        &              gsa%dvpdrc, l_R(nR))
@@ -654,6 +649,9 @@ contains
          if ( l_conv_nl ) then
             call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, &
                  &                nl_lm%Advp2LM, l_R(this%nR))
+         end if
+         if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
+            call spat_to_SH(gsa%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
             call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, &

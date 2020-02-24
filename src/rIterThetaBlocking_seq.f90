@@ -8,8 +8,7 @@ module rIterThetaBlocking_seq_mod
    use dtB_arrays_mod, only: dtB_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use num_param, only: lm2phy_counter, phy2lm_counter, nl_counter, td_counter
-   use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
-       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
+   use truncation, only: lmP_max, l_max
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
@@ -201,7 +200,7 @@ contains
 
          !--------- Calculation of nonlinear products in grid space:
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
-                this%lRmsCalc ) then
+         &      this%lRmsCalc ) then
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             call nl_counter%start_count()
             PERFON('get_nl')

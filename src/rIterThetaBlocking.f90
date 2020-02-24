@@ -8,8 +8,7 @@ module rIterThetaBlocking_mod
    use rIteration_mod, only: rIteration_t
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB,   &
-       &                 n_phi_maxStr,n_theta_maxStr,n_r_maxStr, &
+   use truncation, only: lm_max,nrp, l_max, n_phi_maxStr,n_theta_maxStr, &
        &                 lm_maxMag,l_axi
    use blocking, only: nfs
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
@@ -128,8 +127,8 @@ contains
          end if
 
          !-- For some outputs one still need the other terms
-         if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
-         &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+         if ( this%lViscBcCalc .or. this%lPowerCalc .or.                    &
+         &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or.  &
          &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
             call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
                  &                    gsa%dvrdtc)
@@ -241,8 +240,8 @@ contains
                   call fft_thetab(gsa%cvtc,1)
                   call fft_thetab(gsa%cvpc,1)
 
-                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
-                  &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.                   &
+                  &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or. &
                   &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
                      call fft_thetab(gsa%dvrdrc,1)
                      call fft_thetab(gsa%dvtdrc,1)
@@ -485,6 +484,10 @@ contains
             end if
             call legTF_spher_tor(nThetaStart,nl_lm%Advp2LM,nl_lm%Advt2LM, &
                  &               gsa%Advp2,gsa%Advt2)
+         end if
+         if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
+            if ( .not. l_axi ) call fft_thetab(gsa%dpkindrc,-1)
+            call legTF1(nThetaStart,nl_lm%dpkindrLM,gsa%dpkindrc)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
             if ( .not. l_axi ) then

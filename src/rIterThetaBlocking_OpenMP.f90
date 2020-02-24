@@ -7,13 +7,13 @@ module rIterThetaBlocking_OpenMP_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
-   use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB, &
-       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
+   use truncation, only: lmP_max
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-       &            l_movie_oc, l_TO, l_chemical_conv, l_probe, l_full_sphere
+       &            l_movie_oc, l_TO, l_chemical_conv, l_probe,               &
+       &            l_full_sphere, l_adv_curl
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -603,6 +603,10 @@ contains
             this%nl_lm(0)%dtVrLM=this%nl_lm(0)%dtVrLM+this%nl_lm(iThread)%dtVrLM
             this%nl_lm(0)%dtVtLM=this%nl_lm(0)%dtVtLM+this%nl_lm(iThread)%dtVtLM
             this%nl_lm(0)%dtVpLM=this%nl_lm(0)%dtVpLM+this%nl_lm(iThread)%dtVpLM
+            if ( l_adv_curl ) then
+               this%nl_lm(0)%dpkindrLM=this%nl_lm(0)%dpkindrLM+ &
+               &                       this%nl_lm(iThread)%dpkindrLM
+            end if
          end do
       end if
 
