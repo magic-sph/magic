@@ -131,7 +131,12 @@ endif
 #MPI_INCPATH=/usr/lib64/mpi/gcc/openmpi/include
 #MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
 
-PREPROC += -Dsngl=1 -Ddble=2
+# generate a Git version string
+GIT_VERSION := $(shell git describe --abbrev=7 --always --tags)
+# get the date of the build
+BUILD_DATE := $(shell date "+%Y/%m/%d %H:%M:%S")
+
+PREPROC += -Dsngl=1 -Ddble=2 -DGIT_VERSION=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"
 ifeq ($(USE_MPI),yes)
 	PREPROC += -DWITH_MPI
 	FC = $(COMP_MPFC)

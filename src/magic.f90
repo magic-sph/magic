@@ -198,12 +198,22 @@ program magic
 
    !--- Read starting time
    if ( rank == 0 ) then
-      write(*,*)
-      write(*,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
+      write(output_unit,*)
+      write(output_unit,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
       call date_and_time(values=values)
+#if defined(GIT_VERSION)
+      write(output_unit, '(A,A)') ' !  Git version:  ', GIT_VERSION
+#else
+      write(output_unit, '(A)') ' !  Git version: unknown'
+#endif
+#if defined(BUILD_DATE)
+      write(output_unit, '(A,A)') ' !  Build date:  ', BUILD_DATE
+#else
+      write(output_unit, '(A)') ' !  Build date: unknown'
+#endif
       write(date, '(i4,''/'',i0.2,''/'',i0.2,'' '', i0.2,'':'',i0.2,'':'',i0.2)') &
       &     values(1), values(2), values(3), values(5), values(6), values(7)
-      write(output_unit, *) '!  Start time:  ', date
+      write(output_unit, '(A,A)') ' !  Start date:  ', date
    end if
 
    !--- Read input parameters:
@@ -246,7 +256,17 @@ program magic
       write(n_log_file,*) '!                                                        '
       write(n_log_file,*) '!                                                        '
 
-
+#if defined(GIT_VERSION)
+      write(n_log_file, '(A,A)') ' ! Git version:  ', GIT_VERSION
+#else
+      write(n_log_file, '(A)') ' ! Git version: unknown'
+#endif
+#if defined(BUILD_DATE)
+      write(n_log_file, '(A,A)') ' ! Build date:  ', BUILD_DATE
+#else
+      write(n_log_file, '(A)') ' ! Build date: unknown'
+#endif
+      write(n_log_file, '(A,A)') ' ! Start date:  ', date
 
       if ( l_save_out ) close(n_log_file)
    end if

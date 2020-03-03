@@ -2,6 +2,12 @@ cmake_minimum_required (VERSION 2.6)
 project (magic)
 enable_language (Fortran C)
 
+# generate a Git version string
+execute_process(COMMAND git describe --abbrev=7 --always --tags OUTPUT_VARIABLE GIT_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+# build date
+execute_process(COMMAND date "+%Y/%m/%d %H:%M:%S" OUTPUT_VARIABLE BUILD_DATE OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 # Location of the binary output
@@ -66,6 +72,10 @@ if (USE_PRECOND MATCHES yes)
                    -DWITH_PRECOND_S0 -DWITH_PRECOND_Z10)
 endif()
 
+# Git version
+add_definitions(-DGIT_VERSION="${GIT_VERSION}")
+# Build date
+add_definitions(-DBUILD_DATE="${BUILD_DATE}")
 # Precision of the calculations
 add_definitions(-Dsngl=1 -Ddble=2)
 add_definitions(-DDEFAULT_PRECISION=${PRECISION})

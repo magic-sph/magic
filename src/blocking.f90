@@ -119,7 +119,7 @@ contains
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
-         write(n_log_file,*) '! Number of ranks I will use:',n_procs
+         write(n_log_file,'(A,I5)') ' ! Number of MPI ranks:', n_procs
          if ( l_save_out ) close(n_log_file)
       end if
 
