@@ -13,7 +13,7 @@ module rIteration_mod
       logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
       logical :: lPowerCalc, l_probe_out
       logical :: l_graph,lPerpParCalc,lViscBcCalc,lFluxProfCalc,lPressCalc
-      logical :: isRadialBoundaryPoint
+      logical :: isRadialBoundaryPoint, lPressNext
       real(cp) :: dtrkc,dthkc
  
    contains
@@ -87,13 +87,14 @@ contains
               &                      lDeriv,lRmsCalc,lHelCalc,lPowerCalc,  &
               &                      l_frame,lMagNlBc,l_graph,lViscBcCalc, &
               &                      lFluxProfCalc,lPerpParCalc,lPressCalc,&
-              &                      l_probe_out)
+              &                      lPressNext,l_probe_out)
 
       class(rIteration_t) :: this
-      logical, intent(in) :: lDeriv,lRmsCalc
-      logical, intent(in) :: lHelCalc,lPowerCalc,l_frame,l_probe_out
-      logical, intent(in) :: lTOCalc,lTOnext,lTOnext2, lMagNlBc,l_graph
-      logical, intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc
+      logical, intent(in) :: lDeriv, lRmsCalc
+      logical, intent(in) :: lHelCalc, lPowerCalc, l_frame, l_probe_out
+      logical, intent(in) :: lTOCalc, lTOnext, lTOnext2, lMagNlBc, l_graph
+      logical, intent(in) :: lViscBcCalc, lFluxProfCalc, lPerpParCalc
+      logical, intent(in) :: lPressCalc, lPressNext
 
       this%lTOCalc = lTOCalc
       this%lTOnext = lTOnext
@@ -109,6 +110,7 @@ contains
       this%lFluxProfCalc = lFluxProfCalc
       this%lViscBcCalc = lViscBcCalc
       this%lPressCalc = lPressCalc
+      this%lPressNext = lPressNext
       this%l_probe_out = l_probe_out
 
    end subroutine set_steering_variables

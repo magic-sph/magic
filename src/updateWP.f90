@@ -109,6 +109,7 @@ contains
          if ( l_RMS .or. l_FluxProfs ) then
             allocate( dwold(llm:ulm,n_r_max) )
             bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+            dwold(:,:)=zero
          end if
       end if
 
@@ -502,15 +503,14 @@ contains
          call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
               &               tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
               &               lPressNext, lRmsNext,                       &
-              &               dpdt%expl(:,:,tscheme%istage),              &
-              &               l_in_cheb_space=.true.)
+              &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
+         ! dpdt%expl(:,:,1) needed for RMS calc: first stage explicit term
       else
          call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
               &               tscheme, tscheme%istage+1,                  &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
               &               lPressNext, lRmsNext,                       &
-              &               dpdt%expl(:,:,tscheme%istage),              &
-              &               l_in_cheb_space=.true.)
+              &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
       end if
 
 

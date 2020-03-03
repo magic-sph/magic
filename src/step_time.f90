@@ -481,7 +481,7 @@ contains
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
-                    &           lPowerCalc,lRmsCalc,lPressCalc,                    &
+                    &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
                     &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
                     &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,     &

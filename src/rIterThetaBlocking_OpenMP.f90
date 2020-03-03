@@ -684,7 +684,7 @@ contains
       !PERFON('get_td')
       call td_counter%start_count()
       call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,             &
-           &                    this%lPressCalc,dVSrLM,dVXirLM,             &
+           &                    this%lPressNext,dVSrLM,dVXirLM,             &
            &                    dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,  &
            &                    dbdt,djdt)
       call td_counter%stop_count(l_increment=.false.)

@@ -404,7 +404,7 @@ contains
       call td_counter%start_count()
       PERFON('get_td')
       call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,             &
-           &                 this%lPressCalc,dVSrLM,dVXirLM,dVxVhLM,     &
+           &                 this%lPressNext,dVSrLM,dVXirLM,dVxVhLM,     &
            &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       PERFOFF
       call td_counter%stop_count(l_increment=.false.)

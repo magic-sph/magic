@@ -13,7 +13,8 @@ module nonlinear_lm_mod
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
        &             l_adv_curl
    use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
-       &                       or4, temp0, alpha0, ogrun, orho1
+       &                       or4, temp0, alpha0, ogrun, orho1, dLvisc, &
+       &                       visc, dbeta
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ChemFac, ThExpNb
@@ -25,7 +26,7 @@ module nonlinear_lm_mod
    use RMS, only: Adv2hInt, Pre2hInt, Cor2hInt, LF2hInt, Iner2hInt,    &
        &          Geo2hInt, Mag2hInt, ArcMag2hInt, CLF2hInt, PLF2hInt, &
        &          CIA2hInt, Arc2hInt, Buo_temp2hInt, Buo_xi2hint
-   use constants, only: zero, two
+   use constants, only: zero, two, four, third, three
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc, s_Rloc, &
        &             p_Rloc, dp_Rloc, xi_Rloc
    use RMS_helpers, only: hIntRms
@@ -194,7 +195,7 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,lPressCalc,dVSrLM,dVXirLM,    &
+   subroutine get_td(this,nR,nBc,lRmsCalc,lPressNext,dVSrLM,dVXirLM,    &
               &      dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
@@ -210,7 +211,7 @@ contains
       integer, intent(in) :: nR
       integer, intent(in) :: nBc ! signifies boundary conditions
       logical, intent(in) :: lRmsCalc
-      logical, intent(in) :: lPressCalc
+      logical, intent(in) :: lPressNext
 
       !-- Output of variables:
       complex(cp), intent(out) :: dwdt(:),dzdt(:)
@@ -224,7 +225,7 @@ contains
 
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
-      complex(cp) :: CorPol(lm_max)
+      complex(cp) :: CorPol(lm_max), dpdr(lm_max)
       complex(cp) :: AdvPol(lm_max),AdvTor(lm_max)
       complex(cp) :: LFPol(lm_max),LFTor(lm_max)
       complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
@@ -302,7 +303,16 @@ contains
                end if
                CorPol(lm)=CorPol_loc
 
-            end if
+               if ( l_double_curl ) then
+                  !-- Recalculate the pressure gradient based on the poloidal
+                  !-- equation equilibrium
+                  dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm,nR)+ &
+                  &        AdvPol_loc+CorPol_loc
+               else
+                  dpdr(lm)=dp_Rloc(lm,nR)
+               end if
+
+            end if ! lRmsCalc
 
             !PERFON('td_cv1')
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
@@ -459,6 +469,18 @@ contains
                         AdvPol_loc=zero
                      endif
 
+                     !-- Recalculate the pressure gradient based on the poloidal
+                     !-- equation equilibrium
+                     dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+         &
+                     &        dLh(lm)*or2(nR)*hdif_V(lm)*visc(nR)* (            &
+                     &                                        ddw_Rloc(lm,nR)+  &
+                     &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm,nR)-  &
+                     &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
+                     &         dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
+                     &         or1(nR)) )*                      w_Rloc(lm,nR))+ &
+                     &        beta(nR)*p_Rloc(lm,nR)+AdvPol_loc+CorPol_loc
+                  else
+                     dpdr(lm)=dp_Rloc(lm,nR)
                   end if
 
                   if ( l_mag_LF .and. nR>n_r_LCR ) then
@@ -469,7 +491,7 @@ contains
                   end if
                   CorPol(lm)=CorPol_loc
 
-               end if
+               end if ! lRmsCalc
 
                if ( l_corr ) then
                   if ( l < l_max .and. l > m ) then
@@ -505,7 +527,6 @@ contains
                end if
 
                dzdt(lm)=CorTor_loc+AdvTor_loc
-               ! until here
 
                if ( lRmsCalc ) then
                   if ( l_mag_LF .and. nR>n_r_LCR ) then
@@ -558,21 +579,21 @@ contains
                end if
 
                if ( l_anelastic_liquid ) then
-                  call hIntRms(dp_Rloc(:,nR),nR,1,lm_max,0, &
-                       &       Pre2hInt(:,nR),st_map,.false.)
+                  call hIntRms(dpdr,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
                else
                   ! rho* grad(p/rho) = grad(p) - beta*p
+                  !-- Geo is used to store the pressure Gradient
                   if ( l_adv_curl ) then
                      do lm=1,lm_max
                         lmP =lm2lmP(lm)
                         !-- Use Geo as work array
-                        Geo(lm)=dp_Rloc(lm,nR)-beta(nR)*p_Rloc(lm,nR)- &
+                        Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm,nR)- &
                         &       this%dpkindrLM(lmP)
                      end do
                   else
                      do lm=1,lm_max
                         !-- Use Geo as work array
-                        Geo(lm)=dp_Rloc(lm,nR)-beta(nR)*p_Rloc(lm,nR)
+                        Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm,nR)
                      end do
                   end if
                   call hIntRms(Geo,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
@@ -603,8 +624,8 @@ contains
 
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
-                  Geo(lm)=CorPol(lm)-dp_Rloc(lm,nR)+beta(nR)*p_Rloc(lm,nR)
-                  PLF(lm)=LFPol(lm)-dp_Rloc(lm,nR)+beta(nR)*p_Rloc(lm,nR)
+                  Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm,nR)
+                  PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm,nR)
                   if ( l_adv_curl ) then
                      Geo(lm)=Geo(lm)+this%dpkindrLM(lmP)
                      PLF(lm)=PLF(lm)+this%dpkindrLM(lmP)
@@ -665,7 +686,8 @@ contains
             end if
 
             ! In case double curl is calculated dpdt is useless
-            if ( (.not. l_double_curl) .or. lPressCalc ) then
+            if ( (.not. l_double_curl) .or. lPressNext ) then
+            !if ( .true. ) then
                !PERFON('td_cv2')
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(lmPS,AdvPol_loc,CorPol_loc)
