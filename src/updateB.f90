@@ -132,9 +132,9 @@ contains
       maxThreads=1
 #endif
 
-      allocate(rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
-      allocate(rhs2(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
-      bytes_allocated=bytes_allocated+4*n_r_max*maxThreads* &
+      allocate(rhs1(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
+      allocate(rhs2(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
+      bytes_allocated=bytes_allocated+2*n_r_tot*maxThreads* &
       &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateB
