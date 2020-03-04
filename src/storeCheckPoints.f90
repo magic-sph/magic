@@ -11,7 +11,7 @@ module storeCheckPoints
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
        &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
        &                 fd_stretch, fd_ratio, nRstart, nRstop, nRstartMag,    &
-       &                 nRstopMag, n_r_loc
+       &                 nRstopMag, nR_per_rank
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
@@ -520,7 +520,7 @@ contains
       arr_size(1) = lm_max
       arr_size(2) = n_r_max
       arr_loc_size(1) = lm_max
-      arr_loc_size(2) = n_r_loc
+      arr_loc_size(2) = nR_per_rank
       arr_start(1) = 0
       arr_start(2) = nRstart-1
       call MPI_Type_Create_Subarray(2, arr_size, arr_loc_size, arr_start, &
@@ -706,7 +706,7 @@ contains
       integer :: n_o
       integer :: istat(MPI_STATUS_SIZE)
 
-      call MPI_File_Write_all(fh, w, lm_max*n_r_loc, &
+      call MPI_File_Write_all(fh, w, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -716,7 +716,7 @@ contains
 
          do n_o=2,tscheme%nexp
             call lo2r%transp_lm2r(dwdt%expl(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*n_r_loc, &
+            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -725,7 +725,7 @@ contains
 
          do n_o=2,tscheme%nimp
             call lo2r%transp_lm2r(dwdt%impl(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*n_r_loc, &
+            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -734,7 +734,7 @@ contains
 
          do n_o=2,tscheme%nold
             call lo2r%transp_lm2r(dwdt%old(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*n_r_loc, &
+            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &

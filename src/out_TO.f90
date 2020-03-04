@@ -6,7 +6,7 @@ module outTO_mod
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
        &                 lm_max, nRstart, nRstop, radial_balance,    &
-       &                 n_r_loc, load, getBlocks
+       &                 nR_per_rank, load, getBlocks
    use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: BpzAS_Rloc, BspdAS_Rloc, BpsdAS_Rloc, &
@@ -1543,7 +1543,7 @@ contains
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: p,ierr
 
-      sendcount  = n_r_loc*(l_max+1)
+      sendcount  = nR_per_rank*(l_max+1)
       do p=0,n_procs-1
          recvcounts(p)=radial_balance(p)%n_per_rank*(l_max+1)
       end do

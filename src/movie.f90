@@ -4,11 +4,12 @@ module movie_data
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max,      &
        &                 ldtBMem, minc, n_r_ic_max, lMovieMem, &
-       &                 n_r_tot
+       &                 n_r_tot, nRstart, nRstop, n_r_icb,    &
+       &                 n_r_cmb, radial_balance, nR_per_rank
    use logic, only:  l_store_frame, l_save_out, l_movie, &
        &             l_movie_oc, l_movie_ic, l_HTmovie,  &
        &             l_dtBmovie, l_store_frame, l_save_out
-   use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
+   use radial_data, only: 
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag

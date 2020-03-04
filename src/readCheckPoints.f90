@@ -1578,7 +1578,7 @@ contains
       character(len=10) :: tscheme_family_old
       real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old, n_o
-      integer :: n_r_loc_old, datatype, l1m0
+      integer :: nR_per_rank_old, datatype, l1m0
       integer :: istat(MPI_STATUS_SIZE)
       integer :: nimp_old, nexp_old, nold_old
       logical :: l_press_store_old
@@ -1834,12 +1834,12 @@ contains
       call getBlocks(radial_balance_old, n_r_max_old, n_procs)
       nRstart_old = radial_balance_old(rank)%nStart
       nRstop_old = radial_balance_old(rank)%nStop
-      n_r_loc_old = radial_balance_old(rank)%n_per_rank
+      nR_per_rank_old = radial_balance_old(rank)%n_per_rank
 
       allocate( workOld(lm_max_old, nRstart_old:nRstop_old) )
 
       !-- Define a MPI type to handle the reading
-      call MPI_Type_Vector(1,lm_max_old*n_r_loc_old, lm_max_old*n_r_max_old,&
+      call MPI_Type_Vector(1,lm_max_old*nR_per_rank_old, lm_max_old*n_r_max_old,&
            &               MPI_DEF_COMPLEX, datatype, ierr)
       call MPI_Type_Commit(datatype, ierr)
 
@@ -2263,12 +2263,12 @@ contains
       !-- Local variables:
       integer(lip) :: size_old
       integer :: istat(MPI_STATUS_SIZE)
-      integer :: n_o, n_r_loc_old
+      integer :: n_o, nR_per_rank_old
 
-      n_r_loc_old = nRstop_old-nRstart_old+1
+      nR_per_rank_old = nRstop_old-nRstart_old+1
 
       !-- Poloidal potential: w
-      call MPI_File_Read_All(fh, wOld, lm_max_old*n_r_loc_old, &
+      call MPI_File_Read_All(fh, wOld, lm_max_old*nR_per_rank_old, &
            &                 MPI_DEF_COMPLEX, istat, ierr)
       size_old = int(n_r_max_old,kind=lip)*int(lm_max_old,kind=lip)* &
       &          int(SIZEOF_DEF_COMPLEX,kind=lip)
@@ -2286,7 +2286,7 @@ contains
       !-- dwdt
       if ( tscheme_family_old == 'MULTISTEP' ) then
          do n_o=2,nexp_old
-            call MPI_File_Read_All(fh, wOld, lm_max_old*n_r_loc_old, &
+            call MPI_File_Read_All(fh, wOld, lm_max_old*nR_per_rank_old, &
                  &                 MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -2299,7 +2299,7 @@ contains
             end if
          end do
          do n_o=2,nimp_old
-            call MPI_File_Read_All(fh, wOld, lm_max_old*n_r_loc_old, &
+            call MPI_File_Read_All(fh, wOld, lm_max_old*nR_per_rank_old, &
                  &                 MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -2312,7 +2312,7 @@ contains
             end if
          end do
          do n_o=2,nold_old
-            call MPI_File_Read_All(fh, wOld, lm_max_old*n_r_loc_old, &
+            call MPI_File_Read_All(fh, wOld, lm_max_old*nR_per_rank_old, &
                  &                 MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &

@@ -7,7 +7,7 @@ module mpi_transp
    !
 
    use precision_mod
-   use truncation, only: lm_max, n_r_max, nRstart, nRstop, n_r_loc
+   use truncation, only: lm_max, n_r_max, nRstart, nRstop, nR_per_rank
    use blocking, only: llm, ulm
 
    implicit none
@@ -66,7 +66,7 @@ module  mpi_alltoall_mod
    use mem_alloc
    use truncation, only: lm_max, n_r_max, l_max, minc, l_axi, &
        &                 nRstart, nRstop, radial_balance,     &
-       &                 n_r_loc
+       &                 nR_per_rank
    use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp, only: type_mpitransp
 
@@ -118,7 +118,7 @@ contains
       do p=0,n_procs-1
          my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
-         this%scounts(p)=n_r_loc*my_lm_counts*this%n_fields
+         this%scounts(p)=nR_per_rank*my_lm_counts*this%n_fields
          this%rcounts(p)=radial_balance(p)%n_per_rank*nlm_per_rank*this%n_fields
       end do
 
@@ -157,10 +157,10 @@ contains
          this%disp(p)  =0
 
          arr_size(1)=lm_max
-         arr_size(2)=n_r_loc
+         arr_size(2)=nR_per_rank
          arr_size(3)=this%n_fields
          arr_loc_size(1)=my_lm_counts
-         arr_loc_size(2)=n_r_loc
+         arr_loc_size(2)=nR_per_rank
          arr_loc_size(3)=this%n_fields
          arr_start(1)=lm_balance(p)%nStart-1
          arr_start(2)=0

@@ -15,8 +15,7 @@ module grid_space_arrays_mod
    use general_arrays_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: nrp, n_phi_max, n_theta_max
-   use radial_data, only: nRstart, nRstop
+   use truncation, only: nrp, n_phi_max, n_theta_max, nRstart, nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
