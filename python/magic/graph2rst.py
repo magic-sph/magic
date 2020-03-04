@@ -112,7 +112,7 @@ class Graph2Rst:
 
         write_single_record(f, '>i', version)
 
-        time = gr.time.astype('float64')
+        time = gr.time.astype(np.float64)
         if dt < 0:
             dt = gr.dtMax
 
@@ -134,7 +134,7 @@ class Graph2Rst:
         ek = gr.ek.reshape((1))[0]
         radratio = gr.radratio.reshape((1))[0]
         par = np.r_[ra, pr, raxi, sc, prmag, ek, radratio, gr.sigma_ratio]
-        par = par.astype('float64')
+        par = par.astype(np.float64)
         write_record(f, '>d', par)
 
         # Grid resolution
@@ -169,7 +169,7 @@ class Graph2Rst:
         f.write(struct.pack('>i', 8+8+4+4+len(s)))  # 2 doubles + 2 int + 1str
 
         # Torques: dummy
-        dumm = np.zeros(15, dtype='float64')
+        dumm = np.zeros(15, dtype=np.float64)
         dumm[-1] = dt
         write_record(f, '>d', dumm)
 
@@ -203,7 +203,7 @@ class Graph2Rst:
                                 n_theta_max=gr.n_theta_max)
 
         # Calculate and store the poloidal potential using vr
-        pol = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+        pol = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
         for i in range(gr.n_r_max):
             vr = sh.spat_spec(gr.vr[:, :, i])
             pol[i, 1:] = vr[1:]/(sh.ell[1:]*(sh.ell[1:]+1)) * \
@@ -214,14 +214,14 @@ class Graph2Rst:
         pol.tofile(f)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-        pol = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+        pol = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
         pol.byteswap(True)
         pol.tofile(f)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
         # Calculate the toroidal potential using wr
-        tor = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+        tor = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
 
         th3D = np.zeros_like(gr.vr)
         rr3D = np.zeros_like(th3D)
@@ -243,14 +243,14 @@ class Graph2Rst:
         tor.tofile(f)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-        tor = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+        tor = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
         tor.byteswap(True)
         tor.tofile(f)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
         # Calculate the pressure
-        pre = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+        pre = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
         for i in range(gr.n_r_max):
             p = sh.spat_spec(gr.pre[:, :, i])
             pre[i, :] = p[:]
@@ -260,7 +260,7 @@ class Graph2Rst:
         pre.tofile(f)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-        pre = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+        pre = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
         f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
         pre.byteswap(True)
         pre.tofile(f)
@@ -268,7 +268,7 @@ class Graph2Rst:
 
         # Calculate entropy/temperature
         if l_heat:
-            entropy = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            entropy = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             for i in range(gr.n_r_max):
                 p = sh.spat_spec(gr.entropy[:, :, i])
                 entropy[i, :] = p[:]
@@ -278,7 +278,7 @@ class Graph2Rst:
             entropy.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-            entropy = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            entropy = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
             entropy.byteswap(True)
             entropy.tofile(f)
@@ -286,7 +286,7 @@ class Graph2Rst:
 
         # Calculate chemical composition
         if l_chem:
-            xi = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            xi = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             for i in range(gr.n_r_max):
                 p = sh.spat_spec(gr.xi[:, :, i])
                 xi[i, :] = p[:]
@@ -296,7 +296,7 @@ class Graph2Rst:
             xi.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-            xi = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            xi = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
             xi.byteswap(True)
             xi.tofile(f)
@@ -304,7 +304,7 @@ class Graph2Rst:
 
         if l_mag:
             # Calculate and store the poloidal potential using Br
-            pol = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            pol = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             for i in range(gr.n_r_max):
                 vr = sh.spat_spec(gr.Br[:, :, i])
                 pol[i, 1:] = vr[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*gr.radius[i]**2
@@ -314,14 +314,14 @@ class Graph2Rst:
             pol.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-            pol = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            pol = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
             pol.byteswap(True)
             pol.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
             # Calculate the toroidal potential using jr
-            tor = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            tor = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
 
             jr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi, order=4) -
                          phideravg(gr.Btheta, minc=gr.minc))
@@ -335,7 +335,7 @@ class Graph2Rst:
             tor.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
 
-            tor = np.zeros((gr.n_r_max, gr.lm_max), 'complex128')
+            tor = np.zeros((gr.n_r_max, gr.lm_max), dtype=np.complex128)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_max))
             tor.byteswap(True)
             tor.tofile(f)
@@ -346,9 +346,9 @@ class Graph2Rst:
 
 
             # Calculate and store the poloidal potential using Br
-            pol = np.zeros((gr.n_r_ic_max, gr.lm_max), 'complex128')
+            pol = np.zeros((gr.n_r_ic_max, gr.lm_max), dtype=np.complex128)
             for i in range(gr.n_r_ic_max):
-                rdep = np.zeros(sh.ell.shape, dtype='float64')
+                rdep = np.zeros(sh.ell.shape, dtype=np.float64)
                 if i == 0:  # ICB radius
                     vr = sh.spat_spec(gr.Br[:, :, -1])
                     rr = gr.radius[-1]
@@ -368,14 +368,14 @@ class Graph2Rst:
             pol.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_ic_max))
 
-            pol = np.zeros((gr.n_r_ic_max, gr.lm_max), 'complex128')
+            pol = np.zeros((gr.n_r_ic_max, gr.lm_max), dtype=np.complex128)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_ic_max))
             pol.byteswap(True)
             pol.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_ic_max))
 
             # Calculate the toroidal potential using jr
-            tor = np.zeros((gr.n_r_ic_max, gr.lm_max), 'complex128')
+            tor = np.zeros((gr.n_r_ic_max, gr.lm_max), dtype=np.complex128)
 
             th3D = np.zeros_like(gr.Br_ic)
             rr3D = np.zeros_like(th3D)
@@ -403,7 +403,7 @@ class Graph2Rst:
             tor.tofile(f)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_ic_max))
 
-            tor = np.zeros((gr.n_r_ic_max, gr.lm_max), 'complex128')
+            tor = np.zeros((gr.n_r_ic_max, gr.lm_max), dtype=np.complex128)
             f.write(struct.pack('>i', 16*gr.lm_max*gr.n_r_ic_max))
             tor.byteswap(True)
             tor.tofile(f)
