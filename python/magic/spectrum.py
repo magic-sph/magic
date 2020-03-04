@@ -20,11 +20,11 @@ class MagicSpectrum(MagicSetup):
     >>> # where tag is the most recent file in the current directory
     >>> sp = MagicSpectrum(field='e_kin', ispec=1)
     >>> # display the content of mag_spec_ave.test on one single figure
-    >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True, gather=True)
+    >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True)
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
-                 ave=False, gather=False, normalize=False, tag=None):
+                 ave=False, normalize=False, tag=None):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -38,27 +38,23 @@ class MagicSpectrum(MagicSetup):
         :type tag: str
         :param ave: plot a time-averaged spectrum when set to True
         :type ave: bool
-        :param gather: gather the spectra on the same figure when set to True,
-                       display one figure per spectrum when set to False,
-                       (default is False)
-        :type gather: bool
         :param datadir: current working directory
         :type datadir: str
         """
-        self.gather = gather
         self.normalize = normalize
+        self.ave = ave
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR', 'kin'):
-            if ave:
+            if self.ave:
                 self.name = 'kin_spec_ave'
             else:
                 self.name = 'kin_spec_'
         elif field in ('u2', 'usquare', 'u_square', 'uSquare', 'U2'):
-            if ave:
+            if self.ave:
                 self.name = 'u2_spec_ave'
             else:
                 self.name = 'u2_spec_'
         elif field in ('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR', 'mag'):
-            if ave:
+            if self.ave:
                 self.name = 'mag_spec_ave'
             else:
                 self.name = 'mag_spec_'
@@ -104,7 +100,7 @@ class MagicSpectrum(MagicSetup):
             print('No such file')
             return
 
-        if ave is False and self.name != 'dtVrms_spec':
+        if self.ave is False and self.name != 'dtVrms_spec':
             data = fast_read(filename, skiplines=1)
         else:
             data = fast_read(filename)
@@ -164,6 +160,7 @@ class MagicSpectrum(MagicSetup):
             self.emagcmb_l_SD = data[:, 11]
             self.emagcmb_m_SD = data[:, 12]
         elif self.name == 'dtVrms_spec':
+            self.ave = True
             self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
             self.LFRms = data[:, 3]
@@ -246,6 +243,8 @@ class MagicSpectrum(MagicSetup):
                 self.corLor_SD = data[:, 28]
                 self.preLor_SD = data[:, 29]
                 self.cia_SD = data[:, 30]
+
+            self.index = self.index-1
         elif self.name == 'T_spec_':
             self.T_l = data[:,1]
             self.T_m = data[:,2]
@@ -262,251 +261,237 @@ class MagicSpectrum(MagicSetup):
         Plotting function
         """
         if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-                ax = fig.add_subplot(212)
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if self.normalize:
+                y = self.ekin_poll+self.ekin_torl
+                ax.loglog(self.index, y/y.max(),)
+            else:
+                ax.loglog(self.index[1:], self.ekin_poll[1:], label='poloidal')
+                if self.ave:
+                    ax.fill_between(self.index[1:], self.ekin_poll[1:]-\
+                                    self.ekin_poll_SD[1:], self.ekin_poll[1:]+\
+                                    self.ekin_poll_SD[1:], alpha=0.2)
+                ax.loglog(self.index[1:], self.ekin_torl[1:], label='toroidal')
+                if self.ave:
+                    ax.fill_between(self.index[1:], self.ekin_torl[1:]-\
+                                    self.ekin_torl_SD[1:], self.ekin_torl[1:]+\
+                                    self.ekin_torl_SD[1:], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
+            else:
+                ax.set_xlabel('Degree l')
+            ax.set_ylabel('Kinetic energy')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if self.normalize:
+                y = self.ekin_polm[::self.minc]+self.ekin_torm[::self.minc]
+                ax.loglog(self.index[::self.minc]+1, y/y.max())
+            else:
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                           label='poloidal')
+                if self.ave:
+                    ax.fill_between(self.index[::self.minc]+1,
+                                    self.ekin_polm[::self.minc]-\
+                                    self.ekin_polm_SD[::self.minc],
+                                    self.ekin_polm[::self.minc]+\
+                                    self.ekin_polm_SD[::self.minc], alpha=0.2)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
                           label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                else:
-                    ax.set_xlabel('m+1')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+                if self.ave:
+                    ax.fill_between(self.index[::self.minc]+1,
+                                    self.ekin_torm[::self.minc]-\
+                                    self.ekin_torm_SD[::self.minc],
+                                    self.ekin_torm[::self.minc]+\
+                                    self.ekin_torm_SD[::self.minc], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$m$ + 1')
             else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                if self.normalize:
-                    y = self.ekin_poll+self.ekin_torl
-                    ax.loglog(self.index, y/y.max(),)
-                else:
-                    ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                    ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                if self.normalize:
-                    y = self.ekin_polm[::self.minc]+self.ekin_torm[::self.minc]
-                    ax.loglog(self.index[::self.minc]+1, y/y.max())
-                else:
-                    ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                              label='poloidal')
-                    ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                              label='toroidal')
-                if labTex:
-                    ax.set_xlabel('$m$ + 1')
-                else:
-                    ax.set_xlabel('m + 1')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+                ax.set_xlabel('m + 1')
+            ax.set_ylabel('Kinetic energy')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
         elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('Degree l')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                          label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('m+1')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.ekin_poll[1:], label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.ekin_poll[1:]-\
+                                self.ekin_poll_SD[1:], self.ekin_poll[1:]+\
+                                self.ekin_poll_SD[1:], alpha=0.2)
+            ax.loglog(self.index[1:], self.ekin_torl[1:], label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.ekin_torl[1:]-\
+                                self.ekin_torl_SD[1:], self.ekin_torl[1:]+\
+                                self.ekin_torl_SD[1:], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
+                ax.set_ylabel(r'${\cal U}^2$')
             else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('Degree l')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+                ax.set_xlabel('Degree l')
+                ax.set_ylabel('Velocity square')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
 
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                          label='toroidal')
-                if labTex:
-                    ax.set_xlabel(r'$m + 1$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('m + 1')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                      label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.ekin_polm[::self.minc]-\
+                                self.ekin_polm_SD[::self.minc],
+                                self.ekin_polm[::self.minc]+\
+                                self.ekin_polm_SD[::self.minc], alpha=0.2)
+            ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
+                      label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.ekin_torm[::self.minc]-\
+                                self.ekin_torm_SD[::self.minc],
+                                self.ekin_torm[::self.minc]+\
+                                self.ekin_torm_SD[::self.minc], alpha=0.2)
+            if labTex:
+                ax.set_xlabel(r'$m + 1$')
+                ax.set_ylabel(r'${\cal U}^2$')
+            else:
+                ax.set_xlabel('m + 1')
+                ax.set_ylabel('Velocity square')
+            ax.set_xlim(1, self.index.max[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
         elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.emag_poll, label='poloidal')
-                ax.loglog(self.index, self.emag_torl, label='toroidal')
-                ax.loglog(self.index, self.emagcmb_l, label='cmb')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Magnetic Energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc], self.emag_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc], self.emag_torm[::self.minc],
-                          label='toroidal')
-                ax.loglog(self.index[::self.minc], self.emagcmb_m[::self.minc],
-                          label='cmb')
-                if labTex:
-                    ax.set_xlabel('Order $m$')
-                else:
-                    ax.set_xlabel('Order m')
-                ax.set_ylabel('Magnetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.emag_poll[1:], label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.emag_poll[1:]-\
+                                self.emag_poll_SD[1:], self.emag_poll[1:]+\
+                                self.emag_poll_SD[1:], alpha=0.2)
+            ax.loglog(self.index[1:], self.emag_torl[1:], label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.emag_torl[1:]-\
+                                self.emag_torl_SD[1:], self.emag_torl[1:]+\
+                                self.emag_torl_SD[1:], alpha=0.2)
+            ax.loglog(self.index[1:], self.emagcmb_l[1:], label='cmb')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.emagcmb_l[1:]-\
+                                self.emagcmb_l_SD[1:], self.emagcmb_l[1:]+\
+                                self.emagcmb_l_SD[1:], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
             else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.emag_poll/self.emag_poll.max(),
-                          label='poloidal')
-                ax.loglog(self.index, self.emag_torl/self.emag_torl.max(),
-                          label='toroidal')
-                ax.loglog(self.index, self.emagcmb_l/self.emagcmb_l.max(),
-                          label='cmb')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Magnetic Energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+                ax.set_xlabel('Degree l')
+            ax.set_ylabel('Magnetic Energy')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
 
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.emag_polm[::self.minc]/self.emag_polm.max(),
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1,
-                          self.emag_torm[::self.minc]/self.emag_torm.max(),
-                          label='toroidal')
-                ax.loglog(self.index[::self.minc]+1,
-                          self.emagcmb_m[::self.minc]/self.emagcmb_m.max(),
-                          label='cmb')
-                if labTex:
-                    ax.set_xlabel('$m$+1')
-                else:
-                    ax.set_xlabel('m+1')
-                ax.set_ylabel('Magnetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc],
+                      label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.emag_polm[::self.minc]-\
+                                self.emag_polm_SD[::self.minc],
+                                self.emag_polm[::self.minc]+\
+                                self.emag_polm_SD[::self.minc], alpha=0.2)
+            ax.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc],
+                      label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.emag_torm[::self.minc]-\
+                                self.emag_torm_SD[::self.minc],
+                                self.emag_torm[::self.minc]+\
+                                self.emag_torm_SD[::self.minc], alpha=0.2)
+            ax.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc],
+                      label='cmb')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.emagcmb_m[::self.minc]-\
+                                self.emagcmb_m_SD[::self.minc],
+                                self.emagcmb_m[::self.minc]+\
+                                self.emagcmb_m_SD[::self.minc], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$m$+1')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_ylabel('Magnetic energy')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
 
         elif self.name == 'dtVrms_spec':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index, self.CorRms, label='Coriolis')
-            ax.loglog(self.index, self.PreRms, label='Pressure')
-            if self.LFRms.max() > 1e-11:
-                ax.loglog(self.index, self.LFRms, label='Lorentz')
-            ax.loglog(self.index, self.BuoRms + self.ChemRms, label='Buoyancy')
-            ax.loglog(self.index, self.InerRms, label='Inertia')
-            ax.loglog(self.index, self.DifRms, label='Viscosity')
-            ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
-            ax.loglog(self.index, self.arcMag, ls='--',
-                      label='Coriolis-Pressure-Buoyancy-Lorentz')
+            ax.loglog(self.index[1:], self.CorRms[1:], label='Coriolis')
+            ax.fill_between(self.index[1:], self.CorRms[1:]-self.CorRms_SD[1:,],
+                            self.CorRms[1:]+self.CorRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.PreRms[1:], label='Pressure')
+            ax.fill_between(self.index[1:], self.PreRms[1:]-self.PreRms_SD[1:,],
+                            self.PreRms[1:]+self.PreRms_SD[1:,], alpha=0.2)
+            if self.LFRms.max() > 1e-10:
+                ax.loglog(self.index[1:], self.LFRms[1:], label='Lorentz')
+                ax.fill_between(self.index[1:], self.LFRms[1:]-self.LFRms_SD[1:,],
+                                self.LFRms[1:]+self.LFRms_SD[1:,], alpha=0.2)
+            if self.BuoRms.max() > 1e-10:
+                ax.loglog(self.index[1:], self.BuoRms[1:], label='Buoyancy')
+                ax.fill_between(self.index[1:], self.BuoRms[1:]-self.BuoRms_SD[1:,],
+                                self.BuoRms[1:]+self.BuoRms_SD[1:,], alpha=0.2)
+            if self.ChemRms.max() > 1e-10:
+                ax.loglog(self.index[1:], self.ChemRms[1:], label='Chem. Buoyancy')
+                ax.fill_between(self.index[1:], self.ChemRms[1:]-self.ChemRms_SD[1:,],
+                                self.ChemRms[1:]+self.ChemRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.InerRms[1:], label='Inertia')
+            ax.fill_between(self.index[1:], self.InerRms[1:]-self.InerRms_SD[1:,],
+                            self.InerRms[1:]+self.InerRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.DifRms[1:], label='Viscosity')
+            ax.fill_between(self.index[1:], self.DifRms[1:]-self.DifRms_SD[1:,],
+                            self.DifRms[1:]+self.DifRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.geos[1:], label='Coriolis-Pressure')
+            ax.fill_between(self.index[1:], self.geos[1:]-self.geos_SD[1:,],
+                            self.geos[1:]+self.geos_SD[1:,], alpha=0.2)
+            #ax.loglog(self.index[1:], self.arcMag[1:], ls='--',
+            #          label='Coriolis-Pressure-Buoyancy-Lorentz')
 
             if labTex:
-                ax.set_xlabel('$\ell+1$')
+                ax.set_xlabel('$\ell$')
             else:
-                ax.set_xlabel('l+1')
+                ax.set_xlabel('l')
             ax.set_ylabel('RMS forces')
-            ax.set_xlim(self.index.min(), self.index.max())
+            ax.set_xlim(1, self.index[-1])
             ax.legend(loc='lower right', frameon=False, ncol=2)
+            fig.tight_layout()
 
         elif self.name == 'T_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.T_l/self.T_l.max(),)
-                ax.loglog(self.index, self.T_icb_l/self.T_icb_l.max(),label='ICB')
-                if labTex:
-                    ax.set_xlabel('$\ell$')
-                else:
-                    ax.set_xlabel('l')
-                ax.set_ylabel('degree')
-                ax.legend()
-
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.T_m[::self.minc]/self.T_m[::self.minc].max(),)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.T_icb_m[::self.minc]/self.T_icb_m[::self.minc].max(),
-                          label='ICB')
-
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                else:
-                    ax.set_xlabel('m+1')
-                ax.set_ylabel('order')
-                ax.legend()
-                fig.tight_layout()
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.T_l[1:])
+            ax.loglog(self.index[1:], self.T_icb_l[1:])
+            if labTex:
+                ax.set_xlabel('$\ell$')
             else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.T_l)
-                ax.loglog(self.index, self.T_icb_l)
-                if labTex:
-                    ax.set_xlabel('$\ell$')
-                else:
-                    ax.set_xlabel('l')
+                ax.set_xlabel('l')
+            ax.set_xlim(1, self.index[-1])
+            fig.tight_layout()
 
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.T_m[::self.minc],color='g')
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                else:
-                    ax.set_xlabel('m+1')
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1,
+                      self.T_m[::self.minc],color='g')
+            if labTex:
+                ax.set_xlabel('Order $m+1$')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_xlim(1, self.index[-1]+1)
+            fig.tight_layout()
 
 
 class MagicSpectrum2D(MagicSetup):
@@ -698,7 +683,6 @@ class MagicSpectrum2D(MagicSetup):
 
         if iplot:
             self.plot(levels, cm)
-
 
     def plot(self, levels, cm, cut=1.):
         """
