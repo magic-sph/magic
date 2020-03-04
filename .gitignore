@@ -7,3 +7,6 @@ magic.exe
 perf.*.xml
 TAGS
 *~
+samples/**/stdout.out
+samples/tmp
+samples/make.out

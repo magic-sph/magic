@@ -85,11 +85,11 @@ contains
 !----------------------------------------------------------------------------
    subroutine radialLoopG(l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
-              &          lRmsCalc,lPressCalc,lViscBcCalc,lFluxProfCalc,  &
-              &          lPerpParCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,   &
-              &          dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,         &
-              &          dVXirLM,lorentz_torque_ic,lorentz_torque_ma,    &
-              &          br_vt_lm_cmb,br_vp_lm_cmb,                      &
+              &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,     &
+              &          lFluxProfCalc,lPerpParCalc,l_probe_out,dsdt,    &
+              &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM, &
+              &          dVSrLM,dVXirLM,lorentz_torque_ic,               &
+              &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,    &
               &          br_vt_lm_icb,br_vp_lm_icb,                      &
               &          HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,&
               &          duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,      &
@@ -107,6 +107,7 @@ contains
       logical,             intent(in) :: lRmsCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
+      logical,             intent(in) :: lPressNext
       real(cp),            intent(in) :: time,timeStage,dtLast
       class(type_tscheme), intent(in) :: tscheme
 
@@ -242,7 +243,7 @@ contains
          call this_rIteration%set_steering_variables(lTOCalc,lTOnext,     &
               & lTOnext2,lDeriv,lRmsCalc,lHelCalc,lPowerCalc,l_frame,     &
               & lMagNlBc,l_graph,lViscBcCalc,lFluxProfCalc,lPerpParCalc,  &
-              & lPressCalc, l_probe_out)
+              & lPressCalc, lPressNext, l_probe_out)
 
          call this_rIteration%do_iteration(nR,nBc,time,timeStage,tscheme,dtLast,&
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),        &

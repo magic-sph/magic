@@ -114,7 +114,7 @@ contains
       logical :: l_logNext, l_pot
       logical :: lRmsCalc,lRmsNext, l_pure, l_mat_time
       logical :: lPressCalc,lPressNext
-      logical :: lMat, lMatNext   ! update matricies
+      logical :: lMat, lMatNext   ! update matrices
       logical :: l_probe_out      ! Sensor output
 
       !-- Timers:
@@ -192,7 +192,7 @@ contains
       run_time_passed=0.0_cp
       l_log       =.false.
       l_stop_time =.false.
-      l_new_dt    =.true.   ! Invokes calculation of t-step matricies
+      l_new_dt    =.true.   ! Invokes calculation of t-step matrices
       lMatNext    =.true.
       timeLast    =time
       timeStage   =time
@@ -481,7 +481,7 @@ contains
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
-                    &           lPowerCalc,lRmsCalc,lPressCalc,                    &
+                    &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
                     &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
                     &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,     &
@@ -634,10 +634,10 @@ contains
 
             lMat = lMatNext
             if ( (l_new_dt .or. lMat) .and. (tscheme%istage==1) ) then
-               !----- Calculate matricies for new time step if dt /= dtLast
+               !----- Calculate matrices for new time step if dt /= dtLast
                lMat=.true.
                if ( rank == 0 ) then
-                  write(output_unit,'(1p,'' ! Building matricies at time step:'', &
+                  write(output_unit,'(1p,'' ! Building matrices at time step:'', &
                   &                   i8,ES16.6)') n_time_step,time
                end if
             end if

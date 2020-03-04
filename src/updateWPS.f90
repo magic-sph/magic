@@ -37,7 +37,7 @@ module updateWPS_mod
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workB(:,:), workC(:,:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
-   complex(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:,:)
    integer, allocatable :: ps0Pivot(:)
    real(cp), allocatable :: wpsMat(:,:,:)
@@ -88,7 +88,7 @@ contains
       maxThreads=1
 #endif
 
-      allocate( rhs1(3*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      allocate( rhs1(3*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
@@ -236,17 +236,26 @@ contains
 
                else ! l1 /= 0
                   lmB=lmB+1
-                  rhs1(1,lmB,threadid)          =0.0_cp
-                  rhs1(n_r_max,lmB,threadid)    =0.0_cp
-                  rhs1(n_r_max+1,lmB,threadid)  =0.0_cp
-                  rhs1(2*n_r_max,lmB,threadid)  =0.0_cp
-                  rhs1(2*n_r_max+1,lmB,threadid)=tops(l1,m1)
-                  rhs1(3*n_r_max,lmB,threadid)  =bots(l1,m1)
+                  rhs1(1,2*lmB-1,threadid)          =0.0_cp
+                  rhs1(1,2*lmB,threadid)            =0.0_cp
+                  rhs1(n_r_max,2*lmB-1,threadid)    =0.0_cp
+                  rhs1(n_r_max,2*lmB,threadid)      =0.0_cp
+                  rhs1(n_r_max+1,2*lmB-1,threadid)  =0.0_cp
+                  rhs1(n_r_max+1,2*lmB,threadid)    =0.0_cp
+                  rhs1(2*n_r_max,2*lmB-1,threadid)  =0.0_cp
+                  rhs1(2*n_r_max,2*lmB,threadid)    =0.0_cp
+                  rhs1(2*n_r_max+1,2*lmB-1,threadid)= real(tops(l1,m1))
+                  rhs1(2*n_r_max+1,2*lmB,threadid)  =aimag(tops(l1,m1))
+                  rhs1(3*n_r_max,2*lmB-1,threadid)  = real(bots(l1,m1))
+                  rhs1(3*n_r_max,2*lmB,threadid)    =aimag(bots(l1,m1))
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
-                     rhs1(nR,lmB,threadid)          =work_LMloc(lm1,nR)
-                     rhs1(nR+n_r_max,lmB,threadid)  =dp(lm1,nR)
-                     rhs1(nR+2*n_r_max,lmB,threadid)=ds(lm1,nR)
+                     rhs1(nR,2*lmB-1,threadid)          = real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lmB,threadid)            =aimag(work_LMloc(lm1,nR))
+                     rhs1(nR+n_r_max,2*lmB-1,threadid)  = real(dp(lm1,nR))
+                     rhs1(nR+n_r_max,2*lmB,threadid)    =aimag(dp(lm1,nR))
+                     rhs1(nR+2*n_r_max,2*lmB-1,threadid)= real(ds(lm1,nR))
+                     rhs1(nR+2*n_r_max,2*lmB,threadid)  =aimag(ds(lm1,nR))
                   end do
                end if
             end do
@@ -257,18 +266,16 @@ contains
 
                ! use the mat_fac(:,1) to scale the rhs
                do lm=lmB0+1,lmB
-                  do nR=1,3*n_r_max
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpsMat_fac(nR,1,nLMB2)
-                  end do
+                  rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,1,nLMB2)
+                  rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,1,nLMB2)
                end do
-               call solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max,        &
-                    &         wpsPivot(:,nLMB2),rhs1(:,lmB0+1:lmB,threadid),&
-                    &         lmB-lmB0)
+               call solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max,                &
+                    &         wpsPivot(:,nLMB2),rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),&
+                    &         2*(lmB-lmB0))
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
-                  do nR=1,3*n_r_max
-                     rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpsMat_fac(nR,2,nLMB2)
-                  end do
+                  rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,2,nLMB2)
+                  rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,2,nLMB2)
                end do
             end if
             !PERFOFF
@@ -287,18 +294,22 @@ contains
                   lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        w(lm1,n_r_out)=rhs1(n_r_out,lmB,threadid)
-                        p(lm1,n_r_out)=rhs1(n_r_max+n_r_out,lmB,threadid)
-                        s(lm1,n_r_out)=rhs1(2*n_r_max+n_r_out,lmB,threadid)
+                        w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        &                    rhs1(n_r_out,2*lmB,threadid),cp)
+                        p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,threadid),&
+                        &                    rhs1(n_r_max+n_r_out,2*lmB,threadid),cp)
+                        s(lm1,n_r_out)=cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,  &
+                        &                    threadid),rhs1(2*n_r_max+n_r_out,&
+                        &                    2*lmB,threadid),cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
-                        w(lm1,n_r_out)= cmplx(real(rhs1(n_r_out,lmB,threadid)), &
-                                       &     0.0_cp,kind=cp)
-                        p(lm1,n_r_out)= cmplx(real(rhs1(n_r_max+n_r_out,lmB,threadid)), &
-                                       &     0.0_cp,kind=cp)
-                        s(lm1,n_r_out)= cmplx(real(rhs1(2*n_r_max+n_r_out,lmB,threadid)), &
-                                       &     0.0_cp,kind=cp)
+                        w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                                       &      0.0_cp,kind=cp)
+                        p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,threadid), &
+                                       &      0.0_cp,kind=cp)
+                        s(lm1,n_r_out)= cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,threadid), &
+                                       &      0.0_cp,kind=cp)
                      end do
                   end if
                end if

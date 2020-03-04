@@ -4,15 +4,16 @@ module movie_data
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max,      &
        &                 ldtBMem, minc, n_r_ic_max, lMovieMem, &
-       &                 n_r_tot, nRstart,nRstop, n_r_icb,     &
-       &                 n_r_cmb, radial_balance, n_r_loc
+       &                 n_r_tot
    use logic, only:  l_store_frame, l_save_out, l_movie, &
        &             l_movie_oc, l_movie_ic, l_HTmovie,  &
        &             l_dtBmovie, l_store_frame, l_save_out
+   use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
-   use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
+   use charmanip, only: capitalize, delete_string, str2dble, length_to_blank, &
+       &                dble2str
    use useful, only: logWrite, abortRun
    use constants, only: pi, one
    use mem_alloc, only: bytes_allocated
@@ -403,7 +404,6 @@ contains
       integer :: n_field_size_ic
       integer :: n_field_start
       integer :: n_field_type(n_movie_fields_max)
-      integer :: n_rc,n_tc,n_pc
 
       logical :: lStore,lIC,foundGridPoint
 
@@ -419,10 +419,6 @@ contains
       l_HTmovie    =.false.
       l_dtBmovie   =.false.
       l_store_frame=.false.
-
-      n_rc=0
-      n_tc=0
-      n_pc=0
 
       do i=1,n_movies_max
 
@@ -1007,10 +1003,6 @@ contains
          else if ( index(string,'R=') /= 0 .or. &
          &    index(string,'RAD=') /= 0 .or. index(string,'RADIUS=') /= 0 ) then
             n_surface=1  ! R=const.
-            n_rc=n_rc+1
-            write(stringC,'(''R=C'',i1,''_'')') n_rc
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
 
@@ -1043,6 +1035,11 @@ contains
                const = r_ic(n_const)
             end if
 
+            call dble2str(r_movie,word)
+            stringC='R='//trim(word)//'_'
+            lengthC=length_to_blank(stringC)
+            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+
          else if ( index(string,'EQ') /= 0 .or. lEquator ) then
 
             n_surface=2    ! Equator
@@ -1055,10 +1052,6 @@ contains
          else if ( index(string,'T=') /= 0 .or. index(string,'THETA=') /= 0 ) then
 
             n_surface=2    ! Theta=const.
-            n_tc=n_tc+1
-            write(stringC,'(''T=C'',i1,''_'')') n_tc
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
             n_field_size=n_r_max*n_phi_max
             n_field_size_ic=n_r_ic_max*n_phi_max
 
@@ -1104,14 +1097,15 @@ contains
                n_const=2*(n_theta_max-n_const+1)
             end if
 
+            call dble2str(theta_movie,word)
+            stringC='T='//trim(word)//'_'
+            lengthC=length_to_blank(stringC)
+            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+
          else if ( index(string,'MER' ) /= 0 .or.  &
               index(string,'P='  ) /= 0  .or. index(string,'PHI=') /= 0 ) then
 
             n_surface=3  ! PHI=const.
-            n_pc=n_pc+1
-            write(stringC,'(''P=C'',i1,''_'')') n_pc
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
             n_field_size=2*n_r_max*n_theta_max
             n_field_size_ic=2*n_r_ic_max*n_theta_max
 
@@ -1156,6 +1150,11 @@ contains
             end if
 
             const=rad*phi(n_const)
+
+            call dble2str(phi_movie,word)
+            stringC='P='//trim(word)//'_'
+            lengthC=length_to_blank(stringC)
+            file_name=file_name(1:length_fn)//stringC(1:lengthC)
 
          else
             message = 'Couldnt interpret movie surface from string:'//string
@@ -1322,7 +1321,7 @@ contains
 
 #ifdef WITH_MPI
       integer :: n_fields,n_surface,n_movie,n_const
-      integer :: n_start,n_stop,n_field
+      integer :: n_start,n_stop,n_field,n_field_type
       integer :: myTag, status(MPI_STATUS_SIZE)
       integer :: local_start,local_end,irank,sendcount
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -1369,7 +1368,7 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_phi_max*n_theta_max
-               local_end  =local_start+n_r_loc*n_phi_max*n_theta_max-1
+               local_end  =local_start+nR_per_rank*n_phi_max*n_theta_max-1
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
@@ -1424,7 +1423,7 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_phi_max
-               local_end  =local_start+n_r_loc*n_phi_max-1
+               local_end  =local_start+nR_per_rank*n_phi_max-1
                if (local_end > n_stop) then
                   call abortRun('local_end exceeds n_stop')
                end if
@@ -1444,33 +1443,65 @@ contains
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
                end if
             end do  ! Do loop over field for one movie
+
          else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
             ! all ranks have a part of the frames array for each movie
             ! we need to gather
 
             do n_field=1,n_fields
-               n_start = n_movie_field_start(n_field,n_movie)
-               n_stop  = n_movie_field_stop(n_field,n_movie)
+               n_start      = n_movie_field_start(n_field,n_movie)
+               n_stop       = n_movie_field_stop(n_field,n_movie)
+               n_field_type = n_movie_field_type(n_field,n_movie)
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_theta_max
-               local_end  =local_start+n_r_loc*n_theta_max-1
-               if (local_end > n_stop) then
-                  call abortRun('local_end exceeds n_stop')
-               end if
+               local_end  =local_start+nR_per_rank*n_theta_max-1
                do irank=0,n_procs-1
                   recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
                end do
+               if (local_end > n_stop) then
+                  call abortRun('local_end exceeds n_stop')
+               end if
                displs(0)=0
                do irank=1,n_procs-1
                   displs(irank)=displs(irank-1)+recvcounts(irank-1)
                end do
                sendcount=local_end-local_start+1
-               call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                    &           field_frames_global,recvcounts,displs,      &
-                    &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-               if (rank == 0) then
-                  frames(n_start:n_stop)=field_frames_global(1:field_length)
+
+               !-- Either only the axisymmetric or both slices
+               if ( n_field_type == 9 .or. n_field_type == 11 .or.  &
+               &    n_field_type == 12 .or. n_field_type == 92 .or. &
+               &    n_field_type == 94 .or. n_field_type == 95 .or. &
+               &    n_field_type == 96 .or. n_field_type == 97 .or. &
+               &    n_field_type == 98 .or. n_field_type == 99 .or. &
+               &    n_field_type == 19 ) then
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if (rank == 0) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length)
+                  end if
+
+               else ! Two phi slices
+
+                  n_stop=n_start+field_length/2-1
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if (rank == 0) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length/2)
+                  end if
+                  n_start=n_stop+1
+                  n_stop =n_start+field_length/2-1
+                  local_start = local_start+field_length/2
+                  local_end = local_end+field_length/2
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if (rank == 0) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length/2)
+                  end if
+
                end if
             end do  ! Do loop over field for one movie
 

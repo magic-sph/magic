@@ -8,14 +8,13 @@ module rIterThetaBlocking_seq_mod
    use dtB_arrays_mod, only: dtB_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use num_param, only: lm2phy_counter, phy2lm_counter, nl_counter, td_counter
-   use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
-       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr,&
-       &                 n_r_cmb, n_r_icb
+   use truncation, only: lmP_max, l_max
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
        &            l_movie_oc, l_TO, l_probe, l_full_sphere
+   use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
@@ -201,7 +200,7 @@ contains
 
          !--------- Calculation of nonlinear products in grid space:
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
-                this%lRmsCalc ) then
+         &      this%lRmsCalc ) then
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             call nl_counter%start_count()
             PERFON('get_nl')
@@ -405,7 +404,7 @@ contains
       call td_counter%start_count()
       PERFON('get_td')
       call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,             &
-           &                 this%lPressCalc,dVSrLM,dVXirLM,dVxVhLM,     &
+           &                 this%lPressNext,dVSrLM,dVXirLM,dVxVhLM,     &
            &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       PERFOFF
       call td_counter%stop_count(l_increment=.false.)

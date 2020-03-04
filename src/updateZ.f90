@@ -43,7 +43,7 @@ module updateZ_mod
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
+   real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: Dif(:)
    class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
@@ -124,7 +124,7 @@ contains
       maxThreads=1
 #endif
 
-      allocate(rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
+      allocate(rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
       bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
       &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
@@ -345,40 +345,42 @@ contains
                   !PERFON('upZ_ln0')
                   lmB=lmB+1
 
-                  rhs1(1,lmB,threadid)      =0.0_cp
-                  rhs1(n_r_max,lmB,threadid)=0.0_cp
+                  rhs1(1,2*lmB-1,threadid)      =0.0_cp
+                  rhs1(1,2*lmB,threadid)        =0.0_cp
+                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
+                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
 
                   if (amp_RiIc /= 0.0_cp) then
                      
                      if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
-                        rhs1(n_r_max,lmB,threadid) = cmplx(      &
-                        &         amp_RiIc*cos(omega_RiIc*time), &
-                        &         amp_RiIc*sin(omega_RiIc*time), &
-                        &                                  kind=cp)
+                        rhs1(n_r_max,2*lmB-1,threadid)=amp_RiIc* &
+                        &                              cos(omega_RiIc*time)
+                        rhs1(n_r_max,2*lmB,threadid)  =amp_RiIc* &
+                        &                              sin(omega_RiIc*time)
                      end if
                   end if
 
                   if (amp_RiMa /= 0.0_cp) then
                      if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
-                        rhs1(1,lmB,threadid) = cmplx(            &
-                        &        amp_RiMa*cos(omega_RiMa*time),  &
-                        &        amp_RiMa*sin(omega_RiMa*time),  &
-                        &                            kind=cp)
+                        rhs1(1,2*lmB-1,threadid)=amp_RiMa*cos(omega_RiMa*time)
+                        rhs1(1,2*lmB,threadid)  =amp_RiMa*sin(omega_RiMa*time)
                      end if
                   end if
 
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=work_LMloc(lm1,nR)
+                     rhs1(nR,2*lmB-1,threadid)=real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
                      if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
-                        rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+prec_fac* &
-                        &    cmplx(sin(oek*time),-cos(oek*time),kind=cp)
+                        rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                        &                         prec_fac*sin(oek*time)
+                        rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)- &
+                        &                       prec_fac*cos(oek*time)
                      end if
                   end do
 
 #ifdef WITH_PRECOND_Z
-                  do nR=1,n_r_max
-                     rhs1(nR,lmB,threadid)=zMat_fac(nR,nLMB2)*rhs1(nR,lmB,threadid)
-                  end do
+                  rhs1(:,2*lmB-1,threadid)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
+                  rhs1(:,2*lmB,threadid)  =zMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
 #endif
                   !PERFOFF
                end if
@@ -386,7 +388,7 @@ contains
 
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
-               call zMat(nLMB2)%solve(rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call zMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0))
             end if
             !PERFOFF
 
@@ -403,12 +405,13 @@ contains
                   lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        z(lm1,n_r_out)=rhs1(n_r_out,lmB,threadid)
+                        z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        &                    rhs1(n_r_out,2*lmB,threadid),kind=cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
-                        z(lm1,n_r_out)=cmplx( &
-                        &  real(rhs1(n_r_out,lmB,threadid)),0.0_cp,kind=cp)
+                        z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        &                    0.0_cp,kind=cp)
                      end do
                   end if
                end if
@@ -884,7 +887,7 @@ contains
    subroutine get_zMat(tscheme,l,hdif,zMat)
 #endif
       !
-      !  Purpose of this subroutine is to contruct the time step matricies
+      !  Purpose of this subroutine is to contruct the time step matrices
       !  zmat(i,j) for the NS equation.
       !
 

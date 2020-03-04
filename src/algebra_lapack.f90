@@ -13,17 +13,20 @@ module algebra
       module procedure solve_mat_real_rhs
       module procedure solve_mat_complex_rhs
       module procedure solve_mat_complex_rhs_multi
+      module procedure solve_mat_real_rhs_multi
    end interface solve_mat
 
    interface solve_tridiag
       module procedure solve_tridiag_real_rhs
       module procedure solve_tridiag_complex_rhs
       module procedure solve_tridiag_complex_rhs_multi
+      module procedure solve_tridiag_real_rhs_multi
    end interface solve_tridiag
 
    interface solve_band
       module procedure solve_band_real_rhs
       module procedure solve_band_complex_rhs_multi
+      module procedure solve_band_real_rhs_multi
       module procedure solve_band_complex_rhs
    end interface solve_band
 
@@ -111,6 +114,33 @@ contains
 
    end subroutine solve_mat_complex_rhs_multi
 !-----------------------------------------------------------------------------
+   subroutine solve_mat_real_rhs_multi(a,len_a,n,pivot,rhs,nRHSs)
+      !
+      !  This routine does the backward substitution into a lu-decomposed real
+      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
+      !  vectors bc. On return the results are stored in the bc.
+      !
+
+      !-- Input variables:
+      integer,  intent(in) :: n           ! dimension of problem
+      integer,  intent(in) :: len_a       ! leading dimension of a
+      integer,  intent(in) :: pivot(n)    ! pivot pointer of length n
+      real(cp), intent(in) :: a(len_a,n)  ! real n X n matrix
+      integer,  intent(in) :: nRHSs       ! number of right-hand sides
+
+      real(cp), intent(inout) :: rhs(:,:) ! on input RHS of problem
+
+      !-- Local variables:
+      integer :: info
+
+#if (DEFAULT_PRECISION==sngl)
+      call sgetrs('N',n,nRHSs,a(1:n,1:n),n,pivot(1:n),rhs(1:n,:),n,info)
+#elif (DEFAULT_PRECISION==dble)
+      call dgetrs('N',n,nRHSs,a(1:n,1:n),n,pivot(1:n),rhs(1:n,:),n,info)
+#endif
+
+   end subroutine solve_mat_real_rhs_multi
+!-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs(a,len_a,n,pivot,rhs)
       !
       !     like the linpack routine
@@ -173,9 +203,9 @@ contains
       integer,  intent(in) :: n         ! dim of problem
       integer,  intent(in) :: pivot(n)  ! pivot information
       real(cp), intent(in) :: d(n)      ! Diagonal
-      real(cp), intent(in) :: dl(n-1)   ! Lower 
-      real(cp), intent(in) :: du(n-1)   ! Lower 
-      real(cp), intent(in) :: du2(n-2)  ! Upper
+      real(cp), intent(in) :: dl(n-1)   ! Lower
+      real(cp), intent(in) :: du(n-1)   ! Upper
+      real(cp), intent(in) :: du2(n-2)  ! For pivot
 
       !-- Output: solution stored in rhs(n)
       real(cp), intent(inout) :: rhs(n)
@@ -195,9 +225,9 @@ contains
       integer,  intent(in) :: n         ! dim of problem
       integer,  intent(in) :: pivot(n)  ! pivot information
       real(cp), intent(in) :: d(n)      ! Diagonal
-      real(cp), intent(in) :: dl(n-1)   ! Lower 
-      real(cp), intent(in) :: du(n-1)   ! Lower 
-      real(cp), intent(in) :: du2(n-2)  ! Upper
+      real(cp), intent(in) :: dl(n-1)   ! Lower
+      real(cp), intent(in) :: du(n-1)   ! Upper
+      real(cp), intent(in) :: du2(n-2)  ! For pivot
 
       !-- Output: solution stored in rhs(n)
       complex(cp), intent(inout) :: rhs(n)
@@ -231,9 +261,9 @@ contains
       integer,  intent(in) :: n         ! dim of problem
       integer,  intent(in) :: pivot(n)  ! pivot information
       real(cp), intent(in) :: d(n)      ! Diagonal
-      real(cp), intent(in) :: dl(n-1)   ! Lower 
-      real(cp), intent(in) :: du(n-1)   ! Lower 
-      real(cp), intent(in) :: du2(n-2)  ! Upper
+      real(cp), intent(in) :: dl(n-1)   ! Lower
+      real(cp), intent(in) :: du(n-1)   ! Upper 
+      real(cp), intent(in) :: du2(n-2)  ! For pivot
       integer,  intent(in) :: nRHSs     ! Number of right-hand side
 
       !-- Output: solution stored in rhs(n)
@@ -265,6 +295,31 @@ contains
       end do
 
    end subroutine solve_tridiag_complex_rhs_multi
+!-----------------------------------------------------------------------------
+   subroutine solve_tridiag_real_rhs_multi(dl,d,du,du2,n,pivot,rhs,nRHSs)
+
+      !-- Input variables:
+      integer,  intent(in) :: n         ! dim of problem
+      integer,  intent(in) :: pivot(n)  ! pivot information
+      real(cp), intent(in) :: d(n)      ! Diagonal
+      real(cp), intent(in) :: dl(n-1)   ! Lower
+      real(cp), intent(in) :: du(n-1)   ! Upper
+      real(cp), intent(in) :: du2(n-2)  ! For pivot
+      integer,  intent(in) :: nRHSs     ! Number of right-hand side
+
+      !-- Output: solution stored in rhs(n)
+      real(cp), intent(inout) :: rhs(:,:)
+
+      !-- Local variables:
+      integer :: info
+
+#if (DEFAULT_PRECISION==sngl)
+      call sgttrs('N',n,nRHSs,dl,d,du,du2,pivot,rhs,n,info)
+#elif (DEFAULT_PRECISION==dble)
+      call dgttrs('N',n,nRHSs,dl,d,du,du2,pivot,rhs,n,info)
+#endif
+
+   end subroutine solve_tridiag_real_rhs_multi
 !-----------------------------------------------------------------------------
    subroutine prepare_tridiag(dl,d,du,du2,n,pivot,info)
 
@@ -398,6 +453,32 @@ contains
       end do
 
    end subroutine solve_band_complex_rhs_multi
+!-----------------------------------------------------------------------------
+   subroutine solve_band_real_rhs_multi(A, lenA, kl, ku, pivotA, rhs, nRHSs)
+   
+      !-- Input variables
+      integer,  intent(in) :: kl
+      integer,  intent(in) :: ku
+      integer,  intent(in) :: lenA
+      integer,  intent(in) :: nRHSs
+      integer,  intent(in) :: pivotA(lenA)
+      real(cp), intent(in) :: A(2*kl+ku+1,lenA)
+
+      !-- Output variable
+      real(cp), intent(inout) :: rhs(:,:)
+
+      !-- Local variables:
+      integer :: n_bands, info
+
+      n_bands = 2*kl+ku+1
+
+#if (DEFAULT_PRECISION==sngl)
+      call sgbtrs('N', lenA, kl, ku, nRHSs, A, n_bands, pivotA, rhs, lenA, info)
+#elif (DEFAULT_PRECISION==dble)
+      call dgbtrs('N', lenA, kl, ku, nRHSs, A, n_bands, pivotA, rhs, lenA, info)
+#endif
+
+   end subroutine solve_band_real_rhs_multi
 !-----------------------------------------------------------------------------
    subroutine prepare_band(A,lenA,kl,ku,pivot,info)
 

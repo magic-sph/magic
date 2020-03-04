@@ -18,11 +18,12 @@ module real_matrices
       procedure :: mat_add
       generic :: operator(+) => mat_add
       procedure(prepare_if), deferred :: prepare
+      procedure(solve_real_multi_if), deferred :: solve_real_multi
       procedure(solve_complex_multi_if), deferred :: solve_complex_multi
       procedure(solve_real_single_if), deferred :: solve_real_single
       procedure(solve_complex_single_if), deferred :: solve_complex_single
       generic :: solve => solve_complex_multi, solve_real_single, &
-      &                   solve_complex_single
+      &                   solve_complex_single, solve_real_multi
       procedure(set_data_if), deferred :: set_data
    end type type_realmat
 
@@ -53,6 +54,13 @@ module real_matrices
          integer,     intent(in) :: nRHS
          complex(cp), intent(inout) :: rhs(:,:)
       end subroutine solve_complex_multi_if
+
+      subroutine solve_real_multi_if(this, rhs, nRHS)
+         import
+         class(type_realmat) :: this
+         integer,  intent(in) :: nRHS
+         real(cp), intent(inout) :: rhs(:,:)
+      end subroutine solve_real_multi_if
 
       subroutine solve_real_single_if(this, rhs)
          import
@@ -106,6 +114,7 @@ module dense_matrices
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
+      procedure :: solve_real_multi
       procedure :: solve_complex_multi
       procedure :: solve_real_single
       procedure :: solve_complex_single
@@ -182,6 +191,16 @@ contains
 
    end subroutine solve_complex_multi
 !------------------------------------------------------------------------------
+   subroutine solve_real_multi(this, rhs, nRHS)
+
+      class(type_densemat) :: this
+      integer,  intent(in) :: nRHS
+      real(cp), intent(inout) :: rhs(:,:)
+
+      call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
+
+   end subroutine solve_real_multi
+!------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
       class(type_densemat) :: this
@@ -211,6 +230,7 @@ module band_matrices
       procedure :: finalize
       procedure :: prepare
       procedure :: solve_complex_multi
+      procedure :: solve_real_multi
       procedure :: solve_real_single
       procedure :: solve_complex_single
       procedure :: set_data
@@ -328,6 +348,23 @@ contains
       end if
 
    end subroutine solve_complex_multi
+!------------------------------------------------------------------------------
+   subroutine solve_real_multi(this, rhs, nRHS)
+
+      class(type_bandmat) :: this
+      integer,  intent(in) :: nRHS
+      real(cp), intent(inout) :: rhs(:,:)
+
+      if ( this%nrow == 3 ) then
+         call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),   &
+              &             this%dat(1,2:), this%du2, this%ncol,        &
+              &             this%pivot, rhs, nRHS)
+      else
+         call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, &
+              &          rhs, nRHS)
+      end if
+
+   end subroutine solve_real_multi
 !------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 

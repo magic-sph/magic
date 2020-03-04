@@ -18,17 +18,20 @@ module algebra
       module procedure solve_mat_real_rhs
       module procedure solve_mat_complex_rhs
       module procedure solve_mat_complex_rhs_multi
+      module procedure solve_mat_real_rhs_multi
    end interface solve_mat
 
    interface solve_tridiag
       module procedure solve_tridiag_real_rhs
       module procedure solve_tridiag_complex_rhs
       module procedure solve_tridiag_complex_rhs_multi
+      module procedure solve_tridiag_real_rhs_multi
    end interface solve_tridiag
 
    interface solve_band
       module procedure solve_band_real_rhs
       module procedure solve_band_complex_rhs_multi
+      module procedure solve_band_real_rhs_multi
       module procedure solve_band_complex_rhs
    end interface solve_band
 
@@ -101,8 +104,8 @@ contains
    subroutine solve_mat_complex_rhs_multi(a,ia,n,ip,bc,nRHSs)
       !
       !  This routine does the backward substitution into a lu-decomposed real
-      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex 
-      !  vectors bc. On return the results are stored in the bc.                  
+      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex
+      !  vectors bc. On return the results are stored in the bc.
       !
 
       !-- Input variables:
@@ -207,6 +210,113 @@ contains
       end if
 
    end subroutine solve_mat_complex_rhs_multi
+!-----------------------------------------------------------------------------
+   subroutine solve_mat_real_rhs_multi(a,ia,n,ip,bc,nRHSs)
+      !
+      !  This routine does the backward substitution into a lu-decomposed real
+      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
+      !  vectors bc. On return the results are stored in the bc.
+      !
+
+      !-- Input variables:
+      integer,  intent(in) :: n           ! dimension of problem
+      integer,  intent(in) :: ia          ! leading dimension of a
+      integer,  intent(in) :: ip(n)       ! pivot pointer of length n
+      real(cp), intent(in) :: a(ia,n)     ! real n X n matrix
+      integer,  intent(in) :: nRHSs       ! number of right-hand sides
+
+      real(cp), intent(inout) :: bc(:,:) ! on input RHS of problem
+
+      !-- Local variables:
+      integer :: nm1,nodd,i,m
+      integer :: k,k1,nRHS,nRHS2,noddRHS
+      real(cp) :: help
+
+      nm1    = n-1
+      nodd   = mod(n,2)
+      noddRHS= mod(nRHSs,2)
+
+      !     permute vectors bc
+      do nRHS=1,nRHSs
+         do k=1,nm1
+            m=ip(k)
+            help       =bc(m,nRHS)
+            bc(m,nRHS) =bc(k,nRHS)
+            bc(k,nRHS) =help
+         end do
+      end do
+
+      !     solve  l * y = b
+      do nRHS=1,nRHSs-1,2
+         nRHS2=nRHS+1
+
+         do k=1,n-2,2
+            k1=k+1
+            bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(k1,k)
+            bc(k1,nRHS2)=bc(k1,nRHS2)-bc(k,nRHS2)*a(k1,k)
+            do i=k+2,n
+               bc(i,nRHS) =bc(i,nRHS) - (bc(k,nRHS)*a(i,k)+bc(k1,nRHS)*a(i,k1))
+               bc(i,nRHS2)=bc(i,nRHS2) - (bc(k,nRHS2)*a(i,k)+bc(k1,nRHS2)*a(i,k1))
+            end do
+         end do
+         if ( nodd == 0 ) then
+            bc(n,nRHS) =bc(n,nRHS) -bc(nm1,nRHS)*a(n,nm1)
+            bc(n,nRHS2)=bc(n,nRHS2)-bc(nm1,nRHS2)*a(n,nm1)
+         end if
+
+         !     solve  u * x = y
+         do k=n,3,-2
+            k1=k-1
+            bc(k,nRHS)  =bc(k,nRHS)*a(k,k)
+            bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(k1,k))*a(k1,k1)
+            bc(k,nRHS2) =bc(k,nRHS2)*a(k,k)
+            bc(k1,nRHS2)=(bc(k1,nRHS2)-bc(k,nRHS2)*a(k1,k))*a(k1,k1)
+            do i=1,k-2
+               bc(i,nRHS)=bc(i,nRHS) - bc(k,nRHS)*a(i,k)-bc(k1,nRHS)*a(i,k1)
+               bc(i,nRHS2)=bc(i,nRHS2) - bc(k,nRHS2)*a(i,k)-bc(k1,nRHS2)*a(i,k1)
+            end do
+         end do
+         if ( nodd == 0 ) then
+            bc(2,nRHS)=bc(2,nRHS)*a(2,2)
+            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(1,2))*a(1,1)
+            bc(2,nRHS2)=bc(2,nRHS2)*a(2,2)
+            bc(1,nRHS2)=(bc(1,nRHS2)-bc(2,nRHS2)*a(1,2))*a(1,1)
+         else
+            bc(1,nRHS)=bc(1,nRHS)*a(1,1)
+            bc(1,nRHS2)=bc(1,nRHS2)*a(1,1)
+         end if
+
+      end do
+
+      if ( noddRHS == 1 ) then
+         nRHS=nRHSs
+
+         do k=1,n-2,2
+            k1=k+1
+            bc(k1,nRHS)=bc(k1,nRHS)-bc(k,nRHS)*a(k1,k)
+            do i=k+2,n
+               bc(i,nRHS)=bc(i,nRHS) - (bc(k,nRHS)*a(i,k)+bc(k1,nRHS)*a(i,k1))
+            end do
+         end do
+         if ( nodd == 0 ) bc(n,nRHS)=bc(n,nRHS)-bc(nm1,nRHS)*a(n,nm1)
+         do k=n,3,-2
+            k1=k-1
+            bc(k,nRHS) =bc(k,nRHS)*a(k,k)
+            bc(k1,nRHS)=(bc(k1,nRHS)-bc(k,nRHS)*a(k1,k))*a(k1,k1)
+            do i=1,k-2
+               bc(i,nRHS)=bc(i,nRHS) - bc(k,nRHS)*a(i,k)-bc(k1,nRHS)*a(i,k1)
+            end do
+         end do
+         if ( nodd == 0 ) then
+            bc(2,nRHS)=bc(2,nRHS)*a(2,2)
+            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(1,2))*a(1,1)
+         else
+            bc(1,nRHS)=bc(1,nRHS)*a(1,1)
+         end if
+
+      end if
+
+   end subroutine solve_mat_real_rhs_multi
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs(a,ia,n,ip,b)
       !
@@ -496,6 +606,57 @@ contains
 
    end subroutine solve_band_complex_rhs_multi
 !-----------------------------------------------------------------------------
+   subroutine solve_band_real_rhs_multi(abd, n, kl, ku, pivot, rhs, nRHSs)
+
+      !-- Input variables
+      integer,  intent(in) :: kl
+      integer,  intent(in) :: ku
+      integer,  intent(in) :: n
+      integer,  intent(in) :: nRHSs
+      integer,  intent(in) :: pivot(n)
+      real(cp), intent(in) :: abd(2*kl+ku+1, n)
+
+      !-- Output variable
+      real(cp), intent(inout) :: rhs(:,:)
+
+      !-- Local variables
+      real(cp) :: t
+      integer :: k, kb, l, la, lb, lm, m, nm1, nRHS
+
+      m = ku + kl + 1
+      nm1 = n - 1
+
+      !-- First solve Ly = rhs
+      if ( kl /= 0 .and. nm1 >= 1) then
+         do nRHS=1,nRHSs
+            do k = 1, nm1
+               lm = min(kl,n-k)
+               l = pivot(k)
+               t = rhs(l,nRHS)
+               if (l /= k) then
+                  rhs(l,nRHS) = rhs(k,nRHS)
+                  rhs(k,nRHS) = t
+               end if
+               rhs(k+1:k+lm,nRHS)=rhs(k+1:k+lm,nRHS)+t*abd(m+1:m+lm,k)
+            end do
+         end do
+      end if
+
+      !-- Solve u*x =y
+      do nRHS=1,nRHSs
+         do kb = 1, n
+            k = n + 1 - kb
+            rhs(k,nRHS) = rhs(k,nRHS)/abd(m,k)
+            lm = min(k,m) - 1
+            la = m - lm
+            lb = k - lm
+            t = -rhs(k,nRHS)
+            rhs(lb:lb+lm-1,nRHS)=rhs(lb:lb+lm-1,nRHS)+t*abd(la:la+lm-1,k)
+         end do
+      end do
+
+   end subroutine solve_band_real_rhs_multi
+!-----------------------------------------------------------------------------
    subroutine prepare_band(abd,n,kl,ku,pivot,info)
 
       !-- Input variables
@@ -591,9 +752,9 @@ contains
       integer,  intent(in) :: n         ! dim of problem
       integer,  intent(in) :: pivot(:)  ! pivot information
       real(cp), intent(in) :: d(:)      ! Diagonal
-      real(cp), intent(in) :: dl(:)     ! Lower 
-      real(cp), intent(in) :: du(:)     ! Lower 
-      real(cp), intent(in) :: du2(:)    ! Upper
+      real(cp), intent(in) :: dl(:)     ! Lower
+      real(cp), intent(in) :: du(:)     ! Upper
+      real(cp), intent(in) :: du2(:)    ! For pivot
 
       !-- Output: solution stored in rhs(n)
       real(cp), intent(inout) :: rhs(:)
@@ -659,9 +820,9 @@ contains
       integer,  intent(in) :: n         ! dim of problem
       integer,  intent(in) :: pivot(:)  ! pivot information
       real(cp), intent(in) :: d(:)      ! Diagonal
-      real(cp), intent(in) :: dl(:)     ! Lower 
-      real(cp), intent(in) :: du(:)     ! Lower 
-      real(cp), intent(in) :: du2(:)    ! Upper
+      real(cp), intent(in) :: dl(:)     ! Lower
+      real(cp), intent(in) :: du(:)     ! Upper
+      real(cp), intent(in) :: du2(:)    ! For pivot
       integer,  intent(in) :: nRHSs     ! Number of right-hand side
 
       !-- Output: solution stored in rhs(n)
@@ -693,6 +854,47 @@ contains
       end do
 
    end subroutine solve_tridiag_complex_rhs_multi
+!-----------------------------------------------------------------------------
+   subroutine solve_tridiag_real_rhs_multi(dl,d,du,du2,n,pivot,rhs,nRHSs)
+
+      !-- Input variables:
+      integer,  intent(in) :: n         ! dim of problem
+      integer,  intent(in) :: pivot(:)  ! pivot information
+      real(cp), intent(in) :: d(:)      ! Diagonal
+      real(cp), intent(in) :: dl(:)     ! Lower
+      real(cp), intent(in) :: du(:)     ! Upper
+      real(cp), intent(in) :: du2(:)    ! For pivot
+      integer,  intent(in) :: nRHSs     ! Number of right-hand side
+
+      !-- Output: solution stored in rhs(n)
+      real(cp), intent(inout) :: rhs(:,:)
+
+      !-- Local variables
+      integer :: i, nRHS
+      real(cp) :: temp
+
+      do nRHS = 1, nRHSs
+         !-- Solve L*x = rhs.
+         do i = 1, n-1
+            if ( pivot(i) == i ) then
+               rhs(i+1,nRHS) = rhs(i+1,nRHS) - dl(i)*rhs(i,nRHS)
+            else
+               temp = rhs(i,nRHS)
+               rhs(i,nRHS) = rhs(i+1,nRHS)
+               rhs(i+1,nRHS) = temp - dl(i)*RHS(i,nRHS)
+            end if
+         end do
+
+         !-- Solve U*x = rhs.
+         rhs(n,nRHS) = rhs(n,nRHS)/d(n)
+         rhs(n-1,nRHS) = (rhs(n-1,nRHS)-du(n-1)*rhs(n,nRHS))/d(n-1)
+         do i = n-2,1,-1
+            rhs(i,nRHS) = (rhs(i,nRHS)-du(i)*rhs(i+1,nRHS)-du2(i)* &
+            &              rhs(i+2,nRHS))/d(i)
+         end do
+      end do
+
+   end subroutine solve_tridiag_real_rhs_multi
 !-----------------------------------------------------------------------------
    subroutine prepare_tridiag(dl,d,du,du2,n,pivot,info)
 

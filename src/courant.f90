@@ -152,7 +152,7 @@ contains
          !$omp end parallel do
 #endif
 
-         !-- We must resolve the shortest period of Alven waves
+         !-- We must resolve the shortest period of Alfven waves
          if ( l_cour_alf_damp ) then
             dx2_ua=(half*(one+opm))**2/(valr2max+valh2max)
             if ( dx2_ua > delxr2(n_r) )  then

@@ -65,6 +65,9 @@ n_cheb_ic_max=14,
  movie(10)   ="Br 3D",
  movie(11)   ="Vt 3D",
  movie(12)   ="FL AX",
+ movie(13)   ="Vr phi=0",
+ movie(14)   ="Vp phi=0",
+ movie(15)   ="Br phi=0",
 /
 &mantle 
  nRotMa      =0
