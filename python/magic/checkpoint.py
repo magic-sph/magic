@@ -176,7 +176,7 @@ class MagicCheckpoint:
         self.time = np.fromfile(file, dtype=np.float64, count=1)[0]
         
         # Time scheme
-        self.tscheme_family = file.read(10)
+        self.tscheme_family = file.read(10).decode()
         nexp, nimp, nold = np.fromfile(file, dtype=np.int32, count=3)
         if self.tscheme_family.startswith('MULTISTEP'):
             self.dt = np.fromfile(file, dtype=np.float64, count=nexp)
@@ -198,7 +198,7 @@ class MagicCheckpoint:
                                                  self.m_max, self.minc)
 
         # Radial scheme
-        self.rscheme_version = file.read(72)
+        self.rscheme_version = file.read(72).decode()
         if self.rscheme_version.startswith('cheb'):
             self.n_cheb_max, self.map = np.fromfile(file, dtype=np.int32, count=2)
             self.alph1, self.alph2 = np.fromfile(file, dtype=np.float64, count=2)
@@ -299,7 +299,7 @@ class MagicCheckpoint:
         time.tofile(file)
 
         # Time scheme
-        tscheme = 'DIRK      '
+        tscheme = 'DIRK      '.encode()
         file.write(tscheme)
         par = np.array([1, 1, 1], np.int32)
         par.tofile(file)
@@ -318,7 +318,7 @@ class MagicCheckpoint:
         x.tofile(file)
 
         # Radial scheme
-        file.write(self.rscheme_version)
+        file.write(self.rscheme_version.encode())
         if self.rscheme_version.startswith('cheb'):
             x = np.array([self.n_cheb_max, self.map], np.int32)
             x.tofile(file)
