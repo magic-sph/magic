@@ -14,11 +14,12 @@ from .bLayers import *
 from .thHeat import *
 from .coeff import *
 from .radialSpectra import *
+from .checkpoint import *
 if buildSo:
     try:
         from .potExtra import *
         from .graph2vtk import *
-        from .graph2rst import *
+        #from .graph2rst import *
         from .movie3D import *
         from .spectralTransforms import *
         from .potential import *
