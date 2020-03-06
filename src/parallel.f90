@@ -56,7 +56,8 @@ module parallel_mod
    implicit none
 
    !   MPI_COMM_WORLD
-   integer :: rank, n_procs
+   integer :: rank, n_ranks
+   integer :: n_procs ! renamed to n_ranks; keept for compatibility during merge
    
    !   Intra-node Information
    integer :: comm_intra
@@ -95,13 +96,14 @@ module parallel_mod
    !         instead of 2D.
    !   rnk: rank according to MPI_COMM_WORLD
    type, public :: mpi_map_t
-      integer, allocatable :: gsp2rnk(:,:)
-      integer, allocatable :: rnk2gsp(:,:)  ! rnk2gsp(:,1) => θ, rnk2gsp(:,2) => r
-      integer, allocatable :: rnk2lmr(:,:)  ! rnk2lmr(:,1) => m, rnk2lmr(:,2) => r
-      integer, allocatable :: rnk2mlo(:)   
-      integer, allocatable :: lmr2mlo(:,:)
-      integer, allocatable :: lmr2rnk(:,:)
-      integer, allocatable :: mlo2lmr(:,:)  ! mlo2lmr(:,1) => m, mlo2lmr(:,2) => r
+      integer, pointer :: gsp2rnk(:,:)
+      integer, pointer :: mlo2rnk(:,:)
+      integer, pointer :: rnk2gsp(:,:)  ! rnk2gsp(:,1) => θ, rnk2gsp(:,2) => r
+      integer, pointer :: rnk2lmr(:,:)  ! rnk2lmr(:,1) => m, rnk2lmr(:,2) => r
+      integer, pointer :: rnk2mlo(:)   
+      integer, pointer :: lmr2mlo(:,:)
+      integer, pointer :: lmr2rnk(:,:)
+      integer, pointer :: mlo2lmr(:,:)  ! mlo2lmr(:,1) => m, mlo2lmr(:,2) => r
    end type mpi_map_t
    
    type(mpi_map_t) :: mpi_map
@@ -125,7 +127,8 @@ contains
       integer, allocatable :: tmp(:)
 
       call mpi_comm_rank(MPI_COMM_WORLD,rank,    ierr)
-      call mpi_comm_size(MPI_COMM_WORLD,n_procs, ierr)
+      call mpi_comm_size(MPI_COMM_WORLD,n_ranks, ierr)
+      n_procs = n_ranks
 
 !       if (rank .ne. 0) l_save_out = .false.  >@TODO check if this is needed/recommended - Lago
 !       if (rank .ne. 0) lVerbose   = .false.  >@TODO check if this is needed/recommended - Lago
@@ -137,17 +140,17 @@ contains
       call mpi_comm_rank(comm_intra, intra_rank, ierr)
       call mpi_comm_size(comm_intra, n_ranks_intra, ierr)
       allocate(intra2rank(0:n_ranks_intra-1))
-      allocate(rank2intra(0:n_procs-1))
+      allocate(rank2intra(0:n_ranks-1))
       
       call mpi_comm_group(MPI_COMM_WORLD, world_group, ierr)
       call mpi_comm_group(comm_intra, intra_group, ierr)
       
-      allocate(tmp(0:n_procs-1))
-      do i=0,n_procs-1
+      allocate(tmp(0:n_ranks-1))
+      do i=0,n_ranks-1
          tmp(i)=i
       end do
       
-      call mpi_group_translate_ranks(world_group, n_procs, tmp, intra_group, &
+      call mpi_group_translate_ranks(world_group, n_ranks, tmp, intra_group, &
                   rank2intra, ierr)
       call mpi_group_translate_ranks(intra_group, n_ranks_intra, tmp(0:n_ranks_intra-1),&
                   world_group, intra2rank, ierr)
@@ -160,7 +163,7 @@ contains
       rank2intra = 0
       intra2rank = 0
       rank    = 0
-      n_procs = 1
+      n_ranks = 1
       ierr    = 0
 #endif
       
@@ -176,12 +179,13 @@ contains
    !------------------------------------------------------------------------------
    subroutine finalize_mpi_map
       
-      deallocate(mpi_map%gsp2rnk)
-      deallocate(mpi_map%rnk2gsp)
-      deallocate(mpi_map%rnk2lmr)
-      deallocate(mpi_map%rnk2mlo)
-      deallocate(mpi_map%lmr2mlo)
-      deallocate(mpi_map%mlo2lmr)
+      if (associated(mpi_map%gsp2rnk)) nullify(mpi_map%gsp2rnk)
+      if (associated(mpi_map%rnk2gsp)) nullify(mpi_map%rnk2gsp)
+      if (associated(mpi_map%rnk2lmr)) nullify(mpi_map%rnk2lmr)
+      if (associated(mpi_map%rnk2mlo)) nullify(mpi_map%rnk2mlo)
+      if (associated(mpi_map%lmr2mlo)) nullify(mpi_map%lmr2mlo)
+      if (associated(mpi_map%mlo2lmr)) nullify(mpi_map%mlo2lmr)
+      if (associated(mpi_map%mlo2rnk)) nullify(mpi_map%mlo2rnk)
    
    end subroutine finalize_mpi_map
    
@@ -201,7 +205,7 @@ contains
          write(*,'(A,I0,A,I0)') ' ! Grid Space (θ,r): ', n_ranks_theta, "x", n_ranks_r
          write(*,'(A,I0,A,I0)') ' !   LM Space (m,r): ', n_ranks_m,  "x", n_ranks_r
          write(*,'(A,I0,A,I0)') ' !   ML Space (l,m): ', n_ranks_lo, "x", n_ranks_mo
-         write(*,'(A,I0)')      ' !      Total Ranks: ', n_procs
+         write(*,'(A,I0)')      ' !      Total Ranks: ', n_ranks
       end if
       call check_decomposition
       
@@ -232,11 +236,10 @@ contains
       call MPI_Comm_Rank(comm_theta, coord_theta, ierr) 
       call check_MPI_error(ierr)
       
-      ! new
       allocate(mpi_map%gsp2rnk(0:n_ranks_theta-1,0:n_ranks_r-1))
-      allocate(mpi_map%rnk2gsp(0:n_procs-1, 2))
+      allocate(mpi_map%rnk2gsp(0:n_ranks-1, 2))
       
-      do i=0,n_procs-1
+      do i=0,n_ranks-1
          call mpi_cart_coords(comm_gs, i, 2, coords, ierr)
          
          mpi_map%gsp2rnk(coords(2),coords(1)) = i
@@ -256,16 +259,13 @@ contains
       n_ranks_m = n_ranks_theta
       coord_m   = coord_theta
       
-      ! new
-      allocate(mpi_map%rnk2lmr(0:n_procs-1, 2))
-      allocate(mpi_map%lmr2rnk(0:n_ranks_m-1,0:n_ranks_r-1))
-      mpi_map%rnk2lmr = mpi_map%rnk2gsp
-      mpi_map%lmr2rnk = mpi_map%gsp2rnk
+      mpi_map%rnk2lmr => mpi_map%rnk2gsp
+      mpi_map%lmr2rnk => mpi_map%gsp2rnk
       
       !-- ML Space (ML Loop)
       !   
       !   
-      n_ranks_mlo = n_procs
+      n_ranks_mlo = n_ranks
       n_ranks_mo  = n_ranks_m
       n_ranks_lo  = n_ranks_r
       coord_mo    = coord_m
@@ -274,34 +274,38 @@ contains
       
       comm_mlo = MPI_COMM_WORLD
       
-      ! new
-      allocate(mpi_map%rnk2mlo(0:n_procs-1))
-      allocate(mpi_map%mlo2lmr(0:n_ranks_mlo-1, 2))
-      allocate(mpi_map%lmr2mlo(0:n_ranks_m-1,0:n_ranks_r-1))
+      
       ! I know, it is unnecessary. But it helps with the reading of the code imho
-      do i=0,n_procs-1
+      allocate(mpi_map%rnk2mlo(0:n_ranks-1))
+      do i=0,n_ranks-1
          mpi_map%rnk2mlo(i) = i
       end do
-      mpi_map%mlo2lmr = mpi_map%rnk2gsp
-      mpi_map%lmr2mlo = mpi_map%lmr2rnk
+      mpi_map%mlo2lmr => mpi_map%rnk2gsp
+      mpi_map%lmr2mlo => mpi_map%lmr2rnk
+      mpi_map%mlo2rnk => mpi_map%gsp2rnk
       
       if (l_verb_paral) call print_mpi_distribution
 #else
-! id WITH_MPI disabled
+! if WITH_MPI disabled
       allocate(mpi_map%gsp2rnk(0,0))
       allocate(mpi_map%rnk2gsp(0,2))
       
       mpi_map%gsp2rnk = 0
+      mpi_map%rnk2gsp = 0
+      
+      !-- LM Space (radial Loop)
+      !   
+      !   This is just a copy
+      !   
+      !   PS: is it a problem that I'm using a periodic communicator for 
+      !       lm-space as well?
       n_ranks_m = 1
       coord_m   = 0
       
-      allocate(mpi_map%rnk2lmr(0,2))
-      allocate(mpi_map%lmr2rnk(0,0))
-      mpi_map%rnk2lmr = 0
-      mpi_map%lmr2rnk = 0
+      mpi_map%rnk2lmr => mpi_map%rnk2gsp
+      mpi_map%lmr2rnk => mpi_map%gsp2rnk
       
       !-- ML Space (ML Loop)
-      !   
       !   
       n_ranks_mlo = 1
       n_ranks_mo  = 1
@@ -310,12 +314,13 @@ contains
       coord_lo    = 0
       coord_mlo   = 0
       
+      comm_mlo = MPI_COMM_WORLD
+      
+      ! I know, it is unnecessary. But it helps with the reading of the code imho
       allocate(mpi_map%rnk2mlo(0))
-      allocate(mpi_map%mlo2lmr(0, 2))
-      allocate(mpi_map%lmr2mlo(0,0))
-      mpi_map%rnk2mlo = 0
-      mpi_map%mlo2lmr = 0
-      mpi_map%lmr2mlo = 0
+      mpi_map%mlo2lmr => mpi_map%rnk2gsp
+      mpi_map%lmr2mlo => mpi_map%lmr2rnk
+      mpi_map%mlo2rnk => mpi_map%gsp2rnk
 #endif
       
    end subroutine initialize_mpi_map
@@ -393,7 +398,7 @@ contains
    !------------------------------------------------------------------------------
    subroutine optimize_decomposition_simple
       !   
-      !   This is a *very* simple function to split all n_procs into a 2D 
+      !   This is a *very* simple function to split all n_ranks into a 2D 
       !   grid. In the future we might want to make this function much more 
       !   sophisticated.
       !
@@ -405,13 +410,13 @@ contains
       if (n_ranks_theta == 0 .and. n_ranks_r == 0) then
          if (rank==0) write(*,*) '! Automatic splitting of MPI ranks for Grid Space...'
          
-         log2 = log(real(n_procs)) / log(2.0) ! Gets log2(n_procs)
+         log2 = log(real(n_ranks)) / log(2.0) ! Gets log2(n_ranks)
          n_ranks_theta = 2**FLOOR(log2/2)
-         n_ranks_r = n_procs/n_ranks_theta
+         n_ranks_r = n_ranks/n_ranks_theta
       else if (n_ranks_theta == 0) then
-         n_ranks_theta = n_procs/n_ranks_r
+         n_ranks_theta = n_ranks/n_ranks_r
       else if (n_ranks_r == 0) then
-         n_ranks_r = n_procs/n_ranks_theta
+         n_ranks_r = n_ranks/n_ranks_theta
       end if
       
       n_ranks_m = n_ranks_theta
@@ -424,17 +429,17 @@ contains
    !------------------------------------------------------------------------------
    subroutine check_decomposition
 
-      if (n_ranks_r * n_ranks_theta .NE. n_procs) then
+      if (n_ranks_r * n_ranks_theta .NE. n_ranks) then
         print *, '! Invalid parallelization partition! Make sure that n_ranks_r'//&
                  '* n_ranks_theta equals the number of available processes!'
         stop
       end if
-      if (n_ranks_r * n_ranks_m .NE. n_procs) then
+      if (n_ranks_r * n_ranks_m .NE. n_ranks) then
         print *, '! Invalid parallelization partition! Make sure that n_ranks_r'//&
                  '* n_ranks_m equals the number of available processes!'
         stop
       end if
-      if (n_ranks_lo * n_ranks_mo .NE. n_procs) then
+      if (n_ranks_lo * n_ranks_mo .NE. n_ranks) then
         print *, '! Invalid parallelization partition! Make sure that n_ranks_lo'//&
                  '* n_ranks_mo equals the number of available processes!'
         stop
@@ -509,14 +514,14 @@ contains
       end if
       
       call mpi_comm_group(MPI_COMM_WORLD, world_group, ierr)
-      allocate(tmp_ranks(0:n_procs-1))
-      allocate(world_ranks(0:n_procs-1))
-      do i=0,n_procs-1
+      allocate(tmp_ranks(0:n_ranks-1))
+      allocate(world_ranks(0:n_ranks-1))
+      do i=0,n_ranks-1
          tmp_ranks(i)=i
       end do
       
       ! Prints intranode ranks
-      do i=0,n_procs-1
+      do i=0,n_ranks-1
          if ((rank==i) .and. (intra_rank == 0)) then
             write(*,'(A,I0,A)') '! Intranode [@',rank,']'
             call print_array(intra2rank)
@@ -532,7 +537,7 @@ contains
               world_ranks(0:n_ranks_r-1), ierr)
       
       ! Prints radial ranks
-      do i=0,n_procs-1
+      do i=0,n_ranks-1
          if ((rank==i) .and. (coord_r == 0)) then
             write(*,'(A,I0,A)') '! Radial [@',rank,']'
             call print_array(world_ranks(0:n_ranks_r-1))
@@ -548,7 +553,7 @@ contains
               world_ranks(0:n_ranks_theta-1), ierr)
       
       ! Prints theta ranks
-      do i=0,n_procs-1
+      do i=0,n_ranks-1
          if ((rank==i) .and. (coord_theta == 0)) then
             write(*,'(A,I0,A)') '! Theta [@',rank,']'
             call print_array(world_ranks(0:n_ranks_theta-1))

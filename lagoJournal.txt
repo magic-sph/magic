@@ -16,6 +16,12 @@ get_openmp_blocks => from parallel.f90 to truncation.f90
    All the distribution of thetas, radial points and lms are done in truncation.f90
    module, it complicates the module dependencies if we split them.
 
+   
+MERGING TODO
+============================================
+- nR_per_rank rename to n_r_loc
+- n_procs rename to n_ranks
+
 
 lagoJournal [from lago-paral]
 ============================================

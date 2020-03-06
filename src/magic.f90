@@ -270,6 +270,9 @@ program magic
       if ( l_save_out ) close(n_log_file)
    end if
 
+   call initialize_mpi_map
+   call initialize_distributed_geometry
+   
    call initialize_memory_counter()
 
    !-- Blocking/radial/horizontal

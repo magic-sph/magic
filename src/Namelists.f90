@@ -57,6 +57,10 @@ contains
       integer :: res,n_cour_step
       integer :: inputHandle
       character(len=100) :: input_filename, errmess
+      character(len=1024) :: sbuffer         ! for parallel namelist
+      character(:), allocatable :: cmd_args  ! for parallel namelist
+      
+      namelist/parallel/n_ranks_r,n_ranks_theta,mlo_dist_method
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
@@ -162,13 +166,38 @@ contains
       if (argument_count == 0) then
          call abortRun('The filename of the input file must be provided as first argument')
       else
-         call get_command_argument(1,input_filename)
+         call get_command_argument(argument_count,input_filename)
 
          inquire(file = input_filename, exist = nml_exist)
 
          if (.not. nml_exist) then
             call abortRun('! Input namelist file not found!')
          end if
+         
+         
+         ! This is a little bit ugly, but it is just because magic_wizard.py 
+         ! makes it really difficult to manually modify the input.nml
+         ! So for the moment, the parallelization configurations are to
+         ! be set via namelist, but will be overriden by command-line argument
+         ! if it is present - Lago
+         open(newunit=inputHandle,file=trim(input_filename))
+         !-- Reading control parameters from namelists in STDIN:
+         if ( rank == 0 ) write(*,*) '!  Reading parallelization parameters!'
+         read(inputHandle,nml=parallel,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No parallel namelist found!'
+         end if
+         close(inputHandle)
+         cmd_args = ""
+         if (argument_count > 1) then
+            do n=1,argument_count-1
+               call get_command_argument(n,sbuffer)
+               cmd_args = cmd_args//trim(adjustl(sbuffer))//" "
+            end do
+            cmd_args = "&parallel "//cmd_args//" /"
+            read(cmd_args,nml=parallel,iostat=res)
+         end if
+         
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
@@ -798,6 +827,13 @@ contains
       integer :: l,m,n,i
       real(cp) ::  rad
       integer :: length
+      
+      !-- Output of name lists:
+      write(n_out,*) " "
+      write(n_out,*) "&parallel"
+      write(n_out,'(''  n_ranks_r        ='',i5,'','')') n_ranks_r
+      write(n_out,'(''  n_ranks_theta    ='',i5,'','')') n_ranks_theta
+      write(n_out,'(''  mlo_dist_method  ='',A,'','')') mlo_dist_method
 
 
       !-- Output of name lists:
@@ -1173,6 +1209,14 @@ contains
 
       !-- Local variable:
       integer :: n
+      
+       !----- Namelist parallel
+      n_ranks_r     = 0
+      n_ranks_theta = 0
+      n_ranks_m     = 0
+      n_ranks_lo    = 0
+      n_ranks_mo    = 0
+      mlo_dist_method = "mfirst"
 
       !----- Namelist grid
       ! must be of form 4*integer+1

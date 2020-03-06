@@ -28,4 +28,4 @@ script:
     - export CXX=mpicxx
     - cd samples
     - export OMP_NUM_THREADS=1
-    - ./magic_wizard.py --use-mpi --nranks 2 --level 0 --mpicmd mpiexec.hydra
+    - ./magic_wizard.py --use-shtns --use-mpi --use-openmp --use-mkl --nranks 2 --nthreads 2 --log --level 0 --mpicmd mpiexec.hydra

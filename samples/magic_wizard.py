@@ -439,7 +439,6 @@ def define_outputs(args):
     """
     Defines output for cmake and make
     """
-    print("what the hell is wrong " + str(args.log))
     if args.log:
         args.cmake_outFile = open('./cmake.out','w')
         args.make_outFile = open('./make.out','w')
@@ -451,7 +450,7 @@ def define_outputs(args):
         args.exec_path = ''
     else:
         args.exec_path = os.path.abspath(startdir + '/' + args.use_exec + '/magic.exe')
-        
+    
     return args
 
 
