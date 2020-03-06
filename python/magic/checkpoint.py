@@ -226,40 +226,53 @@ class MagicCheckpoint:
             np.fromfile(file, dtype=np.int32, count=5)
 
         # Fields
-        dt = np.dtype("(%i,%i)c16" % (self.n_r_max, self.lm_max))
-        self.wpol, = np.fromfile(file, dtype=dt, count=1)
+        self.wpol = np.fromfile(file, dtype=np.complex128,
+                                count=self.n_r_max*self.lm_max)
+        self.wpol = self.wpol.reshape((self.n_r_max, self.lm_max))
         if self.tscheme_family.startswith('MULTISTEP'):
             tmp = np.fromfile(file, dtype=np.complex128,
                               count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
 
-        self.ztor, = np.fromfile(file, dtype=dt, count=1)
+        self.ztor = np.fromfile(file, dtype=np.complex128,
+                                count=self.n_r_max*self.lm_max)
+        self.ztor = self.ztor.reshape((self.n_r_max, self.lm_max))
         if self.tscheme_family.startswith('MULTISTEP'):
             tmp = np.fromfile(file, dtype=np.complex128,
                               count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
 
         if self.l_press:
-            self.pre, = np.fromfile(file, dtype=dt, count=1)
+            self.pre = np.fromfile(file, dtype=np.complex128,
+                                   count=self.n_r_max*self.lm_max)
+            self.pre = self.pre.reshape((self.n_r_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
 
         if self.l_heat:
-            self.entropy, = np.fromfile(file, dtype=dt, count=1)
+            self.entropy = np.fromfile(file, dtype=np.complex128,
+                                       count=self.n_r_max*self.lm_max)
+            self.entropy = self.entropy.reshape((self.n_r_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
         if self.l_chem:
-            self.xi, = np.fromfile(file, dtype=dt, count=1)
+            self.xi = np.fromfile(file, dtype=np.complex128,
+                                  count=self.n_r_max*self.lm_max)
+            self.xi = self.xi.reshape((self.n_r_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
         if self.l_mag:
-            self.bpol, = np.fromfile(file, dtype=dt, count=1)
+            self.bpol = np.fromfile(file, dtype=np.complex128,
+                                    count=self.n_r_max*self.lm_max)
+            self.bpol = self.bpol.reshape((self.n_r_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
 
-            self.btor, = np.fromfile(file, dtype=dt, count=1)
+            self.btor = np.fromfile(file, dtype=np.complex128,
+                                    count=self.n_r_max*self.lm_max)
+            self.btor = self.btor.reshape((self.n_r_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
@@ -269,13 +282,16 @@ class MagicCheckpoint:
                                       -self.radius[-1])
             self.radius_ic = self.radius_ic[:self.n_r_ic_max]
             self.radius_ic[-1] = 0.
-            dt = np.dtype("(%i,%i)c16" % (self.n_r_ic_max, self.lm_max))
-            self.bpol_ic, = np.fromfile(file, dtype=dt, count=1)
+            self.bpol_ic = np.fromfile(file, dtype=np.complex128,
+                                       count=self.lm_max*self.n_r_ic_max)
+            self.bpol_ic = self.bpol_ic.reshape((self.n_r_ic_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_ic_max*(nexp+nimp+nold-3))
 
-            self.btor_ic, = np.fromfile(file, dtype=dt, count=1)
+            self.btor_ic = np.fromfile(file, dtype=np.complex128,
+                                       count=self.lm_max*self.n_r_ic_max)
+            self.btor_ic = self.btor_ic.reshape((self.n_r_ic_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_ic_max*(nexp+nimp+nold-3))
