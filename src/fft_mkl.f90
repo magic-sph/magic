@@ -5,7 +5,7 @@ module fft
 
    use precision_mod
    use constants, only: one
-   use truncation, only: nrp, ncp, n_phi_max
+   use truncation, only: nrp, ncp, n_phi_max, n_theta_loc
    use blocking, only: nfs
    !use parallel_mod, only: nThreads
    use mkl_dfti
@@ -17,9 +17,12 @@ module fft
    !----------- MKL specific variables -------------
    integer :: status
    type(DFTI_DESCRIPTOR), pointer :: c2r_handle, r2c_handle
+   type(DFTI_DESCRIPTOR), pointer :: phi2m_dhandle, m2phi_dhandle
    !----------- END MKL specific variables
  
    public :: fft_thetab, init_fft, fft_to_real, finalize_fft
+   public :: finalize_fft_phi, fft_phi_loc
+   public :: initialize_fft_phi
 
 contains
 
@@ -144,4 +147,80 @@ contains
 
    end subroutine fft_to_real
 !------------------------------------------------------------------------------
+
+
+   subroutine initialize_fft_phi
+      !
+      !   The phi2m_dhandle is the handle for the real transform.
+      !   It will store only Nφ/2+1 modes, because the others are the conjugate 
+      !   of these. This is for the distributed case as well (and thus, will 
+      !   repeat n_theta_loc times)
+      !   
+      !   Author: Rafael Lago, MPCDF, July 2017
+      !   
+      integer :: status
+      
+      status = DftiCreateDescriptor( phi2m_dhandle, DFTI_DOUBLE, DFTI_REAL, 1, n_phi_max )
+      status = DftiSetValue( phi2m_dhandle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+      status = DftiSetValue( phi2m_dhandle, DFTI_NUMBER_OF_TRANSFORMS, n_theta_loc)
+      status = DftiSetValue( phi2m_dhandle, DFTI_INPUT_DISTANCE, n_phi_max )
+      status = DftiSetValue( phi2m_dhandle, DFTI_OUTPUT_DISTANCE, n_phi_max/2+1 )
+      status = DftiSetValue( phi2m_dhandle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+      status = DftiSetValue( phi2m_dhandle, DFTI_FORWARD_SCALE, 1.0_cp/real(n_phi_max,cp) )
+      status = DftiCommitDescriptor( phi2m_dhandle )
+      
+      status = DftiCreateDescriptor( m2phi_dhandle, DFTI_DOUBLE, DFTI_REAL, 1, n_phi_max )
+      status = DftiSetValue( m2phi_dhandle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+      status = DftiSetValue( m2phi_dhandle, DFTI_NUMBER_OF_TRANSFORMS, n_theta_loc)
+      status = DftiSetValue( m2phi_dhandle, DFTI_INPUT_DISTANCE, n_phi_max/2+1 )
+      status = DftiSetValue( m2phi_dhandle, DFTI_OUTPUT_DISTANCE, n_phi_max )
+      status = DftiSetValue( m2phi_dhandle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+      status = DftiSetValue( m2phi_dhandle, DFTI_FORWARD_SCALE, 1.0_cp/real(n_phi_max,cp) )
+      status = DftiCommitDescriptor( m2phi_dhandle )
+    
+  end subroutine initialize_fft_phi
+
+   !----------------------------------------------------------------------------
+   subroutine finalize_fft_phi
+      !
+      !   Author: Rafael Lago, MPCDF, July 2017
+      !   
+   
+      integer :: status
+      
+      status = DftiFreeDescriptor(phi2m_dhandle)
+      status = DftiFreeDescriptor(m2phi_dhandle)
+   end subroutine
+  
+   !----------------------------------------------------------------------------
+   subroutine fft_phi_loc(f, g, dir)
+      !   FFT meant to be used for θ-distributed vectors. It does not perform 
+      !   the transposition. That can be achieved with a call to
+      !   transpose_m_theta or transpose_theta_m.
+      !   
+      !   Forward:  converts f(φ,θ_loc) to g(m,θ_loc) 
+      !   Backward: converts g(m,θ_loc) to f(φ,θ_loc)
+      !   
+      !   OBS: g has (n_phi_max/2+1)*n_theta_loc points, not m_max*n_theta_loc points.
+      !       Only the first m_max rows are required by MagIC.
+      !  
+      !   Author: Rafael Lago, MPCDF, November 2017
+      ! 
+      real(cp),    intent(inout)  :: f(n_phi_max*n_theta_loc)
+      complex(cp), intent(inout)  :: g((n_phi_max/2+1)*n_theta_loc)
+      integer,     intent(in)     :: dir
+      integer :: status
+      
+      PERFON('fftphi')      
+      if (dir == 1) then
+         status = DftiComputeForward( phi2m_dhandle, f(:), g(:) )
+      else if (dir == -1) then
+         status = DftiComputeBackward( m2phi_dhandle, g(:), f(:) )
+      else
+         print *, "Unknown direction in fft_phi_loc: ", dir
+      end if
+      PERFOFF
+    
+  end subroutine fft_phi_loc
+
 end module fft

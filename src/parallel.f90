@@ -274,7 +274,6 @@ contains
       
       comm_mlo = MPI_COMM_WORLD
       
-      
       ! I know, it is unnecessary. But it helps with the reading of the code imho
       allocate(mpi_map%rnk2mlo(0:n_ranks-1))
       do i=0,n_ranks-1
@@ -504,7 +503,7 @@ contains
    !------------------------------------------------------------------------------
    subroutine print_mpi_distribution
    
-      integer :: world_group, tmp_group, i, j
+      integer :: world_group, tmp_group, i
       integer, allocatable :: tmp_ranks(:), world_ranks(:)
 
 #ifdef WITH_MPI      

@@ -133,6 +133,8 @@ program magic
    use useful, only: abortRun
    use probe_mod, only: initialize_probes, finalize_probes
    use time_schemes, only: type_tscheme
+   use LMmapping, only: initialize_mapping, finalize_mapping
+   use fft, only: initialize_fft_phi, finalize_fft_phi
 
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
@@ -276,6 +278,7 @@ program magic
    call initialize_memory_counter()
 
    !-- Blocking/radial/horizontal
+   call initialize_mapping()
    call initialize_blocking()
    local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
@@ -283,6 +286,7 @@ program magic
    call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
+   call initialize_fft_phi()
 
    !-- Initialize time scheme
    call tscheme%initialize(time_scheme, courfac, intfac, alffac)
@@ -485,6 +489,8 @@ program magic
    call finalize_horizontal_data()
    call finalize_radial_functions()
    call finalize_blocking()
+   call finalize_mapping()
+   call finalize_fft_phi()
    call finalize_radial_data()
 
    call tscheme%finalize()
