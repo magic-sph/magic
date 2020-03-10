@@ -8,15 +8,17 @@ module potreader_single
    integer :: n_r_max, l_max, n_r_ic_max, lm_max, minc, version
    real(kind=4), allocatable :: radius(:), rho0(:)
    complex(kind=4), allocatable :: pol(:,:), tor(:,:)
+   complex(kind=4), allocatable :: pol_ic(:,:), tor_ic(:,:)
 
 contains
 
-   subroutine readPot(filename, endian, l_read_tor, ver)
+   subroutine readPot(filename, endian, l_read_tor, l_read_ic, ver)
 
       !-- Input variables
       character(len=*), intent(in) :: filename
       character(len=1), intent(in) :: endian
       logical,          intent(in) :: l_read_tor
+      logical,          intent(in) :: l_read_ic
       integer,          intent(in) :: ver
 
       if ( ver == 0 ) then
@@ -69,6 +71,17 @@ contains
          if ( allocated(tor) ) deallocate(tor)
          allocate( tor(lm_max, n_r_max) )
          read(10) tor
+      end if
+
+      !-- Inner core
+      if ( l_read_ic ) then
+         if ( allocated(pol_ic) ) deallocate(pol_ic)
+         allocate( pol_ic(lm_max, n_r_ic_max) )
+         read(10) pol_ic
+
+         if ( allocated(tor_ic) ) deallocate(tor_ic)
+         allocate( tor_ic(lm_max, n_r_ic_max) )
+         read(10) tor_ic
       end if
 
       close(10)

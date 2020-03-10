@@ -460,6 +460,73 @@ def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
     beta = -ofr*grav*polind/temp0
     return temp0, rho0, beta
 
+def fd_grid(nr, a, b, fd_stretching=0.3, fd_ratio=0.1):
+    """
+    This function defines a stretched grid between a and b
+
+    >>> r_icb = 0.5 ; r_cmb = 1.5; n_r_max=64
+    >>> rr = fd_grid(n_r_max, r_cmb, r_icb)
+
+    :param nr: number of radial grid points
+    :type nr: int
+    :param a: upper boundary of the grid
+    :type a: float
+    :param b: lower boundary of the grid
+    :type b: float
+    :param fd_stretching: fraction of points in the bulk
+    :type fd_stretching: float
+    :param fd_ratio: ratio of minimum to maximum spacing
+    :type fd_ratio: float
+    :returns: the radial grid
+    :returns: the radial grid
+    :rtype: numpy.ndarray
+    """
+
+    ratio1 = fd_stretching
+    ratio2 = fd_ratio
+
+    if abs(a-b-1.0) > 1.0e-12:
+        sys.exit('Not implemented yet')
+
+    rr = np.zeros(nr, dtype=np.float64)
+    rr[0] = a
+
+    if ratio2 == 1.0: # Regular grid
+        dr_before = (a-b)/(float(nr)-1.)
+        dr_after = dr_before
+        for i in range(1, nr):
+            rr[i]=rr[i-1]-dr_before
+    
+    else:
+        n_boundary_points = int( float(nr-1)/(2.*(1+ratio1)) )
+        ratio1 = float(nr-1)/float(2.*n_boundary_points) -1.
+
+        n_bulk_points = nr-1-2*n_boundary_points
+
+        dr_after = np.exp(np.log(ratio2)/float(n_boundary_points))
+        dr_before = 1.
+        for i in range(n_boundary_points):
+            dr_before = dr_before*dr_after
+        dr_before = 1./(float(n_bulk_points)+ \
+                    2.*dr_after*((1-dr_before)/(1.-dr_after)))
+    
+        for i in range(n_boundary_points):
+            dr_before = dr_before*dr_after
+
+        for i in range(1, n_boundary_points+1):
+            rr[i] = rr[i-1]-dr_before
+            dr_before = dr_before/dr_after
+
+        for i in range(n_bulk_points):
+            rr[n_boundary_points+1+i] = rr[n_boundary_points+i]-dr_before
+
+        for i in range(n_boundary_points):
+            dr_before = dr_before*dr_after
+            rr[n_boundary_points+1+n_bulk_points+i] = \
+                rr[n_boundary_points+n_bulk_points+i]-dr_before
+
+    return rr
+
 def chebgrid(nr, a, b):
     """
     This function defines a Gauss-Lobatto grid from a to b.
@@ -467,7 +534,7 @@ def chebgrid(nr, a, b):
     >>> r_icb = 0.5 ; r_cmb = 1.5; n_r_max=65
     >>> rr = chebgrid(n_r_max, r_icb, r_cmb)
 
-    :param nr: number of radial grid points
+    :param nr: number of radial grid points plus one (Nr+1)
     :type nr: int
     :param a: lower limit of the Gauss-Lobatto grid
     :type a: float
