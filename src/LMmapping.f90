@@ -92,7 +92,8 @@ module LMmapping
  
    public :: allocate_mappings, deallocate_mappings, &
    &         allocate_subblocks_mappings, deallocate_subblocks_mappings, &
-   &         initialize_mapping, finalize_mapping
+   &         initialize_mapping, finalize_mapping, map_dist_st,          &
+   &         map_glbl_st, map_mlo
 
 contains
 

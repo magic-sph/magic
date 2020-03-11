@@ -4,8 +4,7 @@ module horizontal_data
    !  and latitude plus help arrays depending on degree and order
    !
 
-   use truncation, only: l_max, lmP_max, n_theta_max, n_phi_max, &
-       &                 lm_max, n_m_max, minc, m_max, l_axi
+   use truncation
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
@@ -54,6 +53,9 @@ module horizontal_data
    real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
    real(cp), public, allocatable :: D_mc2m(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
+   
+   !-- Distributed arrays depending on l and m:
+   real(cp), public, allocatable :: dLH_loc(:)
 
    !-- Limiting l for a given m, used in legtf
    integer, public, allocatable :: lStart(:),lStop(:)
@@ -112,6 +114,9 @@ contains
       allocate( hdif_B(lm_max),hdif_V(lm_max),hdif_S(lm_max) )
       allocate( hdif_Xi(lm_max) )
       bytes_allocated = bytes_allocated+(14*lm_max+n_m_max)*SIZEOF_DEF_REAL
+      
+      !-- Distributed arrays depending on l and m:
+      allocate( dLH_loc(n_lm_loc) )
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
@@ -135,6 +140,9 @@ contains
       deallocate( D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
       deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
 
+      ! Deallocate the distributed fields 
+      deallocate( dLh_loc )
+      
       if ( .not. l_axi ) call finalize_fft()
 
    end subroutine finalize_horizontal_data

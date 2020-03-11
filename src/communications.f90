@@ -20,6 +20,8 @@ module communications
    use charmanip, only: capitalize
    use num_param, only: mpi_transp
    use mpi_transp, only: type_mpitransp
+   use truncation
+   use LMmapping
 
    implicit none
 
@@ -59,6 +61,11 @@ module communications
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
    complex(cp), allocatable :: temp_gather_lo(:)
+   
+   !@>DEPRECATED these functions are just to aid the merging... they should be 
+   !  deleted afterwards
+   public :: slice_f, slice_Flm_cmplx, slice_Flm_real, slice_FlmP_cmplx, &
+     &       slice_FlmP_real, gather_f, gather_FlmP, gather_Flm
 
 contains
 
@@ -1001,4 +1008,218 @@ contains
 #endif
 #endif
 !------------------------------------------------------------------------------
+
+   !----------------------------------------------------------------------------
+   subroutine slice_f(f_global, f_local)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      real(cp),  intent(in)  :: f_global(n_phi_max, n_theta_max)
+      real(cp),  intent(out) :: f_local(n_phi_max, n_theta_loc)
+      
+      f_local = f_global(:,nThetaStart:nThetaStop)
+   end subroutine slice_f
+   
+   !----------------------------------------------------------------------------
+   subroutine slice_Flm_cmplx(Flm_global, Flm_local)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      complex(cp),  intent(in)  :: Flm_global(lm_max)
+      complex(cp),  intent(out) :: Flm_local(n_lm_loc)
+      
+      integer :: i, l_lm, u_lm, l_lm_g, u_lm_g, m
+      
+      do i = 1, n_m_loc
+        m = dist_m(coord_m,i)
+        l_lm  = map_dist_st%lm2(m, m)
+        u_lm  = map_dist_st%lm2(l_max, m)
+        l_lm_g = map_glbl_st%lm2(m, m)
+        u_lm_g = map_glbl_st%lm2(l_max, m)
+        Flm_local(l_lm:u_lm) = Flm_global(l_lm_g:u_lm_g)
+      end do
+   end subroutine slice_Flm_cmplx
+   
+   !----------------------------------------------------------------------------
+   subroutine slice_Flm_real(Flm_global, Flm_local)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      real(cp),  intent(in)  :: Flm_global(lm_max)
+      real(cp),  intent(out) :: Flm_local(n_lm_loc)
+      
+      integer :: i, l_lm, u_lm, l_lm_g, u_lm_g, m
+      
+      do i = 1, n_m_loc
+        m = dist_m(coord_m,i)
+        l_lm  = map_dist_st%lm2(m, m)
+        u_lm  = map_dist_st%lm2(l_max, m)
+        l_lm_g = map_glbl_st%lm2(m, m)
+        u_lm_g = map_glbl_st%lm2(l_max, m)
+        Flm_local(l_lm:u_lm) = Flm_global(l_lm_g:u_lm_g)
+      end do
+   end subroutine slice_Flm_real
+
+   !----------------------------------------------------------------------------
+   subroutine slice_FlmP_cmplx(FlmP_global, Flm_local)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      complex(cp),  intent(in)  :: FlmP_global(lmP_max)
+      complex(cp),  intent(out) :: Flm_local(n_lmP_loc)
+      
+      integer :: i, l_lm, u_lm, l_lm_g, u_lm_g, m
+      
+      do i = 1, n_m_loc
+        m = dist_m(coord_m, i)
+        l_lm  = map_dist_st%lmP2(m, m)
+        u_lm  = map_dist_st%lmP2(l_max, m)
+        l_lm_g = map_glbl_st%lmP2(m,   m)
+        u_lm_g = map_glbl_st%lmP2(l_max+1, m)
+        Flm_local(l_lm:u_lm) = FlmP_global(l_lm_g:u_lm_g)
+      end do
+   end subroutine slice_FlmP_cmplx
+   
+   !----------------------------------------------------------------------------
+   subroutine slice_FlmP_real(FlmP_global, Flm_local)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      real(cp),  intent(in)  :: FlmP_global(lmP_max)
+      real(cp),  intent(out) :: Flm_local(n_lmP_loc)
+      
+      integer :: i, l_lm, u_lm, l_lm_g, u_lm_g, m
+      
+      do i = 1, n_m_loc
+        m = dist_m(coord_m, i)
+        l_lm  = map_dist_st%lm2(m, m)
+        u_lm  = map_dist_st%lm2(l_max, m)
+        l_lm_g = map_glbl_st%lmP2(m,   m)
+        u_lm_g = map_glbl_st%lmP2(l_max+1, m)
+        Flm_local(l_lm:u_lm) = FlmP_global(l_lm_g:u_lm_g)
+      end do
+   end subroutine slice_FlmP_real
+
+   !----------------------------------------------------------------------------
+   subroutine gather_FlmP(Flm_local, FlmP_global)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      complex(cp),  intent(in)  :: Flm_local(n_lmP_loc)
+      complex(cp),  intent(out) :: FlmP_global(lmP_max)
+      
+      complex(cp) ::  buffer(lmP_max)
+      integer :: irank, j, m, l_lm_loc, u_lm_loc, l_lm_glb, u_lm_glb
+      integer :: pos, ilen, in_m, Rq(n_ranks_m), ierr
+      
+      !-- buffer will receive all messages, but they are ordered by ranks,
+      !   not by m.
+      pos = 1
+      do irank=0,n_ranks_m-1
+         in_m = dist_m(irank,0)
+         ilen = in_m*(l_max+2) - sum(dist_m(irank,1:in_m))
+         if (coord_m == irank) buffer(pos:pos+ilen-1) = Flm_local(1:n_lmP_loc)
+         CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DOUBLE_COMPLEX, &
+                         irank, comm_m, Rq(irank+1), ierr)
+         pos = pos + ilen
+      end do
+      
+      CALL MPI_WAITALL(n_ranks_theta, Rq, MPI_STATUSES_IGNORE, ierr)
+      
+      !-- Reorders the buffer
+      l_lm_loc = 1
+      do irank=0,n_ranks_m-1
+         do j = 1, dist_m(irank,0)
+            m = dist_m(irank,j)
+            u_lm_loc = l_lm_loc + l_max+1 - m   ! (l_max+2 - m) points for lmP
+            l_lm_glb = map_glbl_st%lmP2(m  ,m)
+            u_lm_glb = map_glbl_st%lmP2(l_max+1,m)
+            FlmP_global(l_lm_glb:u_lm_glb) = buffer(l_lm_loc:u_lm_loc)
+            l_lm_loc = u_lm_loc + 1
+         end do
+      end do
+      
+   end subroutine gather_FlmP
+   
+   !----------------------------------------------------------------------------
+   subroutine gather_Flm(Flm_local, Flm_global)
+      !
+      !   IMPORTANT: this function will only work if the all l points are stored
+      !   locally and grouped together in "chunks". There is no requirements 
+      !   for the m's. 
+      !   
+      !   For instance, if m1 and m2 are two consecutive m points in a given
+      !   rank, then Flm must be stored such that
+      !   [(m1:l_max,m1) (m2:l_max,m2)]
+      !   are consecutive.
+      !   Notice that there is not assumptions about m1 or m2. Also, the l's do
+      !   not need to be stored in ascending or descending order. And example 
+      !   for l_max=6 and dist_m=(/5,3/) is:
+      !   [(5,3) (6,3) (3,3) (4,3) (6,5) (5,5)]
+      !   This is perfectly valid grouping.
+      !      
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      complex(cp),  intent(in)  :: Flm_local(n_lm_loc)
+      complex(cp),  intent(out) :: Flm_global(lm_max)
+      
+      complex(cp) ::  buffer(lm_max)
+      integer :: irank, j, m, l_lm_loc, u_lm_loc, l_lm_glb, u_lm_glb
+      integer :: in_m, pos, ilen, Rq(n_ranks_m), ierr
+      
+      !-- The buffer will receive all messages, but they are ordered by ranks,
+      !   not by m.
+      
+      pos = 1
+      do irank=0,n_ranks_m-1
+         in_m = dist_m(irank,0)
+         ilen = in_m*(l_max+1) - sum(dist_m(irank,1:in_m))
+         if (coord_m == irank) buffer(pos:pos+ilen-1) = Flm_local(1:n_lm_loc)
+         CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DOUBLE_COMPLEX, &
+                         irank, comm_m, Rq(irank+1), ierr)
+         pos = pos + ilen
+      end do
+      
+      CALL MPI_WAITALL(n_ranks_m, Rq, MPI_STATUSES_IGNORE, ierr)
+      
+      !-- Reorders the buffer
+      l_lm_loc = 1
+      do irank=0,n_ranks_m-1
+         do j = 1, dist_m(irank, 0)
+            m = dist_m(irank, j)
+            u_lm_loc = l_lm_loc + l_max - m   ! (l_max+1 - m) points for lm
+            l_lm_glb = map_glbl_st%lm2(m , m)
+            u_lm_glb = map_glbl_st%lm2(l_max , m)
+            Flm_global(l_lm_glb:u_lm_glb) = buffer(l_lm_loc:u_lm_loc)
+            l_lm_loc = u_lm_loc + 1
+         end do
+      end do
+      
+   end subroutine gather_Flm
+   
+   !----------------------------------------------------------------------------
+   subroutine gather_f(f_local, f_global)
+      !
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      real(cp),  intent(inout) :: f_local( n_phi_max, nThetaStart:nThetaStop)
+      real(cp),  intent(out)   :: f_global(n_phi_max, n_theta_max)
+      
+      integer :: i, ierr
+      integer :: Rq(n_ranks_theta) 
+      
+      !-- Copies local content to f_global
+      f_global = 0.0
+      f_global(:,nThetaStart:nThetaStop) = f_local(:,nThetaStart:nThetaStop)
+      
+      do i=0,n_ranks_theta-1
+         CALL MPI_IBCAST(f_global(:,dist_theta(i,1):dist_theta(i,2)),        &
+                         n_phi_max*dist_theta(i,0), MPI_DOUBLE_PRECISION, i, &
+                         comm_theta, Rq(i+1), ierr)
+      end do
+      
+      CALL MPI_WAITALL(n_ranks_theta, Rq, MPI_STATUSES_IGNORE, ierr)
+      
+   end subroutine gather_f
+   
 end module communications
