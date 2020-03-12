@@ -151,9 +151,9 @@ def cmake(args, startdir, execDir):
                                                 shtns_opt)
     print('  '+cmd)
     print('\n')
-    os.system(cmd)
-    #sp.call(cmd, shell=True, stdout=args.cmake_outFile, stderr=sp.STDOUT)
-    #args.cmake_outFile.close()
+
+    sp.call(cmd, shell=True, stdout=args.cmake_outFile, stderr=sp.STDOUT)
+    args.cmake_outFile.close()
 
 
 def compile(args):
@@ -164,9 +164,9 @@ def compile(args):
     if args.log: cmd += ' VERBOSE=1'
     print('  '+cmd)
     print('\n')
-    os.system(cmd)
-    #sp.call(cmd, shell=True, stdout=args.make_outFile, stderr=sp.STDOUT)
-    #args.make_outFile.close()
+
+    sp.call(cmd, shell=True, stdout=args.make_outFile, stderr=sp.STDOUT)
+    args.make_outFile.close()
 
 
 def get_env(args):

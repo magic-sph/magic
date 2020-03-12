@@ -36,5 +36,4 @@ script:
     - mpiifort --version
     - echo $MKLROOT
     - cd samples
-    - export OMP_NUM_THREADS=1
     - ./magic_wizard.py --use-mpi --use-mkl --nranks 2 --level 0 --mpicmd mpiexec.hydra
