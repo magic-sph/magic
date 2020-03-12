@@ -59,9 +59,10 @@ class DynamoBenchmark(unittest.TestCase):
         cleanDir(self.dir)
         os.chdir(self.dir)
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=self.outFile,
-            stderr=sp.STDOUT)
-        self.outFile.close()
+        os.system(cmd)
+        #sp.call(cmd, shell=True, stdout=self.outFile,
+        #    stderr=sp.STDOUT)
+        #self.outFile.close()
 
     def tearDown(self):
         # Cleaning when leaving
