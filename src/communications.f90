@@ -1061,51 +1061,52 @@ contains
    end subroutine slice_Flm_real
 
    !----------------------------------------------------------------------------
-   subroutine slice_FlmP_cmplx(FlmP_global, Flm_local)
+   subroutine slice_FlmP_cmplx(FlmP_global, FlmP_local)
       !
       !   Author: Rafael Lago (MPCDF) August 2017
       !
       complex(cp),  intent(in)  :: FlmP_global(lmP_max)
-      complex(cp),  intent(out) :: Flm_local(n_lmP_loc)
+      complex(cp),  intent(out) :: FlmP_local(n_lmP_loc)
       
-      integer :: i, l_lm, u_lm, l_lm_g, u_lm_g, m
+      integer :: i, l_lm, u_lm, l_lm_g, u_lm_g
+      integer :: lm_loc, lm, l, m
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
-        l_lm  = map_dist_st%lmP2(m, m)
-        u_lm  = map_dist_st%lmP2(l_max, m)
+        l_lm   = map_dist_st%lmP2(m, m)
+        u_lm   = map_dist_st%lmP2(l_max+1, m)
         l_lm_g = map_glbl_st%lmP2(m,   m)
         u_lm_g = map_glbl_st%lmP2(l_max+1, m)
-        Flm_local(l_lm:u_lm) = FlmP_global(l_lm_g:u_lm_g)
+        FlmP_local(l_lm:u_lm) = FlmP_global(l_lm_g:u_lm_g)
       end do
    end subroutine slice_FlmP_cmplx
    
    !----------------------------------------------------------------------------
-   subroutine slice_FlmP_real(FlmP_global, Flm_local)
+   subroutine slice_FlmP_real(FlmP_global, FlmP_local)
       !
       !   Author: Rafael Lago (MPCDF) August 2017
       !
       real(cp),  intent(in)  :: FlmP_global(lmP_max)
-      real(cp),  intent(out) :: Flm_local(n_lmP_loc)
+      real(cp),  intent(out) :: FlmP_local(n_lmP_loc)
       
       integer :: i, l_lm, u_lm, l_lm_g, u_lm_g, m
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
         l_lm  = map_dist_st%lm2(m, m)
-        u_lm  = map_dist_st%lm2(l_max, m)
+        u_lm  = map_dist_st%lm2(l_max+1, m)
         l_lm_g = map_glbl_st%lmP2(m,   m)
         u_lm_g = map_glbl_st%lmP2(l_max+1, m)
-        Flm_local(l_lm:u_lm) = FlmP_global(l_lm_g:u_lm_g)
+        FlmP_local(l_lm:u_lm) = FlmP_global(l_lm_g:u_lm_g)
       end do
    end subroutine slice_FlmP_real
 
    !----------------------------------------------------------------------------
-   subroutine gather_FlmP(Flm_local, FlmP_global)
+   subroutine gather_FlmP(FlmP_local, FlmP_global)
       !
       !   Author: Rafael Lago (MPCDF) August 2017
       !
-      complex(cp),  intent(in)  :: Flm_local(n_lmP_loc)
+      complex(cp),  intent(in)  :: FlmP_local(n_lmP_loc)
       complex(cp),  intent(out) :: FlmP_global(lmP_max)
       
       complex(cp) ::  buffer(lmP_max)
@@ -1118,7 +1119,7 @@ contains
       do irank=0,n_ranks_m-1
          in_m = dist_m(irank,0)
          ilen = in_m*(l_max+2) - sum(dist_m(irank,1:in_m))
-         if (coord_m == irank) buffer(pos:pos+ilen-1) = Flm_local(1:n_lmP_loc)
+         if (coord_m == irank) buffer(pos:pos+ilen-1) = FlmP_local(1:n_lmP_loc)
          CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DOUBLE_COMPLEX, &
                          irank, comm_m, Rq(irank+1), ierr)
          pos = pos + ilen

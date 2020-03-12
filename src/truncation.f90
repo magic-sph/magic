@@ -645,13 +645,12 @@ contains
       
       taken = -1
       do m=0,m_max
-         taken(m,m:l_max) = (/m:l_max/)
+         taken(m,m:l_max) =  (/(l, l=m,l_max,1)/)
       end do
       
       mlo = -1
       
       do icoord_mo=0,n_ranks_mo-1
-         
          l = 0
          m_idx = 1
          do icoord_lo=0,n_ranks_lo-1

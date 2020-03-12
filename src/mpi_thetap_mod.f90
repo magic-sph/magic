@@ -34,6 +34,8 @@ module mpi_thetap_mod
 !    end type type_thetap
 
 
+  public :: transpose_m_theta, transpose_theta_m
+
 contains
    
    !-- Transposition from (m_loc,θ_glb) to (θ_loc,m_glb).

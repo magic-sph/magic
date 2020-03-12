@@ -596,6 +596,15 @@ contains
          !$omp end parallel
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
+         
+         
+         
+         call test_shtns(gsa%Advr)
+         
+         
+         
+         
+         
          call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
          call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 

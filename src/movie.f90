@@ -9,7 +9,6 @@ module movie_data
    use logic, only:  l_store_frame, l_save_out, l_movie, &
        &             l_movie_oc, l_movie_ic, l_HTmovie,  &
        &             l_dtBmovie, l_store_frame, l_save_out
-   use radial_data, only: 
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
