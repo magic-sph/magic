@@ -128,7 +128,8 @@ contains
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS
+      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS, &
+      &    l_spec_avg
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -782,6 +783,9 @@ contains
       l_runTimeLimit =.false.
       if ( runHours+runMinutes+runSeconds > 0 ) l_runTimeLimit= .true.
 
+      !-- time averaging of spectra
+      if ( l_average ) l_spec_avg= .true.
+
    end subroutine readNamelists
 !------------------------------------------------------------------------------
    subroutine writeNamelists(n_out)
@@ -1127,6 +1131,7 @@ contains
       write(n_out,'(''  rDea            ='',ES14.6,'','')') rDea
       write(n_out,'(''  l_2D_spectra    ='',l3,'','')') l_2D_spectra
       write(n_out,'(''  l_2D_RMS        ='',l3,'','')') l_2D_RMS
+      write(n_out,'(''  l_spec_avg      ='',l3,'','')') l_spec_avg
       write(n_out,*) "/"
 
       write(n_out,*) "&mantle"
@@ -1389,6 +1394,7 @@ contains
       l_save_out    =.false.  ! Save output
       lVerbose      =.false.  ! Tell me what you are doing
       l_average     =.false.  ! Average various quantities in time
+      l_spec_avg    =.false.  ! Average spectra in time
 
       !----- Restart files:
       n_rst_step    =0
