@@ -26,6 +26,7 @@ module logic
    logical :: l_cond_ic      ! Switch for conducting IC
    logical :: l_cond_ma      ! Switch for conducting OC
    logical :: l_average      ! Switch for calculation of time-averages
+   logical :: l_spec_avg     ! Switch for calculation of time-averaged spectra
    logical :: l_energy_modes ! Switch for calculation of distribution of energies over m's
    logical :: l_movie        ! Switch for recording of movie files
    logical :: l_movie_oc     ! Switch for recording of movie files for OC
