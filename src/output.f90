@@ -19,7 +19,7 @@ module output_mod
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
-       &            l_chemical_conv, l_movie, l_full_sphere
+       &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -467,12 +467,14 @@ contains
             ReEquat=0.0_cp
          end if
   
+         if ( l_spec_avg ) then
+            call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
+                 &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+                 &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
+         end if
+
          if ( l_average ) then
             PERFON('out_aver')
-            call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
-              &           timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
-              &           aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
-
             if ( l_heat ) then
                call spectrum_temp(n_spec,time,.true.,nLogs,l_stop_time,     &
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
