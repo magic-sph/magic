@@ -6,7 +6,8 @@ module shtns
    use constants, only: ci, one, zero
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
        &                 minc, lm_max, lmP_max, n_lm_loc, n_theta_loc, &
-       &                 n_m_loc, n_lmP_loc, n_m_max, dist_m
+       &                 n_m_loc, n_lmP_loc, n_m_max, dist_m,          &
+       &                 nThetaStart, nThetaStop, coord_m
    use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
    use fft, only: fft_phi_loc
@@ -468,21 +469,13 @@ contains
       complex(cp) :: transposed_loc(n_m_max,n_theta_loc)
       complex(cp) :: F_loc(n_phi_max/2+1,n_theta_loc)
       
-      
-      
-      complex(cp) :: fLM_tmp(n_lm_loc)
-      complex(cp) :: fL_loc_tmp(n_theta_max,n_m_loc)
-      
       integer :: i, l_lm, u_lm, m
-      
-      fLM_tmp = fLM
-      fL_loc_tmp = fL_loc
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
         l_lm = map_dist_st%lm2(m, m)
         u_lm = map_dist_st%lm2(l_max, m)
-        call shtns_sh_to_spat_ml(m/minc, fLM_tmp(l_lm:u_lm), fL_loc_tmp(:,i),l_max)
+        call shtns_sh_to_spat_ml(m/minc, fLM(l_lm:u_lm), fL_loc(:,i),l_max)
       end do
       
       call transpose_theta_m(fL_loc, transposed_loc)
@@ -754,55 +747,68 @@ contains
    
    
    !----------------------------------------------------------------------------
-   subroutine test_shtns(f)
+   subroutine test_shtns
       use communications
-   
       
-      real(cp), intent(in) :: f(n_phi_max, n_theta_max)
+      real(cp)    :: f(n_phi_max, n_theta_max)
       real(cp)    :: f_back(n_phi_max, n_theta_max)
       real(cp)    :: f_gathered(n_phi_max, n_theta_max)
-      complex(cp) :: fLM(lmP_max)
       
       real(cp)    :: f_loc(n_phi_max,n_theta_loc)
+      real(cp)    :: f_sliced(n_phi_max,n_theta_loc)
       real(cp)    :: f_loc_back(n_phi_max,n_theta_loc)
-      complex(cp) :: fLM_loc(n_lmP_loc)
-      complex(cp) :: fLM_gathered(lmP_max)
-      complex(cp) :: fLM_sliced(n_lmP_loc)
       
+      complex(cp) :: fLM(lm_max)
+      complex(cp) :: fLM_gathered(lm_max)
+      
+      complex(cp) :: fLM_sliced(n_lm_loc)
+      complex(cp) :: fLM_loc(n_lm_loc)
+      
+      complex(cp) :: f_theta_m(n_theta_max, n_m_loc)
+      complex(cp) :: f_m_theta(n_m_max, n_theta_loc)
+      
+      complex(cp) :: fLMP(lmP_max)
+      complex(cp) :: fLMP_loc(n_lmP_loc)
+      complex(cp) :: fLMP_sliced(n_lmP_loc)
       
       integer :: i,j,k,l,m
       
+      do i=1,lm_max
+        l = map_glbl_st%lm2l(i)
+        m = map_glbl_st%lm2m(i)
+        fLM(i) = cmplx(real(l/l_max),real(m/l_max))
+      end do
 
-!       k=0
-!       do i=1,n_phi_max
-!         do j=1,n_theta_max
-!           k=k+1
-!           f(i,j)=real(k)/real(n_phi_max*n_theta_max)
-!         end do
-!       end do
+      fLM_loc = cmplx(0.0,0.0)
+      call slice_Flm_cmplx(fLM,fLM_loc)
+           
+      call scal_to_spat(fLM,f,l_max)
+      call scal_to_spat_dist(fLM_loc,f_loc)
+      call slice_f(f, f_sliced)
+
+      print*, "scal_to_spat: ", maxval(abs(f_loc - f_sliced))
       
+      k = 0
+      do i=1,n_phi_max
+        do j=1,n_theta_max
+          k = k + 1
+          f(i,j) = real(k)/(n_phi_max*n_theta_max)
+        end do
+      end do
+      
+      f_loc = cmplx(0.0,0.0)
       call slice_f(f,f_loc)
       
-      fLM = cmplx(0.0,0.0)
-      call slice_Flm_cmplx(fLM,fLM_loc)
+      call spat_to_SH(f,fLMP,l_max)
+      call spat_to_SH_dist(f_loc,fLMP_loc)
       
-     
-      call spat_to_SH(f,fLM,l_max)
-      call spat_to_SH_dist(f_loc,fLM_loc)
-      call gather_FlmP(fLM_loc, fLM_gathered)
-      call slice_FlmP_cmplx(fLM, fLM_sliced)
+      call slice_FlmP_cmplx(fLMP,fLMP_sliced)
+      
 
-      print*, "spat_to_sh: ", maxval(abs(fLM_gathered - fLM)), maxval(abs(fLM_sliced - fLM_loc))
-      if (rank ==0) then
-        print *, "-----fLM---------------------------------------------------------------------"
-        print *, fLM
-        print *, "-----fLM_loc-----------------------------------------------------------------"
-        print *, fLM_loc
-        print *, "-----fLM_sliced--------------------------------------------------------------"
-        print *, fLM_sliced
-        print *, "-----fLM_gathered------------------------------------------------------------"
-        print *, fLM_gathered
-      end if
+      print*, "spat_to_SH: ", maxval(abs(fLMP_loc - fLMP_sliced))     
+      
+      
+      STOP
       
 !       call slice_Flm_cmplx(fLM,fLM_loc)
 !       call scal_to_spat(fLM, f_back, l_max)

@@ -327,6 +327,7 @@ program magic
 
 #ifdef WITH_SHTNS
    call init_shtns()
+   call test_shtns()
 #endif
 
    if ( rank == 0 ) then
