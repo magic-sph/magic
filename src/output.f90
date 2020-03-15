@@ -387,12 +387,11 @@ contains
   
       !--- Property parameters:
       complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
-      real(cp) :: dlBR(n_r_max),dlBRc(n_r_max),dlVR(n_r_max),dlVRc(n_r_max)
-      real(cp) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
-      real(cp) :: RmR(n_r_max)
+      real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
+      real(cp) :: RolRu2(n_r_max),RmR(n_r_max),dlPolPeakR(n_r_max)
       real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,Dip,DipCMB
       real(cp) :: ReConv,RoConv,e_kin_nas,RolC
-      real(cp) :: elsAnel
+      real(cp) :: elsAnel,dlVPolPeak,dlBPolPeak
       real(cp) :: dlB,dlBc,dmB
       real(cp) :: dlV,dlVc,dmV,dpV,dzV
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
@@ -523,26 +522,25 @@ contains
   
          !----- If anelastic additional u**2 outputs
          if ( l_anel ) then
-            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2, &
-                 &            dlVRu2,dlVRu2c)
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on rank ",rank
+            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2)
          else
-            RolRu2  = 0.0_cp
-            dlVRu2  = 0.0_cp
-            dlVRu2c = 0.0_cp
+            RolRu2(:)=0.0_cp
          end if
   
+         !-- Get flow lengthscales
+         call getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVPolPeak, &
+              &      dlVRc,dlPolPeakR,'V')
+
+         !-- Out radial profiles of parameters
+         call outPar(timePassedLog,timeNormLog,l_stop_time,ekinR,RolRu2,   &
+              &      dlVR,dlVRc,dlPolPeakR,uhLMr,duhLMr,gradsLMr,fconvLMr, &
+              &      fkinLMr,fviscLMr,fpoynLMr,fresLMr,RmR)
+
+         !-- Perpendicular/parallel 
          if ( l_perpPar ) then
             call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time, &
                  &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
          end if
-
-         call getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
-
-         call outPar(timePassedLog,timeNormLog,nLogs,l_stop_time,        &
-              &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,             &
-              &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
-              &      fpoynLMr,fresLMr,RmR)
 
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
   
@@ -566,7 +564,9 @@ contains
          end if
 
          if ( l_mag .or. l_mag_LF ) then 
-            call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlBR,dmB,dlBc,dlBRc,'B')
+            !-- Get magnetic field lengthscales
+            call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlVR,dmB, &
+                 &      dlBc,dlBPolPeak,dlVRc,dlPolPeakR,'B')
          else
             dlB=0.0_cp
             dmB=0.0_cp
@@ -913,7 +913,7 @@ contains
                open(newunit=n_par_file, file=par_file, status='unknown', &
                &    position='append')
             end if
-            write(n_par_file,'(ES20.12,18ES16.8)')  &
+            write(n_par_file,'(ES20.12,19ES16.8)')  &
                  &             timeScaled,          &! 1) time
                  &                     Rm,          &! 2) (magnetic) Reynolds number 
                  &                     El,          &! 3) Elsasser number
@@ -927,7 +927,8 @@ contains
                  &                  ElCmb,          &! 16) Elsasser number at CMB
                  &                   RolC,          &! 17) Local Rol based on non-as flow
                  &                   dlVc,          &! 18) convective flow length scale
-                 &                 ReEquat           ! 19) CMB flow at the equator
+                 &             dlVPolPeak,          &! 19) Peak of the poloidal energy
+                 &                 ReEquat           ! 20) CMB flow at the equator
             if ( l_save_out ) close(n_par_file)
   
             !---- Building time mean:
