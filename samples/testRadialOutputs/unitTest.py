@@ -67,9 +67,17 @@ class RadialOutputTest(unittest.TestCase):
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5}' bLayersR.start > bLayersRcut.start"
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5, $6, $7}' parR.start > parRcut.start"
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5}' powerR.start > powerRcut.start"
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5}' perpParR.start > perpParRcut.start"
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5, $6, $7}' fluxesR.start > fluxesRcut.start"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
