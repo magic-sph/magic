@@ -36,4 +36,4 @@ script:
     - mpiifort --version
     - echo $MKLROOT
     - cd samples
-    - ./magic_wizard.py --use-mpi --use-mkl --nranks 2 --level 0 --mpicmd mpiexec.hydra
+    - travis_wait 20 ./magic_wizard.py --use-mpi --use-mkl --nranks 2 --level 0 --mpicmd mpiexec.hydra
