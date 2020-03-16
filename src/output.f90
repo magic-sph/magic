@@ -471,15 +471,14 @@ contains
             call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
                  &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
                  &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
-         end if
-
-         if ( l_average ) then
-            PERFON('out_aver')
             if ( l_heat ) then
                call spectrum_temp(n_spec,time,.true.,nLogs,l_stop_time,     &
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
             end if
-            
+         end if
+
+         if ( l_average ) then
+            PERFON('out_aver')
             call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
