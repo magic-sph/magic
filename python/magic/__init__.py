@@ -1,10 +1,10 @@
 from .setup import buildSo
 from .log import *
-from .series import *
+from .series import MagicTs, AvgField
 from .radial import MagicRadial
 from .graph import *
 from .surf import *
-from .spectrum import *
+from .spectrum import MagicSpectrum, MagicSpectrum2D
 from .movie import *
 from .TOreaders import *
 from .cyl import *

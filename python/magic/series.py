@@ -1,6 +1,7 @@
 #-*- coding: utf-8 -*-
 import os
 import re
+import copy
 import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
@@ -64,6 +65,11 @@ class MagicTs(MagicSetup):
         pattern = os.path.join(datadir, 'log.*')
         logFiles = scanDir(pattern)
 
+        if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+            binary = True
+        else:
+            binary = False
+
         if tag is not None:
             pattern = os.path.join(datadir, '%s.%s' % (self.field, tag))
             files = scanDir(pattern)
@@ -75,8 +81,8 @@ class MagicTs(MagicSetup):
             # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
-                pattern = os.path.join(datadir, '%s' % self.field)
-                mask = re.compile(r'%s\.(.*)' % pattern)
+                st = os.path.join(datadir, '%s\.(.*)' % self.field)
+                mask = re.compile(st)
                 if mask.match(files[-1]):
                     ending = mask.search(files[-1]).groups(0)[0]
                     pattern = os.path.join(datadir, 'log.%s' % ending)
@@ -85,41 +91,13 @@ class MagicTs(MagicSetup):
                                             nml='log.%s' % ending)
 
             # Concatenate the files that correspond to the tag
-            for k,file in enumerate(files):
+            for k, file in enumerate(files):
                 filename = file
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
-                    datanew = fast_read(filename, binary=True)
-                else:
-                    datanew = fast_read(filename)
+                data = fast_read(filename, binary=binary)
                 if k == 0:
-                    data = datanew.copy()
-                    ncolRef = data.shape[1]
+                    tslut = TsLookUpTable(data, self.field)
                 else:
-                    ncol = datanew.shape[1]
-                    if ncol == ncolRef:
-                        if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                            data = np.vstack((data, datanew))
-                        else: # Remove first line, that is already here
-                            data = np.vstack((data, datanew[1:,:]))
-                    else: # If the number of columns has changed
-                        if self.field == 'dtVrms':
-                            if ncolRef == 15:
-                                data = np.insert(data, 10, 0., axis=1)#self.arc
-                                nColRef += 1
-                            elif ncolRef == 14:
-                                data = np.insert(data, 7, 0., axis=1)#self.ChemRms
-                                data = np.insert(data, 11, 0., axis=1)#self.arc
-                                nColRef += 2
-                            data = np.vstack((data, datanew))
-                        elif self.field == 'par':
-                            if ncolRef == 19:
-                                data = np.insert(data, 18, 0., axis=1)
-                                nColRef += 1
-                            data = np.vstack((data, datanew))
-                        elif self.field in ('AM', 'power', 'dtBrms'):
-                            data = np.vstack((data, datanew[:, 0:ncolRef]))
-                        else: # Remove first line that is already here
-                            data = np.vstack((data, datanew[1:, 0:ncolRef]))
+                    tslut += TsLookUpTable(data, self.field)
 
         # If no tag is specified, the most recent is plotted
         elif not all:
@@ -127,19 +105,14 @@ class MagicTs(MagicSetup):
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor',):
-                    data = fast_read(filename, binary=True)
-                else:
-                    data = fast_read(filename)
+                data = fast_read(filename, binary=binary)
             else:
                 mot = '%s.*' % (self.field)
                 dat = [(os.stat(i).st_mtime, i) for i in glob.glob(mot)]
                 dat.sort()
                 filename = dat[-1][1]
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
-                    data = fast_read(filename, binary=True)
-                else:
-                    data = fast_read(filename)
+                data = fast_read(filename, binary=binary)
+            tslut = TsLookUpTable(data, self.field)
 
         # If no tag is specified but all=True, all the directory is plotted
         else:
@@ -149,316 +122,18 @@ class MagicTs(MagicSetup):
             files = scanDir(pattern)
             for k, file in enumerate(files):
                 filename = file
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
-                    datanew = fast_read(filename, binary=True)
-                else:
-                    datanew = fast_read(filename)
+                data = fast_read(filename, binary=binary)
                 if k == 0:
-                    data = datanew.copy()
-                    ncolRef = data.shape[1]
+                    tslut = TsLookUpTable(data, self.field)
                 else:
-                    if datanew.shape[0] != 0: # In case the file is empty
-                        ncol = datanew.shape[1]
-                        if ncol == ncolRef:
-                            if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                                data = np.vstack((data, datanew))
-                            else: # Remove first line that is already here
-                                data = np.vstack((data, datanew[1:,:]))
-                        else: # If the number of columns has changed
-                            if self.field in ('power'):
-                                data = np.vstack((data, datanew[:, (0,1,3,4,5,6,
-                                                                    7,8,9,10)]))
-                            elif self.field == 'dtVrms':
-                                if ncolRef == 15:
-                                    data = np.insert(data, 10, 0., axis=1)#self.arc
-                                    ncolRef += 1
-                                elif ncolRef == 14:
-                                    data = np.insert(data, 7, 0., axis=1) #self.ChemRms
-                                    data = np.insert(data, 11, 0., axis=1) #self.arc
-                                    ncolRef += 2
-                                data = np.vstack((data, datanew))
-                            elif self.field == 'par':
-                                if ncolRef == 19:
-                                    data = np.insert(data, 18, 0., axis=1)
-                                    ncolRef += 1
-                                data = np.vstack((data, datanew))
-                            elif self.field in ('AM', 'dtBrms'):
-                                data = np.vstack((data, datanew[:, 0:ncolRef]))
-                            else: # Remove first line that is already here
-                                data = np.vstack((data, datanew[1:, 0:ncolRef]))
+                    tslut += TsLookUpTable(data, self.field)
 
-        if self.field == 'e_kin':
-            self.time = data[:, 0]
-            self.ekin_pol = data[:, 1]
-            self.ekin_tor = data[:, 2]
-            self.ekin_pol_axi = data[:, 3]
-            self.ekin_tor_axi = data[:, 4]
-            self.ekin_pol_symeq = data[:, 5]
-            self.ekin_tor_symeq = data[:, 6]
-            self.ekin_pol_asymeq = data[:, 7]
-            self.ekin_tor_asymeq = data[:, 8]
-            self.ekin_tot = self.ekin_pol + self.ekin_tor
-            self.ekin_es = self.ekin_pol_symeq+self.ekin_tor_symeq
-            self.ekin_eas = self.ekin_pol_asymeq+self.ekin_tor_asymeq
-        elif self.field == 'e_mag_oc':
-            self.time = data[:, 0]
-            self.emagoc_pol = data[:, 1]
-            self.emagoc_tor = data[:, 2]
-            self.emagoc_pol_axi = data[:, 3]
-            self.emagoc_tor_axi = data[:, 4]
-            self.ext_nrj_pol = data[:, 5]
-            self.ext_nrj_pol_axi = data[:, 6]
-            self.emagoc_pol_es = data[:, 7]
-            self.emagoc_tor_es = data[:, 8]
-            self.emagoc_pol_eas = data[:, 9]
-            self.emagoc_tor_eas = data[:, 10]
-            self.emag_tot = self.emagoc_pol+self.emagoc_tor
-            self.emag_es = self.emagoc_pol_es+self.emagoc_tor_es
-            self.emag_eas = self.emagoc_pol_eas+self.emagoc_tor_eas
-        elif self.field == 'e_mag_ic':
-            self.time = data[:, 0]
-            self.emagic_pol = data[:, 1]
-            self.emagic_tor = data[:, 2]
-            self.emagic_pol_axi = data[:, 3]
-            self.emagic_tor_axi = data[:, 4]
-        elif self.field == 'timestep':
-            self.time = data[:, 0]
-            self.dt = data[:, 1]
-        elif self.field == 'dipole':
-            self.time = data[:, 0]
-            self.theta_dip = data[:, 1]
-            self.phi_dip = data[:, 2]
-            self.dipolarity = data[:, 3]
-            self.dip_cmb = data[:, 4]
-            self.dip_l11 = data[:, 5] # Cut at l=11
-            self.dipTot = data[:, 6] # Also non axisymmetric dipole
-            self.dipTot_cmb = data[:, 7] # Non-axi at the CMB
-            self.dipTot_l11 = data[:, 8] # Cut at l=11
-            self.e_dip_cmb = data[:, 9]
-            self.e_dip_ax_cmb = data[:, 10]
-            self.e_dip = data[:, 11]
-            self.e_dip_ax = data[:, 12]
-            self.ecmb = data[:, 13]
-            self.egeo = data[:, 14]
-            self.ratio = data[:, 17] # (e_cmb-e_as_cmb)/e_cmb
-            self.epol_axi_cmb = (-self.ratio*self.ecmb+self.ecmb)
-            self.dip3 = self.epol_axi_cmb/self.ecmb
-            self.e_tot = self.e_dip/self.dipTot
-        elif self.field == 'AM':
-            self.time = data[:, 0]
-            self.am_oc_x = data[:, 1]
-            self.am_oc_y = data[:, 2]
-            self.am_oc_z = data[:, 3]
-            self.am_ic = data[:, 4]
-            self.am_ma = data[:, 5]
-            self.amz = data[:, 6]
-            self.damzdt = data[:, 7]
-        elif self.field == 'rot':
-            self.time = data[:, 0]
-            self.omega_ic = data[:, 1]
-            self.lorentz_torque_ic = data[:, 2]
-            self.viscous_torque_ic = data[:, 3]
-            self.omega_ma = data[:, 4]
-            self.lorentz_torque_ma = data[:, 5]
-            self.viscous_torque_ma = data[:, 6]
-        elif self.field == 'par':
-            self.time = data[:, 0]
-            self.rm = data[:, 1]
-            self.elsasser = data[:, 2]
-            self.rossby_l = data[:, 3]
-            self.geos = data[:, 4]
-            self.dipolarity = data[:, 5]
-            self.dip_cmb = data[:, 6]
-            self.dlV = data[:, 7]
-            self.dmV = data[:, 8]
-            self.lvDiss = data[:, 11]
-            self.lbDiss = data[:, 12]
-            self.dlB = data[:, 13]
-            self.dmB = data[:, 14]
-            self.els_cmb = data[:, 15]
-            self.rolc = data[:, 16]
-            self.dlVc = data[:, 17]
-            if data.shape[-1] == 19:
-                self.dlPolPeak = np.zeros_like(self.time)
-                self.reEquat = data[:, 18]
-            elif data.shape[-1] == 20:
-                self.dlPolPeak = data[:, 18]
-                self.reEquat = data[:, 19]
-        elif self.field == 'misc':
-            self.time = data[:, 0]
-            self.botnuss = data[:, 1]
-            self.topnuss = data[:, 2]
-            self.helrms = data[:, 8]
-            self.helN = data[:, 5]*self.helrms
-            self.helS = data[:, 6]*self.helrms
-            try:
-                self.botflux = data[:, 16]
-                self.topflux = data[:, 17]
-            except IndexError:
-                pass
-        elif self.field == 'geos':
-            self.time = data[:, 0]
-            self.geos = data[:, 1]
-        elif self.field == 'heat':
-            self.time = data[:, 0]
-            self.botnuss = data[:, 1]
-            self.topnuss = data[:, 2]
-            self.deltaTnuss = data[:, 3]
-            self.bottemp = data[:, 4]
-            self.toptemp = data[:, 5]
-            self.bots = data[:, 6]
-            self.tops = data[:, 7]
-            self.topflux = data[:, 8]
-            self.botflux = data[:, 9]
-            self.toppress = data[:, 10]
-            self.mass = data[:, 11]
-            try:
-                self.botsherwood = data[:, 12]
-                self.topsherwood = data[:, 13]
-                self.deltasherwood = data[:, 14]
-                self.botxi = data[:, 15]
-                self.topxi = data[:, 16]
-            except IndexError:
-                self.topsherwood = np.ones_like(self.time)
-                self.botsherwood = np.ones_like(self.time)
-                self.deltasherwood = np.ones_like(self.time)
-                self.botxi = np.zeros_like(self.time)
-                self.topxi = np.zeros_like(self.time)
-                pass
-        elif self.field == 'helicity':
-            self.time = data[:, 0]
-            self.helN = data[:, 1]
-            self.helS = data[:, 2]
-            self.helRMSN = data[:, 3]
-            self.helRMSS = data[:, 4]
-            self.helnaN = data[:, 5]
-            self.helnaS = data[:, 6]
-            self.helnaRMSN = data[:, 7]
-            self.helnaRMSS = data[:, 8]
-        elif self.field == 'earth_like':
-            self.time = data[:, 0]
-            self.axial_dipole = data[:, 1]
-            self.symmetry = data[:, 2]
-            self.zonality = data[:, 3]
-            self.flux_concentration = data[:, 4]
-            self.chi_square = ((np.log(self.axial_dipole)-np.log(1.4))/np.log(2.))**2+\
-                              ((np.log(self.symmetry)-np.log(1.))/np.log(2.))**2+\
-                              ((np.log(self.zonality)-np.log(0.15))/np.log(2.5))**2+\
-                              ((np.log(self.flux_concentration)-np.log(1.5))/np.log(1.75))**2
-        elif self.field == 'u_square':
-            self.time = data[:, 0]
-            self.ekin_pol = data[:, 1]
-            self.ekin_tor = data[:, 2]
-            self.ekin_pol_axi = data[:, 3]
-            self.ekin_tor_axi = data[:, 4]
-            self.ekin_tot = self.ekin_pol + self.ekin_tor
-            self.ro = data[:, 5]
-            self.rm = data[:, 6]
-            self.rossby_l = data[:, 7]
-            self.dl = data[:, 8]
-        elif self.field == 'perpPar':
-            self.time = data[:, 0]
-            self.eperp = data[:, 1]
-            self.epar = data[:, 2]
-            self.eperp_axi = data[:, 3]
-            self.epar_axi = data[:, 4]
-            self.ekin_tot = self.eperp+self.epar
-        elif self.field in ('dtVrms'):
-            self.time = data[:, 0]
-            self.InerRms = data[:, 1]
-            self.CorRms = data[:, 2]
-            self.LFRms = data[:, 3]
-            self.AdvRms = data[:, 4]
-            self.DifRms = data[:, 5]
-            self.BuoRms = data[:, 6]
-
-            if data.shape[1] == 14:
-                self.PreRms = data[:, 7]
-                self.geos = data[:, 8] # geostrophic balance
-                self.mageos = data[:, 9] # magnetostrophic balance
-                self.arcMag = data[:, 10] # Coriolis/Pressure/Buoyancy/Lorentz
-                self.corLor = data[:, 11] # Coriolis/Lorentz
-                self.preLor = data[:, 12] # Pressure/Lorentz
-                self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
-                self.arc = np.zeros_like(self.geos)
-                self.ChemRms = np.zeros_like(self.geos)
-            elif data.shape[1] == 15:
-                self.PreRms = data[:, 7]
-                self.geos = data[:, 8] # geostrophic balance
-                self.mageos = data[:, 9] # magnetostrophic balance
-                self.arc    = data[:, 10] # Coriolis/Pressure/Buoyancy
-                self.arcMag = data[:, 11] # Coriolis/Pressure/Buoyancy/Lorentz
-                self.corLor = data[:, 12] # Coriolis/Lorentz
-                self.preLor = data[:, 13] # Pressure/Lorentz
-                self.cia = data[:, 14] # Coriolis/Inertia/Archmedean
-                self.ChemRms = np.zeros_like(self.geos)
-            else:
-                self.ChemRms = data[:, 7]
-                self.PreRms = data[:, 8]
-                self.geos = data[:, 9] # geostrophic balance
-                self.mageos = data[:, 10] # magnetostrophic balance
-                self.arc    = data[:, 11] # Coriolis/Pressure/Buoyancy
-                self.arcMag = data[:, 12] # Coriolis/Pressure/Buoyancy/Lorentz
-                self.corLor = data[:, 13] # Coriolis/Lorentz
-                self.preLor = data[:, 14] # Pressure/Lorentz
-                self.cia = data[:, 15] # Coriolis/Inertia/Archmedean
-
-        elif self.field in ('dtBrms'):
-            self.time = data[:, 0]
-            self.dtBpolRms = data[:, 1]
-            self.dtBtorRms = data[:, 2]
-            self.DynPolRms = data[:, 3]
-            self.DynTorRms = data[:, 4]
-            self.DifPolRms = data[:, 5]
-            self.DifTorRms = data[:, 6]
-            self.omEffect = data[:, 7]
-            self.omega = data[:, 8]
-            self.DynDipRms = data[:, 9]
-            self.DynDipAxRms = data[:, 10]
-        elif self.field in ('dtE'):
-            self.time = data[:, 0]
-            self.dEdt = data[:, 1]
-            self.intdEdt = data[:, 2]
-            self.reldEdt = data[:, 3]
-        elif self.field in ('power'):
-            self.time = data[:, 0]
-            self.buoPower = data[:, 1]
-            if data.shape[1] == 11:
-                self.buoPower_chem = data[:, 2]
-                self.icrotPower = data[:, 3]
-                self.mantlerotPower = data[:, 4]
-                self.viscDiss = data[:, 5]
-                self.ohmDiss = data[:, 6]
-                self.icPower = data[:, 7]
-                self.mantlePower = data[:, 8]
-            elif data.shape[1] == 10:
-                self.buoPower_chem = np.zeros_like(self.time)
-                self.icrotPower = data[:, 2]
-                self.mantlerotPower = data[:, 3]
-                self.viscDiss = data[:, 4]
-                self.ohmDiss = data[:, 5]
-                self.icPower = data[:, 6]
-                self.mantlePower = data[:, 7]
-            if abs(self.ohmDiss).max() != 0:
-                 self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
-                 self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
-        elif self.field in ('SRIC'):
-            self.time = data[:,0]
-            self.omega_ic = data[:,1]
-            self.viscPower = data[:,2]
-            self.totPower = data[:,3]
-            self.LorPower = data[:,4]
-            self.viscTorq = abs(self.viscPower/self.omega_ic)
-            self.totTorq = abs(self.totPower/self.omega_ic)
-            self.LorTorq = abs(self.LorPower/self.omega_ic)
-        elif self.field in ('am_mag_pol', 'am_mag_tor', # Tayler instability
-                            'am_kin_pol', 'am_kin_tor'):
-            self.time = data[:, 0]
-            self.coeffs = data[:, 1:]
+        # Copy look-up table arguments into MagicRadial object
+        for attr in tslut.__dict__:
+            setattr(self, attr, tslut.__dict__[attr])
 
         if iplot:
             self.plot()
-
 
     def plot(self):
         """
@@ -656,7 +331,7 @@ class MagicTs(MagicSetup):
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.topnuss, label='Top Nusselt')
             ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
-            ax.legend(loc='lower right')
+            ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
             fig.tight_layout()
@@ -678,7 +353,6 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
-            ax.legend()
             fig.tight_layout()
 
             if self.topsherwood.max() != 1.0:
@@ -754,7 +428,6 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('RMS balances')
             fig.tight_layout()
-
         elif self.field == 'perpPar':
             fig = plt.figure()
             ax= fig.add_subplot(111)
@@ -774,7 +447,6 @@ class MagicTs(MagicSetup):
 
             ax.set_xlim(self.time[0], self.time[-1])
             fig.tight_layout()
-
         elif self.field in ('power'):
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -822,7 +494,6 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
             fig.tight_layout()
-
         elif self.field in ('SRIC'):
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -834,7 +505,6 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Torque')
             fig.tight_layout()
-
         elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -854,6 +524,318 @@ class MagicTs(MagicSetup):
                 ax.set_ylabel('Ekin toroidal')
             fig.tight_layout()
 
+
+class TsLookUpTable:
+    """
+    The purpose of this class is to create a lookup table between the numpy
+    array that comes from the reading of the time series and the corresponding
+    column.
+    """
+
+    def __init__(self, data, field):
+        """
+        :param data: numpy array that contains the data
+        :type data: numpy.ndarray
+        :param field: name of the field (i.e. 'eKinR', 'eMagR', 'powerR', ...)
+        :type field: str
+        """
+
+        self.field = field
+
+        if self.field == 'e_kin':
+            self.time = data[:, 0]
+            self.ekin_pol = data[:, 1]
+            self.ekin_tor = data[:, 2]
+            self.ekin_pol_axi = data[:, 3]
+            self.ekin_tor_axi = data[:, 4]
+            self.ekin_pol_symeq = data[:, 5]
+            self.ekin_tor_symeq = data[:, 6]
+            self.ekin_pol_asymeq = data[:, 7]
+            self.ekin_tor_asymeq = data[:, 8]
+            self.ekin_tot = self.ekin_pol + self.ekin_tor
+            self.ekin_es = self.ekin_pol_symeq + self.ekin_tor_symeq
+            self.ekin_eas = self.ekin_pol_asymeq + self.ekin_tor_asymeq
+        elif self.field == 'e_mag_oc':
+            self.time = data[:, 0]
+            self.emagoc_pol = data[:, 1]
+            self.emagoc_tor = data[:, 2]
+            self.emagoc_pol_axi = data[:, 3]
+            self.emagoc_tor_axi = data[:, 4]
+            self.ext_nrj_pol = data[:, 5]
+            self.ext_nrj_pol_axi = data[:, 6]
+            self.emagoc_pol_es = data[:, 7]
+            self.emagoc_tor_es = data[:, 8]
+            self.emagoc_pol_eas = data[:, 9]
+            self.emagoc_tor_eas = data[:, 10]
+            self.emag_tot = self.emagoc_pol + self.emagoc_tor
+            self.emag_es = self.emagoc_pol_es + self.emagoc_tor_es
+            self.emag_eas = self.emagoc_pol_eas + self.emagoc_tor_eas
+        elif self.field == 'e_mag_ic':
+            self.time = data[:, 0]
+            self.emagic_pol = data[:, 1]
+            self.emagic_tor = data[:, 2]
+            self.emagic_pol_axi = data[:, 3]
+            self.emagic_tor_axi = data[:, 4]
+        elif self.field == 'timestep':
+            self.time = data[:, 0]
+            self.dt = data[:, 1]
+        elif self.field == 'dipole':
+            self.time = data[:, 0]
+            self.theta_dip = data[:, 1]
+            self.phi_dip = data[:, 2]
+            self.dipolarity = data[:, 3]
+            self.dip_cmb = data[:, 4]
+            self.dip_l11 = data[:, 5] # Cut at l=11
+            self.dipTot = data[:, 6] # Also non axisymmetric dipole
+            self.dipTot_cmb = data[:, 7] # Non-axi at the CMB
+            self.dipTot_l11 = data[:, 8] # Cut at l=11
+            self.e_dip_cmb = data[:, 9]
+            self.e_dip_ax_cmb = data[:, 10]
+            self.e_dip = data[:, 11]
+            self.e_dip_ax = data[:, 12]
+            self.ecmb = data[:, 13]
+            self.egeo = data[:, 14]
+            self.ratio = data[:, 17] # (e_cmb-e_as_cmb)/e_cmb
+            self.epol_axi_cmb = (-self.ratio*self.ecmb+self.ecmb)
+            self.dip3 = self.epol_axi_cmb/self.ecmb
+            self.e_tot = self.e_dip/self.dipTot
+        elif self.field == 'AM':
+            self.time = data[:, 0]
+            self.am_oc_x = data[:, 1]
+            self.am_oc_y = data[:, 2]
+            self.am_oc_z = data[:, 3]
+            self.am_ic = data[:, 4]
+            self.am_ma = data[:, 5]
+            self.amz = data[:, 6]
+            self.damzdt = data[:, 7]
+        elif self.field == 'rot':
+            self.time = data[:, 0]
+            self.omega_ic = data[:, 1]
+            self.lorentz_torque_ic = data[:, 2]
+            self.viscous_torque_ic = data[:, 3]
+            self.omega_ma = data[:, 4]
+            self.lorentz_torque_ma = data[:, 5]
+            self.viscous_torque_ma = data[:, 6]
+        elif self.field == 'par':
+            self.time = data[:, 0]
+            self.rm = data[:, 1]
+            self.elsasser = data[:, 2]
+            self.rossby_l = data[:, 3]
+            self.geos = data[:, 4]
+            self.dipolarity = data[:, 5]
+            self.dip_cmb = data[:, 6]
+            self.dlV = data[:, 7]
+            self.dmV = data[:, 8]
+            self.lvDiss = data[:, 11]
+            self.lbDiss = data[:, 12]
+            self.dlB = data[:, 13]
+            self.dmB = data[:, 14]
+            self.els_cmb = data[:, 15]
+            self.rolc = data[:, 16]
+            self.dlVc = data[:, 17]
+            if data.shape[-1] == 19:
+                self.dlPolPeak = np.zeros_like(self.time)
+                self.reEquat = data[:, 18]
+            elif data.shape[-1] == 20:
+                self.dlPolPeak = data[:, 18]
+                self.reEquat = data[:, 19]
+        elif self.field == 'misc':
+            self.time = data[:, 0]
+            self.botnuss = data[:, 1]
+            self.topnuss = data[:, 2]
+            self.helrms = data[:, 8]
+            self.helN = data[:, 5]*self.helrms
+            self.helS = data[:, 6]*self.helrms
+            try:
+                self.botflux = data[:, 16]
+                self.topflux = data[:, 17]
+            except IndexError:
+                self.botflux = np.zeros_like(self.time)
+                self.topflux = np.zeros_like(self.time)
+                pass
+        elif self.field == 'geos':
+            self.time = data[:, 0]
+            self.geos = data[:, 1]
+        elif self.field == 'heat':
+            self.time = data[:, 0]
+            self.botnuss = data[:, 1]
+            self.topnuss = data[:, 2]
+            self.deltaTnuss = data[:, 3]
+            self.bottemp = data[:, 4]
+            self.toptemp = data[:, 5]
+            self.bots = data[:, 6]
+            self.tops = data[:, 7]
+            self.topflux = data[:, 8]
+            self.botflux = data[:, 9]
+            self.toppress = data[:, 10]
+            self.mass = data[:, 11]
+            try:
+                self.botsherwood = data[:, 12]
+                self.topsherwood = data[:, 13]
+                self.deltasherwood = data[:, 14]
+                self.botxi = data[:, 15]
+                self.topxi = data[:, 16]
+            except IndexError:
+                self.topsherwood = np.ones_like(self.time)
+                self.botsherwood = np.ones_like(self.time)
+                self.deltasherwood = np.ones_like(self.time)
+                self.botxi = np.zeros_like(self.time)
+                self.topxi = np.zeros_like(self.time)
+                pass
+        elif self.field == 'helicity':
+            self.time = data[:, 0]
+            self.helN = data[:, 1]
+            self.helS = data[:, 2]
+            self.helRMSN = data[:, 3]
+            self.helRMSS = data[:, 4]
+            self.helnaN = data[:, 5]
+            self.helnaS = data[:, 6]
+            self.helnaRMSN = data[:, 7]
+            self.helnaRMSS = data[:, 8]
+        elif self.field == 'earth_like':
+            self.time = data[:, 0]
+            self.axial_dipole = data[:, 1]
+            self.symmetry = data[:, 2]
+            self.zonality = data[:, 3]
+            self.flux_concentration = data[:, 4]
+            self.chi_square = ((np.log(self.axial_dipole)-np.log(1.4))/np.log(2.))**2+\
+                              ((np.log(self.symmetry)-np.log(1.))/np.log(2.))**2+\
+                              ((np.log(self.zonality)-np.log(0.15))/np.log(2.5))**2+\
+                              ((np.log(self.flux_concentration)-np.log(1.5))/np.log(1.75))**2
+        elif self.field == 'u_square':
+            self.time = data[:, 0]
+            self.ekin_pol = data[:, 1]
+            self.ekin_tor = data[:, 2]
+            self.ekin_pol_axi = data[:, 3]
+            self.ekin_tor_axi = data[:, 4]
+            self.ekin_tot = self.ekin_pol + self.ekin_tor
+            self.ro = data[:, 5]
+            self.rm = data[:, 6]
+            self.rossby_l = data[:, 7]
+            self.dl = data[:, 8]
+        elif self.field == 'perpPar':
+            self.time = data[:, 0]
+            self.eperp = data[:, 1]
+            self.epar = data[:, 2]
+            self.eperp_axi = data[:, 3]
+            self.epar_axi = data[:, 4]
+            self.ekin_tot = self.eperp+self.epar
+        elif self.field in ('dtVrms'):
+            self.time = data[:, 0]
+            self.InerRms = data[:, 1]
+            self.CorRms = data[:, 2]
+            self.LFRms = data[:, 3]
+            self.AdvRms = data[:, 4]
+            self.DifRms = data[:, 5]
+            self.BuoRms = data[:, 6]
+
+            if data.shape[1] == 14:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arcMag = data[:, 10] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 11] # Coriolis/Lorentz
+                self.preLor = data[:, 12] # Pressure/Lorentz
+                self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
+                self.arc = np.zeros_like(self.geos)
+                self.ChemRms = np.zeros_like(self.geos)
+            elif data.shape[1] == 15:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arc    = data[:, 10] # Coriolis/Pressure/Buoyancy
+                self.arcMag = data[:, 11] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archmedean
+                self.ChemRms = np.zeros_like(self.geos)
+            else:
+                self.ChemRms = data[:, 7]
+                self.PreRms = data[:, 8]
+                self.geos = data[:, 9] # geostrophic balance
+                self.mageos = data[:, 10] # magnetostrophic balance
+                self.arc    = data[:, 11] # Coriolis/Pressure/Buoyancy
+                self.arcMag = data[:, 12] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 13] # Coriolis/Lorentz
+                self.preLor = data[:, 14] # Pressure/Lorentz
+                self.cia = data[:, 15] # Coriolis/Inertia/Archmedean
+
+        elif self.field in ('dtBrms'):
+            self.time = data[:, 0]
+            self.dtBpolRms = data[:, 1]
+            self.dtBtorRms = data[:, 2]
+            self.DynPolRms = data[:, 3]
+            self.DynTorRms = data[:, 4]
+            self.DifPolRms = data[:, 5]
+            self.DifTorRms = data[:, 6]
+            self.omEffect = data[:, 7]
+            self.omega = data[:, 8]
+            self.DynDipRms = data[:, 9]
+            self.DynDipAxRms = data[:, 10]
+        elif self.field in ('dtE'):
+            self.time = data[:, 0]
+            self.dEdt = data[:, 1]
+            self.intdEdt = data[:, 2]
+            self.reldEdt = data[:, 3]
+        elif self.field in ('power'):
+            self.time = data[:, 0]
+            self.buoPower = data[:, 1]
+            if data.shape[1] == 11:
+                self.buoPower_chem = data[:, 2]
+                self.icrotPower = data[:, 3]
+                self.mantlerotPower = data[:, 4]
+                self.viscDiss = data[:, 5]
+                self.ohmDiss = data[:, 6]
+                self.icPower = data[:, 7]
+                self.mantlePower = data[:, 8]
+            elif data.shape[1] == 10:
+                self.buoPower_chem = np.zeros_like(self.time)
+                self.icrotPower = data[:, 2]
+                self.mantlerotPower = data[:, 3]
+                self.viscDiss = data[:, 4]
+                self.ohmDiss = data[:, 5]
+                self.icPower = data[:, 6]
+                self.mantlePower = data[:, 7]
+            if abs(self.ohmDiss).max() != 0:
+                 self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
+                 self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
+        elif self.field in ('SRIC'):
+            self.time = data[:,0]
+            self.omega_ic = data[:,1]
+            self.viscPower = data[:,2]
+            self.totPower = data[:,3]
+            self.LorPower = data[:,4]
+            self.viscTorq = abs(self.viscPower/self.omega_ic)
+            self.totTorq = abs(self.totPower/self.omega_ic)
+            self.LorTorq = abs(self.LorPower/self.omega_ic)
+        elif self.field in ('am_mag_pol', 'am_mag_tor', # Tayler instability
+                            'am_kin_pol', 'am_kin_tor'):
+            self.time = data[:, 0]
+            self.coeffs = data[:, 1:]
+
+    def __add__(self, new):
+        """
+        This method allows to sum two look up tables together. This is python
+        built-in method.
+        """
+
+        out = copy.deepcopy(new)
+        timeOld = self.time[-1]
+        timeNew = new.time[0]
+
+        for attr in new.__dict__.keys():
+            if attr == 'coeffs':
+                out.__dict__[attr] = np.vstack((self.__dict__[attr],
+                                                out.__dict__[attr][1:, :]))
+            elif attr != 'field':
+                if timeOld != timeNew:
+                    out.__dict__[attr] = np.hstack((self.__dict__[attr],
+                                                    out.__dict__[attr]))
+                else: # Same time
+                    out.__dict__[attr] = np.hstack((self.__dict__[attr],
+                                                    out.__dict__[attr][1:]))
+
+        return out
 
 
 class AvgField:
@@ -1261,7 +1243,6 @@ class AvgField:
                     self.epar_std = 0.
                     self.eperp_axi_std = 0.
                     self.epar_axi_std = 0.
-
 
     def __str__(self):
         """
