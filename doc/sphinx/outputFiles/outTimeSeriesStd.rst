@@ -286,7 +286,9 @@ This file is written by the subroutine :f:subr:`output <output_mod/output()>`.
    +---------------+-----------------------------------------+ 
    | 18            | Convective flow length scale dlVc       |
    +---------------+-----------------------------------------+ 
-   | 19            | CMB zonal flow at the equator           |
+   | 19            | Peak of the poloidal kinetic energy     |
+   +---------------+-----------------------------------------+ 
+   | 20            | CMB zonal flow at the equator           |
    +---------------+-----------------------------------------+ 
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:

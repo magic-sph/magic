@@ -111,6 +111,11 @@ class MagicTs(MagicSetup):
                                 data = np.insert(data, 11, 0., axis=1)#self.arc
                                 nColRef += 2
                             data = np.vstack((data, datanew))
+                        elif self.field == 'par':
+                            if ncolRef == 19:
+                                data = np.insert(data, 18, 0., axis=1)
+                                nColRef += 1
+                            data = np.vstack((data, datanew))
                         elif self.field in ('AM', 'power', 'dtBrms'):
                             data = np.vstack((data, datanew[:, 0:ncolRef]))
                         else: # Remove first line that is already here
@@ -171,6 +176,11 @@ class MagicTs(MagicSetup):
                                     data = np.insert(data, 7, 0., axis=1) #self.ChemRms
                                     data = np.insert(data, 11, 0., axis=1) #self.arc
                                     ncolRef += 2
+                                data = np.vstack((data, datanew))
+                            elif self.field == 'par':
+                                if ncolRef == 19:
+                                    data = np.insert(data, 18, 0., axis=1)
+                                    ncolRef += 1
                                 data = np.vstack((data, datanew))
                             elif self.field in ('AM', 'dtBrms'):
                                 data = np.vstack((data, datanew[:, 0:ncolRef]))
@@ -266,13 +276,14 @@ class MagicTs(MagicSetup):
             self.dlB = data[:, 13]
             self.dmB = data[:, 14]
             self.els_cmb = data[:, 15]
-            try:
-                self.rolc = data[:, 16]
-                self.dlVc = data[:, 17]
+            self.rolc = data[:, 16]
+            self.dlVc = data[:, 17]
+            if data.shape[-1] == 19:
+                self.dlPolPeak = np.zeros_like(self.time)
                 self.reEquat = data[:, 18]
-            except IndexError:
-                self.dlVc = self.dlV
-                pass
+            elif data.shape[-1] == 20:
+                self.dlPolPeak = data[:, 18]
+                self.reEquat = data[:, 19]
         elif self.field == 'misc':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
@@ -468,6 +479,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
+            fig.tight_layout()
         elif self.field == 'e_mag_oc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -483,6 +495,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Emag')
+            fig.tight_layout()
 
             # fig,ax = plt.subplots(1)
             # ax.plot(self.time, self.emag_es, ls='-',
@@ -507,6 +520,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
+            fig.tight_layout()
         elif self.field == 'rot':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -515,17 +529,19 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Rotation inner core')
             ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
             
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
-            ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='#fc4f30',
+            ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='C0',
                     label='Lorentz torque on IC')
-            ax1.plot(self.time,self.viscous_torque_ic, ls='-', c='#6d904f',
+            ax1.plot(self.time,self.viscous_torque_ic, ls='-', c='C1',
                     label='Viscous torque on IC')
             ax1.legend(loc='best', frameon=False)
             ax1.set_xlabel('Time')
             ax1.set_ylabel('Torque on IC')
             ax1.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
+            fig1.tight_layout()
         elif self.field == 'timestep':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -533,6 +549,7 @@ class MagicTs(MagicSetup):
             ax.set_yscale('log')
             ax.set_xlabel('Time')
             ax.set_ylabel('Time step size')
+            fig.tight_layout()
         elif self.field == 'dipole':
             if self.ktopb != 2:
                 fig = plt.figure()
@@ -542,6 +559,7 @@ class MagicTs(MagicSetup):
                 ax.set_ylabel('Dipole angle')
                 ax.set_xlabel('Time')
                 ax.set_ylim(-1., 181)
+                fig.tight_layout()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -562,6 +580,7 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Dipolarity')
             ax.set_xlabel('Time')
             ax.set_ylim(0,1)
+            fig.tight_layout()
         elif self.field == 'AM':
             fig = plt.figure()
             ax = fig.add_subplot(211)
@@ -573,6 +592,7 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time[1:], np.abs(self.damzdt[1:]))
             ax.set_xlabel('Time')
             ax.set_ylabel('dAmz / dt')
+            fig.tight_layout()
         elif self.field == 'par':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -586,6 +606,23 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.dlV, label='Integral (ell)')
+            ax.semilogy(self.time, self.dlVc, label='Integral (ell c)')
+            ax.semilogy(self.time, self.dmV, label='Integral (m)')
+            ax.semilogy(self.time, self.dlPolPeak, label='Peak (pol)')
+            if abs(self.lbDiss).max() > 0.:
+                ax.semilogy(self.time, self.lbDiss, label='Magnetic dissipation')
+            if abs(self.lvDiss).max() > 0.:
+                ax.semilogy(self.time, self.lvDiss, label='Viscous dissipation')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Lengthscales')
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
             if self.dipolarity.max() > 0.:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
@@ -594,7 +631,8 @@ class MagicTs(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Dipolarity')
-                ax.set_ylim(0,1)
+                ax.set_ylim(0, 1)
+                fig.tight_layout()
         elif self.field == 'earth_like':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -605,12 +643,14 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Rating parameters')
             ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
 
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
             ax1.plot(self.time, self.chi_square)
             ax1.set_xlabel('Time')
             ax1.set_ylabel('Chi square')
+            fig1.tight_layout()
         elif self.field == 'misc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -619,12 +659,14 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
+            fig.tight_layout()
             if self.helrms.max() != 0.:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.helrms)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Helicity')
+                fig.tight_layout()
         elif self.field == 'heat':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -637,6 +679,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
             ax.legend()
+            fig.tight_layout()
 
             if self.topsherwood.max() != 1.0:
                 fig = plt.figure()
@@ -646,6 +689,7 @@ class MagicTs(MagicSetup):
                 ax.legend(loc='lower right', frameon=False)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Sherwood number')
+                fig.tight_layout()
         elif self.field == 'helicity':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -654,6 +698,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Helicity')
+            fig.tight_layout()
         elif self.field == 'u_square':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -669,6 +714,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('u**2')
+            fig.tight_layout()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -679,6 +725,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
+            fig.tight_layout()
         elif self.field in ('dtVrms'):
             fig = plt.figure() # Poloidal forces
             ax = fig.add_subplot(111)
@@ -693,6 +740,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False, ncol=2)
             ax.set_xlabel('Time')
             ax.set_ylabel('RMS forces')
+            fig.tight_layout()
 
             fig = plt.figure() # Toroidal forces
             ax = fig.add_subplot(111)
@@ -705,6 +753,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('RMS balances')
+            fig.tight_layout()
 
         elif self.field == 'perpPar':
             fig = plt.figure()
@@ -724,6 +773,7 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Kinetic energy')
 
             ax.set_xlim(self.time[0], self.time[-1])
+            fig.tight_layout()
 
         elif self.field in ('power'):
             fig = plt.figure()
@@ -739,6 +789,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Power')
+            fig.tight_layout()
 
             if hasattr(self,'fohm'):
                 fig = plt.figure()
@@ -746,6 +797,8 @@ class MagicTs(MagicSetup):
                 ax.plot(self.time, self.fohm)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('fohm')
+                ax.set_ylim(0., 1.)
+                fig.tight_layout()
         elif self.field in ('dtBrms'):
             fig = plt.figure() # Poloidal
             ax = fig.add_subplot(111)
@@ -756,6 +809,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Poloidal field production')
+            fig.tight_layout()
 
             fig = plt.figure() # Toroidal
             ax = fig.add_subplot(111)
@@ -767,6 +821,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
+            fig.tight_layout()
 
         elif self.field in ('SRIC'):
             fig = plt.figure()
@@ -778,6 +833,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Torque')
+            fig.tight_layout()
 
         elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
             fig = plt.figure()
@@ -796,8 +852,7 @@ class MagicTs(MagicSetup):
                 ax.set_ylabel('Ekin poloidal')
             elif self.field == 'am_kin_tor':
                 ax.set_ylabel('Ekin toroidal')
-
-
+            fig.tight_layout()
 
 
 
