@@ -1,6 +1,7 @@
 #-*- coding: utf-8 -*-
 import os
 import re
+import copy
 import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
@@ -64,6 +65,11 @@ class MagicTs(MagicSetup):
         pattern = os.path.join(datadir, 'log.*')
         logFiles = scanDir(pattern)
 
+        if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+            binary = True
+        else:
+            binary = False
+
         if tag is not None:
             pattern = os.path.join(datadir, '%s.%s' % (self.field, tag))
             files = scanDir(pattern)
@@ -75,8 +81,8 @@ class MagicTs(MagicSetup):
             # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
-                pattern = os.path.join(datadir, '%s' % self.field)
-                mask = re.compile(r'%s\.(.*)' % pattern)
+                st = os.path.join(datadir, '%s\.(.*)' % self.field)
+                mask = re.compile(st)
                 if mask.match(files[-1]):
                     ending = mask.search(files[-1]).groups(0)[0]
                     pattern = os.path.join(datadir, 'log.%s' % ending)
@@ -85,36 +91,13 @@ class MagicTs(MagicSetup):
                                             nml='log.%s' % ending)
 
             # Concatenate the files that correspond to the tag
-            for k,file in enumerate(files):
+            for k, file in enumerate(files):
                 filename = file
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
-                    datanew = fast_read(filename, binary=True)
-                else:
-                    datanew = fast_read(filename)
+                data = fast_read(filename, binary=binary)
                 if k == 0:
-                    data = datanew.copy()
-                    ncolRef = data.shape[1]
+                    tslut = TsLookUpTable(data, self.field)
                 else:
-                    ncol = datanew.shape[1]
-                    if ncol == ncolRef:
-                        if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                            data = np.vstack((data, datanew))
-                        else: # Remove first line, that is already here
-                            data = np.vstack((data, datanew[1:,:]))
-                    else: # If the number of columns has changed
-                        if self.field == 'dtVrms':
-                            if ncolRef == 15:
-                                data = np.insert(data, 10, 0., axis=1)#self.arc
-                                nColRef += 1
-                            elif ncolRef == 14:
-                                data = np.insert(data, 7, 0., axis=1)#self.ChemRms
-                                data = np.insert(data, 11, 0., axis=1)#self.arc
-                                nColRef += 2
-                            data = np.vstack((data, datanew))
-                        elif self.field in ('AM', 'power', 'dtBrms'):
-                            data = np.vstack((data, datanew[:, 0:ncolRef]))
-                        else: # Remove first line that is already here
-                            data = np.vstack((data, datanew[1:, 0:ncolRef]))
+                    tslut += TsLookUpTable(data, self.field)
 
         # If no tag is specified, the most recent is plotted
         elif not all:
@@ -122,19 +105,14 @@ class MagicTs(MagicSetup):
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor',):
-                    data = fast_read(filename, binary=True)
-                else:
-                    data = fast_read(filename)
+                data = fast_read(filename, binary=binary)
             else:
                 mot = '%s.*' % (self.field)
                 dat = [(os.stat(i).st_mtime, i) for i in glob.glob(mot)]
                 dat.sort()
                 filename = dat[-1][1]
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
-                    data = fast_read(filename, binary=True)
-                else:
-                    data = fast_read(filename)
+                data = fast_read(filename, binary=binary)
+            tslut = TsLookUpTable(data, self.field)
 
         # If no tag is specified but all=True, all the directory is plotted
         else:
@@ -144,38 +122,425 @@ class MagicTs(MagicSetup):
             files = scanDir(pattern)
             for k, file in enumerate(files):
                 filename = file
-                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
-                    datanew = fast_read(filename, binary=True)
-                else:
-                    datanew = fast_read(filename)
+                data = fast_read(filename, binary=binary)
                 if k == 0:
-                    data = datanew.copy()
-                    ncolRef = data.shape[1]
+                    tslut = TsLookUpTable(data, self.field)
                 else:
-                    if datanew.shape[0] != 0: # In case the file is empty
-                        ncol = datanew.shape[1]
-                        if ncol == ncolRef:
-                            if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                                data = np.vstack((data, datanew))
-                            else: # Remove first line that is already here
-                                data = np.vstack((data, datanew[1:,:]))
-                        else: # If the number of columns has changed
-                            if self.field in ('power'):
-                                data = np.vstack((data, datanew[:, (0,1,3,4,5,6,
-                                                                    7,8,9,10)]))
-                            elif self.field == 'dtVrms':
-                                if ncolRef == 15:
-                                    data = np.insert(data, 10, 0., axis=1)#self.arc
-                                    ncolRef += 1
-                                elif ncolRef == 14:
-                                    data = np.insert(data, 7, 0., axis=1) #self.ChemRms
-                                    data = np.insert(data, 11, 0., axis=1) #self.arc
-                                    ncolRef += 2
-                                data = np.vstack((data, datanew))
-                            elif self.field in ('AM', 'dtBrms'):
-                                data = np.vstack((data, datanew[:, 0:ncolRef]))
-                            else: # Remove first line that is already here
-                                data = np.vstack((data, datanew[1:, 0:ncolRef]))
+                    tslut += TsLookUpTable(data, self.field)
+
+        # Copy look-up table arguments into MagicRadial object
+        for attr in tslut.__dict__:
+            setattr(self, attr, tslut.__dict__[attr])
+
+        if iplot:
+            self.plot()
+
+    def plot(self):
+        """
+        Plotting subroutines. Only called if 'iplot=True'
+        """
+        if self.field == 'e_kin':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                    label='ekin pol')
+            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                    label='ekin tor')
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
+                    label='ekin pol axi')
+            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                    label='ekin tor axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Ekin')
+            fig.tight_layout()
+        elif self.field == 'e_mag_oc':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.emagoc_pol, ls='-', c='#30a2da',
+                    label='emag pol')
+            ax.plot(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
+                    label='emag tor')
+            ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da',
+                    label='emag pol axi')
+            ax.plot(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
+                    label='emag tor axi')
+            ax.plot(self.time, self.emag_tot, ls='-', c='#31363B')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Emag')
+            fig.tight_layout()
+
+            # fig,ax = plt.subplots(1)
+            # ax.plot(self.time, self.emag_es, ls='-',
+            #         label=r'${E_B}^S$')
+            # ax.plot(self.time, self.emag_eas, ls='-',
+            #         label=r'${E_B}^A$')
+            # ax.legend(loc='best', frameon=False)
+            # ax.set_xlabel('Time')
+            # ax.set_ylabel('Emag')
+
+        elif self.field == 'e_mag_ic':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.emagic_pol, ls='-', c='#30a2da',
+                    label='emagic pol')
+            ax.plot(self.time, self.emagic_tor, ls='-', c='#fc4f30',
+                    label='emagic tor')
+            ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da',
+                    label='emagic pol axi')
+            ax.plot(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
+                    label='emagic tor axi')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('emag inner core')
+            fig.tight_layout()
+        elif self.field == 'rot':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.omega_ic, ls='-', c='#30a2da',
+                    label='Omega IC')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Rotation inner core')
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+            
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='C0',
+                    label='Lorentz torque on IC')
+            ax1.plot(self.time,self.viscous_torque_ic, ls='-', c='C1',
+                    label='Viscous torque on IC')
+            ax1.legend(loc='best', frameon=False)
+            ax1.set_xlabel('Time')
+            ax1.set_ylabel('Torque on IC')
+            ax1.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
+            fig1.tight_layout()
+        elif self.field == 'timestep':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.step(self.time, self.dt)
+            ax.set_yscale('log')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Time step size')
+            fig.tight_layout()
+        elif self.field == 'dipole':
+            if self.ktopb != 2:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.theta_dip, label='theta_dip')
+                #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
+                ax.set_ylabel('Dipole angle')
+                ax.set_xlabel('Time')
+                ax.set_ylim(-1., 181)
+                fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.dipTot, label='Total dipolarity')
+            ax.plot(self.time, self.dipolarity, ls='--', c='#30a2da',
+                    label='Axisym dipolarity')
+            ax.plot(self.time, self.dipTot_cmb, ls='-', c='#6d904f',
+                    label='Total dipolarity CMB')
+            ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
+                    label='Axisym dipolarity')
+            ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
+                    label='Axisym dip l=11')
+            ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
+                    label='Total dip l=11')
+            # ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
+            #         label='Epol axi/Ecmb')
+            ax.legend(loc='best', frameon=False)
+            ax.set_ylabel('Dipolarity')
+            ax.set_xlabel('Time')
+            ax.set_ylim(0,1)
+            fig.tight_layout()
+        elif self.field == 'AM':
+            fig = plt.figure()
+            ax = fig.add_subplot(211)
+            ax.plot(self.time, self.am_oc_z, label='Outer core')
+            ax.plot(self.time, self.amz, ls='-', c='#31363b', label='Total')
+            ax.legend(loc='best', frameon=False)
+            ax.set_ylabel('AM')
+            ax = fig.add_subplot(212)
+            ax.semilogy(self.time[1:], np.abs(self.damzdt[1:]))
+            ax.set_xlabel('Time')
+            ax.set_ylabel('dAmz / dt')
+            fig.tight_layout()
+        elif self.field == 'par':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
+            if self.elsasser.max() > 0.:
+                ax.semilogy(self.time, self.elsasser, label='Elsasser')
+                ax.semilogy(self.time, self.els_cmb, label='Elsasser CMB')
+            ax.semilogy(self.time, self.rossby_l, label='Rossby l')
+            if hasattr(self, 'rolc'):
+                ax.semilogy(self.time, self.rolc, label='Roc l')
+            ax.legend(loc='lower right', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Params')
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.dlV, label='Integral (ell)')
+            ax.semilogy(self.time, self.dlVc, label='Integral (ell c)')
+            ax.semilogy(self.time, self.dmV, label='Integral (m)')
+            ax.semilogy(self.time, self.dlPolPeak, label='Peak (pol)')
+            if abs(self.lbDiss).max() > 0.:
+                ax.semilogy(self.time, self.lbDiss, label='Magnetic dissipation')
+            if abs(self.lvDiss).max() > 0.:
+                ax.semilogy(self.time, self.lvDiss, label='Viscous dissipation')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Lengthscales')
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
+            if self.dipolarity.max() > 0.:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.dipolarity, label='Dipolarity')
+                ax.plot(self.time, self.dip_cmb, label='Dipolarity CMB')
+                ax.legend(loc='upper right', frameon=False)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Dipolarity')
+                ax.set_ylim(0, 1)
+                fig.tight_layout()
+        elif self.field == 'earth_like':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.axial_dipole, label='AD/NAD')
+            ax.plot(self.time, self.symmetry, label='O/E')
+            ax.plot(self.time, self.zonality, label='Z/NZ')
+            ax.plot(self.time, self.flux_concentration, label='FCF')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Rating parameters')
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.time, self.chi_square)
+            ax1.set_xlabel('Time')
+            ax1.set_ylabel('Chi square')
+            fig1.tight_layout()
+        elif self.field == 'misc':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.topnuss, label='Top Nusselt')
+            ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
+            ax.legend(loc='lower right', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Nusselt number')
+            fig.tight_layout()
+            if self.helrms.max() != 0.:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.helrms)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Helicity')
+                fig.tight_layout()
+        elif self.field == 'heat':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if self.kbots==2 and self.ktops==2:
+                ax.plot(self.time, self.deltaTnuss, label=r'$Nu_{\Delta T}$')
+            else:
+                ax.plot(self.time, self.topnuss, label='Top Nusselt')
+                ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
+            ax.legend(loc='lower right', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Nusselt number')
+            fig.tight_layout()
+
+            if self.topsherwood.max() != 1.0:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.topsherwood, label='Top Sherwood')
+                ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
+                ax.legend(loc='lower right', frameon=False)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Sherwood number')
+                fig.tight_layout()
+        elif self.field == 'helicity':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.helRMSN, label='Northern Hemisphere')
+            ax.plot(self.time, self.helRMSS, label='Southern Hemisphere')
+            ax.legend(loc='lower right')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Helicity')
+            fig.tight_layout()
+        elif self.field == 'u_square':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                    label='ekin pol')
+            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                    label='ekin tor')
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
+                    label='ekin pol axi')
+            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                    label='ekin tor axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('u**2')
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
+            ax.semilogy(self.time, self.ro, label='Rossby')
+            ax.semilogy(self.time, self.rossby_l, label='Rossby l')
+            ax.semilogy(self.time, self.dl, label='l')
+            ax.legend(loc='lower right', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Params')
+            fig.tight_layout()
+        elif self.field in ('dtVrms'):
+            fig = plt.figure() # Poloidal forces
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.CorRms, label='Coriolis')
+            ax.semilogy(self.time, self.PreRms, label='Pressure')
+            ax.semilogy(self.time, self.LFRms, label='Lorentz')
+            ax.semilogy(self.time, self.BuoRms, label='Thermal Buoyancy')
+            ax.semilogy(self.time, self.ChemRms, label='Chemical Buoyancy')
+            ax.semilogy(self.time, self.InerRms, label='Inertia')
+            ax.semilogy(self.time, self.DifRms, label='Diffusion')
+
+            ax.legend(loc='best', frameon=False, ncol=2)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('RMS forces')
+            fig.tight_layout()
+
+            fig = plt.figure() # Toroidal forces
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.geos, label='Geostrophic balance')
+            ax.semilogy(self.time, self.mageos, label='Magnetostrophic')
+            ax.semilogy(self.time, self.arc, label='Archimedean')
+            ax.semilogy(self.time, self.arcMag, label='Archimedean+Lorentz')
+            ax.semilogy(self.time, self.corLor, label='Coriolis/Lorentz')
+            ax.semilogy(self.time, self.preLor, label='Pressure/Lorentz')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('RMS balances')
+            fig.tight_layout()
+        elif self.field == 'perpPar':
+            fig = plt.figure()
+            ax= fig.add_subplot(111)
+            ax.plot(self.time, self.eperp, ls='-', c='#30a2da',
+                    label='ekin perp')
+            ax.plot(self.time, self.epar, ls='-', c='#fc4f30',
+                    label='ekin par')
+            ax.plot(self.time, self.eperp_axi, ls='--', c='#30a2da',
+                    label='ekin perp axi')
+            ax.plot(self.time, self.epar_axi, ls='--', c='#fc4f30',
+                    label='ekin par axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
+            ax.plot(self.time, self.ekin_tot, 'k-')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Kinetic energy')
+
+            ax.set_xlim(self.time[0], self.time[-1])
+            fig.tight_layout()
+        elif self.field in ('power'):
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if self.buoPower.max() != 0.:
+               ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
+            if self.buoPower_chem.max() != 0.:
+                ax.semilogy(self.time, self.buoPower_chem,
+                            label='Chemical buoyancy')
+            if self.ohmDiss.max() != 0.:
+                ax.semilogy(self.time, -self.ohmDiss, label='Ohmic diss.')
+            ax.semilogy(self.time, -self.viscDiss, label='Viscous diss.')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Power')
+            fig.tight_layout()
+
+            if hasattr(self,'fohm'):
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.fohm)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('fohm')
+                ax.set_ylim(0., 1.)
+                fig.tight_layout()
+        elif self.field in ('dtBrms'):
+            fig = plt.figure() # Poloidal
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.DynPolRms, label='Induction')
+            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
+            ax.semilogy(self.time, self.dtBpolRms, label='Time derivative')
+
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Poloidal field production')
+            fig.tight_layout()
+
+            fig = plt.figure() # Toroidal
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.DynTorRms, label='Induction')
+            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
+            ax.semilogy(self.time, self.omEffect*self.DynTorRms,
+                        label='Omega effect')
+            ax.semilogy(self.time, self.dtBtorRms, label='Time derivative', )
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Toroidal field production')
+            fig.tight_layout()
+        elif self.field in ('SRIC'):
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.viscTorq, label='Viscous')
+            ax.semilogy(self.time, self.LorTorq, label='Lorentz')
+            ax.semilogy(self.time, self.totTorq, label='Total')
+
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Torque')
+            fig.tight_layout()
+        elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            print(self.coeffs.shape)
+            for k in range(self.coeffs.shape[1]):
+                ax.semilogy(self.time, self.coeffs[:, k], label='m=%i'%k)
+            ax.set_xlabel('Time')
+            if self.coeffs.shape[1] < 20:
+                ax.legend(loc='best', frameon=False)
+            if self.field == 'am_mag_pol':
+                ax.set_ylabel('Emag poloidal')
+            elif self.field == 'am_mag_tor':
+                ax.set_ylabel('Emag toroidal')
+            elif self.field == 'am_kin_pol':
+                ax.set_ylabel('Ekin poloidal')
+            elif self.field == 'am_kin_tor':
+                ax.set_ylabel('Ekin toroidal')
+            fig.tight_layout()
+
+
+class TsLookUpTable:
+    """
+    The purpose of this class is to create a lookup table between the numpy
+    array that comes from the reading of the time series and the corresponding
+    column.
+    """
+
+    def __init__(self, data, field):
+        """
+        :param data: numpy array that contains the data
+        :type data: numpy.ndarray
+        :param field: name of the field (i.e. 'eKinR', 'eMagR', 'powerR', ...)
+        :type field: str
+        """
+
+        self.field = field
 
         if self.field == 'e_kin':
             self.time = data[:, 0]
@@ -188,8 +553,8 @@ class MagicTs(MagicSetup):
             self.ekin_pol_asymeq = data[:, 7]
             self.ekin_tor_asymeq = data[:, 8]
             self.ekin_tot = self.ekin_pol + self.ekin_tor
-            self.ekin_es = self.ekin_pol_symeq+self.ekin_tor_symeq
-            self.ekin_eas = self.ekin_pol_asymeq+self.ekin_tor_asymeq
+            self.ekin_es = self.ekin_pol_symeq + self.ekin_tor_symeq
+            self.ekin_eas = self.ekin_pol_asymeq + self.ekin_tor_asymeq
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]
@@ -202,9 +567,9 @@ class MagicTs(MagicSetup):
             self.emagoc_tor_es = data[:, 8]
             self.emagoc_pol_eas = data[:, 9]
             self.emagoc_tor_eas = data[:, 10]
-            self.emag_tot = self.emagoc_pol+self.emagoc_tor
-            self.emag_es = self.emagoc_pol_es+self.emagoc_tor_es
-            self.emag_eas = self.emagoc_pol_eas+self.emagoc_tor_eas
+            self.emag_tot = self.emagoc_pol + self.emagoc_tor
+            self.emag_es = self.emagoc_pol_es + self.emagoc_tor_es
+            self.emag_eas = self.emagoc_pol_eas + self.emagoc_tor_eas
         elif self.field == 'e_mag_ic':
             self.time = data[:, 0]
             self.emagic_pol = data[:, 1]
@@ -266,13 +631,14 @@ class MagicTs(MagicSetup):
             self.dlB = data[:, 13]
             self.dmB = data[:, 14]
             self.els_cmb = data[:, 15]
-            try:
-                self.rolc = data[:, 16]
-                self.dlVc = data[:, 17]
+            self.rolc = data[:, 16]
+            self.dlVc = data[:, 17]
+            if data.shape[-1] == 19:
+                self.dlPolPeak = np.zeros_like(self.time)
                 self.reEquat = data[:, 18]
-            except IndexError:
-                self.dlVc = self.dlV
-                pass
+            elif data.shape[-1] == 20:
+                self.dlPolPeak = data[:, 18]
+                self.reEquat = data[:, 19]
         elif self.field == 'misc':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
@@ -284,6 +650,8 @@ class MagicTs(MagicSetup):
                 self.botflux = data[:, 16]
                 self.topflux = data[:, 17]
             except IndexError:
+                self.botflux = np.zeros_like(self.time)
+                self.topflux = np.zeros_like(self.time)
                 pass
         elif self.field == 'geos':
             self.time = data[:, 0]
@@ -445,360 +813,29 @@ class MagicTs(MagicSetup):
             self.time = data[:, 0]
             self.coeffs = data[:, 1:]
 
-        if iplot:
-            self.plot()
-
-
-    def plot(self):
+    def __add__(self, new):
         """
-        Plotting subroutines. Only called if 'iplot=True'
+        This method allows to sum two look up tables together. This is python
+        built-in method.
         """
-        if self.field == 'e_kin':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
-                    label='ekin pol')
-            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
-                    label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
-                    label='ekin pol axi')
-            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                    label='ekin tor axi')
-            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Ekin')
-        elif self.field == 'e_mag_oc':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.emagoc_pol, ls='-', c='#30a2da',
-                    label='emag pol')
-            ax.plot(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
-                    label='emag tor')
-            ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da',
-                    label='emag pol axi')
-            ax.plot(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
-                    label='emag tor axi')
-            ax.plot(self.time, self.emag_tot, ls='-', c='#31363B')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Emag')
 
-            # fig,ax = plt.subplots(1)
-            # ax.plot(self.time, self.emag_es, ls='-',
-            #         label=r'${E_B}^S$')
-            # ax.plot(self.time, self.emag_eas, ls='-',
-            #         label=r'${E_B}^A$')
-            # ax.legend(loc='best', frameon=False)
-            # ax.set_xlabel('Time')
-            # ax.set_ylabel('Emag')
+        out = copy.deepcopy(new)
+        timeOld = self.time[-1]
+        timeNew = new.time[0]
 
-        elif self.field == 'e_mag_ic':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.emagic_pol, ls='-', c='#30a2da',
-                    label='emagic pol')
-            ax.plot(self.time, self.emagic_tor, ls='-', c='#fc4f30',
-                    label='emagic tor')
-            ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da',
-                    label='emagic pol axi')
-            ax.plot(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
-                    label='emagic tor axi')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('emag inner core')
-        elif self.field == 'rot':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.omega_ic, ls='-', c='#30a2da',
-                    label='Omega IC')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Rotation inner core')
-            ax.legend(loc='best', frameon=False)
-            
-            fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
-            ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='#fc4f30',
-                    label='Lorentz torque on IC')
-            ax1.plot(self.time,self.viscous_torque_ic, ls='-', c='#6d904f',
-                    label='Viscous torque on IC')
-            ax1.legend(loc='best', frameon=False)
-            ax1.set_xlabel('Time')
-            ax1.set_ylabel('Torque on IC')
-            ax1.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
-        elif self.field == 'timestep':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.step(self.time, self.dt)
-            ax.set_yscale('log')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Time step size')
-        elif self.field == 'dipole':
-            if self.ktopb != 2:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.plot(self.time, self.theta_dip, label='theta_dip')
-                #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
-                ax.set_ylabel('Dipole angle')
-                ax.set_xlabel('Time')
-                ax.set_ylim(-1., 181)
+        for attr in new.__dict__.keys():
+            if attr == 'coeffs':
+                out.__dict__[attr] = np.vstack((self.__dict__[attr],
+                                                out.__dict__[attr][1:, :]))
+            elif attr != 'field':
+                if timeOld != timeNew:
+                    out.__dict__[attr] = np.hstack((self.__dict__[attr],
+                                                    out.__dict__[attr]))
+                else: # Same time
+                    out.__dict__[attr] = np.hstack((self.__dict__[attr],
+                                                    out.__dict__[attr][1:]))
 
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.dipTot, label='Total dipolarity')
-            ax.plot(self.time, self.dipolarity, ls='--', c='#30a2da',
-                    label='Axisym dipolarity')
-            ax.plot(self.time, self.dipTot_cmb, ls='-', c='#6d904f',
-                    label='Total dipolarity CMB')
-            ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
-                    label='Axisym dipolarity')
-            ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
-                    label='Axisym dip l=11')
-            ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
-                    label='Total dip l=11')
-            # ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
-            #         label='Epol axi/Ecmb')
-            ax.legend(loc='best', frameon=False)
-            ax.set_ylabel('Dipolarity')
-            ax.set_xlabel('Time')
-            ax.set_ylim(0,1)
-        elif self.field == 'AM':
-            fig = plt.figure()
-            ax = fig.add_subplot(211)
-            ax.plot(self.time, self.am_oc_z, label='Outer core')
-            ax.plot(self.time, self.amz, ls='-', c='#31363b', label='Total')
-            ax.legend(loc='best', frameon=False)
-            ax.set_ylabel('AM')
-            ax = fig.add_subplot(212)
-            ax.semilogy(self.time[1:], np.abs(self.damzdt[1:]))
-            ax.set_xlabel('Time')
-            ax.set_ylabel('dAmz / dt')
-        elif self.field == 'par':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
-            if self.elsasser.max() > 0.:
-                ax.semilogy(self.time, self.elsasser, label='Elsasser')
-                ax.semilogy(self.time, self.els_cmb, label='Elsasser CMB')
-            ax.semilogy(self.time, self.rossby_l, label='Rossby l')
-            if hasattr(self, 'rolc'):
-                ax.semilogy(self.time, self.rolc, label='Roc l')
-            ax.legend(loc='lower right', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Params')
-            if self.dipolarity.max() > 0.:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.plot(self.time, self.dipolarity, label='Dipolarity')
-                ax.plot(self.time, self.dip_cmb, label='Dipolarity CMB')
-                ax.legend(loc='upper right', frameon=False)
-                ax.set_xlabel('Time')
-                ax.set_ylabel('Dipolarity')
-                ax.set_ylim(0,1)
-        elif self.field == 'earth_like':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.axial_dipole, label='AD/NAD')
-            ax.plot(self.time, self.symmetry, label='O/E')
-            ax.plot(self.time, self.zonality, label='Z/NZ')
-            ax.plot(self.time, self.flux_concentration, label='FCF')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Rating parameters')
-            ax.legend(loc='upper right', frameon=False)
-
-            fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
-            ax1.plot(self.time, self.chi_square)
-            ax1.set_xlabel('Time')
-            ax1.set_ylabel('Chi square')
-        elif self.field == 'misc':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.topnuss, label='Top Nusselt')
-            ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
-            ax.legend(loc='lower right')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Nusselt number')
-            if self.helrms.max() != 0.:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.plot(self.time, self.helrms)
-                ax.set_xlabel('Time')
-                ax.set_ylabel('Helicity')
-        elif self.field == 'heat':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            if self.kbots==2 and self.ktops==2:
-                ax.plot(self.time, self.deltaTnuss, label=r'$Nu_{\Delta T}$')
-            else:
-                ax.plot(self.time, self.topnuss, label='Top Nusselt')
-                ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
-            ax.legend(loc='lower right', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Nusselt number')
-            ax.legend()
-
-            if self.topsherwood.max() != 1.0:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.plot(self.time, self.topsherwood, label='Top Sherwood')
-                ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
-                ax.legend(loc='lower right', frameon=False)
-                ax.set_xlabel('Time')
-                ax.set_ylabel('Sherwood number')
-        elif self.field == 'helicity':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.helRMSN, label='Northern Hemisphere')
-            ax.plot(self.time, self.helRMSS, label='Southern Hemisphere')
-            ax.legend(loc='lower right')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Helicity')
-        elif self.field == 'u_square':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
-                    label='ekin pol')
-            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
-                    label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
-                    label='ekin pol axi')
-            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                    label='ekin tor axi')
-            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('u**2')
-
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
-            ax.semilogy(self.time, self.ro, label='Rossby')
-            ax.semilogy(self.time, self.rossby_l, label='Rossby l')
-            ax.semilogy(self.time, self.dl, label='l')
-            ax.legend(loc='lower right', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Params')
-        elif self.field in ('dtVrms'):
-            fig = plt.figure() # Poloidal forces
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.CorRms, label='Coriolis')
-            ax.semilogy(self.time, self.PreRms, label='Pressure')
-            ax.semilogy(self.time, self.LFRms, label='Lorentz')
-            ax.semilogy(self.time, self.BuoRms, label='Thermal Buoyancy')
-            ax.semilogy(self.time, self.ChemRms, label='Chemical Buoyancy')
-            ax.semilogy(self.time, self.InerRms, label='Inertia')
-            ax.semilogy(self.time, self.DifRms, label='Diffusion')
-
-            ax.legend(loc='best', frameon=False, ncol=2)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('RMS forces')
-
-            fig = plt.figure() # Toroidal forces
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.geos, label='Geostrophic balance')
-            ax.semilogy(self.time, self.mageos, label='Magnetostrophic')
-            ax.semilogy(self.time, self.arc, label='Archimedean')
-            ax.semilogy(self.time, self.arcMag, label='Archimedean+Lorentz')
-            ax.semilogy(self.time, self.corLor, label='Coriolis/Lorentz')
-            ax.semilogy(self.time, self.preLor, label='Pressure/Lorentz')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('RMS balances')
-
-        elif self.field == 'perpPar':
-            fig = plt.figure()
-            ax= fig.add_subplot(111)
-            ax.plot(self.time, self.eperp, ls='-', c='#30a2da',
-                    label='ekin perp')
-            ax.plot(self.time, self.epar, ls='-', c='#fc4f30',
-                    label='ekin par')
-            ax.plot(self.time, self.eperp_axi, ls='--', c='#30a2da',
-                    label='ekin perp axi')
-            ax.plot(self.time, self.epar_axi, ls='--', c='#fc4f30',
-                    label='ekin par axi')
-            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
-            ax.plot(self.time, self.ekin_tot, 'k-')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Kinetic energy')
-
-            ax.set_xlim(self.time[0], self.time[-1])
-
-        elif self.field in ('power'):
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            if self.buoPower.max() != 0.:
-               ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
-            if self.buoPower_chem.max() != 0.:
-                ax.semilogy(self.time, self.buoPower_chem,
-                            label='Chemical buoyancy')
-            if self.ohmDiss.max() != 0.:
-                ax.semilogy(self.time, -self.ohmDiss, label='Ohmic diss.')
-            ax.semilogy(self.time, -self.viscDiss, label='Viscous diss.')
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Power')
-
-            if hasattr(self,'fohm'):
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.plot(self.time, self.fohm)
-                ax.set_xlabel('Time')
-                ax.set_ylabel('fohm')
-        elif self.field in ('dtBrms'):
-            fig = plt.figure() # Poloidal
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.DynPolRms, label='Induction')
-            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
-            ax.semilogy(self.time, self.dtBpolRms, label='Time derivative')
-
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Poloidal field production')
-
-            fig = plt.figure() # Toroidal
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.DynTorRms, label='Induction')
-            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
-            ax.semilogy(self.time, self.omEffect*self.DynTorRms,
-                        label='Omega effect')
-            ax.semilogy(self.time, self.dtBtorRms, label='Time derivative', )
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Toroidal field production')
-
-        elif self.field in ('SRIC'):
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.viscTorq, label='Viscous')
-            ax.semilogy(self.time, self.LorTorq, label='Lorentz')
-            ax.semilogy(self.time, self.totTorq, label='Total')
-
-            ax.legend(loc='best', frameon=False)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Torque')
-
-        elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            print(self.coeffs.shape)
-            for k in range(self.coeffs.shape[1]):
-                ax.semilogy(self.time, self.coeffs[:, k], label='m=%i'%k)
-            ax.set_xlabel('Time')
-            if self.coeffs.shape[1] < 20:
-                ax.legend(loc='best', frameon=False)
-            if self.field == 'am_mag_pol':
-                ax.set_ylabel('Emag poloidal')
-            elif self.field == 'am_mag_tor':
-                ax.set_ylabel('Emag toroidal')
-            elif self.field == 'am_kin_pol':
-                ax.set_ylabel('Ekin poloidal')
-            elif self.field == 'am_kin_tor':
-                ax.set_ylabel('Ekin toroidal')
-
-
-
+        return out
 
 
 class AvgField:
@@ -1206,7 +1243,6 @@ class AvgField:
                     self.epar_std = 0.
                     self.eperp_axi_std = 0.
                     self.epar_axi_std = 0.
-
 
     def __str__(self):
         """

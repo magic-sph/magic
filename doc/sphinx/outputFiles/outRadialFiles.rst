@@ -98,15 +98,25 @@ This file contains several time and horizontally averaged flow properties (magne
    +---------------+----------------------------------------------------------------+
    | 4             | Local Rossby number (based on the RMS velocity)                |
    +---------------+----------------------------------------------------------------+
-   | 5             | Local flow length-scale (based on the mass-weighted velocity)  |
+   | 5             | Local flow length-scale                                        |
    +---------------+----------------------------------------------------------------+
    | 6             | Local flow length-scale based on the non-axisymmetric flow     |
-   |               | components (based on the mass-weighted velocity)               |
+   |               | components                                                     |
    +---------------+----------------------------------------------------------------+
-   | 7             | Local flow length-scale (based on the RMS velocity)            |
+   | 7             | Local flow length-scale based on the peak of the poloidal      |
+   |               | kinetic energy                                                 |
    +---------------+----------------------------------------------------------------+
-   | 8             | Local flow length-scale based on the non-axisymmetric flow     |
-   |               | components (based on the RMS velocity)                         |
+   | 8             | Standard deviation of magnetic Reynolds number                 |
+   +---------------+----------------------------------------------------------------+
+   | 9             | Standard deviation of local Rossby number (mass-weighted)      |
+   +---------------+----------------------------------------------------------------+
+   | 10            | Standard deviation of local Rossby number (RMS velocity)       |
+   +---------------+----------------------------------------------------------------+
+   | 11            | Standard deviation of convective lengthscale                   |
+   +---------------+----------------------------------------------------------------+
+   | 12            | Standard deviation of convective lengthscale (non-axi)         |
+   +---------------+----------------------------------------------------------------+
+   | 13            | Standard deviation of convective lengthscale (pol. peak)       |
    +---------------+----------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
@@ -162,27 +172,27 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 
 This file contains the time and horizontally averaged power input (Buoyancy power) and outputs (viscous and Ohmic heating). This file is calculated by the subroutine :f:subr:`get_power <power/get_power()>`.
 
-   +---------------+------------------------------------------------------------------+
-   | No. of column | Contents                                                         |
-   +===============+==================================================================+
-   | 1             | radial level                                                     |
-   +---------------+------------------------------------------------------------------+
-   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`        |
-   +---------------+------------------------------------------------------------------+
-   | 3             | Chemical power: :math:`Ra_\xi\,g(r)\,\langle u_r \xi'\rangle_s`  |
-   +---------------+------------------------------------------------------------------+
-   | 4             | Viscous dissipation: :math:`\langle(\sigma)^2\rangle_s`          |
-   +---------------+------------------------------------------------------------------+
-   | 5             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
-   +---------------+------------------------------------------------------------------+
-   | 6             | Standard deviation of buoyancy power                             |
-   +---------------+------------------------------------------------------------------+
-   | 7             | Standard deviation of chemical power                             |
-   +---------------+------------------------------------------------------------------+
-   | 8             | Standard deviation of viscous dissipation                        |
-   +---------------+------------------------------------------------------------------+
-   | 9             | Standard deviation of ohmic dissipation                          |
-   +---------------+------------------------------------------------------------------+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | radial level                                                    |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`       |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | Chemical power: :math:`Ra_\xi\,g(r)\,\langle u_r \xi'\rangle_s` |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | Viscous dissipation: :math:`\langle(\sigma)^2\rangle_s`         |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`  |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | Standard deviation of buoyancy power                            |
+   +---------------+-----------------------------------------------------------------+
+   | 7             | Standard deviation of chemical power                            |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | Standard deviation of viscous dissipation                       |
+   +---------------+-----------------------------------------------------------------+
+   | 9             | Standard deviation of ohmic dissipation                         |
+   +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
 
@@ -216,21 +226,33 @@ This file contains the time and horizontally averaged heat flux carried out by s
    +---------------+-----------------------------------------------------------------+
    | 4             | kinetic flux:                                                   |
    |               |    .. math:: {\cal F}_{kin}= \frac{1}{2}\frac{Pr\,Di}{Ra}       |
-   |               |              \langle u_r (\tilde{\rho}u^2) \rangle_s            | 
+   |               |              \langle u_r (\tilde{\rho}u^2) \rangle_s            |
    +---------------+-----------------------------------------------------------------+
    | 5             | viscous flux:                                                   |
    |               |    .. math:: {\cal F}_{visc}= -\frac{Pr\,Di}{Ra}                |
-   |               |              \langle \vec{u}\cdot S \rangle_s                   | 
+   |               |              \langle \vec{u}\cdot S \rangle_s                   |
    +---------------+-----------------------------------------------------------------+
    | 6             | Poynting flux:                                                  |
    |               |    .. math:: {\cal F}_{poyn}= -\frac{Pr\,Di}{Ra\,E\,Pm}         |
    |               |              \langle (\vec{u}\times\vec{B})\times\vec{B}        |
-   |               |              \rangle_s                                          | 
+   |               |              \rangle_s                                          |
    +---------------+-----------------------------------------------------------------+
    | 7             | resistive flux:                                                 |
    |               |    .. math:: {\cal F}_{poyn}= \frac{Pr\,Di}{Ra\,E\,Pm^2}        |
    |               |              \langle (\vec{\nabla}\times\vec{B})\times\vec{B}   |
-   |               |              \rangle_s                                          | 
+   |               |              \rangle_s                                          |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | Standard deviation of conductive flux                           |
+   +---------------+-----------------------------------------------------------------+
+   | 9             | Standard deviation of convective flux                           |
+   +---------------+-----------------------------------------------------------------+
+   | 10            | Standard deviation of kinetic flux                              |
+   +---------------+-----------------------------------------------------------------+
+   | 11            | Standard deviation of viscous flux                              |
+   +---------------+-----------------------------------------------------------------+
+   | 12            | Standard deviation of Poynting flux                             |
+   +---------------+-----------------------------------------------------------------+
+   | 13            | Standard deviation of resistive flux                            |
    +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
@@ -255,19 +277,23 @@ This file contains several time and horizontally averaged profiles that can be f
    +---------------+-----------------------------------------------------------------+
    | 2             | entropy: :math:`\langle s \rangle_s`                            |
    +---------------+-----------------------------------------------------------------+
-   | 3             | entropy variance:                                               |
-   |               |    .. math:: \sqrt{\left\langle (s-\langle s\rangle_s)^2        |
-   |               |              \right\rangle_s}                                   |
-   +---------------+-----------------------------------------------------------------+
-   | 4             | horizontal velocity:                                            |
+   | 3             | horizontal velocity:                                            |
    |               |    .. math:: u_h=\left\langle\sqrt{u_\theta^2+u_\phi^2}         |
    |               |              \right\rangle_s                                    |
    +---------------+-----------------------------------------------------------------+
-   | 5             | radial derivative of the horizontal velocity:                   |
+   | 4             | radial derivative of the horizontal velocity:                   |
    |               |    .. math:: \partial u_h/\partial r                            |
    +---------------+-----------------------------------------------------------------+
-   | 6             | thermal dissipation rate:                                       |
+   | 5             | thermal dissipation rate:                                       |
    |               |    .. math:: \epsilon_T=\langle (\nabla T)^2 \rangle_s          |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | Standard deviation of entropy                                   |
+   +---------------+-----------------------------------------------------------------+
+   | 7             | Standard deviation of horizontal velocity :math:`u_h`           |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | Standard deviation of the radial derivative of :math:`u_h`      |
+   +---------------+-----------------------------------------------------------------+
+   | 9             | Standard deviation of the thermal dissipation rate              |
    +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
@@ -303,6 +329,16 @@ This file contains several time and horizontally averaged profiles that decompos
    | 4             | Axisymmetric kinetic energy perpendicular to the rotation axis  |
    +---------------+-----------------------------------------------------------------+
    | 5             | Axisymmetric kinetic energy parallel to the rotation axis       |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | Standard deviation of energy perpendicular to the rotation axis |
+   +---------------+-----------------------------------------------------------------+
+   | 7             | Standard deviation of energy parallel to the rotation axis      |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | Standard deviation of axisymmetric energy perpendicular to the  |
+   |               | rotation axis                                                   |
+   +---------------+-----------------------------------------------------------------+
+   | 9             | Standard deviation of axisymmetric energy parallel to the       |
+   |               | rotation axis                                                   |
    +---------------+-----------------------------------------------------------------+
 
 

@@ -234,7 +234,7 @@ class BLayers(MagicSetup):
             self.reynolds = 1.
             e2fluct = 1.
         par = MagicRadial(field='bLayersR', iplot=False, tags=tags)
-        self.varS = np.sqrt(np.abs(par.varS))
+        self.varS = abs(par.entropy_SD)
         self.ss = par.entropy
 
         if os.path.exists('tInitAvg'):
@@ -250,7 +250,7 @@ class BLayers(MagicSetup):
             if len(tagsFix) > 0:
                 print('Fix temp. tags', tagsFix)
                 parFix = MagicRadial(field='bLayersR', iplot=False, tags=tagsFix)
-                self.varS = np.sqrt(np.abs(parFix.varS))
+                self.varS = abs(parFix.entropy_SD)
                 self.ss = parFix.entropy
 
             self.tags = tagsFix

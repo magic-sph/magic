@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import os, re
+import os
+import re
+import copy
 import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
@@ -60,198 +62,123 @@ class MagicSpectrum(MagicSetup):
                 self.name = 'mag_spec_'
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
+            self.ave = True
+
         elif field in ('T','temperature','S','entropy'):
             self.name = 'T_spec_'
 
+        if self.ave: # Time-averaged spectra
 
-        if tag is not None:
-            if ispec is not None:
-                file = '%s%i.%s' % (self.name, ispec, tag)
-                filename = os.path.join(datadir, file)
-            else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+            if tag is not None:
+                pattern = os.path.join(datadir, '%s.%s' % (self.name, tag))
                 files = scanDir(pattern)
-                if len(files) != 0:
+                # Either the log.tag directly exists and the setup is easy to
+                # obtain
+                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                    MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                        nml='log.%s' % tag)
+                # Or the tag is a bit more complicated and we need to find
+                # the corresponding log file
+                else:
+                    mask = re.compile(r'%s\/%s\.(.*)' % (datadir, self.name))
+                    if mask.match(files[-1]):
+                        ending = mask.search(files[-1]).groups(0)[0]
+                        pattern = os.path.join(datadir, 'log.%s' % ending)
+                        if os.path.exists(pattern):
+                            MagicSetup.__init__(self, datadir=datadir,
+                                                quiet=True, nml='log.%s' % ending)
+
+                # Sum the files that correspond to the tag
+                mask = re.compile(r'%s\.(.*)' % self.name)
+                for k, file in enumerate(files):
+                    print('reading %s' % file)
+
+                    tag = mask.search(file).groups(0)[0]
+                    nml = MagicSetup(nml='log.%s' % tag, datadir=datadir,
+                                     quiet=True)
+                    filename = file
+                    data = fast_read(filename)
+
+                    if k == 0:
+                        speclut = SpecLookUpTable(data, self.name, nml.start_time,
+                                                  nml.stop_time)
+                    else:
+                        speclut += SpecLookUpTable(data, self.name, nml.start_time,
+                                                    nml.stop_time)
+
+            else: # Tag is None: take the most recent one
+                pattern = os.path.join(datadir, '%s.*' % self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
+                print('reading %s' % filename)
+                # Determine the setup
+                mask = re.compile(r'%s\.(.*)' % self.name)
+                ending = mask.search(files[-1]).groups(0)[0]
+                if os.path.exists('log.%s' % ending):
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % ending)
+                    except AttributeError:
+                        self.start_time = None
+                        self.stop_time = None
+                        pass
+
+                data = fast_read(filename)
+                speclut = SpecLookUpTable(data, self.name, self.start_time,
+                                          self.stop_time)
+
+        else: # Snapshot spectra
+
+            if tag is not None:
+                if ispec is not None:
+                    file = '%s%i.%s' % (self.name, ispec, tag)
+                    filename = os.path.join(datadir, file)
+                else:
+                    pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                    files = scanDir(pattern)
+                    if len(files) != 0:
+                        filename = files[-1]
+                    else:
+                        print('No such tag... try again')
+                        return
+
+                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % tag)
+                    except AttributeError:
+                        self.start_time = None
+                        self.stop_time = None
+            else:
+                if ispec is not None:
+                    pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
+                    files = scanDir(pattern)
                     filename = files[-1]
                 else:
-                    print('No such tag... try again')
-                    return
+                    pattern = os.path.join(datadir, '%s*' % self.name)
+                    files = scanDir(pattern)
+                    filename = files[-1]
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
-        else:
-            if ispec is not None:
-                pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
-                files = scanDir(pattern)
-                filename = files[-1]
-            else:
-                pattern = os.path.join(datadir, '%s*' % self.name)
-                files = scanDir(pattern)
-                filename = files[-1]
-            # Determine the setup
-            mask = re.compile(r'.*\.(.*)')
-            ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                # Determine the setup
+                mask = re.compile(r'.*\.(.*)')
+                ending = mask.search(files[-1]).groups(0)[0]
+                if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % ending)
+                    except AttributeError:
+                        self.start_time = None
+                        self.stop_time = None
+                        pass
 
-        if not os.path.exists(filename):
-            print('No such file')
-            return
-
-        if self.ave is False and self.name != 'dtVrms_spec':
+            print('reading %s' % filename)
             data = fast_read(filename, skiplines=1)
-        else:
-            data = fast_read(filename)
+            speclut = SpecLookUpTable(data, self.name, self.start_time,
+                                      self.stop_time)
 
-        self.index = data[:, 0]
-        if self.name == 'kin_spec_':
-            self.ekin_poll = data[:, 1]
-            self.ekin_polm = data[:, 2]
-            self.ekin_torl = data[:, 3]
-            self.ekin_torm = data[:, 4]
-        elif self.name == 'kin_spec_ave':
-            self.ekin_poll = data[:, 1]
-            self.ekin_polm = data[:, 2]
-            self.ekin_torl = data[:, 3]
-            self.ekin_torm = data[:, 4]
-            self.ekin_poll_SD = data[:, 5]
-            self.ekin_polm_SD = data[:, 6]
-            self.ekin_torl_SD = data[:, 7]
-            self.ekin_torm_SD = data[:, 8]
-        elif self.name == 'u2_spec_ave':
-            self.ekin_poll = data[:, 1]
-            self.ekin_polm = data[:, 2]
-            self.ekin_torl = data[:, 3]
-            self.ekin_torm = data[:, 4]
-        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
-            self.ekin_poll = data[:, 1]
-            self.ekin_polm = data[:, 2]
-            self.ekin_torl = data[:, 3]
-            self.ekin_torm = data[:, 4]
-            self.ekin_poll_SD = data[:, 5]
-            self.ekin_polm_SD = data[:, 6]
-            self.ekin_torl_SD = data[:, 7]
-            self.ekin_torm_SD = data[:, 8]
-        elif self.name == 'mag_spec_':
-            self.emag_poll = data[:, 1]
-            self.emag_polm = data[:, 2]
-            self.emag_torl = data[:, 3]
-            self.emag_torm = data[:, 4]
-            self.emagic_poll = data[:, 5]
-            self.emagic_polm = data[:, 6]
-            self.emagic_torl = data[:, 7]
-            self.emagic_torm = data[:, 8]
-            self.emagcmb_l = data[:, 9]
-            self.emagcmb_m = data[:, 10]
-            self.eCMB = data[:, 11]
-        elif self.name == 'mag_spec_ave':
-            self.emag_poll = data[:, 1]
-            self.emag_polm = data[:, 2]
-            self.emag_torl = data[:, 3]
-            self.emag_torm = data[:, 4]
-            self.emagcmb_l = data[:, 5]
-            self.emagcmb_m = data[:, 6]
-            self.emag_poll_SD = data[:, 7]
-            self.emag_polm_SD = data[:, 8]
-            self.emag_torl_SD = data[:, 9]
-            self.emag_torm_SD = data[:, 10]
-            self.emagcmb_l_SD = data[:, 11]
-            self.emagcmb_m_SD = data[:, 12]
-        elif self.name == 'dtVrms_spec':
-            self.ave = True
-            self.InerRms = data[:, 1]
-            self.CorRms = data[:, 2]
-            self.LFRms = data[:, 3]
-            self.AdvRms = data[:, 4]
-            self.DifRms = data[:, 5]
-            self.BuoRms = data[:, 6]
-
-            if data.shape[1] == 27:
-                self.PreRms = data[:, 7]
-                self.geos = data[:, 8] # geostrophic balance
-                self.mageos = data[:, 9] # magnetostrophic balance
-                self.arcMag = data[:, 10] # Pressure/Coriolis/Lorentz/Buoyancy
-                self.corLor = data[:, 11] # Coriolis/Lorentz
-                self.preLor = data[:, 12] # Pressure/Lorentz
-                self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
-                self.InerRms_SD = data[:, 14]
-                self.CorRms_SD = data[:, 15]
-                self.LFRms_SD = data[:, 16]
-                self.AdvRms_SD = data[:, 17]
-                self.DifRms_SD = data[:, 18]
-                self.BuoRms_SD = data[:, 19]
-                self.PreRms_SD = data[:, 20]
-                self.geos_SD = data[:, 21]
-                self.mageos_SD = data[:, 22]
-                self.arc_SD = data[:, 23]
-                self.corLor_SD = data[:, 24]
-                self.preLor_SD = data[:, 25]
-                self.cia_SD = data[:, 26]
-                self.arc = np.zeros_like(self.cia)
-                self.arc_SD = np.zeros_like(self.cia)
-                self.ChemRms = np.zeros_like(self.cia)
-                self.ChemRms_SD = np.zeros_like(self.cia)
-            elif data.shape[1] == 29:
-                self.PreRms = data[:, 7]
-                self.geos = data[:, 8] # geostrophic balance
-                self.mageos = data[:, 9] # magnetostrophic balance
-                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
-                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
-                self.corLor = data[:, 12] # Coriolis/Lorentz
-                self.preLor = data[:, 13] # Pressure/Lorentz
-                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
-                self.InerRms_SD = data[:, 15]
-                self.CorRms_SD = data[:, 16]
-                self.LFRms_SD = data[:, 17]
-                self.AdvRms_SD = data[:, 18]
-                self.DifRms_SD = data[:, 19]
-                self.BuoRms_SD = data[:, 20]
-                self.PreRms_SD = data[:, 21]
-                self.geos_SD = data[:, 22]
-                self.mageos_SD = data[:, 23]
-                self.arc_SD = data[:, 24]
-                self.arcMag_SD = data[:, 25]
-                self.corLor_SD = data[:, 26]
-                self.preLor_SD = data[:, 27]
-                self.cia_SD = data[:, 28]
-                self.ChemRms = np.zeros_like(self.cia)
-                self.ChemRms_SD = np.zeros_like(self.cia)
-            else:
-                self.ChemRms = data[:,7]
-                self.PreRms = data[:, 8]
-                self.geos = data[:, 9] # geostrophic balance
-                self.mageos = data[:,10] # magnetostrophic balance
-                self.arc = data[:, 11] # Pressure/Coriolis/Buoyancy
-                self.arcMag = data[:, 12] # Pressure/Coriolis/Lorentz/Buoyancy
-                self.corLor = data[:, 13] # Coriolis/Lorentz
-                self.preLor = data[:, 14] # Pressure/Lorentz
-                self.cia = data[:, 15] # Coriolis/Inertia/Archimedean
-                self.InerRms_SD = data[:, 16]
-                self.CorRms_SD = data[:, 17]
-                self.LFRms_SD = data[:, 18]
-                self.AdvRms_SD = data[:, 19]
-                self.DifRms_SD = data[:, 20]
-                self.BuoRms_SD = data[:, 21]
-                self.ChemRms_SD = data[:, 22]
-                self.PreRms_SD = data[:, 23]
-                self.geos_SD = data[:, 24]
-                self.mageos_SD = data[:, 25]
-                self.arc_SD = data[:, 26]
-                self.arcMag_SD = data[:, 27]
-                self.corLor_SD = data[:, 28]
-                self.preLor_SD = data[:, 29]
-                self.cia_SD = data[:, 30]
-
-            self.index = self.index-1
-        elif self.name == 'T_spec_':
-            self.T_l = data[:,1]
-            self.T_m = data[:,2]
-            self.T_icb_l = data[:,3]
-            self.T_icb_m = data[:,4]
-            self.dT_icb_l = data[:,5]
-            self.dT_icb_m = data[:,6]
+        # Copy look-up table arguments into MagicSpectrum object
+        for attr in speclut.__dict__:
+            setattr(self, attr, speclut.__dict__[attr])
 
         if iplot:
             self.plot()
@@ -492,6 +419,248 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlabel('m+1')
             ax.set_xlim(1, self.index[-1]+1)
             fig.tight_layout()
+
+class SpecLookUpTable:
+    """
+    The purpose of this class is to create a lookup table between the numpy
+    array that comes from the reading of the spec files and the corresponding
+    columns.
+    """
+
+    def __init__(self, data, name, tstart=None, tstop=None):
+        """
+        :param data: numpy array that contains the data
+        :type data: numpy.ndarray
+        :param name: name of the field (i.e. 'eKinR', 'eMagR', 'powerR', ...)
+        :type name: str
+        :param tstart: starting time that was used to compute the time average
+        :type tstart: float
+        :param tstop: stop time that was used to compute the time average
+        :type tstop: float
+        """
+
+        self.name = name
+        self.start_time = tstart
+        self.stop_time = tstop
+
+        self.index = data[:, 0]
+        if self.name == 'kin_spec_':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+        elif self.name == 'kin_spec_ave':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+            self.ekin_poll_SD = data[:, 5]
+            self.ekin_polm_SD = data[:, 6]
+            self.ekin_torl_SD = data[:, 7]
+            self.ekin_torm_SD = data[:, 8]
+        elif self.name == 'u2_spec_ave':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+            self.ekin_poll_SD = data[:, 5]
+            self.ekin_polm_SD = data[:, 6]
+            self.ekin_torl_SD = data[:, 7]
+            self.ekin_torm_SD = data[:, 8]
+        elif self.name == 'mag_spec_':
+            self.emag_poll = data[:, 1]
+            self.emag_polm = data[:, 2]
+            self.emag_torl = data[:, 3]
+            self.emag_torm = data[:, 4]
+            self.emagic_poll = data[:, 5]
+            self.emagic_polm = data[:, 6]
+            self.emagic_torl = data[:, 7]
+            self.emagic_torm = data[:, 8]
+            self.emagcmb_l = data[:, 9]
+            self.emagcmb_m = data[:, 10]
+            self.eCMB = data[:, 11]
+        elif self.name == 'mag_spec_ave':
+            self.emag_poll = data[:, 1]
+            self.emag_polm = data[:, 2]
+            self.emag_torl = data[:, 3]
+            self.emag_torm = data[:, 4]
+            self.emagcmb_l = data[:, 5]
+            self.emagcmb_m = data[:, 6]
+            self.emag_poll_SD = data[:, 7]
+            self.emag_polm_SD = data[:, 8]
+            self.emag_torl_SD = data[:, 9]
+            self.emag_torm_SD = data[:, 10]
+            self.emagcmb_l_SD = data[:, 11]
+            self.emagcmb_m_SD = data[:, 12]
+        elif self.name == 'dtVrms_spec':
+            self.InerRms = data[:, 1]
+            self.CorRms = data[:, 2]
+            self.LFRms = data[:, 3]
+            self.AdvRms = data[:, 4]
+            self.DifRms = data[:, 5]
+            self.BuoRms = data[:, 6]
+
+            if data.shape[1] == 27:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arcMag = data[:, 10] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 11] # Coriolis/Lorentz
+                self.preLor = data[:, 12] # Pressure/Lorentz
+                self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 14]
+                self.CorRms_SD = data[:, 15]
+                self.LFRms_SD = data[:, 16]
+                self.AdvRms_SD = data[:, 17]
+                self.DifRms_SD = data[:, 18]
+                self.BuoRms_SD = data[:, 19]
+                self.PreRms_SD = data[:, 20]
+                self.geos_SD = data[:, 21]
+                self.mageos_SD = data[:, 22]
+                self.arc_SD = data[:, 23]
+                self.corLor_SD = data[:, 24]
+                self.preLor_SD = data[:, 25]
+                self.cia_SD = data[:, 26]
+                self.arc = np.zeros_like(self.cia)
+                self.arc_SD = np.zeros_like(self.cia)
+                self.ChemRms = np.zeros_like(self.cia)
+                self.ChemRms_SD = np.zeros_like(self.cia)
+            elif data.shape[1] == 29:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 15]
+                self.CorRms_SD = data[:, 16]
+                self.LFRms_SD = data[:, 17]
+                self.AdvRms_SD = data[:, 18]
+                self.DifRms_SD = data[:, 19]
+                self.BuoRms_SD = data[:, 20]
+                self.PreRms_SD = data[:, 21]
+                self.geos_SD = data[:, 22]
+                self.mageos_SD = data[:, 23]
+                self.arc_SD = data[:, 24]
+                self.arcMag_SD = data[:, 25]
+                self.corLor_SD = data[:, 26]
+                self.preLor_SD = data[:, 27]
+                self.cia_SD = data[:, 28]
+                self.ChemRms = np.zeros_like(self.cia)
+                self.ChemRms_SD = np.zeros_like(self.cia)
+            else:
+                self.ChemRms = data[:,7]
+                self.PreRms = data[:, 8]
+                self.geos = data[:, 9] # geostrophic balance
+                self.mageos = data[:,10] # magnetostrophic balance
+                self.arc = data[:, 11] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 12] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 13] # Coriolis/Lorentz
+                self.preLor = data[:, 14] # Pressure/Lorentz
+                self.cia = data[:, 15] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 16]
+                self.CorRms_SD = data[:, 17]
+                self.LFRms_SD = data[:, 18]
+                self.AdvRms_SD = data[:, 19]
+                self.DifRms_SD = data[:, 20]
+                self.BuoRms_SD = data[:, 21]
+                self.ChemRms_SD = data[:, 22]
+                self.PreRms_SD = data[:, 23]
+                self.geos_SD = data[:, 24]
+                self.mageos_SD = data[:, 25]
+                self.arc_SD = data[:, 26]
+                self.arcMag_SD = data[:, 27]
+                self.corLor_SD = data[:, 28]
+                self.preLor_SD = data[:, 29]
+                self.cia_SD = data[:, 30]
+
+            self.index = self.index-1
+        elif self.name == 'T_spec_':
+            self.T_l = data[:,1]
+            self.T_m = data[:,2]
+            self.T_icb_l = data[:,3]
+            self.T_icb_m = data[:,4]
+            self.dT_icb_l = data[:,5]
+            self.dT_icb_m = data[:,6]
+
+    def __add__(self, new):
+        """
+        This is a python built-in method to stack two look-up tables.
+        """
+
+        out = copy.deepcopy(new)
+        if self.start_time is not None:
+            fac_old = self.stop_time-self.start_time
+            out.start_time = self.start_time
+        else:
+            fac_old = 0.
+        if new.stop_time is not None:
+            fac_new = new.stop_time-new.start_time
+            out.stop_time = new.stop_time
+        else:
+            fac_new = 0.
+        if fac_old != 0 or fac_new != 0:
+            fac_tot = fac_new+fac_old
+        else:
+            fac_tot = 1.
+
+        idx_old_max = len(self.index)
+        idx_new_max = len(new.index)
+
+        if idx_old_max == idx_new_max:
+            for attr in new.__dict__.keys():
+                if attr not in ['index', 'name', 'start_time', 'stop_time']:
+                    # Only stack if both new and old have the attribute available
+                    if attr in self.__dict__:
+                        # Standard deviation
+                        if attr.endswith('SD'):
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr] = np.sqrt(( \
+                                                  fac_new*new.__dict__[attr]**2 + \
+                                                  fac_old*self.__dict__[attr]**2) / \
+                                                  fac_tot)
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+                        # Regular field
+                        else:
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr] = (fac_new*new.__dict__[attr] + \
+                                                      fac_old*self.__dict__[attr]) / \
+                                                      fac_tot
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+        else: # Different truncations
+            idx_min = min(idx_old_max, idx_new_max)
+            for attr in new.__dict__.keys():
+                if attr not in ['index', 'name', 'start_time', 'stop_time']:
+                    # Only stack if both new and old have the attribute available
+                    if attr in self.__dict__:
+                        # Standard deviation
+                        if attr.endswith('SD'):
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr][:idx_min] = \
+                                   np.sqrt((fac_new*new.__dict__[attr][:idx_min]**2+\
+                                            fac_old*self.__dict__[attr][:idx_min]**2)\
+                                            /fac_tot)
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+                        # Regular field
+                        else:
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr][:idx_min] = \
+                                   (fac_new*new.__dict__[attr][:idx_min] + \
+                                    fac_old*self.__dict__[attr][:idx_min]) / fac_tot
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+
+        return out
 
 
 class MagicSpectrum2D(MagicSetup):
