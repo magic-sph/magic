@@ -42,7 +42,7 @@ contains
 
       e_kin_file    = 'e_kin.'//tag
       u_square_file = 'u_square.'//tag
-      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          open(newunit=n_e_kin_file, file=e_kin_file, status='new')
 
          if ( l_anel ) then
@@ -56,7 +56,7 @@ contains
 
       deallocate( e_pA, e_p_asA, e_tA, e_t_asA )
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          close(n_e_kin_file)
          if ( l_anel ) close(n_u_square_file)
       end if
@@ -182,7 +182,7 @@ contains
       call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
       call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !do nR=1,n_r_max
          !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
          !end do
@@ -271,13 +271,13 @@ contains
       ! broadcast the output arguments of the function to have them on all ranks
       ! e_p,e_t,e_p_as,e_t_as
 #ifdef WITH_MPI
-      call MPI_Bcast(e_p,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(e_t,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(e_p_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(e_t_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_p,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(e_t,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(e_p_as,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(e_t_as,1,MPI_DEF_REAL,0,comm_r,ierr)
 
       if ( present(ekinR) ) then
-         call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,comm_r,ierr)
       end if
 #endif
 
@@ -376,7 +376,7 @@ contains
       call reduce_radial(e_lr_c, e_lr_c_global, 0)
       call reduce_radial(e_lr, e_lr_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Radial Integrals:
          e_p   =rInt_R(e_p_r_global,   r,rscheme_oc)
          e_t   =rInt_R(e_t_r_global,   r,rscheme_oc)

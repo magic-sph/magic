@@ -124,7 +124,7 @@ contains
       allocate( dt_array_old(max(2,tscheme%nexp)) )
       dt_array_old(:)=0.0_cp
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
@@ -285,24 +285,24 @@ contains
          end if
          !PERFOFF
 
-      end if ! rank == 0
+      end if ! l_master_rank
 
 #ifdef WITH_MPI
-      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(lreadS,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(lreadXi,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(inform,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(lreadS,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(lreadXi,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(inform,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(time,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,comm_r,ierr)
       call MPI_Bcast(dt_array_old,size(dt_array_old),MPI_DEF_REAL,0, &
-           &         MPI_COMM_WORLD,ierr)
+           &         comm_r,ierr)
 #endif
 
       coex = two*(one-alpha)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          allocate( workA(lm_max,n_r_max), workB(lm_max,n_r_max) )
          allocate( workC(lm_max,n_r_max) )
          allocate( workD(lm_max,n_r_max) )
@@ -319,7 +319,7 @@ contains
       workD(:,:)=zero
       workE(:,:)=zero
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          n_r_maxL = max(n_r_max,n_r_max_old)
 
          call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
@@ -355,7 +355,7 @@ contains
       workE(:,:)=zero
 
       !-- Read the d?dt fields
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          if ( lreadXi ) then
             if ( lreadS ) then
                read(n_start_file) so,wo,zo,po,xio
@@ -419,7 +419,7 @@ contains
 
       deallocate(workA, workB, workC, workD, workE)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          allocate( workA(lm_maxMag,n_r_maxMag), workB(lm_maxMag,n_r_maxMag) )
          allocate( workC(lm_maxMag,n_r_maxMag) )
          allocate( workD(lm_maxMag, n_r_maxMag) )
@@ -435,7 +435,7 @@ contains
       workC(:,:)=zero
       workD(:,:)=zero
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          if ( lreadXi ) then
             read(n_start_file) raxi_old, sc_old
             if ( raxi /= raxi_old ) &
@@ -483,7 +483,7 @@ contains
 
       !-- Inner core part
       if ( l_mag_old ) then
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             allocate( workA(lm_max,n_r_ic_max), workB(lm_max,n_r_ic_max) )
             allocate( workC(lm_max,n_r_ic_max), workD(lm_max,n_r_ic_max) )
             bytes_allocated = bytes_allocated - 4*lm_maxMag*n_r_maxMag* &
@@ -501,7 +501,7 @@ contains
          workD(:,:)=zero
       end if
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          ! deallocation of the local arrays
          deallocate( wo,zo,po,so )
          bytes_allocated = bytes_allocated - 4*(lm_max_old*n_r_max_old)*&
@@ -519,7 +519,7 @@ contains
          if ( l_mag_old ) then
 
             if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( wo(lm_max_old,n_r_ic_max_old) )
                   allocate( zo(lm_max_old,n_r_ic_max_old) )
@@ -564,7 +564,7 @@ contains
                !----- No inner core fields provided by start_file, we thus assume that
                !      simple the inner core field decays like r**(l+1) from
                !      the ICB to r=0:
-               if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+               if ( l_master_rank ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
@@ -592,7 +592,7 @@ contains
       tOmega_ma2       =0.0_cp
       dt_array_old(1)  =dt_array_old(2)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          deallocate( r_old, lm2lmo )
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
 
@@ -687,19 +687,19 @@ contains
             &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
             &    omegaOsz_ma2Old,omegaOsz_ma2
          end if
-      end if ! rank == 0
+      end if ! l_master_rank
 
 #ifdef WITH_MPI
-      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(dom_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(dom_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(dom_ic,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(dom_ma,1,MPI_DEF_REAL,0,comm_r,ierr)
       call MPI_Bcast(dt_array_old,size(dt_array_old),MPI_DEF_REAL,0, &
-           &         MPI_COMM_WORLD,ierr)
+           &         comm_r,ierr)
 #endif
 
       !-- Fill the time step array
@@ -724,7 +724,7 @@ contains
          l_bridge_step = .false.
       end if
 
-      if (rank == 0) close(n_start_file)
+      if (l_master_rank) close(n_start_file)
 
       deallocate ( dt_array_old )
 
@@ -821,7 +821,7 @@ contains
          ratio2 = fd_ratio
       end if
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
@@ -1009,60 +1009,60 @@ contains
             &                  l_press_store_old, l_cond_ic_old
          end if
 
-      end if ! rank == 0
+      end if ! l_master_rank
 
 #ifdef WITH_MPI
-      call MPI_Bcast(version,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(nexp_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(nold_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(nimp_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(version,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(nexp_old,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(nold_old,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(nimp_old,1,MPI_INTEGER,0,comm_r,ierr)
       call MPI_Bcast(tscheme_family_old,len(tscheme_family_old),MPI_CHARACTER,0, &
-           &         MPI_COMM_WORLD,ierr)
+           &         comm_r,ierr)
       if ( tscheme_family_old == 'MULTISTEP' ) then
-         if ( rank /= 0 ) allocate( dt_array_old(max(nexp_old,tscheme%nexp)) )
+         if ( coord_r /= 0 ) allocate( dt_array_old(max(nexp_old,tscheme%nexp)) )
       else if ( tscheme_family_old == 'DIRK' ) then
-         if ( rank /= 0 ) allocate( dt_array_old(max(1,size(tscheme%dt))) )
+         if ( coord_r /= 0 ) allocate( dt_array_old(max(1,size(tscheme%dt))) )
       end if
       call MPI_Bcast(dt_array_old,size(dt_array_old),MPI_DEF_REAL,0, &
-           &         MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(l_press_store_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+           &         comm_r,ierr)
+      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(l_press_store_old,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,comm_r,ierr)
+      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(time,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,comm_r,ierr)
       call MPI_Bcast(domega_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(domega_ic_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(domega_ic_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(domega_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(domega_ma_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(domega_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
+           &         0, comm_r, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%nimp, &
-           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
+           &         MPI_DEF_REAL, 0, comm_r, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%nold, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
+           &         0, comm_r, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
+           &         0, comm_r, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%nimp, &
-           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
+           &         MPI_DEF_REAL, 0, comm_r, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%nold, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
+           &         0, comm_r, ierr)
 #endif
 
       !-- Fill the time step array
@@ -1092,7 +1092,7 @@ contains
       end if
 
       !-- Allocate arrays
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          allocate( work(lm_max,n_r_max), workOld(lm_max_old,n_r_max_old) )
       else
          allocate( work(1,n_r_max), workOld(1,1), r_old(1), lm2lmo(1) )
@@ -1156,7 +1156,7 @@ contains
             if ( l_cond_ic_old ) then
                deallocate( work, workOld )
 
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( work(lm_max,n_r_ic_max) )
                   allocate( workOld(lm_max_old,n_r_ic_max_old) )
@@ -1165,7 +1165,7 @@ contains
                end if
 
                !-- Read the inner core poloidal magnetic field
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   work(:,:)=zero
                   read(n_start_file) workOld
                   call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
@@ -1181,7 +1181,7 @@ contains
                !-- Read dbdt_ic
                if ( tscheme_family_old == 'MULTISTEP' ) then
                   do n_o=2,nexp_old
-                     if ( rank == 0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1198,7 +1198,7 @@ contains
                      end if
                   end do
                   do n_o=2,nimp_old
-                     if ( rank == 0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1215,7 +1215,7 @@ contains
                      end if
                   end do
                   do n_o=2,nold_old
-                     if ( rank == 0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1235,7 +1235,7 @@ contains
                end if
 
                !-- Read the inner core toroidal magnetic field
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   work(:,:)=zero
                   read(n_start_file) workOld
                   call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
@@ -1251,7 +1251,7 @@ contains
                !-- Read djdt_ic
                if ( tscheme_family_old == 'MULTISTEP' ) then
                   do n_o=2,nexp_old
-                     if ( rank == 0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1268,7 +1268,7 @@ contains
                      end if
                   end do
                   do n_o=2,nimp_old
-                     if ( rank == 0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1285,7 +1285,7 @@ contains
                      end if
                   end do
                   do n_o=2,nold_old
-                     if ( rank == 0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1308,7 +1308,7 @@ contains
                !-- No inner core fields provided by start_file, we thus assume that
                !   simple the inner core field decays like r**(l+1) from
                !   the ICB to r=0:
-               if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+               if ( l_master_rank ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
@@ -1329,10 +1329,10 @@ contains
       deallocate( work, workOld, dt_array_old, r_old, lm2lmo )
 
       !-- Close file
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
          close(n_start_file)
-      end if ! rank == 0
+      end if ! l_master_rank
 
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
@@ -1475,7 +1475,7 @@ contains
       !-- Local variable
       integer :: n_o, nR
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          work(:,:)=zero
          read(fh) wOld
          call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1489,7 +1489,7 @@ contains
 
       if ( tscheme_family_old == 'MULTISTEP' ) then
          do n_o=2,nexp_old
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1502,7 +1502,7 @@ contains
             end if
          end do
          do n_o=2,nimp_old
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1515,7 +1515,7 @@ contains
             end if
          end do
          do n_o=2,nold_old
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1604,7 +1604,7 @@ contains
 
       if ( startfile_does_exist ) then
          !-- Open file
-         call MPI_File_Open(MPI_COMM_WORLD, start_file, MPI_MODE_RDONLY, &
+         call MPI_File_Open(comm_r, start_file, MPI_MODE_RDONLY, &
               &             info, fh, ierr)
       else
          call abortRun('! The restart file does not exist !')
@@ -1620,7 +1620,7 @@ contains
       !-- version gets crazy large, so flip back to default reader then
       if ( abs(version) > 100 ) then
          call MPI_File_close(fh, ierr)
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             write(*,*) '! I cannot read it with MPI-IO'
             write(*,*) '! I try to fall back on serial reader...'
          end if
@@ -1685,7 +1685,7 @@ contains
       end if
 
       !---- Compare parameters:
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          call print_info(ra_old,ek_old,pr_old,sc_old,raxi_old,pm_old, &
               &          radratio_old,sigma_ratio_old,n_phi_tot_old,  &
               &          nalias_old, l_max_old)
@@ -1718,7 +1718,7 @@ contains
          call MPI_File_Read(fh, r_old(:), n_r_max_old, MPI_DEF_REAL, istat, ierr)
       end if
 
-      if ( rank == 0 .and. rscheme_oc%version /= rscheme_oc_old%version )&
+      if ( l_master_rank .and. rscheme_oc%version /= rscheme_oc_old%version )&
       &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')   &
       &    rscheme_oc_old%version,'/', rscheme_oc%version
 
@@ -1830,11 +1830,11 @@ contains
       call MPI_File_get_byte_offset(fh, offset, disp, ierr)
 
       !-- Allocate and determine old radial balance
-      allocate( radial_balance_old(0:n_procs-1) )
-      call getBlocks(radial_balance_old, n_r_max_old, n_procs)
-      nRstart_old = radial_balance_old(rank)%nStart
-      nRstop_old = radial_balance_old(rank)%nStop
-      nR_per_rank_old = radial_balance_old(rank)%n_per_rank
+      allocate( radial_balance_old(0:n_ranks_r-1) )
+      call getBlocks(radial_balance_old, n_r_max_old, n_ranks_r)
+      nRstart_old = radial_balance_old(coord_r)%nStart
+      nRstop_old = radial_balance_old(coord_r)%nStop
+      nR_per_rank_old = radial_balance_old(coord_r)%n_per_rank
 
       allocate( workOld(lm_max_old, nRstart_old:nRstop_old) )
 
@@ -1922,14 +1922,14 @@ contains
 
       deallocate(workOld)
 
-      !-- Inner core: for the Inner core right now only rank 0 can read
+      !-- Inner core: for the Inner core right now only coord_r 0 can read
       !-- and broadcast
       if ( (l_mag .or. l_mag_LF) .and. l_cond_ic ) then
 
          if ( l_cond_ic_old ) then
             n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
 
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                allocate( workOld(lm_max_old, n_r_ic_max_old) )
                allocate( work(lm_max, n_r_ic_max) )
             else
@@ -1937,7 +1937,7 @@ contains
             end if
 
             !-- Read the inner core poloidal magnetic field
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                     &             MPI_DEF_COMPLEX, istat, ierr)
@@ -1954,7 +1954,7 @@ contains
             !-- Read dbdt_ic
             if ( tscheme_family_old == 'MULTISTEP' ) then
                do n_o=2,nexp_old
-                  if ( rank == 0 ) then
+                  if ( l_master_rank ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -1973,7 +1973,7 @@ contains
                end do
 
                do n_o=2,nimp_old
-                  if ( rank == 0 ) then
+                  if ( l_master_rank ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -1992,7 +1992,7 @@ contains
                end do
 
                do n_o=2,nold_old
-                  if ( rank == 0 ) then
+                  if ( l_master_rank ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2013,7 +2013,7 @@ contains
             end if
 
             !-- Read the inner core toroidal magnetic field
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                     &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2030,7 +2030,7 @@ contains
             !-- Read djdt_ic
             if ( tscheme_family_old == 'MULTISTEP' ) then
                do n_o=2,nexp_old
-                  if ( rank == 0 ) then
+                  if ( l_master_rank ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2049,7 +2049,7 @@ contains
                end do
 
                do n_o=2,nimp_old
-                  if ( rank == 0 ) then
+                  if ( l_master_rank ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2068,7 +2068,7 @@ contains
                end do
 
                do n_o=2,nold_old
-                  if ( rank == 0 ) then
+                  if ( l_master_rank ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2095,7 +2095,7 @@ contains
             !-- No inner core fields provided by start_file, we thus assume that
             !   simple the inner core field decays like r**(l+1) from
             !   the ICB to r=0:
-            if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+            if ( l_master_rank ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
 
             do lm=llm,ulm
                do nR=1,n_r_ic_max
@@ -2251,7 +2251,7 @@ contains
       integer,             intent(in) :: nRstop_old, dim1, n_r_maxL
       real(cp),            intent(in) :: r_old(:)
       integer,             intent(in) :: lm2lmo(lm_max)
-      type(load),          intent(in) :: radial_balance_old(0:n_procs-1)
+      type(load),          intent(in) :: radial_balance_old(0:n_ranks_r-1)
       complex(cp),         intent(in) :: wOld(lm_max_old,nRstart_old:nRstop_old)
       real(cp),            intent(in) :: scale_w
 
@@ -2355,15 +2355,15 @@ contains
       &    .and. m_max==m_max_old ) then
 
          !----- Direct reading of fields, grid not changed:
-         if (rank == 0 ) write(*,'(/,'' ! Reading fields directly.'')')
+         if (l_master_rank ) write(*,'(/,'' ! Reading fields directly.'')')
 
          lm_max_old=lm_max
       else
 
          !----- Mapping onto new grid !
-         if ( rank == 0 ) write(*,'(/,'' ! Mapping onto new grid.'')')
+         if ( l_master_rank ) write(*,'(/,'' ! Mapping onto new grid.'')')
 
-         if ( mod(minc_old,minc) /= 0 .and. rank == 0)                &
+         if ( mod(minc_old,minc) /= 0 .and. l_master_rank)                &
          &     write(*,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
@@ -2371,13 +2371,13 @@ contains
          &          l_max_old-m_max_old+1
 
          !-- Write info to STdoUT:
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
             &            ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
             &                l_max_old,l_max,m_max_old,m_max,            &
             &                minc_old,minc,lm_max_old,lm_max
          end if
-         if ( n_r_max_old /= n_r_max .and. rank == 0 )                   &
+         if ( n_r_max_old /= n_r_max .and. l_master_rank )                   &
          &   write(*,'('' ! Old/New n_r_max='',2i4)') n_r_max_old,n_r_max
 
       end if
@@ -2430,7 +2430,7 @@ contains
       logical,     intent(in) :: lBc1,l_IC
       real(cp),    intent(in) :: r_old(:)
       integer,     intent(in) :: lm2lmo(lm_max)
-      type(load),  intent(in) :: radial_balance_old(0:n_procs-1)
+      type(load),  intent(in) :: radial_balance_old(0:n_ranks_r-1)
       complex(cp), intent(in) :: wOld(lm_max_old,nRstart_old:nRstop_old)
       real(cp),    intent(in) :: scale_w
 
@@ -2441,8 +2441,8 @@ contains
       complex(cp) :: wtmp_Rloc(lm_max,nRstart_old:nRstop_old)
       complex(cp) :: wtmp_LMloc(llm:ulm,n_r_max_old)
       complex(cp), allocatable :: sbuff(:), rbuff(:)
-      integer :: rcounts(0:n_procs-1), scounts(0:n_procs-1)
-      integer :: rdisp(0:n_procs-1), sdisp(0:n_procs-1)
+      integer :: rcounts(0:n_ranks_r-1), scounts(0:n_ranks_r-1)
+      integer :: rdisp(0:n_ranks_r-1), sdisp(0:n_ranks_r-1)
       integer :: n_r, lm, lmo, p, nlm_per_rank, my_lm_counts, ii
       integer :: max_send, max_recv, l, m, lm_st
       complex(cp) :: woR(n_r_maxL)
@@ -2465,7 +2465,7 @@ contains
 
       !-- Second step: perform a MPI transpose from
       !--  (lm_max,nRstart_old:nRstop_old) to (llm:ulm,n_r_max_old)
-      do p=0,n_procs-1
+      do p=0,n_ranks_r-1
          my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
          scounts(p)=(nRstop_old-nRstart_old+1)*my_lm_counts
@@ -2474,7 +2474,7 @@ contains
 
       rdisp(0)=0
       sdisp(0)=0
-      do p=1,n_procs-1
+      do p=1,n_ranks_r-1
          sdisp(p)=sdisp(p-1)+scounts(p-1)
          rdisp(p)=rdisp(p-1)+rcounts(p-1)
       end do
@@ -2487,7 +2487,7 @@ contains
       !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_r,lm,l,m,lm_st)
-      do p = 0, n_procs-1
+      do p = 0, n_ranks_r-1
          ii = sdisp(p)+1
          do n_r=nRstart_old,nRstop_old
             do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
@@ -2504,14 +2504,14 @@ contains
 #ifdef WITH_MPI
       call MPI_Alltoallv(sbuff, scounts, sdisp, MPI_DEF_COMPLEX, &
            &             rbuff, rcounts, rdisp, MPI_DEF_COMPLEX, &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
 #endif
 
 
       !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_r,lm)
-      do p = 0, n_procs-1
+      do p = 0, n_ranks_r-1
          ii = rdisp(p)+1
          do n_r=radial_balance_old(p)%nStart,radial_balance_old(p)%nStop
             do lm=llm,ulm
@@ -2564,7 +2564,7 @@ contains
       complex(cp) :: woR(n_r_maxL)
 
       !$omp parallel do default(shared) private(n_proc,lmStart,lmStop,lm,lmo,woR)
-      do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
+      do n_proc=0,n_ranks_r-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
 
@@ -2630,7 +2630,7 @@ contains
       end if
 
       !PERFON('mD_map')
-      do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
+      do n_proc=0,n_ranks_r-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
 
@@ -2736,7 +2736,7 @@ contains
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 
       !PERFON('mD_map')
-      do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
+      do n_proc=0,n_ranks_r-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
          lmStart=max(2,lmStart)
@@ -3014,7 +3014,7 @@ contains
             tOmega_ic2=time+tShift_ic2
             omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
             &        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                write(*,*)
                write(*,*) '! I use prescribed inner core rotation rate:'
                write(*,*) '! omega_ic=',omega_ic
@@ -3041,7 +3041,7 @@ contains
             tOmega_ma2=time+tShift_ma2
             omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
             &        omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'
                write(*,*) '! omega_ma =',omega_ma

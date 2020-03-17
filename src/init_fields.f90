@@ -406,8 +406,8 @@ contains
          end if
 
 #ifdef WITH_MPI
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0,comm_r,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0,comm_r,ierr)
 #endif
 
       else

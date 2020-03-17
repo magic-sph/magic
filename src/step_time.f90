@@ -217,7 +217,7 @@ contains
       n_pot_signal=0       ! Potential file signal
 
       !-- STARTING THE TIME STEPPING LOOP:
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          write(*,*)
          write(*,*) '! Starting time integration!'
       end if
@@ -239,7 +239,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call MPI_Barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Barrier(comm_r,ierr)
 #endif
 
       PERFON('tloop')
@@ -261,14 +261,14 @@ contains
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
          call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         MPI_COMM_WORLD,ierr)
+              &         comm_r,ierr)
          call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         MPI_COMM_WORLD,ierr)
+              &         comm_r,ierr)
 #endif
 
          !----------------
          !-- This handling of the signal files is quite expensive
-         !-- as the file can be read only on one rank and the result
+         !-- as the file can be read only on one coord_r and the result
          !-- must be distributed to all other ranks.
          !----------------
          call check_signals(run_time_passed, signals)
@@ -283,7 +283,7 @@ contains
             tTot = tot_counter%tTot+run_time_start%tTot
 #ifdef WITH_MPI
             call MPI_Allreduce(MPI_IN_PLACE, tTot, 1, MPI_DEF_REAL, MPI_MAX, &
-                 &             MPI_COMM_WORLD, ierr)
+                 &             comm_r, ierr)
 #endif
             if ( tTot > run_time_limit ) then
                write(message,'("! Run time limit exeeded !")')
@@ -536,9 +536,9 @@ contains
                ! set at the boundary points  but are needed on all processes.
                ! ------------------
                call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
-                    &         n_procs-1,MPI_COMM_WORLD,ierr)
+                    &         n_ranks_r-1,comm_r,ierr)
                call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
-                    &         0,MPI_COMM_WORLD,ierr)
+                    &         0,comm_r,ierr)
 #endif
                if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
 
@@ -636,7 +636,7 @@ contains
             if ( (l_new_dt .or. lMat) .and. (tscheme%istage==1) ) then
                !----- Calculate matrices for new time step if dt /= dtLast
                lMat=.true.
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   write(output_unit,'(1p,'' ! Building matrices at time step:'', &
                   &                   i8,ES16.6)') n_time_step,time
                end if
@@ -690,7 +690,7 @@ contains
                nPercent=nPercent-1
             end if
             !tot_counter%tTtop%
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                call formatTime(output_unit,' ! Mean wall time for time step:',  &
                &               run_time_passed)
                if ( l_save_out ) then
@@ -709,7 +709,7 @@ contains
       PERFOFF
 
       if ( l_movie ) then
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             if (n_frame > 0) then
                write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')                    &
                &     " !  No of stored movie frames: ",n_frame,           &
@@ -751,12 +751,12 @@ contains
          call logWrite(message)
       end if
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          write(output_unit,*)
          call logWrite('')
       end if
 
-      if ( rank == 0 .and. l_save_out ) then
+      if ( l_save_out ) then
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
       end if
@@ -786,7 +786,7 @@ contains
            &                     n_log_file)
       call tot_counter%finalize('! Mean wall time for one time step          :', &
            &                    n_log_file)
-      if ( rank==0 .and. l_save_out ) close(n_log_file)
+      if ( l_save_out ) close(n_log_file)
 
       !-- WORK IS DONE !
 

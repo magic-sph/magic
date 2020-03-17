@@ -70,10 +70,10 @@ contains
       nZmaxA=2*nSmax
 
       !-- Distribute over the ranks
-      allocate(cyl_balance(0:n_procs-1))
-      call getBlocks(cyl_balance, nSmax, n_procs)
-      nSstart = cyl_balance(rank)%nStart
-      nSstop = cyl_balance(rank)%nStop
+      allocate(cyl_balance(0:n_ranks_r-1))
+      call getBlocks(cyl_balance, nSmax, n_ranks_r)
+      nSstart = cyl_balance(coord_r)%nStart
+      nSstop = cyl_balance(coord_r)%nStop
 
       !-- The following global arrays are required in getDVptr
       allocate( wS_global(lm_max,n_r_max), dwS_global(lm_max,n_r_max) )
@@ -100,7 +100,7 @@ contains
          allocate( nZC_Sloc(nSstart:nSstop),nZ2(nZmaxA,nSstart:nSstop) )
          bytes_allocated = bytes_allocated + (nSstop-nSstart+1)*(1+nZmaxA)* &
          &                 SIZEOF_INTEGER
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             allocate (nZC(nSmax))
             bytes_allocated = bytes_allocated+nSmax*SIZEOF_INTEGER
          else
@@ -123,7 +123,7 @@ contains
          bytes_allocated = bytes_allocated+(nSstop-nSstart+1)*SIZEOF_INTEGER
 
          geos_file='geos.'//tag
-         if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_master_rank .and. (.not. l_save_out) ) then
             open(newunit=n_geos_file, file=geos_file, status='new')
          end if
       end if
@@ -142,7 +142,7 @@ contains
       if ( l_geos ) then
          deallocate( OsinTS, PlmS, dPlmS, zZ, rZ )
          deallocate( chebt_Z, nZmaxS )
-         if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
+         if ( l_master_rank .and. (.not. l_save_out) ) close(n_geos_file)
       end if
 
       if ( l_PV ) then
@@ -231,7 +231,7 @@ contains
       real(outp) :: CHel_Sloc(nrp_geos,nSstart:nSstop)
 
 #ifdef WITH_MPI
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: i,sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
 #endif
 
 
@@ -511,19 +511,19 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE, EkSTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EkNTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EkOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, Egeos, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, CVzOTC, 1, MPI_DEF_REAL, MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, CVorOTC, 1, MPI_DEF_REAL, MPI_SUM,&
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, CHelOTC, 1, MPI_DEF_REAL, MPI_SUM,&
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
 #endif
 
       if ( lCorrel ) then
@@ -533,7 +533,7 @@ contains
          end do
 #ifdef WITH_MPI
          call MPI_Allreduce(MPI_IN_PLACE, surf, 1, MPI_DEF_REAL, MPI_SUM,  &
-              &             MPI_COMM_WORLD, ierr)
+              &             comm_r, ierr)
 #endif
 
          surf   =two*pi*surf
@@ -563,9 +563,9 @@ contains
       end if
 #ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE, dpFlow, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, dzFlow, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
 #endif
 
       if ( Ekin > 0.0_cp ) then
@@ -592,23 +592,23 @@ contains
 
 #ifdef WITH_MPI
          sendcount  = (nSstop-nSstart+1)*nrp_geos
-         do i=0,n_procs-1
+         do i=0,n_ranks_r-1
             recvcounts(i)=cyl_balance(i)%n_per_rank
          end do
          displs(0)=0
-         do i=1,n_procs-1
+         do i=1,n_ranks_r-1
             displs(i) = displs(i-1)+recvcounts(i-1)
          end do
 
          call MPI_GatherV(CVZ_Sloc,sendcount,MPI_OUT_REAL,     &
               &           CVZ,recvcounts,displs,MPI_OUT_REAL,  &
-              &           0,MPI_COMM_WORLD,ierr)
+              &           0,comm_r,ierr)
          call MPI_GatherV(CVor_Sloc,sendcount,MPI_OUT_REAL,    &
               &           CVor,recvcounts,displs,MPI_OUT_REAL, &
-              &           0,MPI_COMM_WORLD,ierr)
+              &           0,comm_r,ierr)
          call MPI_GatherV(CHel_Sloc,sendcount,MPI_OUT_REAL,    &
               &           CHel,recvcounts,displs,MPI_OUT_REAL, &
-              &           0,MPI_COMM_WORLD,ierr)
+              &           0,comm_r,ierr)
 #else
          CVz(:,:) =CVz_Sloc(:,:)
          CVor(:,:)=CVor_Sloc(:,:)
@@ -617,7 +617,7 @@ contains
 
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          if ( l_save_out ) then
             open(newunit=n_geos_file, file=geos_file, status='unknown', &
@@ -699,7 +699,7 @@ contains
 
          end if ! l_corrMov
 
-      end if ! rank == 0
+      end if ! coord_r == 0
 
       if ( lVerbose ) write(*,*) '! End of getGeos!'
 
@@ -763,7 +763,7 @@ contains
       integer :: n_pvz_file, n_vcy_file
 
 #ifdef WITH_MPI
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: i,sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
 #endif
 
       if ( lVerbose ) write(*,*) '! Starting outPV!'
@@ -787,7 +787,7 @@ contains
             end do
 #ifdef WITH_MPI
             call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVPLMr(:,nR), l_max+1, &
-                 &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+                 &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
 #else
             dzVPLMr(:,nR)=dzVpLMr_loc(:,nR)
 #endif
@@ -894,47 +894,47 @@ contains
 
 #ifdef WITH_MPI
          sendcount  = (nSstop-nSstart+1)*nZmaxA
-         do i=0,n_procs-1
+         do i=0,n_ranks_r-1
             recvcounts(i) = cyl_balance(i)%n_per_rank*nZmaxA
          end do
          displs(0)=0
-         do i=1,n_procs-1
+         do i=1,n_ranks_r-1
             displs(i) = displs(i-1)+recvcounts(i-1)
          end do
          call MPI_GatherV(omS_Sloc, sendcount, MPI_DEF_REAL,      &
               &           omS, recvcounts, displs, MPI_DEF_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
 
          sendcount  = (nSstop-nSstart+1)*nZmaxA*n_phi_max*5
-         do i=0,n_procs-1
+         do i=0,n_ranks_r-1
             recvcounts(i) = cyl_balance(i)%n_per_rank*nZmaxA*n_phi_max*5
          end do
          displs(0)=0
-         do i=1,n_procs-1
+         do i=1,n_ranks_r-1
             displs(i) = displs(i-1)+recvcounts(i-1)
          end do
          call MPI_GatherV(frame_Sloc, sendcount, MPI_OUT_REAL,    &
               &           frame, recvcounts, displs, MPI_OUT_REAL,&
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
 
          sendcount  = (nSstop-nSstart+1)
-         do i=0,n_procs-1
+         do i=0,n_ranks_r-1
             recvcounts(i) = cyl_balance(i)%n_per_rank
          end do
          displs(0)=0
-         do i=1,n_procs-1
+         do i=1,n_ranks_r-1
             displs(i) = displs(i-1)+recvcounts(i-1)
          end do
          call MPI_GatherV(nZC_Sloc, sendcount, MPI_INTEGER,       &
               &           nZC, recvcounts, displs, MPI_INTEGER,   &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
 #else
          omS(:,:)    =omS_Sloc(:,:)
          frame(:,:,:)=frame_Sloc(:,:,:)
          nZC(:)      =nZC_Sloc(:)
 #endif
          !-- Write output only at the final timestep
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
 
             !--- Open file for output:
             fileName='PVZ.'//tag
@@ -976,7 +976,7 @@ contains
             close(n_pvz_file)
             close(n_vcy_file)
 
-         end if ! Rank 0
+         end if ! coord_r 0
 
       end if ! l_stop_time
 
@@ -1351,15 +1351,15 @@ contains
       call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
 #ifdef WITH_MPI
       call MPI_Bcast(wS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(dwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(ddwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,&
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(zS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
       call MPI_Bcast(dzS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         MPI_COMM_WORLD, ierr)
+           &         comm_r, ierr)
 #endif
    end subroutine costf_arrays
 !------------------------------------------------------------------------------

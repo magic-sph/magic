@@ -155,12 +155,12 @@ contains
          PERFOFF
 
          if ( l_single_matrix ) then
-            if ( rank == rank_with_l1m0 ) then
+            if ( coord_r == rank_with_l1m0 ) then
                z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
             end if
 #ifdef WITH_MPI
             call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
-                 &         MPI_COMM_WORLD,ierr)
+                 &         comm_r,ierr)
 #endif
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &

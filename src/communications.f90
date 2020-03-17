@@ -6,7 +6,7 @@ module communications
 #endif
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use parallel_mod, only: rank, n_procs, ierr
+   use parallel_mod, only: coord_r, n_ranks_r, ierr
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi, &
        &                 nRstart, nRstop, radial_balance
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
@@ -156,7 +156,7 @@ contains
       end if
 
       ! allocate a temporary array for the gather operations.
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          allocate(temp_gather_lo(1:lm_max))
          bytes_allocated = bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
       else
@@ -205,7 +205,7 @@ contains
 
       local_sum = sum( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_COMPLEX, &
-           &             MPI_SUM,MPI_COMM_WORLD,ierr)
+           &             MPI_SUM,comm_r,ierr)
 #else
       global_sum= sum(dwdt_local)
 #endif
@@ -222,7 +222,7 @@ contains
 
       local_sum = sum( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD,ierr)
+           &             comm_r,ierr)
 #else
       global_sum= sum(dwdt_local)
 #endif
@@ -275,7 +275,7 @@ contains
 
       !local_sum = sum( arr_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_COMPLEX, &
-           &             MPI_SUM,MPI_COMM_WORLD,ierr)
+           &             MPI_SUM,comm_r,ierr)
 #else
       global_sum = sum( arr_local )
 #endif
@@ -295,23 +295,23 @@ contains
       complex(cp), allocatable :: temp_lo(:,:)
       integer :: gather_tag,status(MPI_STATUS_SIZE)
 
-      if ( rank == 0 ) allocate(temp_lo(1:lm_max,self%dim2))
-      if (n_procs == 1) then
-         ! copy the data on rank 0
+      if ( coord_r == 0 ) allocate(temp_lo(1:lm_max,self%dim2))
+      if (n_ranks_r == 1) then
+         ! copy the data on coord_r 0
          do nR=1,self%dim2
             temp_lo(llm:ulm,nR)=arr_lo(:,nR)
          end do
       else
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+         !call MPI_Barrier(comm_r,ierr)
          gather_tag=1990
-         if ( rank == 0 ) then
-            do irank=1,n_procs-1
+         if ( coord_r == 0 ) then
+            do irank=1,n_ranks_r-1
                call MPI_Recv(temp_lo(lm_balance(irank)%nStart,1),1,        &
                     &        self%gather_mpi_type(irank),irank,gather_tag, &
-                    &        MPI_COMM_WORLD,status,ierr)
+                    &        comm_r,status,ierr)
             end do
 
-            ! copy the data on rank 0
+            ! copy the data on coord_r 0
             do nR=1,self%dim2
                temp_lo(llm:ulm,nR)=arr_lo(:,nR)
             end do
@@ -319,17 +319,17 @@ contains
             !     & = ",sum(temp_lo(1+irank*lm_per_rank:1+irank*lm_per_rank+        &
             !     & lm_on_last_rank,:))
          else
-            ! Now send the data to rank 0
+            ! Now send the data to coord_r 0
             !write(*,"(A,I5,A,I2)") "Sending ",(ulm-llm+1)*self%dim2," &
-            !   &    dc from rank ",rank
+            !   &    dc from coord_r ",coord_r
             !write(*,"(A,2ES22.14)") "sending arr_lo = ", sum(arr_lo)
             call MPI_Send(arr_lo,self%dim2*(ulm-llm+1),MPI_DEF_COMPLEX, &
-                 &        0,gather_tag,MPI_COMM_WORLD,ierr)
+                 &        0,gather_tag,comm_r,ierr)
          end if
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+         !call MPI_Barrier(comm_r,ierr)
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          ! reorder
          if ( .not. l_axi ) then
             do nR=1,self%dim2
@@ -381,9 +381,9 @@ contains
       integer :: proc
 
 #ifdef WITH_MPI
-      allocate(self%gather_mpi_type(0:n_procs-1))
-      ! 1. Datatype for the data on one rank
-      do proc=0,n_procs-1
+      allocate(self%gather_mpi_type(0:n_ranks_r-1))
+      ! 1. Datatype for the data on one coord_r
+      do proc=0,n_ranks_r-1
          call MPI_type_vector(dim2,lm_balance(proc)%n_per_rank,    &
               &               lm_max,MPI_DEF_COMPLEX,              &
               &               self%gather_mpi_type(proc),ierr)
@@ -402,7 +402,7 @@ contains
       integer :: proc
 
 #ifdef WITH_MPI
-      do proc=0,n_procs-1
+      do proc=0,n_ranks_r-1
          call MPI_Type_free(self%gather_mpi_type(proc),ierr)
       end do
 
@@ -418,21 +418,21 @@ contains
 
       integer :: l,m
 #ifdef WITH_MPI
-      integer :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: sendcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       integer :: irank
       !complex(cp) :: temp_lo(1:lm_max)
 
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          sendcounts(irank) = lm_balance(irank)%n_per_rank
          displs(irank) = lm_balance(irank)%nStart-1 !irank*lm_per_rank
       end do
-      !sendcounts(n_procs-1) = lm_on_last_rank
+      !sendcounts(n_ranks_r-1) = lm_on_last_rank
 
-      call MPI_GatherV(arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,  &
+      call MPI_GatherV(arr_lo,sendcounts(coord_r),MPI_DEF_COMPLEX,  &
            &           temp_gather_lo,sendcounts,displs,         &
-           &           MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+           &           MPI_DEF_COMPLEX,0,comm_r,ierr)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          ! reorder
          if ( .not. l_axi ) then
             do l=0,l_max
@@ -469,16 +469,16 @@ contains
 
       integer :: l,m
 #ifdef WITH_MPI
-      integer :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: sendcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       integer :: irank
       !complex(cp) :: temp_lo(1:lm_max)
 
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          sendcounts(irank) = lm_balance(irank)%n_per_rank
          displs(irank) = lm_balance(irank)%nStart-1
       end do
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          ! reorder
          if ( .not. l_axi ) then
             do l=0,l_max
@@ -494,8 +494,8 @@ contains
       end if
 
       call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DEF_COMPLEX,&
-           &            arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,0,       &
-           &            MPI_COMM_WORLD,ierr)
+           &            arr_lo,sendcounts(coord_r),MPI_DEF_COMPLEX,0,       &
+           &            comm_r,ierr)
 #else
       if ( .not. l_axi ) then
          do l=0,l_max
@@ -520,7 +520,7 @@ contains
       ! Local variables
       integer :: nR,l,m
 
-      if (n_procs > 1) then
+      if (n_ranks_r > 1) then
          call abortRun('lm2lo not yet parallelized')
       end if
 
@@ -550,7 +550,7 @@ contains
       ! Local variables
       integer :: nR,l,m
 
-      if (n_procs > 1) then
+      if (n_ranks_r > 1) then
          call abortRun('lo2lm not yet parallelized')
       end if
 
@@ -574,7 +574,7 @@ contains
 !-------------------------------------------------------------------------------
    subroutine gather_from_Rloc(arr_Rloc, arr_glob, irank)
       !
-      ! This subroutine gather a r-distributed array on rank=irank
+      ! This subroutine gather a r-distributed array on coord_r=irank
       !
 
       !-- Input variable
@@ -587,19 +587,19 @@ contains
 #ifdef WITH_MPI
       !-- Local variables:
       integer :: p
-      integer :: scount, rcounts(0:n_procs-1), rdisp(0:n_procs-1)
+      integer :: scount, rcounts(0:n_ranks_r-1), rdisp(0:n_ranks_r-1)
 
       scount = nRstop-nRstart+1
-      do p=0,n_procs-1
+      do p=0,n_ranks_r-1
          rcounts(p)=radial_balance(p)%n_per_rank
       end do
       rdisp(0)=0
-      do p=1,n_procs-1
+      do p=1,n_ranks_r-1
          rdisp(p)=rdisp(p-1)+rcounts(p-1)
       end do
 
       call MPI_GatherV(arr_Rloc, scount, MPI_DEF_REAL, arr_glob, rcounts, &
-           &           rdisp, MPI_DEF_REAL, irank, MPI_COMM_WORLD, ierr)
+           &           rdisp, MPI_DEF_REAL, irank, comm_r, ierr)
 #else
       arr_glob(:)=arr_Rloc(:)
 #endif
@@ -617,7 +617,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(arr_dist, arr_glob, size(arr_dist), MPI_DEF_REAL, &
-           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
+           &          MPI_SUM, irank, comm_r, ierr)
 #else
       arr_glob(:,:)=arr_dist(:,:)
 #endif
@@ -635,7 +635,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(arr_dist, arr_glob, size(arr_dist), MPI_DEF_REAL, &
-           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
+           &          MPI_SUM, irank, comm_r, ierr)
 #else
       arr_glob(:)=arr_dist(:)
 #endif
@@ -653,7 +653,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(scal_dist, scal_glob, 1, MPI_DEF_REAL, &
-           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
+           &          MPI_SUM, irank, comm_r, ierr)
 #else
       scal_glob=scal_dist
 #endif
@@ -705,7 +705,7 @@ contains
 
          tStart = MPI_Wtime()
          do n_t=1,n_transp
-            call MPI_Barrier(MPI_COMM_WORLD, ierr)
+            call MPI_Barrier(comm_r, ierr)
             call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
             call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
          end do
@@ -713,20 +713,20 @@ contains
          tBlock(iblock) = tStop-tStart
 
 
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call MPI_Barrier(comm_r, ierr)
          call lo2r_test%destroy_comm()
 
          deallocate( arr_Rloc, arr_LMloc )
       end do
       deallocate( lo2r_test )
 
-      !-- Now determine the average over the ranks and send it to rank=0
+      !-- Now determine the average over the ranks and send it to coord_r=0
       call MPI_Reduce(tBlock, tBlock_avg, size(tBlock), MPI_DEF_REAL, &
-           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+           &          MPI_SUM, 0, comm_r, ierr)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Average over procs and number of transposes
-         tBlock_avg(:) = tBlock_avg(:)/real(n_procs,cp)/real(n_transp,cp)
+         tBlock_avg(:) = tBlock_avg(:)/real(n_ranks_r,cp)/real(n_transp,cp)
 
          tBlock_avg(:) = tBlock_avg(:)/real(block_size(:),cp)
 
@@ -734,34 +734,37 @@ contains
          ind = minloc(tBlock_avg)
          idx = ind(1)
 
-         do n=1,2
-            if ( n==1 ) then
-               n_out = n_log_file
-            else
-               n_out = output_unit
-            end if
-            write(n_out,*)
-            write(n_out,*) '! MPI blocking for the transposes :'
-            write(message,'('' ! Container contains 1 field  ='', &
-            &               ES10.3, '' s'')') tBlock_avg(1)
-            write(n_out,'(A80)') message
-            write(message,'('' ! Container contains 2 fields ='', &
-            &               ES10.3, '' s'')') tBlock_avg(2)
-            write(n_out,'(A80)') message
-            write(message,'('' ! Container contains 3 fields ='', &
-            &               ES10.3, '' s'')') tBlock_avg(3)
-            write(n_out,'(A80)') message
-            write(message,'('' ! Container contains 4 fields ='', &
-            &               ES10.3, '' s'')') tBlock_avg(4)
-            write(n_out,'(A80)') message
-            write(message,'('' ! Container contains 5 fields ='', &
-            &               ES10.3, '' s'')') tBlock_avg(5)
-            write(n_out,'(A80)') message
-            write(message,'('' ! Container contains 8 fields ='', &
-            &               ES10.3, '' s'')') tBlock_avg(6)
-            write(n_out,'(A80)') message
-            write(n_out,*)
-         end do
+         if (coord_r==0) then
+            do n=1,2
+                if ( n==1 ) then
+                  n_out = n_log_file
+                else
+                  n_out = output_unit
+                end if
+                
+                write(n_out,*)
+                write(n_out,*) '! MPI blocking for the transposes :'
+                write(message,'('' ! Container contains 1 field  ='', &
+                &               ES10.3, '' s'')') tBlock_avg(1)
+                write(n_out,'(A80)') message
+                write(message,'('' ! Container contains 2 fields ='', &
+                &               ES10.3, '' s'')') tBlock_avg(2)
+                write(n_out,'(A80)') message
+                write(message,'('' ! Container contains 3 fields ='', &
+                &               ES10.3, '' s'')') tBlock_avg(3)
+                write(n_out,'(A80)') message
+                write(message,'('' ! Container contains 4 fields ='', &
+                &               ES10.3, '' s'')') tBlock_avg(4)
+                write(n_out,'(A80)') message
+                write(message,'('' ! Container contains 5 fields ='', &
+                &               ES10.3, '' s'')') tBlock_avg(5)
+                write(n_out,'(A80)') message
+                write(message,'('' ! Container contains 8 fields ='', &
+                &               ES10.3, '' s'')') tBlock_avg(6)
+                write(n_out,'(A80)') message
+                write(n_out,*)
+            end do
+         end if
 
       end if
 #endif
@@ -805,7 +808,7 @@ contains
       call lo2r_test%create_comm(5)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call MPI_Barrier(comm_r, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
       end do
@@ -819,7 +822,7 @@ contains
       call lo2r_test%create_comm(5)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call MPI_Barrier(comm_r, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
       end do
@@ -833,7 +836,7 @@ contains
       call lo2r_test%create_comm(5)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call MPI_Barrier(comm_r, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
       end do
@@ -842,17 +845,17 @@ contains
       call lo2r_test%destroy_comm()
       deallocate( lo2r_test)
 
-      !-- Now determine the average over the ranks and send it to rank=0
+      !-- Now determine the average over the ranks and send it to coord_r=0
       call MPI_Reduce(tPointtoPoint, timers(1), 1, MPI_DEF_REAL, MPI_SUM, 0, &
-           &          MPI_COMM_WORLD, ierr)
+           &          comm_r, ierr)
       call MPI_Reduce(tAlltoAllv, timers(2), 1, MPI_DEF_REAL, MPI_SUM, 0, &
-           &          MPI_COMM_WORLD, ierr)
+           &          comm_r, ierr)
       call MPI_Reduce(tAlltoAllw, timers(3), 1, MPI_DEF_REAL, MPI_SUM, 0, &
-           &          MPI_COMM_WORLD, ierr)
+           &          comm_r, ierr)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Average over procs and number of transposes
-         timers(:) = timers(:)/real(n_procs,cp)/real(n_transp,cp)
+         timers(:) = timers(:)/real(n_ranks_r,cp)/real(n_transp,cp)
 
          !-- Determine the fastest
          ind = minloc(timers)
@@ -892,7 +895,7 @@ contains
 
       end if
 
-      call MPI_Bcast(idx,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(idx,1,MPI_INTEGER,0,comm_r,ierr)
 #else
       idx=1  ! In that case it does not matter
 #endif
@@ -917,24 +920,24 @@ contains
       integer,     intent(in) :: dim1,dim2
       complex(cp), intent(inout) :: arr(dim1,dim2)
 
-      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       integer :: irank,nR
       !double precision :: local_sum, global_sum, recvd_sum
 
       !write(*,"(A,ES15.8)") "before: arr = ",sum(real(conjg(arr)*arr))
 
       sendcount  = ulm-llm+1
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          recvcounts(irank) = lm_balance(irank)%n_per_rank
       end do
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
 
       do nR=1,dim2
          call MPI_AllGatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,     &
               &              arr(1,nR),recvcounts,displs,MPI_DEF_COMPLEX,&
-              &              MPI_COMM_WORLD,ierr)
+              &              comm_r,ierr)
       end do
 
    end subroutine myAllGather
@@ -953,11 +956,11 @@ contains
       integer :: sendcount,recvcount
       integer :: irank,nR
 
-      recvcount = edim1/n_procs
+      recvcount = edim1/n_ranks_r
       do nR=1,dim2
          call MPI_AllGather(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
               &             arr(1,nR),recvcount,MPI_DEF_COMPLEX,   &
-              &             MPI_COMM_WORLD,ierr)
+              &             comm_r,ierr)
       end do
 
    end subroutine myAllGather
@@ -974,7 +977,7 @@ contains
       integer,     intent(in) :: dim1,dim2
       complex(cp), intent(inout) :: arr(dim1,dim2)
 
-      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       integer :: irank,nR
       integer :: sendtype, new_sendtype
       integer(kind=MPI_ADDRESS_KIND) :: lb,extent,extent_dcmplx
@@ -990,17 +993,17 @@ contains
       call MPI_Type_commit(new_sendtype,ierr)
 
       sendcount  = ulm-llm+1
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          recvcounts(irank) = lm_balance(irank)%n_per_rank
       end do
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
       PERFOFF
       PERFON('comm')
       call MPI_AllGatherV(MPI_IN_PLACE,sendcount,new_sendtype,&
            &              arr,recvcounts,displs,new_sendtype, &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       PERFOFF
 
    end subroutine myAllGather
@@ -1150,7 +1153,7 @@ contains
       !   for the m's. 
       !   
       !   For instance, if m1 and m2 are two consecutive m points in a given
-      !   rank, then Flm must be stored such that
+      !   coord_r, then Flm must be stored such that
       !   [(m1:l_max,m1) (m2:l_max,m2)]
       !   are consecutive.
       !   Notice that there is not assumptions about m1 or m2. Also, the l's do

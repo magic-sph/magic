@@ -225,7 +225,7 @@ contains
       !-- Input variable:
       character(len=*), intent(in) :: message
 
-       if ( rank == 0 ) then
+       if ( l_master_rank ) then
           if ( l_save_out ) then
              open(newunit=n_log_file, file=log_file, status='unknown', &
              &    position='append')
@@ -342,7 +342,7 @@ contains
       write(*,*) 
 
 #ifdef WITH_MPI
-      call MPI_Abort(MPI_COMM_WORLD, code, ierr)
+      call MPI_Abort(comm_r, code, ierr)
 #else
       stop
 #endif

@@ -324,7 +324,7 @@ contains
 
       !----- Stop if time step has become too small:
       if ( dt_new < dt_min ) then
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             write(output_unit,'(1p,/,A,ES14.4,/,A)')   &
             &    " ! Time step too small, dt=",dt_new, &
             &    " ! I thus stop the run !"
@@ -342,7 +342,7 @@ contains
 
       if ( l_new_dtNext ) then
          !------ Writing info and getting new weights:
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             write(output_unit,'(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')  &
             &    " ! Changing time step at time=",(time+this%dt(1)),            &
             &    "                 time step no=",n_time_step,                  &

@@ -108,7 +108,7 @@ contains
          EperpaxiMeanR(:)=0.0_cp
          EparaxiMeanR(:) =0.0_cp
 
-         if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_master_rank .and. (.not. l_save_out) ) then
             open(newunit=n_perpPar_file, file=perpPar_file, status='new')
          end if
       end if
@@ -134,7 +134,7 @@ contains
       if ( l_perpPar ) then
          deallocate( EperpMeanR, EparMeanR )
          deallocate( EperpaxiMeanR, EparaxiMeanR )
-         if ( rank == 0 .and. (.not. l_save_out) ) close(n_perpPar_file)
+         if ( l_master_rank .and. (.not. l_save_out) ) close(n_perpPar_file)
       end if
 
    end subroutine finalize_outPar_mod
@@ -341,7 +341,7 @@ contains
       end if
 
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          do nR=1,n_r_max
             ! Re must be independant of the timescale
             ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi*mass)/eScale)
@@ -542,7 +542,7 @@ contains
       call gather_from_Rloc(EperpaxiR, EperpaxiR_global, 0)
       call gather_from_Rloc(EparaxiR, EparaxiR_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          EperpT  =four*pi*rInt_R(EperpR_global*r*r,r,rscheme_oc)
          EparT   =four*pi*rInt_R(EparR_global*r*r,r,rscheme_oc)
          EperpaxT=four*pi*rInt_R(EperpaxiR_global*r*r,r,rscheme_oc)

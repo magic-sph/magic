@@ -53,11 +53,11 @@ contains
 
 #ifdef WITH_MPI
       call MPI_AllReduce(MPI_IN_PLACE, this%tTot, 1, MPI_DEF_REAL, MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      this%tTot=this%tTot/real(n_procs,cp)
+           &             comm_r, ierr)
+      this%tTot=this%tTot/real(n_ranks_r,cp)
 #endif
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          if ( this%n_counts > 0 ) then
             do n=1,2
                if ( n == 1 ) then

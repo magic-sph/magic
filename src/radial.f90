@@ -23,7 +23,7 @@ module radial_functions
    use radial_der, only: get_dr
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite, abortRun
-   use parallel_mod, only: rank
+   use parallel_mod, only: coord_r, l_master_rank
    use output_data, only: tag
    use num_param, only: alph1, alph2
 
@@ -256,7 +256,7 @@ contains
       call rscheme_oc%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r)
       call rscheme_oc%get_der_mat(n_r_max)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          fileName = 'radius.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max

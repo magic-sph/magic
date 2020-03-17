@@ -26,7 +26,7 @@ module shtns
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
    &         axi_to_spat, spat_to_qst,                                      &
    &         spat_to_SH_dist, &
-   &         test_shtns
+   &         test_shtns, test_shtns_fwd
 
 contains
 
@@ -34,7 +34,7 @@ contains
 
       integer :: norm
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          call shtns_verbose(1)
       end if
 
@@ -47,7 +47,7 @@ contains
            &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(0)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          call shtns_verbose(0)
          write(output_unit,*) ''
       end if
@@ -728,18 +728,31 @@ contains
       !-- TODO: The FFT must be performed for an array with the dimensions of 
       !   Fr_loc which may end up paded with zeroes.
       !   Is there any way to tell MKL to perform a "truncated" FFT?
+      print *, " f_loc: -------------------------------", shape(f_loc)
+      print *, f_loc
       call fft_phi_loc(f_loc, Fr_loc, 1)
+      print *, " fft: ---------------------------------", shape(Fr_loc)
+      print *, Fr_loc
       transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
       
+      
+      !>@TODO  pass the full Fr_loc here instead of transpose_loc to avoid the memcopy
+      !>       It is not really needed, but requires some care with the size of the arrays
       call transpose_m_theta(transpose_loc, fL_loc)
+      print *, " fft_t: -------------------------------", shape(fL_loc)
+      print *, fL_loc
       
       !-- Now do the Legendre transform using the new function in a loop
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
         l_lm = map_dist_st%lmP2(m, m)
         u_lm = map_dist_st%lmP2(l_max+1, m)
+        print *, " -- M: ", m, i, l_lm, u_lm, n_lmP_loc
         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLM_loc(l_lm:u_lm),l_max+1)
       end do
+      
+      print *, " fLM_loc: -----------------------------------------"
+      print *, fLM_loc
       
       call shtns_load_cfg(0) ! l_max
 
@@ -764,81 +777,82 @@ contains
       complex(cp) :: fLM_sliced(n_lm_loc)
       complex(cp) :: fLM_loc(n_lm_loc)
       
-      complex(cp) :: f_theta_m(n_theta_max, n_m_loc)
-      complex(cp) :: f_m_theta(n_m_max, n_theta_loc)
-      
       complex(cp) :: fLMP(lmP_max)
       complex(cp) :: fLMP_loc(n_lmP_loc)
       complex(cp) :: fLMP_sliced(n_lmP_loc)
       
       integer :: i,j,k,l,m
       
-      do i=1,lm_max
-        l = map_glbl_st%lm2l(i)
-        m = map_glbl_st%lm2m(i)
-        fLM(i) = cmplx(real(l/l_max),real(m/l_max))
-      end do
-
-      fLM_loc = cmplx(0.0,0.0)
-      call slice_Flm_cmplx(fLM,fLM_loc)
-           
-      call scal_to_spat(fLM,f,l_max)
-      call scal_to_spat_dist(fLM_loc,f_loc)
-      call slice_f(f, f_sliced)
-
-      print*, "scal_to_spat: ", maxval(abs(f_loc - f_sliced))
+!       do i=1,lm_max
+!         l = map_glbl_st%lm2l(i)
+!         m = map_glbl_st%lm2m(i)
+!         fLM(i) = cmplx(real(l/l_max),real(m/l_max))
+!       end do
+! 
+!       fLM_loc = cmplx(0.0,0.0)
+!       call slice_Flm_cmplx(fLM,fLM_loc)
+!            
+!       call scal_to_spat(fLM,f,l_max)
+!       call scal_to_spat_dist(fLM_loc,f_loc)
+!       call slice_f(f, f_sliced)
+! 
+!       print*, "test_scal_to_spat: ", maxval(abs(f_loc - f_sliced))
+!       
+!       k = 0
+!       do i=1,n_phi_max
+!         do j=1,n_theta_max
+!           k = k + 1
+!           f(i,j) = real(k)/(n_phi_max*n_theta_max)
+!         end do
+!       end do
+!       
+!       f_loc = cmplx(0.0,0.0)
+!       call slice_f(f,f_loc)
+!       
+!       call spat_to_SH(f,fLMP,l_max)
+!       call spat_to_SH_dist(f_loc,fLMP_loc)
+!       
+!       call slice_FlmP_cmplx(fLMP,fLMP_sliced)
+!       
+!       print*, "test_spat_to_SH: ", maxval(abs(fLMP_loc - fLMP_sliced))     
       
-      k = 0
-      do i=1,n_phi_max
-        do j=1,n_theta_max
-          k = k + 1
-          f(i,j) = real(k)/(n_phi_max*n_theta_max)
-        end do
-      end do
+   end subroutine
+   
+   !----------------------------------------------------------------------------
+   subroutine test_shtns_fwd(f)
+      use communications
       
+      real(cp), intent(in) :: f(n_phi_max, n_theta_max)
+      real(cp)    :: f_loc(n_phi_max,n_theta_loc)
+      
+      complex(cp) :: fLMP(lmP_max)
+      complex(cp) :: fLMP_loc(n_lmP_loc)
+      complex(cp) :: fLMP_sliced(n_lmP_loc)
+      
+
       f_loc = cmplx(0.0,0.0)
+      fLMP = cmplx(0.0,0.0)
+      fLMP_loc = cmplx(0.0,0.0)
+      fLMP_sliced = cmplx(0.0,0.0)
       call slice_f(f,f_loc)
       
       call spat_to_SH(f,fLMP,l_max)
       call spat_to_SH_dist(f_loc,fLMP_loc)
       
-      call slice_FlmP_cmplx(fLMP,fLMP_sliced)
-      
+      call slice_FlmP_cmplx(fLMP,fLMP_sliced)      
 
-      print*, "spat_to_SH: ", maxval(abs(fLMP_loc - fLMP_sliced))     
-      
+      print*, "spat_to_SH: ", maxval(abs(fLMP_loc - fLMP_sliced))
+!       if ((l_master_rank) .or. (coord_r==8)) then
+        print *, "---------- f ----------------------------"
+        print *, f
+        print *, "---------- fLMP--------------------------"
+        print *, fLMP
+        print *, "---------- fLMP_sliced-------------------"
+        print *, fLMP_sliced
+!       end if
       
       STOP
       
-!       call slice_Flm_cmplx(fLM,fLM_loc)
-!       call scal_to_spat(fLM, f_back, l_max)
-!       call scal_to_spat_dist(fLM_loc, f_loc_back)
-!       call gather_f(f_loc_back, f_gathered)
-!       
-!       print*, "sh_to_spat: ", maxval(abs(f_gathered - f))
-      
-!       print*, norm2(real(f - f_gathered))
-!       if (rank ==0) then
-!         print *, "-----fLM---------------------------------------------------------------"
-!         print *, fLM
-!         print *, "-----fLM_loc-----------------------------------------------------------"
-!         print *, fLM_loc
-!         print *, "-----fLM_gathered------------------------------------------------------"
-!         print *, fLM_gathered
-!         print *, "-----f-----------------------------------------------------------------"
-!         print *, f
-!         print *, "-----f_loc-------------------------------------------------------------"
-!         print *, f_loc
-!         print *, "-----f_loc_back--------------------------------------------------------"
-!         print *, f_loc_back
-!         print *, "-----f_gathered--------------------------------------------------------"
-!         print *, f_gathered
-!       end if
-      
-      
-!       STOP
-   
-   
    end subroutine
    !----------------------------------------------------------------------------
 

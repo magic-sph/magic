@@ -121,7 +121,7 @@ contains
       call reduce_radial(e_p, e_p_global, 0)
       call reduce_radial(e_p_AS, e_p_AS_global, 0)
       
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
 
          !-- Output into file:
          !     writing l=0/1/2 magnetic energy
@@ -232,7 +232,7 @@ contains
       call reduce_radial(e_t, e_t_global, 0)
       call reduce_radial(e_t_AS, e_t_AS_global, 0)
       
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
     
          !-- Output into file:
          !     writing l=0/1/2 magnetic energy

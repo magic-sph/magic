@@ -78,7 +78,7 @@ contains
       !
 
       if ( l_dtBmovie ) then
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             allocate( PstrLM(lm_max_dtB,n_r_max_dtB) )
             allocate( PadvLM(lm_max_dtB,n_r_max_dtB) )
             allocate( TstrLM(lm_max_dtB,n_r_max_dtB) )
@@ -98,7 +98,7 @@ contains
             allocate( TomeLM(1,1) )
          end if
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             allocate( PadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
             allocate( PdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
             allocate( TadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
@@ -661,7 +661,7 @@ contains
       end if
 
       if ( l_dtBmovie .and. l_frame ) then
-         !-- If movie is required, let's gather everything on rank 0
+         !-- If movie is required, let's gather everything on coord_r 0
          call dtb_gather_lo_on_rank0()
       end if
 

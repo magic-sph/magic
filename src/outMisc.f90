@@ -57,7 +57,7 @@ contains
 
       helicity_file='helicity.'//tag
       heat_file    ='heat.'//tag
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. (.not. l_save_out) ) then
          if ( l_hel ) then
             open(newunit=n_helicity_file, file=helicity_file, status='new')
          end if
@@ -79,7 +79,7 @@ contains
          call RhoMeanR%finalize()
       end if
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
       end if
@@ -172,7 +172,7 @@ contains
 
       end do
 
-      ! Now we have to gather the results on rank 0 for
+      ! Now we have to gather the results on coord_r 0 for
       ! the arrays: Hel2Nr,Helna2Nr,HelEAr,HelNr,HelnaNr
       ! Hel2Sr,Helna2Sr,HelSr,HelnaSr
 
@@ -186,7 +186,7 @@ contains
       call gather_from_Rloc(Hel2Sr, Hel2Sr_global, 0)
       call gather_from_Rloc(HelnaSr, HelnaSr_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !------ Integration over r without the boundaries and normalization:
          HelN  =rInt_R(HelNr_global,r,rscheme_oc)
          HelS  =rInt_R(HelSr_global,r,rscheme_oc)
@@ -274,7 +274,7 @@ contains
       character(len=76) :: filename
       integer :: n_r, filehandle
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          n_calls = n_calls + 1
          if ( l_anelastic_liquid ) then
             if ( l_heat ) then
@@ -487,7 +487,7 @@ contains
             close(filehandle)
          end if
 
-      end if ! rank == 0
+      end if ! coord_r == 0
 
    end subroutine outHeat
 !---------------------------------------------------------------------------

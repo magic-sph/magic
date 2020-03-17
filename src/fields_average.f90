@@ -15,7 +15,7 @@ module fields_average_mod
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
-   use parallel_mod, only: rank
+   use parallel_mod, only: coord_r, coord_r
 #ifdef WITH_SHTNS
    use shtns
 #else
@@ -51,7 +51,7 @@ module fields_average_mod
    complex(cp), allocatable :: aj_ave(:,:)
    complex(cp), allocatable :: b_ic_ave(:,:)
    complex(cp), allocatable :: aj_ic_ave(:,:)
-   ! on rank 0 we also allocate the following fields
+   ! on coord_r 0 we also allocate the following fields
    complex(cp), allocatable :: b_ave_global(:), bICB(:)
    complex(cp), allocatable :: db_ave_global(:), aj_ave_global(:)
    complex(cp), allocatable :: w_ave_global(:), dw_ave_global(:)
@@ -84,7 +84,7 @@ contains
          allocate( xi_ave(1,1) )
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          allocate( bICB(1:lm_max) )
          allocate( b_ave_global(1:lm_max) )
          allocate( db_ave_global(1:lm_max) )
@@ -361,7 +361,7 @@ contains
             call spectrum_temp(n_spec,time,.false.,0,l_stop_time,     &
                  &             0.0_cp,0.0_cp,s_ave,ds_ave)
          end if
-         if ( rank==0 .and. l_save_out ) then
+         if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
@@ -385,7 +385,7 @@ contains
                  &         e_mag_os_ave,e_mag_as_os_ave,e_cmb,Dip,DipCMB, &
                  &         elsAnel)
 
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                !----- Output of energies of averaged field:
                write(n_log_file,'(/,A)')                           &
                &    ' ! ENERGIES OF TIME AVERAGED FIELD'
@@ -424,9 +424,9 @@ contains
 
          !----- Construct name of graphic file and open it:
          ! For the graphic file of the average fields, we gather them
-         ! on rank 0 and use the old serial output routine.
+         ! on coord_r 0 and use the old serial output routine.
 
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             graph_file='G_ave.'//tag
             open(newunit=n_graph_file, file=graph_file, status='unknown', &
             &    form='unformatted')
@@ -460,7 +460,7 @@ contains
                call gather_from_lo_to_rank0(xi_ave(llm,nR),xi_ave_global)
             end if
 
-            if ( rank == 0 ) then
+            if ( coord_r == 0 ) then
 #ifdef WITH_SHTNS
                if ( l_mag ) then
                   call torpol_to_spat(b_ave_global, db_ave_global, &
@@ -535,11 +535,11 @@ contains
             end if
          end if
 
-         if ( rank == 0 ) close(n_graph_file)  ! close graphic output file !
+         if ( l_master_rank ) close(n_graph_file)  ! close graphic output file !
 
          !----- Write info about graph-file into STDOUT and log-file:
          if ( l_stop_time ) then
-            if ( rank == 0 )  &
+            if ( l_master_rank )  &
             &  write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
          end if
 
@@ -571,7 +571,7 @@ contains
                  &        'Xi_lmr_ave.',omega_ma,omega_ic)
          end if
 
-         if ( rank==0 .and. l_save_out ) close(n_log_file)
+         if ( l_save_out ) close(n_log_file)
 
          !--- Store checkpoint file
          call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,          &

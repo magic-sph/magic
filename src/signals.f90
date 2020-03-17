@@ -44,7 +44,7 @@ contains
 
 
       signals(:) = 0
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !----- Signalling via file signal:
          message='signal'//'.'//tag
          open(newunit=n_sig_file, file=trim(message), status='old')
@@ -87,7 +87,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call MPI_Bcast(signals,5,MPI_Integer,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(signals,5,MPI_Integer,0,comm_r,ierr)
 #endif
 
    end subroutine read_signal_file
@@ -107,7 +107,7 @@ contains
          tsig = tsig+run_time
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          if ( tsig > 2.0_cp ) then ! Only check signals every two seconds
             l_check_signal = .true.
             tsig = 0.0_cp
@@ -117,18 +117,18 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call MPI_Bcast(l_check_signal,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_check_signal,1,MPI_LOGICAL,0,comm_r,ierr)
 #endif
 
       if ( l_check_signal ) then
 #ifdef WITH_MPI
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
+         call MPI_Barrier(comm_r,ierr)
 #endif
          !-- Read the signal file
          call read_signal_file(signals)
 
 #ifdef WITH_MPI
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
+         call MPI_Barrier(comm_r,ierr)
 #endif
       else
          signals(:) = 0

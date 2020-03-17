@@ -119,12 +119,12 @@ contains
          call abortRun('Wrong switch in getDlm')
       end if
 
-      ! reduce to rank 0
+      ! reduce to coord_r 0
       call reduce_radial(e_lr, e_lr_global, 0)
       call reduce_radial(e_mr, e_mr_global, 0)
       call reduce_radial(e_lr_c, e_lr_c_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Radial Integrals:
          fac=half*eScale
          E  =0.0_cp

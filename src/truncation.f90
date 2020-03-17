@@ -94,8 +94,8 @@ module truncation
    !---------------------------------
    !  
    !   Notation for continuous variables:
-   !   dist_V(i,1) = lower bound of direction V in rank i
-   !   dist_V(i,2) = upper bound of direction V in rank i
+   !   dist_V(i,1) = lower bound of direction V in coord_r i
+   !   dist_V(i,2) = upper bound of direction V in coord_r i
    !   dist_V(i,0) = shortcut to dist_V(i,2) - dist_V(i,1) + 1
    !   
    !   Because continuous variables are simple, we can define some shortcuts:
@@ -106,10 +106,10 @@ module truncation
    !   > MPI_ALLREDUCE(n_V_loc,n_V_max,MPI_SUM)
    !   
    !   For discontinuous variables:
-   !   dist_V(i,0)  = how many V points are there for rank i
-   !   dist_V(i,1:) = an array containing all of the V points in rank i of 
+   !   dist_V(i,0)  = how many V points are there for coord_r i
+   !   dist_V(i,1:) = an array containing all of the V points in coord_r i of 
    !      communicator comm_V. Since the number of points is not necessarily 
-   !      the same in all ranks, make sure that all points of rank i are in 
+   !      the same in all ranks, make sure that all points of coord_r i are in 
    !      dist_V(i,1:n_V_loc) and the remaining dist_V(i,n_V_loc+1:) points 
    !      are set to a negative number.
    !      
@@ -145,14 +145,14 @@ module truncation
    !-- Distributed LM-Space
    ! 
    !   Just for clarification:
-   !   n_lm_loc:  total number of l and m points in this rank
-   !   n_lmP_loc: total number of l and m points (for l_max+1) in this rank
+   !   n_lm_loc:  total number of l and m points in this coord_r
+   !   n_lmP_loc: total number of l and m points (for l_max+1) in this coord_r
    !   
    !   n_m_array: if m_max is not divisible by n_ranks_m, some ranks will 
    !     receive more m points than others. 
    !     n_m_array is basically MPI_ALLREDUCE(n_m_array,n_m_loc,MPI_MAX)
    !     It is also the size of the 2nd dimension of dist_m.
-   !     Set the extra dist_m(i,1:n_m_loc) to the points in rank i and the 
+   !     Set the extra dist_m(i,1:n_m_loc) to the points in coord_r i and the 
    !     remaining dist_m(i,n_m_loc+1:n_m_array) to a negative number. 
    !   
    !        allocatable, protected :: dist_r(:,:) => same as dist_r from Grid Space
@@ -168,7 +168,7 @@ module truncation
    !-- Distributed ML-Space
    !   
    !   The key variable here is dist_mlo. It contains the tuplets associated
-   !   with each rank.
+   !   with each coord_r.
    !   
    !   dist_mlo(irank,j,1) = value of m in the j-th tuplet in irank.
    !   dist_mlo(irank,j,2) = value of l in the j-th tuplet in irank.
@@ -178,7 +178,7 @@ module truncation
    !   was chosen to build this variable. n_mlo_array gives the length of the 
    !   second dimension of this array.
    !   
-   !   where_mlo(m,l): this merely returns the coord_mlo (or rank in the 
+   !   where_mlo(m,l): this merely returns the coord_mlo (or coord_r in the 
    !   comm_mlo) in which the tuplet (m,l) is allocated.
    !   
    !-- TODO: dist_mlo is created in distribute_mlo, but this is rather poorly
@@ -292,12 +292,12 @@ contains
       n_r_cmb=1
       n_r_icb=n_r_max
 
-      allocate(radial_balance(0:n_procs-1))
-      call getBlocks(radial_balance, n_r_max, n_procs)   
+      allocate(radial_balance(0:n_ranks_r-1))
+      call getBlocks(radial_balance, n_r_max, n_ranks_r)   
 
-      nRstart = radial_balance(rank)%nStart
-      nRstop = radial_balance(rank)%nStop
-      n_r_loc = radial_balance(rank)%n_per_rank
+      nRstart = radial_balance(coord_r)%nStart
+      nRstop = radial_balance(coord_r)%nStop
+      n_r_loc = radial_balance(coord_r)%n_per_rank
       nR_per_rank = n_r_loc
 
       if ( l_mag ) then
@@ -309,7 +309,7 @@ contains
       end if
 
       if ( lVerbose ) then
-         write(*,"(4(A,I4))") "On rank ",rank," nR is in (", &
+         write(*,"(4(A,I4))") "On coord_r ",coord_r," nR is in (", &
                nRstart,",",nRstop,"), nR_per_rank is ",nR_per_rank
       end if
 
@@ -484,12 +484,12 @@ contains
       !   it is pretty simple: p(x) = (x-1)*minc
       dist_m(:,1:) = (dist_m(:,1:)-1)*minc
       
-      !-- Counts how many points were assigned to each rank
+      !-- Counts how many points were assigned to each coord_r
       dist_m(:,0) = count(dist_m(:,1:) >= 0, 2)
       
-      !-- Formula for the number of lm-points in each rank:
+      !-- Formula for the number of lm-points in each coord_r:
       !   n_lm = Σ(l_max+1 - m) = (l_max+1)*n_m - Σm
-      !   for every m in the specified rank. Read the
+      !   for every m in the specified coord_r. Read the
       !   comment in "Distributed LM-Space" section at the beginning of this 
       !   module for more details on that
       dist_n_lm = (l_max+1)*dist_m(:,0) - sum(dist_m(:,1:), dim=2, mask=dist_m(:,1:)>=0)
@@ -542,7 +542,7 @@ contains
       allocate(dist_n_mlo(0:n_ranks-1))
       dist_n_mlo = 0
       
-      !-- Compute how many ml-pairs will be store in each rank
+      !-- Compute how many ml-pairs will be store in each coord_r
       !
       do icoord_mo=0,n_ranks_m-1
          tmp = 0
@@ -557,7 +557,7 @@ contains
          end do
       end do
       
-      !-- Assign the (m,l) pairs to each rank, according to the count of 
+      !-- Assign the (m,l) pairs to each coord_r, according to the count of 
       !   ml-pairs in dist_n_mlo
       n_mlo_array = maxval(dist_n_mlo)
       allocate(dist_mlo(0:n_ranks-1, n_mlo_array, 2))
@@ -572,19 +572,19 @@ contains
       end if
       
   
-      !-- Count how many different l's this rank has
+      !-- Count how many different l's this coord_r has
       n_lo_loc = 0
       do l=0,l_max
          if (any(dist_mlo(coord_mlo,:,2)==l)) n_lo_loc = n_lo_loc + 1
       end do
       
-      !-- Count how many different m's this rank has
+      !-- Count how many different m's this coord_r has
       n_mo_loc = 0
       do m=0,l_max
          if (any(dist_mlo(coord_mlo,:,1)==m)) n_mo_loc = n_mo_loc + 1
       end do
       
-      !-- Count how many (m,l) pairs this rank has (in case it differs from 
+      !-- Count how many (m,l) pairs this coord_r has (in case it differs from 
       !   the original estimation of the dist_n_mlo variable)
       dist_n_mlo = count(dist_mlo(:,:,1)>=0, dim=2)
       
@@ -627,7 +627,7 @@ contains
       !   communication. It will also follow the number of (m,l) points 
       !   that we saved in n_mlo input variable.
       !   
-      !   This subroutine will minimize the number of l's in each rank by 
+      !   This subroutine will minimize the number of l's in each coord_r by 
       !   looping over m first, and then over l while distributing the pairs.
       !   
       !   This distribution is far from being optimal and should work just as 
@@ -690,7 +690,7 @@ contains
       !   communication. It will also follow the number of (m,l) points 
       !   that we saved in n_mlo input variable.
       !   
-      !   This subroutine will minimize the number of m's in each rank by 
+      !   This subroutine will minimize the number of m's in each coord_r by 
       !   looping over l first, and then over m while distributing the pairs.
       !   
       !   This is probably not what you want. This subroutine is here mostly
@@ -734,7 +734,7 @@ contains
       !   This might increase the communication volume, but it is the 
       !   "fairest" distribution in what concerns work balance.
       !   
-      !   This subroutine will minimize the number of l's in each rank by 
+      !   This subroutine will minimize the number of l's in each coord_r by 
       !   looping over m first, and then over l while distributing the pairs.
       !   
       !   This will place l as the slowest index and m as the fastest!
@@ -753,14 +753,14 @@ contains
       
       call distribute_discontiguous_snake(dist_l, n_l_array, l_max+1, n_ranks)
       
-      !-- Adjust and counts how many l points were assigned to each rank
+      !-- Adjust and counts how many l points were assigned to each coord_r
       dist_l(:,1:) = dist_l(:,1:)-1
       dist_l(:,0) = count(dist_l(:,1:) >= 0, 2)
       
       allocate(dist_n_mlo(0:n_ranks-1))
       dist_n_mlo = 0
       
-      !-- Counts how many pairs per rank, and invert direction of dist_l
+      !-- Counts how many pairs per coord_r, and invert direction of dist_l
       do icoord_mlo=0,n_ranks-1
          do lj=1,dist_l(icoord_mlo,0)
             dist_l(icoord_mlo,lj) = l_max - dist_l(icoord_mlo,lj)
@@ -771,7 +771,7 @@ contains
          end do
       end do
       
-      !-- Assign the (m,l) pairs to each rank, according to the count of 
+      !-- Assign the (m,l) pairs to each coord_r, according to the count of 
       !   ml-pairs in dist_n_mlo
       n_mlo_array = maxval(dist_n_mlo)
       allocate(dist_mlo(0:n_ranks-1, n_mlo_array, 2))
@@ -792,19 +792,19 @@ contains
          end do
       end do
       
-      !-- Count how many different l's this rank has
+      !-- Count how many different l's this coord_r has
       n_lo_loc = 0
       do l=0,l_max
          if (any(dist_mlo(coord_mlo,:,2)==l)) n_lo_loc = n_lo_loc + 1
       end do
       
-      !-- Count how many different m's this rank has
+      !-- Count how many different m's this coord_r has
       n_mo_loc = 0
       do m=0,l_max
          if (any(dist_mlo(coord_mlo,:,1)==m)) n_mo_loc = n_mo_loc + 1
       end do
       
-      !-- Count how many (m,l) pairs this rank has (in case it differs from 
+      !-- Count how many (m,l) pairs this coord_r has (in case it differs from 
       !   the original estimation of the dist_n_mlo variable)
       dist_n_mlo = count(dist_mlo(:,:,1)>=0, dim=2)
       
@@ -954,8 +954,8 @@ contains
    subroutine distribute_contiguous_first(dist,N,p)
       !  
       !   Distributes a list of points [x1, x2, ..., xN] amonst p ranks such 
-      !   that each rank receives a "chunk" of points. The output are three 
-      !   integers (per rank) referring to the number of points, the first 
+      !   that each coord_r receives a "chunk" of points. The output are three 
+      !   integers (per coord_r) referring to the number of points, the first 
       !   points and the last point of the chunk (e.g. [4,0,3]).
       !  
       !   If the number of points is not divisible by p, we add one extra point
@@ -1008,7 +1008,7 @@ contains
       character(*), intent(in) :: name
       integer :: i
       
-      if (rank /= 0) return
+      if (coord_r /= 0) return
       
       print "(' !  Partition in rank_',A,' ', I0, ': ', I0,'-',I0, '  (', I0, ' pts)')", name, &
             0, dist(0,1), dist(0,2), dist(0,0)
@@ -1030,7 +1030,7 @@ contains
       
       integer :: i, j, counter
       
-      if (rank /= 0) return
+      if (coord_r /= 0) return
       
       write (*,'(A,I0,A,I0)', ADVANCE='NO') ' !  Partition in rank_'//name//' ', 0, ' :', dist(0,1)
       counter = 1
@@ -1061,7 +1061,7 @@ contains
       integer :: l, m
       logical :: mfirst
       
-      if (rank/=0) return
+      if (coord_r/=0) return
       
       do icoord_mlo=0,n_ranks-1
          write (*,'(A,I0,A)') ' !  Distribution rank_mlo ',icoord_mlo,' :'
@@ -1096,7 +1096,7 @@ contains
       integer :: icoord_mlo, m_count, l_count
       integer :: l, m
       
-      if (rank/=0) return
+      if (coord_r/=0) return
       
       write (*,'(A,A)') ' !   mlo_dist_method: ', mlo_dist_method
       do icoord_mlo=0,n_ranks-1
@@ -1121,24 +1121,24 @@ contains
    end subroutine print_mlo_distribution_summary
    
 !------------------------------------------------------------------------------
-   subroutine getBlocks(bal, n_points, n_procs)
+   subroutine getBlocks(bal, n_points, n_ranks_r)
 
       type(load), intent(inout) :: bal(0:)
-      integer, intent(in) :: n_procs
+      integer, intent(in) :: n_ranks_r
       integer, intent(in) :: n_points
 
       integer :: n_points_loc, check, p
 
-      n_points_loc = n_points/n_procs
+      n_points_loc = n_points/n_ranks_r
 
-      check = mod(n_points,n_procs)!-1
+      check = mod(n_points,n_ranks_r)!-1
 
       bal(0)%nStart = 1
 
-      do p =0, n_procs-1
+      do p =0, n_ranks_r-1
          if ( p /= 0 ) bal(p)%nStart=bal(p-1)%nStop+1
          bal(p)%n_per_rank=n_points_loc
-         if ( p == n_procs-1 ) then
+         if ( p == n_ranks_r-1 ) then
             bal(p)%n_per_rank=n_points_loc+check
          end if
          bal(p)%nStop=bal(p)%nStart+bal(p)%n_per_rank-1

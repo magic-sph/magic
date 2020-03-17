@@ -107,7 +107,7 @@ contains
       am_mpol_file='am_mag_pol.'//tag
       am_mtor_file='am_mag_tor.'//tag
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. (.not. l_save_out) ) then
          if ( l_mag .and. l_energy_modes ) then
             open(newunit=n_am_kpol_file,file=am_kpol_file,status='new', &
             &    form='unformatted')
@@ -167,7 +167,7 @@ contains
          call dT_ICB_m_ave%finalize()
       end if
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. (.not. l_save_out) ) then
          if ( l_mag .and. l_energy_modes ) then
             close(n_am_kpol_file)
             close(n_am_ktor_file)
@@ -366,9 +366,9 @@ contains
       call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
       call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
-      ! now switch to rank 0 for the postprocess
+      ! now switch to coord_r 0 for the postprocess
     
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          ! Getting appropriate radius index for e_kin_nearSurf spectra
          nearSurfR = r_cmb-0.01_cp
          do n_r=2,n_r_max
@@ -438,7 +438,7 @@ contains
       end if
 
       !-- Averaging:
-      if ( rank == 0 .and. l_avg ) then
+      if ( coord_r == 0 .and. l_avg ) then
          if ( l_mag ) then
             call e_mag_p_l_ave%compute(e_mag_p_l, n_time_ave, time_passed, time_norm)
             call e_mag_t_l_ave%compute(e_mag_t_l, n_time_ave, time_passed, time_norm)
@@ -528,7 +528,7 @@ contains
          call reduce_radial(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, 0)
          call reduce_radial(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, 0)
     
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             !----- Radial Integrals:
             fac_mag=LFfac*half*eScale
             do l=1,l_max
@@ -555,7 +555,7 @@ contains
          end do
       end if  ! conducting inner core ?
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          !-- Output into files:
          if ( l_mag ) then
             write(string, *) n_spec
@@ -872,7 +872,7 @@ contains
       call reduce_radial(dT_ICB_l, dT_ICB_l_global, 0)
       call reduce_radial(dT_ICB_m, dT_ICB_m_global, 0)
 
-      if ( rank == 0 .and. l_heat ) then
+      if ( coord_r == 0 .and. l_heat ) then
          !-- Radial Integrals:
          surf_ICB=four*pi*r_icb*r_icb
          fac      =one/vol_oc
@@ -1027,7 +1027,7 @@ contains
       call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
       call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          !-- Radial Integrals:
          fac_mag=0.5*LFfac*eScale
@@ -1088,7 +1088,7 @@ contains
             end if
          end if
 
-      end if ! rank == 0
+      end if ! l_master_rank
     
    end subroutine get_amplitude 
 !------------------------------------------------------------------------------

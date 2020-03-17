@@ -12,7 +12,7 @@ module updateXi_mod
    use blocking, only: lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: hdif_Xi
    use logic, only: l_update_xi, l_finite_diff, l_full_sphere
-   use parallel_mod, only: rank, chunksize, n_procs
+   use parallel_mod, only: coord_r, chunksize, n_ranks_r
    use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
    use fields, only: work_LMloc
@@ -51,10 +51,10 @@ contains
       integer :: ll, n_bands
       integer, pointer :: nLMBs2(:)
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
       if ( l_finite_diff ) then
-         allocate( type_bandmat :: xiMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: xiMat(nLMBs2(1+coord_r)) )
          allocate( type_bandmat :: xi0Mat )
 
          if ( ktopxi == 1 .and. kbotxi == 1 .and. rscheme_oc%order == 2 &
@@ -65,22 +65,22 @@ contains
          end if
 
          call xi0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call xiMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
       else
-         allocate( type_densemat :: xiMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: xiMat(nLMBs2(1+coord_r)) )
          allocate( type_densemat :: xi0Mat )
 
          call xi0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call xiMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
          end do
       end if
 
 #ifdef WITH_PRECOND_S
-      allocate(xiMat_fac(n_r_max,nLMBs2(1+rank)))
-      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+      allocate(xiMat_fac(n_r_max,nLMBs2(1+coord_r)))
+      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+coord_r)*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S0
       allocate(xi0Mat_fac(n_r_max))
@@ -106,9 +106,9 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
+      do ll=1,nLMBs2(1+coord_r)
          call xiMat(ll)%finalize()
       end do
       call xi0Mat%finalize()
@@ -155,7 +155,7 @@ contains
 
       if ( .not. l_update_xi ) return
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -164,7 +164,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      nLMB=1+rank
+      nLMB=1+coord_r
 
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dxidt, llm, ulm, n_r_max)

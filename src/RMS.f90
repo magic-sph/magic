@@ -162,7 +162,7 @@ contains
 
       dtvrms_file='dtVrms.'//tag
       dtbrms_file='dtBrms.'//tag
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          open(newunit=n_dtvrms_file, file=dtvrms_file, status='new')
          if ( l_mag ) then
             open(newunit=n_dtbrms_file, file=dtbrms_file, status='new')
@@ -220,7 +220,7 @@ contains
 
       call rscheme_RMS%finalize()
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          close(n_dtvrms_file)
          if ( l_mag ) close(n_dtbrms_file)
       end if
@@ -485,7 +485,7 @@ contains
       real(cp) :: Dif2hInt(n_r_max)
 
       complex(cp) :: workA(llm:ulm,n_r_max)
-      integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
       integer :: irank,sendcount
       character(len=80) :: fileName
@@ -508,83 +508,83 @@ contains
       end do
 #ifdef WITH_MPI
       call MPI_Reduce(DifPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPol2hInt(:,:)=global_sum
+           &          MPI_DEF_REAL,MPI_SUM,0,comm_r,ierr)
+      if ( coord_r == 0 ) DifPol2hInt(:,:)=global_sum
 #endif
 
-      ! First gather all needed arrays on rank 0
+      ! First gather all needed arrays on coord_r 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
 #ifdef WITH_MPI
 
       ! The following fields are only 1D and R distributed.
       sendcount = nR_per_rank*(l_max+1)
-      do irank=0,n_procs-1
+      do irank=0,n_ranks_r-1
          recvcounts(irank) = radial_balance(irank)%n_per_rank*(l_max+1)
       end do
       displs(0)=0
-      do irank=1,n_procs-1
+      do irank=1,n_ranks_r-1
          displs(irank) = displs(irank-1)+recvcounts(irank-1)
       end do
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Cor2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Adv2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Iner2hInt,recvcounts,displs,MPI_DEF_REAL,  &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              LF2hInt,recvcounts,displs,MPI_DEF_REAL,    &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
 
       if ( l_heat ) then
          call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
               &              Buo_temp2hInt,recvcounts,displs,           &
-              &              MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+              &              MPI_DEF_REAL,comm_r,ierr)
       end if
 
       if ( l_chemical_conv ) then
          call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
               &              Buo_xi2hInt,recvcounts,displs,MPI_DEF_REAL,&
-              &              MPI_COMM_WORLD,ierr)
+              &              comm_r,ierr)
       end if
 
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Pre2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Geo2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Mag2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Arc2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              ArcMag2hInt,recvcounts,displs,MPI_DEF_REAL,&
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              CIA2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              CLF2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              PLF2hInt,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
 
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
 
       call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifTor2hInt(:,:)=global_sum
+           &          MPI_DEF_REAL,MPI_SUM,0,comm_r,ierr)
+      if ( coord_r == 0 ) DifTor2hInt(:,:)=global_sum
 #endif
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          nRMS_sets=nRMS_sets+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
@@ -857,13 +857,13 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(dtBP, dtBP_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
+           &          0, comm_r, ierr)
       call MPI_Reduce(dtBT, dtBT_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
+           &          0, comm_r, ierr)
       call MPI_Reduce(dtBPAs, dtBPAs_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
+           &          0, comm_r, ierr)
       call MPI_Reduce(dtBTAs, dtBTAs_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, MPI_COMM_WORLD, ierr)
+           &          0, comm_r, ierr)
 #else
       dtBP_global(:)  =dtBP(:)
       dtBT_global(:)  =dtBT(:)
@@ -871,7 +871,7 @@ contains
       dtBTAs_global(:)=dtBTAs(:)
 #endif
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          dtBPolRms  =rInt_R(dtBP_global,r,rscheme_oc)
          dtBPolAsRms=rInt_R(dtBPAs_global,r,rscheme_oc)
@@ -1013,7 +1013,7 @@ contains
       call get_PolTorRms(PdynLM,drPdynLM,TdynLM,llm,ulm,DdynRms,dummy1, &
            &             DdynAsRms,dummy3,lo_map)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          !-- Output:
          if ( l_save_out) then
             open(newunit=n_dtbrms_file, file=dtbrms_file,  &

@@ -15,7 +15,7 @@ module updateS_mod
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
        &            l_full_sphere
-   use parallel_mod, only: rank, chunksize, n_procs
+   use parallel_mod, only: coord_r, chunksize, n_ranks_r
    use radial_der, only: get_ddr, get_dr
    use fields, only:  work_LMloc
    use constants, only: zero, one, two
@@ -53,10 +53,10 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
       if ( l_finite_diff ) then
-         allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: sMat(nLMBs2(1+coord_r)) )
          allocate( type_bandmat :: s0Mat )
 
          if ( ktops == 1 .and. kbots == 1 .and. rscheme_oc%order == 2 &
@@ -68,22 +68,22 @@ contains
 
          !print*, 'S', n_bands
          call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
       else
-         allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: sMat(nLMBs2(1+coord_r)) )
          allocate( type_densemat :: s0Mat )
 
          call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
          end do
       end if
 
 #ifdef WITH_PRECOND_S
-      allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
-      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+      allocate(sMat_fac(n_r_max,nLMBs2(1+coord_r)))
+      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+coord_r)*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S0
       allocate(s0Mat_fac(n_r_max))
@@ -108,9 +108,9 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
+      do ll=1,nLMBs2(1+coord_r)
          call sMat(ll)%finalize()
       end do
       call s0Mat%finalize()
@@ -157,7 +157,7 @@ contains
 
       if ( .not. l_update_s ) return
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -166,7 +166,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      nLMB=1+rank
+      nLMB=1+coord_r
 
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dsdt, llm, ulm, n_r_max)

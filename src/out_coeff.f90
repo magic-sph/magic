@@ -95,7 +95,7 @@ contains
 
       call gather_from_lo_to_rank0(b_LMloc, work)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          !--- Definition of max degree for output
          if ( l_max < l_max_cmb ) l_max_cmb=l_max
@@ -225,7 +225,7 @@ contains
       &        l_max_r-m_max_r+1
       n_data=2*lm_max_r-l_max_r-2
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          if ( nVBS == 1 ) then
             allocate(output(3*n_data))
          else if ( nVBS == 2 ) then
@@ -243,7 +243,7 @@ contains
 
       call gather_from_lo_to_rank0(w_LMloc, work)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          if ( nVBS == 3 ) then
             !--- Axisymmetric part of s: (m=0) only real part stored
             do l=0,l_max ! start with l=0
@@ -282,7 +282,7 @@ contains
 
          call gather_from_lo_to_rank0(dw_LMloc, work)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             !-- Now output for flow or magnetic field only:
             !--- Axisymmetric part of dw: (m=0) only real part stored
             do l=1,l_max
@@ -308,7 +308,7 @@ contains
 
          call gather_from_lo_to_rank0(z_LMloc, work)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             !--- Axisymmetric part of z: (m=0) only real part stored
             do l=1,l_max
                lm=lm2(l,0)
@@ -338,7 +338,7 @@ contains
 
          call gather_from_lo_to_rank0(ddw_LMloc, work)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             !--- Axisymmetric part of ddw: (m=0) only real part stored
             do l=1,l_max
                lm=lm2(l,0)
@@ -362,7 +362,7 @@ contains
          end if 
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          !--- Open output file with name $file:
          if ( l_save_out ) then
@@ -438,7 +438,7 @@ contains
 
 
       !-- Open file
-      call MPI_File_Open(MPI_COMM_WORLD, fileName, ior(MPI_MODE_WRONLY, &
+      call MPI_File_Open(comm_r, fileName, ior(MPI_MODE_WRONLY, &
            &             MPI_MODE_CREATE), info, fh, ierr)
 
 
@@ -447,7 +447,7 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
            &                 info, ierr)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Write the header of the file
          call MPI_File_Write(fh, version, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, real(time*tScale,outp), 1, MPI_OUT_REAL, &
@@ -478,13 +478,13 @@ contains
          call MPI_File_Write(fh, real(rho0,outp), n_r_max, MPI_OUT_REAL, &
               &              istat, ierr)
 
-         !-- Rank 0 gets the displacement
+         !-- coord_r 0 gets the displacement
          call MPI_File_get_position(fh, offset, ierr)
          call MPI_File_get_byte_offset(fh, offset, disp, ierr)
       end if
 
       !-- Broadcast the displacement
-      call MPI_Bcast(disp, 1, MPI_OFFSET, 0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(disp, 1, MPI_OFFSET, 0, comm_r, ierr)
 
       arr_size(1) = lm_max
       arr_size(2) = n_r_max
@@ -539,21 +539,21 @@ contains
       !-- Now inner core field
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             allocate ( work(lm_max, n_r_ic_max), tmp(lm_max, n_r_ic_max) ) 
          else
             allocate ( work(1,1), tmp(1,1) )
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC, b_ic, work)
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             tmp(:,:)=cmplx(work(:,:), kind=outp)
             call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
                  &              istat, ierr)
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC, aj_ic, work)
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             tmp(:,:)=cmplx(work(:,:), kind=outp)
             call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
                  &              istat, ierr)
@@ -602,10 +602,10 @@ contains
       if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
     
-      ! now gather the fields on rank 0 and write them to file
+      ! now gather the fields on coord_r 0 and write them to file
       ! it would be nicer to write the fields with MPI IO in parallel
       ! but then presumably the file format will change
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          allocate(workA_global(lm_max,n_r_max))
          allocate(workB_global(lm_max,n_r_max))
       else
@@ -616,7 +616,7 @@ contains
       call gather_all_from_lo_to_rank0(gt_OC, b, workA_global)
       call gather_all_from_lo_to_rank0(gt_OC, aj, workB_global)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !--- Write:
          if ( nPotSets == 0 ) then ! nPotSets=-1 on call
             fileName=head//tag
@@ -659,7 +659,7 @@ contains
          call gather_all_from_lo_to_rank0(gt_IC, b_ic, workA_global)
          call gather_all_from_lo_to_rank0(gt_IC, aj_ic, workB_global)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             write(fileHandle) ( (cmplx( real(workA_global(lm,n_r)),    &
             &                 aimag(workA_global(lm,n_r)), kind=outp ),&
             &          lm=1,lm_max),n_r=1,n_r_ic_max )
@@ -670,7 +670,7 @@ contains
 
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          close(fileHandle)
       end if
 

@@ -5,7 +5,7 @@ module finite_differences
    !
 
    use precision_mod
-   use parallel_mod, only: rank
+   use parallel_mod, only: coord_r
    use constants, only: one, two
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
@@ -466,7 +466,7 @@ contains
          use radial_functions, only: r
          integer :: file_handle
 
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             open(newunit=file_handle, file='dMats', form='unformatted', &
             &    access='stream')
 

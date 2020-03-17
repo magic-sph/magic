@@ -64,7 +64,7 @@ contains
       write(string, *) n_graph
       graph_file='G_'//trim(adjustl(string))//'.'//tag
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
          &    " ! Storing graphic file:",             &
          &    "             at time=",timeScaled,     &
@@ -86,7 +86,7 @@ contains
       call mpiio_setup(info)
 
 #ifdef WITH_MPI
-      call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
+      call MPI_File_open(comm_r,graph_file,             &
            &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
            &             MPI_INFO_NULL,graph_mpi_fh,ierr)
 #else
@@ -430,8 +430,8 @@ contains
 #endif
          size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
 
-         if ( rank == 0 ) then
-            ! rank zero writes the Header
+         if ( coord_r == 0 ) then
+            ! coord_r zero writes the Header
             disp = 0
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
                  &                 MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
@@ -445,7 +445,7 @@ contains
 
          bytes_written = 0
          !-- Write header & colatitudes for n_r=0:
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             !-------- Write parameters:
             call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER, &
                  &              status,ierr)
@@ -705,8 +705,8 @@ contains
 #endif
       size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
 
-      if ( rank == 0 ) then
-         ! rank zero writes the Header
+      if ( coord_r == 0 ) then
+         ! coord_r zero writes the Header
          disp = 0
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
                                 MPI_CHARACTER,"native",MPI_INFO_NULL,ierr)
@@ -720,7 +720,7 @@ contains
 
       bytes_written = 0
       !-- Write header & colatitudes for n_r=0:
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          !-------- Write parameters:
          call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
@@ -785,8 +785,8 @@ contains
       !  field onto graphic output file. If the inner core is
       !  insulating (l_cond_ic=false) the potential field is calculated
       !  from the outer core field at r=r_cmb.
-      !  This version assumes that the fields are fully local on the rank
-      !  which is calling this routine (usually rank 0).
+      !  This version assumes that the fields are fully local on the coord_r
+      !  which is calling this routine (usually coord_r 0).
       !
 
       !-- Input variables:
@@ -826,7 +826,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      !-- One has to bring rank=0 to the end of the file
+      !-- One has to bring coord_r=0 to the end of the file
       if ( .not. l_avg_loc ) then
          offset = 0
          call MPI_File_Seek(graph_mpi_fh, offset, MPI_SEEK_END, ierr)
@@ -890,7 +890,7 @@ contains
 
 
 #ifdef WITH_MPI
-         ! in process n_procs-1 the last oc fields have been written,
+         ! in process n_ranks_r-1 the last oc fields have been written,
          ! Now just append on this process.
          if ( .not. l_avg_loc ) then
             call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_OUT_REAL,1,  &

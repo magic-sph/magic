@@ -31,7 +31,7 @@ module start_fields
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
-   use parallel_mod, only: rank, n_procs
+   use parallel_mod, only: coord_r, n_ranks_r
    use radial_der, only: get_dr
    use readCheckPoints, only: readStartFields_old, readStartFields
    use time_schemes, only: type_tscheme
@@ -91,13 +91,13 @@ contains
       !     Can be done before setting the fields
       if ( l_heat ) then
 
-         if ( rank == 0 ) open(newunit=filehandle, file='pscond.dat')
+         if ( l_master_rank ) open(newunit=filehandle, file='pscond.dat')
 
          if ( l_anelastic_liquid ) then ! temperature
 
             call pt_cond(s0,p0)
 
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                do n_r=1,n_r_max
                   write(filehandle,'(5ES20.12)') r(n_r), osq4pi*otemp1(n_r)*&
                   &            (s0(n_r)-ViscHeatFac*ThExpNb*alpha0(n_r)*    &
@@ -136,7 +136,7 @@ contains
 
             call ps_cond(s0,p0)
 
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                do n_r=1,n_r_max
                   write(filehandle,'(5ES20.12)') r(n_r), s0(n_r)*osq4pi, &
                   &            p0(n_r)*osq4pi, osq4pi*temp0(n_r)*(       &
@@ -173,7 +173,7 @@ contains
 
          end if
 
-         if ( rank == 0 ) close(filehandle)
+         if ( l_master_rank ) close(filehandle)
 
       else
          topcond  =0.0_cp
@@ -229,19 +229,19 @@ contains
 #endif
          end if
          call t_reader%stop_count()
-         if ( rank == 0 .and. l_save_out ) then
+         if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
          call t_reader%finalize('! Time taken to read the checkpoint file:', &
               &                 n_log_file)
-         if ( rank == 0 .and. l_save_out ) close(n_log_file)
+         if ( l_save_out ) close(n_log_file)
 
          if ( tscheme%dt(1) > 0.0_cp ) then
-            if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') tscheme%dt(1)
+            if ( l_master_rank ) write(message,'(''! Using old time step:'',ES16.6)') tscheme%dt(1)
          else
             tscheme%dt(1)=dtMax
-            if ( rank==0 ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
+            if ( l_master_rank ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
 
          if ( .not. l_heat ) s_LMloc(:,:)=zero
@@ -268,12 +268,12 @@ contains
          time         =0.0_cp
          tscheme%dt(:)=dtMax
          n_time_step  =0
-         if (rank == 0) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
+         if (l_master_rank) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
       end if
       call logWrite(message)
 
 #ifdef WITH_MPI
-      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_Barrier(comm_r, ierr)
 #endif
 
       !-- Initialize the weights of the time scheme

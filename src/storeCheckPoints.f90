@@ -98,7 +98,7 @@ contains
          end if
       end if
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          open(newunit=n_rst_file, file=rst_file, status='unknown', &
          &    form='unformatted', access='stream')
 
@@ -174,13 +174,13 @@ contains
       end if
 
       !-- Memory allocation of global arrays to write outputs
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          allocate( work(lm_max,n_r_max) )
       else
          allocate( work(1,1) )
       end if
 
-      !-- Gather fields on rank 0 and write
+      !-- Gather fields on coord_r 0 and write
 
       !-- Poloidal flow
       call write_one_field(n_rst_file, tscheme, w, dwdt, work)
@@ -206,42 +206,42 @@ contains
       !-- Inner core magnetic field
       if ( l_mag .and. l_cond_ic ) then
          deallocate( work )
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1) )
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
-         if ( rank == 0 ) write(n_rst_file) work
+         if ( l_master_rank ) write(n_rst_file) work
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
-               if ( rank == 0 ) write(n_rst_file) work
+               if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nimp
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%impl(:,:,n_o),work)
-               if ( rank == 0 ) write(n_rst_file) work
+               if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nold
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%old(:,:,n_o),work)
-               if ( rank == 0 ) write(n_rst_file) work
+               if ( l_master_rank ) write(n_rst_file) work
             end do
          end if
          call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
-         if ( rank == 0 ) write(n_rst_file) work
+         if ( l_master_rank ) write(n_rst_file) work
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
-               if ( rank == 0 ) write(n_rst_file) work
+               if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nimp
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%impl(:,:,n_o),work)
-               if ( rank == 0 ) write(n_rst_file) work
+               if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nold
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%old(:,:,n_o),work)
-               if ( rank == 0 ) write(n_rst_file) work
+               if ( l_master_rank ) write(n_rst_file) work
             end do
          end if
 
@@ -252,7 +252,7 @@ contains
 
 
       !-- Close checkpoint file and display a message in the log file
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
 
          close(n_rst_file)
 
@@ -292,22 +292,22 @@ contains
       integer :: n_o
 
       call gather_all_from_lo_to_rank0(gt_OC, w, work)
-      if ( rank == 0 ) write(fh) work
+      if ( l_master_rank ) write(fh) work
 
       if ( tscheme%family == 'MULTISTEP' ) then
          do n_o=2,tscheme%nexp
             call gather_all_from_lo_to_rank0(gt_OC, dwdt%expl(:,:,n_o), work)
-            if ( rank == 0 ) write(fh) work
+            if ( l_master_rank ) write(fh) work
          end do
 
          do n_o=2,tscheme%nimp
             call gather_all_from_lo_to_rank0(gt_OC, dwdt%impl(:,:,n_o), work)
-            if ( rank == 0 ) write(fh) work
+            if ( l_master_rank ) write(fh) work
          end do
 
          do n_o=2,tscheme%nold
             call gather_all_from_lo_to_rank0(gt_OC, dwdt%old(:,:,n_o), work)
-            if ( rank == 0 ) write(fh) work
+            if ( l_master_rank ) write(fh) work
          end do
       end if
 
@@ -383,15 +383,15 @@ contains
       call mpiio_setup(info)
 
       !-- Open file
-      call MPI_File_Open(MPI_COMM_WORLD, rst_file, ior(MPI_MODE_WRONLY, &
+      call MPI_File_Open(comm_r, rst_file, ior(MPI_MODE_WRONLY, &
            &             MPI_MODE_CREATE), info, fh, ierr)
 
       disp = 0
       call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
            &                 info, ierr)
 
-      !-- Only rank=0 writes the header of the file
-      if ( rank == 0 ) then
+      !-- Only coord_r=0 writes the header of the file
+      if ( l_master_rank ) then
          !-- Write the header of the file
          call MPI_File_Write(fh, version, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, time*tScale, 1, MPI_DEF_REAL, istat, ierr)
@@ -509,13 +509,13 @@ contains
          call MPI_File_Write(fh, l_press_store, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_cond_ic, 1, MPI_LOGICAL, istat, ierr)
 
-         !-- Rank 0 gets the displacement
+         !-- coord_r 0 gets the displacement
          call MPI_File_get_position(fh, offset, ierr)
          call MPI_File_get_byte_offset(fh, offset, disp, ierr)
       end if
 
       !-- Broadcast the displacement
-      call MPI_Bcast(disp, 1, MPI_OFFSET, 0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(disp, 1, MPI_OFFSET, 0, comm_r, ierr)
 
       arr_size(1) = lm_max
       arr_size(2) = n_r_max
@@ -583,38 +583,38 @@ contains
       call MPI_Type_Free(datatype, ierr)
       deallocate( work )
 
-      !-- Inner core magnetic field (only written by rank 0 for now)
+      !-- Inner core magnetic field (only written by coord_r 0 for now)
       if ( l_mag .and. l_cond_ic ) then
 
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1) )
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%impl(:,:,n_o),work)
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%old(:,:,n_o),work)
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
@@ -622,28 +622,28 @@ contains
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%impl(:,:,n_o),work)
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
                call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%old(:,:,n_o),work)
-               if ( rank == 0 ) then
+               if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
@@ -662,7 +662,7 @@ contains
       call MPI_File_close(fh, ierr)
 
       !-- Close checkpoint file and display a message in the log file
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
 
          write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
          &    " ! Storing checkpoint file:",          &

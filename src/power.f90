@@ -60,7 +60,7 @@ contains
       eDiffInt =0.0_cp
 
       power_file='power.'//tag
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          open(newunit=n_power_file, file=power_file, status='new')
       end if
 
@@ -73,7 +73,7 @@ contains
       call visc_ave%finalize()
       call ohm_ave%finalize()
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          close(n_power_file)
       end if
 
@@ -234,7 +234,7 @@ contains
       buoy     =0.0_cp
       buoy_chem=0.0_cp
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          n_calls = n_calls+1
          !-- Transform to cheb space:
          if ( l_conv ) then
@@ -280,11 +280,11 @@ contains
 
          call reduce_radial(curlB2_rIC, curlB2_rIC_global, 0)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic,chebt_ic)
          end if
       else
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             curlB2_IC=0.0_cp
          end if
       end if  ! conducting inner core ?
@@ -319,33 +319,33 @@ contains
          end if
 
 #ifdef WITH_MPI
-         if ( rank /= 0 ) then
-            ! send data to rank 0
+         if ( coord_r /= 0 ) then
+            ! send data to coord_r 0
             call MPI_Send(z10ICB, 1, MPI_DEF_COMPLEX, 0, sr_tag, &
-                 &        MPI_COMM_WORLD, ierr)
+                 &        comm_r, ierr)
             call MPI_Send(drz10ICB, 1, MPI_DEF_COMPLEX, 0, sr_tag+1, &
-                 &        MPI_COMM_WORLD, ierr)
+                 &        comm_r, ierr)
             call MPI_Send(z10CMB, 1, MPI_DEF_COMPLEX, 0, sr_tag+2, &
-                 &        MPI_COMM_WORLD, ierr)
+                 &        comm_r, ierr)
             call MPI_Send(drz10CMB, 1, MPI_DEF_COMPLEX, 0, sr_tag+3, &
-                 &        MPI_COMM_WORLD, ierr)
+                 &        comm_r, ierr)
          end if
 #endif
          rank_has_l1m0=.true.
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 #ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
             ! receive data from the source ranks
             call MPI_Recv(z10ICB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag, MPI_COMM_WORLD, status, ierr)
+                 &        sr_tag, comm_r, status, ierr)
             call MPI_Recv(drz10ICB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag+1, MPI_COMM_WORLD, status, ierr)
+                 &        sr_tag+1, comm_r, status, ierr)
             call MPI_Recv(z10CMB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag+2, MPI_COMM_WORLD, status, ierr)
+                 &        sr_tag+2, comm_r, status, ierr)
             call MPI_Recv(drz10CMB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag+3, MPI_COMM_WORLD, status, ierr)
+                 &        sr_tag+3, comm_r, status, ierr)
          end if
 #endif
 

@@ -43,22 +43,22 @@ module LMmapping
    end type subblocks_mappings
    
    !
-   ! n_ml_loc: number of ml tuples in this rank. This means that mlo goes
-   !   from 1 to n_ml_loc in this rank. Each mlo corresponds to a (m,l) tuple.
+   ! n_ml_loc: number of ml tuples in this coord_r. This means that mlo goes
+   !   from 1 to n_ml_loc in this coord_r. Each mlo corresponds to a (m,l) tuple.
    ! 
-   ! dist_ml2(rank,m,l): the mlo index of tuplet (m,l) in rank. If this 
-   ! tuple is not stored in "rank", then its value is -1.
-   ! dist_ml2l(rank,mlo): the value of l for the index mlo in rank "rank"
-   ! dist_ml2m(rank,mlo): the value of m for the index mlo in rank "rank"
+   ! dist_ml2(coord_r,m,l): the mlo index of tuplet (m,l) in coord_r. If this 
+   ! tuple is not stored in "coord_r", then its value is -1.
+   ! dist_ml2l(coord_r,mlo): the value of l for the index mlo in coord_r "coord_r"
+   ! dist_ml2m(coord_r,mlo): the value of m for the index mlo in coord_r "coord_r"
    !
    ! ml2(m,l): a pointer to dist_ml2(coord_mlo,m,l)
    ! ml2l(mlo): a pointer to dist_ml2l(coord_mlo,mlo)
    ! ml2m(mlo): a pointer to dist_ml2m(coord_mlo,mlo)
    ! 
-   ! li2lo(n_lo_loc): the list of all l's found in the current rank
-   ! mi2mo(n_mo_loc): the list of all m's found in the current rank
-   ! Notice that not all (m,l) pairs are present in this rank; for instance
-   ! (2,5) and (1,6) might be in this rank, but (2,6) and (1,5) are not!
+   ! li2lo(n_lo_loc): the list of all l's found in the current coord_r
+   ! mi2mo(n_mo_loc): the list of all m's found in the current coord_r
+   ! Notice that not all (m,l) pairs are present in this coord_r; for instance
+   ! (2,5) and (1,6) might be in this coord_r, but (2,6) and (1,5) are not!
    ! 
    ! With the structure above you can loop over all local l and m as:
    !  do li=1,n_lo_loc
@@ -411,7 +411,7 @@ contains
       end do
       
       ! Maps all local m,l tuplets into a global array of size l_max,l_max
-      ! The tuples which do not belong to this rank are marked with Invalid_Idx
+      ! The tuples which do not belong to this coord_r are marked with Invalid_Idx
       do i = 1,n_mlo_loc
          m  = dist_mlo(coord_mlo,i,1)
          l  = dist_mlo(coord_mlo,i,2)
@@ -468,13 +468,13 @@ contains
       
       
       if (coord_m == 0 .and. coord_r == 0) then
-         print "(' ! ',A,' mapping in rank ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')", name, &
+         print "(' ! ',A,' mapping in coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')", name, &
             0, count_m, count_l, map%n_lm
       end if
       call mpi_barrier(mpi_comm_world,ierr)
       do irank=1,n_ranks_m-1
          if (coord_m == irank .and. coord_r == 0) then
-            print "(' !                rank ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')", &
+            print "(' !                coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')", &
                irank, count_m, count_l, map%n_lm
          end if
          call mpi_barrier(mpi_comm_world,ierr)

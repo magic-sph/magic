@@ -61,11 +61,11 @@ contains
       
       pos = 1
       do irank=0,n_ranks_m-1
-         !-- Copy each m which belongs to the irank-th rank into the send buffer
+         !-- Copy each m which belongs to the irank-th coord_r into the send buffer
          !   column-wise. That will simplify a lot things later
          !
-         !-- TODO check performance of this; implementing this with mpi_type
-         !   striding the data will probably be faster
+         !@>TODO check performance of this; implementing this with mpi_type
+         !  striding the data could be faster
          senddispl(irank) = pos-1
          do itheta=1,n_theta_loc
             do j=1,dist_m(irank,0)
@@ -78,6 +78,8 @@ contains
          sendcount(irank) = pos - senddispl(irank) - 1
          recvdispl(irank) = irank*n_m_loc*dist_theta(irank,0)
          recvcount(irank) =   n_m_loc*dist_theta(irank,0)
+         print *, "m_theta send:", irank, sendcount(irank), senddispl(irank)
+         print *, "m_theta recv:", irank, recvcount(irank), recvdispl(irank)
       end do
       
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DOUBLE_COMPLEX, &
@@ -132,10 +134,10 @@ contains
                          comm_theta, irank)
       
       !-- Now we reorder the receiver buffer. If the m distribution looks like:
-      !   rank 0: 0, 4,  8, 12, 16
-      !   rank 1: 1, 5,  9, 13
-      !   rank 2: 2, 6, 10, 14
-      !   rank 3: 3, 7, 11, 15
+      !   coord_r 0: 0, 4,  8, 12, 16
+      !   coord_r 1: 1, 5,  9, 13
+      !   coord_r 2: 2, 6, 10, 14
+      !   coord_r 3: 3, 7, 11, 15
       !   then the columns of recvbuf are ordered as 0,4,8,12,16,1,5,9,13(...)
       !   and so forth. m_arr will contain this ordering (+1):
       m_arr = reshape(transpose(dist_m(:,1:)), &

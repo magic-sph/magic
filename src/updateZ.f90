@@ -66,10 +66,10 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
       if ( l_finite_diff ) then
-         allocate( type_bandmat :: zMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: zMat(nLMBs2(1+coord_r)) )
          allocate( type_bandmat :: z10Mat )
 
          if ( ktopv /= 1 .and. kbotv /= 1 .and. rscheme_oc%order <= 2  .and. &
@@ -79,7 +79,7 @@ contains
             n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call zMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
 
@@ -95,11 +95,11 @@ contains
          call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
 
       else
-         allocate( type_densemat :: zMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: zMat(nLMBs2(1+coord_r)) )
          allocate( type_densemat :: z10Mat )
 
          call z10Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call zMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
          end do
       end if
@@ -109,8 +109,8 @@ contains
       bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_Z
-      allocate(zMat_fac(n_r_max,nLMBs2(1+rank)))
-      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+      allocate(zMat_fac(n_r_max,nLMBs2(1+coord_r)))
+      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+coord_r)*SIZEOF_DEF_REAL
 #endif
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
@@ -137,9 +137,9 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
+      do ll=1,nLMBs2(1+coord_r)
          call zMat(ll)%finalize()
       end do
       call z10Mat%finalize()
@@ -208,7 +208,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -218,7 +218,7 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
 
-      nLMB = 1+rank
+      nLMB = 1+coord_r
       lmStart_00 =max(2,llm)
       l1m0       =lm2(1,0)
 
@@ -522,7 +522,7 @@ contains
          do nR=1,n_r_max
 #ifdef WITH_MPI
             call MPI_Allreduce(ddzASL_loc(:,nR), ddzASL(:,nR), l_max+1, &
-                 &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+                 &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
 #else
             ddzASL(:,nR)=ddzASL_loc(:,nR)
 #endif

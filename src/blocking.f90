@@ -5,7 +5,7 @@ module blocking
 
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use parallel_mod, only: nThreads, rank, n_procs
+   use parallel_mod, only: nThreads, coord_r, n_ranks_r, coord_r, l_master_rank
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
        &                 minc, n_r_max, m_max, l_axi, rank_with_l1m0, load, getBlocks
    use logic, only: l_save_out, l_finite_diff, l_mag
@@ -114,23 +114,23 @@ contains
       call allocate_mappings(lo_map,l_max,lm_max,lmP_max)
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
-         write(n_log_file,'(A,I5)') ' ! Number of MPI ranks:', n_procs
+         write(n_log_file,'(A,I5)') ' ! Number of MPI ranks:', n_ranks_r
          if ( l_save_out ) close(n_log_file)
       end if
 
-      sizeLMB=(lm_max-1)/n_procs+1
+      sizeLMB=(lm_max-1)/n_ranks_r+1
 
       !--- Get radial blocking
       if ( .not. l_finite_diff ) then
-         if ( mod(n_r_max-1,n_procs) /= 0 ) then
-            if ( rank == 0 ) then
-               write(*,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
-               write(*,*) 'n_procs :',n_procs
+         if ( mod(n_r_max-1,n_ranks_r) /= 0 ) then
+            if ( l_master_rank ) then
+               write(*,*) 'Number of MPI n_ranks_r has to be multiple of n_r_max-1!'
+               write(*,*) 'n_ranks_r :',n_ranks_r
                write(*,*) 'n_r_max-1:',n_r_max-1
             end if
             call abortRun('Stop run in blocking')
@@ -138,13 +138,13 @@ contains
       end if
 
       !-- Get firt-touch LM blocking
-      allocate( lm_balance(0:n_procs-1) )
-      call getBlocks(lm_balance, lm_max, n_procs)
+      allocate( lm_balance(0:n_ranks_r-1) )
+      call getBlocks(lm_balance, lm_max, n_ranks_r)
 
       !-- Fix LM balance in case of snake ordering
       call get_standard_lm_blocking(st_map,minc)
       !call get_standard_lm_blocking(lo_map,minc)
-      if (n_procs <= l_max/2) then
+      if (n_ranks_r <= l_max/2) then
          !better load balancing, but only up to l_max/2
          call get_snake_lm_blocking(lo_map,minc,lm_balance)
       else
@@ -154,8 +154,8 @@ contains
 
 
       !-- Define llm and ulm
-      llm = lm_balance(rank)%nStart
-      ulm = lm_balance(rank)%nStop
+      llm = lm_balance(coord_r)%nStart
+      ulm = lm_balance(coord_r)%nStop
       if ( l_mag ) then
          llmMag = llm
          ulmMag = ulm
@@ -164,9 +164,9 @@ contains
          ulmMag = 1
       end if
 
-      !--- Get the block (rank+1) with the l1m0 mode
+      !--- Get the block (coord_r+1) with the l1m0 mode
       l1m0 = lo_map%lm2(1,0)
-      do n=0,n_procs-1
+      do n=0,n_ranks_r-1
          if ( (l1m0 >= lm_balance(n)%nStart) .and. (l1m0 <= lm_balance(n)%nStop) ) then
             rank_with_l1m0=n
             exit
@@ -175,7 +175,7 @@ contains
 
       if (DEBUG_OUTPUT) then
          ! output the lm -> l,m mapping
-         if (rank == 0) then
+         if (l_master_rank) then
             do lm=1,lm_max
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
@@ -199,8 +199,8 @@ contains
       lm2lmP(1:lm_max) => st_map%lm2lmP
       lmP2lm(1:lmP_max) => st_map%lmP2lm
 
-      call allocate_subblocks_mappings(st_sub_map,st_map,n_procs,l_max,lm_balance)
-      call allocate_subblocks_mappings(lo_sub_map,lo_map,n_procs,l_max,lm_balance)
+      call allocate_subblocks_mappings(st_sub_map,st_map,n_ranks_r,l_max,lm_balance)
+      call allocate_subblocks_mappings(lo_sub_map,lo_map,n_ranks_r,l_max,lm_balance)
 
       !--- Getting lm sub-blocks:
       call get_subblocks(st_map, st_sub_map) 
@@ -209,7 +209,7 @@ contains
       !PRINT*," ---------------- Making the snake order subblocks ----------- "
 
       ! default mapping
-      nLMBs2(1:n_procs) => st_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => st_sub_map%nLMBs2
       sizeLMB2(1:,1:) => st_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => st_sub_map%lm22lm
       lm22l(1:,1:,1:) => st_sub_map%lm22l
@@ -240,7 +240,7 @@ contains
       ! nfs = sizeThetaB
       ! nThetaBs = n_theta_max/nfs
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
@@ -307,7 +307,7 @@ contains
       lStop=.false.
       size=0
       nB2=0
-      do n=1,n_procs
+      do n=1,n_ranks_r
          sub_map%nLMBs2(n)=1
          lm=lm_balance(n-1)%nStart
          !PRINT*,n,": lm = ",lm
@@ -382,8 +382,8 @@ contains
             !             write(99,*) n,n2,sub_map%sizeLMB2(n2,n)
          end do
          if (DEBUG_OUTPUT) then
-            if (rank == 0) then
-               write(*,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",n_procs
+            if (coord_r == 0) then
+               write(*,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",n_ranks_r
                do n2=1,sub_map%nLMBs2(n)
                   write(*,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
                        & sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
@@ -621,14 +621,14 @@ contains
    subroutine get_snake_lm_blocking(map, minc, lm_balance)
 
       type(mappings), intent(inout) :: map
-      type(load),     intent(inout) :: lm_balance(0:n_procs-1)
+      type(load),     intent(inout) :: lm_balance(0:n_ranks_r-1)
       integer,        intent(in) :: minc
 
       ! Local variables
       integer :: l,proc,lm,m,i_l,lmP,mc
       logical :: Ascending
-      integer :: l_list(0:n_procs-1,map%l_max+1)
-      integer :: l_counter(0:n_procs-1)
+      integer :: l_list(0:n_ranks_r-1,map%l_max+1)
+      integer :: l_counter(0:n_ranks_r-1)
       integer :: temp_l_counter,l0proc,pc,src_proc,temp
       integer :: temp_l_list(map%l_max+1)
 
@@ -657,9 +657,9 @@ contains
          if (l == 0) l0proc=proc
          ! now determine on which proc to put the next l value
          if (Ascending) then
-            if (proc < n_procs-1) then
+            if (proc < n_ranks_r-1) then
                proc=proc+1
-            else if (proc == n_procs-1) then
+            else if (proc == n_ranks_r-1) then
                Ascending=.false.
             end if
          else
@@ -672,7 +672,7 @@ contains
       end do
 
       if (DEBUG_OUTPUT) then
-         do proc=0,n_procs-1
+         do proc=0,n_ranks_r-1
             if (proc == l0proc) then
                write(*,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
             else
@@ -692,7 +692,7 @@ contains
          temp_l_counter=l_counter(0)
          pc = 0
          do while (.true.)
-            src_proc=modulo(l0proc+pc,n_procs)
+            src_proc=modulo(l0proc+pc,n_ranks_r)
             if (src_proc /= 0) then
                l_list(pc,:)=l_list(src_proc,:)
                l_counter(pc)=l_counter(src_proc)
@@ -721,7 +721,7 @@ contains
 
       if (DEBUG_OUTPUT) then
          write(*,"(A)") "Ordering after the l0proc reordering:"
-         do proc=0,n_procs-1
+         do proc=0,n_ranks_r-1
             if (proc == l0proc) then
                write(*,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
             else
@@ -737,7 +737,7 @@ contains
       lm=1
       lmP=1
       if ( .not. l_axi ) then
-         do proc=0,n_procs-1
+         do proc=0,n_ranks_r-1
             lm_balance(proc)%nStart=lm
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
@@ -763,7 +763,7 @@ contains
             lm_balance(proc)%nStop=lm-1
          end do
       else
-         do proc=0,n_procs-1
+         do proc=0,n_ranks_r-1
             lm_balance(proc)%nStart=lm
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
@@ -786,8 +786,8 @@ contains
 
       end if
 
-      !-- Recalculate the number of data per rank
-      do proc=0,n_procs-1
+      !-- Recalculate the number of data per coord_r
+      do proc=0,n_ranks_r-1
          lm_balance(proc)%n_per_rank=lm_balance(proc)%nStop-lm_balance(proc)%nStart+1
       end do
 

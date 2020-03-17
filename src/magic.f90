@@ -198,7 +198,7 @@ program magic
    call run_time_start%start_count()
 
    !--- Read starting time
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       write(output_unit,*)
       write(output_unit,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
       call date_and_time(values=values)
@@ -227,7 +227,7 @@ program magic
 
    log_file='log.'//tag
 
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
       write(n_log_file,*) '!      __  __             _____ _____   _____ ___        '
@@ -327,10 +327,10 @@ program magic
 
 #ifdef WITH_SHTNS
    call init_shtns()
-   call test_shtns()
+! ! ! ! ! ! ! ! ! ! ! ! !    call test_shtns()
 #endif
 
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       call tscheme%print_info(n_log_file)
    end if
 
@@ -348,12 +348,12 @@ program magic
    !local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('Total I/O', local_bytes_used)
 
-   if (rank == 0) print*, '-----> rank 0 has', bytes_allocated, ' B allocated'
+   if (coord_r == 0) print*, '-----> coord_r 0 has', bytes_allocated, ' B allocated'
 
 
    call finalize_memory_counter
 
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       if ( l_save_out ) then
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
@@ -373,7 +373,7 @@ program magic
    call preCalcTimes(time,n_time_step)
 
    !--- Write info to STDOUT and log-file:
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       if ( l_save_out ) then
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
@@ -386,7 +386,7 @@ program magic
    !--- AND NOW FOR THE TIME INTEGRATION:
 
    !--- Write starting time to SDTOUT and logfile:
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       if ( l_save_out ) then
          open(newunit=n_log_file, file=log_file, status='unknown',  &
          &    position='append')
@@ -412,15 +412,15 @@ program magic
 
    !-- Stop counting time and print
    call run_time%stop_count()
-   if ( rank == 0 .and. l_save_out ) then
+   if ( l_save_out ) then
       open(newunit=n_log_file, file=log_file, status='unknown', &
       &    position='append')
    end if
    call run_time%finalize('! Total run time:', n_log_file)
-   if ( rank == 0 .and. l_save_out ) close(n_log_file)
+   if ( l_save_out ) close(n_log_file)
 
    !--- Write stop time to SDTOUR and logfile:
-   if ( rank == 0 ) then
+   if ( l_master_rank ) then
       if ( l_save_out ) then
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
@@ -497,7 +497,7 @@ program magic
    call tscheme%finalize()
    call finalize_output()
 
-   if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
+   if ( l_master_rank .and. .not. l_save_out )  close(n_log_file)
 
    PERFOFF
    PERFOUT('main')
@@ -505,7 +505,19 @@ program magic
    LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI
-   call MPI_Finalize(ierr)
+
+#ifdef WITHPERF
+   do n=0,n_ranks-1
+      if (rank == n) then
+         print *, "PerfOut for rank: ", rank
+         print *, "======================================================="
+         PERFOUT('main')
+      end if
+      flush(6)
+      call mpi_barrier(mpi_comm_world,ierr)
+   end do
+#endif
+   call mpi_finalize(ierr)
 #endif
 
 end program magic

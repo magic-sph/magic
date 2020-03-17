@@ -67,13 +67,13 @@ contains
          end do
 #ifdef WITH_MPI
          call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVpLMr(:,nR), l_max+1, &
-              &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+              &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
 #else
          dzVpLMr(:,nR)=dzVpLMr_loc(:,nR)
 #endif
       end do
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          !---- Transform the contributions to cheb space for z-integral:
          call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)

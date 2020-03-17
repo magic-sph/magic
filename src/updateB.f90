@@ -27,7 +27,7 @@ module updateB_mod
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
-   use parallel_mod, only:  rank, chunksize, n_procs
+   use parallel_mod, only:  coord_r, chunksize, n_ranks_r
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
@@ -65,11 +65,11 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: maxThreads, ll, n_bandsJ, n_bandsB
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
       if ( l_finite_diff .and. (.not. l_cond_ic) ) then
-         allocate( type_bandmat :: jMat(nLMBs2(1+rank)) )
-         allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: jMat(nLMBs2(1+coord_r)) )
+         allocate( type_bandmat :: bMat(nLMBs2(1+coord_r)) )
 
          if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
          &    rscheme_oc%order  > 2 .or. rscheme_oc%order_boundary > 2 ) then
@@ -86,24 +86,24 @@ contains
             n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
             call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
          end do
       else
-         allocate( type_densemat :: jMat(nLMBs2(1+rank)) )
-         allocate( type_densemat :: bMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: jMat(nLMBs2(1+coord_r)) )
+         allocate( type_densemat :: bMat(nLMBs2(1+coord_r)) )
 
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call bMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
             call jMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
          end do
       end if
 
 #ifdef WITH_PRECOND_BJ
-      allocate(bMat_fac(n_r_tot,nLMBs2(1+rank)))
-      allocate(jMat_fac(n_r_tot,nLMBs2(1+rank)))
-      bytes_allocated = bytes_allocated+2*n_r_tot*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+      allocate(bMat_fac(n_r_tot,nLMBs2(1+coord_r)))
+      allocate(jMat_fac(n_r_tot,nLMBs2(1+coord_r)))
+      bytes_allocated = bytes_allocated+2*n_r_tot*nLMBs2(1+coord_r)*SIZEOF_DEF_REAL
 #endif
       allocate( lBmat(0:l_maxMag) )
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
@@ -144,9 +144,9 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
+      do ll=1,nLMBs2(1+coord_r)
          call jMat(ll)%finalize()
          call bMat(ll)%finalize()
       end do
@@ -242,7 +242,7 @@ contains
 
       if ( .not. l_update_b ) RETURN
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -251,7 +251,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      nLMB=1+rank
+      nLMB=1+coord_r
       lmStart_00=max(2,llmMag)
 
       !-- Now assemble the right hand side and store it in work_LMloc
@@ -272,7 +272,7 @@ contains
       call solve_counter%start_count()
       !$omp end single
       ! This is a loop over all l values which should be treated on
-      ! the actual MPI rank
+      ! the actual MPI coord_r
       !$OMP SINGLE
       do nLMB2=1,nLMBs2(nLMB)
          !$OMP TASK default(shared) &

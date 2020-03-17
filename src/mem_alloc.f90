@@ -28,18 +28,18 @@ contains
       integer :: iproc
 
       bytes_allocated = 0 !
-      n_ranks_print = min(n_procs-1, 6)
+      n_ranks_print = min(n_ranks-1, 6)
 
       if ( n_ranks_print > 0 ) then
          allocate ( ranks_selected(n_ranks_print) )
-         if ( n_procs < 8 ) then
-            ranks_selected = [(iproc,iproc=1,n_procs-1)]
+         if ( n_ranks < 8 ) then
+            ranks_selected = [(iproc,iproc=1,n_ranks-1)]
          else
-            ranks_selected =[1,2,3,4,n_procs-2,n_procs-1]
+            ranks_selected =[1,2,3,4,n_ranks-2,n_ranks-1]
          end if
       end if
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          memory_file = 'mem_alloc.'//tag
          open(newunit=n_memory_file, file=memory_file, &
          &    status='unknown', position='append')
@@ -63,13 +63,13 @@ contains
 
       header=' !----------------------------------------------'
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          header(len(header)/2-len(origin)/2-1:len(header)/2+len(origin)/2+1) = &
                    ' '//origin//' '
          !write(n_memory_file, "(A20,A25)") ' !-----------------', origin
          write(n_memory_file, "(A48)") header
          st = human_readable_size(bytes_alloc)
-         write(n_memory_file, "(A17,A,I4)") st," allocated on rank ", rank
+         write(n_memory_file, "(A17,A,I4)") st," allocated on coord_r ", coord_r
       end if
 
 #ifdef WITH_MPI
@@ -79,28 +79,28 @@ contains
 
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
-            if ( rank == iproc ) then
+            if ( coord_r == iproc ) then
                call MPI_Send(bytes_alloc,1,MPI_INTEGER8,0,sr_tag+iproc, &
-                    &        MPI_COMM_WORLD,ierr)
+                    &        mpi_comm_world,ierr)
             end if
          end do
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                call MPI_Recv(bytes_other_proc,1,MPI_INTEGER8,iproc,sr_tag+iproc, &
-                    &        MPI_COMM_WORLD,status,ierr)
-               if ( n_procs > 8 .and. iproc == n_procs -2 ) then
+                    &        mpi_comm_world,status,ierr)
+               if ( n_ranks > 8 .and. iproc == n_ranks -2 ) then
                   write(n_memory_file, *) "               ..."
                end if
                st = human_readable_size(bytes_other_proc)
-               write(n_memory_file, "(A17,A,I4)") st, " allocated on rank ", iproc
+               write(n_memory_file, "(A17,A,I4)") st, " allocated on coord_r ", iproc
             end if
          end do
 
       end if
 #endif
 
-      if ( rank == 0 ) write(n_memory_file, *) " "
+      if ( l_master_rank ) write(n_memory_file, *) " "
 
    end subroutine memWrite
 !------------------------------------------------------------------------------
@@ -114,14 +114,14 @@ contains
 #endif
 
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          write(n_memory_file, *) " "
          write(n_memory_file, *) "!=============================================="
          write(n_memory_file, *) "!           TOTAL MEMORY ALLOCATION           !"
          write(n_memory_file, *) "!=============================================="
          write(n_memory_file, *) " "
          st = human_readable_size(bytes_allocated)
-         write(n_memory_file, "(A17,A,I4)") st," allocated on rank ", rank
+         write(n_memory_file, "(A17,A,I4)") st," allocated on coord_r ", coord_r
       end if
 
 #ifdef WITH_MPI
@@ -131,28 +131,28 @@ contains
 
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
-            if ( rank == iproc ) then
+            if ( coord_r == iproc ) then
                call MPI_Send(bytes_allocated,1,MPI_INTEGER8,0,sr_tag+iproc, &
-                    &        MPI_COMM_WORLD,ierr)
+                    &        mpi_comm_world,ierr)
             end if
          end do
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                call MPI_Recv(bytes_other_proc,1,MPI_INTEGER8,iproc,sr_tag+iproc, &
-                    &        MPI_COMM_WORLD,status,ierr)
-               if ( n_procs > 8 .and. iproc == n_procs-2 ) then
+                    &        mpi_comm_world,status,ierr)
+               if ( n_ranks > 8 .and. iproc == n_ranks-2 ) then
                   write(n_memory_file, *) "               ..."
                end if
                st = human_readable_size(bytes_other_proc)
-               write(n_memory_file, "(A17,A,I4)") st, " allocated on rank ", iproc
+               write(n_memory_file, "(A17,A,I4)") st, " allocated on coord_r ", iproc
             end if
          end do
 
       end if
 #endif
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          close(n_memory_file)
       end if
 

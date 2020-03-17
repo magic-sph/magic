@@ -205,7 +205,7 @@ contains
          dtE_file='dtE.'//tag
       end if
 
-      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          open(newunit=n_par_file, file=par_file, status='new')
 
          if ( l_mag .and. l_cmb_field ) then
@@ -251,7 +251,7 @@ contains
 
       integer :: n
 
-      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          if ( l_mag .and. l_cmb_field ) then
             close(n_cmb_file)
             if (l_movie) close(n_cmbMov_file)
@@ -417,7 +417,7 @@ contains
               &          dz_LMloc,b_LMloc,omega_ic,omega_ma,               &
               &          lorentz_torque_ic,lorentz_torque_ma)
          PERFOFF
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on rank ",rank
+         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on coord_r ",coord_r
   
          PERFON('out_ekin')
          n_e_sets=n_e_sets+1
@@ -426,7 +426,7 @@ contains
               &         e_kin_t_as,ekinR)
          e_kin=e_kin_p+e_kin_t
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
-         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
+         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on coord_r ",coord_r
   
          call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMloc,db_LMloc, &
               &         aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc,       &
@@ -436,7 +436,7 @@ contains
          e_mag   =e_mag_p+e_mag_t
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
          PERFOFF
-         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on rank ",rank
+         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on coord_r ",coord_r
 
          !----- Calculate distribution of energies on all m's
          if ( l_energy_modes ) then  
@@ -445,7 +445,7 @@ contains
                  &             db_LMloc,aj_LMloc)
             PERFOFF
             if ( DEBUG_OUTPUT ) &
-               & write(*,"(A,I6)") "Written  amplitude  on rank ",rank
+               & write(*,"(A,I6)") "Written  amplitude  on coord_r ",coord_r
          endif
   
          !---- Surface zonal velocity at the equator
@@ -460,7 +460,7 @@ contains
             end do
 #ifdef WITH_MPI
             call MPI_AllReduce(MPI_IN_PLACE, ReEquat, 1, MPI_DEF_REAL, MPI_SUM, &
-                 &             MPI_COMM_WORLD, ierr)
+                 &             comm_r, ierr)
 #endif
          else
             ReEquat=0.0_cp
@@ -482,13 +482,13 @@ contains
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
                  &              b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on rank ",rank
+            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on coord_r ",coord_r
          end if
   
          if ( l_power ) then
   
             PERFON('out_pwr')
-            if ( rank == 0 ) then
+            if ( coord_r == 0 ) then
                if ( nLogs > 1 ) then
                   if ( l_save_out ) then
                      open(newunit=n_dtE_file, file=dtE_file, &
@@ -515,14 +515,14 @@ contains
                  &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
                  &          visDiss,ohmDiss)
             PERFOFF
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
+            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on coord_r ",coord_r
          end if
   
          !----- If anelastic additional u**2 outputs
          if ( l_anel ) then
             call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2, &
                  &            dlVRu2,dlVRu2c)
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on rank ",rank
+            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on coord_r ",coord_r
          else
             RolRu2  = 0.0_cp
             dlVRu2  = 0.0_cp
@@ -541,7 +541,7 @@ contains
               &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
               &      fpoynLMr,fresLMr,RmR)
 
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
+         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on coord_r ",coord_r
   
          if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
@@ -579,7 +579,7 @@ contains
             call spectrum_temp(n_spec,time,.false.,nLogs,l_stop_time,     &
                  &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
          end if
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
             &    " ! Storing spectra:",                  &
             &    "             at time=",timeScaled,     &
@@ -595,7 +595,7 @@ contains
             &    "            step no.=",n_time_step
             if ( l_save_out ) close(n_log_file)
          end if
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on rank ",rank
+         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on coord_r ",coord_r
       end if
   
       if ( lTOCalc ) then
@@ -614,7 +614,7 @@ contains
          !------ Note: time averaging, time differencing done by IDL routine!
   
          if ( lVerbose ) write(*,*) '! outTO finished !'
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  TO  on rank ",rank
+         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  TO  on coord_r ",coord_r
       end if
   
       !--- Get radial derivatives and add dt dtB terms:
@@ -641,7 +641,7 @@ contains
             if ( l_mag ) call dtBrms(time)
             timePassedRMS=0.0_cp
          end if
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
+         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on coord_r ",coord_r
       end if
   
       !--- Store poloidal magnetic coeffs at cmb
@@ -767,7 +767,7 @@ contains
       ! ===================================================
       !      GATHERING for output
       ! ===================================================
-      ! We have all fields in LMloc space. Thus we gather the whole fields on rank 0.
+      ! We have all fields in LMloc space. Thus we gather the whole fields on coord_r 0.
   
       l_PVout = l_PV .and. l_log
   
@@ -787,7 +787,7 @@ contains
          end if
   
          ! for writing a restart file, we also need the d?dtLast arrays, 
-         ! which first have to be gathered on rank 0
+         ! which first have to be gathered on coord_r 0
          PERFOFF
   
       end if
@@ -795,7 +795,7 @@ contains
       !--- Movie output and various supplementary things:
       if ( l_frame ) then
          ! The frames array for the movies is distributed over the ranks
-         ! and has to be gathered on rank 0 for output.
+         ! and has to be gathered on coord_r 0 for output.
   
          ! Each movie uses some consecutive frames in the frames array. They
          ! start at n_movie_field_start(1,n_movie) 
@@ -804,13 +804,13 @@ contains
   
          call movie_gather_frames_to_rank0()
 
-         if ( l_movie_ic .and. l_store_frame .and. rank == 0 ) then
+         if ( l_movie_ic .and. l_store_frame .and. coord_r == 0 ) then
             call store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
          end if
 
          n_frame=n_frame+1
          call logWrite(' ')
-         if ( rank == 0 ) then 
+         if ( coord_r == 0 ) then 
             write(message,'(1p,A,I8,A,ES16.6,I8)')            &
             &      " ! WRITING MOVIE FRAME NO ",n_frame,      &
             &      "       at time/step",timeScaled,n_time_step
@@ -824,9 +824,9 @@ contains
       end if
   
       ! =======================================================================
-      ! ======= compute output on rank 0 ==============
+      ! ======= compute output on coord_r 0 ==============
       ! =======================================================================
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          PERFON('out_out')
   
          !----- Plot out inner core magnetic field, outer core

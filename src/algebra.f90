@@ -394,7 +394,7 @@ contains
       !
       !     a: (in/output) real nxn matrix on input, lu-decomposed matrix on output
       !     ia: (input) first dimension of a (must be >= n)
-      !     n: (input) 2nd dimension and rank of a
+      !     n: (input) 2nd dimension and coord_r of a
       !     ip: (output) pivot pointer array
       !     info: (output) error message when  /=  0
       !

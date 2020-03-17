@@ -134,10 +134,10 @@ contains
       nZmaxA=2*nSmax
 
       !-- Distribute over the ranks
-      allocate ( cyl_balance(0:n_procs-1) )
-      call getBlocks(cyl_balance, nSmax, n_procs)
-      nSstart = cyl_balance(rank)%nStart
-      nSstop = cyl_balance(rank)%nStop
+      allocate ( cyl_balance(0:n_ranks_r-1) )
+      call getBlocks(cyl_balance, nSmax, n_ranks_r)
+      nSstart = cyl_balance(coord_r)%nStart
+      nSstop = cyl_balance(coord_r)%nStop
 
       !-- Allocate s-distributed arrays
       allocate( PlmS(l_max+1,nZmaxA/2+1,nSstart:nSstop) )
@@ -170,7 +170,7 @@ contains
       bytes_allocated = bytes_allocated+(nSstop-nSstart+1)*SIZEOF_INTEGER
 
       !-- Global arrays for outputs
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          allocate ( nZmaxS(nSmax) )
          allocate( zZ(nZmaxA,nSmax) )
          allocate( VpM(nZmaxA,nSmax), dVpM(nZmaxA,nSmax) )
@@ -366,7 +366,7 @@ contains
 
 #ifdef WITH_MPI
       real(cp) :: global_sum
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: i,sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
 #endif
 
       if ( lVerbose ) write(*,*) '! Starting outTO!'
@@ -437,7 +437,7 @@ contains
          end do
 #ifdef WITH_MPI
          call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVPLMr(:,nR), l_max+1, &
-              &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+              &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
 #else
          dzVPLMr(:,nR)=dzVpLMr_loc(:,nR)
 #endif
@@ -483,7 +483,7 @@ contains
       end do
 
 #ifdef WITH_MPI
-      call mpi_barrier(MPI_COMM_WORLD,ierr)
+      call mpi_barrier(comm_r,ierr)
 #endif
 
       lStopRun=.false.
@@ -830,201 +830,201 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(VgRMS,global_sum,1,MPI_DEF_REAL,MPI_SUM,0, &
-           &          MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) VgRMS = global_sum
+           &          comm_r,ierr)
+      if ( coord_r == 0 ) VgRMS = global_sum
       call MPI_Reduce(TayRMS,global_sum,1,MPI_DEF_REAL,MPI_SUM,0, &
-           &          MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) TayRMS = global_sum
+           &          comm_r,ierr)
+      if ( coord_r == 0 ) TayRMS = global_sum
       call MPI_Reduce(TayRRMS,global_sum,1,MPI_DEF_REAL,MPI_SUM,0, &
-           &          MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) TayRRMS = global_sum
+           &          comm_r,ierr)
+      if ( coord_r == 0 ) TayRRMS = global_sum
       call MPI_Reduce(TayVRMS,global_sum,1,MPI_DEF_REAL,MPI_SUM,0, &
-           &          MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) TayVRMS = global_sum
+           &          comm_r,ierr)
+      if ( coord_r == 0 ) TayVRMS = global_sum
 
       sendcount  = (nSstop-nSstart+1)*nZmaxA
-      do i=0,n_procs-1
+      do i=0,n_ranks_r-1
          recvcounts(i) = cyl_balance(i)%n_per_rank*nZmaxA
       end do
       displs(0)=0
-      do i=1,n_procs-1
+      do i=1,n_ranks_r-1
          displs(i)=displs(i-1)+recvcounts(i-1)
       end do
       call MPI_GatherV(zZ_Sloc, sendcount, MPI_DEF_REAL,        &
            &           zZ, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
 
       if ( lTOZwrite ) then
          call MPI_GatherV(VpS_Sloc, sendcount, MPI_DEF_REAL,       &
               &           VpS, recvcounts, displs, MPI_DEF_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(dVpS_Sloc, sendcount, MPI_DEF_REAL,      &
               &           dVpS, recvcounts, displs, MPI_DEF_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(RstrS_Sloc, sendcount, MPI_DEF_REAL,     &
               &           RstrS, recvcounts, displs, MPI_DEF_REAL, &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(AstrS_Sloc, sendcount, MPI_DEF_REAL,     &
               &           AstrS, recvcounts, displs, MPI_DEF_REAL, &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(StrS_Sloc, sendcount, MPI_DEF_REAL,      &
               &           StrS, recvcounts, displs, MPI_DEF_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(CorS_Sloc, sendcount, MPI_DEF_REAL,      &
               &           CorS, recvcounts, displs, MPI_DEF_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(LFS_Sloc, sendcount, MPI_DEF_REAL,       &
               &           LFS, recvcounts, displs, MPI_DEF_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
       end if
 
       if ( l_TOZave .and. nTOsets > 1 ) then
          call MPI_GatherV(VpM_Sloc, sendcount, MPI_OUT_REAL,       &
               &           VpM, recvcounts, displs, MPI_OUT_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(dVpM_Sloc, sendcount, MPI_OUT_REAL,      &
               &           dVpM, recvcounts, displs, MPI_OUT_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(RstrM_Sloc, sendcount, MPI_OUT_REAL,     &
               &           RstrM, recvcounts, displs, MPI_OUT_REAL, &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(AstrM_Sloc, sendcount, MPI_OUT_REAL,     &
               &           AstrM, recvcounts, displs, MPI_OUT_REAL, &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(StrM_Sloc, sendcount, MPI_OUT_REAL,      &
               &           StrM, recvcounts, displs, MPI_OUT_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(CorM_Sloc, sendcount, MPI_OUT_REAL,      &
               &           CorM, recvcounts, displs, MPI_OUT_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(LFM_Sloc, sendcount, MPI_OUT_REAL,       &
               &           LFM, recvcounts, displs, MPI_OUT_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
          call MPI_GatherV(CLM_Sloc, sendcount, MPI_OUT_REAL,       &
               &           CLM, recvcounts, displs, MPI_OUT_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
+              &           0, comm_r, ierr)
       end if
 
       sendcount  = (nSstop-nSstart+1)
-      do i=0,n_procs-1
+      do i=0,n_ranks_r-1
          recvcounts(i) = cyl_balance(i)%n_per_rank
       end do
       displs(0)=0
-      do i=1,n_procs-1
+      do i=1,n_ranks_r-1
          displs(i)=displs(i-1)+recvcounts(i-1)
       end do
 
       call MPI_GatherV(nZmaxS_Sloc, sendcount, MPI_INTEGER,         &
            &           nZmaxS, recvcounts, displs, MPI_INTEGER,     &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(VpIntN_Sloc, sendcount, MPI_DEF_REAL,        &
            &           VpIntN, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(VpIntS_Sloc, sendcount, MPI_DEF_REAL,        &
            &           VpIntS, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(SVpIntN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           SVpIntN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(SBspIntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           SBspIntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(SBs2IntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           SBs2IntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(SVpIntS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           SVpIntS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(SBspIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           SBspIntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(SBs2IntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           SBs2IntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(TauBN_Sloc, sendcount, MPI_DEF_REAL,         &
            &           TauBN, recvcounts, displs, MPI_DEF_REAL,     &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(TauBS_Sloc, sendcount, MPI_DEF_REAL,         &
            &           TauBS, recvcounts, displs, MPI_DEF_REAL,     &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(dTauBN_Sloc, sendcount, MPI_DEF_REAL,        &
            &           dTauBN, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(dTauBS_Sloc, sendcount, MPI_DEF_REAL,        &
            &           dTauBS, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(dTTauBN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           dTTauBN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(dTTauBS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           dTTauBS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(Bs2IntS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           Bs2IntS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(Bs2IntN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           Bs2IntN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(dVpIntN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           dVpIntN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(dVpIntS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           dVpIntS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(ddVpIntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           ddVpIntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(ddVpIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           ddVpIntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(VpRIntN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           VpRIntN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(VpRIntS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           VpRIntS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(LFIntN_Sloc, sendcount, MPI_DEF_REAL,        &
            &           LFIntN, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(LFIntS_Sloc, sendcount, MPI_DEF_REAL,        &
            &           LFIntS, recvcounts, displs, MPI_DEF_REAL,    &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(RstrIntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           RstrIntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(RstrIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           RstrIntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(AstrIntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           AstrIntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(AstrIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           AstrIntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(StrIntN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           StrIntN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(StrIntS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           StrIntS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(TayIntN_Sloc, sendcount, MPI_DEF_REAL,       &
            &           TayIntN, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(TayIntS_Sloc, sendcount, MPI_DEF_REAL,       &
            &           TayIntS, recvcounts, displs, MPI_DEF_REAL,   &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(BspdIntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           BspdIntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(BspdIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           BspdIntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(BpsdIntN_Sloc, sendcount, MPI_DEF_REAL,      &
            &           BpsdIntN, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
       call MPI_GatherV(BpsdIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           BpsdIntS, recvcounts, displs, MPI_DEF_REAL,  &
-           &           0, MPI_COMM_WORLD, ierr)
+           &           0, comm_r, ierr)
 #else
       nZmaxS(:)  =nZmaxS_Sloc(:)
       zZ(:,:)    =zZ_Sloc(:,:)
@@ -1088,7 +1088,7 @@ contains
 #endif
 
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Outputs
          if ( nTOsets == 1 ) nTOZfile=0
          if ( lTOZwrite ) then
@@ -1523,7 +1523,7 @@ contains
 
 
 
-      end if ! Rank 0
+      end if ! coord_r 0
 
       timeLast=time
 
@@ -1540,66 +1540,66 @@ contains
 
 #ifdef WITH_MPI
       !-- Local variables:
-      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       integer :: p,ierr
 
       sendcount  = nR_per_rank*(l_max+1)
-      do p=0,n_procs-1
+      do p=0,n_ranks_r-1
          recvcounts(p)=radial_balance(p)%n_per_rank*(l_max+1)
       end do
       displs(0)=0
-      do p=1,n_procs-1
+      do p=1,n_ranks_r-1
          displs(p)=displs(p-1)+recvcounts(p-1)
       end do
       call MPI_AllGatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzStrLMr,recvcounts,displs,MPI_DEF_REAL, &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(dzRstrLMr_Rloc,sendcount,MPI_DEF_REAL,   &
            &              dzRstrLMr,recvcounts,displs,MPI_DEF_REAL,&
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(dzAstrLMr_Rloc,sendcount,MPI_DEF_REAL,   &
            &              dzAstrLMr,recvcounts,displs,MPI_DEF_REAL,&
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(dzCorLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzCorLMr,recvcounts,displs,MPI_DEF_REAL, &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(dzLFLMr_Rloc,sendcount,MPI_DEF_REAL,     &
            &              dzLFLMr,recvcounts,displs,MPI_DEF_REAL,  &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(dzdVpLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzdVpLMr,recvcounts,displs,MPI_DEF_REAL, &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,   &
            &              dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,&
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
 
       call MPI_AllGatherV(V2LMr_Rloc,sendcount,MPI_DEF_REAL,       &
            &              V2LMr,recvcounts,displs,MPI_DEF_REAL,    &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(Bs2LMr_Rloc,sendcount,MPI_DEF_REAL,      &
            &              Bs2LMr,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BszLMr_Rloc,sendcount,MPI_DEF_REAL,      &
            &              BszLMr,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BspLMr_Rloc,sendcount,MPI_DEF_REAL,      &
            &              BspLMr,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BpzLMr_Rloc,sendcount,MPI_DEF_REAL,      &
            &              BpzLMr,recvcounts,displs,MPI_DEF_REAL,   &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BspdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
            &              BspdLMr,recvcounts,displs,MPI_DEF_REAL,  &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BpsdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
            &              BpsdLMr,recvcounts,displs,MPI_DEF_REAL,  &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BzpdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
            &              BzpdLMr,recvcounts,displs,MPI_DEF_REAL,  &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
       call MPI_AllGatherV(BpzdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
            &              BpzdLMr,recvcounts,displs,MPI_DEF_REAL,  &
-           &              MPI_COMM_WORLD,ierr)
+           &              comm_r,ierr)
 #else
      dzStrLMr(:,:) =dzStrLMr_Rloc(:,:)
      dzRstrLMr(:,:)=dzRstrLMr_Rloc(:,:)

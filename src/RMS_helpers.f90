@@ -91,7 +91,7 @@ contains
       call reduce_radial(TorRms_r, TorRms_r_global, 0)
       call reduce_radial(TorAsRms_r, TorAsRms_r_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Radial Integrals:
          PolRms  =rInt_R(PolRms_r_global,r,rscheme_oc)
          TorRms  =rInt_R(TorRms_r_global,r,rscheme_oc)

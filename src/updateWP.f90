@@ -18,7 +18,7 @@ module updateWP_mod
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
    use RMS, only: DifPol2hInt, DifPolLMr
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize, rank, n_procs
+   use parallel_mod, only: chunksize, coord_r, n_ranks_r
    use RMS_helpers, only:  hInt2Pol
    use radial_der, only: get_dddr, get_ddr, get_dr
    use integration, only: rInt_R
@@ -56,10 +56,10 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
       if ( l_finite_diff ) then
-         allocate( type_bandmat :: wpMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: wpMat(nLMBs2(1+coord_r)) )
 
          if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
             n_bands =rscheme_oc%order+3
@@ -67,11 +67,11 @@ contains
             n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
          end if
          !print*, 'WP', n_bands
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
-         allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
-         bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+         allocate( wpMat_fac(n_r_max,2,nLMBs2(1+coord_r)) )
+         bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+coord_r)*    &
          &               SIZEOF_DEF_REAL
 
          allocate( type_bandmat :: p0Mat )
@@ -79,20 +79,20 @@ contains
          n_bands = rscheme_oc%order+1
          call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
       else
-         allocate( type_densemat :: wpMat(nLMBs2(1+rank)) )
+         allocate( type_densemat :: wpMat(nLMBs2(1+coord_r)) )
          if ( l_double_curl ) then
-            do ll=1,nLMBs2(1+rank)
+            do ll=1,nLMBs2(1+coord_r)
                call wpMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
-            allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
-            bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+            allocate( wpMat_fac(n_r_max,2,nLMBs2(1+coord_r)) )
+            bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+coord_r)*    &
             &               SIZEOF_DEF_REAL
          else
-            do ll=1,nLMBs2(1+rank)
+            do ll=1,nLMBs2(1+coord_r)
                call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
             end do
-            allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
-            bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
+            allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+coord_r)) )
+            bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+coord_r)*    &
             &               SIZEOF_DEF_REAL
          end if
 
@@ -146,9 +146,9 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
+      do ll=1,nLMBs2(1+coord_r)
          call wpMat(ll)%finalize()
       end do
       call p0Mat%finalize()
@@ -206,7 +206,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -215,7 +215,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      nLMB       =1+rank
+      nLMB       =1+coord_r
       lmStart_00 =max(2,llm)
 
       !-- Now assemble the right hand side and store it in work_LMloc

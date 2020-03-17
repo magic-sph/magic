@@ -1,7 +1,7 @@
 module out_movie
 
    use precision_mod
-   use parallel_mod, only: rank
+   use parallel_mod, only: coord_r
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
@@ -178,7 +178,7 @@ contains
               &                 omega_ma)
       !
       !  Writes different movie frames into respective output files.
-      !  Called from rank 0 with full arrays in standard LM order.
+      !  Called from coord_r 0 with full arrays in standard LM order.
       !
 
       !-- Input of variables:
@@ -222,7 +222,7 @@ contains
       end do
 
       if ( l_dtB_frame ) then
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             allocate( b(lm_maxMag,n_r_maxMag), aj(lm_maxMag,n_r_maxMag) )
             allocate( db(lm_maxMag,n_r_maxMag), dj(lm_maxMag,n_r_maxMag) )
          else
@@ -235,7 +235,7 @@ contains
          call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
       end if
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
 
          t_movieS(n_frame)=time
 
@@ -336,7 +336,7 @@ contains
 
          end do  ! Loop over movies
 
-      end if ! rank 0
+      end if ! coord_r 0
 
       if ( l_dtB_frame ) deallocate( b, aj, db, dj )
 
@@ -1573,7 +1573,7 @@ contains
       !    fl(r,theta)=d_theta b(r,theta,m=0)/r
       !
 
-      !  This routine is called for l_ic=.true. only from rank 0 with full
+      !  This routine is called for l_ic=.true. only from coord_r 0 with full
       !  field b_ic in standard lm ordering available.
       !  The case l_ic=.false. is called from all ranks and uses b_Rloc.
 

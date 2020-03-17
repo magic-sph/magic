@@ -10,7 +10,7 @@ module preCalculations
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
        &                  n_xi_bounds
-   use parallel_mod, only: rank
+   use parallel_mod, only: coord_r, l_master_rank
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,     &
        &            l_anel, l_heat, l_anelastic_liquid,                  &
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
@@ -81,7 +81,7 @@ contains
       else if ( n_tScale == 3 ) then
          !----- Rotational time scale:
          tScale=one/ek  ! or ekScaled ? (not defined yet...)
-         if ( rank==0 ) then
+         if ( l_master_rank ) then
             print*, 'Warning: rotational timescale, be sure to set dtmax large enough !'
          end if
       end if
@@ -181,7 +181,7 @@ contains
 
       call radial()
 
-      if ( ( l_newmap ) .and. (rank == 0) ) then
+      if ( ( l_newmap ) .and. l_master_rank ) then
          fileName='rNM.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max
@@ -195,7 +195,7 @@ contains
     
       call transportProperties
 
-      if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
+      if ( ( l_anel .or. l_non_adia ) .and. l_master_rank ) then
          ! Write the equilibrium setup in anel.tag
          fileName='anel.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
@@ -223,7 +223,7 @@ contains
          close(fileHandle)
       end if
     
-      if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. ( rank == 0 ) ) then
+      if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. l_master_rank ) then
          fileName='varDiff.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(5a15)') 'radius', 'conductivity', 'kappa', &
@@ -236,7 +236,7 @@ contains
          close(fileHandle)
       end if
     
-      if ( ( nVarVisc > 0 ) .and. (rank == 0) ) then
+      if ( ( nVarVisc > 0 ) .and. (l_master_rank) ) then
          fileName='varVisc.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &
@@ -962,7 +962,7 @@ contains
       !-- Input variable:
       integer, intent(in) :: n_out
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
 
          !-- Output of mode:
          write(n_out,*)
@@ -996,7 +996,7 @@ contains
          call abortRun('Mode > 11 not implemented !')
       end if
 
-      if (rank == 0) then
+      if (l_master_rank) then
          !-- Output of name lists:
          write(n_out, '('' ! Normalized OC moment of inertia:'',ES14.6)') c_moi_oc
          write(n_out, '('' ! Normalized IC moment of inertia:'',ES14.6)') c_moi_ic

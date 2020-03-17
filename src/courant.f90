@@ -34,7 +34,7 @@ contains
       real(cp),         intent(in) :: dt   ! time step
       character(len=*), intent(in) :: tag ! trailing of the fime
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          open(newunit=file_handle, file='timestep.'//tag, status='new')
          write(file_handle, '(1p, es20.12, es16.8)')  time, dt
       end if
@@ -43,7 +43,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_courant()
 
-      if ( rank == 0 ) close(file_handle)
+      if ( l_master_rank ) close(file_handle)
 
    end subroutine finalize_courant
 !------------------------------------------------------------------------------
@@ -365,9 +365,9 @@ contains
       end do
 #ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL,MPI_MIN, &
-           &             MPI_COMM_WORLD,ierr)
+           &             comm_r,ierr)
       call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DEF_REAL,MPI_MIN, &
-           &             MPI_COMM_WORLD,ierr)
+           &             comm_r,ierr)
 #endif
 
       dt_rh=min(dt_r,dt_h)
@@ -388,7 +388,7 @@ contains
          write(message,'(1P," ! COURANT: dt=",ES11.4," > dt_r=",ES12.4, &
          &            " and dt_h=",ES12.4)') dt,dt_r,dt_h
          call logWrite(message)
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
          end if
 
@@ -400,7 +400,7 @@ contains
          &          " < dt_r=",ES12.4," and dt_h=",ES12.4)')   &
          &          dt_fac,dt_fac*dt,dt_r,dt_h
          call logWrite(message)
-         if ( rank == 0 ) then
+         if ( l_master_rank ) then
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
          end if
 

@@ -22,7 +22,7 @@ module updateWPS_mod
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize, rank, n_procs
+   use parallel_mod, only: chunksize, coord_r, n_ranks_r
    use radial_der, only: get_dddr, get_ddr, get_dr
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
    use fields, only: work_LMloc
@@ -57,19 +57,19 @@ contains
 
       integer, pointer :: nLMBs2(:)
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
       allocate( ps0Mat(2*n_r_max,2*n_r_max) )
       allocate( ps0Mat_fac(2*n_r_max,2) )
       allocate( ps0Pivot(2*n_r_max) )
       bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
       &                 +2*n_r_max*SIZEOF_INTEGER
-      allocate( wpsMat(3*n_r_max,3*n_r_max,nLMBs2(1+rank)) )
-      allocate(wpsMat_fac(3*n_r_max,2,nLMBs2(1+rank)))
-      allocate ( wpsPivot(3*n_r_max,nLMBs2(1+rank)) )
-      bytes_allocated = bytes_allocated+(9*n_r_max*nLMBs2(1+rank)+6*n_r_max* &
-      &                 nLMBs2(1+rank))*SIZEOF_DEF_REAL+3*n_r_max*           &
-      &                 nLMBs2(1+rank)*SIZEOF_INTEGER
+      allocate( wpsMat(3*n_r_max,3*n_r_max,nLMBs2(1+coord_r)) )
+      allocate(wpsMat_fac(3*n_r_max,2,nLMBs2(1+coord_r)))
+      allocate ( wpsPivot(3*n_r_max,nLMBs2(1+coord_r)) )
+      bytes_allocated = bytes_allocated+(9*n_r_max*nLMBs2(1+coord_r)+6*n_r_max* &
+      &                 nLMBs2(1+coord_r))*SIZEOF_DEF_REAL+3*n_r_max*           &
+      &                 nLMBs2(1+coord_r)*SIZEOF_INTEGER
       allocate( lWPSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
@@ -144,7 +144,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -153,7 +153,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      nLMB=1+rank
+      nLMB=1+coord_r
 
       !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
       call tscheme%set_imex_rhs(work_LMloc, dwdt, llm, ulm, n_r_max)

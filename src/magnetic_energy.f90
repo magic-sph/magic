@@ -67,7 +67,7 @@ contains
       e_mag_ic_file='e_mag_ic.'//tag
       e_mag_oc_file='e_mag_oc.'//tag
       dipole_file  ='dipole.'//tag
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, status='new')
          if ( .not. l_full_sphere ) then
             open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, status='new')
@@ -76,9 +76,9 @@ contains
       end if
 
       if ( l_earth_likeness ) then
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             earth_compliance_file='earth_like.'//tag
-            if ( .not. l_save_out ) then
+            if ( l_master_rank .and. .not. l_save_out ) then
                open(newunit=n_compliance_file, file=earth_compliance_file, &
                &    status='new')
             end if
@@ -125,13 +125,13 @@ contains
       !
 
       if ( l_earth_likeness ) then
-         if ( rank == 0 ) deallocate( Plm_comp )
+         if ( coord_r == 0 ) deallocate( Plm_comp )
          deallocate( bCMB )
-         if ( .not. l_save_out ) close(n_compliance_file)
+         if ( l_master_rank .and. .not. l_save_out ) close(n_compliance_file)
       end if
       deallocate( e_dipA, e_pA, e_p_asA, e_tA, e_t_asA)
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
+      if ( l_master_rank .and. .not. l_save_out ) then
          close(n_e_mag_oc_file)
          if ( .not. l_full_sphere ) close(n_e_mag_ic_file)
          close(n_dipole_file)
@@ -380,7 +380,7 @@ contains
 
       if ( l_earth_likeness ) call gather_from_lo_to_rank0(b(:,n_r_cmb), bCMB)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Get Values at CMB:
          e_cmb          =e_p_r_global(n_r_cmb)+e_t_r_global(n_r_cmb)
          e_dip_cmb      =e_dipole_r_global(n_r_cmb)
@@ -544,7 +544,7 @@ contains
          call reduce_radial(e_p_as_ic_r, e_p_as_ic_r_global, 0)
          call reduce_radial(e_t_as_ic_r, e_t_as_ic_r_global, 0)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
             e_t_ic   =rIntIC(e_t_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
             e_p_as_ic=rIntIC(e_p_as_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
@@ -571,7 +571,7 @@ contains
          call reduce_scalar(e_p_ic, e_p_ic_global, 0)
          call reduce_scalar(e_p_as_ic, e_p_as_ic_global, 0)
 
-         if (rank == 0) then
+         if (coord_r == 0) then
             fac      =half*LFfac/r_icb*eScale
             e_p_ic   =fac*e_p_ic_global
             e_t_ic   =0.0_cp
@@ -599,7 +599,7 @@ contains
       call reduce_scalar(e_p_os, e_p_os_global, 0)
       call reduce_scalar(e_p_as_os, e_p_as_os_global, 0)
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          fac      =half*LFfac/r_cmb*eScale
          e_p_os   =fac*e_p_os_global
          e_p_as_os=fac*e_p_as_os_global
@@ -625,7 +625,7 @@ contains
          call reduce_scalar(e_p_as_e, e_p_as_e_global, 0)
          call reduce_scalar(e_dipole_e, e_dipole_e_global, 0)
 
-         if ( rank == 0 ) then
+         if ( coord_r == 0 ) then
             fac       =half*LFfac/r_cmb**2*eScale
             e_p_e     =fac*e_p_e_global
             e_p_as_e  =fac*e_p_as_e_global
@@ -635,7 +635,7 @@ contains
 
 
       !-- Output of OC and outside energies:
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          if ( l_write ) then
             if ( l_save_out ) then
                open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, &
@@ -675,8 +675,8 @@ contains
       if ( (l1m0 >= llmMag) .and. (l1m0 <= ulmMag) ) then
          b10=b(l1m0,n_r_cmb)
 #ifdef WITH_MPI
-         if (rank /= 0) then
-            call MPI_Send(b10,1,MPI_DEF_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+         if (coord_r /= 0) then
+            call MPI_Send(b10,1,MPI_DEF_COMPLEX,0,sr_tag,comm_r,ierr)
          end if
 #endif
          rank_has_l1m0=.true.
@@ -685,8 +685,8 @@ contains
          if ( (l1m1 >= llmMag) .and. (l1m1 <= ulmMag) ) then
             b11=b(l1m1,n_r_cmb)
 #ifdef WITH_MPI
-            if (rank /= 0) then
-               call MPI_Send(b11,1,MPI_DEF_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+            if (coord_r /= 0) then
+               call MPI_Send(b11,1,MPI_DEF_COMPLEX,0,sr_tag+1,comm_r,ierr)
             end if
 #endif
             rank_has_l1m1=.true.
@@ -697,17 +697,17 @@ contains
       end if
 
 
-      if ( rank == 0 ) then
+      if ( coord_r == 0 ) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
 #ifdef WITH_MPI
          if (.not.rank_has_l1m0) then
             call MPI_IRecv(b10,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag,MPI_COMM_WORLD,request1, ierr)
+                 &         sr_tag,comm_r,request1, ierr)
          end if
          if ( .not. rank_has_l1m1 ) then
             call MPI_IRecv(b11,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag+1,MPI_COMM_WORLD,request2,ierr)
+                 &         sr_tag+1,comm_r,request2,ierr)
          end if
          if ( .not. rank_has_l1m0 ) then
             call MPI_Wait(request1,status,ierr)
