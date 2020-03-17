@@ -133,7 +133,7 @@ This file contains the temperature/entropy spectra. It is written by the subrout
 2D spectra ``2D_[kin|mag]_spec_#.TAG`` and ``2D_[kin|mag]_spec_ave.TAG``
 ---------------------------------------------------------------------------
 
-.. note:: Those files are **only** written when :ref:`l_2D_spectra=.true. <varl_2D_spectra>`. The time-averaged files also require that :ref:`l_average=.true. <varl_average>`.
+.. note:: Those files are **only** written when :ref:`l_2D_spectra=.true. <varl_2D_spectra>`. The time-averaged files also require that :ref:`l_spec_avg=.true. <varl_spec_avg>`.
 
 Those files contain 2-D spectra in the :math:`(r,\ell)` and in the
 :math:`(r,m)` planes.  In other words, the poloidal and toroidal energies
@@ -218,7 +218,7 @@ the following options:
 ``kin_spec_ave.TAG``
 --------------------
 
-.. note:: This file is **only** written when :ref:`l_average=.true. <varl_average>`
+.. note:: This file is **only** written when :ref:`l_spec_avg=.true. <varl_spec_avg>`
 
 
 This file contains the time-average kinetic energy spectra as well as squared quantities
@@ -257,7 +257,7 @@ This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with
 ``mag_spec_ave.TAG``
 --------------------
 
-.. note:: This file is **only** written when :ref:`l_average=.true. <varl_average>` and
+.. note:: This file is **only** written when :ref:`l_spec_avg=.true. <varl_spec_avg>` and
           the run is magnetic
 
 This file contains the time-average magnetic energy spectra. This file is written by the
@@ -311,7 +311,7 @@ This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with
 ``T_spec_ave.TAG``
 ------------------
 
-.. note:: This file is **only** written when :ref:`l_average=.true. <varl_average>`
+.. note:: This file is **only** written when :ref:`l_spec_avg=.true. <varl_spec_avg>`
 
 This file contains the time-averaged temperature/entropy spectra and their standard
 deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spectra/spectrum_temp_average()>`.
