@@ -833,7 +833,6 @@ contains
               &             t_gw_start,t_gw_stop,dt_gw,  &
               &             n_gws,n_gw_step,'gw',time,tScale)
          if ( n_gws > 0 .or. n_gw_step > 0 .or. l_time ) l_gw= .true.
-         l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_cmb_field ) then
