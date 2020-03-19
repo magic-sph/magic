@@ -19,22 +19,21 @@ module real_matrices
       generic :: operator(+) => mat_add
       procedure(prepare_if), deferred :: prepare
       procedure(solve_real_multi_if), deferred :: solve_real_multi
-      procedure(solve_complex_multi_if), deferred :: solve_complex_multi
       procedure(solve_real_single_if), deferred :: solve_real_single
       procedure(solve_complex_single_if), deferred :: solve_complex_single
-      generic :: solve => solve_complex_multi, solve_real_single, &
-      &                   solve_complex_single, solve_real_multi
+      generic :: solve => solve_real_single, solve_complex_single, solve_real_multi
       procedure(set_data_if), deferred :: set_data
    end type type_realmat
 
    interface
 
-      subroutine initialize_if(this, nx, ny, l_pivot)
+      subroutine initialize_if(this, nx, ny, l_pivot, nfull)
          import
          class(type_realmat) :: this
          integer, intent(in) :: nx
          integer, intent(in) :: ny
          logical, intent(in) :: l_pivot
+         integer, optional, intent(in) :: nfull
       end subroutine initialize_if
 
       subroutine finalize_if(this)
@@ -47,13 +46,6 @@ module real_matrices
          class(type_realmat) :: this
          integer, intent(out) :: info
       end subroutine prepare_if
-
-      subroutine solve_complex_multi_if(this, rhs, nRHS)
-         import
-         class(type_realmat) :: this
-         integer,     intent(in) :: nRHS
-         complex(cp), intent(inout) :: rhs(:,:)
-      end subroutine solve_complex_multi_if
 
       subroutine solve_real_multi_if(this, rhs, nRHS)
          import
@@ -115,7 +107,6 @@ module dense_matrices
       procedure :: finalize
       procedure :: prepare
       procedure :: solve_real_multi
-      procedure :: solve_complex_multi
       procedure :: solve_real_single
       procedure :: solve_complex_single
       procedure :: set_data
@@ -123,7 +114,7 @@ module dense_matrices
 
 contains 
 
-   subroutine initialize(this, nx, ny, l_pivot)
+   subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
       ! Memory allocation
       !
@@ -131,6 +122,7 @@ contains
       integer, intent(in) :: nx
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
+      integer, optional, intent(in) :: nfull
 
       this%nrow = nx
       this%ncol = ny
@@ -181,16 +173,6 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
-   subroutine solve_complex_multi(this, rhs, nRHS)
-
-      class(type_densemat) :: this
-      integer,     intent(in) :: nRHS
-      complex(cp), intent(inout) :: rhs(:,:)
-
-      call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
-
-   end subroutine solve_complex_multi
-!------------------------------------------------------------------------------
    subroutine solve_real_multi(this, rhs, nRHS)
 
       class(type_densemat) :: this
@@ -229,7 +211,6 @@ module band_matrices
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
-      procedure :: solve_complex_multi
       procedure :: solve_real_multi
       procedure :: solve_real_single
       procedure :: solve_complex_single
@@ -240,7 +221,7 @@ module band_matrices
 
 contains 
 
-   subroutine initialize(this, nx, ny, l_pivot)
+   subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
       ! Memory allocation
       !
@@ -248,6 +229,7 @@ contains
       integer, intent(in) :: nx
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
+      integer, optional, intent(in) :: nfull
 
       this%nrow = nx
       this%ncol = ny
@@ -332,23 +314,6 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
-   subroutine solve_complex_multi(this, rhs, nRHS)
-
-      class(type_bandmat) :: this
-      integer,     intent(in) :: nRHS
-      complex(cp), intent(inout) :: rhs(:,:)
-
-      if ( this%nrow == 3 ) then
-         call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),   &
-              &             this%dat(1,2:), this%du2, this%ncol,        &
-              &             this%pivot, rhs, nRHS)
-      else 
-         call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, &
-              &          rhs, nRHS)
-      end if
-
-   end subroutine solve_complex_multi
-!------------------------------------------------------------------------------
    subroutine solve_real_multi(this, rhs, nRHS)
 
       class(type_bandmat) :: this
@@ -405,3 +370,172 @@ contains
 !   end function mat_add
 !------------------------------------------------------------------------------
 end module band_matrices
+
+module bordered_matrices
+
+   use precision_mod
+   use mem_alloc
+   use real_matrices, only: type_realmat
+   use algebra, only: solve_bordered, prepare_bordered
+
+   implicit none
+
+   type, public, extends(type_realmat) :: type_bordmat
+      real(cp), allocatable :: A1(:,:)
+      real(cp), allocatable :: A2(:,:)
+      real(cp), allocatable :: A3(:,:)
+      real(cp), allocatable :: A4(:,:)
+      integer, allocatable :: pivA1(:)
+      integer, allocatable :: pivA4(:)
+      integer :: kl
+      integer :: ku
+      integer :: nfull
+   contains 
+      procedure :: initialize
+      procedure :: finalize
+      procedure :: prepare
+      procedure :: solve_real_multi
+      procedure :: solve_real_single
+      procedure :: solve_complex_single
+      procedure :: set_data
+!      procedure :: mat_add
+!      generic :: operator(+) => mat_add
+   end type type_bordmat
+
+contains 
+
+   subroutine initialize(this, nx, ny, l_pivot, nfull)
+      !
+      ! Memory allocation
+      !
+      class(type_bordmat) :: this
+      integer, intent(in) :: nx
+      integer, intent(in) :: ny
+      logical, intent(in) :: l_pivot
+      integer, optional, intent(in) :: nfull
+
+      this%nrow = nx
+      this%ncol = ny
+      this%l_pivot = l_pivot
+
+      this%kl = (nx-1)/2
+      this%ku = this%kl
+      this%nfull = nfull
+
+      allocate( this%A1(nx+(nx-1)/2, ny) )
+      allocate( this%A2(ny,nfull) )
+      allocate( this%A3(nfull,ny) )
+      allocate( this%A4(nfull,nfull) )
+      this%A1(:,:)=0.0_cp
+      this%A2(:,:)=0.0_cp
+      this%A3(:,:)=0.0_cp
+      this%A4(:,:)=0.0_cp
+      bytes_allocated = bytes_allocated+(nfull*nfull+2*nfull*ny+ &
+      &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
+
+      if ( this%l_pivot ) then
+         allocate( this%pivA1(ny) )
+         allocate( this%pivA4(nfull) )
+         bytes_allocated = bytes_allocated+(ny+nfull)*SIZEOF_INTEGER
+         this%pivA1(:) = 0
+         this%pivA4(:) = 0
+      end if
+
+   end subroutine initialize
+!------------------------------------------------------------------------------
+   subroutine finalize(this)
+      !
+      ! Memory deallocation
+      !
+      class(type_bordmat) :: this
+
+      deallocate( this%A1, this%A2, this%A3, this%A4 )
+      if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 ) 
+
+   end subroutine finalize
+!------------------------------------------------------------------------------
+   subroutine prepare(this, info)
+
+      class(type_bordmat) :: this
+      integer, intent(out) :: info
+
+      call prepare_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
+           &                this%kl,this%ku,this%pivA1,this%pivA4,info)
+
+   end subroutine prepare
+!------------------------------------------------------------------------------
+   subroutine solve_real_single(this, rhs)
+
+      class(type_bordmat) :: this
+      real(cp), intent(inout) :: rhs(:)
+
+      !-- Local variable :
+      integer :: lenRhs
+
+      lenRhs = this%nfull+this%ncol
+      call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
+           &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,lenRhs)
+
+   end subroutine solve_real_single
+!------------------------------------------------------------------------------
+   subroutine solve_complex_single(this, rhs)
+
+      class(type_bordmat) :: this
+      complex(cp), intent(inout) :: rhs(:)
+
+      !-- Local variable :
+      integer :: lenRhs
+
+      lenRhs = this%nfull+this%ncol
+      call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
+           &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,lenRhs)
+
+   end subroutine solve_complex_single
+!------------------------------------------------------------------------------
+   subroutine solve_real_multi(this, rhs, nRHS)
+
+      class(type_bordmat) :: this
+      integer,  intent(in) :: nRHS
+      real(cp), intent(inout) :: rhs(:,:)
+
+      call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
+           &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,nRHS)
+
+   end subroutine solve_real_multi
+!------------------------------------------------------------------------------
+   subroutine set_data(this, dat)
+
+      class(type_bordmat) :: this
+      real(cp), intent(in) :: dat(:,:)
+
+      !-- Local variables
+      integer :: i, j
+
+      !-- A1 = band matrix
+      do j=1,this%ncol
+         do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+            this%A1(this%kl+this%ku+1+i-j,j)=dat(i,j)
+         end do
+      end do
+
+      do j=1,this%nfull
+         do i=1,this%ncol
+            this%A2(i,j)=dat(i,this%ncol+j)
+         end do
+      end do
+
+      do j=1,this%ncol
+         do i=1,this%nfull
+            this%A3(i,j)=dat(this%ncol+i,j)
+         end do
+      end do
+
+      do j=1,this%nfull
+         do i=1,this%nfull
+            this%A4(i,j)=dat(this%ncol+i,this%ncol+j)
+         end do
+      end do
+
+   end subroutine set_data
+!------------------------------------------------------------------------------
+end module bordered_matrices

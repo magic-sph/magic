@@ -37,6 +37,7 @@ module updateB_mod
    use time_array, only: type_tarray
    use dense_matrices
    use band_matrices
+   use bordered_matrices
    use real_matrices
 
    implicit none
@@ -67,9 +68,14 @@ contains
 
       nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
 
-      if ( l_finite_diff .and. (.not. l_cond_ic) ) then
-         allocate( type_bandmat :: jMat(nLMBs2(1+coord_r)) )
-         allocate( type_bandmat :: bMat(nLMBs2(1+coord_r)) )
+      if ( l_finite_diff ) then
+         if ( l_cond_ic ) then
+            allocate( type_bordmat :: jMat(nLMBs2(1+coord_r)) )
+            allocate( type_bordmat :: bMat(nLMBs2(1+coord_r)) )
+         else
+            allocate( type_bandmat :: jMat(nLMBs2(1+coord_r)) )
+            allocate( type_bandmat :: bMat(nLMBs2(1+coord_r)) )
+         end if
 
          if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
          &    rscheme_oc%order  > 2 .or. rscheme_oc%order_boundary > 2 ) then
@@ -86,10 +92,17 @@ contains
             n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
          end if
 
-         do ll=1,nLMBs2(1+coord_r)
-            call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
-            call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
-         end do
+         if ( l_cond_ic ) then
+            do ll=1,nLMBs2(1+coord_r)
+               call bMat(ll)%initialize(n_bandsB,n_r_max,.true.,n_r_ic_max)
+               call jMat(ll)%initialize(n_bandsJ,n_r_max,.true.,n_r_ic_max)
+            end do
+         else
+            do ll=1,nLMBs2(1+coord_r)
+               call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
+               call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
+            end do
+         end if
       else
          allocate( type_densemat :: jMat(nLMBs2(1+coord_r)) )
          allocate( type_densemat :: bMat(nLMBs2(1+coord_r)) )
@@ -1353,7 +1366,6 @@ contains
 
       !----- LU decomposition:
       call bMat%prepare(info)
-
       if ( info /= 0 ) call abortRun('Singular matrix bMat in get_bmat')
 
       !----- LU decomposition:
