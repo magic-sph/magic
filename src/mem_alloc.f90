@@ -69,7 +69,7 @@ contains
          !write(n_memory_file, "(A20,A25)") ' !-----------------', origin
          write(n_memory_file, "(A48)") header
          st = human_readable_size(bytes_alloc)
-         write(n_memory_file, "(A17,A,I4)") st," allocated on coord_r ", coord_r
+         write(n_memory_file, "(A17,A,I4)") st," allocated on rank ", rank
       end if
 
 #ifdef WITH_MPI
@@ -79,7 +79,7 @@ contains
 
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
-            if ( coord_r == iproc ) then
+            if ( rank == iproc ) then
                call MPI_Send(bytes_alloc,1,MPI_INTEGER8,0,sr_tag+iproc, &
                     &        mpi_comm_world,ierr)
             end if
@@ -93,7 +93,7 @@ contains
                   write(n_memory_file, *) "               ..."
                end if
                st = human_readable_size(bytes_other_proc)
-               write(n_memory_file, "(A17,A,I4)") st, " allocated on coord_r ", iproc
+               write(n_memory_file, "(A17,A,I4)") st, " allocated on rank ", iproc
             end if
          end do
 
@@ -121,7 +121,7 @@ contains
          write(n_memory_file, *) "!=============================================="
          write(n_memory_file, *) " "
          st = human_readable_size(bytes_allocated)
-         write(n_memory_file, "(A17,A,I4)") st," allocated on coord_r ", coord_r
+         write(n_memory_file, "(A17,A,I4)") st," allocated on rank ", rank
       end if
 
 #ifdef WITH_MPI
@@ -131,7 +131,7 @@ contains
 
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
-            if ( coord_r == iproc ) then
+            if ( rank == iproc ) then
                call MPI_Send(bytes_allocated,1,MPI_INTEGER8,0,sr_tag+iproc, &
                     &        mpi_comm_world,ierr)
             end if
@@ -145,7 +145,7 @@ contains
                   write(n_memory_file, *) "               ..."
                end if
                st = human_readable_size(bytes_other_proc)
-               write(n_memory_file, "(A17,A,I4)") st, " allocated on coord_r ", iproc
+               write(n_memory_file, "(A17,A,I4)") st, " allocated on rank ", iproc
             end if
          end do
 

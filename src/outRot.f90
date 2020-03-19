@@ -182,7 +182,7 @@ contains
          end if
          rank_has_l1m0=.true.
 #ifdef WITH_MPI
-         if ( coord_r /= 0 ) then
+         if ( .not. l_master_rank ) then
             ! send viscous_torque_ic and viscous_torque_ma to coord_r 0 for
             ! output
             call MPI_Send(viscous_torque_ic,1,MPI_DEF_REAL,0, &
@@ -195,7 +195,7 @@ contains
          rank_has_l1m0=.false.
       end if
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 #ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
             call MPI_Recv(viscous_torque_ic,1,MPI_DEF_REAL,MPI_ANY_SOURCE,&
@@ -246,7 +246,7 @@ contains
          call sendvals_to_rank0(z,n_r2,lm_vals(1:8),zvals_on_rank0(:,2))
          call sendvals_to_rank0(z,n_r3,lm_vals(1:8),zvals_on_rank0(:,3))
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             if ( l_save_out ) then
                open(newunit=n_driftVD_file, file=driftVD_file, status='unknown', &
                &    position='append')
@@ -266,14 +266,14 @@ contains
                close(n_driftVQ_file)
             end if
          end if
-
+         
          if ( l_mag .or. l_mag_LF ) then
             n_r1=n_r_CMB
             n_r2=n_r_ICB
             call sendvals_to_rank0(b,n_r1,lm_vals(1:8),bvals_on_rank0(:,1))
             call sendvals_to_rank0(b,n_r2,lm_vals(1:8),bvals_on_rank0(:,2))
 
-            if ( coord_r == 0 ) then
+            if ( l_master_rank ) then
                if ( l_save_out ) then
                   open(newunit=n_driftBD_file, file=driftBD_file, status='unknown',&
                   &    position='append')
@@ -293,9 +293,9 @@ contains
             end if
          end if ! l_mag
       end if
-
+      
       if ( .not. l_SRIC .and. ( l_rot_ic .or. l_rot_ma ) ) then
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             if ( l_save_out ) then
                open(newunit=n_rot_file, file=rot_file, status='unknown', &
                &    position='append')
@@ -310,7 +310,7 @@ contains
             if ( l_save_out ) close(n_rot_file)
          end if
       end if
-
+      
       if ( l_AM ) then
          rank_has_l1m0=.false.
          rank_has_l1m1=.false.
@@ -322,7 +322,7 @@ contains
             end do
             rank_has_l1m0=.true.
 #ifdef WITH_MPI
-            if (coord_r /= 0) then
+            if (.not. l_master_rank) then
                call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, &
                     &        comm_r,ierr)
             end if
@@ -336,7 +336,7 @@ contains
                end do
                rank_has_l1m1=.true.
 #ifdef WITH_MPI
-               if ( coord_r /= 0 ) then
+               if ( .not. l_master_rank ) then
                   call MPI_Send(z11,n_r_max,MPI_DEF_COMPLEX,0, &
                        &        sr_tag+1,comm_r,ierr)
                end if
@@ -349,7 +349,7 @@ contains
          end if
          ! now we have z10 and z11 in the worst case on two different
          ! ranks, which are also different from coord_r 0
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
 #ifdef WITH_MPI
             if ( .not. rank_has_l1m0 ) then
                call MPI_Recv(z10,n_r_max,MPI_DEF_COMPLEX,MPI_ANY_SOURCE, &
@@ -407,7 +407,7 @@ contains
             eKinAMzLast=eKinAMz
          end if
       end if
-
+      
       if ( l_iner ) then
          ! l_iner can only be .true. for minc=1
          n_lm_vals=0
@@ -420,7 +420,7 @@ contains
          n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(w,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             if ( l_save_out ) then
                open(newunit=n_inerP_file, file=inerP_file, status='unknown', &
                &    position='append')
@@ -433,7 +433,7 @@ contains
          n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(z,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             if ( l_save_out ) then
                open(newunit=n_inerT_file, file=inerT_file, status='unknown', &
                &    position='append')
@@ -640,7 +640,7 @@ contains
          lm=lm_vals(ilm)
          if ( lm_balance(0)%nStart <= lm .and. lm <= lm_balance(0)%nStop ) then
             ! the value is already on coord_r 0
-            if (coord_r == 0) vals_on_rank0(ilm)=field(lm,n_r)
+            if (l_master_rank) vals_on_rank0(ilm)=field(lm,n_r)
          else
             tag=876+ilm
             ! on which process is the lm value?
@@ -649,7 +649,7 @@ contains
                call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,   &
                     &        0,tag,comm_r,ierr)
             end if
-            if (coord_r == 0) then
+            if (l_master_rank) then
                call MPI_Recv(vals_on_rank0(ilm),1,MPI_DEF_COMPLEX,        &
                     &        MPI_ANY_SOURCE,tag,comm_r,status,ierr)
             end if

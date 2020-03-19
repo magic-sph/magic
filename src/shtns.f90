@@ -728,31 +728,31 @@ contains
       !-- TODO: The FFT must be performed for an array with the dimensions of 
       !   Fr_loc which may end up paded with zeroes.
       !   Is there any way to tell MKL to perform a "truncated" FFT?
-      print *, " f_loc: -------------------------------", shape(f_loc)
-      print *, f_loc
+!       print *, " f_loc: -------------------------------", shape(f_loc)
+!       print *, f_loc
       call fft_phi_loc(f_loc, Fr_loc, 1)
-      print *, " fft: ---------------------------------", shape(Fr_loc)
-      print *, Fr_loc
+!       print *, " fft: ---------------------------------", shape(Fr_loc)
+!       print *, Fr_loc
       transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
       
       
       !>@TODO  pass the full Fr_loc here instead of transpose_loc to avoid the memcopy
       !>       It is not really needed, but requires some care with the size of the arrays
       call transpose_m_theta(transpose_loc, fL_loc)
-      print *, " fft_t: -------------------------------", shape(fL_loc)
-      print *, fL_loc
+!       print *, " fft_t: -------------------------------", shape(fL_loc)
+!       print *, fL_loc
       
       !-- Now do the Legendre transform using the new function in a loop
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
         l_lm = map_dist_st%lmP2(m, m)
         u_lm = map_dist_st%lmP2(l_max+1, m)
-        print *, " -- M: ", m, i, l_lm, u_lm, n_lmP_loc
+!         print *, " -- M: ", m, i, l_lm, u_lm, n_lmP_loc
         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLM_loc(l_lm:u_lm),l_max+1)
       end do
       
-      print *, " fLM_loc: -----------------------------------------"
-      print *, fLM_loc
+!       print *, " fLM_loc: -----------------------------------------"
+!       print *, fLM_loc
       
       call shtns_load_cfg(0) ! l_max
 
@@ -841,15 +841,16 @@ contains
       
       call slice_FlmP_cmplx(fLMP,fLMP_sliced)      
 
-      print*, "spat_to_SH: ", maxval(abs(fLMP_loc - fLMP_sliced))
-!       if ((l_master_rank) .or. (coord_r==8)) then
-        print *, "---------- f ----------------------------"
-        print *, f
-        print *, "---------- fLMP--------------------------"
-        print *, fLMP
-        print *, "---------- fLMP_sliced-------------------"
-        print *, fLMP_sliced
-!       end if
+      fLMP_loc = fLMP_loc - fLMP_sliced
+      print*, "spat_to_SH: ", maxval(abs(fLMP_loc)), norm2([norm2(real(fLMP_loc)), norm2(aimag(fLMP_loc))]) 
+! !       if ((l_master_rank) .or. (coord_r==8)) then
+!         print *, "---------- f ----------------------------"
+!         print *, f
+!         print *, "---------- fLMP--------------------------"
+!         print *, fLMP
+!         print *, "---------- fLMP_sliced-------------------"
+!         print *, fLMP_sliced
+! !       end if
       
       STOP
       

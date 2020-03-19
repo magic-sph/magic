@@ -79,6 +79,13 @@ contains
       call create_gather_type(gt_OC,n_r_max)
       call create_gather_type(gt_IC,n_r_ic_max)
 
+      
+      
+      !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
+      mpi_transp = "ATOAW"
+      
+      
+      
       call capitalize(mpi_transp)
       if ( index(mpi_transp, 'AUTO') /= 0 ) then
          call find_faster_comm(idx)
@@ -131,6 +138,9 @@ contains
          allocate( type_mpiatoaw :: lo2r_xi )
          allocate( type_mpiatoaw :: r2lo_xi )
          allocate( type_mpiatoaw :: lo2r_press )
+      else
+         print *, "Invalid idx: ", idx,", mpi_transp: ", trim(adjustl(mpi_transp))
+         call abortRun('Failed to determine optimal transposition method')
       end if
 
       if ( l_heat ) then
@@ -808,7 +818,7 @@ contains
       call lo2r_test%create_comm(5)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(comm_r, ierr)
+         call MPI_Barrier(mpi_comm_world, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
       end do
@@ -822,7 +832,7 @@ contains
       call lo2r_test%create_comm(5)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(comm_r, ierr)
+         call MPI_Barrier(mpi_comm_world, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
       end do
@@ -836,7 +846,7 @@ contains
       call lo2r_test%create_comm(5)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(comm_r, ierr)
+         call MPI_Barrier(mpi_comm_world, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
       end do
@@ -847,13 +857,13 @@ contains
 
       !-- Now determine the average over the ranks and send it to coord_r=0
       call MPI_Reduce(tPointtoPoint, timers(1), 1, MPI_DEF_REAL, MPI_SUM, 0, &
-           &          comm_r, ierr)
+           &          mpi_comm_world, ierr)
       call MPI_Reduce(tAlltoAllv, timers(2), 1, MPI_DEF_REAL, MPI_SUM, 0, &
-           &          comm_r, ierr)
+           &          mpi_comm_world, ierr)
       call MPI_Reduce(tAlltoAllw, timers(3), 1, MPI_DEF_REAL, MPI_SUM, 0, &
-           &          comm_r, ierr)
+           &          mpi_comm_world, ierr)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !-- Average over procs and number of transposes
          timers(:) = timers(:)/real(n_ranks_r,cp)/real(n_transp,cp)
 
@@ -895,7 +905,7 @@ contains
 
       end if
 
-      call MPI_Bcast(idx,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(idx,1,MPI_INTEGER,0,mpi_comm_world,ierr)
 #else
       idx=1  ! In that case it does not matter
 #endif

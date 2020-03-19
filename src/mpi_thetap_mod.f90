@@ -78,8 +78,6 @@ contains
          sendcount(irank) = pos - senddispl(irank) - 1
          recvdispl(irank) = irank*n_m_loc*dist_theta(irank,0)
          recvcount(irank) =   n_m_loc*dist_theta(irank,0)
-         print *, "m_theta send:", irank, sendcount(irank), senddispl(irank)
-         print *, "m_theta recv:", irank, recvcount(irank), recvdispl(irank)
       end do
       
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DOUBLE_COMPLEX, &

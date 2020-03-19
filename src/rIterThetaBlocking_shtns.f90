@@ -597,8 +597,7 @@ contains
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
          
-         
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !          call test_shtns_fwd(gsa%Advr)
+         call test_shtns_fwd(gsa%Advr)
          
          call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
          call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
@@ -661,7 +660,7 @@ contains
                  &                nl_lm%LFp2LM, l_R(this%nR))
          end if
       end if
-
+      
       call shtns_load_cfg(0)
 
    end subroutine transform_to_lm_space_shtns

@@ -120,7 +120,7 @@ contains
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
       end if
-
+      
       if ( lMat ) then ! update matrices:
       !---- The following logicals tell whether the respective inversion
       !     matrices have been updated. lMat=.true. when a general
@@ -145,7 +145,7 @@ contains
          call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
          PERFOFF
       end if
-
+      
       if ( l_chemical_conv ) call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
 
       if ( l_conv ) then

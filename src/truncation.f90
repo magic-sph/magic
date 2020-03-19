@@ -1008,7 +1008,7 @@ contains
       character(*), intent(in) :: name
       integer :: i
       
-      if (coord_r /= 0) return
+      if (.not. l_master_rank) return
       
       print "(' !  Partition in rank_',A,' ', I0, ': ', I0,'-',I0, '  (', I0, ' pts)')", name, &
             0, dist(0,1), dist(0,2), dist(0,0)
@@ -1030,7 +1030,7 @@ contains
       
       integer :: i, j, counter
       
-      if (coord_r /= 0) return
+      if (.not. l_master_rank) return
       
       write (*,'(A,I0,A,I0)', ADVANCE='NO') ' !  Partition in rank_'//name//' ', 0, ' :', dist(0,1)
       counter = 1
@@ -1061,7 +1061,7 @@ contains
       integer :: l, m
       logical :: mfirst
       
-      if (coord_r/=0) return
+      if (.not. l_master_rank) return
       
       do icoord_mlo=0,n_ranks-1
          write (*,'(A,I0,A)') ' !  Distribution rank_mlo ',icoord_mlo,' :'
@@ -1096,7 +1096,7 @@ contains
       integer :: icoord_mlo, m_count, l_count
       integer :: l, m
       
-      if (coord_r/=0) return
+      if (.not. l_master_rank) return
       
       write (*,'(A,A)') ' !   mlo_dist_method: ', mlo_dist_method
       do icoord_mlo=0,n_ranks-1

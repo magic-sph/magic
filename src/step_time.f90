@@ -477,7 +477,7 @@ contains
                        &                      field_Rloc_container)
                end if
                call comm_counter%stop_count(l_increment=.false.)
-
+               
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &

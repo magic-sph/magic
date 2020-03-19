@@ -258,7 +258,7 @@ contains
 
          dtrkc(nR)=this_rIteration%dtrkc
          dthkc(nR)=this_rIteration%dthkc
-
+         
       end do    ! Loop over radial levels
 
       !----- Correct sign of mantel Lorentz torque (see above):
