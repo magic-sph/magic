@@ -413,11 +413,13 @@ contains
             do n_phi=1,n_phi_max
                if ( l_anel ) then
                   this%CAr(n_phi,n_th) = dilution_fac*rsnt*snt* &
-                  &       ( -ra*opr*this%sc(n_phi,n_th) +       &
-                  &         polind*DissNb*oek*opressure0(nR)*this%pc(n_phi,n_th) )
+                  &       ( -ra*opr*this%sc(n_phi,n_th) )
+                  !-- neglect pressure contribution
+                  !& + polind*DissNb*oek*opressure0(nR)*this%pc(n_phi,n_th) )
                   this%CAt(n_phi,n_th) = dilution_fac*rsnt*cnt* &
-                  &       ( -ra*opr*this%sc(n_phi,n_th) +       &
-                  &         polind*DissNb*oek*opressure0(nR)*this%pc(n_phi,n_th) )
+                  &       ( -ra*opr*this%sc(n_phi,n_th) )
+                  !-- neglect pressure contribution
+                  !& + polind*DissNb*oek*opressure0(nR)*this%pc(n_phi,n_th) )
                else
                   this%CAr(n_phi,n_th) = -dilution_fac*rsnt*snt*ra*opr* &
                   &                       this%sc(n_phi,n_th)
@@ -876,11 +878,13 @@ contains
             do nPhi=1,n_phi_max
                if ( l_anel ) then
                   this%CAr(nPhi,nThetaB) = dilution_fac*rsnt*snt* &
-                       &  ( -ra*opr*this%sc(nPhi,nThetaB) +       &
-                       &    polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
+                       &  ( -ra*opr*this%sc(nPhi,nThetaB) )
+                       !-- neglect pressure contribution
+                       !& + polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
                   this%CAt(nPhi,nThetaB) = dilution_fac*rsnt*cnt* &
-                       &  ( -ra*opr*this%sc(nPhi,nThetaB) +       &
-                       &    polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
+                       &  ( -ra*opr*this%sc(nPhi,nThetaB) )
+                       !-- neglect pressure contribution
+                       !& + polind*DissNb*oek*opressure0(nR)*this%pc(nPhi,nThetaB) )
                else
                   this%CAr(nPhi,nThetaB) = -dilution_fac*rsnt*snt*ra*opr*this%sc(nPhi,nThetaB)
                   this%CAt(nPhi,nThetaB) = -dilution_fac*rsnt*cnt*ra*opr*this%sc(nPhi,nThetaB)
