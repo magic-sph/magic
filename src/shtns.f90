@@ -26,7 +26,7 @@ module shtns
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
    &         axi_to_spat, spat_to_qst,                                      &
    &         spat_to_SH_dist, &
-   &         test_shtns, test_shtns_fwd
+   &         test_shtns, test_spat_to_qst, test_spat_to_SH
 
 contains
 
@@ -56,9 +56,10 @@ contains
       call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
            &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(1)
+           
 
       call shtns_load_cfg(0)
-
+      
    end subroutine
 !------------------------------------------------------------------------------
    subroutine scal_to_spat(Slm, fieldc, lcut)
@@ -728,35 +729,99 @@ contains
       !-- TODO: The FFT must be performed for an array with the dimensions of 
       !   Fr_loc which may end up paded with zeroes.
       !   Is there any way to tell MKL to perform a "truncated" FFT?
-!       print *, " f_loc: -------------------------------", shape(f_loc)
-!       print *, f_loc
       call fft_phi_loc(f_loc, Fr_loc, 1)
-!       print *, " fft: ---------------------------------", shape(Fr_loc)
-!       print *, Fr_loc
       transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
       
       
       !>@TODO  pass the full Fr_loc here instead of transpose_loc to avoid the memcopy
       !>       It is not really needed, but requires some care with the size of the arrays
       call transpose_m_theta(transpose_loc, fL_loc)
-!       print *, " fft_t: -------------------------------", shape(fL_loc)
-!       print *, fL_loc
       
       !-- Now do the Legendre transform using the new function in a loop
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
         l_lm = map_dist_st%lmP2(m, m)
         u_lm = map_dist_st%lmP2(l_max+1, m)
-!         print *, " -- M: ", m, i, l_lm, u_lm, n_lmP_loc
         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLM_loc(l_lm:u_lm),l_max+1)
       end do
-      
-!       print *, " fLM_loc: -----------------------------------------"
-!       print *, fLM_loc
       
       call shtns_load_cfg(0) ! l_max
 
    end subroutine spat_to_SH_dist
+   
+   !------------------------------------------------------------------------------
+   subroutine spat_to_qst_dist(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc)
+
+      !-- Input variables
+      real(cp), intent(inout) :: f_loc(n_phi_max,n_theta_loc)
+      real(cp), intent(inout) :: g_loc(n_phi_max,n_theta_loc)
+      real(cp), intent(inout) :: h_loc(n_phi_max,n_theta_loc)
+
+      !-- Output variables
+      complex(cp), intent(out) :: qLMP_loc(n_lmP_loc)
+      complex(cp), intent(out) :: sLMP_loc(n_lmP_loc)
+      complex(cp), intent(out) :: tLMP_loc(n_lmP_loc)
+      
+      !-- Local variables
+      complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
+      complex(cp) ::  gL_loc(n_theta_max,n_m_loc)
+      complex(cp) ::  hL_loc(n_theta_max,n_m_loc)
+      
+      complex(cp) ::  transpose_loc(n_m_max,n_theta_loc)
+      complex(cp) ::  Fr_loc(n_phi_max/2+1,n_theta_loc)
+      
+      
+      complex(cp) ::  gtranspose_loc(n_m_max,n_theta_loc)
+      complex(cp) ::  gFr_loc(n_phi_max/2+1,n_theta_loc)
+      
+      complex(cp) ::  htranspose_loc(n_m_max,n_theta_loc)
+      complex(cp) ::  hFr_loc(n_phi_max/2+1,n_theta_loc)
+      
+      integer :: i, l_lm, u_lm, m
+
+      call shtns_load_cfg(1)
+      
+      !>@TODO Vectorial FFT and transpose (f,g,h at once)
+      
+      fL_loc = 0
+      gL_loc = 0
+      hL_loc = 0
+      
+      Fr_loc = 0
+      gFr_loc = 0
+      hFr_loc = 0
+      
+      transpose_loc = 0
+      gtranspose_loc = 0
+      htranspose_loc = 0
+      
+      
+      call fft_phi_loc(f_loc, Fr_loc, 1)
+      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
+      call transpose_m_theta(transpose_loc, fL_loc)
+      
+      call fft_phi_loc(g_loc, gFr_loc, 1)
+      gtranspose_loc(1:n_m_max,1:n_theta_loc) = gFr_loc(1:n_m_max,1:n_theta_loc)
+      call transpose_m_theta(gtranspose_loc, gL_loc)
+      
+      
+      call fft_phi_loc(h_loc, hFr_loc, 1)
+      htranspose_loc(1:n_m_max,1:n_theta_loc) = hFr_loc(1:n_m_max,1:n_theta_loc)
+      call transpose_m_theta(htranspose_loc, hL_loc)
+      
+      do i = 1, n_m_loc
+        m = dist_m(coord_m, i)
+        l_lm = map_dist_st%lmP2(m, m)
+        u_lm = map_dist_st%lmP2(l_max+1, m)
+        print *, " idx: ", n_theta_max, m, l_max+1, l_lm, u_lm
+        call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
+           qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),tLMP_loc(l_lm:u_lm),l_max+1)
+      end do
+      
+!       call shtns_spat_to_qst_l(f, g, h, qLM, sLM, tLM, lcut+1)
+      call shtns_load_cfg(0)
+
+   end subroutine spat_to_qst_dist
    
    
    !----------------------------------------------------------------------------
@@ -819,7 +884,7 @@ contains
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine test_shtns_fwd(f)
+   subroutine test_spat_to_SH(f)
       use communications
       
       real(cp), intent(in) :: f(n_phi_max, n_theta_max)
@@ -843,18 +908,113 @@ contains
 
       fLMP_loc = fLMP_loc - fLMP_sliced
       print*, "spat_to_SH: ", maxval(abs(fLMP_loc)), norm2([norm2(real(fLMP_loc)), norm2(aimag(fLMP_loc))]) 
-! !       if ((l_master_rank) .or. (coord_r==8)) then
-!         print *, "---------- f ----------------------------"
-!         print *, f
-!         print *, "---------- fLMP--------------------------"
-!         print *, fLMP
-!         print *, "---------- fLMP_sliced-------------------"
-!         print *, fLMP_sliced
-! !       end if
+      STOP
+      
+   end subroutine
+   
+   !----------------------------------------------------------------------------
+   subroutine test_spat_to_qst(f2,g2,h2)
+      use communications
+      
+      !-- Input variables
+      real(cp), intent(in) :: f2(n_phi_max,n_theta_max)
+      real(cp), intent(in) :: g2(n_phi_max,n_theta_max)
+      real(cp), intent(in) :: h2(n_phi_max,n_theta_max)
+      real(cp)    :: f_loc(n_phi_max,n_theta_loc)
+      real(cp)    :: g_loc(n_phi_max,n_theta_loc)
+      real(cp)    :: h_loc(n_phi_max,n_theta_loc)
+      
+      
+      real(cp) :: f(n_phi_max,n_theta_max)
+      real(cp) :: g(n_phi_max,n_theta_max)
+      real(cp) :: h(n_phi_max,n_theta_max)
+      
+      
+      complex(cp) :: qLMP(lmP_max)
+      complex(cp) :: sLMP(lmP_max)
+      complex(cp) :: tLMP(lmP_max)
+      complex(cp) :: qLMP_loc(n_lmP_loc)
+      complex(cp) :: sLMP_loc(n_lmP_loc)
+      complex(cp) :: tLMP_loc(n_lmP_loc)
+      
+      complex(cp) :: qLMP_sliced(n_lmP_loc)
+      complex(cp) :: sLMP_sliced(n_lmP_loc)
+      complex(cp) :: tLMP_sliced(n_lmP_loc)
+      
+      integer :: k, i, j
+      
+      k = 0
+      do i=1,n_phi_max
+        do j=1,n_theta_max
+          k = k + 1
+          f(i,j) = real(k)/real(n_phi_max*n_theta_max)
+        end do
+      end do
+      g = f
+      h = f
+      
+      
+      
+      
+      
+      f_loc = cmplx(0.0,0.0)
+      g_loc = cmplx(0.0,0.0)
+      h_loc = cmplx(0.0,0.0)
+      
+      qLMP = cmplx(0.0,0.0)
+      sLMP = cmplx(0.0,0.0)
+      tLMP = cmplx(0.0,0.0)
+      
+      qLMP_loc = cmplx(0.0,0.0)
+      sLMP_loc = cmplx(0.0,0.0)
+      tLMP_loc = cmplx(0.0,0.0)
+      
+      qLMP_sliced = cmplx(0.0,0.0)
+      sLMP_sliced = cmplx(0.0,0.0)
+      tLMP_sliced = cmplx(0.0,0.0)
+      
+      call slice_f(f,f_loc)
+      call slice_f(g,g_loc)
+      call slice_f(h,h_loc)
+      
+      call spat_to_qst(f, g, h, qLMP, sLMP, tLMP, l_max)
+      call spat_to_qst_dist(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc)
+      
+      call slice_FlmP_cmplx(qLMP,qLMP_sliced)
+      call slice_FlmP_cmplx(sLMP,sLMP_sliced)
+      call slice_FlmP_cmplx(tLMP,tLMP_sliced)     
+      
+      print *, "---qLMP--------------------------------------"
+      print *, qLMP
+      print *, "---sLMP--------------------------------------"
+      print *, sLMP
+      print *, "---tLMP--------------------------------------"
+      print *, tLMP
+      print *, "---qLMP_loc--------------------------------------"
+      print *, qLMP_loc
+      print *, "---qLMP_slice--------------------------------------"
+      print *, qLMP_sliced
+      print *, "---sLMP_loc--------------------------------------"
+      print *, sLMP_loc
+      print *, "---sLMP_slice--------------------------------------"
+      print *, sLMP_sliced
+      print *, "---tLMP_loc--------------------------------------"
+      print *, tLMP_loc
+      print *, "---tLMP_slice--------------------------------------"
+      print *, tLMP_sliced
+
+      
+      qLMP_loc = qLMP_loc - qLMP_sliced
+      sLMP_loc = sLMP_loc - sLMP_sliced
+      tLMP_loc = tLMP_loc - tLMP_sliced
+      print*, "spat_to_qst Q: ", maxval(abs(qLMP_loc)), norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]) 
+      print*, "spat_to_qst S: ", maxval(abs(sLMP_loc)), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]) 
+      print*, "spat_to_qst L: ", maxval(abs(tLMP_loc)), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
+!       if (rank ==15) then
+!       end if
       
       STOP
       
    end subroutine
-   !----------------------------------------------------------------------------
 
 end module shtns

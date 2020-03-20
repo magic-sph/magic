@@ -596,9 +596,6 @@ contains
          !$omp end parallel
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
-         
-         call test_shtns_fwd(gsa%Advr)
-         
          call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
          call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
@@ -612,6 +609,7 @@ contains
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
+         call test_spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp)
          call spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, nl_lm%VStLM, &
               &           nl_lm%VSpLM, l_R(this%nR))
 
