@@ -420,6 +420,11 @@ Magnetic boundary conditions
   |             |       \frac{\partial g_{\ell m}}{\partial r}+\frac{\ell}{r}\,g_{\ell m}=0,\quad |
   |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
+  | ``ktopb=2`` | Perfect condutor:                                                               |
+  |             |    .. math::                                                                    |
+  |             |       g_{\ell m} = \frac{\partial^2 g_{\ell m}}{\partial r^2}=0,\quad           |
+  |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
+  +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=3`` | Finitely conducting mantle                                                      |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=4`` | Pseudo-vacuum outer boundary:                                                   |
@@ -437,7 +442,7 @@ Magnetic boundary conditions
   +-------------+---------------------------------------------------------------------------------+
   | ``kbotb=2`` | Perfectly-conducting inner core:                                                |
   |             |    .. math::                                                                    |
-  |             |       g_{\ell m} = \frac{\partial g_{\ell m}}{\partial r}=0,\quad               |
+  |             |       g_{\ell m} = \frac{\partial^2 g_{\ell m}}{\partial r^2}=0,\quad           |
   |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
   | ``kbotb=3`` | Finitely conducting inner core                                                  |
