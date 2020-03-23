@@ -30,6 +30,7 @@ module nonlinear_lm_mod
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc, s_Rloc, &
        &             p_Rloc, dp_Rloc, xi_Rloc
    use RMS_helpers, only: hIntRms
+   use communications, only: slice_FlmP_cmplx, gather_FlmP
 
 
    implicit none
@@ -55,6 +56,8 @@ module nonlinear_lm_mod
       procedure :: output
       procedure :: set_zero
       procedure :: get_td
+      procedure :: slice_all   !@>TODO temporary function to help transition, delete me!
+      procedure :: gather_all  !@>TODO temporary function to help transition, delete me!
 
    end type nonlinear_lm_t
 
@@ -103,6 +106,115 @@ contains
       end if
 
    end subroutine initialize
+   
+!----------------------------------------------------------------------------
+!@>TODO temporary function to help transition, delete me!
+   subroutine slice_all(nl_lm_glb, nl_lm_loc)
+      
+      class(nonlinear_lm_t), intent(inout) :: nl_lm_loc
+      class(nonlinear_lm_t), intent(inout) :: nl_lm_glb
+   
+      call slice_FlmP_cmplx(nl_lm_glb%AdvrLM, nl_lm_loc%AdvrLM)
+      call slice_FlmP_cmplx(nl_lm_glb%AdvtLM, nl_lm_loc%AdvtLM)
+      call slice_FlmP_cmplx(nl_lm_glb%AdvpLM, nl_lm_loc%AdvpLM)
+      call slice_FlmP_cmplx(nl_lm_glb%LFrLM , nl_lm_loc%LFrLM )
+      call slice_FlmP_cmplx(nl_lm_glb%LFtLM , nl_lm_loc%LFtLM )
+      call slice_FlmP_cmplx(nl_lm_glb%LFpLM , nl_lm_loc%LFpLM )
+      call slice_FlmP_cmplx(nl_lm_glb%VxBrLM, nl_lm_loc%VxBrLM)
+      call slice_FlmP_cmplx(nl_lm_glb%VxBtLM, nl_lm_loc%VxBtLM)
+      call slice_FlmP_cmplx(nl_lm_glb%VxBpLM, nl_lm_loc%VxBpLM)
+
+      if ( l_anel) then
+         call slice_FlmP_cmplx(nl_lm_glb%ViscHeatLM, nl_lm_loc%ViscHeatLM)
+         call slice_FlmP_cmplx(nl_lm_glb%OhmLossLM,  nl_lm_loc%OhmLossLM )
+      end if
+
+      if ( l_heat ) then
+         call slice_FlmP_cmplx(nl_lm_glb%VSrLM, nl_lm_loc%VSrLM)
+         call slice_FlmP_cmplx(nl_lm_glb%VStLM, nl_lm_loc%VStLM)
+         call slice_FlmP_cmplx(nl_lm_glb%VSpLM, nl_lm_loc%VSpLM)
+      end if
+
+      if ( l_chemical_conv ) then
+         call slice_FlmP_cmplx(nl_lm_glb%VXirLM, nl_lm_loc%VXirLM)
+         call slice_FlmP_cmplx(nl_lm_glb%VXitLM, nl_lm_loc%VXitLM)
+         call slice_FlmP_cmplx(nl_lm_glb%VXipLM, nl_lm_loc%VXipLM)
+      end if
+
+      !-- RMS calculations
+      if ( l_RMS ) then
+         call slice_FlmP_cmplx(nl_lm_glb%dtVrLM , nl_lm_loc%dtVrLM )
+         call slice_FlmP_cmplx(nl_lm_glb%dtVtLM , nl_lm_loc%dtVtLM )
+         call slice_FlmP_cmplx(nl_lm_glb%dtVpLM , nl_lm_loc%dtVpLM )
+         call slice_FlmP_cmplx(nl_lm_glb%Advt2LM, nl_lm_loc%Advt2LM)
+         call slice_FlmP_cmplx(nl_lm_glb%Advp2LM, nl_lm_loc%Advp2LM)
+         call slice_FlmP_cmplx(nl_lm_glb%LFt2LM , nl_lm_loc%LFt2LM )
+         call slice_FlmP_cmplx(nl_lm_glb%LFp2LM , nl_lm_loc%LFp2LM )
+         call slice_FlmP_cmplx(nl_lm_glb%CFt2LM , nl_lm_loc%CFt2LM )
+         call slice_FlmP_cmplx(nl_lm_glb%CFp2LM , nl_lm_loc%CFp2LM )
+         call slice_FlmP_cmplx(nl_lm_glb%PFt2LM , nl_lm_loc%PFt2LM )
+         call slice_FlmP_cmplx(nl_lm_glb%PFp2LM , nl_lm_loc%PFp2LM )
+         if ( l_adv_curl ) then
+            call slice_FlmP_cmplx(nl_lm_glb%dpkindrLM, nl_lm_loc%dpkindrLM)
+         end if
+      end if
+   
+   end subroutine slice_all
+   
+!----------------------------------------------------------------------------
+!@>TODO temporary function to help transition, delete me!
+   subroutine gather_all(nl_lm_loc, nl_lm_glb)
+   
+      class(nonlinear_lm_t), intent(inout) :: nl_lm_loc
+      class(nonlinear_lm_t), intent(inout) :: nl_lm_glb
+   
+      call gather_FlmP(nl_lm_loc%AdvrLM, nl_lm_glb%AdvrLM)
+      call gather_FlmP(nl_lm_loc%AdvtLM, nl_lm_glb%AdvtLM)
+      call gather_FlmP(nl_lm_loc%AdvpLM, nl_lm_glb%AdvpLM)
+! !       call gather_FlmP(nl_lm_loc%LFrLM , nl_lm_glb%LFrLM )
+! !       call gather_FlmP(nl_lm_loc%LFtLM , nl_lm_glb%LFtLM )
+! !       call gather_FlmP(nl_lm_loc%LFpLM , nl_lm_glb%LFpLM )
+! !       call gather_FlmP(nl_lm_loc%VxBrLM, nl_lm_glb%VxBrLM)
+! !       call gather_FlmP(nl_lm_loc%VxBtLM, nl_lm_glb%VxBtLM)
+! !       call gather_FlmP(nl_lm_loc%VxBpLM, nl_lm_glb%VxBpLM)
+! ! 
+! !       if ( l_anel) then
+! !          call gather_FlmP(nl_lm_loc%ViscHeatLM, nl_lm_glb%ViscHeatLM)
+! !          call gather_FlmP(nl_lm_loc%OhmLossLM,  nl_lm_glb%OhmLossLM )
+! !       end if
+! ! 
+! !       if ( l_heat ) then
+! !          call gather_FlmP(nl_lm_loc%VSrLM, nl_lm_glb%VSrLM)
+! !          call gather_FlmP(nl_lm_loc%VStLM, nl_lm_glb%VStLM)
+! !          call gather_FlmP(nl_lm_loc%VSpLM, nl_lm_glb%VSpLM)
+! !       end if
+! ! 
+! !       if ( l_chemical_conv ) then
+! !          call gather_FlmP(nl_lm_loc%VXirLM, nl_lm_glb%VXirLM)
+! !          call gather_FlmP(nl_lm_loc%VXitLM, nl_lm_glb%VXitLM)
+! !          call gather_FlmP(nl_lm_loc%VXipLM, nl_lm_glb%VXipLM)
+! !       end if
+! ! 
+! !       !-- RMS calculations
+! !       if ( l_RMS ) then
+! !          call gather_FlmP(nl_lm_loc%dtVrLM , nl_lm_glb%dtVrLM )
+! !          call gather_FlmP(nl_lm_loc%dtVtLM , nl_lm_glb%dtVtLM )
+! !          call gather_FlmP(nl_lm_loc%dtVpLM , nl_lm_glb%dtVpLM )
+! !          call gather_FlmP(nl_lm_loc%Advt2LM, nl_lm_glb%Advt2LM)
+! !          call gather_FlmP(nl_lm_loc%Advp2LM, nl_lm_glb%Advp2LM)
+! !          call gather_FlmP(nl_lm_loc%LFt2LM , nl_lm_glb%LFt2LM )
+! !          call gather_FlmP(nl_lm_loc%LFp2LM , nl_lm_glb%LFp2LM )
+! !          call gather_FlmP(nl_lm_loc%CFt2LM , nl_lm_glb%CFt2LM )
+! !          call gather_FlmP(nl_lm_loc%CFp2LM , nl_lm_glb%CFp2LM )
+! !          call gather_FlmP(nl_lm_loc%PFt2LM , nl_lm_glb%PFt2LM )
+! !          call gather_FlmP(nl_lm_loc%PFp2LM , nl_lm_glb%PFp2LM )
+! !          if ( l_adv_curl ) then
+! !             call gather_FlmP(nl_lm_loc%dpkindrLM, nl_lm_glb%dpkindrLM)
+! !          end if
+! !       end if
+   
+   end subroutine gather_all
+   
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 

@@ -908,29 +908,30 @@ contains
                call dT_ICB_m_ave%finalize_SD(time_norm)
 
                !------ Output:
-               spec_file='T_spec_ave.'//tag
-               open(newunit=nOut,file=spec_file,status='unknown')
-               do l=1,l_max+1
-                  write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave%mean(l), &
-                  &                T_m_ave%mean(l),  T_ICB_l_ave%mean(l), &
-                  &            T_ICB_m_ave%mean(l), dT_ICB_l_ave%mean(l), &
-                  &           dT_ICB_m_ave%mean(l),        T_l_ave%SD(l), &
-                  &                  T_m_ave%SD(l),    T_ICB_l_ave%SD(l), &
-                  &              T_ICB_m_ave%SD(l),   dT_ICB_l_ave%SD(l), &
-                  &             dT_ICB_m_ave%SD(l)
-               end do
-               close(nOut)
+               if (l_master_rank) then
+                  spec_file='T_spec_ave.'//tag
+                  open(newunit=nOut,file=spec_file,status='unknown')
+                  do l=1,l_max+1
+                     write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave%mean(l), &
+                     &                T_m_ave%mean(l),  T_ICB_l_ave%mean(l), &
+                     &            T_ICB_m_ave%mean(l), dT_ICB_l_ave%mean(l), &
+                     &           dT_ICB_m_ave%mean(l),        T_l_ave%SD(l), &
+                     &                  T_m_ave%SD(l),    T_ICB_l_ave%SD(l), &
+                     &              T_ICB_m_ave%SD(l),   dT_ICB_l_ave%SD(l), &
+                     &             dT_ICB_m_ave%SD(l)
+                  end do
+                  close(nOut)
 
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
+                  if ( l_save_out ) then
+                     open(newunit=n_log_file, file=log_file, status='unknown', &
+                     &    position='append')
+                  end if
+                  write(n_log_file,"(/,A,A)")  &
+                  &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', spec_file
+                  write(n_log_file,"(A,I5)")  &
+                  &    ' !              No. of averaged spectra: ', n_time_ave
+                  if ( l_save_out ) close(n_log_file)
                end if
-               write(n_log_file,"(/,A,A)")  &
-               &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', spec_file
-               write(n_log_file,"(A,I5)")  &
-               &    ' !              No. of averaged spectra: ', n_time_ave
-               if ( l_save_out ) close(n_log_file)
-
             end if
 
          else ! Just one spectrum
@@ -938,15 +939,17 @@ contains
             !-- Output into files:
             write(string, *) n_spec
             spec_file='T_spec_'//trim(adjustl(string))//'.'//tag
-            open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
-            write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)')  &
-            &     time*tScale
-            do l=0,l_max
-               write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1), &
-               &                                    T_ICB_l(l+1), T_ICB_m(l+1), &
-               &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
-            end do
-            close(n_temp_spec_file)
+            if (l_master_rank) then
+               open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
+               write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)')  &
+               &     time*tScale
+               do l=0,l_max
+                  write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1), &
+                  &                                    T_ICB_l(l+1), T_ICB_m(l+1), &
+                  &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
+               end do
+               close(n_temp_spec_file)
+            end if
 
          end if
 

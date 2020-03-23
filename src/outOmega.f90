@@ -73,7 +73,7 @@ contains
 #endif
       end do
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          !---- Transform the contributions to cheb space for z-integral:
          call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)

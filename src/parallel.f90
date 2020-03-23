@@ -235,6 +235,8 @@ contains
       call MPI_Comm_Rank(comm_r, coord_r, ierr) 
       call check_MPI_error(ierr)
       
+      print *, "coord_r = ", coord_r
+      
       call MPI_Comm_Split(comm_gs, coords(1), irank, comm_theta, ierr)
       call MPI_Comm_Rank(comm_theta, coord_theta, ierr) 
       call check_MPI_error(ierr)

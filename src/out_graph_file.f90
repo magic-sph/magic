@@ -64,7 +64,7 @@ contains
       write(string, *) n_graph
       graph_file='G_'//trim(adjustl(string))//'.'//tag
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
          &    " ! Storing graphic file:",             &
          &    "             at time=",timeScaled,     &
@@ -430,7 +430,7 @@ contains
 #endif
          size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             ! coord_r zero writes the Header
             disp = 0
             call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
@@ -445,7 +445,7 @@ contains
 
          bytes_written = 0
          !-- Write header & colatitudes for n_r=0:
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             !-------- Write parameters:
             call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER, &
                  &              status,ierr)
@@ -705,7 +705,7 @@ contains
 #endif
       size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          ! coord_r zero writes the Header
          disp = 0
          call MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER, &
@@ -720,7 +720,7 @@ contains
 
       bytes_written = 0
       !-- Write header & colatitudes for n_r=0:
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          !-------- Write parameters:
          call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)

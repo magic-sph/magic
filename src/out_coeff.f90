@@ -95,7 +95,7 @@ contains
 
       call gather_from_lo_to_rank0(b_LMloc, work)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          !--- Definition of max degree for output
          if ( l_max < l_max_cmb ) l_max_cmb=l_max

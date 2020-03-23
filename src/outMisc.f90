@@ -186,7 +186,7 @@ contains
       call gather_from_Rloc(Hel2Sr, Hel2Sr_global, 0)
       call gather_from_Rloc(HelnaSr, HelnaSr_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !------ Integration over r without the boundaries and normalization:
          HelN  =rInt_R(HelNr_global,r,rscheme_oc)
          HelS  =rInt_R(HelSr_global,r,rscheme_oc)
@@ -274,7 +274,7 @@ contains
       character(len=76) :: filename
       integer :: n_r, filehandle
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          n_calls = n_calls + 1
          if ( l_anelastic_liquid ) then
             if ( l_heat ) then
@@ -487,7 +487,7 @@ contains
             close(filehandle)
          end if
 
-      end if ! coord_r == 0
+      end if ! l_master_rank
 
    end subroutine outHeat
 !---------------------------------------------------------------------------

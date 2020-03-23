@@ -1088,7 +1088,7 @@ contains
 #endif
 
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !-- Outputs
          if ( nTOsets == 1 ) nTOZfile=0
          if ( lTOZwrite ) then

@@ -393,61 +393,63 @@ contains
             end if
 
             !----- Output into paR.TAG file:
-            filename='parR.'//tag
-            open(newunit=fileHandle, file=filename, status='unknown')
-            do nR=1,n_r_max
-               write(fileHandle,'(ES20.10,6ES15.7,6ES13.5)')               &
-               &     r(nR),round_off(Rm%mean(nR),maxval(Rm%mean)),         &
-               &     round_off(Rol%mean(nR),maxval(Rol%mean)),             &
-               &     round_off(uRol%mean(nR),maxval(uRol%mean)),           &
-               &     round_off(dlV%mean(nR),maxval(dlV%mean)),             &
-               &     round_off(dlVc%mean(nR),maxval(dlVc%mean)),           &
-               &     round_off(dlPolPeak%mean(nR),maxval(dlPolPeak%mean)), &
-               &     round_off(Rm%SD(nR),maxval(Rm%SD)),                   &
-               &     round_off(Rol%SD(nR),maxval(Rol%SD)),                 &
-               &     round_off(uRol%SD(nR),maxval(uRol%SD)),               &
-               &     round_off(dlV%SD(nR),maxval(dlV%SD)),                 &
-               &     round_off(dlVc%SD(nR),maxval(dlVc%SD)),               &
-               &     round_off(dlPolPeak%SD(nR),maxval(dlPolPeak%SD))
-            end do
-            close(fileHandle)
-
-            if ( l_viscBcCalc ) then
-               filename='bLayersR.'//tag
+            if (l_master_rank) then
+               filename='parR.'//tag
                open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(fileHandle,'(ES20.10,4ES15.7,4ES13.4)')                 &
-                  &     r(nR),round_off(entropy%mean(nR),maxval(entropy%mean)), &
-                  &     round_off(uh%mean(nR),maxval(uh%mean)),                 &
-                  &     round_off(duh%mean(nR),maxval(duh%mean)),               &
-                  &     round_off(gradT2%mean(nR),maxval(gradT2%mean)),         &
-                  &     round_off(entropy%SD(nR),maxval(entropy%SD)),           &
-                  &     round_off(uh%SD(nR),maxval(uh%SD)),                     &
-                  &     round_off(duh%SD(nR),maxval(duh%SD)),                   &
-                  &     round_off(gradT2%SD(nR),maxval(gradT2%SD))
+                  write(fileHandle,'(ES20.10,6ES15.7,6ES13.5)')               &
+                  &     r(nR),round_off(Rm%mean(nR),maxval(Rm%mean)),         &
+                  &     round_off(Rol%mean(nR),maxval(Rol%mean)),             &
+                  &     round_off(uRol%mean(nR),maxval(uRol%mean)),           &
+                  &     round_off(dlV%mean(nR),maxval(dlV%mean)),             &
+                  &     round_off(dlVc%mean(nR),maxval(dlVc%mean)),           &
+                  &     round_off(dlPolPeak%mean(nR),maxval(dlPolPeak%mean)), &
+                  &     round_off(Rm%SD(nR),maxval(Rm%SD)),                   &
+                  &     round_off(Rol%SD(nR),maxval(Rol%SD)),                 &
+                  &     round_off(uRol%SD(nR),maxval(uRol%SD)),               &
+                  &     round_off(dlV%SD(nR),maxval(dlV%SD)),                 &
+                  &     round_off(dlVc%SD(nR),maxval(dlVc%SD)),               &
+                  &     round_off(dlPolPeak%SD(nR),maxval(dlPolPeak%SD))
                end do
                close(fileHandle)
-            end if
 
-            if ( l_fluxProfs ) then
-               filename='fluxesR.'//tag
-               open(newunit=fileHandle, file=filename, status='unknown')
-               do nR=1,n_r_max
-                  write(fileHandle,'(ES20.10,7ES15.7,7ES13.5)')             &
-                  &     r(nR),round_off(fcond%mean(nR),maxval(fcond%mean)), &
-                  &     round_off(fconv%mean(nR),maxval(fconv%mean)),       &
-                  &     round_off(fkin%mean(nR),maxval(fkin%mean)),         &
-                  &     round_off(fvisc%mean(nR),maxval(fvisc%mean)),       &
-                  &     round_off(fpoyn%mean(nR),maxval(fpoyn%mean)),       &
-                  &     round_off(fres%mean(nR),maxval(fres%mean)),         &
-                  &     round_off(fcond%SD(nR),maxval(fcond%SD)),           &
-                  &     round_off(fconv%SD(nR),maxval(fconv%SD)),           &
-                  &     round_off(fkin%SD(nR),maxval(fkin%SD)),             &
-                  &     round_off(fvisc%SD(nR),maxval(fvisc%SD)),           &
-                  &     round_off(fpoyn%SD(nR),maxval(fpoyn%SD)),           &
-                  &     round_off(fres%SD(nR),maxval(fres%SD))
-               end do
-               close(fileHandle)
+               if ( l_viscBcCalc ) then
+                  filename='bLayersR.'//tag
+                  open(newunit=fileHandle, file=filename, status='unknown')
+                  do nR=1,n_r_max
+                     write(fileHandle,'(ES20.10,4ES15.7,4ES13.4)')                 &
+                     &     r(nR),round_off(entropy%mean(nR),maxval(entropy%mean)), &
+                     &     round_off(uh%mean(nR),maxval(uh%mean)),                 &
+                     &     round_off(duh%mean(nR),maxval(duh%mean)),               &
+                     &     round_off(gradT2%mean(nR),maxval(gradT2%mean)),         &
+                     &     round_off(entropy%SD(nR),maxval(entropy%SD)),           &
+                     &     round_off(uh%SD(nR),maxval(uh%SD)),                     &
+                     &     round_off(duh%SD(nR),maxval(duh%SD)),                   &
+                     &     round_off(gradT2%SD(nR),maxval(gradT2%SD))
+                  end do
+                  close(fileHandle)
+               end if
+
+               if ( l_fluxProfs ) then
+                  filename='fluxesR.'//tag
+                  open(newunit=fileHandle, file=filename, status='unknown')
+                  do nR=1,n_r_max
+                     write(fileHandle,'(ES20.10,7ES15.7,7ES13.5)')             &
+                     &     r(nR),round_off(fcond%mean(nR),maxval(fcond%mean)), &
+                     &     round_off(fconv%mean(nR),maxval(fconv%mean)),       &
+                     &     round_off(fkin%mean(nR),maxval(fkin%mean)),         &
+                     &     round_off(fvisc%mean(nR),maxval(fvisc%mean)),       &
+                     &     round_off(fpoyn%mean(nR),maxval(fpoyn%mean)),       &
+                     &     round_off(fres%mean(nR),maxval(fres%mean)),         &
+                     &     round_off(fcond%SD(nR),maxval(fcond%SD)),           &
+                     &     round_off(fconv%SD(nR),maxval(fconv%SD)),           &
+                     &     round_off(fkin%SD(nR),maxval(fkin%SD)),             &
+                     &     round_off(fvisc%SD(nR),maxval(fvisc%SD)),           &
+                     &     round_off(fpoyn%SD(nR),maxval(fpoyn%SD)),           &
+                     &     round_off(fres%SD(nR),maxval(fres%SD))
+                  end do
+                  close(fileHandle)
+               end if
             end if
 
          end if ! l_stop_time ?

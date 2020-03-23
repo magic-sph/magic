@@ -5,10 +5,11 @@ module rIterThetaBlocking_shtns_mod
 #endif
    use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
-   use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
+   use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter,  &
        &                td_counter
    use parallel_mod, only: get_openmp_blocks
-   use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb, n_r_icb
+   use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb,   &
+       &                 n_r_icb, n_lmP_loc
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -51,9 +52,11 @@ module rIterThetaBlocking_shtns_mod
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_shtns_t
       integer :: nThreads
       type(grid_space_arrays_t) :: gsa
+      type(grid_space_arrays_t) :: gsa_dist
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
+      type(nonlinear_lm_t) :: nl_lm_dist
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_shtns
@@ -80,9 +83,11 @@ contains
 
       call this%allocate_common_arrays()
       call this%gsa%initialize()
+      call this%gsa_dist%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lmP_max)
+      call this%nl_lm_dist%initialize(n_lmP_loc)
 
    end subroutine initialize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
@@ -92,9 +97,11 @@ contains
 
       call this%deallocate_common_arrays()
       call this%gsa%finalize()
+      call this%gsa_dist%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
+      call this%nl_lm_dist%finalize()
 
    end subroutine finalize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
@@ -180,7 +187,7 @@ contains
          call nl_counter%stop_count(l_increment=.false.)
 
          call phy2lm_counter%start_count()
-         call this%transform_to_lm_space_shtns(this%gsa, this%nl_lm)
+         call this%transform_to_lm_space_shtns(this%gsa_dist, this%gsa, this%nl_lm, this%nl_lm_dist)
          call phy2lm_counter%stop_count(l_increment=.false.)
 
       else if ( l_mag ) then
@@ -526,15 +533,17 @@ contains
 
    end subroutine transform_to_grid_space_shtns
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space_shtns(this, gsa, nl_lm)
+   subroutine transform_to_lm_space_shtns(this, gsa_dist, gsa, nl_lm, nl_lm_dist)
 
       class(rIterThetaBlocking_shtns_t) :: this
+      type(grid_space_arrays_t) :: gsa_dist
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
+      type(nonlinear_lm_t) :: nl_lm_dist
 
       ! Local variables
       integer :: nTheta, nPhi, nThStart, nThStop
-
+      
       call shtns_load_cfg(1)
 
       if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) &
@@ -594,10 +603,23 @@ contains
             end do
          end if
          !$omp end parallel
+         
+!          print *, "---------------- 1"
+         call gsa%slice_all(gsa_dist)
+!          print *, "---------------- 2"
 
-         call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
-         call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
-         call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
+! ! ! ! ! ! ! !          call test_spat_to_SH(gsa%Advr)
+
+         call spat_to_SH_dist(gsa_dist%Advr, nl_lm_dist%AdvrLM, l_R(this%nR))
+!          print *, "---------------- 3"
+         call spat_to_SH_dist(gsa_dist%Advt, nl_lm_dist%AdvtLM, l_R(this%nR))
+!          print *, "---------------- 4"
+         call spat_to_SH_dist(gsa_dist%Advp, nl_lm_dist%AdvpLM, l_R(this%nR))
+!          print *, "---------------- 5"
+         
+! !          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
+! !          call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
+! !          call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
@@ -609,7 +631,6 @@ contains
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call test_spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp)
          call spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, nl_lm%VStLM, &
               &           nl_lm%VSpLM, l_R(this%nR))
 
@@ -660,6 +681,10 @@ contains
       end if
       
       call shtns_load_cfg(0)
+      
+!       print *, "---------------- 6"
+      call nl_lm_dist%gather_all(nl_lm)
+!       print *, "---------------- 7"
 
    end subroutine transform_to_lm_space_shtns
 !-------------------------------------------------------------------------------

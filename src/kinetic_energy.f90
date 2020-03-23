@@ -182,7 +182,7 @@ contains
       call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
       call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !do nR=1,n_r_max
          !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
          !end do

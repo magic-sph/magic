@@ -182,7 +182,7 @@ contains
          end if
          rank_has_l1m0=.true.
 #ifdef WITH_MPI
-         if ( .not. l_master_rank ) then
+         if ( coord_r /= 0 ) then
             ! send viscous_torque_ic and viscous_torque_ma to coord_r 0 for
             ! output
             call MPI_Send(viscous_torque_ic,1,MPI_DEF_REAL,0, &
@@ -195,7 +195,7 @@ contains
          rank_has_l1m0=.false.
       end if
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
 #ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
             call MPI_Recv(viscous_torque_ic,1,MPI_DEF_REAL,MPI_ANY_SOURCE,&
@@ -322,7 +322,7 @@ contains
             end do
             rank_has_l1m0=.true.
 #ifdef WITH_MPI
-            if (.not. l_master_rank) then
+            if (coord_r /= 0) then
                call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, &
                     &        comm_r,ierr)
             end if
@@ -336,7 +336,7 @@ contains
                end do
                rank_has_l1m1=.true.
 #ifdef WITH_MPI
-               if ( .not. l_master_rank ) then
+               if ( coord_r /= 0 ) then
                   call MPI_Send(z11,n_r_max,MPI_DEF_COMPLEX,0, &
                        &        sr_tag+1,comm_r,ierr)
                end if
@@ -349,7 +349,7 @@ contains
          end if
          ! now we have z10 and z11 in the worst case on two different
          ! ranks, which are also different from coord_r 0
-         if ( l_master_rank ) then
+         if ( coord_r == 0 ) then
 #ifdef WITH_MPI
             if ( .not. rank_has_l1m0 ) then
                call MPI_Recv(z10,n_r_max,MPI_DEF_COMPLEX,MPI_ANY_SOURCE, &

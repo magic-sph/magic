@@ -15,12 +15,13 @@ module grid_space_arrays_mod
    use general_arrays_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: nrp, n_phi_max, n_theta_max, nRstart, nRstop
+   use truncation, only: nrp, n_phi_max, n_theta_max, n_theta_loc, nRstart, &
+       &                 nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
-        &                         ThExpNb, ViscHeatFac, oek, po, DissNb, &
-        &                         dilution_fac, ra, opr, polind, strat, radratio
+       &                          ThExpNb, ViscHeatFac, oek, po, DissNb, &
+       &                          dilution_fac, ra, opr, polind, strat, radratio
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi
    use parallel_mod, only: get_openmp_blocks
@@ -29,6 +30,7 @@ module grid_space_arrays_mod
        &            l_RMS, l_chemical_conv, l_precession,             &
        &            l_centrifuge, l_adv_curl
    use time_schemes, only: type_tscheme
+   use communications, only: slice_f, gather_f
 
    implicit none
 
@@ -64,11 +66,14 @@ module grid_space_arrays_mod
 
    contains
 
-      procedure :: initialize
+      procedure :: initialize  !@>TODO temporary function to help transition, delete me!
+      procedure :: initialize_dist
       procedure :: finalize
       procedure :: output
       procedure :: output_nl_input
       procedure :: get_nl
+      procedure :: slice_all   !@>TODO temporary function to help transition, delete me!
+      procedure :: gather_all  !@>TODO temporary function to help transition, delete me!
 #ifdef WITH_SHTNS
       procedure :: get_nl_shtns
 #endif
@@ -162,6 +167,287 @@ contains
       !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
 
    end subroutine initialize
+   
+   
+!----------------------------------------------------------------------------
+!@>TODO delete previous one and rename this to "initialize"
+   subroutine initialize_dist(this)
+
+      class(grid_space_arrays_t) :: this
+
+      allocate( this%Advr(nrp,n_theta_loc), this%Advt(nrp,n_theta_loc), this%Advp(nrp,n_theta_loc) )
+      allocate( this%LFr(nrp,n_theta_loc), this%LFt(nrp,n_theta_loc), this%LFp(nrp,n_theta_loc) )
+      allocate( this%VxBr(nrp,n_theta_loc), this%VxBt(nrp,n_theta_loc), this%VxBp(nrp,n_theta_loc) )
+      allocate( this%VSr(nrp,n_theta_loc), this%VSt(nrp,n_theta_loc), this%VSp(nrp,n_theta_loc) )
+      allocate( this%ViscHeat(nrp,n_theta_loc), this%OhmLoss(nrp,n_theta_loc) )
+      bytes_allocated=bytes_allocated + 14*nrp*n_theta_loc*SIZEOF_DEF_REAL
+
+      if ( l_precession ) then
+         allocate( this%PCr(nrp,n_theta_loc), this%PCt(nrp,n_theta_loc), this%PCp(nrp,n_theta_loc) )
+         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*SIZEOF_DEF_REAL
+      end if
+
+      if ( l_centrifuge ) then
+         allocate( this%CAr(nrp,n_theta_loc), this%CAt(nrp,n_theta_loc) )
+         bytes_allocated=bytes_allocated + 2*nrp*n_theta_loc*SIZEOF_DEF_REAL
+      end if
+
+      if ( l_chemical_conv ) then
+         allocate( this%VXir(nrp,n_theta_loc), this%VXit(nrp,n_theta_loc), this%VXip(nrp,n_theta_loc) )
+         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*SIZEOF_DEF_REAL
+      end if
+
+      !----- Fields calculated from these help arrays by legtf:
+      allocate( this%vrc(nrp,n_theta_loc),this%vtc(nrp,n_theta_loc),this%vpc(nrp,n_theta_loc) )
+      allocate( this%dvrdrc(nrp,n_theta_loc),this%dvtdrc(nrp,n_theta_loc) )
+      allocate( this%dvpdrc(nrp,n_theta_loc),this%cvrc(nrp,n_theta_loc) )
+      allocate( this%dvrdtc(nrp,n_theta_loc),this%dvrdpc(nrp,n_theta_loc) )
+      allocate( this%dvtdpc(nrp,n_theta_loc),this%dvpdpc(nrp,n_theta_loc) )
+      allocate( this%brc(nrp,n_theta_loc),this%btc(nrp,n_theta_loc),this%bpc(nrp,n_theta_loc) )
+      this%btc=1.0e50_cp
+      this%bpc=1.0e50_cp
+      allocate( this%cbrc(nrp,n_theta_loc),this%cbtc(nrp,n_theta_loc),this%cbpc(nrp,n_theta_loc) )
+      allocate( this%sc(nrp,n_theta_loc),this%drSc(nrp,n_theta_loc) )
+      allocate( this%pc(nrp,n_theta_loc) )
+      allocate( this%dsdtc(nrp,n_theta_loc),this%dsdpc(nrp,n_theta_loc) )
+      bytes_allocated=bytes_allocated + 22*nrp*n_theta_loc*SIZEOF_DEF_REAL
+
+      if ( l_chemical_conv ) then
+         allocate( this%xic(nrp,n_theta_loc) )
+         bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
+      else
+         allocate( this%xic(1,1) )
+      end if
+
+      if ( l_adv_curl ) then
+         allocate( this%cvtc(nrp,n_theta_loc), this%cvpc(nrp,n_theta_loc) )
+         bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*SIZEOF_DEF_REAL
+      end if
+
+      !-- RMS Calculations
+      !@>TODO review the dimensions of these variables (I'm not dealing with them just yet)
+      if ( l_RMS ) then
+         allocate ( this%Advt2(nrp,n_theta_loc), this%Advp2(nrp,n_theta_loc) )
+         allocate ( this%dtVr(nrp,n_theta_loc), this%dtVt(nrp,n_theta_loc), this%dtVp(nrp,n_theta_loc) )
+         allocate ( this%LFt2(nrp,n_theta_loc), this%LFp2(nrp,n_theta_loc) )
+         allocate ( this%CFt2(nrp,n_theta_loc), this%CFp2(nrp,n_theta_loc) )
+         allocate ( this%dpdtc(nrp,n_theta_loc), this%dpdpc(nrp,n_theta_loc) )
+         bytes_allocated=bytes_allocated + 11*nrp*n_theta_loc*SIZEOF_DEF_REAL
+
+         allocate( vt_old(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vp_old(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vr_old(nrp,n_theta_max,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated + 3*nrp*n_theta_max*(nRstop-nRstart+1)*&
+         &               SIZEOF_DEF_REAL
+
+         this%dtVr(:,:)=0.0_cp
+         this%dtVt(:,:)=0.0_cp
+         this%dtVp(:,:)=0.0_cp
+         vt_old(:,:,:) =0.0_cp
+         vr_old(:,:,:) =0.0_cp
+         vp_old(:,:,:) =0.0_cp
+
+         if ( l_adv_curl ) then
+            allocate ( this%dpkindrc(nrp, n_theta_loc) )
+            bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
+         end if
+      end if
+      !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
+
+   end subroutine initialize_dist
+   
+!----------------------------------------------------------------------------
+!@>TODO temporary function to help transition, delete me!
+   subroutine slice_all(gsa_glb, gsa_loc)
+      class(grid_space_arrays_t), intent(inout) :: gsa_glb
+      class(grid_space_arrays_t), intent(inout) :: gsa_loc
+      
+      call slice_f(gsa_glb%Advr    , gsa_loc%Advr    )
+      call slice_f(gsa_glb%Advt    , gsa_loc%Advt    )
+      call slice_f(gsa_glb%Advp    , gsa_loc%Advp    )
+      call slice_f(gsa_glb%LFr     , gsa_loc%LFr     )
+      call slice_f(gsa_glb%LFt     , gsa_loc%LFt     )
+      call slice_f(gsa_glb%LFp     , gsa_loc%LFp     )
+      call slice_f(gsa_glb%VxBr    , gsa_loc%VxBr    )
+      call slice_f(gsa_glb%VxBt    , gsa_loc%VxBt    )
+      call slice_f(gsa_glb%VxBp    , gsa_loc%VxBp    )
+      call slice_f(gsa_glb%VSr     , gsa_loc%VSr     )
+      call slice_f(gsa_glb%VSt     , gsa_loc%VSt     )
+      call slice_f(gsa_glb%VSp     , gsa_loc%VSp     )
+      call slice_f(gsa_glb%ViscHeat, gsa_loc%ViscHeat)
+      call slice_f(gsa_glb%OhmLoss , gsa_loc%OhmLoss )
+      
+      if ( l_precession ) then
+         call slice_f(gsa_glb%PCr, gsa_loc%PCr)
+         call slice_f(gsa_glb%PCt, gsa_loc%PCt)
+         call slice_f(gsa_glb%PCp, gsa_loc%PCp)
+      end if
+      
+      if ( l_centrifuge ) then
+         call slice_f(gsa_glb%CAr, gsa_loc%CAr)
+         call slice_f(gsa_glb%CAt, gsa_loc%CAt)
+      end if
+      
+      if ( l_chemical_conv ) then
+         call slice_f(gsa_glb%VXir, gsa_loc%VXir)
+         call slice_f(gsa_glb%VXit, gsa_loc%VXit)
+         call slice_f(gsa_glb%VXip, gsa_loc%VXip)
+      end if
+      
+      call slice_f(gsa_glb%vrc   , gsa_loc%vrc   )
+      call slice_f(gsa_glb%vtc   , gsa_loc%vtc   )
+      call slice_f(gsa_glb%vpc   , gsa_loc%vpc   )
+      call slice_f(gsa_glb%dvrdrc, gsa_loc%dvrdrc)
+      call slice_f(gsa_glb%dvtdrc, gsa_loc%dvtdrc)
+      call slice_f(gsa_glb%dvpdrc, gsa_loc%dvpdrc)
+      call slice_f(gsa_glb%cvrc  , gsa_loc%cvrc  )
+      call slice_f(gsa_glb%sc    , gsa_loc%sc    )
+      call slice_f(gsa_glb%drSc  , gsa_loc%drSc  )
+      call slice_f(gsa_glb%dvrdtc, gsa_loc%dvrdtc)
+      call slice_f(gsa_glb%dvrdpc, gsa_loc%dvrdpc)
+      call slice_f(gsa_glb%dvtdpc, gsa_loc%dvtdpc)
+      call slice_f(gsa_glb%dvpdpc, gsa_loc%dvpdpc)
+      call slice_f(gsa_glb%brc   , gsa_loc%brc   )
+      call slice_f(gsa_glb%btc   , gsa_loc%btc   )
+      call slice_f(gsa_glb%bpc   , gsa_loc%bpc   )
+      call slice_f(gsa_glb%cbrc  , gsa_loc%cbrc  )
+      call slice_f(gsa_glb%cbtc  , gsa_loc%cbtc  )
+      call slice_f(gsa_glb%cbpc  , gsa_loc%cbpc  )
+      call slice_f(gsa_glb%pc    , gsa_loc%pc    )
+      call slice_f(gsa_glb%dsdtc , gsa_loc%dsdtc )
+      call slice_f(gsa_glb%dsdpc , gsa_loc%dsdpc )
+      
+      if ( l_chemical_conv ) then
+         call slice_f(gsa_glb%xic, gsa_loc%xic)
+      else
+         gsa_glb%xic = gsa_loc%xic
+      end if
+
+      if ( l_adv_curl ) then
+         call slice_f(gsa_glb%cvtc, gsa_loc%cvtc)
+         call slice_f(gsa_glb%cvpc, gsa_loc%cvpc)
+      end if
+      
+      if ( l_RMS ) then
+         call slice_f(gsa_glb%Advt2, gsa_loc%Advt2)
+         call slice_f(gsa_glb%Advp2, gsa_loc%Advp2)
+         call slice_f(gsa_glb%dtVr , gsa_loc%dtVr )
+         call slice_f(gsa_glb%dtVt , gsa_loc%dtVt )
+         call slice_f(gsa_glb%dtVp , gsa_loc%dtVp )
+         call slice_f(gsa_glb%LFt2 , gsa_loc%LFt2 )
+         call slice_f(gsa_glb%LFp2 , gsa_loc%LFp2 )
+         call slice_f(gsa_glb%CFt2 , gsa_loc%CFt2 )
+         call slice_f(gsa_glb%CFp2 , gsa_loc%CFp2 )
+         call slice_f(gsa_glb%dpdtc, gsa_loc%dpdtc)
+         call slice_f(gsa_glb%dpdpc, gsa_loc%dpdpc)
+
+!          call slice_f(vt_old(nrp,n_theta_max,nRstart:nRstop)
+!          call slice_f(vp_old(nrp,n_theta_max,nRstart:nRstop)
+!          call slice_f(vr_old(nrp,n_theta_max,nRstart:nRstop)
+
+         if ( l_adv_curl ) then
+            call slice_f(gsa_glb%dpkindrc, gsa_loc%dpkindrc)
+         end if
+      end if
+      
+   end subroutine slice_all
+   
+!----------------------------------------------------------------------------
+!@>TODO temporary function to help transition, delete me!
+   subroutine gather_all(gsa_loc, gsa_glb)
+      class(grid_space_arrays_t), intent(inout) :: gsa_loc
+      class(grid_space_arrays_t), intent(inout) :: gsa_glb
+   
+      call gather_f(gsa_loc%Advr    , gsa_glb%Advr    )
+      call gather_f(gsa_loc%Advt    , gsa_glb%Advt    )
+      call gather_f(gsa_loc%Advp    , gsa_glb%Advp    )
+      call gather_f(gsa_loc%LFr     , gsa_glb%LFr     )
+      call gather_f(gsa_loc%LFt     , gsa_glb%LFt     )
+      call gather_f(gsa_loc%LFp     , gsa_glb%LFp     )
+      call gather_f(gsa_loc%VxBr    , gsa_glb%VxBr    )
+      call gather_f(gsa_loc%VxBt    , gsa_glb%VxBt    )
+      call gather_f(gsa_loc%VxBp    , gsa_glb%VxBp    )
+      call gather_f(gsa_loc%VSr     , gsa_glb%VSr     )
+      call gather_f(gsa_loc%VSt     , gsa_glb%VSt     )
+      call gather_f(gsa_loc%VSp     , gsa_glb%VSp     )
+      call gather_f(gsa_loc%ViscHeat, gsa_glb%ViscHeat)
+      call gather_f(gsa_loc%OhmLoss , gsa_glb%OhmLoss )
+      
+      if ( l_precession ) then
+         call gather_f(gsa_loc%PCr, gsa_glb%PCr)
+         call gather_f(gsa_loc%PCt, gsa_glb%PCt)
+         call gather_f(gsa_loc%PCp, gsa_glb%PCp)
+      end if
+      
+      if ( l_centrifuge ) then
+         call gather_f(gsa_loc%CAr, gsa_glb%CAr)
+         call gather_f(gsa_loc%CAt, gsa_glb%CAt)
+      end if
+      
+      if ( l_chemical_conv ) then
+         call gather_f(gsa_loc%VXir, gsa_glb%VXir)
+         call gather_f(gsa_loc%VXit, gsa_glb%VXit)
+         call gather_f(gsa_loc%VXip, gsa_glb%VXip)
+      end if
+      
+      call gather_f(gsa_loc%vrc   , gsa_glb%vrc   )
+      call gather_f(gsa_loc%vtc   , gsa_glb%vtc   )
+      call gather_f(gsa_loc%vpc   , gsa_glb%vpc   )
+      call gather_f(gsa_loc%dvrdrc, gsa_glb%dvrdrc)
+      call gather_f(gsa_loc%dvtdrc, gsa_glb%dvtdrc)
+      call gather_f(gsa_loc%dvpdrc, gsa_glb%dvpdrc)
+      call gather_f(gsa_loc%cvrc  , gsa_glb%cvrc  )
+      call gather_f(gsa_loc%sc    , gsa_glb%sc    )
+      call gather_f(gsa_loc%drSc  , gsa_glb%drSc  )
+      call gather_f(gsa_loc%dvrdtc, gsa_glb%dvrdtc)
+      call gather_f(gsa_loc%dvrdpc, gsa_glb%dvrdpc)
+      call gather_f(gsa_loc%dvtdpc, gsa_glb%dvtdpc)
+      call gather_f(gsa_loc%dvpdpc, gsa_glb%dvpdpc)
+      call gather_f(gsa_loc%brc   , gsa_glb%brc   )
+      call gather_f(gsa_loc%btc   , gsa_glb%btc   )
+      call gather_f(gsa_loc%bpc   , gsa_glb%bpc   )
+      call gather_f(gsa_loc%cbrc  , gsa_glb%cbrc  )
+      call gather_f(gsa_loc%cbtc  , gsa_glb%cbtc  )
+      call gather_f(gsa_loc%cbpc  , gsa_glb%cbpc  )
+      call gather_f(gsa_loc%pc    , gsa_glb%pc    )
+      call gather_f(gsa_loc%dsdtc , gsa_glb%dsdtc )
+      call gather_f(gsa_loc%dsdpc , gsa_glb%dsdpc )
+      
+      if ( l_chemical_conv ) then
+         call gather_f(gsa_loc%xic, gsa_glb%xic)
+      else
+         gsa_loc%xic = gsa_glb%xic
+      end if
+
+      if ( l_adv_curl ) then
+         call gather_f(gsa_loc%cvtc, gsa_glb%cvtc)
+         call gather_f(gsa_loc%cvpc, gsa_glb%cvpc)
+      end if
+      
+      if ( l_RMS ) then
+         call gather_f(gsa_loc%Advt2, gsa_glb%Advt2)
+         call gather_f(gsa_loc%Advp2, gsa_glb%Advp2)
+         call gather_f(gsa_loc%dtVr , gsa_glb%dtVr )
+         call gather_f(gsa_loc%dtVt , gsa_glb%dtVt )
+         call gather_f(gsa_loc%dtVp , gsa_glb%dtVp )
+         call gather_f(gsa_loc%LFt2 , gsa_glb%LFt2 )
+         call gather_f(gsa_loc%LFp2 , gsa_glb%LFp2 )
+         call gather_f(gsa_loc%CFt2 , gsa_glb%CFt2 )
+         call gather_f(gsa_loc%CFp2 , gsa_glb%CFp2 )
+         call gather_f(gsa_loc%dpdtc, gsa_glb%dpdtc)
+         call gather_f(gsa_loc%dpdpc, gsa_glb%dpdpc)
+
+!          call gather_f(vt_old(nrp,n_theta_max,nRstart:nRstop)
+!          call gather_f(vp_old(nrp,n_theta_max,nRstart:nRstop)
+!          call gather_f(vr_old(nrp,n_theta_max,nRstart:nRstop)
+
+         if ( l_adv_curl ) then
+            call gather_f(gsa_loc%dpkindrc, gsa_glb%dpkindrc)
+         end if
+      end if
+      
+   end subroutine gather_all
+   
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 

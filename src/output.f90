@@ -488,7 +488,7 @@ contains
          if ( l_power ) then
   
             PERFON('out_pwr')
-            if ( coord_r == 0 ) then
+            if ( l_master_rank ) then
                if ( nLogs > 1 ) then
                   if ( l_save_out ) then
                      open(newunit=n_dtE_file, file=dtE_file, &
@@ -551,7 +551,7 @@ contains
          if ( l_hel ) then
             call outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
          end if
-
+         
          if ( l_par ) then
             call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
                  &        z_LMloc,dz_LMloc,Geos,dpV,dzV)
@@ -570,7 +570,7 @@ contains
             dmB=0.0_cp
          end if
       end if
-  
+      
       if ( l_spectrum ) then
          n_spec=n_spec+1
          call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
@@ -580,7 +580,7 @@ contains
             call spectrum_temp(n_spec,time,.false.,nLogs,l_stop_time,     &
                  &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
          end if
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
             &    " ! Storing spectra:",                  &
             &    "             at time=",timeScaled,     &
@@ -805,13 +805,13 @@ contains
   
          call movie_gather_frames_to_rank0()
 
-         if ( l_movie_ic .and. l_store_frame .and. coord_r == 0 ) then
+         if ( l_movie_ic .and. l_store_frame .and. l_master_rank ) then
             call store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
          end if
 
          n_frame=n_frame+1
          call logWrite(' ')
-         if ( coord_r == 0 ) then 
+         if ( l_master_rank ) then 
             write(message,'(1p,A,I8,A,ES16.6,I8)')            &
             &      " ! WRITING MOVIE FRAME NO ",n_frame,      &
             &      "       at time/step",timeScaled,n_time_step
@@ -827,7 +827,7 @@ contains
       ! =======================================================================
       ! ======= compute output on coord_r 0 ==============
       ! =======================================================================
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          PERFON('out_out')
   
          !----- Plot out inner core magnetic field, outer core

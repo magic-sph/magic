@@ -380,7 +380,7 @@ contains
 
       if ( l_earth_likeness ) call gather_from_lo_to_rank0(b(:,n_r_cmb), bCMB)
 
-      if ( coord_r == 0 ) then
+      if ( rank == 0 ) then
          !-- Get Values at CMB:
          e_cmb          =e_p_r_global(n_r_cmb)+e_t_r_global(n_r_cmb)
          e_dip_cmb      =e_dipole_r_global(n_r_cmb)
@@ -635,7 +635,7 @@ contains
 
 
       !-- Output of OC and outside energies:
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          if ( l_write ) then
             if ( l_save_out ) then
                open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, &
@@ -697,7 +697,7 @@ contains
       end if
 
 
-      if ( coord_r == 0 ) then
+      if ( rank == 0 ) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
 #ifdef WITH_MPI

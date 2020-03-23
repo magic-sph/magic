@@ -617,7 +617,7 @@ contains
 
       end if
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          if ( l_save_out ) then
             open(newunit=n_geos_file, file=geos_file, status='unknown', &
@@ -699,7 +699,7 @@ contains
 
          end if ! l_corrMov
 
-      end if ! coord_r == 0
+      end if ! l_master_rank
 
       if ( lVerbose ) write(*,*) '! End of getGeos!'
 
@@ -934,7 +934,7 @@ contains
          nZC(:)      =nZC_Sloc(:)
 #endif
          !-- Write output only at the final timestep
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
 
             !--- Open file for output:
             fileName='PVZ.'//tag

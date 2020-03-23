@@ -1,7 +1,7 @@
 module out_movie
 
    use precision_mod
-   use parallel_mod, only: coord_r
+   use parallel_mod, only: coord_r, l_master_rank
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
@@ -235,7 +235,7 @@ contains
          call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
       end if
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          t_movieS(n_frame)=time
 
