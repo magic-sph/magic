@@ -346,15 +346,12 @@ contains
                      rhs2(1,2*lmB,threadid)   = 0.0_cp
                   end if
 
+                  !-------- inner core
                   rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-                  if ( kbotb == 2 ) then
-                     rhs1(n_r_max-1,2*lmB-1,threadid)=0.0_cp
-                     rhs1(n_r_max-1,2*lmB,threadid)  =0.0_cp
-                  end if
-
                   rhs2(n_r_max,2*lmB-1,threadid)=0.0_cp
                   rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
+
                   if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
                      if ( imagcon /= 0 .and. tmagcon <= time ) then
                         if ( l_LCR ) then
@@ -501,6 +498,16 @@ contains
                         rhs2(nR,2*lmB,threadid)  =aimag(ddb(lm1,nR))
                      end if
                   end do
+
+                  !-- Overwrite RHS when perfect conductor
+                  if ( ktopb == 2 ) then
+                     rhs1(2,2*lmB-1,threadid) = 0.0_cp
+                     rhs1(2,2*lmB,threadid)   = 0.0_cp
+                  end if
+                  if ( kbotb == 2 ) then
+                     rhs1(n_r_max-1,2*lmB-1,threadid) = 0.0_cp
+                     rhs1(n_r_max-1,2*lmB,threadid)   = 0.0_cp
+                  end if
 
                   !-- Magnetic boundary conditions, inner core for radial derivatives
                   !         of poloidal and toroidal magnetic potentials:
@@ -676,7 +683,7 @@ contains
       end if
 
    end subroutine updateB
-!-----------------------------------------------------------------------------	
+!-----------------------------------------------------------------------------
    subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
 
       !-- Input variables
@@ -722,7 +729,7 @@ contains
       end if
 
    end subroutine finish_exp_mag_ic
-!-----------------------------------------------------------------------------	
+!-----------------------------------------------------------------------------
    subroutine finish_exp_mag(dVxBhLM, dj_exp_last)
 
 
@@ -755,7 +762,7 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_mag
-!-----------------------------------------------------------------------------	
+!-----------------------------------------------------------------------------
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
               &                  l_in_cheb_space)
@@ -776,7 +783,7 @@ contains
       complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
 
-      !-- Local variables 
+      !-- Local variables
       complex(cp) :: tmp(llmMag:ulmMag,n_r_ic_max)
       real(cp) :: dL
       logical :: l_in_cheb
@@ -886,7 +893,7 @@ contains
       complex(cp),       intent(out) :: ddj(llmMag:ulmMag,n_r_max)
       complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_max)
 
-      !-- Local variables 
+      !-- Local variables
       real(cp) :: dL
       logical :: l_in_cheb
       integer :: n_r_top, n_r_bot, l1, lmStart_00
@@ -1088,7 +1095,7 @@ contains
          !         field (matrix bmat) and the toroidal field has to
          !         vanish (matrix ajmat).
 
-         datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &  
+         datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
          &                      rscheme_oc%drMat(1,:) +  &
          &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
          &                     conductance_ma* (         &
@@ -1099,7 +1106,13 @@ contains
          &                       rscheme_oc%rMat(1,:) +  &
          &       conductance_ma*rscheme_oc%drMat(1,:) )
       else if ( ktopb == 2 ) then
-         call abortRun('! Boundary condition ktopb=2 not defined!')
+         !----- perfect conductor
+         !      see Glatzmaier, JCP 55, 461-484 (1984)
+         ! the (extra) condition Br=0 on Bpol is imposed just
+         ! below the boundary
+         datBmat(1,1:n_r_max)=rscheme_oc%rnorm*  rscheme_oc%rMat(1,:)
+         datBmat(2,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%d2rMat(1,:)
+         datJmat(1,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(1,:)
       else if ( ktopb == 4 ) then
          !----- pseudo vacuum condition, field has only
          !      a radial component, horizontal components
@@ -1122,9 +1135,9 @@ contains
             &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
          else if ( kbotb == 2 ) then
             !----------- perfect conducting IC
-            datBmat(n_r_max-1,1:n_r_max)=  &
-            &        rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
-            datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
+            datBmat(n_r_max,  1:n_r_max)=rscheme_oc%rnorm*  rscheme_oc%rMat(n_r_max,:)
+            datBmat(n_r_max-1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
+            datJmat(n_r_max,  1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
          else if ( kbotb == 3 ) then
             !---------- finite conducting IC, four boundary conditions:
             !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
@@ -1175,26 +1188,24 @@ contains
       do nR_out=rscheme_oc%n_max+1,n_r_max
          datBmat(1,nR_out)=0.0_cp
          datJmat(1,nR_out)=0.0_cp
+         if ( ktopb == 2 ) then
+            datBmat(2,nR_out)=0.0_cp
+         end if
+
          if ( l_LCR ) then
             do nR=2,n_r_LCR
                datBmat(nR,nR_out)=0.0_cp
                datJmat(nR,nR_out)=0.0_cp
             end do
          end if
-         if ( kbotb == 1 ) then
-            datBmat(n_r_max,nR_out)  =0.0_cp
-            datJmat(n_r_max,nR_out)  =0.0_cp
-         else if ( kbotb == 2 ) then
+
+         datBmat(n_r_max,nR_out)  =0.0_cp
+         datJmat(n_r_max,nR_out)  =0.0_cp
+         if ( kbotb == 2 ) then
             datBmat(n_r_max-1,nR_out)=0.0_cp
-            datJmat(n_r_max,nR_out)  =0.0_cp
          else if ( kbotb == 3 ) then
-            datBmat(n_r_max,nR_out)  =0.0_cp
             datBmat(n_r_max+1,nR_out)=0.0_cp
-            datJmat(n_r_max,nR_out)  =0.0_cp
             datJmat(n_r_max+1,nR_out)=0.0_cp
-         else if ( kbotb == 4 ) then
-            datBmat(n_r_max,nR_out)  =0.0_cp
-            datJmat(n_r_max,nR_out)  =0.0_cp
          end if
       end do
 
