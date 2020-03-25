@@ -25,7 +25,7 @@ module shtns
    &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor,               &
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
    &         axi_to_spat, spat_to_qst,                                      &
-   &         spat_to_SH_dist, &
+   &         spat_to_SH_dist, spat_to_qst_dist, spat_to_sphertor_dist,      &
    &         test_shtns, test_spat_to_qst, test_spat_to_SH
 
 contains
@@ -802,6 +802,52 @@ contains
 
    end subroutine spat_to_qst_dist
    
+   !------------------------------------------------------------------------------
+   subroutine spat_to_sphertor_dist(f_loc, g_loc, fLMP_loc, gLMP_loc, lcut)
+
+      !-- Input variables
+      real(cp), intent(inout) :: f_loc(n_phi_max,n_theta_loc)
+      real(cp), intent(inout) :: g_loc(n_phi_max,n_theta_loc)
+      integer,  intent(in)    :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: fLMP_loc(n_lmP_loc)
+      complex(cp), intent(out) :: gLMP_loc(n_lmP_loc)
+      
+      !-- Local variables
+      complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
+      complex(cp) ::  gL_loc(n_theta_max,n_m_loc)
+      
+      complex(cp) ::  transpose_loc(n_m_max,n_theta_loc)
+      complex(cp) ::  Fr_loc(n_phi_max/2+1,n_theta_loc)
+      integer :: i, l_lm, u_lm, m
+
+      call shtns_load_cfg(1)
+      
+      !>@TODO Vectorial FFT and transpose (f,g,h at once)
+      
+      call fft_phi_loc(f_loc, Fr_loc, 1)
+      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
+      call transpose_m_theta(transpose_loc, fL_loc)
+      
+      call fft_phi_loc(g_loc, Fr_loc, 1)
+      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
+      call transpose_m_theta(transpose_loc, gL_loc)
+      
+      
+      do i = 1, n_m_loc
+        m = dist_m(coord_m, i)
+        l_lm = map_dist_st%lmP2(m, m)
+        u_lm = map_dist_st%lmP2(l_max+1, m)
+        call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
+           fLMP_loc(l_lm:u_lm),gLMP_loc(l_lm:u_lm),lcut+1)
+      end do
+      
+      call shtns_load_cfg(0)
+      
+      print *, "jaaaaaaaaaaaa"
+
+   end subroutine spat_to_sphertor_dist
    
    !----------------------------------------------------------------------------
    subroutine test_shtns
@@ -925,18 +971,21 @@ contains
       complex(cp) :: sLMP_sliced(n_lmP_loc)
       complex(cp) :: tLMP_sliced(n_lmP_loc)
       
-      integer :: k, i, j
+      integer :: k, i, j, ierr
+      
+      real :: norm
+      real, save :: max_norm = 1e-16
       
       
-      k = 0
-      do i=1,n_phi_max
-        do j=1,n_theta_max
-          k = k + 1
-          f(i,j) = real(k)/real(n_phi_max*n_theta_max)
-        end do
-      end do
-      g = f
-      h = f
+!       k = 0
+!       do i=1,n_phi_max
+!         do j=1,n_theta_max
+!           k = k + 1
+!           f(i,j) = real(k)/real(n_phi_max*n_theta_max)
+!         end do
+!       end do
+!       g = f
+!       h = f
       
       f_loc = cmplx(0.0,0.0)
       g_loc = cmplx(0.0,0.0)
@@ -968,11 +1017,30 @@ contains
       qLMP_loc = qLMP_loc - qLMP_sliced
       sLMP_loc = sLMP_loc - sLMP_sliced
       tLMP_loc = tLMP_loc - tLMP_sliced
-      print*, "spat_to_qst Q: ", maxval(abs(qLMP_loc)), norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]) 
-      print*, "spat_to_qst S: ", maxval(abs(sLMP_loc)), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]) 
-      print*, "spat_to_qst L: ", maxval(abs(tLMP_loc)), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
+      norm = maxval(abs(qLMP_loc))
+      if (norm>max_norm) then
+         print*, "spat_to_qst: THR", norm
+         print*, "spat_to_qst: MAX", maxval(abs(qLMP_loc)), maxval(abs(sLMP_loc)), maxval(abs(tLMP_loc))
+         print*, "spat_to_qst: L_2", norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
+         max_norm = norm
+      end if
+      norm = maxval(abs(sLMP_loc))
+      if (norm>max_norm) then
+         print*, "spat_to_qst: THR", norm
+         print*, "spat_to_qst: MAX", maxval(abs(qLMP_loc)), maxval(abs(sLMP_loc)), maxval(abs(tLMP_loc))
+         print*, "spat_to_qst: L_2", norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
+         max_norm = norm
+      end if
+      norm = maxval(abs(tLMP_loc))
+      if (norm>max_norm) then
+         print*, "spat_to_qst: THR", norm
+         print*, "spat_to_qst: MAX", maxval(abs(qLMP_loc)), maxval(abs(sLMP_loc)), maxval(abs(tLMP_loc))
+         print*, "spat_to_qst: L_2", norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
+         max_norm = norm
+      end if
       
-      STOP
+!       call mpi_allreduce(MPI_IN_PLACE, max_norm, 1, MPI_REAL, MPI_MAX, mpi_comm_world, ierr)
+!       STOP
       
    end subroutine
 

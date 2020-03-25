@@ -604,49 +604,39 @@ contains
          end if
          !$omp end parallel
          
-!          print *, "---------------- 1"
          call gsa%slice_all(gsa_dist)
-!          print *, "---------------- 2"
-
-! ! ! ! ! ! ! !          call test_spat_to_SH(gsa%Advr)
 
          call spat_to_SH_dist(gsa_dist%Advr, nl_lm_dist%AdvrLM, l_R(this%nR))
-!          print *, "---------------- 3"
          call spat_to_SH_dist(gsa_dist%Advt, nl_lm_dist%AdvtLM, l_R(this%nR))
-!          print *, "---------------- 4"
          call spat_to_SH_dist(gsa_dist%Advp, nl_lm_dist%AdvpLM, l_R(this%nR))
-!          print *, "---------------- 5"
-         
-! !          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
-! !          call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
-! !          call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
-            call spat_to_SH(gsa%LFr, nl_lm%LFrLM, l_R(this%nR))
-            call spat_to_SH(gsa%LFt, nl_lm%LFtLM, l_R(this%nR))
-            call spat_to_SH(gsa%LFp, nl_lm%LFpLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%LFr, nl_lm_dist%LFrLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%LFt, nl_lm_dist%LFtLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%LFp, nl_lm_dist%LFpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, nl_lm%VStLM, &
-              &           nl_lm%VSpLM, l_R(this%nR))
-
+         call spat_to_qst_dist(gsa_dist%VSr, gsa_dist%VSt, gsa_dist%VSp, nl_lm_dist%VSrLM, nl_lm_dist%VStLM, &
+              &           nl_lm_dist%VSpLM, l_R(this%nR))
+         
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
-               call spat_to_SH(gsa%OhmLoss, nl_lm%OhmLossLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm_dist%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa_dist%OhmLoss,  nl_lm_dist%OhmLossLM, l_R(this%nR))
             else
-               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm_dist%ViscHeatLM, l_R(this%nR))
             end if
          end if
          !PERFOFF
       end if
+      
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         call spat_to_qst(gsa%VXir, gsa%VXit, gsa%VXip, nl_lm%VXirLM, &
-              &           nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa_dist%VXir, gsa_dist%VXit, gsa_dist%VXip, nl_lm_dist%VXirLM, &
+              &           nl_lm_dist%VXitLM, nl_lm_dist%VXipLM, l_R(this%nR))
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
@@ -654,29 +644,29 @@ contains
             call spat_to_qst(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
                  &           nl_lm%VxBtLM, nl_lm%VxBpLM, l_R(this%nR))
          else
-            call spat_to_sphertor(gsa%VxBt,gsa%VxBp,nl_lm%VxBtLM,nl_lm%VxBpLM, &
+            call spat_to_sphertor_dist(gsa_dist%VxBt,gsa_dist%VxBp,nl_lm_dist%VxBtLM,nl_lm_dist%VxBpLM, &
                  &                l_R(this%nR))
          end if
          !PERFOFF
       end if
 
       if ( this%lRmsCalc ) then
-         call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, nl_lm%PFp2LM, &
+         call spat_to_sphertor_dist(gsa_dist%dpdtc, gsa_dist%dpdpc, nl_lm_dist%PFt2LM, nl_lm_dist%PFp2LM, &
               &                l_R(this%nR))
-         call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM, &
+         call spat_to_sphertor_dist(gsa_dist%CFt2, gsa_dist%CFp2, nl_lm_dist%CFt2LM, nl_lm_dist%CFp2LM, &
               &                l_R(this%nR))
-         call spat_to_qst(gsa%dtVr, gsa%dtVt, gsa%dtVp, nl_lm%dtVrLM, &
-              &           nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa_dist%dtVr, gsa_dist%dtVt, gsa_dist%dtVp, nl_lm_dist%dtVrLM, &
+              &           nl_lm_dist%dtVtLM, nl_lm_dist%dtVpLM, l_R(this%nR))
          if ( l_conv_nl ) then
-            call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, &
-                 &                nl_lm%Advp2LM, l_R(this%nR))
+            call spat_to_sphertor_dist(gsa_dist%Advt2, gsa_dist%Advp2, nl_lm_dist%Advt2LM, &
+                 &                nl_lm_dist%Advp2LM, l_R(this%nR))
          end if
          if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call spat_to_SH(gsa%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%dpkindrc, nl_lm_dist%dpkindrLM, l_R(this%nR))
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, &
-                 &                nl_lm%LFp2LM, l_R(this%nR))
+            call spat_to_sphertor_dist(gsa_dist%LFt2, gsa_dist%LFp2, nl_lm_dist%LFt2LM, &
+                 &                nl_lm_dist%LFp2LM, l_R(this%nR))
          end if
       end if
       

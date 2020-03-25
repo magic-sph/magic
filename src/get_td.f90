@@ -171,35 +171,35 @@ contains
       call gather_FlmP(nl_lm_loc%AdvrLM, nl_lm_glb%AdvrLM)
       call gather_FlmP(nl_lm_loc%AdvtLM, nl_lm_glb%AdvtLM)
       call gather_FlmP(nl_lm_loc%AdvpLM, nl_lm_glb%AdvpLM)
-! !       call gather_FlmP(nl_lm_loc%LFrLM , nl_lm_glb%LFrLM )
-! !       call gather_FlmP(nl_lm_loc%LFtLM , nl_lm_glb%LFtLM )
-! !       call gather_FlmP(nl_lm_loc%LFpLM , nl_lm_glb%LFpLM )
+      call gather_FlmP(nl_lm_loc%LFrLM , nl_lm_glb%LFrLM )
+      call gather_FlmP(nl_lm_loc%LFtLM , nl_lm_glb%LFtLM )
+      call gather_FlmP(nl_lm_loc%LFpLM , nl_lm_glb%LFpLM )
 ! !       call gather_FlmP(nl_lm_loc%VxBrLM, nl_lm_glb%VxBrLM)
 ! !       call gather_FlmP(nl_lm_loc%VxBtLM, nl_lm_glb%VxBtLM)
 ! !       call gather_FlmP(nl_lm_loc%VxBpLM, nl_lm_glb%VxBpLM)
 ! ! 
-! !       if ( l_anel) then
-! !          call gather_FlmP(nl_lm_loc%ViscHeatLM, nl_lm_glb%ViscHeatLM)
-! !          call gather_FlmP(nl_lm_loc%OhmLossLM,  nl_lm_glb%OhmLossLM )
-! !       end if
-! ! 
-! !       if ( l_heat ) then
-! !          call gather_FlmP(nl_lm_loc%VSrLM, nl_lm_glb%VSrLM)
-! !          call gather_FlmP(nl_lm_loc%VStLM, nl_lm_glb%VStLM)
-! !          call gather_FlmP(nl_lm_loc%VSpLM, nl_lm_glb%VSpLM)
-! !       end if
-! ! 
-! !       if ( l_chemical_conv ) then
-! !          call gather_FlmP(nl_lm_loc%VXirLM, nl_lm_glb%VXirLM)
-! !          call gather_FlmP(nl_lm_loc%VXitLM, nl_lm_glb%VXitLM)
-! !          call gather_FlmP(nl_lm_loc%VXipLM, nl_lm_glb%VXipLM)
-! !       end if
+      if ( l_anel) then
+         call gather_FlmP(nl_lm_loc%ViscHeatLM, nl_lm_glb%ViscHeatLM)
+         call gather_FlmP(nl_lm_loc%OhmLossLM,  nl_lm_glb%OhmLossLM )
+      end if
+
+      if ( l_heat ) then
+         call gather_FlmP(nl_lm_loc%VSrLM, nl_lm_glb%VSrLM)
+         call gather_FlmP(nl_lm_loc%VStLM, nl_lm_glb%VStLM)
+         call gather_FlmP(nl_lm_loc%VSpLM, nl_lm_glb%VSpLM)
+      end if
+
+      if ( l_chemical_conv ) then
+         call gather_FlmP(nl_lm_loc%VXirLM, nl_lm_glb%VXirLM)
+         call gather_FlmP(nl_lm_loc%VXitLM, nl_lm_glb%VXitLM)
+         call gather_FlmP(nl_lm_loc%VXipLM, nl_lm_glb%VXipLM)
+      end if
 ! ! 
 ! !       !-- RMS calculations
-! !       if ( l_RMS ) then
-! !          call gather_FlmP(nl_lm_loc%dtVrLM , nl_lm_glb%dtVrLM )
-! !          call gather_FlmP(nl_lm_loc%dtVtLM , nl_lm_glb%dtVtLM )
-! !          call gather_FlmP(nl_lm_loc%dtVpLM , nl_lm_glb%dtVpLM )
+      if ( l_RMS ) then
+         call gather_FlmP(nl_lm_loc%dtVrLM , nl_lm_glb%dtVrLM )
+         call gather_FlmP(nl_lm_loc%dtVtLM , nl_lm_glb%dtVtLM )
+         call gather_FlmP(nl_lm_loc%dtVpLM , nl_lm_glb%dtVpLM )
 ! !          call gather_FlmP(nl_lm_loc%Advt2LM, nl_lm_glb%Advt2LM)
 ! !          call gather_FlmP(nl_lm_loc%Advp2LM, nl_lm_glb%Advp2LM)
 ! !          call gather_FlmP(nl_lm_loc%LFt2LM , nl_lm_glb%LFt2LM )
@@ -208,10 +208,10 @@ contains
 ! !          call gather_FlmP(nl_lm_loc%CFp2LM , nl_lm_glb%CFp2LM )
 ! !          call gather_FlmP(nl_lm_loc%PFt2LM , nl_lm_glb%PFt2LM )
 ! !          call gather_FlmP(nl_lm_loc%PFp2LM , nl_lm_glb%PFp2LM )
-! !          if ( l_adv_curl ) then
-! !             call gather_FlmP(nl_lm_loc%dpkindrLM, nl_lm_glb%dpkindrLM)
-! !          end if
-! !       end if
+         if ( l_adv_curl ) then
+            call gather_FlmP(nl_lm_loc%dpkindrLM, nl_lm_glb%dpkindrLM)
+         end if
+      end if
    
    end subroutine gather_all
    
