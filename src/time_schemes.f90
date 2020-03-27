@@ -23,6 +23,7 @@ module time_schemes
       integer :: nold ! Number of old state
       integer :: nimp ! Number of implicit terms
       character(len=8) :: time_scheme ! Name of the time scheme
+      logical :: l_assembly
       real(cp), allocatable :: dt(:) ! Array that contains the timesteps
       real(cp), allocatable :: wimp_lin(:) ! Weighting factor 
       logical,  allocatable :: l_exp_calc(:) ! Array of booleans to specify the calculation of an explicit stage
@@ -37,6 +38,7 @@ module time_schemes
       procedure(finalize_if),  deferred :: finalize
       procedure(set_weights_if), deferred :: set_weights
       procedure(set_dt_array_if), deferred :: set_dt_array
+      procedure(assemble_imex_if),  deferred :: assemble_imex
       procedure(set_imex_rhs_if),  deferred :: set_imex_rhs
       procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
@@ -92,6 +94,16 @@ module time_schemes
          type(type_tarray), intent(in) :: dfdt
          complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
       end subroutine set_imex_rhs_if
+
+      subroutine assemble_imex_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+         import
+         class(type_tscheme) :: this
+         integer,     intent(in) :: lmStart
+         integer,     intent(in) :: lmStop
+         integer,     intent(in) :: len_rhs
+         type(type_tarray), intent(in) :: dfdt
+         complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+      end subroutine assemble_imex_if
 
       subroutine set_imex_rhs_scalar_if(this, rhs, dfdt)
          import

@@ -10,7 +10,7 @@ module updateS_mod
        &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: dct_counter, solve_counter
-   use init_fields, only: tops,bots
+   use init_fields, only: tops, bots
    use blocking, only: lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
@@ -43,7 +43,7 @@ module updateS_mod
 
    integer :: maxThreads
 
-   public :: initialize_updateS, updateS, finalize_updateS, &
+   public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
    &         finish_exp_entropy, get_entropy_rhs_imp
 
 contains
@@ -475,6 +475,87 @@ contains
       !$omp end parallel
 
    end subroutine get_entropy_rhs_imp
+!-----------------------------------------------------------------------------
+   subroutine assemble_entropy(s, ds, dsdt, tscheme)
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dsdt
+
+      !-- Local variables
+      complex(cp) :: dat_bot, dat_top
+      integer :: n_r, lm, l1, m1
+      integer, pointer :: lm2l(:), lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      call tscheme%assemble_imex(s, dsdt, llm, ulm, n_r_max)
+
+      !-- Boundary conditions
+      if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            s(lm,1)      =tops(l1,m1)
+            s(lm,n_r_max)=bots(l1,m1)
+         end do
+      else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            s(lm,1)=tops(l1,m1)
+         end do
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            dat_bot = zero
+            do n_r=1,n_r_max-1
+               dat_bot = dat_bot+rscheme_oc%dr_bot(n_r,1)*s(lm,n_r)
+            end do
+            s(lm,n_r_max)=(bots(l1,m1)-dat_bot)/rscheme_oc%dr_bot(n_r_max,1)
+         end do
+      else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            s(lm,n_r_max)=bots(l1,m1)
+         end do
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            dat_top = zero
+            do n_r=2,n_r_max
+               dat_top = dat_top+rscheme_oc%dr_top(n_r,1)*s(lm,n_r)
+            end do
+            s(lm,1)=(tops(l1,m1)-dat_top)/rscheme_oc%dr_top(1,1)
+         end do
+      else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            dat_bot = zero
+            dat_top = zero
+            do n_r=2,n_r_max-1
+               dat_bot = dat_bot+rscheme_oc%dr_bot(n_r,1)*s(lm,n_r)
+               dat_top = dat_top+rscheme_oc%dr_top(n_r,1)*s(lm,n_r)
+            end do
+            s(lm,n_r_max)=((bots(l1,m1)-dat_bot)*rscheme_oc%dr_top(1,1)-         &
+            &              (tops(l1,m1)-dat_top)*rscheme_oc%dr_bot(1,1)) /       &
+            &              (rscheme_oc%dr_bot(n_r_max,1)*rscheme_oc%dr_top(1,1)- &
+            &               rscheme_oc%dr_top(n_r_max,1)*rscheme_oc%dr_bot(1,1))
+            s(lm,1)=(bots(l1,m1)-dat_bot-rscheme_oc%dr_bot(n_r_max,1)*s(lm,n_r_max)) / &
+            &        rscheme_oc%dr_bot(1,1)
+         end do
+      end if
+
+      call get_entropy_rhs_imp(s, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1), .false.)
+
+   end subroutine assemble_entropy
 !-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
    subroutine get_s0Mat(tscheme,sMat,sMat_fac)

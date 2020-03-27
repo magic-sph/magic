@@ -19,7 +19,7 @@ module LMLoop_mod
        &            l_cond_ic
    use output_data, only: n_log_file, log_file
    use debugging,  only: debug_write
-   use time_array, only: type_tarray
+   use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use updateS_mod
    use updateZ_mod
@@ -32,12 +32,17 @@ module LMLoop_mod
 
    private
 
-   public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly
+   public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly, &
+   &         assemble_stage
 
 contains
 
-   subroutine initialize_LMLoop
+   subroutine initialize_LMLoop(tscheme)
 
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+
+      !-- Local variables:
       integer(lip) :: local_bytes_used
 
       local_bytes_used = bytes_allocated
@@ -46,7 +51,7 @@ contains
          call initialize_updateWPS()
       else
          if ( l_heat ) call initialize_updateS()
-         call initialize_updateWP()
+         call initialize_updateWP(tscheme)
       end if
 
       if ( l_chemical_conv ) call initialize_updateXi()
@@ -60,13 +65,16 @@ contains
 
    end subroutine initialize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine finalize_LMLoop
+   subroutine finalize_LMLoop(tscheme)
+
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       if ( l_single_matrix ) then
          call finalize_updateWPS()
       else
          if ( l_heat ) call finalize_updateS()
-         call finalize_updateWP()
+         call finalize_updateWP(tscheme)
       end if
       call finalize_updateZ()
 
@@ -240,5 +248,53 @@ contains
       end if
 
    end subroutine finish_explicit_assembly
+!--------------------------------------------------------------------------------
+   subroutine assemble_stage(w, dw, ddw, z, dz, s, ds, xi, dxi, b, db, ddb, aj,  &
+              &              dj, ddj, omega_ic, omega_ic1, omega_ma, omega_ma1,  &
+              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt,          &
+              &              domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
+      !
+      ! This routine is used to call the different assembly stage of the different
+      ! equations. This is only used for a special subset of IMEX-RK schemes.
+      !
+
+      !-- Input variables
+      logical,             intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),         intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: dw(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: ddw(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: z(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: dz(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: ds(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: dxi(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
+      
+      type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
+      real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dbdt, djdt
+
+      if ( l_heat )  call assemble_entropy(s, ds, dsdt, tscheme)
+      if ( l_chemical_conv )  call assemble_comp(xi, dxi, dxidt, tscheme)
+
+      call assemble_pol(s, xi, w, dw, ddw, dwdt, dpdt, tscheme, lRmsNext)
+
+      call assemble_tor(z, dz, dzdt, domega_ma_dt, domega_ic_dt, omega_ic, &
+           &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+
+      if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext,&
+      &                              tscheme)
+
+   end subroutine assemble_stage
 !--------------------------------------------------------------------------------
 end module LMLoop_mod

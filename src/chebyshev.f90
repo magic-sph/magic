@@ -78,6 +78,11 @@ contains
       allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
       bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
+      allocate( this%dr_top(n_r_max,1), this%dr_bot(n_r_max,1) )
+      bytes_allocated=bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+      this%dr_top(:,:)=0.0_cp
+      this%dr_bot(:,:)=0.0_cp
+
       ni = 2*n_r_max+2
       nd = 2*n_r_max+5
 
@@ -169,9 +174,7 @@ contains
 
 
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
-      deallocate( this%r_cheb )
-      deallocate( this%drx )
-      deallocate( this%ddrx, this%dddrx )
+      deallocate( this%r_cheb, this%drx, this%ddrx, this%dddrx )
       deallocate( this%work_costf )
 
       call this%chebt_oc%finalize()
@@ -195,6 +198,7 @@ contains
       integer, intent(in) :: n_r_max
 
       !-- Local variables:
+      real(cp) :: coeff, diff
       integer :: n,k   ! counter
       ! in [-1,1] to x-derivatives in [a,b]
 
@@ -242,6 +246,30 @@ contains
       this%drMat =transpose(this%drMat)
       this%d2rMat=transpose(this%d2rMat)
       this%d3rMat=transpose(this%d3rMat)
+
+      !-- Compute a vector that allows the computation of the first derivative
+      !-- on the boundary point
+      this%dr_top(1,1)=(two*(n_r_max-1)*(n_r_max-1)+one)/6.0_cp
+      do k=2,n_r_max
+         diff = two*sin( half*(k-1)*pi/(n_r_max-1) ) * sin( half*(k-1)*pi/(n_r_max-1) ) 
+         if ( mod(k,2) == 0 ) then
+            coeff=-one
+         else
+            coeff=one
+         end if
+         this%dr_top(k,1)=two * coeff/diff
+      end do
+      !-- Factor half for the last one
+      this%dr_top(n_r_max,1) = half*this%dr_top(n_r_max,1) 
+
+      !-- dr bot is the reverted vector with a -1 multiplication
+      do k=1,n_r_max
+         this%dr_bot(k,1)=-this%dr_top(n_r_max+1-k,1)
+      end do
+
+      !-- Finally multiply by the mapping to get the proper derivative of r
+      this%dr_top(:,1) = this%dr_top(:,1)*this%drx(1)
+      this%dr_bot(:,1) = this%dr_bot(:,1)*this%drx(n_r_max)
 
    end subroutine get_der_mat
 !------------------------------------------------------------------------------

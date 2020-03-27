@@ -41,7 +41,7 @@ module updateXi_mod
 #endif
    logical, public, allocatable :: lXimat(:)
 
-   public :: initialize_updateXi, finalize_updateXi, updateXi, &
+   public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp, &
    &         finish_exp_comp, get_comp_rhs_imp
 
 contains
@@ -421,6 +421,41 @@ contains
       !$omp end parallel
 
    end subroutine get_comp_rhs_imp
+!------------------------------------------------------------------------------
+   subroutine assemble_comp(xi, dxi, dxidt, tscheme)
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),       intent(inout) :: xi(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dxi(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dxidt
+
+      !-- Local variables
+      integer :: n_r, lm, l1, m1
+      integer, pointer :: lm2l(:), lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      call tscheme%assemble_imex(xi, dxidt, llm, ulm, n_r_max)
+
+      !-- Boundary conditions
+      if ( ktopxi==1 .and. kbotxi==1 ) then
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            xi(lm,1)      =topxi(l1,m1)
+            xi(lm,n_r_max)=botxi(l1,m1)
+         end do
+      else
+         call abortRun('Not implemented yet')
+      end if
+
+      call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
+
+   end subroutine assemble_comp
 !------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
    subroutine get_xi0Mat(tscheme,xiMat,xiMat_fac)

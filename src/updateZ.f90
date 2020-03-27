@@ -57,7 +57,8 @@ module updateZ_mod
 
    integer :: maxThreads
 
-   public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp
+   public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp, &
+   &         assemble_tor
 
 contains
 
@@ -600,8 +601,8 @@ contains
       l1m0=lm2(1,0)
       l1m1=lm2(1,1)
       !$omp single
-      if ( l_correct_AMz .and.  l1m0 > 0 .and. &
-      &    lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
+      if ( l_correct_AMz .and.  l1m0 > 0 .and. lmStart_00 <= l1m0 .and. &
+      &    ulm >= l1m0 ) then
 
          z10(:)=z(l1m0,:)
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
@@ -739,6 +740,105 @@ contains
       end if
 
    end subroutine get_tor_rhs_imp
+!------------------------------------------------------------------------------
+   subroutine assemble_tor(z, dz, dzdt, domega_ma_dt, domega_ic_dt, omega_ic, &
+              &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      complex(cp),        intent(inout) :: z(llm:ulm,n_r_max)
+      complex(cp),        intent(out) :: dz(llm:ulm,n_r_max)
+      type(type_tarray),  intent(inout) :: dzdt
+      type(type_tscalar), intent(inout) :: domega_ic_dt
+      type(type_tscalar), intent(inout) :: domega_ma_dt
+      real(cp),           intent(inout) :: omega_ic
+      real(cp),           intent(inout) :: omega_ma
+      real(cp),           intent(inout) :: omega_ic1
+      real(cp),           intent(inout) :: omega_ma1
+
+      !-- Local variables
+      complex(cp) :: dat_top, dat_bot
+      integer :: n_r, lm, l1, lmStart_00
+      integer, pointer :: lm2l(:)
+      real(cp) :: dL
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lmStart_00 =max(2,llm)
+
+      !-- Store the assembled quantity in work_LMloc
+      call tscheme%assemble_imex(work_LMloc, dzdt, llm, ulm, n_r_max)
+
+      !-- Now get the toroidal potential from the assembly
+      !$omp parallel do private(n_r,lm,l1,dL)
+      do n_r=2,n_r_max-1
+         do lm=lmStart_00,ulm
+            l1 = lm2l(lm)
+            dL = real(l1*(l1+1),cp)
+            z(lm,n_r) = r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+         end do
+      end do
+      !$omp end parallel do
+
+      !-- Boundary conditions
+      if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
+         do lm=lmStart_00,ulm
+            z(lm,1)      =zero
+            z(lm,n_r_max)=zero
+         end do
+      else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Stress-free top and rigid bottom
+         do lm=lmStart_00,ulm
+            z(lm,n_r_max)=zero
+         end do
+         do lm=lmStart_00,ulm
+            dat_top=zero
+            do n_r=2,n_r_max
+               dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*z(lm,n_r)
+            end do
+            z(lm,1)=-dat_top/(rscheme_oc%dr_top(1,1)-(two*or1(1)+beta(1)))
+         end do
+      else if ( kbotv == 1 .and. ktopv /= 1 ) then ! Stress-free bot and rigid top
+         do lm=lmStart_00,ulm
+            z(lm,1)=zero
+         end do
+         do lm=lmStart_00,ulm
+            dat_bot=zero
+            do n_r=1,n_r_max-1
+               dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*z(lm,n_r)
+            end do
+            z(lm,n_r_max)=-dat_bot/(rscheme_oc%dr_bot(n_r_max,1)- &
+            &                       (two*or1(n_r_max)+beta(n_r_max)))
+         end do
+      else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
+         do lm=lmStart_00,ulm
+            z(lm,1)=zero
+         end do
+         do lm=lmStart_00,ulm
+            dat_bot=zero
+            dat_top=zero
+            do n_r=2,n_r_max-1
+               dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*z(lm,n_r)
+               dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*z(lm,n_r)
+            end do
+            z(lm,n_r_max)=(-dat_bot*(rscheme_oc%dr_top(1,1)-(two*or1(1)+beta(1)))+ &
+            &                dat_top*rscheme_oc%dr_bot(1,1) ) / (                  &
+            &                (rscheme_oc%dr_bot(n_r_max,1)-(two*or1(n_r_max)+      &
+            &                beta(n_r_max)))*(rscheme_oc%dr_top(1,1)-(two*or1(1)+  &
+            &                beta(1)))-rscheme_oc%dr_bot(1,1)*                     &
+            &                rscheme_oc%dr_top(n_r_max,1))
+            z(lm,1)=(-dat_bot-(rscheme_oc%dr_bot(n_r_max,1)-(two*or1(n_r_max)+ &
+            &         beta(n_r_max)))*z(lm,n_r_max)) / rscheme_oc%dr_bot(1,1)
+         end do
+      end if
+
+      call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
+           &               omega_ic, omega_ma, omega_ic1, omega_ma1,    &
+           &               tscheme, 1, tscheme%l_imp_calc_rhs(1),       &
+           &               lRmsNext, .false.)
+
+   end subroutine assemble_tor
 !------------------------------------------------------------------------------
    subroutine get_rot_rates(omega, lorentz_torque, c_moi, domega_old, domega_last)
 

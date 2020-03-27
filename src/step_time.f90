@@ -30,7 +30,7 @@ module step_time_mod
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_mod, only: LMLoop, finish_explicit_assembly
+   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -47,7 +47,7 @@ module step_time_mod
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
-   use updateWP_mod, only: get_pol_rhs_imp
+   use updateWP_mod, only: get_pol_rhs_imp, updateP
    use updateWPS_mod, only: get_single_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
@@ -571,6 +571,17 @@ contains
                     &                        dVxBhLM_LMloc(:,:,tscheme%istage), &
                     &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,  &
                     &                        djdt_ic, tscheme)
+
+               if ( tscheme%l_assembly .and. tscheme%istage==1 .and. &
+               &    n_time_step>0 .and. (.not. l_double_curl) ) then
+                  call updateP(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
+                       &       dwdt, p_LMloc, dp_LMloc, dpdt, tscheme)
+                  !-- If p_Rloc is needed it needs to be retransposed here !
+                  if ( l_store ) then
+                     call lo2r_press%transp_lm2r(press_LMloc_container, &
+                          &                      press_Rloc_container)
+                  end if
+               end if
                call lmLoop_counter%stop_count(l_increment=.false.)
 
             end if
@@ -651,24 +662,38 @@ contains
             !---------------
             !-- LM Loop (update routines)
             !---------------
-            if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
-            call lmLoop_counter%start_count()
-            call LMLoop(timeStage,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
-                 &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,   &
-                 &      lorentz_torque_ma,lorentz_torque_ic,b_nl_cmb,     &
-                 &      aj_nl_cmb,aj_nl_icb)
+            if ( (.not. tscheme%l_assembly) .or. (tscheme%istage/=tscheme%nstages) ) then
+               if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
+               call lmLoop_counter%start_count()
+               call LMLoop(timeStage,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
+                    &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,   &
+                    &      lorentz_torque_ma,lorentz_torque_ic,b_nl_cmb,     &
+                    &      aj_nl_cmb,aj_nl_icb)
 
-            if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
+               if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
-            !-- Timer counters
-            call lmLoop_counter%stop_count()
-            if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
-            if (  tscheme%istage == 1 .and. .not. lMat .and. &
-            &     .not. l_log ) l_pure=.true.
+               !-- Timer counters
+               call lmLoop_counter%stop_count()
+               if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
+               if (  tscheme%istage == 1 .and. .not. lMat .and. &
+               &     .not. l_log ) l_pure=.true.
 
-            ! Increment current stage
-            tscheme%istage = tscheme%istage+1
+               ! Increment current stage
+               tscheme%istage = tscheme%istage+1
+            end if
          end do
+
+         !----------------------------
+         !-- Assembly stage of IMEX-RK (if needed)
+         !----------------------------
+         if ( tscheme%l_assembly ) then
+            call assemble_stage(w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc, dz_LMloc,    &
+                 &              s_LMloc, ds_LMloc, xi_LMloc, dxi_LMloc, b_LMloc,    &
+                 &              db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc, &
+                 &              omega_ic, omega_ic1, omega_ma, omega_ma1, dwdt,     &
+                 &              dzdt, dpdt, dsdt, dxidt, dbdt, djdt, domega_ic_dt,  &
+                 &              domega_ma_dt, lRmsNext, tscheme)
+         end if
 
          !-- Update counters
          if ( l_mat_time ) call mat_counter%stop_count()

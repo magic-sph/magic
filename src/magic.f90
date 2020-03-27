@@ -287,7 +287,7 @@ program magic
 
    !-- Radial/LM Loop
    call initialize_radialLoop()
-   call initialize_LMLoop()
+   call initialize_LMLoop(tscheme)
 
    call initialize_num_param()
    call initialize_init_fields()
@@ -344,7 +344,7 @@ program magic
    if (rank == 0) print*, '-----> rank 0 has', bytes_allocated, ' B allocated'
 
 
-   call finalize_memory_counter
+   call finalize_memory_counter()
 
    if ( rank == 0 ) then
       if ( l_save_out ) then
@@ -475,7 +475,7 @@ program magic
    call finalize_Grenoble()
    call finalize_init_fields()
    call finalize_num_param()
-   call finalize_LMLoop()
+   call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
    call finalize_der_arrays()
