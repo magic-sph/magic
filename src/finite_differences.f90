@@ -26,6 +26,7 @@ module finite_differences
       procedure, private :: get_FD_coeffs
       procedure :: get_der_mat
       procedure :: get_grid => get_FD_grid
+      procedure :: robin_bc
    end type type_fd
 
 contains
@@ -401,6 +402,15 @@ contains
       deallocate( dr_spacing, taylor_exp )
 
    end subroutine get_FD_coeffs
+!---------------------------------------------------------------------------
+   subroutine robin_bc(this,atop,btop,rhs_top,abot,bbot,rhs_bot,f)
+
+      class(type_fd) :: this
+      real(cp),    intent(in) :: atop, btop, abot, bbot
+      complex(cp), intent(in) :: rhs_top, rhs_bot
+      complex(cp), intent(inout) :: f(:)
+
+   end subroutine robin_bc
 !---------------------------------------------------------------------------
    subroutine get_der_mat(this, n_r_max)
 

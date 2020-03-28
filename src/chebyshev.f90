@@ -15,16 +15,13 @@ module chebyshev
    private
 
    type, public, extends(type_rscheme) :: type_cheb_odd
-
       real(cp) :: alpha1 !Input parameter for non-linear map to define degree of spacing (0.0:2.0)
       real(cp) :: alpha2 !Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
       logical :: l_map
       type(costf_odd_t) :: chebt_oc
       real(cp), allocatable :: r_cheb(:)
       complex(cp), pointer :: work_costf(:,:)
-
    contains
-
       procedure :: initialize
       procedure :: finalize
       procedure :: get_der_mat
@@ -33,7 +30,7 @@ module chebyshev
       procedure :: costf1_complex
       procedure :: costf1_real
       procedure :: costf1_real_1d
-
+      procedure :: robin_bc
    end type type_cheb_odd
 
 contains
@@ -172,7 +169,6 @@ contains
 
       class(type_cheb_odd) :: this
 
-
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
       deallocate( this%r_cheb, this%drx, this%ddrx, this%dddrx )
       deallocate( this%work_costf )
@@ -180,6 +176,64 @@ contains
       call this%chebt_oc%finalize()
 
    end subroutine finalize
+!------------------------------------------------------------------------------
+   subroutine robin_bc(this,atop,btop,rhs_top,abot,bbot,rhs_bot,f)
+      !
+      ! This subroutine is used to determine the two boundary points of a field
+      ! f subject to two Robin boundary conditions of the form:
+      !
+      ! atop*df/dr+btop*f = rhs_top;  abot*df/dr+bbot*f = rhs_bot
+      !
+
+      class(type_cheb_odd) :: this
+
+      !-- Input variables
+      real(cp), intent(in) :: atop, btop, abot, bbot
+      complex(cp), intent(in) :: rhs_top, rhs_bot
+
+      !-- In/out variables: only the boundary points are changed
+      complex(cp), intent(inout) :: f(:)
+
+      !-- Local variables
+      integer :: n_r, nRmax
+      real(cp) :: sum_top_r, sum_top_i, sum_bot_r, sum_bot_i
+      real(cp) :: val_top_r, val_top_i, val_bot_r, val_bot_i
+
+      nRmax = size(f)
+
+      !-- First construct the sums that will be needed afterwards
+      sum_top_r = 0.0_cp
+      sum_top_i = 0.0_cp
+      sum_bot_r = 0.0_cp
+      sum_bot_i = 0.0_cp
+      do n_r=2,nRmax-1
+         sum_top_r = sum_top_r+this%dr_top(n_r,1)*real(f(n_r))
+         sum_top_i = sum_top_i+this%dr_top(n_r,1)*aimag(f(n_r))
+         sum_bot_r = sum_bot_r+this%dr_bot(n_r,1)*real(f(n_r))
+         sum_bot_i = sum_bot_i+this%dr_bot(n_r,1)*aimag(f(n_r))
+      end do
+
+      !-- First get the values at the bottom boundary
+      val_bot_r=( abot*this%dr_bot(1,1)*(real(rhs_top)-atop*sum_top_r)-          &
+      &          (atop*this%dr_top(1,1)+btop)*(real(rhs_bot)-abot*sum_bot_r) ) / &
+      &         (abot*atop*this%dr_bot(1,1)*this%dr_top(nRmax,1)-                &
+      &         (atop*this%dr_top(1,1)+btop)*(abot*this%dr_bot(nRmax,1)+bbot))
+      val_bot_i=( abot*this%dr_bot(1,1)*(aimag(rhs_top)-atop*sum_top_i)-         &
+      &          (atop*this%dr_top(1,1)+btop)*(aimag(rhs_bot)-abot*sum_bot_i) ) /&
+      &         (abot*atop*this%dr_bot(1,1)*this%dr_top(nRmax,1)-                &
+      &         (atop*this%dr_top(1,1)+btop)*(abot*this%dr_bot(nRmax,1)+bbot))
+
+      !-- Then get the values at the top boundary
+      val_top_r=(real(rhs_top)-atop*(sum_top_r+this%dr_top(nRmax,1)*val_bot_r))/ &
+      &         (atop*this%dr_top(1,1)+btop)
+      val_top_i=(aimag(rhs_top)-atop*(sum_top_i+this%dr_top(nRmax,1)*val_bot_i))/&
+      &         (atop*this%dr_top(1,1)+btop)
+
+      !-- Finally assemble the complex numbers
+      f(1)     = cmplx(val_top_r, val_top_i, kind=cp)
+      f(nRmax) = cmplx(val_bot_r, val_bot_i, kind=cp)
+
+   end subroutine robin_bc
 !------------------------------------------------------------------------------
    subroutine get_der_mat(this, n_r_max)
       !

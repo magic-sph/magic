@@ -136,7 +136,7 @@ contains
       real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop)
 
       !--- Explicit part of time stepping, calculated in s_radialLoopG.f and
-      !    passed to LMLoop.f where the time step is preformed.
+      !    passed to LMLoop where the time step is preformed.
       !    Note that the respective arrays for the changes in inner-core
       !    magnetic field are calculated in s_updateB.f and are only
       !    needed there.
@@ -563,14 +563,16 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
-               call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,       &
-                    &                        aj_ic_LMloc,                       &
-                    &                        dVSrLM_LMLoc(:,:,tscheme%istage),  &
-                    &                        dVXirLM_LMLoc(:,:,tscheme%istage), &
-                    &                        dVxVhLM_LMloc(:,:,tscheme%istage), &
-                    &                        dVxBhLM_LMloc(:,:,tscheme%istage), &
-                    &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,  &
-                    &                        djdt_ic, tscheme)
+               call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
+                    &                        aj_ic_LMloc,                         &
+                    &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
+                    &                        dVXirLM_LMLoc(:,:,tscheme%istage),   &
+                    &                        dVxVhLM_LMloc(:,:,tscheme%istage),   &
+                    &                        dVxBhLM_LMloc(:,:,tscheme%istage),   &
+                    &                        lorentz_torque_ma,lorentz_torque_ic, &
+                    &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
+                    &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
+                    &                        tscheme)
 
                if ( tscheme%l_assembly .and. tscheme%istage==1 .and. &
                &    n_time_step>0 .and. (.not. l_double_curl) ) then
@@ -667,8 +669,8 @@ contains
                call lmLoop_counter%start_count()
                call LMLoop(timeStage,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
                     &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,   &
-                    &      lorentz_torque_ma,lorentz_torque_ic,b_nl_cmb,     &
-                    &      aj_nl_cmb,aj_nl_icb)
+                    &      lorentz_torque_ma,lorentz_torque_ic,              &
+                    &      domega_ma_dt,domega_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
@@ -687,12 +689,14 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
-            call assemble_stage(w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc, dz_LMloc,    &
-                 &              s_LMloc, ds_LMloc, xi_LMloc, dxi_LMloc, b_LMloc,    &
-                 &              db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc, &
-                 &              omega_ic, omega_ic1, omega_ma, omega_ma1, dwdt,     &
-                 &              dzdt, dpdt, dsdt, dxidt, dbdt, djdt, domega_ic_dt,  &
-                 &              domega_ma_dt, lRmsNext, tscheme)
+            call assemble_stage(timeStage, w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc,   &
+                 &              dz_LMloc, s_LMloc, ds_LMloc, xi_LMloc, dxi_LMloc,   &
+                 &              b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,   &
+                 &              ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,   &
+                 &              aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, omega_ic,   &
+                 &              omega_ic1, omega_ma, omega_ma1, dwdt, dzdt, dpdt,   &
+                 &              dsdt, dxidt, dbdt, djdt, dbdt_ic, djdt_ic,          &
+                 &              domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
          end if
 
          !-- Update counters

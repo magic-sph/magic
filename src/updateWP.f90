@@ -1082,13 +1082,11 @@ contains
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables 
-      complex(cp) :: dat_top, dat_bot
+      real(cp) :: fac_top, fac_bot
       integer :: n_r_top, n_r_bot, l1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:)
       real(cp) :: dL
-
-      if ( l_full_sphere ) call abortRun('Not implemented yet!')
 
       lm2l(1:lm_max) => lo_map%lm2l
       lmStart_00 =max(2,llm)
@@ -1119,52 +1117,53 @@ contains
       end do
 
       !-- Other boundary condition: stress-free or rigid
-      if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
-         do lm=lmStart_00,ulm
-            dw(lm,1)      =zero
-            dw(lm,n_r_max)=zero
-         end do
-      else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
-         do lm=lmStart_00,ulm
-            dw(lm,1)=zero
-         end do
-         do lm=lmStart_00,ulm
-            dat_bot=zero
-            do n_r=1,n_r_max-1
-               dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*dw(lm,n_r)
+      if ( l_full_sphere ) then
+         if ( ktopv == 1 ) then ! Stress-free
+            fac_top=-two*or1(1)-beta(1)
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
+               end if
             end do
-            dw(lm,n_r_max)=-dat_bot / (rscheme_oc%dr_bot(n_r_max,1)-  &
-            &                         (two*or1(n_r_max)+beta(n_r_max)))
-         end do
-      else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
-         do lm=lmStart_00,ulm
-            dw(lm,n_r_max)=zero
-         end do
-         do lm=lmStart_00,ulm
-            dat_top=zero
-            do n_r=2,n_r_max
-               dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*dw(lm,n_r)
+         else
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               if ( l1 == 1 ) then
+                  dw(lm,1)      =zero
+                  dw(lm,n_r_max)=zero
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
+               end if
             end do
-            dw(lm,1)=-dat_top / (rscheme_oc%dr_top(1,1)-(two*or1(1)+beta(1)))
-         end do
-      else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
-         do lm=lmStart_00,ulm
-            dat_bot=zero
-            dat_top=zero
-            do n_r=2,n_r_max-1
-               dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*dw(lm,n_r)
-               dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*dw(lm,n_r)
-            end do
-            dw(lm,n_r_max)=(-dat_bot*(rscheme_oc%dr_top(1,1)-(two*or1(1)+beta(1)))+ &
-            &                dat_top*rscheme_oc%dr_bot(1,1) ) / (                   &
-            &                (rscheme_oc%dr_bot(n_r_max,1)-(two*or1(n_r_max)+       &
-            &                beta(n_r_max)))*(rscheme_oc%dr_top(1,1)-(two*or1(1)+   &
-            &                beta(1)))-rscheme_oc%dr_bot(1,1)*                      &
-            &                rscheme_oc%dr_top(n_r_max,1))
+         end if
 
-            dw(lm,1)=(-dat_bot-(rscheme_oc%dr_bot(n_r_max,1)-(two*or1(n_r_max)+ &
-            &         beta(n_r_max)))*dw(lm,n_r_max)) / rscheme_oc%dr_bot(1,1)
-         end do
+      else ! Spherical shell
+
+         if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
+            do lm=lmStart_00,ulm
+               dw(lm,1)      =zero
+               dw(lm,n_r_max)=zero
+            end do
+         else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
+            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
+            end do
+         else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
+            fac_top=-two*or1(1)-beta(1)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
+            end do
+         else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
+            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            fac_top=-two*or1(1)-beta(1)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
+            end do
+         end if
       end if
 
       !$omp single

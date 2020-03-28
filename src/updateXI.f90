@@ -442,15 +442,65 @@ contains
       call tscheme%assemble_imex(xi, dxidt, llm, ulm, n_r_max)
 
       !-- Boundary conditions
-      if ( ktopxi==1 .and. kbotxi==1 ) then
-         do lm=llm,ulm
-            l1 = lm2l(lm)
-            m1 = lm2m(lm)
-            xi(lm,1)      =topxi(l1,m1)
-            xi(lm,n_r_max)=botxi(l1,m1)
-         end do
-      else
-         call abortRun('Not implemented yet')
+      if ( l_full_sphere) then
+         if ( ktopxi == 1 ) then ! Fixed entropy at the outer boundary
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               end if
+            end do
+         else ! Fixed flux at the outer boundary
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), one, 0.0_cp, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               end if
+            end do
+         end if
+
+      else ! Spherical shell
+
+         !-- Boundary conditions
+         if ( ktopxi==1 .and. kbotxi==1 ) then ! Dirichlet on both sides
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+         else if ( ktopxi==1 .and. kbotxi /= 1 ) then ! Dirichlet: top and Neumann: bot
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+         else if ( kbotxi==1 .and. ktopxi /= 1 ) then ! Dirichlet: bot and Neumann: top
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+         else if ( kbotxi /=1 .and. kbotxi /= 1 ) then ! Neumann on both sides
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+         end if
       end if
 
       call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1), .false.)

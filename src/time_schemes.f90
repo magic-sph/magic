@@ -39,6 +39,7 @@ module time_schemes
       procedure(set_weights_if), deferred :: set_weights
       procedure(set_dt_array_if), deferred :: set_dt_array
       procedure(assemble_imex_if),  deferred :: assemble_imex
+      procedure(assemble_imex_scalar_if),  deferred :: assemble_imex_scalar
       procedure(set_imex_rhs_if),  deferred :: set_imex_rhs
       procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
@@ -104,6 +105,13 @@ module time_schemes
          type(type_tarray), intent(in) :: dfdt
          complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
       end subroutine assemble_imex_if
+
+      subroutine assemble_imex_scalar_if(this, rhs, dfdt)
+         import
+         class(type_tscheme) :: this
+         type(type_tscalar), intent(in) :: dfdt
+         real(cp), intent(out) :: rhs
+      end subroutine assemble_imex_scalar_if
 
       subroutine set_imex_rhs_scalar_if(this, rhs, dfdt)
          import

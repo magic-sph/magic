@@ -13,7 +13,7 @@ module updateB_mod
        &                 n_r_totMag, lm_max, l_maxMag
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic,rscheme_oc
+       &                       or1, cheb_ic, dcheb_ic,rscheme_oc, r_ic
    use radial_data, only: n_r_cmb, n_r_icb
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb
@@ -58,7 +58,7 @@ module updateB_mod
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
-   &         assemble_mag
+   &         assemble_mag, assemble_mag_ic
 
 contains
 
@@ -706,7 +706,7 @@ contains
 
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
          !$omp parallel do default(shared) private(lm,n_r,fac,l1,m1) collapse(2)
-         do n_r=2,n_r_ic_max
+         do n_r=1,n_r_ic_max
             do lm=llmMag, ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
@@ -720,7 +720,7 @@ contains
          !$omp end parallel do
       else
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
-         do n_r=2,n_r_ic_max
+         do n_r=1,n_r_ic_max
             do lm=llmMag, ulmMag
                db_exp_last(lm,n_r)=zero
                dj_exp_last(lm,n_r)=zero
@@ -764,17 +764,63 @@ contains
 
    end subroutine finish_exp_mag
 !-----------------------------------------------------------------------------
+   subroutine assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
+              &               dbdt_ic, djdt_ic, tscheme)
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dbdt_ic
+      type(type_tarray), intent(inout) :: djdt_ic
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Local variables
+      integer :: n_r, lm, l1, lmStart_00
+      integer, pointer :: lm2l(:)
+      real(cp) :: dL
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lmStart_00 =max(2,llmMag)
+
+      !-- Assemble IMEX using ddb_ic and ddj_ic as a work arrays
+      call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
+      call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
+
+      !-- Now get the toroidal potential from the assembly
+      !$omp parallel do private(n_r,lm,l1,dL)
+      do n_r=1,n_r_ic_max
+         do lm=lmStart_00,ulmMag
+            l1 = lm2l(lm)
+            dL = real(l1*(l1+1),cp)
+            b_ic(lm,n_r)  = r(n_r_max)*r(n_r_max)/dL*ddb_ic(lm,n_r)
+            aj_ic(lm,n_r) = r(n_r_max)*r(n_r_max)/dL*ddj_ic(lm,n_r)
+         end do
+      end do
+      !$omp end parallel do
+
+      !-- Finally compute the required implicit stage if needed
+      call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
+           &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
+           &                  .false.)
+
+   end subroutine assemble_mag_ic
+!-----------------------------------------------------------------------------
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
               &                  l_in_cheb_space)
-
 
       !-- Input variables
       integer,             intent(in) :: istage
       logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
 
-      !-- Output variable
+      !-- Output variables
       type(type_tarray), intent(inout) :: dbdt_ic
       type(type_tarray), intent(inout) :: djdt_ic
       complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
@@ -843,7 +889,7 @@ contains
 
       if ( l_calc_lin ) then
          !$omp do private(n_r,lm,l1,dL) collapse(2)
-         do n_r=2,n_r_ic_max-1
+         do n_r=1,n_r_ic_max-1
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
                dL = real(l1*(l1+1),cp)
@@ -890,7 +936,8 @@ contains
       complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
 
       !-- Local variables
-      complex(cp) :: dat_top, dat_bot
+      complex(cp) :: val_bot
+      real(cp) :: fac_top, fac_bot
       integer :: n_r, lm, l1, lmStart_00
       integer, pointer :: lm2l(:)
       real(cp) :: dL
@@ -919,113 +966,84 @@ contains
       if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
 
       !-- If conducting inner core then the solution at ICB should already be fine
-      if ( kbotb == 3 ) then
-         if ( ktopb==1 ) then
+      if ( l_full_sphere ) then
+         if ( ktopb == 1 ) then
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
-               dat_top=zero
-               do n_r=2,n_r_max
-                  dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*b(lm,n_r)
-               end do
-               b(lm,1)=-dat_top/(rscheme_oc%dr_top(1,1)+l1*or1(1))
-               aj(lm,1)=zero
-            end do
-         else if ( ktopb == 4 ) then
-            do lm=lmStart_00,ulmMag
-               dat_top=zero
-               do n_r=2,n_r_max
-                  dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*b(lm,n_r)
-               end do
-               b(lm,1)=-dat_top/rscheme_oc%dr_top(1,1)
-               aj(lm,1)=zero
-            end do
-         else
-            call abortRun('Not implemented yet!')
-         end if
-
-      else if ( kbotb == 4 ) then
-         if ( ktopb==1 ) then
-            do lm=lmStart_00,ulmMag
-               l1 = lm2l(lm)
-               dat_top=zero
-               dat_bot=zero
-               do n_r=2,n_r_max-1
-                  dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*b(lm,n_r)
-                  dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*b(lm,n_r)
-               end do
-               b(lm,1)=(-rscheme_oc%dr_top(n_r_max,1)*dat_bot+                & 
-               &         rscheme_oc%dr_bot(n_r_max,1)*dat_top) /              &
-               &       (rscheme_oc%dr_top(n_r_max,1)*rscheme_oc%dr_bot(1,1)-  &
-               &        rscheme_oc%dr_bot(n_r_max,1)*(rscheme_oc%dr_top(1,1)+ &
-               &        l1*or1(1)))
-               b(lm,n_r_max)=(-dat_bot-rscheme_oc%dr_bot(1,1)*b(lm,1))/   &
-               &              rscheme_oc%dr_bot(n_r_max,1)
+               fac_top=real(l1,cp)*or1(1)
+               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, b(lm,:))
                aj(lm,1)      =zero
                aj(lm,n_r_max)=zero
             end do
-         else if ( ktopb == 4 ) then
+         else if (ktopb == 4 ) then
             do lm=lmStart_00,ulmMag
-               dat_top=zero
-               dat_bot=zero
-               do n_r=2,n_r_max-1
-                  dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*b(lm,n_r)
-                  dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*b(lm,n_r)
-               end do
-               b(lm,n_r_max)=(-rscheme_oc%dr_top(1,1)*dat_bot+rscheme_oc%dr_bot(1,1)*&
-               &              dat_top)/(rscheme_oc%dr_bot(n_r_max,1)*                &
-               &              rscheme_oc%dr_top(1,1)-rscheme_oc%dr_top(n_r_max,1)*   &
-               &              rscheme_oc%dr_bot(1,1))
-               b(lm,1)=-(dat_bot+rscheme_oc%dr_bot(n_r_max,1)*b(lm,n_r_max)) / &
-               &        rscheme_oc%dr_bot(1,1)
+               call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, zero, b(lm,:))
                aj(lm,1)      =zero
                aj(lm,n_r_max)=zero
             end do
          else
             call abortRun('Not implemented yet!')
          end if
-
-      else if ( kbotb == 1 ) then ! Insulating inner core
-
-         if ( ktopb==1 ) then ! Vacuum on both sides
-            do lm=lmStart_00,ulmMag
-               l1=lm2l(lm)
-               dat_top=zero
-               dat_bot=zero
-               do n_r=2,n_r_max-1
-                  dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*b(lm,n_r)
-                  dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*b(lm,n_r)
+      else ! spherical shell
+         if ( kbotb == 3 ) then
+            if ( ktopb==1 ) then
+               do lm=lmStart_00,ulmMag
+                  l1 = lm2l(lm)
+                  fac_top=real(l1,cp)*or1(1)
+                  val_bot=b(lm,n_r_max)
+                  call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, val_bot, b(lm,:))
+                  b(lm,n_r_max)=val_bot
+                  aj(lm,1)=zero
                end do
-               b(lm,n_r_max)=(-rscheme_oc%dr_bot(1,1)*dat_top+(rscheme_oc%dr_top(1,1)+&
-               &              l1*or1(1))*dat_bot) / (rscheme_oc%dr_bot(1,1)*          &
-               &              rscheme_oc%dr_top(n_r_max,1)-(rscheme_oc%dr_top(1,1)+   &
-               &              l1*or1(1))*(rscheme_oc%dr_bot(n_r_max,1)-(l1+1)*        &
-               &              or1(n_r_max)))
-               b(lm,1) = -(dat_bot+(rscheme_oc%dr_bot(n_r_max,1)-(l1+1)*or1(n_r_max))*&
-               &           b(lm,n_r_max))/rscheme_oc%dr_bot(1,1)
-               aj(lm,1)      =zero
-               aj(lm,n_r_max)=zero
-            end do
-         else if ( ktopb == 4 ) then ! Pseudo-vacuum on the outer boundary
-            do lm=lmStart_00,ulmMag
-               l1=lm2l(lm)
-               dat_top=zero
-               dat_bot=zero
-               do n_r=2,n_r_max-1
-                  dat_bot=dat_bot+rscheme_oc%dr_bot(n_r,1)*b(lm,n_r)
-                  dat_top=dat_top+rscheme_oc%dr_top(n_r,1)*b(lm,n_r)
+            else if ( ktopb == 4 ) then
+               do lm=lmStart_00,ulmMag
+                  val_bot=b(lm,n_r_max)
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, val_bot, b(lm,:))
+                  aj(lm,1)=zero
                end do
-               b(lm,n_r_max)=(-rscheme_oc%dr_bot(1,1)*dat_top+rscheme_oc%dr_top(1,1)*&
-               &              dat_bot)/(rscheme_oc%dr_bot(1,1)*                      &
-               &              rscheme_oc%dr_top(n_r_max,1)-rscheme_oc%dr_top(1,1)*(  &
-               &              rscheme_oc%dr_bot(n_r_max,1)-(l1+1)*or1(n_r_max) ) )
-               b(lm,1) =-(dat_top-rscheme_oc%dr_top(n_r_max,1)*b(lm,n_r_max))/ &
-               &         rscheme_oc%dr_top(1,1)
-               aj(lm,1)      =zero
-               aj(lm,n_r_max)=zero
-            end do
+            else
+               call abortRun('Not implemented yet!')
+            end if
+         else if ( kbotb == 4 ) then
+            if ( ktopb==1 ) then
+               do lm=lmStart_00,ulmMag
+                  l1 = lm2l(lm)
+                  fac_top=real(l1,cp)*or1(1)
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+            else if ( ktopb == 4 ) then
+               do lm=lmStart_00,ulmMag
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+            else
+               call abortRun('Not implemented yet!')
+            end if
+         else if ( kbotb == 1 ) then ! Insulating inner core
+            if ( ktopb==1 ) then ! Vacuum on both sides
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  fac_bot=-real(l1+1,cp)*or1(n_r_max)
+                  fac_top= real(l1,cp)*or1(1)
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+            else if ( ktopb == 4 ) then ! Pseudo-vacuum on the outer boundary
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  fac_bot=-real(l1+1,cp)*or1(n_r_max)
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, fac_bot, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+            end if
+         else
+            call abortRun('Combination not implemented yet!')
          end if
-      else
-         call abortRun('Combination not implemented yet!')
       end if
 
       call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
@@ -1131,8 +1149,8 @@ contains
             n_r_top=n_r_cmb
             n_r_bot=n_r_icb
          else
-            n_r_top=n_r_cmb+1
-            n_r_bot=n_r_icb-1
+            n_r_top=n_r_cmb!+1
+            n_r_bot=n_r_icb!-1
          end if
 
          !$omp do private(n_r,lm,l1,dtP,dtT,dL)

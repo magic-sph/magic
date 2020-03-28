@@ -86,7 +86,7 @@ contains
    subroutine LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,            &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
               &      djdt_ic,lorentz_torque_ma,lorentz_torque_ic,      &
-              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+              &      domega_ma_dt,domega_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -104,15 +104,9 @@ contains
       complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Input from radialLoop:
-      type(type_tarray), intent(inout) :: dsdt
-      type(type_tarray), intent(inout) :: dxidt
-      type(type_tarray), intent(inout) :: dwdt
-      type(type_tarray), intent(inout) :: dpdt
-      type(type_tarray), intent(inout) :: dzdt
-      type(type_tarray), intent(inout) :: dbdt
-      type(type_tarray), intent(inout) :: djdt
-      type(type_tarray), intent(inout) :: dbdt_ic
-      type(type_tarray), intent(inout) :: djdt_ic
+      type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt
+      type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
+      type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
       !integer,     intent(in) :: n_time_step
 
       !--- Local counter
@@ -159,7 +153,8 @@ contains
       if ( l_conv ) then
          PERFON('up_Z')
          call updateZ( z_LMloc, dz_LMloc, dzdt, time, omega_ma, omega_ic, &
-              &        lorentz_torque_ma, lorentz_torque_ic, tscheme,lRmsNext)
+              &        domega_ma_dt,domega_ic_dt,lorentz_torque_ma,       &
+              &        lorentz_torque_ic, tscheme,lRmsNext)
          PERFOFF
 
          if ( l_single_matrix ) then
@@ -200,12 +195,15 @@ contains
 !--------------------------------------------------------------------------------
    subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,  &
               &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc, &
+              &                        lorentz_torque_ma, lorentz_torque_ic,  &
               &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,      &
-              &                        djdt_ic, tscheme)
+              &                        djdt_ic, domega_ma_dt, domega_ic_dt, tscheme)
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: omega_ic
+      real(cp),            intent(in) :: lorentz_torque_ic
+      real(cp),            intent(in) :: lorentz_torque_ma
       complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
@@ -215,12 +213,9 @@ contains
       complex(cp),         intent(inout) :: dVxBh_LMloc(llmMag:ulmMag,n_r_maxMag)
 
       !-- Output variables
-      type(type_tarray),   intent(inout) :: dsdt
-      type(type_tarray),   intent(inout) :: dxidt
-      type(type_tarray),   intent(inout) :: djdt
-      type(type_tarray),   intent(inout) :: dwdt
-      type(type_tarray),   intent(inout) :: dbdt_ic
-      type(type_tarray),   intent(inout) :: djdt_ic
+      type(type_tarray),   intent(inout) :: dsdt, dxidt, djdt, dwdt
+      type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
+      type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
 
       if ( l_chemical_conv ) then
          call finish_exp_comp(dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
@@ -237,6 +232,10 @@ contains
          end if
       end if
 
+      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic, &
+           &              domega_ma_dt%expl(tscheme%istage),    &
+           &              domega_ic_dt%expl(tscheme%istage))
+
       if ( l_mag ) then
          call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
       end if
@@ -249,10 +248,11 @@ contains
 
    end subroutine finish_explicit_assembly
 !--------------------------------------------------------------------------------
-   subroutine assemble_stage(w, dw, ddw, z, dz, s, ds, xi, dxi, b, db, ddb, aj,  &
-              &              dj, ddj, omega_ic, omega_ic1, omega_ma, omega_ma1,  &
-              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt,          &
-              &              domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
+   subroutine assemble_stage(time, w, dw, ddw, z, dz, s, ds, xi, dxi, b, db,     &
+              &              ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, dj_ic,&
+              &              ddj_ic, omega_ic, omega_ic1, omega_ma, omega_ma1,   &
+              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
+              &              djdt_ic, domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
       ! equations. This is only used for a special subset of IMEX-RK schemes.
@@ -261,6 +261,7 @@ contains
       !-- Input variables
       logical,             intent(in) :: lRmsNext
       class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time
 
       !-- Output variables
       complex(cp),         intent(inout) :: w(llm:ulm,n_r_max)
@@ -278,22 +279,41 @@ contains
       complex(cp),         intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),         intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
       
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
-      type(type_tarray),   intent(inout) :: dbdt, djdt
+      type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
       if ( l_heat )  call assemble_entropy(s, ds, dsdt, tscheme)
       if ( l_chemical_conv )  call assemble_comp(xi, dxi, dxidt, tscheme)
 
       call assemble_pol(s, xi, w, dw, ddw, dwdt, dpdt, tscheme, lRmsNext)
 
-      call assemble_tor(z, dz, dzdt, domega_ma_dt, domega_ic_dt, omega_ic, &
+      call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic, &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
-      if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext,&
+      if ( l_cond_ic ) call assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
+                            &               dbdt_ic, djdt_ic, tscheme)
+
+      if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, &
       &                              tscheme)
+
+      !b(:,n_r_max)=b_ic(:,1)
+      !aj(:,n_r_max)=aj_ic(:,1)
+      !db(:,n_r_max)=db_ic(:,1)
+      !dj(:,n_r_max)=dj_ic(:,1)
+      !block
+      !integer :: lm0
+      !lm0 = lo_map%lm2(1,0)
+      !print*, lm0, b_ic(lm0,1), b(lm0,n_r_max)
+      !end block
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------

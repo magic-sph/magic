@@ -38,6 +38,7 @@ module multistep_schemes
       procedure :: start_with_ab1
       procedure :: get_time_stage
       procedure :: assemble_imex
+      procedure :: assemble_imex_scalar
    end type type_multistep
 
 contains
@@ -623,5 +624,13 @@ contains
       complex(cp),       intent(out) :: rhs(lmStart:lmStop,len_rhs)
 
    end subroutine assemble_imex
+!------------------------------------------------------------------------------
+   subroutine assemble_imex_scalar(this, rhs, dfdt)
+
+      class(type_multistep) :: this
+      type(type_tscalar), intent(in) :: dfdt
+      real(cp),           intent(out) :: rhs
+
+   end subroutine assemble_imex_scalar
 !------------------------------------------------------------------------------
 end module multistep_schemes

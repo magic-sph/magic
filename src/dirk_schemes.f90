@@ -41,6 +41,7 @@ module dirk_schemes
       procedure :: start_with_ab1
       procedure :: get_time_stage
       procedure :: assemble_imex
+      procedure :: assemble_imex_scalar
    end type type_dirk
 
 contains
@@ -697,6 +698,33 @@ contains
       end do
 
    end subroutine set_imex_rhs_scalar
+!------------------------------------------------------------------------------
+   subroutine assemble_imex_scalar(this, rhs, dfdt)
+      !
+      ! This subroutine performs the assembly stage of an IMEX-RK scheme
+      ! for a scalar quantity
+      !
+      class(type_dirk) :: this
+
+      !-- Input variable
+      type(type_tscalar), intent(in) :: dfdt
+
+      !-- Output variable
+      real(cp), intent(out) :: rhs
+
+      !-- Local variable
+      integer :: n_stage
+
+      rhs=dfdt%old(1)
+      do n_stage=1,this%nstages
+         rhs=rhs + this%butcher_ass_exp(n_stage)*dfdt%expl(n_stage)
+      end do
+
+      do n_stage=1,this%nstages
+         rhs=rhs + this%butcher_ass_imp(n_stage)*dfdt%impl(n_stage)
+      end do
+
+   end subroutine assemble_imex_scalar
 !------------------------------------------------------------------------------
    subroutine rotate_imex(this, dfdt, lmStart, lmStop, n_r_max)
       !
