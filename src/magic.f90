@@ -243,8 +243,6 @@ program magic
       write(n_log_file,*) '!                                                        '
       write(n_log_file,*) '!                                                        '
 
-
-
       if ( l_save_out ) close(n_log_file)
    end if
 

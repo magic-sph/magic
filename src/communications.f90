@@ -11,9 +11,9 @@ module communications
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_TP_form, l_double_curl
+       &            l_mag_kin, l_TP_form, l_double_curl, l_save_out
    use useful, only: abortRun
-   use output_data, only: n_log_file
+   use output_data, only: log_file, n_log_file
    use iso_fortran_env, only: output_unit
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
@@ -734,6 +734,10 @@ contains
          do n=1,2
             if ( n==1 ) then
                n_out = n_log_file
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
             else
                n_out = output_unit
             end if
@@ -758,6 +762,7 @@ contains
             &               ES10.3, '' s'')') tBlock_avg(6)
             write(n_out,'(A80)') message
             write(n_out,*)
+            if ( n==1 .AND. l_save_out ) close(n_log_file)
          end do
 
       end if
@@ -855,9 +860,13 @@ contains
          ind = minloc(timers)
          idx = ind(1)
 
-         do n=1,2
+         do n=2,2
             if ( n==1 ) then
                n_out = n_log_file
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
             else
                n_out = output_unit
             end if
@@ -881,6 +890,7 @@ contains
                write(n_out,*) '! -> I choose alltoallw'
             end if
             write(n_out,*)
+            if ( n==1 .AND. l_save_out ) close(n_log_file)
          end do
 
       end if
