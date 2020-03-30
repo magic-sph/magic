@@ -407,17 +407,19 @@ contains
          if ( abs(powerDiffOld) > 10.0_cp*epsilon(timePassed) ) then
             powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
             eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
-            if ( l_save_out ) then
-               open(newunit=n_power_file, file=power_file, status='unknown', &
-               &    position='append')
+            if (l_master_rank) then
+               if ( l_save_out ) then
+                  open(newunit=n_power_file, file=power_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_power_file,'(1P,ES20.12,10ES16.8)')   &
+               &     time*tScale, buoy, buoy_chem,           &
+               &     -two*z10ICB*drz10ICB,                   &
+               &     two*z10CMB*drz10CMB, viscDiss,          &
+               &     ohmDiss, powerMA, powerIC, powerDiff,   &
+               &     eDiffInt/timeNorm
+               if ( l_save_out ) close(n_power_file)
             end if
-            write(n_power_file,'(1P,ES20.12,10ES16.8)')   &
-            &     time*tScale, buoy, buoy_chem,           &
-            &     -two*z10ICB*drz10ICB,                   &
-            &     two*z10CMB*drz10CMB, viscDiss,          &
-            &     ohmDiss, powerMA, powerIC, powerDiff,   &
-            &     eDiffInt/timeNorm
-            if ( l_save_out ) close(n_power_file)
          end if
 
          if ( l_stop_time ) then
@@ -426,20 +428,22 @@ contains
             if ( l_mag )  call ohm_ave%finalize_SD(timeNorm)
             if ( l_conv ) call visc_ave%finalize_SD(timeNorm)
 
-            fileName='powerR.'//tag
-            open(newunit=fileHandle, file=fileName, status='unknown')
-            do n_r=1,n_r_max
-               write(fileHandle,'(ES20.10,4ES15.7,4ES13.5)')                     &
-               &     r(n_r),round_off(buo_ave%mean(n_r),maxval(buo_ave%mean)),   &
-               &     round_off(buo_chem_ave%mean(n_r),maxval(buo_chem_ave%mean)),&
-               &     round_off(visc_ave%mean(n_r),maxval(visc_ave%mean)),        &
-               &     round_off(ohm_ave%mean(n_r),maxval(ohm_ave%mean)),          &
-               &     round_off(buo_ave%SD(n_r),maxval(buo_ave%SD)),              &
-               &     round_off(buo_chem_ave%SD(n_r),maxval(buo_chem_ave%SD)),    &
-               &     round_off(visc_ave%SD(n_r),maxval(visc_ave%SD)),            &
-               &     round_off(ohm_ave%SD(n_r),maxval(ohm_ave%SD))
-            end do
-            close(fileHandle)
+            if (l_master_rank) then
+               fileName='powerR.'//tag
+               open(newunit=fileHandle, file=fileName, status='unknown')
+               do n_r=1,n_r_max
+                  write(fileHandle,'(ES20.10,4ES15.7,4ES13.5)')                     &
+                  &     r(n_r),round_off(buo_ave%mean(n_r),maxval(buo_ave%mean)),   &
+                  &     round_off(buo_chem_ave%mean(n_r),maxval(buo_chem_ave%mean)),&
+                  &     round_off(visc_ave%mean(n_r),maxval(visc_ave%mean)),        &
+                  &     round_off(ohm_ave%mean(n_r),maxval(ohm_ave%mean)),          &
+                  &     round_off(buo_ave%SD(n_r),maxval(buo_ave%SD)),              &
+                  &     round_off(buo_chem_ave%SD(n_r),maxval(buo_chem_ave%SD)),    &
+                  &     round_off(visc_ave%SD(n_r),maxval(visc_ave%SD)),            &
+                  &     round_off(ohm_ave%SD(n_r),maxval(ohm_ave%SD))
+               end do
+               close(fileHandle)
+            end if
          end if
       end if
 

@@ -530,13 +530,15 @@ contains
          EparaxT =four*pi*rInt_R(EparaxiR_global*r*r,r,rscheme_oc)
 
          !-- Output
-         if ( l_save_out ) then
-            open(newunit=n_perpPar_file, file=perpPar_file, &
-            &    status='unknown', position='append')
+         if (l_master_rank) then
+            if ( l_save_out ) then
+               open(newunit=n_perpPar_file, file=perpPar_file, &
+               &    status='unknown', position='append')
+            end if
+            write(n_perpPar_file,'(1P,ES20.12,4ES16.8)')  time*tScale,     & ! 1
+            &                                       EperpT,EparT, EperpaxT,EparaxT
+            if ( l_save_out ) close(n_perpPar_file)
          end if
-         write(n_perpPar_file,'(1P,ES20.12,4ES16.8)')  time*tScale,     & ! 1
-         &                                       EperpT,EparT, EperpaxT,EparaxT
-         if ( l_save_out ) close(n_perpPar_file)
 
          call Eperp%compute(EperpR_global, n_calls, timePassed, timeNorm)
          call Epar%compute(EparR_global, n_calls, timePassed, timeNorm)
@@ -549,20 +551,22 @@ contains
             call Eperpaxi%finalize_SD(timeNorm)
             call Eparaxi%finalize_SD(timeNorm)
 
-            filename='perpParR.'//tag
-            open(newunit=fileHandle, file=filename, status='unknown')
-            do nR=1,n_r_max
-               write(fileHandle,'(ES20.10,4ES15.7,4ES13.5)')               &
-               &     r(nR),round_off(Eperp%mean(nR),maxval(Eperp%mean)),   &
-               &     round_off(Epar%mean(nR),maxval(Epar%mean)),           &
-               &     round_off(Eperpaxi%mean(nR),maxval(Eperpaxi%mean)),   &
-               &     round_off(Eparaxi%mean(nR),maxval(Eparaxi%mean)),     &
-               &     round_off(Eperp%SD(nR),maxval(Eperp%SD)),             &
-               &     round_off(Epar%SD(nR),maxval(Epar%SD)),               &
-               &     round_off(Eperpaxi%SD(nR),maxval(Eperpaxi%SD)),       &
-               &     round_off(Eparaxi%SD(nR),maxval(Eperpaxi%SD))
-            end do
-            close(fileHandle)
+            if (l_master_rank) then
+               filename='perpParR.'//tag
+               open(newunit=fileHandle, file=filename, status='unknown')
+               do nR=1,n_r_max
+                  write(fileHandle,'(ES20.10,4ES15.7,4ES13.5)')               &
+                  &     r(nR),round_off(Eperp%mean(nR),maxval(Eperp%mean)),   &
+                  &     round_off(Epar%mean(nR),maxval(Epar%mean)),           &
+                  &     round_off(Eperpaxi%mean(nR),maxval(Eperpaxi%mean)),   &
+                  &     round_off(Eparaxi%mean(nR),maxval(Eparaxi%mean)),     &
+                  &     round_off(Eperp%SD(nR),maxval(Eperp%SD)),             &
+                  &     round_off(Epar%SD(nR),maxval(Epar%SD)),               &
+                  &     round_off(Eperpaxi%SD(nR),maxval(Eperpaxi%SD)),       &
+                  &     round_off(Eparaxi%SD(nR),maxval(Eperpaxi%SD))
+               end do
+               close(fileHandle)
+            end if
          end if
       end if
 

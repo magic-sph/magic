@@ -362,7 +362,7 @@ contains
          end if 
       end if
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          !--- Open output file with name $file:
          if ( l_save_out ) then
@@ -616,7 +616,7 @@ contains
       call gather_all_from_lo_to_rank0(gt_OC, b, workA_global)
       call gather_all_from_lo_to_rank0(gt_OC, aj, workB_global)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !--- Write:
          if ( nPotSets == 0 ) then ! nPotSets=-1 on call
             fileName=head//tag
@@ -659,7 +659,7 @@ contains
          call gather_all_from_lo_to_rank0(gt_IC, b_ic, workA_global)
          call gather_all_from_lo_to_rank0(gt_IC, aj_ic, workB_global)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             write(fileHandle) ( (cmplx( real(workA_global(lm,n_r)),    &
             &                 aimag(workA_global(lm,n_r)), kind=outp ),&
             &          lm=1,lm_max),n_r=1,n_r_ic_max )
@@ -670,7 +670,7 @@ contains
 
       end if
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          close(fileHandle)
       end if
 

@@ -431,27 +431,29 @@ contains
          if ( l_stop_time ) then
             fac=half*LFfac*eScale
             filename='eMagR.'//tag
-            open(newunit=fileHandle, file=filename, status='unknown')
-            do nR=1,n_r_max
-               eTot=e_pA(nR)+e_tA(nR)
-               if ( e_dipA(nR)  <  1.e-6_cp*eTot ) then
-                  eDR=0.0_cp
-               else
-                  eDR=e_dipA(nR)/eTot
-               end if
-               osurf=0.25_cp/pi*or2(nR)
-               write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
-               &                    fac*e_pA(nR)/timetot,           &
-               &                    fac*e_p_asA(nR)/timetot,        &
-               &                    fac*e_tA(nR)/timetot,           &
-               &                    fac*e_t_asA(nR)/timetot,        &
-               &                    fac*e_pA(nR)/timetot*osurf,     &
-               &                    fac*e_p_asA(nR)/timetot*osurf,  &
-               &                    fac*e_tA(nR)/timetot*osurf,     &
-               &                    fac*e_t_asA(nR)/timetot*osurf,  &
-               &                    eDR
-            end do
-            close(fileHandle)
+            if (l_master_rank) then
+               open(newunit=fileHandle, file=filename, status='unknown')
+               do nR=1,n_r_max
+                  eTot=e_pA(nR)+e_tA(nR)
+                  if ( e_dipA(nR)  <  1.e-6_cp*eTot ) then
+                     eDR=0.0_cp
+                  else
+                     eDR=e_dipA(nR)/eTot
+                  end if
+                  osurf=0.25_cp/pi*or2(nR)
+                  write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
+                  &                    fac*e_pA(nR)/timetot,           &
+                  &                    fac*e_p_asA(nR)/timetot,        &
+                  &                    fac*e_tA(nR)/timetot,           &
+                  &                    fac*e_t_asA(nR)/timetot,        &
+                  &                    fac*e_pA(nR)/timetot*osurf,     &
+                  &                    fac*e_p_asA(nR)/timetot*osurf,  &
+                  &                    fac*e_tA(nR)/timetot*osurf,     &
+                  &                    fac*e_t_asA(nR)/timetot*osurf,  &
+                  &                    eDR
+               end do
+               close(fileHandle)
+            end if
          end if
          timeLast=time
 
@@ -743,23 +745,25 @@ contains
             ! There are still differences in field 17 of the dipole file. These
             ! differences are due to the summation for e_es_cmb and are only of the order
             ! of machine accuracy.
-            write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
-            &            time*tScale,                      &! 1
-            &            theta_dip,phi_dip,                &! 2,3
-            &            Dip,                              &! 4
-            &            DipCMB,                           &! 5
-            &            e_dipole_ax_cmb/e_geo,            &! 6
-            &            e_dipole/(e_p+e_t),               &! 7
-            &            e_dip_cmb/e_cmb,                  &! 8
-            &            e_dip_cmb/e_geo,                  &! 9
-            &            e_dip_cmb,e_dipole_ax_cmb,        &! 10,11
-            &            e_dipole,e_dipole_ax,             &! 12,13
-            &            e_cmb,e_geo,                      &! 14,15
-            &            e_p_e_ratio,                      &! 16
-            &            (e_cmb-e_es_cmb)/e_cmb,           &! 17
-            &            (e_cmb-e_as_cmb)/e_cmb,           &! 18
-            &            (e_geo-e_es_geo)/e_geo,           &! 19
-            &            (e_geo-e_as_geo)/e_geo             ! 20
+            if (l_master_rank) then
+               write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
+               &            time*tScale,                      &! 1
+               &            theta_dip,phi_dip,                &! 2,3
+               &            Dip,                              &! 4
+               &            DipCMB,                           &! 5
+               &            e_dipole_ax_cmb/e_geo,            &! 6
+               &            e_dipole/(e_p+e_t),               &! 7
+               &            e_dip_cmb/e_cmb,                  &! 8
+               &            e_dip_cmb/e_geo,                  &! 9
+               &            e_dip_cmb,e_dipole_ax_cmb,        &! 10,11
+               &            e_dipole,e_dipole_ax,             &! 12,13
+               &            e_cmb,e_geo,                      &! 14,15
+               &            e_p_e_ratio,                      &! 16
+               &            (e_cmb-e_es_cmb)/e_cmb,           &! 17
+               &            (e_cmb-e_as_cmb)/e_cmb,           &! 18
+               &            (e_geo-e_es_geo)/e_geo,           &! 19
+               &            (e_geo-e_as_geo)/e_geo             ! 20
+            end if
             if ( l_save_out ) close(n_dipole_file)
 
             if ( l_earth_likeness ) then
@@ -786,9 +790,11 @@ contains
                else
                   zon=0.0_cp
                end if
-               write(n_compliance_file,'(1P,ES20.12,4ES16.8)')    &
-               &            time*tScale, ad,                      &
-               &            sym, zon, fluxConcentration
+               if (l_master_rank) then 
+                  write(n_compliance_file,'(1P,ES20.12,4ES16.8)')    &
+                  &            time*tScale, ad,                      &
+                  &            sym, zon, fluxConcentration
+               end if
 
                if ( l_save_out ) close(n_compliance_file)
             end if

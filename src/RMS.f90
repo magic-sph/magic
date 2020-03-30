@@ -679,66 +679,69 @@ contains
 
 
          !----- Output:
-         if ( l_save_out ) then
-            open(newunit=n_dtvrms_file, file=dtvrms_file, &
-            &    form='formatted', status='unknown', position='append')
-         end if
-         write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
-         &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
-         &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
-         &     MagRms/(CorRms+PreRms+LFRms),                          &
-         &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
-         &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
-         &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
-         &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
-         if ( l_save_out) then
-            close(n_dtvrms_file)
-         end if
+         if (l_master_rank) then 
+            if ( l_save_out ) then
+               open(newunit=n_dtvrms_file, file=dtvrms_file, &
+               &    form='formatted', status='unknown', position='append')
+            end if
+            write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
+            &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
+            &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
+            &     MagRms/(CorRms+PreRms+LFRms),                          &
+            &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
+            &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
+            &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
+            &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
+            if ( l_save_out) then
+               close(n_dtvrms_file)
+            end if
 
-         if ( l_stop_time ) then
-            fileName='dtVrms_spec.'//tag
-            open(newunit=fileHandle,file=fileName,form='formatted',status='unknown')
-            do l=0,l_max
-               write(fileHandle,'(1P,I4,30ES16.8)') l+1,                   &
-               &     InerRmsL%mean(l),CorRmsL%mean(l),LFRmsL%mean(l),      &
-               &     AdvRmsL%mean(l),DifRmsL%mean(l),Buo_tempRmsL%mean(l), &
-               &     Buo_xiRmsL%mean(l), PreRmsL%mean(l),                  &
-               &     GeoRmsL%mean(l),MagRmsL%mean(l),                      &
-               &     ArcRmsL%mean(l),ArcMagRmsL%mean(l),CLFRmsL%mean(l),   &
-               &     PLFRmsL%mean(l),CIARmsL%mean(l),InerRmsL%SD(l),       &
-               &     CorRmsL%SD(l),LFRmsL%SD(l),AdvRmsL%SD(l),             &
-               &     DifRmsL%SD(l),Buo_tempRmsL%SD(l), Buo_xiRmsL%SD(l),   &
-               &     PreRmsL%SD(l), GeoRmsL%SD(l), MagRmsL%SD(l),          &
-               &     ArcRmsL%SD(l),  ArcMagRmsL%SD(l),CLFRmsL%SD(l),       &
-               &     PLFRmsL%SD(l), CIARmsL%SD(l)
-            end do
-            close(fileHandle)
-         end if
+            if ( l_stop_time ) then
+               fileName='dtVrms_spec.'//tag
+               open(newunit=fileHandle,file=fileName,form='formatted',status='unknown')
+               do l=0,l_max
+                  write(fileHandle,'(1P,I4,30ES16.8)') l+1,                   &
+                  &     InerRmsL%mean(l),CorRmsL%mean(l),LFRmsL%mean(l),      &
+                  &     AdvRmsL%mean(l),DifRmsL%mean(l),Buo_tempRmsL%mean(l), &
+                  &     Buo_xiRmsL%mean(l), PreRmsL%mean(l),                  &
+                  &     GeoRmsL%mean(l),MagRmsL%mean(l),                      &
+                  &     ArcRmsL%mean(l),ArcMagRmsL%mean(l),CLFRmsL%mean(l),   &
+                  &     PLFRmsL%mean(l),CIARmsL%mean(l),InerRmsL%SD(l),       &
+                  &     CorRmsL%SD(l),LFRmsL%SD(l),AdvRmsL%SD(l),             &
+                  &     DifRmsL%SD(l),Buo_tempRmsL%SD(l), Buo_xiRmsL%SD(l),   &
+                  &     PreRmsL%SD(l), GeoRmsL%SD(l), MagRmsL%SD(l),          &
+                  &     ArcRmsL%SD(l),  ArcMagRmsL%SD(l),CLFRmsL%SD(l),       &
+                  &     PLFRmsL%SD(l), CIARmsL%SD(l)
+               end do
+               close(fileHandle)
+            end if
+         
 
-         if ( l_2D_RMS .and. l_stop_time ) then
-            version = 1
-            fileName='2D_dtVrms_spec.'//tag
-            open(newunit=fileHandle,file=fileName,form='unformatted', &
-            &    status='unknown')
-            write(fileHandle) version
-            write(fileHandle) n_r_max, l_max
-            write(fileHandle) r
-            write(fileHandle) CorRmsLnR%mean(:,:)
-            write(fileHandle) AdvRmsLnR%mean(:,:)
-            write(fileHandle) LFRmsLnR%mean(:,:)
-            write(fileHandle) Buo_tempRmsLnR%mean(:,:)
-            write(fileHandle) Buo_xiRmsLnR%mean(:,:)
-            write(fileHandle) PreRmsLnR%mean(:,:)
-            write(fileHandle) DifRmsLnR%mean(:,:)
-            write(fileHandle) InerRmsLnR%mean(:,:)
-            write(fileHandle) GeoRmsLnR%mean(:,:)
-            write(fileHandle) MagRmsLnR%mean(:,:)
-            write(fileHandle) ArcRmsLnR%mean(:,:)
-            write(fileHandle) ArcMagRmsLnR%mean(:,:)
-            write(fileHandle) CIARmsLnR%mean(:,:)
-            write(fileHandle) CLFRmsLnR%mean(:,:)
-            write(fileHandle) PLFRmsLnR%mean(:,:)
-            close(fileHandle)
+            if ( l_2D_RMS .and. l_stop_time ) then
+               version = 1
+               fileName='2D_dtVrms_spec.'//tag
+               open(newunit=fileHandle,file=fileName,form='unformatted', &
+               &    status='unknown')
+               write(fileHandle) version
+               write(fileHandle) n_r_max, l_max
+               write(fileHandle) r
+               write(fileHandle) CorRmsLnR%mean(:,:)
+               write(fileHandle) AdvRmsLnR%mean(:,:)
+               write(fileHandle) LFRmsLnR%mean(:,:)
+               write(fileHandle) Buo_tempRmsLnR%mean(:,:)
+               write(fileHandle) Buo_xiRmsLnR%mean(:,:)
+               write(fileHandle) PreRmsLnR%mean(:,:)
+               write(fileHandle) DifRmsLnR%mean(:,:)
+               write(fileHandle) InerRmsLnR%mean(:,:)
+               write(fileHandle) GeoRmsLnR%mean(:,:)
+               write(fileHandle) MagRmsLnR%mean(:,:)
+               write(fileHandle) ArcRmsLnR%mean(:,:)
+               write(fileHandle) ArcMagRmsLnR%mean(:,:)
+               write(fileHandle) CIARmsLnR%mean(:,:)
+               write(fileHandle) CLFRmsLnR%mean(:,:)
+               write(fileHandle) PLFRmsLnR%mean(:,:)
+               close(fileHandle)
+            end if
          end if
 
       end if

@@ -844,8 +844,6 @@ contains
       end do
       
       call shtns_load_cfg(0)
-      
-      print *, "jaaaaaaaaaaaa"
 
    end subroutine spat_to_sphertor_dist
    

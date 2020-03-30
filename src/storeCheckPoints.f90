@@ -27,7 +27,7 @@ module storeCheckPoints
    use charmanip, only: dble2str
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
-
+   
    implicit none
 
    private
@@ -174,7 +174,7 @@ contains
       end if
 
       !-- Memory allocation of global arrays to write outputs
-      if ( l_master_rank ) then
+      if ( coord_r==0 ) then
          allocate( work(lm_max,n_r_max) )
       else
          allocate( work(1,1) )
@@ -206,7 +206,7 @@ contains
       !-- Inner core magnetic field
       if ( l_mag .and. l_cond_ic ) then
          deallocate( work )
-         if ( l_master_rank ) then
+         if ( coord_r==0 ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1) )
@@ -290,7 +290,7 @@ contains
 
       !-- Local variables
       integer :: n_o
-
+      
       call gather_all_from_lo_to_rank0(gt_OC, w, work)
       if ( l_master_rank ) write(fh) work
 
@@ -586,7 +586,7 @@ contains
       !-- Inner core magnetic field (only written by coord_r 0 for now)
       if ( l_mag .and. l_cond_ic ) then
 
-         if ( l_master_rank ) then
+         if ( coord_r==0 ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1) )

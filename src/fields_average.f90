@@ -473,8 +473,9 @@ contains
                if ( l_chemical_conv ) then
                   call scal_to_spat(xi_ave_global, Xir, l_R(nR))
                end if
-               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
-               &             Xir, 1, sizeThetaB, lGraphHeader)
+               if (l_master_rank) &
+                  call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
+                  &             Xir, 1, sizeThetaB, lGraphHeader)
 #else
                if ( l_mag ) then
                   call legPrep(b_ave_global,db_ave_global,db_ave_global, &
@@ -513,8 +514,9 @@ contains
                   end if
 
                   !-------- Graphic output:
-                  call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr,Prer, &
-                       &        Xir,nThetaStart,sizeThetaB,lGraphHeader)
+                  if (l_master_rank) &
+                     call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr,Prer, &
+                        &        Xir,nThetaStart,sizeThetaB,lGraphHeader)
                end do
 #endif
             end if
@@ -528,7 +530,7 @@ contains
             call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
             call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
 
-            if ( rank == 0 ) then
+            if ( l_master_rank ) then
                call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
                     &           ddb_ic_ave_global,aj_ic_ave_global, &
                     &           dj_ic_ave_global,bICB,l_avg=.true.)
@@ -538,10 +540,8 @@ contains
          if ( l_master_rank ) close(n_graph_file)  ! close graphic output file !
 
          !----- Write info about graph-file into STDOUT and log-file:
-         if ( l_stop_time ) then
-            if ( l_master_rank )  &
+         if ( l_stop_time .and. l_master_rank )  &
             &  write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
-         end if
 
          !--- Store time averaged poloidal magnetic coeffs at cmb
          if ( l_mag) then

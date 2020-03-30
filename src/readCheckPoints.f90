@@ -124,7 +124,7 @@ contains
       allocate( dt_array_old(max(2,tscheme%nexp)) )
       dt_array_old(:)=0.0_cp
 
-      if ( l_master_rank ) then
+      if ( coord_r ==0 ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
@@ -165,21 +165,23 @@ contains
          dt_array_old(3:tscheme%nexp)=dt_array_old(2)
 
          !---- Compare parameters:
-         if ( ra /= ra_old ) &
-         &    write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
-         if ( ek /= ek_old ) &
-         &    write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
-         if ( pr /= pr_old ) &
-         &    write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
-         if ( prmag /= pm_old )                                          &
-         &    write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
-         &    pm_old,prmag
-         if ( radratio /= radratio_old )                                    &
-         &    write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
-         &    radratio_old,radratio
-         if ( sigma_ratio /= sigma_ratio_old )                             &
-         &    write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
-         &    sigma_ratio_old,sigma_ratio
+         if (l_master_rank) then
+            if ( ra /= ra_old ) &
+            &    write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
+            if ( ek /= ek_old ) &
+            &    write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
+            if ( pr /= pr_old ) &
+            &    write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+            if ( prmag /= pm_old )                                          &
+            &    write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
+            &    pm_old,prmag
+            if ( radratio /= radratio_old )                                    &
+            &    write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
+            &    radratio_old,radratio
+            if ( sigma_ratio /= sigma_ratio_old )                             &
+            &    write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
+            &    sigma_ratio_old,sigma_ratio
+         end if
 
          if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
             l_max_old=nalias_old*n_theta_max_old/30
@@ -191,12 +193,14 @@ contains
          l_mag_old=.false.
          if ( pm_old /= 0.0_cp ) l_mag_old= .true.
 
-         if ( n_phi_tot_old /= n_phi_tot) &
-         &    write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
-         if ( nalias_old /= nalias) &
-         &    write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
-         if ( l_max_old /= l_max ) &
-         &    write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+         if (l_master_rank) then
+            if ( n_phi_tot_old /= n_phi_tot) &
+            &    write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
+            if ( nalias_old /= nalias) &
+            &    write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
+            if ( l_max_old /= l_max ) &
+            &    write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+         end if
 
 
          if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
@@ -247,9 +251,11 @@ contains
          call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, &
               &                       ratio1_old, ratio2_old, r_old)
 
-         if ( rscheme_oc%version /= rscheme_oc_old%version )             &
-         &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
-         &    rscheme_oc_old%version,'/', rscheme_oc%version
+         if (l_master_rank) then
+            if ( rscheme_oc%version /= rscheme_oc_old%version )             &
+            &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
+            &    rscheme_oc_old%version,'/', rscheme_oc%version
+         end if
 
          allocate( lm2lmo(lm_max) )
 
@@ -302,7 +308,7 @@ contains
 
       coex = two*(one-alpha)
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          allocate( workA(lm_max,n_r_max), workB(lm_max,n_r_max) )
          allocate( workC(lm_max,n_r_max) )
          allocate( workD(lm_max,n_r_max) )
@@ -319,7 +325,7 @@ contains
       workD(:,:)=zero
       workE(:,:)=zero
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          n_r_maxL = max(n_r_max,n_r_max_old)
 
          call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
@@ -355,7 +361,7 @@ contains
       workE(:,:)=zero
 
       !-- Read the d?dt fields
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          if ( lreadXi ) then
             if ( lreadS ) then
                read(n_start_file) so,wo,zo,po,xio
@@ -419,7 +425,7 @@ contains
 
       deallocate(workA, workB, workC, workD, workE)
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          allocate( workA(lm_maxMag,n_r_maxMag), workB(lm_maxMag,n_r_maxMag) )
          allocate( workC(lm_maxMag,n_r_maxMag) )
          allocate( workD(lm_maxMag, n_r_maxMag) )
@@ -435,13 +441,13 @@ contains
       workC(:,:)=zero
       workD(:,:)=zero
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          if ( lreadXi ) then
             read(n_start_file) raxi_old, sc_old
             if ( raxi /= raxi_old ) &
-              write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
+               write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
             if ( sc /= sc_old ) &
-              write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
+               write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
          end if
 
          if ( l_mag_old ) then
@@ -449,14 +455,13 @@ contains
 
             if ( l_mag ) then
                call mapDataMag( wo,zo,po,so,r_old,n_r_max,n_r_max_old,   &
-                    &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,   &
-                    &           .false.,workA,workB,workC,workD )
+                     &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,   &
+                     &           .false.,workA,workB,workC,workD )
             end if
          else
             write(*,*) '! No magnetic data in input file!'
          end if
       end if
-
 
       !-- Scatter everything
       if ( l_mag_old .and. l_mag ) then
@@ -483,7 +488,7 @@ contains
 
       !-- Inner core part
       if ( l_mag_old ) then
-         if ( l_master_rank ) then
+         if ( coord_r == 0 ) then
             allocate( workA(lm_max,n_r_ic_max), workB(lm_max,n_r_ic_max) )
             allocate( workC(lm_max,n_r_ic_max), workD(lm_max,n_r_ic_max) )
             bytes_allocated = bytes_allocated - 4*lm_maxMag*n_r_maxMag* &
@@ -501,7 +506,7 @@ contains
          workD(:,:)=zero
       end if
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          ! deallocation of the local arrays
          deallocate( wo,zo,po,so )
          bytes_allocated = bytes_allocated - 4*(lm_max_old*n_r_max_old)*&
@@ -519,7 +524,7 @@ contains
          if ( l_mag_old ) then
 
             if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
-               if ( l_master_rank ) then
+               if ( coord_r == 0 ) then
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( wo(lm_max_old,n_r_ic_max_old) )
                   allocate( zo(lm_max_old,n_r_ic_max_old) )
@@ -592,7 +597,7 @@ contains
       tOmega_ma2       =0.0_cp
       dt_array_old(1)  =dt_array_old(2)
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          deallocate( r_old, lm2lmo )
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
 
@@ -618,7 +623,7 @@ contains
             omega_ic2Old=0.0_cp
             omega_ma1Old=omega_ma
             omega_ma2Old=0.0_cp
-            if( ioerr/=0 ) then
+            if( ioerr/=0 .and. l_master_rank) then
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
                write(*,*) '! Change inform accordingly!'
@@ -659,35 +664,37 @@ contains
             dom_ma=pm_old*dom_ma
          end if
 
-         if ( l_SRIC ) then
-            if ( omega_ic1Old /= omega_ic1 )                       &
-            &    write(*,*) '! New IC rotation rate 1 (old/new):', &
-            &    omega_ic1Old,omega_ic1
-            if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
-            &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
-            &    omegaOsz_ic1Old,omegaOsz_ic1
-            if ( omega_ic2Old /= omega_ic2 )                       &
-            &    write(*,*) '! New IC rotation rate 2 (old/new):', &
-            &    omega_ic2Old,omega_ic2
-            if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
-            &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
-            &    omegaOsz_ic2Old,omegaOsz_ic2
-         end if
-         if ( l_SRMA ) then
-            if ( omega_ma1Old /= omega_ma1 )                       &
-            &    write(*,*) '! New MA rotation rate 1 (old/new):', &
-            &    omega_ma1Old,omega_ma1
-            if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
-            &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
-            &    omegaOsz_ma1Old,omegaOsz_ma1
-            if ( omega_ma2Old /= omega_ma2 )                       &
-            &    write(*,*) '! New MA rotation rate 2 (old/new):', &
-            &    omega_ma2Old,omega_ma2
-            if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
-            &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
-            &    omegaOsz_ma2Old,omegaOsz_ma2
-         end if
-      end if ! l_master_rank
+         if (l_master_rank) then
+            if ( l_SRIC ) then
+               if ( omega_ic1Old /= omega_ic1 )                       &
+               &    write(*,*) '! New IC rotation rate 1 (old/new):', &
+               &    omega_ic1Old,omega_ic1
+               if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
+               &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+               &    omegaOsz_ic1Old,omegaOsz_ic1
+               if ( omega_ic2Old /= omega_ic2 )                       &
+               &    write(*,*) '! New IC rotation rate 2 (old/new):', &
+               &    omega_ic2Old,omega_ic2
+               if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
+               &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+               &    omegaOsz_ic2Old,omegaOsz_ic2
+            end if
+            if ( l_SRMA ) then
+               if ( omega_ma1Old /= omega_ma1 )                       &
+               &    write(*,*) '! New MA rotation rate 1 (old/new):', &
+               &    omega_ma1Old,omega_ma1
+               if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
+               &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+               &    omegaOsz_ma1Old,omegaOsz_ma1
+               if ( omega_ma2Old /= omega_ma2 )                       &
+               &    write(*,*) '! New MA rotation rate 2 (old/new):', &
+               &    omega_ma2Old,omega_ma2
+               if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
+               &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+               &    omegaOsz_ma2Old,omegaOsz_ma2
+            end if
+         end if ! l_master_rank
+      end if ! coord_r == 0
 
 #ifdef WITH_MPI
       call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
@@ -724,7 +731,7 @@ contains
          l_bridge_step = .false.
       end if
 
-      if (l_master_rank) close(n_start_file)
+      if (coord_r == 0) close(n_start_file)
 
       deallocate ( dt_array_old )
 
@@ -821,7 +828,7 @@ contains
          ratio2 = fd_ratio
       end if
 
-      if ( l_master_rank ) then
+      if ( coord_r ==0 ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
@@ -849,7 +856,7 @@ contains
             call abortRun('! The restart file does not exist !')
          end if
 
-         if ( index(start_file, 'checkpoint_ave') /= 0 ) then
+         if ( index(start_file, 'checkpoint_ave') /= 0 .and. l_master_rank) then
             write(*,*) '! This is a time-averaged checkpoint'
             write(*,*) '! d#dt arrays will be set to zero'
             l_AB1=.true.
@@ -1009,7 +1016,7 @@ contains
             &                  l_press_store_old, l_cond_ic_old
          end if
 
-      end if ! l_master_rank
+      end if ! coord_r == 0
 
 #ifdef WITH_MPI
       call MPI_Bcast(version,1,MPI_INTEGER,0,comm_r,ierr)

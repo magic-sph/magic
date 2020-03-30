@@ -151,8 +151,7 @@ contains
          call get_lorder_lm_blocking(lo_map,minc)
       end if
       !call logWrite(message)
-
-
+      
       !-- Define llm and ulm
       llm = lm_balance(coord_r)%nStart
       ulm = lm_balance(coord_r)%nStop
@@ -270,6 +269,10 @@ contains
 
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
+      
+      do lm=0,n_ranks_r-1
+         print *, "~~~~~~~~~~LMBALANCE: ", lm_balance(lm)%nStart, lm_balance(lm)%nStop
+      end do
 
    end subroutine initialize_blocking
 !------------------------------------------------------------------------

@@ -207,30 +207,34 @@ contains
          if ( l_SRIC ) then
             powerLor=lorentz_torque_ic*omega_IC
             powerVis=viscous_torque_ic*omega_IC
-            if ( l_save_out ) then
-               open(newunit=n_SRIC_file, file=SRIC_file, status='unknown', &
-               &    position='append')
+            if (l_master_rank) then
+               if ( l_save_out ) then
+                  open(newunit=n_SRIC_file, file=SRIC_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_SRIC_file,'(1p,2x,ES20.12,4ES17.6)')    &
+               &     time*tScale,omega_ic/tScale,              &
+               &     (powerLor+powerVis)*vScale*vScale/tScale, &
+               &     powerVis*vScale*vScale/tScale,            &
+               &     powerLor*vScale*vScale/tScale
+               if ( l_save_out ) close(n_SRIC_file)
             end if
-            write(n_SRIC_file,'(1p,2x,ES20.12,4ES17.6)')    &
-            &     time*tScale,omega_ic/tScale,              &
-            &     (powerLor+powerVis)*vScale*vScale/tScale, &
-            &     powerVis*vScale*vScale/tScale,            &
-            &     powerLor*vScale*vScale/tScale
-            if ( l_save_out ) close(n_SRIC_file)
          end if
          if ( l_SRMA ) then
             powerLor=lorentz_torque_ma*omega_ma
             powerVis=viscous_torque_ma*omega_ma
-            if ( l_save_out ) then
-               open(newunit=n_SRMA_file, file=SRMA_file, status='unknown', &
-               &    position='append')
+            if (l_master_rank) then
+               if ( l_save_out ) then
+                  open(newunit=n_SRMA_file, file=SRMA_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_SRMA_file,'(1p,2x,ES20.12,4ES17.6)')    &
+               &     time*tScale, omega_ma/tScale,             &
+               &     (powerLor+powerVis)*vScale*vScale/tScale, &
+               &     powerVis*vScale*vScale/tScale,            &
+               &     powerLor*vScale*vScale/tScale
+               if ( l_save_out ) close(n_SRMA_file)
             end if
-            write(n_SRMA_file,'(1p,2x,ES20.12,4ES17.6)')    &
-            &     time*tScale, omega_ma/tScale,             &
-            &     (powerLor+powerVis)*vScale*vScale/tScale, &
-            &     powerVis*vScale*vScale/tScale,            &
-            &     powerLor*vScale*vScale/tScale
-            if ( l_save_out ) close(n_SRMA_file)
          end if
       end if
 
@@ -387,7 +391,7 @@ contains
             end if
             eKinOC=half*angular_moment_oc(3)**2/c_moi_oc
             eKinMA=half*angular_moment_ma(3)**2/c_moi_ma
-            if ( AMzLast /= 0.0_cp ) then
+            if ( l_master_rank .and. AMzLast /= 0.0_cp ) then
                !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast, &
                !     &                  dt,(eKinAMz-eKinAMzLast)
                write(n_angular_file,'(1p,2x,ES20.12,5ES14.6,3ES20.12)', advance='no') &

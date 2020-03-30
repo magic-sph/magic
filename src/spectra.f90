@@ -1045,49 +1045,51 @@ contains
          end do
 
          !-- Output
-         if ( l_save_out ) then
-            open(newunit=n_am_kpol_file,file=am_kpol_file,status='unknown', &
-            &    form='unformatted',position='append')
-         end if
-
-         write(n_am_kpol_file) time,(e_kin_p_m(m),m=0,m_max_modes)
-
-         if ( l_save_out ) then
-            close(n_am_kpol_file)
-         end if
-
-         if ( l_save_out ) then
-            open(newunit=n_am_ktor_file,file=am_ktor_file,status='unknown', &
-            &    form='unformatted',position='append')
-         end if
-
-         write(n_am_ktor_file) time,(e_kin_t_m(m),m=0,m_max_modes)
-
-         if ( l_save_out ) then
-            close(n_am_ktor_file)
-         end if
-
-         if ( l_mag ) then
+         if (l_master_rank) then
             if ( l_save_out ) then
-               open(newunit=n_am_mpol_file,file=am_mpol_file,status='unknown', &
+               open(newunit=n_am_kpol_file,file=am_kpol_file,status='unknown', &
                &    form='unformatted',position='append')
             end if
 
-            write(n_am_mpol_file) time,(e_mag_p_m(m),m=0,m_max_modes)
+            write(n_am_kpol_file) time,(e_kin_p_m(m),m=0,m_max_modes)
 
             if ( l_save_out ) then
-               close(n_am_mpol_file)
+               close(n_am_kpol_file)
             end if
 
             if ( l_save_out ) then
-               open(newunit=n_am_mtor_file,file=am_mtor_file,status='unknown', &
+               open(newunit=n_am_ktor_file,file=am_ktor_file,status='unknown', &
                &    form='unformatted',position='append')
             end if
 
-            write(n_am_mtor_file) time,(e_mag_t_m(m),m=0,m_max_modes)
+            write(n_am_ktor_file) time,(e_kin_t_m(m),m=0,m_max_modes)
 
             if ( l_save_out ) then
-               close(n_am_mtor_file)
+               close(n_am_ktor_file)
+            end if
+
+            if ( l_mag ) then
+               if ( l_save_out ) then
+                  open(newunit=n_am_mpol_file,file=am_mpol_file,status='unknown', &
+                  &    form='unformatted',position='append')
+               end if
+
+               write(n_am_mpol_file) time,(e_mag_p_m(m),m=0,m_max_modes)
+
+               if ( l_save_out ) then
+                  close(n_am_mpol_file)
+               end if
+
+               if ( l_save_out ) then
+                  open(newunit=n_am_mtor_file,file=am_mtor_file,status='unknown', &
+                  &    form='unformatted',position='append')
+               end if
+
+               write(n_am_mtor_file) time,(e_mag_t_m(m),m=0,m_max_modes)
+
+               if ( l_save_out ) then
+                  close(n_am_mtor_file)
+               end if
             end if
          end if
 

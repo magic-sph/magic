@@ -44,7 +44,7 @@ contains
 
 
       signals(:) = 0
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !----- Signalling via file signal:
          message='signal'//'.'//tag
          open(newunit=n_sig_file, file=trim(message), status='old')

@@ -296,7 +296,7 @@ contains
 
       type(gather_type) :: self
       complex(cp) :: arr_lo(llm:ulm,self%dim2)
-      complex(cp) :: arr_full(1:lm_max,self%dim2)
+      complex(cp) :: arr_full(:,:)
 
       integer :: l,m,nR
 #ifdef WITH_MPI
@@ -304,16 +304,16 @@ contains
       !complex(cp) :: temp_lo((1:lm_max,self%dim2)
       complex(cp), allocatable :: temp_lo(:,:)
       integer :: gather_tag,status(MPI_STATUS_SIZE)
-
+      
       if ( coord_r == 0 ) allocate(temp_lo(1:lm_max,self%dim2))
       if (n_ranks_r == 1) then
          ! copy the data on coord_r 0
          do nR=1,self%dim2
-            temp_lo(llm:ulm,nR)=arr_lo(:,nR)
+            temp_lo(llm:ulm,nR)=arr_lo(:,nR) 
          end do
       else
          !call MPI_Barrier(comm_r,ierr)
-         gather_tag=1990
+         gather_tag=1990+coord_theta
          if ( coord_r == 0 ) then
             do irank=1,n_ranks_r-1
                call MPI_Recv(temp_lo(lm_balance(irank)%nStart,1),1,        &

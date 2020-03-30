@@ -182,7 +182,7 @@ contains
       call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
       call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          !do nR=1,n_r_max
          !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
          !end do
@@ -212,7 +212,7 @@ contains
                ekinR(nR)=fac*(e_p_r_global(nR)+e_t_r_global(nR))
             end do
          end if
-         if ( l_write ) then
+         if ( l_write .and. l_master_rank) then
             if ( l_save_out ) then
                open(newunit=n_e_kin_file, file=e_kin_file, status='unknown', &
                &    position='append')
@@ -247,7 +247,7 @@ contains
          end if
 
          !write(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
-         if ( l_stop_time .and. (n_e_sets > 1) ) then
+         if ( l_stop_time .and. (n_e_sets > 1) .and. l_master_rank) then
             fac=half*eScale
             filename='eKinR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
@@ -466,14 +466,16 @@ contains
          end if
 
          !-- Output
-         if ( l_save_out ) then
-            open(newunit=n_u_square_file, file=u_square_file,  &
-            &    status='unknown',position='append')
+         if (l_master_rank) then
+            if ( l_save_out ) then
+               open(newunit=n_u_square_file, file=u_square_file,  &
+               &    status='unknown',position='append')
+            end if
+            write(n_u_square_file,'(1P,ES20.12,10ES16.8)')   &
+            &     time*tScale, e_p, e_t, e_p_as, e_t_as,     & ! 1,2,3, 4,5
+            &     Ro, Rm, Rol, dl, RolC, dlc                   ! 6,7,8,9,10,11
+            if ( l_save_out ) close(n_u_square_file)
          end if
-         write(n_u_square_file,'(1P,ES20.12,10ES16.8)')   &
-         &     time*tScale, e_p, e_t, e_p_as, e_t_as,     & ! 1,2,3, 4,5
-         &     Ro, Rm, Rol, dl, RolC, dlc                   ! 6,7,8,9,10,11
-         if ( l_save_out ) close(n_u_square_file)
       end if
 
    end subroutine get_u_square

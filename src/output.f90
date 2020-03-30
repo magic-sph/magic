@@ -399,7 +399,7 @@ contains
       real(cp) :: timeScaled
       character(len=96) :: message
       logical :: DEBUG_OUTPUT=.false.
-
+      
       timeScaled=tScale*time
       timePassedLog=timePassedLog+tscheme%dt(1)
 
