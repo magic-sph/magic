@@ -44,7 +44,8 @@ class MagicTs(MagicSetup):
     >>> ts = MagicTs(field='heat', tag='N0m2z', iplot=False)
     """
 
-    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
+#    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
+    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None, ylog=True ):
         """
         :param datadir: working directory
         :type datadir: str
@@ -58,8 +59,11 @@ class MagicTs(MagicSetup):
         :type all: bool
         :param tag: read the time series that exactly corresponds to the specified tag
         :type tag: str
+        :param ylog: when set to true semilogy is used
+        :type ylog: bool
         """
         self.field = field
+        self.ylog  = ylog
         pattern = os.path.join(datadir, 'log.*')
         logFiles = scanDir(pattern)
 
@@ -179,6 +183,8 @@ class MagicTs(MagicSetup):
             self.ekin_tot = self.ekin_pol + self.ekin_tor
             self.ekin_es = self.ekin_pol_symeq+self.ekin_tor_symeq
             self.ekin_eas = self.ekin_pol_asymeq+self.ekin_tor_asymeq
+            self.ekin_pol_naxi=self.ekin_pol-self.ekin_pol_axi
+            self.ekin_tor_naxi=self.ekin_tor-self.ekin_tor_axi
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]
@@ -426,15 +432,30 @@ class MagicTs(MagicSetup):
         if self.field == 'e_kin':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
-                    label='ekin pol')
-            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
-                    label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
-                    label='ekin pol axi')
-            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                    label='ekin tor axi')
-            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
+            if self.ylog:
+                ax.semilogy(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                        label='ekin pol')
+                ax.semilogy(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                        label='ekin tor')
+                ax.semilogy(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
+                        label='ekin pol axi')
+                ax.semilogy(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                        label='ekin tor axi')
+                ax.semilogy(self.time, self.ekin_pol_naxi, ls=':', c='#30a2da',
+                        label='ekin pol non-axi')
+                ax.semilogy(self.time, self.ekin_tor_naxi, ls=':', c='#fc4f30',
+                        label='ekin tor non-axi')
+                ax.semilogy(self.time, self.ekin_tot, ls='-', c='#31363B')
+            else:
+                ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                        label='ekin pol')
+                ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                        label='ekin tor')
+                ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
+                        label='ekin pol axi')
+                ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                     label='ekin tor axi')
+                ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
