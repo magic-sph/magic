@@ -38,15 +38,18 @@ module LMLoop_mod
 contains
 
    subroutine initialize_LMLoop(tscheme)
+      !
+      ! This subroutine handles the memory allocation of the matrices needed
+      ! in the time advance of MagIC
+      !
 
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
-      !-- Local variables:
+      !-- Local variable
       integer(lip) :: local_bytes_used
 
       local_bytes_used = bytes_allocated
-
       if ( l_single_matrix ) then
          call initialize_updateWPS()
       else
@@ -57,8 +60,7 @@ contains
       if ( l_chemical_conv ) call initialize_updateXi()
 
       call initialize_updateZ()
-      if ( l_mag ) call initialize_updateB()
-
+      if ( l_mag ) call initialize_updateB(tscheme)
       local_bytes_used = bytes_allocated-local_bytes_used
 
       call memWrite('LMLoop.f90',local_bytes_used)
@@ -66,6 +68,10 @@ contains
    end subroutine initialize_LMLoop
 !----------------------------------------------------------------------------
    subroutine finalize_LMLoop(tscheme)
+      !
+      ! This subroutine deallocates the matrices involved in the time advance
+      ! of MagIC.
+      !
 
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme ! time scheme
@@ -79,7 +85,7 @@ contains
       call finalize_updateZ()
 
       if ( l_chemical_conv ) call finalize_updateXi()
-      if ( l_mag ) call finalize_updateB()
+      if ( l_mag ) call finalize_updateB(tscheme)
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
@@ -124,10 +130,9 @@ contains
       end if
 
       if ( lMat ) then ! update matrices:
-      !---- The following logicals tell whether the respective inversion
-      !     matrices have been updated. lMat=.true. when a general
-      !     update is necessary. These logicals are THREADPRIVATE and
-      !     stored in the module matrices in m_mat.F90:
+         !---- The following logicals tell whether the respective inversion
+         !     matrices have been updated. lMat=.true. when a general
+         !     update is necessary.
          lZ10mat=.false.
          do l=0,l_max
             if ( l_single_matrix ) then
@@ -197,7 +202,13 @@ contains
               &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc, &
               &                        lorentz_torque_ma, lorentz_torque_ic,  &
               &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,      &
-              &                        djdt_ic, domega_ma_dt, domega_ic_dt, tscheme)
+              &                        djdt_ic, domega_ma_dt, domega_ic_dt,   &
+              &                        tscheme)
+      !
+      ! This subroutine is used to finish the computation of the explicit terms.
+      ! This is only possible in a LM-distributed space since it mainly involves
+      ! computation of radial derivatives.
+      !
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
@@ -255,7 +266,8 @@ contains
               &              djdt_ic, domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
-      ! equations. This is only used for a special subset of IMEX-RK schemes.
+      ! equations. This is only used for a special subset of IMEX-RK schemes that
+      ! have tscheme%l_assembly=.true.
       !
 
       !-- Input variables
@@ -299,21 +311,13 @@ contains
       call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic, &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
-      if ( l_cond_ic ) call assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
-                            &               dbdt_ic, djdt_ic, tscheme)
-
-      if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, &
+      !if ( l_cond_ic ) call assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
+      !                      &               dbdt_ic, djdt_ic, tscheme)
+      if ( l_mag ) call assemble_mag_old(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, &
       &                              tscheme)
-
-      !b(:,n_r_max)=b_ic(:,1)
-      !aj(:,n_r_max)=aj_ic(:,1)
-      !db(:,n_r_max)=db_ic(:,1)
-      !dj(:,n_r_max)=dj_ic(:,1)
-      !block
-      !integer :: lm0
-      !lm0 = lo_map%lm2(1,0)
-      !print*, lm0, b_ic(lm0,1), b(lm0,n_r_max)
-      !end block
+      !if ( l_mag ) call assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,   &
+      !                  &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,     &
+      !                  &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------

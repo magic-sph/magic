@@ -78,6 +78,16 @@ contains
          alffac_loc  = 0.54_cp
          intfac_loc  = 0.28_cp
          this%l_assembly = .false.
+      else if ( index(time_scheme, 'ARS232') /= 0 ) then
+         this%time_scheme = 'ARS232'
+         this%nimp = 3
+         this%nexp = 3
+         this%nstages = 3
+         this%istage = 1
+         courfac_loc = 1.35_cp
+         alffac_loc  = 1.0_cp
+         intfac_loc  = 0.28_cp
+         this%l_assembly = .true.
       else if ( index(time_scheme, 'ARS233') /= 0 ) then
          this%time_scheme = 'ARS233'
          this%nimp = 3
@@ -85,11 +95,31 @@ contains
          this%nstages = 3
          this%istage = 1
          courfac_loc = 1.35_cp
-         alffac_loc  = 0.54_cp
+         alffac_loc  = 1.0_cp
          intfac_loc  = 0.28_cp
          this%l_assembly = .true.
       else if ( index(time_scheme, 'ARS343') /= 0 ) then
          this%time_scheme = 'ARS343'
+         this%nimp = 4
+         this%nexp = 4
+         this%nstages = 4
+         this%istage = 1
+         courfac_loc = 0.5_cp
+         alffac_loc  = 0.2_cp
+         intfac_loc  = 1.0_cp
+         this%l_assembly = .true.
+      else if ( index(time_scheme, 'MARS343') /= 0 ) then
+         this%time_scheme = 'MARS343'
+         this%nimp = 4
+         this%nexp = 4
+         this%nstages = 4
+         this%istage = 1
+         courfac_loc = 0.5_cp
+         alffac_loc  = 0.2_cp
+         intfac_loc  = 1.0_cp
+         this%l_assembly = .true.
+      else if ( index(time_scheme, 'CB3') /= 0 ) then
+         this%time_scheme = 'CB3'
          this%nimp = 4
          this%nexp = 4
          this%nstages = 4
@@ -105,7 +135,7 @@ contains
          this%nstages = 4
          this%istage = 1
          courfac_loc = 0.5_cp
-         alffac_loc  = 0.2_cp
+         alffac_loc  = 1.0_cp
          intfac_loc  = 1.0_cp
          this%l_assembly = .true.
       else if ( index(time_scheme, 'KC564') /= 0 ) then
@@ -229,8 +259,8 @@ contains
       this%l_imp_calc_rhs(:) = .true.
       bytes_allocated=bytes_allocated+2*this%nstages*SIZEOF_LOGICAL
 
-      allocate( this%butcher_c(this%nstages) )
-      bytes_allocated=bytes_allocated+this%nstages*SIZEOF_LOGICAL
+      allocate( this%butcher_c(sizet) )
+      bytes_allocated=bytes_allocated+sizet*SIZEOF_LOGICAL
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -291,10 +321,67 @@ contains
                    & -0.105858296_cp, 0.5529291479_cp, 0.5529291479_cp, 0.0_cp], &
                    &          [4,4],order=[2,1])
             this%l_imp_calc_rhs(1)=.false.
-            this%butcher_c(:) = [0.0_cp, gam, half*(gam+one), one]
+            this%butcher_c(:) = [gam, half*(gam+one), one]
+         case ('MARS343')
+            gam = 0.435866521508458_cp
+            b1 =  1.20849664917601_cp
+            b2 = -0.64436317068446_cp
+            this%wimp_lin(1) = gam
+            this%butcher_imp(:,:) = reshape([                           &
+                            &  0.0_cp,         0.0_cp, 0.0_cp,  0.0_cp, &
+                            &  0.0_cp,            gam, 0.0_cp,  0.0_cp, &
+                            &  0.0_cp, half*(one-gam),    gam,  0.0_cp, &
+                            &  0.0_cp,             b1,     b2,    gam], &
+                            &          [4,4],order=[2,1])
+            this%butcher_ass_imp(:) = [0.0_cp, b1, b2, gam]
+            this%butcher_ass_exp(:) = this%butcher_ass_imp(:)
+            this%butcher_exp(:,:) = reshape([                                    &
+                   &          0.0_cp,          0.0_cp,         0.0_cp,  0.0_cp,  &
+                   & 0.877173304301691_cp,     0.0_cp,         0.0_cp,  0.0_cp,  &
+                   & 0.535396540307354_cp, 0.182536720446875_cp, 0.0_cp,  0.0_cp,&
+                   & 0.63041255815287_cp, -0.83193390106308_cp, 1.20152134291021_cp,&
+                   & 0.0_cp], [4,4], order=[2,1])
+            this%l_imp_calc_rhs(1)=.false.
+            this%butcher_c(:) = [gam, half*(gam+one), one]
+         case ('CB3')
+            gam = half+sqrt(3.0_cp)/6.0_cp
+            b1 = -sqrt(3.0_cp)/3.0_cp
+            b2 = -0.64436317068446_cp
+            this%wimp_lin(1) = gam
+            this%butcher_imp(:,:) = reshape([                           &
+                            &  0.0_cp,         0.0_cp, 0.0_cp,  0.0_cp, &
+                            &  0.0_cp,            gam, 0.0_cp,  0.0_cp, &
+                            &  0.0_cp,             b1,    gam,  0.0_cp, &
+                            &  0.0_cp,         0.0_cp, 0.0_cp,    gam], &
+                            &          [4,4],order=[2,1])
+            this%butcher_ass_imp(:) = [0.0_cp, 0.0_cp, half, half]
+            this%butcher_ass_exp(:) = this%butcher_ass_imp(:)
+            this%butcher_exp(:,:) = reshape([                               &
+                   &    0.0_cp,                   0.0_cp, 0.0_cp,  0.0_cp,  &
+                   &       gam,                   0.0_cp, 0.0_cp,  0.0_cp,  &
+                   &    0.0_cp, half-sqrt(3.0_cp)/6.0_cp, 0.0_cp,  0.0_cp,  &
+                   &    0.0_cp,                   0.0_cp,    gam,  0.0_cp], &
+                   &    [4,4], order=[2,1])
+            this%l_imp_calc_rhs(1)=.false.
+            this%butcher_c(:) = [gam, half-sqrt(3.0_cp)/6.0_cp, gam]
          case ('ARS233')
+            gam = (3.0_cp+sqrt(3.0_cp))/6.0_cp
+            this%wimp_lin(1) = gam
+            this%butcher_imp(:,:) = reshape([  0.0_cp,  0.0_cp,    0.0_cp,  &
+                                    &          0.0_cp,  gam   ,    0.0_cp,  &
+                                    &          0.0_cp, one-two*gam,   gam    ],&
+                                    &          [3,3],order=[2,1])
+            this%butcher_ass_imp(:) = [0.0_cp, half, half]
+            this%butcher_exp(:,:) = reshape([  0.0_cp,        0.0_cp, 0.0_cp,  &
+                                    &             gam,        0.0_cp, 0.0_cp,  &
+                                    &         gam-one, two*(one-gam), 0.0_cp], &
+                                    &          [3,3],order=[2,1])
+            this%butcher_ass_exp(:) = [0.0_cp, half, half]
+            this%l_imp_calc_rhs(1)=.false.
+            this%butcher_c(:) = [gam, one-gam]
+         case ('ARS232')
             gam = half * (two-sqrt(two))
-            del = one-half/gam
+            del = -two*sqrt(two)/3.0_cp
             this%wimp_lin(1) = gam
             this%butcher_imp(:,:) = reshape([  0.0_cp,  0.0_cp, 0.0_cp,  &
                                     &          0.0_cp,  gam   , 0.0_cp,  &
@@ -307,7 +394,7 @@ contains
                                     &          [3,3],order=[2,1])
             this%butcher_ass_exp(:) = [0.0_cp, one-gam, gam]
             this%l_imp_calc_rhs(1)=.false.
-            this%butcher_c(:) = [0.0_cp, gam, one]
+            this%butcher_c(:) = [gam, one]
          case ('KC343')
             gam = 1767732205903.0_cp/4055673282236.0_cp
             this%wimp_lin(1) = gam
@@ -332,7 +419,7 @@ contains
             &    10755448449292.0_cp/10357097424841.0_cp, 0.0_cp], [4,4],       &
             &    order=[2,1])
             this%butcher_ass_exp(:)=this%butcher_ass_imp(:)
-            this%butcher_c(:)=[0.0_cp, half*gam, 0.6_cp, one]
+            this%butcher_c(:)=[half*gam, 0.6_cp, one]
          case ('KC564')
             this%wimp_lin(1) = 0.25_cp
 
@@ -367,7 +454,7 @@ contains
             &    order=[2,1])
 
             this%butcher_ass_exp(:)=this%butcher_ass_imp(:)
-            this%butcher_c(:)=[0.0_cp, half, 0.332_cp, 0.62_cp, 0.85_cp, one]
+            this%butcher_c(:)=[half, 0.332_cp, 0.62_cp, 0.85_cp, one]
 
          case ('LZ232')
             this%wimp_lin(1) = half

@@ -433,7 +433,7 @@ contains
       type(type_tarray), intent(inout) :: dxidt
 
       !-- Local variables
-      integer :: n_r, lm, l1, m1
+      integer :: lm, l1, m1
       integer, pointer :: lm2l(:), lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l

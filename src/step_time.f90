@@ -675,7 +675,11 @@ contains
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
                !-- Timer counters
-               call lmLoop_counter%stop_count()
+               if ( tscheme%l_assembly ) then
+                  call lmLoop_counter%stop_count(l_increment=.false.)
+               else
+                  call lmLoop_counter%stop_count()
+               end if
                if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
                if (  tscheme%istage == 1 .and. .not. lMat .and. &
                &     .not. l_log ) l_pure=.true.
@@ -689,6 +693,7 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
+            call lmLoop_counter%start_count()
             call assemble_stage(timeStage, w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc,   &
                  &              dz_LMloc, s_LMloc, ds_LMloc, xi_LMloc, dxi_LMloc,   &
                  &              b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,   &
@@ -697,6 +702,7 @@ contains
                  &              omega_ic1, omega_ma, omega_ma1, dwdt, dzdt, dpdt,   &
                  &              dsdt, dxidt, dbdt, djdt, dbdt_ic, djdt_ic,          &
                  &              domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
+            call lmLoop_counter%stop_count()
          end if
 
          !-- Update counters

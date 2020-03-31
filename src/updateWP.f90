@@ -54,7 +54,13 @@ module updateWP_mod
 contains
 
    subroutine initialize_updateWP(tscheme)
+      !
+      ! Purpose of this subroutine is to allocate the matrices needed
+      ! to time advance the poloidal/pressure equations. Depending on the
+      ! radial scheme, it can be either full or band matrices.
+      !
 
+      !-- Input variable
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       !-- Local variables:
@@ -176,6 +182,10 @@ contains
    end subroutine initialize_updateWP
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWP(tscheme)
+      !
+      ! Deallocation of the matrices used to time-advance the poloidal/pressure
+      ! equations.
+      !
 
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme ! time scheme
