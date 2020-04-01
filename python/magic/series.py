@@ -638,7 +638,7 @@ class TsLookUpTable:
             self.reEquat = data[:, 18]
             self.dlPolPeak = np.zeros_like(self.time)
             self.GeosA= np.zeros_like(self.time)
-	    self.GeosZ= np.zeros_like(self.time)
+            self.GeosZ= np.zeros_like(self.time)
             self.GeosM= np.zeros_like(self.time)
             self.GeosNA= np.zeros_like(self.time)
             if data.shape[-1] == 20:
