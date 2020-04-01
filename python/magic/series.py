@@ -46,7 +46,7 @@ class MagicTs(MagicSetup):
     >>> ts = MagicTs(field='heat', tag='N0m2z', iplot=False)
     """
 
-    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None, ylog=True ):
+    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
         """
         :param datadir: working directory
         :type datadir: str
@@ -60,11 +60,8 @@ class MagicTs(MagicSetup):
         :type all: bool
         :param tag: read the time series that exactly corresponds to the specified tag
         :type tag: str
-        :param ylog: when set to true semilogy is used for e_kin and e_mag
-        :type ylog: bool
         """
         self.field = field
-        self.ylog  = ylog
         pattern = os.path.join(datadir, 'log.*')
         logFiles = scanDir(pattern)
 
@@ -145,30 +142,15 @@ class MagicTs(MagicSetup):
         if self.field == 'e_kin':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            if self.ylog:
-                ax.semilogy(self.time, self.ekin_pol, ls='-', c='#30a2da',
-                        label='ekin pol')
-                ax.semilogy(self.time, self.ekin_tor, ls='-', c='#fc4f30',
-                        label='ekin tor')
-                ax.semilogy(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
-                        label='ekin pol axi')
-                ax.semilogy(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                        label='ekin tor axi')
-                ax.semilogy(self.time, self.ekin_pol_naxi, ls=':', c='#30a2da',
-                        label='ekin pol non-axi')
-                ax.semilogy(self.time, self.ekin_tor_naxi, ls=':', c='#fc4f30',
-                        label='ekin tor non-axi')
-                ax.semilogy(self.time, self.ekin_tot, ls='-', c='#31363B')
-            else:
-                ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
-                        label='ekin pol')
-                ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
-                        label='ekin tor')
-                ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
-                        label='ekin pol axi')
-                ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                     label='ekin tor axi')
-                ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
+            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                    label='ekin pol')
+            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                    label='ekin tor')
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
+                    label='ekin pol axi')
+            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                 label='ekin tor axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
@@ -176,26 +158,15 @@ class MagicTs(MagicSetup):
         elif self.field == 'e_mag_oc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            if self.ylog:
-                ax.semilogy(self.time, self.emagoc_pol, ls='-', c='#30a2da',
-                        label='emag pol')
-                ax.semilogy(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
-                        label='emag tor')
-                ax.semilogy(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da',
-                        label='emag pol axi')
-                ax.semilogy(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
-                        label='emag tor axi')
-                ax.semiloy(self.time, self.emag_tot, ls='-', c='#31363B')
-            else:
-                ax.plot(self.time, self.emagoc_pol, ls='-', c='#30a2da',
-                        label='emag pol')
-                ax.plot(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
-                        label='emag tor')
-                ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da',
-                        label='emag pol axi')
-                ax.plot(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
-                        label='emag tor axi')
-                ax.plot(self.time, self.emag_tot, ls='-', c='#31363B')
+            ax.plot(self.time, self.emagoc_pol, ls='-', c='#30a2da',
+                    label='emag pol')
+            ax.plot(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
+                    label='emag tor')
+            ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da',
+                    label='emag pol axi')
+            ax.plot(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
+                    label='emag tor axi')
+            ax.plot(self.time, self.emag_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Emag')
@@ -213,25 +184,14 @@ class MagicTs(MagicSetup):
         elif self.field == 'e_mag_ic':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            if self.ylog:
-               ax.semilogy(self.time, self.emagic_pol, ls='-', c='#30a2da',
-                           label='emagic pol')
-               ax.semilogy(self.time, self.emagic_tor, ls='-', c='#fc4f30',
-                           label='emagic tor')
-               ax.semilogy(self.time, self.emagic_pol_axi, ls='--', c='#30a2da',
-                           label='emagic pol axi')
-               ax.semilogy(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
-                           label='emagic tor axi')
-            else:
-               ax.plot(self.time, self.emagic_pol, ls='-', c='#30a2da',
-                       label='emagic pol')
-               ax.plot(self.time, self.emagic_tor, ls='-', c='#fc4f30',
-                       label='emagic tor')
-               ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da',
-                       label='emagic pol axi')
-               ax.plot(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
-                       label='emagic tor axi')
-            end
+            ax.plot(self.time, self.emagic_pol, ls='-', c='#30a2da',
+                    label='emagic pol')
+            ax.plot(self.time, self.emagic_tor, ls='-', c='#fc4f30',
+                    label='emagic tor')
+            ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da',
+                    label='emagic pol axi')
+            ax.plot(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
+                    label='emagic tor axi')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
