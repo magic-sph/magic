@@ -21,11 +21,11 @@ module start_fields
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
-       &            l_chemical_conv, l_TP_form, l_anelastic_liquid,      &
-       &            l_save_out
-   use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond, &
-       &                  initV, initS, initB, initXi, ps_cond,          &
-       &                  start_file, init_xi1, topxi, xi_cond
+       &            l_chemical_conv, l_anelastic_liquid, l_save_out
+   use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
+       &                  initV, initS, initB, initXi, ps_cond,           &
+       &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
+       &                  omega_ma1
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
@@ -33,12 +33,19 @@ module start_fields
        &            one, two
    use useful, only: cc2real, logWrite
    use parallel_mod, only: rank, n_procs
-   use radial_der, only: get_dr, get_ddr
-   use radial_der_even, only: get_ddr_even
+   use radial_der, only: get_dr
    use readCheckPoints, only: readStartFields_old, readStartFields
+   use time_schemes, only: type_tscheme
 #ifdef WITH_MPI
    use readCheckPoints, only: readStartFields_mpi
 #endif
+   use updateWPS_mod, only: get_single_rhs_imp
+   use updateWP_mod, only: get_pol_rhs_imp
+   use updateS_mod, only: get_entropy_rhs_imp
+   use updateXI_mod, only: get_comp_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+
 
    implicit none
 
@@ -55,21 +62,19 @@ module start_fields
 
 contains
 
-   subroutine getStartFields(time,dt,dtNew,n_time_step)
+   subroutine getStartFields(time,tscheme,n_time_step)
       !
       !  Purpose of this subroutine is to initialize the fields and
       !  other auxiliary parameters.
       !
 
       !---- Output variables:
-      real(cp), intent(out) :: time,dt,dtNew
-      integer,  intent(out) :: n_time_step
+      real(cp),            intent(out) :: time ! Time of the restart
+      integer,             intent(out) :: n_time_step ! Number of past iterations
+      class(type_tscheme), intent(inout) :: tscheme
 
       !-- Local variables:
-      integer :: nR,l1m0,l,m
-      integer :: lm, n_r
-      real(cp) :: coex
-      real(cp) :: d_omega_ma_dt,d_omega_ic_dt
+      integer :: l, m, lm, n_r
       character(len=76) :: message
 
       real(cp) :: sEA,sES,sAA
@@ -77,8 +82,7 @@ contains
 
       real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
 
-      complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
-
+      logical :: lMat
       type(timer_type) :: t_reader
       integer :: ierr, filehandle
 
@@ -90,7 +94,7 @@ contains
 
          if ( rank == 0 ) open(newunit=filehandle, file='pscond.dat')
 
-         if ( l_TP_form .or. l_anelastic_liquid ) then ! temperature
+         if ( l_anelastic_liquid ) then ! temperature
 
             call pt_cond(s0,p0)
 
@@ -200,35 +204,29 @@ contains
 
          call t_reader%start_count()
          if ( index(start_file, 'rst_') /= 0 ) then
-            call readStartFields_old( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
-                 &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
-                 &                    dsdtLast_LMloc,xi_LMloc,dxidtLast_LMloc,    &
-                 &                    b_LMloc,dbdtLast_LMloc,aj_LMloc,            &
-                 &                    djdtLast_LMloc,b_ic_LMloc,dbdt_icLast_LMloc,&
-                 &                    aj_ic_LMloc,djdt_icLast_LMloc,              &
-                 &                    omega_ic,omega_ma,lorentz_torque_icLast,    &
-                 &                    lorentz_torque_maLast,time,dt,dtNew,        &
-                 &                    n_time_step )
+            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,      &
+                 &                    dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,    &
+                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
+                 &                    domega_ic_dt,domega_ma_dt,                &
+                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
+                 &                    time,tscheme,n_time_step )
          else
 #ifdef WITH_MPI
-            call readStartFields_mpi( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
-                 &                    p_LMloc,dpdtLast_LMloc,s_LMloc,             &
-                 &                    dsdtLast_LMloc,xi_LMloc,dxidtLast_LMloc,    &
-                 &                    b_LMloc,dbdtLast_LMloc,aj_LMloc,            &
-                 &                    djdtLast_LMloc,b_ic_LMloc,                  &
-                 &                    dbdt_icLast_LMloc,aj_ic_LMloc,              &
-                 &                    djdt_icLast_LMloc,omega_ic,omega_ma,        &
-                 &                    lorentz_torque_icLast,lorentz_torque_maLast,&
-                 &                    time,dt,dtNew,n_time_step )
+            call readStartFields_mpi( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,dbdt, &
+                 &                    aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
+                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
+                 &                    domega_ic_dt,domega_ma_dt,                &
+                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
+                 &                    time,tscheme,n_time_step )
 #else
-            call readStartFields( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,     &
-                 &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
-                 &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
-                 &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
-                 &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
-                 &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
-                 &                lorentz_torque_icLast,lorentz_torque_maLast,    &
-                 &                time,dt,dtNew,n_time_step )
+            call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
+                 &                dsdt,xi_LMloc,dxidt,b_LMloc,dbdt,aj_LMloc,djdt,&
+                 &                b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,        &
+                 &                omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,   &
+                 &                lorentz_torque_ic_dt,lorentz_torque_ma_dt,     &
+                 &                time,tscheme,n_time_step )
 #endif
          end if
          call t_reader%stop_count()
@@ -240,54 +238,37 @@ contains
               &                 n_log_file)
          if ( rank == 0 .and. l_save_out ) close(n_log_file)
 
-         if ( dt > 0.0_cp ) then
-            if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') dt
+         if ( tscheme%dt(1) > 0.0_cp ) then
+            if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') tscheme%dt(1)
          else
-            dt=dtMax
+            tscheme%dt(1)=dtMax
             if ( rank==0 ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
 
-         if ( .not. l_heat ) then
-            s_LMloc(:,:)       =zero
-            dsdtLast_LMloc(:,:)=zero
-         end if
+         if ( .not. l_heat ) s_LMloc(:,:)=zero
 
       else ! If there's no restart file
 
          ! Initialize with zero
          if ( l_conv .or. l_mag_kin ) then
-            w_LMloc(:,:)       =zero
-            dwdtLast_LMloc(:,:)=zero
-            z_LMloc(:,:)       =zero
-            dzdtLast_lo(:,:)   =zero
-            p_LMloc(:,:)       =zero
-            dpdtLast_LMloc(:,:)=zero
+            w_LMloc(:,:)=zero
+            z_LMloc(:,:)=zero
+            p_LMloc(:,:)=zero
          end if
-         if ( l_heat ) then
-            s_LMloc(:,:)       =zero
-            dsdtLast_LMloc(:,:)=zero
-         end if
-         if ( l_chemical_conv ) then
-            xi_LMloc(:,:)       =zero
-            dxidtLast_LMloc(:,:)=zero
-         end if
+         if ( l_heat ) s_LMloc(:,:)=zero
+         if ( l_chemical_conv ) xi_LMloc(:,:)=zero
          if ( l_mag ) then
-            b_LMloc(:,:)       =zero
-            dbdtLast_LMloc(:,:)=zero
-            aj_LMloc(:,:)      =zero
-            djdtLast_LMloc(:,:)=zero
+            b_LMloc(:,:) =zero
+            aj_LMloc(:,:)=zero
          end if
          if ( l_cond_ic ) then
-            b_ic_LMloc(:,:)       =zero
-            dbdt_icLast_LMloc(:,:)=zero
-            aj_ic_LMloc(:,:)      =zero
-            djdt_icLast_LMloc(:,:)=zero
+            b_ic_LMloc(:,:) =zero
+            aj_ic_LMloc(:,:)=zero
          end if
 
-         time =0.0_cp
-         dt   =dtMax
-         dtNew=dtMax
-         n_time_step=0
+         time         =0.0_cp
+         tscheme%dt(:)=dtMax
+         n_time_step  =0
          if (rank == 0) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
       end if
       call logWrite(message)
@@ -296,15 +277,14 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, ierr)
 #endif
 
-      allocate( workA_LMloc(llm:ulm,n_r_max) )
-      allocate( workB_LMloc(llm:ulm,n_r_max) )
+      !-- Initialize the weights of the time scheme
+      call tscheme%set_weights(lMat)
 
       !-- Initialize/add fields
       !----- Initialize/add magnetic field:
       if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
            & .and. ( l_mag .or. l_mag_LF ) ) then
-         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,      &
-              &     lorentz_torque_icLast, lorentz_torque_maLast)
+         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
       end if
 
       !----- Initialize/add velocity, set IC and ma rotation:
@@ -322,69 +302,60 @@ contains
          call initXi(xi_LMloc)
       end if
 
-      !  Computing derivatives
-      if ( l_conv .or. l_mag_kin ) then
-         call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,1, &
-              &        ulm-llm+1,n_r_max,rscheme_oc )
-         call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, 1,ulm-llm+1, &
-              &       n_r_max,rscheme_oc )
+      !----- Assemble initial implicit terms
+      if ( l_chemical_conv ) then
+         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
       end if
 
+      if ( l_single_matrix ) then
+         call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
+              &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
+              &                  dpdt, tscheme, 1, .true., .false.)
+      else
+         if ( l_heat ) then
+            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+         end if
+         call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
+              &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
+              &               .false., .false., work_LMloc)
+      end if
+      call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt,       &
+           &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
+           &               omega_ma1, tscheme, 1, .true., .false.)
+
       if ( l_mag .or. l_mag_kin  ) then
-         call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1,  &
-              &        1,ulmMag-llmMag+1,n_r_max,rscheme_oc )
-         call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
-              &        1,ulmMag-llmMag+1,n_r_max,rscheme_oc )
+         call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,     &
+              &               dj_LMloc, ddj_LMloc, dbdt, djdt, tscheme, 1,&
+              &               .true., .false.)
       end if
       if ( l_cond_ic ) then
-         call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,ulmMag-llmMag+1, &
-              &            1,ulmMag-llmMag+1,n_r_ic_max,n_cheb_ic_max,          &
-              &            dr_fac_ic,workA_LMloc,workB_LMloc,chebt_ic,          &
-              &            chebt_ic_even)
-         call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,ulmMag-llmMag+1,&
-              &            1,ulmMag-llmMag+1,n_r_ic_max,n_cheb_ic_max,          &
-              &            dr_fac_ic,workA_LMloc,workB_LMloc,chebt_ic,          &
-              &            chebt_ic_even)
+         call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &
+              &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
+              &                  dbdt_ic, djdt_ic, 1, .true.)
       end if
 
       if ( l_LCR ) then
-         do nR=n_r_cmb,n_r_icb-1
-            if ( nR<=n_r_LCR ) then
+         do n_r=n_r_cmb,n_r_icb-1
+            if ( n_r<=n_r_LCR ) then
                do lm=llm,ulm
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
 
-                  b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
-                  &               b_LMloc(lm,n_r_LCR)
-                  db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                  &               (r(nR))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
-                  ddb_LMloc(lm,nR)=real(l,cp)*real(l+1,cp)*    &
-                  &                (r(n_r_LCR))**(real(l,cp))/ &
-                  &                (r(nR))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
-                  aj_LMloc(lm,nR)=zero
-                  dj_LMloc(lm,nR)=zero
-                  ddj_LMloc(lm,nR)=zero
+                  b_LMloc(lm,n_r)  =(r(n_r_LCR)/r(n_r))**real(l,cp)* &
+                  &                  b_LMloc(lm,n_r_LCR)
+                  db_LMloc(lm,n_r) =-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
+                  &                 (r(n_r))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
+                  ddb_LMloc(lm,n_r)=real(l,cp)*real(l+1,cp)*     &
+                  &                 (r(n_r_LCR))**(real(l,cp))/  &
+                  &                 (r(n_r))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
+                  aj_LMloc(lm,n_r) =zero
+                  dj_LMloc(lm,n_r) =zero
+                  ddj_LMloc(lm,n_r)=zero
                end do
             end if
          end do
       end if
 
-
-      if ( l_heat ) then
-         !-- Get radial derivatives of entropy:
-         call get_dr( s_LMloc,ds_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-         if ( l_single_matrix ) then
-            call get_dr( p_LMloc,dp_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-         end if
-      end if
-
-      if ( l_chemical_conv ) then
-         !-- Get radial derivatives of chemical composition:
-         call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc )
-      end if
-
-      deallocate(workA_LMloc)
-      deallocate(workB_LMloc)
 
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp
@@ -466,33 +437,6 @@ contains
             write(message,'(''! Rel. RMS axi. asym. topxi:'',ES16.6)') xiAA
             call logWrite(message)
          end if
-      end if
-
-      !----- Get changes in mantle and ic rotation rate:
-      if ( .not. l_mag_LF ) then
-         lorentz_torque_icLast=0.0_cp
-         lorentz_torque_maLast=0.0_cp
-      end if
-      if ( l_z10mat ) then
-         l1m0=lo_map%lm2(1,0)
-         coex=-two*(alpha-one)
-         if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
-              & (l1m0 >= llm .and.l1m0 <= ulm) ) then
-            d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
-            d_omega_ma_dtLast=d_omega_ma_dt -                              &
-            &                 coex * ( two*or1(1)*real( z_LMloc(l1m0,1)) - &
-            &                                     real(dz_LMloc(l1m0,1)) )
-         end if
-         if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
-              & (l1m0 >= llm .and. l1m0 <= ulm) ) then
-            d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
-            d_omega_ic_dtLast= d_omega_ic_dt +coex * (                         &
-            &                  two*or1(n_r_max)*real( z_LMloc(l1m0,n_r_max)) - &
-            &                                   real(dz_LMloc(l1m0,n_r_max)) )
-         end if
-      else
-         d_omega_ma_dtLast=0.0_cp
-         d_omega_ic_dtLast=0.0_cp
       end if
 
    end subroutine getStartFields

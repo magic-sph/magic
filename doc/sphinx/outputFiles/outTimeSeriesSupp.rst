@@ -530,7 +530,7 @@ written by the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
    +---------------+--------------------------------------------------------------+
    | No. of column | Contents                                                     |
    +===============+==============================================================+
-   | 1             | time                                                         |
+   | 1             | Time                                                         |
    +---------------+--------------------------------------------------------------+
    | 2             | Total inertia: dU/dt and advection                           |
    +---------------+--------------------------------------------------------------+
@@ -542,23 +542,25 @@ written by the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
    +---------------+--------------------------------------------------------------+
    | 6             | Diffusion term                                               |
    +---------------+--------------------------------------------------------------+
-   | 7             | Buoyancy term                                                |
+   | 7             | Thermal buoyancy term                                        |
    +---------------+--------------------------------------------------------------+
-   | 8             | Pressure gradient term                                       |
+   | 8             | Chemical buoyancy term                                       |
    +---------------+--------------------------------------------------------------+
-   | 9             | Sum of force terms: geostrophic balance                      |
+   | 9             | Pressure gradient term                                       |
    +---------------+--------------------------------------------------------------+
-   | 10            | Sum of force terms: pressure, Coriolis and Lorentz           |
+   | 10            | Sum of force terms: geostrophic balance                      |
    +---------------+--------------------------------------------------------------+
-   | 11            | Sum of force terms: pressure, buoyancy and Coriolis          |
+   | 11            | Sum of force terms: pressure, Coriolis and Lorentz           |
    +---------------+--------------------------------------------------------------+
-   | 12            | Sum of force terms: pressure, buoyancy, Coriolis and Lorentz |
+   | 12            | Sum of force terms: pressure, buoyancy and Coriolis          |
    +---------------+--------------------------------------------------------------+
-   | 13            | Sum of force terms: Lorentz/Coriolis                         |
+   | 13            | Sum of force terms: pressure, buoyancy, Coriolis and Lorentz |
    +---------------+--------------------------------------------------------------+
-   | 14            | Sum of force terms: Pressure/Lorentz                         |
+   | 14            | Sum of force terms: Lorentz/Coriolis                         |
    +---------------+--------------------------------------------------------------+
-   | 15            | Sum of force terms: Coriolis/Inertia/Archimedean             |
+   | 15            | Sum of force terms: Pressure/Lorentz                         |
+   +---------------+--------------------------------------------------------------+
+   | 16            | Sum of force terms: Coriolis/Inertia/Archimedean             |
    +---------------+--------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:

@@ -6,7 +6,7 @@ module out_dtB_frame
        &                       dr_fac_ic, chebt_ic_even
    use blocking, only: nThetaBs, sizeThetaB, lm2m, lm2l, nfs, lm2
    use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, osn1, &
-       &                      dLh, D_lP1
+       &                      dLh
 #ifndef WITH_SHTNS
    use horizontal_data, only: dPlm, Plm, dPhi
 #endif
@@ -948,11 +948,11 @@ contains
 
       !-- Local variables:
       integer :: nThetaN
-      integer :: lm,mca     ! degree/order
+      integer :: l,lm,mca     ! degree/order
       complex(cp) :: cs1(lm_max) ! help array
       real(cp) :: O_r_E_2,rRatio
 #ifndef WITH_SHTNS
-      integer :: nThetaS,nThetaHS,m,l
+      integer :: nThetaS,nThetaHS,m
       real(cp) :: sign
       complex(cp) :: a_n, a_s
 #endif
@@ -970,9 +970,10 @@ contains
       !-- Multiplication with l(l+1)/r**2 for radial component:
       cs1(1)=zero
       do lm=2,lm_max
+         l = lm2l(lm)
          cs1(lm)=alm(lm)
          if ( lrComp ) cs1(lm)=cs1(lm)*O_r_E_2*dLh(lm)
-         if ( lIC )    cs1(lm)=rRatio**D_lP1(lm)*cs1(lm)
+         if ( lIC )    cs1(lm)=rRatio**real(l+1,cp)*cs1(lm)
       end do
 
 #ifndef WITH_SHTNS

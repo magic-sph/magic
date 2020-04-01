@@ -99,8 +99,6 @@ module physical_parameters
    integer :: imagcon         ! Imposed magnetic field for magnetoconvection, at the boundaries
    real(cp) :: tmagcon        ! Time for magnetoconvection calculation
    real(cp) :: po             ! Poincaré number
-   real(cp) :: po_diff        ! Poincaré number for differential precession
    real(cp) :: prec_angle     ! Precession angle
-   real(cp) :: diff_prec_angle! Precession angle for differential precession
    real(cp) :: dilution_fac   ! Omega^2 d/g_top for centrifugal acceleration, named after Chandrasekhar (1987)
 end module physical_parameters

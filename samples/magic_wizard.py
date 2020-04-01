@@ -12,8 +12,10 @@ import testRadialOutputs.unitTest
 import boussBenchSat.unitTest
 import precession.unitTest
 import dynamo_benchmark.unitTest
+import full_sphere.unitTest
 import varProps.unitTest
 import finite_differences.unitTest
+import time_schemes.unitTest
 import doubleDiffusion.unitTest
 import testRestart.unitTest
 import testMapping.unitTest
@@ -228,7 +230,11 @@ def getSuite(startdir, cmd, precision, args):
                                                   '%s/varProps' % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
-
+        # Time schemes
+        suite.addTest(time_schemes.unitTest.TimeSchemes('outputFileDiff',
+                                                  '%s/time_schemes' % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
         # Finite differences
         suite.addTest(finite_differences.unitTest.FiniteDifferences('outputFileDiff',
                                                   '%s/finite_differences' % startdir, 
@@ -259,6 +265,13 @@ def getSuite(startdir, cmd, precision, args):
                                                   '%s/precession' % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
+        # First full sphere benchmark from Marti et al. (2014)
+        if args.use_shtns:
+            suite.addTest(full_sphere.unitTest.FullSphere('outputFileDiff',
+                                                      '%s/full_sphere' \
+                                                      % startdir, 
+                                                      execCmd=cmd,
+                                                      precision=precision))
     if args.test_level in [-1, 1]:
         # Test restart file capabilities
         suite.addTest(testRestart.unitTest.TestRestart('outputFileDiff',
@@ -363,6 +376,7 @@ def printLevelInfo():
         print("                    Double-diffusive convection (Breuer et al.)                    ")
         print("                    Test running an axisymmetric Couette flow                      ")
         print("                    Test precession with Po=-0.01 and E=1e-3                       ")
+        print("                    Test full sphere benchmark from Marti et al. (2014)            ")
         print("                                                                                   ")
         print("                                                                                   ")
 

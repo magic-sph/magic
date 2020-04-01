@@ -16,7 +16,7 @@ set_source_files_properties(mpimod.f90 PROPERTIES COMPILE_FLAGS ${FFLAG_NO_STD})
 # Lapack
 if(USE_LAPACKLIB MATCHES JW)
    set(lapack algebra.f90)
-elseif(USE_LAPACKLIB MATCHES LAPACK OR USE_LAPACKLIB MATCHES MKL)
+elseif(USE_LAPACKLIB MATCHES LAPACK OR USE_LAPACKLIB MATCHES MKL OR USE_LAPACKLIB MATCHES LIBFLAME)
    set(lapack algebra_lapack.f90)
 endif()
 
@@ -59,13 +59,22 @@ elseif(USE_LAPACKLIB MATCHES MKL AND USE_FFTLIB MATCHES JW)
    target_link_libraries(${EXEC} lapack95)
 elseif(USE_LAPACKLIB MATCHES JW AND USE_FFTLIB MATCHES MKL)
    add_library(mkl_fft ${MKLROOT}/include/mkl_dfti.f90)
-   target_link_libraries(mkl_fft ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
+   target_link_libraries(mkl_fft ${MKLCORE} ${MKLSEQ} ${MKL64})
+   target_link_libraries(${EXEC} mkl_fft)
+elseif(USE_LAPACKLIB MATCHES LIBFLAME AND USE_FFTLIB MATCHES MKL)
+   add_library(mkl_fft ${MKLROOT}/include/mkl_dfti.f90)
+   target_link_libraries(mkl_fft ${MKLCORE} ${MKLSEQ} ${MKL64})
    target_link_libraries(${EXEC} mkl_fft)
 endif()
 
 # Link LAPACK
 if(USE_LAPACKLIB MATCHES LAPACK)
    target_link_libraries(${EXEC} ${LAPACK_LIBRARIES})
+endif()
+
+# Link LIBFLAME and BLIS
+if(USE_LAPACKLIB MATCHES LIBFLAME)
+   target_link_libraries (${EXEC} ${FLAME} ${BLIS})
 endif()
 
 if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)

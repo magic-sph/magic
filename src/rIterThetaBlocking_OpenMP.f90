@@ -7,13 +7,13 @@ module rIterThetaBlocking_OpenMP_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
-   use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB,&
-       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
+   use truncation, only: lmP_max
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-       &            l_movie_oc, l_TO, l_chemical_conv, l_TP_form, l_probe
+       &            l_movie_oc, l_TO, l_chemical_conv, l_probe,               &
+       &            l_full_sphere, l_adv_curl
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -33,6 +33,7 @@ module rIterThetaBlocking_OpenMP_mod
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs
+   use time_schemes, only: type_tscheme
    use nl_special_calc
    use probe_mod
 
@@ -119,22 +120,23 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_OpenMP
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
-              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
-              &           dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,      &
-              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
-              &           lorentz_torque_ic, lorentz_torque_ma,            &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
-              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
-              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
+   subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,timeStage,   &
+              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt, &
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,        &
+              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,             &
+              &           lorentz_torque_ic, lorentz_torque_ma,               &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,          &
+              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
+              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,      &
               &           EparaxiLMr)
 
       class(rIterThetaBlocking_OpenMP_t) :: this
-      integer,  intent(in) :: nR,nBc
-      real(cp), intent(in) :: time,dt,dtLast
+      integer,             intent(in) :: nR,nBc
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time,timeStage,dtLast
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(cp), intent(out) :: dxidt(:), dVPrLM(:),dVXirLM(:)
+      complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:),dVxVhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -150,7 +152,7 @@ contains
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
-      integer :: lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+      integer :: lm,nThetaB,nThetaLast,nThetaStart
       integer :: threadid,iThread
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
@@ -160,10 +162,9 @@ contains
       this%nBc=nBc
       this%isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
 
-      if ( this%l_cour ) then
-         this%dtrkc=1.e10_cp
-         this%dthkc=1.e10_cp
-      end if
+      this%dtrkc=1.e10_cp
+      this%dthkc=1.e10_cp
+
       !----- Prepare legendre transform:
       !      legPrepG collects all the different modes necessary
       !      to calculate the non-linear terms at a radial grid point nR
@@ -195,8 +196,8 @@ contains
       !$OMP SHARED(this,l_mag,l_b_nl_cmb,l_b_nl_icb,l_mag_LF,l_rot_ic,l_cond_ic) &
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
-      !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
-      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,c) &
+      !$OMP SHARED(or2,orho1,time,tscheme,dtLast,DEBUG_OUTPUT) &
+      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,c) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
       !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
@@ -253,14 +254,10 @@ contains
       do nThetaB=1,this%nThetaBs
          nThetaLast =(nThetaB-1) * this%sizeThetaB
          nThetaStart=nThetaLast+1
-         nThetaStop =nThetaLast + this%sizeThetaB
-         !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ", &
-         !      &                  nThetaStart," to ",nThetaStop
 
          call lm2phy_counter%start_count()
          !PERFON('lm2grid')
-         call this%transform_to_grid_space(nThetaStart,nThetaStop,&
-              &                            this%gsa(threadid),time)
+         call this%transform_to_grid_space(nThetaStart,this%gsa(threadid))
          !PERFOFF
          call lm2phy_counter%stop_count(l_increment=.false.)
 
@@ -268,36 +265,16 @@ contains
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
          &     this%lRmsCalc ) then
 
-            !if (DEBUG_OUTPUT) then
-               !if (this%nR == 2) then
-               !   write(*,"(A,I2,A,I2)") &
-               !        &  "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
-               !   call this%gsa(threadid)%output_nl_input()
-               !   write(*,"(A,I2,A,I2)") &
-               !        & "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
-               !end if
-            !end if
-
             call nl_counter%start_count()
             !PERFON('get_nl')
-            call this%gsa(threadid)%get_nl(time, dt, this%nR, this%nBc,  &
+            call this%gsa(threadid)%get_nl(timeStage, tscheme, this%nR, this%nBc, &
                  &                         nThetaStart, this%lRmsCalc )
             !PERFOFF
             call nl_counter%stop_count(l_increment=.false.)
 
-            !if (DEBUG_OUTPUT) then
-            !   if (this%nR == 2) then
-            !      write(*,"(A,I2,A,I2)") &
-            !           & "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
-            !      call this%gsa(threadid)%output()
-            !      write(*,"(A,I2,A,I2)") &
-            !           & "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
-            !   end if
-            !end if
             call phy2lm_counter%start_count()
             !PERFON('grid2lm')
-            call this%transform_to_lm_space(nThetaStart,nThetaStop, &
-                 &                          this%gsa(threadid),     &
+            call this%transform_to_lm_space(nThetaStart,this%gsa(threadid), &
                  &                          this%nl_lm(threadid))
             !PERFOFF
             call phy2lm_counter%stop_count(l_increment=.false.)
@@ -357,12 +334,12 @@ contains
          !PERFOFF
 
          !--------- Calculate courant condition parameters:
-         if ( this%l_cour ) then
-            !PRINT*,"Calling courant with this%nR=",this%nR
+         if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then
             call courant(this%nR,this%dtrkc,this%dthkc,this%gsa(threadid)%vrc, &
                  &       this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,        &
                  &       this%gsa(threadid)%brc,this%gsa(threadid)%btc,        &
-                 &       this%gsa(threadid)%bpc,nThetaStart,this%sizeThetaB)
+                 &       this%gsa(threadid)%bpc,nThetaStart,this%sizeThetaB,   &
+                 &       tscheme%courfac, tscheme%alffac)
          end if
 
          !--------- Since the fields are given at gridpoints here, this is a good
@@ -388,8 +365,9 @@ contains
          end if
 
          if (this%l_probe_out ) then
-            call probe_out(time,this%nR,this%gsa(threadid)%vpc, nThetaStart, &
-                 &        this%sizeThetaB)
+            call probe_out(time,this%nR,this%gsa(threadid)%vpc,                &
+                 & this%gsa(threadid)%brc,this%gsa(threadid)%btc, nThetaStart, &
+                 & this%sizeThetaB)
          end if
          !--------- Helicity output:
          if ( this%lHelCalc ) then
@@ -514,10 +492,10 @@ contains
          !--------- Torsional oscillation terms:
          PERFON('TO_terms')
          if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-            call getTOnext(this%leg_helper%zAS,this%gsa(threadid)%brc,   &
-                 &         this%gsa(threadid)%btc,this%gsa(threadid)%bpc,&
-                 &         this%lTONext,this%lTONext2,dt,dtLast,this%nR, &
-                 &         nThetaStart,this%sizeThetaB,this%BsLast,      &
+            call getTOnext(this%leg_helper%zAS,this%gsa(threadid)%brc,      &
+                 &         this%gsa(threadid)%btc,this%gsa(threadid)%bpc,   &
+                 &         this%lTONext,this%lTONext2,tscheme%dt(1),dtLast, &
+                 &         this%nR,nThetaStart,this%sizeThetaB,this%BsLast, &
                  &         this%BpLast,this%BzLast)
          end if
 
@@ -579,13 +557,6 @@ contains
       end do
 
       !$OMP SECTION
-      if ( l_TP_form ) then
-         do iThread=1,this%nThreads-1
-            this%nl_lm(0)%VPrLM=this%nl_lm(0)%VPrLM + this%nl_lm(iThread)%VPrLM
-         end do
-      end if
-
-      !$OMP SECTION
       if ( l_chemical_conv ) then
          do iThread=1,this%nThreads-1
             this%nl_lm(0)%VXirLM=this%nl_lm(0)%VXirLM + this%nl_lm(iThread)%VXirLM
@@ -632,6 +603,10 @@ contains
             this%nl_lm(0)%dtVrLM=this%nl_lm(0)%dtVrLM+this%nl_lm(iThread)%dtVrLM
             this%nl_lm(0)%dtVtLM=this%nl_lm(0)%dtVtLM+this%nl_lm(iThread)%dtVtLM
             this%nl_lm(0)%dtVpLM=this%nl_lm(0)%dtVpLM+this%nl_lm(iThread)%dtVpLM
+            if ( l_adv_curl ) then
+               this%nl_lm(0)%dpkindrLM=this%nl_lm(0)%dpkindrLM+ &
+               &                       this%nl_lm(iThread)%dpkindrLM
+            end if
          end do
       end if
 
@@ -709,7 +684,7 @@ contains
       !PERFON('get_td')
       call td_counter%start_count()
       call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,             &
-           &                    this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,      &
+           &                    this%lPressNext,dVSrLM,dVXirLM,             &
            &                    dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,  &
            &                    dbdt,djdt)
       call td_counter%stop_count(l_increment=.false.)

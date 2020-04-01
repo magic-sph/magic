@@ -5,14 +5,15 @@ module radial_functions
    !
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
-       &                 fd_stretch, fd_order, fd_order_bound
+       &                 fd_stretch, fd_order, fd_order_bound, l_max
    use algebra, only: prepare_mat, solve_mat
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
-       &            l_TP_form, l_temperature_diff, l_single_matrix,&
-       &            l_finite_diff, l_newmap
+       &            l_temperature_diff, l_single_matrix, l_var_l,  &
+       &            l_finite_diff, l_newmap, l_full_sphere
+   use radial_data, only: nRstart, nRstop
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -102,6 +103,8 @@ module radial_functions
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
 
+   integer, public, allocatable :: l_R(:) ! Variable degree with radius
+
    public :: initialize_radial_functions, radial, transportProperties, &
    &         finalize_radial_functions
 
@@ -135,22 +138,28 @@ contains
       allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       allocate( opressure0(n_r_max) )
-
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 
-      nDi_costf1_ic=2*n_r_ic_max+2
-      nDd_costf1_ic=2*n_r_ic_max+5
-      nDi_costf2_ic=2*n_r_ic_max
-      nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
+      !allocate ( l_R(nRstart:nRstop) )
+      !bytes_allocated = bytes_allocated +(nRstop-nRstart+1)*SIZEOF_INTEGER
+      allocate ( l_R(1:n_r_max) )
+      bytes_allocated = bytes_allocated +n_r_max*SIZEOF_INTEGER
 
-      allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( cheb_int_ic(n_r_ic_max) )
-      bytes_allocated = bytes_allocated + &
-      &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+      if ( .not. l_full_sphere ) then
+         nDi_costf1_ic=2*n_r_ic_max+2
+         nDd_costf1_ic=2*n_r_ic_max+5
+         nDi_costf2_ic=2*n_r_ic_max
+         nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
 
-      call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+         allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( cheb_int_ic(n_r_ic_max) )
+         bytes_allocated = bytes_allocated + &
+         &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+
+         call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+      end if
 
       if ( .not. l_finite_diff ) then
 
@@ -180,6 +189,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_radial_functions
 
+      deallocate( l_R )
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
       deallocate( ddLtemp0, orho1, orho2, beta, dbeta, ddbeta, alpha0 )
@@ -188,19 +198,19 @@ contains
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
       deallocate( opressure0 )
 
-      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
-      call chebt_ic%finalize()
-      if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
-
-      if ( .not. l_finite_diff ) then
-         deallocate( cheb_int )
+      if ( .not. l_full_sphere ) then
+         deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
+         call chebt_ic%finalize()
+         if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       end if
+
+      if ( .not. l_finite_diff ) deallocate( cheb_int )
 
       call rscheme_oc%finalize()
 
    end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------
-   subroutine radial
+   subroutine radial()
       !
       !  Calculates everything needed for radial functions, transforms etc.
       !
@@ -255,13 +265,41 @@ contains
          close(fileHandle)
       end if
 
-      or1=one/r         ! 1/r
-      or2=or1*or1       ! 1/r**2
-      or3=or1*or2       ! 1/r**3
-      or4=or2*or2       ! 1/r**4
+      if ( l_full_sphere ) then
+         or1(:n_r_max-1)=one/r(:n_r_max-1)       ! 1/r
+         or2(:n_r_max-1)=or1(:n_r_max-1)*or1(:n_r_max-1)  ! 1/r**2
+         or3(:n_r_max-1)=or1(:n_r_max-1)*or2(:n_r_max-1)  ! 1/r**3
+         or4(:n_r_max-1)=or2(:n_r_max-1)*or2(:n_r_max-1)  ! 1/r**4
+         or1(n_r_max)=0.0_cp
+         or2(n_r_max)=0.0_cp
+         or3(n_r_max)=0.0_cp
+         or4(n_r_max)=0.0_cp
+      else
+         or1(:)=one/r(:)       ! 1/r
+         or2(:)=or1(:)*or1(:)  ! 1/r**2
+         or3(:)=or1(:)*or2(:)  ! 1/r**3
+         or4(:)=or2(:)*or2(:)  ! 1/r**4
+      end if
+
+      !-- Determine the max. degree for each radial level
+      if ( l_var_l ) then ! Nat's form from Marti et al. (2014)
+         !l_R(:) = int(one+(l_max-one)*sqrt(r(nRstart:nRstop)/r_cmb))
+         l_R(:) = int(one+(l_max-one)*sqrt(r(:)/r_cmb))
+         call logWrite('! Spherical harmonic degree varies with radius')
+         call logWrite('! It increases between l_min and l_max following:')
+         write(message,'(''!   l_min ='',i5, '' at r ='', f7.4)') minval(l_R(:)), &
+         &     r(minloc(l_R(:),dim=1))
+         call logWrite(message)
+         write(message,'(''!   l_max ='',i5, '' at r ='', f7.4)') maxval(l_R(:)), &
+         &     r(maxloc(l_R(:),dim=1))
+         call logWrite(message)
+         call logWrite('')
+      else ! Default is constant l
+         l_R(:) = l_max
+      end if
 
       !-- Get entropy gradient
-      call getEntropyGradient ! By default this is zero
+      call getEntropyGradient() ! By default this is zero
 
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
@@ -490,7 +528,7 @@ contains
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
          ! Default values: g0=0, g1=1, g2=0
          ! An easy way to change gravity
-         rgrav(:)=g0+g1*r(:)/r_cmb+g2*(r_cmb/r)**2
+         rgrav(:)=g0+g1*r(:)/r_cmb+g2*r_cmb**2*or2(:)
 
          if ( l_anel ) then
 
@@ -520,8 +558,12 @@ contains
             else !-- Adiabatic reference state
 
                if ( l_isothermal ) then ! Gruneisen is zero in this limit
-                  fac        =strat / ( g0+half*g1*(one+radratio)+g2/radratio ) &
-                  &           / (r_cmb-r_icb)
+                  if ( l_full_sphere ) then
+                     fac = strat/(half*g1*(one+radratio))/(r_cmb-r_icb)
+                  else
+                     fac=strat / ( g0+half*g1*(one+radratio)+g2/radratio ) &
+                     &         / (r_cmb-r_icb)
+                  end if
                   DissNb     =0.0_cp
                   GrunNb     =0.0_cp
                   ogrun(:)   =0.0_cp
@@ -537,18 +579,28 @@ contains
                   ddLtemp0(:)=0.0_cp
                else
                   if ( strat == 0.0_cp .and. DissNb /= 0.0_cp ) then
-                     strat = polind* log( (g0+half*g1*(one+radratio)+g2/radratio)*&
-                     &                    (r_cmb-r_icb)*DissNb+1 )
+                     if ( l_full_sphere ) then
+                        strat = polind* log( (half*g1*(one+radratio))*  &
+                        &                    (r_cmb-r_icb)*DissNb+1 )
+                     else
+                        strat = polind* log( (g0+half*g1*(one+radratio)+g2/radratio)*&
+                        &                    (r_cmb-r_icb)*DissNb+1 )
+                     end if
                   else
-                     DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
-                            ( g0+half*g1*(one+radratio) +g2/radratio )
+                     if ( l_full_sphere ) then
+                        DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
+                        &      ( half*g1*(one+radratio) )
+                     else
+                        DissNb=( exp(strat/polind)-one )/(r_cmb-r_icb)/ &
+                        &      ( g0+half*g1*(one+radratio) +g2/radratio )
+                     end if
                   end if
-                  GrunNb      =one/polind
-                  ogrun(:)    =one/GrunNb
-                  temp0(:)    =-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb- &
-                  &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb* &
-                  &            (g0+half*g1-g2)
-                  rho0(:)     =temp0**polind
+                  GrunNb  =one/polind
+                  ogrun(:)=one/GrunNb
+                  temp0(:)=-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb-   &
+                  &         g2*r_cmb**2*or1(:) ) + one + DissNb*r_cmb* &
+                  &         (g0+half*g1-g2)
+                  rho0(:) =temp0**polind
 
                   if (l_centrifuge) opressure0(:) = temp0**(-polind-1)
 
@@ -581,11 +633,6 @@ contains
       if ( l_anel ) then
          call logWrite('')
          call logWrite('!      This is an anelastic model')
-         if ( l_TP_form ) then
-            call logWrite('! You use temperature and pressure as thermodynamic variables')
-         else
-            call logWrite('! You use entropy and pressure as thermodynamic variables')
-         end if
          if ( l_temperature_diff ) then
             call logWrite('! You use temperature diffusion')
          else
@@ -721,7 +768,7 @@ contains
       !real(cp) :: func(n_r_max)
       real(cp) :: kcond(n_r_max)
       real(cp) :: a0,a1,a2,a3,a4,a5
-      real(cp) :: kappatop,rrOcmb
+      real(cp) :: kappatop,rrOcmb, ampVisc, ampKap, slopeVisc, slopeKap
 
       !-- Variable conductivity:
 
@@ -787,6 +834,7 @@ contains
 
       !-- Variable thermal diffusivity
       if ( l_heat ) then
+
          if ( nVarDiff == 0 ) then
             kappa  =one
             dLkappa=0.0_cp
@@ -855,35 +903,67 @@ contains
             kappa=kcond/rho0
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
-         end if
+         else if ( nVarDiff == 6 ) then ! Jump in the stratified layer
+            ampKap = 10.0_cp
+            slopeKap = 100.0_cp
+            if ( rStrat <= r_icb ) then
+               kappa(:) = one
+            else
+               kappa(:)=(-half*(ampKap-one)*tanh(slopeKap*(r(:)-rStrat))+      &
+               &          half*(ampKap+one))*(half*(ampKap-one)*tanh(slopeKap* &
+               &          (r(:)-rStrat-thickStrat))+half*(ampKap+one))/ampKap
+            end if
+            dLkappa(:)=ampKap*(slopeKap*(-half*ampKap + half)*(-tanh(slopeKap*(r &
+            &         - rStrat))**2 + 1)*(half*ampKap + (half*ampKap - half)*    &
+            &         tanh(slopeKap*(r - rStrat - thickStrat)) + half)/ampKap +  &
+            &         slopeKap*(half*ampKap - half)*(-tanh(slopeKap*(r - rStrat -&
+            &         thickStrat))**2 + 1)*(half*ampKap + (-half*ampKap + half)* &
+            &         tanh(slopeKap*(r - rStrat)) + half)/ampKap)/((half*ampKap +&
+            &         (-half*ampKap + half)*tanh(slopeKap*(r - rStrat)) + half)* &
+            &         (half*ampKap + (half*ampKap - half)*tanh(slopeKap*(r -     &
+            &         rStrat - thickStrat)) + half))
+          else if ( nVarDiff == 7 ) then ! Bottom stratified
+             ampKap = 10.0_cp
+             slopeKap = 30.0_cp
+             if ( rStrat <= r_icb ) then
+                kappa(:) = one
+             else
+                kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
+                &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
+             end if
+             dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
+             &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
+             &         rStrat))+half)
+          end if
+
       end if
 
       !-- Eps profiles
       !-- The remaining division by rho will happen in updateS.f90
       if ( nVarEps == 0 ) then
          ! eps is constant
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=one
          else
             epscProf(:)=otemp1(:)
          end if
       else if ( nVarEps == 1 ) then
          ! rho*eps in the RHS
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=rho0(:)
          else
             epscProf(:)=rho0(:)*otemp1(:)
          end if
       else if ( nVarEps == 2 ) then
          ! rho*temp*eps in the RHS
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=rho0(:)*temp0(:)
          else
             epscProf(:)=rho0(:)
          end if
       else if ( nVarEps == 3 ) then
          ! eps*rho**2*temp**(-3)*exp(-Bn/T) in the RHS
-         if ( l_anelastic_liquid .or. l_TP_form ) then
+         if ( l_anelastic_liquid ) then
             epscProf(:)=rho0(:)**2*temp0(:)**(-3)*exp(-Bn/temp0(:))
          else
             epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
@@ -901,10 +981,84 @@ contains
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       else if ( nVarVisc == 2 ) then ! Profile
-         visc=(rho0/rho0(n_r_max))**difExp
+         visc(:)=(rho0/rho0(n_r_max))**difExp
          call get_dr(visc,dvisc,n_r_max,rscheme_oc)
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
+      else if ( nVarVisc == 3 ) then ! Jump in the stratified layer
+         ampVisc = 10.0_cp
+         slopeVisc = 100.0_cp
+         if ( rStrat <= r_icb ) then
+            visc(:) = one
+         else
+            visc(:)=(-half*(ampVisc-one)*tanh(slopeVisc*(r(:)-rStrat))+       &
+            &         half*(ampVisc+one))*(half*(ampVisc-one)*tanh(slopeVisc* &
+            &         (r(:)-rStrat-thickStrat))+half*(ampVisc+one))/ampVisc
+         end if
+         dLvisc(:)=ampVisc*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(r &
+         &         - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)*     &
+         &         tanh(slopeVisc*(r - rStrat - thickStrat)) + half)/ampVisc +   &
+         &         slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r - rStrat -&
+         &         thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*  &
+         &         tanh(slopeVisc*(r - rStrat)) + half)/ampVisc)/((half*ampVisc +&
+         &         (-half*ampVisc + half)*tanh(slopeVisc*(r - rStrat)) + half)*  &
+         &         (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r -     &
+         &         rStrat - thickStrat)) + half))
+
+         ddLvisc(:)=-ampVisc*slopeVisc*(-half*ampVisc + half)*(slopeVisc*(-half* &
+         &          ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*   &
+         &          (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - &
+         &          rStrat - thickStrat)) + half)/ampVisc + slopeVisc*(half*     &
+         &          ampVisc - half)*(-tanh(slopeVisc*(r(:) - rStrat - thickStrat)&
+         &          )**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*tanh(       &
+         &          slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(-tanh(slopeVisc*&
+         &          (r(:) - rStrat))**2 + 1)/((half*ampVisc + (-half*ampVisc +   &
+         &          half)*tanh(slopeVisc*(r(:) - rStrat)) + half)**2*(half*      &
+         &          ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat&
+         &          - thickStrat)) + half)) - ampVisc*slopeVisc*(half*ampVisc -  &
+         &          half)*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(   &
+         &          r(:) - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)&
+         &          *tanh(slopeVisc*(r(:) - rStrat - thickStrat)) + half)/ampVisc&
+         &          + slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r(:) -   &
+         &          rStrat - thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc &
+         &          + half)*tanh(slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(   &
+         &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)/((half*&
+         &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
+         &          rStrat)) + half)*(half*ampVisc + (half*ampVisc - half)*tanh( &
+         &          slopeVisc*(r(:) - rStrat - thickStrat)) + half)**2)+ampVisc*(&
+         &          2*slopeVisc**2*(-half*ampVisc + half)*(half*ampVisc - half)*(&
+         &          -tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*(-tanh(slopeVisc*(  &
+         &          r(:) - rStrat - thickStrat))**2 + 1)/ampVisc - 2*slopeVisc**2&
+         &          *(-half*ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 &
+         &          + 1)*(half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(  &
+         &          r(:) - rStrat - thickStrat)) + half)*tanh(slopeVisc*(r(:) -  &
+         &          rStrat))/ampVisc - 2*slopeVisc**2*(half*ampVisc - half)*(    &
+         &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)*(half* &
+         &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
+         &          rStrat)) + half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat))&
+         &          /ampVisc)/((half*ampVisc + (-half*ampVisc + half)*tanh(      &
+         &          slopeVisc*(r(:) - rStrat)) + half)*(half*ampVisc + (half*    &
+         &          ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat)) &
+         &          + half))
+      else if ( nVarVisc == 4 ) then ! Bottom stratified
+         ampVisc = 10.0_cp
+         slopeVisc = 30.0_cp
+         if ( rStrat <= r_icb ) then
+            visc(:) = one
+         else
+            visc(:)=(half*(ampVisc-one)*tanh(slopeVisc* &
+            &       (r(:)-rStrat))+half*(ampVisc+one))/ampVisc
+         end if
+         dLvisc(:)=slopeVisc*(half*ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2&
+         &         +one)/(half*ampVisc+(half*ampVisc-half)*tanh(slopeVisc*(r(:)-   &
+         &         rStrat))+half)
+         
+         ddLvisc(:)=-slopeVisc**2*(half*ampVisc-half)**2*(-tanh(slopeVisc*(r(:)- &
+         &          rStrat))**2+one)**2/(half*ampVisc+(half*ampVisc-half)*       &
+         &          tanh(slopeVisc*(r(:)-rStrat))+half)**2-2*slopeVisc**2*(half* &
+         &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2+one)*tanh(  &
+         &          slopeVisc*(r(:)-rStrat))/(half*ampVisc+(half*ampVisc-half)*  &
+         &          tanh(slopeVisc*(r(:)-rStrat))+half)
       end if
 
       if ( l_anelastic_liquid .or. l_non_adia ) then
@@ -926,7 +1080,7 @@ contains
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
          l_non_adia = .false.
-      else if ( nVarEntropyGrad == 1 ) then ! Takehiro
+      else if ( nVarEntropyGrad == 1  .or. rStrat >= r_cmb) then ! Takehiro
          if ( rStrat <= r_icb ) then
             dentropy0(:) = ampStrat
          else
@@ -934,12 +1088,12 @@ contains
             &              + ampStrat
          end if
          l_non_adia = .true.
-      else if ( nVarEntropyGrad == 2 ) then ! Flat + linear
+      else if ( nVarEntropyGrad == 2  .or. rStrat >= r_cmb) then ! Flat + linear
          if ( rStrat <= r_icb ) then
             dentropy0(:) = ampStrat
          else
             do n_r=1,n_r_max
-               if ( r(n_r) <= rStrat ) then
+               if ( r(n_r) <= rStrat  .or. rStrat >= r_cmb) then
                   dentropy0(n_r)=-one
                else
                   dentropy0(n_r)=(ampStrat+one)*(r(n_r)-r_cmb)/(r_cmb-rStrat) + &
@@ -949,7 +1103,7 @@ contains
          end if
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 3 ) then ! SSL
-         if ( rStrat <= r_icb ) then
+         if ( rStrat <= r_icb  .or. rStrat >= r_cmb) then
             dentropy0(:) = -one
          else
             dentropy0(:) = 0.25_cp*(ampStrat+one)*(one+tanh(slopeStrat*(r(:)-rStrat)))&
@@ -957,13 +1111,18 @@ contains
             &              - one
          end if
          l_non_adia = .true.
-      else if ( nVarEntropyGrad == 4 ) then ! SSL
-         if ( rStrat <= r_icb ) then
-            dentropy0(:) = -one
+      else if ( nVarEntropyGrad == 4 ) then ! modified Takehiro
+         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)&
+            &              *(r_icb/r(:))**2
          else
-            dentropy0(:) = half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
-            &              - one
+            dentropy0(:) = half*(-ampStrat+(r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)*(r_icb/r(:))**2)*&
+            &               (one-tanh(slopeStrat*(r(:)-rStrat))) + ampStrat
          end if
+         l_non_adia = .true.
+      else if ( nVarEntropyGrad == 5 ) then ! uniform volumic heat without strat
+         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)&
+& *(r_icb/r(:))**2
          l_non_adia = .true.
       end if
 

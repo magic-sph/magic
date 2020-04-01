@@ -59,6 +59,48 @@ into your ``.bash_profile`` (or ``.profile`` or ``.zprofile`` or ``.cshrc``):
 
 To get started, you then need to compile the code. 
 
+Install SHTns (**recommended**)
+===============================
+
+`SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ is a an open-source library for the Spherical Harmonics transforms. It is significantly faster than the native transforms implemented in MagIC, and it is hence **recommended** (though not mandatory) to install it. To install the library, first define a C compiler
+
+.. code-block:: bash
+
+   $ export CC= gcc
+
+or
+
+.. code-block:: bash
+
+   $ export CC= icc
+
+Then make sure a FFT library such FFTW or the MKL is installed on the target machine. Then make use of the install script
+
+.. code-block:: bash
+
+   cd $MAGIC_HOME/bin
+   ./install-shtns.sh
+
+or install it manually after downloading and extracting the latest version `here <https://bitbucket.org/nschaeff/shtns/downloads/>`_
+
+.. code-block:: bash
+
+   ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local
+
+if FFTW is used or
+
+.. code-block:: bash
+
+   ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local --enable-mkl
+
+if the MKL is used. Possible additional options may be required depending on the machine (check the website). Then compile and install the library
+
+.. code-block:: bash
+
+   make
+   make install
+   
+
 Setting up compiler options and compiling
 =========================================
 
@@ -108,7 +150,7 @@ environment variables
 .. code-block:: bash
 
    $ export FC=mpiifort
-   $ export CC=mpiicc
+   $ export CC=icc
    
 for bash/ksh/zsh users and
 
@@ -121,7 +163,7 @@ for csh/tcsh users. At this stage you should be ready to build the code. If you 
 
 .. code-block:: bash
 
-   $ cmake ..
+   $ cmake .. -DUSE_SHTNS=yes
 
 `CMake <https://cmake.org/>`_ will try to use the best options available on your
 machine (for instance it will try to locate and link the `Intel Math Kernel Library

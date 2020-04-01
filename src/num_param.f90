@@ -15,7 +15,6 @@ module num_param
    !-- Time step control:
    integer, public :: n_time_steps     ! Total number of time steps requested in the name list
    real(cp), public :: alpha           ! Weight for implicit time step
-   real(cp), public :: dtstart         ! Initial time step if start solution is initialized
    real(cp), public :: dtMin           ! Minimum allowed time step
    real(cp), public :: dtMax           ! Maximum allowed time step
    real(cp), public :: timeStart       ! Numerical time where run should start
@@ -25,7 +24,6 @@ module num_param
    real(cp), public :: AMstart
 
    !-- Courant criteria:
-   integer, public :: n_cour_step      ! Step for controlling  Courant criteria
    real(cp), public :: courfac         ! Value to scale velocity in courant criteria
    real(cp), public :: alffac          ! Value to scale Alfen-velocity in courant criteria
    real(cp), public :: intfac          ! Value to re-scale dtMax during simulation
@@ -51,7 +49,6 @@ module num_param
    integer, public :: n_lScale         ! Control length scale
 
    character(len=72), public :: anelastic_flavour ! version of the anelastic approximation
-   character(len=72), public :: thermo_variable ! thermodynamic variable: S or T
    character(len=72), public :: polo_flow_eq ! form of the poloidal flow equation: Pressure or Double Curl
 
    character(len=72), public :: mpi_transp ! Form of the MPI transpose (point to point or alltoall)
@@ -74,6 +71,7 @@ module num_param
    type(timer_type), public :: phy2lm_counter
    type(timer_type), public :: nl_counter
    type(timer_type), public :: td_counter
+   character(len=72), public :: time_scheme ! Time scheme
 
    public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
    public :: finalize_num_param        ! Subroutine that deallocates arrays

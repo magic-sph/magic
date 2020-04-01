@@ -8,14 +8,13 @@ module rIterThetaBlocking_mod
    use rIteration_mod, only: rIteration_t
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB,   &
-       &                 n_phi_maxStr,n_theta_maxStr,n_r_maxStr, &
+   use truncation, only: lm_max,nrp, l_max, n_phi_maxStr,n_theta_maxStr, &
        &                 lm_maxMag,l_axi
    use blocking, only: nfs
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
-       &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession,  &
+       &            l_movie_oc, l_chemical_conv, l_precession,             &
        &            l_centrifuge, l_TO, l_adv_curl
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
@@ -105,12 +104,11 @@ contains
 
    end subroutine set_ThetaBlocking
 !-------------------------------------------------------------------------------
-   subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa,time)
+   subroutine transform_to_grid_space(this,nThetaStart,gsa)
 
       class(rIterThetaBlocking_t), target :: this
-      integer, intent(in) :: nThetaStart,nThetaStop
+      integer, intent(in) :: nThetaStart
       type(grid_space_arrays_t) :: gsa
-      real(cp), intent(in) :: time
 
       ! Local variables
       logical :: l_calc
@@ -129,8 +127,8 @@ contains
          end if
 
          !-- For some outputs one still need the other terms
-         if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
-         &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+         if ( this%lViscBcCalc .or. this%lPowerCalc .or.                    &
+         &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or.  &
          &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
             call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
                  &                    gsa%dvrdtc)
@@ -242,8 +240,8 @@ contains
                   call fft_thetab(gsa%cvtc,1)
                   call fft_thetab(gsa%cvpc,1)
 
-                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
-                  &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
+                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.                   &
+                  &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or. &
                   &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
                      call fft_thetab(gsa%dvrdrc,1)
                      call fft_thetab(gsa%dvtdrc,1)
@@ -302,12 +300,12 @@ contains
                call v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                nThetaStart,time)
+                    &                nThetaStart)
             else if ( this%nR == n_r_icb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                nThetaStart,time)
+                    &                nThetaStart)
             end if
             if ( this%lDeriv .and. ( .not. l_axi ) ) then
                call fft_thetab(gsa%dvrdrc,1)
@@ -331,10 +329,10 @@ contains
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space(this,nThetaStart,nThetaStop,gsa,nl_lm)
+   subroutine transform_to_lm_space(this,nThetaStart,gsa,nl_lm)
 
       class(rIterThetaBlocking_t) :: this
-      integer,intent(in) :: nThetaStart, nThetaStop
+      integer,intent(in) :: nThetaStart
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
 
@@ -436,12 +434,6 @@ contains
          end if
          !PERFOFF
       end if
-      if ( (.not.this%isRadialBoundaryPoint) .and. l_TP_form ) then
-         if ( .not. l_axi ) then
-            call fft_thetab(gsa%VPr,-1)
-         end if
-         call legTF1(nThetaStart,nl_lm%VPrLM,gsa%VPr)
-      end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
          if ( .not. l_axi ) then
             call fft_thetab(gsa%VXir,-1)
@@ -492,6 +484,10 @@ contains
             end if
             call legTF_spher_tor(nThetaStart,nl_lm%Advp2LM,nl_lm%Advt2LM, &
                  &               gsa%Advp2,gsa%Advt2)
+         end if
+         if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
+            if ( .not. l_axi ) call fft_thetab(gsa%dpkindrc,-1)
+            call legTF1(nThetaStart,nl_lm%dpkindrLM,gsa%dpkindrc)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
             if ( .not. l_axi ) then

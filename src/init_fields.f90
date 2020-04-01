@@ -15,10 +15,10 @@ module init_fields
    use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
        &               llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
-       &                      phi, cosTheta, hdif_B, D_lP1
+       &                      phi, cosTheta, hdif_B
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
-       &            l_temperature_diff, l_chemical_conv, l_TP_form, &
-       &            l_anelastic_liquid, l_non_adia, l_diff_prec
+       &            l_temperature_diff, l_chemical_conv,            &
+       &            l_anelastic_liquid, l_non_adia, l_finite_diff
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
        &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
@@ -26,7 +26,7 @@ module init_fields
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
-       &                       rscheme_oc
+       &                       rscheme_oc, or1
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
@@ -43,10 +43,13 @@ module init_fields
        &                          epsc, ViscHeatFac, ThExpNb,             &
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
-       &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
-       &                          diff_prec_angle
+       &                          kbotxi, ktopxi, BuoFac, ktopp, oek
    use algebra, only: prepare_mat, solve_mat
    use cosine_transform_odd
+   use dense_matrices
+   use real_matrices
+   use band_matrices
+
 
    implicit none
 
@@ -83,7 +86,6 @@ module init_fields
    real(cp), public :: omega_ma2,omegaOsz_ma2,tShift_ma2,tOmega_ma2
    real(cp), public :: omega_ic1,omegaOsz_ic1,tShift_ic1,tOmega_ic1
    real(cp), public :: omega_ic2,omegaOsz_ic2,tShift_ic2,tOmega_ic2
-   real(cp), public :: omega_diff
 
    !----- About start-file:
    logical, public :: l_start_file     ! taking fields from startfile ?
@@ -200,7 +202,7 @@ contains
 #endif
             end do ! End of loop over theta blocks
 #ifdef WITH_SHTNS
-            call spat_to_SH(ome, omeLM)
+            call spat_to_SH(ome, omeLM, l_max)
 #endif
 
             !------- ome now in spherical harmonic space,
@@ -268,7 +270,7 @@ contains
 #endif
             end do ! End of loop over theta blocks
 #ifdef WITH_SHTNS
-            call spat_to_SH(ome, omeLM)
+            call spat_to_SH(ome, omeLM, l_max)
 #endif
 
             !------------ ome now in spherical harmonic space,
@@ -316,7 +318,7 @@ contains
             amp_r=amp_v1*r_ICB**(rExp+1.)/y10_norm
          end if
          do nR=1,n_r_max
-            rDep(nR)=amp_r/r(nR)**(rExp-1.)
+            rDep(nR)=amp_r*or1(nR)**(rExp-1.)
             !write(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
             do lm=llm,ulm
                l=lo_map%lm2l(lm)
@@ -378,7 +380,7 @@ contains
 
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
-               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) + omega_diff
+               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) 
                write(*,*)
                write(*,*) '! I use prescribed inner core rotation rate:'
                write(*,*) '! omega_ic=',omega_ic
@@ -390,7 +392,7 @@ contains
             end if
             if ( l_SRMA .or. l_rot_ma .and. omega_ma1 /= 0.0_cp ) then
                omega_ma=omega_ma1*cos(omegaOsz_ma1*tShift_ma1) + &
-               &        omega_ma2*cos(omegaOsz_ma2*tShift_ma2) + omega_diff
+               &        omega_ma2*cos(omegaOsz_ma2*tShift_ma2)
 
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'
@@ -409,8 +411,8 @@ contains
 #endif
 
       else
-         if ( nRotIc == 2 ) omega_ic=omega_ic1 + omega_diff
-         if ( nRotMa == 2 ) omega_ma=omega_ma1 + omega_diff
+         if ( nRotIc == 2 ) omega_ic=omega_ic1 
+         if ( nRotMa == 2 ) omega_ma=omega_ma1 
 
       end if
 
@@ -477,7 +479,7 @@ contains
          if ( rank_has_l0m0 ) then
 
             open(newunit=filehandle, file='scond.dat')
-            if ( l_TP_form .or. l_anelastic_liquid ) then
+            if ( l_anelastic_liquid ) then
                call pt_cond(s0,p0)
                do n_r=1,n_r_max
                   write(filehandle,'(5ES20.12)') r(n_r), osq4pi*otemp1(n_r)* &
@@ -514,9 +516,6 @@ contains
          x=two*r(n_r)-r_cmb-r_icb
          s1(n_r)=one-three*x**2+three*x**4-x**6
       end do
-
-      !-- In case 's' denotes temperature
-      if ( l_TP_form ) s1(:)=s1(:)*temp0(:)
 
       if ( init_s1 < 100 .and. init_s1 > 0 ) then
 
@@ -667,7 +666,7 @@ contains
 
          end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-         call spat_to_SH(sCMB, sLM)
+         call spat_to_SH(sCMB, sLM, l_max)
 #endif
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
@@ -747,7 +746,7 @@ contains
 
       end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-      call spat_to_SH(sCMB, sLM)
+      call spat_to_SH(sCMB, sLM, l_max)
 #endif
 
 
@@ -983,7 +982,7 @@ contains
 
          end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-         call spat_to_SH(xiCMB, xiLM)
+         call spat_to_SH(xiCMB, xiLM, l_max)
 #endif
 
       !--- xiFac describes the linear dependence of the (l=0,m=0) mode
@@ -1063,7 +1062,7 @@ contains
 
       end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-      call spat_to_SH(xiCMB, xiLM)
+      call spat_to_SH(xiCMB, xiLM, l_max)
 #endif
 
       !--- Finally store the boundary condition and care for
@@ -1080,7 +1079,7 @@ contains
 
    end subroutine initXi
 !---------------------------------------------------------------------------
-   subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma)
+   subroutine initB(b, aj, b_ic, aj_ic)
       !
       ! Purpose of this subroutine is to initialize the magnetic field
       ! according to the control parameters imagcon and init_b1/2.
@@ -1089,9 +1088,6 @@ contains
       !
 
       !-- Output variables:
-      real(cp), intent(out) :: lorentz_torque_ic
-      real(cp), intent(out) :: lorentz_torque_ma
-
       complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
@@ -1259,17 +1255,17 @@ contains
                aj_ic2=(one-aj_ic1)*r_icb*sin(arg)/cos(arg)
                do n_r=1,n_r_ic_max
                   b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol*r_icb**2 * (    &
-                                            half*r_ic(n_r)**2/r_icb + &
-                                                         half*r_icb - &
-                                                    four*third*r_cmb )
+                  &                         half*r_ic(n_r)**2/r_icb + &
+                  &                                      half*r_icb - &
+                  &                                 four*third*r_cmb )
                end do
             else
                b_pol=amp_b1*sqrt(three*pi)/four
                do n_r=1,n_r_max
-                  b(l1m0,n_r)=b(l1m0,n_r)+ b_pol *     ( &
-                                             r(n_r)**3 - &
-                             four*third*r_cmb*r(n_r)**2 + &
-                          third*r_icb**4/r(n_r)    )
+                  b(l1m0,n_r)=b(l1m0,n_r)+ b_pol *     (  &
+                  &                          r(n_r)**3 -  &
+                  &          four*third*r_cmb*r(n_r)**2 + &
+                  &       third*r_icb**4*or1(n_r)    )
                end do
             end if
          end if
@@ -1286,8 +1282,8 @@ contains
                aj_ic2=(one-aj_ic1)*r_icb*sin(arg)/cos(arg)
                do n_r=1,n_r_ic_max
                   aj_ic(l2m0,n_r)=aj_ic(l2m0,n_r)+b_tor*             ( &
-                           aj_ic1*r_ic(n_r)*sin(pi*r_ic(n_r)/r_cmb) + &
-                                     aj_ic2*cos(pi*r_ic(n_r)/r_cmb) )
+                  &        aj_ic1*r_ic(n_r)*sin(pi*r_ic(n_r)/r_cmb) +  &
+                  &                  aj_ic2*cos(pi*r_ic(n_r)/r_cmb) )
                end do
             else
                b_pol=amp_b1*sqrt(three*pi)/four
@@ -1505,7 +1501,7 @@ contains
       ! equatorialy symmetric
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             do n_r=1,n_r_max
-               aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
+               aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
             end do
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l1m0,n_r)=aj(l1m0,n_r)+aj0(n_r)
@@ -1521,7 +1517,7 @@ contains
       ! equatorialy asymmetric
          if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
-               aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
+               aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
             end do
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l2m0,n_r)=aj(l2m0,n_r)+aj0(n_r)
@@ -1534,10 +1530,6 @@ contains
          end if
 
       end if
-
-      !-- Too lazy to calculate these:
-      lorentz_torque_ic=0.0_cp
-      lorentz_torque_ma=0.0_cp
 
    end subroutine initB
 !-----------------------------------------------------------------------
@@ -1555,7 +1547,7 @@ contains
       complex(cp), intent(out) :: aj0_ic(:) ! aj(l=0,m=0) in the inner core
 
       !-- Local variables
-      integer :: n_cheb,n_r,info,n_r_real,n_r_out
+      integer :: n_cheb,n_r,info,n_r_real,n_r_out, l
       complex(cp) :: rhs(n_r_tot)
       complex(cp) :: work_l_ic(n_r_ic_max)
       real(cp), allocatable :: jMat(:,:)
@@ -1563,6 +1555,8 @@ contains
 
       allocate( jMat(n_r_tot,n_r_tot) )
       allocate( jPivot(n_r_tot) )
+
+      l = lo_map%lm2l(lm0)
 
       n_r_real = n_r_max
       if ( l_cond_ic ) n_r_real = n_r_real+n_r_ic_max
@@ -1621,19 +1615,19 @@ contains
 
          do n_cheb=1,n_r_ic_max ! counts even IC cheb modes
             do n_r=2,n_r_ic_max ! counts IC radial grid point
-               jMat(n_r_max+n_r,n_r_max+n_cheb) =               &
-                  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
-                                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
-                            two*D_lP1(lm0)*dcheb_ic(n_cheb,n_r) )
+               jMat(n_r_max+n_r,n_r_max+n_cheb) =                 &
+               &  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
+               &                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
+               &            two*real(l+1,cp)*dcheb_ic(n_cheb,n_r) )
             end do
          end do
 
          !-------- boundary conditions:
          do n_cheb=1,n_cheb_ic_max
             jMat(n_r_max,n_r_max+n_cheb)=-cheb_norm_ic*cheb_ic(n_cheb,1)
-            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (   &
-                                             dcheb_ic(n_cheb,1) + &
-                      D_lP1(lm0)*or1(n_r_max)*cheb_ic(n_cheb,1) )
+            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      & 
+            &                                 dcheb_ic(n_cheb,1) + &
+            &         real(l+1,cp)*or1(n_r_max)*cheb_ic(n_cheb,1) )
          end do
          do n_cheb=n_r_max+n_cheb_ic_max+1,n_r_tot
             jMat(n_r_max,n_cheb)  =0.0_cp
@@ -1717,61 +1711,66 @@ contains
       real(cp), intent(out) :: xi0(:) ! spherically-symmetric part
 
       !-- local variables:
-      integer :: n_r_out,n_r,info
-      real(cp), allocatable :: rhs(:)
-      real(cp), allocatable :: xi0Mat(:,:)
-      integer, allocatable :: xi0Pivot(:)
+      integer :: n_r_out, n_r, info, n_bands
+      real(cp) :: rhs(n_r_max), dat(n_r_max,n_r_max)
+      class(type_realmat), pointer :: xi0Mat
 
-      allocate( rhs(n_r_max) )
-      allocate( xi0Mat(n_r_max,n_r_max) )
-      allocate( xi0Pivot(n_r_max) )
+      if ( l_finite_diff ) then
+         allocate( type_bandmat :: xi0Mat )
+         if ( ktopxi == 1 .and. kbotxi == 1 .and. rscheme_oc%order <= 2 &
+         &    .and. rscheme_oc%order_boundary <= 2 ) then
+            n_bands = rscheme_oc%order+1
+         else
+            n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+         end if
+         call xi0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+      else
+         allocate( type_densemat :: xi0Mat )
+         call xi0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+      end if
 
       !-- Set Matrix:
       do n_r_out=1,n_r_max
          do n_r=2,n_r_max-1
-            xi0Mat(n_r,n_r_out)=rscheme_oc%rnorm*osc*(                    &
+            dat(n_r,n_r_out)=rscheme_oc%rnorm*osc*(                       &
             &                            rscheme_oc%d2rMat(n_r,n_r_out) + &
             &  ( two*or1(n_r)+beta(n_r) )*                                &
             &                             rscheme_oc%drMat(n_r,n_r_out)  )
          end do
       end do
 
-
       !-- Set boundary conditions:
-      do n_r_out=1,rscheme_oc%n_max
-         if ( ktopxi == 1 .or. kbotxi == 2 ) then
-            xi0Mat(1,n_r_out)=rscheme_oc%rMat(1,n_r_out)*rscheme_oc%rnorm
-         else
-            xi0Mat(1,n_r_out)=rscheme_oc%drMat(1,n_r_out)*rscheme_oc%rnorm
-         end if
-         if ( kbotxi == 1 ) then
-            xi0Mat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)*  &
-            &                       rscheme_oc%rnorm
-         else
-            xi0Mat(n_r_max,n_r_out)=rscheme_oc%drMat(n_r_max,n_r_out)* &
-            &                       rscheme_oc%rnorm
-         end if
-      end do
+      if ( ktopxi == 1 .or. kbotxi == 2 ) then
+         dat(1,:)=rscheme_oc%rMat(1,:)*rscheme_oc%rnorm
+      else
+         dat(1,:)=rscheme_oc%drMat(1,:)*rscheme_oc%rnorm
+      end if
+      if ( kbotxi == 1 ) then
+         dat(n_r_max,:)=rscheme_oc%rMat(n_r_max,:)* rscheme_oc%rnorm
+      else
+         dat(n_r_max,:)=rscheme_oc%drMat(n_r_max,:)*rscheme_oc%rnorm
+      end if
 
       !-- Fill with zeros:
       if ( rscheme_oc%n_max < n_r_max ) then
          do n_r_out=rscheme_oc%n_max+1,n_r_max
-            xi0Mat(1,n_r_out)      =0.0_cp
-            xi0Mat(n_r_max,n_r_out)=0.0_cp
+            dat(1,n_r_out)      =0.0_cp
+            dat(n_r_max,n_r_out)=0.0_cp
          end do
       end if
 
       !-- Renormalize:
       do n_r=1,n_r_max
-         xi0Mat(n_r,1)      =rscheme_oc%boundary_fac*xi0Mat(n_r,1)
-         xi0Mat(n_r,n_r_max)=rscheme_oc%boundary_fac*xi0Mat(n_r,n_r_max)
+         dat(n_r,1)      =rscheme_oc%boundary_fac*dat(n_r,1)
+         dat(n_r,n_r_max)=rscheme_oc%boundary_fac*dat(n_r,n_r_max)
       end do
 
+      !-- Array copy
+      call xi0Mat%set_data(dat)
+
       !-- Invert matrix:
-      call prepare_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,info)
-      if ( info /= 0 ) then
-         call abortRun('! Singular Matrix xi0Mat in init_xi!')
-      end if
+      call xi0Mat%prepare(info)
+      if ( info /= 0 ) call abortRun('! Singular Matrix xi0Mat in init_xi!')
 
       !-- Set source terms in RHS:
       do n_r=2,n_r_max-1
@@ -1786,13 +1785,11 @@ contains
       end if
       rhs(n_r_max)=real(botxi(0,0))
 
-      !-- Solve for s0:
-      call solve_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
+      !-- Solve for xi0:
+      call xi0Mat%solve(rhs)
 
-      !-- Copy result to s0:
-      do n_r=1,n_r_max
-         xi0(n_r)=rhs(n_r)
-      end do
+      !-- Copy result to xi0:
+      xi0(:)=rhs(:)
 
       !-- Set cheb-modes > rscheme_oc%n_max to zero:
       if ( rscheme_oc%n_max < n_r_max ) then
@@ -1804,9 +1801,8 @@ contains
       !-- Transform to radial space:
       call rscheme_oc%costf1(xi0)
 
-      deallocate( rhs )
-      deallocate( xi0Mat )
-      deallocate( xi0Pivot )
+      !-- Deallocate arrays
+      call xi0Mat%finalize()
 
    end subroutine xi_cond
 !--------------------------------------------------------------------------------
@@ -1902,61 +1898,94 @@ contains
 
       end if
 
-
       !-- Set boundary conditions:
-      do n_r_out=1,rscheme_oc%n_max
-         n_r_out_p=n_r_out+n_r_max
-         if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
-            pt0Mat(1,n_r_out)=otemp1(1)*rscheme_oc%rnorm* &
-            &                 rscheme_oc%rMat(1,n_r_out)
-            pt0Mat(1,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
-            &                   alpha0(1)*orho1(1)*rscheme_oc%rMat(1,n_r_out)
-         else if ( ktops == 2) then ! constant entropy flux at outer boundary
-            pt0Mat(1,n_r_out) =rscheme_oc%rnorm*otemp1(1)*(            &
-            &                             rscheme_oc%drMat(1,n_r_out)- &
-            &                dLtemp0(1)*   rscheme_oc%rMat(1,n_r_out) )
-            pt0Mat(1,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb*alpha0(1)* &
-            &                 orho1(1)*(            rscheme_oc%drMat(1,n_r_out)+ &
-            &                 (dLalpha0(1)-beta(1))* rscheme_oc%rMat(1,n_r_out) )
-         else if ( ktops == 3) then ! constant temperature at outer boundary
-            pt0Mat(1,n_r_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
-            pt0Mat(1,n_r_out_p) =0.0_cp
-         else if ( ktops == 4) then ! constant temperature flux at outer boundary
-            pt0Mat(1,n_r_out) =rscheme_oc%drMat(1,n_r_out)*rscheme_oc%rnorm
-            pt0Mat(1,n_r_out_p)=0.0_cp
-         end if
-
-         if ( kbots == 1 ) then        ! Constant entropy at inner boundary
-            pt0Mat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)* &
-            &                       rscheme_oc%rnorm*otemp1(n_r_max)
-            pt0Mat(n_r_max,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
-            &                       alpha0(n_r_max)*orho1(n_r_max)*          &
-            &                       rscheme_oc%rMat(n_r_max,n_r_out)
-         else if ( kbots == 2 ) then   ! Constant entropy flux at inner boundary
-            pt0Mat(n_r_max,n_r_out) =rscheme_oc%rnorm*otemp1(n_r_max)*(   &
-            &                          rscheme_oc%drMat(n_r_max,n_r_out)- &
-            &          dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,n_r_out) )
-            pt0Mat(n_r_max,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
-            &          alpha0(n_r_max)*orho1(n_r_max)*(                      &
-            &                           rscheme_oc%drMat(n_r_max,n_r_out)+   &
-            &         (dLalpha0(n_r_max)-beta(n_r_max))*                     &
-            &                           rscheme_oc%rMat(n_r_max,n_r_out) )
-         else if ( kbots == 3 ) then   ! Constant temperature at inner boundary
-            pt0Mat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)* &
-            &                       rscheme_oc%rnorm
-            pt0Mat(n_r_max,n_r_out_p)=0.0_cp
-         else if ( kbots == 4 ) then   ! Constant temperature flux at inner boundary
-            pt0Mat(n_r_max,n_r_out)=rscheme_oc%drMat(n_r_max,n_r_out)* &
-            &                       rscheme_oc%rnorm
-            pt0Mat(n_r_max,n_r_out_p)=0.0_cp
-         end if
-
+      if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
+         pt0Mat(1,1:n_r_max)=otemp1(1)*rscheme_oc%rnorm* &
+         &                 rscheme_oc%rMat(1,1:n_r_max)
+         pt0Mat(1,n_r_max+1:)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
+         &                   alpha0(1)*orho1(1)*rscheme_oc%rMat(1,1:n_r_max)
+      else if ( ktops == 2) then ! constant entropy flux at outer boundary
          if ( rscheme_oc%version == 'cheb' ) then
-            pt0Mat(2*n_r_max,n_r_out)  =0.0_cp
-            pt0Mat(2*n_r_max,n_r_out_p)=0.0_cp
+            pt0Mat(1,1:n_r_max) =rscheme_oc%rnorm*otemp1(1)*(            &
+            &                             rscheme_oc%drMat(1,1:n_r_max)- &
+            &                dLtemp0(1)*   rscheme_oc%rMat(1,1:n_r_max) )
+            pt0Mat(1,n_r_max+1:)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb*alpha0(1)* &
+            &                orho1(1)*(            rscheme_oc%drMat(1,1:n_r_max)+ &
+            &                 (dLalpha0(1)-beta(1))* rscheme_oc%rMat(1,1:n_r_max) )
+         else
+            pt0Mat(1,1:n_r_max)=-otemp1(1)*dLtemp0(1)*rscheme_oc%rMat(1,1:n_r_max)
+            pt0Mat(1,1:rscheme_oc%order_boundary+1)=                      &
+            &                    pt0Mat(1,1:rscheme_oc%order_boundary+1)+ &
+            &                       otemp1(1)*rscheme_oc%dr_top(1,:)
+            pt0Mat(1,n_r_max+1:)=-ViscHeatFac*ThExpNb*alpha0(1)*         &
+            &          orho1(1)*(dLalpha0(1)-beta(1))*rscheme_oc%rMat(1,1:n_r_max)
+            pt0Mat(1,n_r_max+1:n_r_max+rscheme_oc%order_boundary+1)=       &
+            &    pt0Mat(1,n_r_max+1:n_r_max+rscheme_oc%order_boundary+1) - &
+            &    ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*rscheme_oc%dr_top(1,:)
          end if
+      else if ( ktops == 3) then ! constant temperature at outer boundary
+         pt0Mat(1,1:n_r_max)  =rscheme_oc%rnorm*rscheme_oc%rMat(1,1:n_r_max)
+         pt0Mat(1,n_r_max+1:) =0.0_cp
+      else if ( ktops == 4) then ! constant temperature flux at outer boundary
+         if ( rscheme_oc%version == 'cheb' ) then
+            pt0Mat(1,1:n_r_max) =rscheme_oc%drMat(1,1:n_r_max)*rscheme_oc%rnorm
+         else
+            pt0Mat(1,1:rscheme_oc%order_boundary+1)=rscheme_oc%dr_top(1,:)
+            pt0Mat(1,rscheme_oc%order_boundary+2:n_r_max)=0.0_cp
+         end if
+         pt0Mat(1,n_r_max+1:)=0.0_cp
+      end if
 
-      end do
+      if ( kbots == 1 ) then        ! Constant entropy at inner boundary
+         pt0Mat(n_r_max,1:n_r_max)=rscheme_oc%rMat(n_r_max,1:n_r_max)* &
+         &                       rscheme_oc%rnorm*otemp1(n_r_max)
+         pt0Mat(n_r_max,n_r_max+1:)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
+         &                        alpha0(n_r_max)*orho1(n_r_max)*          &
+         &                       rscheme_oc%rMat(n_r_max,1:n_r_max)
+      else if ( kbots == 2 ) then   ! Constant entropy flux at inner boundary
+         if ( rscheme_oc%version == 'cheb' ) then
+            pt0Mat(n_r_max,1:n_r_max) =rscheme_oc%rnorm*otemp1(n_r_max)*(   &
+            &                          rscheme_oc%drMat(n_r_max,1:n_r_max)- &
+            &          dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,1:n_r_max) )
+            pt0Mat(n_r_max,n_r_max+1:)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
+            &           alpha0(n_r_max)*orho1(n_r_max)*(                      &
+            &                          rscheme_oc%drMat(n_r_max,1:n_r_max)+   &
+            &          (dLalpha0(n_r_max)-beta(n_r_max))*                     &
+            &                           rscheme_oc%rMat(n_r_max,1:n_r_max) )
+         else
+            pt0Mat(n_r_max,1:n_r_max)=-otemp1(n_r_max)*dLtemp0(n_r_max)* &
+            &                         rscheme_oc%rMat(n_r_max,1:n_r_max)
+            pt0Mat(n_r_max,n_r_max:n_r_max-rscheme_oc%order_boundary:-1)=      &
+            &     pt0Mat(n_r_max,n_r_max:n_r_max-rscheme_oc%order_boundary:-1)+&
+            &     otemp1(n_r_max)*rscheme_oc%dr_bot(1,:)
+            pt0Mat(n_r_max,n_r_max+1:)=-ViscHeatFac*ThExpNb*alpha0(n_r_max)*  &
+            &              orho1(n_r_max)*(dLalpha0(n_r_max)-beta(n_r_max))*  &
+            &              rscheme_oc%rMat(n_r_max,1:n_r_max) 
+            pt0Mat(n_r_max,2*n_r_max:2*n_r_max-rscheme_oc%order_boundary:-1)=  &
+            & pt0Mat(n_r_max,2*n_r_max:2*n_r_max-rscheme_oc%order_boundary:-1)-&
+            &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*         &
+            &           rscheme_oc%dr_bot(1,:)
+         end if
+      else if ( kbots == 3 ) then   ! Constant temperature at inner boundary
+         pt0Mat(n_r_max,1:n_r_max)=rscheme_oc%rMat(n_r_max,1:n_r_max)* &
+         &                         rscheme_oc%rnorm
+         pt0Mat(n_r_max,n_r_max+1:)=0.0_cp
+      else if ( kbots == 4 ) then   ! Constant temperature flux at inner boundary
+         if ( rscheme_oc%version == 'cheb' ) then
+            pt0Mat(n_r_max,1:n_r_max)=rscheme_oc%drMat(n_r_max,1:n_r_max)* &
+            &                         rscheme_oc%rnorm
+         else
+            pt0Mat(n_r_max,1:n_r_max)=0.0_cp
+            pt0Mat(n_r_max,n_r_max:n_r_max-rscheme_oc%order_boundary:-1)= &
+            &        rscheme_oc%dr_bot(1,:)
+         end if
+         pt0Mat(n_r_max,n_r_max+1:)=0.0_cp
+      end if
+
+      if ( rscheme_oc%version == 'cheb' ) then
+         pt0Mat(2*n_r_max,1:n_r_max) =0.0_cp
+         pt0Mat(2*n_r_max,n_r_max+1:)=0.0_cp
+      end if
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
@@ -2051,7 +2080,6 @@ contains
          pt0Mat(n_r_p,2*n_r_max)=rscheme_oc%boundary_fac*pt0Mat(n_r_p,2*n_r_max)
       end do
 
-
       ! compute the linesum of each line
       do n_r=1,2*n_r_max
          pt0Mat_fac(n_r)=one/maxval(abs(pt0Mat(n_r,:)))
@@ -2061,8 +2089,7 @@ contains
          pt0Mat(n_r,:) = pt0Mat(n_r,:)*pt0Mat_fac(n_r)
       end do
 
-
-      !-- Invert matrix:
+      !-- Prepare matrix:
       call prepare_mat(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix pt0Mat in pt_cond!')
@@ -2085,16 +2112,14 @@ contains
       !-- Pressure at the top boundary
       rhs(n_r_max+1)=0.0_cp
 
-      rhs(:) = pt0Mat_fac*rhs
+      rhs(:) = pt0Mat_fac(:)*rhs(:)
 
       !-- Solve for t0 and p0
       call solve_mat(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,rhs)
 
       !-- Copy result to t0 and p0:
-      do n_r=1,n_r_max
-         t0(n_r)=rhs(n_r)
-         p0(n_r)=rhs(n_r+n_r_max)
-      end do
+      t0(:)=rhs(1:n_r_max)
+      p0(:)=rhs(n_r_max+1:)
 
       !-- Set cheb-modes > rscheme_oc%n_max to zero:
       if ( rscheme_oc%n_max < n_r_max ) then
@@ -2200,60 +2225,56 @@ contains
       end if
 
       !-- Set boundary conditions:
-      do n_r_out=1,rscheme_oc%n_max
-         n_r_out_p=n_r_out+n_r_max
-         if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
-            ps0Mat(1,n_r_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
-            ps0Mat(1,n_r_out_p)=0.0_cp
-         else if ( ktops == 2) then ! constant entropy flux at CMB
-            ps0Mat(1,n_r_out) =rscheme_oc%drMat(1,n_r_out)*rscheme_oc%rnorm
-            ps0Mat(1,n_r_out_p)=0.0_cp
-         else if ( ktops == 3) then ! constant temperature at CMB
-            ps0Mat(1,n_r_out)  =rscheme_oc%rnorm*temp0(1)*rscheme_oc%rMat(1,n_r_out)
-            ps0Mat(1,n_r_out_p)=rscheme_oc%rnorm*alpha0(1)*temp0(1)*orho1(1)* &
-            &                   ViscHeatFac*ThExpNb*rscheme_oc%rMat(1,n_r_out)
-         else if ( ktops == 4) then ! constant temperature flux at CMB
-            ps0Mat(1,n_r_out)  =rscheme_oc%rnorm*temp0(1)*(                 &
-            &                                  rscheme_oc%drMat(1,n_r_out)+ &
-            &                       dLtemp0(1)*rscheme_oc%rMat(1,n_r_out) )
-            ps0Mat(1,n_r_out_p)=rscheme_oc%rnorm*orho1(1)*alpha0(1)*      &
-            &                temp0(1)*ViscHeatFac*ThExpNb*(               &
-            &                rscheme_oc%drMat(1,n_r_out)+(dLalpha0(1)+    &
-            &                dLtemp0(1)-beta(1))*rscheme_oc%rMat(1,n_r_out) )
-         end if
+      if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
+         ps0Mat(1,1:n_r_max)  =rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+         ps0Mat(1,n_r_max+1:)=0.0_cp
+      else if ( ktops == 2) then ! constant entropy flux at CMB
+         ps0Mat(1,1:n_r_max) =rscheme_oc%drMat(1,:)*rscheme_oc%rnorm
+         ps0Mat(1,n_r_max+1:)=0.0_cp
+      else if ( ktops == 3) then ! constant temperature at CMB
+         ps0Mat(1,1:n_r_max) =rscheme_oc%rnorm*temp0(1)*rscheme_oc%rMat(1,:)
+         ps0Mat(1,n_r_max+1:)=rscheme_oc%rnorm*alpha0(1)*temp0(1)*orho1(1)* &
+          &                   ViscHeatFac*ThExpNb*rscheme_oc%rMat(1,:)
+      else if ( ktops == 4) then ! constant temperature flux at CMB
+         ps0Mat(1,1:n_r_max) =rscheme_oc%rnorm*temp0(1)*(              &
+         &                                      rscheme_oc%drMat(1,:)+ &
+         &                            dLtemp0(1)*rscheme_oc%rMat(1,:) )
+         ps0Mat(1,n_r_max+1:)=rscheme_oc%rnorm*orho1(1)*alpha0(1)*      &
+         &                    temp0(1)*ViscHeatFac*ThExpNb*(            &
+         &                       rscheme_oc%drMat(1,:)+(dLalpha0(1)+    &
+         &                     dLtemp0(1)-beta(1))*rscheme_oc%rMat(1,:) )
+      end if
 
-         if ( kbots == 1 ) then        ! Constant entropy at ICB
-            ps0Mat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)* &
-            &                       rscheme_oc%rnorm
-            ps0Mat(n_r_max,n_r_out_p)=0.0_cp
-         else if ( kbots == 2 ) then   ! Constant entropy flux at ICB
-            ps0Mat(n_r_max,n_r_out)=rscheme_oc%drMat(n_r_max,n_r_out)* &
-            &                       rscheme_oc%rnorm
-            ps0Mat(n_r_max,n_r_out_p)=0.0_cp
-         else if ( kbots == 3 ) then   ! Constant temperature at ICB
-            ps0Mat(n_r_max,n_r_out)=rscheme_oc%rnorm* &
-            &                       rscheme_oc%rMat(n_r_max,n_r_out)*temp0(n_r_max)
-            ps0Mat(n_r_max,n_r_out_p)=rscheme_oc%rnorm*                  &
-            &                         rscheme_oc%rMat(n_r_max,n_r_out)*  &
-            &                           alpha0(n_r_max)*temp0(n_r_max)*  &
-            &                         orho1(n_r_max)*ViscHeatFac*ThExpNb
-         else if ( kbots == 4 ) then   ! Constant temperature flux at ICB
-            ps0Mat(n_r_max,n_r_out)=rscheme_oc%rnorm*temp0(n_r_max)*(     &
-            &                       rscheme_oc%drMat(n_r_max,n_r_out)+    &
-            &      dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,n_r_out) )
-            ps0Mat(n_r_max,n_r_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*        &
-            &                         alpha0(n_r_max)*temp0(n_r_max)*         &
-            &                         ViscHeatFac*ThExpNb*(                   &
-            &                         rscheme_oc%drMat(n_r_max,n_r_out)+      &
-            &                        (dLalpha0(n_r_max)+dLtemp0(n_r_max)-     &
-            &               beta(n_r_max))*rscheme_oc%rMat(n_r_max,n_r_out) )
-         end if
+      if ( kbots == 1 ) then        ! Constant entropy at ICB
+         ps0Mat(n_r_max,1:n_r_max)=rscheme_oc%rMat(n_r_max,:)* &
+         &                         rscheme_oc%rnorm
+         ps0Mat(n_r_max,n_r_max+1:)=0.0_cp
+      else if ( kbots == 2 ) then   ! Constant entropy flux at ICB
+         ps0Mat(n_r_max,1:n_r_max)=rscheme_oc%drMat(n_r_max,:)* &
+         &                         rscheme_oc%rnorm
+         ps0Mat(n_r_max,n_r_max+1:)=0.0_cp
+      else if ( kbots == 3 ) then   ! Constant temperature at ICB
+         ps0Mat(n_r_max,1:n_r_max)=rscheme_oc%rnorm* &
+         &                       rscheme_oc%rMat(n_r_max,:)*temp0(n_r_max)
+         ps0Mat(n_r_max,n_r_max+1:)=rscheme_oc%rnorm*                 &
+         &                         rscheme_oc%rMat(n_r_max,:)*        &
+         &                           alpha0(n_r_max)*temp0(n_r_max)*  &
+         &                         orho1(n_r_max)*ViscHeatFac*ThExpNb
+      else if ( kbots == 4 ) then   ! Constant temperature flux at ICB
+         ps0Mat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*temp0(n_r_max)*(    &
+         &                       rscheme_oc%drMat(n_r_max,:)+           &
+         &      dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
+         ps0Mat(n_r_max,n_r_max+1:)=rscheme_oc%rnorm*orho1(n_r_max)*    &
+         &                         alpha0(n_r_max)*temp0(n_r_max)*      &
+         &                         ViscHeatFac*ThExpNb*(                &
+         &                         rscheme_oc%drMat(n_r_max,:)+         &
+         &                        (dLalpha0(n_r_max)+dLtemp0(n_r_max)-  &
+         &               beta(n_r_max))*rscheme_oc%rMat(n_r_max,:) )
+      end if
 
-         if ( rscheme_oc%version == 'cheb' ) then
-            ps0Mat(n_r_max+1,n_r_out)=0.0_cp
-         end if
-
-      end do
+      if ( rscheme_oc%version == 'cheb' ) then
+         ps0Mat(n_r_max+1,1:n_r_max)=0.0_cp
+      end if
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
@@ -2379,16 +2400,14 @@ contains
       !-- Pressure at the top boundary
       rhs(n_r_max+1)=0.0_cp
 
-      rhs(:)=ps0Mat_fac*rhs
+      rhs(:)=ps0Mat_fac(:)*rhs(:)
 
       !-- Solve for s0 and p0
       call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
 
       !-- Copy result to s0 and p0
-      do n_r=1,n_r_max
-         s0(n_r)=rhs(n_r)
-         p0(n_r)=rhs(n_r+n_r_max)
-      end do
+      s0(:)=rhs(1:n_r_max)
+      p0(:)=rhs(n_r_max+1:)
 
       !-- Set cheb-modes > rscheme_oc%n_max to zero:
       if ( rscheme_oc%n_max < n_r_max ) then

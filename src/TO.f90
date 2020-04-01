@@ -9,7 +9,7 @@ module torsional_oscillations
    use radial_data, only: n_r_cmb, nRstart, nRstop
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
-   use blocking, only: nfs, lm2, llmMag, ulmMag
+   use blocking, only: nfs, lm2, llmMag, ulmMag, lo_map
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
@@ -450,7 +450,7 @@ contains
          lS=(l-1)+1
          lA=(l+1)+1
          lm=lm2(l,0)
-         dzStrLMr_Rloc(l+1,nR)= hdif_V(lm) * (                 &
+         dzStrLMr_Rloc(l+1,nR)= hdif_V(lo_map%lm2(1,0)) * (    &
          &                                        ddzAS(l+1) - &
          &                               beta(nR)* dzAS(l+1) - &
          &  (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &

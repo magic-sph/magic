@@ -8,7 +8,8 @@
 
 * **MagIC** is a numerical code that can simulate fluid dynamics in a spherical shell. MagIC solves for the Navier-Stokes equation including Coriolis force, optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD), a temperature (or entropy) equation and an equation for chemical composition under both the anelastic and the Boussinesq approximations.  
 
-* **MagIC** uses either Chebyshev polynomials or finite differences in the radial direction and spherical harmonic decomposition in the azimuthal and latitudinal directions. The time-stepping scheme relies on a semi-implicit [Crank-Nicolson]( https://en.wikipedia.org/wiki/Crank–Nicolson_method) for the linear terms of the MHD equations and a [Adams-Bashforth](https://en.wikipedia.org/wiki/Linear_multistep_method) scheme for the non-linear terms and the Coriolis force.  
+* **MagIC** uses either Chebyshev polynomials or finite differences in the radial direction and spherical harmonic decomposition in the azimuthal and latitudinal directions.  MagIC supports several Implicit-Explicit time schemes where the nonlinear terms and the Coriolis force are treated explicitly, while the remaining linear terms are treated implicitly.
+
 
 * **MagIC** is written in Fortran and designed to be used on supercomputing clusters.  It thus relies on a hybrid parallelisation scheme using both [OpenMP](http://openmp.org/wp/) and [MPI](http://www.open-mpi.org/). Postprocessing functions written in python (requiring [matplotlib](http://matplotlib.org/) and [scipy](http://www.scipy.org/) are also provided to allow a useful data analysis.  
 
@@ -46,7 +47,46 @@ If you are using csh or tcsh, then use the following command
 $ source sourceme.csh
 ```
 
-### 3) Set up your compiler and compile the code
+### 3) Install SHTns (recommended)
+
+[SHTns](https://bitbucket.org/bputigny/shtns-magic) is a an open-source library for the Spherical Harmonics transforms. It is significantly faster than the native transforms implemented in MagIC, and it is hence **recommended** (though not mandatory) to install it. To install the library, first define a C compiler:
+
+```sh
+$ export CC=gcc
+```
+or
+
+```sh
+$ export CC=icc
+```
+
+Then make sure a FFT library such FFTW or the MKL is installed on the target machine. Then make use of the install script
+
+```sh
+$ cd $MAGIC_HOME/bin
+$ ./install-shtns.sh
+```
+
+or install it manually after downloading and extracting the latest version [here](https://bitbucket.org/nschaeff/shtns/downloads/)
+
+```sh
+$ ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local
+```
+
+if FFTW is used or
+
+```sh
+$ ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local --enable-mkl
+```
+
+if the MKL is used. Possible additional options may be required depending on the machine (check the website). Then compile and install the library
+
+```sh
+$ make
+$ make install
+```
+
+### 4) Set up your compiler and compile the code
 
 
 #### a) Using CMake (recommended)
@@ -57,19 +97,23 @@ Create a directory where the sources will be built
 $ mkdir $MAGIC_HOME/build
 $ cd $MAGIC_HOME/build
 ```
-Set up your compilers
+Set up your Fortran compiler
 
 ```sh
 $ export FC=mpiifort
-$ export CC=mpiicc
+```
+or
+
+```sh
+$ export FC=mpif90
 ```
 
 Compile and produce the executable (options can be passed to cmake using `-DOPTION=value`)
 
 ```sh
-$ cmake ..
+$ cmake .. -DUSE_SHTNS=yes
 $ make -j
-````
+```
 The executable `magic.exe` has been produced!
 
 #### b) Using make (backup solution)
@@ -82,14 +126,14 @@ $ cd $MAGIC_HOME/src
 
 Edit the Makefile with your favourite editor and specify your compiler 
 (intel, gnu, portland) and additional 
-compiler options (production run or not, debug mode, MKL library, ...)
+compiler options (SHTns, production run or not, debug mode, MKL library, ...)
 
 ```sh
 $ make -j
 ```
 The executable `magic.exe` has been produced!
 
-### 4) Go to the samples directory and check that everything is fine
+### 5) Go to the samples directory and check that everything is fine
 
 ```sh
 $ cd $MAGIC_HOME/samples
@@ -98,7 +142,7 @@ $ ./magic_wizard.py --use-mpi --nranks 4 --mpicmd mpiexec
 
 If everything is correctly set, all auto-tests should pass!
 
-### 5) You're ready for a production run
+### 6) You're ready for a production run
 
 ```sh
 $ cd $SCRATCHDIR/run
@@ -114,7 +158,7 @@ $ export KMP_AFFINITY=verbose,granularity=core,compact,1
 $ mpiexec -n 4 ./magic.exe input.nml
 ```
 
-### 6) Data visualisation and postprocessing
+### 7) Data visualisation and postprocessing
 
 a) Set-up your PYTHON environment ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
 
@@ -139,7 +183,7 @@ python> s.equat(field='vr')
 python> ...
 ```
 
-### 7) Modify the code and submit your modifications
+### 8) Modify the code and submit your modifications
 
 a) Before commiting your modifications **always** make sure that the auto-tests
 pass correctly.
@@ -154,7 +198,7 @@ b) Try to follow the same coding style rules as in the rest of the code:
 
 More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
-### 8) Make sure you cite the following papers if you intend to publish scientific results using MagIC:
+### 9) Make sure you cite the following papers if you intend to publish scientific results using MagIC:
 
 * Boussinesq equations: [Wicht (2002, PEPI, 132, 281-302)](http://dx.doi.org/10.1016/S0031-9201(02)00078-X)
 * Anelastic equations: [Gastine & Wicht (2012, Icarus, 219, 428-442)](http://dx.doi.org/10.1016/j.icarus.2012.03.018)

@@ -4,13 +4,13 @@ module outRot
    use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
-   use radial_functions, only: r_icb, r_cmb, r, rscheme_oc
-   use physical_parameters, only: kbotv, ktopv
+   use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
+   use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map, lm_balance, llm, ulm, llmMag, ulmMag
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
        &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift, &
-       &            l_finite_diff
+       &            l_finite_diff, l_full_sphere
    use output_data, only: tag
    use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
        &            y10_norm, zero, two, third, four, half
@@ -22,11 +22,6 @@ module outRot
    implicit none
 
    private
-
-   interface get_viscous_torque
-      module procedure get_viscous_torque_real
-      module procedure get_viscous_torque_complex
-   end interface get_viscous_torque
 
    integer :: n_SRMA_file, n_SRIC_file
    integer :: n_angular_file, n_rot_file
@@ -173,13 +168,15 @@ contains
       if ( llm <= l1m0 .and. ulm >= l1m0 ) then
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
-            call get_viscous_torque(viscous_torque_ic, &
-                 &                  z(l1m0,n_r_max),dz(l1m0,n_r_max),r_icb)
+            call get_viscous_torque(viscous_torque_ic,real(z(l1m0,n_r_max)),    &
+                 &                  real(dz(l1m0,n_r_max)),r_icb,beta(n_r_max), &
+                 &                  visc(n_r_max))
          else
             viscous_torque_ic=0.0_cp
          end if
          if ( l_rot_ma .and. ktopv == 2 ) then
-            call get_viscous_torque(viscous_torque_ma,z(l1m0,1),dz(l1m0,1),r_cmb)
+            call get_viscous_torque(viscous_torque_ma,real(z(l1m0,1)), &
+                 &                  real(dz(l1m0,1)),r_cmb,beta(1),visc(1))
          else
             viscous_torque_ma=0.0_cp
          end if
@@ -303,7 +300,7 @@ contains
                open(newunit=n_rot_file, file=rot_file, status='unknown', &
                &    position='append')
             end if
-            write(n_rot_file,'(1P,2X,ES20.12,6ES14.6)')  &
+            write(n_rot_file,'(1P,2X,ES20.12,6ES16.8)')  &
             &     time*tScale, omega_ic/tScale,          &
             &     lScale**2*vScale*lorentz_torque_ic,    &
             &     lScale**2*vScale*viscous_torque_ic,    &
@@ -374,11 +371,20 @@ contains
             end if
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
             if ( abs(AMz) < tolerance ) AMz=0.0_cp
-            eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
-            &             angular_moment_ic(3)**2/c_moi_ic + &
-            &             angular_moment_ma(3)**2/c_moi_ma )
+            if ( l_full_sphere ) then
+               eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
+               &             angular_moment_ma(3)**2/c_moi_ma )
+            else
+               eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
+               &             angular_moment_ic(3)**2/c_moi_ic + &
+               &             angular_moment_ma(3)**2/c_moi_ma )
+            end if
             if ( abs(eKinAMz) < tolerance ) eKinAMz=0.0_cp
-            eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
+            if ( l_full_sphere ) then
+               eKinIC = 0.0_cp
+            else
+               eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
+            end if
             eKinOC=half*angular_moment_oc(3)**2/c_moi_oc
             eKinMA=half*angular_moment_ma(3)**2/c_moi_ma
             if ( AMzLast /= 0.0_cp ) then
@@ -441,41 +447,29 @@ contains
 
    end subroutine write_rot
 !-----------------------------------------------------------------------
-   subroutine get_viscous_torque_real(viscous_torque,z10,dz10,r)
+   subroutine get_viscous_torque(viscous_torque,z10,dz10,r,dLrho,nu)
       !
       !  Purpose of this subroutine is to calculate the viscous torque
       !  on mantle or inner core respectively.
-      !  NOTE: sign is wrong for torque on mantle!
+      !
+      !  .. math:`\Gamma_\nu=4\sqrt{\pi/3}\nu r\left[ z_{10}'-
+      !           (\frac{2}{r}+\beta)z_{10}\right]
+      !
       !
 
       !-- Input:
       real(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
-      real(cp), intent(in) :: r               ! radius (ICB or CMB)
+      real(cp), intent(in) :: r           ! radius (ICB or CMB)
+      real(cp), intent(in) :: dLrho       ! dln(rho)/dr
+      real(cp), intent(in) :: nu          ! viscosity
 
       !-- Output:
       real(cp), intent(out) :: viscous_torque
 
-      viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
+      viscous_torque=-four*sqrt(third*pi)*nu*r*( (two+dLrho*r)*real(z10)- &
+      &               r*real(dz10) )
 
-   end subroutine get_viscous_torque_real
-!-----------------------------------------------------------------------
-   subroutine get_viscous_torque_complex(viscous_torque,z10,dz10,r)
-      !
-      !  Purpose of this subroutine is to calculate the viscous torque
-      !  on mantle or inner core respectively.
-      !  NOTE: sign is wrong for torque on mantle!
-      !
-
-      !-- Input:
-      complex(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
-      real(cp),    intent(in) :: r               ! radius (ICB or CMB)
-
-      !-- Output:
-      real(cp), intent(out) :: viscous_torque
-
-      viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
-
-   end subroutine get_viscous_torque_complex
+   end subroutine get_viscous_torque
 !-----------------------------------------------------------------------
    subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
               &                  sizeThetaB,br,bp,nR)
@@ -524,7 +518,7 @@ contains
       end if
 
       !lorentz_torque_local=0.0_cp
-      fac=two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
+      fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
       nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
@@ -549,20 +543,13 @@ contains
          end if
 
          do nPhi=1,n_phi_max
-            !lorentz_torque_local=lorentz_torque_local + &
-            !                          gauss(nThetaNHS) * &
-            !       (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
             lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
             &              (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
          end do
-         !lorentz_torque_local = lorentz_torque_local + gauss(nThetaNHS)*phisum
       end do
 #ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
 #endif
-
-      !-- normalisation of phi-integration and division by Pm:
-      !lorentz_torque=lorentz_torque+fac*lorentz_torque_local
 
    end subroutine get_lorentz_torque
 !-----------------------------------------------------------------------

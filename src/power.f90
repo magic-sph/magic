@@ -10,7 +10,7 @@ module power
    use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
        &                       or2, O_r_ic2, lambda, temp0,           &
        &                       O_r_ic, rgrav, r_ic, dr_fac_ic,        &
-       &                       alpha0, orho1, otemp1
+       &                       alpha0, orho1, otemp1, beta, visc
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
@@ -18,7 +18,7 @@ module power
        &               ulm, llmMag, ulmMag
    use horizontal_data, only: dLh, gauss
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
-       &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
+       &            l_conv, l_cond_ic, l_heat, l_mag,               &
        &            l_chemical_conv, l_anelastic_liquid
    use output_data, only: tag
    use mean_sd, only: mean_sd_type
@@ -82,7 +82,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine get_power(time,timePassed,timeNorm,l_stop_time, &
               &         omega_IC,omega_MA,lorentz_torque_IC,  &
-              &         lorentz_torque_MA,w,z,dz,s,p,         &
+              &         lorentz_torque_MA,w,z,dz,s,           &
               &         xi,b,ddb,aj,dj,db_ic,ddb_ic,aj_ic,    &
               &         dj_ic,viscLMr,viscDiss,ohmDiss)
       !
@@ -110,7 +110,6 @@ contains
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
       complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
@@ -132,7 +131,7 @@ contains
       real(cp) :: r_ratio
       real(cp) :: viscHeatR(nRstart:nRstop)
       real(cp) :: viscHeatR_global(n_r_max)
-      real(cp) :: visc(nfs)
+      real(cp) :: viscTheta(nfs)
       real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat
       real(cp) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)
       real(cp) :: buoy_r(n_r_max),buoy_r_global(n_r_max)
@@ -156,18 +155,19 @@ contains
       do n_r=nRstart,nRstop
          viscHeatR(n_r)=0.0_cp
 #ifdef WITH_SHTNS
-         call axi_to_spat(viscLMr(:,n_r), visc)
+         call axi_to_spat(viscLMr(:,n_r), viscTheta)
 #endif
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
 #ifndef WITH_SHTNS
-            call lmAS2pt(viscLMr(:,n_r),visc,nThetaStart,sizeThetaB)
+            call lmAS2pt(viscLMr(:,n_r),viscTheta,nThetaStart,sizeThetaB)
 #endif
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2
-               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*eScale*visc(nThetaBlock)
+               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*eScale* &
+               &              viscTheta(nThetaBlock)
             end do
          end do
       end do
@@ -204,25 +204,13 @@ contains
 
          if ( l_heat ) then
             buoy_r(n_r)=0.0_cp
-            if ( l_TP_form ) then
-               do lm=max(2,llm),ulm
-                  l=lo_map%lm2l(lm)
-                  m=lo_map%lm2m(lm)
-                  buoy_r(n_r)=buoy_r(n_r) + eScale*                         &
-                  &           dLh(st_map%lm2(l,m))*BuoFac*rgrav(n_r)*       &
-                  &           ( otemp1(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m) &
-                  &           -ViscHeatFac*ThExpNb*alpha0(n_r)*orho1(n_r)*  &
-                  &            cc22real(w(lm,n_r),p(lm,n_r),m) )
-               end do
-            else
-               do lm=max(2,llm),ulm
-                  l=lo_map%lm2l(lm)
-                  m=lo_map%lm2m(lm)
-                  buoy_r(n_r)=buoy_r(n_r) + eScale*                 &
-                  &           dLh(st_map%lm2(l,m))*BuoFac*          &
-                  &           rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
-               end do
-            end if
+            do lm=max(2,llm),ulm
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               buoy_r(n_r)=buoy_r(n_r) + eScale*                 &
+               &           dLh(st_map%lm2(l,m))*BuoFac*          &
+               &           rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
+            end do
          end if
          if ( l_chemical_conv ) then
             buoy_chem_r(n_r)=0.0_cp
@@ -242,6 +230,11 @@ contains
       if ( l_chemical_conv ) call reduce_radial(buoy_chem_r, buoy_chem_r_global, 0)
       if ( l_conv ) call gather_from_Rloc(viscHeatR, viscHeatR_global, 0)
 
+      curlB2   =0.0_cp
+      viscHeat =0.0_cp
+      buoy     =0.0_cp
+      buoy_chem=0.0_cp
+
       if ( rank == 0 ) then
          n_calls = n_calls+1
          !-- Transform to cheb space:
@@ -250,27 +243,19 @@ contains
             !curlU2=rInt_R(curlU2_r_global,r,rscheme_oc)
             call visc_ave%compute(viscHeatR_global, n_calls, timePassed, timeNorm)
             viscHeat=rInt_R(viscHeatR_global,r,rscheme_oc)
-         else
-            viscHeat=0.0_cp
          end if
          if ( l_mag )  then
             call ohm_ave%compute(curlB2_r_global, n_calls, timePassed, timeNorm)
             curlB2=rInt_R(curlB2_r_global,r,rscheme_oc)
-         else
-            curlB2=0.0_cp
          end if
          if ( l_heat ) then
             call buo_ave%compute(buoy_r_global, n_calls, timePassed, timeNorm)
             buoy=rInt_R(buoy_r_global,r,rscheme_oc)
-         else
-            buoy=0.0_cp
          end if
          if ( l_chemical_conv ) then
             call buo_chem_ave%compute(buoy_chem_r_global, n_calls, timePassed, &
                  &                    timeNorm)
             buoy_chem=rInt_R(buoy_chem_r_global,r,rscheme_oc)
-         else
-            buoy_chem=0.0_cp
          end if
       end if
 
@@ -367,8 +352,8 @@ contains
 
          if ( l_conv ) then
             viscDiss= -viscHeat
-            if ( l_rot_IC ) viscDiss=viscDiss - two*z10ICB*drz10ICB
-            if ( l_rot_MA ) viscDiss=viscDiss + two*z10CMB*drz10CMB
+            !if ( l_rot_IC ) viscDiss=viscDiss - two*z10ICB*drz10ICB
+            !if ( l_rot_MA ) viscDiss=viscDiss + two*z10CMB*drz10CMB
          else
             viscDiss=0.0_cp
          end if
@@ -378,19 +363,22 @@ contains
 
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
-            call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb)
+            call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb, &
+                 &                  beta(n_r_max),visc(n_r_max))
          else
             viscous_torque_ic=0.0_cp
          end if
          if ( l_rot_ma .and. ktopv == 2 ) then
-            call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb)
+            call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb, &
+                 &                  beta(1),visc(1))
          else
             viscous_torque_ma=0.0_cp
          end if
 
          if ( l_rot_IC .and. .not. l_SRIC ) then
             if ( kbotv == 2 ) then
-               call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb)
+               call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb,&
+                    &                  beta(n_r_max),visc(n_r_max))
             else
                viscous_torque_ic=0.0_cp
             end if
@@ -400,7 +388,8 @@ contains
          end if
          if ( l_rot_MA ) then
             if ( ktopv == 2 ) then
-               call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb)
+               call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb, &
+                    &                  beta(1),visc(1))
             else
                viscous_torque_ma=0.0_cp
             end if
@@ -441,7 +430,7 @@ contains
             fileName='powerR.'//tag
             open(newunit=fileHandle, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(fileHandle,'(ES20.10,4ES15.7, 4ES13.5)')                    &
+               write(fileHandle,'(ES20.10,4ES15.7,4ES13.5)')                     &
                &     r(n_r),round_off(buo_ave%mean(n_r),maxval(buo_ave%mean)),   &
                &     round_off(buo_chem_ave%mean(n_r),maxval(buo_chem_ave%mean)),&
                &     round_off(visc_ave%mean(n_r),maxval(visc_ave%mean)),        &

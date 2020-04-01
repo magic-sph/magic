@@ -119,7 +119,7 @@ contains
 
       !-- time averaging of e(r):
       character(len=80) :: filename
-      real(cp) :: dt,surf
+      real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
 
       !write(*,"(A,6ES22.14)") "ekin: w,dw,z = ",get_global_sum( w(llm:ulm,:) ),&
@@ -252,16 +252,16 @@ contains
             filename='eKinR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
             do nR=1,n_r_max
-               surf=four*pi*r(nR)**2
+               osurf=0.25_cp/pi*or2(nR)
                write(fileHandle,'(ES20.10,8ES15.7)') r(nR),         &
                &                    fac*e_pA(nR)/timetot,           &
                &                    fac*e_p_asA(nR)/timetot,        &
                &                    fac*e_tA(nR)/timetot,           &
                &                    fac*e_t_asA(nR)/timetot,        &
-               &                    fac*e_pA(nR)/timetot/surf,      &
-               &                    fac*e_p_asA(nR)/timetot/surf,   &
-               &                    fac*e_tA(nR)/timetot/surf,      &
-               &                    fac*e_t_asA(nR)/timetot/surf
+               &                    fac*e_pA(nR)/timetot*osurf,     &
+               &                    fac*e_p_asA(nR)/timetot*osurf,  &
+               &                    fac*e_tA(nR)/timetot*osurf,     &
+               &                    fac*e_t_asA(nR)/timetot*osurf
             end do
             close(fileHandle)
          end if
@@ -283,7 +283,7 @@ contains
 
    end subroutine get_e_kin
 !-----------------------------------------------------------------------------
-   subroutine get_u_square(time,w,dw,z,RolR,dlR,dlRc)
+   subroutine get_u_square(time,w,dw,z,RolR)
       !
       !  calculates square velocity  = 1/2 Integral (v^2 dV)
       !  integration in theta,phi by summation of spherical harmonics
@@ -299,8 +299,6 @@ contains
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)   ! Array containing kinetic field toroidal potential
 
       !-- Output variables:
-      real(cp), intent(out) :: dlR(n_r_max)     ! Length scale
-      real(cp), intent(out) :: dlRc(n_r_max)    ! Convective length scale
       real(cp), intent(out) :: RolR(n_r_max)    ! local Rossby number
 
       !-- Local variables:
@@ -318,9 +316,8 @@ contains
       real(cp) :: e_lr(n_r_max,l_max), e_lr_global(n_r_max,l_max)
       real(cp) :: e_lr_c(n_r_max,l_max), e_lr_c_global(n_r_max,l_max)
       real(cp) :: ER(n_r_max),ELR(n_r_max),ReR(n_r_max),RoR(n_r_max)
-      real(cp) :: ERc(n_r_max),ELRc(n_r_max)
       real(cp) :: ekinR(n_r_max)
-      real(cp) :: RmR(n_r_max)
+      real(cp) :: RmR(n_r_max),dlR(n_r_max)
       real(cp) :: e_l,E,EL,Ec,ELc
 
       integer :: nR,lm,l,m
@@ -422,25 +419,19 @@ contains
             dl =0.0_cp
             dlc=0.0_cp
          end if
+
          do nR=1,n_r_max
             ER(nR)  =0.0_cp
             ELR(nR) =0.0_cp
-            ERc(nR) =0.0_cp
-            ELRc(nR)=0.0_cp
             do l=1,l_max
                e_l=fac*e_lr_global(nR,l)
                ER(nR) =ER(nR)+e_l
                ELR(nR)=ELR(nR)+real(l,cp)*e_l
-               e_l=fac*e_lr_c_global(nR,l)
-               ERc(nR) =ERc(nR)+e_l
-               ELRc(nR)=ELRc(nR)+real(l,cp)*e_l
             end do
             if ( ELR(nR) /= 0.0_cp ) then
                dlR(nR) =pi*ER(nR)/ELR(nR)
-               dlRc(nR)=pi*ERc(nR)/ELRc(nR)
             else
                dlR(nR) =0.0_cp
-               dlRc(nR)=0.0_cp
             end if
          end do
 

@@ -8,13 +8,14 @@
  mode        =1,
  tag         ="test",
  n_time_steps=1000,
- courfac     =2.5D0,
+ courfac     =4.0D0,
  alffac      =1.0D0,
+ intfac      =0.1D0,
  dtmax       =1.0D-4,
- n_cour_step =5,
  alpha       =0.6D0,
  runHours    =12,
  runMinutes  =00,
+ time_scheme ='SBDF3',
 /
 &phys_param
  ra          =1.285D5,

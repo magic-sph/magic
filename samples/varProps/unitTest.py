@@ -58,11 +58,15 @@ class VariableProperties(unittest.TestCase):
         cmd = '%s %s/inputCheb.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
+        # First run the Chebyshev + Mapping case
+        cmd = '%s %s/inputMap.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         # Second run the Finite Differences case
         cmd = '%s %s/inputFD.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
-        cmd = 'cat e_kin.cheb e_kin.fd > e_kin.test'
+        cmd = 'cat e_kin.cheb e_kin.map e_kin.fd > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):
@@ -70,6 +74,8 @@ class VariableProperties(unittest.TestCase):
         os.chdir(self.startDir)
         cleanDir(self.dir)
         for f in glob.glob('%s/*.cheb' % self.dir):
+            os.remove(f)
+        for f in glob.glob('%s/*.map' % self.dir):
             os.remove(f)
         for f in glob.glob('%s/*.fd' % self.dir):
             os.remove(f)

@@ -25,14 +25,13 @@ module logic
    logical :: l_z10mat       ! Switch for solid body rotation
    logical :: l_cond_ic      ! Switch for conducting IC
    logical :: l_cond_ma      ! Switch for conducting OC
-   logical :: l_time_hits    ! Switch for time for outputs
    logical :: l_average      ! Switch for calculation of time-averages
+   logical :: l_spec_avg     ! Switch for calculation of time-averaged spectra
    logical :: l_energy_modes ! Switch for calculation of distribution of energies over m's
    logical :: l_movie        ! Switch for recording of movie files
    logical :: l_movie_oc     ! Switch for recording of movie files for OC
    logical :: l_movie_ic     ! Switch for recording of movie files for IC
    logical :: l_save_out     ! Switch off outputs
-   logical :: l_true_time    ! Switch for times of outputs
    logical :: l_cmb_field    ! Switch for Bcoef files for gauss coefficients
    logical :: l_dt_cmb_field ! Switch for Bcoef files for secular variation of gauss coefs.
    logical :: l_2D_spectra   ! Switch for storing of r-l-spectra
@@ -81,17 +80,18 @@ module logic
    logical :: l_chemical_conv ! Switch for chemical convection
    logical :: l_non_adia ! Switch in case the reference state is non-adiabatic
 
-   logical :: l_TP_form ! Use temperature and pressure instead of entropy and pressure
    logical :: l_probe        ! Switch for artifical sensors
 
    logical :: l_finite_diff ! Use finite differences for the radial scheme
    logical :: l_double_curl ! Use the double-curl of the NS equation to get the poloidal equation
    logical :: l_AB1  ! 1st order Adams Bashforth
-   logical :: l_cour_alf_damp ! Modify Alven Courant condition based on Christensen et al., GJI, 1999 (.true. by default)
+   logical :: l_cour_alf_damp ! Modified Alfven Courant condition based on Christensen et al., GJI, 1999 (.true. by default)
    logical :: l_earth_likeness ! Compute the Earth-likeness of the CMB field following Christensen et al., EPSL, 2010
    logical :: l_precession ! Use precession
-   logical :: l_diff_prec  ! Use differential precession
    logical :: l_centrifuge ! Compute centrifugal acceleration
    logical :: l_adv_curl   ! Use \curl{u}\times u for the advection
+   logical :: l_full_sphere ! Set to .true. if this is a full sphere calculation
+   logical :: l_var_l ! When set to .true., degree varies with radius
+   logical :: l_bridge_step ! Used to bridge missing steps when changing the time integrator
 
 end module logic

@@ -1,9 +1,9 @@
 &grid
- n_r_max     =33,
+ n_r_max     =64,
  n_phi_tot   =96,
  minc        =1,
  fd_order    =4,
- fd_order_bound=4,
+ fd_order_bound=2,
  fd_ratio    =0.1d0,
  fd_stretch  =0.3d0,
 /
@@ -14,7 +14,6 @@
  courfac     =2.5D0,
  alffac      =1.0D0,
  dtmax       =1.0D-4,
- n_cour_step =5,
  alpha       =0.6D0,
  runHours    =12,
  runMinutes  =00,

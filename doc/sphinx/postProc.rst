@@ -34,7 +34,7 @@ Optional dependencies
   `orthographic <https://en.wikipedia.org/wiki/Orthographic_projection>`_,
   `Mollweide <https://en.wikipedia.org/wiki/Mollweide_projection>`_, etc.) class 
   will be provided for 2-D surface plotting. Otherwise, the usage of
-  :py:class:`magic.Surf` is limited to the 
+  :py:class:`magic.Surf` is limited to the standalone
   `Hammer projection <https://en.wikipedia.org/wiki/Hammer_projection>`_.
 
 
@@ -61,7 +61,7 @@ the options manually:
    $ cp $MAGIC_HOME/python/magic/magic.cfg.default $MAGIC_HOME/python/magic/magic.cfg
 
 In that file, you can set up the default `matplotlib  <http://matplotlib.org>`_  
-rendering backend (among the possible options: ``TkAgg``, ``GTKAgg``, ``Qt4Agg``, ...).
+rendering backend (among the possible options: ``TkAgg``, ``GTKAgg``, ``Qt5Agg``, ``Qt4Agg``, ...).
 The default configuration is
 
 .. code-block:: python
@@ -172,6 +172,7 @@ If the build was successful, it should display::
    Please wait: building lmrreader_single...
    Please wait: building Legendre transforms...
    Please wait: building vtklib...
+   Please wait: building cylavg...
 
 Once the libraries have been successfully installed, this message won't be displayed
 again, except if you remove the ``*.so`` files that are now present in the

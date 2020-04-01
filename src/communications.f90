@@ -11,9 +11,9 @@ module communications
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_TP_form, l_double_curl, l_save_out
+       &            l_mag_kin, l_double_curl, l_save_out
    use useful, only: abortRun
-   use output_data, only: log_file, n_log_file
+   use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
@@ -128,11 +128,7 @@ contains
 
       if ( l_heat ) then
          call lo2r_s%create_comm(2)
-         if ( l_TP_form ) then
-            call r2lo_s%create_comm(3)
-         else
-            call r2lo_s%create_comm(2)
-         end if
+         call r2lo_s%create_comm(2)
       end if
       if ( l_chemical_conv ) then
          call lo2r_xi%create_comm(2)
@@ -863,10 +859,8 @@ contains
          do n=2,2
             if ( n==1 ) then
                n_out = n_log_file
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
+               if ( l_save_out ) open(newunit=n_log_file, file=log_file, &
+               &                      status='unknown', position='append')
             else
                n_out = output_unit
             end if
@@ -890,7 +884,8 @@ contains
                write(n_out,*) '! -> I choose alltoallw'
             end if
             write(n_out,*)
-            if ( n==1 .AND. l_save_out ) close(n_log_file)
+
+            if ( n==1 .and. l_save_out ) close(n_log_file)
          end do
 
       end if

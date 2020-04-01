@@ -21,8 +21,8 @@ module out_movie
    use blocking, only: nfs, lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
-       &                      dLh, osn1, D_l, phi, theta_ord
-   use fields, only: w_Rloc, b_Rloc, b_ic, b
+       &                      dLh, osn1, phi, theta_ord
+   use fields, only: w_Rloc, b_Rloc, b_ic, bICB
 #ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat
 #else
@@ -1621,7 +1621,7 @@ contains
             if ( l_cond_ic ) then
                Tl_AX(l+1)=r_dep(l)*b_ic(lm,n_r)
             else
-               Tl_AX(l+1)=r_dep(l)*b(lm,n_r_icb)
+               Tl_AX(l+1)=r_dep(l)*bICB(lm)
             end if
          else             ! Outer Core
             Tl_AX(l+1)=O_r*b_Rloc(lm,n_r)
@@ -1658,7 +1658,7 @@ contains
                if ( l_cond_ic ) then
                   fl_1=r_dep(l)*real(b_ic(lm,n_r))*dPlm(lm,n_theta_nhs)
                else
-                  fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(b(lm,n_r_icb))
+                  fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(bICB(lm))
                end if
             else             ! Outer Core
                fl_1=O_r*dPlm(lm,n_theta_nhs) * real(b_Rloc(lm,n_r))
@@ -1728,17 +1728,18 @@ contains
       cs1(1)=zero
       cs2(1)=zero
       do lm=2,lm_max
+         l = lm2l(lm)
 #ifdef WITH_SHTNS
-         cs1(lm) = bCMB(lm)*r_dep(lm2l(lm)) ! multiplication by l(l+1) in shtns.f90
+         cs1(lm) = bCMB(lm)*r_dep(l) ! multiplication by l(l+1) in shtns.f90
 #else
-         cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(lm2l(lm))
+         cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(l)
 #endif
-         cs2(lm)= -bCMB(lm)*D_l(lm)*r_dep(lm2l(lm))
+         cs2(lm)= -bCMB(lm)*real(l,cp)*r_dep(l)
       end do
 
 #ifdef WITH_SHTNS
       zerosc(:)=zero
-      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p)
+      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
 #else
       !-- Build field components:
       !----- Loop over colatitudes:

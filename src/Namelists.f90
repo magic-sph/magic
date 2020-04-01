@@ -3,6 +3,7 @@ module Namelists
    ! Read and print the input namelist
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use constants
    use truncation
@@ -20,6 +21,9 @@ module Namelists
    use blocking, only: cacheblock_size_in_B
    use probe_mod
    use useful, only: abortRun
+   use dirk_schemes, only: type_dirk
+   use multistep_schemes, only: type_multistep
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -31,13 +35,16 @@ module Namelists
 
 contains
 
-   subroutine readNamelists
+   subroutine readNamelists(tscheme)
       !
       !
       !  Purpose of this subroutine is to read the input namelists.
       !  This program also determins logical parameters that are stored
       !  in logic.f90.
       !
+
+      !-- Input/Ouput variable
+      class(type_tscheme), pointer :: tscheme
 
       !-- Local stuff
       integer :: n
@@ -47,26 +54,27 @@ contains
       logical :: log_does_exist, nml_exist
       integer :: length
       integer :: argument_count
-      integer :: res
+      integer :: res,n_cour_step
       integer :: inputHandle
-      character(len=100) :: input_filename
+      character(len=100) :: input_filename, errmess
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
-      &     fd_order,fd_order_bound,fd_ratio,fd_stretch
+      &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
+      &     l_var_l
 
       namelist/control/                                     &
-      &    mode,tag,n_time_steps,                           &
+      &    mode,tag,n_time_steps,n_cour_step,               &
       &    n_tScale,n_lScale,alpha,enscale,                 &
       &    l_update_v,l_update_b,l_update_s,l_update_xi,    &
-      &    dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
+      &    dtMax,courfac,alffac,intfac,                     &
       &    difnu,difeta,difkap,difchem,ldif,ldifexp,        &
       &    l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
-      &    thermo_variable,radial_scheme,polo_flow_eq,      &
+      &    radial_scheme,polo_flow_eq, time_scheme,         &
       &    mpi_transp,l_adv_curl
 
       namelist/phys_param/                                      &
@@ -79,7 +87,7 @@ contains
       &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,    &
-      &    po_diff,diff_prec_angle, dilution_fac
+      &    dilution_fac
 
       namelist/B_external/                                    &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -111,7 +119,7 @@ contains
       &    t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
       &    t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
       &    dt_TOmovie,l_movie,l_average,l_save_out,           &
-      &    l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
+      &    l_cmb_field,l_rMagSpec,l_DTrMagSpec,               &
       &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
@@ -120,7 +128,8 @@ contains
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS
+      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS, &
+      &    l_spec_avg
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -164,73 +173,81 @@ contains
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading grid parameters!'
-         read(inputHandle,nml=grid,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No grid namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading grid parameters!'
+         read(inputHandle,nml=grid,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank == 0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No grid namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading control parameters!'
-         read(inputHandle,nml=control,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No control namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading control parameters!'
+         read(inputHandle,nml=control,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No control namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading physical parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading physical parameters!'
-         read(inputHandle,nml=phys_param,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No phys_param namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading physical parameters!'
+         read(inputHandle,nml=phys_param,iostat=res, iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No phys_param namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading start field info from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading start information!'
-         read(inputHandle,nml=start_field,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No start_field namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading start information!'
+         read(inputHandle,nml=start_field,iostat=res, iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No start_field namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading output parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading output information!'
-         read(inputHandle,nml=output_control,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No output_control namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading output information!'
+         read(inputHandle,nml=output_control,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No output_control namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading inner-core parameter from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading inner core information!'
-         read(inputHandle,nml=inner_core,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No inner_core namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading inner core information!'
+         read(inputHandle,nml=inner_core,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No inner_core namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading mantle parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading mantle information!'
-         read(inputHandle,nml=mantle,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No mantle namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading mantle information!'
+         read(inputHandle,nml=mantle,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No mantle namelist found!'
          end if
          close(inputHandle)
 
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading external field parameters for feedback:
-         if ( rank == 0 ) write(*,*) '!  Reading B external parameters!'
-         read(inputHandle,nml=B_external,iostat=res)
-         if ( res /= 0 .and. rank == 0 ) then
-            write(*,*) '! No B_external namelist found!'
+         if ( rank == 0 ) write(output_unit,*) '!  Reading B external parameters!'
+         read(inputHandle,nml=B_external,iostat=res,iomsg=errmess)
+         if ( res > 0 .and. rank==0 ) call abortRun(errmess)
+         if ( res < 0 .and. rank == 0 ) then
+            write(output_unit,*) '! No B_external namelist found!'
          end if
          close(inputHandle)
 
@@ -247,9 +264,9 @@ contains
 #endif
       if (log_does_exist) then
          if ( rank == 0 ) then
-            write(*,*)
-            write(*,*) '! The log-file exists already !'
-            write(*,*) '! I add _BIS to the tag and create new files!'
+            write(output_unit,*)
+            write(output_unit,*) '! The log-file exists already !'
+            write(output_unit,*) '! I add _BIS to the tag and create new files!'
          end if
          length=length_to_blank(tag)
          tag=tag(1:length)//'_BIS'
@@ -270,10 +287,14 @@ contains
          l_finite_diff = .false.
       end if
 
+      !-- Select the kind of time-integrator (multi-step or implicit R-K):
+      call select_tscheme(time_scheme, tscheme)
+
       if ( l_finite_diff ) then
          l_double_curl=.true.
          l_PressGraph =.false.
-         write(*,*) '! Finite differences are used: I use the double-curl form !'
+         l_newmap     =.false.
+         if ( rank == 0 ) write(output_unit,*) '! Finite differences are used: I use the double-curl form !'
       end if
 
       n_stores=max(n_stores,n_rsts)
@@ -296,6 +317,7 @@ contains
       l_SRIC   =.false.
       l_SRMA   =.false.
       l_AB1    =.false.
+      l_bridge_step=.true.
 
       if ( mode == 1 ) then
          !-- Only convection:
@@ -400,15 +422,36 @@ contains
          l_corr=.true.
       end if
 
-      !-- Choose between temperature and entropy (same in the Boussinesq limit)
-      call capitalize(thermo_variable)
-      if ( index(thermo_variable, 'T') /= 0 ) then
-         l_TP_form=.true.
-      else if ( index(thermo_variable, 'S') /= 0 .or. &
-      &         index(thermo_variable, 'ENT') /=0 ) then
-         l_TP_form=.false.
+      !-- Full sphere if radratio is zero (modulo round-off)
+      if ( radratio <= 10.0_cp*epsilon(one) ) then
+         l_full_sphere=.true.
       else
-         l_TP_form=.false.
+         l_full_sphere=.false.
+      end if
+
+      !-- Only finite difference can handle full sphere for now
+      !if ( l_full_sphere .and. (.not. l_finite_diff) ) then
+      !   call abortRun('Full sphere not implemented with Chebushev collocation')
+      !end if
+
+      if ( l_full_sphere ) then
+         n_r_ic_max=0
+         n_cheb_ic_max=0
+         l_cond_ic=.false.
+         l_rot_ic=.false.
+         omega_ic1    =0.0_cp
+         omegaOsz_ic1 =0.0_cp
+         tShift_ic1   =0.0_cp
+         omega_ic2    =0.0_cp
+         omegaOsz_ic2 =0.0_cp
+         tShift_ic2   =0.0_cp
+         nRotIC = 0
+         l_SRIC=.false.
+         kbotv = 1
+         kbots = 2
+         kbotxi = 2
+         g0 = 0.0_cp ! Cannot be constant gravity
+         g2 = 0.0_cp ! Cannot be 1/r^2 gravity in full sphere
       end if
 
       !-- Choose between entropy diffusion and temperature diffusion
@@ -438,11 +481,13 @@ contains
          l_single_matrix    = .false.
       end if
 
-      if ( ktops > 2 .or. kbots > 2 .or. l_TP_form ) then
+      if ( ktops > 2 .or. kbots > 2 ) then
          l_single_matrix    = .true.
       end if
 
-      if ( l_anelastic_liquid .or. l_temperature_diff .or. l_TP_form ) l_anel=.true.
+      if ( l_finite_diff ) l_single_matrix = .false.
+
+      if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
 
       call capitalize(interior_model)
 
@@ -505,47 +550,33 @@ contains
 
       if ( l_precession ) prec_angle = prec_angle*pi/180.0_cp
 
-      !-- Same as above for differential precession
-
-      if ( po_diff == 0.0_cp ) then
-         l_diff_prec = .false.
-      else
-         l_diff_prec = .true.
-         l_rot_ma = .true.
-         l_rot_ic = .true.
-         l_SRMA = .true.
-         l_SRIC = .true.
-      end if
-
-      if ( l_diff_prec ) diff_prec_angle = diff_prec_angle*pi/180.0_cp
-
       !-- New checking of magnetic boundary condition.
-      if ( kbotb > 4 ) then
+      if ( l_mag .and. kbotb > 4 ) then
          call abortRun('! Only outer boundary conditions kbotb<=4 implemented!')
       end if
       if ( sigma_ratio == 0.0_cp ) then
          l_cond_ic=.false.
-         if ( kbotb == 3 ) then
+         if ( l_mag .and. kbotb == 3 ) then
             call abortRun('! For an insulating  IC with sigma_ratio=0, kbotb=3 is not appropriate')
          end if
       else
          l_cond_ic=.true.      ! tell the code to use a conducting inner core
-         if ( kbotb  /=  3 ) then
+         if ( l_mag .and. kbotb  /=  3 ) then
             call abortRun('! For a conducting IC with sigma_ratio>0, kbotb=3 is appropriate')
          end if
       end if
 
-      if ( ktopb > 4 ) then
+      if ( l_mag .and. ktopb > 4 ) then
          call abortRun('! Only outer boundary conditions ktopb<=4 implemented!')
       end if
       if ( conductance_ma == 0.0_cp ) then
          l_cond_ma=.false.
-         if ( ktopb == 3 ) then
+         if ( l_mag .and. ktopb == 3 ) then
             call abortRun('! For an insulating mantle with conductance_ma=0, ktopb=3 is not appropriate')
          end if
       else
          l_cond_ma=.true.      ! tell the code to use a conducting mantle
-         if ( ktopb  /=  3 ) then
+         if ( l_mag .and. ktopb  /=  3 ) then
             call abortRun('! For a conducting mantle with conductance_ma>0, ktopb=3 is appropriate')
          end if
       end if
@@ -620,12 +651,16 @@ contains
       end if
 
       if ( l_rot_ma ) then
-         write(*,*)
-         write(*,*) '! I ALLOW FOR ROTATING MANTLE.'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! I ALLOW FOR ROTATING MANTLE.'
+         end if
          if ( ktopv == 1 .and. .not. l_cond_ma ) then
-            write(*,*)
-            write(*,*) '! No torques on mantle!'
-            write(*,*) '! I dont update mantle rotation omega_ma.'
+            if ( rank == 0 ) then
+               write(output_unit,*)
+               write(output_unit,*) '! No torques on mantle!'
+               write(output_unit,*) '! I dont update mantle rotation omega_ma.'
+            end if
             l_rot_ma=.false.
          end if
       end if
@@ -639,25 +674,31 @@ contains
 
       l_b_nl_icb=.false.
       if ( l_mag_nl .and. kbotv == 1 .and. l_cond_ic ) then
-         write(*,*)
-         write(*,*) '! Nonlinear magnetic BC required at ICB!'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! Nonlinear magnetic BC required at ICB!'
+         end if
          l_b_nl_icb=.true.
       end if
 
       l_b_nl_cmb=.false.
       if ( l_mag_nl .and. ktopv == 1 .and. l_cond_ma ) then
-         write(*,*)
-         write(*,*) '! Nonlinear magnetic BC required at CMB!'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! Nonlinear magnetic BC required at CMB!'
+         end if
          l_b_nl_cmb=.true.
       end if
+
+      !-- Right now it seems Finite differences don't cope very well with rot IC
+      !if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
+      !   call abortRun('! There might be stability issues with rotating IC + FD')
+      !end if
 
       !-- Special matrix for z(l=1,m=0) which is the solid body rotation:
       l_z10mat=.false.
       if ( ( l_rot_ma .and. ktopv == 2 ) .or. &
       &    ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true.
-
-      !-- Check Courant criteria at even time steps:
-      if ( mod(n_cour_step,2) /= 0 ) n_cour_step=n_cour_step+1
 
       !-- Check whether memory has been reserved:
       if ( l_TO ) lStressMem=1
@@ -702,12 +743,14 @@ contains
       lGrenoble=.false.
       if ( BIC /= 0.0_cp .and. l_mag ) then
          lGrenoble=.true.
-         write(*,*)
-         write(*,*) '! Running the Grenoble case !'
+         if ( rank == 0 ) then
+            write(output_unit,*)
+            write(output_unit,*) '! Running the Grenoble case !'
+         end if
       end if
 
       ! Setting up truncation is required to set up ldif and l_max_r
-      call initialize_truncation
+      call initialize_truncation()
 
       !-- Coeffs at radial levels:
       if ( l_r_fieldT ) l_r_field=.true.
@@ -739,6 +782,9 @@ contains
       run_time_limit=runHours*3600+runMinutes*60+runSeconds
       l_runTimeLimit =.false.
       if ( runHours+runMinutes+runSeconds > 0 ) l_runTimeLimit= .true.
+
+      !-- time averaging of spectra
+      if ( l_average ) l_spec_avg= .true.
 
    end subroutine readNamelists
 !------------------------------------------------------------------------------
@@ -775,6 +821,7 @@ contains
       write(n_out,'(''  fd_ratio        ='',ES14.6,'','')') fd_ratio
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
       write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
+      write(n_out,'(''  l_var_l         ='',l3,'','')') l_var_l
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -795,13 +842,8 @@ contains
       write(n_out,*) " map_function    = """,map_function(1:length),""","
       write(n_out,'(''  alph1           ='',ES14.6,'','')') alph1
       write(n_out,'(''  alph2           ='',ES14.6,'','')') alph2
-      write(n_out,'(''  dtstart         ='',ES14.6,'','')') dtstart*tScale
       write(n_out,'(''  dtMax           ='',ES14.6,'','')') tScale*dtMax
-      write(n_out,'(''  courfac         ='',ES14.6,'','')') courfac
-      write(n_out,'(''  alffac          ='',ES14.6,'','')')  alffac
       write(n_out,'(''  l_cour_alf_damp ='',l3,'','')') l_cour_alf_damp
-      write(n_out,'(''  intfac          ='',ES14.6,'','')')  intfac
-      write(n_out,'(''  n_cour_step     ='',i5,'','')') n_cour_step
       write(n_out,'(''  difnu           ='',ES14.6,'','')') difnu
       write(n_out,'(''  difeta          ='',ES14.6,'','')') difeta
       write(n_out,'(''  difkap          ='',ES14.6,'','')') difkap
@@ -819,12 +861,12 @@ contains
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
       length=length_to_blank(radial_scheme)
       write(n_out,*) " radial_scheme   = """,radial_scheme(1:length),""","
+      length=length_to_blank(time_scheme)
+      write(n_out,*) " time_scheme     = """,time_scheme(1:length),""","
       length=length_to_blank(polo_flow_eq)
       write(n_out,*) " polo_flow_eq    = """,polo_flow_eq(1:length),""","
       length=length_to_blank(anelastic_flavour)
       write(n_out,*) "anelastic_flavour= """,anelastic_flavour(1:length),""","
-      length=length_to_blank(thermo_variable)
-      write(n_out,*) " thermo_variable = """,thermo_variable(1:length),""","
       length=length_to_blank(mpi_transp)
       write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
       write(n_out,*) "/"
@@ -838,8 +880,6 @@ contains
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
       write(n_out,'(''  po              ='',ES14.6,'','')') po
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
-      write(n_out,'(''  po_diff         ='',ES14.6,'','')') po_diff
-      write(n_out,'(''  diff_prec_angle ='',ES14.6,'','')') diff_prec_angle
       write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
@@ -1057,7 +1097,6 @@ contains
       write(n_out,'(''  l_cmb_field     ='',l3,'','')') l_cmb_field
       write(n_out,'(''  l_dt_cmb_field  ='',l3,'','')') l_dt_cmb_field
       write(n_out,'(''  l_save_out      ='',l3,'','')') l_save_out
-      write(n_out,'(''  l_true_time     ='',l3,'','')') l_true_time
       write(n_out,'(''  lVerbose        ='',l3,'','')') lVerbose
       write(n_out,'(''  l_rMagSpec      ='',l3,'','')') l_rMagSpec
       write(n_out,'(''  l_DTrMagSpec    ='',l3,'','')') l_DTrMagSpec
@@ -1092,6 +1131,7 @@ contains
       write(n_out,'(''  rDea            ='',ES14.6,'','')') rDea
       write(n_out,'(''  l_2D_spectra    ='',l3,'','')') l_2D_spectra
       write(n_out,'(''  l_2D_RMS        ='',l3,'','')') l_2D_RMS
+      write(n_out,'(''  l_spec_avg      ='',l3,'','')') l_spec_avg
       write(n_out,*) "/"
 
       write(n_out,*) "&mantle"
@@ -1164,6 +1204,7 @@ contains
       !   20 <= nalias <= 30
       nalias        =20
       l_axi         =.false.
+      l_var_l       =.false. ! l is a function of radius
 
       !-- Finite differences
       fd_order      =2
@@ -1179,18 +1220,16 @@ contains
       n_lScale      =0
       alpha         =half
       enscale       =one
-      dtstart       =0.0_cp
       dtMax         =1.0e-4_cp
-      courfac       =2.5_cp
+      courfac       =1.0e3_cp
       l_cour_alf_damp=.true. ! By default, use Christensen's (GJI, 1999) CFL
-      alffac        =one
-      intfac        =0.15_cp
-      n_cour_step   =10
+      alffac        =1.0e3_cp
+      intfac        =1.0e3_cp
       anelastic_flavour="None" ! Useless in Boussinesq
-      thermo_variable  ="None"
-      polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
-      radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
-      mpi_transp       ="AUTO" ! automatic detection of the MPI strategy
+      polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
+      radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
+      time_scheme   ="CNAB2"   
+      mpi_transp    ="AUTO" ! automatic detection of the MPI strategy
 
       cacheblock_size_in_B=4096
 
@@ -1232,8 +1271,6 @@ contains
       prmag      =5.0_cp
       po         =0.0_cp
       prec_angle =23.5_cp
-      po_diff    =0.0_cp
-      diff_prec_angle =23.5_cp
       epsc0      =0.0_cp
       epscxi0    =0.0_cp
       Bn         =1.0_cp
@@ -1355,9 +1392,9 @@ contains
 
       !----- Namelist output_control:
       l_save_out    =.false.  ! Save output
-      l_true_time   =.false.  ! Use exact requested output times
       lVerbose      =.false.  ! Tell me what you are doing
       l_average     =.false.  ! Average various quantities in time
+      l_spec_avg    =.false.  ! Average spectra in time
 
       !----- Restart files:
       n_rst_step    =0
@@ -1530,7 +1567,7 @@ contains
       nRotMa        =0         ! non rotating mantle is default
       rho_ratio_ma  =one       ! same density as outer core
       omega_ma1     =0.0_cp    ! prescribed rotation rate
-      omegaOsz_ma1  =0.0_cp    ! oszillation frequency of mantle rotation rate
+      omegaOsz_ma1  =0.0_cp    ! oscillation frequency of mantle rotation rate
       tShift_ma1    =0.0_cp    ! time shift
       omega_ma2     =0.0_cp    ! second mantle rotation rate
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
@@ -1545,10 +1582,10 @@ contains
       nRotIc        =0         ! non rotating inner core is default
       rho_ratio_ic  =one       ! same density as outer core
       omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
-      omegaOsz_ic1  =0.0_cp    ! oszillation frequency of IC rotation rate
+      omegaOsz_ic1  =0.0_cp    ! oscillation frequency of IC rotation rate
       tShift_ic1    =0.0_cp    ! time shift
       omega_ic2     =0.0_cp    ! second prescribed rotation rate
-      omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
+      omegaOsz_ic2  =0.0_cp    ! oscillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
       amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
@@ -1557,5 +1594,30 @@ contains
       RiSymmIc      =0         ! default symmetry -> eq antisymmetric
 
    end subroutine defaultNamelists
+!------------------------------------------------------------------------------
+   subroutine select_tscheme(scheme_name, tscheme)
+      !
+      ! This routine determines which family of time stepper should be initiated
+      ! depending on the name found in the input namelist.
+      !
+
+      class(type_tscheme), pointer :: tscheme
+      character(len=72), intent(inout) :: scheme_name ! Name of the time scheme
+
+      call capitalize(scheme_name)
+
+      if ( (index(scheme_name, 'ARS222') /= 0) .or. &
+      &    (index(scheme_name, 'ARS443') /= 0) .or. &
+      &    (index(scheme_name, 'BPR353') /= 0) .or. &
+      &    (index(scheme_name, 'PC2') /= 0)    .or. &
+      &    (index(scheme_name, 'LZ453') /= 0)  .or. &
+      &    (index(scheme_name, 'CK232') /= 0)  .or. &
+      &    (index(scheme_name, 'LZ232') /= 0) ) then
+         allocate ( type_dirk :: tscheme )
+      else
+         allocate ( type_multistep :: tscheme )
+      end if
+
+   end subroutine select_tscheme
 !------------------------------------------------------------------------------
 end module Namelists

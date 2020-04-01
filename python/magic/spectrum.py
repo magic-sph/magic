@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import os, re
+import os
+import re
+import copy
 import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
@@ -20,11 +22,11 @@ class MagicSpectrum(MagicSetup):
     >>> # where tag is the most recent file in the current directory
     >>> sp = MagicSpectrum(field='e_kin', ispec=1)
     >>> # display the content of mag_spec_ave.test on one single figure
-    >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True, gather=True)
+    >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True)
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
-                 ave=False, gather=False, normalize=False, tag=None):
+                 ave=False, normalize=False, tag=None):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -38,75 +40,408 @@ class MagicSpectrum(MagicSetup):
         :type tag: str
         :param ave: plot a time-averaged spectrum when set to True
         :type ave: bool
-        :param gather: gather the spectra on the same figure when set to True,
-                       display one figure per spectrum when set to False,
-                       (default is False)
-        :type gather: bool
         :param datadir: current working directory
         :type datadir: str
         """
-        self.gather = gather
         self.normalize = normalize
+        self.ave = ave
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR', 'kin'):
-            if ave:
+            if self.ave:
                 self.name = 'kin_spec_ave'
             else:
                 self.name = 'kin_spec_'
         elif field in ('u2', 'usquare', 'u_square', 'uSquare', 'U2'):
-            if ave:
+            if self.ave:
                 self.name = 'u2_spec_ave'
             else:
                 self.name = 'u2_spec_'
         elif field in ('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR', 'mag'):
-            if ave:
+            if self.ave:
                 self.name = 'mag_spec_ave'
             else:
                 self.name = 'mag_spec_'
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
+            self.ave = True
+
         elif field in ('T','temperature','S','entropy'):
             self.name = 'T_spec_'
 
-        if tag is not None:
-            if ispec is not None:
-                file = '%s%i.%s' % (self.name, ispec, tag)
-                filename = os.path.join(datadir, file)
-            else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+        if self.ave: # Time-averaged spectra
+
+            if tag is not None:
+                pattern = os.path.join(datadir, '%s.%s' % (self.name, tag))
                 files = scanDir(pattern)
-                if len(files) != 0:
+                # Either the log.tag directly exists and the setup is easy to
+                # obtain
+                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                    MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                        nml='log.%s' % tag)
+                # Or the tag is a bit more complicated and we need to find
+                # the corresponding log file
+                else:
+                    mask = re.compile(r'%s\/%s\.(.*)' % (datadir, self.name))
+                    if mask.match(files[-1]):
+                        ending = mask.search(files[-1]).groups(0)[0]
+                        pattern = os.path.join(datadir, 'log.%s' % ending)
+                        if os.path.exists(pattern):
+                            MagicSetup.__init__(self, datadir=datadir,
+                                                quiet=True, nml='log.%s' % ending)
+
+                # Sum the files that correspond to the tag
+                mask = re.compile(r'%s\.(.*)' % self.name)
+                for k, file in enumerate(files):
+                    print('reading %s' % file)
+
+                    tag = mask.search(file).groups(0)[0]
+                    nml = MagicSetup(nml='log.%s' % tag, datadir=datadir,
+                                     quiet=True)
+                    filename = file
+                    data = fast_read(filename)
+
+                    if k == 0:
+                        speclut = SpecLookUpTable(data, self.name, nml.start_time,
+                                                  nml.stop_time)
+                    else:
+                        speclut += SpecLookUpTable(data, self.name, nml.start_time,
+                                                    nml.stop_time)
+
+            else: # Tag is None: take the most recent one
+                pattern = os.path.join(datadir, '%s.*' % self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
+                print('reading %s' % filename)
+                # Determine the setup
+                mask = re.compile(r'%s\.(.*)' % self.name)
+                ending = mask.search(files[-1]).groups(0)[0]
+                if os.path.exists('log.%s' % ending):
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % ending)
+                    except AttributeError:
+                        self.start_time = None
+                        self.stop_time = None
+                        pass
+
+                data = fast_read(filename)
+                speclut = SpecLookUpTable(data, self.name, self.start_time,
+                                          self.stop_time)
+
+        else: # Snapshot spectra
+
+            if tag is not None:
+                if ispec is not None:
+                    file = '%s%i.%s' % (self.name, ispec, tag)
+                    filename = os.path.join(datadir, file)
+                else:
+                    pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                    files = scanDir(pattern)
+                    if len(files) != 0:
+                        filename = files[-1]
+                    else:
+                        print('No such tag... try again')
+                        return
+
+                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % tag)
+                    except AttributeError:
+                        self.start_time = None
+                        self.stop_time = None
+            else:
+                if ispec is not None:
+                    pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
+                    files = scanDir(pattern)
                     filename = files[-1]
                 else:
-                    print('No such tag... try again')
-                    return
+                    pattern = os.path.join(datadir, '%s*' % self.name)
+                    files = scanDir(pattern)
+                    filename = files[-1]
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
-        else:
-            if ispec is not None:
-                pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
-                files = scanDir(pattern)
-                filename = files[-1]
-            else:
-                pattern = os.path.join(datadir, '%s*' % self.name)
-                files = scanDir(pattern)
-                filename = files[-1]
-            # Determine the setup
-            mask = re.compile(r'.*\.(.*)')
-            ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                # Determine the setup
+                mask = re.compile(r'.*\.(.*)')
+                ending = mask.search(files[-1]).groups(0)[0]
+                if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % ending)
+                    except AttributeError:
+                        self.start_time = None
+                        self.stop_time = None
+                        pass
 
-        if not os.path.exists(filename):
-            print('No such file')
-            return
-
-        if ave is False and self.name != 'dtVrms_spec':
+            print('reading %s' % filename)
             data = fast_read(filename, skiplines=1)
-        else:
-            data = fast_read(filename)
+            speclut = SpecLookUpTable(data, self.name, self.start_time,
+                                      self.stop_time)
+
+        # Copy look-up table arguments into MagicSpectrum object
+        for attr in speclut.__dict__:
+            setattr(self, attr, speclut.__dict__[attr])
+
+        if iplot:
+            self.plot()
+
+    def plot(self):
+        """
+        Plotting function
+        """
+        if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if self.normalize:
+                y = self.ekin_poll+self.ekin_torl
+                ax.loglog(self.index, y/y.max(),)
+            else:
+                ax.loglog(self.index[1:], self.ekin_poll[1:], label='poloidal')
+                if self.ave:
+                    ax.fill_between(self.index[1:], self.ekin_poll[1:]-\
+                                    self.ekin_poll_SD[1:], self.ekin_poll[1:]+\
+                                    self.ekin_poll_SD[1:], alpha=0.2)
+                ax.loglog(self.index[1:], self.ekin_torl[1:], label='toroidal')
+                if self.ave:
+                    ax.fill_between(self.index[1:], self.ekin_torl[1:]-\
+                                    self.ekin_torl_SD[1:], self.ekin_torl[1:]+\
+                                    self.ekin_torl_SD[1:], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
+            else:
+                ax.set_xlabel('Degree l')
+            ax.set_ylabel('Kinetic energy')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if self.normalize:
+                y = self.ekin_polm[::self.minc]+self.ekin_torm[::self.minc]
+                ax.loglog(self.index[::self.minc]+1, y/y.max())
+            else:
+                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                          label='poloidal')
+                if self.ave:
+                    ax.fill_between(self.index[::self.minc]+1,
+                                    self.ekin_polm[::self.minc]-\
+                                    self.ekin_polm_SD[::self.minc],
+                                    self.ekin_polm[::self.minc]+\
+                                    self.ekin_polm_SD[::self.minc], alpha=0.2)
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
+                          label='toroidal')
+                if self.ave:
+                    ax.fill_between(self.index[::self.minc]+1,
+                                    self.ekin_torm[::self.minc]-\
+                                    self.ekin_torm_SD[::self.minc],
+                                    self.ekin_torm[::self.minc]+\
+                                    self.ekin_torm_SD[::self.minc], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$m$ + 1')
+            else:
+                ax.set_xlabel('m + 1')
+            ax.set_ylabel('Kinetic energy')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.ekin_poll[1:], label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.ekin_poll[1:]-\
+                                self.ekin_poll_SD[1:], self.ekin_poll[1:]+\
+                                self.ekin_poll_SD[1:], alpha=0.2)
+            ax.loglog(self.index[1:], self.ekin_torl[1:], label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.ekin_torl[1:]-\
+                                self.ekin_torl_SD[1:], self.ekin_torl[1:]+\
+                                self.ekin_torl_SD[1:], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
+                ax.set_ylabel(r'${\cal U}^2$')
+            else:
+                ax.set_xlabel('Degree l')
+                ax.set_ylabel('Velocity square')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                      label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.ekin_polm[::self.minc]-\
+                                self.ekin_polm_SD[::self.minc],
+                                self.ekin_polm[::self.minc]+\
+                                self.ekin_polm_SD[::self.minc], alpha=0.2)
+            ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
+                      label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.ekin_torm[::self.minc]-\
+                                self.ekin_torm_SD[::self.minc],
+                                self.ekin_torm[::self.minc]+\
+                                self.ekin_torm_SD[::self.minc], alpha=0.2)
+            if labTex:
+                ax.set_xlabel(r'$m + 1$')
+                ax.set_ylabel(r'${\cal U}^2$')
+            else:
+                ax.set_xlabel('m + 1')
+                ax.set_ylabel('Velocity square')
+            ax.set_xlim(1, self.index.max[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+        elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.emag_poll[1:], label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.emag_poll[1:]-\
+                                self.emag_poll_SD[1:], self.emag_poll[1:]+\
+                                self.emag_poll_SD[1:], alpha=0.2)
+            ax.loglog(self.index[1:], self.emag_torl[1:], label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.emag_torl[1:]-\
+                                self.emag_torl_SD[1:], self.emag_torl[1:]+\
+                                self.emag_torl_SD[1:], alpha=0.2)
+            ax.loglog(self.index[1:], self.emagcmb_l[1:], label='cmb')
+            if self.ave:
+                ax.fill_between(self.index[1:], self.emagcmb_l[1:]-\
+                                self.emagcmb_l_SD[1:], self.emagcmb_l[1:]+\
+                                self.emagcmb_l_SD[1:], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
+            else:
+                ax.set_xlabel('Degree l')
+            ax.set_ylabel('Magnetic Energy')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc],
+                      label='poloidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.emag_polm[::self.minc]-\
+                                self.emag_polm_SD[::self.minc],
+                                self.emag_polm[::self.minc]+\
+                                self.emag_polm_SD[::self.minc], alpha=0.2)
+            ax.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc],
+                      label='toroidal')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.emag_torm[::self.minc]-\
+                                self.emag_torm_SD[::self.minc],
+                                self.emag_torm[::self.minc]+\
+                                self.emag_torm_SD[::self.minc], alpha=0.2)
+            ax.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc],
+                      label='cmb')
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.emagcmb_m[::self.minc]-\
+                                self.emagcmb_m_SD[::self.minc],
+                                self.emagcmb_m[::self.minc]+\
+                                self.emagcmb_m_SD[::self.minc], alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$m$+1')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_ylabel('Magnetic energy')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+        elif self.name == 'dtVrms_spec':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.CorRms[1:], label='Coriolis')
+            ax.fill_between(self.index[1:], self.CorRms[1:]-self.CorRms_SD[1:,],
+                            self.CorRms[1:]+self.CorRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.PreRms[1:], label='Pressure')
+            ax.fill_between(self.index[1:], self.PreRms[1:]-self.PreRms_SD[1:,],
+                            self.PreRms[1:]+self.PreRms_SD[1:,], alpha=0.2)
+            if self.LFRms.max() > 1e-10:
+                ax.loglog(self.index[1:], self.LFRms[1:], label='Lorentz')
+                ax.fill_between(self.index[1:], self.LFRms[1:]-self.LFRms_SD[1:,],
+                                self.LFRms[1:]+self.LFRms_SD[1:,], alpha=0.2)
+            if self.BuoRms.max() > 1e-10:
+                ax.loglog(self.index[1:], self.BuoRms[1:], label='Buoyancy')
+                ax.fill_between(self.index[1:], self.BuoRms[1:]-self.BuoRms_SD[1:,],
+                                self.BuoRms[1:]+self.BuoRms_SD[1:,], alpha=0.2)
+            if self.ChemRms.max() > 1e-10:
+                ax.loglog(self.index[1:], self.ChemRms[1:], label='Chem. Buoyancy')
+                ax.fill_between(self.index[1:], self.ChemRms[1:]-self.ChemRms_SD[1:,],
+                                self.ChemRms[1:]+self.ChemRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.InerRms[1:], label='Inertia')
+            ax.fill_between(self.index[1:], self.InerRms[1:]-self.InerRms_SD[1:,],
+                            self.InerRms[1:]+self.InerRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.DifRms[1:], label='Viscosity')
+            ax.fill_between(self.index[1:], self.DifRms[1:]-self.DifRms_SD[1:,],
+                            self.DifRms[1:]+self.DifRms_SD[1:,], alpha=0.2)
+            ax.loglog(self.index[1:], self.geos[1:], label='Coriolis-Pressure')
+            ax.fill_between(self.index[1:], self.geos[1:]-self.geos_SD[1:,],
+                            self.geos[1:]+self.geos_SD[1:,], alpha=0.2)
+            #ax.loglog(self.index[1:], self.arcMag[1:], ls='--',
+            #          label='Coriolis-Pressure-Buoyancy-Lorentz')
+
+            if labTex:
+                ax.set_xlabel('$\ell$')
+            else:
+                ax.set_xlabel('l')
+            ax.set_ylabel('RMS forces')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='lower right', frameon=False, ncol=2)
+            fig.tight_layout()
+
+        elif self.name == 'T_spec_':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[1:], self.T_l[1:])
+            ax.loglog(self.index[1:], self.T_icb_l[1:])
+            if labTex:
+                ax.set_xlabel('$\ell$')
+            else:
+                ax.set_xlabel('l')
+            ax.set_xlim(1, self.index[-1])
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1,
+                      self.T_m[::self.minc],color='g')
+            if labTex:
+                ax.set_xlabel('Order $m+1$')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_xlim(1, self.index[-1]+1)
+            fig.tight_layout()
+
+class SpecLookUpTable:
+    """
+    The purpose of this class is to create a lookup table between the numpy
+    array that comes from the reading of the spec files and the corresponding
+    columns.
+    """
+
+    def __init__(self, data, name, tstart=None, tstop=None):
+        """
+        :param data: numpy array that contains the data
+        :type data: numpy.ndarray
+        :param name: name of the field (i.e. 'eKinR', 'eMagR', 'powerR', ...)
+        :type name: str
+        :param tstart: starting time that was used to compute the time average
+        :type tstart: float
+        :param tstop: stop time that was used to compute the time average
+        :type tstop: float
+        """
+
+        self.name = name
+        self.start_time = tstart
+        self.stop_time = tstop
 
         self.index = data[:, 0]
         if self.name == 'kin_spec_':
@@ -169,30 +504,11 @@ class MagicSpectrum(MagicSetup):
             self.AdvRms = data[:, 4]
             self.DifRms = data[:, 5]
             self.BuoRms = data[:, 6]
-            self.PreRms = data[:, 7]
-            self.geos = data[:, 8] # geostrophic balance
-            self.mageos = data[:, 9] # magnetostrophic balance
-            try:
-                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
-                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
-                self.corLor = data[:, 12] # Coriolis/Lorentz
-                self.preLor = data[:, 13] # Pressure/Lorentz
-                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
-                self.InerRms_SD = data[:, 15]
-                self.CorRms_SD = data[:, 16]
-                self.LFRms_SD = data[:, 17]
-                self.AdvRms_SD = data[:, 18]
-                self.DifRms_SD = data[:, 19]
-                self.BuoRms_SD = data[:, 20]
-                self.PreRms_SD = data[:, 21]
-                self.geos_SD = data[:, 22]
-                self.mageos_SD = data[:, 23]
-                self.arc_SD = data[:, 24]
-                self.arcMag_SD = data[:, 25]
-                self.corLor_SD = data[:, 26]
-                self.preLor_SD = data[:, 27]
-                self.cia_SD = data[:, 28]
-            except IndexError:
+
+            if data.shape[1] == 27:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
                 self.arcMag = data[:, 10] # Pressure/Coriolis/Lorentz/Buoyancy
                 self.corLor = data[:, 11] # Coriolis/Lorentz
                 self.preLor = data[:, 12] # Pressure/Lorentz
@@ -212,6 +528,60 @@ class MagicSpectrum(MagicSetup):
                 self.cia_SD = data[:, 26]
                 self.arc = np.zeros_like(self.cia)
                 self.arc_SD = np.zeros_like(self.cia)
+                self.ChemRms = np.zeros_like(self.cia)
+                self.ChemRms_SD = np.zeros_like(self.cia)
+            elif data.shape[1] == 29:
+                self.PreRms = data[:, 7]
+                self.geos = data[:, 8] # geostrophic balance
+                self.mageos = data[:, 9] # magnetostrophic balance
+                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 15]
+                self.CorRms_SD = data[:, 16]
+                self.LFRms_SD = data[:, 17]
+                self.AdvRms_SD = data[:, 18]
+                self.DifRms_SD = data[:, 19]
+                self.BuoRms_SD = data[:, 20]
+                self.PreRms_SD = data[:, 21]
+                self.geos_SD = data[:, 22]
+                self.mageos_SD = data[:, 23]
+                self.arc_SD = data[:, 24]
+                self.arcMag_SD = data[:, 25]
+                self.corLor_SD = data[:, 26]
+                self.preLor_SD = data[:, 27]
+                self.cia_SD = data[:, 28]
+                self.ChemRms = np.zeros_like(self.cia)
+                self.ChemRms_SD = np.zeros_like(self.cia)
+            else:
+                self.ChemRms = data[:,7]
+                self.PreRms = data[:, 8]
+                self.geos = data[:, 9] # geostrophic balance
+                self.mageos = data[:,10] # magnetostrophic balance
+                self.arc = data[:, 11] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 12] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 13] # Coriolis/Lorentz
+                self.preLor = data[:, 14] # Pressure/Lorentz
+                self.cia = data[:, 15] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 16]
+                self.CorRms_SD = data[:, 17]
+                self.LFRms_SD = data[:, 18]
+                self.AdvRms_SD = data[:, 19]
+                self.DifRms_SD = data[:, 20]
+                self.BuoRms_SD = data[:, 21]
+                self.ChemRms_SD = data[:, 22]
+                self.PreRms_SD = data[:, 23]
+                self.geos_SD = data[:, 24]
+                self.mageos_SD = data[:, 25]
+                self.arc_SD = data[:, 26]
+                self.arcMag_SD = data[:, 27]
+                self.corLor_SD = data[:, 28]
+                self.preLor_SD = data[:, 29]
+                self.cia_SD = data[:, 30]
+
+            self.index = self.index-1
         elif self.name == 'T_spec_':
             self.T_l = data[:,1]
             self.T_m = data[:,2]
@@ -219,258 +589,78 @@ class MagicSpectrum(MagicSetup):
             self.T_icb_m = data[:,4]
             self.dT_icb_l = data[:,5]
             self.dT_icb_m = data[:,6]
-        if iplot:
-            self.plot()
 
-    def plot(self):
+    def __add__(self, new):
         """
-        Plotting function
+        This is a python built-in method to stack two look-up tables.
         """
-        if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                          label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                else:
-                    ax.set_xlabel('m+1')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-            else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                if self.normalize:
-                    y = self.ekin_poll+self.ekin_torl
-                    ax.loglog(self.index, y/y.max(),)
-                else:
-                    ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                    ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
 
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                if self.normalize:
-                    y = self.ekin_polm[::self.minc]+self.ekin_torm[::self.minc]
-                    ax.loglog(self.index[::self.minc]+1, y/y.max())
-                else:
-                    ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                              label='poloidal')
-                    ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                              label='toroidal')
-                if labTex:
-                    ax.set_xlabel('$m$ + 1')
-                else:
-                    ax.set_xlabel('m + 1')
-                ax.set_ylabel('Kinetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('Degree l')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                          label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('m+1')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-            else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.ekin_poll, label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, label='toroidal')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('Degree l')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+        out = copy.deepcopy(new)
+        if self.start_time is not None:
+            fac_old = self.stop_time-self.start_time
+            out.start_time = self.start_time
+        else:
+            fac_old = 0.
+        if new.stop_time is not None:
+            fac_new = new.stop_time-new.start_time
+            out.stop_time = new.stop_time
+        else:
+            fac_new = 0.
+        if fac_old != 0 or fac_new != 0:
+            fac_tot = fac_new+fac_old
+        else:
+            fac_tot = 1.
 
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                          label='toroidal')
-                if labTex:
-                    ax.set_xlabel(r'$m + 1$')
-                    ax.set_ylabel(r'${\cal U}^2$')
-                else:
-                    ax.set_xlabel('m + 1')
-                    ax.set_ylabel('Velocity square')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-        elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.emag_poll, label='poloidal')
-                ax.loglog(self.index, self.emag_torl, label='toroidal')
-                ax.loglog(self.index, self.emagcmb_l, label='cmb')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Magnetic Energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+        idx_old_max = len(self.index)
+        idx_new_max = len(new.index)
 
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc], self.emag_polm[::self.minc],
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc], self.emag_torm[::self.minc],
-                          label='toroidal')
-                ax.loglog(self.index[::self.minc], self.emagcmb_m[::self.minc],
-                          label='cmb')
-                if labTex:
-                    ax.set_xlabel('Order $m$')
-                else:
-                    ax.set_xlabel('Order m')
-                ax.set_ylabel('Magnetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-            else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.emag_poll/self.emag_poll.max(),
-                          label='poloidal')
-                ax.loglog(self.index, self.emag_torl/self.emag_torl.max(),
-                          label='toroidal')
-                ax.loglog(self.index, self.emagcmb_l/self.emagcmb_l.max(),
-                          label='cmb')
-                if labTex:
-                    ax.set_xlabel('Degree $\ell$')
-                else:
-                    ax.set_xlabel('Degree l')
-                ax.set_ylabel('Magnetic Energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
+        if idx_old_max == idx_new_max:
+            for attr in new.__dict__.keys():
+                if attr not in ['index', 'name', 'start_time', 'stop_time']:
+                    # Only stack if both new and old have the attribute available
+                    if attr in self.__dict__:
+                        # Standard deviation
+                        if attr.endswith('SD'):
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr] = np.sqrt(( \
+                                                  fac_new*new.__dict__[attr]**2 + \
+                                                  fac_old*self.__dict__[attr]**2) / \
+                                                  fac_tot)
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+                        # Regular field
+                        else:
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr] = (fac_new*new.__dict__[attr] + \
+                                                      fac_old*self.__dict__[attr]) / \
+                                                      fac_tot
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+        else: # Different truncations
+            idx_min = min(idx_old_max, idx_new_max)
+            for attr in new.__dict__.keys():
+                if attr not in ['index', 'name', 'start_time', 'stop_time']:
+                    # Only stack if both new and old have the attribute available
+                    if attr in self.__dict__:
+                        # Standard deviation
+                        if attr.endswith('SD'):
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr][:idx_min] = \
+                                   np.sqrt((fac_new*new.__dict__[attr][:idx_min]**2+\
+                                            fac_old*self.__dict__[attr][:idx_min]**2)\
+                                            /fac_tot)
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
+                        # Regular field
+                        else:
+                            if abs(self.__dict__[attr]).max() > 0.:
+                                out.__dict__[attr][:idx_min] = \
+                                   (fac_new*new.__dict__[attr][:idx_min] + \
+                                    fac_old*self.__dict__[attr][:idx_min]) / fac_tot
+                            else:
+                                out.__dict__[attr] = new.__dict__[attr]
 
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.emag_polm[::self.minc]/self.emag_polm.max(),
-                          label='poloidal')
-                ax.loglog(self.index[::self.minc]+1,
-                          self.emag_torm[::self.minc]/self.emag_torm.max(),
-                          label='toroidal')
-                ax.loglog(self.index[::self.minc]+1,
-                          self.emagcmb_m[::self.minc]/self.emagcmb_m.max(),
-                          label='cmb')
-                if labTex:
-                    ax.set_xlabel('$m$+1')
-                else:
-                    ax.set_xlabel('m+1')
-                ax.set_ylabel('Magnetic energy')
-                ax.set_xlim(self.index.min(), self.index.max())
-                ax.legend(loc='upper right', frameon=False)
-
-        elif self.name == 'dtVrms_spec':
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.loglog(self.index, self.CorRms, label='Coriolis')
-            ax.loglog(self.index, self.PreRms, label='Pressure')
-            if self.LFRms.max() > 1e-11:
-                ax.loglog(self.index, self.LFRms, label='Lorentz')
-            ax.loglog(self.index, self.BuoRms, label='Buoyancy')
-            ax.loglog(self.index, self.InerRms, label='Inertia')
-            ax.loglog(self.index, self.DifRms, label='Viscosity')
-            ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
-            ax.loglog(self.index, self.arcMag, ls='--',
-                      label='Coriolis-Pressure-Buoyancy-Lorentz')
-
-            if labTex:
-                ax.set_xlabel('$\ell+1$')
-            else:
-                ax.set_xlabel('l+1')
-            ax.set_ylabel('RMS forces')
-            ax.set_xlim(self.index.min(), self.index.max())
-            ax.legend(loc='lower right', frameon=False, ncol=2)
-
-        elif self.name == 'T_spec_':
-            if self.gather:
-                fig = plt.figure()
-                ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.T_l/self.T_l.max(),)
-                ax.loglog(self.index, self.T_icb_l/self.T_icb_l.max(),label='ICB')
-                if labTex:
-                    ax.set_xlabel('$\ell$')
-                else:
-                    ax.set_xlabel('l')
-                ax.set_ylabel('degree')
-                ax.legend()
-
-                ax = fig.add_subplot(212)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.T_m[::self.minc]/self.T_m[::self.minc].max(),)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.T_icb_m[::self.minc]/self.T_icb_m[::self.minc].max(),
-                          label='ICB')
-
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                else:
-                    ax.set_xlabel('m+1')
-                ax.set_ylabel('order')
-                ax.legend()
-                fig.tight_layout()
-            else:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.T_l, color='g')
-                if labTex:
-                    ax.set_xlabel('$\ell$')
-                else:
-                    ax.set_xlabel('l')
-
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1,
-                          self.T_m[::self.minc],color='g')
-                if labTex:
-                    ax.set_xlabel('Order $m+1$')
-                else:
-                    ax.set_xlabel('m+1')
+        return out
 
 
 class MagicSpectrum2D(MagicSetup):
@@ -569,80 +759,118 @@ class MagicSpectrum2D(MagicSetup):
             print('No such file')
             return
 
-        file = npfile(filename, endian='B')
+        f = npfile(filename, endian='B')
 
         if self.name == '2D_dtVrms_spec':
-            self.n_r_max, self.l_max = file.fort_read('2i4')[0]
-            self.rad = file.fort_read(precision, shape=(self.n_r_max))
-            self.Cor_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Adv_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.LF_r_l  = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Buo_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Pre_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Dif_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Iner_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                           self.l_max+1))
-            self.Geo_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Mag_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.Arc_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.ArcMag_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                             self.l_max+1))
-            self.CIA_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.CLF_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
-            self.PLF_r_l = file.fort_read(precision, shape=(self.n_r_max, \
-                                          self.l_max+1))
+            l_one = f.fort_read('i4')
+            if len(l_one) == 1:
+                self.version = l_one[0]
+                self.n_r_max, self.l_max = f.fort_read('i4')
+                self.rad = f.fort_read(precision, shape=(self.n_r_max))
+                self.Cor_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Adv_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.LF_r_l  = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Buo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Chem_r_l = f.fort_read(precision,
+                                            shape=(self.n_r_max, self.l_max+1))
+                self.Pre_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Dif_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Iner_r_l = f.fort_read(precision,
+                                            shape=(self.n_r_max, self.l_max+1))
+                self.Geo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Mag_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Arc_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.ArcMag_r_l = f.fort_read(precision,
+                                              shape=(self.n_r_max, self.l_max+1))
+                self.CIA_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.CLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.PLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+            else:
+                self.n_r_max, self.l_max = l_one
+                self.rad = f.fort_read(precision, shape=(self.n_r_max))
+                self.Cor_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Adv_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.LF_r_l  = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Buo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Chem_r_l = np.zeros_like(self.Buo_r_l)
+                self.Pre_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Dif_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Iner_r_l = f.fort_read(precision,
+                                            shape=(self.n_r_max, self.l_max+1))
+                self.Geo_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Mag_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.Arc_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.ArcMag_r_l = f.fort_read(precision,
+                                              shape=(self.n_r_max, self.l_max+1))
+                self.CIA_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.CLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+                self.PLF_r_l = f.fort_read(precision,
+                                           shape=(self.n_r_max, self.l_max+1))
+
         else:
             if self.version == 'snap':
                 if precision == np.float64:
-                    out = file.fort_read('f8,3i4')[0]
+                    out = f.fort_read('f8,3i4')[0]
                 else:
-                    out = file.fort_read('f4,3i4')[0]
+                    out = f.fort_read('f4,3i4')[0]
                 self.time = out[0]
                 self.n_r_max, self.l_max, self.minc = out[1]
             elif self.version == 'ave':
-                self.n_r_max, self.l_max, self.minc = file.fort_read('3i4')[0]
+                self.n_r_max, self.l_max, self.minc = f.fort_read('3i4')[0]
                 self.time = -1.
-            self.rad = file.fort_read(precision, shape=(self.n_r_max))
-            self.e_pol_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
-            self.e_pol_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
-            self.e_tor_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
-            self.e_tor_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+            self.rad = f.fort_read(precision, shape=(self.n_r_max))
+            self.e_pol_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
+            self.e_pol_m = f.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+            self.e_tor_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
+            self.e_tor_m = f.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
 
         self.ell = np.arange(self.l_max+1)
-        file.close()
+        f.close()
 
         if iplot:
             self.plot(levels, cm)
 
-
-    def plot(self, levels, cm):
+    def plot(self, levels, cm, cut=1.):
         """
         Plotting function
 
         :param levels: number of contour levels
         :type levels: int
         :param cm: name of the colormap
-        :type cm: str
+        :param cut: adjust the contour maximum to max(abs(data))*cut
+        :type cut: float
         """
         if self.name == '2D_dtVrms_spec':
-            vmax = np.log10(self.Geo_r_l).max()
+            vmax = np.log10(cut*self.Geo_r_l).max()
             vmin = vmax-4
             levs = np.linspace(vmin, vmax, levels)
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
             im = ax0.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Geo_r_l[:,1:].transpose()), 
+                              np.log10(self.Geo_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax0.set_ylabel('Degree $\ell$')
@@ -656,9 +884,9 @@ class MagicSpectrum2D(MagicSetup):
             fig0.colorbar(im)
 
             fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
+            ax1 = fig1.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax1.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Buo_r_l[:,1:].transpose()), 
+                              np.log10((self.Buo_r_l[:, 1:]+self.Chem_r_l[:, 1:]).T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax1.set_ylabel('Degree $\ell$')
@@ -673,9 +901,9 @@ class MagicSpectrum2D(MagicSetup):
 
             if abs(self.LF_r_l).max() > 0:
                 fig2 = plt.figure()
-                ax2 = fig2.add_subplot(111)
+                ax2 = fig2.add_subplot(111,sharex=ax0, sharey=ax0)
                 im = ax2.contourf(self.rad, self.ell[1:],
-                                  np.log10(self.LF_r_l[:,1:].transpose()), 
+                                  np.log10(self.LF_r_l[:, 1:].T),
                                   levs, cmap=plt.get_cmap(cm), extend='both')
                 if labTex:
                     ax2.set_ylabel('Degree $\ell$')
@@ -689,9 +917,9 @@ class MagicSpectrum2D(MagicSetup):
                 fig2.colorbar(im)
 
             fig3 = plt.figure()
-            ax3 = fig3.add_subplot(111)
+            ax3 = fig3.add_subplot(111, sharex=ax0, sharey=ax0)
             im = ax3.contourf(self.rad, self.ell[1:],
-                              np.log10(self.Iner_r_l[:,1:].transpose()), 
+                              np.log10(self.Iner_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax3.set_ylabel('Degree $\ell$')
@@ -705,9 +933,9 @@ class MagicSpectrum2D(MagicSetup):
             fig3.colorbar(im)
 
             fig4 = plt.figure()
-            ax4 = fig4.add_subplot(111)
-            im = ax4.contourf(self.rad, self.ell[1:], 
-                              np.log10(self.Dif_r_l[:,1:].transpose()), 
+            ax4 = fig4.add_subplot(111, sharex=ax0, sharey=ax0)
+            im = ax4.contourf(self.rad, self.ell[1:],
+                              np.log10(self.Dif_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
                 ax4.set_ylabel('Degree $\ell$')
@@ -722,7 +950,7 @@ class MagicSpectrum2D(MagicSetup):
         else:
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
-            vmax = np.log10(self.e_pol_l).max()
+            vmax = np.log10(cut*self.e_pol_l).max()
             vmin = vmax-7
             levs = np.linspace(vmin, vmax, levels)
             im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),

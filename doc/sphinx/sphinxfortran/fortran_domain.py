@@ -1264,12 +1264,12 @@ class FortranDomain(Domain):
         matches = self.find_obj(env, modname, target, type, searchorder)
         if not matches:
             return None
-        elif len(matches) > 1:
-            env.warn(fromdocname,
-                     'more than one target found for cross-reference '
-                     '%r: %s' % (target,
-                                 ', '.join(match[0] for match in matches)),
-                     node.line)
+        #elif len(matches) > 1:
+            #self.env.warn(fromdocname,
+            #              'more than one target found for cross-reference '
+            #              '%r: %s' % (target,
+            #                          ', '.join(match[0] for match in matches)),
+            #        node.line)
         name, obj = matches[0]
 
         if obj[1] == 'module':

@@ -1,19 +1,18 @@
 &grid
  n_r_max     =65,
  n_cheb_max  =63,
- n_phi_tot   =96,
+ n_phi_tot   =288,
  n_r_ic_max  =17,
 n_cheb_ic_max=15,
  minc        =1,
 /
 &control
  mode        =1,
- tag         ="test96",
+ tag         ="test288",
  n_time_steps=2,
  courfac     =2.5D0,
  alffac      =1.0D0,
  dtmax       =1.0D-4,
- n_cour_step =5,
  alpha       =0.6D0,
  runHours    =48,
  runMinutes  =00,

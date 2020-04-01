@@ -90,6 +90,7 @@ program magic
    use precision_mod
    use physical_parameters
    use iso_fortran_env, only: output_unit
+   use courant_mod, only: initialize_courant, finalize_courant
    use radial_der, only: initialize_der_arrays, finalize_der_arrays
    use radial_functions, only: initialize_radial_functions, &
        &                       finalize_radial_functions
@@ -122,7 +123,7 @@ program magic
    use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
    use parallel_mod
    use Namelists
-   use step_time_mod, only: initialize_step_time, step_time, finalize_step_time
+   use step_time_mod, only: initialize_step_time, step_time
    use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
@@ -132,6 +133,8 @@ program magic
    use mem_alloc
    use useful, only: abortRun
    use probe_mod, only: initialize_probes, finalize_probes
+   use time_schemes, only: type_tscheme
+
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -151,11 +154,11 @@ program magic
    integer :: values(8)
    character(len=72) :: date
    real(cp) :: time
-   real(cp) :: dt
-   real(cp) :: dtNew
+   class(type_tscheme), pointer :: tscheme
    type(timer_type) :: run_time, run_time_start
 
    integer :: n_stop_signal=0     ! signal returned from step_time
+
 
    ! MPI specific variables
 #ifdef WITHOMP
@@ -178,7 +181,7 @@ program magic
       call abortRun(message)
    end if
 #else
-   call mpi_init(ierr)
+   call MPI_Init(ierr)
 #endif
 #endif
 
@@ -186,7 +189,7 @@ program magic
    PERFON('main')
    LIKWID_INIT
    !LIKWID_ON('main')
-   call parallel
+   call parallel()
 
    call run_time%initialize()
    call run_time%start_count()
@@ -195,33 +198,43 @@ program magic
 
    !--- Read starting time
    if ( rank == 0 ) then
-      write(*,*)
-      write(*,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
+      write(output_unit,*)
+      write(output_unit,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
       call date_and_time(values=values)
+#if defined(GIT_VERSION)
+      write(output_unit, '(A,A)') ' !  Git version:  ', GIT_VERSION
+#else
+      write(output_unit, '(A)') ' !  Git version: unknown'
+#endif
+#if defined(BUILD_DATE)
+      write(output_unit, '(A,A)') ' !  Build date:  ', BUILD_DATE
+#else
+      write(output_unit, '(A)') ' !  Build date: unknown'
+#endif
       write(date, '(i4,''/'',i0.2,''/'',i0.2,'' '', i0.2,'':'',i0.2,'':'',i0.2)') &
       &     values(1), values(2), values(3), values(5), values(6), values(7)
-      write(output_unit, *) '!  Start time:  ', date
+      write(output_unit, '(A,A)') ' !  Start date:  ', date
    end if
 
    !--- Read input parameters:
-   call readNamelists  ! includes sent to other procs !
+   call readNamelists(tscheme)  ! includes sent to other procs !
 
-   call initialize_output
+   call initialize_output()
 
    !--- Check parameters and write info to SDTOUT
-   call checkTruncation
+   call checkTruncation()
 
    log_file='log.'//tag
 
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____  ___       '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____|/ _ \      '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__ | (_) |     '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \ > _ <      '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | (_) |     '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)___/      '
+      write(n_log_file,*) '!      __  __             _____ _____   _____ ___        '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/ _ \       '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| (_) |      '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\__, |      '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | / /       '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_/        '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -243,67 +256,86 @@ program magic
       write(n_log_file,*) '!                                                        '
       write(n_log_file,*) '!                                                        '
 
+#if defined(GIT_VERSION)
+      write(n_log_file, '(A,A)') ' ! Git version:  ', GIT_VERSION
+#else
+      write(n_log_file, '(A)') ' ! Git version: unknown'
+#endif
+#if defined(BUILD_DATE)
+      write(n_log_file, '(A,A)') ' ! Build date:  ', BUILD_DATE
+#else
+      write(n_log_file, '(A)') ' ! Build date: unknown'
+#endif
+      write(n_log_file, '(A,A)') ' ! Start date:  ', date
+
       if ( l_save_out ) close(n_log_file)
    end if
 
-   call initialize_memory_counter
+   call initialize_memory_counter()
 
    !-- Blocking/radial/horizontal
-   call initialize_blocking
+   call initialize_blocking()
    local_bytes_used=bytes_allocated
-   call initialize_radial_data
-   call initialize_radial_functions
-   call initialize_horizontal_data
+   call initialize_radial_data(n_r_max)
+   call initialize_radial_functions()
+   call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
 
-   !-- Radial/LM Loop
-   call initialize_radialLoop
-   !call initialize_rIterThetaBlocking
-   call initialize_LMLoop
+   !-- Initialize time scheme
+   call tscheme%initialize(time_scheme, courfac, intfac, alffac)
 
-   call initialize_num_param
-   call initialize_init_fields
-   call initialize_Grenoble
+   !-- Radial/LM Loop
+   call initialize_radialLoop()
+   call initialize_LMLoop()
+
+   call initialize_num_param()
+   call initialize_init_fields()
+   call initialize_Grenoble()
 
    local_bytes_used=bytes_allocated
-   call initialize_fields
-   call initialize_fieldsLast
+   call initialize_fields()
+   call initialize_fieldsLast(tscheme%nold, tscheme%nexp, tscheme%nimp)
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('fields/fieldsLast', local_bytes_used)
 
-   call initialize_step_time
-   call initialize_communications
+   call initialize_step_time()
+   call initialize_communications()
 
    call initialize_der_arrays(n_r_max,llm,ulm)
 
    !-- Array allocation for I/O
    local_bytes_used=bytes_allocated
-   call initialize_kinetic_energy
-   if ( l_mag ) call initialize_magnetic_energy
-   call initialize_spectra
-   call initialize_outPar_mod
-   call initialize_outMisc_mod
-   call initialize_outRot
-   if ( l_power ) call initialize_output_power
-   call initialize_coeffs
-   call initialize_fields_average_mod
-   if ( l_TO ) call initialize_TO
+   call initialize_kinetic_energy()
+   if ( l_mag ) call initialize_magnetic_energy()
+   call initialize_spectra()
+   call initialize_outPar_mod()
+   call initialize_outMisc_mod()
+   call initialize_outRot()
+   if ( l_power ) call initialize_output_power()
+   call initialize_coeffs()
+   call initialize_fields_average_mod()
+   if ( l_TO ) call initialize_TO()
+
+
 
 #ifdef WITH_SHTNS
    call init_shtns()
 #endif
 
+   if ( rank == 0 ) then
+      call tscheme%print_info(n_log_file)
+   end if
 
    !--- Do pre-calculations:
-   call preCalc
+   call preCalc(tscheme)
 
    if ( l_par .or. l_PV ) call initialize_geos_mod(l_par,l_PV) ! Needs to be called after preCalc, r_icb needed
-   if ( l_TO ) call initialize_outTO_mod ! Needs to be called after preCalc, r_icb needed
-   if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
-   if ( ldtBmem == 1 ) call initialize_dtB_mod ! Needs to be called after movie to make sure l_dtBmovie has been set
-   if (l_probe) call initialize_probes       !Needs to be called after preCalc to get correct coordinate values
-   if ( l_RMS ) call initialize_RMS
+   if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
+   if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
+   if ( ldtBmem == 1 ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
+   if (l_probe) call initialize_probes()       !Needs to be called after preCalc to get correct coordinate values
+   if ( l_RMS ) call initialize_RMS()
    local_bytes_used=bytes_allocated-local_bytes_used
 
    !local_bytes_used=bytes_allocated-local_bytes_used
@@ -325,7 +357,10 @@ program magic
    end if
 
    !--- Now read start-file or initialize fields:
-   call getStartFields(time,dt,dtNew,n_time_step)
+   call getStartFields(time, tscheme, n_time_step)
+
+   !-- Open time step file
+   call initialize_courant(time, tscheme%dt(1), tag)
 
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
@@ -355,8 +390,7 @@ program magic
          write(nO,'(/,'' ! STARTING TIME INTEGRATION AT:'')')
          write(nO,'(''   start_time ='',1p,ES18.10)') tScale*time
          write(nO,'(''   step no    ='',i10)') n_time_step
-         write(nO,'(''   start dt   ='',1p,ES16.4)') dt
-         write(nO,'(''   start dtNew='',1p,ES16.4)') dtNew
+         write(nO,'(''   start dt   ='',1p,ES16.4)') tscheme%dt(1)
       end do
       if ( l_save_out ) close(n_log_file)
    end if
@@ -367,7 +401,7 @@ program magic
    call run_time_start%stop_count()
 
    !--- Call time-integration routine:
-   call step_time(time,dt,dtNew,n_time_step,run_time_start)
+   call step_time(time, tscheme, n_time_step, run_time_start)
 
    !-- Stop counting time and print
    call run_time%stop_count()
@@ -421,36 +455,38 @@ program magic
    if ( l_TO ) call finalize_TO
    if ( l_par .or. l_PV ) call finalize_geos_mod(l_par, l_PV)
    if ( ldtBmem == 1 ) call finalize_dtB_mod
-   call finalize_fields_average_mod
-   call finalize_coeffs
-   if ( l_power ) call finalize_output_power
-   call finalize_outRot
-   call finalize_outMisc_mod
-   call finalize_outPar_mod
-   call finalize_spectra
-   if ( l_mag ) call finalize_magnetic_energy
-   call finalize_kinetic_energy
-   if ( l_probe ) call finalize_probes
+   call finalize_fields_average_mod()
+   call finalize_coeffs()
+   if ( l_power ) call finalize_output_power()
+   call finalize_outRot()
+   call finalize_outMisc_mod()
+   call finalize_outPar_mod()
+   call finalize_spectra()
+   if ( l_mag ) call finalize_magnetic_energy()
+   call finalize_kinetic_energy()
+   if ( l_probe ) call finalize_probes()
 
-   call finalize_communications
-   call finalize_step_time
-   call finalize_fieldsLast
-   call finalize_fields
+   call finalize_courant()
 
-   call finalize_Grenoble
-   call finalize_init_fields
-   call finalize_num_param
-   call finalize_LMLoop
-   call finalize_radialLoop
+   call finalize_communications()
+   call finalize_fieldsLast()
+   call finalize_fields()
 
-   call finalize_der_arrays
+   call finalize_Grenoble()
+   call finalize_init_fields()
+   call finalize_num_param()
+   call finalize_LMLoop()
+   call finalize_radialLoop()
 
-   call finalize_horizontal_data
-   call finalize_radial_functions
-   call finalize_blocking
-   call finalize_radial_data
+   call finalize_der_arrays()
 
-   call finalize_output
+   call finalize_horizontal_data()
+   call finalize_radial_functions()
+   call finalize_blocking()
+   call finalize_radial_data()
+
+   call tscheme%finalize()
+   call finalize_output()
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
 
@@ -460,6 +496,7 @@ program magic
    LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI
-   call mpi_finalize(ierr)
+   call MPI_Finalize(ierr)
 #endif
+
 end program magic

@@ -3,7 +3,6 @@ module output_mod
 
    use precision_mod
    use parallel_mod
-   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max
    use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb,  &
@@ -19,7 +18,7 @@ module output_mod
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
-       &            l_chemical_conv, l_movie
+       &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -27,10 +26,10 @@ module output_mod
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
        &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-       &             aj_Rloc
-   use fieldsLast, only: dwdtLast_LMloc, dzdtLast_lo, dpdtLast_LMloc,     &
-       &                 dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc,  &
-       &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast_LMloc
+       &             aj_Rloc, bICB
+   use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
+       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,   &
+       &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -61,24 +60,25 @@ module output_mod
    use RMS, only: zeroRms, dtVrms, dtBrms
    use useful, only:  logWrite
    use radial_spectra  ! rBrSpec, rBpSpec
+   use time_schemes, only: type_tscheme
    use storeCheckPoints
 
    implicit none
- 
+
    private
- 
+
    integer :: nPotSets
    !-- Counter for output files/sets:
    integer :: n_dt_cmb_sets, n_cmb_setsMov
    integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
    integer :: n_spec,nPVsets
- 
+
    integer :: nTOsets,nTOmovSets,nTOrmsSets
- 
+
    !--- For averaging:
    real(cp) :: timePassedLog, timeNormLog
-   integer :: nLogs  
- 
+   integer :: nLogs
+
    real(cp), save :: dlBMean,dmBMean
    real(cp), save :: lvDissMean,lbDissMean
    real(cp), save :: RmMean,ElMean,ElCmbMean,RolMean
@@ -86,7 +86,7 @@ module output_mod
    real(cp), save :: RelA,RelZ,RelM,RelNA
    real(cp), save :: DipMean,DipCMBMean
    real(cp), save :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
- 
+
    real(cp) :: eTot,eTotOld,dtEint
    real(cp) :: e_kin_pMean, e_kin_tMean
    real(cp) :: e_mag_pMean, e_mag_tMean
@@ -105,7 +105,6 @@ module output_mod
    character(len=72), allocatable :: v_r_file(:)
    character(len=72), allocatable :: t_r_file(:)
    character(len=72), allocatable :: b_r_file(:)
-   complex(cp), allocatable :: bICB(:)
 
    public :: output, initialize_output, finalize_output
 
@@ -116,24 +115,15 @@ contains
       integer :: n
       character(len=72) :: string
 
-      if ( l_mag ) then
-         if ( rank == 0 ) then 
-            allocate( bICB(lm_max) )
-            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate( bICB(1) )
-         end if
-      end if
-
       if ( l_r_field .or. l_r_fieldT ) then
          allocate ( n_coeff_r(n_coeff_r_max))
          allocate ( n_v_r_file(n_coeff_r_max), v_r_file(n_coeff_r_max) )
-         allocate ( n_v_r_sets(n_coeff_r_max) ) 
+         allocate ( n_v_r_sets(n_coeff_r_max) )
          n_v_r_sets=0
 
          if ( l_mag ) then
             allocate ( n_b_r_file(n_coeff_r_max), b_r_file(n_coeff_r_max) )
-            allocate ( n_b_r_sets(n_coeff_r_max) ) 
+            allocate ( n_b_r_sets(n_coeff_r_max) )
             n_b_r_sets=0
          end if
 
@@ -147,7 +137,7 @@ contains
 
          if ( l_r_fieldT ) then
             allocate ( n_t_r_file(n_coeff_r_max), t_r_file(n_coeff_r_max) )
-            allocate ( n_t_r_sets(n_coeff_r_max) ) 
+            allocate ( n_t_r_sets(n_coeff_r_max) )
             n_T_r_sets=0
 
             do n=1,n_coeff_r_max
@@ -177,7 +167,7 @@ contains
       n_e_sets     =0
       nLogs        =0
       nRMS_sets    =0
-      
+
       timeNormLog  =0.0_cp
       timePassedLog=0.0_cp
       RmMean       =0.0_cp
@@ -271,8 +261,6 @@ contains
 
       integer :: n
 
-      if ( l_mag ) deallocate( bICB )
-
       if ( rank == 0 .and. ( .not. l_save_out ) ) then
          if ( l_mag .and. l_cmb_field ) then
             close(n_cmb_file)
@@ -313,7 +301,7 @@ contains
 
    end subroutine finalize_output
 !----------------------------------------------------------------------------
-   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,l_pot,l_log,   &
+   subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
@@ -322,33 +310,34 @@ contains
               &      duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
               &      fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
       !
-      !  This subroutine controls most of the output.                     
+      !  This subroutine controls most of the output.
       !
-  
+
       !--- Input of variables
-      real(cp),    intent(in) :: time,dt,dtNew
-      integer,     intent(in) :: n_time_step
-      logical,     intent(in) :: l_stop_time
-      logical,     intent(in) :: l_pot
-      logical,     intent(in) :: l_log, l_graph, lRmsCalc, l_store
-      logical,     intent(in) :: l_new_rst_file, l_spectrum
-      logical,     intent(in) :: lTOCalc,lTOframe
-      logical,     intent(in) :: l_frame, l_cmb, l_r
-      logical,     intent(inout) :: lTOZwrite
-      integer,     intent(inout) :: n_frame
-      integer,     intent(inout) :: n_cmb_sets
-  
+      real(cp),            intent(in) :: time
+      class(type_tscheme), intent(in) :: tscheme
+      integer,             intent(in) :: n_time_step
+      logical,             intent(in) :: l_stop_time
+      logical,             intent(in) :: l_pot
+      logical,             intent(in) :: l_log, l_graph, lRmsCalc, l_store
+      logical,             intent(in) :: l_new_rst_file, l_spectrum
+      logical,             intent(in) :: lTOCalc,lTOframe
+      logical,             intent(in) :: l_frame, l_cmb, l_r
+      logical,             intent(inout) :: lTOZwrite
+      integer,             intent(inout) :: n_frame
+      integer,             intent(inout) :: n_cmb_sets
+
       !--- Input of Lorentz torques and dbdt calculated in radialLoopG
-      !    Parallelization note: Only the contribution at the CMB must be 
-      !    collected and is (likely) stored on the processor (#0) that performs 
+      !    Parallelization note: Only the contribution at the CMB must be
+      !    collected and is (likely) stored on the processor (#0) that performs
       !    this routine anyway.
-      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
-  
+      real(cp),            intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+
       !--- Input of scales fields via common block in fields.f90:
       !    Parallelization note: these fields are LM-distributed.
       !    The input fields HelLMr,Hel2LMr,TstrRLM,TadvRLM, and TomeRLM
-      !    are R-distributed. More R-distributed fields are hidden 
-      !    in TO.f90, RMS.f90, and dtB.f90. 
+      !    are R-distributed. More R-distributed fields are hidden
+      !    in TO.f90, RMS.f90, and dtB.f90.
       !    input fields are R-distributed. This has to be taken into
       !    account when collecting the information from the different
       !    processors!
@@ -356,15 +345,15 @@ contains
       !    the processor performing this routine:
       !          w,dw,ddw,z,dz,s,p,b,db,aj,dj,ddj,
       !          b_ic,db_ic,ddb_ic,aj_ic,dj_ic,omega_ic,omega_ma
-      !    omega_ic and omega_ma are likely located on processor #0 
+      !    omega_ic and omega_ma are likely located on processor #0
       !    which deals with (l=1,m=0) in s_updateZ.f
       !    Note that many of these only have to be collected when
-      !    certain output is required. This is controlled by the 
+      !    certain output is required. This is controlled by the
       !    input logicals.
-  
+
       !--- Input help arrays for magnetic field stretching and advection and
       !    for calculating axisymmetric helicity.
-      !    Parallelization note: These fields are R-distribute on input 
+      !    Parallelization note: These fields are R-distribute on input
       !    and must also be collected on the processor performing this routine.
       real(cp),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
@@ -385,35 +374,34 @@ contains
       real(cp),    intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
 
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
-  
+
       !--- Local stuff:
       !--- Energies:
       real(cp) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(cp) :: e_mag,e_mag_ic,e_mag_cmb       
-      real(cp) :: e_mag_p,e_mag_t      
-      real(cp) :: e_mag_p_as,e_mag_t_as   
-      real(cp) :: e_mag_p_ic,e_mag_t_ic   
+      real(cp) :: e_mag,e_mag_ic,e_mag_cmb
+      real(cp) :: e_mag_p,e_mag_t
+      real(cp) :: e_mag_p_as,e_mag_t_as
+      real(cp) :: e_mag_p_ic,e_mag_t_ic
       real(cp) :: e_mag_p_as_ic,e_mag_t_as_ic
-      real(cp) :: e_mag_os,e_mag_as_os    
-      real(cp) :: e_kin,e_kin_p,e_kin_t  
-      real(cp) :: e_kin_p_as,e_kin_t_as 
-      real(cp) :: eKinIC,eKinMA        
+      real(cp) :: e_mag_os,e_mag_as_os
+      real(cp) :: e_kin,e_kin_p,e_kin_t
+      real(cp) :: e_kin_p_as,e_kin_t_as
+      real(cp) :: eKinIC,eKinMA
       real(cp) :: dtE
-  
+
       integer :: nR,lm,n,m
-  
+
       !--- For TO:
-      logical :: lTOrms    
-  
+      logical :: lTOrms
+
       !--- Property parameters:
       complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
-      real(cp) :: dlBR(n_r_max),dlBRc(n_r_max),dlVR(n_r_max),dlVRc(n_r_max)
-      real(cp) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
-      real(cp) :: RmR(n_r_max)
-      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,Dip,DipCMB
       real(cp) :: volume,EC
+      real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
+      real(cp) :: RolRu2(n_r_max),RmR(n_r_max),dlPolPeakR(n_r_max)
+      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,Dip,DipCMB
       real(cp) :: ReConv,RoConv,e_kin_nas,RolC
-      real(cp) :: elsAnel
+      real(cp) :: elsAnel,dlVPolPeak,dlBPolPeak
       real(cp) :: dlB,dlBc,dmB
       real(cp) :: dlV,dlVc,dmV,dpV,dzV
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
@@ -423,9 +411,9 @@ contains
       real(cp) :: timeScaled
       character(len=96) :: message
       logical :: DEBUG_OUTPUT=.false.
-  
+
       timeScaled=tScale*time
-      timePassedLog=timePassedLog+dt
+      timePassedLog=timePassedLog+tscheme%dt(1)
 
       ! We start with the computation of the energies
       ! in parallel.
@@ -433,14 +421,15 @@ contains
 
          nLogs=nLogs+1
          timeNormLog=timeNormLog+timePassedLog
-  
+
          !----- Write torques and rotation rates:
          PERFON('out_rot')
-         call write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_LMloc,dz_LMloc,b_LMloc,  &
-              &          omega_ic,omega_ma,lorentz_torque_ic,lorentz_torque_ma)
+         call write_rot( time,tscheme%dt(1),eKinIC,eKinMA,w_LMloc,z_LMloc, &
+              &          dz_LMloc,b_LMloc,omega_ic,omega_ma,               &
+              &          lorentz_torque_ic,lorentz_torque_ma)
          PERFOFF
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on rank ",rank
-  
+
          PERFON('out_ekin')
          n_e_sets=n_e_sets+1
          call get_e_kin(time,.true.,l_stop_time,n_e_sets,w_LMloc,    &
@@ -449,7 +438,7 @@ contains
          e_kin=e_kin_p+e_kin_t
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
          if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
-  
+
          call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMloc,db_LMloc, &
               &         aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc,       &
               &         e_mag_p,e_mag_t,e_mag_p_as,e_mag_t_as,e_mag_p_ic,  &
@@ -461,15 +450,15 @@ contains
          if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on rank ",rank
 
          !----- Calculate distribution of energies on all m's
-         if ( l_energy_modes ) then  
-            PERFON('out_amplitude') 
+         if ( l_energy_modes ) then
+            PERFON('out_amplitude')
             call get_amplitude(time,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,&
                  &             db_LMloc,aj_LMloc)
             PERFOFF
             if ( DEBUG_OUTPUT ) &
                & write(*,"(A,I6)") "Written  amplitude  on rank ",rank
          endif
-  
+
          !---- Surface zonal velocity at the equator
          if ( ktopv==1 ) then
             ReEquat=0.0_cp
@@ -487,28 +476,29 @@ contains
          else
             ReEquat=0.0_cp
          end if
-  
-         if ( l_average ) then
-            PERFON('out_aver')
-            call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
-              &           timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
-              &           aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
 
+         if ( l_spec_avg ) then
+            call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
+                 &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+                 &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
             if ( l_heat ) then
                call spectrum_temp(n_spec,time,.true.,nLogs,l_stop_time,     &
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
             end if
-            
-            call fields_average(time,dt,dtNew,nLogs,l_stop_time,timePassedLog, &
+         end if
+
+         if ( l_average ) then
+            PERFON('out_aver')
+            call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
                  &              b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on rank ",rank
          end if
-  
+
          if ( l_power ) then
-  
+
             PERFON('out_pwr')
             if ( rank == 0 ) then
                if ( nLogs > 1 ) then
@@ -532,39 +522,38 @@ contains
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
                  &          lorentz_torque_ma,w_LMloc,z_LMloc,               &
-                 &          dz_LMloc,s_LMloc,p_LMloc,xi_LMloc,               &
+                 &          dz_LMloc,s_LMloc,xi_LMloc,                       &
                  &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
                  &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
                  &          visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
          end if
-  
+
          !----- If anelastic additional u**2 outputs
          if ( l_anel ) then
-            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2, &
-                 &            dlVRu2,dlVRu2c)
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on rank ",rank
+            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2)
          else
-            RolRu2  = 0.0_cp
-            dlVRu2  = 0.0_cp
-            dlVRu2c = 0.0_cp
+            RolRu2(:)=0.0_cp
          end if
-  
+
+         !-- Get flow lengthscales
+         call getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVPolPeak, &
+              &      dlVRc,dlPolPeakR,'V')
+
+         !-- Out radial profiles of parameters
+         call outPar(timePassedLog,timeNormLog,l_stop_time,ekinR,RolRu2,   &
+              &      dlVR,dlVRc,dlPolPeakR,uhLMr,duhLMr,gradsLMr,fconvLMr, &
+              &      fkinLMr,fviscLMr,fpoynLMr,fresLMr,RmR)
+
+         !-- Perpendicular/parallel
          if ( l_perpPar ) then
             call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time, &
                  &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
          end if
 
-         call getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
-
-         call outPar(timePassedLog,timeNormLog,nLogs,l_stop_time,        &
-              &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,             &
-              &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
-              &      fpoynLMr,fresLMr,RmR)
-
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
-  
+
          if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
                  &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,xi_LMloc,       &
@@ -591,14 +580,16 @@ contains
             EC    =0.0_cp ! test kinetic energy
          end if
 
-         if ( l_mag .or. l_mag_LF ) then 
-            call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlBR,dmB,dlBc,dlBRc,'B')
+         if ( l_mag .or. l_mag_LF ) then
+            !-- Get magnetic field lengthscales
+            call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlVR,dmB, &
+                 &      dlBc,dlBPolPeak,dlVRc,dlPolPeakR,'B')
          else
             dlB=0.0_cp
             dmB=0.0_cp
          end if
       end if
-  
+
       if ( l_spectrum ) then
          n_spec=n_spec+1
          call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
@@ -626,7 +617,7 @@ contains
          end if
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on rank ",rank
       end if
-  
+
       if ( lTOCalc ) then
          !------ Output for every log time step:
          if ( lVerbose ) write(*,*) '! Calling outTO !'
@@ -641,11 +632,11 @@ contains
          &          nTOrmsSets,lTOframe,lTOrms,lTOZwrite,z_LMloc,omega_ic,&
          &          omega_ma)
          !------ Note: time averaging, time differencing done by IDL routine!
-  
+
          if ( lVerbose ) write(*,*) '! outTO finished !'
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  TO  on rank ",rank
       end if
-  
+
       !--- Get radial derivatives and add dt dtB terms:
       if ( l_dtB ) then
          call get_dtBLMfinish(time,n_time_step,omega_ic,b_LMloc,ddb_LMloc, &
@@ -653,8 +644,8 @@ contains
               &               db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,        &
               &               dj_ic_LMloc,ddj_ic_LMloc,l_frame)
       end if
-  
-  
+
+
       if ( l_RMS ) then
          if ( n_time_step == 1 ) then
             nRMS_sets    =0
@@ -662,7 +653,7 @@ contains
             timePassedRMS=0.0_cp
             call zeroRms
          end if
-         timePassedRMS=timePassedRMS+dt
+         timePassedRMS=timePassedRMS+tscheme%dt(1)
          if ( lRmsCalc ) then
             if ( lVerbose ) write(*,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
@@ -672,13 +663,13 @@ contains
          end if
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
       end if
-  
+
       !--- Store poloidal magnetic coeffs at cmb
       if ( l_cmb ) then
          PERFON('out_cmb')
          call write_Bcmb(timeScaled,b_LMloc(:,n_r_cmb),l_max_cmb,n_cmb_sets,   &
               &          cmb_file,n_cmb_file)
-         
+
          !--- Store SV of poloidal magnetic coeffs at cmb
          if ( l_dt_cmb_field ) then
             !nR=8! at CMB dbdt=induction=0, only diffusion !
@@ -686,10 +677,10 @@ contains
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                             &
-                    &    (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
-                    &    + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
-                    &      dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
+               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                    &
+               &         (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
+               &         + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
+               &           dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
             end do
 
             call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &
@@ -702,7 +693,7 @@ contains
          call write_Bcmb(timeScaled,b_LMloc(:,n_r_cmb),l_max_cmb,   &
               &          n_cmb_setsMov,cmbMov_file,n_cmbMov_file)
       end if
-  
+
       !--- Store potential coeffs for velocity fields and magnetic fields
       if ( l_r ) then
          PERFON('out_r')
@@ -725,7 +716,7 @@ contains
          end do
          PERFOFF
       end if
-  
+
       if ( l_pot ) then
 #ifdef WITH_MPI
          call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
@@ -778,60 +769,59 @@ contains
       !
       if ( l_store ) then
 #ifdef WITH_MPI
-         call store_mpi(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file, &
+         call store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
               &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,        &
-              &         dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,            &
-              &         dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,        &
-              &         dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,   &
+              &         dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,         &
+              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #else
-         call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,.false.,&
+         call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
               &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
-              &     b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,           &
-              &     dpdtLast_LMloc,dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,&
-              &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
+              &     b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,       &
+              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,              &
+              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #endif
       end if
-  
-  
+
+
       ! ===================================================
       !      GATHERING for output
       ! ===================================================
       ! We have all fields in LMloc space. Thus we gather the whole fields on rank 0.
-  
+
       l_PVout = l_PV .and. l_log
-  
+
       if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
          PERFON('out_comm')
 
          if ( l_mag ) call gather_from_lo_to_rank0(b_LMloc(:,n_r_icb),bICB)
-  
+
          if ( l_cond_ic ) then
             call gather_all_from_lo_to_rank0(gt_IC,b_ic_LMloc,b_ic)
             call gather_all_from_lo_to_rank0(gt_IC,db_ic_LMloc,db_ic)
             call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_LMloc,ddb_ic)
-            
+
             call gather_all_from_lo_to_rank0(gt_IC,aj_ic_LMloc,aj_ic)
             call gather_all_from_lo_to_rank0(gt_IC,dj_ic_LMloc,dj_ic)
             call gather_all_from_lo_to_rank0(gt_IC,ddj_ic_LMloc,ddj_ic)
          end if
-  
-         ! for writing a restart file, we also need the d?dtLast arrays, 
+
+         ! for writing a restart file, we also need the d?dtLast arrays,
          ! which first have to be gathered on rank 0
          PERFOFF
-  
+
       end if
-  
+
       !--- Movie output and various supplementary things:
       if ( l_frame ) then
          ! The frames array for the movies is distributed over the ranks
          ! and has to be gathered on rank 0 for output.
-  
+
          ! Each movie uses some consecutive frames in the frames array. They
-         ! start at n_movie_field_start(1,n_movie) 
+         ! start at n_movie_field_start(1,n_movie)
          ! up to    n_movie_field_stop(1+n_fields_oc+n_fields,n_movie) (n_fields_ic>0
          ! or       n_movie_field_stop(1+n_fields,n_movie)             (n_fields_ic=0)
-  
+
          call movie_gather_frames_to_rank0()
 
          if ( l_movie_ic .and. l_store_frame .and. rank == 0 ) then
@@ -840,7 +830,7 @@ contains
 
          n_frame=n_frame+1
          call logWrite(' ')
-         if ( rank == 0 ) then 
+         if ( rank == 0 ) then
             write(message,'(1p,A,I8,A,ES16.6,I8)')            &
             &      " ! WRITING MOVIE FRAME NO ",n_frame,      &
             &      "       at time/step",timeScaled,n_time_step
@@ -852,29 +842,29 @@ contains
               &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic,     &
               &                 omega_ma)
       end if
-  
+
       ! =======================================================================
       ! ======= compute output on rank 0 ==============
       ! =======================================================================
       if ( rank == 0 ) then
          PERFON('out_out')
-  
+
          !----- Plot out inner core magnetic field, outer core
          !      field has been written in radialLoop !
          if ( l_graph .and. l_mag .and. n_r_ic_max > 0 ) then
             call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
          end if
-  
+
          if ( l_log ) then
-            !--- Energies and rotation info and a lot of other stuff 
+            !--- Energies and rotation info and a lot of other stuff
             !    performed for l_log=.true.
-  
+
             !----- Getting the property parameters:
             Re     = sqrt(two*e_kin/vol_oc/eScale)/sqrt(mass)
             if ( ( abs(e_kin_nas) <= 10.0_cp * epsilon(mass) ) .or. &
             &     e_kin_nas < 0.0_cp ) e_kin_nas=0.0_cp
             ReConv = sqrt(two*e_kin_nas/vol_oc/eScale)/sqrt(mass)
-  
+
             if ( l_non_rot ) then
                Ro=0.0_cp
                RoConv=0.0_cp
@@ -882,7 +872,7 @@ contains
                Ro=Re*ekScaled
                RoConv=ReConv*ekScaled
             end if
-  
+
             if ( dlV /= 0.0_cp ) then
                Rol=Ro/dlV   ! See Christensen&Aubert 2006, eqn.(27)
             else
@@ -894,7 +884,7 @@ contains
                RolC=RoConv
             end if
             !write(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
-  
+
             if ( prmag /= 0 .and. nVarCond > 0 ) then
                Rm=0.0_cp
                Rm=rInt_R(RmR,r,rscheme_oc)
@@ -934,15 +924,16 @@ contains
                lvDiss=0.0_cp
                lbDiss=0.0_cp
             end if
-  
+
             !----- Ouput into par file:
             if ( l_save_out ) then
                open(newunit=n_par_file, file=par_file, status='unknown', &
                &    position='append')
             end if
-            write(n_par_file,'(ES20.12,22ES16.8)')  &
+!            write(n_par_file,'(ES20.12,23ES16.8)')  &
+            write(n_par_file,'(ES20.12,19ES16.8)')  &
                  &             timeScaled,          &! 1) time
-                 &                     Rm,          &! 2) (magnetic) Reynolds number 
+                 &                     Rm,          &! 2) (magnetic) Reynolds number
                  &                     El,          &! 3) Elsasser number
                  &                    Rol,          &! 4) local Rossby number
                  &                   Geos,          &! 5) Geostrophy measure
@@ -954,13 +945,15 @@ contains
                  &                  ElCmb,          &! 16) Elsasser number at CMB
                  &                   RolC,          &! 17) Local Rol based on non-as flow
                  &                   dlVc,          &! 18) convective flow length scale
-                 &                ReEquat,          &! 19) CMB flow at the equator
-                 &                  GeosA,          &! 20) Geostrophy of axisymmetric flow
-                 &                  GeosZ,          &! 21) Geostrophy of zonal flow
-                 &                  GeosM,          &! 22) Geostrophy of meridional flow
-                 &                 GeosNA            ! 23) Geostrophy of non-axisymmetric flow
+                 &             dlVPolPeak,          &! 19) Peak of the poloidal energy
+                 &                ReEquat            ! 20) CMB flow at the equator
+!                 &                  GeosA,          &! 21) Geostrophy of axisymmetric flow
+!                 &                  GeosZ,          &! 22) Geostrophy of zonal flow
+!                 &                  GeosM,          &! 23) Geostrophy of meridional flow
+!                 &                 GeosNA            ! 24) Geostrophy of non-axisymmetric flow
+
             if ( l_save_out ) close(n_par_file)
-  
+
             !---- Building time mean:
             RmMean     =RmMean     +timePassedLog*Rm
             ElMean     =ElMean     +timePassedLog*El
@@ -985,19 +978,19 @@ contains
             e_kin_tMean=e_kin_tMean+timePassedLog*e_kin_t
             e_mag_pMean=e_mag_pMean+timePassedLog*e_mag_p
             e_mag_tMean=e_mag_tMean+timePassedLog*e_mag_t
-            dlVMean    =dlVMean    +timePassedLog*dlV   
+            dlVMean    =dlVMean    +timePassedLog*dlV
             dlVcMean   =dlVcMean   +timePassedLog*dlVc
-            !           dlVu2Mean  =dlVu2VMean +timePassedLog*dlVu2   
-            !           dlVu2cMean =dlVu2cVMean+timePassedLog*dlVu2c   
-            dmVMean    =dmVMean    +timePassedLog*dmV    
+            !           dlVu2Mean  =dlVu2VMean +timePassedLog*dlVu2
+            !           dlVu2cMean =dlVu2cVMean+timePassedLog*dlVu2c
+            dmVMean    =dmVMean    +timePassedLog*dmV
             dpVMean    =dpVMean    +timePassedLog*dpV
             dzVMean    =dzVMean    +timePassedLog*dzV
             lvDissMean =lvDissMean +timePassedLog*lvDiss
             lbDissMean =lbDissMean +timePassedLog*lbDiss
             dlBMean    =dlBMean    +timePassedLog*dlB
             dmBMean    =dmBMean    +timePassedLog*dmB
-  
-            if ( l_stop_time ) then 
+
+            if ( l_stop_time ) then
                !--- Time averaged parameters (properties)
                RmMean     =RmMean/timeNormLog
                ElMean     =ElMean/timeNormLog
@@ -1014,10 +1007,11 @@ contains
                RelNA      =RelNA/timeNormLog
                DipMean    =DipMean/timeNormLog  
                DipCMBMean =DipCMBMean/timeNormLog  
+
                e_kin_pMean=e_kin_pMean/timeNormLog
                e_kin_tMean=e_kin_tMean/timeNormLog
                e_mag_pMean=e_mag_pMean/timeNormLog
-               e_mag_tMean=e_mag_tMean/timeNormLog 
+               e_mag_tMean=e_mag_tMean/timeNormLog
                dlVMean    =dlVMean/timeNormLog
                dlVcMean   =dlVcMean/timeNormLog
                dmVMean    =dmVMean/timeNormLog
@@ -1027,31 +1021,46 @@ contains
                dmBMean    =dmBMean/timeNormLog
                lvDissMean =lvDissMean/timeNormLog
                lbDissMean =lbDissMean/timeNormLog
-  
+
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &
                   &    position='append')
                end if
-  
+
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
-               write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
-               & " ! Energies at end of time integration:",                 &
-               & " !  (total,poloidal,toroidal,total density)",             &
-               & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
-               & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
-               & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
-               & e_mag_ic/vol_ic
-  
-               write(n_log_file,                                               &
-               &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
-               &    " ! Energies at end of time integration:",                 &
-               &    " !  (total,poloidal,toroidal,total density)",             &
-               &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
-               &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
-               &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
-               &    e_mag_ic/vol_ic
-  
+               if ( l_full_sphere ) then
+                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')              &
+                  & " ! Energies at end of time integration:",                 &
+                  & " !  (total,poloidal,toroidal,total density)",             &
+                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
+                  write(n_log_file,                                               &
+                  &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')                    &
+                  &    " ! Energies at end of time integration:",                 &
+                  &    " !  (total,poloidal,toroidal,total density)",             &
+                  &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
+
+               else
+                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
+                  & " ! Energies at end of time integration:",                 &
+                  & " !  (total,poloidal,toroidal,total density)",             &
+                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+                  & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+                  & e_mag_ic/vol_ic
+
+                  write(n_log_file,                                               &
+                  &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
+                  &    " ! Energies at end of time integration:",                 &
+                  &    " !  (total,poloidal,toroidal,total density)",             &
+                  &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+                  &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+                  &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+                  &    e_mag_ic/vol_ic
+               end if
+
                write(n_log_file,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')        &
                & " ! Time averaged energies :",                                &
                & " !  (total,poloidal,toroidal,total density)",                &
@@ -1090,35 +1099,35 @@ contains
                end if
 
                if ( l_save_out ) close(n_log_file)
-  
+
             end if ! l_stop_time ?
-  
+
          end if ! l_log
-         
-         
-         
+
+
+
          PERFOFF
       end if
 
       if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMloc,omega_ic)
 
       !----- Output of axisymm. rotation rate for potential vorticity analysis:
-      !  NOTE: For l_stop_time=.true. outPV transforms the fields without 
-      !        transforming them back. This must thus be the very last 
-      !        thing done with them. 
+      !  NOTE: For l_stop_time=.true. outPV transforms the fields without
+      !        transforming them back. This must thus be the very last
+      !        thing done with them.
       if ( l_PVout ) call outPV(time,l_stop_time,nPVsets,                   &
            &                    w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,&
            &                    omega_ic,omega_ma)
-         
-  
+
+
       if ( l_log ) then
          timePassedLog=0.0_cp
       end if
-  
+
       if ( lRmsCalc ) then
          call zeroRms
       end if
-      
+
    end subroutine output
 !----------------------------------------------------------------------------
 end module output_mod

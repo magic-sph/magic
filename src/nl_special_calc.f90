@@ -7,7 +7,7 @@ module nl_special_calc
    use precision_mod
    use truncation, only: nrp, n_phi_max, l_max, l_maxMag
    use constants, only: pi, one, two, third, half
-   use logic, only: l_mag_nl, l_TP_form, l_anelastic_liquid
+   use logic, only: l_mag_nl, l_anelastic_liquid
    use physical_parameters, only: ek, ViscHeatFac, ThExpNb
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
@@ -281,7 +281,7 @@ contains
          fconv=0.0_cp
          fvisc=0.0_cp
          do nPhi=1,n_phi_max
-            if ( l_anelastic_liquid .or. l_TP_form ) then
+            if ( l_anelastic_liquid ) then
                fconv=vr(nPhi,nThetaB)*sr(nPhi,nThetaB)
             else
                fconv=temp0(nr)*vr(nPhi,nThetaB)*sr(nPhi,nThetaB)     +    &
@@ -400,7 +400,7 @@ contains
 
       !-- Local variables:
       integer :: nTheta,nThetaB
-      integer :: nPhi,l
+      integer :: nPhi
       real(cp) :: Helna,HelAS(nfs),Hel2AS(nfs)
       real(cp) :: Hel,HelnaAS(nfs),Helna2AS(nfs),phiNorm
       real(cp) :: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras

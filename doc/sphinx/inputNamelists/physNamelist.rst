@@ -45,10 +45,6 @@ Dimensionless control parameters
 
 * **prec_angle** (default :f:var:`prec_angle=23.5 <prec_angle>`) is a real. This is the angle between the precession and the rotation axes expressed in degrees.
 
-* **po_diff** (default :f:var:`po_diff=0.0 <po_diff>`) is a real. This is the Poincaré number in case of differential precession of core and mantle assuming both have the same rotation rate :math:`\Omega` and only the mantle is precessing.
-
-* **diff_prec_angle** (default :f:var:`diff_prec_angle=23.5 <diff_prec_angle>`) is a real. This is the angle between the precession and the rotation axes expressed in degrees, for differential precession.
-
 * **radratio** (default :f:var:`radratio=0.35 <radratio>`) is a real. This is the ratio of the inner core radius :math:`r_i` to the outer core radius :math:`r_o`:
 
   .. math::
@@ -424,6 +420,11 @@ Magnetic boundary conditions
   |             |       \frac{\partial g_{\ell m}}{\partial r}+\frac{\ell}{r}\,g_{\ell m}=0,\quad |
   |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
+  | ``ktopb=2`` | Perfect condutor:                                                               |
+  |             |    .. math::                                                                    |
+  |             |       g_{\ell m} = \frac{\partial^2 g_{\ell m}}{\partial r^2}=0,\quad           |
+  |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
+  +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=3`` | Finitely conducting mantle                                                      |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=4`` | Pseudo-vacuum outer boundary:                                                   |
@@ -441,7 +442,7 @@ Magnetic boundary conditions
   +-------------+---------------------------------------------------------------------------------+
   | ``kbotb=2`` | Perfectly-conducting inner core:                                                |
   |             |    .. math::                                                                    |
-  |             |       g_{\ell m} = \frac{\partial g_{\ell m}}{\partial r}=0,\quad               |
+  |             |       g_{\ell m} = \frac{\partial^2 g_{\ell m}}{\partial r^2}=0,\quad           |
   |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
   | ``kbotb=3`` | Finitely conducting inner core                                                  |

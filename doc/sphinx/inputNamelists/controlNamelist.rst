@@ -82,27 +82,66 @@ Update control
 
 * **l_update_s** (default :f:var:`l_update_s=.true. <l_update_s>`) is a logical that specifies whether the entropy/temperature should be time-stepped or not.
 
+* **l_update_xi** (default :f:var:`l_update_xi=.true. <l_update_xi>`) is a logical that specifies whether the chemical composition should be time-stepped or not.
+
+
 Time step control
 -----------------
 
-A modified courant criteria including a modified Alfven-velocity is used to
+A modified Courant criterion including a modified Alfven-velocity is used to
 account for the magnetic field. The relative and absolute importance of flow
 and Alfven-velocity can be controled by **courfac** and **alffac** respectively.
-The parameter **l_cour_alf_damp** allows to choose wheter the actual Alven speed
-is used to estimate the Courant condition or if damping (see Christensen et al.,
-GJI, 1999) is included.
+The parameter **l_cour_alf_damp** allows to choose whether the actual Alven speed
+is used to estimate the Courant condition or if damping is included. Practically,
+the timestep size is controlled as follows
 
-* **dtstart** (default :f:var:`dtstart=0.0 <dtstart>`) is a real, which is used as the initial time step if the starting solution is initialized (see below) and :math:`\hbox{dtstart}>0`.
+.. math::
+   \delta t < \min_{V}\left( c_I\,E,\, \dfrac{\delta r}{|u_r|},\, \dfrac{\delta h}{u_h} \right)
 
-* **dtMax** (default :f:var:`dtMax=1e-4 <dtmax>`) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtmax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
+where :math:`u_h=(u_\theta^2+u_\phi^2)^{1/2}`, :math:`\delta h = \dfrac{r}{\sqrt{\ell(\ell+1)}}`, and :math:`\delta r` is the radial grid interval. The first term in the left hand side accounts for the explicit treatment of the Coriolis term.
 
-* **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in courant criteria.
+.. math::
+   {|u_r|}=c_F{|u_{F,r}|}+c_A\dfrac{u_{A,r}^2}{\left[u_{A,r}^2+\left(\frac{1+Pm^{-1}}{2\delta r}\right)^2\right]^{1/2}}\,,
 
-* **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in courant criteria.
+where :math:`u_{F,r}` is the radial component of the fluid velocity and :math:`u_{A,r}=Br/\sqrt{E\,Pm}` is the radial Alven velocity. The denominator of the rightmost term accounts for the damping of the Alven waves.
 
-* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves is taken into account when estimating the Courant condition (see Christensen et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead to spurious oscillations/instabilities of the code.
+* **dtMax** (default :f:var:`dtMax=1e-4 <dtmax>`) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtMax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
 
-* **n_cour_step** (default :f:var:`n_cour_step=10 <n_cour_step>`) is an integer. This is the number of time steps before consecutive checking of courant criteria. Note: the courant criteria is checked always after the time step has been changed if ``n_cour_step>0``.
+* **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in Courant criteria. This parameter corresponds to :math:`c_F` in the above equation.
+
+* **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in Courant criteria. This parameter corresponds to :math:`c_A` in the above equation.
+
+* **intfac** (default :f:var:`intfac=0.15 <intfac>`) is a  real, used to scale Coriolis factor in Courant criteria. This parameter corresponds to :math:`c_I` in the above equation.
+
+* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves is taken into account when estimating the Courant condition (see Christensen et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead to spurious oscillations/instabilities of the code. When turn to False, :math:`{|u_r|}=c_F{|u_{F,r}|}+c_A{|u_{A,r}|}`.
+
+* **time_scheme** (default :f:var:`time_scheme='CNAB2' <time_scheme>`) is a character string. This is used to choose the time step integrator used in the code among the following implicit-explicit time schemes:
+
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='CNAB2'   | Crank-Nicolson and 2nd order Adams-Bashforth scheme   |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='CNLF'    | Crank-Nicolson and Leap-Frog scheme                   |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='MODCNAB' | Modified CN/AB2                                       |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='SBDF2'   | Semi-implicit backward difference scheme of 2nd order |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='SBDF3'   | Semi-implicit backward difference scheme of 3rd order |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='SBDF4'   | Semi-implicit backward difference scheme of 4th order |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='ARS222'  | Semi-implicit S-DIRK of 2nd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='CK232'   | Semi-implicit S-DIRK of 2nd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='LZ232'   | Semi-implicit S-DIRK of 2nd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='ARS443'  | Semi-implicit S-DIRK of 3rd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='BPR353'  | Semi-implicit S-DIRK of 3rd order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='LZ453'   | Semi-implicit S-DIRK of 3rd order                     |
+  +-----------------------+-------------------------------------------------------+
 
 
 Run time
@@ -138,6 +177,8 @@ for the spherical harmonic degrees :math:`\ell \geq \ell_{hd}`.
 * **difnu** (default :f:var:`difnu=0.0 <difnu>`) is a real. This is the amplitude :math:`D` of the viscous hyperdiffusion.
 
 * **difkappa** (default :f:var:`difkappa=0.0 <difkappa>`) is a real. This is the amplitude :math:`D` of the thermal hyperdiffusion.
+
+* **difchem** (default :f:var:`difchem=0.0 <difchem>`) is a real. This is the amplitude :math:`D` of the hyperdiffusion applied to chemical composition.
 
 * **difeta** (default :f:var:`difeta=0.0 <difeta>`) is a real. This is the amplitude :math:`D` of the magnetic hyperdiffusion.
 
@@ -250,14 +291,6 @@ Miscellaneous
    | anelastic_flavour='TEMP'  | Temperature diffusion              |
    +---------------------------+------------------------------------+
 
-* **thermo_variable** (default :f:var:`thermo_variable="S" <thermo_variable>`) is a character string. This allows to change the default thermodynamic variable (and hence change the entropy/temperature equation used). This switch only matters when one wants to run an anelastic model. Possible values are:
-
-   +-----------------------+-----------------------------------------+
-   | thermo_variable='S'   | Use entropy as a primitive variable     |
-   +-----------------------+-----------------------------------------+
-   | thermo_variable='T'   | Use temperature as a primitive variable |
-   +-----------------------+-----------------------------------------+
-
 * **polo_flow_eq** (default :f:var:`polo_flow_eq="WP" <polo_flow_eq>`) is a character string. This allows to change how the equation for the poloidal flow potential is constructed. One can either use the radial component of the Navier-Stokes equation and hence keep a coupled system that involve the poloidal potential :math:`W` and the pressure :math:`p`, or take the radial component of the double-curl of the Navier-Stokes equation to suppress pressure.
 
    +---------------------+-----------------------------------------+
@@ -279,6 +312,3 @@ Miscellaneous
    +--------------------+--------------------------------------------------+
 
 * **l_adv_curl** (default :f:var:`l_adv_curl=.false. <l_adv_curl>`) is a logical. When set to True, the advection term is treated as :math:`\vec{u}\times\vec{\omega}` instead of :math:`\vec{u}\vec{\nabla}\vec{u}`. The practical consequence of that is to reduce the number of spectral/spatial Spherical Harmonic Transforms and hence to speed-up the code. Because of the treatment of the viscous heating term in the anelastic approximation, this is only an option when considering Boussinesq models.
-
-   .. warning:: This option is for now only supported if the code has been compiled
-                with SHTns.

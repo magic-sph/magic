@@ -9,20 +9,20 @@ module preCalculations
        &                 lm_max, n_phi_max, n_theta_max
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
-       &                  n_xi_bounds, omega_diff
+       &                  n_xi_bounds
    use parallel_mod, only: rank
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,     &
-       &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,    &
+       &            l_anel, l_heat, l_anelastic_liquid,                  &
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
-       &            l_precession, l_diff_prec
+       &            l_precession, l_finite_diff, l_full_sphere
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
-       &                       r_surface, visc, r, r_ICB, dLtemp0,         &
+       &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
        &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
        &                       dLvisc, dLlambda, divKtemp0, radial,        &
-       &                       transportProperties
+       &                       transportProperties, l_R
    use physical_parameters, only: nVarEps, pr, prmag, ra, rascaled, ek,    &
        &                          ekscaled, opr, opm, o_sr, radratio,      &
        &                          sigma_ratio, CorFac, LFfac, BuoFac,      &
@@ -31,11 +31,12 @@ module preCalculations
        &                          ktops, kbots, interior_model, r_LCR,     &
        &                          n_r_LCR, mode, tmagcon, oek, Bn,         &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
-       &                          ChemFac, raxi, Po, prec_angle, diff_prec_angle
+       &                          ChemFac, raxi, Po, prec_angle
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
+   use time_schemes, only: type_tscheme
 
    implicit none
 
@@ -45,16 +46,19 @@ module preCalculations
 
 contains
 
-   subroutine preCalc
+   subroutine preCalc(tscheme)
       !
       !  Purpose of this subroutine is to initialize the calc values,     
       !  arrays, constants that are used all over the code.               
       !  The stuff is stored in the common blocks.                        
       !  MPI: This is called by every processors.                         
       !
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
     
       !---- Local variables:
-      real(cp) :: c1,help,facIH
+      real(cp) :: help,facIH
       real(cp) :: delmin,sr_top,si_top,sr_bot,si_bot
       real(cp) :: xir_top,xii_top,xir_bot,xii_bot
       real(cp) :: topconduc, botconduc
@@ -169,9 +173,8 @@ contains
          ChemFac=0.0_cp
       end if
     
-      dtStart=dtStart/tScale
       dtMax  =dtMax/tScale
-      if ( .not. l_non_rot ) dtMax=min(dtMax,intfac*ekScaled)
+      if ( .not. l_non_rot ) dtMax=min(dtMax,tscheme%intfac*ekScaled)
       dtMin  =dtMax/1.0e6_cp
     
       !-- Calculate radial functions for all threads (chebs,r,.....):
@@ -289,24 +292,15 @@ contains
       end if
     
       !-- Calculate auxiliary arrays containing effective Courant grid intervals:
-      c1=one/real(l_max*(l_max+1),kind=cp)
-      delxh2(1)      =c1*r_cmb**2
-      delxh2(n_r_max)=c1*r_icb**2
+      delxh2(1)      =r_cmb**2/real(l_R(1)*(l_R(1)+1),kind=cp)
+      delxh2(n_r_max)=r_icb**2/real(l_R(n_r_max)*(l_R(n_r_max)+1),kind=cp)
       delxr2(1)      =(r(1)-r(2))**2
       delxr2(n_r_max)=(r(n_r_max-1)-r(n_r_max))**2
       do n_r=2,n_r_max-1
-         delxh2(n_r)=c1*r(n_r)**2
+         delxh2(n_r)=r(n_r)**2/real(l_R(n_r)*(l_R(n_r)+1),kind=cp)
          delmin=min((r(n_r-1)-r(n_r)),(r(n_r)-r(n_r+1)))
          delxr2(n_r)=delmin*delmin
       end do
-
-      !Differential precession of mantle and outer core
-
-      if ( l_diff_prec ) then
-         omega_diff = oek * (cos(diff_prec_angle) - 1)
-      else
-         omega_diff = 0.0_cp
-      end if
 
       !-- Constants used for rotating core or mantle:
       y10_norm=half*sqrt(three/pi)  ! y10=y10_norm * cos(theta)
@@ -314,11 +308,11 @@ contains
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and inner core rotation rate:
-      c_z10_omega_ic=y10_norm/(r(n_r_max)*r(n_r_max))/rho0(n_r_max)
+      c_z10_omega_ic=y10_norm*or2(n_r_max)/rho0(n_r_max)
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and mantle rotation rate:
-      c_z10_omega_ma=y10_norm/(r(1)*r(1))/rho0(1)
+      c_z10_omega_ma=y10_norm*or2(1)/rho0(1)
     
       !----- Inner-core normalized moment of inertia:
       c_moi_ic=8.0_cp*pi/15.0_cp*r_icb**5*rho_ratio_ic*rho0(n_r_max)
@@ -341,11 +335,11 @@ contains
     
       !----- Proportionality factor for ic lorentz_torque as used in
       !      ic torque-equation (z10):
-      c_lorentz_ic=0.25_cp*sqrt(three/pi)/(r(n_r_max)*r(n_r_max))
+      c_lorentz_ic=0.25_cp*sqrt(three/pi)*or2(n_r_max)
     
       !----- Proportionality factor for mantle lorentz_torque as used in
       !      mantle torque-equation (z10):
-      c_lorentz_ma=0.25_cp*sqrt(three/pi)/(r(1)*r(1))
+      c_lorentz_ma=0.25_cp*sqrt(three/pi)*or2(1)
     
       !-- Set thermal boundary conditions for fixed temp. on both boundaries:
       !----- Extract tops and bots
@@ -743,7 +737,7 @@ contains
 
             if (mod(l,2)/=0) then
                if(l==1) then
-                  fac_loop(l)= r_cmb/loopRadRatio
+                  fac_loop(l)= one
                else
                   fac_loop(l)= -fac_loop(l-2)*loopRadRatio**2*real(l,kind=cp)/ &
                   &            real(l-1,kind=cp)
@@ -784,32 +778,26 @@ contains
       tmagcon=tmagcon+time
 
       !-- Get output times:
-      l_time_hits=.false.
 
       call get_hit_times(t_graph,n_time_hits,n_t_graph,l_time, &
            &             t_graph_start,t_graph_stop,dt_graph,  &
            &             n_graphs,n_graph_step,'graph',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_pot,n_time_hits,n_t_pot,l_time, &
            &             t_pot_start,t_pot_stop,dt_pot,    &
            &             n_pots,n_pot_step,'pot',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_rst,n_time_hits,n_t_rst,l_time, &
            &             t_rst_start,t_rst_stop,dt_rst,    &
            &             n_rsts,n_rst_step,'rst',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_log,n_time_hits,n_t_log,l_time, &
            &             t_log_start,t_log_stop,dt_log,    &
            &             n_logs,n_log_step,'log',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       call get_hit_times(t_spec,n_time_hits,n_t_spec,l_time, &
            &             t_spec_start,t_spec_stop,dt_spec,   &
            &             n_specs,n_spec_step,'spec',time,tScale)
-      l_time_hits=l_time_hits .or. l_time
 
       if ( l_probe ) then
          l_probe=.false.
@@ -817,7 +805,6 @@ contains
               &             t_probe_start,t_probe_stop,dt_probe,  &
               &             n_probe_out,n_probe_step,'probe',time,tScale)
          if ( n_probe_out > 0 .or. n_probe_step > 0 .or. l_time ) l_probe= .true.
-         l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_cmb_field ) then
@@ -826,7 +813,6 @@ contains
                                t_cmb_start,t_cmb_stop,dt_cmb, &
                          n_cmbs,n_cmb_step,'cmb',time,tScale)
          if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true. 
-         l_time_hits=l_time_hits .or. l_time
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
@@ -836,14 +822,12 @@ contains
                            t_r_field_start,t_r_field_stop,dt_r_field, &
                           n_r_fields,n_r_field_step,'r_field',time,tScale)
          if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true. 
-         l_time_hits=l_time_hits .or. l_time
       end iF
 
       if ( l_movie ) then
          call get_hit_times(t_movie,n_time_hits,n_t_movie,l_time, &
                             t_movie_start,t_movie_stop,dt_movie,  &
                   n_movie_frames,n_movie_step,'movie',time,tScale)
-          l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_TO ) then
@@ -851,19 +835,16 @@ contains
          call get_hit_times(t_TO,n_time_hits,n_t_TO,l_time, &
                                 t_TO_start,t_TO_stop,dt_TO, &
                           n_TOs,n_TO_step,'TO',time,tScale)
-         l_time_hits=l_time_hits.or.l_time
          if ( n_TOZs == 0 .and. n_t_TOZ == 0 ) n_TOZs=3
          call get_hit_times(t_TOZ,n_time_hits,n_t_TOZ,l_time, &
                                t_TOZ_start,t_TOZ_stop,dt_TOZ, &
                          n_TOZs,n_TOZ_step,'TOZ',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
       end if
 
       if ( l_TOmovie ) then
          call get_hit_times(t_TOmovie,n_time_hits,n_t_TOmovie,l_time, &
                            t_TOmovie_start,t_TOmovie_stop,dt_TOmovie, &
                n_TOmovie_frames,n_TOmovie_step,'TOmovie',time,tScale)
-         l_time_hits=l_time_hits .or. l_time
       end if
 
    end subroutine preCalcTimes
@@ -1029,16 +1010,20 @@ contains
          write(n_out,*) '! Grid parameters:'
          write(n_out,'(''  n_r_max      ='',i6, &
          &        '' = number of radial grid points'')') n_r_max
-         write(n_out,'(''  n_cheb_max   ='',i6)') n_cheb_max
-         write(n_out,'(''  max cheb deg.='',i6)') n_cheb_max-1
+         if ( .not. l_finite_diff ) then
+            write(n_out,'(''  n_cheb_max   ='',i6)') n_cheb_max
+            write(n_out,'(''  max cheb deg.='',i6)') n_cheb_max-1
+         end if
          write(n_out,'(''  n_phi_max    ='',i6, &
          &        '' = no of longitude grid points'')') n_phi_max
          write(n_out,'(''  n_theta_max  ='',i6, &
          &        '' = no of latitude grid points'')') n_theta_max
-         write(n_out,'(''  n_r_ic_max   ='',i6, &
-         &        '' = number of radial grid points in IC'')') n_r_ic_max
-         write(n_out,'(''  n_cheb_ic_max='',i6)') n_cheb_ic_max-1
-         write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
+         if ( .not. l_full_sphere ) then
+            write(n_out,'(''  n_r_ic_max   ='',i6, &
+            &        '' = number of radial grid points in IC'')') n_r_ic_max
+            write(n_out,'(''  n_cheb_ic_max='',i6)') n_cheb_ic_max-1
+            write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
+         end if
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
          write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
          write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max

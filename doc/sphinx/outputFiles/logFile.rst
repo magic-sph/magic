@@ -39,9 +39,10 @@ of appearance:
    
    * **Time averages**:  this part gives time averaged kinetic and magnetic
      energies (total, poloidal, toroidal, total density) and time averaged
-     parameters (Rm, Elsass, Rol etc.). If :ref:`l_average=.true. <varl_average>`,
-     this section also provides information about average spectra and graphic
-     files being written.
+     parameters (Rm, Elsass, Rol etc.). If :ref:`l_spec_avg=.true. <varl_spec_avg>`,
+     this section also provides information about average spectra being written.
+     If :ref:`l_average=.true. <varl_average>`, it is additionally mentioned that 
+     time averaged graphic files are written.
    
    * **Wall times**: this is the last part of the log file and it provides
      information about the mean wall time for running different parts of the code.
