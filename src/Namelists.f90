@@ -1609,6 +1609,7 @@ contains
       if ( (index(scheme_name, 'ARS222') /= 0) .or. &
       &    (index(scheme_name, 'ARS233') /= 0) .or. &
       &    (index(scheme_name, 'SSP222') /= 0) .or. &
+      &    (index(scheme_name, 'DP242') /= 0) .or. &
       &    (index(scheme_name, 'PR222') /= 0) .or. &
       &    (index(scheme_name, 'LS222') /= 0) .or. &
       &    (index(scheme_name, 'BFR433') /= 0) .or. &
