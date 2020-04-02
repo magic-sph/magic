@@ -601,7 +601,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE, volume, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EkSTC, 1, MPI_DEF_REAL, MPI_SUM,  &
            &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EkNTC, 1, MPI_DEF_REAL, MPI_SUM,  &
@@ -609,27 +609,23 @@ contains
       call MPI_Allreduce(MPI_IN_PLACE, EkOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
            &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, Egeos, 1, MPI_DEF_REAL, MPI_SUM,  &
-<<<<<<< HEAD
            &             comm_r, ierr)
-=======
-           &             MPI_COMM_WORLD, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EgeosA, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EgeosZ, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EgeosM, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EgeosNA,1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EA, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EZ, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EM, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, ENA, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
->>>>>>> master
+           &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, CVzOTC, 1, MPI_DEF_REAL, MPI_SUM, &
            &             comm_r, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, CVorOTC, 1, MPI_DEF_REAL, MPI_SUM,&
