@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project (magic)
 enable_language (Fortran C)
+cmake_policy(SET CMP0054 NEW)
 
 # generate a Git version string
 execute_process(COMMAND git describe --abbrev=7 --always --tags OUTPUT_VARIABLE GIT_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)

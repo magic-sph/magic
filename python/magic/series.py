@@ -149,7 +149,7 @@ class MagicTs(MagicSetup):
             ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
                     label='ekin pol axi')
             ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                    label='ekin tor axi')
+                 label='ekin tor axi')
             ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
@@ -555,6 +555,8 @@ class TsLookUpTable:
             self.ekin_tot = self.ekin_pol + self.ekin_tor
             self.ekin_es = self.ekin_pol_symeq + self.ekin_tor_symeq
             self.ekin_eas = self.ekin_pol_asymeq + self.ekin_tor_asymeq
+            self.ekin_pol_naxi=self.ekin_pol-self.ekin_pol_axi
+            self.ekin_tor_naxi=self.ekin_tor-self.ekin_tor_axi
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]
@@ -633,12 +635,22 @@ class TsLookUpTable:
             self.els_cmb = data[:, 15]
             self.rolc = data[:, 16]
             self.dlVc = data[:, 17]
-            if data.shape[-1] == 19:
-                self.dlPolPeak = np.zeros_like(self.time)
-                self.reEquat = data[:, 18]
-            elif data.shape[-1] == 20:
+            self.reEquat = data[:, 18]
+            self.dlPolPeak = np.zeros_like(self.time)
+            self.GeosA= np.zeros_like(self.time)
+            self.GeosZ= np.zeros_like(self.time)
+            self.GeosM= np.zeros_like(self.time)
+            self.GeosNA= np.zeros_like(self.time)
+            if data.shape[-1] == 20:
                 self.dlPolPeak = data[:, 18]
                 self.reEquat = data[:, 19]
+            elif data.shape[-1] == 24:
+                self.dlPolPeak = data[:, 18]
+                self.reEquat = data[:, 19]
+                self.GeosA = data[:, 20]
+                self.GeosZ = data[:, 21]
+                self.GeosM = data[:, 22]
+                self.GeosNA = data[:, 23]
         elif self.field == 'misc':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
