@@ -48,9 +48,6 @@ n_cheb_ic_max=17,
  l_movie     =.true.,
  movie(1)    ="Bp AX",
  l_RMS       =.false.,
- l_TO        =.true.,
- l_iner      =.true.,
- l_drift     =.true.,
 /
 &mantle 
  nRotMa      =0

@@ -32,7 +32,7 @@ class MagicRadial(MagicSetup):
     """
 
     def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None,
-                 normalize_radius=False):
+                 normalize_radius=False, quiet=False):
         """
         :param datadir: working directory
         :type datadir: str
@@ -45,6 +45,8 @@ class MagicRadial(MagicSetup):
         :param tags: a list that contains multiple tags: useful to sum
                      several radial files
         :type tags: list
+        :param quiet: when set to True, makes the output silent (default False)
+        :type quiet: bool
         """
 
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR'):
@@ -101,7 +103,8 @@ class MagicRadial(MagicSetup):
                 # Sum the files that correspond to the tag
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 for k, file in enumerate(files):
-                    print('reading %s' % file)
+                    if not quiet:
+                        print('reading %s' % file)
 
                     tag = mask.search(file).groups(0)[0]
                     nml = MagicSetup(nml='log.%s' % tag, datadir=datadir,
@@ -123,7 +126,8 @@ class MagicRadial(MagicSetup):
                 pattern = os.path.join(datadir, '%s.*' % self.name)
                 files = scanDir(pattern)
                 filename = files[-1]
-                print('reading %s' % filename)
+                if not quiet:
+                    print('reading %s' % filename)
                 # Determine the setup
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 ending = mask.search(files[-1]).groups(0)[0]
@@ -156,7 +160,8 @@ class MagicRadial(MagicSetup):
                                  quiet=True)
                 file = '%s.%s' % (self.name, tagg)
                 filename = os.path.join(datadir, file)
-                print('reading %s' % filename)
+                if not quiet:
+                    print('reading %s' % filename)
                 if self.name == 'varCond' or self.name == 'varVisc' or \
                    self.name == 'varDiff' or self.name == 'anel':
                     data = fast_read(filename, skiplines=1)

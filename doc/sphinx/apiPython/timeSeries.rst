@@ -8,7 +8,6 @@ Support for the ``log.TAG`` files
    :private-members:
    :special-members:
 
-
 .. _secPythonTimeSeries:
 
 Support for the time series
@@ -27,3 +26,8 @@ Averaging the time series
    :private-members:
    :special-members:
 
+Some resolution/convergence checks
+----------------------------------
+
+.. automodule:: magic.checker
+   :members:
