@@ -231,6 +231,14 @@ This file is written by the subroutine :f:subr:`getEgeos <egeos_mod/getegeos()>`
    +---------------+--------------------------------------------------------------+
    | 8             | North/South correlation of helicity outside the TC           |
    +---------------+--------------------------------------------------------------+
+   | 9             | Geostrophy of axisymmetic flow                               |
+   +---------------+--------------------------------------------------------------+
+   | 10            | Geostrophy of zonal flow                                     |
+   +---------------+--------------------------------------------------------------+
+   | 11            | Geostrophy of meridional flow                                |
+   +---------------+--------------------------------------------------------------+
+   | 12            | Geostrophy of non-axisymmetric flow                          |
+   +---------------+--------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 

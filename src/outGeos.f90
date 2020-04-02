@@ -177,7 +177,6 @@ contains
 
       !-- Output variables:
       real(cp), intent(out) :: Geos   ! ratio of geostrophic to total energy
-   ! JW 6Feb20: additional output added
       real(cp), intent(out) :: GeosA  ! ratio of geostr. axisymm. energy
       real(cp), intent(out) :: GeosZ  ! ratio of geostr. zonal energy
       real(cp), intent(out) :: GeosM  ! ratio of geostr. meridional energy
@@ -218,22 +217,12 @@ contains
       real(cp) :: sinT,cosT
       integer :: nInt,nInts   ! index for NHS and SHS integral
       integer :: nZ,nZmax,nZS,nZN
-      real(cp) :: EkInt(nZmaxA),EkIntS
-      real(cp) :: EA_s,EAIntS,EA
-      real(cp) :: EZ_s,EZIntS,EZ
-      real(cp) :: EM_s,EMIntS,EM
-      real(cp) :: ENA_s,ENAIntS,ENA
-      real(cp) :: EkSTC_s,EkNTC_s
-      real(cp) :: Egeos_s,EkOTC_s
-      real(cp) :: EgeosA_s
-      real(cp) :: EgeosZ_s
-      real(cp) :: EgeosM_s
-      real(cp) :: EgeosNA_s
-      real(cp) :: EkOTC
-      real(cp) :: dpEkInt(nZmaxA),dpEkIntS
-      real(cp) :: dzEkInt(nZmaxA),dzEkIntS
-      real(cp) :: dpEk_s,dzEk_s
-      real(cp) :: thetaZ,wZ,h
+      real(cp) :: EA_s,EAIntS,EA,EZ_s,EZIntS,EZ,EM_s,EMIntS,EM
+      real(cp) :: ENA_s,ENAIntS,ENA,EkSTC_s,EkNTC_s
+      real(cp) :: Egeos_s,EkOTC_s,EgeosA_s,EgeosZ_s,EgeosM_s
+      real(cp) :: EgeosNA_s,EkOTC,EkIntS
+      real(cp) :: dpEkInt(nZmaxA),dpEkIntS,dzEkInt(nZmaxA),dzEkIntS
+      real(cp) :: dpEk_s,dzEk_s,thetaZ,wZ
 
       !-- Correlation (new Oct. 4 2007)
       logical :: lCorrel
@@ -400,19 +389,19 @@ contains
             if ( nInt == 1 ) then
                zMax=zMaxN
                zMin=zMinN
-               Vr=VrAS(1:nZmax)
-               Vt=VtAS(1:nZmax)
-               Vp=VpAS(1:nZmax)
+               Vr(1:nZmax)=VrAS(1:nZmax)
+               Vt(1:nZmax)=VtAS(1:nZmax)
+               Vp(1:nZmax)=VpAS(1:nZmax)
             else if ( nInt == 2 ) then
                zMax=-zMinN
                zMin=-zMaxN
-               Vr=VrAS(nZmax+1:2*nZmax)
-               Vt=VtAS(nZmax+1:2*nZmax)
-               Vp=VpAS(nZmax+1:2*nZmax)
+               Vr(1:nZmax)=VrAS(nZmax+1:2*nZmax)
+               Vt(1:nZmax)=VtAS(nZmax+1:2*nZmax)
+               Vp(1:nZmax)=VpAS(nZmax+1:2*nZmax)
             end if
-            VA2=Vr(1:nZmax)**2+Vt(1:nZmax)**2+Vp(1:nZmax)**2
-            VZ2=Vp(1:nZmax)**2
-            VM2=Vr(1:nZmax)**2+Vt(1:nZmax)**2
+            VA2(1:nZmax)=Vr(1:nZmax)**2+Vt(1:nZmax)**2+Vp(1:nZmax)**2
+            VZ2(1:nZmax)=Vp(1:nZmax)**2
+            VM2(1:nZmax)=Vr(1:nZmax)**2+Vt(1:nZmax)**2
             VrAIntS=chebIntD(Vr,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             VtAIntS=chebIntD(Vt,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             VpAIntS=chebIntD(Vp,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
@@ -442,21 +431,21 @@ contains
                if ( nInt == 1 ) then
                   zMax=zMaxN
                   zMin=zMinN
-                  Vr=VrS(nPhi,1:nZmax)
-                  Vt=VtS(nPhi,1:nZmax)
-                  Vp=VpS(nPhi,1:nZmax)
-                  VrNA=Vr-VrAS(1:nZmax)
-                  VtNA=Vt-VtAS(1:nZmax)
-                  VpNA=Vp-VpAS(1:nZmax)
+                  Vr(1:nZmax)=VrS(nPhi,1:nZmax)
+                  Vt(1:nZmax)=VtS(nPhi,1:nZmax)
+                  Vp(1:nZmax)=VpS(nPhi,1:nZmax)
+                  VrNA(1:nZmax)=Vr(1:nZmax)-VrAS(1:nZmax)
+                  VtNA(1:nZmax)=Vt(1:nZmax)-VtAS(1:nZmax)
+                  VpNA(1:nZmax)=Vp(1:nZmax)-VpAS(1:nZmax)
                else if ( nInt == 2 ) then
                   zMax=-zMinN
                   zMin=-zMaxN
-                  Vr  =VrS(nPhi,nZmax+1:2*nZmax)
-                  Vt  =VtS(nPhi,nZmax+1:2*nZmax)
-                  Vp  =VpS(nPhi,nZmax+1:2*nZmax)
-                  VrNA=Vr-VrAS(nZmax+1:2*nZmax)
-                  VtNA=Vt-VtAS(nZmax+1:2*nZmax)
-                  VpNA=Vp-VpAS(nZmax+1:2*nZmax)
+                  Vr(1:nZmax)  =VrS(nPhi,nZmax+1:2*nZmax)
+                  Vt(1:nZmax)  =VtS(nPhi,nZmax+1:2*nZmax)
+                  Vp(1:nZmax)  =VpS(nPhi,nZmax+1:2*nZmax)
+                  VrNA(1:nZmax)=Vr(1:nZmax)-VrAS(nZmax+1:2*nZmax)
+                  VtNA(1:nZmax)=Vt(1:nZmax)-VtAS(nZmax+1:2*nZmax)
+                  VpNA(1:nZmax)=Vp(1:nZmax)-VpAS(nZmax+1:2*nZmax)
                end if
                V2(:)=Vr(:)**2+Vt(:)**2+Vp(:)**2
                VNA2(:)=VrNA(:)**2+VtNA(:)**2+VpNA(:)**2 
@@ -632,6 +621,8 @@ contains
            &             MPI_COMM_WORLD, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EgeosNA,1, MPI_DEF_REAL, MPI_SUM,  &
            &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, EA, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EZ, 1, MPI_DEF_REAL, MPI_SUM,  &
            &             MPI_COMM_WORLD, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, EM, 1, MPI_DEF_REAL, MPI_SUM,  &
@@ -657,7 +648,7 @@ contains
               &             comm_r, ierr)
 #endif
 
-         surf   =two*pi*surf/minc
+         surf   =two*pi*surf!/minc
          CVzOTC =CVzOTC/surf
          CVorOTC=CVorOTC/surf
          CHelOTC=CHelOTC/surf
@@ -752,9 +743,9 @@ contains
             &    position='append')
          end if
 
-         write(n_geos_file,'(1P,ES20.12,7ES16.8)')       &
-         &     time, Geos, EkNTC/Ekin, EkSTC/Ekin, Ekin, &
-         &     CVzOTC, CVorOTC, CHelOTC
+         write(n_geos_file,'(1P,ES20.12,11ES16.8)') time, Geos, EkNTC/Ekin, &
+         &     EkSTC/Ekin, Ekin, CVzOTC, CVorOTC, CHelOTC, GeosA, GeosZ,    &
+         &     GeosM, GeosNA
 
          if ( l_save_out ) close(n_geos_file)
          !--- NOTE: Ekin can be compared with energy in e_kin.TAG to

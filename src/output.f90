@@ -78,13 +78,13 @@ module output_mod
    real(cp) :: timePassedLog, timeNormLog
    integer :: nLogs
 
-   real(cp), save :: dlBMean,dmBMean
-   real(cp), save :: lvDissMean,lbDissMean
-   real(cp), save :: RmMean,ElMean,ElCmbMean,RolMean
-   real(cp), save :: GeosMean,GeosAMean,GeosZMean,GeosMMean,GeosNAMean
-   real(cp), save :: RelA,RelZ,RelM,RelNA
-   real(cp), save :: DipMean,DipCMBMean
-   real(cp), save :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
+   real(cp) :: dlBMean,dmBMean
+   real(cp) :: lvDissMean,lbDissMean
+   real(cp) :: RmMean,ElMean,ElCmbMean,RolMean
+   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean,GeosNAMean
+   real(cp) :: RelA,RelZ,RelM,RelNA
+   real(cp) :: DipMean,DipCMBMean
+   real(cp) :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
 
    real(cp) :: eTot,eTotOld,dtEint
    real(cp) :: e_kin_pMean, e_kin_tMean
@@ -930,7 +930,6 @@ contains
                open(newunit=n_par_file, file=par_file, status='unknown', &
                &    position='append')
             end if
-!            write(n_par_file,'(ES20.12,23ES16.8)')  &
             write(n_par_file,'(ES20.12,19ES16.8)')  &
                  &             timeScaled,          &! 1) time
                  &                     Rm,          &! 2) (magnetic) Reynolds number
@@ -947,10 +946,6 @@ contains
                  &                   dlVc,          &! 18) convective flow length scale
                  &             dlVPolPeak,          &! 19) Peak of the poloidal energy
                  &                ReEquat            ! 20) CMB flow at the equator
-!                 &                  GeosA,          &! 21) Geostrophy of axisymmetric flow
-!                 &                  GeosZ,          &! 22) Geostrophy of zonal flow
-!                 &                  GeosM,          &! 23) Geostrophy of meridional flow
-!                 &                 GeosNA            ! 24) Geostrophy of non-axisymmetric flow
 
             if ( l_save_out ) close(n_par_file)
 
@@ -980,8 +975,6 @@ contains
             e_mag_tMean=e_mag_tMean+timePassedLog*e_mag_t
             dlVMean    =dlVMean    +timePassedLog*dlV
             dlVcMean   =dlVcMean   +timePassedLog*dlVc
-            !           dlVu2Mean  =dlVu2VMean +timePassedLog*dlVu2
-            !           dlVu2cMean =dlVu2cVMean+timePassedLog*dlVu2c
             dmVMean    =dmVMean    +timePassedLog*dmV
             dpVMean    =dpVMean    +timePassedLog*dpV
             dzVMean    =dzVMean    +timePassedLog*dzV
@@ -1087,11 +1080,11 @@ contains
                & " !  rel geos Zon Ekin:",GeosZMean,                            &
                & " !  rel geos Mer Ekin:",GeosMMean,                            &
                & " !  rel geos NA Ekin :",GeosNAMean,                           &
-               & " !  Dip             :",DipMean,                               &
-               & " !  DipCMB          :",DipCMBMean,                            &
-               & " !  l,m,p,z V scales:",dlVMean,dmVMean,dpVMean,dzVmean,       &
-               & " !  l,m, B scales   :",dlBMean,dmBMean,                       &
-               & " !  vis, Ohm scale  :",lvDissMean,lbDissMean
+               & " !  Dip              :",DipMean,                              &
+               & " !  DipCMB           :",DipCMBMean,                           &
+               & " !  l,m,p,z V scales :",dlVMean,dmVMean,dpVMean,dzVmean,      &
+               & " !  l,m, B scales    :",dlBMean,dmBMean,                      &
+               & " !  vis, Ohm scale   :",lvDissMean,lbDissMean
                if ( l_par ) then 
                   write(n_log_file,*) !' Calculating geostrophic contributions with outEgeos.f90'
                   write(n_log_file,*) '! precision of z-integration (geos):',abs(volume/vol_oc-1)
