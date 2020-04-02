@@ -104,6 +104,7 @@ contains
       !   
       
       integer(lip) :: local_bytes_used
+      integer :: n_m
       
       local_bytes_used = bytes_allocated
 
@@ -112,7 +113,7 @@ contains
       call allocate_ml_mappings(map_mlo)
       
       ! (/0:n_m_max-1/)*minc: an array containing all m points
-      call set_lmmapping_default(map_glbl_st, (/0:n_m_max-1/)*minc ) 
+      call set_lmmapping_default(map_glbl_st, [(n_m,n_m=0,n_m_max-1,1)]*minc ) 
       call set_lmmapping_default(map_dist_st,   dist_m(coord_m,1:))
       
       call set_mlmapping(map_mlo)

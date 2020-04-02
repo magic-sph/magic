@@ -744,7 +744,6 @@ contains
          ind = minloc(tBlock_avg)
          idx = ind(1)
 
-<<<<<<< HEAD
          if (coord_r==0) then
             do n=1,2
                 if ( n==1 ) then
