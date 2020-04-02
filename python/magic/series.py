@@ -637,20 +637,9 @@ class TsLookUpTable:
             self.dlVc = data[:, 17]
             self.reEquat = data[:, 18]
             self.dlPolPeak = np.zeros_like(self.time)
-            self.GeosA= np.zeros_like(self.time)
-            self.GeosZ= np.zeros_like(self.time)
-            self.GeosM= np.zeros_like(self.time)
-            self.GeosNA= np.zeros_like(self.time)
             if data.shape[-1] == 20:
                 self.dlPolPeak = data[:, 18]
                 self.reEquat = data[:, 19]
-            elif data.shape[-1] == 24:
-                self.dlPolPeak = data[:, 18]
-                self.reEquat = data[:, 19]
-                self.GeosA = data[:, 20]
-                self.GeosZ = data[:, 21]
-                self.GeosM = data[:, 22]
-                self.GeosNA = data[:, 23]
         elif self.field == 'misc':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
@@ -668,6 +657,22 @@ class TsLookUpTable:
         elif self.field == 'geos':
             self.time = data[:, 0]
             self.geos = data[:, 1]
+            self.ekin_ntc_rel = data[:, 2]
+            self.ekin_stc_rel = data[:, 3]
+            self.ekin = data[:, 4]
+            self.corr_vz_otc = data[:, 5]
+            self.corr_vort_otc = data[:, 6]
+            self.corr_hel_otc = data[:, 7]
+            if data.shape[-1] == 8:
+                self.GeosA= np.zeros_like(self.time)
+                self.GeosZ= np.zeros_like(self.time)
+                self.GeosM= np.zeros_like(self.time)
+                self.GeosNA= np.zeros_like(self.time)
+            elif data.shape[-1] == 12:
+                self.GeosA = data[:, 8]
+                self.GeosZ = data[:, 9]
+                self.GeosM = data[:, 10]
+                self.GeosNA = data[:, 11]
         elif self.field == 'heat':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
@@ -732,7 +737,7 @@ class TsLookUpTable:
             self.eperp_axi = data[:, 3]
             self.epar_axi = data[:, 4]
             self.ekin_tot = self.eperp+self.epar
-        elif self.field in ('dtVrms'):
+        elif self.field == 'dtVrms':
             self.time = data[:, 0]
             self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
@@ -772,7 +777,7 @@ class TsLookUpTable:
                 self.preLor = data[:, 14] # Pressure/Lorentz
                 self.cia = data[:, 15] # Coriolis/Inertia/Archmedean
 
-        elif self.field in ('dtBrms'):
+        elif self.field == 'dtBrms':
             self.time = data[:, 0]
             self.dtBpolRms = data[:, 1]
             self.dtBtorRms = data[:, 2]
@@ -784,12 +789,12 @@ class TsLookUpTable:
             self.omega = data[:, 8]
             self.DynDipRms = data[:, 9]
             self.DynDipAxRms = data[:, 10]
-        elif self.field in ('dtE'):
+        elif self.field == 'dtE':
             self.time = data[:, 0]
             self.dEdt = data[:, 1]
             self.intdEdt = data[:, 2]
             self.reldEdt = data[:, 3]
-        elif self.field in ('power'):
+        elif self.field == 'power':
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
             if data.shape[1] == 11:
@@ -811,7 +816,7 @@ class TsLookUpTable:
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
                  self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
-        elif self.field in ('SRIC'):
+        elif self.field == 'SRIC':
             self.time = data[:,0]
             self.omega_ic = data[:,1]
             self.viscPower = data[:,2]

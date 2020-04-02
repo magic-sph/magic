@@ -758,7 +758,7 @@ contains
             &               ES10.3, '' s'')') tBlock_avg(6)
             write(n_out,'(A80)') message
             write(n_out,*)
-            if ( n==1 .AND. l_save_out ) close(n_log_file)
+            if ( n==1 .and. l_save_out ) close(n_log_file)
          end do
 
       end if
