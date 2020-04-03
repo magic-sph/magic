@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from magic import MagicTs, avgField, MagicSpectrum, MagicRadial, scanDir
+from magic import MagicTs, avgField, MagicSpectrum, MagicRadial, scanDir, MagicSetup
 import numpy as np
 from scipy.signal import argrelextrema
 import matplotlib.pyplot as plt
@@ -179,9 +179,21 @@ def MagicCheck(tstart=None):
     else:
         print(bcolors.WARNING + st_cmb + bcolors.ENDC)
 
+    # determine the relevant tags
+    logs = scanDir('log.*')
+    tags = []
+    for lg in logs:
+        stp = MagicSetup(nml=lg, quiet=True)
+        if stp.start_time >= tstart and os.path.exists('eKinR.%s' % stp.tag):
+            tags.append(stp.tag)
+
+    if len(tags) > 0:
+        rad = MagicRadial(field='eKinR', iplot=False, quiet=True, tags=tags)
+    else:
+        rad = MagicRadial(field='eKinR', iplot=False, quiet=True)
+
     # Number of points in viscous BL
     print('\n' + bcolors.BOLD + bcolors.UNDERLINE + 'Radial resolution:' + bcolors.ENDC)
-    rad = MagicRadial(field='eKinR', iplot=False, quiet=True)
     if rad.ktopv != 1 and rad.kbotv != 1:
         eKR = rad.ekin_pol+rad.ekin_tor
     else:
@@ -207,7 +219,10 @@ def MagicCheck(tstart=None):
         print(bcolors.WARNING + st_top + bcolors.ENDC)
 
     # Number of points in thermal BL
-    rad = MagicRadial(field='heatR', iplot=False, quiet=True)
+    if len(tags) > 0:
+        rad = MagicRadial(field='heatR', iplot=False, quiet=True, tags=tags)
+    else:
+        rad = MagicRadial(field='heatR', iplot=False, quiet=True)
     if rad.ktops == 1:
         ind = argrelextrema(rad.entropy_SD, np.greater)[0]
         ntop = ind[0]+1
