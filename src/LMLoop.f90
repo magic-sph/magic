@@ -313,11 +313,11 @@ contains
 
       !if ( l_cond_ic ) call assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
       !                      &               dbdt_ic, djdt_ic, tscheme)
-      if ( l_mag ) call assemble_mag_old(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, &
-      &                              tscheme)
-      !if ( l_mag ) call assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,   &
-      !                  &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,     &
-      !                  &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
+      !if ( l_mag ) call assemble_mag_old(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, &
+      !&                              tscheme)
+      if ( l_mag ) call assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,   &
+                        &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,     &
+                        &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------
