@@ -7,7 +7,7 @@ module radial_functions
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
        &                 fd_stretch, fd_order, fd_order_bound, l_max
    use algebra, only: prepare_mat, solve_mat
-   use constants, only: sq4pi, one, two, three, four, half
+   use constants, only: sq4pi, one, two, three, four, half, pi
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
@@ -102,6 +102,7 @@ module radial_functions
    real(cp), public, allocatable :: ddLvisc(:)    ! 2nd derivative of kinematic viscosity
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
+   real(cp), public, allocatable :: dr_top_ic_sym(:), dr_top_ic_asym(:)
 
    integer, public, allocatable :: l_R(:) ! Variable degree with radius
 
@@ -159,6 +160,8 @@ contains
          &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 
          call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+
+         allocate ( dr_top_ic_sym(n_r_ic_max), dr_top_ic_asym(n_r_ic_max) )
       end if
 
       if ( .not. l_finite_diff ) then
@@ -199,6 +202,7 @@ contains
       deallocate( opressure0 )
 
       if ( .not. l_full_sphere ) then
+         deallocate( dr_top_ic_sym, dr_top_ic_asym )
          deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
          call chebt_ic%finalize()
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
@@ -231,11 +235,11 @@ contains
 
       real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
       real(cp) :: rrOcmb(n_r_max)
+      real(cp) :: dr_top(2*n_r_ic_max-1)
       character(len=80) :: message
       character(len=76) :: fileName
       integer :: fileHandle
-
-      real(cp) :: ratio1, ratio2
+      real(cp) :: ratio1, ratio2, diff, coeff
 
 
       !-- Radial grid point:
@@ -720,9 +724,6 @@ contains
          O_r_ic(n_r) =0.0_cp
          O_r_ic2(n_r)=0.0_cp
 
-         !-- Get no of point on graphical output grid:
-         !   No is set to -1 to indicate that point is not on graphical output grid.
-
       end if
 
       if ( n_r_ic_max > 0 .and. l_cond_ic ) then
@@ -748,6 +749,33 @@ contains
             n_cheb_int=2*n_cheb-1
             cheb_int_ic(n_cheb)=-fac_int / real(n_cheb_int*(n_cheb_int-2),kind=cp)
          end do
+
+         dr_top(1)=(two*(2*n_r_ic_max-2)*(2*n_r_ic_max-2)+one)/6.0_cp
+         do n_r=2,2*n_r_ic_max-1
+            diff = two* sin( half*(n_r-1)*pi/(2*n_r_ic_max-2) ) * &
+            &           sin( half*(n_r-1)*pi/(2*n_r_ic_max-2) )
+            if ( mod(n_r,2) == 0 ) then
+               coeff=-one
+            else
+               coeff=one
+            end if
+            dr_top(n_r)=two*coeff/diff
+         end do
+         dr_top(2*n_r_ic_max-1) = half*dr_top(2*n_r_ic_max-1)
+
+         !-- Those two arrays can be used to compute the derivatives of the
+         !-- inner core quantities at radius r_i in real space. Those are
+         !-- based on Chebyshev differentiation matrices in real space
+         do n_r=1,n_r_ic_max-1
+            dr_top_ic_sym(n_r) =dr_top(n_r)+dr_top(2*n_r_ic_max-n_r)
+            dr_top_ic_asym(n_r)=dr_top(n_r)-dr_top(2*n_r_ic_max-n_r)
+         end do
+         dr_top_ic_sym(n_r_ic_max) =dr_top(n_r_ic_max)
+         dr_top_ic_asym(n_r_ic_max)=0.0_cp
+
+         !-- Cheb factor of the form 2/(b-a)=2/(2*ri)=1/ri
+         dr_top_ic_sym(:) = dr_top_ic_sym(:)*dr_fac_ic
+         dr_top_ic_asym(:)=dr_top_ic_asym(:)*dr_fac_ic
 
       end if
 

@@ -13,7 +13,8 @@ module updateB_mod
        &                 n_r_totMag, lm_max, l_maxMag
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic,rscheme_oc, r_ic
+       &                       or1, cheb_ic, dcheb_ic,rscheme_oc, r_ic,        &
+       &                       dr_top_ic_sym, dr_top_ic_asym
    use radial_data, only: n_r_cmb, n_r_icb
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb
@@ -1150,7 +1151,7 @@ contains
       call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
       call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
 
-      !-- Now get the toroidal potential from the assembly
+      !-- Now get the potentials from the assembly
       !$omp parallel do private(n_r,lm,l1,dL)
       do n_r=1,n_r_ic_max
          do lm=lmStart_00,ulmMag
@@ -1325,21 +1326,29 @@ contains
 
    end subroutine assemble_mag
 !-----------------------------------------------------------------------------
-   subroutine assemble_mag_old(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, tscheme)
+   subroutine assemble_mag_old(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic,  &
+              &            aj_ic, dj_ic, ddj_ic, dbdt, djdt, dbdt_ic, djdt_ic,  &
+              &            lRmsNext, tscheme)
 
       !-- Input variables:
+      real(cp),            intent(in) :: time
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
 
       !-- Output variables
-      type(type_tarray), intent(inout) :: dbdt
-      type(type_tarray), intent(inout) :: djdt
+      type(type_tarray), intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),       intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
       complex(cp),       intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),       intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
 
       !-- Local variables
       complex(cp) :: val_bot
@@ -1351,11 +1360,8 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lmStart_00 =max(2,llmMag)
 
-      if ( l_cond_ic ) then
-         call abortRun('Assembly stage + cond IC not really in place!')
-      end if
 
-      !-- Assemble IMEX using ddw as a work array
+      !-- Assemble IMEX using ddb and ddj as a work array
       call tscheme%assemble_imex(ddb, dbdt, llmMag, ulmMag, n_r_maxMag)
       call tscheme%assemble_imex(ddj, djdt, llmMag, ulmMag, n_r_maxMag)
 
@@ -1370,6 +1376,23 @@ contains
          end do
       end do
       !$omp end parallel do
+
+      if ( l_cond_ic ) then
+         call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
+
+         !-- Now get the potentials from the assembly
+         !$omp parallel do private(n_r,lm,l1,dL)
+         do n_r=2,n_r_ic_max
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               b_ic(lm,n_r)  = r(n_r_max)*r(n_r_max)/dL*ddb_ic(lm,n_r)
+               aj_ic(lm,n_r) = r(n_r_max)*r(n_r_max)/dL*ddj_ic(lm,n_r)
+            end do
+         end do
+         !$omp end parallel do
+      end if
 
       !-- Now handle boundary conditions !
       if ( imagcon /= 0 ) call abortRun('imagcon/=0 not implemented with assembly stage!')
@@ -1395,21 +1418,79 @@ contains
             call abortRun('Not implemented yet!')
          end if
       else ! spherical shell
-         if ( kbotb == 3 ) then
-            if ( ktopb==1 ) then
+         if ( kbotb == 3 ) then ! Conducting inner core
+            if ( ktopb==1 ) then ! Vacuum outside + cond. I. C.
                do lm=lmStart_00,ulmMag
                   l1 = lm2l(lm)
                   fac_top=real(l1,cp)*or1(1)
-                  val_bot=b(lm,n_r_max)
-                  call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, val_bot, b(lm,:))
-                  b(lm,n_r_max)=val_bot
-                  aj(lm,1)=zero
+                  if ( mod(l1,2)==0 ) then
+                     fac_bot=-dr_top_ic_asym(1)-real(l1+1,cp)*or1(n_r_max)
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_asym(n_r)*b_ic(lm,n_r)
+                     end do
+                  else
+                     fac_bot=-dr_top_ic_sym(1)-real(l1+1,cp)*or1(n_r_max)
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_sym(n_r)*b_ic(lm,n_r)
+                     end do
+                  end if
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, val_bot, &
+                       &                   b(lm,:))
+                  b_ic(lm,1)=b(lm,n_r_max)
+
+                  if ( mod(l1,2)==0 ) then
+                     fac_bot=-dr_top_ic_asym(1)-real(l1+1,cp)*or1(n_r_max)
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_asym(n_r)*aj_ic(lm,n_r)
+                     end do
+                  else
+                     fac_bot=-dr_top_ic_sym(1)-real(l1+1,cp)*or1(n_r_max)
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_sym(n_r)*aj_ic(lm,n_r)
+                     end do
+                  end if
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, sigma_ratio, fac_bot, &
+                       &                   val_bot, aj(lm,:))
+                  aj_ic(lm,1)=aj(lm,n_r_max)
                end do
-            else if ( ktopb == 4 ) then
+            else if ( ktopb == 4 ) then ! Pseudo-Vacuum outside + cond. I. C.
                do lm=lmStart_00,ulmMag
-                  val_bot=b(lm,n_r_max)
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, val_bot, b(lm,:))
-                  aj(lm,1)=zero
+                  l1 = lm2l(lm)
+                  if ( mod(l1,2)==0 ) then
+                     fac_bot=-dr_top_ic_asym(1)+real(l1+1,cp)*or1(n_r_max)
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_asym(n_r)*b_ic(lm,n_r)
+                     end do
+                  else
+                     fac_bot=-dr_top_ic_sym(1)+real(l1+1,cp)*or1(n_r_max)
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_sym(n_r)*b_ic(lm,n_r)
+                     end do
+                  end if
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, fac_bot, val_bot, &
+                       &                   b(lm,:))
+                  b_ic(lm,1)=b(lm,n_r_max)
+
+                  if ( mod(l1,2)==0 ) then
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_asym(n_r)*aj_ic(lm,n_r)
+                     end do
+                  else
+                     val_bot = zero
+                     do n_r=2,n_r_ic_max
+                        val_bot = val_bot+dr_top_ic_sym(n_r)*aj_ic(lm,n_r)
+                     end do
+                  end if
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, sigma_ratio, fac_bot, &
+                       &                   val_bot, aj(lm,:))
+                  aj_ic(lm,1)=aj(lm,n_r_max)
                end do
             else
                call abortRun('Not implemented yet!')
@@ -1469,6 +1550,26 @@ contains
 
       call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
            &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
+
+      if ( l_cond_ic ) then
+         !-- Finally compute the required implicit stage if needed
+         call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
+              &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
+              &                  .false.)
+      end if
+
+      !print*, real(db(lo_map%lm2(1,0),n_r_max)), &
+      !&       real(db_ic(lo_map%lm2(1,0),1))+two*or1(n_r_max)*real(b_ic(lo_map%lm2(1,0),1))
+      !val_bot=zero
+      !do n_r=1,n_r_ic_max
+      !   val_bot=val_bot+dr_top_ic_sym(n_r)*b_ic(lo_map%lm2(1,0),n_r)
+      !end do
+
+      !print*, real(db(lo_map%lm2(2,0),n_r_max)), &
+      !&       real(db_ic(lo_map%lm2(2,0),1))+3.0_cp*or1(n_r_max)*real(b_ic(lo_map%lm2(2,0),1))
+
+      !print*, real(dj(lo_map%lm2(1,0),n_r_max)), &
+      !&       real(dj_ic(lo_map%lm2(1,0),1))+two*or1(n_r_max)*real(aj_ic(lo_map%lm2(1,0),1))
 
    end subroutine assemble_mag_old
 !-----------------------------------------------------------------------------

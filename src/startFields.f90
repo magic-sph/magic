@@ -7,8 +7,7 @@ module start_fields
    use truncation
    use precision_mod
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: dr_fac_ic, chebt_ic, rscheme_oc,          &
-       &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
+   use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &
        &                       otemp1, ogrun
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
