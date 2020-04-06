@@ -50,29 +50,25 @@ module updateB_mod
    real(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
    class(type_realmat), pointer :: bMat(:), jMat(:)
-   class(type_realmat), pointer :: b_ell_Mat(:), j_ell_Mat(:)
 #ifdef WITH_PRECOND_BJ
    real(cp), allocatable :: bMat_fac(:,:)
    real(cp), allocatable :: jMat_fac(:,:)
 #endif
-   logical, public, allocatable :: lBmat(:), l_ell_Mat(:)
+   logical, public, allocatable :: lBmat(:)
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
-   &         assemble_mag, assemble_mag_ic, assemble_mag_old
+   &         assemble_mag
 
 contains
 
-   subroutine initialize_updateB(tscheme)
+   subroutine initialize_updateB()
       !
       ! Purpose of this subroutine is to allocate the matrices needed
       ! to time advance the magnetic field. Depending on the
       ! radial scheme and the inner core conductivity, it can be full,
       ! bordered or band matrices.
       !
-
-      !-- Input variable
-      class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       !-- Local variables
       integer, pointer :: nLMBs2(:)
@@ -84,17 +80,9 @@ contains
          if ( l_cond_ic ) then
             allocate( type_bordmat :: jMat(nLMBs2(1+rank)) )
             allocate( type_bordmat :: bMat(nLMBs2(1+rank)) )
-            if ( tscheme%l_assembly ) then
-               allocate( type_bordmat :: j_ell_Mat(nLMBs2(1+rank)) )
-               allocate( type_bordmat :: b_ell_Mat(nLMBs2(1+rank)) )
-            end if
          else
             allocate( type_bandmat :: jMat(nLMBs2(1+rank)) )
             allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
-            if ( tscheme%l_assembly ) then
-               allocate( type_bandmat :: j_ell_Mat(nLMBs2(1+rank)) )
-               allocate( type_bandmat :: b_ell_Mat(nLMBs2(1+rank)) )
-            end if
          end if
 
          if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
@@ -123,22 +111,6 @@ contains
                call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
             end do
          end if
-
-         if ( tscheme%l_assembly ) then
-            n_bandsJ = rscheme_oc%order+1
-            n_bandsB = rscheme_oc%order+1
-            if ( l_cond_ic ) then
-               do ll=1,nLMBs2(1+rank)
-                  call b_ell_Mat(ll)%initialize(n_bandsB,n_r_max,.true.,n_r_ic_max)
-                  call j_ell_Mat(ll)%initialize(n_bandsJ,n_r_max,.true.,n_r_ic_max)
-               end do
-            else
-               do ll=1,nLMBs2(1+rank)
-                  call b_ell_Mat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
-                  call j_ell_Mat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
-               end do
-            end if
-         end if
       else
          allocate( type_densemat :: jMat(nLMBs2(1+rank)) )
          allocate( type_densemat :: bMat(nLMBs2(1+rank)) )
@@ -147,16 +119,6 @@ contains
             call bMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
             call jMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
          end do
-
-         if ( tscheme%l_assembly ) then
-            allocate( type_densemat :: j_ell_Mat(nLMBs2(1+rank)) )
-            allocate( type_densemat :: b_ell_Mat(nLMBs2(1+rank)) )
-
-            do ll=1,nLMBs2(1+rank)
-               call b_ell_Mat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
-               call j_ell_Mat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
-            end do
-         end if
       end if
 
 #ifdef WITH_PRECOND_BJ
@@ -166,11 +128,6 @@ contains
 #endif
       allocate( lBmat(0:l_maxMag) )
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
-
-      if ( tscheme%l_assembly ) then
-         allocate( l_ell_Mat(0:l_maxMag) )
-         bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
-      end if
 
       if ( l_RMS ) then
          allocate( workA(llmMag:ulmMag,n_r_max) )
@@ -202,14 +159,11 @@ contains
 
    end subroutine initialize_updateB
 !-----------------------------------------------------------------------------
-   subroutine finalize_updateB(tscheme)
+   subroutine finalize_updateB()
       !
       ! This subroutine deallocates the matrices involved in the time
       ! advance of the magnetic field
       !
-
-      !-- Input variable
-      class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       !-- Local variables
       integer, pointer :: nLMBs2(:)
@@ -221,14 +175,6 @@ contains
          call jMat(ll)%finalize()
          call bMat(ll)%finalize()
       end do
-
-      if ( tscheme%l_assembly ) then
-         do ll=1,nLMBs2(1+rank)
-            call j_ell_Mat(ll)%finalize()
-            call b_ell_Mat(ll)%finalize()
-         end do
-         deallocate( l_ell_mat )
-      end if
 
       if ( l_cond_ic ) deallocate ( work_ic_LMloc )
       deallocate( lBmat )
@@ -750,299 +696,6 @@ contains
 
    end subroutine updateB
 !-----------------------------------------------------------------------------
-   subroutine get_B(time, b, aj, b_ic, aj_ic, work_b, work_j, work_bic, work_jic)
-
-      !-- Input variables
-      real(cp),    intent(in) :: time
-      complex(cp), intent(in) :: work_b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: work_j(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: work_bic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(in) :: work_jic(llmMag:ulmMag,n_r_ic_max)
-
-      !-- Output variables
-      complex(cp), intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp), intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-
-      !-- Local variables:
-      real(cp) :: yl0_norm,prefac!External magnetic field of general l
-
-      integer :: l1,m1               ! degree and order
-      integer :: lm1,lm,lmB          ! position of (l,m) in array
-      integer :: lmStart_00          ! excluding l=0,m=0
-      integer :: nLMB2, nLMB
-      integer :: n_r_out             ! No of cheb polynome (degree+1)
-      integer :: nR                  ! No of radial grid point
-
-      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
-      integer, pointer :: sizeLMB2(:,:),lm2(:,:)
-      integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
-
-      !-- for feedback
-      real(cp) :: ff,cimp,aimp,b10max
-
-      real(cp), save :: direction
-
-      integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( .not. l_update_b ) RETURN
-
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-      sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
-      lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
-      lm22l(1:,1:,1:) => lo_sub_map%lm22l
-      lm22m(1:,1:,1:) => lo_sub_map%lm22m
-      lm2(0:,0:) => lo_map%lm2
-      lm2l(1:lm_max) => lo_map%lm2l
-      lm2m(1:lm_max) => lo_map%lm2m
-
-      nLMB=1+rank
-      lmStart_00=max(2,llmMag)
-
-      !$omp parallel default(shared)
-
-      !$omp single
-      call solve_counter%start_count()
-      !$omp end single
-      ! This is a loop over all l values which should be treated on
-      ! the actual MPI rank
-      !$OMP SINGLE
-      do nLMB2=1,nLMBs2(nLMB)
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-         !$OMP private(bpeaktop,ff,cimp,aimp,threadid)
-
-         nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
-         size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
-
-         l1=lm22l(1,nLMB2,nLMB)
-         if ( l1 > 0 ) then
-            call get_elliptic_mat(l1, b_ell_Mat(nLMB2), j_ell_Mat(nLMB2))
-            l_ell_Mat(l1)=.true.
-         end if
-
-         do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$OMP private(bpeaktop,ff,threadid)
-#ifdef WITHOMP
-            threadid = omp_get_thread_num()
-#else
-            threadid = 0
-#endif
-            lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 > 0 ) then
-                  lmB=lmB+1
-                  rhs1(1,2*lmB-1,threadid) = 0.0_cp
-                  rhs1(1,2*lmB,threadid)   = 0.0_cp
-                  rhs2(1,2*lmB-1,threadid) = 0.0_cp
-                  rhs2(1,2*lmB,threadid)   = 0.0_cp
-
-                  !-------- inner core
-                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-                  rhs2(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
-
-                  if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
-                     if ( imagcon /= 0 .and. tmagcon <= time ) then
-                        if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                           rhs2(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs2(1,2*lmB,threadid)        =0.0_cp
-                           rhs2(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
-                        else if( l1 == 1 .and. imagcon == 12 ) then
-                           rhs2(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs2(1,2*lmB,threadid)        =0.0_cp
-                           rhs2(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
-                        else if( l1 == 1 .and. imagcon == -1) then
-                           rhs1(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-                        else if( l1 == 1 .and. imagcon == -2) then
-                           rhs1(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs1(1,2*lmB,threadid)        =0.0_cp
-                        else if( l1 == 3 .and. imagcon == -10 ) then
-                           rhs2(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs2(1,2*lmB,threadid)        =0.0_cp
-                           rhs2(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
-                        end if
-                     end if
-
-                    if (l_curr .and. (mod(l1,2) /= 0) ) then
-                        yl0_norm=half*sqrt((2*l1+1)/pi)
-                        !Prefactor for CMB matching condition
-                        prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp)
-                        bpeaktop=prefac*fac_loop(l1)*amp_curr*r_cmb/yl0_norm
-                        rhs1(1,2*lmB-1,threadid)=bpeaktop
-                        rhs1(1,2*lmB,threadid)  =0.0_cp
-                     end if
-
-                     if ( n_imp > 1 .and. l1 == l_imp ) then
-                         ! General normalization for degree l and order 0
-                         yl0_norm = half*sqrt((2*l1+1)/pi)
-                         ! Prefactor for CMB matching condition
-                         prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp)
-                        if ( n_imp == 2 ) then
-                           bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
-                        else if ( n_imp == 3 ) then
-                           bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                           if ( real(b(2,1)) > 1.0e-9_cp ) &
-                           &    direction=real(b(2,1))/abs(real(b(2,1)))
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop*direction
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
-                        else if ( n_imp == 4 ) then
-                           bpeaktop=three/r_cmb*amp_imp*real(b(2,1))**2
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop/real(b(2,1))
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
-                        else
-                           ff=0.0_cp
-                           if ( n_imp == 7 ) then
-                              b10max=bmax_imp*r_cmb*r_cmb
-                              cimp=b10max**expo_imp / (expo_imp-1)
-                              aimp=amp_imp*cimp*expo_imp / &
-                              &    (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
-                              ff=  aimp*real(b(2,1))**expo_imp/ &
-                              &    (cimp+real(b(2,1))**expo_imp)
-                           end if
-                           rhs1(1,2*lmB-1,threadid)=(2*l1+1)/r_cmb*ff
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
-                        end if
-                     end if
-                  end if
-
-                  do nR=2,n_r_max-1
-                     rhs1(nR,2*lmB-1,threadid)= real(work_b(lm1,nR))
-                     rhs1(nR,2*lmB,threadid)  =aimag(work_b(lm1,nR))
-                     rhs2(nR,2*lmB-1,threadid)= real(work_j(lm1,nR))
-                     rhs2(nR,2*lmB,threadid)  =aimag(work_j(lm1,nR))
-                  end do
-
-                  !-- Overwrite RHS when perfect conductor
-                  if ( ktopb == 2 ) then
-                     rhs1(2,2*lmB-1,threadid) = 0.0_cp
-                     rhs1(2,2*lmB,threadid)   = 0.0_cp
-                  end if
-                  if ( kbotb == 2 ) then
-                     rhs1(n_r_max-1,2*lmB-1,threadid) = 0.0_cp
-                     rhs1(n_r_max-1,2*lmB,threadid)   = 0.0_cp
-                  end if
-
-                  !-- Magnetic boundary conditions, inner core for radial derivatives
-                  !         of poloidal and toroidal magnetic potentials:
-                  if ( l_cond_ic ) then    ! inner core
-                     rhs1(n_r_max+1,2*lmB-1,threadid)=0.0_cp
-                     rhs1(n_r_max+1,2*lmB,threadid)  =0.0_cp
-                     rhs2(n_r_max+1,2*lmB-1,threadid)=0.0_cp
-                     rhs2(n_r_max+1,2*lmB,threadid)  =0.0_cp
-                     do nR=2,n_r_ic_max
-                        rhs1(n_r_max+nR,2*lmB-1,threadid)= real(work_bic(lm1,nR))
-                        rhs1(n_r_max+nR,2*lmB,threadid)  =aimag(work_bic(lm1,nR))
-                        rhs2(n_r_max+nR,2*lmB-1,threadid)= real(work_jic(lm1,nR))
-                        rhs2(n_r_max+nR,2*lmB,threadid)  =aimag(work_jic(lm1,nR))
-                     end do
-                  end if
-               end if ! l>0
-            end do    ! loop over lm in block
-
-            if ( lmB > lmB0 ) then
-               call b_ell_Mat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                    &                      2*(lmB-lmB0))
-               call j_ell_Mat(nLMB2)%solve(rhs2(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                    &                      2*(lmB-lmB0))
-            end if
-
-            !----- Update magnetic field in cheb space:
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 > 0 ) then
-                  lmB=lmB+1
-
-                  if ( m1 > 0 ) then
-                     do n_r_out=1,rscheme_oc%n_max  ! outer core
-                        b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                     rhs1(n_r_out,2*lmB,threadid),cp)
-                        aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lmB-1,threadid), &
-                        &                     rhs2(n_r_out,2*lmB,threadid),cp)
-                     end do
-                     if ( l_cond_ic ) then   ! inner core
-                        do n_r_out=1,n_cheb_ic_max
-                           b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,  &
-                           &                        threadid),rhs1(n_r_max+n_r_out,&
-                           &                        2*lmB,threadid),cp)
-                           aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,  &
-                           &                        threadid),rhs2(n_r_max+n_r_out,&
-                           &                        2*lmB,threadid),cp)
-                        end do
-                     end if
-                  else
-                     do n_r_out=1,rscheme_oc%n_max   ! outer core
-                        b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                      0.0_cp,kind=cp)
-                        aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lmB-1,threadid), &
-                        &                      0.0_cp,kind=cp)
-                     end do
-                     if ( l_cond_ic ) then    ! inner core
-                        do n_r_out=1,n_cheb_ic_max
-                           b_ic(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out, &
-                           &                   2*lmB-1,threadid),0.0_cp,kind=cp)
-                           aj_ic(lm1,n_r_out)= cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,&
-                           &                   threadid),0.0_cp,kind=cp)
-                        end do
-                     end if
-                  end if
-
-               end if
-            end do
-            !$omp end task
-         end do
-         !$omp end task
-      end do      ! end of do loop over lm1
-      !$omp end single
-      !$omp single
-      call solve_counter%stop_count(l_increment=.false.)
-      !$omp end single
-
-      !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !   for inner core modes > 2*n_cheb_ic_max = 0
-      !$omp do private(n_r_out,lm1) collapse(2)
-      do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart_00,ulmMag
-            b(lm1,n_r_out) =zero
-            aj(lm1,n_r_out)=zero
-         end do
-      end do
-      !$omp end do
-
-      if ( l_cond_ic ) then
-         !$omp do private(n_r_out, lm1) collapse(2)
-         do n_r_out=n_cheb_ic_max+1,n_r_ic_max
-            do lm1=lmStart_00,ulmMag
-               b_ic(lm1,n_r_out) =zero
-               aj_ic(lm1,n_r_out)=zero
-            end do
-         end do
-         !$omp end do
-      end if
-
-      !$omp end parallel
-
-   end subroutine get_B
-!-----------------------------------------------------------------------------
    subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
 
       !-- Input variables
@@ -1121,53 +774,6 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_mag
-!-----------------------------------------------------------------------------
-   subroutine assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
-              &               dbdt_ic, djdt_ic, tscheme)
-
-      !-- Input variable
-      class(type_tscheme), intent(in) :: tscheme
-
-      !-- Output variables
-      type(type_tarray), intent(inout) :: dbdt_ic
-      type(type_tarray), intent(inout) :: djdt_ic
-      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
-
-      !-- Local variables
-      integer :: n_r, lm, l1, lmStart_00
-      integer, pointer :: lm2l(:)
-      real(cp) :: dL
-
-      lm2l(1:lm_max) => lo_map%lm2l
-      lmStart_00 =max(2,llmMag)
-
-      !-- Assemble IMEX using ddb_ic and ddj_ic as a work arrays
-      call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
-      call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
-
-      !-- Now get the potentials from the assembly
-      !$omp parallel do private(n_r,lm,l1,dL)
-      do n_r=1,n_r_ic_max
-         do lm=lmStart_00,ulmMag
-            l1 = lm2l(lm)
-            dL = real(l1*(l1+1),cp)
-            b_ic(lm,n_r)  = r(n_r_max)*r(n_r_max)/dL*ddb_ic(lm,n_r)
-            aj_ic(lm,n_r) = r(n_r_max)*r(n_r_max)/dL*ddj_ic(lm,n_r)
-         end do
-      end do
-      !$omp end parallel do
-
-      !-- Finally compute the required implicit stage if needed
-      call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
-           &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
-           &                  .false.)
-
-   end subroutine assemble_mag_ic
 !-----------------------------------------------------------------------------
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
@@ -1301,54 +907,6 @@ contains
       complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
 
-      !-- Assemble IMEX using ddb, ddj as a work arrays
-      call tscheme%assemble_imex(ddb, dbdt, llmMag, ulmMag, n_r_maxMag)
-      call tscheme%assemble_imex(ddj, djdt, llmMag, ulmMag, n_r_maxMag)
-
-      if ( l_cond_ic ) then
-         call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
-         call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
-      end if
-
-      !-- Careful outputs ALL in Chebyshev space
-      call get_B(time, b, aj, b_ic, aj_ic, ddb, ddj, ddb_ic, ddj_ic)
-
-      !-- Now finally put everything into proper time arrays
-      call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
-           &               tscheme%l_imp_calc_rhs(1), lRmsNext,             &
-           &               l_in_cheb_space=.true.)
-      if ( l_cond_ic ) then
-         call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
-              &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
-              &                  l_in_cheb_space=.true.)
-      end if
-
-   end subroutine assemble_mag
-!-----------------------------------------------------------------------------
-   subroutine assemble_mag_old(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic,  &
-              &            aj_ic, dj_ic, ddj_ic, dbdt, djdt, dbdt_ic, djdt_ic,  &
-              &            lRmsNext, tscheme)
-
-      !-- Input variables:
-      real(cp),            intent(in) :: time
-      class(type_tscheme), intent(in) :: tscheme
-      logical,             intent(in) :: lRmsNext
-
-      !-- Output variables
-      type(type_tarray), intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
-      complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),       intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),       intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
-
       !-- Local variables
       complex(cp) :: val_bot
       real(cp) :: fac_top, fac_bot
@@ -1359,6 +917,10 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llmMag)
+
+      if ( l_b_nl_cmb .or. l_b_nl_icb ) then
+         call abortRun('Non linear magnetic BCs not implemented at assembly stage!')
+      end if
 
 
       !-- Assemble IMEX using ddb and ddj as a work array
@@ -1515,7 +1077,7 @@ contains
               &                  .false.)
       end if
 
-   end subroutine assemble_mag_old
+   end subroutine assemble_mag
 !-----------------------------------------------------------------------------
    subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
               &               istage, l_calc_lin, lRmsNext, l_in_cheb_space)
@@ -2028,227 +1590,5 @@ contains
       if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
 
    end subroutine get_bMat
-!-----------------------------------------------------------------------------
-   subroutine get_elliptic_mat(l,bMat,jMat)
-      !
-      !  Purpose of this subroutine is to contruct the time step matrices
-      !  bmat(i,j) and ajmat for the dynamo equations.
-      !
-
-      !-- Input variables:
-      integer,             intent(in) :: l
-
-      !-- Output variables:
-      class(type_realmat), intent(inout) :: bMat
-      class(type_realmat), intent(inout) :: jMat
-
-      !-- local variables:
-      integer :: nR,nCheb,nR_out,nRall
-      integer :: info
-      real(cp) :: l_P_1
-      real(cp) :: dLh
-      real(cp) :: rRatio
-      real(cp) :: datJmat(n_r_tot,n_r_tot)
-      real(cp) :: datBmat(n_r_tot,n_r_tot)
-
-      nRall=n_r_max
-      if ( l_cond_ic ) nRall=nRall+n_r_ic_max
-      dLh=real(l*(l+1),kind=cp)
-
-      !-- matrices depend on degree l but not on order m,
-      !   we thus have to construct bmat and ajmat for each l:
-      l_P_1=real(l+1,kind=cp)
-
-      do nR_out=1,n_r_max
-         do nR=2,n_r_max-1
-            datBmat(nR,nR_out)=rscheme_oc%rnorm*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)
-            datJmat(nR,nR_out)=rscheme_oc%rnorm*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)
-         end do
-      end do
-
-      !----- boundary conditions for outer core field:
-      if ( ktopb == 1 .or. ktopb == 3 ) then
-         datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
-         &                      rscheme_oc%drMat(1,:) +  &
-         &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
-         &                     conductance_ma* (         &
-         &                     rscheme_oc%d2rMat(1,:) -  &
-         &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
-
-         datJmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
-         &                       rscheme_oc%rMat(1,:) +  &
-         &       conductance_ma*rscheme_oc%drMat(1,:) )
-      else if ( ktopb == 2 ) then
-         datBmat(1,1:n_r_max)=rscheme_oc%rnorm*  rscheme_oc%rMat(1,:)
-         datBmat(2,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%d2rMat(1,:)
-         datJmat(1,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(1,:)
-      else if ( ktopb == 4 ) then
-         datJmat(1,1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%rMat(1,:)
-         datBmat(1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-      end if
-
-      !-------- at IC (nR=n_r_max):
-      if ( l_full_sphere ) then
-         datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-      else
-         if ( kbotb == 1 ) then
-            !----------- insulating IC, field has to fit a potential field:
-            datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-
-            datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * (      &
-            &                      rscheme_oc%drMat(n_r_max,:) - &
-            &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,:) )
-         else if ( kbotb == 2 ) then
-            !----------- perfect conducting IC
-            datBmat(n_r_max,  1:n_r_max)=rscheme_oc%rnorm*  rscheme_oc%rMat(n_r_max,:)
-            datBmat(n_r_max-1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,:)
-            datJmat(n_r_max,  1:n_r_max)=rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,:)
-         else if ( kbotb == 3 ) then
-            datBmat(n_r_max,1:n_r_max)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
-            datBmat(n_r_max+1,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-            datJmat(n_r_max,1:n_r_max)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,:)
-            datJmat(n_r_max+1,1:n_r_max)=rscheme_oc%rnorm*sigma_ratio* &
-            &                      rscheme_oc%drMat(n_r_max,:)
-         else if ( kbotb == 4 ) then
-            !----- Pseudovacuum conduction at lower boundary:
-            datJmat(n_r_max,1:n_r_max)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-            datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         end if
-      end if
-
-      !-------- Imposed fields: (overwrites above IC boundary cond.)
-      if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-         datBmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
-      else if ( l == 3 .and. imagcon == -10 ) then
-         datJmat(1,1:n_r_max)      =rscheme_oc%rnorm * rscheme_oc%rMat(1,:)
-         datJmat(n_r_max,1:n_r_max)=rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,:)
-      else if ( n_imp == 1 ) then
-         !-- This is Uli Christensen's idea where the external field is
-         !   not fixed but compensates the internal field so that the
-         !   radial field component vanishes at r/r_cmb=rrMP
-         rRatio=rrMP**real(2*l+1,kind=cp)
-         datBmat(1,1:n_r_max)=rscheme_oc%rnorm * ( rscheme_oc%drMat(1,:) +   &
-         &                        real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) -   &
-         &    real(2*l+1,cp)*or1(1)/(1-rRatio) +  conductance_ma* (          &
-         &         rscheme_oc%d2rMat(1,:) - dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
-      end if
-
-      !----- fill up with zeros:
-      do nR_out=rscheme_oc%n_max+1,n_r_max
-         datBmat(1,nR_out)=0.0_cp
-         datJmat(1,nR_out)=0.0_cp
-         if ( ktopb == 2 ) then
-            datBmat(2,nR_out)=0.0_cp
-         end if
-         if ( l_LCR ) then
-            do nR=2,n_r_LCR
-               datBmat(nR,nR_out)=0.0_cp
-               datJmat(nR,nR_out)=0.0_cp
-            end do
-         end if
-         datBmat(n_r_max,nR_out)  =0.0_cp
-         datJmat(n_r_max,nR_out)  =0.0_cp
-         if ( kbotb == 2 ) then
-            datBmat(n_r_max-1,nR_out)=0.0_cp
-         else if ( kbotb == 3 ) then
-            datBmat(n_r_max+1,nR_out)=0.0_cp
-            datJmat(n_r_max+1,nR_out)=0.0_cp
-         end if
-      end do
-
-      !----- normalization for highest and lowest Cheb mode:
-      do nR=1,n_r_max
-         datBmat(nR,1)      =rscheme_oc%boundary_fac*datBmat(nR,1)
-         datBmat(nR,n_r_max)=rscheme_oc%boundary_fac*datBmat(nR,n_r_max)
-         datJmat(nR,1)      =rscheme_oc%boundary_fac*datJmat(nR,1)
-         datJmat(nR,n_r_max)=rscheme_oc%boundary_fac*datJmat(nR,n_r_max)
-      end do
-      if ( kbotb == 3 ) then
-         datBmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datBmat(n_r_max+1,1)
-         datBmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
-         &                          datBmat(n_r_max+1,n_r_max)
-         datJmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datJmat(n_r_max+1,1)
-         datJmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
-         &                          datJmat(n_r_max+1,n_r_max)
-      end if
-
-      !----- Conducting inner core:
-      if ( l_cond_ic ) then
-         !----- inner core implicit time step matrices for the grid
-         !      points n_r=n_r_max+1,...,n_r_max+n_r_ic
-         do nCheb=1,n_r_ic_max ! counts even IC cheb modes
-            do nR=2,n_r_ic_max-1 ! counts IC radial grid points
-               ! n_r=1 represents ICB
-               !----------- poloidal field matrix for an inner core field
-               !            of the radial form: (r/r_icb)**(l+1)*cheb_ic(r)
-               !            where cheb_ic are even chebs only.
-               !            NOTE: no hyperdiffusion in inner core !
-
-               datBmat(n_r_max+nR,n_r_max+nCheb)=cheb_norm_ic*dLh*or2(n_r_max) * &
-               &             cheb_ic(nCheb,nR) 
-               datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)
-            end do
-
-            !----- Special treatment for r=0, asymptotic of 1/r dr
-            nR=n_r_ic_max
-            datBmat(n_r_max+nR,n_r_max+nCheb)=cheb_norm_ic*dLh*or2(n_r_max) * &
-            &                                 cheb_ic(nCheb,nR)
-            datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)
-         end do
-
-         !-------- boundary condition at r_icb:
-         do nCheb=1,n_cheb_ic_max
-            datBmat(n_r_max,n_r_max+nCheb)=-cheb_norm_ic*cheb_ic(nCheb,1)
-            datBmat(n_r_max+1,n_r_max+nCheb)=-cheb_norm_ic * ( dcheb_ic(nCheb,1) + &
-            &                                l_P_1*or1(n_r_max)*cheb_ic(nCheb,1) )
-            datJmat(n_r_max,n_r_max+nCheb)  =datBmat(n_r_max,n_r_max+nCheb)
-            datJmat(n_r_max+1,n_r_max+nCheb)=datBmat(n_r_max+1,n_r_max+nCheb)
-         end do ! cheb modes
-
-         !-------- fill with zeros:
-         do nCheb=n_cheb_ic_max+1,n_r_ic_max
-            datBmat(n_r_max,n_r_max+nCheb)  =0.0_cp
-            datBmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
-            datJmat(n_r_max,n_r_max+nCheb)  =0.0_cp
-            datJmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
-         end do
-
-         !-------- normalization for lowest Cheb mode:
-         do nR=n_r_max,n_r_tot
-            datBmat(nR,n_r_max+1)=half*datBmat(nR,n_r_max+1)
-            datJmat(nR,n_r_max+1)=half*datJmat(nR,n_r_max+1)
-            datBmat(nR,n_r_tot)  =half*datBmat(nR,n_r_tot)
-            datJmat(nR,n_r_tot)  =half*datJmat(nR,n_r_tot)
-         end do
-
-         !-------- fill matrices up with zeros:
-         do nCheb=n_r_max+1,n_r_tot
-            do nR=1,n_r_max-1
-               datBmat(nR,nCheb)=0.0_cp
-               datJmat(nR,nCheb)=0.0_cp
-            end do
-         end do
-         do nCheb=1,n_r_max
-            do nR=n_r_max+2,n_r_tot
-               datBmat(nR,nCheb)=0.0_cp
-               datJmat(nR,nCheb)=0.0_cp
-            end do
-         end do
-      end if  ! conducting inner core ?
-
-      !-- Array copy
-      call bMat%set_data(datBmat)
-      call jMat%set_data(datJmat)
-
-      !----- LU decomposition:
-      call bMat%prepare(info)
-      if ( info /= 0 ) call abortRun('Singular matrix bMat in get_elliptic_mat')
-
-      !----- LU decomposition:
-      call jMat%prepare(info)
-      if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_elliptic mat!')
-
-   end subroutine get_elliptic_mat
 !-----------------------------------------------------------------------------
 end module updateB_mod

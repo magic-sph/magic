@@ -1608,11 +1608,7 @@ contains
 
       if ( (index(scheme_name, 'ARS222') /= 0) .or. &
       &    (index(scheme_name, 'ARS233') /= 0) .or. &
-      &    (index(scheme_name, 'SSP222') /= 0) .or. &
       &    (index(scheme_name, 'DP242') /= 0) .or. &
-      &    (index(scheme_name, 'PR222') /= 0) .or. &
-      &    (index(scheme_name, 'LS222') /= 0) .or. &
-      &    (index(scheme_name, 'BFR433') /= 0) .or. &
       &    (index(scheme_name, 'ARS232') /= 0) .or. &
       &    (index(scheme_name, 'ARS343') /= 0) .or. &
       &    (index(scheme_name, 'MARS343') /= 0) .or.&
@@ -1621,7 +1617,6 @@ contains
       &    (index(scheme_name, 'KC343') /= 0) .or.  &
       &    (index(scheme_name, 'KC564') /= 0) .or.  &
       &    (index(scheme_name, 'BHR553') /= 0) .or. &
-      &    (index(scheme_name, 'BPR442') /= 0) .or. &
       &    (index(scheme_name, 'BPR353') /= 0) .or. &
       &    (index(scheme_name, 'DBM453') /= 0) .or. &
       &    (index(scheme_name, 'PC2') /= 0)    .or. &

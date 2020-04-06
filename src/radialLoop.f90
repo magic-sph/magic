@@ -234,11 +234,6 @@ contains
             &       lPowerCalc
          end if
 
-         if ( tscheme%l_assembly .and. tscheme%istage==1 .and. (.not. l_double_curl) ) then
-            !nBc = 0
-            !lDeriv = .true.
-         end if
-
          if ( l_mag .or. l_mag_LF ) then
             nR_Mag=nR
          else
