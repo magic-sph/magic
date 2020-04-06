@@ -197,7 +197,7 @@ class MagicSpectrum(MagicSetup):
             ax = fig.add_subplot(111)
             if self.normalize:
                 y = self.ekin_poll+self.ekin_torl
-                ax.loglog(self.index, y/y.max(),)
+                ax.loglog(self.index[1:], y[1:]/y[1:].max(),)
             else:
                 ax.loglog(self.index[1:], self.ekin_poll[1:], label='poloidal')
                 if self.ave:

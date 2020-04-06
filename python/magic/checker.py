@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from magic import MagicTs, avgField, MagicSpectrum, MagicRadial, scanDir
+from magic import MagicTs, avgField, MagicSpectrum, MagicRadial, scanDir, MagicSetup
 import numpy as np
 from scipy.signal import argrelextrema
 import matplotlib.pyplot as plt
@@ -71,7 +71,9 @@ def MagicCheck(tstart=None):
         l_spikes = True
     if l_spikes:
         print(bcolors.MODERATE + 'Sudden variations detected in power balance!' + bcolors.ENDC)
-        ttot_spikes = np.trapz(mask_spike, ts.time[mask])
+        ones = np.ones_like(ts.time[mask])
+        ones[~mask_spike] = 0.
+        ttot_spikes = np.trapz(ones, ts.time[mask])
         ttot = ts.time[-1]-ts.time[0]
         ratio = ttot_spikes/ttot
         print('    -Time fraction with spikes: %.3f %%' % (100.*ratio))
@@ -100,18 +102,20 @@ def MagicCheck(tstart=None):
         dt = ts.dt[mask][1:][ddt_neq_zero]
         dtMean = avgField(time, dt)
         mask_changes = ( ddt <= 50*dtMean )
-        ttot_changes = np.trapz(mask_changes, time)
-        fast_change_ratio = 100*ttot_changes/(ts.time[-1]-ts.time[0])
+        ones = np.ones_like(time)
+        ones[~mask_changes] = 0.
+        ttot_changes = np.sum(ones*ddt)
+        fast_change_ratio = 100*ttot_changes/(time[-1]-time[0])
         st = 'Fraction of time with frequent timestep changes (< 50 steps): %.2f %%' % \
              fast_change_ratio
-        if fast_change_ratio < 1:
+        if fast_change_ratio < 2:
             print(bcolors.OKGREEN + st + bcolors.ENDC)
-        elif fast_change_ratio >= 1 and fast_change_ratio <= 10:
+        elif fast_change_ratio >= 2 and fast_change_ratio <= 10:
             print(bcolors.MODERATE + st + bcolors.ENDC)
             print(bcolors.MODERATE + 'Maybe increase Courant factors!' + bcolors.ENDC)
         else:
             print(bcolors.WARNING + st + bcolors.ENDC)
-            print(bcolors.WARNING + 'Probably increase Courant factors:' + bcolors.ENDC)
+            print(bcolors.WARNING + 'Probably increase Courant factors!' + bcolors.ENDC)
 
     # Dissipation lengthscales
     ts = MagicTs(field='par', all=True, iplot=False)
@@ -179,9 +183,21 @@ def MagicCheck(tstart=None):
     else:
         print(bcolors.WARNING + st_cmb + bcolors.ENDC)
 
+    # determine the relevant tags
+    logs = scanDir('log.*')
+    tags = []
+    for lg in logs:
+        stp = MagicSetup(nml=lg, quiet=True)
+        if stp.start_time >= tstart and os.path.exists('eKinR.%s' % stp.tag):
+            tags.append(stp.tag)
+
+    if len(tags) > 0:
+        rad = MagicRadial(field='eKinR', iplot=False, quiet=True, tags=tags)
+    else:
+        rad = MagicRadial(field='eKinR', iplot=False, quiet=True)
+
     # Number of points in viscous BL
     print('\n' + bcolors.BOLD + bcolors.UNDERLINE + 'Radial resolution:' + bcolors.ENDC)
-    rad = MagicRadial(field='eKinR', iplot=False, quiet=True)
     if rad.ktopv != 1 and rad.kbotv != 1:
         eKR = rad.ekin_pol+rad.ekin_tor
     else:
@@ -207,7 +223,10 @@ def MagicCheck(tstart=None):
         print(bcolors.WARNING + st_top + bcolors.ENDC)
 
     # Number of points in thermal BL
-    rad = MagicRadial(field='heatR', iplot=False, quiet=True)
+    if len(tags) > 0:
+        rad = MagicRadial(field='heatR', iplot=False, quiet=True, tags=tags)
+    else:
+        rad = MagicRadial(field='heatR', iplot=False, quiet=True)
     if rad.ktops == 1:
         ind = argrelextrema(rad.entropy_SD, np.greater)[0]
         ntop = ind[0]+1

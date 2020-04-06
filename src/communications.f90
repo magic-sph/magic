@@ -730,6 +730,10 @@ contains
          do n=1,2
             if ( n==1 ) then
                n_out = n_log_file
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
             else
                n_out = output_unit
             end if
@@ -754,6 +758,7 @@ contains
             &               ES10.3, '' s'')') tBlock_avg(6)
             write(n_out,'(A80)') message
             write(n_out,*)
+            if ( n==1 .and. l_save_out ) close(n_log_file)
          end do
 
       end if
@@ -851,7 +856,7 @@ contains
          ind = minloc(timers)
          idx = ind(1)
 
-         do n=1,2
+         do n=2,2
             if ( n==1 ) then
                n_out = n_log_file
                if ( l_save_out ) open(newunit=n_log_file, file=log_file, &

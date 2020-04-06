@@ -167,29 +167,29 @@ contains
       type(costf_odd_t), intent(in) :: chebt
 
       !-- Local variables:
-      real(cp) :: work(nGridPoints) ! work array
+      real(cp) :: work1(nGridPointsMax) ! work array
+      real(cp) :: work2(nGridPointsMax) ! work array
       real(cp) :: chebNorm
       real(cp) :: drFac             ! transform fac from cheb space
       integer :: nCheb              ! counter for chebs
 
       chebNorm=sqrt(two/real(nGridPoints-1,cp))
 
-      !-- Transform to cheb space:
-      call chebt%costf1(f,work)
-
       !----- Copy:
-      if ( lDeriv ) then
-         do nCheb=1,nGridPoints
-            work(nCheb)=f(nCheb)
-         end do
-      end if
+      do nCheb=1,nGridPoints
+         work1(nCheb)=f(nCheb)
+      end do
+
+      !-- Transform to cheb space:
+      call chebt%costf1(work1,work2)
+
 
       !-- Integration:
-      f(1)          =half*f(1)
-      f(nGridPoints)=half*f(nGridPoints)
+      work1(1)          =half*work1(1)
+      work1(nGridPoints)=half*work1(nGridPoints)
       chebIntD=0.0_cp
       do nCheb=1,nGridPoints,2  ! only even chebs contribute
-         chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*f(nCheb)
+         chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*work1(nCheb)
       end do
       !-- Normalize with interval:
       chebIntD=chebNorm*chebIntD/(zMax-zMin)
@@ -197,9 +197,12 @@ contains
       !-- Get derivatives:
       if ( lDeriv ) then
          drFac=two/(zMax-zMin)
-         call get_dcheb(work,f,nGridPointsMax,nGridPoints,drFac)
+         call get_dcheb(f,work1,nGridPointsMax,nGridPoints,drFac)
          !-- Transform back to grid space:
-         call chebt%costf1(f,work)
+         call chebt%costf1(work1,work2)
+         do nCheb=1,nGridPoints
+            f(nCheb)=work1(nCheb)
+         end do
       end if
 
    end function chebIntD

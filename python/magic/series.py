@@ -149,7 +149,7 @@ class MagicTs(MagicSetup):
             ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
                     label='ekin pol axi')
             ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
-                    label='ekin tor axi')
+                 label='ekin tor axi')
             ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
@@ -555,6 +555,8 @@ class TsLookUpTable:
             self.ekin_tot = self.ekin_pol + self.ekin_tor
             self.ekin_es = self.ekin_pol_symeq + self.ekin_tor_symeq
             self.ekin_eas = self.ekin_pol_asymeq + self.ekin_tor_asymeq
+            self.ekin_pol_naxi=self.ekin_pol-self.ekin_pol_axi
+            self.ekin_tor_naxi=self.ekin_tor-self.ekin_tor_axi
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]
@@ -633,10 +635,9 @@ class TsLookUpTable:
             self.els_cmb = data[:, 15]
             self.rolc = data[:, 16]
             self.dlVc = data[:, 17]
-            if data.shape[-1] == 19:
-                self.dlPolPeak = np.zeros_like(self.time)
-                self.reEquat = data[:, 18]
-            elif data.shape[-1] == 20:
+            self.reEquat = data[:, 18]
+            self.dlPolPeak = np.zeros_like(self.time)
+            if data.shape[-1] == 20:
                 self.dlPolPeak = data[:, 18]
                 self.reEquat = data[:, 19]
         elif self.field == 'misc':
@@ -656,6 +657,22 @@ class TsLookUpTable:
         elif self.field == 'geos':
             self.time = data[:, 0]
             self.geos = data[:, 1]
+            self.ekin_ntc_rel = data[:, 2]
+            self.ekin_stc_rel = data[:, 3]
+            self.ekin = data[:, 4]
+            self.corr_vz_otc = data[:, 5]
+            self.corr_vort_otc = data[:, 6]
+            self.corr_hel_otc = data[:, 7]
+            if data.shape[-1] == 8:
+                self.GeosA= np.zeros_like(self.time)
+                self.GeosZ= np.zeros_like(self.time)
+                self.GeosM= np.zeros_like(self.time)
+                self.GeosNA= np.zeros_like(self.time)
+            elif data.shape[-1] == 12:
+                self.GeosA = data[:, 8]
+                self.GeosZ = data[:, 9]
+                self.GeosM = data[:, 10]
+                self.GeosNA = data[:, 11]
         elif self.field == 'heat':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
@@ -720,7 +737,7 @@ class TsLookUpTable:
             self.eperp_axi = data[:, 3]
             self.epar_axi = data[:, 4]
             self.ekin_tot = self.eperp+self.epar
-        elif self.field in ('dtVrms'):
+        elif self.field == 'dtVrms':
             self.time = data[:, 0]
             self.InerRms = data[:, 1]
             self.CorRms = data[:, 2]
@@ -760,7 +777,7 @@ class TsLookUpTable:
                 self.preLor = data[:, 14] # Pressure/Lorentz
                 self.cia = data[:, 15] # Coriolis/Inertia/Archmedean
 
-        elif self.field in ('dtBrms'):
+        elif self.field == 'dtBrms':
             self.time = data[:, 0]
             self.dtBpolRms = data[:, 1]
             self.dtBtorRms = data[:, 2]
@@ -772,12 +789,12 @@ class TsLookUpTable:
             self.omega = data[:, 8]
             self.DynDipRms = data[:, 9]
             self.DynDipAxRms = data[:, 10]
-        elif self.field in ('dtE'):
+        elif self.field == 'dtE':
             self.time = data[:, 0]
             self.dEdt = data[:, 1]
             self.intdEdt = data[:, 2]
             self.reldEdt = data[:, 3]
-        elif self.field in ('power'):
+        elif self.field == 'power':
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
             if data.shape[1] == 11:
@@ -799,7 +816,7 @@ class TsLookUpTable:
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
                  self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
-        elif self.field in ('SRIC'):
+        elif self.field == 'SRIC':
             self.time = data[:,0]
             self.omega_ic = data[:,1]
             self.viscPower = data[:,2]
