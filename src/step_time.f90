@@ -176,6 +176,7 @@ contains
       real(cp) :: timeLast, timeStage, dtLast
       integer :: n_time_steps_go
       logical :: l_new_dt         ! causes call of matbuild !
+      logical :: l_press_solver
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
 
@@ -215,6 +216,8 @@ contains
       n_spec_signal=0      ! Spec signal
       n_rst_signal=0       ! Rst signal
       n_pot_signal=0       ! Potential file signal
+
+      l_press_solver=.false.
 
       !-- STARTING THE TIME STEPPING LOOP:
       if ( rank == 0 ) then
@@ -574,8 +577,12 @@ contains
                     &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
                     &                        tscheme)
 
-               if ( tscheme%l_assembly .and. tscheme%istage==1 .and. &
-               &    n_time_step>0 .and. (.not. l_double_curl) ) then
+               !-- Do we need to solve for the pressure
+               l_press_solver = tscheme%l_assembly .and. (tscheme%istage==1) .and. &
+               &                (n_time_step>0) .and. (.not. l_double_curl)
+               l_press_solver = l_press_solver .and.  &
+               &                (tscheme%l_imp_calc_rhs(1) .or. l_store)
+               if ( l_press_solver ) then
                   call updateP(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
                        &       dwdt, p_LMloc, dp_LMloc, dpdt, tscheme)
                   !-- If p_Rloc is needed it needs to be retransposed here !
@@ -585,7 +592,6 @@ contains
                   end if
                end if
                call lmLoop_counter%stop_count(l_increment=.false.)
-
             end if
 
             !------------
@@ -655,7 +661,6 @@ contains
                end if
             end if
             lMatNext = .false.
-
 
             !-- If the scheme is a multi-step scheme that is not Crank-Nicolson 
             !-- we have to use a different starting scheme
