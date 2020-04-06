@@ -13,8 +13,7 @@ module updateB_mod
        &                 n_r_totMag, lm_max, l_maxMag
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic,rscheme_oc, r_ic,        &
-       &                       dr_top_ic_sym, dr_top_ic_asym
+       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
    use radial_data, only: n_r_cmb, n_r_icb
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb
@@ -1353,11 +1352,12 @@ contains
       !-- Local variables
       complex(cp) :: val_bot
       real(cp) :: fac_top, fac_bot
-      integer :: n_r, lm, l1, lmStart_00
-      integer, pointer :: lm2l(:)
+      integer :: n_r, lm, l1, lmStart_00, m1
+      integer, pointer :: lm2l(:), lm2m(:)
       real(cp) :: dL
 
       lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llmMag)
 
 
@@ -1423,36 +1423,19 @@ contains
                do lm=lmStart_00,ulmMag
                   l1 = lm2l(lm)
                   fac_top=real(l1,cp)*or1(1)
-                  if ( mod(l1,2)==0 ) then
-                     fac_bot=-dr_top_ic_asym(1)-real(l1+1,cp)*or1(n_r_max)
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_asym(n_r)*b_ic(lm,n_r)
-                     end do
-                  else
-                     fac_bot=-dr_top_ic_sym(1)-real(l1+1,cp)*or1(n_r_max)
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_sym(n_r)*b_ic(lm,n_r)
-                     end do
-                  end if
+                  fac_bot=-dr_top_ic(1)-real(l1+1,cp)*or1(n_r_max)
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*b_ic(lm,n_r)
+                  end do
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, val_bot, &
                        &                   b(lm,:))
                   b_ic(lm,1)=b(lm,n_r_max)
 
-                  if ( mod(l1,2)==0 ) then
-                     fac_bot=-dr_top_ic_asym(1)-real(l1+1,cp)*or1(n_r_max)
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_asym(n_r)*aj_ic(lm,n_r)
-                     end do
-                  else
-                     fac_bot=-dr_top_ic_sym(1)-real(l1+1,cp)*or1(n_r_max)
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_sym(n_r)*aj_ic(lm,n_r)
-                     end do
-                  end if
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*aj_ic(lm,n_r)
+                  end do
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, sigma_ratio, fac_bot, &
                        &                   val_bot, aj(lm,:))
                   aj_ic(lm,1)=aj(lm,n_r_max)
@@ -1460,34 +1443,19 @@ contains
             else if ( ktopb == 4 ) then ! Pseudo-Vacuum outside + cond. I. C.
                do lm=lmStart_00,ulmMag
                   l1 = lm2l(lm)
-                  if ( mod(l1,2)==0 ) then
-                     fac_bot=-dr_top_ic_asym(1)+real(l1+1,cp)*or1(n_r_max)
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_asym(n_r)*b_ic(lm,n_r)
-                     end do
-                  else
-                     fac_bot=-dr_top_ic_sym(1)+real(l1+1,cp)*or1(n_r_max)
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_sym(n_r)*b_ic(lm,n_r)
-                     end do
-                  end if
+                  fac_bot=-dr_top_ic(1)+real(l1+1,cp)*or1(n_r_max)
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*b_ic(lm,n_r)
+                  end do
                   call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, fac_bot, val_bot, &
                        &                   b(lm,:))
                   b_ic(lm,1)=b(lm,n_r_max)
 
-                  if ( mod(l1,2)==0 ) then
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_asym(n_r)*aj_ic(lm,n_r)
-                     end do
-                  else
-                     val_bot = zero
-                     do n_r=2,n_r_ic_max
-                        val_bot = val_bot+dr_top_ic_sym(n_r)*aj_ic(lm,n_r)
-                     end do
-                  end if
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*aj_ic(lm,n_r)
+                  end do
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, sigma_ratio, fac_bot, &
                        &                   val_bot, aj(lm,:))
                   aj_ic(lm,1)=aj(lm,n_r_max)
@@ -1537,39 +1505,15 @@ contains
          end if
       end if
 
-      !block
-      !   use radial_der, only: get_dr
-      !   call get_dr( b,work_LMloc,ulmMag-llmMag+1,1, ulmMag-llmMag+1,n_r_max,rscheme_oc )
-      !   do lm=lmStart_00,ulmMag
-      !      l1 = lm2l(lm)
-      !      print*, lm, work_LMloc(lm,1)+real(l1,cp)*or1(1)*b(lm,1)
-      !      print*, lm, work_LMloc(lm,n_r_max)-real(l1,cp)*or1(n_r_max)*b(lm,n_r_max)
-      !   end do
-!
- !     end block
-
+      !-- Finally compute the required implicit stage if needed
       call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
            &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
 
       if ( l_cond_ic ) then
-         !-- Finally compute the required implicit stage if needed
          call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
               &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
               &                  .false.)
       end if
-
-      !print*, real(db(lo_map%lm2(1,0),n_r_max)), &
-      !&       real(db_ic(lo_map%lm2(1,0),1))+two*or1(n_r_max)*real(b_ic(lo_map%lm2(1,0),1))
-      !val_bot=zero
-      !do n_r=1,n_r_ic_max
-      !   val_bot=val_bot+dr_top_ic_sym(n_r)*b_ic(lo_map%lm2(1,0),n_r)
-      !end do
-
-      !print*, real(db(lo_map%lm2(2,0),n_r_max)), &
-      !&       real(db_ic(lo_map%lm2(2,0),1))+3.0_cp*or1(n_r_max)*real(b_ic(lo_map%lm2(2,0),1))
-
-      !print*, real(dj(lo_map%lm2(1,0),n_r_max)), &
-      !&       real(dj_ic(lo_map%lm2(1,0),1))+two*or1(n_r_max)*real(aj_ic(lo_map%lm2(1,0),1))
 
    end subroutine assemble_mag_old
 !-----------------------------------------------------------------------------

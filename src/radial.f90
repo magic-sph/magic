@@ -102,7 +102,7 @@ module radial_functions
    real(cp), public, allocatable :: ddLvisc(:)    ! 2nd derivative of kinematic viscosity
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
-   real(cp), public, allocatable :: dr_top_ic_sym(:), dr_top_ic_asym(:)
+   real(cp), public, allocatable :: dr_top_ic(:)  ! Derivative in real space for r=r_i
 
    integer, public, allocatable :: l_R(:) ! Variable degree with radius
 
@@ -161,7 +161,8 @@ contains
 
          call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
-         allocate ( dr_top_ic_sym(n_r_ic_max), dr_top_ic_asym(n_r_ic_max) )
+         allocate ( dr_top_ic(n_r_ic_max) )
+         bytes_allocated = bytes_allocated+n_r_ic_max*SIZEOF_DEF_REAL
       end if
 
       if ( .not. l_finite_diff ) then
@@ -202,7 +203,7 @@ contains
       deallocate( opressure0 )
 
       if ( .not. l_full_sphere ) then
-         deallocate( dr_top_ic_sym, dr_top_ic_asym )
+         deallocate( dr_top_ic )
          deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
          call chebt_ic%finalize()
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
@@ -763,19 +764,17 @@ contains
          end do
          dr_top(2*n_r_ic_max-1) = half*dr_top(2*n_r_ic_max-1)
 
-         !-- Those two arrays can be used to compute the derivatives of the
-         !-- inner core quantities at radius r_i in real space. Those are
+         !-- This array can be used to compute the derivatives of the
+         !-- inner core quantities at radius r_i in real space. This is
          !-- based on Chebyshev differentiation matrices in real space
+         !-- and make use of symmetry properties.
          do n_r=1,n_r_ic_max-1
-            dr_top_ic_sym(n_r) =dr_top(n_r)+dr_top(2*n_r_ic_max-n_r)
-            dr_top_ic_asym(n_r)=dr_top(n_r)-dr_top(2*n_r_ic_max-n_r)
+            dr_top_ic(n_r) =dr_top(n_r)+dr_top(2*n_r_ic_max-n_r)
          end do
-         dr_top_ic_sym(n_r_ic_max) =dr_top(n_r_ic_max)
-         dr_top_ic_asym(n_r_ic_max)=0.0_cp
+         dr_top_ic(n_r_ic_max) =dr_top(n_r_ic_max)
 
          !-- Cheb factor of the form 2/(b-a)=2/(2*ri)=1/ri
-         dr_top_ic_sym(:) = dr_top_ic_sym(:)*dr_fac_ic
-         dr_top_ic_asym(:)=dr_top_ic_asym(:)*dr_fac_ic
+         dr_top_ic(:) = dr_top_ic(:)*dr_fac_ic
 
       end if
 
