@@ -24,6 +24,7 @@ class MagicTs(MagicSetup):
        * Geostrophy: :ref:`geos.TAG <secGeosFile>`
        * Heat transfer: :ref:`heat.TAG <secHeatFile>`
        * Helicity: :ref:`helicity.TAG <secHelicityFile>`
+       * Magnetic Helicity: :ref:`helicity_mag.TAG <secMagHelicityFile>`
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
        * Angular momentum: :ref:`AM.TAG <secAMFile>`
        * Power budget: :ref:`power.TAG <secpowerFile>`
@@ -373,6 +374,12 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Helicity')
             fig.tight_layout()
+        elif self.field == 'helicity_mag':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.mhel, label='magnetic helicity')
+            ax.legend(loc='lower right')
+            ax.set_xlabel('Time')
         elif self.field == 'u_square':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -709,6 +716,9 @@ class TsLookUpTable:
             self.helnaS = data[:, 6]
             self.helnaRMSN = data[:, 7]
             self.helnaRMSS = data[:, 8]
+        elif self.field == 'helicity_mag':
+            self.time = data[:, 0]
+            self.mhel = data[:, 1]
         elif self.field == 'earth_like':
             self.time = data[:, 0]
             self.axial_dipole = data[:, 1]
