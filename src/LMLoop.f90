@@ -60,7 +60,7 @@ contains
       if ( l_chemical_conv ) call initialize_updateXi()
 
       call initialize_updateZ()
-      if ( l_mag ) call initialize_updateB(tscheme)
+      if ( l_mag ) call initialize_updateB()
       local_bytes_used = bytes_allocated-local_bytes_used
 
       call memWrite('LMLoop.f90',local_bytes_used)
@@ -85,7 +85,7 @@ contains
       call finalize_updateZ()
 
       if ( l_chemical_conv ) call finalize_updateXi()
-      if ( l_mag ) call finalize_updateB(tscheme)
+      if ( l_mag ) call finalize_updateB()
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
@@ -308,19 +308,12 @@ contains
 
       call assemble_pol(s, xi, w, dw, ddw, dwdt, dpdt, tscheme, lRmsNext)
 
-      call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic, &
+      call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic,  &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
-      !if ( l_cond_ic ) call assemble_mag_ic(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,&
-      !                      &               dbdt_ic, djdt_ic, tscheme)
-      !if ( l_mag ) call assemble_mag_old(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, &
-      !&                              tscheme)
-      if ( l_mag ) call assemble_mag_old(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,   &
-                        &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,     &
+      if ( l_mag ) call assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,  &
+                        &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,    &
                         &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
-      !if ( l_mag ) call assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,   &
-      !                  &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,     &
-      !                  &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------
