@@ -553,6 +553,7 @@ class Surf:
     def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm,
             normed=True, vmax=None, vmin=None, cbar=True, tit=True,
             pol=False, tor=False, mer=False, merLevels=16, polLevels=16,
+            show_zero_level=False,
             ic=False):
         """
         Plot the azimutal average of a given field.
@@ -1203,6 +1204,8 @@ class Surf:
             lev = np.linspace(minMeri, maxMeri, merLevels)
             im2 = ax.contour(xx, yy, meriLines, lev, colors=['k'],
                        linewidths=[0.8])
+        elif show_zero_level:
+            ax.contour(xx,yy,phiavg, (0,), colors='k',linewidth=0.5)
 
         # Variable conductivity: add a dashed line
         if hasattr(self.gr, 'nVarCond'):
@@ -1213,6 +1216,7 @@ class Surf:
 
     def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=defaultCm,
               normed=True, vmin=None, vmax=None, cbar=True, tit=True,
+              show_zero_level=False,
               grid=False, nGridLevs=16, normRad=False, ic=False):
         """
         Plot an azimuthal slice of a given field.
@@ -1493,6 +1497,10 @@ class Surf:
                 else:
                     cs = levels
                     im = ax.contourf(xx, yy, phislice, cs, cmap=cmap)
+                if show_zero_level:
+                    print('Draw zero contour')
+                    ax.contour(xx,yy,phislice,(0,),colors='k',linewidth=0.8)
+
                 ax.plot(self.gr.radius[0]*np.cos(th), self.gr.radius[0]*np.sin(th),
                    'k-')
                 ax.plot(self.gr.radius[-1]*np.cos(th),
@@ -1584,6 +1592,10 @@ class Surf:
             else:
                 cs = levels
                 im = ax.contourf(xx, yy, phislice, cs, cmap=cmap)
+            if show_zero_level:
+                print('Draw zero contour')
+                ax.contour(xx,yy,phislice,(0,),colors='k',linewidth=0.8)
+
             ax.plot(self.gr.radius[0]*np.cos(th), self.gr.radius[0]*np.sin(th),
                    'k-', lw=1.5)
             ax.plot(self.gr.radius[-1]*np.cos(th), self.gr.radius[-1]*np.sin(th),
