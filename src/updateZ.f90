@@ -806,10 +806,9 @@ contains
                tOmega_ma2=time+tShift_ma2
                omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
                &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-               top_val(lm)=omega_ma
+               top_val(lm)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
             else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
                top_val(lm)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
-               !top_val(lm)=z(l1m0,1)
             else
                top_val(lm)=zero
             end if
@@ -819,7 +818,7 @@ contains
                tOmega_ic2=time+tShift_ic2
                omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
                &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-               bot_val(lm)=omega_ic
+               bot_val(lm)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
             else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
                bot_val(lm)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
             else
