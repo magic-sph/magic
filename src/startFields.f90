@@ -282,7 +282,7 @@ contains
       !-- Initialize/add fields
       !----- Initialize/add magnetic field:
       if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
-           & .and. ( l_mag .or. l_mag_LF ) ) then
+      &      .and. ( l_mag .or. l_mag_LF ) ) then
          call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
       end if
 
@@ -332,29 +332,6 @@ contains
               &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
               &                  dbdt_ic, djdt_ic, 1, .true.)
       end if
-
-      if ( l_LCR ) then
-         do n_r=n_r_cmb,n_r_icb-1
-            if ( n_r<=n_r_LCR ) then
-               do lm=llm,ulm
-                  l=lo_map%lm2l(lm)
-                  m=lo_map%lm2m(lm)
-
-                  b_LMloc(lm,n_r)  =(r(n_r_LCR)/r(n_r))**real(l,cp)* &
-                  &                  b_LMloc(lm,n_r_LCR)
-                  db_LMloc(lm,n_r) =-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                  &                 (r(n_r))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
-                  ddb_LMloc(lm,n_r)=real(l,cp)*real(l+1,cp)*     &
-                  &                 (r(n_r_LCR))**(real(l,cp))/  &
-                  &                 (r(n_r))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
-                  aj_LMloc(lm,n_r) =zero
-                  dj_LMloc(lm,n_r) =zero
-                  ddj_LMloc(lm,n_r)=zero
-               end do
-            end if
-         end do
-      end if
-
 
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp
