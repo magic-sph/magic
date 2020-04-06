@@ -184,6 +184,7 @@ contains
       !
       ! atop*df/dr+btop*f = rhs_top;  abot*df/dr+bbot*f = rhs_bot
       !
+      ! The method follows Canuto, SIAM, 1986 (p. 818)
 
       class(type_cheb_odd) :: this
 
@@ -317,6 +318,8 @@ contains
       this%dr_top(n_r_max,1) = half*this%dr_top(n_r_max,1) 
 
       !-- dr bot is the reverted vector with a -1 multiplication
+      !-- The "flipping-trick" is used to minimize the round-off error
+      !-- See Baltensperger & Trummer, SIAM, 2003, p. 1478
       do k=1,n_r_max
          this%dr_bot(k,1)=-this%dr_top(n_r_max+1-k,1)
       end do
