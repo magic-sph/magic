@@ -487,7 +487,7 @@ contains
 
       if ( l_finite_diff ) l_single_matrix = .false.
 
-      if ( l_chemical_conv ) then
+      if ( l_chemical_conv .and. l_single_matrix ) then
          l_single_matrix = .false.
          call abortRun('Single matrix + double diff. conv. not implemented!')
       end if

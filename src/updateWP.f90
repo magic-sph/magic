@@ -155,8 +155,10 @@ contains
       if ( tscheme%l_assembly ) then
          if ( l_double_curl ) then
             allocate( type_bandmat :: pMat(nLMBs2(1+rank)) )
-            if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
-               n_bands =rscheme_oc%order+1
+            if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 .and. &
+            &    ktopv /=1 .and. kbotv /=1 ) then
+               !n_bands =rscheme_oc%order+1 # should be that but yield matrix singularity?
+               n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
             else
                n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
             end if
@@ -940,7 +942,7 @@ contains
       call solve_counter%stop_count()
       !$omp end single
 
-      !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+      !-- set cheb modes > n_cheb_max to zero (dealiazing)
       !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
@@ -1737,21 +1739,21 @@ contains
          dat(1,:)      =rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          if ( ktopv == 1 ) then
-            dat(2,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-         else
             dat(2,:)=rscheme_oc%rnorm*(rscheme_oc%d2rMat(1,:)-(beta(1)+two*or1(1))* &
             &                          rscheme_oc%drMat(1,:))
+         else
+            dat(2,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
          end if
          if ( kbotv == 1 ) then
-            dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         else
             dat(n_r_max-1,:)=rscheme_oc%rnorm*(rscheme_oc%d2rMat(n_r_max,:)-&
             &                (beta(n_r_max)+two*or1(n_r_max))*rscheme_oc%drMat(n_r_max,:))
+         else
+            dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
          end if
 
          !----- Bulk points:
          do nR_out=1,n_r_max
-            do nR=2,n_r_max-1
+            do nR=3,n_r_max-2
                dat(nR,nR_out)= -rscheme_oc%rnorm*dLh*orho1(nR)*or2(nR)* (   &
                &                              rscheme_oc%d2rMat(nR,nR_out)  &
                &                     -beta(nR)*rscheme_oc%drMat(nR,nR_out)  &
@@ -1787,8 +1789,8 @@ contains
 
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
-         dat(nR,1)          =rscheme_oc%boundary_fac*dat(nR,1)
-         dat(nR,n_r_max)    =rscheme_oc%boundary_fac*dat(nR,n_r_max)
+         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
+         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 
       !-- Array copy
