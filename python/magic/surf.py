@@ -1483,6 +1483,56 @@ class Surf:
                    self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
             label = 'Longi. Lorentz force'
+        elif field in ('curlcor_r',):
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+
+            ra = MagicRadial(field='anel',iplot=False)
+            ## this is U x e_z (minus Coriolis) !
+            #Cr = np.sin(th3D) * self.gr.vphi
+            Ct = np.cos(th3D) * self.gr.vphi
+            Cp = -(np.cos(th3D)*self.gr.vtheta + np.sin(th3D)*self.gr.vr)
+
+            #Cr*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+            Ct*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+            Cp*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+
+            data = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*Cp) - phideravg(Ct))
+            data/= self.gr.ek
+            label = 'curl cor r'
+        elif field in ('curlcor_theta',):
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+
+            ra = MagicRadial(field='anel',iplot=False)
+            ## this is U x e_z (minus Coriolis) !
+            Cr = np.sin(th3D) * self.gr.vphi
+            #Ct = np.cos(th3D) * self.gr.vphi
+            Cp = -(np.cos(th3D)*self.gr.vtheta + np.sin(th3D)*self.gr.vr)
+
+            Cr*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+            #Ct*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+            Cp*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+
+            data = 1./(rr3D*np.sin(th3D))*phideravg(Cr) - 1/rr3D*rderavg(rr3D*Cp,eta=self.gr.radratio,spectral=True,exclude=False)
+            data/= self.gr.ek
+            label = 'curl cor theta'
+        elif field in 'curlcor_phi':
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+            ra = MagicRadial(field='anel',iplot=False)
+            ## this is U x e_z (minus Coriolis) !
+            Cr = np.sin(th3D) * self.gr.vphi
+            Ct = np.cos(th3D) * self.gr.vphi
+            #Cp = -(np.cos(th3D)*self.gr.vtheta + np.sin(th3D)*self.gr.vr)
+
+            Cr*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+            Ct*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+            #Cp*= -2 * ra.rho0[np.newaxis,np.newaxis,:]
+
+            data = 1./rr3D*(rderavg(rr3D*Ct,eta=self.gr.radratio,spectral=True,exclude=False) - thetaderavg(Cr))
+            data/= self.gr.ek
+            label = 'curl cor phi'
         else:
             data, data_ic, label = selectField(self.gr, field, labTex, ic)
 
