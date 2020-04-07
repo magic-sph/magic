@@ -114,6 +114,7 @@ contains
                &               SIZEOF_DEF_REAL
             end if
 
+            allocate( type_densemat :: p0Mat )
             call p0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
          end if
 
