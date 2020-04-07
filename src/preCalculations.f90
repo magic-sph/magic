@@ -1,5 +1,6 @@
 module preCalculations
 
+   use iso_fortran_env, only: output_unit
    use constants
    use num_param
    use output_data
@@ -420,13 +421,13 @@ contains
          else if ( (ktops==2 .and. kbots==2) .or. (ktops == 4 .and. kbots==4) ) then
     
             if ( real(bots(0,0)) > 0.0_cp ) then
-               write(*,*)
-               write(*,*) '! NOTE: you have supplied'
-               write(*,*) '! s_bot(l=0,m=0)>0 which '
-               write(*,*) '! means there is a heat '
-               write(*,*) '! flux into the inner core.'
-               write(*,*) '! This is unrealistic!'
-               write(*,*) '! Use s_bot(l=0,m=0)<0 !'
+               write(output_unit,*)
+               write(output_unit,*) '! NOTE: you have supplied'
+               write(output_unit,*) '! s_bot(l=0,m=0)>0 which '
+               write(output_unit,*) '! means there is a heat '
+               write(output_unit,*) '! flux into the inner core.'
+               write(output_unit,*) '! This is unrealistic!'
+               write(output_unit,*) '! Use s_bot(l=0,m=0)<0 !'
                call abortRun('Stop run in preCalc')
             end if
     
@@ -441,11 +442,11 @@ contains
                   !--- Compensate by flux from ICB:
                   !    all over the core :
                   if ( epsc0 >= 0 ) then
-                     write(*,*) '! NOTE: when the flux through the '
-                     write(*,*) '! outer boundary is zero, sinks in'
-                     write(*,*) '! the outer core need to balance  '
-                     write(*,*) '! the flux from the ICB. Thus we  '
-                     write(*,*) '! need epsc<0 !                   '
+                     write(output_unit,*) '! NOTE: when the flux through the '
+                     write(output_unit,*) '! outer boundary is zero, sinks in'
+                     write(output_unit,*) '! the outer core need to balance  '
+                     write(output_unit,*) '! the flux from the ICB. Thus we  '
+                     write(output_unit,*) '! need epsc<0 !                   '
                      call abortRun('Stop run in preCalc')
                   end if
                   bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * botconduc )
@@ -456,10 +457,10 @@ contains
     
                   !--- Correct tops to balance inner sources/sinks:
                   if ( epsc0 <= 0 .and. bots(0,0) == 0.0_cp  ) then
-                     write(*,*) '! NOTE: when the flux through the '
-                     write(*,*) '! ICB is zero we need sources in  '
-                     write(*,*) '! the outer core which means      '
-                     write(*,*) '! epsc0>0.                        '
+                     write(output_unit,*) '! NOTE: when the flux through the '
+                     write(output_unit,*) '! ICB is zero we need sources in  '
+                     write(output_unit,*) '! the outer core which means      '
+                     write(output_unit,*) '! epsc0>0.                        '
                      call abortRun('Stop run in preCalc')
                   end if
                   if ( abs(real(tops(0,0))) == sq4pi ) &
@@ -473,19 +474,19 @@ contains
     
                   !--- Correct tops to balance inner sources/sinks:
                   if ( epsc0 <= 0 .and. bots(0,0) == 0.0_cp  ) then
-                     write(*,*) '! NOTE: when the flux through the '
-                     write(*,*) '! ICB is zero we need sources in  '
-                     write(*,*) '! the outer core which means      '
-                     write(*,*) '! epsc0>0.                        '
+                     write(output_unit,*) '! NOTE: when the flux through the '
+                     write(output_unit,*) '! ICB is zero we need sources in  '
+                     write(output_unit,*) '! the outer core which means      '
+                     write(output_unit,*) '! epsc0>0.                        '
                      call abortRun('Stop run in preCalc')
                   end if
                   help=four*pi*opr*facIH *            &
                        (r_icb**2*real(bots(0,0))*botconduc - &
                         r_cmb**2*real(tops(0,0))*topconduc)
                   if ( help /= epsc ) then
-                     write(*,*) '! NOTE: when flux BC through the '
-                     write(*,*) '! ICB and CMB are used the sources '
-                     write(*,*) '! have to balance the total flux.'
+                     write(output_unit,*) '! NOTE: when flux BC through the '
+                     write(output_unit,*) '! ICB and CMB are used the sources '
+                     write(output_unit,*) '! have to balance the total flux.'
                      call abortRun('Stop run in preCalc')
                   end if
     
@@ -508,9 +509,9 @@ contains
                     (r_icb**2*real(bots(0,0))*botconduc - &
                      r_cmb**2*real(tops(0,0))*topconduc)
                if ( help /= epsc ) then
-                  write(*,*) '! NOTE: when flux BC through the '
-                  write(*,*) '! ICB and/or CMB is used the sources '
-                  write(*,*) '! have to balance it.'
+                  write(output_unit,*) '! NOTE: when flux BC through the '
+                  write(output_unit,*) '! ICB and/or CMB is used the sources '
+                  write(output_unit,*) '! have to balance it.'
                   call abortRun('Stop run in preCalc')
                end if
             end if
@@ -608,13 +609,13 @@ contains
          else if ( (ktopxi==2 .and. kbotxi==2) ) then
     
             if ( real(botxi(0,0)) > 0.0_cp ) then
-               write(*,*)
-               write(*,*) '! NOTE: you have supplied'
-               write(*,*) '! xi_bot(l=0,m=0)>0 which '
-               write(*,*) '! means there is a composition '
-               write(*,*) '! flux into the inner core.'
-               write(*,*) '! This is unrealistic!'
-               write(*,*) '! Use xi_bot(l=0,m=0)<0 !'
+               write(output_unit,*)
+               write(output_unit,*) '! NOTE: you have supplied'
+               write(output_unit,*) '! xi_bot(l=0,m=0)>0 which '
+               write(output_unit,*) '! means there is a composition '
+               write(output_unit,*) '! flux into the inner core.'
+               write(output_unit,*) '! This is unrealistic!'
+               write(output_unit,*) '! Use xi_bot(l=0,m=0)<0 !'
                call abortRun('Stop run in preCalc')
             end if
     
@@ -625,11 +626,11 @@ contains
                   !--- Compensate by flux from ICB:
                   !    all over the core :
                   if ( epscxi0 >= 0 ) then
-                     write(*,*) '! NOTE: when the flux through the '
-                     write(*,*) '! outer boundary is zero, sinks in'
-                     write(*,*) '! the outer core need to balance  '
-                     write(*,*) '! the flux from the ICB. Thus we  '
-                     write(*,*) '! need epscxi<0 !                   '
+                     write(output_unit,*) '! NOTE: when the flux through the '
+                     write(output_unit,*) '! outer boundary is zero, sinks in'
+                     write(output_unit,*) '! the outer core need to balance  '
+                     write(output_unit,*) '! the flux from the ICB. Thus we  '
+                     write(output_unit,*) '! need epscxi<0 !                   '
                      call abortRun('Stop run in preCalc')
                   end if
                   botxi(0,0)=epscxi*sc*facIH/(four*pi*r_icb**2*botconduc)
@@ -640,10 +641,10 @@ contains
     
                   !--- Correct topxi to balance inner sources/sinks:
                   if ( epscxi0 <= 0 .and. botxi(0,0) == 0.0_cp  ) then
-                     write(*,*) '! NOTE: when the flux through the '
-                     write(*,*) '! ICB is zero we need sources in  '
-                     write(*,*) '! the outer core which means      '
-                     write(*,*) '! epscxi0>0.                        '
+                     write(output_unit,*) '! NOTE: when the flux through the '
+                     write(output_unit,*) '! ICB is zero we need sources in  '
+                     write(output_unit,*) '! the outer core which means      '
+                     write(output_unit,*) '! epscxi0>0.                        '
                      call abortRun('Stop run in preCalc')
                   end if
                   if ( abs(real(topxi(0,0))) == sq4pi ) &
@@ -657,19 +658,19 @@ contains
     
                   !--- Correct tops to balance inner sources/sinks:
                   if ( epscxi0 <= 0 .and. botxi(0,0) == 0.0_cp  ) then
-                     write(*,*) '! NOTE: when the flux through the '
-                     write(*,*) '! ICB is zero we need sources in  '
-                     write(*,*) '! the outer core which means      '
-                     write(*,*) '! epscxi0>0.                      '
+                     write(output_unit,*) '! NOTE: when the flux through the '
+                     write(output_unit,*) '! ICB is zero we need sources in  '
+                     write(output_unit,*) '! the outer core which means      '
+                     write(output_unit,*) '! epscxi0>0.                      '
                      call abortRun('Stop run in preCalc')
                   end if
                   help=four*pi/sc/facIH *            &
                        (r_icb**2*real(botxi(0,0))*botconduc - &
                         r_cmb**2*real(topxi(0,0))*topconduc)
                   if ( help /= epscxi ) then
-                     write(*,*) '! NOTE: when flux BC through the '
-                     write(*,*) '! ICB and CMB are used the sources '
-                     write(*,*) '! have to balance the total flux.'
+                     write(output_unit,*) '! NOTE: when flux BC through the '
+                     write(output_unit,*) '! ICB and CMB are used the sources '
+                     write(output_unit,*) '! have to balance the total flux.'
                      call abortRun('Stop run in preCalc')
                   end if
     
@@ -692,9 +693,9 @@ contains
                     (r_icb**2*real(botxi(0,0))*botconduc - &
                      r_cmb**2*real(topxi(0,0))*topconduc)
                if ( help /= epscxi ) then
-                  write(*,*) '! NOTE: when flux BC through the '
-                  write(*,*) '! ICB and/or CMB is used the sources '
-                  write(*,*) '! have to balance it.'
+                  write(output_unit,*) '! NOTE: when flux BC through the '
+                  write(output_unit,*) '! ICB and/or CMB is used the sources '
+                  write(output_unit,*) '! have to balance it.'
                   call abortRun('Stop run in preCalc')
                end if
             end if
@@ -913,10 +914,10 @@ contains
             dt=(t_stop-t_start)/real(n_t-1,kind=cp)
          end if
          if ( n_t > n_t_max ) then
-            write(*,*) '! Sorry, maximum no. of times for'
-            write(*,*) '! output ',string
-            write(*,*) '! is:',n_t_max
-            write(*,*) '! Increase n_time_hits in c_output.f!'
+            write(output_unit,*) '! Sorry, maximum no. of times for'
+            write(output_unit,*) '! output ',string
+            write(output_unit,*) '! is:',n_t_max
+            write(output_unit,*) '! Increase n_time_hits in c_output.f!'
             call abortRun('Stop run in get_hit_times')
          end if
 
@@ -936,11 +937,11 @@ contains
 
 
       if ( n_tot /= 0 .AND. n_step /= 0 ) then
-         write(*,*)
-         write(*,*) '! You have to either provide the total'
-         write(*,*) '! number or the step for output:'
-         write(*,'(A,2(A,I10))') string, "n_tot = ",n_tot,", n_step = ",n_step
-         write(*,*) '! I set the step width to zero!'
+         write(output_unit,*)
+         write(output_unit,*) '! You have to either provide the total'
+         write(output_unit,*) '! number or the step for output:'
+         write(output_unit,'(A,2(A,I10))') string, "n_tot = ",n_tot,", n_step = ",n_step
+         write(output_unit,*) '! I set the step width to zero!'
          n_step=0
       end if
 

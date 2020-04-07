@@ -883,12 +883,11 @@ contains
 
    end subroutine get_mag_ic_rhs_imp
 !-----------------------------------------------------------------------------
-   subroutine assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic,  &
-              &            aj_ic, dj_ic, ddj_ic, dbdt, djdt, dbdt_ic, djdt_ic,  &
+   subroutine assemble_mag(b, db, ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, &
+              &            dj_ic, ddj_ic, dbdt, djdt, dbdt_ic, djdt_ic,         &
               &            lRmsNext, tscheme)
 
       !-- Input variables:
-      real(cp),            intent(in) :: time
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
 
@@ -910,12 +909,11 @@ contains
       !-- Local variables
       complex(cp) :: val_bot
       real(cp) :: fac_top, fac_bot
-      integer :: n_r, lm, l1, lmStart_00, m1
-      integer, pointer :: lm2l(:), lm2m(:)
+      integer :: n_r, lm, l1, lmStart_00
+      integer, pointer :: lm2l(:)
       real(cp) :: dL
 
       lm2l(1:lm_max) => lo_map%lm2l
-      lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llmMag)
 
       if ( l_b_nl_cmb .or. l_b_nl_icb ) then
@@ -1242,18 +1240,6 @@ contains
       real(cp) :: datJmat(n_r_tot,n_r_tot)
       real(cp) :: datBmat(n_r_tot,n_r_tot)
 
-#undef MATRIX_CHECK
-#ifdef MATRIX_CHECK
-      integer :: i,j
-      real(cp) :: rcond
-      integer ::ipiv(n_r_tot),iwork(n_r_tot)
-      real(cp) :: work(4*n_r_tot),anorm,linesum
-      real(cp) :: temp_Mat(n_r_tot,n_r_tot)
-      integer, save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-#endif
-
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
       dLh=real(l*(l+1),kind=cp)
@@ -1518,7 +1504,19 @@ contains
       end do
 #endif
 
+#undef MATRIX_CHECK
 #ifdef MATRIX_CHECK
+      block
+
+      integer :: i,j
+      real(cp) :: rcond
+      integer ::ipiv(n_r_tot),iwork(n_r_tot)
+      real(cp) :: work(4*n_r_tot),anorm,linesum
+      real(cp) :: temp_Mat(n_r_tot,n_r_tot)
+      integer, save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+
       ! copy the bMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "bMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
@@ -1575,6 +1573,8 @@ contains
       ! estimate the condition number
       call dgecon('I',n_r_tot,temp_Mat,n_r_tot,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of jMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       !-- Array copy

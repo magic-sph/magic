@@ -73,7 +73,7 @@ contains
       class(type_tscheme), intent(inout) :: tscheme
 
       !-- Local variables:
-      integer :: l, m, lm, n_r
+      integer :: l, m, n_r
       character(len=76) :: message
 
       real(cp) :: sEA,sES,sAA

@@ -487,6 +487,11 @@ contains
 
       if ( l_finite_diff ) l_single_matrix = .false.
 
+      if ( l_chemical_conv ) then
+         l_single_matrix = .false.
+         call abortRun('Single matrix + double diff. conv. not implemented!')
+      end if
+
       if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
 
       call capitalize(interior_model)

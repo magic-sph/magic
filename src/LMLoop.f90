@@ -6,7 +6,6 @@ module LMLoop_mod
 #endif
 
    use fields
-   use fieldsLast
    use omp_lib
    use precision_mod
    use parallel_mod
@@ -14,9 +13,8 @@ module LMLoop_mod
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
-   use logic, only: l_mag, l_conv, lVerbose, l_heat, l_single_matrix, &
-       &            l_double_curl, l_chemical_conv, l_save_out,       &
-       &            l_cond_ic
+   use logic, only: l_mag, l_conv, lVerbose, l_heat, l_single_matrix, l_double_curl, &
+       &            l_chemical_conv, l_save_out, l_cond_ic
    use output_data, only: n_log_file, log_file
    use debugging,  only: debug_write
    use time_array, only: type_tarray, type_tscalar
@@ -52,6 +50,7 @@ contains
       local_bytes_used = bytes_allocated
       if ( l_single_matrix ) then
          call initialize_updateWPS()
+         if ( tscheme%l_assembly )  call initialize_updateWP(tscheme)
       else
          if ( l_heat ) call initialize_updateS()
          call initialize_updateWP(tscheme)
@@ -77,6 +76,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       if ( l_single_matrix ) then
+         if ( tscheme%l_assembly ) call finalize_updateWP(tscheme)
          call finalize_updateWPS()
       else
          if ( l_heat ) call finalize_updateS()
@@ -96,7 +96,6 @@ contains
       !
       !  This subroutine performs the actual time-stepping.
       !
-      !
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
@@ -115,9 +114,6 @@ contains
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
       !integer,     intent(in) :: n_time_step
 
-      !--- Local counter
-      integer :: l,ierr
-
       !--- Inner core rotation from last time step
       real(cp) :: z10(n_r_max)
 
@@ -134,17 +130,15 @@ contains
          !     matrices have been updated. lMat=.true. when a general
          !     update is necessary.
          lZ10mat=.false.
-         do l=0,l_max
-            if ( l_single_matrix ) then
-               lWPSmat(l)=.false.
-            else
-               lWPmat(l)=.false.
-               if ( l_heat ) lSmat(l) =.false.
-            end if
-            lZmat(l) =.false.
-            if ( l_mag ) lBmat(l) =.false.
-            if ( l_chemical_conv ) lXimat(l)=.false.
-         end do
+         if ( l_single_matrix ) then
+            lWPSmat(:)=.false.
+         else
+            lWPmat(:)=.false.
+            if ( l_heat ) lSmat(:) =.false.
+         end if
+         lZmat(:) =.false.
+         if ( l_mag ) lBmat(:) =.false.
+         if ( l_chemical_conv ) lXimat(:)=.false.
       end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
@@ -259,11 +253,12 @@ contains
 
    end subroutine finish_explicit_assembly
 !--------------------------------------------------------------------------------
-   subroutine assemble_stage(time, w, dw, ddw, z, dz, s, ds, xi, dxi, b, db,     &
-              &              ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, dj_ic,&
-              &              ddj_ic, omega_ic, omega_ic1, omega_ma, omega_ma1,   &
-              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
-              &              djdt_ic, domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
+   subroutine assemble_stage(time, w, dw, ddw, p, dp, z, dz, s, ds, xi, dxi, b, db, &
+              &              ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, dj_ic,   &
+              &              ddj_ic, omega_ic, omega_ic1, omega_ma, omega_ma1,      &
+              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic,    &
+              &              djdt_ic, domega_ic_dt, domega_ma_dt, lPressNext,       &
+              &              lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
       ! equations. This is only used for a special subset of IMEX-RK schemes that
@@ -271,6 +266,7 @@ contains
       !
 
       !-- Input variables
+      logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: time
@@ -281,6 +277,8 @@ contains
       complex(cp),         intent(out) :: ddw(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: dz(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: p(llm:ulm,n_r_max)
+      complex(cp),         intent(inout) :: dp(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: ds(llm:ulm,n_r_max)
       complex(cp),         intent(inout) :: xi(llm:ulm,n_r_max)
@@ -303,16 +301,21 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
-      if ( l_heat )  call assemble_entropy(s, ds, dsdt, tscheme)
       if ( l_chemical_conv )  call assemble_comp(xi, dxi, dxidt, tscheme)
 
-      call assemble_pol(s, xi, w, dw, ddw, dwdt, dpdt, tscheme, lRmsNext)
+      if ( l_single_matrix ) then
+         call assemble_single(s, ds, w, dw, ddw, dsdt, dwdt, dpdt, tscheme,lRmsNext)
+      else
+         if ( l_heat )  call assemble_entropy(s, ds, dsdt, tscheme)
+         call assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dpdt%expl(:,:,1), &
+              &            tscheme, lPressNext, lRmsNext)
+      end if
 
       call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic,  &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
-      if ( l_mag ) call assemble_mag(time, b, db, ddb, aj, dj, ddj, b_ic, db_ic,  &
-                        &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt,    &
+      if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, b_ic, db_ic,     &
+                        &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt, &
                         &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
 
    end subroutine assemble_stage

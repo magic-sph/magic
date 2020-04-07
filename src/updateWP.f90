@@ -15,7 +15,8 @@ module updateWP_mod
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
-       &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
+       &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat, &
+       &            l_single_matrix
    use RMS, only: DifPol2hInt, DifPolLMr
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
@@ -75,108 +76,104 @@ contains
       maxThreads=1
 #endif
 
-      if ( l_finite_diff ) then
-         allocate( type_bandmat :: wpMat(nLMBs2(1+rank)) )
+      if ( .not. l_single_matrix ) then
+         if ( l_finite_diff ) then
+            allocate( type_bandmat :: wpMat(nLMBs2(1+rank)) )
 
-         if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
-            n_bands =rscheme_oc%order+3
+            if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
+               n_bands =rscheme_oc%order+3
+            else
+               n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
+            end if
+            !print*, 'WP', n_bands
+            do ll=1,nLMBs2(1+rank)
+               call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+            end do
+            allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
+            bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+            &               SIZEOF_DEF_REAL
+
+            allocate( type_bandmat :: p0Mat )
+            n_bands = rscheme_oc%order+1
+            call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
          else
-            n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
+            allocate( type_densemat :: wpMat(nLMBs2(1+rank)) )
+            if ( l_double_curl ) then
+               do ll=1,nLMBs2(1+rank)
+                  call wpMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
+               end do
+               allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
+               bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+               &               SIZEOF_DEF_REAL
+            else
+               do ll=1,nLMBs2(1+rank)
+                  call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
+               end do
+               allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
+               bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
+               &               SIZEOF_DEF_REAL
+            end if
+
+            call p0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
          end if
-         !print*, 'WP', n_bands
-         do ll=1,nLMBs2(1+rank)
-            call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
-         end do
-         allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
-         bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
-         &               SIZEOF_DEF_REAL
 
-         allocate( type_bandmat :: p0Mat )
+         allocate( lWPmat(0:l_max) )
+         bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-         n_bands = rscheme_oc%order+1
-         call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+         if ( l_double_curl ) then
+            allocate( ddddw(llm:ulm,n_r_max) )
+            bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+            if ( l_RMS .or. l_FluxProfs ) then
+               allocate( dwold(llm:ulm,n_r_max) )
+               bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+               dwold(:,:)=zero
+            end if
+         end if
 
-         if ( tscheme%l_assembly ) then
+         allocate( work(n_r_max) )
+         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+
+         allocate( Dif(llm:ulm) )
+         allocate( Pre(llm:ulm) )
+         allocate( Buo(llm:ulm) )
+         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+
+         if ( l_double_curl ) then
+            size_rhs1 = n_r_max
+            allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+            bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
+            &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+         else
+            size_rhs1 = 2*n_r_max
+            allocate( rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+            bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
+            &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+         end if
+      end if
+
+      if ( tscheme%l_assembly ) then
+         if ( l_double_curl ) then
             allocate( type_bandmat :: pMat(nLMBs2(1+rank)) )
-
             if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
                n_bands =rscheme_oc%order+1
             else
                n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
             end if
-
             do ll=1,nLMBs2(1+rank)
                call pMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
-            allocate( lPmat(0:l_max) )
-            lPmat(:) = .false.
-            allocate( rhs0(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-            rhs0(:,:,:)=zero
-         end if
-      else
-         allocate( type_densemat :: wpMat(nLMBs2(1+rank)) )
-         if ( l_double_curl ) then
-            do ll=1,nLMBs2(1+rank)
-               call wpMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
-            end do
-            allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
-            bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
-            &               SIZEOF_DEF_REAL
          else
-            do ll=1,nLMBs2(1+rank)
-               call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
-            end do
-            allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
-            bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
-            &               SIZEOF_DEF_REAL
-         end if
-
-         allocate( type_densemat :: p0Mat )
-         call p0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
-
-         if ( tscheme%l_assembly ) then
             allocate( type_densemat :: pMat(nLMBs2(1+rank)) )
             do ll=1,nLMBs2(1+rank)
                call pMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
-            allocate( lPmat(0:l_max) )
-            lPmat(:) = .false.
-            allocate( rhs0(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-            rhs0(:,:,:)=zero
          end if
-      end if
-
-      allocate( lWPmat(0:l_max) )
-      bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
-
-      if ( l_double_curl ) then
-         allocate( ddddw(llm:ulm,n_r_max) )
-         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-         if ( l_RMS .or. l_FluxProfs ) then
-            allocate( dwold(llm:ulm,n_r_max) )
-            bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-            dwold(:,:)=zero
-         end if
-      end if
-
-      allocate( work(n_r_max) )
-      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
-
-      allocate( Dif(llm:ulm) )
-      allocate( Pre(llm:ulm) )
-      allocate( Buo(llm:ulm) )
-      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
-      if ( l_double_curl ) then
-         size_rhs1 = n_r_max
-         allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-         bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
-         &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
-      else
-         size_rhs1 = 2*n_r_max
-         allocate( rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-         bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
-         &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+         allocate( lPmat(0:l_max) )
+         lPmat(:) = .false.
+         allocate( rhs0(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         rhs0(:,:,:)=zero
+         bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL+&
+         &                 n_r_max*maxThreads*2*lo_sub_map%sizeLMB2max*SIZEOF_DEF_REAL
       end if
 
    end subroutine initialize_updateWP
@@ -196,11 +193,6 @@ contains
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
-         call wpMat(ll)%finalize()
-      end do
-      call p0Mat%finalize()
-
       if ( tscheme%l_assembly ) then
          do ll=1,nLMBs2(1+rank)
             call pMat(ll)%finalize()
@@ -208,12 +200,17 @@ contains
          deallocate( lPmat, rhs0 )
       end if
 
-      deallocate( wpMat_fac,lWPmat, rhs1, work )
-      deallocate( Dif, Pre, Buo )
-      if ( l_double_curl ) then
-         deallocate( ddddw )
-         if ( l_RMS .or. l_FluxProfs ) then
-            deallocate( dwold )
+      if ( .not. l_single_matrix ) then
+         do ll=1,nLMBs2(1+rank)
+            call wpMat(ll)%finalize()
+         end do
+         call p0Mat%finalize()
+
+         deallocate( wpMat_fac,lWPmat, rhs1, work )
+         deallocate( Dif, Pre, Buo )
+         if ( l_double_curl ) then
+            deallocate( ddddw )
+            if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
          end if
       end if
 
@@ -985,6 +982,10 @@ contains
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, tscheme,     &
               &               istage, l_calc_lin, lPressNext, lRmsNext, dp_expl, &
               &               l_in_cheb_space)
+      !
+      ! This subroutine computes the derivatives of w and p and assemble the
+      ! implicit stage if needed.
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -997,7 +998,7 @@ contains
       logical, optional,   intent(in) :: l_in_cheb_space
       complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
 
-      !-- Output variable
+      !-- Output variables
       type(type_tarray), intent(inout) :: dwdt
       type(type_tarray), intent(inout) :: dpdt
       complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
@@ -1217,12 +1218,20 @@ contains
 
    end subroutine get_pol_rhs_imp
 !------------------------------------------------------------------------------
-   subroutine assemble_pol(s, xi, w, dw, ddw, dwdt, dpdt, tscheme, lRmsNext)
+   subroutine assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
+              &            tscheme, lPressNext, lRmsNext)
+      !
+      ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
+      ! which necessitate an assembly stage are employed. Robin-type boundary 
+      ! conditions are enforced using Canuto (1986) approach.
+      !
 
       !-- Input variables
       complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
       class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
 
       !-- Output variable
@@ -1231,6 +1240,8 @@ contains
       complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
       complex(cp),       intent(out) :: dw(llm:ulm,n_r_max)
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: p(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: dp(llm:ulm,n_r_max)
 
       !-- Local variables 
       real(cp) :: fac_top, fac_bot
@@ -1318,19 +1329,19 @@ contains
 
                   dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
 
-                  !if ( l1 /= 0 .and. lPressNext ) then
-                  !   ! In the double curl formulation, we can estimate the pressure
-                  !   ! if required.
-                  !   p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
-                  !   &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                  !   &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
-                  !   &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
-                  !   &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
-                  !   &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
-                  !   &                                              ) * dw(lm,n_r) &
-                  !   &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
-                  !   &                     +dLvisc(n_r) )   *            w(lm,n_r) )
-                  !end if
+                  if ( l1 /= 0 .and. lPressNext ) then
+                     ! In the double curl formulation, we can estimate the pressure
+                     ! if required.
+                     p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
+                     &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                     &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                     &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                     &                                              ) * dw(lm,n_r) &
+                     &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
+                     &                     +dLvisc(n_r) )   *            w(lm,n_r) )
+                  end if
 
                   if ( lRmsNext ) then
                      !-- In case RMS force balance is required, one needs to also
@@ -1355,11 +1366,11 @@ contains
 
          ! In case pressure is needed in the double curl formulation
          ! we also have to compute the radial derivative of p
-         !if ( lPressNext .and. l_double_curl ) then
-         !   call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-         !        &       n_r_max, rscheme_oc)
-         !   !$omp barrier
-         !end if
+         if ( lPressNext .and. l_double_curl ) then
+            call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+                 &       n_r_max, rscheme_oc)
+            !$omp barrier
+         end if
 
          !$omp end parallel
 
@@ -1410,9 +1421,7 @@ contains
                   end if
                end do
             end if
-
          else ! Spherical shell
-
             if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
                do lm=lmStart_00,ulm
                   dw(lm,1)      =zero
@@ -1494,8 +1503,7 @@ contains
                end do
 
                if ( lRmsNext ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                       &        DifPolLMr(llm:ulm,n_r),         &
+                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm,DifPolLMr(llm:ulm,n_r), &
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
@@ -1526,16 +1534,6 @@ contains
       integer :: nR,nR_out,nR_p,nR_out_p
       integer :: info
       real(cp) :: dLh
-
-#ifdef MATRIX_CHECK
-      integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
-      real(cp) :: work(8*n_r_max),anorm,linesum,rcond
-      real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
-      integer, save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-      logical :: first_run=.true.
-#endif
 
       dLh =real(l*(l+1),kind=cp)
 
@@ -1667,7 +1665,16 @@ contains
       end do
 
 #ifdef MATRIX_CHECK
-      ! copy the wpMat to a temporary variable for modification
+      block
+
+      integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
+      real(cp) :: work(8*n_r_max),anorm,linesum,rcond
+      real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
+      integer, save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+      logical :: first_run=.true.
+
       write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
@@ -1694,6 +1701,8 @@ contains
       ! estimate the condition number
       call dgecon('I',2*n_r_max,temp_wpMat,2*n_r_max,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of wpMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       call wpMat%prepare(info)

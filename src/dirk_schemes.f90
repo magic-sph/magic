@@ -302,7 +302,7 @@ contains
       !-- Local variables
       real(cp) :: wimp_old, del, gam, b1, b2, b3, b4, c3, c4
       real(cp) :: aa31, aa32, aa41, aa43, aa51, aa52, aa53, aa54, a31, a32
-      real(cp) :: a41, a42, a43, a52, a53, a54
+      real(cp) :: a41, a42, a43
       wimp_old = this%wimp_lin(1)
 
       select case ( this%time_scheme )

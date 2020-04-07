@@ -477,6 +477,10 @@ contains
    end subroutine get_entropy_rhs_imp
 !-----------------------------------------------------------------------------
    subroutine assemble_entropy(s, ds, dsdt, tscheme)
+      !
+      ! This subroutine is used to assemble the entropy/temperature at assembly
+      ! stages of IMEX-RK time schemes
+      !
 
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
@@ -495,6 +499,7 @@ contains
 
       call tscheme%assemble_imex(s, dsdt, llm, ulm, n_r_max)
 
+      !-- Get the boundary points using Canuto (1986) approach
       if ( l_full_sphere) then
          if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
             do lm=llm,ulm
@@ -521,9 +526,7 @@ contains
                end if
             end do
          end if
-
       else ! Spherical shell
-
          !-- Boundary conditions
          if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
             do lm=llm,ulm
@@ -688,17 +691,6 @@ contains
       real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
 
-#ifdef MATRIX_CHECK
-      integer :: i,j
-      real(cp) :: rcond
-      integer ::ipiv(n_r_max),iwork(n_r_max)
-      real(cp) :: work(4*n_r_max),anorm,linesum
-      real(cp) :: temp_Mat(n_r_max,n_r_max)
-      integer,save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-#endif
-
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions:
@@ -772,6 +764,17 @@ contains
 #endif
 
 #ifdef MATRIX_CHECK
+      block
+
+      integer :: i,j
+      real(cp) :: rcond
+      integer ::ipiv(n_r_max),iwork(n_r_max)
+      real(cp) :: work(4*n_r_max),anorm,linesum
+      real(cp) :: temp_Mat(n_r_max,n_r_max)
+      integer,save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+
       ! copy the sMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "sMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
@@ -799,6 +802,8 @@ contains
       ! estimate the condition number
       call dgecon('I',n_r_max,temp_Mat,n_r_max,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of sMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       !-- Array copy

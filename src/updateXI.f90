@@ -423,6 +423,11 @@ contains
    end subroutine get_comp_rhs_imp
 !------------------------------------------------------------------------------
    subroutine assemble_comp(xi, dxi, dxidt, tscheme)
+      !
+      ! This subroutine is used to assemble the chemical composition when an
+      ! IMEX-RK with an assembly stage is employed. Non-Dirichlet boundary
+      ! conditions are handled using Canuto (1986) approach.
+      !
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme

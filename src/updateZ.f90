@@ -1082,17 +1082,6 @@ contains
       character(len=80) :: message
       character(len=14) :: str, str_1
 
-#ifdef MATRIX_CHECK
-      integer :: i,j
-      real(cp) :: rcond
-      integer ::ipiv(n_r_max),iwork(n_r_max)
-      real(cp) :: work(4*n_r_max),anorm,linesum
-      real(cp) :: temp_Mat(n_r_max,n_r_max)
-      integer, save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-#endif
-
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions, see above:
@@ -1153,6 +1142,17 @@ contains
 #endif
 
 #ifdef MATRIX_CHECK
+      block
+
+      integer :: i,j
+      real(cp) :: rcond
+      integer ::ipiv(n_r_max),iwork(n_r_max)
+      real(cp) :: work(4*n_r_max),anorm,linesum
+      real(cp) :: temp_Mat(n_r_max,n_r_max)
+      integer, save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+
       ! copy the zMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "zMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
@@ -1180,6 +1180,8 @@ contains
       ! estimate the condition number
       call dgecon('I',n_r_max,temp_Mat,n_r_max,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of zMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       !-- Array copy

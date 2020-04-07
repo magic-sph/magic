@@ -4,6 +4,7 @@ module radial_functions
    !  temperature, cheb transforms, etc.)
    !
 
+   use iso_fortran_env, only: output_unit
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
        &                 fd_stretch, fd_order, fd_order_bound, l_max
    use algebra, only: prepare_mat, solve_mat
@@ -876,10 +877,10 @@ contains
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
             if ( radratio < 0.19_cp ) then
-               write(*,*) '! NOTE: with this polynomial fit     '
-               write(*,*) '! for variable thermal conductivity  '
-               write(*,*) '! considering radratio < 0.2 may lead'
-               write(*,*) '! to strange profiles'
+               write(output_unit,*) '! NOTE: with this polynomial fit     '
+               write(output_unit,*) '! for variable thermal conductivity  '
+               write(output_unit,*) '! considering radratio < 0.2 may lead'
+               write(output_unit,*) '! to strange profiles'
                call abortRun('Stop the run in radial.f90')
             end if
             a0 = -0.32839722_cp

@@ -188,7 +188,7 @@ contains
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
 
-      if ( lVerbose ) write(*,'(/,'' ! STARTING STEP_TIME !'')')
+      if ( lVerbose ) write(output_unit,'(/,'' ! STARTING STEP_TIME !'')')
 
       run_time_passed=0.0_cp
       l_log       =.false.
@@ -221,8 +221,8 @@ contains
 
       !-- STARTING THE TIME STEPPING LOOP:
       if ( rank == 0 ) then
-         write(*,*)
-         write(*,*) '! Starting time integration!'
+         write(output_unit,*)
+         write(output_unit,*) '! Starting time integration!'
       end if
       call comm_counter%initialize()
       call rLoop_counter%initialize()
@@ -250,8 +250,8 @@ contains
       outer: do n_time_step=1,n_time_steps_go
 
          if ( lVerbose ) then
-            write(*,*)
-            write(*,*) '! Starting time step ',n_time_step
+            write(output_unit,*)
+            write(output_unit,*) '! Starting time step ',n_time_step
          end if
 
          !-- Start time counters
@@ -680,11 +680,7 @@ contains
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
                !-- Timer counters
-               if ( tscheme%l_assembly ) then
-                  call lmLoop_counter%stop_count(l_increment=.false.)
-               else
-                  call lmLoop_counter%stop_count()
-               end if
+               call lmLoop_counter%stop_count()
                if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
                if (  tscheme%istage == 1 .and. .not. lMat .and. &
                &     .not. l_log ) l_pure=.true.
@@ -698,16 +694,15 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
-            call lmLoop_counter%start_count()
-            call assemble_stage(timeStage, w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc,   &
-                 &              dz_LMloc, s_LMloc, ds_LMloc, xi_LMloc, dxi_LMloc,   &
-                 &              b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,   &
-                 &              ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,   &
-                 &              aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, omega_ic,   &
-                 &              omega_ic1, omega_ma, omega_ma1, dwdt, dzdt, dpdt,   &
-                 &              dsdt, dxidt, dbdt, djdt, dbdt_ic, djdt_ic,          &
-                 &              domega_ic_dt, domega_ma_dt, lRmsNext, tscheme)
-            call lmLoop_counter%stop_count()
+            call assemble_stage(timeStage, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,   &
+                 &              dp_LMloc, z_LMloc, dz_LMloc, s_LMloc, ds_LMloc,     &
+                 &              xi_LMloc, dxi_LMloc, b_LMloc, db_LMloc, ddb_LMloc,  &
+                 &              aj_LMloc, dj_LMloc, ddj_LMloc, b_ic_LMloc,          &
+                 &              db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc, dj_ic_LMloc,&
+                 &              ddj_ic_LMloc, omega_ic, omega_ic1, omega_ma,        &
+                 &              omega_ma1, dwdt, dzdt, dpdt, dsdt, dxidt, dbdt,     &
+                 &              djdt, dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt, &
+                 &              lPressNext, lRmsNext, tscheme)
          end if
 
          !-- Update counters
@@ -751,7 +746,7 @@ contains
       if ( l_movie ) then
          if ( rank == 0 ) then
             if (n_frame > 0) then
-               write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')                    &
+               write(output_unit,'(1p,/,/,A,i10,3(/,A,ES16.6))')          &
                &     " !  No of stored movie frames: ",n_frame,           &
                &     " !     starting at time: ",t_movieS(1)*tScale,      &
                &     " !       ending at time: ",t_movieS(n_frame)*tScale,&
@@ -767,10 +762,10 @@ contains
                &     " !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
                if ( l_save_out ) close(n_log_file)
             else
-               write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')          &
-               &     " !  No of stored movie frames: ",n_frame, &
-               &     " !     starting at time: ",0.0_cp,        &
-               &     " !       ending at time: ",0.0_cp,        &
+               write(output_unit,'(1p,/,/,A,i10,3(/,A,ES16.6))')  &
+               &     " !  No of stored movie frames: ",n_frame,   &
+               &     " !     starting at time: ",0.0_cp,          &
+               &     " !       ending at time: ",0.0_cp,          &
                &     " !      with step width: ",0.0_cp
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &

@@ -1,5 +1,6 @@
 module nonlinear_bcs
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use truncation, only: nrp, lmP_max, n_phi_max, l_axi, l_max
    use radial_data, only: n_r_cmb, n_r_icb
@@ -9,11 +10,11 @@ module nonlinear_bcs
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
        &                      dLh, sn2, cosTheta
-   use fft, only: fft_thetab
    use constants, only: two
 #ifdef WITH_SHTNS
    use shtns, only: spat_to_SH
 #else
+   use fft, only: fft_thetab
    use legendre_grid_to_spec, only: legTF2
 #endif
    use useful, only: abortRun
@@ -109,8 +110,7 @@ contains
 
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------
-   subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm, &
-                           lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
+   subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
       !  of the magnetic boundary condition for a conducting mantle in
@@ -139,8 +139,6 @@ contains
       integer :: lmP       ! same as lm but for l running to l_max+1
       integer :: lmPS,lmPA ! lmP for l-1 and l+1
       real(cp) :: fac
-
-      !write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
 
       if ( bc == 'CMB' ) then
 
@@ -233,9 +231,9 @@ contains
       else if ( nR == n_r_icb ) then
          r2=r_icb*r_icb
       else
-         write(*,*)
-         write(*,*) '! v_rigid boundary called for grid'
-         write(*,*) '! point which is not a boundary !  '
+         write(output_unit,*)
+         write(output_unit,*) '! v_rigid boundary called for grid'
+         write(output_unit,*) '! point which is not a boundary !  '
          return
       end if
 
