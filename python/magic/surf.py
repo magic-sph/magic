@@ -724,6 +724,18 @@ class Surf:
                 rr2D[i, :] = self.gr.radius
             s2D = rr2D * np.sin(th2D)
             data = self.gr.vphi/s2D + 1./self.gr.ek
+        elif field in ('jz'):
+            if labTex:
+                label = r'$j_z$'
+            else:
+                label = 'jz'
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+            jr = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*self.gr.Bphi) - phideravg(self.gr.Btheta))
+            dr = rderavg(rr3D*self.gr.Bphi, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jtheta = 1./(rr3D*np.sin(th3D))*phideravg(self.gr.Br) - 1./rr3D*dr
+            data = jr * np.cos(th3D) - jtheta * np.sin(th3D)
         elif field in ('jphi'):
             if labTex:
                 label = r'$j_\phi$'
