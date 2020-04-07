@@ -959,14 +959,16 @@ contains
             GeosZMean  =GeosZMean  +timePassedLog*GeosZ
             GeosMMean  =GeosMMean  +timePassedLog*GeosM
             GeosNAMean =GeosNAMean +timePassedLog*GeosNA
-            ! Relative axisymmetric kinetic energy:
-            RelA       =RelA       +timePassedLog*(e_kin_p_as+e_kin_t_as)/e_kin
-            ! Relative zonal kinetic energy:
-            RelZ       =RelZ       +timePassedLog*e_kin_t_as/e_kin
-            ! Relative meridional kinetic energy:
-            RelM       =RelM       +timePassedLog*e_kin_p_as/e_kin
-            ! Relative non-axisymmetric kinetic energy:
-            RelNA      =RelNA      +timePassedLog*(e_kin-e_kin_p_as-e_kin_t_as)/e_kin
+            if ( e_kin > 0.0_cp ) then
+               ! Relative axisymmetric kinetic energy:
+               RelA       =RelA       +timePassedLog*(e_kin_p_as+e_kin_t_as)/e_kin
+               ! Relative zonal kinetic energy:
+               RelZ       =RelZ       +timePassedLog*e_kin_t_as/e_kin
+               ! Relative meridional kinetic energy:
+               RelM       =RelM       +timePassedLog*e_kin_p_as/e_kin
+               ! Relative non-axisymmetric kinetic energy:
+               RelNA      =RelNA      +timePassedLog*(e_kin-e_kin_p_as-e_kin_t_as)/e_kin
+            end if
             DipMean    =DipMean    +timePassedLog*Dip
             DipCMBMean =DipCMBMean +timePassedLog*DipCMB
             e_kin_pMean=e_kin_pMean+timePassedLog*e_kin_p
