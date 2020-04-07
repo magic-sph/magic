@@ -1288,6 +1288,18 @@ class Surf:
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
+        elif field in ('jz',):
+            if labTex:
+                label = r'$j_z$'
+            else:
+                label = 'jz'
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+            jr = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*self.gr.Bphi) - phideravg(self.gr.Btheta))
+            dr = rderavg(rr3D*self.gr.Bphi, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jtheta = 1./(rr3D*np.sin(th3D))*phideravg(self.gr.Br) - 1./rr3D*dr
+            data = jr * np.cos(th3D) - jtheta * np.sin(th3D)
         elif field in ('anel'):
             if labTex:
                 label = r'$\beta v_r$'
