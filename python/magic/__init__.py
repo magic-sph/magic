@@ -11,6 +11,7 @@ from .cyl import *
 from .compSims import *
 from .butterfly import *
 from .bLayers import *
+from .checker import *
 from .thHeat import *
 from .coeff import *
 from .radialSpectra import *

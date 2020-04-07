@@ -26,7 +26,7 @@ class MagicSpectrum(MagicSetup):
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
-                 ave=False, normalize=False, tag=None):
+                 ave=False, normalize=False, tag=None, quiet=False):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -42,6 +42,8 @@ class MagicSpectrum(MagicSetup):
         :type ave: bool
         :param datadir: current working directory
         :type datadir: str
+        :param quiet: when set to True, makes the output silent (default False)
+        :type quiet: bool
         """
         self.normalize = normalize
         self.ave = ave
@@ -91,7 +93,8 @@ class MagicSpectrum(MagicSetup):
                 # Sum the files that correspond to the tag
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 for k, file in enumerate(files):
-                    print('reading %s' % file)
+                    if not quiet:
+                        print('reading %s' % file)
 
                     tag = mask.search(file).groups(0)[0]
                     nml = MagicSetup(nml='log.%s' % tag, datadir=datadir,
@@ -110,7 +113,8 @@ class MagicSpectrum(MagicSetup):
                 pattern = os.path.join(datadir, '%s.*' % self.name)
                 files = scanDir(pattern)
                 filename = files[-1]
-                print('reading %s' % filename)
+                if not quiet:
+                    print('reading %s' % filename)
                 # Determine the setup
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 ending = mask.search(files[-1]).groups(0)[0]
@@ -171,7 +175,8 @@ class MagicSpectrum(MagicSetup):
                         self.stop_time = None
                         pass
 
-            print('reading %s' % filename)
+            if not quiet:
+                print('reading %s' % filename)
             data = fast_read(filename, skiplines=1)
             speclut = SpecLookUpTable(data, self.name, self.start_time,
                                       self.stop_time)
@@ -192,7 +197,7 @@ class MagicSpectrum(MagicSetup):
             ax = fig.add_subplot(111)
             if self.normalize:
                 y = self.ekin_poll+self.ekin_torl
-                ax.loglog(self.index, y/y.max(),)
+                ax.loglog(self.index[1:], y[1:]/y[1:].max(),)
             else:
                 ax.loglog(self.index[1:], self.ekin_poll[1:], label='poloidal')
                 if self.ave:
