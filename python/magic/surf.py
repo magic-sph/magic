@@ -155,6 +155,14 @@ class Surf:
                 label = r'$v_z$'
             else:
                 label = r'vz'
+        elif field in ('Coriolis_r', 'Cor_r'):
+            ## -2 rho ez x u
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+            ra = MagicRadial(field='anel',iplot=False)
+            data = - np.sin(th3D) * self.gr.vphi
+            data*= - 2 * ra.rho0[np.newaxis,np.newaxis,:]
+            label = 'Radial Coriolis force'
         elif field in ('thu'):
             data = self.gr.vr*(self.gr.entropy-self.gr.entropy.mean(axis=0))
             data_ic = None
@@ -225,7 +233,7 @@ class Surf:
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
             data_ic = None
             label = 'Longi. tens. force'
-        elif field in ('Lorentz_r'):
+        elif field in ('Lorentz_r','Lor_r'):
             th3D = np.zeros_like(self.gr.Bphi)
             rr3D = np.zeros_like(th3D)
             for i in range(self.gr.nr):
@@ -1426,7 +1434,15 @@ class Surf:
                    self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
             label = 'Longi. tens. force'
-        elif field in ('Lorentz_r'):
+        elif field in ('Coriolis_r','Cor_r'):
+            ## compute -2 rho ez x u
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+            ra = MagicRadial(field='anel',iplot=False)
+            data = - np.sin(th3D) * self.gr.vphi
+            data*= - 2 * ra.rho0[np.newaxis,np.newaxis,:]
+            label = 'Radial Coriolis force'
+        elif field in ('Lorentz_r','Lor_r'):
             th3D = np.zeros_like(self.gr.Bphi)
             rr3D = np.zeros_like(th3D)
             for i in range(self.gr.nr):
