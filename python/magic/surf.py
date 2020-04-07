@@ -1483,6 +1483,73 @@ class Surf:
                    self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
             label = 'Longi. Lorentz force'
+        elif field in ('curllor_r'):
+            ## curl B X B
+            print ('no density')
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+
+            jr = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*self.gr.Bphi) - phideravg(self.gr.Btheta))
+            dr = rderavg(rr3D*self.gr.Btheta, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jphi = 1./(rr3D)*(dr - thetaderavg(self.gr.Br))
+
+            dr = rderavg(rr3D*self.gr.Bphi, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jtheta = 1./(rr3D*np.sin(th3D))*phideravg(self.gr.Br) - 1./rr3D*dr
+
+            #Lor = jtheta*gr.Bphi   -   jphi*gr.Btheta
+            Lot = jphi  *self.gr.Br     -     jr*self.gr.Bphi
+            Lop = jr    *self.gr.Btheta - jtheta*self.gr.Br
+
+            data = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*Lop) - phideravg(Lot))
+            data/= self.gr.ek*self.gr.prmag
+            label = r'curl lor r'
+        elif field in ('curllor_theta'):
+            ## curl B X B !
+            print ('no density')
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+
+            jr = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*self.gr.Bphi) - phideravg(self.gr.Btheta))
+            dr = rderavg(rr3D*self.gr.Btheta, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jphi = 1./(rr3D)*(dr - thetaderavg(self.gr.Br))
+
+            dr = rderavg(rr3D*self.gr.Bphi, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jtheta = 1./(rr3D*np.sin(th3D))*phideravg(self.gr.Br) - 1./rr3D*dr
+
+            Lor = jtheta*self.gr.Bphi   -   jphi*self.gr.Btheta
+            #Lot = jphi  *self.gr.Br     -     jr*self.gr.Bphi
+            Lop = jr    *self.gr.Btheta - jtheta*self.gr.Br
+
+            data = 1./(rr3D*np.sin(th3D))*phideravg(Lor) - 1./rr3D*rderavg(rr3D*Lop,eta=self.gr.radratio,
+                                                                           spectral=True,exclude=False)
+            data/= (self.gr.ek*self.gr.prmag)
+            label = r'curl lor theta'
+        elif field in ('curllor_phi'):
+            ## curl{B}xB
+            print ('no density')
+            th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+
+            jr = 1./(rr3D*np.sin(th3D))*(thetaderavg(np.sin(th3D)*self.gr.Bphi) - phideravg(self.gr.Btheta))
+            dr = rderavg(rr3D*self.gr.Btheta, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jphi = 1./(rr3D)*(dr - thetaderavg(self.gr.Br))
+
+            dr = rderavg(rr3D*self.gr.Bphi, eta=self.gr.radratio,
+                         spectral=True, exclude=False)
+            jtheta = 1./(rr3D*np.sin(th3D))*phideravg(self.gr.Br) - 1./rr3D*dr
+
+            Lor = jtheta*self.gr.Bphi   -   jphi*self.gr.Btheta
+            Lot = jphi  *self.gr.Br     -     jr*self.gr.Bphi
+            #Lop = jr    *self.gr.Btheta - jtheta*self.gr.Br
+
+            data = 1./rr3D*(rderavg(rr3D*Lot,eta=self.gr.radratio,spectral=True,exclude=False) - thetaderavg(Lor))
+            data/= (self.gr.ek*self.gr.prmag)
+            label = r'curl lor phi'
         elif field in ('curlcor_r',):
             th3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
             rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
