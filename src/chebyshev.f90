@@ -171,7 +171,7 @@ contains
 
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
       deallocate( this%r_cheb, this%drx, this%ddrx, this%dddrx )
-      deallocate( this%work_costf )
+      deallocate( this%work_costf, this%dr_top, this%dr_bot )
 
       call this%chebt_oc%finalize()
 

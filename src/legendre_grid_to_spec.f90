@@ -55,10 +55,17 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            if ( mc == 1 ) then
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+            else
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            end if
          end do
       end do
 
@@ -157,14 +164,25 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
-            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            if ( mc == 1 ) then
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+            else
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+               f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            end if
          end do
       end do
 
@@ -290,18 +308,33 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
-            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
-            f3ES(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),kind=cp)
-            f3EA(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),kind=cp)
+            if ( mc == 1 ) then
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f3ES(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f3TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f3EA(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f3TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+            else
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+               f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+               f3ES(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),kind=cp)
+               f3EA(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),kind=cp)
+            end if
          end do
       end do
 
@@ -448,14 +481,25 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
-            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
-            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            if ( mc == 1 ) then
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),0.0_cp,kind=cp) + &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+               f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),0.0_cp,kind=cp) - &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),0.0_cp,kind=cp)
+            else
+               f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+               f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+               f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
+               &                  cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            end if
          end do
       end do
 

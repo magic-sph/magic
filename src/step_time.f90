@@ -579,7 +579,7 @@ contains
 
                !-- Do we need to solve for the pressure
                l_press_solver = tscheme%l_assembly .and. (tscheme%istage==1) .and. &
-               &                (n_time_step>0) .and. (.not. l_double_curl)
+               &                (n_time_step>1) .and. (.not. l_double_curl)
                l_press_solver = l_press_solver .and.  &
                &                (tscheme%l_imp_calc_rhs(1) .or. l_store)
                if ( l_press_solver ) then
