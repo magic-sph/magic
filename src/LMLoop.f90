@@ -50,7 +50,6 @@ contains
       local_bytes_used = bytes_allocated
       if ( l_single_matrix ) then
          call initialize_updateWPS()
-         if ( tscheme%l_assembly )  call initialize_updateWP(tscheme)
       else
          if ( l_heat ) call initialize_updateS()
          call initialize_updateWP(tscheme)
@@ -295,7 +294,7 @@ contains
       complex(cp),         intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),         intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
       complex(cp),         intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
-      
+
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt

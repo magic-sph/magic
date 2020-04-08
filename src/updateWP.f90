@@ -15,8 +15,7 @@ module updateWP_mod
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
-       &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat, &
-       &            l_single_matrix
+       &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
    use RMS, only: DifPol2hInt, DifPolLMr
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
@@ -76,80 +75,78 @@ contains
       maxThreads=1
 #endif
 
-      if ( .not. l_single_matrix ) then
-         if ( l_finite_diff ) then
-            allocate( type_bandmat :: wpMat(nLMBs2(1+rank)) )
+      if ( l_finite_diff ) then
+         allocate( type_bandmat :: wpMat(nLMBs2(1+rank)) )
 
-            if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
-               n_bands =rscheme_oc%order+3
-            else
-               n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
-            end if
-            !print*, 'WP', n_bands
+         if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
+            n_bands =rscheme_oc%order+3
+         else
+            n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
+         end if
+         !print*, 'WP', n_bands
+         do ll=1,nLMBs2(1+rank)
+            call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+         end do
+         allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
+         bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+         &               SIZEOF_DEF_REAL
+
+         allocate( type_bandmat :: p0Mat )
+         n_bands = rscheme_oc%order+1
+         call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+      else
+         allocate( type_densemat :: wpMat(nLMBs2(1+rank)) )
+         if ( l_double_curl ) then
             do ll=1,nLMBs2(1+rank)
-               call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+               call wpMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
             allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
             bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
             &               SIZEOF_DEF_REAL
-
-            allocate( type_bandmat :: p0Mat )
-            n_bands = rscheme_oc%order+1
-            call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
          else
-            allocate( type_densemat :: wpMat(nLMBs2(1+rank)) )
-            if ( l_double_curl ) then
-               do ll=1,nLMBs2(1+rank)
-                  call wpMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
-               end do
-               allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
-               bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
-               &               SIZEOF_DEF_REAL
-            else
-               do ll=1,nLMBs2(1+rank)
-                  call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
-               end do
-               allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
-               bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
-               &               SIZEOF_DEF_REAL
-            end if
-
-            allocate( type_densemat :: p0Mat )
-            call p0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+            do ll=1,nLMBs2(1+rank)
+               call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
+            end do
+            allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
+            bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
+            &               SIZEOF_DEF_REAL
          end if
 
-         allocate( lWPmat(0:l_max) )
-         bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+         allocate( type_densemat :: p0Mat )
+         call p0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+      end if
 
-         if ( l_double_curl ) then
-            allocate( ddddw(llm:ulm,n_r_max) )
+      allocate( lWPmat(0:l_max) )
+      bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
+      if ( l_double_curl ) then
+         allocate( ddddw(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         if ( l_RMS .or. l_FluxProfs ) then
+            allocate( dwold(llm:ulm,n_r_max) )
             bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-            if ( l_RMS .or. l_FluxProfs ) then
-               allocate( dwold(llm:ulm,n_r_max) )
-               bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-               dwold(:,:)=zero
-            end if
+            dwold(:,:)=zero
          end if
+      end if
 
-         allocate( work(n_r_max) )
-         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+      allocate( work(n_r_max) )
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 
-         allocate( Dif(llm:ulm) )
-         allocate( Pre(llm:ulm) )
-         allocate( Buo(llm:ulm) )
-         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+      allocate( Dif(llm:ulm) )
+      allocate( Pre(llm:ulm) )
+      allocate( Buo(llm:ulm) )
+      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
-         if ( l_double_curl ) then
-            size_rhs1 = n_r_max
-            allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-            bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
-            &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
-         else
-            size_rhs1 = 2*n_r_max
-            allocate( rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-            bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
-            &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
-         end if
+      if ( l_double_curl ) then
+         size_rhs1 = n_r_max
+         allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
+         &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+      else
+         size_rhs1 = 2*n_r_max
+         allocate( rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
+         &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( tscheme%l_assembly .and. l_double_curl ) then
@@ -196,18 +193,16 @@ contains
          deallocate( l_ellMat, rhs0 )
       end if
 
-      if ( .not. l_single_matrix ) then
-         do ll=1,nLMBs2(1+rank)
-            call wpMat(ll)%finalize()
-         end do
-         call p0Mat%finalize()
+      do ll=1,nLMBs2(1+rank)
+         call wpMat(ll)%finalize()
+      end do
+      call p0Mat%finalize()
 
-         deallocate( wpMat_fac,lWPmat, rhs1, work )
-         deallocate( Dif, Pre, Buo )
-         if ( l_double_curl ) then
-            deallocate( ddddw )
-            if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
-         end if
+      deallocate( wpMat_fac,lWPmat, rhs1, work )
+      deallocate( Dif, Pre, Buo )
+      if ( l_double_curl ) then
+         deallocate( ddddw )
+         if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
       end if
 
    end subroutine finalize_updateWP
@@ -978,7 +973,7 @@ contains
               &            tscheme, lPressNext, lRmsNext)
       !
       ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
-      ! which necessitate an assembly stage are employed. Robin-type boundary 
+      ! which necessitate an assembly stage are employed. Robin-type boundary
       ! conditions are enforced using Canuto (1986) approach.
       !
 
@@ -999,7 +994,7 @@ contains
       complex(cp),       intent(inout) :: p(llm:ulm,n_r_max)
       complex(cp),       intent(inout) :: dp(llm:ulm,n_r_max)
 
-      !-- Local variables 
+      !-- Local variables
       real(cp) :: fac_top, fac_bot
       integer :: n_r_top, n_r_bot, l1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
@@ -1032,7 +1027,7 @@ contains
          call dct_counter%stop_count()
          !$omp end single
 
-         !$omp do private(n_r,lm,l1,dL) 
+         !$omp do private(n_r,lm,l1,dL)
          do n_r=2,n_r_max-1
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
@@ -1212,7 +1207,7 @@ contains
          call dct_counter%stop_count()
          !$omp end single
 
-         !$omp do private(n_r,lm,l1,dL) 
+         !$omp do private(n_r,lm,l1,dL)
          do n_r=2,n_r_max-1
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
@@ -1238,7 +1233,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  & 
+                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
@@ -1248,7 +1243,7 @@ contains
                   if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)* &
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
-                  dpdt%impl(lm,n_r,1)=hdif_V(lm)*visc(n_r)*dL*or2(n_r)*         & 
+                  dpdt%impl(lm,n_r,1)=hdif_V(lm)*visc(n_r)*dL*or2(n_r)*         &
                   &                                       ( -work_LMloc(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
@@ -1482,7 +1477,7 @@ contains
       !-- local variables:
       integer :: nR, nR_out
       integer :: info
-      real(cp) :: dLh 
+      real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
 
       dLh =real(l*(l+1),kind=cp)
