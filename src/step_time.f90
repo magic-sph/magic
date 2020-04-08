@@ -47,7 +47,7 @@ module step_time_mod
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
-   use updateWP_mod, only: get_pol_rhs_imp, updateP
+   use updateWP_mod, only: get_pol_rhs_imp
    use updateWPS_mod, only: get_single_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
@@ -176,7 +176,6 @@ contains
       real(cp) :: timeLast, timeStage, dtLast
       integer :: n_time_steps_go
       logical :: l_new_dt         ! causes call of matbuild !
-      logical :: l_press_solver
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
 
@@ -216,8 +215,6 @@ contains
       n_spec_signal=0      ! Spec signal
       n_rst_signal=0       ! Rst signal
       n_pot_signal=0       ! Potential file signal
-
-      l_press_solver=.false.
 
       !-- STARTING THE TIME STEPPING LOOP:
       if ( rank == 0 ) then
@@ -576,21 +573,6 @@ contains
                     &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
                     &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
                     &                        tscheme)
-
-               !-- Do we need to solve for the pressure
-               l_press_solver = tscheme%l_assembly .and. (tscheme%istage==1) .and. &
-               &                (n_time_step>1) .and. (.not. l_double_curl)
-               l_press_solver = l_press_solver .and.  &
-               &                (tscheme%l_imp_calc_rhs(1) .or. l_store)
-               if ( l_press_solver ) then
-                  call updateP(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
-                       &       dwdt, p_LMloc, dp_LMloc, dpdt, tscheme)
-                  !-- If p_Rloc is needed it needs to be retransposed here !
-                  if ( l_store ) then
-                     call lo2r_press%transp_lm2r(press_LMloc_container, &
-                          &                      press_Rloc_container)
-                  end if
-               end if
                call lmLoop_counter%stop_count(l_increment=.false.)
             end if
 
