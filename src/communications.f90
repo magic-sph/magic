@@ -7,8 +7,6 @@ module communications
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: coord_r, n_ranks_r, ierr
-   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi, &
-       &                 nRstart, nRstop, radial_balance
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
        &            l_mag_kin, l_double_curl, l_save_out

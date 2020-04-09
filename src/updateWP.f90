@@ -150,7 +150,7 @@ contains
       end if
 
       if ( tscheme%l_assembly .and. l_double_curl ) then
-         allocate( type_bandmat :: ellMat(nLMBs2(1+rank)) )
+         allocate( type_bandmat :: ellMat(nLMBs2(1+coord_r)) )
          if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 .and. &
          &    ktopv /=1 .and. kbotv /=1 ) then
             !n_bands =rscheme_oc%order+1 # should be that but yield matrix singularity?
@@ -158,7 +158,7 @@ contains
          else
             n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
          end if
-         do ll=1,nLMBs2(1+rank)
+         do ll=1,nLMBs2(1+coord_r)
             call ellMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
          allocate( l_ellMat(0:l_max) )
@@ -588,7 +588,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
@@ -597,7 +597,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      nLMB       =1+rank
+      nLMB       =1+coord_r
       lmStart_00 =max(2,llm)
 
       !-- Compute the right hand side

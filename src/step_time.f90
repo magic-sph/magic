@@ -217,7 +217,7 @@ contains
       n_pot_signal=0       ! Potential file signal
 
       !-- STARTING THE TIME STEPPING LOOP:
-      if ( l_master_rank == 0 ) then
+      if ( l_master_rank ) then
          write(output_unit,*)
          write(output_unit,*) '! Starting time integration!'
       end if
