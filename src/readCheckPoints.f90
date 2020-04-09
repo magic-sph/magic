@@ -4,6 +4,7 @@ module readCheckPoints
    ! mapping of the restart files
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
    use communications, only: scatter_from_rank0_to_lo
@@ -165,21 +166,24 @@ contains
          dt_array_old(3:tscheme%nexp)=dt_array_old(2)
 
          !---- Compare parameters:
-         if (l_master_rank) then
-            if ( ra /= ra_old ) &
-            &    write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
-            if ( ek /= ek_old ) &
-            &    write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
-            if ( pr /= pr_old ) &
-            &    write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
-            if ( prmag /= pm_old )                                          &
-            &    write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
+         if ( l_master_rank ) then
+            if ( ra /= ra_old )                                                         &
+            &    write(output_unit,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') &
+            &    ra_old,ra
+            if ( ek /= ek_old )                                                      &
+            &    write(output_unit,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') &
+            &    ek_old,ek
+            if ( pr /= pr_old )                                                        &
+            &    write(output_unit,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') &
+            &    pr_old,pr
+            if ( prmag /= pm_old )                                                    &
+            &    write(output_unit,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
             &    pm_old,prmag
-            if ( radratio /= radratio_old )                                    &
-            &    write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
+            if ( radratio /= radratio_old )                                              &
+            &    write(output_unit,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
             &    radratio_old,radratio
-            if ( sigma_ratio /= sigma_ratio_old )                             &
-            &    write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
+            if ( sigma_ratio /= sigma_ratio_old )                                       &
+            &    write(output_unit,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
             &    sigma_ratio_old,sigma_ratio
          end if
 
@@ -193,15 +197,14 @@ contains
          l_mag_old=.false.
          if ( pm_old /= 0.0_cp ) l_mag_old= .true.
 
-         if (l_master_rank) then
+         if ( l_master_rank ) then
             if ( n_phi_tot_old /= n_phi_tot) &
-            &    write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
+            &    write(output_unit,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
             if ( nalias_old /= nalias) &
-            &    write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
+            &    write(output_unit,*) '! New nalias (old,new)   :',nalias_old,nalias
             if ( l_max_old /= l_max ) &
-            &    write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+            &    write(output_unit,*) '! New l_max (old,new)    :',l_max_old,l_max
          end if
-
 
          if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
          &    inform==13 .or. inform==21 .or. inform==23) then
@@ -251,9 +254,9 @@ contains
          call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, &
               &                       ratio1_old, ratio2_old, r_old)
 
-         if (l_master_rank) then
-            if ( rscheme_oc%version /= rscheme_oc_old%version )             &
-            &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
+         if ( l_master_rank ) then
+            if ( rscheme_oc%version /= rscheme_oc_old%version )                       &
+            &    write(output_unit,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
             &    rscheme_oc_old%version,'/', rscheme_oc%version
          end if
 
@@ -445,9 +448,9 @@ contains
          if ( lreadXi ) then
             read(n_start_file) raxi_old, sc_old
             if ( raxi /= raxi_old ) &
-               write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
+               write(output_unit,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
             if ( sc /= sc_old ) &
-               write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
+               write(output_unit,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
          end if
 
          if ( l_mag_old ) then
@@ -459,7 +462,7 @@ contains
                      &           .false.,workA,workB,workC,workD )
             end if
          else
-            write(*,*) '! No magnetic data in input file!'
+            write(output_unit,*) '! No magnetic data in input file!'
          end if
       end if
 
@@ -569,7 +572,7 @@ contains
                !----- No inner core fields provided by start_file, we thus assume that
                !      simple the inner core field decays like r**(l+1) from
                !      the ICB to r=0:
-               if ( l_master_rank ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+               if ( l_master_rank ) write(output_unit,'(/,'' ! USING POTENTIAL IC fields!'')')
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
@@ -612,9 +615,9 @@ contains
          if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
             read(n_start_file,iostat=ioerr) dom_ic, dom_ma
             if( ioerr/=0 ) then
-               write(*,*) '! Could not read last line in input file!'
-               write(*,*) '! Data missing or wrong format!'
-               write(*,*) '! Change inform accordingly!'
+               write(output_unit,*) '! Could not read last line in input file!'
+               write(output_unit,*) '! Data missing or wrong format!'
+               write(output_unit,*) '! Change inform accordingly!'
                call abortRun('! Stop run in readStartFields')
             end if
          else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
@@ -623,10 +626,10 @@ contains
             omega_ic2Old=0.0_cp
             omega_ma1Old=omega_ma
             omega_ma2Old=0.0_cp
-            if( ioerr/=0 .and. l_master_rank) then
-               write(*,*) '! Could not read last line in input file!'
-               write(*,*) '! Data missing or wrong format!'
-               write(*,*) '! Change inform accordingly!'
+            if( ioerr/=0 .and. l_master_rank ) then
+               write(output_unit,*) '! Could not read last line in input file!'
+               write(output_unit,*) '! Data missing or wrong format!'
+               write(output_unit,*) '! Change inform accordingly!'
                call abortRun('! Stop run in readStartFields')
             end if
          else if ( inform == 7 .or. inform == 8 ) then
@@ -636,9 +639,9 @@ contains
             &    omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1,      &
             &    omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
             if( ioerr/=0 ) then
-               write(*,*) '! Could not read last line in input file!'
-               write(*,*) '! Data missing or wrong format!'
-               write(*,*) '! Change inform accordingly!'
+               write(output_unit,*) '! Could not read last line in input file!'
+               write(output_unit,*) '! Data missing or wrong format!'
+               write(output_unit,*) '! Change inform accordingly!'
                call abortRun('! Stop run in readStartFields')
             end if
          else if ( inform > 8 ) then
@@ -649,9 +652,9 @@ contains
             &    omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2,      &
             &    dt_array_old(1)
             if( ioerr/=0 ) then
-               write(*,*) '! Could not read last line in input file!'
-               write(*,*) '! Data missing or wrong format!'
-               write(*,*) '! Change inform accordingly!'
+               write(output_unit,*) '! Could not read last line in input file!'
+               write(output_unit,*) '! Data missing or wrong format!'
+               write(output_unit,*) '! Change inform accordingly!'
                call abortRun('! Stop run in readStartFields')
             end if
          else
@@ -664,33 +667,33 @@ contains
             dom_ma=pm_old*dom_ma
          end if
 
-         if (l_master_rank) then
+         if ( l_master_rank ) then
             if ( l_SRIC ) then
-               if ( omega_ic1Old /= omega_ic1 )                       &
-               &    write(*,*) '! New IC rotation rate 1 (old/new):', &
+               if ( omega_ic1Old /= omega_ic1 )                                 &
+               &    write(output_unit,*) '! New IC rotation rate 1 (old/new):', &
                &    omega_ic1Old,omega_ic1
-               if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
-               &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+               if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                                &
+               &    write(output_unit,*) '! New IC rotation osz. rate 1 (old/new):', &
                &    omegaOsz_ic1Old,omegaOsz_ic1
-               if ( omega_ic2Old /= omega_ic2 )                       &
-               &    write(*,*) '! New IC rotation rate 2 (old/new):', &
+               if ( omega_ic2Old /= omega_ic2 )                                 &
+               &    write(output_unit,*) '! New IC rotation rate 2 (old/new):', &
                &    omega_ic2Old,omega_ic2
-               if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
-               &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+               if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                                &
+               &    write(output_unit,*) '! New IC rotation osz. rate 2 (old/new):', &
                &    omegaOsz_ic2Old,omegaOsz_ic2
             end if
             if ( l_SRMA ) then
-               if ( omega_ma1Old /= omega_ma1 )                       &
-               &    write(*,*) '! New MA rotation rate 1 (old/new):', &
+               if ( omega_ma1Old /= omega_ma1 )                                 &
+               &    write(output_unit,*) '! New MA rotation rate 1 (old/new):', &
                &    omega_ma1Old,omega_ma1
-               if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
-               &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+               if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                                &
+               &    write(output_unit,*) '! New MA rotation osz. rate 1 (old/new):', &
                &    omegaOsz_ma1Old,omegaOsz_ma1
-               if ( omega_ma2Old /= omega_ma2 )                       &
-               &    write(*,*) '! New MA rotation rate 2 (old/new):', &
+               if ( omega_ma2Old /= omega_ma2 )                                 &
+               &    write(output_unit,*) '! New MA rotation rate 2 (old/new):', &
                &    omega_ma2Old,omega_ma2
-               if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
-               &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+               if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                                &
+               &    write(output_unit,*) '! New MA rotation osz. rate 2 (old/new):', &
                &    omegaOsz_ma2Old,omegaOsz_ma2
             end if
          end if ! l_master_rank
@@ -839,8 +842,8 @@ contains
             read(n_start_file, iostat=io_status) version
 
             if ( io_status /= 0 .or. abs(version) > 100 ) then
-               write(*,*) '! The checkpoint file does not have record markers'
-               write(*,*) '! I try to read it with a stream access...'
+               write(output_unit,*) '! The checkpoint file does not have record markers'
+               write(output_unit,*) '! I try to read it with a stream access...'
                close(n_start_file)
 
                !-- Second attempt without stream
@@ -857,8 +860,8 @@ contains
          end if
 
          if ( index(start_file, 'checkpoint_ave') /= 0 .and. l_master_rank) then
-            write(*,*) '! This is a time-averaged checkpoint'
-            write(*,*) '! d#dt arrays will be set to zero'
+            write(output_unit,*) '! This is a time-averaged checkpoint'
+            write(output_unit,*) '! d#dt arrays will be set to zero'
             l_AB1=.true.
          end if
 
@@ -935,7 +938,7 @@ contains
          end if
 
          if ( rscheme_oc%version /= rscheme_oc_old%version )             &
-         &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
+         &    write(output_unit,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')&
          &    rscheme_oc_old%version,'/', rscheme_oc%version
 
          !-- Determine the old mapping
@@ -980,30 +983,30 @@ contains
 
          if ( l_SRIC ) then
             if ( omega_ic1Old /= omega_ic1 )                       &
-            &    write(*,*) '! New IC rotation rate 1 (old/new):', &
+            &    write(output_unit,*) '! New IC rotation rate 1 (old/new):', &
             &    omega_ic1Old,omega_ic1
             if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
-            &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+            &    write(output_unit,*) '! New IC rotation osz. rate 1 (old/new):', &
             &    omegaOsz_ic1Old,omegaOsz_ic1
             if ( omega_ic2Old /= omega_ic2 )                       &
-            &    write(*,*) '! New IC rotation rate 2 (old/new):', &
+            &    write(output_unit,*) '! New IC rotation rate 2 (old/new):', &
             &    omega_ic2Old,omega_ic2
             if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
-            &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+            &    write(output_unit,*) '! New IC rotation osz. rate 2 (old/new):', &
             &    omegaOsz_ic2Old,omegaOsz_ic2
          end if
          if ( l_SRMA ) then
             if ( omega_ma1Old /= omega_ma1 )                       &
-            &    write(*,*) '! New MA rotation rate 1 (old/new):', &
+            &    write(output_unit,*) '! New MA rotation rate 1 (old/new):', &
             &    omega_ma1Old,omega_ma1
             if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
-            &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+            &    write(output_unit,*) '! New MA rotation osz. rate 1 (old/new):', &
             &    omegaOsz_ma1Old,omegaOsz_ma1
             if ( omega_ma2Old /= omega_ma2 )                       &
-            &    write(*,*) '! New MA rotation rate 2 (old/new):', &
+            &    write(output_unit,*) '! New MA rotation rate 2 (old/new):', &
             &    omega_ma2Old,omega_ma2
             if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
-            &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+            &    write(output_unit,*) '! New MA rotation osz. rate 2 (old/new):', &
             &    omegaOsz_ma2Old,omegaOsz_ma2
          end if
 
@@ -1318,7 +1321,7 @@ contains
                !-- No inner core fields provided by start_file, we thus assume that
                !   simple the inner core field decays like r**(l+1) from
                !   the ICB to r=0:
-               if ( l_master_rank ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+               if ( l_master_rank ) write(output_unit,'(/,'' ! USING POTENTIAL IC fields!'')')
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
@@ -1631,8 +1634,8 @@ contains
       if ( abs(version) > 100 ) then
          call MPI_File_close(fh, ierr)
          if ( l_master_rank ) then
-            write(*,*) '! I cannot read it with MPI-IO'
-            write(*,*) '! I try to fall back on serial reader...'
+            write(output_unit,*) '! I cannot read it with MPI-IO'
+            write(output_unit,*) '! I try to fall back on serial reader...'
          end if
          call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
               &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
@@ -1728,8 +1731,8 @@ contains
          call MPI_File_Read(fh, r_old(:), n_r_max_old, MPI_DEF_REAL, istat, ierr)
       end if
 
-      if ( l_master_rank .and. rscheme_oc%version /= rscheme_oc_old%version )&
-      &    write(*,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')   &
+      if ( l_master_rank .and. rscheme_oc%version /= rscheme_oc_old%version )      &
+      &    write(output_unit,'(/,'' ! New radial scheme (old/new):'',A4,A1,A4)')   &
       &    rscheme_oc_old%version,'/', rscheme_oc%version
 
       !-- Determine the old mapping
@@ -1797,30 +1800,30 @@ contains
 
       if ( l_SRIC ) then
          if ( omega_ic1Old /= omega_ic1 )                       &
-         &    write(*,*) '! New IC rotation rate 1 (old/new):', &
+         &    write(output_unit,*) '! New IC rotation rate 1 (old/new):', &
          &    omega_ic1Old,omega_ic1
          if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
-         &    write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+         &    write(output_unit,*) '! New IC rotation osz. rate 1 (old/new):', &
          &    omegaOsz_ic1Old,omegaOsz_ic1
          if ( omega_ic2Old /= omega_ic2 )                       &
-         &    write(*,*) '! New IC rotation rate 2 (old/new):', &
+         &    write(output_unit,*) '! New IC rotation rate 2 (old/new):', &
          &    omega_ic2Old,omega_ic2
          if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
-         &    write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+         &    write(output_unit,*) '! New IC rotation osz. rate 2 (old/new):', &
          &    omegaOsz_ic2Old,omegaOsz_ic2
       end if
       if ( l_SRMA ) then
          if ( omega_ma1Old /= omega_ma1 )                       &
-         &    write(*,*) '! New MA rotation rate 1 (old/new):', &
+         &    write(output_unit,*) '! New MA rotation rate 1 (old/new):', &
          &    omega_ma1Old,omega_ma1
          if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
-         &    write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+         &    write(output_unit,*) '! New MA rotation osz. rate 1 (old/new):', &
          &    omegaOsz_ma1Old,omegaOsz_ma1
          if ( omega_ma2Old /= omega_ma2 )                       &
-         &    write(*,*) '! New MA rotation rate 2 (old/new):', &
+         &    write(output_unit,*) '! New MA rotation rate 2 (old/new):', &
          &    omega_ma2Old,omega_ma2
          if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
-         &    write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+         &    write(output_unit,*) '! New MA rotation osz. rate 2 (old/new):', &
          &    omegaOsz_ma2Old,omegaOsz_ma2
       end if
 
@@ -2105,7 +2108,7 @@ contains
             !-- No inner core fields provided by start_file, we thus assume that
             !   simple the inner core field decays like r**(l+1) from
             !   the ICB to r=0:
-            if ( l_master_rank ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+            if ( l_master_rank ) write(output_unit,'(/,'' ! USING POTENTIAL IC fields!'')')
 
             do lm=llm,ulm
                do nR=1,n_r_ic_max
@@ -2365,16 +2368,15 @@ contains
       &    .and. m_max==m_max_old ) then
 
          !----- Direct reading of fields, grid not changed:
-         if (l_master_rank ) write(*,'(/,'' ! Reading fields directly.'')')
-
+         if ( l_master_rank ) write(output_unit,'(/,'' ! Reading fields directly.'')')
          lm_max_old=lm_max
       else
 
          !----- Mapping onto new grid !
-         if ( l_master_rank ) write(*,'(/,'' ! Mapping onto new grid.'')')
+         if ( l_master_rank ) write(output_unit,'(/,'' ! Mapping onto new grid.'')')
 
          if ( mod(minc_old,minc) /= 0 .and. l_master_rank)                &
-         &     write(*,'('' ! Warning: Incompatible old/new minc= '',2i3)')
+         &     write(output_unit,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
          &          m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
@@ -2382,13 +2384,13 @@ contains
 
          !-- Write info to STdoUT:
          if ( l_master_rank ) then
-            write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
-            &            ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
-            &                l_max_old,l_max,m_max_old,m_max,            &
+            write(output_unit,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4, &
+            &            ''  minc= '',2I3,''  lm_max= '',2I8/)')               &
+            &                l_max_old,l_max,m_max_old,m_max,                  &
             &                minc_old,minc,lm_max_old,lm_max
          end if
          if ( n_r_max_old /= n_r_max .and. l_master_rank )                   &
-         &   write(*,'('' ! Old/New n_r_max='',2i4)') n_r_max_old,n_r_max
+         &   write(output_unit,'('' ! Old/New n_r_max='',2i4)') n_r_max_old,n_r_max
 
       end if
 
@@ -3025,9 +3027,9 @@ contains
             omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
             &        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
             if ( l_master_rank ) then
-               write(*,*)
-               write(*,*) '! I use prescribed inner core rotation rate:'
-               write(*,*) '! omega_ic=',omega_ic
+               write(output_unit,*)
+               write(output_unit,*) '! I use prescribed inner core rotation rate:'
+               write(output_unit,*) '! omega_ic=',omega_ic
             end if
             if ( kbotv == 2 ) then
                if ( llm<=l1m0 .and. ulm>=l1m0 ) then
@@ -3052,10 +3054,10 @@ contains
             omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
             &        omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
             if ( l_master_rank ) then
-               write(*,*)
-               write(*,*) '! I use prescribed mantle rotation rate:'
-               write(*,*) '! omega_ma =',omega_ma
-               write(*,*) '! omega_ma1=',omega_ma1
+               write(output_unit,*)
+               write(output_unit,*) '! I use prescribed mantle rotation rate:'
+               write(output_unit,*) '! omega_ma =',omega_ma
+               write(output_unit,*) '! omega_ma1=',omega_ma1
             end if
             if ( ktopv == 2 ) then
                if ( llm<=l1m0 .and. ulm>=l1m0 ) then
@@ -3082,31 +3084,31 @@ contains
 
       !---- Compare parameters:
       if ( ra /= ra_old ) &
-      &    write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
+      &    write(output_unit,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
       if ( ek /= ek_old ) &
-      &    write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
+      &    write(output_unit,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
       if ( pr /= pr_old ) &
-      &    write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+      &    write(output_unit,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
       if ( prmag /= pm_old )                                          &
-      &    write(*,'(/,'' ! New mag Pr number (old/new):'',2ES16.6)') &
+      &    write(output_unit,'(/,'' ! New mag Pr number (old/new):'',2ES16.6)') &
       &    pm_old,prmag
       if ( raxi /= raxi_old ) &
-      &    write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
+      &    write(output_unit,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
       if ( sc /= sc_old ) &
-      &    write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
+      &    write(output_unit,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
       if ( radratio /= radratio_old )                                    &
-      &    write(*,'(/,'' ! New radius ratio (old/new):'',2ES16.6)') &
+      &    write(output_unit,'(/,'' ! New radius ratio (old/new):'',2ES16.6)') &
       &    radratio_old,radratio
       if ( sigma_ratio /= sigma_ratio_old )                             &
-      &    write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
+      &    write(output_unit,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
       &    sigma_ratio_old,sigma_ratio
 
       if ( n_phi_tot_old /= n_phi_tot) &
-      &    write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
+      &    write(output_unit,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
       if ( nalias_old /= nalias) &
-      &    write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
+      &    write(output_unit,*) '! New nalias (old,new)   :',nalias_old,nalias
       if ( l_max_old /= l_max ) &
-      &    write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+      &    write(output_unit,*) '! New l_max (old,new)    :',l_max_old,l_max
 
    end subroutine print_info
 !------------------------------------------------------------------------------

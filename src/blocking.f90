@@ -3,6 +3,7 @@ module blocking
    !  Module containing blocking information
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: nThreads, coord_r, n_ranks_r, coord_r, l_master_rank
@@ -129,9 +130,9 @@ contains
       if ( .not. l_finite_diff ) then
          if ( mod(n_r_max-1,n_ranks_r) /= 0 ) then
             if ( l_master_rank ) then
-               write(*,*) 'Number of MPI n_ranks_r has to be multiple of n_r_max-1!'
-               write(*,*) 'n_ranks_r :',n_ranks_r
-               write(*,*) 'n_r_max-1:',n_r_max-1
+               write(output_unit,*) 'Number of MPI n_ranks_r has to be multiple of n_r_max-1!'
+               write(output_unit,*) 'n_ranks_r :',n_ranks_r
+               write(output_unit,*) 'n_r_max-1:',n_r_max-1
             end if
             call abortRun('Stop run in blocking')
          end if
@@ -178,7 +179,7 @@ contains
             do lm=1,lm_max
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               write(*,"(A,I5,2(A,I3))") "lm = ",lm," --> l=",l,", m=",m
+               write(output_unit,"(A,I5,2(A,I3))") "lm = ",lm," --> l=",l,", m=",m
             end do
          end if
       end if
@@ -245,15 +246,15 @@ contains
             &    position='append')
          end if
 
-         write(*,*) '!-- Blocking information:'
-         write(*,*)
-         !write(*,*) '!    Number of LM-blocks:',nLMBs
-         !write(*,*) '!    Size   of LM-blocks:',sizeLMB
-         write(*,*) '!               nThreads:',nThreads
-         write(*,*)
-         write(*,*) '! Number of theta blocks:',nThetaBs
-         write(*,*) '!   size of theta blocks:',sizeThetaB
-         write(*,*) '!       ideal size (nfs):',nfs
+         write(output_unit,*) '!-- Blocking information:'
+         write(output_unit,*)
+         !write(output_unit,*) '!    Number of LM-blocks:',nLMBs
+         !write(output_unit,*) '!    Size   of LM-blocks:',sizeLMB
+         write(output_unit,*) '!               nThreads:',nThreads
+         write(output_unit,*)
+         write(output_unit,*) '! Number of theta blocks:',nThetaBs
+         write(output_unit,*) '!   size of theta blocks:',sizeThetaB
+         write(output_unit,*) '!       ideal size (nfs):',nfs
          write(n_log_file,*) '!-- Blocking information:'
          write(n_log_file,*)
          !write(n_log_file,*) '!    Number of LM-blocks:',nLMBs
@@ -316,9 +317,9 @@ contains
          sub_map%lm22l(1,1,n)  =map%lm2l(lm)
          sub_map%lm22m(1,1,n)  =map%lm2m(lm)
          do lm=lm_balance(n-1)%nStart+1,lm_balance(n-1)%nStop
-            !write(*,"(4X,A,I4)") "lm = ",lm
+            !write(output_unit,"(4X,A,I4)") "lm = ",lm
             do n2=1,sub_map%nLMBs2(n)
-               !write(*,"(8X,A,I4)") "n2 = ",n2
+               !write(output_unit,"(8X,A,I4)") "n2 = ",n2
                if ( sub_map%lm22l(1,n2,n) == map%lm2l(lm) ) then
                   !------ Add to old block
                   sub_map%sizeLMB2(n2,n)=sub_map%sizeLMB2(n2,n)+1
@@ -382,12 +383,12 @@ contains
          end do
          if (DEBUG_OUTPUT) then
             if (coord_r == 0) then
-               write(*,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",n_ranks_r
+               write(output_unit,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",n_ranks_r
                do n2=1,sub_map%nLMBs2(n)
-                  write(*,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
+                  write(output_unit,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
                        & sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
                   do n3=1,sub_map%sizeLMB2(n2,n)
-                     write(*,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,      &
+                     write(output_unit,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,      &
                           &" translates into global lm,l,m : ",             &
                           & sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n), &
                           & sub_map%lm22m(n3,n2,n)
@@ -399,18 +400,18 @@ contains
       end do
 
       if ( lStop ) then
-         write(*,*) '! Increase sizeLMB2max in m_blocking.F90!'
-         write(*,*) '! to at least:',size
+         write(output_unit,*) '! Increase sizeLMB2max in m_blocking.F90!'
+         write(output_unit,*) '! to at least:',size
          call abortRun('Stop run in blocking')
       end if
 
       do m=0,m_max,minc
          do l=m,l_max
             if ( check(l,m) == 0 ) then
-               write(*,*) 'Warning, forgotten l,m:',l,m,map%lm2(l,m)
+               write(output_unit,*) 'Warning, forgotten l,m:',l,m,map%lm2(l,m)
                call abortRun('Stop run in blocking')
             else if ( check(l,m) > 1 ) then
-               write(*,*) 'Warning, too much l,m:',l,m,check(l,m)
+               write(output_unit,*) 'Warning, too much l,m:',l,m,check(l,m)
                call abortRun('Stop run in blocking')
             end if
          end do
@@ -465,11 +466,11 @@ contains
          map%lmP2lm(lmP)=-1
       end do
       if ( lm /= map%lm_max ) then
-         write(*,"(2(A,I6))") 'Wrong lm=',lm," != map%lm_max = ",map%lm_max
+         write(output_unit,"(2(A,I6))") 'Wrong lm=',lm," != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
       end if
       if ( lmP /= map%lmP_max ) then
-         write(*,*) 'Wrong lmP!'
+         write(output_unit,*) 'Wrong lmP!'
          call abortRun('Stop run in blocking')
       end if
       do lm=1,map%lm_max
@@ -579,7 +580,7 @@ contains
       end do
 
       if ( lm /= map%lm_max ) then
-         write(*,"(2(A,I6))") 'get_lorder_lm_blocking: Wrong lm = ',lm, &
+         write(output_unit,"(2(A,I6))") 'get_lorder_lm_blocking: Wrong lm = ',lm, &
                               " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
       end if
@@ -651,7 +652,7 @@ contains
       do l=map%l_max,0,-1
          ! this l block is distributed to the actual proc
          l_list(proc,l_counter(proc))=l
-         !write(*,"(A,3I3)") "l,l_list,l_counter=",l,l_list(proc,l_counter(proc)),l_counter(proc)
+         !write(output_unit,"(A,3I3)") "l,l_list,l_counter=",l,l_list(proc,l_counter(proc)),l_counter(proc)
          l_counter(proc) = l_counter(proc)+1
          if (l == 0) l0proc=proc
          ! now determine on which proc to put the next l value
@@ -673,14 +674,14 @@ contains
       if (DEBUG_OUTPUT) then
          do proc=0,n_ranks_r-1
             if (proc == l0proc) then
-               write(*,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
+               write(output_unit,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
             else
-               write(*,"(A,I4,A)") "---- proc ",proc," ----"
+               write(output_unit,"(A,I4,A)") "---- proc ",proc," ----"
             end if
             do i_l=1,l_counter(proc)-1
-               write(*,"(I4,2X)",advance="no") l_list(proc,i_l)
+               write(output_unit,"(I4,2X)",advance="no") l_list(proc,i_l)
             end do
-            write(*,"(A)") ""
+            write(output_unit,"(A)") ""
          end do
       end if
 
@@ -710,7 +711,7 @@ contains
       ! as the first l in the list
       do i_l=1,l_counter(0)-1
          if (l_list(0,i_l) == 0) then
-            !write(*,"(A,I3)") "i_l = ",i_l
+            !write(output_unit,"(A,I3)") "i_l = ",i_l
             temp=l_list(0,1)
             l_list(0,1)=l_list(0,i_l)
             l_list(0,i_l)=temp
@@ -719,17 +720,17 @@ contains
       end do
 
       if (DEBUG_OUTPUT) then
-         write(*,"(A)") "Ordering after the l0proc reordering:"
+         write(output_unit,"(A)") "Ordering after the l0proc reordering:"
          do proc=0,n_ranks_r-1
             if (proc == l0proc) then
-               write(*,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
+               write(output_unit,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
             else
-               write(*,"(A,I4,A)") "---- proc ",proc," ----"
+               write(output_unit,"(A,I4,A)") "---- proc ",proc," ----"
             end if
             do i_l=1,l_counter(proc)-1
-               write(*,"(I4,2X)",advance="no") l_list(proc,i_l)
+               write(output_unit,"(I4,2X)",advance="no") l_list(proc,i_l)
             end do
-            write(*,"(A)") ""
+            write(output_unit,"(A)") ""
          end do
       end if
 
@@ -741,7 +742,7 @@ contains
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
                mc = 0
-               !write(*,"(3I3)") i_l,proc,l
+               !write(output_unit,"(3I3)") i_l,proc,l
                do m=0,l,minc
                   mc = mc+1
                   map%lm2(l,m)=lm
@@ -791,7 +792,7 @@ contains
       end do
 
       if ( lm-1 /= map%lm_max ) then
-         write(*,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
+         write(output_unit,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
               & " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
       end if
@@ -897,7 +898,7 @@ contains
             ! candidate found
             if (min_s == 0) min_s=s
             nThetaBs=n_theta_max/s
-            !write(*,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", &
+            !write(output_unit,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", &
             !     &              nThetaBs = ",nThetaBs
 
             if ( modulo(nThetaBs,nThreads) == 0 ) then

@@ -41,22 +41,39 @@ module updateWP_mod
    real(cp), allocatable :: work(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    real(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: rhs0(:,:,:)
    real(cp), allocatable :: wpMat_fac(:,:,:)
-   class(type_realmat), allocatable :: wpMat(:), p0Mat
+   class(type_realmat), allocatable :: wpMat(:), p0Mat, ellMat(:)
    logical, public, allocatable :: lWPmat(:)
+   logical, allocatable :: l_ellMat(:)
    integer :: maxThreads, size_rhs1
 
-   public :: initialize_updateWP, finalize_updateWP, updateWP, &
+   public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol, &
    &         finish_exp_pol, get_pol_rhs_imp
 
 contains
 
-   subroutine initialize_updateWP
+   subroutine initialize_updateWP(tscheme)
+      !
+      ! Purpose of this subroutine is to allocate the matrices needed
+      ! to time advance the poloidal/pressure equations. Depending on the
+      ! radial scheme, it can be either full or band matrices.
+      !
 
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+
+      !-- Local variables:
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
 
       nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
+
+#ifdef WITHOMP
+      maxThreads=omp_get_max_threads()
+#else
+      maxThreads=1
+#endif
 
       if ( l_finite_diff ) then
          allocate( type_bandmat :: wpMat(nLMBs2(1+coord_r)) )
@@ -75,7 +92,6 @@ contains
          &               SIZEOF_DEF_REAL
 
          allocate( type_bandmat :: p0Mat )
-
          n_bands = rscheme_oc%order+1
          call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
       else
@@ -121,12 +137,6 @@ contains
       allocate( Buo(llm:ulm) )
       bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
-#ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
-#else
-      maxThreads=1
-#endif
-
       if ( l_double_curl ) then
          size_rhs1 = n_r_max
          allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
@@ -139,14 +149,49 @@ contains
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
       end if
 
+      if ( tscheme%l_assembly .and. l_double_curl ) then
+         allocate( type_bandmat :: ellMat(nLMBs2(1+rank)) )
+         if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 .and. &
+         &    ktopv /=1 .and. kbotv /=1 ) then
+            !n_bands =rscheme_oc%order+1 # should be that but yield matrix singularity?
+            n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
+         else
+            n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
+         end if
+         do ll=1,nLMBs2(1+rank)
+            call ellMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+         end do
+         allocate( l_ellMat(0:l_max) )
+         l_ellMat(:) = .false.
+         allocate( rhs0(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         rhs0(:,:,:)=zero
+         bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL+&
+         &                 n_r_max*maxThreads*2*lo_sub_map%sizeLMB2max*SIZEOF_DEF_REAL
+      end if
+
    end subroutine initialize_updateWP
 !-----------------------------------------------------------------------------
-   subroutine finalize_updateWP
+   subroutine finalize_updateWP(tscheme)
+      !
+      ! Deallocation of the matrices used to time-advance the poloidal/pressure
+      ! equations.
+      !
 
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+
+      !-- Local variables:
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
       nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
+
+      if ( tscheme%l_assembly .and. l_double_curl ) then
+         do ll=1,nLMBs2(1+coord_r)
+            call ellMat(ll)%finalize()
+         end do
+         deallocate( l_ellMat, rhs0 )
+      end if
 
       do ll=1,nLMBs2(1+coord_r)
          call wpMat(ll)%finalize()
@@ -157,9 +202,7 @@ contains
       deallocate( Dif, Pre, Buo )
       if ( l_double_curl ) then
          deallocate( ddddw )
-         if ( l_RMS .or. l_FluxProfs ) then
-            deallocate( dwold )
-         end if
+         if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
       end if
 
    end subroutine finalize_updateWP
@@ -516,6 +559,150 @@ contains
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
+   subroutine get_pol(w, work)
+      !
+      !  Get the poloidal potential from the solve of an elliptic equation.
+      !  Careful: the output is in Cheb space!
+      !
+
+      !-- Input field
+      complex(cp), intent(in) :: work(llm:ulm,n_r_max)
+
+      !-- Output field
+      complex(cp), intent(out) :: w(llm:ulm,n_r_max)
+
+      !-- Local variables:
+      integer :: l1,m1          ! degree and order
+      integer :: lm1,lm,lmB     ! position of (l,m) in array
+      integer :: lmStart_00     ! excluding l=0,m=0
+      integer :: nLMB2
+      integer :: nR             ! counts radial grid points
+      integer :: n_r_out         ! counts cheb modes
+      integer :: nLMB
+
+      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
+      integer, pointer :: sizeLMB2(:,:),lm2(:,:)
+      integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
+
+      integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+
+      if ( .not. l_update_v ) return
+
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
+      lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
+      lm22l(1:,1:,1:) => lo_sub_map%lm22l
+      lm22m(1:,1:,1:) => lo_sub_map%lm22m
+      lm2(0:,0:) => lo_map%lm2
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      nLMB       =1+rank
+      lmStart_00 =max(2,llm)
+
+      !-- Compute the right hand side
+      !$omp parallel default(shared)
+      !$omp single
+      call solve_counter%start_count()
+      !$omp end single
+      !PERFON('upWP_ssol')
+      !$OMP SINGLE
+      ! each of the nLMBs2(nLMB) subblocks have one l value
+      do nLMB2=1,nLMBs2(nLMB)
+
+         !$OMP TASK default(shared) &
+         !$OMP firstprivate(nLMB2) &
+         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
+         !$OMP shared(dwold,nLMB,nLMBs2,rhs0)
+         nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
+         size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
+
+         l1=lm22l(1,nLMB2,nLMB)
+
+         if ( l1 > 0 .and. .not. l_ellMat(l1) ) then
+            call get_elliptic_mat(l1, ellMat(nLMB2))
+            l_ellMat(l1) = .true.
+         end if
+
+         do iChunk=1,nChunks
+            !$OMP TASK if (nChunks>1) default(shared) &
+            !$OMP firstprivate(iChunk) &
+            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$OMP private(threadid)
+
+#ifdef WITHOMP
+            threadid = omp_get_thread_num()
+#else
+            threadid = 0
+#endif
+            lmB0=(iChunk-1)*chunksize
+            lmB=lmB0
+            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+               lm1=lm22lm(lm,nLMB2,nLMB)
+               m1 =lm22m(lm,nLMB2,nLMB)
+
+               if ( l1 /= 0 ) then
+                  lmB=lmB+1
+                  rhs0(1,2*lmB-1,threadid)        =0.0_cp
+                  rhs0(1,2*lmB,threadid)          =0.0_cp
+                  rhs0(2,2*lmB-1,threadid)        =0.0_cp
+                  rhs0(2,2*lmB,threadid)          =0.0_cp
+                  rhs0(n_r_max-1,2*lmB-1,threadid)=0.0_cp
+                  rhs0(n_r_max-1,2*lmB,threadid)  =0.0_cp
+                  rhs0(n_r_max,2*lmB-1,threadid)  =0.0_cp
+                  rhs0(n_r_max,2*lmB,threadid)    =0.0_cp
+                  do nR=3,n_r_max-2
+                     rhs0(nR,2*lmB-1,threadid)= real(work(lm1,nR))
+                     rhs0(nR,2*lmB,threadid)  =aimag(work(lm1,nR))
+                  end do
+               end if
+            end do
+
+            if ( lmB > lmB0 ) then
+               call ellMat(nLMB2)%solve(rhs0(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0))
+            end if
+
+            lmB=lmB0
+            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+               lm1=lm22lm(lm,nLMB2,nLMB)
+               m1 =lm22m(lm,nLMB2,nLMB)
+               if ( l1 /= 0 ) then
+                  lmB=lmB+1
+                  if ( m1 > 0 ) then
+                     do n_r_out=1,rscheme_oc%n_max
+                        w(lm1,n_r_out)  =cmplx(rhs0(n_r_out,2*lmB-1,threadid), &
+                        &                      rhs0(n_r_out,2*lmB,threadid),cp)
+                     end do
+                  else
+                     do n_r_out=1,rscheme_oc%n_max
+                        w(lm1,n_r_out)  = cmplx(rhs0(n_r_out,2*lmB-1,threadid),&
+                        &                       0.0_cp,kind=cp)
+                     end do
+                  end if
+               end if
+            end do
+            !$OMP END TASK
+         end do
+         !$OMP END TASK
+      end do   ! end of loop over l1 subblocks
+      !$OMP END SINGLE
+      !$omp single
+      call solve_counter%stop_count()
+      !$omp end single
+
+      !-- set cheb modes > n_cheb_max to zero (dealiazing)
+      !$omp do private(n_r_out,lm1) collapse(2)
+      do n_r_out=rscheme_oc%n_max+1,n_r_max
+         do lm1=llm,ulm
+            w(lm1,n_r_out)=zero
+         end do
+      end do
+      !$omp end do
+
+      !$omp end parallel
+
+   end subroutine get_pol
+!------------------------------------------------------------------------------
    subroutine finish_exp_pol(dVxVhLM, dw_exp_last)
 
       !-- Input variables
@@ -546,6 +733,10 @@ contains
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, tscheme,     &
               &               istage, l_calc_lin, lPressNext, lRmsNext, dp_expl, &
               &               l_in_cheb_space)
+      !
+      ! This subroutine computes the derivatives of w and p and assemble the
+      ! implicit stage if needed.
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -558,7 +749,7 @@ contains
       logical, optional,   intent(in) :: l_in_cheb_space
       complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
 
-      !-- Output variable
+      !-- Output variables
       type(type_tarray), intent(inout) :: dwdt
       type(type_tarray), intent(inout) :: dpdt
       complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
@@ -778,6 +969,322 @@ contains
 
    end subroutine get_pol_rhs_imp
 !------------------------------------------------------------------------------
+   subroutine assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
+              &            tscheme, lPressNext, lRmsNext)
+      !
+      ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
+      ! which necessitate an assembly stage are employed. Robin-type boundary
+      ! conditions are enforced using Canuto (1986) approach.
+      !
+
+      !-- Input variables
+      complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variable
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dw(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: p(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: dp(llm:ulm,n_r_max)
+
+      !-- Local variables
+      real(cp) :: fac_top, fac_bot
+      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
+      integer :: n_r, lm, start_lm, stop_lm
+      integer, pointer :: lm2l(:), lm2m(:)
+      real(cp) :: dL
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llm)
+
+      call tscheme%assemble_imex(work_LMloc, dwdt, llm, ulm, n_r_max)
+      if ( l_double_curl) then
+         call get_pol(w, work_LMloc)
+      else
+         call tscheme%assemble_imex(ddw, dpdt, llm, ulm, n_r_max) ! Use ddw as a work array
+      end if
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      if ( l_double_curl) then
+
+         !$omp single
+            call dct_counter%start_count()
+         !$omp end single
+         call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
+              &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
+              &       l_dct_in=.false. )
+         call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1, start_lm-llm+1,  &
+              &       stop_lm-llm+1, n_r_max, rscheme_oc )
+         call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+         !$omp barrier
+         !$omp single
+         call dct_counter%stop_count()
+         !$omp end single
+
+         !$omp do private(n_r,lm,l1,dL)
+         do n_r=2,n_r_max-1
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               dwdt%old(lm,n_r,1)=-dL*or2(n_r)*orho1(n_r)*(         &
+               &                  ddw(lm,n_r)-beta(n_r)*dw(lm,n_r)- &
+               &                         dL*or2(n_r)* w(lm,n_r) )
+            end do
+         end do
+         !$omp end do
+
+         if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
+            if ( lRmsNext ) then
+               n_r_top=n_r_cmb
+               n_r_bot=n_r_icb
+            else
+               n_r_top=n_r_cmb+1
+               n_r_bot=n_r_icb-1
+            end if
+
+            !$omp do private(n_r,lm,l1,Dif,Buo,dL)
+            do n_r=n_r_top,n_r_bot
+               do lm=lmStart_00,ulm
+                  l1=lm2l(lm)
+                  dL=real(l1*(l1+1),cp)
+
+                  Dif(lm)=-hdif_V(lm)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  &                                                  ddddw(lm,n_r)  &
+                  &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
+                  &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
+                  &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
+                  &           or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
+                  &                                                    ddw(lm,n_r)  &
+                  &        +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
+                  &           two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
+                  &           beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
+                  &           beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
+                  &           two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
+                  &           two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
+                  &                                    *                dw(lm,n_r)  &
+                  &        + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
+                  &          dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
+                  &          dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
+                  &          beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(lm,n_r) )
+
+                  Buo(lm) = zero
+                  if ( l_heat ) Buo(lm) = BuoFac*dL*or2(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*dL*or2(n_r)*&
+                  &                                rgrav(n_r)*xi(lm,n_r)
+
+                  dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
+
+                  if ( l1 /= 0 .and. lPressNext ) then
+                     ! In the double curl formulation, we can estimate the pressure
+                     ! if required.
+                     p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
+                     &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                     &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                     &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                     &                                              ) * dw(lm,n_r) &
+                     &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
+                     &                     +dLvisc(n_r) )   *            w(lm,n_r) )
+                  end if
+
+                  if ( lRmsNext ) then
+                     !-- In case RMS force balance is required, one needs to also
+                     !-- compute the classical diffusivity that is used in the non
+                     !-- double-curl version
+                     Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
+                     &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                     &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                     &                                         *       w(lm,n_r) )
+                  end if
+               end do
+               if ( lRmsNext ) then
+                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
+                       &        DifPolLMr(llm:ulm,n_r),         &
+                       &        DifPol2hInt(:,n_r),lo_map)
+               end if
+            end do
+            !$omp end do
+
+         end if
+
+         ! In case pressure is needed in the double curl formulation
+         ! we also have to compute the radial derivative of p
+         if ( lPressNext .and. l_double_curl ) then
+            call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+                 &       n_r_max, rscheme_oc)
+            !$omp barrier
+         end if
+
+      else
+
+         !-- Now get the poloidal from the assembly
+         !$omp do private(n_r,lm,l1,dL,m1)
+         do n_r=2,n_r_max-1
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dL = real(l1*(l1+1),cp)
+               if ( m1 == 0 ) then
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*cmplx(real(ddw(lm,n_r)),0.0_cp,cp)
+               else
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*ddw(lm,n_r)
+               end if
+            end do
+         end do
+         !$omp end do
+
+         !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
+         !$omp do private(lm)
+         do lm=lmStart_00,ulm
+            w(lm,1)      =zero
+            w(lm,n_r_max)=zero
+         end do
+         !$omp end do
+
+         !-- Other boundary condition: stress-free or rigid
+         if ( l_full_sphere ) then
+            if ( ktopv == 1 ) then ! Stress-free
+               fac_top=-two*or1(1)-beta(1)
+               !$omp do private(lm,l1)
+               do lm=lmStart_00,ulm
+                  l1 = lm2l(lm)
+                  if ( l1 == 1 ) then
+                     call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
+                  else
+                     call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
+                  end if
+               end do
+               !$omp end do
+            else
+               !$omp do private(lm,l1)
+               do lm=lmStart_00,ulm
+                  l1 = lm2l(lm)
+                  if ( l1 == 1 ) then
+                     dw(lm,1)      =zero
+                     dw(lm,n_r_max)=zero
+                  else
+                     call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
+                  end if
+               end do
+               !$omp end do
+            end if
+         else ! Spherical shell
+            if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
+               !$omp do private(lm)
+               do lm=lmStart_00,ulm
+                  dw(lm,1)      =zero
+                  dw(lm,n_r_max)=zero
+               end do
+               !$omp end do
+            else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
+               fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+               !$omp do private(lm)
+               do lm=lmStart_00,ulm
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
+               end do
+               !$omp end do
+            else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
+               fac_top=-two*or1(1)-beta(1)
+               !$omp do private(lm)
+               do lm=lmStart_00,ulm
+                  call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
+               end do
+               !$omp end do
+            else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
+               fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+               fac_top=-two*or1(1)-beta(1)
+               !$omp do private(lm)
+               do lm=lmStart_00,ulm
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
+               end do
+               !$omp end do
+            end if
+         end if
+
+         !$omp single
+         call dct_counter%start_count()
+         !$omp end single
+         call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+              &         stop_lm-llm+1, n_r_max, rscheme_oc)
+         !$omp barrier
+         !$omp single
+         call dct_counter%stop_count()
+         !$omp end single
+
+         !$omp do private(n_r,lm,l1,dL)
+         do n_r=2,n_r_max-1
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               dwdt%old(lm,n_r,1)= dL*or2(n_r)*w(lm,n_r)
+               dpdt%old(lm,n_r,1)=-dL*or2(n_r)*dw(lm,n_r)
+            end do
+         end do
+         !$omp end do
+
+         if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
+            if ( lRmsNext ) then
+               n_r_top=n_r_cmb
+               n_r_bot=n_r_icb
+            else
+               n_r_top=n_r_cmb+1
+               n_r_bot=n_r_icb-1
+            end if
+
+            !$omp do private(n_r,lm,l1,dL)
+            do n_r=n_r_top,n_r_bot
+               do lm=lmStart_00,ulm
+                  l1=lm2l(lm)
+                  dL=real(l1*(l1+1),cp)
+
+                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
+                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &                                                   w(lm,n_r)  )
+                  Buo(lm) = zero
+                  if ( l_heat )  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)* &
+                  &                                rgrav(n_r)*xi(lm,n_r)
+                  dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
+                  dpdt%impl(lm,n_r,1)=hdif_V(lm)*visc(n_r)*dL*or2(n_r)*         &
+                  &                                       ( -work_LMloc(lm,n_r) &
+                  &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                  &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                  &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                  &                                           ) *    dw(lm,n_r) &
+                  &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
+                  &                     +dLvisc(n_r) )   *            w(lm,n_r) )
+               end do
+
+               if ( lRmsNext ) then
+                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm,DifPolLMr(llm:ulm,n_r), &
+                       &        DifPol2hInt(:,n_r),lo_map)
+               end if
+            end do
+            !$omp end do
+         end if
+
+      end if
+      !$omp end parallel
+
+   end subroutine assemble_pol
+!------------------------------------------------------------------------------
    subroutine get_wpMat(tscheme,l,hdif,wpMat,wpMat_fac)
       !
       !  Purpose of this subroutine is to contruct the time step matrix
@@ -797,16 +1304,6 @@ contains
       integer :: nR,nR_out,nR_p,nR_out_p
       integer :: info
       real(cp) :: dLh
-
-#ifdef MATRIX_CHECK
-      integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
-      real(cp) :: work(8*n_r_max),anorm,linesum,rcond
-      real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
-      integer, save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-      logical :: first_run=.true.
-#endif
 
       dLh =real(l*(l+1),kind=cp)
 
@@ -938,7 +1435,16 @@ contains
       end do
 
 #ifdef MATRIX_CHECK
-      ! copy the wpMat to a temporary variable for modification
+      block
+
+      integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
+      real(cp) :: work(8*n_r_max),anorm,linesum,rcond
+      real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
+      integer, save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+      logical :: first_run=.true.
+
       write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
@@ -965,12 +1471,76 @@ contains
       ! estimate the condition number
       call dgecon('I',2*n_r_max,temp_wpMat,2*n_r_max,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of wpMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       call wpMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix wpMat!')
 
    end subroutine get_wpMat
+!------------------------------------------------------------------------------
+   subroutine get_elliptic_mat(l, ellMat)
+      !
+      !  Purpose of this subroutine is to contruct the matrix needed
+      !  for the derivation of w for the time advance of the poloidal equation
+      !  if the double curl form is used.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: l       ! degree
+
+      !-- Output variables:
+      class(type_realmat), intent(inout) :: ellMat
+
+      !-- local variables:
+      integer :: nR, nR_out
+      integer :: info
+      real(cp) :: dLh
+      real(cp) :: dat(n_r_max,n_r_max)
+
+      dLh =real(l*(l+1),kind=cp)
+
+      !----- Boundary conditions:
+      dat(1,:)      =rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+      if ( ktopv == 1 ) then
+         dat(2,:)=rscheme_oc%rnorm*(rscheme_oc%d2rMat(1,:)-(beta(1)+two*or1(1))* &
+         &                          rscheme_oc%drMat(1,:))
+      else
+         dat(2,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+      end if
+      if ( kbotv == 1 ) then
+         dat(n_r_max-1,:)=rscheme_oc%rnorm*(rscheme_oc%d2rMat(n_r_max,:)-&
+         &                (beta(n_r_max)+two*or1(n_r_max))*rscheme_oc%drMat(n_r_max,:))
+      else
+         dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+      end if
+
+      !----- Bulk points:
+      do nR_out=1,n_r_max
+         do nR=3,n_r_max-2
+            dat(nR,nR_out)= -rscheme_oc%rnorm*dLh*orho1(nR)*or2(nR)* (   &
+            &                              rscheme_oc%d2rMat(nR,nR_out)  &
+            &                     -beta(nR)*rscheme_oc%drMat(nR,nR_out)  &
+            &                   -dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) )
+         end do
+      end do
+
+      !----- Factor for highest and lowest cheb:
+      do nR=1,n_r_max
+         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
+         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
+      end do
+
+      !-- Array copy
+      call ellMat%set_data(dat)
+
+      !-- Lu factorisation
+      call ellMat%prepare(info)
+      if ( info /= 0 ) call abortRun('Singular matrix ellMat!')
+
+   end subroutine get_elliptic_mat
 !-----------------------------------------------------------------------------
    subroutine get_wMat(tscheme,l,hdif,wMat,wMat_fac)
       !

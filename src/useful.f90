@@ -3,6 +3,7 @@ module useful
    !  library with several useful subroutines
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
    use output_data, only: n_log_file, log_file
@@ -53,8 +54,8 @@ contains
   
   
       if ( n_step /= 0 .and. n_intervals /= 0 ) then
-         write(*,*) '! Error message from function l_correct_step:'
-         write(*,*) '! Either n_step or n_interval have to be zero!'
+         write(output_unit,*) '! Error message from function l_correct_step:'
+         write(output_unit,*) '! Either n_step or n_interval have to be zero!'
          call abortRun('Stop run in l_correct_step')
       end if
   
@@ -161,8 +162,8 @@ contains
       integer :: factor_tot,factor_test
   
       if ( n < 1 )  then
-         write(*,*) '! Error message from factorise:'
-         write(*,*) '! n should be larger than 0.'
+         write(output_unit,*) '! Error message from factorise:'
+         write(output_unit,*) '! n should be larger than 0.'
          call abortRun('Stop run in factorise')
       else if ( n == 1 ) then
          n_factors=0
@@ -231,7 +232,7 @@ contains
              &    position='append')
           end if
           write(n_log_file,*) trim(message)
-          write(*,*)          trim(message)
+          write(output_unit,*) trim(message)
           if ( l_save_out ) close(n_log_file)
        end if
 
@@ -332,14 +333,14 @@ contains
 
       code = 32
 
-      write(*,*) 
-      write(*,*) 
-      write(*,*) 
-      write(*,*) '! Something went wrong, MagIC will stop now'
-      write(*,*) '! See below the error message:'
-      write(*,*) 
-      write(*,*) message
-      write(*,*) 
+      write(output_unit,*)
+      write(output_unit,*)
+      write(output_unit,*)
+      write(output_unit,*) '! Something went wrong, MagIC will stop now'
+      write(output_unit,*) '! See below the error message:'
+      write(output_unit,*)
+      write(output_unit,*) message
+      write(output_unit,*)
 
 #ifdef WITH_MPI
       call MPI_Abort(comm_r, code, ierr)

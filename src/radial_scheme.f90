@@ -43,6 +43,7 @@ module radial_scheme
       procedure(empty_if),       deferred :: finalize
       procedure(get_der_mat_if), deferred :: get_der_mat
       procedure(get_grid_if),    deferred :: get_grid
+      procedure(robin_bc_if),    deferred :: robin_bc
       procedure :: costf1_complex
       procedure :: costf1_real
       procedure :: costf1_complex_1d
@@ -58,41 +59,42 @@ module radial_scheme
          import
          class(type_rscheme) :: this
       end subroutine empty_if
-      !------------------------------------------------------------------------
+
       subroutine get_grid_if(this,n_r_max,ricb,rcmb,ratio1,ratio2,r)
          import
          class(type_rscheme) :: this
-
          !-- Input quantities:
          integer,  intent(in) :: n_r_max    ! Number of grid points
          real(cp), intent(inout) :: ratio1  ! Nboudary/Nbulk
          real(cp), intent(in) :: ratio2     ! drMin/drMax
          real(cp), intent(in) :: ricb       ! inner boundary
          real(cp), intent(in) :: rcmb       ! outer boundary
-
          !-- Output quantities:
          real(cp), intent(out) :: r(n_r_max) ! radius
-
       end subroutine get_grid_if
-      !------------------------------------------------------------------------
-      subroutine initialize_if(this,n_r_max,order,order_boundary)
 
+      subroutine initialize_if(this,n_r_max,order,order_boundary)
          import
          class(type_rscheme) :: this
          integer, intent(in) :: n_r_max
          integer, intent(in) :: order
          integer, intent(in) :: order_boundary
-
       end subroutine initialize_if
-      !------------------------------------------------------------------------
-      subroutine get_der_mat_if(this,n_r_max)
 
+      subroutine get_der_mat_if(this,n_r_max)
          import
          class(type_rscheme) :: this
          integer, intent(in) :: n_r_max
-
       end subroutine get_der_mat_if
-      !------------------------------------------------------------------------
+
+      subroutine robin_bc_if(this,atop,btop,rhs_top,abot,bbot,rhs_bot,f)
+         import
+         class(type_rscheme) :: this
+         real(cp),    intent(in) :: atop, btop, abot, bbot
+         complex(cp), intent(in) :: rhs_bot, rhs_top
+         complex(cp), intent(inout) :: f(:)
+      end subroutine robin_bc_if
+
    end interface
 
 contains

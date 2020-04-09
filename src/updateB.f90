@@ -14,9 +14,9 @@ module updateB_mod
        &                 n_r_icb, get_openmp_blocks
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic,rscheme_oc
-   use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
-       &                          sigma_ratio, conductance_ma, ktopb, kbotb
+       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
+   use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
+       &                         sigma_ratio, conductance_ma, ktopb
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: solve_counter, dct_counter
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
@@ -57,12 +57,20 @@ module updateB_mod
    logical, public, allocatable :: lBmat(:)
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
-   &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic
+   &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
+   &         assemble_mag
 
 contains
 
-   subroutine initialize_updateB
+   subroutine initialize_updateB()
+      !
+      ! Purpose of this subroutine is to allocate the matrices needed
+      ! to time advance the magnetic field. Depending on the
+      ! radial scheme and the inner core conductivity, it can be full,
+      ! bordered or band matrices.
+      !
 
+      !-- Local variables
       integer, pointer :: nLMBs2(:)
       integer :: maxThreads, ll, n_bandsJ, n_bandsB
 
@@ -121,7 +129,6 @@ contains
       allocate( lBmat(0:l_maxMag) )
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
-
       if ( l_RMS ) then
          allocate( workA(llmMag:ulmMag,n_r_max) )
          allocate( workB(llmMag:ulmMag,n_r_max) )
@@ -152,8 +159,13 @@ contains
 
    end subroutine initialize_updateB
 !-----------------------------------------------------------------------------
-   subroutine finalize_updateB
+   subroutine finalize_updateB()
+      !
+      ! This subroutine deallocates the matrices involved in the time
+      ! advance of the magnetic field
+      !
 
+      !-- Local variables
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
@@ -767,13 +779,12 @@ contains
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
               &                  l_in_cheb_space)
 
-
       !-- Input variables
       integer,             intent(in) :: istage
       logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
 
-      !-- Output variable
+      !-- Output variables
       type(type_tarray), intent(inout) :: dbdt_ic
       type(type_tarray), intent(inout) :: djdt_ic
       complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
@@ -872,9 +883,233 @@ contains
 
    end subroutine get_mag_ic_rhs_imp
 !-----------------------------------------------------------------------------
+   subroutine assemble_mag(b, db, ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, &
+              &            dj_ic, ddj_ic, dbdt, djdt, dbdt_ic, djdt_ic,         &
+              &            lRmsNext, tscheme)
+
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
+      complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp),       intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),       intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
+
+      !-- Local variables
+      complex(cp) :: val_bot
+      real(cp) :: fac_top, fac_bot
+      integer :: n_r, lm, l1, m1, lmStart_00
+      integer, pointer :: lm2l(:), lm2m(:)
+      real(cp) :: dL
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llmMag)
+
+      if ( l_b_nl_cmb .or. l_b_nl_icb ) then
+         call abortRun('Non linear magnetic BCs not implemented at assembly stage!')
+      end if
+
+      !-- Assemble IMEX using ddb and ddj as a work array
+      call tscheme%assemble_imex(ddb, dbdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%assemble_imex(ddj, djdt, llmMag, ulmMag, n_r_maxMag)
+      if ( l_cond_ic ) then
+         call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
+      end if
+
+      !-- Now get the toroidal potential from the assembly
+      !$omp parallel default(shared)
+      !$omp do private(n_r,lm,l1,m1,dL)
+      do n_r=2,n_r_max-1
+         do lm=lmStart_00,ulmMag
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            dL = real(l1*(l1+1),cp)
+            if ( m1 == 0 ) then
+               b(lm,n_r)  = r(n_r)*r(n_r)/dL*cmplx(real(ddb(lm,n_r)),0.0_cp,cp)
+               aj(lm,n_r) = r(n_r)*r(n_r)/dL*cmplx(real(ddj(lm,n_r)),0.0_cp,cp)
+            else
+               b(lm,n_r)  = r(n_r)*r(n_r)/dL*ddb(lm,n_r)
+               aj(lm,n_r) = r(n_r)*r(n_r)/dL*ddj(lm,n_r)
+            end if
+         end do
+      end do
+      !$omp end do
+
+
+      if ( l_cond_ic ) then
+         !$omp do private(n_r,lm,l1,m1,dL)
+         do n_r=2,n_r_ic_max
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dL = real(l1*(l1+1),cp)
+               if ( m1 == 0 ) then
+                  b_ic(lm,n_r)  = r(n_r_max)*r(n_r_max)/dL*cmplx(real(ddb_ic(lm,n_r)),0.0_cp,cp)
+                  aj_ic(lm,n_r) = r(n_r_max)*r(n_r_max)/dL*cmplx(real(ddj_ic(lm,n_r)),0.0_cp,cp)
+               else
+                  b_ic(lm,n_r)  = r(n_r_max)*r(n_r_max)/dL*ddb_ic(lm,n_r)
+                  aj_ic(lm,n_r) = r(n_r_max)*r(n_r_max)/dL*ddj_ic(lm,n_r)
+               end if
+            end do
+         end do
+         !$omp end do
+      end if
+
+      !-- Now handle boundary conditions !
+      if ( imagcon /= 0 ) call abortRun('imagcon/=0 not implemented with assembly stage!')
+      if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
+
+      !-- If conducting inner core then the solution at ICB should already be fine
+      if ( l_full_sphere ) then
+         if ( ktopb == 1 ) then
+            !$omp do private(lm,l1,fac_top)
+            do lm=lmStart_00,ulmMag
+               l1 = lm2l(lm)
+               fac_top=real(l1,cp)*or1(1)
+               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, b(lm,:))
+               aj(lm,1)      =zero
+               aj(lm,n_r_max)=zero
+            end do
+            !$omp end do
+         else if (ktopb == 4 ) then
+            !$omp do private(lm)
+            do lm=lmStart_00,ulmMag
+               call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, zero, b(lm,:))
+               aj(lm,1)      =zero
+               aj(lm,n_r_max)=zero
+            end do
+            !$omp end do
+         else
+            call abortRun('Not implemented yet!')
+         end if
+      else ! spherical shell
+         if ( kbotb == 3 ) then ! Conducting inner core
+            if ( ktopb==1 ) then ! Vacuum outside + cond. I. C.
+               !$omp do private(lm,l1,fac_top,fac_bot,val_bot)
+               do lm=lmStart_00,ulmMag
+                  l1 = lm2l(lm)
+                  fac_top=real(l1,cp)*or1(1)
+                  fac_bot=-dr_top_ic(1)-real(l1+1,cp)*or1(n_r_max)
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*b_ic(lm,n_r)
+                  end do
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, val_bot, &
+                       &                   b(lm,:))
+                  b_ic(lm,1)=b(lm,n_r_max)
+
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*aj_ic(lm,n_r)
+                  end do
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, sigma_ratio, fac_bot, &
+                       &                   val_bot, aj(lm,:))
+                  aj_ic(lm,1)=aj(lm,n_r_max)
+               end do
+               !$omp end do
+            else if ( ktopb == 4 ) then ! Pseudo-Vacuum outside + cond. I. C.
+               !$omp do private(lm,l1,fac_bot,val_bot)
+               do lm=lmStart_00,ulmMag
+                  l1 = lm2l(lm)
+                  fac_bot=-dr_top_ic(1)+real(l1+1,cp)*or1(n_r_max)
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*b_ic(lm,n_r)
+                  end do
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, fac_bot, val_bot, &
+                       &                   b(lm,:))
+                  b_ic(lm,1)=b(lm,n_r_max)
+
+                  val_bot = zero
+                  do n_r=2,n_r_ic_max
+                     val_bot = val_bot+dr_top_ic(n_r)*aj_ic(lm,n_r)
+                  end do
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, sigma_ratio, fac_bot, &
+                       &                   val_bot, aj(lm,:))
+                  aj_ic(lm,1)=aj(lm,n_r_max)
+               end do
+               !$omp end do
+            else
+               call abortRun('Not implemented yet!')
+            end if
+         else if ( kbotb == 4 ) then
+            if ( ktopb==1 ) then
+               !$omp do private(lm,l1,fac_top)
+               do lm=lmStart_00,ulmMag
+                  l1 = lm2l(lm)
+                  fac_top=real(l1,cp)*or1(1)
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+               !$omp end do
+            else if ( ktopb == 4 ) then
+               !$omp do private(lm)
+               do lm=lmStart_00,ulmMag
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+               !$omp end do
+            else
+               call abortRun('Not implemented yet!')
+            end if
+         else if ( kbotb == 1 ) then ! Insulating inner core
+            if ( ktopb==1 ) then ! Vacuum on both sides
+               !$omp do private(lm,l1,fac_bot,fac_top)
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  fac_bot=-real(l1+1,cp)*or1(n_r_max)
+                  fac_top=real(l1,cp)*or1(1)
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+               !$omp end do
+            else if ( ktopb == 4 ) then ! Pseudo-vacuum on the outer boundary
+               !$omp do private(lm,l1,fac_bot)
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  fac_bot=-real(l1+1,cp)*or1(n_r_max)
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, fac_bot, zero, b(lm,:))
+                  aj(lm,1)      =zero
+                  aj(lm,n_r_max)=zero
+               end do
+               !$omp end do
+            end if
+         else
+            call abortRun('Combination not implemented yet!')
+         end if
+      end if
+      !$omp end parallel
+
+      !-- Finally compute the required implicit stage if needed
+      call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
+           &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
+
+      if ( l_cond_ic ) then
+         call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
+              &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
+              &                  .false.)
+      end if
+
+   end subroutine assemble_mag
+!-----------------------------------------------------------------------------
    subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
               &               istage, l_calc_lin, lRmsNext, l_in_cheb_space)
-
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -883,7 +1118,7 @@ contains
       logical,             intent(in) :: l_calc_lin
       logical, optional,   intent(in) :: l_in_cheb_space
 
-      !-- Output variable
+      !-- Output variables
       type(type_tarray), intent(inout) :: dbdt
       type(type_tarray), intent(inout) :: djdt
       complex(cp),       intent(inout) :: b(llmMag:ulmMag,n_r_max)
@@ -1035,18 +1270,6 @@ contains
       real(cp) :: rRatio
       real(cp) :: datJmat(n_r_tot,n_r_tot)
       real(cp) :: datBmat(n_r_tot,n_r_tot)
-
-#undef MATRIX_CHECK
-#ifdef MATRIX_CHECK
-      integer :: i,j
-      real(cp) :: rcond
-      integer ::ipiv(n_r_tot),iwork(n_r_tot)
-      real(cp) :: work(4*n_r_tot),anorm,linesum
-      real(cp) :: temp_Mat(n_r_tot,n_r_tot)
-      integer, save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-#endif
 
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
@@ -1312,7 +1535,19 @@ contains
       end do
 #endif
 
+#undef MATRIX_CHECK
 #ifdef MATRIX_CHECK
+      block
+
+      integer :: i,j
+      real(cp) :: rcond
+      integer ::ipiv(n_r_tot),iwork(n_r_tot)
+      real(cp) :: work(4*n_r_tot),anorm,linesum
+      real(cp) :: temp_Mat(n_r_tot,n_r_tot)
+      integer, save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+
       ! copy the bMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "bMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
@@ -1369,6 +1604,8 @@ contains
       ! estimate the condition number
       call dgecon('I',n_r_tot,temp_Mat,n_r_tot,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of jMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       !-- Array copy

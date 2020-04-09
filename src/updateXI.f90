@@ -41,7 +41,7 @@ module updateXi_mod
 #endif
    logical, public, allocatable :: lXimat(:)
 
-   public :: initialize_updateXi, finalize_updateXi, updateXi, &
+   public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp, &
    &         finish_exp_comp, get_comp_rhs_imp
 
 contains
@@ -421,6 +421,123 @@ contains
       !$omp end parallel
 
    end subroutine get_comp_rhs_imp
+!------------------------------------------------------------------------------
+   subroutine assemble_comp(xi, dxi, dxidt, tscheme)
+      !
+      ! This subroutine is used to assemble the chemical composition when an
+      ! IMEX-RK with an assembly stage is employed. Non-Dirichlet boundary
+      ! conditions are handled using Canuto (1986) approach.
+      !
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),       intent(inout) :: xi(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dxi(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dxidt
+
+      !-- Local variables
+      integer :: lm, l1, m1, n_r
+      integer, pointer :: lm2l(:), lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      call tscheme%assemble_imex(work_LMloc, dxidt, llm, ulm, n_r_max)
+
+      !$omp parallel default(shared)
+      !$omp do private(n_r,lm,m1)
+      do n_r=2,n_r_max
+         do lm=llm,ulm
+            m1 = lm2m(lm)
+            if ( m1 == 0 ) then
+               xi(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+            else
+               xi(lm,n_r)=work_LMloc(lm,n_r)
+            end if
+         end do
+      end do
+      !$omp end do
+
+      !-- Boundary conditions
+      if ( l_full_sphere) then
+         if ( ktopxi == 1 ) then ! Fixed entropy at the outer boundary
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               end if
+            end do
+            !$omp end do
+         else ! Fixed flux at the outer boundary
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), one, 0.0_cp, &
+                       &                   botxi(l1,m1), xi(lm,:))
+               end if
+            end do
+            !$omp end do
+         end if
+
+      else ! Spherical shell
+
+         !-- Boundary conditions
+         if ( ktopxi==1 .and. kbotxi==1 ) then ! Dirichlet on both sides
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+            !$omp end do
+         else if ( ktopxi==1 .and. kbotxi /= 1 ) then ! Dirichlet: top and Neumann: bot
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+            !$omp end do
+         else if ( kbotxi==1 .and. ktopxi /= 1 ) then ! Dirichlet: bot and Neumann: top
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+            !$omp end do
+         else if ( kbotxi /=1 .and. kbotxi /= 1 ) then ! Neumann on both sides
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+                    &                   botxi(l1,m1), xi(lm,:))
+            end do
+            !$omp end do
+         end if
+      end if
+      !$omp end parallel
+
+      call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
+
+   end subroutine assemble_comp
 !------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
    subroutine get_xi0Mat(tscheme,xiMat,xiMat_fac)

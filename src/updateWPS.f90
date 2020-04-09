@@ -49,7 +49,7 @@ module updateWPS_mod
    integer :: maxThreads
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
-   &         get_single_rhs_imp
+   &         get_single_rhs_imp, assemble_single
 
 contains
 
@@ -384,6 +384,289 @@ contains
 
    end subroutine finish_exp_smat
 !------------------------------------------------------------------------------
+   subroutine assemble_single(s, ds, w, dw, ddw, dsdt, dwdt, dpdt, tscheme, lRmsNext)
+      !
+      ! This routine is used to assemble the solution in case IMEX RK with
+      ! an assembly stage are used
+      !
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dsdt
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: dw(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
+
+      !-- Local variables:
+      integer :: n_r, lm, l1, m1, start_lm,stop_lm, lmStart_00
+      integer :: n_r_top, n_r_bot
+      real(cp) :: dL, fac_bot, fac_top
+      integer, pointer :: lm2l(:), lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      lmStart_00 =max(2,llm)
+
+      if ( l_temperature_diff ) then
+         call abortRun('Temperature diff + assembly stage not supported!')
+      end if
+
+      !-- First assemble and store in temporary arrays
+      call tscheme%assemble_imex(ddw, dwdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(work_LMloc, dpdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(ds, dsdt, llm, ulm, n_r_max)
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !-- Now get the fields from the assembly
+      !$omp do private(n_r,lm,l1,m1,dL)
+      do n_r=2,n_r_max-1
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            m1 = lm2m(lm)
+            dL = real(l1*(l1+1),cp)
+            if ( m1 == 0 ) then
+               if ( l1 > 0 ) then
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*cmplx(real(ddw(lm,n_r)),0.0_cp,cp)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+               end if
+               s(lm,n_r) = cmplx(real(ds(lm,n_r)),0.0_cp,cp)
+            else
+               if ( l1 > 0 ) then
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*ddw(lm,n_r)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+               end if
+               s(lm,n_r) = ds(lm,n_r)
+            end if
+         end do
+      end do
+      !$omp end do
+
+      !-- Get the entropy boundary points using Canuto (1986) approach
+      if ( l_full_sphere) then
+         if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+                       &                   bots(l1,m1), s(lm,:))
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                       &                   bots(l1,m1), s(lm,:))
+               end if
+            end do
+            !$omp end do
+         else ! Fixed flux at the outer boundary
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+                       &                   bots(l1,m1), s(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
+                       &                   bots(l1,m1), s(lm,:))
+               end if
+            end do
+            !$omp end do
+         end if
+      else ! Spherical shell
+         !-- Boundary conditions
+         if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         end if
+      end if
+
+      !-- Boundary conditions for the poloidal
+      !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
+      !$omp do
+      do lm=lmStart_00,ulm
+         w(lm,1)      =zero
+         w(lm,n_r_max)=zero
+      end do
+      !$omp end do
+
+      !-- Other boundary condition: stress-free or rigid
+      if ( l_full_sphere ) then
+         if ( ktopv == 1 ) then ! Stress-free
+            fac_top=-two*or1(1)-beta(1)
+            !$omp do private(lm,l1)
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
+               end if
+            end do
+            !$omp end do
+         else
+            !$omp do private(lm,l1)
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               if ( l1 == 1 ) then
+                  dw(lm,1)      =zero
+                  dw(lm,n_r_max)=zero
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
+               end if
+            end do
+            !$omp end do
+         end if
+      else ! Spherical shell
+         if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
+            !$omp do
+            do lm=lmStart_00,ulm
+               dw(lm,1)      =zero
+               dw(lm,n_r_max)=zero
+            end do
+            !$omp end do
+         else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
+            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            !$omp do
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
+            end do
+            !$omp end do
+         else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
+            fac_top=-two*or1(1)-beta(1)
+            !$omp do
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
+            end do
+            !$omp end do
+         else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
+            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            fac_top=-two*or1(1)-beta(1)
+            !$omp do
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
+            end do
+            !$omp end do
+         end if
+      end if
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr(s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+           &       n_r_max, rscheme_oc)
+      call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+           &         stop_lm-llm+1, n_r_max, rscheme_oc)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count()
+      !$omp end single
+
+      !$omp do private(n_r,lm,l1,dL)
+      do n_r=2,n_r_max-1
+         do lm=llm,ulm
+            l1 = lm2l(lm)
+            dL = real(l1*(l1+1),cp)
+            dsdt%old(lm,n_r,1)= s(lm,n_r)
+            dwdt%old(lm,n_r,1)= dL*or2(n_r)*w(lm,n_r)
+            dpdt%old(lm,n_r,1)=-dL*or2(n_r)*dw(lm,n_r)
+         end do
+      end do
+      !$omp end do
+
+      if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
+
+         if ( lRmsNext ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         else
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
+         end if
+
+         !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+         do n_r=n_r_top,n_r_bot
+            do lm=llm,ulm
+               l1=lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+
+               Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+               &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+               &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
+               &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
+               &                                                    w(lm,n_r) )
+               Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+               dwdt%impl(lm,n_r,1)=Buo(lm)+Dif(lm)
+               dpdt%impl(lm,n_r,1)=       hdif_V(lm)* visc(n_r)*dL*or2(n_r) &
+               &                                   * ( -work_LMloc(lm,n_r)  &
+               &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
+               &        + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+ dbeta(n_r)   &
+               &                   + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)   &
+               &                                            ) * dw(lm,n_r)  &
+               &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
+               &                      +dLvisc(n_r) )   *         w(lm,n_r) )
+               dsdt%impl(lm,n_r,1)=               opr*hdif_S(lm)*kappa(n_r)*&
+               &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
+               &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
+               &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
+               &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)
+
+            end do
+
+            if ( lRmsNext ) then
+               call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
+                    &        DifPol2hInt(:,n_r),lo_map)
+            end if
+         end do
+         !$omp end do
+      end if
+
+      !$omp end parallel
+
+   end subroutine assemble_single
+!------------------------------------------------------------------------------
    subroutine get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
               &                  tscheme, istage, l_calc_lin, lRmsNext,      &
               &                  l_in_cheb_space)
@@ -395,7 +678,7 @@ contains
       logical,             intent(in) :: lRmsNext
       logical, optional,   intent(in) :: l_in_cheb_space
 
-      !-- Output variable
+      !-- Output variables
       type(type_tarray), intent(inout) :: dsdt
       type(type_tarray), intent(inout) :: dwdt
       type(type_tarray), intent(inout) :: dpdt
@@ -430,7 +713,6 @@ contains
       !$omp single
       call dct_counter%start_count()
       !$omp end single
-
       call get_ddr( s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
