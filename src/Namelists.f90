@@ -1613,7 +1613,6 @@ contains
 
       if ( (index(scheme_name, 'ARS222') /= 0) .or. &
       &    (index(scheme_name, 'ARS233') /= 0) .or. &
-      &    (index(scheme_name, 'DP242') /= 0) .or. &
       &    (index(scheme_name, 'ARS232') /= 0) .or. &
       &    (index(scheme_name, 'ARS343') /= 0) .or. &
       &    (index(scheme_name, 'MARS343') /= 0) .or.&
