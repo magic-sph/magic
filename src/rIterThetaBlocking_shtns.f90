@@ -9,7 +9,7 @@ module rIterThetaBlocking_shtns_mod
        &                td_counter
    use parallel_mod, only: get_openmp_blocks
    use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb,   &
-       &                 n_r_icb, n_lmP_loc
+       &                 n_r_icb, n_lmP_loc, n_theta_loc
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -83,7 +83,7 @@ contains
 
       call this%allocate_common_arrays()
       call this%gsa%initialize()
-      call this%gsa_dist%initialize()
+      call this%gsa_dist%initialize_dist()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lmP_max)
@@ -186,9 +186,14 @@ contains
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 
+         call this%gsa%slice_all(this%gsa_dist)
+         call this%nl_lm%slice_all(this%nl_lm_dist)
          call phy2lm_counter%start_count()
-         call this%transform_to_lm_space_shtns(this%gsa_dist, this%gsa, this%nl_lm, this%nl_lm_dist)
+!          call this%transform_to_lm_space_shtns(this%gsa_dist, this%gsa, this%nl_lm, this%nl_lm_dist)
+         call this%transform_to_lm_space_shtns(this%gsa_dist, this%nl_lm_dist)
          call phy2lm_counter%stop_count(l_increment=.false.)
+         call this%nl_lm_dist%gather_all(this%nl_lm)
+         call this%gsa_dist%gather_all(this%gsa)
 
       else if ( l_mag ) then
          do lm=1,lmP_max
@@ -533,34 +538,34 @@ contains
 
    end subroutine transform_to_grid_space_shtns
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space_shtns(this, gsa_dist, gsa, nl_lm, nl_lm_dist)
+   subroutine transform_to_lm_space_shtns(this, gsa_dist, nl_lm_dist)
 
       class(rIterThetaBlocking_shtns_t) :: this
       type(grid_space_arrays_t) :: gsa_dist
-      type(grid_space_arrays_t) :: gsa
-      type(nonlinear_lm_t) :: nl_lm
+!       type(grid_space_arrays_t) :: gsa
+!       type(nonlinear_lm_t) :: nl_lm
       type(nonlinear_lm_t) :: nl_lm_dist
 
       ! Local variables
       integer :: nTheta, nPhi, nThStart, nThStop
-      
+
       call shtns_load_cfg(1)
 
       if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) &
             .and. ( l_conv_nl .or. l_mag_LF ) ) then
 
          !$omp parallel default(shared) private(nThStart,nThStop,nTheta,nPhi)
-         nThStart=1; nThStop=n_theta_max
+         nThStart=1; nThStop=n_theta_loc
          call get_openmp_blocks(nThStart,nThStop)
-
+         
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then
                do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%LFr(nPhi, nTheta)
-                     gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%LFt(nPhi, nTheta)
-                     gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%LFp(nPhi, nTheta)
+                     gsa_dist%Advr(nPhi, nTheta)=gsa_dist%Advr(nPhi, nTheta) + gsa_dist%LFr(nPhi, nTheta)
+                     gsa_dist%Advt(nPhi, nTheta)=gsa_dist%Advt(nPhi, nTheta) + gsa_dist%LFt(nPhi, nTheta)
+                     gsa_dist%Advp(nPhi, nTheta)=gsa_dist%Advp(nPhi, nTheta) + gsa_dist%LFp(nPhi, nTheta)
                   end do
                end do
             end if
@@ -568,17 +573,17 @@ contains
             if ( this%nR > n_r_LCR ) then
                do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi, nTheta) = gsa%LFr(nPhi, nTheta)
-                     gsa%Advt(nPhi, nTheta) = gsa%LFt(nPhi, nTheta)
-                     gsa%Advp(nPhi, nTheta) = gsa%LFp(nPhi, nTheta)
+                     gsa_dist%Advr(nPhi, nTheta) = gsa_dist%LFr(nPhi, nTheta)
+                     gsa_dist%Advt(nPhi, nTheta) = gsa_dist%LFt(nPhi, nTheta)
+                     gsa_dist%Advp(nPhi, nTheta) = gsa_dist%LFp(nPhi, nTheta)
                   end do
                end do
             else
                do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi,nTheta)=0.0_cp
-                     gsa%Advt(nPhi,nTheta)=0.0_cp
-                     gsa%Advp(nPhi,nTheta)=0.0_cp
+                     gsa_dist%Advr(nPhi,nTheta)=0.0_cp
+                     gsa_dist%Advt(nPhi,nTheta)=0.0_cp
+                     gsa_dist%Advp(nPhi,nTheta)=0.0_cp
                   end do
                end do
             end if
@@ -587,9 +592,9 @@ contains
          if ( l_precession ) then
             do nTheta=nThStart, nThStop
                do nPhi=1, n_phi_max
-                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%PCr(nPhi, nTheta)
-                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%PCt(nPhi, nTheta)
-                  gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%PCp(nPhi, nTheta)
+                  gsa_dist%Advr(nPhi, nTheta)=gsa_dist%Advr(nPhi, nTheta) + gsa_dist%PCr(nPhi, nTheta)
+                  gsa_dist%Advt(nPhi, nTheta)=gsa_dist%Advt(nPhi, nTheta) + gsa_dist%PCt(nPhi, nTheta)
+                  gsa_dist%Advp(nPhi, nTheta)=gsa_dist%Advp(nPhi, nTheta) + gsa_dist%PCp(nPhi, nTheta)
                end do
             end do
          end if
@@ -597,15 +602,13 @@ contains
          if ( l_centrifuge ) then
             do nTheta=nThStart, nThStop
                do nPhi=1, n_phi_max
-                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%CAr(nPhi, nTheta)
-                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%CAt(nPhi, nTheta)
+                  gsa_dist%Advr(nPhi, nTheta)=gsa_dist%Advr(nPhi, nTheta) + gsa_dist%CAr(nPhi, nTheta)
+                  gsa_dist%Advt(nPhi, nTheta)=gsa_dist%Advt(nPhi, nTheta) + gsa_dist%CAt(nPhi, nTheta)
                end do
             end do
          end if
          !$omp end parallel
          
-         call gsa%slice_all(gsa_dist)
-
          call spat_to_SH_dist(gsa_dist%Advr, nl_lm_dist%AdvrLM, l_R(this%nR))
          call spat_to_SH_dist(gsa_dist%Advt, nl_lm_dist%AdvtLM, l_R(this%nR))
          call spat_to_SH_dist(gsa_dist%Advp, nl_lm_dist%AdvpLM, l_R(this%nR))
@@ -641,8 +644,8 @@ contains
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call spat_to_qst(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
-                 &           nl_lm%VxBtLM, nl_lm%VxBpLM, l_R(this%nR))
+            call spat_to_qst_dist(gsa_dist%VxBr, gsa_dist%VxBt, gsa_dist%VxBp, nl_lm_dist%VxBrLM, &
+                 &           nl_lm_dist%VxBtLM, nl_lm_dist%VxBpLM, l_R(this%nR))
          else
             call spat_to_sphertor_dist(gsa_dist%VxBt,gsa_dist%VxBp,nl_lm_dist%VxBtLM,nl_lm_dist%VxBpLM, &
                  &                l_R(this%nR))
@@ -671,10 +674,6 @@ contains
       end if
       
       call shtns_load_cfg(0)
-      
-!       print *, "---------------- 6"
-      call nl_lm_dist%gather_all(nl_lm)
-!       print *, "---------------- 7"
 
    end subroutine transform_to_lm_space_shtns
 !-------------------------------------------------------------------------------

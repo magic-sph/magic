@@ -81,6 +81,7 @@ module grid_space_arrays_mod
    end type grid_space_arrays_t
 
    real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
+   real(cp), allocatable :: vr_old_dist(:,:,:), vt_old_dist(:,:,:), vp_old_dist(:,:,:)
 
 contains
 
@@ -234,18 +235,18 @@ contains
          allocate ( this%dpdtc(nrp,n_theta_loc), this%dpdpc(nrp,n_theta_loc) )
          bytes_allocated=bytes_allocated + 11*nrp*n_theta_loc*SIZEOF_DEF_REAL
 
-         allocate( vt_old(nrp,n_theta_max,nRstart:nRstop) )
-         allocate( vp_old(nrp,n_theta_max,nRstart:nRstop) )
-         allocate( vr_old(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vr_old_dist(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vp_old_dist(nrp,n_theta_max,nRstart:nRstop) )
+         allocate( vt_old_dist(nrp,n_theta_max,nRstart:nRstop) )
          bytes_allocated=bytes_allocated + 3*nrp*n_theta_max*(nRstop-nRstart+1)*&
          &               SIZEOF_DEF_REAL
 
          this%dtVr(:,:)=0.0_cp
          this%dtVt(:,:)=0.0_cp
          this%dtVp(:,:)=0.0_cp
-         vt_old(:,:,:) =0.0_cp
-         vr_old(:,:,:) =0.0_cp
-         vp_old(:,:,:) =0.0_cp
+         vt_old_dist(:,:,:) =0.0_cp
+         vr_old_dist(:,:,:) =0.0_cp
+         vp_old_dist(:,:,:) =0.0_cp
 
          if ( l_adv_curl ) then
             allocate ( this%dpkindrc(nrp, n_theta_loc) )
@@ -474,7 +475,12 @@ contains
          deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
          deallocate ( this%CFt2, this%CFp2, this%dpdtc, this%dpdpc )
          deallocate ( this%dtVr, this%dtVt, this%dtVp )
-         deallocate ( vr_old, vt_old, vp_old )
+         if (allocated(vr_old)) deallocate ( vr_old )
+         if (allocated(vt_old)) deallocate ( vt_old )
+         if (allocated(vp_old)) deallocate ( vp_old )
+         if (allocated(vr_old_dist)) deallocate ( vr_old_dist )
+         if (allocated(vt_old_dist)) deallocate ( vt_old_dist )
+         if (allocated(vp_old_dist)) deallocate ( vp_old_dist )
          if ( l_adv_curl ) deallocate ( this%dpkindrc )
       end if
 

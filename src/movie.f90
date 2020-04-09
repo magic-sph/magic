@@ -1338,7 +1338,7 @@ contains
             if (field_length > max_field_length) max_field_length=field_length
          end do
       end do
-      if (l_master_rank) then
+      if (coord_r==0) then
          allocate(field_frames_global(max_field_length))
       else
          ! This is only needed for debug runs with boundary check.
@@ -1385,7 +1385,7 @@ contains
                call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                     &           field_frames_global,recvcounts,displs,      &
                     &           MPI_DEF_REAL,0,comm_r,ierr)
-               if (l_master_rank) then
+               if (coord_r==0) then
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
                end if
             end do

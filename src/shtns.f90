@@ -741,6 +741,7 @@ contains
       !-- Now do the Legendre transform using the new function in a loop
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
+        if (m>lcut) exit
         l_lm = map_dist_st%lmP2(m, m)
         u_lm = map_dist_st%lmP2(l_max+1, m)
         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLM_loc(l_lm:u_lm),lcut+1)
@@ -792,6 +793,7 @@ contains
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
+        if (m>lcut) exit
         l_lm = map_dist_st%lmP2(m, m)
         u_lm = map_dist_st%lmP2(l_max+1, m)
         call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
@@ -837,6 +839,7 @@ contains
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
+        if (m>lcut) exit
         l_lm = map_dist_st%lmP2(m, m)
         u_lm = map_dist_st%lmP2(l_max+1, m)
         call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
@@ -907,10 +910,11 @@ contains
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine test_spat_to_SH(f)
+   subroutine test_spat_to_SH(f,lcut)
       use communications
       
       real(cp), intent(inout) :: f(n_phi_max, n_theta_max)
+      integer,  intent(in)    :: lcut
       real(cp)    :: f_loc(n_phi_max,n_theta_loc)
       
       complex(cp) :: fLMP(lmP_max)
@@ -918,14 +922,18 @@ contains
       complex(cp) :: fLMP_sliced(n_lmP_loc)
       
       integer :: k, i, j
+      integer, save :: ncalls=1
       
-      k = 0
-      do i=1,n_phi_max
-        do j=1,n_theta_max
-          k = k + 1
-          f(i,j) = real(k)/real(n_phi_max*n_theta_max)
-        end do
-      end do
+      print *, "~~~~~~~~~~~ ncalls, lcut:", ncalls, lcut
+      ncalls = ncalls + 1
+      
+!       k = 0
+!       do i=1,n_phi_max
+!         do j=1,n_theta_max
+!           k = k + 1
+!           f(i,j) = real(k)/real(n_phi_max*n_theta_max)
+!         end do
+!       end do
       
 
       f_loc = cmplx(0.0,0.0)
@@ -934,15 +942,20 @@ contains
       fLMP_sliced = cmplx(0.0,0.0)
       call slice_f(f,f_loc)
       
-      call spat_to_SH(f,fLMP,l_max)
-      call spat_to_SH_dist(f_loc,fLMP_loc,l_max)
+      call spat_to_SH(f,fLMP,lcut)
+      call spat_to_SH_dist(f_loc,fLMP_loc,lcut)
       
       call slice_FlmP_cmplx(fLMP,fLMP_sliced)      
 
+      print *, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-1-"
+      print *, fLMP_sliced
+      print *, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-2-"
+      print *, fLMP_loc
       fLMP_loc = fLMP_loc - fLMP_sliced
       print*, "spat_to_SH: ", maxval(abs(fLMP_loc)), norm2([norm2(real(fLMP_loc)), norm2(aimag(fLMP_loc))]) 
-      STOP
       
+      
+      if (ncalls>8) STOP
    end subroutine
    
    !----------------------------------------------------------------------------

@@ -1099,10 +1099,13 @@ contains
       end if
 
       !-- Allocate arrays
-      if ( l_master_rank ) then
+      if ( coord_r==0 ) then
          allocate( work(lm_max,n_r_max), workOld(lm_max_old,n_r_max_old) )
       else
-         allocate( work(1,n_r_max), workOld(1,1), r_old(1), lm2lmo(1) )
+         allocate( work(1,n_r_max))
+         allocate(workOld(1,1))
+         allocate(r_old(1))
+         allocate(lm2lmo(1) )
       end if
 
       !-- Read the poloidal flow
@@ -1163,7 +1166,7 @@ contains
             if ( l_cond_ic_old ) then
                deallocate( work, workOld )
 
-               if ( l_master_rank ) then
+               if ( coord_r==0 ) then
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( work(lm_max,n_r_ic_max) )
                   allocate( workOld(lm_max_old,n_r_ic_max_old) )
@@ -1172,7 +1175,7 @@ contains
                end if
 
                !-- Read the inner core poloidal magnetic field
-               if ( l_master_rank ) then
+               if ( coord_r==0 ) then
                   work(:,:)=zero
                   read(n_start_file) workOld
                   call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
@@ -1188,7 +1191,7 @@ contains
                !-- Read dbdt_ic
                if ( tscheme_family_old == 'MULTISTEP' ) then
                   do n_o=2,nexp_old
-                     if ( l_master_rank ) then
+                     if ( coord_r==0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1205,7 +1208,7 @@ contains
                      end if
                   end do
                   do n_o=2,nimp_old
-                     if ( l_master_rank ) then
+                     if ( coord_r==0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1222,7 +1225,7 @@ contains
                      end if
                   end do
                   do n_o=2,nold_old
-                     if ( l_master_rank ) then
+                     if ( coord_r==0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1242,7 +1245,7 @@ contains
                end if
 
                !-- Read the inner core toroidal magnetic field
-               if ( l_master_rank ) then
+               if ( coord_r==0 ) then
                   work(:,:)=zero
                   read(n_start_file) workOld
                   call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
@@ -1258,7 +1261,7 @@ contains
                !-- Read djdt_ic
                if ( tscheme_family_old == 'MULTISTEP' ) then
                   do n_o=2,nexp_old
-                     if ( l_master_rank ) then
+                     if ( coord_r==0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1275,7 +1278,7 @@ contains
                      end if
                   end do
                   do n_o=2,nimp_old
-                     if ( l_master_rank ) then
+                     if ( coord_r==0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1292,7 +1295,7 @@ contains
                      end if
                   end do
                   do n_o=2,nold_old
-                     if ( l_master_rank ) then
+                     if ( coord_r==0 ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1336,10 +1339,10 @@ contains
       deallocate( work, workOld, dt_array_old, r_old, lm2lmo )
 
       !-- Close file
-      if ( l_master_rank ) then
+      if ( coord_r==0 ) then
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
          close(n_start_file)
-      end if ! l_master_rank
+      end if ! coord_r==0
 
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &

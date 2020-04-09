@@ -174,10 +174,10 @@ contains
       call gather_FlmP(nl_lm_loc%LFrLM , nl_lm_glb%LFrLM )
       call gather_FlmP(nl_lm_loc%LFtLM , nl_lm_glb%LFtLM )
       call gather_FlmP(nl_lm_loc%LFpLM , nl_lm_glb%LFpLM )
-! !       call gather_FlmP(nl_lm_loc%VxBrLM, nl_lm_glb%VxBrLM)
-! !       call gather_FlmP(nl_lm_loc%VxBtLM, nl_lm_glb%VxBtLM)
-! !       call gather_FlmP(nl_lm_loc%VxBpLM, nl_lm_glb%VxBpLM)
-! ! 
+      call gather_FlmP(nl_lm_loc%VxBrLM, nl_lm_glb%VxBrLM)
+      call gather_FlmP(nl_lm_loc%VxBtLM, nl_lm_glb%VxBtLM)
+      call gather_FlmP(nl_lm_loc%VxBpLM, nl_lm_glb%VxBpLM)
+
       if ( l_anel) then
          call gather_FlmP(nl_lm_loc%ViscHeatLM, nl_lm_glb%ViscHeatLM)
          call gather_FlmP(nl_lm_loc%OhmLossLM,  nl_lm_glb%OhmLossLM )
@@ -200,14 +200,14 @@ contains
          call gather_FlmP(nl_lm_loc%dtVrLM , nl_lm_glb%dtVrLM )
          call gather_FlmP(nl_lm_loc%dtVtLM , nl_lm_glb%dtVtLM )
          call gather_FlmP(nl_lm_loc%dtVpLM , nl_lm_glb%dtVpLM )
-! !          call gather_FlmP(nl_lm_loc%Advt2LM, nl_lm_glb%Advt2LM)
-! !          call gather_FlmP(nl_lm_loc%Advp2LM, nl_lm_glb%Advp2LM)
-! !          call gather_FlmP(nl_lm_loc%LFt2LM , nl_lm_glb%LFt2LM )
-! !          call gather_FlmP(nl_lm_loc%LFp2LM , nl_lm_glb%LFp2LM )
-! !          call gather_FlmP(nl_lm_loc%CFt2LM , nl_lm_glb%CFt2LM )
-! !          call gather_FlmP(nl_lm_loc%CFp2LM , nl_lm_glb%CFp2LM )
-! !          call gather_FlmP(nl_lm_loc%PFt2LM , nl_lm_glb%PFt2LM )
-! !          call gather_FlmP(nl_lm_loc%PFp2LM , nl_lm_glb%PFp2LM )
+         call gather_FlmP(nl_lm_loc%Advt2LM, nl_lm_glb%Advt2LM)
+         call gather_FlmP(nl_lm_loc%Advp2LM, nl_lm_glb%Advp2LM)
+         call gather_FlmP(nl_lm_loc%LFt2LM , nl_lm_glb%LFt2LM )
+         call gather_FlmP(nl_lm_loc%LFp2LM , nl_lm_glb%LFp2LM )
+         call gather_FlmP(nl_lm_loc%CFt2LM , nl_lm_glb%CFt2LM )
+         call gather_FlmP(nl_lm_loc%CFp2LM , nl_lm_glb%CFp2LM )
+         call gather_FlmP(nl_lm_loc%PFt2LM , nl_lm_glb%PFt2LM )
+         call gather_FlmP(nl_lm_loc%PFp2LM , nl_lm_glb%PFp2LM )
          if ( l_adv_curl ) then
             call gather_FlmP(nl_lm_loc%dpkindrLM, nl_lm_glb%dpkindrLM)
          end if
