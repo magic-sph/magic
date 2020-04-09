@@ -75,7 +75,6 @@ contains
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       if ( l_single_matrix ) then
-         if ( tscheme%l_assembly ) call finalize_updateWP(tscheme)
          call finalize_updateWPS()
       else
          if ( l_heat ) call finalize_updateS()

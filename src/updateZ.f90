@@ -756,13 +756,14 @@ contains
 
       !-- Local variables
       complex(cp) :: top_val(llm:ulm), bot_val(llm:ulm)
-      integer :: n_r, lm, l1, lmStart_00, l1m0
+      integer :: n_r, lm, l1, m1, lmStart_00, l1m0
       real(cp) :: fac_top, fac_bot, dom_ma, dom_ic
-      integer, pointer :: lm2l(:),lm2(:,:)
+      integer, pointer :: lm2l(:),lm2(:,:), lm2m(:)
       logical :: rank_has_l1m0
       real(cp) :: dL
 
       lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
       lm2(0:,0:) => lo_map%lm2
       lmStart_00 =max(2,llm)
       l1m0       =lm2(1,0)
@@ -789,16 +790,23 @@ contains
       call tscheme%assemble_imex(work_LMloc, dzdt, llm, ulm, n_r_max)
 
       !-- Now get the toroidal potential from the assembly
-      !$omp parallel do private(n_r,lm,l1,dL)
+      !$omp parallel default(shared)
+      !$omp do private(n_r,lm,l1,m1,dL)
       do n_r=2,n_r_max-1
          do lm=lmStart_00,ulm
             l1 = lm2l(lm)
+            m1 = lm2m(lm)
             dL = real(l1*(l1+1),cp)
-            z(lm,n_r) = r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+            if ( m1 == 0 ) then
+               z(lm,n_r) = r(n_r)*r(n_r)/dL*cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+            else
+               z(lm,n_r) = r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+            end if
          end do
       end do
-      !$omp end parallel do
+      !$omp end do
 
+      !$omp do private(lm)
       do lm=llm,ulm
          if ( lm==l1m0 ) then
             if ( l_SRMA ) then
@@ -829,30 +837,58 @@ contains
             bot_val(lm)=zero
          end if
       end do
+      !$omp end do
 
       !-- Boundary conditions
-      if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
-         do lm=lmStart_00,ulm
-            z(lm,1)      =top_val(lm)
-            z(lm,n_r_max)=bot_val(lm)
-         end do
-      else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Stress-free top and rigid bottom
-         fac_top=-two*or1(1)-beta(1)
-         do lm=lmStart_00,ulm
-            call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, bot_val(lm), z(lm,:))
-         end do
-      else if ( kbotv == 1 .and. ktopv /= 1 ) then ! Stress-free bot and rigid top
-         fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-         do lm=lmStart_00,ulm
-            call rscheme_oc%robin_bc(0.0_cp, one, top_val(lm), one, fac_bot, zero, z(lm,:))
-         end do
-      else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
-         fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-         fac_top=-two*or1(1)-beta(1)
-         do lm=lmStart_00,ulm
-            call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, z(lm,:))
-         end do
+      if ( l_full_sphere ) then
+         if ( ktopv /= 1 ) then ! Rigid outer
+            !$omp do private(lm)
+            do lm=lmStart_00,ulm
+               z(lm,1)      =top_val(lm)
+               z(lm,n_r_max)=bot_val(lm)
+            end do
+            !$omp end do
+         else
+            fac_top=-two*or1(1)-beta(1)
+            !$omp do private(lm)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, bot_val(lm), z(lm,:))
+            end do
+            !$omp end do
+         end if
+      else
+         if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
+            !$omp do private(lm)
+            do lm=lmStart_00,ulm
+               z(lm,1)      =top_val(lm)
+               z(lm,n_r_max)=bot_val(lm)
+            end do
+            !$omp end do
+         else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Stress-free top and rigid bottom
+            fac_top=-two*or1(1)-beta(1)
+            !$omp do private(lm)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, bot_val(lm), z(lm,:))
+            end do
+            !$omp end do
+         else if ( kbotv == 1 .and. ktopv /= 1 ) then ! Stress-free bot and rigid top
+            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            !$omp do private(lm)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(0.0_cp, one, top_val(lm), one, fac_bot, zero, z(lm,:))
+            end do
+            !$omp end do
+         else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
+            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            fac_top=-two*or1(1)-beta(1)
+            !$omp do private(lm)
+            do lm=lmStart_00,ulm
+               call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, z(lm,:))
+            end do
+            !$omp end do
+         end if
       end if
+      !$omp end parallel
 
       call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,    &

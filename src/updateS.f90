@@ -491,17 +491,32 @@ contains
       type(type_tarray), intent(inout) :: dsdt
 
       !-- Local variables
-      integer :: lm, l1, m1
+      integer :: lm, l1, m1, n_r
       integer, pointer :: lm2l(:), lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      call tscheme%assemble_imex(s, dsdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(work_LMloc, dsdt, llm, ulm, n_r_max)
+
+      !$omp parallel default(shared)
+      !$omp do private(n_r,lm,m1)
+      do n_r=2,n_r_max
+         do lm=llm,ulm
+            m1 = lm2m(lm)
+            if ( m1 == 0 ) then
+               s(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+            else
+               s(lm,n_r)=work_LMloc(lm,n_r)
+            end if
+         end do
+      end do
+      !$omp end do
 
       !-- Get the boundary points using Canuto (1986) approach
       if ( l_full_sphere) then
          if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -513,7 +528,9 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
+            !$omp end do
          else ! Fixed flux at the outer boundary
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -525,39 +542,49 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
+            !$omp end do
          end if
       else ! Spherical shell
          !-- Boundary conditions
          if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          end if
       end if
+      !$omp end parallel
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration

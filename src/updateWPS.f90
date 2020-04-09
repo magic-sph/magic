@@ -428,16 +428,25 @@ contains
       call get_openmp_blocks(start_lm,stop_lm)
 
       !-- Now get the fields from the assembly
-      !$omp do private(n_r,lm,l1,dL)
+      !$omp do private(n_r,lm,l1,m1,dL)
       do n_r=2,n_r_max-1
          do lm=llm,ulm
             l1 = lm2l(lm)
+            m1 = lm2m(lm)
             dL = real(l1*(l1+1),cp)
-            if ( l1 > 0 ) then
-               w(lm,n_r) = r(n_r)*r(n_r)/dL*ddw(lm,n_r)
-               dw(lm,n_r)=-r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+            if ( m1 == 0 ) then
+               if ( l1 > 0 ) then
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*cmplx(real(ddw(lm,n_r)),0.0_cp,cp)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+               end if
+               s(lm,n_r) = cmplx(real(ds(lm,n_r)),0.0_cp,cp)
+            else
+               if ( l1 > 0 ) then
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*ddw(lm,n_r)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+               end if
+               s(lm,n_r) = ds(lm,n_r)
             end if
-            s(lm,n_r) = ds(lm,n_r)
          end do
       end do
       !$omp end do
@@ -445,6 +454,7 @@ contains
       !-- Get the entropy boundary points using Canuto (1986) approach
       if ( l_full_sphere) then
          if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -456,7 +466,9 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
+            !$omp end do
          else ! Fixed flux at the outer boundary
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -468,51 +480,63 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
+            !$omp end do
          end if
       else ! Spherical shell
          !-- Boundary conditions
          if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
+            !$omp do private(lm,l1,m1)
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+            !$omp end do
          end if
       end if
 
       !-- Boundary conditions for the poloidal
       !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
+      !$omp do
       do lm=lmStart_00,ulm
          w(lm,1)      =zero
          w(lm,n_r_max)=zero
       end do
+      !$omp end do
 
       !-- Other boundary condition: stress-free or rigid
       if ( l_full_sphere ) then
          if ( ktopv == 1 ) then ! Stress-free
             fac_top=-two*or1(1)-beta(1)
+            !$omp do private(lm,l1)
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                if ( l1 == 1 ) then
@@ -521,7 +545,9 @@ contains
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
                end if
             end do
+            !$omp end do
          else
+            !$omp do private(lm,l1)
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                if ( l1 == 1 ) then
@@ -531,29 +557,38 @@ contains
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
                end if
             end do
+            !$omp end do
          end if
       else ! Spherical shell
          if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
+            !$omp do
             do lm=lmStart_00,ulm
                dw(lm,1)      =zero
                dw(lm,n_r_max)=zero
             end do
+            !$omp end do
          else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
             fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+            !$omp do
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
             end do
+            !$omp end do
          else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
             fac_top=-two*or1(1)-beta(1)
+            !$omp do
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
             end do
+            !$omp end do
          else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
             fac_bot=-two*or1(n_r_max)-beta(n_r_max)
             fac_top=-two*or1(1)-beta(1)
+            !$omp do
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
             end do
+            !$omp end do
          end if
       end if
 

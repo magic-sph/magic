@@ -996,22 +996,27 @@ contains
 
       !-- Local variables
       real(cp) :: fac_top, fac_bot
-      integer :: n_r_top, n_r_bot, l1, lmStart_00
+      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
-      integer, pointer :: lm2l(:)
+      integer, pointer :: lm2l(:), lm2m(:)
       real(cp) :: dL
 
       lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llm)
 
       call tscheme%assemble_imex(work_LMloc, dwdt, llm, ulm, n_r_max)
-
       if ( l_double_curl) then
          call get_pol(w, work_LMloc)
+      else
+         call tscheme%assemble_imex(ddw, dpdt, llm, ulm, n_r_max) ! Use ddw as a work array
+      end if
 
-         !$omp parallel default(shared)  private(start_lm, stop_lm)
-         start_lm=llm; stop_lm=ulm
-         call get_openmp_blocks(start_lm,stop_lm)
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      if ( l_double_curl) then
 
          !$omp single
             call dct_counter%start_count()
@@ -1123,36 +1128,39 @@ contains
             !$omp barrier
          end if
 
-         !$omp end parallel
-
       else
-         call tscheme%assemble_imex(ddw, dpdt, llm, ulm, n_r_max) ! Use ddw as a work array
-         !$omp parallel default(shared)  private(start_lm, stop_lm)
-         start_lm=llm; stop_lm=ulm
-         call get_openmp_blocks(start_lm,stop_lm)
 
          !-- Now get the poloidal from the assembly
-         !$omp do private(n_r,lm,l1,dL)
+         !$omp do private(n_r,lm,l1,dL,m1)
          do n_r=2,n_r_max-1
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
+               m1 = lm2m(lm)
                dL = real(l1*(l1+1),cp)
-               w(lm,n_r) = r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
-               dw(lm,n_r)=-r(n_r)*r(n_r)/dL*ddw(lm,n_r)
+               if ( m1 == 0 ) then
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*cmplx(real(ddw(lm,n_r)),0.0_cp,cp)
+               else
+                  w(lm,n_r) = r(n_r)*r(n_r)/dL*work_LMloc(lm,n_r)
+                  dw(lm,n_r)=-r(n_r)*r(n_r)/dL*ddw(lm,n_r)
+               end if
             end do
          end do
          !$omp end do
 
          !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
+         !$omp do private(lm)
          do lm=lmStart_00,ulm
             w(lm,1)      =zero
             w(lm,n_r_max)=zero
          end do
+         !$omp end do
 
          !-- Other boundary condition: stress-free or rigid
          if ( l_full_sphere ) then
             if ( ktopv == 1 ) then ! Stress-free
                fac_top=-two*or1(1)-beta(1)
+               !$omp do private(lm,l1)
                do lm=lmStart_00,ulm
                   l1 = lm2l(lm)
                   if ( l1 == 1 ) then
@@ -1161,7 +1169,9 @@ contains
                      call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
                   end if
                end do
+               !$omp end do
             else
+               !$omp do private(lm,l1)
                do lm=lmStart_00,ulm
                   l1 = lm2l(lm)
                   if ( l1 == 1 ) then
@@ -1171,29 +1181,38 @@ contains
                      call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
                   end if
                end do
+               !$omp end do
             end if
          else ! Spherical shell
             if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
+               !$omp do private(lm)
                do lm=lmStart_00,ulm
                   dw(lm,1)      =zero
                   dw(lm,n_r_max)=zero
                end do
+               !$omp end do
             else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
                fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+               !$omp do private(lm)
                do lm=lmStart_00,ulm
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
                end do
+               !$omp end do
             else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
                fac_top=-two*or1(1)-beta(1)
+               !$omp do private(lm)
                do lm=lmStart_00,ulm
                   call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
                end do
+               !$omp end do
             else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
                fac_bot=-two*or1(n_r_max)-beta(n_r_max)
                fac_top=-two*or1(1)-beta(1)
+               !$omp do private(lm)
                do lm=lmStart_00,ulm
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
                end do
+               !$omp end do
             end if
          end if
 
@@ -1227,7 +1246,7 @@ contains
                n_r_bot=n_r_icb-1
             end if
 
-            !$omp do private(n_r,lm,l1,Dif,Buo,Pre,dL)
+            !$omp do private(n_r,lm,l1,dL)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
@@ -1261,8 +1280,8 @@ contains
             !$omp end do
          end if
 
-         !$omp end parallel
       end if
+      !$omp end parallel
 
    end subroutine assemble_pol
 !------------------------------------------------------------------------------
