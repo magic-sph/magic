@@ -1942,7 +1942,7 @@ contains
          if ( l_cond_ic_old ) then
             n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
 
-            if ( l_master_rank ) then
+            if ( coord_r==0 ) then
                allocate( workOld(lm_max_old, n_r_ic_max_old) )
                allocate( work(lm_max, n_r_ic_max) )
             else
@@ -1950,7 +1950,7 @@ contains
             end if
 
             !-- Read the inner core poloidal magnetic field
-            if ( l_master_rank ) then
+            if ( coord_r==0 ) then
                work(:,:)=zero
                call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                     &             MPI_DEF_COMPLEX, istat, ierr)
@@ -1967,7 +1967,7 @@ contains
             !-- Read dbdt_ic
             if ( tscheme_family_old == 'MULTISTEP' ) then
                do n_o=2,nexp_old
-                  if ( l_master_rank ) then
+                  if ( coord_r==0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -1986,7 +1986,7 @@ contains
                end do
 
                do n_o=2,nimp_old
-                  if ( l_master_rank ) then
+                  if ( coord_r==0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2005,7 +2005,7 @@ contains
                end do
 
                do n_o=2,nold_old
-                  if ( l_master_rank ) then
+                  if ( coord_r==0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2026,7 +2026,7 @@ contains
             end if
 
             !-- Read the inner core toroidal magnetic field
-            if ( l_master_rank ) then
+            if ( coord_r==0 ) then
                work(:,:)=zero
                call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                     &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2043,7 +2043,7 @@ contains
             !-- Read djdt_ic
             if ( tscheme_family_old == 'MULTISTEP' ) then
                do n_o=2,nexp_old
-                  if ( l_master_rank ) then
+                  if ( coord_r==0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2062,7 +2062,7 @@ contains
                end do
 
                do n_o=2,nimp_old
-                  if ( l_master_rank ) then
+                  if ( coord_r==0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
@@ -2081,7 +2081,7 @@ contains
                end do
 
                do n_o=2,nold_old
-                  if ( l_master_rank ) then
+                  if ( coord_r==0 ) then
                      work(:,:)=zero
                      call MPI_File_Read(fh, workOld, lm_max_old*n_r_ic_max_old, &
                           &             MPI_DEF_COMPLEX, istat, ierr)
