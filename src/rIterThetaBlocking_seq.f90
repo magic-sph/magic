@@ -25,7 +25,7 @@ module rIterThetaBlocking_seq_mod
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant
-   use nonlinear_bcs, only: get_br_v_bcs
+   use nonlinear_bcs, only: get_br_v_bcs, get_br_v_bcs_DEPRECATED
    use constants, only: zero
    use time_schemes, only: type_tscheme
    use nl_special_calc
@@ -228,12 +228,12 @@ contains
          !     These products are used in get_b_nl_bcs.
          PERFON('nl_cmb')
          if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
-            call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
+            call get_br_v_bcs_DEPRECATED(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
                  &            this%leg_helper%omegaMA,or2(this%nR),   &
                  &            orho1(this%nR),nThetaStart,             &
                  &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
          else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
-            call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
+            call get_br_v_bcs_DEPRECATED(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
                  &            this%leg_helper%omegaIC,or2(this%nR),   &
                  &            orho1(this%nR),nThetaStart,             &
                  &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)

@@ -1032,7 +1032,7 @@ contains
       !   Author: Rafael Lago (MPCDF) August 2017
       !
       real(cp),  intent(in)  :: f_global(n_phi_max, n_theta_max)
-      real(cp),  intent(out) :: f_local(n_phi_max, n_theta_loc)
+      real(cp),  intent(out) :: f_local(n_phi_max, nThetaStart:nThetaStop)
       
       f_local = f_global(:,nThetaStart:nThetaStop)
    end subroutine slice_f

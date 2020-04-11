@@ -9,7 +9,8 @@ module rIterThetaBlocking_shtns_mod
        &                td_counter
    use parallel_mod, only: get_openmp_blocks
    use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb,   &
-       &                 n_r_icb, n_lmP_loc, n_theta_loc
+       &                 n_r_icb, n_lmP_loc, n_theta_loc,            &
+       &                 nThetaStart, nThetaStop
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -44,6 +45,7 @@ module rIterThetaBlocking_shtns_mod
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
+   use communications  ! DELETEME
 
    implicit none
 
@@ -164,7 +166,6 @@ contains
               & this%nBc,", lDeriv = ",this%lDeriv,", l_mag = ",l_mag
       end if
 
-
       this%lorentz_torque_ma = 0.0_cp
       this%lorentz_torque_ic = 0.0_cp
       lorentz_torques_ic = 0.0_cp
@@ -175,33 +176,34 @@ contains
       call this%transform_to_grid_space_shtns(this%gsa)
       call lm2phy_counter%stop_count(l_increment=.false.)
 
+      call this%gsa%slice_all(this%gsa_dist)
+      call this%nl_lm%slice_all(this%nl_lm_dist)
+      
       !--------- Calculation of nonlinear products in grid space:
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
       &     this%lRmsCalc ) then
 
          call nl_counter%start_count()
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
+!          call this%gsa%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
+!               &                     this%lRmsCalc, 1, n_theta_max)
+         call this%gsa_dist%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
               &                     this%lRmsCalc)
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 
-         call this%gsa%slice_all(this%gsa_dist)
-         call this%nl_lm%slice_all(this%nl_lm_dist)
+         
          call phy2lm_counter%start_count()
-!          call this%transform_to_lm_space_shtns(this%gsa_dist, this%gsa, this%nl_lm, this%nl_lm_dist)
          call this%transform_to_lm_space_shtns(this%gsa_dist, this%nl_lm_dist)
          call phy2lm_counter%stop_count(l_increment=.false.)
-         call this%nl_lm_dist%gather_all(this%nl_lm)
-         call this%gsa_dist%gather_all(this%gsa)
 
       else if ( l_mag ) then
-         do lm=1,lmP_max
-            this%nl_lm%VxBtLM(lm)=0.0_cp
-            this%nl_lm%VxBpLM(lm)=0.0_cp
+         do lm=1,n_lmP_loc
+            this%nl_lm_dist%VxBtLM(lm)=0.0_cp
+            this%nl_lm_dist%VxBpLM(lm)=0.0_cp
          end do
       end if
-
+      
       !---- Calculation of nonlinear products needed for conducting mantle or
       !     conducting inner core if free stress BCs are applied:
       !     input are brc,vtc,vpc in (theta,phi) space (plus omegaMA and ..)
@@ -212,18 +214,22 @@ contains
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
          br_vt_lm_cmb(:)=zero
          br_vp_lm_cmb(:)=zero
-         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
-              &            this%gsa%vpc,this%leg_helper%omegaMA,    &
-              &            or2(this%nR),orho1(this%nR), 1,          &
-              &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
+         call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
+              &            this%gsa_dist%vpc,this%leg_helper%omegaMA,    &
+              &            or2(this%nR),orho1(this%nR),             &
+              &            br_vt_lm_cmb,br_vp_lm_cmb)
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
          br_vt_lm_icb(:)=zero
          br_vp_lm_icb(:)=zero
-         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
-              &            this%gsa%vpc,this%leg_helper%omegaIC,    &
-              &            or2(this%nR),orho1(this%nR), 1,          &
-              &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
+         call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
+              &            this%gsa_dist%vpc,this%leg_helper%omegaIC,    &
+              &            or2(this%nR),orho1(this%nR),             &
+              &            br_vt_lm_icb,br_vp_lm_icb)
       end if
+      
+      call this%nl_lm_dist%gather_all(this%nl_lm)
+      call this%gsa_dist%gather_all(this%gsa)
+      
       !--------- Calculate Lorentz torque on inner core:
       !          each call adds the contribution of the theta-block to
       !          lorentz_torque_ic
@@ -555,9 +561,9 @@ contains
             .and. ( l_conv_nl .or. l_mag_LF ) ) then
 
          !$omp parallel default(shared) private(nThStart,nThStop,nTheta,nPhi)
-         nThStart=1; nThStop=n_theta_loc
+         nThStart=nThetaStart; nThStop=nThetaStop
          call get_openmp_blocks(nThStart,nThStop)
-         
+
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then

@@ -16,7 +16,7 @@ module grid_space_arrays_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max, n_theta_max, n_theta_loc, nRstart, &
-       &                 nRstop
+       &                 nRstop, nThetaStart, nThetaStop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
@@ -176,69 +176,102 @@ contains
 
       class(grid_space_arrays_t) :: this
 
-      allocate( this%Advr(nrp,n_theta_loc), this%Advt(nrp,n_theta_loc), this%Advp(nrp,n_theta_loc) )
-      allocate( this%LFr(nrp,n_theta_loc), this%LFt(nrp,n_theta_loc), this%LFp(nrp,n_theta_loc) )
-      allocate( this%VxBr(nrp,n_theta_loc), this%VxBt(nrp,n_theta_loc), this%VxBp(nrp,n_theta_loc) )
-      allocate( this%VSr(nrp,n_theta_loc), this%VSt(nrp,n_theta_loc), this%VSp(nrp,n_theta_loc) )
-      allocate( this%ViscHeat(nrp,n_theta_loc), this%OhmLoss(nrp,n_theta_loc) )
+      allocate( this%Advr(nrp,nThetaStart:nThetaStop),     &
+                this%Advt(nrp,nThetaStart:nThetaStop),     &
+                this%Advp(nrp,nThetaStart:nThetaStop) )
+      allocate( this%LFr(nrp,nThetaStart:nThetaStop),      &
+                this%LFt(nrp,nThetaStart:nThetaStop),      &
+                this%LFp(nrp,nThetaStart:nThetaStop) )
+      allocate( this%VxBr(nrp,nThetaStart:nThetaStop),     &
+                this%VxBt(nrp,nThetaStart:nThetaStop),     &
+                this%VxBp(nrp,nThetaStart:nThetaStop) )
+      allocate( this%VSr(nrp,nThetaStart:nThetaStop),      &
+                this%VSt(nrp,nThetaStart:nThetaStop),      &
+                this%VSp(nrp,nThetaStart:nThetaStop) )
+      allocate( this%ViscHeat(nrp,nThetaStart:nThetaStop), &
+                 this%OhmLoss(nrp,nThetaStart:nThetaStop) )
       bytes_allocated=bytes_allocated + 14*nrp*n_theta_loc*SIZEOF_DEF_REAL
 
       if ( l_precession ) then
-         allocate( this%PCr(nrp,n_theta_loc), this%PCt(nrp,n_theta_loc), this%PCp(nrp,n_theta_loc) )
+         allocate( this%PCr(nrp,nThetaStart:nThetaStop), &
+                   this%PCt(nrp,nThetaStart:nThetaStop), &
+                   this%PCp(nrp,nThetaStart:nThetaStop) )
          bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_centrifuge ) then
-         allocate( this%CAr(nrp,n_theta_loc), this%CAt(nrp,n_theta_loc) )
+         allocate( this%CAr(nrp,nThetaStart:nThetaStop), &
+                   this%CAt(nrp,nThetaStart:nThetaStop) )
          bytes_allocated=bytes_allocated + 2*nrp*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%VXir(nrp,n_theta_loc), this%VXit(nrp,n_theta_loc), this%VXip(nrp,n_theta_loc) )
+         allocate( this%VXir(nrp,nThetaStart:nThetaStop), &
+                   this%VXit(nrp,nThetaStart:nThetaStop), &
+                   this%VXip(nrp,nThetaStart:nThetaStop) )
          bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       !----- Fields calculated from these help arrays by legtf:
-      allocate( this%vrc(nrp,n_theta_loc),this%vtc(nrp,n_theta_loc),this%vpc(nrp,n_theta_loc) )
-      allocate( this%dvrdrc(nrp,n_theta_loc),this%dvtdrc(nrp,n_theta_loc) )
-      allocate( this%dvpdrc(nrp,n_theta_loc),this%cvrc(nrp,n_theta_loc) )
-      allocate( this%dvrdtc(nrp,n_theta_loc),this%dvrdpc(nrp,n_theta_loc) )
-      allocate( this%dvtdpc(nrp,n_theta_loc),this%dvpdpc(nrp,n_theta_loc) )
-      allocate( this%brc(nrp,n_theta_loc),this%btc(nrp,n_theta_loc),this%bpc(nrp,n_theta_loc) )
+      allocate( this%vrc(nrp,nThetaStart:nThetaStop), &
+                this%vtc(nrp,nThetaStart:nThetaStop), &
+                this%vpc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%dvrdrc(nrp,nThetaStart:nThetaStop), &
+                this%dvtdrc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%dvpdrc(nrp,nThetaStart:nThetaStop), &
+                this%cvrc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%dvrdtc(nrp,nThetaStart:nThetaStop), &
+                this%dvrdpc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%dvtdpc(nrp,nThetaStart:nThetaStop), &
+                this%dvpdpc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%brc(nrp,nThetaStart:nThetaStop),    &
+                this%btc(nrp,nThetaStart:nThetaStop),    &
+                this%bpc(nrp,nThetaStart:nThetaStop) )
       this%btc=1.0e50_cp
       this%bpc=1.0e50_cp
-      allocate( this%cbrc(nrp,n_theta_loc),this%cbtc(nrp,n_theta_loc),this%cbpc(nrp,n_theta_loc) )
-      allocate( this%sc(nrp,n_theta_loc),this%drSc(nrp,n_theta_loc) )
-      allocate( this%pc(nrp,n_theta_loc) )
-      allocate( this%dsdtc(nrp,n_theta_loc),this%dsdpc(nrp,n_theta_loc) )
+      allocate( this%cbrc(nrp,nThetaStart:nThetaStop),   &
+                this%cbtc(nrp,nThetaStart:nThetaStop),   &
+                this%cbpc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%sc(nrp,nThetaStart:nThetaStop),     &
+                this%drSc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%pc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%dsdtc(nrp,nThetaStart:nThetaStop),  &
+                this%dsdpc(nrp,nThetaStart:nThetaStop) )
       bytes_allocated=bytes_allocated + 22*nrp*n_theta_loc*SIZEOF_DEF_REAL
 
       if ( l_chemical_conv ) then
-         allocate( this%xic(nrp,n_theta_loc) )
+         allocate( this%xic(nrp,nThetaStart:nThetaStop) )
          bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
       else
          allocate( this%xic(1,1) )
       end if
 
       if ( l_adv_curl ) then
-         allocate( this%cvtc(nrp,n_theta_loc), this%cvpc(nrp,n_theta_loc) )
+         allocate( this%cvtc(nrp,nThetaStart:nThetaStop), &
+                   this%cvpc(nrp,nThetaStart:nThetaStop) )
          bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       !-- RMS Calculations
       !@>TODO review the dimensions of these variables (I'm not dealing with them just yet)
       if ( l_RMS ) then
-         allocate ( this%Advt2(nrp,n_theta_loc), this%Advp2(nrp,n_theta_loc) )
-         allocate ( this%dtVr(nrp,n_theta_loc), this%dtVt(nrp,n_theta_loc), this%dtVp(nrp,n_theta_loc) )
-         allocate ( this%LFt2(nrp,n_theta_loc), this%LFp2(nrp,n_theta_loc) )
-         allocate ( this%CFt2(nrp,n_theta_loc), this%CFp2(nrp,n_theta_loc) )
-         allocate ( this%dpdtc(nrp,n_theta_loc), this%dpdpc(nrp,n_theta_loc) )
+         allocate ( this%Advt2(nrp,nThetaStart:nThetaStop), &
+                   this%Advp2(nrp,nThetaStart:nThetaStop) )
+         allocate ( this%dtVr(nrp,nThetaStart:nThetaStop),  &
+                   this%dtVt(nrp,nThetaStart:nThetaStop),   &
+                   this%dtVp(nrp,nThetaStart:nThetaStop) )
+         allocate ( this%LFt2(nrp,nThetaStart:nThetaStop),  &
+                   this%LFp2(nrp,nThetaStart:nThetaStop) )
+         allocate ( this%CFt2(nrp,nThetaStart:nThetaStop),  &
+                   this%CFp2(nrp,nThetaStart:nThetaStop) )
+         allocate ( this%dpdtc(nrp,nThetaStart:nThetaStop), &
+                   this%dpdpc(nrp,nThetaStart:nThetaStop) )
          bytes_allocated=bytes_allocated + 11*nrp*n_theta_loc*SIZEOF_DEF_REAL
 
-         allocate( vr_old_dist(nrp,n_theta_max,nRstart:nRstop) )
-         allocate( vp_old_dist(nrp,n_theta_max,nRstart:nRstop) )
-         allocate( vt_old_dist(nrp,n_theta_max,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + 3*nrp*n_theta_max*(nRstop-nRstart+1)*&
+         allocate( vr_old_dist(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( vp_old_dist(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( vt_old_dist(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*(nRstop-nRstart+1)*&
          &               SIZEOF_DEF_REAL
 
          this%dtVr(:,:)=0.0_cp
@@ -249,7 +282,7 @@ contains
          vp_old_dist(:,:,:) =0.0_cp
 
          if ( l_adv_curl ) then
-            allocate ( this%dpkindrc(nrp, n_theta_loc) )
+            allocate ( this%dpkindrc(nrp, nThetaStart:nThetaStop) )
             bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
          end if
       end if
@@ -262,6 +295,7 @@ contains
    subroutine slice_all(gsa_glb, gsa_loc)
       class(grid_space_arrays_t), intent(inout) :: gsa_glb
       class(grid_space_arrays_t), intent(inout) :: gsa_loc
+      integer :: nR
       
       call slice_f(gsa_glb%Advr    , gsa_loc%Advr    )
       call slice_f(gsa_glb%Advt    , gsa_loc%Advt    )
@@ -342,9 +376,11 @@ contains
          call slice_f(gsa_glb%dpdtc, gsa_loc%dpdtc)
          call slice_f(gsa_glb%dpdpc, gsa_loc%dpdpc)
 
-!          call slice_f(vt_old(nrp,n_theta_max,nRstart:nRstop)
-!          call slice_f(vp_old(nrp,n_theta_max,nRstart:nRstop)
-!          call slice_f(vr_old(nrp,n_theta_max,nRstart:nRstop)
+         do nR=nRstart, nRstop
+            call slice_f(vt_old(:,:,nR), vt_old_dist(:,:,nR))
+            call slice_f(vp_old(:,:,nR), vp_old_dist(:,:,nR))
+            call slice_f(vr_old(:,:,nR), vr_old_dist(:,:,nR))
+         end do
 
          if ( l_adv_curl ) then
             call slice_f(gsa_glb%dpkindrc, gsa_loc%dpkindrc)
@@ -358,6 +394,7 @@ contains
    subroutine gather_all(gsa_loc, gsa_glb)
       class(grid_space_arrays_t), intent(inout) :: gsa_loc
       class(grid_space_arrays_t), intent(inout) :: gsa_glb
+      integer :: nR
    
       call gather_f(gsa_loc%Advr    , gsa_glb%Advr    )
       call gather_f(gsa_loc%Advt    , gsa_glb%Advt    )
@@ -438,9 +475,11 @@ contains
          call gather_f(gsa_loc%dpdtc, gsa_glb%dpdtc)
          call gather_f(gsa_loc%dpdpc, gsa_glb%dpdpc)
 
-!          call gather_f(vt_old(nrp,n_theta_max,nRstart:nRstop)
-!          call gather_f(vp_old(nrp,n_theta_max,nRstart:nRstop)
-!          call gather_f(vr_old(nrp,n_theta_max,nRstart:nRstop)
+         do nR=nRstart, nRstop
+            call gather_f(vt_old_dist(:,:,nR), vt_old(:,:,nR))
+            call gather_f(vp_old_dist(:,:,nR), vp_old(:,:,nR))
+            call gather_f(vr_old_dist(:,:,nR), vr_old(:,:,nR))
+         end do
 
          if ( l_adv_curl ) then
             call gather_f(gsa_loc%dpkindrc, gsa_glb%dpkindrc)
@@ -535,7 +574,7 @@ contains
       !$omp parallel default(shared) private(nThStart,nThStop) &
       !$omp private(n_th,nThetaNHS,n_phi) &
       !$omp private(or4sn2,csn2,cnt,snt,rsnt,posnalp)
-      nThStart=1; nThStop=n_theta_max
+      nThStart=nThetaStart; nThStop=nThetaStop
       call get_openmp_blocks(nThStart,nThStop)
 
 

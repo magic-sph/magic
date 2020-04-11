@@ -910,12 +910,13 @@ contains
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine test_spat_to_SH(f,lcut)
+   subroutine test_spat_to_SH(f2,lcut)
       use communications
       
-      real(cp), intent(inout) :: f(n_phi_max, n_theta_max)
+      real(cp), intent(inout) :: f2(n_phi_max, n_theta_max)
       integer,  intent(in)    :: lcut
-      real(cp)    :: f_loc(n_phi_max,n_theta_loc)
+      real(cp)    :: f(n_phi_max, n_theta_max)
+      real(cp)    :: f_loc(n_phi_max,nThetaStart:nThetaStop)
       
       complex(cp) :: fLMP(lmP_max)
       complex(cp) :: fLMP_loc(n_lmP_loc)
@@ -927,13 +928,13 @@ contains
       print *, "~~~~~~~~~~~ ncalls, lcut:", ncalls, lcut
       ncalls = ncalls + 1
       
-!       k = 0
-!       do i=1,n_phi_max
-!         do j=1,n_theta_max
-!           k = k + 1
-!           f(i,j) = real(k)/real(n_phi_max*n_theta_max)
-!         end do
-!       end do
+      k = 0
+      do i=1,n_phi_max
+        do j=1,n_theta_max
+          k = k + 1
+          f(i,j) = real(k)/real(n_phi_max*n_theta_max)
+        end do
+      end do
       
 
       f_loc = cmplx(0.0,0.0)
@@ -954,7 +955,7 @@ contains
       fLMP_loc = fLMP_loc - fLMP_sliced
       print*, "spat_to_SH: ", maxval(abs(fLMP_loc)), norm2([norm2(real(fLMP_loc)), norm2(aimag(fLMP_loc))]) 
       
-      
+      stop
       if (ncalls>8) STOP
    end subroutine
    
