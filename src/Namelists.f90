@@ -516,6 +516,11 @@ contains
 
       if ( l_finite_diff ) l_single_matrix = .false.
 
+      if ( l_chemical_conv .and. l_single_matrix ) then
+         l_single_matrix = .false.
+         call abortRun('Single matrix + double diff. conv. not implemented!')
+      end if
+
       if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
 
       call capitalize(interior_model)
@@ -1651,8 +1656,17 @@ contains
       call capitalize(scheme_name)
 
       if ( (index(scheme_name, 'ARS222') /= 0) .or. &
+      &    (index(scheme_name, 'ARS233') /= 0) .or. &
+      &    (index(scheme_name, 'ARS232') /= 0) .or. &
+      &    (index(scheme_name, 'ARS343') /= 0) .or. &
+      &    (index(scheme_name, 'MARS343') /= 0) .or.&
+      &    (index(scheme_name, 'CB3') /= 0) .or.    &
       &    (index(scheme_name, 'ARS443') /= 0) .or. &
+      &    (index(scheme_name, 'KC343') /= 0) .or.  &
+      &    (index(scheme_name, 'KC564') /= 0) .or.  &
+      &    (index(scheme_name, 'BHR553') /= 0) .or. &
       &    (index(scheme_name, 'BPR353') /= 0) .or. &
+      &    (index(scheme_name, 'DBM453') /= 0) .or. &
       &    (index(scheme_name, 'PC2') /= 0)    .or. &
       &    (index(scheme_name, 'LZ453') /= 0)  .or. &
       &    (index(scheme_name, 'CK232') /= 0)  .or. &

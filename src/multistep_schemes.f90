@@ -38,6 +38,8 @@ module multistep_schemes
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
       procedure :: get_time_stage
+      procedure :: assemble_imex
+      procedure :: assemble_imex_scalar
    end type type_multistep
 
 contains
@@ -58,6 +60,7 @@ contains
       !-- Number of stages per iteration is always one in this case
       this%nstages = 1
       this%istage = 1
+      this%l_assembly = .false. ! No assembly stage
       this%family = 'MULTISTEP'
 
       allocate( this%l_exp_calc(1) )
@@ -611,5 +614,24 @@ contains
       tstage = tlast+this%dt(1)
 
    end subroutine get_time_stage
+!------------------------------------------------------------------------------
+   subroutine assemble_imex(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+
+      class(type_multistep) :: this
+      integer,           intent(in) :: lmStart
+      integer,           intent(in) :: lmStop
+      integer,           intent(in) :: len_rhs
+      type(type_tarray), intent(in) :: dfdt
+      complex(cp),       intent(out) :: rhs(lmStart:lmStop,len_rhs)
+
+   end subroutine assemble_imex
+!------------------------------------------------------------------------------
+   subroutine assemble_imex_scalar(this, rhs, dfdt)
+
+      class(type_multistep) :: this
+      type(type_tscalar), intent(in) :: dfdt
+      real(cp),           intent(out) :: rhs
+
+   end subroutine assemble_imex_scalar
 !------------------------------------------------------------------------------
 end module multistep_schemes

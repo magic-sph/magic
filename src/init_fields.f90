@@ -319,7 +319,7 @@ contains
          end if
          do nR=1,n_r_max
             rDep(nR)=amp_r*or1(nR)**(rExp-1.)
-            !write(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
+            !write(output_unit,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
             do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
@@ -334,7 +334,7 @@ contains
                      z(lm,nR)=z(lm,nR)+cmplx(c_r,c_i,kind=cp)
                   end if
                end if
-               write(*,"(A,4I4,2ES20.12)") "z = ",nR,lm,l,m,z(lm,nR)
+               write(output_unit,"(A,4I4,2ES20.12)") "z = ",nR,lm,l,m,z(lm,nR)
             end do
          end do
 
@@ -375,15 +375,15 @@ contains
 
          if ( (l1m0>=llm) .and. (l1m0<=ulm) ) then
 
-            write(*,*) '! NO STARTFILE READ, SETTING Z10!'
+            write(output_unit,*) '! NO STARTFILE READ, SETTING Z10!'
 
 
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
                &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) 
-               write(*,*)
-               write(*,*) '! I use prescribed inner core rotation rate:'
-               write(*,*) '! omega_ic=',omega_ic
+               write(output_unit,*)
+               write(output_unit,*) '! I use prescribed inner core rotation rate:'
+               write(output_unit,*) '! omega_ic=',omega_ic
                z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,kind=cp)
             else if ( l_rot_ic .and. omega_ic1 == 0.0_cp ) then
                omega_ic=c_z10_omega_ic*real(z(lo_map%lm2(1,0),n_r_icb))
@@ -394,9 +394,9 @@ contains
                omega_ma=omega_ma1*cos(omegaOsz_ma1*tShift_ma1) + &
                &        omega_ma2*cos(omegaOsz_ma2*tShift_ma2)
 
-               write(*,*)
-               write(*,*) '! I use prescribed mantle rotation rate:'
-               write(*,*) '! omega_ma=',omega_ma
+               write(output_unit,*)
+               write(output_unit,*) '! I use prescribed mantle rotation rate:'
+               write(output_unit,*) '! omega_ma=',omega_ma
                z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,kind=cp)
             else if ( l_rot_ma .and. omega_ma1 == 0.0_cp ) then
                omega_ma=c_z10_omega_ma*real(z(lo_map%lm2(1,0),n_r_cmb))
@@ -548,13 +548,13 @@ contains
          m=mod(init_s1,100)
          if ( l > 99 ) m=mod(init_s1,1000)
          if ( mod(m,minc) /= 0 ) then
-            write(*,*) '! Wave number of mode for entropy initialisation'
-            write(*,*) '! not compatible with phi-symmetry:',m
+            write(output_unit,*) '! Wave number of mode for entropy initialisation'
+            write(output_unit,*) '! not compatible with phi-symmetry:',m
             call abortRun('Stop run in init')
          end if
          if ( l > l_max .or. l < m ) then
-            write(*,*) '! Degree of mode for entropy initialisation'
-            write(*,*) '! > l_max or < m !',l
+            write(output_unit,*) '! Degree of mode for entropy initialisation'
+            write(output_unit,*) '! > l_max or < m !',l
             call abortRun('Stop run in init')
          end if
          lm=lo_map%lm2(l,m)
@@ -564,7 +564,7 @@ contains
                s(lm,n_r)=s(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
             end do
 
-            write(*,'(/'' ! Entropy initialized at mode:'', &
+            write(output_unit,'(/'' ! Entropy initialized at mode:'', &
             &      '' l='',i4,'' m='',i4,'' Ampl='',f8.5)') l,m,amp_s1
          end if
 
@@ -572,14 +572,14 @@ contains
          if ( init_s2 > 99 ) then
             m=mod(init_s2,100)
             if ( mod(m,minc) /= 0 ) then
-               write(*,*) '! Wave number of mode for entropy initialisation'
-               write(*,*) '! not compatible with phi-symmetry:',m
+               write(output_unit,*) '! Wave number of mode for entropy initialisation'
+               write(output_unit,*) '! not compatible with phi-symmetry:',m
                call abortRun('Stop run in init')
             end if
             l=init_s2/100
             if ( l > l_max .or. l < m ) then
-               write(*,*) '! Degree of mode for entropy initialisation'
-               write(*,*) '! > l_max or < m !',l
+               write(output_unit,*) '! Degree of mode for entropy initialisation'
+               write(output_unit,*) '! > l_max or < m !',l
                call abortRun('Stop run in init')
             end if
 
@@ -679,9 +679,9 @@ contains
       !-- Value due to prescribed (l=0,m=0) contribution
       s00P=real(tops(0,0))*osq4pi
       if ( s00P == 0.0_cp .and. impS < 0 ) then
-         write(*,*) '! No relative amplitudes possible!'
-         write(*,*) '! for impS<0 because the mean value!'
-         write(*,*) '! is zero! Refince s_top?'
+         write(output_unit,*) '! No relative amplitudes possible!'
+         write(output_unit,*) '! for impS<0 because the mean value!'
+         write(output_unit,*) '! is zero! Refince s_top?'
          call abortRun('Stop run in init')
       end if
       if ( impS > 0 ) s00P=one
@@ -864,13 +864,13 @@ contains
          m=mod(init_xi1,100)
          if ( l > 99 ) m=mod(init_xi1,1000)
          if ( mod(m,minc) /= 0 ) then
-            write(*,*) '! Wave number of mode for chemical composition initialisation'
-            write(*,*) '! not compatible with phi-symmetry:',m
+            write(output_unit,*) '! Wave number of mode for chemical composition initialisation'
+            write(output_unit,*) '! not compatible with phi-symmetry:',m
             call abortRun('Stop run in init')
          end if
          if ( l > l_max .or. l < m ) then
-            write(*,*) '! Degree of mode for chemical composition initialisation'
-            write(*,*) '! > l_max or < m !',l
+            write(output_unit,*) '! Degree of mode for chemical composition initialisation'
+            write(output_unit,*) '! > l_max or < m !',l
             call abortRun('Stop run in init')
          end if
          lm=lo_map%lm2(l,m)
@@ -881,7 +881,7 @@ contains
                xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
             end do
 
-            write(*,'(/'' ! Chemical composition initialized at mode:'', &
+            write(output_unit,'(/'' ! Chemical composition initialized at mode:'', &
                 &  '' l='',i4,'' m='',i4,'' Ampl='',f8.5)') l,m,amp_s1
          end if
 
@@ -889,14 +889,14 @@ contains
          if ( init_xi2 > 99 ) then
             m=mod(init_xi2,100)
             if ( mod(m,minc) /= 0 ) then
-               write(*,*) '! Wave number of mode for chemical composition initialisation'
-               write(*,*) '! not compatible with phi-symmetry:',m
+               write(output_unit,*) '! Wave number of mode for chemical composition initialisation'
+               write(output_unit,*) '! not compatible with phi-symmetry:',m
                call abortRun('Stop run in init')
             end if
             l=init_xi2/100
             if ( l > l_max .or. l < m ) then
-               write(*,*) '! Degree of mode for chemical composition initialisation'
-               write(*,*) '! > l_max or < m !',l
+               write(output_unit,*) '! Degree of mode for chemical composition initialisation'
+               write(output_unit,*) '! > l_max or < m !',l
                call abortRun('Stop run in init')
             end if
 
@@ -995,9 +995,9 @@ contains
       !-- Value due to prescribed (l=0,m=0) contribution
       xi00P=real(topxi(0,0))*osq4pi
       if ( xi00P == 0.0_cp .and. impXi < 0 ) then
-         write(*,*) '! No relative amplitudes possible!'
-         write(*,*) '! for impXi<0 because the mean value!'
-         write(*,*) '! is zero! Refince xi_top?'
+         write(output_unit,*) '! No relative amplitudes possible!'
+         write(output_unit,*) '! for impXi<0 because the mean value!'
+         write(output_unit,*) '! is zero! Refince xi_top?'
          call abortRun('Stop run in init')
       end if
       if ( impXi > 0 ) xi00P=one

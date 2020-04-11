@@ -5,8 +5,7 @@ module finite_differences
    !
 
    use precision_mod
-   use parallel_mod, only: coord_r
-   use constants, only: one, two
+   use constants, only: zero, one, two
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
@@ -26,6 +25,7 @@ module finite_differences
       procedure, private :: get_FD_coeffs
       procedure :: get_der_mat
       procedure :: get_grid => get_FD_grid
+      procedure :: robin_bc
    end type type_fd
 
 contains
@@ -402,6 +402,44 @@ contains
 
    end subroutine get_FD_coeffs
 !---------------------------------------------------------------------------
+   subroutine robin_bc(this, atop, btop, rhs_top, abot, bbot, rhs_bot, f)
+      !
+      ! This routine is used to derive the values of f at both boundaries
+      ! when f is subject to Robin boundary conditions on both sides:
+      ! atop * df/dr + btop * f = rhs_top;  abot * df/dr + bbot * f = rhs_bot
+      ! With finite differences, this yields two uncoupled equations that
+      ! can be solved sequentially.
+      !
+      class(type_fd) :: this
+      !-- Input variables:
+      real(cp),    intent(in) :: atop, btop, abot, bbot
+      complex(cp), intent(in) :: rhs_top, rhs_bot
+
+      !-- In/Out variable
+      complex(cp), intent(inout) :: f(:) ! Field f
+
+      !-- Local variables:
+      integer :: od, nRmax
+      complex(cp) :: tot
+
+      nRmax=size(f)
+
+      !-- Top boundary
+      tot = zero
+      do od=1,this%order_boundary
+         tot = tot+this%dr_top(1,od)*f(od+1)
+      end do
+      f(1)=(rhs_top-atop*tot)/(atop*this%dr_top(1,0)+btop)
+
+      !-- Bottom boundary
+      tot = zero
+      do od=1,this%order_boundary
+         tot = tot+this%dr_bot(1,od)*f(nRmax-od)
+      end do
+      f(nRmax)=(rhs_bot-abot*tot)/(abot*this%dr_bot(1,0)+bbot)
+
+   end subroutine robin_bc
+!---------------------------------------------------------------------------
    subroutine get_der_mat(this, n_r_max)
 
       class(type_fd) :: this
@@ -458,29 +496,6 @@ contains
          this%d4rMat(n_r,1:this%order_boundary+4)                           =this%ddddr_top(n_r,:)
          this%d4rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order_boundary-3:-1)=this%ddddr_bot(n_r,:)
       end do
-
-!#define TOTO 1
-#ifdef TOTO
-      block
-
-         use radial_functions, only: r
-         integer :: file_handle
-
-         if ( l_master_rank ) then
-            open(newunit=file_handle, file='dMats', form='unformatted', &
-            &    access='stream')
-
-            write(file_handle) r
-            write(file_handle) this%drMat
-            write(file_handle) this%d2rMat
-            write(file_handle) this%d3rMat
-            write(file_handle) this%d4rMat
-
-            close(file_handle)
-         end if
-
-      end block
-#endif
 
    end subroutine get_der_mat
 !----------------------------------------------------------------------------

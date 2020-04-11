@@ -10,7 +10,7 @@ module updateS_mod
        &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: dct_counter, solve_counter
-   use init_fields, only: tops,bots
+   use init_fields, only: tops, bots
    use blocking, only: lo_map, lo_sub_map, llm, ulm
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
@@ -43,7 +43,7 @@ module updateS_mod
 
    integer :: maxThreads
 
-   public :: initialize_updateS, updateS, finalize_updateS, &
+   public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
    &         finish_exp_entropy, get_entropy_rhs_imp
 
 contains
@@ -475,6 +475,122 @@ contains
       !$omp end parallel
 
    end subroutine get_entropy_rhs_imp
+!-----------------------------------------------------------------------------
+   subroutine assemble_entropy(s, ds, dsdt, tscheme)
+      !
+      ! This subroutine is used to assemble the entropy/temperature at assembly
+      ! stages of IMEX-RK time schemes
+      !
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
+      type(type_tarray), intent(inout) :: dsdt
+
+      !-- Local variables
+      integer :: lm, l1, m1, n_r
+      integer, pointer :: lm2l(:), lm2m(:)
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+
+      call tscheme%assemble_imex(work_LMloc, dsdt, llm, ulm, n_r_max)
+
+      !$omp parallel default(shared)
+      !$omp do private(n_r,lm,m1)
+      do n_r=2,n_r_max
+         do lm=llm,ulm
+            m1 = lm2m(lm)
+            if ( m1 == 0 ) then
+               s(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+            else
+               s(lm,n_r)=work_LMloc(lm,n_r)
+            end if
+         end do
+      end do
+      !$omp end do
+
+      !-- Get the boundary points using Canuto (1986) approach
+      if ( l_full_sphere) then
+         if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+                       &                   bots(l1,m1), s(lm,:))
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                       &                   bots(l1,m1), s(lm,:))
+               end if
+            end do
+            !$omp end do
+         else ! Fixed flux at the outer boundary
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 1 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+                       &                   bots(l1,m1), s(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
+                       &                   bots(l1,m1), s(lm,:))
+               end if
+            end do
+            !$omp end do
+         end if
+      else ! Spherical shell
+         !-- Boundary conditions
+         if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
+            !$omp do private(lm,l1,m1)
+            do lm=llm,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+                    &                   bots(l1,m1), s(lm,:))
+            end do
+            !$omp end do
+         end if
+      end if
+      !$omp end parallel
+
+      !-- Finally call the construction of the implicit terms for the first stage
+      !-- of next iteration
+      call get_entropy_rhs_imp(s, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1), .false.)
+
+   end subroutine assemble_entropy
 !-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
    subroutine get_s0Mat(tscheme,sMat,sMat_fac)
@@ -602,17 +718,6 @@ contains
       real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
 
-#ifdef MATRIX_CHECK
-      integer :: i,j
-      real(cp) :: rcond
-      integer ::ipiv(n_r_max),iwork(n_r_max)
-      real(cp) :: work(4*n_r_max),anorm,linesum
-      real(cp) :: temp_Mat(n_r_max,n_r_max)
-      integer,save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-#endif
-
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions:
@@ -686,6 +791,17 @@ contains
 #endif
 
 #ifdef MATRIX_CHECK
+      block
+
+      integer :: i,j
+      real(cp) :: rcond
+      integer ::ipiv(n_r_max),iwork(n_r_max)
+      real(cp) :: work(4*n_r_max),anorm,linesum
+      real(cp) :: temp_Mat(n_r_max,n_r_max)
+      integer,save :: counter=0
+      integer :: filehandle
+      character(len=100) :: filename
+
       ! copy the sMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "sMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
@@ -713,6 +829,8 @@ contains
       ! estimate the condition number
       call dgecon('I',n_r_max,temp_Mat,n_r_max,anorm,rcond,work,iwork,info)
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of sMat for l=",l," is ",rcond
+
+      end block
 #endif
 
       !-- Array copy

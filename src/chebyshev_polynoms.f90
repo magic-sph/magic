@@ -1,7 +1,6 @@
 module chebyshev_polynoms_mod
 
    use precision_mod
-   use logic, only: l_newmap
    use constants, only: pi, half, one, two, four
    use num_param, only: map_function
  
@@ -13,8 +12,7 @@ module chebyshev_polynoms_mod
 
 contains
 
-   subroutine get_chebs_even(n_r,a,b,y,n_r_max, &
-              &              cheb,dcheb,d2cheb,dim1,dim2)
+   subroutine get_chebs_even(n_r,a,b,y,n_r_max,cheb,dcheb,d2cheb,dim1,dim2)
       !
       !  Construct even Chebychev polynomials and their first,
       !  second and third derivative up to degree 2*(n_r/2) at
@@ -32,8 +30,8 @@ contains
        
       !-- Input variables:
       integer,  intent(in) :: n_r ! number of grid points
-                                      ! n_r grid points suffice for a cheb
-                                      ! transform up to degree n_r-1
+                                  ! n_r grid points suffice for a cheb
+                                  ! transform up to degree n_r-1
       integer,  intent(in):: n_r_max     ! max number of radial points, dims of y
       real(cp), intent(in) :: a,b        ! interval boundaries [a,b]
       real(cp), intent(in) :: y(n_r_max) ! n_r grid points in interval [a,b]
@@ -66,21 +64,13 @@ contains
          do n=2,n_r ! only even chebs stored !
             !-- even chebs:
             cheb(n,k)=two*y(k)*last_cheb-cheb(n-1,k)
-            dcheb(n,k)=two*map_fac*last_cheb + &
-            &            two*y(k)*last_dcheb - &
-            &                      dcheb(n-1,k)
-            d2cheb(n,k)=four*map_fac*last_dcheb + &
-            &              two*y(k)*last_d2cheb - &
-            &                         d2cheb(n-1,k)
+            dcheb(n,k)=two*map_fac*last_cheb + two*y(k)*last_dcheb - dcheb(n-1,k)
+            d2cheb(n,k)=four*map_fac*last_dcheb + two*y(k)*last_d2cheb - d2cheb(n-1,k)
              
             !-- odd chebs: not stored but necessary for recursion
             last_cheb=two*y(k)*cheb(n,k)-last_cheb
-            last_dcheb=two*map_fac*cheb(n,k) + &
-            &            two*y(k)*dcheb(n,k) - &
-            &                        last_dcheb
-            last_d2cheb=four*map_fac*dcheb(n,k) + &
-            &              two*y(k)*d2cheb(n,k) - &
-            &                        last_d2cheb
+            last_dcheb=two*map_fac*cheb(n,k) + two*y(k)*dcheb(n,k) - last_dcheb
+            last_d2cheb=four*map_fac*dcheb(n,k) + two*y(k)*d2cheb(n,k) - last_d2cheb
          end do
       end do
 

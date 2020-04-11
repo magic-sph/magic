@@ -4,6 +4,7 @@ module storeCheckPoints
    ! checkpoint_#.tag files
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
    use mpi_alltoall_mod, only: type_mpiatoav
@@ -256,7 +257,7 @@ contains
 
          close(n_rst_file)
 
-         write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
+         write(output_unit,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
          &    " ! Storing checkpoint file:",          &
          &    "             at time=",time,           &
          &    "            step no.=",n_time_step,    &
@@ -664,10 +665,10 @@ contains
       !-- Close checkpoint file and display a message in the log file
       if ( l_master_rank ) then
 
-         write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
-         &    " ! Storing checkpoint file:",          &
-         &    "             at time=",time,           &
-         &    "            step no.=",n_time_step,    &
+         write(output_unit,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
+         &    " ! Storing checkpoint file:",                    &
+         &    "             at time=",time,                     &
+         &    "            step no.=",n_time_step,              &
          &    "           into file=",rst_file
 
          if ( l_save_out ) then
