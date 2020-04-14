@@ -8,8 +8,8 @@ n_cheb_ic_max=15,
 /
 &control
  mode        =0,
- tag         ="start",
- n_time_steps=1000,
+ tag         ="continue",
+ n_time_steps=100,
  courfac     =2.5D0,
  alffac      =1.0D0,
  dtmax       =1.0D-4,
@@ -25,16 +25,16 @@ n_cheb_ic_max=15,
  radratio    =0.35D0,
  ktops       =1,
  kbots       =1,
- ktopv       =2,
- kbotv       =2,
+ ktopv       =1,
+ kbotv       =1,
  kbotb       =3
 /
 &start_field
- l_start_file=.FALSE.,
- start_file  ="NONE",
- init_b1     =3,
+ l_start_file=.true.,
+ start_file  ="checkpoint_end.start",
+ init_b1     =0,
  amp_b1      =5,
- init_s1     =0404,
+ init_s1     =0,
  amp_s1      =0.1,
 /
 &output_control

@@ -41,7 +41,7 @@ module start_fields
    use updateWP_mod, only: get_pol_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
 
 
@@ -317,6 +317,8 @@ contains
               &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
               &               .false., .false., work_LMloc)
       end if
+      call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
+      call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
       call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
            &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
            &               omega_ma1, tscheme, 1, .true., .false.)

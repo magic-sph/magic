@@ -30,13 +30,14 @@ module readCheckPoints
    use num_param, only: alph1, alph2, alpha
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          kbotv, ktopv, sc, raxi, LFfac
-   use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
+   use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two, &
+       &                one, c_lorentz_ma, c_lorentz_ic, c_moi_ic,     &
+       &                c_moi_ma
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use finite_differences, only: type_fd
    use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation, abortRun
-   use constants, only: one, c_lorentz_ma, c_lorentz_ic
    use updateWP_mod, only: get_pol_rhs_imp
    use updateZ_mod, only: get_tor_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
@@ -740,8 +741,8 @@ contains
 
       !-- Put the torques correctly in the time step array
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
-         lorentz_torque_ic_dt%expl(2) = dom_ic
-         lorentz_torque_ma_dt%expl(2) = dom_ma
+         lorentz_torque_ic_dt%expl(2) = dom_ic*LFfac/c_moi_ic
+         lorentz_torque_ma_dt%expl(2) = dom_ma*LFfac/c_moi_ma
       end if
 
       !-- Finish computation to restart

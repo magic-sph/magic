@@ -90,9 +90,11 @@ contains
    subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
               &      djdt_ic,lorentz_torque_ma,lorentz_torque_ic,      &
-              &      domega_ma_dt,domega_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+              &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,   &
+              &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
-      !  This subroutine performs the actual time-stepping.
+      !  This subroutine performs the actual time-stepping. It calls succesively
+      !  the update routines of the various fields.
       !
 
       !-- Input of variables:
@@ -111,6 +113,7 @@ contains
       type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
       !integer,     intent(in) :: n_time_step
 
       !--- Inner core rotation from last time step
@@ -152,7 +155,8 @@ contains
          PERFON('up_Z')
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,     &
               &        omega_ic, domega_ma_dt,domega_ic_dt,lorentz_torque_ma, &
-              &        lorentz_torque_ic, tscheme,lRmsNext)
+              &        lorentz_torque_ic, lorentz_torque_ma_dt,               &
+              &        lorentz_torque_ic_dt, tscheme,lRmsNext)
          PERFOFF
 
          if ( l_single_matrix ) then
@@ -191,11 +195,12 @@ contains
       PERFOFF
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,  &
-              &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc, &
-              &                        lorentz_torque_ma, lorentz_torque_ic,  &
-              &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,      &
-              &                        djdt_ic, domega_ma_dt, domega_ic_dt,   &
+   subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,      &
+              &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc,     &
+              &                        lorentz_torque_ma, lorentz_torque_ic,      &
+              &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,          &
+              &                        djdt_ic, domega_ma_dt, domega_ic_dt,       &
+              &                        lorentz_torque_ma_dt, lorentz_torque_ic_dt,&
               &                        tscheme)
       !
       ! This subroutine is used to finish the computation of the explicit terms.
@@ -220,6 +225,7 @@ contains
       type(type_tarray),   intent(inout) :: dsdt, dxidt, djdt, dwdt
       type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       if ( l_chemical_conv ) then
          call finish_exp_comp(dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
@@ -236,9 +242,11 @@ contains
          end if
       end if
 
-      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic, &
-           &              domega_ma_dt%expl(tscheme%istage),    &
-           &              domega_ic_dt%expl(tscheme%istage))
+      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
+           &              domega_ma_dt%expl(tscheme%istage),        &
+           &              domega_ic_dt%expl(tscheme%istage),        &
+           &              lorentz_torque_ma_dt%expl(tscheme%istage),&
+           &              lorentz_torque_ic_dt%expl(tscheme%istage))
 
       if ( l_mag ) then
          call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
@@ -256,7 +264,8 @@ contains
               &              ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, dj_ic,   &
               &              ddj_ic, omega_ic, omega_ic1, omega_ma, omega_ma1,      &
               &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic,    &
-              &              djdt_ic, domega_ic_dt, domega_ma_dt, lPressNext,       &
+              &              djdt_ic, domega_ic_dt, domega_ma_dt,                   &
+              &              lorentz_torque_ic_dt, lorentz_torque_ma_dt, lPressNext,&
               &              lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
@@ -296,6 +305,8 @@ contains
       complex(cp),         intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
 
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
@@ -310,7 +321,8 @@ contains
               &            tscheme, lPressNext, lRmsNext)
       end if
 
-      call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic,  &
+      call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,        &
+           &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
       if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, b_ic, db_ic,     &
