@@ -227,25 +227,23 @@ contains
               &            br_vt_lm_icb,br_vp_lm_icb)
       end if
       
-      call this%nl_lm_dist%gather_all(this%nl_lm)
-      call this%gsa_dist%gather_all(this%gsa)
-      
       !--------- Calculate Lorentz torque on inner core:
       !          each call adds the contribution of the theta-block to
       !          lorentz_torque_ic
       if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
          lorentz_torques_ic=0.0_cp
-         call get_lorentz_torque(lorentz_torques_ic,1,this%sizeThetaB,  &
-              &                  this%gsa%brc,this%gsa%bpc,this%nR)
+         call get_lorentz_torque(lorentz_torques_ic, this%gsa_dist%brc,this%gsa_dist%bpc,this%nR)
       end if
 
       !--------- Calculate Lorentz torque on mantle:
       !          note: this calculates a torque of a wrong sign.
       !          sign is reversed at the end of the theta blocking.
       if ( this%nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-         call get_lorentz_torque(this%lorentz_torque_ma,1,this%sizeThetaB, &
-              &                  this%gsa%brc,this%gsa%bpc,this%nR)
+         call get_lorentz_torque(this%lorentz_torque_ma,this%gsa_dist%brc,this%gsa_dist%bpc,this%nR)
       end if
+      
+      call this%nl_lm_dist%gather_all(this%nl_lm)
+      call this%gsa_dist%gather_all(this%gsa)
 
       !--------- Calculate courant condition parameters:
       if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then

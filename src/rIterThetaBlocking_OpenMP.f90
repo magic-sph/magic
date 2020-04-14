@@ -29,9 +29,9 @@ module rIterThetaBlocking_OpenMP_mod
 #endif
    use dtB_mod, only: get_dtBLM, get_dH_dtBLM
    use out_movie, only: store_movie_frame
-   use outRot, only: get_lorentz_torque
+   use outRot, only: get_lorentz_torque_DEPRECATED
    use courant_mod, only: courant
-   use nonlinear_bcs, only: get_br_v_bcs, get_br_v_bcs_DEPRECATED
+   use nonlinear_bcs, only: get_br_v_bcs_DEPRECATED
    use time_schemes, only: type_tscheme
    use nl_special_calc
    use probe_mod
@@ -311,7 +311,7 @@ contains
          !PERFON('lorentz')
          if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
             lorentz_torques_ic(nThetaB)=0.0_cp
-            call get_lorentz_torque(lorentz_torques_ic(nThetaB),     &
+            call get_lorentz_torque_DEPRECATED(lorentz_torques_ic(nThetaB),     &
                  &                  nThetaStart,this%sizeThetaB,     &
                  &                  this%gsa(threadid)%brc,          &
                  &                  this%gsa(threadid)%bpc,this%nR)
@@ -325,7 +325,7 @@ contains
          !          note: this calculates a torque of a wrong sign.
          !          sign is reversed at the end of the theta blocking.
          if ( this%nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-            call get_lorentz_torque(this%lorentz_torque_ma(threadid),   &
+            call get_lorentz_torque_DEPRECATED(this%lorentz_torque_ma(threadid),   &
                  &                  nThetaStart,this%sizeThetaB,        &
                  &                  this%gsa(threadid)%brc,             &
                  &                  this%gsa(threadid)%bpc,this%nR)
