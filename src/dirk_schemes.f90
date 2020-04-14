@@ -316,9 +316,7 @@ contains
          case ('ARS343')
             gam = 0.435866521508459_cp
             b1 = -1.5_cp*gam*gam+4.0_cp*gam-0.25_cp
-            !b1 =  1.20849664917601_cp
             b2 = 1.5_cp*gam*gam-5.0_cp*gam+1.25_cp
-            !b2 = -0.64436317068446_cp
             this%wimp_lin(1) = gam
             this%butcher_imp(:,:) = reshape([                           &
             &                  0.0_cp,         0.0_cp, 0.0_cp,  0.0_cp, &
@@ -480,7 +478,7 @@ contains
             &    10755448449292.0_cp/10357097424841.0_cp, 0.0_cp], [4,4],       &
             &    order=[2,1])
             this%butcher_ass_exp(:)=this%butcher_ass_imp(:)
-            this%butcher_c(:)=[half*gam, 0.6_cp, one]
+            this%butcher_c(:)=[two*gam, 0.6_cp, one]
          case ('KC564')
             this%wimp_lin(1) = 0.25_cp
 

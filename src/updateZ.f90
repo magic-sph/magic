@@ -153,8 +153,9 @@ contains
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
-   subroutine updateZ(z,dz,dzdt,time,omega_ma,omega_ic,domega_ma_dt,domega_ic_dt, &
-              &       lorentz_torque_ma,lorentz_torque_ic,tscheme,lRmsNext)
+   subroutine updateZ(time,timeNext,z,dz,dzdt,omega_ma,omega_ic,domega_ma_dt,   &
+              &       domega_ic_dt,lorentz_torque_ma,lorentz_torque_ic,tscheme, &
+              &       lRmsNext)
       !
       !  updates the toroidal potential z and its radial derivatives
       !  adds explicit part to time derivatives of z
@@ -170,7 +171,8 @@ contains
       real(cp),    intent(in) :: lorentz_torque_ic            ! Lorentz torque (for IC rotation)
 
       !-- Input of other variables:
-      real(cp),    intent(in) :: time       ! Current time
+      real(cp),    intent(in) :: time       ! Current stage time
+      real(cp),    intent(in) :: timeNext   ! Next time
       logical,     intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
 
       !-- Output variables
@@ -200,7 +202,7 @@ contains
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( l_precession ) then
-         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)*tscheme%dt(1)
+         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
       else
          prec_fac = 0.0_cp
       end if
@@ -369,9 +371,11 @@ contains
                      rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
                      if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
                         rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                        &                         tscheme%wimp_lin(1)*       &
                         &                         prec_fac*sin(oek*time)
-                        rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)- &
-                        &                       prec_fac*cos(oek*time)
+                        rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)-     &
+                        &                       tscheme%wimp_lin(1)*prec_fac*&
+                        &                       cos(oek*time)
                      end if
                   end do
 
@@ -442,16 +446,15 @@ contains
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
-         call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,  &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1, &
-              &               tscheme, 1, tscheme%l_imp_calc_rhs(1),    &
-              &               lRmsNext, l_in_cheb_space=.true.)
+         call get_tor_rhs_imp(timeNext, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
+              &               1, tscheme%l_imp_calc_rhs(1), lRmsNext,            &
+              &               l_in_cheb_space=.true.)
       else
-         call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,  &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1, &
-              &               tscheme, tscheme%istage+1,                &
-              &               tscheme%l_imp_calc_rhs(tscheme%istage+1), &
-              &               lRmsNext, l_in_cheb_space=.true.)
+         call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
+              &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
+              &               tscheme%istage+1), lRmsNext, l_in_cheb_space=.true.)
       end if
 
       !PERFON('upZ_icma')
@@ -526,12 +529,13 @@ contains
 
    end subroutine updateZ
 !------------------------------------------------------------------------------
-   subroutine get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1,    &
-              &               tscheme, istage, l_calc_lin, lRmsNext,       &
+   subroutine get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
+              &               tscheme, istage, l_calc_lin, lRmsNext,         &
               &               l_in_cheb_space)
 
       !-- Input variables
+      real(cp),            intent(in) :: time
       integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
@@ -556,11 +560,17 @@ contains
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(n_r_max), z11(n_r_max)
       complex(cp) :: corr_l1m0, corr_l1m1
-      real(cp) :: r_E_2, nomi, dL
+      real(cp) :: r_E_2, nomi, dL, prec_fac
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
-      integer :: lmStart_00, l1, l1m0, l1m1
+      integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
+
+      if ( l_precession ) then
+         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
+      else
+         prec_fac = 0.0_cp
+      end if
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -697,6 +707,7 @@ contains
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
+               m1 = lm2m(lm)
                dL = real(l1*(l1+1),cp)
                Dif(lm)=hdif_V(lm)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
                &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
@@ -705,6 +716,10 @@ contains
                &                                                    z(lm,n_r) )
 
                dzdt%impl(lm,n_r,istage)=Dif(lm)
+               if ( l_precession .and. l1==1 .and. m1==1 ) then
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
+                  &                        sin(oek*time),-cos(oek*time),kind=cp)
+               end if
             end do
             if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                call hInt2Tor(Dif,llm,ulm,n_r,lmStart_00,ulm, &
@@ -737,6 +752,10 @@ contains
 !------------------------------------------------------------------------------
    subroutine assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, omega_ic, &
               &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+      !
+      ! This subroutine is used to assemble the toroidal flow potential when an IMEX
+      ! RK time scheme with an assembly stage is employed.
+      !
 
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
@@ -768,7 +787,7 @@ contains
       lmStart_00 =max(2,llm)
       l1m0       =lm2(1,0)
 
-      if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp .or. l_precession) then
+      if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
          call abortRun('Not implemented yet in assembly stage of z')
       end if
 
@@ -890,9 +909,9 @@ contains
       end if
       !$omp end parallel
 
-      call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
-           &               omega_ic, omega_ma, omega_ic1, omega_ma1,    &
-           &               tscheme, 1, tscheme%l_imp_calc_rhs(1),       &
+      call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
+           &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
+           &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
            &               lRmsNext, .false.)
 
       !--- Update of inner core and mantle rotation:

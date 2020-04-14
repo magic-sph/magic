@@ -87,7 +87,7 @@ contains
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,            &
+   subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
               &      djdt_ic,lorentz_torque_ma,lorentz_torque_ic,      &
               &      domega_ma_dt,domega_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
@@ -98,6 +98,7 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: time
+      real(cp),            intent(in) :: timeNext
       logical,             intent(in) :: lMat
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
@@ -149,8 +150,8 @@ contains
 
       if ( l_conv ) then
          PERFON('up_Z')
-         call updateZ( z_LMloc, dz_LMloc, dzdt, time, omega_ma, omega_ic, &
-              &        domega_ma_dt,domega_ic_dt,lorentz_torque_ma,       &
+         call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,     &
+              &        omega_ic, domega_ma_dt,domega_ic_dt,lorentz_torque_ma, &
               &        lorentz_torque_ic, tscheme,lRmsNext)
          PERFOFF
 
