@@ -113,6 +113,8 @@ class TimeSchemes(unittest.TestCase):
         cmd = 'cat e_kin.sbdf3 e_kin.ars222 e_kin.ars443 e_kin.cnab2 e_kin.sbdf4 e_kin.pc2 e_kin.sbdf2 e_kin.bpr353 e_kin.modcnab e_kin.cnlf e_kin.lz232 e_kin.kc564 e_kin.ars343 e_kin.cb3 e_kin.kc564_fd > e_kin.test'
         sp.call(cmd, shell=True, stdout=self.outFile, stderr=sp.STDOUT)
 
+        self.outFile.close()
+
     def tearDown(self):
         # Cleaning when leaving
         os.chdir(self.startDir)

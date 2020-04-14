@@ -555,10 +555,8 @@ contains
                !-- Replace by scatter from rank to lo (and in updateB accordingly)
                if ( l_b_nl_cmb ) then
 #ifdef WITH_MPI
-                  call MPI_Bcast(b_nl_cmb,lm_max,MPI_DEF_COMPLEX,0, &
-                       &         MPI_COMM_WORLD,ierr)
-                  call MPI_Bcast(aj_nl_cmb,lm_max,MPI_DEF_COMPLEX,0, &
-                       &         MPI_COMM_WORLD,ierr)
+                  call MPI_Bcast(b_nl_cmb,lm_max,MPI_DEF_COMPLEX,0,comm_r,ierr)
+                  call MPI_Bcast(aj_nl_cmb,lm_max,MPI_DEF_COMPLEX,0,comm_r,ierr)
 #endif
                end if
                if ( l_b_nl_icb .and. (nRstop >= n_r_icb) ) then
@@ -568,8 +566,8 @@ contains
                end if
                if ( l_b_nl_icb ) then
 #ifdef WITH_MPI
-                  call MPI_Bcast(aj_nl_icb,lm_max,MPI_DEF_COMPLEX,n_procs-1, &
-                       &         MPI_COMM_WORLD,ierr)
+                  call MPI_Bcast(aj_nl_icb,lm_max,MPI_DEF_COMPLEX,n_ranks_r-1, &
+                       &         comm_r,ierr)
 #endif
                end if
                PERFOFF
