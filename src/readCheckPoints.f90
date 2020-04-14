@@ -415,9 +415,9 @@ contains
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, 1, .true., .false.)
+         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
+              &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
@@ -1375,9 +1375,9 @@ contains
          end if
          if ( l_heat) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, 1, .true., .false.)
+         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
+              &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
 
@@ -2149,9 +2149,9 @@ contains
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
-              &               tscheme, 1, .true., .false.)
+         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
+              &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
