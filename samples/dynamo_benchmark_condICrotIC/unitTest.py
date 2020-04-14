@@ -20,6 +20,10 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('%s/*.test' % dir):
         os.remove(f)
+    for f in glob.glob('%s/*.start' % dir):
+        os.remove(f)
+    for f in glob.glob('%s/*.continue' % dir):
+        os.remove(f)
     if os.path.exists('%s/stdout.out' % dir):
         os.remove('%s/stdout.out' % dir)
     for f in glob.glob('%s/*.pyc' % dir):
@@ -55,6 +59,15 @@ class ConductingRotatingIC(unittest.TestCase):
         cleanDir(self.dir)
         os.chdir(self.dir)
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
+        cmd = '%s %s/input_restart.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
+        cmd = 'cat e_kin.start e_kin.continue > e_kin.test'
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
+        cmd = 'cat e_mag_oc.start e_mag_oc.continue > e_mag_oc.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
