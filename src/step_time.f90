@@ -646,7 +646,7 @@ contains
 
             !-- If the scheme is a multi-step scheme that is not Crank-Nicolson 
             !-- we have to use a different starting scheme
-            call start_from_another_scheme(l_bridge_step, n_time_step, tscheme)
+            call start_from_another_scheme(timeLast, l_bridge_step, n_time_step, tscheme)
 
             !---------------
             !-- LM Loop (update routines)
@@ -654,9 +654,9 @@ contains
             if ( (.not. tscheme%l_assembly) .or. (tscheme%istage/=tscheme%nstages) ) then
                if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
                call lmLoop_counter%start_count()
-               call LMLoop(timeStage,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
-                    &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,   &
-                    &      lorentz_torque_ma,lorentz_torque_ic,              &
+               call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
+                    &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
+                    &      lorentz_torque_ma,lorentz_torque_ic,                   &
                     &      domega_ma_dt,domega_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
@@ -676,7 +676,7 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
-            call assemble_stage(timeStage, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,   &
+            call assemble_stage(time, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,        &
                  &              dp_LMloc, z_LMloc, dz_LMloc, s_LMloc, ds_LMloc,     &
                  &              xi_LMloc, dxi_LMloc, b_LMloc, db_LMloc, ddb_LMloc,  &
                  &              aj_LMloc, dj_LMloc, ddj_LMloc, b_ic_LMloc,          &
@@ -809,10 +809,19 @@ contains
 
    end subroutine step_time
 !------------------------------------------------------------------------------
-   subroutine start_from_another_scheme(l_bridge_step, n_time_step, tscheme)
+   subroutine start_from_another_scheme(time, l_bridge_step, n_time_step, tscheme)
+      !
+      ! This subroutine is used to initialize multisteps schemes whenever previous
+      ! steps are not known. In that case a CN/AB2 scheme is used to bridge the
+      ! missing steps.
+      !
 
+      !-- Input variables
+      real(cp),            intent(in) :: time
       logical,             intent(in) :: l_bridge_step
       integer,             intent(in) :: n_time_step
+
+      !-- Output variable
       class(type_tscheme), intent(inout) :: tscheme
 
       !-- If the scheme is a multi-step scheme that is not Crank-Nicolson 
@@ -832,11 +841,11 @@ contains
             if ( l_heat ) call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
          end if
 
-         call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme,   &
-              &               1, .true., .false.)
+         call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
+              &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
+              &               omega_ma1, tscheme, 1, .true., .false.)
 
-         if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc,dxi_LMloc,    &
+         if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc, dxi_LMloc,  &
                                      &                dxidt, 1, .true.)
 
          if ( l_mag ) call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc,       &

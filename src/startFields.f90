@@ -318,7 +318,7 @@ contains
               &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
               &               .false., .false., work_LMloc)
       end if
-      call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt,       &
+      call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
            &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
            &               omega_ma1, tscheme, 1, .true., .false.)
 
