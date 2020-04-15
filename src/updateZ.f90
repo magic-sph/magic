@@ -706,7 +706,7 @@ contains
          do n_r=1,n_r_max
 #ifdef WITH_MPI
             call MPI_Allreduce(ddzASL_loc(:,n_r), ddzASL(:,n_r), l_max+1, &
-                 &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+                 &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
 #else
             ddzASL(:,n_r)=ddzASL_loc(:,n_r)
 #endif
