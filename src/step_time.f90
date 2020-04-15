@@ -670,7 +670,6 @@ contains
                call lmLoop_counter%start_count()
                call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
                     &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
-                    &      lorentz_torque_ma,lorentz_torque_ic,                   &
                     &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
                     &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
@@ -679,8 +678,8 @@ contains
                !-- Timer counters
                call lmLoop_counter%stop_count()
                if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
-               if (  tscheme%istage == 1 .and. .not. lMat .and. &
-               &     .not. l_log ) l_pure=.true.
+               if ( tscheme%istage == 1 .and. .not. lMat .and. &
+               &    .not. l_log ) l_pure=.true.
 
                ! Increment current stage
                tscheme%istage = tscheme%istage+1

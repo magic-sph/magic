@@ -89,9 +89,9 @@ contains
 !----------------------------------------------------------------------------
    subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
-              &      djdt_ic,lorentz_torque_ma,lorentz_torque_ic,      &
-              &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,   &
-              &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+              &      djdt_ic,domega_ma_dt,domega_ic_dt,                &
+              &      lorentz_torque_ma_dt,lorentz_torque_ic_dt,        &
+              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping. It calls succesively
       !  the update routines of the various fields.
@@ -104,7 +104,6 @@ contains
       logical,             intent(in) :: lMat
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
-      real(cp),            intent(in) :: lorentz_torque_ma,lorentz_torque_ic
       complex(cp),         intent(in) :: b_nl_cmb(lm_max)   ! nonlinear bc for b at CMB
       complex(cp),         intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
       complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
@@ -153,10 +152,10 @@ contains
 
       if ( l_conv ) then
          PERFON('up_Z')
-         call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,     &
-              &        omega_ic, domega_ma_dt,domega_ic_dt,lorentz_torque_ma, &
-              &        lorentz_torque_ic, lorentz_torque_ma_dt,               &
-              &        lorentz_torque_ic_dt, tscheme,lRmsNext)
+         call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
+              &        omega_ic, domega_ma_dt,domega_ic_dt,                &
+              &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
+              &        lRmsNext)
          PERFOFF
 
          if ( l_single_matrix ) then
