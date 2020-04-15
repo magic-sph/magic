@@ -153,9 +153,8 @@ contains
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
    subroutine updateZ(time,timeNext,z,dz,dzdt,omega_ma,omega_ic,domega_ma_dt,  &
-              &       domega_ic_dt,lorentz_torque_ma,lorentz_torque_ic,        &
-              &       lorentz_torque_ma_dt, lorentz_torque_ic_dt, tscheme,     &
-              &       lRmsNext)
+              &       domega_ic_dt,lorentz_torque_ma_dt, lorentz_torque_ic_dt, &
+              &       tscheme,lRmsNext)
       !
       !  updates the toroidal potential z and its radial derivatives
       !  adds explicit part to time derivatives of z
@@ -169,8 +168,6 @@ contains
       type(type_tscalar), intent(inout) :: domega_ma_dt
       type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
       type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
-      real(cp),           intent(in) :: lorentz_torque_ma  ! Lorentz torque (for OC rotation)
-      real(cp),           intent(in) :: lorentz_torque_ic  ! Lorentz torque (for IC rotation)
 
       !-- Input of other variables:
       real(cp),           intent(in) :: time       ! Current stage time
@@ -195,9 +192,8 @@ contains
       integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       logical :: l10
       integer :: nLMB
-      real(cp) :: ddzASL_loc(l_max+1,n_r_max)
 
-      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
+      integer, pointer :: nLMBs2(:),lm2l(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
@@ -218,8 +214,6 @@ contains
       lm22m(1:,1:,1:) => lo_sub_map%lm22m
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
-      lm2m(1:lm_max) => lo_map%lm2m
-
 
       nLMB = 1+rank
       lmStart_00 =max(2,llm)
@@ -250,14 +244,14 @@ contains
       call solve_counter%start_count()
       !$omp end single
       l10=.false.
-      !$OMP SINGLE
+      !$omp single
       do nLMB2=1,nLMBs2(nLMB)
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lmB,lm,lm1,l1,m1,n_r_out,nR) &
-         !$OMP private(nChunks,size_of_last_chunk,iChunk) &
-         !$OMP private(tOmega_ma1,tOmega_ma2,threadid) &
-         !$OMP private(tOmega_ic1,tOmega_ic2)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lmB,lm,lm1,l1,m1,n_r_out,nR) &
+         !$omp private(nChunks,size_of_last_chunk,iChunk) &
+         !$omp private(tOmega_ma1,tOmega_ma2,threadid) &
+         !$omp private(tOmega_ic1,tOmega_ic2)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -277,12 +271,10 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(tOmega_ma1,tOmega_ma2) &
-            !$OMP private(tOmega_ic1,tOmega_ic2) &
-            !$OMP private(threadid)
+            !$omp task default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out,threadid) &
+            !$omp private(tOmega_ma1,tOmega_ma2,tOmega_ic1,tOmega_ic2)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -298,11 +290,10 @@ contains
                if ( lm1 == l1m0 ) l10= .true.
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
-                  !write(*,"(A,3I3)") "l_z10mat and lm1=",lm1,l1,m1
                   !PERFON('upZ_z10')
                   !----- Special treatment of z10 component if ic or mantle
                   !      are allowed to rotate about z-axis (l_z10mat=.true.) and
-                  !      we use no slip boundary condition (ktopv=1,kbotv=1):
+                  !      we use no slip boundary condition (ktopv=2,kbotv=2):
                   !      Lorentz torque is the explicit part of this time integration
                   !      at the boundaries!
                   !      Note: no angular momentum correction necessary for this case !
@@ -360,7 +351,6 @@ contains
                   rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
 
                   if (amp_RiIc /= 0.0_cp) then
-                     
                      if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
                         rhs1(n_r_max,2*lmB-1,threadid)=amp_RiIc* &
                         &                              cos(omega_RiIc*time)
@@ -428,11 +418,11 @@ contains
                end if
             end do
             !PERFOFF
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp end task
       end do       ! end of loop over lm blocks
-      !$OMP END SINGLE
+      !$omp end single
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
@@ -473,32 +463,6 @@ contains
               &                omega_ma1, omega_ic, omega_ic1, tscheme%istage+1)
       end if
 
-      !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
-      !    beyond this point for the TO calculation.
-      !    Parallization note: Very likely, all axisymmetric modes m=0 are
-      !    located on the first processor #0.
-      if ( l_TO ) then
-         !$omp parallel do default(shared) private(nR,lm1,l1,m1)
-         do nR=1,n_r_max
-            ddzASL_loc(:,nR)=0.0_cp
-            do lm1=lmStart_00,ulm
-               l1=lm2l(lm1)
-               m1=lm2m(lm1)
-               if ( m1 == 0 ) ddzASL_loc(l1+1,nR)=real(work_LMloc(lm1,nR))
-            end do
-         end do
-         !$omp end parallel do
-
-         do nR=1,n_r_max
-#ifdef WITH_MPI
-            call MPI_Allreduce(ddzASL_loc(:,nR), ddzASL(:,nR), l_max+1, &
-                 &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-            ddzASL(:,nR)=ddzASL_loc(:,nR)
-#endif
-         end do
-      end if
-
    end subroutine updateZ
 !------------------------------------------------------------------------------
    subroutine get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
@@ -537,6 +501,7 @@ contains
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
       integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
+      real(cp) :: ddzASL_loc(l_max+1,n_r_max)
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -721,6 +686,33 @@ contains
             &                                           real(z(l1m0,n_r_max))
          end if
       end if
+
+      !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
+      !    beyond this point for the TO calculation.
+      !    Parallization note: Very likely, all axisymmetric modes m=0 are
+      !    located on the first processor #0.
+      if ( l_TO ) then
+         !$omp parallel do default(shared) private(n_r,lm,l1,m1)
+         do n_r=1,n_r_max
+            ddzASL_loc(:,n_r)=0.0_cp
+            do lm=lmStart_00,ulm
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               if ( m1 == 0 ) ddzASL_loc(l1+1,n_r)=real(work_LMloc(lm,n_r))
+            end do
+         end do
+         !$omp end parallel do
+
+         do n_r=1,n_r_max
+#ifdef WITH_MPI
+            call MPI_Allreduce(ddzASL_loc(:,n_r), ddzASL(:,n_r), l_max+1, &
+                 &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+            ddzASL(:,n_r)=ddzASL_loc(:,n_r)
+#endif
+         end do
+      end if
+
 
    end subroutine get_tor_rhs_imp
 !------------------------------------------------------------------------------
