@@ -144,6 +144,13 @@ contains
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
       real(cp) :: lorentz_torques_ic
+      
+      
+      ! TODO DELETEMEEEEEEEEEEEE
+      complex(cp) :: br_vt_lm_cmb_dist(n_lmP_loc) ! product br*vt at CMB
+      complex(cp) :: br_vp_lm_cmb_dist(n_lmP_loc) ! product br*vp at CMB
+      complex(cp) :: br_vt_lm_icb_dist(n_lmP_loc) ! product br*vt at ICB
+      complex(cp) :: br_vp_lm_icb_dist(n_lmP_loc) ! product br*vp at ICB
 
       this%nR=nR
       this%nBc=nBc
@@ -179,6 +186,11 @@ contains
       call this%gsa%slice_all(this%gsa_dist)
       call this%nl_lm%slice_all(this%nl_lm_dist)
       
+      call slice_FlmP_cmplx(br_vt_lm_cmb, br_vt_lm_cmb_dist)
+      call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
+      call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb_dist)
+      call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb_dist)
+      
       !--------- Calculation of nonlinear products in grid space:
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
       &     this%lRmsCalc ) then
@@ -212,19 +224,26 @@ contains
       !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
       !     These products are used in get_b_nl_bcs.
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
-         br_vt_lm_cmb(:)=zero
-         br_vp_lm_cmb(:)=zero
+         br_vt_lm_cmb_dist(:)=zero
+         br_vp_lm_cmb_dist(:)=zero
          call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
               &            this%gsa_dist%vpc,this%leg_helper%omegaMA,    &
               &            or2(this%nR),orho1(this%nR),             &
-              &            br_vt_lm_cmb,br_vp_lm_cmb)
+              &            br_vt_lm_cmb_dist,br_vp_lm_cmb_dist)
+              
+         !TODO DELETE MEEEEEEEEEEEEEEEEEEE
+         call gather_FlmP(br_vt_lm_cmb_dist, br_vt_lm_cmb)
+         call gather_FlmP(br_vp_lm_cmb_dist, br_vp_lm_cmb)
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
-         br_vt_lm_icb(:)=zero
-         br_vp_lm_icb(:)=zero
+         br_vt_lm_icb_dist(:)=zero
+         br_vp_lm_icb_dist(:)=zero
          call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
               &            this%gsa_dist%vpc,this%leg_helper%omegaIC,    &
               &            or2(this%nR),orho1(this%nR),             &
-              &            br_vt_lm_icb,br_vp_lm_icb)
+              &            br_vt_lm_icb_dist,br_vp_lm_icb_dist)
+         !TODO DELETE MEEEEEEEEEEEEEEEEEEE
+         call gather_FlmP(br_vt_lm_icb_dist, br_vt_lm_icb)
+         call gather_FlmP(br_vp_lm_icb_dist, br_vp_lm_icb)
       end if
       
       !--------- Calculate Lorentz torque on inner core:
@@ -242,33 +261,34 @@ contains
          call get_lorentz_torque(this%lorentz_torque_ma,this%gsa_dist%brc,this%gsa_dist%bpc,this%nR)
       end if
       
-      call this%nl_lm_dist%gather_all(this%nl_lm)
-      call this%gsa_dist%gather_all(this%gsa)
 
       !--------- Calculate courant condition parameters:
       if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then
-         call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc,          &
-              &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-              &       this%gsa%bpc,1 ,this%sizeThetaB, tscheme%courfac,    &
-              &       tscheme%alffac)
+         call courant(this%nR,this%dtrkc,this%dthkc,this%gsa_dist%vrc,          &
+              &       this%gsa_dist%vtc,this%gsa_dist%vpc,this%gsa_dist%brc,this%gsa_dist%btc, &
+              &       this%gsa_dist%bpc, tscheme%courfac, tscheme%alffac)
       end if
+      
 
       !--------- Since the fields are given at gridpoints here, this is a good
       !          point for graphical output:
       if ( this%l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc,           &
-                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
-                 &            1,this%sizeThetaB,lGraphHeader)
+            call graphOut_mpi(time,this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,           &
+                 &            this%gsa_dist%vpc,this%gsa_dist%brc,this%gsa_dist%btc,           &
+                 &            this%gsa_dist%bpc,this%gsa_dist%sc,this%gsa_dist%pc,this%gsa_dist%xic,&
+                 &            lGraphHeader)
 #else
-            call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc,           &
-                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                 &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
-                 &        1 ,this%sizeThetaB,lGraphHeader)
+            call graphOut(time,this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,           &
+                 &        this%gsa_dist%vpc,this%gsa_dist%brc,this%gsa_dist%btc,           &
+                 &        this%gsa_dist%bpc,this%gsa_dist%sc,this%gsa_dist%pc,this%gsa_dist%xic,&
+                 &        lGraphHeader)
 #endif
       end if
 
+      call this%nl_lm_dist%gather_all(this%nl_lm)
+      call this%gsa_dist%gather_all(this%gsa)
+      
       if ( this%l_probe_out ) then
          call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1, &
               &         this%sizeThetaB)

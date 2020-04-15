@@ -684,6 +684,15 @@ contains
                open(newunit=n_dtvrms_file, file=dtvrms_file, &
                &    form='formatted', status='unknown', position='append')
             end if
+            print *, "~~~~~~~~~~~~~~~~~~~~", n_dtvrms_file, dtvrms_file
+            write(*,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
+            &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
+            &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
+            &     MagRms/(CorRms+PreRms+LFRms),                          &
+            &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
+            &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
+            &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
+            &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
             write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
             &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
             &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&

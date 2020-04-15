@@ -24,7 +24,7 @@ module nonlinear_bcs
 
    private
 
-   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary, get_br_v_bcs_DEPRECATED
+   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary
 
 contains
 
@@ -105,89 +105,6 @@ contains
 #endif
 
    end subroutine get_br_v_bcs
-!----------------------------------------------------------------------------
-!WARNING: Don't use this function, it has been removed.
-   subroutine get_br_v_bcs_DEPRECATED(br,vt,vp,omega,O_r_E_2,O_rho,n_theta_min,n_theta_block, &
-              &            br_vt_lm,br_vp_lm)
-      !
-      !  Purpose of this subroutine is to calculate the nonlinear term
-      !  of the magnetic boundary condition for a conducting mantle or
-      !  inner core in space (r,lm).
-      !  Calculation is performed for the theta block:
-      !
-      !  .. code-block:: fortran
-      !
-      !     n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
-      !
-      !  On input br, vt and vp are given on all phi points and
-      !  thetas in the specific block.
-      !  On output the contribution of these grid points to all
-      !  degree and orders is stored in br_vt_lm and br_vp_lm.
-      !  Output is [r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]
-      !
-
-      !-- input:
-      real(cp), intent(in) :: br(nrp,*)      ! r**2 * B_r
-      real(cp), intent(in) :: vt(nrp,*)      ! r*sin(theta) U_theta
-      real(cp), intent(in) :: vp(nrp,*)      ! r*sin(theta) U_phi
-      real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
-      real(cp), intent(in) :: O_r_E_2        ! 1/r**2
-      real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
-      integer,  intent(in) :: n_theta_min    ! start of theta block
-      integer,  intent(in) :: n_theta_block  ! size of theta_block
-
-      !-- Output variables:
-      ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
-      ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
-
-      !-- Local variables:
-      integer :: n_theta     ! number of theta position
-      integer :: n_theta_rel ! number of theta position in block
-      integer :: n_phi       ! number of longitude
-      real(cp) :: br_vt(nrp,n_theta_block)
-      real(cp) :: br_vp(nrp,n_theta_block)
-      real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
-
-      n_theta=n_theta_min-1 ! n_theta needed for O_sin_theta_E_2
-
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP& private(n_theta_rel,n_phi,fac,n_theta)
-#endif
-      do n_theta_rel=1,n_theta_block
-         n_theta=n_theta_min+n_theta_rel-1         ! absolute number of theta
-
-         fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
-
-         do n_phi=1,n_phi_max
-            br_vt(n_phi,n_theta_rel)= fac*br(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel)
-
-            br_vp(n_phi,n_theta_rel)= br(n_phi,n_theta_rel) * &
-            &                        ( fac*vp(n_phi,n_theta_rel) - omega )
-         end do
-      end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
-
-
-      !-- Fourier transform phi 2 m (real 2 complex!)
-#ifdef WITH_SHTNS
-      call spat_to_SH(br_vt, br_vt_lm, l_max)
-      call spat_to_SH(br_vp, br_vp_lm, l_max)
-#else
-      if ( .not. l_axi ) then
-         call fft_thetab(br_vt, -1)
-         call fft_thetab(br_vp, -1)
-      end if
-
-
-      !-- Legendre transform contribution of thetas in block:
-      call legTF2(n_theta_min,br_vt_lm,br_vp_lm,br_vt,br_vp)
-#endif
-   end subroutine get_br_v_bcs_DEPRECATED
 !----------------------------------------------------------------------------
    subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
       !

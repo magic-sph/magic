@@ -34,8 +34,7 @@ module outRot
    character(len=72) :: driftBD_file, driftBQ_file
 
    public :: write_rot, get_viscous_torque, get_angular_moment, &
-   &         get_lorentz_torque, initialize_outRot, finalize_outRot, &
-   &         get_lorentz_torque_DEPRECATED
+   &         get_lorentz_torque, initialize_outRot, finalize_outRot
 
 contains
 
@@ -545,89 +544,6 @@ contains
       end if
 
    end subroutine get_lorentz_torque
-!-----------------------------------------------------------------------
-   subroutine get_lorentz_torque_DEPRECATED(lorentz_torque,nThetaStart, &
-              &                  sizeThetaB,br,bp,nR)
-      !
-      !  Purpose of this subroutine is to calculate the lorentz torque
-      !  on mantle or inner core respectively.
-      !  Blocking in theta can be used to increased performance.
-      !  If no blocking required set n_theta_block=n_theta_max,
-      !  where n_theta_max is the absolut number of thetas used.
-      !
-      !  .. note:: Lorentz_torque must be set to zero before loop over
-      !            theta blocks is started.
-      !
-      !  .. warning:: subroutine returns -lorentz_torque if used at CMB
-      !               to calculate torque on mantle because if the inward
-      !               surface normal vector.
-      !
-      !  The Prandtl number is always the Prandtl number of the outer
-      !  core. This comes in via scaling of the magnetic field.
-      !  Theta alternates between northern and southern hemisphere in
-      !  br and bp but not in gauss. This has to be cared for, and we
-      !  use: gauss(latitude)=gauss(-latitude) here.
-      !
-
-      !-- Input variables:
-      integer,  intent(in) :: nThetaStart    ! first number of theta in block
-      integer,  intent(in) :: sizeThetaB     ! size of theta bloching
-      real(cp), intent(in) :: br(nrp,*)      ! array containing
-      real(cp), intent(in) :: bp(nrp,*)      ! array containing
-      integer,  intent(in) :: nR
-
-      real(cp), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
-
-
-      !-- local variables:
-      integer :: nTheta,nPhi,nThetaNHS
-      integer :: nThetaB
-      real(cp) :: fac,b0r
-
-      ! to avoid rounding errors for different theta blocking, we do not
-      ! calculate sub sums with lorentz_torque_local, but keep on adding
-      ! the contributions to the total lorentz_torque given as argument.
-
-      if ( nThetaStart == 1 ) then
-         lorentz_torque=0.0_cp
-      end if
-
-      !lorentz_torque_local=0.0_cp
-      fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
-
-      nTheta=nThetaStart-1
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(none) &
-      !$OMP& private(nThetaB, nTheta, nPhi, nThetaNHS, b0r) &
-      !$OMP& shared(n_phi_max, sizeThetaB, r_icb, r, nR) &
-      !$OMP& shared(lGrenoble, nThetaStart, BIC, cosTheta, r_cmb) &
-      !$OMP& shared(fac, gauss) &
-      !$OMP& reduction(+: lorentz_torque)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
-         if ( lGrenoble ) then
-            if ( r(nR) == r_icb ) then
-               b0r=two*BIC*r_icb**2*cosTheta(nTheta)
-            else if ( r(nR) == r_cmb ) then
-               b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
-            end if
-         else
-            b0r=0.0_cp
-         end if
-
-         do nPhi=1,n_phi_max
-            lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
-            &              (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
-         end do
-      end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
-
-   end subroutine get_lorentz_torque_DEPRECATED
-
 !-----------------------------------------------------------------------
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
               &                  angular_moment_ic,angular_moment_ma)

@@ -944,15 +944,15 @@ contains
          do n_th=nThStart,nThStop
             do n_phi=1,n_phi_max
                this%dtVr(n_phi,n_th)=O_dt*or2(nR)*(this%vrc(n_phi,n_th)- &
-               &                             vr_old(n_phi,n_th,nR))
+               &                             vr_old_dist(n_phi,n_th,nR))
                this%dtVt(n_phi,n_th)=O_dt*or1(nR)*(this%vtc(n_phi,n_th)- &
-               &                             vt_old(n_phi,n_th,nR))
+               &                             vt_old_dist(n_phi,n_th,nR))
                this%dtVp(n_phi,n_th)=O_dt*or1(nR)*(this%vpc(n_phi,n_th)- &
-               &                             vp_old(n_phi,n_th,nR))
+               &                             vp_old_dist(n_phi,n_th,nR))
 
-               vr_old(n_phi,n_th,nR)=this%vrc(n_phi,n_th)
-               vt_old(n_phi,n_th,nR)=this%vtc(n_phi,n_th)
-               vp_old(n_phi,n_th,nR)=this%vpc(n_phi,n_th)
+               vr_old_dist(n_phi,n_th,nR)=this%vrc(n_phi,n_th)
+               vt_old_dist(n_phi,n_th,nR)=this%vtc(n_phi,n_th)
+               vp_old_dist(n_phi,n_th,nR)=this%vpc(n_phi,n_th)
             end do
          end do
       end if
