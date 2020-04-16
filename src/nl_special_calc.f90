@@ -6,7 +6,7 @@ module nl_special_calc
 
    use precision_mod
    use truncation, only: nrp, n_phi_max, l_max, l_maxMag, n_r_icb, &
-       &                 n_r_cmb
+       &                 n_r_cmb, nThetaStart, nThetaStop, n_theta_loc
    use constants, only: pi, one, two, third, half
    use logic, only: l_mag_nl, l_anelastic_liquid
    use physical_parameters, only: ek, ViscHeatFac, ThExpNb
@@ -15,7 +15,7 @@ module nl_special_calc
    use blocking, only: sizeThetaB, nfs
    use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2
 #ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH_axi
+   use shtns, only: spat_to_SH_axi, spat_to_SH_axi_dist
 #else
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
 #endif
@@ -504,7 +504,7 @@ contains
    end subroutine get_helicity
 !------------------------------------------------------------------------------
    subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
-              &             dvtdp,dvpdr,dvpdp,viscLMr,nR,nThetaStart)
+              &             dvtdp,dvpdr,dvpdp,viscLMr,nR)
       !
       !   Calculates axisymmetric contributions of the viscous heating
       !
@@ -512,69 +512,69 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      integer,  intent(in) :: nThetaStart
-      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs),cvr(nrp,nfs)
-      real(cp), intent(in) :: dvrdr(nrp,nfs),dvrdt(nrp,nfs),dvrdp(nrp,nfs)
-      real(cp), intent(in) :: dvtdr(nrp,nfs),dvtdp(nrp,nfs)
-      real(cp), intent(in) :: dvpdr(nrp,nfs),dvpdp(nrp,nfs)
+      real(cp), intent(in) :: vr(nrp,nThetaStart:nThetaStop),vt(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: vp(nrp,nThetaStart:nThetaStop),cvr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: dvrdr(nrp,nThetaStart:nThetaStop),dvrdt(nrp,nThetaStart:nThetaStop),dvrdp(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: dvtdr(nrp,nThetaStart:nThetaStop),dvtdp(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: dvpdr(nrp,nThetaStart:nThetaStop),dvpdp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
       real(cp), intent(out) :: viscLMr(l_max+1)
 
       !-- Local variables:
       integer :: nTheta,nThetaB,nPhi, nThetaNHS
-      real(cp) :: viscAS(nfs),vischeat,csn2, phinorm
+      real(cp) :: viscAS(nThetaStart:nThetaStop),vischeat,csn2, phinorm
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
-      !$OMP& private(nThetaB, nTheta, nPhi)                 &
+      !$OMP& private(nTheta, nPhi)                 &
       !$OMP& private(vischeat, csn2, nThetaNHS)
 #endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
+      do nTheta=nThetaStart, nThetaStop
          nThetaNHS=(nTheta+1)/2
          csn2     =cosn2(nThetaNHS)
          if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
 
-         viscAS(nThetaB)=0.0_cp
+         viscAS(nTheta)=0.0_cp
          do nPhi=1,n_phi_max
             vischeat=         or2(nR)*orho1(nR)*visc(nR)*(        &
-            &     two*(                     dvrdr(nPhi,nThetaB) - & ! (1)
-            &     (two*or1(nR)+beta(nR))*vr(nphi,nThetaB) )**2  + &
-            &     two*( csn2*                  vt(nPhi,nThetaB) + &
-            &                               dvpdp(nphi,nThetaB) + &
-            &                               dvrdr(nPhi,nThetaB) - & ! (2)
-            &     or1(nR)*               vr(nPhi,nThetaB) )**2  + &
-            &     two*(                     dvpdp(nphi,nThetaB) + &
-            &           csn2*                  vt(nPhi,nThetaB) + & ! (3)
-            &     or1(nR)*               vr(nPhi,nThetaB) )**2  + &
-            &          ( two*               dvtdp(nPhi,nThetaB) + &
-            &                                 cvr(nPhi,nThetaB) - & ! (6)
-            &      two*csn2*             vp(nPhi,nThetaB) )**2  + &
+            &     two*(                     dvrdr(nPhi,nTheta) - & ! (1)
+            &     (two*or1(nR)+beta(nR))*vr(nphi,nTheta) )**2  + &
+            &     two*( csn2*                  vt(nPhi,nTheta) + &
+            &                               dvpdp(nphi,nTheta) + &
+            &                               dvrdr(nPhi,nTheta) - & ! (2)
+            &     or1(nR)*               vr(nPhi,nTheta) )**2  + &
+            &     two*(                     dvpdp(nphi,nTheta) + &
+            &           csn2*                  vt(nPhi,nTheta) + & ! (3)
+            &     or1(nR)*               vr(nPhi,nTheta) )**2  + &
+            &          ( two*               dvtdp(nPhi,nTheta) + &
+            &                                 cvr(nPhi,nTheta) - & ! (6)
+            &      two*csn2*             vp(nPhi,nTheta) )**2  + &
             &                                 osn2(nThetaNHS) * ( &
-            &         ( r(nR)*              dvtdr(nPhi,nThetaB) - &
-            &           (two+beta(nR)*r(nR))*  vt(nPhi,nThetaB) + & ! (4)
-            &     or1(nR)*            dvrdt(nPhi,nThetaB) )**2  + &
-            &         ( r(nR)*              dvpdr(nPhi,nThetaB) - &
-            &           (two+beta(nR)*r(nR))*  vp(nPhi,nThetaB) + & ! (5)
-            &     or1(nR)*            dvrdp(nPhi,nThetaB) )**2 )- &
-            &    two*third*(  beta(nR)*        vr(nPhi,nThetaB) )**2 )
+            &         ( r(nR)*              dvtdr(nPhi,nTheta) - &
+            &           (two+beta(nR)*r(nR))*  vt(nPhi,nTheta) + & ! (4)
+            &     or1(nR)*            dvrdt(nPhi,nTheta) )**2  + &
+            &         ( r(nR)*              dvpdr(nPhi,nTheta) - &
+            &           (two+beta(nR)*r(nR))*  vp(nPhi,nTheta) + & ! (5)
+            &     or1(nR)*            dvrdp(nPhi,nTheta) )**2 )- &
+            &    two*third*(  beta(nR)*        vr(nPhi,nTheta) )**2 )
 
-            viscAS(nThetaB)=viscAS(nThetaB)+vischeat
+            viscAS(nTheta)=viscAS(nTheta)+vischeat
          end do
-         viscAS(nThetaB)=phiNorm*viscAS(nThetaB)
+         viscAS(nTheta)=phiNorm*viscAS(nTheta)
       end do
 #ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
 #endif
 
 #ifdef WITH_SHTNS
-      call spat_to_SH_axi(viscAS, viscLMr)
+      call spat_to_SH_axi_dist(viscAS, viscLMr)
 #else
-      call legTFAS(viscLMr,viscAS,l_max+1,nThetaStart,sizeThetaB)
+      call legTFAS(viscLMr,viscAS,l_max+1,nThetaStart,n_theta_loc)
 #endif
+!       stop
 
    end subroutine get_visc_heat
 !------------------------------------------------------------------------------

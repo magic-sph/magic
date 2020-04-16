@@ -93,7 +93,7 @@ contains
       call spat_to_SH_dist(br_vt, br_vt_lm, l_max)
       call spat_to_SH_dist(br_vp, br_vp_lm, l_max)
 #else
-      print * "PANIC, NOT PORTED!!", __FILE__, __LINE__
+      print *, "PANIC, NOT PORTED!!", __FILE__, __LINE__
       if ( .not. l_axi ) then
          call fft_thetab(br_vt, -1)
          call fft_thetab(br_vp, -1)

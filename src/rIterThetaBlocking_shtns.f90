@@ -183,6 +183,7 @@ contains
       call this%transform_to_grid_space_shtns(this%gsa)
       call lm2phy_counter%stop_count(l_increment=.false.)
 
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
       call this%gsa%slice_all(this%gsa_dist)
       call this%nl_lm%slice_all(this%nl_lm_dist)
       
@@ -190,6 +191,7 @@ contains
       call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
       call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb_dist)
       call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb_dist)
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
       
       !--------- Calculation of nonlinear products in grid space:
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
@@ -285,17 +287,16 @@ contains
                  &        lGraphHeader)
 #endif
       end if
-
-      call this%nl_lm_dist%gather_all(this%nl_lm)
-      call this%gsa_dist%gather_all(this%gsa)
       
       if ( this%l_probe_out ) then
+         print *, " * lHelCalc is not ported!!!", __LINE__, __FILE__
          call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1, &
               &         this%sizeThetaB)
       end if
 
       !--------- Helicity output:
       if ( this%lHelCalc ) then
+         print *, " * lHelCalc is not ported!!!", __LINE__, __FILE__
          HelLMr(:)   =0.0_cp
          Hel2LMr(:)  =0.0_cp
          HelnaLMr(:) =0.0_cp
@@ -303,18 +304,23 @@ contains
          call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
               &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
               &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
-              &            HelnaLMr,Helna2LMr,this%nR,1 )
+              &            HelnaLMr,Helna2LMr,this%nR,1)
       end if
 
       !-- Viscous heating:
       if ( this%lPowerCalc ) then
          viscLMr(:)=0.0_cp
-         call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
-              &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
-              &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
-              &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscLMr,         &
-              &             this%nR,1)
+         call get_visc_heat(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,          &
+              &             this%gsa_dist%cvrc,this%gsa_dist%dvrdrc,this%gsa_dist%dvrdtc,   &
+              &             this%gsa_dist%dvrdpc,this%gsa_dist%dvtdrc,this%gsa_dist%dvtdpc, &
+              &             this%gsa_dist%dvpdrc,this%gsa_dist%dvpdpc,viscLMr,         &
+              &             this%nR)
       end if
+      
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
+      call this%nl_lm_dist%gather_all(this%nl_lm)
+      call this%gsa_dist%gather_all(this%gsa)
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
 
       !-- horizontal velocity :
       if ( this%lViscBcCalc ) then

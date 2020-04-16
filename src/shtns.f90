@@ -1,13 +1,13 @@
 module shtns
 
    use iso_fortran_env, only: output_unit
-   use precision_mod, only: cp
+   use precision_mod, only: cp, MPI_DEF_REAL
    use blocking, only: st_map
    use constants, only: ci, one, zero
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
        &                 minc, lm_max, lmP_max, n_lm_loc, n_theta_loc, &
        &                 n_m_loc, n_lmP_loc, n_m_max, dist_m,          &
-       &                 nThetaStart, nThetaStop, coord_m
+       &                 nThetaStart, nThetaStop, coord_m, dist_theta
    use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
    use fft, only: fft_phi_loc
@@ -26,7 +26,7 @@ module shtns
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
    &         axi_to_spat, spat_to_qst,                                      &
    &         spat_to_SH_dist, spat_to_qst_dist, spat_to_sphertor_dist,      &
-   &         test_shtns, test_spat_to_qst, test_spat_to_SH
+   &         test_shtns, test_spat_to_qst, test_spat_to_SH, spat_to_SH_axi_dist
 
 contains
 
@@ -849,6 +849,35 @@ contains
       call shtns_load_cfg(0)
 
    end subroutine spat_to_sphertor_dist
+   
+   !------------------------------------------------------------------------------
+   subroutine spat_to_SH_axi_dist(f, fLM)
+
+      real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
+      real(cp), intent(out) :: fLM(:)
+
+      !-- Local arrays
+      complex(cp) :: tmp_c(n_theta_max)
+      real(cp)    :: tmp_r(n_theta_max)
+      complex(cp) :: tmpLM(size(fLM))
+      integer     :: ierr
+
+      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(1)
+      tmp_r(nThetaStart:nThetaStop)=f(nThetaStart:nThetaStop)
+
+#ifdef WITH_MPI
+      if (n_ranks_theta>1) then
+         call MPI_ALLGATHERV(MPI_IN_PLACE, 0, 0, tmp_r, dist_theta(:,0), dist_theta(:,1)-1, MPI_DEF_REAL, comm_theta, ierr)
+      end if
+#endif
+      tmp_c = cmplx(tmp_r, 0.0, kind=cp)
+      call shtns_spat_to_sh_ml(0, tmp_c, tmpLM, size(fLM)-1)
+      
+      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(0)
+      fLM(:)=real(tmpLM(:))
+
+   end subroutine spat_to_SH_axi_dist
+!------------------------------------------------------------------------------
    
    !----------------------------------------------------------------------------
    subroutine test_shtns

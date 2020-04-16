@@ -215,7 +215,8 @@ def get_exec_cmd(args, execDir):
         execCmd = '%s -n %i %s' % (args.mpicmd, args.nranks, magicExec)
     else: # Without MPI
         execCmd = '%s' % magicExec
-
+    
+    execCmd += ' ' + args.extra_arg
     return execCmd
 
 
@@ -509,6 +510,7 @@ if __name__ == '__main__':
     # Run the auto-test suite
     print('3.   Auto-tests       ')
     print('----------------------')
+    print('  cmd       : '+ str(cmd))
     suite = getSuite(startdir, cmd, precision, args)
     runner = unittest.TextTestRunner(verbosity=0)
     ret = not runner.run(suite).wasSuccessful()
