@@ -183,10 +183,10 @@ contains
          ! if it is present - Lago
          open(newunit=inputHandle,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
-         if ( l_master_rank ) write(*,*) '!  Reading parallelization parameters!'
+         if ( l_master_rank ) write(output_unit,*) '!  Reading parallelization parameters!'
          read(inputHandle,nml=parallel,iostat=res)
          if ( res /= 0 .and. l_master_rank ) then
-            write(*,*) '! No parallel namelist found!'
+            write(output_unit,*) '! No parallel namelist found!'
          end if
          close(inputHandle)
          cmd_args = ""
