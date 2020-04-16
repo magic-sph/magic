@@ -296,15 +296,14 @@ contains
 
       !--------- Helicity output:
       if ( this%lHelCalc ) then
-         print *, " * lHelCalc is not ported!!!", __LINE__, __FILE__
          HelLMr(:)   =0.0_cp
          Hel2LMr(:)  =0.0_cp
          HelnaLMr(:) =0.0_cp
          Helna2LMr(:)=0.0_cp
-         call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
-              &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
-              &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
-              &            HelnaLMr,Helna2LMr,this%nR,1)
+         call get_helicity(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,         &
+              &            this%gsa_dist%cvrc,this%gsa_dist%dvrdtc,this%gsa_dist%dvrdpc,  &
+              &            this%gsa_dist%dvtdrc,this%gsa_dist%dvpdrc,HelLMr,Hel2LMr, &
+              &            HelnaLMr,Helna2LMr,this%nR)
       end if
 
       !-- Viscous heating:
@@ -327,9 +326,9 @@ contains
          gradsLMr(:)=0.0_cp
          uhLMr(:)   =0.0_cp
          duhLMr(:)  =0.0_cp
-         call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
-              &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
-              &             this%gsa%dsdpc,uhLMr,duhLMr,gradsLMr,nR,1 )
+         call get_nlBLayers(this%gsa_dist%vtc,this%gsa_dist%vpc,this%gsa_dist%dvtdrc,    &
+              &             this%gsa_dist%dvpdrc,this%gsa_dist%drSc,this%gsa_dist%dsdtc, &
+              &             this%gsa_dist%dsdpc,uhLMr,duhLMr,gradsLMr,nR)
       end if
 
       !-- Radial flux profiles
@@ -339,12 +338,12 @@ contains
          fviscLMr(:)=0.0_cp
          fpoynLMr(:)=0.0_cp
          fresLMr(:) =0.0_cp
-         call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
-              &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
-              &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
-              &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
-              &          this%gsa%cbtc,this%gsa%cbpc,fconvLMr,fkinLMr,      &
-              &          fviscLMr,fpoynLMr,fresLMr,nR,1 )
+         call get_fluxes(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,            &
+              &          this%gsa_dist%dvrdrc,this%gsa_dist%dvtdrc,this%gsa_dist%dvpdrc,   &
+              &          this%gsa_dist%dvrdtc,this%gsa_dist%dvrdpc,this%gsa_dist%sc,       &
+              &          this%gsa_dist%pc,this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc,&
+              &          this%gsa_dist%cbtc,this%gsa_dist%cbpc,fconvLMr,fkinLMr,      &
+              &          fviscLMr,fpoynLMr,fresLMr,nR)
       end if
 
       !-- Kinetic energy parallel and perpendicular to rotation axis
@@ -353,8 +352,8 @@ contains
          EparLMr(:)    =0.0_cp
          EperpaxiLMr(:)=0.0_cp
          EparaxiLMr(:) =0.0_cp
-         call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpLMr, &
-              &           EparLMr,EperpaxiLMr,EparaxiLMr,nR,1 )
+         call get_perpPar(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,EperpLMr, &
+              &           EparLMr,EperpaxiLMr,EparaxiLMr,nR )
       end if
 
 
