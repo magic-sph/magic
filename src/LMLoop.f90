@@ -6,17 +6,13 @@ module LMLoop_mod
 #endif
 
    use fields
-   use omp_lib
    use precision_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
-   use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
-   use logic, only: l_mag, l_conv, lVerbose, l_heat, l_single_matrix, l_double_curl, &
-       &            l_chemical_conv, l_save_out, l_cond_ic
-   use output_data, only: n_log_file, log_file
-   use debugging,  only: debug_write
+   use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
+       &            l_chemical_conv, l_cond_ic
    use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use updateS_mod
@@ -118,14 +114,8 @@ contains
       !--- Inner core rotation from last time step
       real(cp) :: z10(n_r_max)
 
-
       PERFON('LMloop')
       !LIKWID_ON('LMloop')
-      if ( lVerbose .and. l_save_out ) then
-         open(newunit=n_log_file, file=log_file, status='unknown', &
-         &    position='append')
-      end if
-
       if ( lMat ) then ! update matrices:
          !---- The following logicals tell whether the respective inversion
          !     matrices have been updated. lMat=.true. when a general
@@ -187,8 +177,6 @@ contains
          PERFOFF
          !LIKWID_OFF('up_B')
       end if
-
-      if ( lVerbose .and. l_save_out ) close(n_log_file)
 
       !LIKWID_OFF('LMloop')
       PERFOFF
