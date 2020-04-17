@@ -8,9 +8,9 @@ module rIterThetaBlocking_mod
    use rIteration_mod, only: rIteration_t
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max,nrp, l_max, n_phi_maxStr,n_theta_maxStr, &
-       &                 lm_maxMag,l_axi, n_r_cmb, n_r_icb, nRstart, nRstop
-   use blocking, only: nfs
+   use truncation, only: lm_max,nrp, l_max, n_phi_maxStr, lm_maxMag, l_axi, &
+       &                 n_r_cmb, n_r_icb, nRstart, nRstop, nThetaStart,    &
+       &                 nThetaStop
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
@@ -25,7 +25,7 @@ module rIterThetaBlocking_mod
    use fields, only: s_Rloc, ds_Rloc, xi_Rloc, p_Rloc
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
-   use physical_parameters, only: kbots,ktops,n_r_LCR
+   use physical_parameters, only: kbots, ktops, n_r_LCR
    use nonlinear_bcs, only: v_rigid_boundary
    use legendre_grid_to_spec
 
@@ -73,12 +73,12 @@ contains
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
 
       if ( l_TO ) then
-         allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-         allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-         allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated+ &
-         &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*&
-         &                SIZEOF_DEF_REAL
+         allocate( this%BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( this%BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( this%BzLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+3*n_phi_maxStr*               &
+         &                 (nThetaStop-nThetaStart+1)*(nRstop-nRstart+1)*&
+         &                 SIZEOF_DEF_REAL
       end if
 
    end subroutine allocate_common_arrays

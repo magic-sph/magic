@@ -29,7 +29,7 @@ module outTO_mod
    use TO_helpers, only: getPAStr, get_PAS, getAStr
    use useful, only: logWrite, abortRun
 #ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH_axi
+   use shtns, only: spat_to_SH_axi_dist
 #else
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
 #endif
@@ -394,15 +394,15 @@ contains
 
       do nR=nRstart,nRstop
 #ifdef WITH_SHTNS
-         call spat_to_SH_axi(V2AS_Rloc(:,nR),V2LMr_Rloc(:,nR))
-         call spat_to_SH_axi(Bs2AS_Rloc(:,nR),Bs2LMr_Rloc(:,nR))
-         call spat_to_SH_axi(BszAS_Rloc(:,nR),BszLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BspAS_Rloc(:,nR),BspLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BpzAS_Rloc(:,nR),BpzLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BspdAS_Rloc(:,nR),BspdLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BpsdAS_Rloc(:,nR),BpsdLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BzpdAS_Rloc(:,nR),BzpdLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BpzdAS_Rloc(:,nR),BpzdLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(V2AS_Rloc(:,nR),V2LMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(Bs2AS_Rloc(:,nR),Bs2LMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BszAS_Rloc(:,nR),BszLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BspAS_Rloc(:,nR),BspLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BpzAS_Rloc(:,nR),BpzLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BspdAS_Rloc(:,nR),BspdLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BpsdAS_Rloc(:,nR),BpsdLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BzpdAS_Rloc(:,nR),BzpdLMr_Rloc(:,nR))
+         call spat_to_SH_axi_dist(BpzdAS_Rloc(:,nR),BpzdLMr_Rloc(:,nR))
 #else
          do n=1,nThetaBs
             nThetaStart=(n-1)*sizeThetaB+1

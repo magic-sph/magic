@@ -388,19 +388,18 @@ contains
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,           &
-              &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),   &
-              &         dtLast,this%nR,1,this%sizeThetaB,this%BsLast,this%BpLast,&
-              &         this%BzLast)
+         call getTOnext(this%leg_helper%zAS,this%gsa_dist%brc,this%gsa_dist%btc,           &
+              &         this%gsa_dist%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),   &
+              &         dtLast,this%nR,this%BsLast,this%BpLast,this%BzLast)
       end if
 
       if ( this%lTOCalc ) then
-         call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
-              &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
-              &     this%gsa%cbrc,this%gsa%cbtc,this%BsLast,this%BpLast,    &
+         call getTO(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,this%gsa_dist%cvrc,   &
+              &     this%gsa_dist%dvpdrc,this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc, &
+              &     this%gsa_dist%cbrc,this%gsa_dist%cbtc,this%BsLast,this%BpLast,    &
               &     this%BzLast,this%TO_arrays%dzRstrLM,                    &
               &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
-              &     this%TO_arrays%dzLFLM,dtLast,this%nR,1,this%sizeThetaB)
+              &     this%TO_arrays%dzLFLM,dtLast,this%nR)
       end if
       PERFOFF
 
