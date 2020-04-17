@@ -421,8 +421,10 @@ contains
 #endif
       do nThetaB=1,sizeThetaB
          nTheta=nThetaStart+nThetaB-1
-         HelAS(nThetaB) =0.0_cp
-         Hel2AS(nThetaB)=0.0_cp
+         HelAS(nThetaB)   =0.0_cp
+         Hel2AS(nThetaB)  =0.0_cp
+         HelnaAS(nThetaB) =0.0_cp
+         Helna2AS(nThetaB)=0.0_cp
          vras=0.0_cp
          cvras=0.0_cp
          vtas=0.0_cp
@@ -477,8 +479,8 @@ contains
 
             HelAS(nThetaB)   =HelAS(nThetaB) +Hel
             Hel2AS(nThetaB)  =Hel2AS(nThetaB)+Hel*Hel
-            HelnaAS(nThetaB) =HelAS(nThetaB) +Helna
-            Helna2AS(nThetaB)=Hel2AS(nThetaB)+Helna*Helna
+            HelnaAS(nThetaB) =HelnaAS(nThetaB) +Helna
+            Helna2AS(nThetaB)=Helna2AS(nThetaB)+Helna*Helna
          end do
          HelAS(nThetaB) =phiNorm*HelAS(nThetaB)
          Hel2AS(nThetaB)=phiNorm*Hel2AS(nThetaB)
