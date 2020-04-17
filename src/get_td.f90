@@ -18,8 +18,7 @@ module nonlinear_lm_mod
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ChemFac, ThExpNb
-   use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
-       &               lm2lmS, st_map, lo_map
+   use blocking, only: st_map, lo_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
        &                      dTheta3A, dTheta4A, dTheta2S,  hdif_B,   &
        &                      dTheta3S, dTheta4S, hdif_V
@@ -31,6 +30,7 @@ module nonlinear_lm_mod
        &             p_Rloc, dp_Rloc, xi_Rloc
    use RMS_helpers, only: hIntRms
    use communications, only: slice_FlmP_cmplx, gather_FlmP
+   use LMmapping, only: map_dist_st
 
 
    implicit none
@@ -350,23 +350,36 @@ contains
       complex(cp) :: dxidt_loc
 #endif
 
+      integer, pointer :: lm2l(:), lm2m(:), lm2lmP(:), lm2(:,:)
+      integer, pointer :: lmP2lmPS(:), lmP2lmPA(:), lm2lmA(:), lm2lmS(:)
+
       integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 
+      !lm2l(1:lm_max) => map_dist_st%lm2l
+      !lm2m(1:lm_max) => map_dist_st%lm2m
+      !lmP2lmPS(1:lmP_max) => map_dist_st%lmP2lmPS
+      !lmP2lmPA(1:lmP_max) => map_dist_st%lmP2lmPA
+      !lm2lmP(1:lm_max) => map_dist_st%lm2lmP
+      !lm2lmS(1:lm_max) => map_dist_st%lm2lmS
+      !lm2lmA(1:lm_max) => map_dist_st%lm2lmA
+      !lm2(0:,0:) => map_dist_st%lm2
 
-      !write(*,"(I3,A,4ES20.12)") nR,": get_td start: ",SUM(this%AdvrLM)
-
-      !lm_chunksize=(((lm_max)/nThreads)/DOUBLE_COMPLEX_PER_CACHELINE) * &
-      !             & DOUBLE_COMPLEX_PER_CACHELINE
-      !lm_chunksize=4
-      !write(*,"(A,I4)") "Using a chunksize of ",lm_chunksize
+      lm2l(1:lm_max) => st_map%lm2l
+      lm2m(1:lm_max) => st_map%lm2m
+      lmP2lmPS(1:lmP_max) => st_map%lmP2lmPS
+      lmP2lmPA(1:lmP_max) => st_map%lmP2lmPA
+      lm2lmP(1:lm_max) => st_map%lm2lmP
+      lm2lmS(1:lm_max) => st_map%lm2lmS
+      lm2lmA(1:lm_max) => st_map%lm2lmA
+      lm2(0:,0:) => st_map%lm2
 
       if (nBc == 0 .or. lRmsCalc ) then
 
          if ( l_conv ) then  ! Convection
 
-            lm =1   ! This is l=0,m=0
+            lm =lm2(0,0)   ! This is l=0,m=0
             lmA=lm2lmA(lm)
-            lmP=1
+            lmP=lm2lmP(lm)
             lmPA=lmP2lmPA(lmP)
             if ( l_conv_nl ) then
                AdvPol_loc=      or2(nR)*this%AdvrLM(lm)
@@ -877,25 +890,26 @@ contains
 
          if ( l_heat ) then
             dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
-            dVSrLM(1)=this%VSrLM(1)
+            lm = lm2(0,0)
+            dVSrLM(lm)=this%VSrLM(lm)
             if ( l_anel ) then
                if ( l_anelastic_liquid ) then
                   if ( l_mag_nl ) then
-                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(1)+ &
-                     &        OhmLossFac*temp0(nR)*this%OhmLossLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(lm)+ &
+                     &        OhmLossFac*temp0(nR)*this%OhmLossLM(lm)
                   else
-                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(lm)
                   end if
                else
                   if ( l_mag_nl ) then
-                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(1)+ &
-                     &        OhmLossFac*this%OhmLossLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(lm)+ &
+                     &        OhmLossFac*this%OhmLossLM(lm)
                   else
-                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(1)
+                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(lm)
                   end if
                end if
             end if
-            dsdt(1)=dsdt_loc
+            dsdt(lm)=dsdt_loc
 
 #ifdef WITH_SHTNS
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l,m)
@@ -970,7 +984,7 @@ contains
                !-----   simplified form for linear onset !
                !        not ds not saved in the current program form!
                !                 dsdt(lm)=
-               !                    -dLh(lm)*w(lm,nR)*or2(nR)*dsR(1)
+               !                    -dLh(lm)*w(lm,nR)*or2(nR)*dsR(lm2(0,0))
                dVSrLM(lm)=this%VSrLM(lmP)
                dsdt(lm) = dsdt_loc
             end do
@@ -986,8 +1000,8 @@ contains
          end if
 
          if ( l_chemical_conv ) then
-            dVXirLM(1)=this%VXirLM(1)
-            dxidt(1)  =epscXi
+            dVXirLM(lm2(0,0))=this%VXirLM(lm2(0,0))
+            dxidt(lm2(0,0))  =epscXi
 
 #ifdef WITH_SHTNS
             !$omp parallel do default(shared) private(lm,lmP)
@@ -1037,8 +1051,8 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS,lmPA)
             do lm=1,lm_max
-               if (lm == 1) then
-                  lmP=1
+               if (lm == lm2(0,0)) then
+                  lmP=lm2lmP(lm)
                   lmPA=lmP2lmPA(lmP)
                   dVxBhLM(lm)= -r(nR)*r(nR)* dTheta1A(lm)*this%VxBtLM(lmPA)
                   dbdt(lm)   = -dTheta1A(lm)*this%VxBpLM(lmPA)
@@ -1102,8 +1116,8 @@ contains
          if ( l_mag_nl .or. l_mag_kin ) then
 
 #ifdef WITH_SHTNS
-            dVxBhLM(1)=zero
-            dVSrLM(1) =zero
+            dVxBhLM(lm2(0,0))=zero
+            dVSrLM(lm2(0,0)) =zero
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=2,lm_max
                lmP =lm2lmP(lm)
@@ -1115,8 +1129,8 @@ contains
             !----- Stress free boundary, only nl mag. term for poloidal field needed.
             !      Because the radial derivative will be taken, this will contribute to
             !      the other radial grid points.
-            dVxBhLM(1)=zero
-            dVSrLM(1) =zero
+            dVxBhLM(lm2(0,0))=zero
+            dVSrLM(lm2(0,0)) =zero
             !$omp parallel do default(shared) private(lm,lmP,l,m,lmPS,lmPA)
             do lm=2,lm_max
                l   =lm2l(lm)
