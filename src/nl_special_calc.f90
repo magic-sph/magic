@@ -425,8 +425,10 @@ contains
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)
 #endif
       do nTheta=nThetaStart,nThetaStop
-         HelAS(nTheta) =0.0_cp
-         Hel2AS(nTheta)=0.0_cp
+         HelAS(nTheta)   =0.0_cp
+         Hel2AS(nTheta)  =0.0_cp
+         HelnaAS(nTheta) =0.0_cp
+         Helna2AS(nTheta)=0.0_cp
          vras=0.0_cp
          cvras=0.0_cp
          vtas=0.0_cp
@@ -481,8 +483,8 @@ contains
 
             HelAS(nTheta)   =HelAS(nTheta) +Hel
             Hel2AS(nTheta)  =Hel2AS(nTheta)+Hel*Hel
-            HelnaAS(nTheta) =HelAS(nTheta) +Helna
-            Helna2AS(nTheta)=Hel2AS(nTheta)+Helna*Helna
+            HelnaAS(nTheta) =HelnaAS(nTheta) +Helna
+            Helna2AS(nTheta)=Helna2AS(nTheta)+Helna*Helna
          end do
          HelAS(nTheta) =phiNorm*HelAS(nTheta)
          Hel2AS(nTheta)=phiNorm*Hel2AS(nTheta)
