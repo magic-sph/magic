@@ -88,9 +88,9 @@ contains
       call this%gsa%initialize()
       call this%gsa_dist%initialize_dist()
       if ( l_TO ) call this%TO_arrays%initialize()
-      call this%dtB_arrays%initialize(lmP_max)
+      call this%dtB_arrays%initialize(lmP_max_dtB)
       call this%dtB_arrays_dist%initialize(n_lmP_loc)
-      call this%nl_lm%initialize(lmP_max_dtB)
+      call this%nl_lm%initialize(lmP_max)
       call this%nl_lm_dist%initialize(n_lmP_loc)
 
    end subroutine initialize_rIterThetaBlocking_shtns
