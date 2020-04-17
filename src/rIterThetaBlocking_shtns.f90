@@ -10,7 +10,7 @@ module rIterThetaBlocking_shtns_mod
    use parallel_mod, only: get_openmp_blocks
    use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb,   &
        &                 n_r_icb, n_lmP_loc, n_theta_loc,            &
-       &                 nThetaStart, nThetaStop
+       &                 nThetaStart, nThetaStop, lmP_max_dtB
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -57,6 +57,7 @@ module rIterThetaBlocking_shtns_mod
       type(grid_space_arrays_t) :: gsa_dist
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
+      type(dtB_arrays_t) :: dtB_arrays_dist
       type(nonlinear_lm_t) :: nl_lm
       type(nonlinear_lm_t) :: nl_lm_dist
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
@@ -87,8 +88,9 @@ contains
       call this%gsa%initialize()
       call this%gsa_dist%initialize_dist()
       if ( l_TO ) call this%TO_arrays%initialize()
-      call this%dtB_arrays%initialize()
-      call this%nl_lm%initialize(lmP_max)
+      call this%dtB_arrays%initialize(lmP_max)
+      call this%dtB_arrays_dist%initialize(n_lmP_loc)
+      call this%nl_lm%initialize(lmP_max_dtB)
       call this%nl_lm_dist%initialize(n_lmP_loc)
 
    end subroutine initialize_rIterThetaBlocking_shtns
@@ -102,6 +104,7 @@ contains
       call this%gsa_dist%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
+      call this%dtB_arrays_dist%finalize()
       call this%nl_lm%finalize()
       call this%nl_lm_dist%finalize()
 
@@ -289,7 +292,7 @@ contains
       end if
       
       if ( this%l_probe_out ) then
-         print *, " * lHelCalc is not ported!!!", __LINE__, __FILE__
+         print *, " * probe_out is not ported!!!", __LINE__, __FILE__
          call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1, &
               &         this%sizeThetaB)
       end if
@@ -315,11 +318,6 @@ contains
               &             this%gsa_dist%dvpdrc,this%gsa_dist%dvpdpc,viscLMr,         &
               &             this%nR)
       end if
-      
-      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
-      call this%nl_lm_dist%gather_all(this%nl_lm)
-      call this%gsa_dist%gather_all(this%gsa)
-      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
 
       !-- horizontal velocity :
       if ( this%lViscBcCalc ) then
@@ -355,10 +353,15 @@ contains
          call get_perpPar(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,EperpLMr, &
               &           EparLMr,EperpaxiLMr,EparaxiLMr,nR )
       end if
-
+      
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
+      call this%nl_lm_dist%gather_all(this%nl_lm)
+      call this%gsa_dist%gather_all(this%gsa)
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
 
       !--------- Movie output:
       if ( this%l_frame .and. l_movie_oc .and. l_store_frame ) then
+         print *, " * movies are not ported!!!", __LINE__, __FILE__
          call store_movie_frame(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
               &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
               &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
@@ -372,16 +375,16 @@ contains
       !--------- Calculation of magnetic field production and advection terms
       !          for graphic output:
       if ( l_dtB ) then
-         call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
-              &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,               &
-              &         1 ,this%sizeThetaB,this%dtB_arrays%BtVrLM,            &
-              &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
-              &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
-              &         this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,        &
-              &         this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM,     &
-              &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,  &
-              &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,  &
-              &         this%dtB_arrays%BtVZsn2LM)
+         call get_dtBLM(this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,       &
+              &         this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc,               &
+              &         this%dtB_arrays_dist%BtVrLM,            &
+              &         this%dtB_arrays_dist%BpVrLM,this%dtB_arrays_dist%BrVtLM,        &
+              &         this%dtB_arrays_dist%BrVpLM,this%dtB_arrays_dist%BtVpLM,        &
+              &         this%dtB_arrays_dist%BpVtLM,this%dtB_arrays_dist%BrVZLM,        &
+              &         this%dtB_arrays_dist%BtVZLM,this%dtB_arrays_dist%BtVpCotLM,     &
+              &         this%dtB_arrays_dist%BpVtCotLM,this%dtB_arrays_dist%BtVZcotLM,  &
+              &         this%dtB_arrays_dist%BtVpSn2LM,this%dtB_arrays_dist%BpVtSn2LM,  &
+              &         this%dtB_arrays_dist%BtVZsn2LM)
       end if
 
 
@@ -437,6 +440,9 @@ contains
       !--- Form partial horizontal derivaties of magnetic production and
       !    advection terms:
       if ( l_dtB ) then
+         ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+         call this%dtB_arrays_dist%gather_dtB_all(this%dtB_arrays)
+         ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
          PERFON('dtBLM')
          call get_dH_dtBLM(this%nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,&
               &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,        &

@@ -10,22 +10,24 @@ module dtB_mod
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
        &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
        &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi,        &
-       &                 nRstart,nRstop
+       &                 nRstart, nRstop, nThetaStart, nThetaStop
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use mpi_transp, only: type_mpitransp
    use mpi_ptop_mod, only: type_mpiptop
    use physical_parameters, only: opm,O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
-       &                       or1, orho1
+       &                       or1, orho1, l_R
    use horizontal_data, only: dPhi, dLh, hdif_B, osn2, cosn2, osn1, &
        &                      dTheta1S, dTheta1A
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
-                       lm2lmP, nfs, llmMag, ulmMag, llm, ulm
+                       lm2lmP, llmMag, ulmMag, llm, ulm
    use radial_spectra ! rBrSpec, rBpSpec
 #ifndef WITH_SHTNS
    use fft
    use legendre_grid_to_spec, only: legTF2, legTF3
+#else
+   use shtns, only: spat_to_SH_dist
 #endif
    use constants, only: two
    use radial_der, only: get_dr
@@ -190,10 +192,9 @@ contains
 
    end subroutine dtb_gather_lo_on_rank0
 !----------------------------------------------------------------------------
-   subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,n_theta_start,n_theta_block, &
-               &         BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,BrVZLM, &
-               &         BtVZLM,BtVpCotLM,BpVtCotLM,BtVZcotLM,BtVpSn2LM,   &
-               &         BpVtSn2LM,BtVZsn2LM)
+   subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
+               &         BtVpLM,BpVtLM,BrVZLM,BtVZLM,BtVpCotLM,BpVtCotLM,  &
+               &         BtVZcotLM,BtVpSn2LM,BpVtSn2LM,BtVZsn2LM)
 
       !
       !  This subroutine calculates non-linear products in grid-space for radial
@@ -209,9 +210,13 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: n_theta_start,n_theta_block,nR
-      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
-      real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: vt(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: vp(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: bt(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
       complex(cp), intent(out) :: BtVrLM(*),BpVrLM(*)
@@ -223,27 +228,25 @@ contains
       complex(cp), intent(out) :: BtVZsn2LM(*)
 
       !-- Local variables:
-      integer :: n_theta,n_phi,n_theta_nhs
-      real(cp) :: fac,facCot
-      real(cp) :: BtVr(nrp,nfs),BpVr(nrp,nfs)
-      real(cp) :: BrVt(nrp,nfs),BrVp(nrp,nfs)
-      real(cp) :: BtVp(nrp,nfs),BpVt(nrp,nfs)
-      real(cp) :: BrVZ(nrp,nfs),BtVZ(nrp,nfs)
-      real(cp) :: BpVtCot(nrp,nfs),BtVpCot(nrp,nfs)
-      real(cp) :: BpVtSn2(nrp,nfs),BtVpSn2(nrp,nfs)
-      real(cp) :: BtVZcot(nrp,nfs),BtVZsn2(nrp,nfs)
-      real(cp) :: vpAS
-
-      integer :: lm,l
+      integer :: lm,l, n_theta,n_phi,n_theta_nhs
+      real(cp) :: fac,facCot,vpAS
+      real(cp) :: BtVr(nrp,nThetaStart:nThetaStop),BpVr(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BrVt(nrp,nThetaStart:nThetaStop),BrVp(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BtVp(nrp,nThetaStart:nThetaStop),BpVt(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BrVZ(nrp,nThetaStart:nThetaStop),BtVZ(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BpVtCot(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BtVpCot(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BpVtSn2(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BtVpSn2(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BtVZcot(nrp,nThetaStart:nThetaStop)
+      real(cp) :: BtVZsn2(nrp,nThetaStart:nThetaStop)
 
 #ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP& private(n_theta, n_phi)    &
-      !$OMP& private(fac, facCot, n_theta_nhs)
+      !$omp parallel do default(shared) &
+      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs)
 #endif
-      do n_theta=1,n_theta_block ! loop over ic-points, alternating north/south
-
-         n_theta_nhs=(n_theta_start+n_theta)/2
+      do n_theta=nThetaStart,nThetaStop
+         n_theta_nhs=(n_theta+1)/2
          fac=osn2(n_theta_nhs)
          facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
          if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
@@ -322,30 +325,30 @@ contains
 
       end do
 #ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
+      !$omp end parallel do
 #endif
 
 #ifdef WITH_SHTNS
       call shtns_load_cfg(1)
 
-      call shtns_spat_to_SH(BtVr, BtVrLM)
-      call shtns_spat_to_SH(BpVr, BpVrLM)
-      call shtns_spat_to_SH(BrVt, BrVtLM)
+      call spat_to_SH_dist(BtVr, BtVrLM, l_R(nR))
+      call spat_to_SH_dist(BpVr, BpVrLM, l_R(nR))
+      call spat_to_SH_dist(BrVt, BrVtLM, l_R(nR))
 
-      call shtns_spat_to_SH(BrVp, BrVpLM)
-      call shtns_spat_to_SH(BtVp, BtVpLM)
-      call shtns_spat_to_SH(BpVt, BpVtLM)
+      call spat_to_SH_dist(BrVp, BrVpLM, l_R(nR))
+      call spat_to_SH_dist(BtVp, BtVpLM, l_R(nR))
+      call spat_to_SH_dist(BpVt, BpVtLM, l_R(nR))
 
-      call shtns_spat_to_SH(BtVpCot, BtVpCotLM)
-      call shtns_spat_to_SH(BpVtCot, BpVtCotLM)
-      call shtns_spat_to_SH(BtVZCot, BtVZCotLM)
+      call spat_to_SH_dist(BtVpCot, BtVpCotLM, l_R(nR))
+      call spat_to_SH_dist(BpVtCot, BpVtCotLM, l_R(nR))
+      call spat_to_SH_dist(BtVZCot, BtVZCotLM, l_R(nR))
 
-      call shtns_spat_to_SH(BrVZ, BrVZLM)
-      call shtns_spat_to_SH(BtVZ, BtVZLM)
-      call shtns_spat_to_SH(BtVZsn2, BtVZsn2LM)
+      call spat_to_SH_dist(BrVZ, BrVZLM, l_R(nR))
+      call spat_to_SH_dist(BtVZ, BtVZLM, l_R(nR))
+      call spat_to_SH_dist(BtVZsn2, BtVZsn2LM, l_R(nR))
 
-      call shtns_spat_to_SH(BtVpSn2, BtVpSn2LM)
-      call shtns_spat_to_SH(BpVtsn2, BpVtsn2LM)
+      call spat_to_SH_dist(BtVpSn2, BtVpSn2LM, l_R(nR))
+      call spat_to_SH_dist(BpVtsn2, BpVtsn2LM, l_R(nR))
 
       call shtns_load_cfg(0)
 #else
@@ -373,7 +376,7 @@ contains
       call legTF3(n_theta_start,BtVpCotLM,BpVtCotLM,BtVZcotLM,BtVpCot,BpVtCot,BtVZcot)
       call legTF3(n_theta_start,BrVZLM,BtVZLM,BtVZsn2LM,BrVZ,BtVZ,BtVZsn2)
       call legTF2(n_theta_start,BtVpSn2LM,BpVtSn2LM,BtVpSn2,BpVtSn2)
-#endif
+
       do l=0,l_max
          lm=l2lmAS(l)
          BtVrLM(lm)   =cmplx(real(BtVrLM(lm)),   0.0_cp, kind=cp)
@@ -391,6 +394,7 @@ contains
          BtVpSn2LM(lm)=cmplx(real(BtVpSn2LM(lm)),0.0_cp, kind=cp)
          BpVtSn2LM(lm)=cmplx(real(BpVtSn2LM(lm)),0.0_cp, kind=cp)
       end do
+#endif
 
    end subroutine get_dtBLM
 !-----------------------------------------------------------------------

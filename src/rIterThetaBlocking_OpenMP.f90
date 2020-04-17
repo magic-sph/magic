@@ -7,7 +7,7 @@ module rIterThetaBlocking_OpenMP_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
-   use truncation, only: lmP_max, n_r_cmb, n_r_icb
+   use truncation, only: lmP_max, n_r_cmb, n_r_icb, lmP_max_dtB
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
@@ -90,7 +90,7 @@ contains
 #endif
       call this%gsa(threadid)%initialize()
       if ( l_TO ) call this%TO_arrays(threadid)%initialize()
-      call this%dtB_arrays(threadid)%initialize()
+      call this%dtB_arrays(threadid)%initialize(lmP_max_dtB)
       call this%nl_lm(threadid)%initialize(lmP_max)
       !$OMP END PARALLEL
    end subroutine initialize_rIterThetaBlocking_OpenMP
