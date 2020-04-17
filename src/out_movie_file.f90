@@ -2,10 +2,12 @@ module out_movie
 
    use precision_mod
    use parallel_mod, only: coord_r, l_master_rank
-   use communications, only: gt_OC, gather_all_from_lo_to_rank0
+   use communications, only: gt_OC, gather_all_from_lo_to_rank0, gather_f
+   !@> TODO remove gather_f once finished
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
-       &                 n_r_ic_max, n_r_max, l_axi, n_r_icb
+       &                 n_r_ic_max, n_r_max, l_axi, n_r_icb, nThetaStart,  &
+       &                 nThetaStop
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
@@ -42,9 +44,10 @@ module out_movie
 
 contains
 
-   subroutine store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr,dvrdp,dvpdr, &
-              &                 dvtdr,dvrdt,cvr,cbr,cbt,n_theta_start,     &
-              &                 n_theta_block,bCMB)
+   subroutine store_movie_frame(n_r,vr_loc,vt_loc,vp_loc,br_loc,bt_loc,     &
+              &                 bp_loc,sr_loc,drSr_loc,dvrdp_loc,dvpdr_loc, &
+              &                 dvtdr_loc,dvrdt_loc,cvr_loc,cbr_loc,cbt_loc,&
+              &                 n_theta_start,n_theta_block,bCMB)
       !
       !  Controls output of movie frames.
       !  Usually called from radialLoop.
@@ -54,13 +57,21 @@ contains
       integer,     intent(in) :: n_r                ! radial grid point no.
       integer,     intent(in) :: n_theta_start      ! start theta no.
       integer,     intent(in) :: n_theta_block      ! size of theta block
-      real(cp),    intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(cp),    intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp),    intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(cp),    intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(cp),    intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(cp),    intent(in) :: cvr(nrp,*)
-      real(cp),    intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      real(cp),    intent(in) :: vr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: vt_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: vp_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: br_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: bt_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: bp_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: sr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: drSr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: dvrdp_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: dvpdr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: dvtdr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: dvrdt_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: cvr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: cbr_loc(nrp,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: cbt_loc(nrp,nThetaStart:nThetaStop)
       complex(cp), intent(in) :: bCMB(lm_max)
 
       !-- Local variables:
@@ -70,12 +81,32 @@ contains
       integer :: n_const        ! Gives surface
       integer :: n_field_type   ! Numbers field types
       integer :: n_store_last   ! Position i in frame(i) were field starts-1
-      integer :: n_theta
-      integer :: n_theta_cal
-      integer :: n_theta_const
-      integer :: n_field_size
-      integer :: n_fields
+      integer :: n_theta,n_theta_cal,n_theta_const,n_field_size,n_fields
       logical :: lThetaFound
+
+      !@> TODO remove useless local arrays:
+      real(cp) :: vr(nrp,nfs), vt(nrp,nfs), vp(nrp,nfs), sr(nrp,nfs), cvr(nrp,nfs)
+      real(cp) :: br(nrp,nfs), bt(nrp,nfs), bp(nrp,nfs), cbr(nrp,nfs), cbt(nrp,nfs)
+      real(cp) :: drSr(nrp,nfs), dvrdp(nrp,nfs), dvpdr(nrp,nfs), dvtdr(nrp,nfs)
+      real(cp) :: dvrdt(nrp,nfs)
+
+      !@> TODO remove the gather_f from here at some point
+      call gather_f(vr_loc, vr)
+      call gather_f(vt_loc, vt)
+      call gather_f(vp_loc, vp)
+      call gather_f(br_loc, br)
+      call gather_f(bt_loc, bt)
+      call gather_f(bp_loc, bp)
+      call gather_f(sr_loc, sr)
+      call gather_f(drSr_loc, drSr)
+      call gather_f(dvrdp_loc, dvrdp)
+      call gather_f(dvpdr_loc, dvpdr)
+      call gather_f(dvtdr_loc, dvtdr)
+      call gather_f(dvrdt_loc, dvrdt)
+      call gather_f(cvr_loc, cvr)
+      call gather_f(cbr_loc, cbr)
+      call gather_f(cbt_loc, cbt)
+      !@> END suppression blocks once DONE...
 
 
       do n_movie=1,n_movies

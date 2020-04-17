@@ -291,11 +291,11 @@ contains
 #endif
       end if
       
-      if ( this%l_probe_out ) then
-         print *, " * probe_out is not ported!!!", __LINE__, __FILE__
-         call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1, &
-              &         this%sizeThetaB)
-      end if
+      !if ( this%l_probe_out ) then
+      !   print *, " * probe_out is not ported!!!", __LINE__, __FILE__
+      !   call probe_out(time,this%nR,this%gsa%vpc,this%gsa%brc,this%gsa%btc,1, &
+      !        &         this%sizeThetaB)
+      !end if
 
       !--------- Helicity output:
       if ( this%lHelCalc ) then
@@ -353,20 +353,14 @@ contains
          call get_perpPar(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,EperpLMr, &
               &           EparLMr,EperpaxiLMr,EparaxiLMr,nR )
       end if
-      
-      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
-      call this%nl_lm_dist%gather_all(this%nl_lm)
-      call this%gsa_dist%gather_all(this%gsa)
-      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
 
       !--------- Movie output:
       if ( this%l_frame .and. l_movie_oc .and. l_store_frame ) then
-         print *, " * movies are not ported!!!", __LINE__, __FILE__
-         call store_movie_frame(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-              &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
-              &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
-              &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-              &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,1,    &
+         call store_movie_frame(this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc, &
+              &                 this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc,         &
+              &                 this%gsa_dist%sc,this%gsa_dist%drSc,this%gsa_dist%dvrdpc,      &
+              &                 this%gsa_dist%dvpdrc,this%gsa_dist%dvtdrc,this%gsa_dist%dvrdtc,&
+              &                 this%gsa_dist%cvrc,this%gsa_dist%cbrc,this%gsa_dist%cbtc,1,    &
               &                 this%sizeThetaB,this%leg_helper%bCMB)
       end if
 
@@ -413,6 +407,11 @@ contains
       if (DEBUG_OUTPUT) then
          call this%nl_lm%output()
       end if
+      
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
+      call this%nl_lm_dist%gather_all(this%nl_lm)
+      call this%gsa_dist%gather_all(this%gsa)
+      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
 
       !-- Partial calculation of time derivatives (horizontal parts):
       !   input flm...  is in (l,m) space at radial grid points this%nR !
