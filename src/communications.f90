@@ -1218,8 +1218,8 @@ contains
       !
       !   Author: Rafael Lago (MPCDF) August 2017
       !
-      real(cp),  intent(inout) :: f_local( n_phi_max, nThetaStart:nThetaStop)
-      real(cp),  intent(out)   :: f_global(n_phi_max, n_theta_max)
+      real(cp),  intent(in) :: f_local( n_phi_max, nThetaStart:nThetaStop)
+      real(cp),  intent(out) :: f_global(n_phi_max, n_theta_max)
       
       integer :: i, ierr
       integer :: Rq(n_ranks_theta) 
