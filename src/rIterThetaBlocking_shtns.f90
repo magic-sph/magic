@@ -8,9 +8,9 @@ module rIterThetaBlocking_shtns_mod
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter,  &
        &                td_counter
    use parallel_mod, only: get_openmp_blocks
-   use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb,   &
-       &                 n_r_icb, n_lmP_loc, n_theta_loc,            &
-       &                 nThetaStart, nThetaStop, lmP_max_dtB
+!    use truncation, only: lmP_max, n_theta_max, n_phi_max, n_r_cmb,   &
+!        &                 n_r_icb, n_lmP_loc, n_theta_loc,            &
+!        &                 nThetaStart, nThetaStop, lmP_max_dtB
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -41,11 +41,18 @@ module rIterThetaBlocking_shtns_mod
    use horizontal_data
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,   &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc, &
-       &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc
+       &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc,         &
+       &             s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,   &
+       &             s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
+       &             b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist,dj_Rdist, &
+       &             w_Rdist, dw_Rdist, ddw_Rdist, xi_Rdist
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
    use communications  ! DELETEME
+   use truncation
+   use LMmapping
+   use mpi_thetap_mod
 
    implicit none
 
@@ -460,11 +467,44 @@ contains
 
       !-- Local variables
       integer :: nR
+      
+      
+      real(cp) :: gathered_sc(n_phi_max, n_theta_max)
+      real(cp) :: sliced_sc(n_phi_max, n_theta_loc), t(n_phi_max, n_theta_loc)
+      complex(cp) :: gathered_s(lm_max)
+      complex(cp) :: sliced_s(n_lm_loc)
+      integer, save :: c=0
+      
+      complex(cp) :: f_theta_m(n_theta_max, n_m_loc)
+      complex(cp) :: f_m_theta(n_m_max, n_theta_loc)
+      
+      integer :: l,m, lm, i, mi
+      
+      
       nR = this%nR
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call scal_to_spat(s_Rloc(:,nR), gsa%sc, l_R(nR))
+            
+            if (c==9999) then
+            
+               call slice_Flm_cmplx(s_Rloc(1:lm_max,nR), sliced_s)
+               call slice_f(gsa%sc, sliced_sc)
+               call scal_to_spat(s_Rloc(:,nR), gsa%sc, l_R(nR))
+               call scal_to_spat_dist(sliced_s(1:n_lm_loc), sliced_sc, l_R(nR))
+               call gather_f(sliced_sc, gathered_sc)
+               print *, " ~~~~~~~~~~~~~~~~~~~~~~~~~Gathered sc:", maxval(this%gsa%sc-gathered_sc), shape(gathered_sc), minc, l_R(nR)-l_max
+               print *, gathered_sc-gsa%sc
+               call slice_f(gsa%sc,t)
+               print *, " ~~~~~~~~~~~~~~~~~~~~~~~~~ sliced:", maxval(t-sliced_sc)
+               print *, t-sliced_sc
+               stop
+            else
+               call scal_to_spat(s_Rloc(:,nR), gsa%sc, l_R(nR))
+            end if
+            c = c+ 1
+            
+         
             if ( this%lViscBcCalc ) then
                call scal_to_grad_spat(s_Rloc(:,nR), gsa%dsdtc, gsa%dsdpc, l_R(nR))
                if (this%nR == n_r_cmb .and. ktops==1) then

@@ -22,11 +22,6 @@ module radialLoop
 #ifdef WITH_SHTNS
    use rIterThetaBlocking_shtns_mod, only: rIterThetaBlocking_shtns_t
 #else
-#ifdef WITHOMP
-   use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
-#else
-   use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
-#endif
 #endif
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi_header
@@ -53,12 +48,6 @@ contains
 
 #ifdef WITH_SHTNS
       allocate( rIterThetaBlocking_shtns_t :: this_rIteration )
-#else
-#ifdef WITHOMP
-      allocate( rIterThetaBlocking_OpenMP_t :: this_rIteration )
-#else
-      allocate( rIterThetaBlocking_seq_t :: this_rIteration )
-#endif
 #endif
       this_type = this_rIteration%getType()
       if ( l_master_rank ) write(*,"(2A)") " ! Using rIteration type: ",trim(this_type)
