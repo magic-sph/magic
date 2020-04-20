@@ -480,8 +480,8 @@ contains
 !         if (m>lcut) cycle
         l_lm = map_dist_st%lm2(m, m)
         u_lm = map_dist_st%lm2(l_max, m)
-        print *, " ********* l:u, m, i:", l_lm, u_lm, m, i
-        call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i),lcut+1)
+        !print *, " ********* l:u, m, i:", l_lm, u_lm, m, i
+        call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i),lcut)
       end do
       
       call transpose_theta_m(fL_loc, transposed_loc)

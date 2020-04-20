@@ -378,66 +378,68 @@ contains
          if ( l_conv ) then  ! Convection
 
             lm =lm2(0,0)   ! This is l=0,m=0
-            lmA=lm2lmA(lm)
-            lmP=lm2lmP(lm)
-            lmPA=lmP2lmPA(lmP)
-            if ( l_conv_nl ) then
-               AdvPol_loc=      or2(nR)*this%AdvrLM(lm)
-               AdvTor_loc=-dTheta1A(lm)*this%AdvpLM(lmPA)
-            else
-               AdvPol_loc=zero
-               AdvTor_loc=zero
+            if ( lm > 0 ) then
+               lmA=lm2lmA(lm)
+               lmP=lm2lmP(lm)
+               lmPA=lmP2lmPA(lmP)
+               if ( l_conv_nl ) then
+                  AdvPol_loc=      or2(nR)*this%AdvrLM(lm)
+                  AdvTor_loc=-dTheta1A(lm)*this%AdvpLM(lmPA)
+               else
+                  AdvPol_loc=zero
+                  AdvTor_loc=zero
+               end if
+               if ( l_corr ) then
+                  CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
+                  CorTor_loc= two*CorFac*or2(nR) * (                 &
+                  &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
+                  &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
+               else
+                  CorPol_loc=zero
+                  CorTor_loc=zero
+               end if
+
+               if ( l_single_matrix ) then
+                  dwdt(lm)=AdvPol_loc!+CorPol_loc
+               else
+                  dwdt(lm)=AdvPol_loc+CorPol_loc
+               end if
+
+               dzdt(lm)=AdvTor_loc+CorTor_loc
+
+               if ( lRmsCalc ) then
+                  if (l_heat) then
+                     Buo_temp(lm) =BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm,nR)
+                  else
+                     Buo_temp(lm) =0.0_cp
+                  end if
+                  if (l_chemical_conv) then
+                     Buo_xi(lm) =ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm,nR)
+                  else
+                     Buo_xi(lm)=0.0_cp
+                  end if
+                  if ( l_mag_LF .and. nR>n_r_LCR ) then
+                     LFPol(lm) =      or2(nR)*this%LFrLM(lm)
+                     LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
+                     AdvPol(lm)=AdvPol_loc-LFPol(lm)
+                     AdvTor(lm)=AdvTor_loc-LFTor(lm)
+                  else
+                     AdvPol(lm)=AdvPol_loc
+                     AdvTor(lm)=AdvTor_loc
+                  end if
+                  CorPol(lm)=CorPol_loc
+
+                  if ( l_double_curl ) then
+                     !-- Recalculate the pressure gradient based on the poloidal
+                     !-- equation equilibrium
+                     dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm,nR)+ &
+                     &        AdvPol_loc+CorPol_loc
+                  else
+                     dpdr(lm)=dp_Rloc(lm,nR)
+                  end if
+
+               end if ! lRmsCalc
             end if
-            if ( l_corr ) then
-               CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
-               CorTor_loc= two*CorFac*or2(nR) * (                 &
-               &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
-               &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
-            else
-               CorPol_loc=zero
-               CorTor_loc=zero
-            end if
-
-            if ( l_single_matrix ) then
-               dwdt(lm)=AdvPol_loc!+CorPol_loc
-            else
-               dwdt(lm)=AdvPol_loc+CorPol_loc
-            end if
-
-            dzdt(lm)=AdvTor_loc+CorTor_loc
-
-            if ( lRmsCalc ) then
-               if (l_heat) then
-                  Buo_temp(lm) =BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm,nR)
-               else
-                  Buo_temp(lm) =0.0_cp
-               end if
-               if (l_chemical_conv) then
-                  Buo_xi(lm) =ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm,nR)
-               else
-                  Buo_xi(lm)=0.0_cp
-               end if
-               if ( l_mag_LF .and. nR>n_r_LCR ) then
-                  LFPol(lm) =      or2(nR)*this%LFrLM(lm)
-                  LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
-                  AdvPol(lm)=AdvPol_loc-LFPol(lm)
-                  AdvTor(lm)=AdvTor_loc-LFTor(lm)
-               else
-                  AdvPol(lm)=AdvPol_loc
-                  AdvTor(lm)=AdvTor_loc
-               end if
-               CorPol(lm)=CorPol_loc
-
-               if ( l_double_curl ) then
-                  !-- Recalculate the pressure gradient based on the poloidal
-                  !-- equation equilibrium
-                  dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm,nR)+ &
-                  &        AdvPol_loc+CorPol_loc
-               else
-                  dpdr(lm)=dp_Rloc(lm,nR)
-               end if
-
-            end if ! lRmsCalc
 
             !PERFON('td_cv1')
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &

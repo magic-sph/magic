@@ -15,6 +15,7 @@ module horizontal_data
    use constants, only: pi, zero, one, two, half
    use precision_mod
    use mem_alloc, only: bytes_allocated
+   use LMmapping, only: map_dist_st
 
    implicit none
 
@@ -53,10 +54,14 @@ module horizontal_data
    real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
    real(cp), public, allocatable :: D_mc2m(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
-   
-   !-- Distributed arrays depending on l and m:
-   real(cp), public, allocatable :: dLH_loc(:)
 
+   complex(cp), public, allocatable :: dPhi_loc(:)
+   real(cp), public, allocatable :: dLh_loc(:)
+   real(cp), public, allocatable :: dTheta1S_loc(:),dTheta1A_loc(:)
+   real(cp), public, allocatable :: dTheta2S_loc(:),dTheta2A_loc(:)
+   real(cp), public, allocatable :: dTheta3S_loc(:),dTheta3A_loc(:)
+   real(cp), public, allocatable :: dTheta4S_loc(:),dTheta4A_loc(:)
+   
    !-- Limiting l for a given m, used in legtf
    integer, public, allocatable :: lStart(:),lStop(:)
    integer, public, allocatable :: lStartP(:),lStopP(:)
@@ -115,8 +120,14 @@ contains
       allocate( hdif_Xi(lm_max) )
       bytes_allocated = bytes_allocated+(14*lm_max+n_m_max)*SIZEOF_DEF_REAL
       
-      !-- Distributed arrays depending on l and m:
-      allocate( dLH_loc(n_lm_loc) )
+      !-- Distributed arrays depending on l and m:)
+      !>@ TODO : decide which one we keep 
+      allocate( dPhi_loc(n_lm_loc), dLh_loc(n_lm_loc) )
+      allocate( dTheta1S_loc(n_lm_loc),dTheta1A_loc(n_lm_loc) )
+      allocate( dTheta2S_loc(n_lm_loc),dTheta2A_loc(n_lm_loc) )
+      allocate( dTheta3S_loc(n_lm_loc),dTheta3A_loc(n_lm_loc) )
+      allocate( dTheta4S_loc(n_lm_loc),dTheta4A_loc(n_lm_loc) )
+      bytes_allocated = bytes_allocated+10*n_lm_loc*SIZEOF_DEF_REAL
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
@@ -141,7 +152,9 @@ contains
       deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
 
       ! Deallocate the distributed fields 
-      deallocate( dLh_loc )
+      deallocate( dLh_loc, dPhi_loc, dTheta1S_loc, dTheta1A_loc )
+      deallocate( dTheta2S_loc, dTheta2A_loc, dTheta3S_loc, dTheta3A_loc )
+      deallocate( dTheta4S_loc, dTheta4A_loc )
       
       if ( .not. l_axi ) call finalize_fft()
 
@@ -274,6 +287,30 @@ contains
          dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
          dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
 
+      end do ! lm
+
+      !>@ TODO: probably keep only the following once everything is finished
+      do lm=1,n_lm_loc
+         l=map_dist_st%lm2l(lm)
+         m=map_dist_st%lm2m(lm)
+
+         !---- Operators for derivatives:
+         !-- Phi derivative:
+         dPhi_loc(lm)=cmplx(0.0_cp,real(m,cp),cp)
+         !-- Negative horizontal Laplacian *r^2
+         dLh_loc(lm)     =real(l*(l+1),cp)                 ! = qll1
+         !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 )
+         dTheta1S_loc(lm)=real(l+1,cp)        *clm(l,m)    ! = qcl1
+         dTheta1A_loc(lm)=real(l,cp)          *clm(l+1,m)  ! = qcl
+         !-- Operator ( sin(thetaR) * d/d theta )
+         dTheta2S_loc(lm)=real(l-1,cp)        *clm(l,m)    ! = qclm1
+         dTheta2A_loc(lm)=real(l+2,cp)        *clm(l+1,m)  ! = qcl2
+         !-- Operator ( sin(theta) * d/d theta + cos(theta) dLh )
+         dTheta3S_loc(lm)=real((l-1)*(l+1),cp)*clm(l,m)    ! = q0l1lm1(lm)
+         dTheta3A_loc(lm)=real(l*(l+2),cp)    *clm(l+1,m)  ! = q0cll2(lm)
+         !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
+         dTheta4S_loc(lm)=dTheta1S_loc(lm)*real((l-1)*l,cp)
+         dTheta4A_loc(lm)=dTheta1A_loc(lm)*real((l+1)*(l+2),cp)
       end do ! lm
 
       !-- Hyperdiffusion is rather defined with the local mapping

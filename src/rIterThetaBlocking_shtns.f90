@@ -473,7 +473,6 @@ contains
       real(cp) :: sliced_sc(n_phi_max, n_theta_loc), t(n_phi_max, n_theta_loc)
       complex(cp) :: gathered_s(lm_max)
       complex(cp) :: sliced_s(n_lm_loc)
-      integer, save :: c=0
       
       complex(cp) :: f_theta_m(n_theta_max, n_m_loc)
       complex(cp) :: f_m_theta(n_m_max, n_theta_loc)
@@ -486,23 +485,10 @@ contains
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
             
-            if (c==9999) then
-            
-               call slice_Flm_cmplx(s_Rloc(1:lm_max,nR), sliced_s)
-               call slice_f(gsa%sc, sliced_sc)
-               call scal_to_spat(s_Rloc(:,nR), gsa%sc, l_R(nR))
-               call scal_to_spat_dist(sliced_s(1:n_lm_loc), sliced_sc, l_R(nR))
-               call gather_f(sliced_sc, gathered_sc)
-               print *, " ~~~~~~~~~~~~~~~~~~~~~~~~~Gathered sc:", maxval(this%gsa%sc-gathered_sc), shape(gathered_sc), minc, l_R(nR)-l_max
-               print *, gathered_sc-gsa%sc
-               call slice_f(gsa%sc,t)
-               print *, " ~~~~~~~~~~~~~~~~~~~~~~~~~ sliced:", maxval(t-sliced_sc)
-               print *, t-sliced_sc
-               stop
-            else
-               call scal_to_spat(s_Rloc(:,nR), gsa%sc, l_R(nR))
-            end if
-            c = c+ 1
+            call slice_Flm_cmplx(s_Rloc(1:lm_max,nR), sliced_s)
+            !call slice_f(gsa%sc, sliced_sc)
+            call scal_to_spat_dist(sliced_s(1:n_lm_loc), sliced_sc, l_R(nR))
+            call gather_f(sliced_sc, gsa%sc)
             
          
             if ( this%lViscBcCalc ) then
