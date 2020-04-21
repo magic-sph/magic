@@ -416,8 +416,8 @@ contains
       end if
       
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
-      call this%nl_lm_dist%gather_all(this%nl_lm)
-      call this%gsa_dist%gather_all(this%gsa)
+      !call this%nl_lm_dist%gather_all(this%nl_lm)
+      !call this%gsa_dist%gather_all(this%gsa)
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
 
       !-- Partial calculation of time derivatives (horizontal parts):
@@ -428,7 +428,7 @@ contains
       !   over the different models that s_LMLoop.f parallelizes over.
       !PERFON('get_td')
       call td_counter%start_count()
-      call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,           &
+      call this%nl_lm_dist%get_td(this%nR, this%nBc, this%lRmsCalc,      &
            &                 this%lPressNext, dVSrLM, dVXirLM,           &
            &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt,   &
            &                 dxidt, dbdt, djdt)
@@ -446,6 +446,7 @@ contains
       !--- Form partial horizontal derivaties of magnetic production and
       !    advection terms:
       if ( l_dtB ) then
+         !@> TODO: try to port this later to _dist arrays
          ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
          call this%dtB_arrays_dist%gather_dtB_all(this%dtB_arrays)
          ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point

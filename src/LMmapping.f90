@@ -87,7 +87,7 @@ module LMmapping
       integer :: n_li
    end type ml_mappings
    
-   type(mappings) :: map_dist_st, map_glbl_st
+   type(mappings), target :: map_dist_st, map_glbl_st
    type(ml_mappings) :: map_mlo
  
    public :: allocate_mappings, deallocate_mappings, &

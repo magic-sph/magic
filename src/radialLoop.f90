@@ -3,8 +3,8 @@ module radialLoop
 
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max,   &
-       &                 nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
+   use truncation, only: n_lm_loc, n_lmMag_loc, l_max, l_maxMag, lmP_max, &
+       &                 nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag,   &
        &                 n_r_icb
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
@@ -103,17 +103,17 @@ contains
       !---- Output of explicit time step:
       !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
       !     need a further treatment (radial derivatives required):
-      complex(cp), intent(out) :: dwdt(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dzdt(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
-      complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
-      complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: dwdt(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dzdt(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dpdt(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dsdt(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dxidt(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dVSrLM(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dVXirLM(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dbdt(n_lmMag_loc,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: djdt(n_lmMag_loc,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: dVxVhLM(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(out) :: dVxBhLM(n_lmMag_loc,nRstartMag:nRstopMag)
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
       !---- Output for axisymmetric helicity:
@@ -174,7 +174,7 @@ contains
 
       !------ Set nonlinear terms that are possibly needed at the boundaries.
       !       They may be overwritten by get_td later.
-      do lm=1,lm_max
+      do lm=1,n_lm_loc
          if ( coord_r == 0 ) then
             dVSrLM(lm,n_r_cmb) =zero
             if ( l_chemical_conv ) dVXirLM(lm,n_r_cmb)=zero

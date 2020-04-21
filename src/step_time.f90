@@ -135,7 +135,7 @@ contains
       !-- Saves values for time step
       real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop)
 
-      !--- Explicit part of time stepping, calculated in s_radialLoopG.f and
+      !--- Explicit part of time stepping, calculated in radialLoopG and
       !    passed to LMLoop where the time step is preformed.
       !    Note that the respective arrays for the changes in inner-core
       !    magnetic field are calculated in s_updateB.f and are only
@@ -477,15 +477,19 @@ contains
                        &                      field_Rloc_container)
                end if
                call comm_counter%stop_count(l_increment=.false.)
+
+               !@> TODO stop porting here call the slicing of Rloc -> Rdist arrays
+               call slice_fields_Rloc_Rdist()
+               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
                     &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
-                    &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
-                    &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,     &
-                    &           dVSrLM_Rloc,dVXirLM_Rloc,                          &
+                    &           dsdt_Rdist,dwdt_Rdist,dzdt_Rdist,dpdt_Rdist,       &
+                    &           dxidt_Rdist,dbdt_Rdist,djdt_Rdist,dVxVhLM_Rdist,   &
+                    &           dVxBhLM_Rdist,dVSrLM_Rdist,dVXirLM_Rdist,          &
                     &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
                     &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,&
                     &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,         &
@@ -499,6 +503,10 @@ contains
                lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
                nl_counter%n_counts=nl_counter%n_counts+1
                td_counter%n_counts=td_counter%n_counts+1
+
+               !@> TODO stop porting here call the gather of Rdist -> Rloc arrays
+               call gather_dt_fields()
+               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
