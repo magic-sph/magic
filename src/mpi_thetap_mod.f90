@@ -11,6 +11,7 @@ module mpi_thetap_mod
    use truncation
    use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp, only: type_mpitransp
+   use fft
 
    implicit none
 
@@ -34,7 +35,8 @@ module mpi_thetap_mod
 !    end type type_thetap
 
 
-  public :: transpose_m_theta, transpose_theta_m
+  public :: transpose_m_theta, transpose_theta_m, transform_m2phi,            &
+     & transform_phi2m
 
 contains
    
@@ -147,5 +149,67 @@ contains
          j = j + 1
       end do
    end subroutine transpose_theta_m
+   
+   !-- Transforms from (θ,m) space into (φ,θ) space including transpositions 
+   !   and FFT. 
+   !   
+   !   Author: Rafael Lago (MPCDF) April 2020
+   !   TODO: some functions might requires this transformation for multiple
+   !      fields at once (e.g. vector transform). In that case, a non-blocking 
+   !      transpose_theta_m would make more sense. This would make this 
+   !      function obsolete.
+   !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
+   !     use just one intermediate buffer, vector transform, etc)
+   !
+   subroutine transform_m2phi(fL, f)
+      
+      !-- Input variables
+      complex(cp), intent(inout) :: fL(n_theta_max,n_m_loc)
+      
+      !-- Output variables
+      real(cp),    intent(out)   :: f(n_phi_max, n_theta_loc)
+      
+      !-- Local variables
+      complex(cp) :: lF(n_m_max,n_theta_loc)
+      complex(cp) :: Ff(n_phi_max/2+1,n_theta_loc)
+   
+      call transpose_theta_m(fL, lF)
+      !-- TODO: The FFT must be performed for an array with the dimensions of 
+      !   F_loc which may end up paded with zeroes.
+      !   Is there any way to tell MKL to perform a "truncated" FFT?
+      Ff = 0.0
+      Ff(1:n_m_max,1:n_theta_loc) = lF
+      
+      call fft_phi_loc(f, Ff, -1)
+   end subroutine transform_m2phi
+   
+   
+   !-- Transforms from (φ,θ) space into (θ,m) space including transpositions 
+   !   and FFT. 
+   !   
+   !   Author: Rafael Lago (MPCDF) April 2020
+   !   TODO: some functions might requires this transformation for multiple
+   !      fields at once (e.g. vector transform). In that case, a non-blocking 
+   !      transpose_theta_m would make more sense. This would make this 
+   !      function obsolete.
+   !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
+   !     use just one intermediate buffer, vector transform, etc)
+   !
+   subroutine transform_phi2m(f, fL)
+      
+      !-- Input variables
+      real(cp),    intent(inout) :: f(n_phi_max, n_theta_loc)
+      
+      !-- Output variables
+      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
+      
+      !-- Local variables
+      complex(cp) :: lF(n_m_max,n_theta_loc)
+      complex(cp) :: Ff(n_phi_max/2+1,n_theta_loc)
+   
+      call fft_phi_loc(f, Ff, 1)
+      lF(1:n_m_max,1:n_theta_loc) = Ff(1:n_m_max,1:n_theta_loc)
+      call transpose_m_theta(lF, fL)
+   end subroutine transform_phi2m
    
 end module mpi_thetap_mod

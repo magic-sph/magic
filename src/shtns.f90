@@ -27,7 +27,8 @@ module shtns
    &         axi_to_spat, spat_to_qst,                                      &
    &         spat_to_SH_dist, spat_to_qst_dist, spat_to_sphertor_dist,      &
    &         test_shtns, test_spat_to_qst, test_spat_to_SH,                 &
-   &         spat_to_SH_axi_dist, scal_to_spat_dist
+   &         spat_to_SH_axi_dist, scal_to_spat_dist, scal_to_grad_spat_dist,&
+   &         torpol_to_spat_dist, torpol_to_curl_spat_dist
 
 contains
 
@@ -431,31 +432,12 @@ contains
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
 !   
-!   Θ-Distributed Transforms
+!   Θ-Distributed Forward Transforms
 !   
 !------------------------------------------------------------------------------
-!    subroutine scal_to_spat(Slm, fieldc, lcut)
-! ! ! !    subroutine scal_to_grad_spat(Slm, gradtc, gradpc, lcut)
-! ! ! !    subroutine pol_to_grad_spat(Slm, gradtc, gradpc, lcut)
-! ! ! !    subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
-!    subroutine torpol_to_curl_spat_IC(r, r_ICB, dBlm, ddBlm, Jlm, dJlm, &
-!               &                      cbr, cbt, cbp)
-!    subroutine torpol_to_spat_IC(r, r_ICB, Wlm, dWlm, Zlm, Br, Bt, Bp)
-! ! ! !    subroutine torpol_to_dphspat(dWlm, Zlm, dvtdp, dvpdp, lcut)
-! ! ! !    subroutine pol_to_curlr_spat(Qlm, cvrc, lcut)
-! ! ! !    subroutine torpol_to_curl_spat(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, cvpc, &
-! ! ! !               &                   lcut)
-! ! ! !    subroutine spat_to_SH(f, fLM, lcut)
-!    subroutine spat_to_qst(f, g, h, qLM, sLM, tLM, lcut)
-!    subroutine spat_to_sphertor(f, g, fLM, gLM, lcut)
-!    subroutine axi_to_spat(fl_ax, f)
-!    subroutine spat_to_SH_axi(f, fLM)
-!    !----------------------------------------------------------------------------
 
-   !----------------------------------------------------------------------------
    subroutine scal_to_spat_dist(fLM_loc, fieldc_loc, lcut)
       !   
       !   Transform the spherical harmonic coefficients Qlm into its spatial 
@@ -463,41 +445,166 @@ contains
       !  
       !   Author: Rafael Lago, MPCDF, July 2017
       !
+      
+      !-- Input variables
       complex(cp),  intent(inout) :: fLM_loc(n_lm_loc)
+      
+      !-- Output variables
       real(cp),     intent(out)   :: fieldc_loc(n_phi_max, n_theta_loc)
       integer,      intent(in)    :: lcut
 
       
       !-- Local variables
       complex(cp) :: fL_loc(n_theta_max,n_m_loc)
-      complex(cp) :: transposed_loc(n_m_max,n_theta_loc)
-      complex(cp) :: F_loc(n_phi_max/2+1,n_theta_loc)
-      
       integer :: i, l_lm, u_lm, m
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
-!         if (m>lcut) cycle
+        if (m>lcut) cycle
         l_lm = map_dist_st%lm2(m, m)
         u_lm = map_dist_st%lm2(l_max, m)
-        !print *, " ********* l:u, m, i:", l_lm, u_lm, m, i
         call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i),lcut)
       end do
       
-      call transpose_theta_m(fL_loc, transposed_loc)
-      
-      !-- TODO: The FFT must be performed for an array with the dimensions of 
-      !   F_loc which may end up paded with zeroes.
-      !   Is there any way to tell MKL to perform a "truncated" FFT?
-      !-- TODO: Terrible performance here!
-      F_loc = 0.0
-      F_loc(1:n_m_max,1:n_theta_loc) = transposed_loc
-      
-      call fft_phi_loc(fieldc_loc, F_loc, -1)
+      call transform_m2phi(fL_loc, fieldc_loc)
       
    end subroutine scal_to_spat_dist
    
- 
+   !------------------------------------------------------------------------------
+   subroutine scal_to_grad_spat_dist(Slm, gradtc, gradpc, lcut)
+      !
+      !   Transform a scalar spherical harmonic field into it's gradient
+      !   on the grid
+      !
+      !   Author: Rafael Lago, MPCDF, April 2020
+      !
+
+      !-- Input variables
+      complex(cp), intent(in) :: Slm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: gradtc(n_phi_max, n_theta_loc)
+      real(cp), intent(out) :: gradpc(n_phi_max, n_theta_loc)
+      
+      !-- Local variables
+      complex(cp) :: fL(n_theta_max,n_m_loc)
+      complex(cp) :: gL(n_theta_max,n_m_loc)
+      
+      integer :: i, l_lm, u_lm, m
+
+      do i = 1, n_m_loc
+        m = dist_m(coord_m, i)
+        if (m>lcut) cycle
+        l_lm = map_dist_st%lm2(m, m)
+        u_lm = map_dist_st%lm2(l_max, m)
+        call shtns_sph_to_spat_ml(m/minc, Slm(l_lm:u_lm), fL(:,i), gL(:,i), lcut)
+      end do
+      
+      call transform_m2phi(fL, gradtc)
+      call transform_m2phi(gL, gradpc)
+
+   end subroutine scal_to_grad_spat_dist
+   
+   !------------------------------------------------------------------------------
+   subroutine torpol_to_spat_dist(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Wlm(n_lm_loc), dWlm(n_lm_loc), Zlm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: vrc(n_phi_max, n_theta_loc)
+      real(cp), intent(out) :: vtc(n_phi_max, n_theta_loc)
+      real(cp), intent(out) :: vpc(n_phi_max, n_theta_loc)
+
+      !-- Local variables
+      complex(cp) :: Qlm(0:l_max)
+      complex(cp) :: fL(n_theta_max,n_m_loc)
+      complex(cp) :: gL(n_theta_max,n_m_loc)
+      complex(cp) :: hL(n_theta_max,n_m_loc)
+      integer :: lm, l
+      integer :: i, l_lm, c_lm, u_lm, m, lm_glb, l_lm_glb, c_lm_glb
+      
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) cycle
+         
+         l_lm = map_dist_st%lm2(m, m)
+         c_lm = map_dist_st%lm2(lcut, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         l_lm_glb = map_glbl_st%lm2(m,m)
+         c_lm_glb = map_glbl_st%lm2(lcut,m)
+         
+         Qlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Wlm(l_lm:c_lm)
+         if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
+         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
+              &   Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
+      end do
+      
+      call transform_m2phi(fL, vrc)
+      call transform_m2phi(gL, vtc)
+      call transform_m2phi(hL, vpc)
+
+   end subroutine torpol_to_spat_dist
+   
+   !------------------------------------------------------------------------------
+   subroutine torpol_to_curl_spat_dist(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, &
+              &                        cvpc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
+      complex(cp), intent(in) :: Jlm(n_lm_loc), dJlm(n_lm_loc)
+      real(cp),    intent(in) :: or2
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: cvrc(n_phi_max, n_theta_loc)
+      real(cp), intent(out) :: cvtc(n_phi_max, n_theta_loc)
+      real(cp), intent(out) :: cvpc(n_phi_max, n_theta_loc)
+
+      !-- Local variables
+      complex(cp) :: Qlm(0:l_max), Tlm(0:l_max)
+      complex(cp) :: fL(n_theta_max,n_m_loc)
+      complex(cp) :: gL(n_theta_max,n_m_loc)
+      complex(cp) :: hL(n_theta_max,n_m_loc)
+      integer :: lm, l
+      integer :: i, l_lm, c_lm, u_lm, m, lm_glb, l_lm_glb, c_lm_glb
+      
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) cycle
+         
+         l_lm = map_dist_st%lm2(m, m)
+         c_lm = map_dist_st%lm2(lcut, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         l_lm_glb = map_glbl_st%lm2(m,m)
+         c_lm_glb = map_glbl_st%lm2(lcut,m)
+         
+         Qlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Jlm(l_lm:c_lm)
+         Tlm(m:lcut) = or2 * dLh(l_lm_glb:c_lm_glb) * Blm(l_lm:c_lm) - ddBlm(l_lm:c_lm)
+         if (lcut<l_max) then 
+            Qlm(lcut+1:u_lm) = zero
+            Tlm(lcut+1:u_lm) = zero
+         end if
+         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), Tlm(m:l_max), &
+              &  fL(:,i), gL(:,i), hL(:,i), lcut)
+      end do
+      
+      call transform_m2phi(fL, cvrc)
+      call transform_m2phi(gL, cvtc)
+      call transform_m2phi(hL, cvpc)
+
+   end subroutine torpol_to_curl_spat_dist
+   
+   
+!------------------------------------------------------------------------------
+!   
+!   Θ-Distributed Backward Transforms
+!   
+!------------------------------------------------------------------------------
   
    !----------------------------------------------------------------------------
    subroutine spat_to_SH_dist(f_loc, fLM_loc, lcut)
@@ -520,18 +627,8 @@ contains
       
       call shtns_load_cfg(1) ! l_max + 1
       
-      !-- TODO: The FFT must be performed for an array with the dimensions of 
-      !   Fr_loc which may end up paded with zeroes.
-      !   Is there any way to tell MKL to perform a "truncated" FFT?
-      call fft_phi_loc(f_loc, Fr_loc, 1)
-      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
+      call transform_phi2m(f_loc, fL_loc)
       
-      
-      !>@TODO  pass the full Fr_loc here instead of transpose_loc to avoid the memcopy
-      !>       It is not really needed, but requires some care with the size of the arrays
-      call transpose_m_theta(transpose_loc, fL_loc)
-      
-      !-- Now do the Legendre transform using the new function in a loop
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
         if (m>lcut) cycle

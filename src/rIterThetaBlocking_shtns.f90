@@ -49,6 +49,8 @@ module rIterThetaBlocking_shtns_mod
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
+   
+   
    use communications  ! DELETEME
    use truncation
    use LMmapping
@@ -482,44 +484,65 @@ contains
       
       nR = this%nR
 
+      call slice_Flm_cmplx(s_Rloc(:,nR), s_Rdist(:,nR))
+      call slice_Flm_cmplx(p_Rloc(:,nR), p_Rdist(:,nR))
+      if ( l_chemical_conv ) call slice_Flm_cmplx(xi_Rloc(:,nR), xi_Rdist(:,nR))
+      call slice_Flm_cmplx(ds_Rloc(:,nR), ds_Rdist(:,nR))
+      
+      
+      call slice_f(gsa%sc, this%gsa_dist%sc)
+      call slice_f(gsa%dsdtc, this%gsa_dist%dsdtc)
+      call slice_f(gsa%dsdpc, this%gsa_dist%dsdpc)
+      call slice_f(gsa%pc, this%gsa_dist%pc)
+      if ( l_chemical_conv ) call slice_f(gsa%xic, this%gsa_dist%xic)
+      call slice_f(gsa%drsc, this%gsa_dist%drsc)
+      
+      call slice_Flm_cmplx(w_Rloc(:,nR), w_Rdist(:,nR))
+      call slice_Flm_cmplx(dw_Rloc(:,nR), dw_Rdist(:,nR))
+      call slice_Flm_cmplx(z_Rloc(:,nR), z_Rdist(:,nR))
+      
+      call slice_Flm_cmplx(ddw_Rloc(:,nR), ddw_Rdist(:,nR))
+      call slice_Flm_cmplx(dz_Rloc(:,nR), dz_Rdist(:,nR))
+      
+      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(b_Rloc(:,nR), b_Rdist(:,nR))
+      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(db_Rloc(:,nR), db_Rdist(:,nR))
+      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(aj_Rloc(:,nR), aj_Rdist(:,nR))
+      
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            
-            call slice_Flm_cmplx(s_Rloc(1:lm_max,nR), sliced_s)
-            !call slice_f(gsa%sc, sliced_sc)
-            call scal_to_spat_dist(sliced_s(1:n_lm_loc), sliced_sc, l_R(nR))
-            call gather_f(sliced_sc, gsa%sc)
-            
-         
+            call scal_to_spat_dist(s_Rdist(:,nR), this%gsa_dist%sc, l_R(nR))
             if ( this%lViscBcCalc ) then
-               call scal_to_grad_spat(s_Rloc(:,nR), gsa%dsdtc, gsa%dsdpc, l_R(nR))
+               call scal_to_grad_spat_dist(s_Rloc(:,nR), this%gsa_dist%dsdtc, this%gsa_dist%dsdpc, l_R(nR))
                if (this%nR == n_r_cmb .and. ktops==1) then
-                  gsa%dsdtc=0.0_cp
-                  gsa%dsdpc=0.0_cp
+                  this%gsa_dist%dsdtc=0.0_cp
+                  this%gsa_dist%dsdpc=0.0_cp
                end if
                if (this%nR == n_r_icb .and. kbots==1) then
-                  gsa%dsdtc=0.0_cp
-                  gsa%dsdpc=0.0_cp
+                  this%gsa_dist%dsdtc=0.0_cp
+                  this%gsa_dist%dsdpc=0.0_cp
                end if
             end if
          end if
 
-         if ( this%lRmsCalc ) call scal_to_grad_spat(p_Rloc(:,nR), gsa%dpdtc, &
-                                   &                 gsa%dpdpc, l_R(nR))
+         if ( this%lRmsCalc ) call scal_to_grad_spat_dist(p_Rdist(:,nR), this%gsa_dist%dpdtc, &
+                                   &                 this%gsa_dist%dpdpc, l_R(nR))
 
          !-- Pressure
-         if ( this%lPressCalc ) call scal_to_spat(p_Rloc(:,nR), gsa%pc, l_R(nR))
+         if ( this%lPressCalc ) call scal_to_spat_dist(p_Rdist(:,nR), this%gsa_dist%pc, l_R(nR))
 
          !-- Composition
-         if ( l_chemical_conv ) call scal_to_spat(xi_Rloc(:,nR), gsa%xic, l_R(nR))
+         if ( l_chemical_conv ) call scal_to_spat_dist(xi_Rdist(:,nR), this%gsa_dist%xic, l_R(nR))
 
          if ( l_HT .or. this%lViscBcCalc ) then
-            call scal_to_spat(ds_Rloc(:,nR), gsa%drsc, l_R(nR))
+            call scal_to_spat_dist(ds_Rdist(:,nR), this%gsa_dist%drsc, l_R(nR))
          endif
          if ( this%nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
-            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                 &              gsa%vrc, gsa%vtc, gsa%vpc, l_R(nR))
+            call torpol_to_spat_dist(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                 &              this%gsa_dist%vrc, this%gsa_dist%vtc, this%gsa_dist%vpc, l_R(nR))
+call gather_f(this%gsa_dist%vrc, gsa%vrc)
+call gather_f(this%gsa_dist%vtc, gsa%vtc)
+call gather_f(this%gsa_dist%vpc, gsa%vpc)
 
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
@@ -533,9 +556,12 @@ contains
                &    .or. this%lFluxProfCalc .or. this%lTOCalc .or.            &
                &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
 
-                  call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR),         &
-                       &              dz_Rloc(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
-                       &              gsa%dvpdrc, l_R(nR))
+                  call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),         &
+                       &              dz_Rdist(:,nR), this%gsa_dist%dvrdrc, this%gsa_dist%dvtdrc, &
+                       &              this%gsa_dist%dvpdrc, l_R(nR))
+call gather_f(this%gsa_dist%dvrdrc, gsa%dvrdrc)
+call gather_f(this%gsa_dist%dvtdrc, gsa%dvtdrc)
+call gather_f(this%gsa_dist%dvpdrc, gsa%dvpdrc)
                   call pol_to_grad_spat(w_Rloc(:,nR),gsa%dvrdtc,gsa%dvrdpc, l_R(nR))
                   call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
                        &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
@@ -543,9 +569,11 @@ contains
 
             else ! Advection is treated as u\grad u
 
-               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                 &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
-
+               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
+                 &              this%gsa_dist%dvrdrc, this%gsa_dist%dvtdrc, this%gsa_dist%dvpdrc, l_R(nR))
+call gather_f(this%gsa_dist%dvrdrc, gsa%dvrdrc)
+call gather_f(this%gsa_dist%dvtdrc, gsa%dvtdrc)
+call gather_f(this%gsa_dist%dvpdrc, gsa%dvpdrc)
                call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc, l_R(nR))
 
                call pol_to_grad_spat(w_Rloc(:,nR), gsa%dvrdtc, gsa%dvrdpc, l_R(nR))
@@ -555,14 +583,21 @@ contains
 
          else if ( this%nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
-            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                 &              gsa%vrc, gsa%vtc, gsa%vpc, l_R(nR))
+            call torpol_to_spat_dist(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                 &              this%gsa_dist%vrc, this%gsa_dist%vtc, this%gsa_dist%vpc, l_R(nR))
+call gather_f(this%gsa_dist%vrc, gsa%vrc)
+call gather_f(this%gsa_dist%vtc, gsa%vtc)
+call gather_f(this%gsa_dist%vpc, gsa%vpc)
+                 
             gsa%vrc = 0.0_cp
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
-               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
+                    &              this%gsa_dist%dvrdrc, this%gsa_dist%dvtdrc, this%gsa_dist%dvpdrc, l_R(nR))
+call gather_f(this%gsa_dist%dvrdrc, gsa%dvrdrc)
+call gather_f(this%gsa_dist%dvtdrc, gsa%dvtdrc)
+call gather_f(this%gsa_dist%dvpdrc, gsa%dvpdrc)
                call pol_to_curlr_spat(z_Rloc(:,nR), gsa%cvrc, l_R(nR))
                call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
                     &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
@@ -578,15 +613,21 @@ contains
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,1)
             end if
             if ( this%lDeriv ) then
-               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
+                    &              this%gsa_dist%dvrdrc, this%gsa_dist%dvtdrc, this%gsa_dist%dvpdrc, l_R(nR))
+call gather_f(this%gsa_dist%dvrdrc, gsa%dvrdrc)
+call gather_f(this%gsa_dist%dvtdrc, gsa%dvtdrc)
+call gather_f(this%gsa_dist%dvpdrc, gsa%dvpdrc)
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat(b_Rloc(:,nR), db_Rloc(:,nR),  aj_Rloc(:,nR),    &
-              &              gsa%brc, gsa%btc, gsa%bpc, l_R(nR))
+         call torpol_to_spat_dist(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR),    &
+              &              this%gsa_dist%brc, this%gsa_dist%btc, this%gsa_dist%bpc, l_R(nR))
+call gather_f(this%gsa_dist%brc, gsa%brc)
+call gather_f(this%gsa_dist%btc, gsa%btc)
+call gather_f(this%gsa_dist%bpc, gsa%bpc)
 
          if ( this%lDeriv ) then
             call torpol_to_curl_spat(or2(nR), b_Rloc(:,nR), ddb_Rloc(:,nR), &
@@ -594,7 +635,17 @@ contains
                  &                   gsa%cbrc, gsa%cbtc, gsa%cbpc, l_R(nR))
          end if
       end if
+      
+      call gather_f(this%gsa_dist%sc, gsa%sc)
+      call gather_f(this%gsa_dist%dsdtc, gsa%dsdtc)
+      call gather_f(this%gsa_dist%dsdpc, gsa%dsdpc)
+      if ( this%lRmsCalc ) call gather_f(this%gsa_dist%dpdtc, gsa%dpdtc)
+      if ( this%lRmsCalc ) call gather_f(this%gsa_dist%dpdpc, gsa%dpdpc)
 
+      call gather_f(this%gsa_dist%pc, gsa%pc)
+      if ( l_chemical_conv ) call gather_f(this%gsa_dist%xic, gsa%xic)
+      call gather_f(this%gsa_dist%drsc, gsa%drsc)
+      
    end subroutine transform_to_grid_space_shtns
 !-------------------------------------------------------------------------------
    subroutine transform_to_lm_space_shtns(this, gsa_dist, nl_lm_dist)
