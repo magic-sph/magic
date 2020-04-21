@@ -66,7 +66,6 @@ module rIterThetaBlocking_shtns_mod
       type(dtB_arrays_t) :: dtB_arrays
       type(dtB_arrays_t) :: dtB_arrays_dist
       type(nonlinear_lm_t) :: nl_lm
-      type(nonlinear_lm_t) :: nl_lm_dist
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_shtns
@@ -97,8 +96,7 @@ contains
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize(lmP_max_dtB)
       call this%dtB_arrays_dist%initialize(n_lmP_loc)
-      call this%nl_lm%initialize(lmP_max)
-      call this%nl_lm_dist%initialize(n_lmP_loc)
+      call this%nl_lm%initialize(n_lmP_loc)
 
    end subroutine initialize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
@@ -113,7 +111,6 @@ contains
       call this%dtB_arrays%finalize()
       call this%dtB_arrays_dist%finalize()
       call this%nl_lm%finalize()
-      call this%nl_lm_dist%finalize()
 
    end subroutine finalize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
@@ -187,7 +184,7 @@ contains
       this%lorentz_torque_ic = 0.0_cp
       lorentz_torques_ic = 0.0_cp
 
-      call this%nl_lm%set_zero()
+      call this%nl_lm%set_zero(n_lm_loc)
 
       call lm2phy_counter%start_count()
       call this%transform_to_grid_space_shtns(this%gsa)
@@ -195,7 +192,6 @@ contains
 
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
       call this%gsa%slice_all(this%gsa_dist)
-      call this%nl_lm%slice_all(this%nl_lm_dist)
       
       call slice_FlmP_cmplx(br_vt_lm_cmb, br_vt_lm_cmb_dist)
       call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
@@ -218,13 +214,13 @@ contains
 
          
          call phy2lm_counter%start_count()
-         call this%transform_to_lm_space_shtns(this%gsa_dist, this%nl_lm_dist)
+         call this%transform_to_lm_space_shtns(this%gsa_dist, this%nl_lm)
          call phy2lm_counter%stop_count(l_increment=.false.)
 
       else if ( l_mag ) then
          do lm=1,n_lmP_loc
-            this%nl_lm_dist%VxBtLM(lm)=0.0_cp
-            this%nl_lm_dist%VxBpLM(lm)=0.0_cp
+            this%nl_lm%VxBtLM(lm)=0.0_cp
+            this%nl_lm%VxBpLM(lm)=0.0_cp
          end do
       end if
       
@@ -411,15 +407,8 @@ contains
       this%lorentz_torque_ic = lorentz_torques_ic
       lorentz_torque_ma = this%lorentz_torque_ma
 
-      if (DEBUG_OUTPUT) then
-         call this%nl_lm%output()
-      end if
+      if ( DEBUG_OUTPUT ) call this%nl_lm%output()
       
-      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
-      !call this%nl_lm_dist%gather_all(this%nl_lm)
-      !call this%gsa_dist%gather_all(this%gsa)
-      ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
-
       !-- Partial calculation of time derivatives (horizontal parts):
       !   input flm...  is in (l,m) space at radial grid points this%nR !
       !   Only dVxBh needed for boundaries !
@@ -428,9 +417,9 @@ contains
       !   over the different models that s_LMLoop.f parallelizes over.
       !PERFON('get_td')
       call td_counter%start_count()
-      call this%nl_lm_dist%get_td(this%nR, this%nBc, this%lRmsCalc,      &
-           &                 this%lPressNext, dVSrLM, dVXirLM,           &
-           &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt,   &
+      call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,         &
+           &                 this%lPressNext, dVSrLM, dVXirLM,         &
+           &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt, &
            &                 dxidt, dbdt, djdt)
       call td_counter%stop_count(l_increment=.false.)
 
@@ -598,13 +587,11 @@ contains
 
    end subroutine transform_to_grid_space_shtns
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space_shtns(this, gsa_dist, nl_lm_dist)
+   subroutine transform_to_lm_space_shtns(this, gsa_dist, nl_lm)
 
       class(rIterThetaBlocking_shtns_t) :: this
       type(grid_space_arrays_t) :: gsa_dist
-!       type(grid_space_arrays_t) :: gsa
-!       type(nonlinear_lm_t) :: nl_lm
-      type(nonlinear_lm_t) :: nl_lm_dist
+      type(nonlinear_lm_t) :: nl_lm
 
       ! Local variables
       integer :: nTheta, nPhi, nThStart, nThStop
@@ -669,67 +656,68 @@ contains
          end if
          !$omp end parallel
          
-         call spat_to_SH_dist(gsa_dist%Advr, nl_lm_dist%AdvrLM, l_R(this%nR))
-         call spat_to_SH_dist(gsa_dist%Advt, nl_lm_dist%AdvtLM, l_R(this%nR))
-         call spat_to_SH_dist(gsa_dist%Advp, nl_lm_dist%AdvpLM, l_R(this%nR))
+         call spat_to_SH_dist(gsa_dist%Advr, nl_lm%AdvrLM, l_R(this%nR))
+         call spat_to_SH_dist(gsa_dist%Advt, nl_lm%AdvtLM, l_R(this%nR))
+         call spat_to_SH_dist(gsa_dist%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
-            call spat_to_SH_dist(gsa_dist%LFr, nl_lm_dist%LFrLM, l_R(this%nR))
-            call spat_to_SH_dist(gsa_dist%LFt, nl_lm_dist%LFtLM, l_R(this%nR))
-            call spat_to_SH_dist(gsa_dist%LFp, nl_lm_dist%LFpLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%LFr, nl_lm%LFrLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%LFt, nl_lm%LFtLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%LFp, nl_lm%LFpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call spat_to_qst_dist(gsa_dist%VSr, gsa_dist%VSt, gsa_dist%VSp, nl_lm_dist%VSrLM, nl_lm_dist%VStLM, &
-              &           nl_lm_dist%VSpLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa_dist%VSr, gsa_dist%VSt, gsa_dist%VSp, &
+              &                nl_lm%VSrLM, nl_lm%VStLM, nl_lm%VSpLM, l_R(this%nR))
          
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm_dist%ViscHeatLM, l_R(this%nR))
-               call spat_to_SH_dist(gsa_dist%OhmLoss,  nl_lm_dist%OhmLossLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa_dist%OhmLoss,  nl_lm%OhmLossLM, l_R(this%nR))
             else
-               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm_dist%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
             end if
          end if
          !PERFOFF
       end if
       
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         call spat_to_qst_dist(gsa_dist%VXir, gsa_dist%VXit, gsa_dist%VXip, nl_lm_dist%VXirLM, &
-              &           nl_lm_dist%VXitLM, nl_lm_dist%VXipLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa_dist%VXir, gsa_dist%VXit, gsa_dist%VXip, &
+              &                nl_lm%VXirLM, nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call spat_to_qst_dist(gsa_dist%VxBr, gsa_dist%VxBt, gsa_dist%VxBp, nl_lm_dist%VxBrLM, &
-                 &           nl_lm_dist%VxBtLM, nl_lm_dist%VxBpLM, l_R(this%nR))
+            call spat_to_qst_dist(gsa_dist%VxBr, gsa_dist%VxBt, gsa_dist%VxBp, &
+                 &                nl_lm%VxBrLM, nl_lm%VxBtLM,                  &
+                 &                nl_lm%VxBpLM, l_R(this%nR))
          else
-            call spat_to_sphertor_dist(gsa_dist%VxBt,gsa_dist%VxBp,nl_lm_dist%VxBtLM,nl_lm_dist%VxBpLM, &
-                 &                l_R(this%nR))
+            call spat_to_sphertor_dist(gsa_dist%VxBt, gsa_dist%VxBp, nl_lm%VxBtLM, &
+                 &                     nl_lm%VxBpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
 
       if ( this%lRmsCalc ) then
-         call spat_to_sphertor_dist(gsa_dist%dpdtc, gsa_dist%dpdpc, nl_lm_dist%PFt2LM, nl_lm_dist%PFp2LM, &
-              &                l_R(this%nR))
-         call spat_to_sphertor_dist(gsa_dist%CFt2, gsa_dist%CFp2, nl_lm_dist%CFt2LM, nl_lm_dist%CFp2LM, &
-              &                l_R(this%nR))
-         call spat_to_qst_dist(gsa_dist%dtVr, gsa_dist%dtVt, gsa_dist%dtVp, nl_lm_dist%dtVrLM, &
-              &           nl_lm_dist%dtVtLM, nl_lm_dist%dtVpLM, l_R(this%nR))
+         call spat_to_sphertor_dist(gsa_dist%dpdtc, gsa_dist%dpdpc, nl_lm%PFt2LM, &
+              &                     nl_lm%PFp2LM, l_R(this%nR))
+         call spat_to_sphertor_dist(gsa_dist%CFt2, gsa_dist%CFp2, nl_lm%CFt2LM, &
+              &                     nl_lm%CFp2LM, l_R(this%nR))
+         call spat_to_qst_dist(gsa_dist%dtVr, gsa_dist%dtVt, gsa_dist%dtVp, &
+              &                nl_lm%dtVrLM, nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
          if ( l_conv_nl ) then
-            call spat_to_sphertor_dist(gsa_dist%Advt2, gsa_dist%Advp2, nl_lm_dist%Advt2LM, &
-                 &                nl_lm_dist%Advp2LM, l_R(this%nR))
+            call spat_to_sphertor_dist(gsa_dist%Advt2, gsa_dist%Advp2, nl_lm%Advt2LM,&
+                 &                     nl_lm%Advp2LM, l_R(this%nR))
          end if
          if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call spat_to_SH_dist(gsa_dist%dpkindrc, nl_lm_dist%dpkindrLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa_dist%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call spat_to_sphertor_dist(gsa_dist%LFt2, gsa_dist%LFp2, nl_lm_dist%LFt2LM, &
-                 &                nl_lm_dist%LFp2LM, l_R(this%nR))
+            call spat_to_sphertor_dist(gsa_dist%LFt2, gsa_dist%LFp2, nl_lm%LFt2LM, &
+                 &                     nl_lm%LFp2LM, l_R(this%nR))
          end if
       end if
       

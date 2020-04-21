@@ -240,9 +240,10 @@ contains
 
    end subroutine finalize
 !----------------------------------------------------------------------------
-   subroutine set_zero(this)
+   subroutine set_zero(this, lmP_max)
 
       class(nonlinear_lm_t) :: this
+      integer, intent(in) :: lmP_max
 
       !-- Local variable
       integer :: lm
