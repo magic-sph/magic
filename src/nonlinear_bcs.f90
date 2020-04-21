@@ -188,7 +188,7 @@ contains
    end subroutine get_b_nl_bcs
 !-------------------------------------------------------------------------
    subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
-              &                dvrdpr,dvtdpr,dvpdpr, nThetaStart)
+              &                dvrdpr,dvtdpr,dvpdpr)
       !
       !  Purpose of this subroutine is to set the velocities and their
       !  derivatives at a fixed boundary.
@@ -201,24 +201,23 @@ contains
       !-- Input of variables:
       integer,  intent(in) :: nR            ! no of radial grid point
       logical,  intent(in) :: lDeriv        ! derivatives required ?
-      integer,  intent(in) :: nThetaStart   ! no of theta to start with
 
       !-- Input of boundary rotation rate
       real(cp), intent(in) :: omega
 
       !-- output:
-      real(cp), intent(out) :: vrr(nrp,nfs)
-      real(cp), intent(out) :: vpr(nrp,nfs)
-      real(cp), intent(out) :: vtr(nrp,nfs)
-      real(cp), intent(out) :: cvrr(nrp,nfs)
-      real(cp), intent(out) :: dvrdtr(nrp,nfs)
-      real(cp), intent(out) :: dvrdpr(nrp,nfs)
-      real(cp), intent(out) :: dvtdpr(nrp,nfs)
-      real(cp), intent(out) :: dvpdpr(nrp,nfs)
+      real(cp), intent(out) :: vrr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: vpr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: vtr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: cvrr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: dvrdtr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: dvrdpr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: dvtdpr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: dvpdpr(nrp,nThetaStart:nThetaStop)
 
       !-- Local variables:
       real(cp) :: r2
-      integer :: nTheta,nThetaNHS,nThetaCalc
+      integer :: nTheta,nThetaNHS
       integer :: nPhi
 
 
@@ -233,9 +232,8 @@ contains
          return
       end if
 
-      do nTheta=1,sizeThetaB
-         nThetaCalc = nThetaStart + nTheta - 1
-         nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
+      do nTheta=nThetaStart,nThetaStop
+         nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
          do nPhi=1,n_phi_max
 
                vrr(nPhi,nTheta)=0.0_cp
@@ -245,7 +243,7 @@ contains
                vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
 
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nThetaCalc)*omega
+               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
                dvrdtr(nPhi,nTheta)=0.0_cp
                dvrdpr(nPhi,nTheta)=0.0_cp
                dvtdpr(nPhi,nTheta)=0.0_cp

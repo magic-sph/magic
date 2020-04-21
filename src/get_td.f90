@@ -7,7 +7,7 @@ module nonlinear_lm_mod
    use, intrinsic :: iso_c_binding
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
+   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, n_lmP_loc
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
@@ -250,7 +250,7 @@ contains
 #ifdef WITH_SHTNS
       !$omp parallel do private(lm)
 #endif
-      do lm=1,lmP_max
+      do lm=1,n_lmP_loc
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
          this%AdvpLM(lm)=zero

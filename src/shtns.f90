@@ -26,9 +26,10 @@ module shtns
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
    &         axi_to_spat, spat_to_qst,                                      &
    &         spat_to_SH_dist, spat_to_qst_dist, spat_to_sphertor_dist,      &
-   &         test_shtns, test_spat_to_qst, test_spat_to_SH,                 &
    &         spat_to_SH_axi_dist, scal_to_spat_dist, scal_to_grad_spat_dist,&
-   &         torpol_to_spat_dist, torpol_to_curl_spat_dist
+   &         torpol_to_spat_dist, torpol_to_curl_spat_dist,                 &
+   &         pol_to_grad_spat_dist, torpol_to_dphspat_dist,                 &
+   &         pol_to_curlr_spat_dist
 
 contains
 
@@ -523,8 +524,7 @@ contains
       complex(cp) :: fL(n_theta_max,n_m_loc)
       complex(cp) :: gL(n_theta_max,n_m_loc)
       complex(cp) :: hL(n_theta_max,n_m_loc)
-      integer :: lm, l
-      integer :: i, l_lm, c_lm, u_lm, m, lm_glb, l_lm_glb, c_lm_glb
+      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
       
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
@@ -569,8 +569,7 @@ contains
       complex(cp) :: fL(n_theta_max,n_m_loc)
       complex(cp) :: gL(n_theta_max,n_m_loc)
       complex(cp) :: hL(n_theta_max,n_m_loc)
-      integer :: lm, l
-      integer :: i, l_lm, c_lm, u_lm, m, lm_glb, l_lm_glb, c_lm_glb
+      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
       
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
@@ -598,6 +597,133 @@ contains
       call transform_m2phi(hL, cvpc)
 
    end subroutine torpol_to_curl_spat_dist
+   
+   !------------------------------------------------------------------------------
+   subroutine pol_to_grad_spat_dist(Slm, gradtc, gradpc, lcut)
+
+       !-- Input variables
+      complex(cp), intent(in) :: Slm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: gradtc(n_phi_max, n_theta_loc)
+      real(cp), intent(out) :: gradpc(n_phi_max, n_theta_loc)
+
+      !-- Local variables
+      complex(cp) :: Qlm(0:l_max)
+      complex(cp) :: fL(n_theta_max,n_m_loc)
+      complex(cp) :: gL(n_theta_max,n_m_loc)
+      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
+      
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) cycle
+         
+         l_lm = map_dist_st%lm2(m, m)
+         c_lm = map_dist_st%lm2(lcut, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         l_lm_glb = map_glbl_st%lm2(m,m)
+         c_lm_glb = map_glbl_st%lm2(lcut,m)
+         
+         Qlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Slm(l_lm:c_lm)
+         if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
+         call shtns_sph_to_spat_ml(m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
+      end do
+      
+      call transform_m2phi(fL, gradtc)
+      call transform_m2phi(gL, gradpc)
+
+   end subroutine pol_to_grad_spat_dist
+   
+   
+   !------------------------------------------------------------------------------
+   subroutine torpol_to_dphspat_dist(dWlm, Zlm, dvtdp, dvpdp, lcut)
+      !
+      ! Computes horizontal phi derivative of a toroidal/poloidal field
+      !
+
+      !-- Input variables
+      complex(cp), intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: dvtdp(n_phi_max, nThetaStart:nThetaStop) ! Careful with dimensions here!
+      real(cp), intent(out) :: dvpdp(n_phi_max, nThetaStart:nThetaStop) ! Careful with dimensions here!
+
+      !-- Local variables
+      complex(cp) :: Slm(0:l_max), Tlm(0:l_max)
+      complex(cp) :: fL(n_theta_max,n_m_loc)
+      complex(cp) :: gL(n_theta_max,n_m_loc)
+      integer :: i, l_lm, c_lm, u_lm, m, it, ip
+      
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) cycle
+         
+         l_lm = map_dist_st%lm2(m, m)
+         c_lm = map_dist_st%lm2(lcut, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         Slm(m:lcut) = ci*m*dWlm(l_lm:c_lm)
+         Tlm(m:lcut) = ci*m*Zlm(l_lm:c_lm)
+         if (lcut<l_max) then 
+            Slm(lcut+1:u_lm) = zero
+            Tlm(lcut+1:u_lm) = zero
+         end if
+         call shtns_sphtor_to_spat_ml(m/minc, Slm(m:l_max), Tlm(m:l_max), &
+              &  fL(:,i), gL(:,i), lcut)
+      end do
+      
+      call transform_m2phi(fL, dvtdp)
+      call transform_m2phi(gL, dvpdp)
+      
+      !$omp parallel do default(shared) private(it,ip)
+      do it=nThetaStart, nThetaStop
+         do ip=1, n_phi_max
+            dvtdp(ip, it) = dvtdp(ip, it) * O_sin_theta_E2(it)
+            dvpdp(ip, it) = dvpdp(ip, it) * O_sin_theta_E2(it)
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine torpol_to_dphspat_dist
+   
+   !------------------------------------------------------------------------------
+   subroutine pol_to_curlr_spat_dist(Qlm, cvrc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Qlm(lm_max)
+      integer,     intent(in) :: lcut
+
+      !-- Output variable
+      real(cp), intent(out) :: cvrc(n_phi_max, n_theta_max)
+
+      !-- Local variables
+      complex(cp) :: dQlm(0:l_max)
+      complex(cp) :: fL(n_theta_max,n_m_loc)
+      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
+      
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) cycle
+         
+         l_lm = map_dist_st%lm2(m, m)
+         c_lm = map_dist_st%lm2(lcut, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         l_lm_glb = map_glbl_st%lm2(m,m)
+         c_lm_glb = map_glbl_st%lm2(lcut,m)
+         
+         dQlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Qlm(l_lm:c_lm)
+         if (lcut<l_max) dQlm(lcut+1:u_lm) = zero
+         call shtns_SH_to_spat_ml(m/minc, dQlm(m:l_max), fL(:,i), lcut)
+      end do
+      
+      call transform_m2phi(fL, cvrc)
+
+   end subroutine pol_to_curlr_spat_dist
+   
    
    
 !------------------------------------------------------------------------------
@@ -667,19 +793,9 @@ contains
       call shtns_load_cfg(1)
       
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
-      
-      call fft_phi_loc(f_loc, Fr_loc, 1)
-      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
-      call transpose_m_theta(transpose_loc, fL_loc)
-      
-      call fft_phi_loc(g_loc, Fr_loc, 1)
-      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
-      call transpose_m_theta(transpose_loc, gL_loc)
-      
-      
-      call fft_phi_loc(h_loc, Fr_loc, 1)
-      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
-      call transpose_m_theta(transpose_loc, hL_loc)
+      call transform_phi2m(f_loc, fL_loc)
+      call transform_phi2m(g_loc, gL_loc)
+      call transform_phi2m(h_loc, hL_loc)
       
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
@@ -718,13 +834,8 @@ contains
       
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
       
-      call fft_phi_loc(f_loc, Fr_loc, 1)
-      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
-      call transpose_m_theta(transpose_loc, fL_loc)
-      
-      call fft_phi_loc(g_loc, Fr_loc, 1)
-      transpose_loc(1:n_m_max,1:n_theta_loc) = Fr_loc(1:n_m_max,1:n_theta_loc)
-      call transpose_m_theta(transpose_loc, gL_loc)
+      call transform_phi2m(f_loc, fL_loc)
+      call transform_phi2m(g_loc, gL_loc)
       
       
       do i = 1, n_m_loc
@@ -772,211 +883,5 @@ contains
 
    end subroutine spat_to_SH_axi_dist
 !------------------------------------------------------------------------------
-   
-   !----------------------------------------------------------------------------
-   subroutine test_shtns
-      use communications
-      
-      real(cp)    :: f(n_phi_max, n_theta_max)
-      real(cp)    :: f_back(n_phi_max, n_theta_max)
-      real(cp)    :: f_gathered(n_phi_max, n_theta_max)
-      
-      real(cp)    :: f_loc(n_phi_max,n_theta_loc)
-      real(cp)    :: f_sliced(n_phi_max,n_theta_loc)
-      real(cp)    :: f_loc_back(n_phi_max,n_theta_loc)
-      
-      complex(cp) :: fLM(lm_max)
-      complex(cp) :: fLM_gathered(lm_max)
-      
-      complex(cp) :: fLM_sliced(n_lm_loc)
-      complex(cp) :: fLM_loc(n_lm_loc)
-      
-      complex(cp) :: fLMP(lmP_max)
-      complex(cp) :: fLMP_loc(n_lmP_loc)
-      complex(cp) :: fLMP_sliced(n_lmP_loc)
-      
-      integer :: i,j,k,l,m
-      
-!       do i=1,lm_max
-!         l = map_glbl_st%lm2l(i)
-!         m = map_glbl_st%lm2m(i)
-!         fLM(i) = cmplx(real(l/l_max),real(m/l_max))
-!       end do
-! 
-!       fLM_loc = cmplx(0.0,0.0)
-!       call slice_Flm_cmplx(fLM,fLM_loc)
-!            
-!       call scal_to_spat(fLM,f,l_max)
-!       call scal_to_spat_dist(fLM_loc,f_loc)
-!       call slice_f(f, f_sliced)
-! 
-!       print*, "test_scal_to_spat: ", maxval(abs(f_loc - f_sliced))
-!       
-!       k = 0
-!       do i=1,n_phi_max
-!         do j=1,n_theta_max
-!           k = k + 1
-!           f(i,j) = real(k)/(n_phi_max*n_theta_max)
-!         end do
-!       end do
-!       
-!       f_loc = cmplx(0.0,0.0)
-!       call slice_f(f,f_loc)
-!       
-!       call spat_to_SH(f,fLMP,l_max)
-!       call spat_to_SH_dist(f_loc,fLMP_loc)
-!       
-!       call slice_FlmP_cmplx(fLMP,fLMP_sliced)
-!       
-!       print*, "test_spat_to_SH: ", maxval(abs(fLMP_loc - fLMP_sliced))     
-      
-   end subroutine
-   
-   !----------------------------------------------------------------------------
-   subroutine test_spat_to_SH(f2,lcut)
-      use communications
-      
-      real(cp), intent(inout) :: f2(n_phi_max, n_theta_max)
-      integer,  intent(in)    :: lcut
-      real(cp)    :: f(n_phi_max, n_theta_max)
-      real(cp)    :: f_loc(n_phi_max,nThetaStart:nThetaStop)
-      
-      complex(cp) :: fLMP(lmP_max)
-      complex(cp) :: fLMP_loc(n_lmP_loc)
-      complex(cp) :: fLMP_sliced(n_lmP_loc)
-      
-      integer :: k, i, j
-      integer, save :: ncalls=1
-      
-      print *, "~~~~~~~~~~~ ncalls, lcut:", ncalls, lcut
-      ncalls = ncalls + 1
-      
-      k = 0
-      do i=1,n_phi_max
-        do j=1,n_theta_max
-          k = k + 1
-          f(i,j) = real(k)/real(n_phi_max*n_theta_max)
-        end do
-      end do
-      
-
-      f_loc = cmplx(0.0,0.0)
-      fLMP = cmplx(0.0,0.0)
-      fLMP_loc = cmplx(0.0,0.0)
-      fLMP_sliced = cmplx(0.0,0.0)
-      call slice_f(f,f_loc)
-      
-      call spat_to_SH(f,fLMP,lcut)
-      call spat_to_SH_dist(f_loc,fLMP_loc,lcut)
-      
-      call slice_FlmP_cmplx(fLMP,fLMP_sliced)      
-
-      print *, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-1-"
-      print *, fLMP_sliced
-      print *, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-2-"
-      print *, fLMP_loc
-      fLMP_loc = fLMP_loc - fLMP_sliced
-      print*, "spat_to_SH: ", maxval(abs(fLMP_loc)), norm2([norm2(real(fLMP_loc)), norm2(aimag(fLMP_loc))]) 
-      
-      stop
-      if (ncalls>8) STOP
-   end subroutine
-   
-   !----------------------------------------------------------------------------
-   subroutine test_spat_to_qst(f,g,h)
-      use communications
-      
-      !-- Input variables
-      real(cp), intent(inout) :: f(n_phi_max,n_theta_max)
-      real(cp), intent(inout) :: g(n_phi_max,n_theta_max)
-      real(cp), intent(inout) :: h(n_phi_max,n_theta_max)
-      real(cp)    :: f_loc(n_phi_max,n_theta_loc)
-      real(cp)    :: g_loc(n_phi_max,n_theta_loc)
-      real(cp)    :: h_loc(n_phi_max,n_theta_loc)
-      
-      
-      complex(cp) :: qLMP(lmP_max)
-      complex(cp) :: sLMP(lmP_max)
-      complex(cp) :: tLMP(lmP_max)
-      complex(cp) :: qLMP_loc(n_lmP_loc)
-      complex(cp) :: sLMP_loc(n_lmP_loc)
-      complex(cp) :: tLMP_loc(n_lmP_loc)
-      
-      complex(cp) :: qLMP_sliced(n_lmP_loc)
-      complex(cp) :: sLMP_sliced(n_lmP_loc)
-      complex(cp) :: tLMP_sliced(n_lmP_loc)
-      
-      integer :: k, i, j, ierr
-      
-      real :: norm
-      real, save :: max_norm = 1e-16
-      
-      
-!       k = 0
-!       do i=1,n_phi_max
-!         do j=1,n_theta_max
-!           k = k + 1
-!           f(i,j) = real(k)/real(n_phi_max*n_theta_max)
-!         end do
-!       end do
-!       g = f
-!       h = f
-      
-      f_loc = cmplx(0.0,0.0)
-      g_loc = cmplx(0.0,0.0)
-      h_loc = cmplx(0.0,0.0)
-      
-      qLMP = cmplx(0.0,0.0)
-      sLMP = cmplx(0.0,0.0)
-      tLMP = cmplx(0.0,0.0)
-      
-      qLMP_loc = cmplx(0.0,0.0)
-      sLMP_loc = cmplx(0.0,0.0)
-      tLMP_loc = cmplx(0.0,0.0)
-      
-      qLMP_sliced = cmplx(0.0,0.0)
-      sLMP_sliced = cmplx(0.0,0.0)
-      tLMP_sliced = cmplx(0.0,0.0)
-      
-      call slice_f(f,f_loc)
-      call slice_f(g,g_loc)
-      call slice_f(h,h_loc)
-      
-      call spat_to_qst(f, g, h, qLMP, sLMP, tLMP, l_max)
-      call spat_to_qst_dist(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, l_max)
-      
-      call slice_FlmP_cmplx(qLMP,qLMP_sliced)
-      call slice_FlmP_cmplx(sLMP,sLMP_sliced)
-      call slice_FlmP_cmplx(tLMP,tLMP_sliced)     
-      
-      qLMP_loc = qLMP_loc - qLMP_sliced
-      sLMP_loc = sLMP_loc - sLMP_sliced
-      tLMP_loc = tLMP_loc - tLMP_sliced
-      norm = maxval(abs(qLMP_loc))
-      if (norm>max_norm) then
-         print*, "spat_to_qst: THR", norm
-         print*, "spat_to_qst: MAX", maxval(abs(qLMP_loc)), maxval(abs(sLMP_loc)), maxval(abs(tLMP_loc))
-         print*, "spat_to_qst: L_2", norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
-         max_norm = norm
-      end if
-      norm = maxval(abs(sLMP_loc))
-      if (norm>max_norm) then
-         print*, "spat_to_qst: THR", norm
-         print*, "spat_to_qst: MAX", maxval(abs(qLMP_loc)), maxval(abs(sLMP_loc)), maxval(abs(tLMP_loc))
-         print*, "spat_to_qst: L_2", norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
-         max_norm = norm
-      end if
-      norm = maxval(abs(tLMP_loc))
-      if (norm>max_norm) then
-         print*, "spat_to_qst: THR", norm
-         print*, "spat_to_qst: MAX", maxval(abs(qLMP_loc)), maxval(abs(sLMP_loc)), maxval(abs(tLMP_loc))
-         print*, "spat_to_qst: L_2", norm2([norm2(real(qLMP_loc)), norm2(aimag(qLMP_loc))]), norm2([norm2(real(sLMP_loc)), norm2(aimag(sLMP_loc))]), norm2([norm2(real(tLMP_loc)), norm2(aimag(tLMP_loc))]) 
-         max_norm = norm
-      end if
-      
-!       call mpi_allreduce(MPI_IN_PLACE, max_norm, 1, MPI_REAL, MPI_MAX, mpi_comm_world, ierr)
-!       STOP
-      
-   end subroutine
 
 end module shtns
