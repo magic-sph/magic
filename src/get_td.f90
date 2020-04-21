@@ -7,7 +7,7 @@ module nonlinear_lm_mod
    use, intrinsic :: iso_c_binding
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, n_lm_loc, n_lmP_loc
+   use truncation, only: l_max, n_lm_loc, n_lmP_loc
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
@@ -18,7 +18,7 @@ module nonlinear_lm_mod
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ChemFac, ThExpNb
-   use blocking, only: st_map, lo_map
+   use blocking, only: lo_map
    use horizontal_data, only: dLh_loc, dTheta1S_loc, dTheta1A_loc, dPhi_loc,    &
        &                      dTheta2A_loc, dTheta3A_loc, dTheta4A_loc,         &
        &                      dTheta2S_loc, hdif_B, dTheta3S_loc, dTheta4S_loc, &
@@ -675,73 +675,83 @@ contains
 
                if ( l_conv_nl ) then
                   if ( l_adv_curl ) then
-                     do lm=1,lm_max
+                     do lm=1,n_lm_loc
                         lmP =lm2lmP(lm)
                         AdvPol(lm)=AdvPol(lm)-this%dpkindrLM(lmP)
                      end do
                   end if
-                  call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map, .false.)
-                  call hIntRms(this%Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
-                       &       .true.)
-                  call hIntRms(this%Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
-                       &       .true.)
-                  do lm=1,lm_max
+                  call hIntRms(AdvPol,nR,1,n_lm_loc,0,Adv2hInt(:,nR),map_dist_st, &
+                       &       .false.)
+                  call hIntRms(this%Advt2LM,nR,1,n_lmP_loc,1,Adv2hInt(:,nR), &
+                       &       map_dist_st, .true.)
+                  call hIntRms(this%Advp2LM,nR,1,n_lMP_loc,1,Adv2hInt(:,nR), &
+                       &       map_dist_st, .true.)
+                  do lm=1,n_lm_loc
                      lmP =lm2lmP(lm)
                      !-- Use Geo as work array
                      Geo(lm)=AdvPol(lm)-this%dtVrLM(lmP)
                   end do
-                  call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map, .false.)
-                  call hIntRms(this%Advt2LM-this%dtVtLM,nR,1,lmP_max,1, &
-                       &       Iner2hInt(:,nR),st_map,.true.)
-                  call hIntRms(this%Advp2LM-this%dtVpLM,nR,1,lmP_max,1, &
-                       &       Iner2hInt(:,nR),st_map,.true.)
+                  call hIntRms(Geo,nR,1,n_lm_loc,0,Iner2hInt(:,nR),map_dist_st, &
+                       &       .false.)
+                  call hIntRms(this%Advt2LM-this%dtVtLM,nR,1,n_lmP_loc,1, &
+                       &       Iner2hInt(:,nR),map_dist_st,.true.)
+                  call hIntRms(this%Advp2LM-this%dtVpLM,nR,1,n_lmP_loc,1, &
+                       &       Iner2hInt(:,nR),map_dist_st,.true.)
                end if
 
                if ( l_anelastic_liquid ) then
-                  call hIntRms(dpdr,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
+                  call hIntRms(dpdr,nR,1,n_lm_loc,0,Pre2hInt(:,nR),map_dist_st, &
+                       &       .false.)
                else
                   ! rho* grad(p/rho) = grad(p) - beta*p
                   !-- Geo is used to store the pressure Gradient
                   if ( l_adv_curl ) then
-                     do lm=1,lm_max
+                     do lm=1,n_lm_loc
                         lmP =lm2lmP(lm)
                         !-- Use Geo as work array
                         Geo(lm)=dpdr(lm)-beta(nR)*p_Rdist(lm,nR)- &
                         &       this%dpkindrLM(lmP)
                      end do
                   else
-                     do lm=1,lm_max
+                     do lm=1,n_lm_loc
                         !-- Use Geo as work array
                         Geo(lm)=dpdr(lm)-beta(nR)*p_Rdist(lm,nR)
                      end do
                   end if
-                  call hIntRms(Geo,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
+                  call hIntRms(Geo,nR,1,n_lm_loc,0,Pre2hInt(:,nR),map_dist_st, &
+                       &       .false.)
                end if
-               call hIntRms(this%PFt2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
-               call hIntRms(this%PFp2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
+               call hIntRms(this%PFt2LM,nR,1,n_lmP_loc,1,Pre2hInt(:,nR), &
+                    &       map_dist_st,.true.)
+               call hIntRms(this%PFp2LM,nR,1,n_lmP_loc,1,Pre2hInt(:,nR), &
+                    &       map_dist_st,.true.)
 
                if ( l_heat ) then
-                  call hIntRms(Buo_temp,nR,1,lm_max,0,Buo_temp2hInt(:,nR),&
-                       &       st_map,.false.)
+                  call hIntRms(Buo_temp,nR,1,n_lm_loc,0,Buo_temp2hInt(:,nR),&
+                       &       map_dist_st,.false.)
                end if
                if ( l_chemical_conv ) then
-                  call hIntRms(Buo_xi,nR,1,lm_max,0,Buo_xi2hInt(:,nR),&
-                       &       st_map,.false.)
+                  call hIntRms(Buo_xi,nR,1,n_lm_loc,0,Buo_xi2hInt(:,nR),&
+                       &       map_dist_st,.false.)
                end if
                if ( l_corr ) then
-                  call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map,.false.)
-                  call hIntRms(this%CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
-                       &       st_map,.true.)
-                  calL hIntRms(this%CFp2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
-                       &       st_map,.true.)
+                  call hIntRms(CorPol,nR,1,n_lm_loc,0,Cor2hInt(:,nR),       &
+                       &       map_dist_st,.false.)
+                  call hIntRms(this%CFt2LM,nR,1,n_lmP_loc,1,Cor2hInt(:,nR), &
+                       &       map_dist_st,.true.)
+                  calL hIntRms(this%CFp2LM,nR,1,n_lmP_loc,1,Cor2hInt(:,nR), &
+                       &       map_dist_st,.true.)
                end if
                if ( l_mag_LF .and. nR>n_r_LCR ) then
-                  call hIntRms(LFPol,nR,1,lm_max,0,LF2hInt(:,nR),st_map,.false.)
-                  call hIntRms(this%LFt2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
-                  call hIntRms(this%LFp2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
+                  call hIntRms(LFPol,nR,1,n_lm_loc,0,LF2hInt(:,nR),         &
+                       &       map_dist_st,.false.)
+                  call hIntRms(this%LFt2LM,nR,1,n_lmP_loc,1,LF2hInt(:,nR),  &
+                       &       map_dist_st,.true.)
+                  call hIntRms(this%LFp2LM,nR,1,n_lmP_loc,1,LF2hInt(:,nR),  &
+                       &       map_dist_st,.true.)
                end if
 
-               do lm=1,lm_max
+               do lm=1,n_lm_loc
                   lmP =lm2lmP(lm)
                   Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rdist(lm,nR)
                   PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rdist(lm,nR)
@@ -756,15 +766,16 @@ contains
                   CIA(lm)=ArcMag(lm)+AdvPol(lm)-this%dtVrLM(lmP)
                   !CIA(lm)=CorPol(lm)+Buo_temp(lm)+Buo_xi(lm)+AdvPol(lm)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
-               call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.false.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
+               call hIntRms(Geo,nR,1,n_lm_loc,0,Geo2hInt(:,nR),map_dist_st,.false.)
+               call hIntRms(CLF,nR,1,n_lm_loc,0,CLF2hInt(:,nR),map_dist_st,.false.)
+               call hIntRms(PLF,nR,1,n_lm_loc,0,PLF2hInt(:,nR),map_dist_st,.false.)
+               call hIntRms(Mag,nR,1,n_lm_loc,0,Mag2hInt(:,nR),map_dist_st,.false.)
+               call hIntRms(Arc,nR,1,n_lm_loc,0,Arc2hInt(:,nR),map_dist_st,.false.)
+               call hIntRms(ArcMag,nR,1,n_lm_loc,0,ArcMag2hInt(:,nR),map_dist_st, &
+                    &       .false.)
+               call hIntRms(CIA,nR,1,n_lm_loc,0,CIA2hInt(:,nR),map_dist_st,.false.)
 
-               do lm=1,lm_max
+               do lm=1,n_lm_loc
                   lmP =lm2lmP(lm)
                   Geo(lm)=-this%CFt2LM(lmP)-this%PFt2LM(lmP)
                   CLF(lm)=-this%CFt2LM(lmP)+this%LFt2LM(lmP)
@@ -775,15 +786,16 @@ contains
                   CIA(lm)=ArcMag(lm)+this%Advt2LM(lmP)-this%dtVtLM(lmP)
                   !CIA(lm)=-this%CFt2LM(lmP)+this%Advt2LM(lmP)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
-               call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+               call hIntRms(Geo,nR,1,n_lm_loc,0,Geo2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(CLF,nR,1,n_lm_loc,0,CLF2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(PLF,nR,1,n_lm_loc,0,PLF2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(Mag,nR,1,n_lm_loc,0,Mag2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(Arc,nR,1,n_lm_loc,0,Arc2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(ArcMag,nR,1,n_lm_loc,0,ArcMag2hInt(:,nR),map_dist_st, &
+                    &       .true.)
+               call hIntRms(CIA,nR,1,n_lm_loc,0,CIA2hInt(:,nR),map_dist_st,.true.)
 
-               do lm=1,lm_max
+               do lm=1,n_lm_loc
                   lmP =lm2lmP(lm)
                   Geo(lm)=-this%CFp2LM(lmP)-this%PFp2LM(lmP)
                   CLF(lm)=-this%CFp2LM(lmP)+this%LFp2LM(lmP)
@@ -794,13 +806,14 @@ contains
                   CIA(lm)=ArcMag(lm)+this%Advp2LM(lmP)-this%dtVpLM(lmP)
                   !CIA(lm)=-this%CFp2LM(lmP)+this%Advp2LM(lmP)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
-               call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+               call hIntRms(Geo,nR,1,n_lm_loc,0,Geo2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(CLF,nR,1,n_lm_loc,0,CLF2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(PLF,nR,1,n_lm_loc,0,PLF2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(Mag,nR,1,n_lm_loc,0,Mag2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(Arc,nR,1,n_lm_loc,0,Arc2hInt(:,nR),map_dist_st,.true.)
+               call hIntRms(ArcMag,nR,1,n_lm_loc,0,ArcMag2hInt(:,nR),map_dist_st, &
+                    &       .true.)
+               call hIntRms(CIA,nR,1,n_lm_loc,0,CIA2hInt(:,nR),map_dist_st,.true.)
 
             end if
 
