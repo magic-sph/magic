@@ -376,11 +376,11 @@ contains
          call slice_f(gsa_glb%dpdtc, gsa_loc%dpdtc)
          call slice_f(gsa_glb%dpdpc, gsa_loc%dpdpc)
 
-         do nR=nRstart, nRstop
-            call slice_f(vt_old(:,:,nR), vt_old_dist(:,:,nR))
-            call slice_f(vp_old(:,:,nR), vp_old_dist(:,:,nR))
-            call slice_f(vr_old(:,:,nR), vr_old_dist(:,:,nR))
-         end do
+         !do nR=nRstart, nRstop
+         !   call slice_f(vt_old(:,:,nR), vt_old_dist(:,:,nR))
+         !   call slice_f(vp_old(:,:,nR), vp_old_dist(:,:,nR))
+         !   call slice_f(vr_old(:,:,nR), vr_old_dist(:,:,nR))
+         !end do
 
          if ( l_adv_curl ) then
             call slice_f(gsa_glb%dpkindrc, gsa_loc%dpkindrc)
@@ -475,11 +475,11 @@ contains
          call gather_f(gsa_loc%dpdtc, gsa_glb%dpdtc)
          call gather_f(gsa_loc%dpdpc, gsa_glb%dpdpc)
 
-         do nR=nRstart, nRstop
-            call gather_f(vt_old_dist(:,:,nR), vt_old(:,:,nR))
-            call gather_f(vp_old_dist(:,:,nR), vp_old(:,:,nR))
-            call gather_f(vr_old_dist(:,:,nR), vr_old(:,:,nR))
-         end do
+         !do nR=nRstart, nRstop
+         !   call gather_f(vt_old_dist(:,:,nR), vt_old(:,:,nR))
+         !   call gather_f(vp_old_dist(:,:,nR), vp_old(:,:,nR))
+         !   call gather_f(vr_old_dist(:,:,nR), vr_old(:,:,nR))
+         !end do
 
          if ( l_adv_curl ) then
             call gather_f(gsa_loc%dpkindrc, gsa_glb%dpkindrc)

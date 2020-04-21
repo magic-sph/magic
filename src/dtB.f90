@@ -577,6 +577,7 @@ contains
 
       !-- Local variables:
       integer :: nR
+      real(cp) :: dLh
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max)
       integer :: l,m,lm
 
@@ -603,11 +604,11 @@ contains
          do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-            PdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(st_map%lm2(l,m)) * &
-            &    (ddb(lm,nR)-dLh(st_map%lm2(l,m))*or2(nR)*b(lm,nR))
-            TdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(st_map%lm2(l,m)) * &
-            &    ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - &
-            &    dLh(st_map%lm2(l,m))*or2(nR)*aj(lm,nR) )
+            dLh = real(l*(l+1),cp)
+            PdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(lo_map%lm2(l,m)) * &
+            &                   (ddb(lm,nR)-dLh*or2(nR)*b(lm,nR))
+            TdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(lo_map%lm2(l,m)) * &
+            &    ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - dLh*or2(nR)*aj(lm,nR) )
          end do
       end do
 

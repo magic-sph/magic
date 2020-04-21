@@ -8,7 +8,7 @@ module fieldsLast
    use precision_mod
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
        &                 n_r_ic_maxMag, nRstart, nRstop,         &
-       &                 nRstartMag, nRstopMag
+       &                 nRstartMag, nRstopMag, n_lm_loc, n_lmMag_loc
    use blocking, only: llm, ulm, llmMag, ulmMag
    use logic, only: l_chemical_conv, l_heat, l_mag, l_cond_ic, l_double_curl, &
        &            l_RMS
@@ -35,9 +35,23 @@ module fieldsLast
    complex(cp), public, pointer :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
    complex(cp), public, pointer :: dVxVhLM_Rloc(:,:)
 
+   !@> TODO those should supersede the previous Rloc version
+   complex(cp), public, allocatable, target  :: dflowdt_Rdist_container(:,:,:)
+   complex(cp), public, allocatable, target  :: dsdt_Rdist_container(:,:,:)
+   complex(cp), public, allocatable, target  :: dxidt_Rdist_container(:,:,:)
+   complex(cp), public, allocatable, target  :: dbdt_Rdist_container(:,:,:)
+   complex(cp), public, pointer :: dwdt_Rdist(:,:),dzdt_Rdist(:,:)
+   complex(cp), public, pointer :: dpdt_Rdist(:,:), dsdt_Rdist(:,:), dVSrLM_Rdist(:,:)
+   complex(cp), public, pointer :: dxidt_Rdist(:,:), dVXirLM_Rdist(:,:)
+   complex(cp), public, pointer :: dVxVhLM_Rdist(:,:)
+
    !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
    complex(cp), public, pointer :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
    complex(cp), public, pointer :: dbdt_Rloc(:,:)
+
+   !@> TODO those should supersede the previous Rloc version
+   complex(cp), public, pointer :: djdt_Rdist(:,:), dVxBhLM_Rdist(:,:)
+   complex(cp), public, pointer :: dbdt_Rdist(:,:)
 
    ! The same arrays, but now the LM local part
    complex(cp), public, allocatable, target  :: dflowdt_LMloc_container(:,:,:,:)
@@ -49,7 +63,7 @@ module fieldsLast
 
    complex(cp), public, allocatable :: dbdt_CMB_LMloc(:)
 
-   public :: initialize_fieldsLast, finalize_fieldsLast
+   public :: initialize_fieldsLast, finalize_fieldsLast, gather_dt_fields
 
 contains
 
@@ -99,6 +113,15 @@ contains
          &                         dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,4)
          bytes_allocated = bytes_allocated+ &
          &                 4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
+         allocate( dflowdt_Rdist_container(n_lm_loc,nRstart:nRstop,1:4) )
+         dwdt_Rdist(1:,nRstart:) => dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
+         dzdt_Rdist(1:,nRstart:) => dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
+         dpdt_Rdist(1:,nRstart:) => dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,3)
+         dVxVhLM_Rdist(1:,nRstart:) => &
+         &                         dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,4)
+         bytes_allocated = bytes_allocated+ &
+         &                 4*n_lm_loc*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
          allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
          dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
@@ -107,6 +130,14 @@ contains
          allocate( dVxVhLM_Rloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+ &
          &                 3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
+         allocate( dflowdt_Rdist_container(n_lm_loc,nRstart:nRstop,1:3) )
+         dwdt_Rdist(1:,nRstart:) => dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
+         dzdt_Rdist(1:,nRstart:) => dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
+         dpdt_Rdist(1:,nRstart:) => dflowdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,3)
+         allocate( dVxVhLM_Rdist(1:1,1:1) )
+         bytes_allocated = bytes_allocated+ &
+         &                 3*n_lm_loc*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       end if
 
       allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
@@ -115,16 +146,32 @@ contains
       bytes_allocated = bytes_allocated+ &
       &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
+      allocate( dsdt_Rdist_container(n_lm_loc,nRstart:nRstop,1:2) )
+      dsdt_Rdist(1:,nRstart:)   => dsdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
+      dVSrLM_Rdist(1:,nRstart:) => dsdt_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
+      bytes_allocated = bytes_allocated+ &
+      &                 2*n_lm_loc*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
       if ( l_chemical_conv ) then
          allocate( dxidt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          dxidt_Rloc(1:,nRstart:)   => dxidt_Rloc_container(1:lm_max,nRstart:nRstop,1)
          dVXirLM_Rloc(1:,nRstart:) => dxidt_Rloc_container(1:lm_max,nRstart:nRstop,2)
          bytes_allocated = bytes_allocated+ &
          &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
+         allocate( dxidt_Rdist_container(n_lm_loc,nRstart:nRstop,1:2) )
+         dxidt_Rdist(1:,nRstart:)   => dxidt_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
+         dVXirLM_Rdist(1:,nRstart:) => dxidt_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
+         bytes_allocated = bytes_allocated+ &
+         &                 2*n_lm_loc*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
          allocate( dxidt_Rloc_container(1,1,1:2) )
          dxidt_Rloc(1:,1:)   => dxidt_Rloc_container(1:1,1:1,1)
          dVXirLM_Rloc(1:,1:) => dxidt_Rloc_container(1:1,1:1,2)
+
+         allocate( dxidt_Rdist_container(1,1,1:2) )
+         dxidt_Rdist(1:,1:)   => dxidt_Rdist_container(1:1,1:1,1)
+         dVXirLM_Rdist(1:,1:) => dxidt_Rdist_container(1:1,1:1,2)
       end if
 
       ! the magnetic part
@@ -137,6 +184,16 @@ contains
       &                    dbdt_Rloc_container(1:lm_maxMag,nRstartMag:nRstopMag,3)
       bytes_allocated = bytes_allocated+ &
       &                 3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
+
+      allocate( dbdt_Rdist_container(n_lmMag_loc,nRstartMag:nRstopMag,1:3) )
+      dbdt_Rdist(1:,nRstartMag:) => &
+      &                    dbdt_Rdist_container(1:n_lmMag_loc,nRstartMag:nRstopMag,1)
+      djdt_Rdist(1:,nRstartMag:) => &
+      &                    dbdt_Rdist_container(1:n_lmMag_loc,nRstartMag:nRstopMag,2)
+      dVxBhLM_Rdist(1:,nRstartMag:)=> &
+      &                    dbdt_Rdist_container(1:n_lmMag_loc,nRstartMag:nRstopMag,3)
+      bytes_allocated = bytes_allocated+ &
+      &                 3*n_lmMag_loc*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
 
       !-- Set the initial values to zero
       if ( l_mag ) then
@@ -155,6 +212,21 @@ contains
          dVXirLM_Rloc(:,:)=zero
       end if
 
+      if ( l_mag ) then
+         dbdt_Rdist(:,:)   =zero
+         djdt_Rdist(:,:)   =zero
+         dVxBhLM_Rdist(:,:)=zero
+      end if
+      dwdt_Rdist(:,:)=zero
+      dzdt_Rdist(:,:)=zero
+      dsdt_Rdist(:,:)=zero
+      dpdt_Rdist(:,:)=zero
+      dVSrLM_Rdist(:,:)=zero
+      if ( l_double_curl ) dVxVhLM_Rdist(:,:)=zero
+      if ( l_chemical_conv ) then
+         dxidt_Rdist(:,:)  =zero
+         dVXirLM_Rdist(:,:)=zero
+      end if
 
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
@@ -220,12 +292,15 @@ contains
       !
 
       deallocate( dflowdt_Rloc_container, dsdt_Rloc_container )
+      deallocate( dflowdt_Rdist_container, dsdt_Rdist_container )
       deallocate( dbdt_Rloc_container, dflowdt_LMloc_container )
       deallocate( dsdt_LMloc_container, dbdt_LMloc_container )
       deallocate( dbdt_CMB_LMloc )
       deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
+      deallocate( dbdt_Rdist_container, dxidt_Rdist_container )
 
       if ( .not. l_double_curl ) deallocate( dVxVhLM_Rloc, dVxVhLM_LMloc )
+      if ( .not. l_double_curl ) deallocate( dVxVhLM_Rdist )
 
       call lorentz_torque_ma_dt%finalize()
       call lorentz_torque_ic_dt%finalize()
@@ -246,5 +321,31 @@ contains
       end if
 
    end subroutine finalize_fieldsLast
+!-------------------------------------------------------------------------------
+   !@> TODO: delete this subroutine once merging is done
+   subroutine gather_dt_fields
+      use communications, only: gather_Flm
+
+      integer :: nR
+
+      do nR=nRstart,nRstop
+         call gather_Flm(dwdt_Rdist(:,nR), dwdt_Rloc(:,nR))
+         call gather_Flm(dzdt_Rdist(:,nR), dzdt_Rloc(:,nR))
+         call gather_Flm(dpdt_Rdist(:,nR), dpdt_Rloc(:,nR))
+         if ( l_double_curl ) call gather_Flm(dVxVhLM_Rdist(:,nR), dVxVhLM_Rloc(:,nR))
+         call gather_Flm(dsdt_Rdist(:,nR), dsdt_Rloc(:,nR))
+         call gather_Flm(dVSrLM_Rdist(:,nR), dVSrLM_Rloc(:,nR))
+         if ( l_chemical_conv ) then
+            call gather_Flm(dxidt_Rdist(:,nR), dxidt_Rloc(:,nR))
+            call gather_Flm(dVXirLM_Rdist(:,nR), dVXirLM_Rloc(:,nR))
+         end if
+         if ( l_mag ) then
+            call gather_Flm(dbdt_Rdist(:,nR), dbdt_Rloc(:,nR))
+            call gather_Flm(djdt_Rdist(:,nR), djdt_Rloc(:,nR))
+            call gather_Flm(dVxBhLM_Rdist(:,nR), dVxBhLM_Rloc(:,nR))
+         end if
+      end do
+
+   end subroutine gather_dt_fields
 !-------------------------------------------------------------------------------
 end module fieldsLast

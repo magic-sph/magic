@@ -507,15 +507,51 @@ contains
               &         lo_map)
       end do
 #ifdef WITH_MPI
-      call MPI_Reduce(DifPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
+      call MPI_Reduce(DifPol2hInt,global_sum,n_r_max*(l_max+1), &
            &          MPI_DEF_REAL,MPI_SUM,0,comm_r,ierr)
-      if ( coord_r == 0 ) DifPol2hInt(:,:)=global_sum
+      if ( coord_r == 0 ) DifPol2hInt(:,:)=global_sum(:,:)
 #endif
 
       ! First gather all needed arrays on coord_r 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
 #ifdef WITH_MPI
+      call MPI_AllReduce(Pre2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Pre2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(Cor2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Cor2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(Adv2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Adv2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(Iner2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Iner2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(LF2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      LF2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(Geo2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Geo2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(Mag2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Mag2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(Arc2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      Arc2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(ArcMag2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      ArcMag2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(CIA2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      CIA2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(PLF2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      PLF2hInt(:,:)=global_sum(:,:)
+      call MPI_AllReduce(CLF2hInt, global_sum, n_r_max*(l_max+1), MPI_DEF_REAL, &
+           &             MPI_SUM,comm_m, ierr)
+      CLF2hInt(:,:)=global_sum(:,:)
 
       ! The following fields are only 1D and R distributed.
       sendcount = nR_per_rank*(l_max+1)
@@ -540,12 +576,18 @@ contains
            &              comm_r,ierr)
 
       if ( l_heat ) then
+         call MPI_AllReduce(Buo_temp2hInt, global_sum, n_r_max*(l_max+1),  &
+              &             MPI_DEF_REAL, MPI_SUM,comm_m, ierr)
+         Buo_temp2hInt(:,:)=global_sum(:,:)
          call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
               &              Buo_temp2hInt,recvcounts,displs,           &
               &              MPI_DEF_REAL,comm_r,ierr)
       end if
 
       if ( l_chemical_conv ) then
+         call MPI_AllReduce(Buo_xi2hInt, global_sum, n_r_max*(l_max+1),  &
+              &             MPI_DEF_REAL, MPI_SUM,comm_m, ierr)
+         Buo_xi2hInt(:,:)=global_sum(:,:)
          call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
               &              Buo_xi2hInt,recvcounts,displs,MPI_DEF_REAL,&
               &              comm_r,ierr)

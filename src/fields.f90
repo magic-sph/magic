@@ -9,7 +9,6 @@ module fields
    use logic, only: l_chemical_conv
    use blocking, only: llm, ulm, llmMag, ulmMag
    use parallel_mod, only: coord_r
-   use communications ! DELETEMEEEEEEEEEEEEEEEEEEE
 
    implicit none
 
@@ -126,14 +125,11 @@ module fields
 
    complex(cp), public, allocatable :: work_LMdist(:,:) ! Needed in update routines
    
-   
-   
-   
-
    !-- Rotation rates:
    real(cp), public :: omega_ic,omega_ma
 
-   public :: initialize_fields, finalize_fields, initialize_fields_dist, finalize_fields_dist
+   public :: initialize_fields, finalize_fields, initialize_fields_dist,&
+   &         finalize_fields_dist, slice_fields_Rloc_Rdist
 
 contains
 
@@ -418,4 +414,36 @@ subroutine initialize_fields_dist
       deallocate( work_LMdist )
 
    end subroutine finalize_fields_dist
+!----------------------------------------------------------------------------
+   subroutine slice_fields_Rloc_Rdist
+
+      use communications, only: slice_Flm_cmplx
+
+      integer :: nR
+
+      do nR=nRstart,nRstop
+         call slice_Flm_cmplx(w_Rloc(:,nR), w_Rdist(:,nR))
+         call slice_Flm_cmplx(dw_Rloc(:,nR), dw_Rdist(:,nR))
+         call slice_Flm_cmplx(ddw_Rloc(:,nR), ddw_Rdist(:,nR))
+         call slice_Flm_cmplx(z_Rloc(:,nR), z_Rdist(:,nR))
+         call slice_Flm_cmplx(dz_Rloc(:,nR), dz_Rdist(:,nR))
+         call slice_Flm_cmplx(p_Rloc(:,nR), p_Rdist(:,nR))
+         call slice_Flm_cmplx(dp_Rloc(:,nR), dp_Rdist(:,nR))
+         call slice_Flm_cmplx(s_Rloc(:,nR), s_Rdist(:,nR))
+         call slice_Flm_cmplx(ds_Rloc(:,nR), ds_Rdist(:,nR))
+         if ( l_chemical_conv ) then
+            call slice_Flm_cmplx(xi_Rloc(:,nR), xi_Rdist(:,nR))
+            call slice_Flm_cmplx(dxi_Rloc(:,nR), dxi_Rdist(:,nR))
+         end if
+         if ( l_mag ) then
+            call slice_Flm_cmplx(b_Rloc(:,nR), b_Rdist(:,nR))
+            call slice_Flm_cmplx(db_Rloc(:,nR), db_Rdist(:,nR))
+            call slice_Flm_cmplx(ddb_Rloc(:,nR), ddb_Rdist(:,nR))
+            call slice_Flm_cmplx(aj_Rloc(:,nR), aj_Rdist(:,nR))
+            call slice_Flm_cmplx(dj_Rloc(:,nR), dj_Rdist(:,nR))
+         end if
+      end do
+
+   end subroutine slice_fields_Rloc_Rdist
+!----------------------------------------------------------------------------
 end module fields
