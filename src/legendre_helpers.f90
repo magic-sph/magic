@@ -2,7 +2,8 @@ module leg_helper_mod
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, n_m_max, l_axi, n_r_icb, n_r_cmb
+   use truncation, only: lm_max, l_max, n_m_max, l_axi, n_r_icb, n_r_cmb, &
+       &                 n_lmMag_loc, m_tsid, n_lm_loc
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
    use special, only: lGrenoble, b0, db0, ddb0
@@ -10,8 +11,15 @@ module leg_helper_mod
    use horizontal_data, only: dLh
    use logic, only: l_conv, l_mag_kin, l_mag, l_movie_oc, l_mag_LF, l_adv_curl
    use fields, only: z_Rloc,dz_Rloc, b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc, &
-       &             dj_Rloc, w_Rloc, dw_Rloc, ddw_Rloc, omega_ic,omega_ma
+       &             dj_Rloc, w_Rloc, dw_Rloc, ddw_Rloc, omega_ic,omega_ma, &
+       &             z_Rdist,dz_Rdist, b_Rdist,db_Rdist,ddb_Rdist, aj_Rdist, &
+       &             dj_Rdist, w_Rdist, dw_Rdist, ddw_Rdist
    use constants, only: zero, one, two
+   use Lmmapping, only: map_dist_st
+   use parallel_mod, only: comm_r
+   use mpi
+   
+   use communications ! DELETEMEEEE
 
    implicit none
 
@@ -32,6 +40,8 @@ module leg_helper_mod
 
       procedure :: initialize
       procedure :: finalize
+      procedure :: slice_all
+      procedure :: gather_all
       procedure :: legPrepG
 
    end type leg_helper_t
@@ -40,33 +50,73 @@ module leg_helper_mod
 
 contains
 
-   subroutine initialize(this,lm_max,lm_maxMag,l_max)
+   subroutine initialize(this,n_loc,n_locMag,n_l)
 
       class(leg_helper_t) :: this
-      integer,intent(in) :: lm_max,lm_maxMag,l_max
+      integer,intent(in) :: n_loc,n_locMag,n_l
 
 #ifndef WITH_SHTNS
-      allocate( this%dLhw(lm_max), this%dLhdw(lm_max), this%dLhz(lm_max) )
-      allocate( this%dLhb(lm_max), this%dLhj(lm_max), this%vhG(lm_max) )
-      allocate( this%vhC(lm_max), this%dvhdrG(lm_max), this%dvhdrC(lm_max) )
-      bytes_allocated = bytes_allocated+9*lm_max*SIZEOF_DEF_COMPLEX
-      allocate( this%bhG(lm_maxMag), this%bhC(lm_maxMag) )
-      allocate( this%cbhG(lm_maxMag), this%cbhC(lm_maxMag) )
-      bytes_allocated = bytes_allocated+4*lm_maxMag*SIZEOF_DEF_COMPLEX
+      allocate( this%dLhw(n_loc), this%dLhdw(n_loc), this%dLhz(n_loc) )
+      allocate( this%dLhb(n_loc), this%dLhj(n_loc), this%vhG(n_loc) )
+      allocate( this%vhC(n_loc), this%dvhdrG(n_loc), this%dvhdrC(n_loc) )
+      bytes_allocated = bytes_allocated+9*n_loc*SIZEOF_DEF_COMPLEX
+      allocate( this%bhG(n_locMag), this%bhC(n_locMag) )
+      allocate( this%cbhG(n_locMag), this%cbhC(n_locMag) )
+      bytes_allocated = bytes_allocated+4*n_locMag*SIZEOF_DEF_COMPLEX
 
       if ( l_adv_curl ) then
-         allocate( this%cvhG(lm_max), this%cvhC(lm_max) )
-         bytes_allocated = bytes_allocated+2*lm_maxMag*SIZEOF_DEF_COMPLEX
+         allocate( this%cvhG(n_loc), this%cvhC(n_loc) )
+         bytes_allocated = bytes_allocated+2*n_locMag*SIZEOF_DEF_COMPLEX
       end if
 #endif
 
-      allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
-      bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
+      allocate( this%zAS(n_l+1),this%dzAS(n_l+1),this%ddzAS(n_l+1) ) ! used in TO
+      bytes_allocated = bytes_allocated+3*(n_l+1)*SIZEOF_DEF_REAL
 
-      allocate( this%bCMB(lm_maxMag) )
-      bytes_allocated = bytes_allocated+lm_maxMag*SIZEOF_DEF_COMPLEX
+      allocate( this%bCMB(n_locMag) )
+      bytes_allocated = bytes_allocated+n_locMag*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize
+   
+   
+!------------------------------------------------------------------------------
+   subroutine slice_all(leg_glb,leg_loc)
+
+      class(leg_helper_t) :: leg_loc
+      class(leg_helper_t) :: leg_glb
+
+      if (n_lmMag_loc>1) then
+         call slice_Flm_cmplx(leg_glb%bCMB, leg_loc%bCMB)
+      else
+         leg_loc%bCMB = leg_glb%bCMB
+      end if
+      
+      leg_loc%zAS   = leg_glb%zAS
+      leg_loc%dzAS  = leg_glb%dzAS
+      leg_loc%ddzAS = leg_glb%ddzAS
+      leg_loc%omegaIC = leg_glb%omegaIC
+      leg_loc%omegaMA = leg_glb%omegaMA
+   end subroutine slice_all
+   
+!------------------------------------------------------------------------------
+   subroutine gather_all(leg_loc, leg_glb)
+
+      class(leg_helper_t) :: leg_loc
+      class(leg_helper_t) :: leg_glb
+      
+      if (n_lmMag_loc>1) then
+         call gather_Flm(leg_loc%bCMB, leg_glb%bCMB)
+      else
+         leg_glb%bCMB = leg_loc%bCMB
+      end if
+      
+      leg_glb%zAS   = leg_loc%zAS
+      leg_glb%dzAS  = leg_loc%dzAS
+      leg_glb%ddzAS = leg_loc%ddzAS
+      leg_glb%omegaIC = leg_loc%omegaIC
+      leg_glb%omegaMA = leg_loc%omegaMA
+   end subroutine gather_all
+   
 !------------------------------------------------------------------------------
    subroutine finalize(this)
 
@@ -115,7 +165,8 @@ contains
       !   R-distributed output variables
 
       !-- Local variables:
-      integer :: lm,l,m
+      integer :: lm,l,m,i, ierr
+      integer :: Rq(3)
 #ifndef WITH_SHTNS
       complex(cp) :: dbd
 #endif
@@ -126,21 +177,27 @@ contains
       if ( l_conv .or. l_mag_kin ) then
 
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
-            do lm=1,lm_max
-               l=lm2l(lm)
-               m=lm2m(lm)
-               if ( l <= l_max .and. m == 0 ) then
-                  this%zAS(l+1)  =real(z_Rloc(lm,nR))   ! used in TO
-                  this%dzAS(l+1) =real(dz_Rloc(lm,nR))  ! used in TO (anelastic)
+            if (map_dist_st%has_m0) then
+               do l=0,l_max
+                  i = map_dist_st%lm2(0,l)
+                  this%zAS(l+1)  =real(z_Rdist(i,nR))   ! used in TO
+                  this%dzAS(l+1) =real(dz_Rdist(i,nR))  ! used in TO (anelastic)
                   this%ddzAS(l+1)=ddzASL(l+1,nR)        ! used in TO
-               end if
-            end do
+               end do
+            end if
+            
+            ! m_tsid(0) is the rank which has m=0 
+            ! funfact: m_tsid = dist_m written backwards! Terrible nomeclature, pardon me
+            call MPI_IBCAST(this%zAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), comm_r, Rq(1), ierr)
+            call MPI_IBCAST(this%dzAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), comm_r, Rq(2), ierr)
+            call MPI_IBCAST(this%ddzAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), comm_r, Rq(3), ierr)
+            call MPI_WAITALL(3, Rq, MPI_STATUSES_IGNORE, ierr)
          end if
          if ( l_mag .and. l_frame .and. l_movie_oc .and. nR == n_r_cmb ) then
-            this%bCMB(1)=zero ! used in s_store_movie_frame.f
-            do lm=2,lm_max
-               this%bCMB(lm)=b_Rloc(lm,nR)  ! used for movie output of surface field
+            do i=1,n_lm_loc
+               this%bCMB(i)=b_Rdist(i,nR)  ! used for movie output of surface field
             end do
+            if (map_dist_st%has_m0) this%bCMB(map_dist_st%m0l0)=zero ! used in s_store_movie_frame.f
          end if
 
 #ifndef WITH_SHTNS

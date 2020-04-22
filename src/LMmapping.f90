@@ -29,7 +29,10 @@ module LMmapping
       integer, allocatable :: lmP2(:,:),lmP2l(:),lmP2m(:)
       integer, allocatable :: lmP2lmPS(:),lmP2lmPA(:) 
                                                      
-      integer, allocatable :: lm2lmP(:),lmP2lm(:)     
+      integer, allocatable :: lm2lmP(:),lmP2lm(:)
+      
+      logical :: has_m0
+      integer :: m0l0
  
    end type mappings
  
@@ -374,6 +377,9 @@ contains
          if ( l > 0 .and. l > m ) map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
          if ( l < map%l_max+1 )   map%lmP2lmPA(lmP)=map%lmP2(l+1,m)
       end do
+      
+      map%has_m0 = any(m_arr==0)
+      map%m0l0 = map_dist_st%lm2(0,0) ! This is -1 if the point (0,0) is not local
       
    end subroutine set_lmmapping_default
    

@@ -5,7 +5,7 @@ module radialLoop
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: n_lm_loc, n_lmMag_loc, l_max, l_maxMag, lmP_max, &
        &                 nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag,   &
-       &                 n_r_icb
+       &                 n_r_icb, n_lmP_loc
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
@@ -137,10 +137,10 @@ contains
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
-      complex(cp), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
-      complex(cp), intent(out) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
-      complex(cp), intent(out) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
-      complex(cp), intent(out) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
+      complex(cp), intent(out) :: br_vt_lm_cmb(n_lmP_loc) ! product br*vt at CMB
+      complex(cp), intent(out) :: br_vp_lm_cmb(n_lmP_loc) ! product br*vp at CMB
+      complex(cp), intent(out) :: br_vt_lm_icb(n_lmP_loc) ! product br*vt at ICB
+      complex(cp), intent(out) :: br_vp_lm_icb(n_lmP_loc) ! product br*vp at ICB
 
       !---- Output for Courant criteria:
       real(cp),intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
@@ -252,7 +252,7 @@ contains
 
       !----- Correct sign of mantel Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma
-
+      
       !LIKWID_OFF('rloop')
       PERFOFF
    end subroutine radialLoopG

@@ -13,7 +13,7 @@ module step_time_mod
    use constants, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
-       &                 n_r_icb, n_r_cmb
+       &                 n_r_icb, n_r_cmb, n_lmP_loc
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -57,7 +57,7 @@ module step_time_mod
    use useful, only: l_correct_step, logWrite
    use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
        &                     lo2r_xi,  r2lo_flow, r2lo_s, r2lo_xi,r2lo_field, &
-       &                     lo2r_s, lo2r_press
+       &                     lo2r_s, lo2r_press, gather_FlmP, slice_FlmP_cmplx
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -168,6 +168,11 @@ contains
       complex(cp) :: br_vp_lm_cmb(lmP_max)    ! product br*vp at CMB
       complex(cp) :: br_vt_lm_icb(lmP_max)    ! product br*vt at ICB
       complex(cp) :: br_vp_lm_icb(lmP_max)    ! product br*vp at ICB
+      complex(cp) :: br_vt_lm_cmb_dist(n_lmP_loc)    ! product br*vt at CMB
+      complex(cp) :: br_vp_lm_cmb_dist(n_lmP_loc)    ! product br*vp at CMB
+      complex(cp) :: br_vt_lm_icb_dist(n_lmP_loc)    ! product br*vt at ICB
+      complex(cp) :: br_vp_lm_icb_dist(n_lmP_loc)    ! product br*vp at ICB
+      
       complex(cp) :: b_nl_cmb(lm_max)         ! nonlinear bc for b at CMB
       complex(cp) :: aj_nl_cmb(lm_max)        ! nonlinear bc for aj at CMB
       complex(cp) :: aj_nl_icb(lm_max)        ! nonlinear bc for dr aj at ICB
@@ -480,6 +485,10 @@ contains
 
                !@> TODO stop porting here call the slicing of Rloc -> Rdist arrays
                call slice_fields_Rloc_Rdist()
+               call slice_FlmP_cmplx(br_vt_lm_cmb, br_vt_lm_cmb_dist)
+               call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
+               call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb_dist)
+               call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb_dist)
                !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                
                call rLoop_counter%start_count()
@@ -490,8 +499,8 @@ contains
                     &           dsdt_Rdist,dwdt_Rdist,dzdt_Rdist,dpdt_Rdist,       &
                     &           dxidt_Rdist,dbdt_Rdist,djdt_Rdist,dVxVhLM_Rdist,   &
                     &           dVxBhLM_Rdist,dVSrLM_Rdist,dVXirLM_Rdist,          &
-                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
-                    &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,&
+                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb_dist,  &
+                    &           br_vp_lm_cmb_dist,br_vt_lm_icb_dist,br_vp_lm_icb_dist,HelLMr_Rloc,&
                     &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,         &
                     &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc, &
                     &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,          &
@@ -506,6 +515,10 @@ contains
 
                !@> TODO stop porting here call the gather of Rdist -> Rloc arrays
                call gather_dt_fields()
+               call gather_FlmP(br_vt_lm_cmb_dist, br_vt_lm_cmb)
+               call gather_FlmP(br_vp_lm_cmb_dist, br_vp_lm_cmb)
+               call gather_FlmP(br_vt_lm_icb_dist, br_vt_lm_icb)
+               call gather_FlmP(br_vp_lm_icb_dist, br_vp_lm_icb)
                !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'

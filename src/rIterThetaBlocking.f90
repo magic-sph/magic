@@ -10,7 +10,7 @@ module rIterThetaBlocking_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max,nrp, l_max, n_phi_maxStr, lm_maxMag, l_axi, &
        &                 n_r_cmb, n_r_icb, nRstart, nRstop, nThetaStart,    &
-       &                 nThetaStop
+       &                 nThetaStop, n_lmMag_loc, n_lm_loc
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
@@ -41,6 +41,7 @@ module rIterThetaBlocking_mod
 
       !type(nonlinear_lm_t) :: nl_lm
       type(leg_helper_t) :: leg_helper
+      type(leg_helper_t) :: leg_helper_dist
 
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
@@ -71,6 +72,7 @@ contains
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
+      call this%leg_helper_dist%initialize(n_lm_loc,n_lmMag_loc,l_max)
 
       if ( l_TO ) then
          allocate( this%BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
