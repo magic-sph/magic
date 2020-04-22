@@ -1489,7 +1489,7 @@ contains
       !-- Local variable
       integer :: n_o, nR
 
-      if ( l_master_rank ) then
+      if ( coord_r == 0 ) then
          work(:,:)=zero
          read(fh) wOld
          call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1503,7 +1503,7 @@ contains
 
       if ( tscheme_family_old == 'MULTISTEP' ) then
          do n_o=2,nexp_old
-            if ( l_master_rank ) then
+            if ( coord_r == 0 ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1516,7 +1516,7 @@ contains
             end if
          end do
          do n_o=2,nimp_old
-            if ( l_master_rank ) then
+            if ( coord_r == 0 ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1529,7 +1529,7 @@ contains
             end if
          end do
          do n_o=2,nold_old
-            if ( l_master_rank ) then
+            if ( coord_r == 0 ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
