@@ -178,7 +178,7 @@ contains
            &                        this%lTOcalc)
 
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
-      call this%gsa%slice_all(this%gsa_dist)
+      !call this%gsa%slice_all(this%gsa_dist)
       !call slice_Flm_cmplx(s_Rloc(:,nR), s_Rdist(:,nR))
       !call slice_Flm_cmplx(p_Rloc(:,nR), p_Rdist(:,nR))
       !if ( l_chemical_conv ) call slice_Flm_cmplx(xi_Rloc(:,nR), xi_Rdist(:,nR))
