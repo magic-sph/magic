@@ -145,10 +145,15 @@ contains
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-         if (n_ranks_theta>1) then
-            call mpi_allreduce(MPI_IN_PLACE, vflh2max, 1, MPI_DEF_REAL, MPI_MAX, comm_theta, ierr)
-            call mpi_allreduce(MPI_IN_PLACE, valh2max, 1, MPI_DEF_REAL, MPI_MAX, comm_theta, ierr)
+
+#ifdef WITH_MPI
+         if ( n_ranks_theta>1 ) then
+            call MPI_AllReduce(MPI_IN_PLACE, vflh2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
+            call MPI_AllReduce(MPI_IN_PLACE, valh2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
          end if
+#endif
 
          !-- We must resolve the shortest period of Alfven waves
          if ( l_cour_alf_damp ) then
@@ -210,9 +215,15 @@ contains
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-         if (n_ranks_theta>1) then
-            call mpi_allreduce(MPI_IN_PLACE, vflh2max, 1, MPI_DEF_REAL, MPI_MAX, comm_theta, ierr)
+
+#ifdef WITH_MPI
+         if ( n_ranks_theta>1 ) then
+            call MPI_AllReduce(MPI_IN_PLACE, vflh2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
+            call MPI_AllReduce(MPI_IN_PLACE, vflr2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
          end if
+#endif
 
          if ( vflr2max /= 0.0_cp ) then
             dtrkc_new = delxr2(n_r)/vflr2max
@@ -284,9 +295,15 @@ contains
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-         if (n_ranks_theta>1) then
-            call mpi_allreduce(MPI_IN_PLACE, vh2max, 1, MPI_DEF_REAL, MPI_MAX, comm_theta, ierr)
+
+#ifdef WITH_MPI
+         if ( n_ranks_theta>1 ) then
+            call MPI_AllReduce(MPI_IN_PLACE, vh2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
+            call MPI_AllReduce(MPI_IN_PLACE, vr2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
          end if
+#endif
 
       else   ! Magnetic field ?
 
@@ -315,9 +332,15 @@ contains
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-         if (n_ranks_theta>1) then
-            call mpi_allreduce(MPI_IN_PLACE, vh2max, 1, MPI_DEF_REAL, MPI_MAX, comm_theta, ierr)
+
+#ifdef WITH_MPI
+         if ( n_ranks_theta>1 ) then
+            call MPI_AllReduce(MPI_IN_PLACE, vh2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
+            call MPI_AllReduce(MPI_IN_PLACE, vr2max, 1, MPI_DEF_REAL, &
+                 &             MPI_MAX, comm_theta, ierr)
          end if
+#endif
 
       end if   ! Magnetic field ?
 
