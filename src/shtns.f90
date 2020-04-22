@@ -8,7 +8,7 @@ module shtns
        &                 minc, lm_max, lmP_max, n_lm_loc, n_theta_loc, &
        &                 n_m_loc, n_lmP_loc, n_m_max, dist_m,          &
        &                 nThetaStart, nThetaStop, coord_m, dist_theta
-   use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
+   use horizontal_data, only: dLh_loc, dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
    use fft, only: fft_phi_loc
    use LMmapping, only: map_dist_st, map_glbl_st
@@ -459,13 +459,18 @@ contains
       complex(cp) :: fL_loc(n_theta_max,n_m_loc)
       integer :: i, l_lm, u_lm, m
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
         m = dist_m(coord_m, i)
-        if (m>lcut) cycle
+        if (m>lcut) then
+           fL_loc(:,i)=zero
+           cycle
+        end if
         l_lm = map_dist_st%lm2(m, m)
         u_lm = map_dist_st%lm2(l_max, m)
         call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i),lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL_loc, fieldc_loc)
       
@@ -494,13 +499,19 @@ contains
       
       integer :: i, l_lm, u_lm, m
 
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
-        m = dist_m(coord_m, i)
-        if (m>lcut) cycle
-        l_lm = map_dist_st%lm2(m, m)
-        u_lm = map_dist_st%lm2(l_max, m)
-        call shtns_sph_to_spat_ml(m/minc, Slm(l_lm:u_lm), fL(:,i), gL(:,i), lcut)
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         call shtns_sph_to_spat_ml(m/minc, Slm(l_lm:u_lm), fL(:,i), gL(:,i), lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL, gradtc)
       call transform_m2phi(gL, gradpc)
@@ -524,24 +535,26 @@ contains
       complex(cp) :: fL(n_theta_max,n_m_loc)
       complex(cp) :: gL(n_theta_max,n_m_loc)
       complex(cp) :: hL(n_theta_max,n_m_loc)
-      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
+      integer :: i, l_lm, u_lm, m
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
-         if (m>lcut) cycle
-         
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            hL(:,i)=zero
+            cycle
+         end if
          l_lm = map_dist_st%lm2(m, m)
-         c_lm = map_dist_st%lm2(lcut, m)
          u_lm = map_dist_st%lm2(l_max, m)
          
-         l_lm_glb = map_glbl_st%lm2(m,m)
-         c_lm_glb = map_glbl_st%lm2(lcut,m)
-         
-         Qlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Wlm(l_lm:c_lm)
-         if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
+         Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Wlm(l_lm:u_lm)
+         !if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
          call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
-              &   Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
+              &                    Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL, vrc)
       call transform_m2phi(gL, vtc)
@@ -569,28 +582,26 @@ contains
       complex(cp) :: fL(n_theta_max,n_m_loc)
       complex(cp) :: gL(n_theta_max,n_m_loc)
       complex(cp) :: hL(n_theta_max,n_m_loc)
-      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
+      integer :: i, l_lm, u_lm, m
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
-         if (m>lcut) cycle
-         
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            hL(:,i)=zero
+            cycle
+         end if
          l_lm = map_dist_st%lm2(m, m)
-         c_lm = map_dist_st%lm2(lcut, m)
          u_lm = map_dist_st%lm2(l_max, m)
          
-         l_lm_glb = map_glbl_st%lm2(m,m)
-         c_lm_glb = map_glbl_st%lm2(lcut,m)
-         
-         Qlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Jlm(l_lm:c_lm)
-         Tlm(m:lcut) = or2 * dLh(l_lm_glb:c_lm_glb) * Blm(l_lm:c_lm) - ddBlm(l_lm:c_lm)
-         if (lcut<l_max) then 
-            Qlm(lcut+1:u_lm) = zero
-            Tlm(lcut+1:u_lm) = zero
-         end if
-         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), Tlm(m:l_max), &
-              &  fL(:,i), gL(:,i), hL(:,i), lcut)
+         Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Jlm(l_lm:u_lm)
+         Tlm(m:l_max) = or2 * dLh_loc(l_lm:u_lm) * Blm(l_lm:u_lm) - ddBlm(l_lm:u_lm)
+         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), &
+              &                    Tlm(m:l_max), fL(:,i), gL(:,i), hL(:,i), lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL, cvrc)
       call transform_m2phi(gL, cvtc)
@@ -613,23 +624,23 @@ contains
       complex(cp) :: Qlm(0:l_max)
       complex(cp) :: fL(n_theta_max,n_m_loc)
       complex(cp) :: gL(n_theta_max,n_m_loc)
-      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
+      integer :: i, l_lm, u_lm, m
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
-         if (m>lcut) cycle
-         
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            cycle
+         end if
          l_lm = map_dist_st%lm2(m, m)
-         c_lm = map_dist_st%lm2(lcut, m)
          u_lm = map_dist_st%lm2(l_max, m)
          
-         l_lm_glb = map_glbl_st%lm2(m,m)
-         c_lm_glb = map_glbl_st%lm2(lcut,m)
-         
-         Qlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Slm(l_lm:c_lm)
-         if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
+         Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Slm(l_lm:u_lm)
          call shtns_sph_to_spat_ml(m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL, gradtc)
       call transform_m2phi(gL, gradpc)
@@ -655,25 +666,25 @@ contains
       complex(cp) :: Slm(0:l_max), Tlm(0:l_max)
       complex(cp) :: fL(n_theta_max,n_m_loc)
       complex(cp) :: gL(n_theta_max,n_m_loc)
-      integer :: i, l_lm, c_lm, u_lm, m, it, ip
+      integer :: i, l_lm, u_lm, m, it, ip
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
-         if (m>lcut) cycle
-         
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            cycle
+         end if
          l_lm = map_dist_st%lm2(m, m)
-         c_lm = map_dist_st%lm2(lcut, m)
          u_lm = map_dist_st%lm2(l_max, m)
          
-         Slm(m:lcut) = ci*m*dWlm(l_lm:c_lm)
-         Tlm(m:lcut) = ci*m*Zlm(l_lm:c_lm)
-         if (lcut<l_max) then 
-            Slm(lcut+1:u_lm) = zero
-            Tlm(lcut+1:u_lm) = zero
-         end if
+         Slm(m:l_max) = ci*m*dWlm(l_lm:u_lm)
+         Tlm(m:l_max) = ci*m*Zlm(l_lm:u_lm)
          call shtns_sphtor_to_spat_ml(m/minc, Slm(m:l_max), Tlm(m:l_max), &
-              &  fL(:,i), gL(:,i), lcut)
+              &                       fL(:,i), gL(:,i), lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL, dvtdp)
       call transform_m2phi(gL, dvpdp)
@@ -702,23 +713,22 @@ contains
       !-- Local variables
       complex(cp) :: dQlm(0:l_max)
       complex(cp) :: fL(n_theta_max,n_m_loc)
-      integer :: i, l_lm, c_lm, u_lm, m, l_lm_glb, c_lm_glb
+      integer :: i, l_lm, u_lm, m
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
-         if (m>lcut) cycle
-         
+         if (m>lcut) then
+            fL(:,i)=zero
+            cycle
+         end if
          l_lm = map_dist_st%lm2(m, m)
-         c_lm = map_dist_st%lm2(lcut, m)
          u_lm = map_dist_st%lm2(l_max, m)
          
-         l_lm_glb = map_glbl_st%lm2(m,m)
-         c_lm_glb = map_glbl_st%lm2(lcut,m)
-         
-         dQlm(m:lcut) = dLh(l_lm_glb:c_lm_glb) * Qlm(l_lm:c_lm)
-         if (lcut<l_max) dQlm(lcut+1:u_lm) = zero
+         dQlm(m:l_max) = dLh_loc(l_lm:u_lm) * Qlm(l_lm:u_lm)
          call shtns_SH_to_spat_ml(m/minc, dQlm(m:l_max), fL(:,i), lcut)
       end do
+      !$omp end parallel do
       
       call transform_m2phi(fL, cvrc)
 
@@ -733,7 +743,7 @@ contains
 !------------------------------------------------------------------------------
   
    !----------------------------------------------------------------------------
-   subroutine spat_to_SH_dist(f_loc, fLM_loc, lcut)
+   subroutine spat_to_SH_dist(f_loc, fLMP_loc, lcut)
       !   
       !   Transform the spherical harmonic coefficients Qlm into its spatial 
       !   representation Vr.
@@ -741,7 +751,7 @@ contains
       !   Author: Rafael Lago, MPCDF, July 2017
       !
       real(cp),    intent(inout) :: f_loc(n_phi_max,n_theta_loc)
-      complex(cp), intent(out)   :: fLM_loc(n_lmP_loc)
+      complex(cp), intent(out)   :: fLMP_loc(n_lmP_loc)
       integer,     intent(in)    :: lcut
       
       !-- Local variables
@@ -755,13 +765,18 @@ contains
       
       call transform_phi2m(f_loc, fL_loc)
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
-        m = dist_m(coord_m, i)
-        if (m>lcut) cycle
-        l_lm = map_dist_st%lmP2(m, m)
-        u_lm = map_dist_st%lmP2(l_max+1, m)
-        call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLM_loc(l_lm:u_lm),lcut+1)
+         m = dist_m(coord_m, i)
+         l_lm = map_dist_st%lmP2(m, m)
+         u_lm = map_dist_st%lmP2(l_max+1, m)
+         if ( m>min(m_max,lcut+1) ) then
+            fLMP_loc(l_lm:u_lm)=zero
+            cycle
+         end if 
+         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLMP_loc(l_lm:u_lm),lcut+1)
       end do
+      !$omp end parallel do
       
       call shtns_load_cfg(0) ! l_max
 
@@ -797,14 +812,22 @@ contains
       call transform_phi2m(g_loc, gL_loc)
       call transform_phi2m(h_loc, hL_loc)
       
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
-        m = dist_m(coord_m, i)
-        if (m>lcut) cycle
-        l_lm = map_dist_st%lmP2(m, m)
-        u_lm = map_dist_st%lmP2(l_max+1, m)
-        call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
-           qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),tLMP_loc(l_lm:u_lm),lcut+1)
+         m = dist_m(coord_m, i)
+         l_lm = map_dist_st%lmP2(m, m)
+         u_lm = map_dist_st%lmP2(l_max+1, m)
+         if ( m>min(m_max,lcut+1) ) then
+            qLMP_loc(l_lm:u_lm)=zero
+            sLMP_loc(l_lm:u_lm)=zero
+            tLMP_loc(l_lm:u_lm)=zero
+            cycle
+         end if
+         call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
+              &                    qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),   &
+              &                    tLMP_loc(l_lm:u_lm),lcut+1)
       end do
+      !$omp end parallel do
       
       call shtns_load_cfg(0)
 
@@ -837,15 +860,21 @@ contains
       call transform_phi2m(f_loc, fL_loc)
       call transform_phi2m(g_loc, gL_loc)
       
-      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
-        m = dist_m(coord_m, i)
-        if (m>lcut) cycle
-        l_lm = map_dist_st%lmP2(m, m)
-        u_lm = map_dist_st%lmP2(l_max+1, m)
-        call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
-           fLMP_loc(l_lm:u_lm),gLMP_loc(l_lm:u_lm),lcut+1)
+         m = dist_m(coord_m, i)
+         l_lm = map_dist_st%lmP2(m, m)
+         u_lm = map_dist_st%lmP2(l_max+1, m)
+         if ( m>min(m_max,lcut+1) ) then
+            fLMP_loc(l_lm:u_lm)=zero
+            gLMP_loc(l_lm:u_lm)=zero
+            cycle
+         end if
+         call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
+              &                       fLMP_loc(l_lm:u_lm),           &
+              &                       gLMP_loc(l_lm:u_lm),lcut+1)
       end do
+      !$omp end parallel do
       
       call shtns_load_cfg(0)
 
@@ -871,8 +900,9 @@ contains
       !      instead of an allgatherv
       !@TODO it may be determined beforehand if the number of theta points is the same in every 
       !      rank. If yes, then this would be a gather instead of a gatherall
-      if (n_ranks_theta>1) then
-         call MPI_ALLGATHERV(MPI_IN_PLACE, 0, 0, tmp_r, dist_theta(:,0), dist_theta(:,1)-1, MPI_DEF_REAL, comm_theta, ierr)
+      if ( n_ranks_theta>1 ) then
+         call MPI_ALLGATHERV(MPI_IN_PLACE, 0, 0, tmp_r, dist_theta(:,0), &
+              &              dist_theta(:,1)-1, MPI_DEF_REAL, comm_theta, ierr)
       end if
 #endif
       tmp_c = cmplx(tmp_r, 0.0, kind=cp)

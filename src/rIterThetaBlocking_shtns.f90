@@ -66,7 +66,6 @@ module rIterThetaBlocking_shtns_mod
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
-      type(grid_space_arrays_t) :: gsa_dist
       type(dtB_arrays_t) :: dtB_arrays_dist
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
    contains
@@ -94,7 +93,6 @@ contains
 
       call this%allocate_common_arrays()
       call this%gsa%initialize()
-      call this%gsa_dist%initialize_dist()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize(lmP_max_dtB)
       call this%dtB_arrays_dist%initialize(n_lmP_loc)
@@ -108,7 +106,6 @@ contains
 
       call this%deallocate_common_arrays()
       call this%gsa%finalize()
-      call this%gsa_dist%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
       call this%dtB_arrays_dist%finalize()
@@ -181,7 +178,9 @@ contains
 
       call this%nl_lm%set_zero(n_lmP_loc)
 
-      call this%transform_to_grid_space_shtns(this%gsa_dist)
+      call lm2phy_counter%start_count()
+      call this%transform_to_grid_space_shtns(this%gsa)
+      call lm2phy_counter%stop_count(l_increment=.false.)
 
       !--------- Calculation of nonlinear products in grid space:
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
@@ -189,14 +188,14 @@ contains
 
          call nl_counter%start_count()
          PERFON('get_nl')
-         call this%gsa_dist%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
+         call this%gsa%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
               &                     this%lRmsCalc)
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 
          
          call phy2lm_counter%start_count()
-         call this%transform_to_lm_space_shtns(this%gsa_dist, this%nl_lm)
+         call this%transform_to_lm_space_shtns(this%gsa, this%nl_lm)
          call phy2lm_counter%stop_count(l_increment=.false.)
 
       else if ( l_mag ) then
@@ -216,8 +215,8 @@ contains
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
          br_vt_lm_cmb(:)=zero
          br_vp_lm_cmb(:)=zero
-         call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
-              &            this%gsa_dist%vpc,this%leg_helper_dist%omegaMA,    &
+         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
+              &            this%gsa%vpc,this%leg_helper_dist%omegaMA,    &
               &            or2(this%nR),orho1(this%nR),             &
               &            br_vt_lm_cmb,br_vp_lm_cmb)
               
@@ -226,8 +225,8 @@ contains
          call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb)
          br_vt_lm_icb(:)=zero
          br_vp_lm_icb(:)=zero
-         call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
-              &            this%gsa_dist%vpc,this%leg_helper_dist%omegaIC,    &
+         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
+              &            this%gsa%vpc,this%leg_helper_dist%omegaIC,    &
               &            or2(this%nR),orho1(this%nR),             &
               &            br_vt_lm_icb,br_vp_lm_icb)
       end if
@@ -237,22 +236,22 @@ contains
       !          lorentz_torque_ic
       if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
          lorentz_torques_ic=0.0_cp
-         call get_lorentz_torque(lorentz_torques_ic, this%gsa_dist%brc,this%gsa_dist%bpc,this%nR)
+         call get_lorentz_torque(lorentz_torques_ic, this%gsa%brc,this%gsa%bpc,this%nR)
       end if
 
       !--------- Calculate Lorentz torque on mantle:
       !          note: this calculates a torque of a wrong sign.
       !          sign is reversed at the end of the theta blocking.
       if ( this%nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-         call get_lorentz_torque(this%lorentz_torque_ma,this%gsa_dist%brc,this%gsa_dist%bpc,this%nR)
+         call get_lorentz_torque(this%lorentz_torque_ma,this%gsa%brc,this%gsa%bpc,this%nR)
       end if
       
 
       !--------- Calculate courant condition parameters:
       if ( .not. l_full_sphere .or. this%nR /= n_r_icb ) then
-         call courant(this%nR,this%dtrkc,this%dthkc,this%gsa_dist%vrc,          &
-              &       this%gsa_dist%vtc,this%gsa_dist%vpc,this%gsa_dist%brc,this%gsa_dist%btc, &
-              &       this%gsa_dist%bpc, tscheme%courfac, tscheme%alffac)
+         call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc,          &
+              &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
+              &       this%gsa%bpc, tscheme%courfac, tscheme%alffac)
       end if
       
 
@@ -260,14 +259,14 @@ contains
       !          point for graphical output:
       if ( this%l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi(time,this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,           &
-                 &            this%gsa_dist%vpc,this%gsa_dist%brc,this%gsa_dist%btc,           &
-                 &            this%gsa_dist%bpc,this%gsa_dist%sc,this%gsa_dist%pc,this%gsa_dist%xic,&
+            call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc,           &
+                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
+                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
                  &            lGraphHeader)
 #else
-            call graphOut(time,this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,           &
-                 &        this%gsa_dist%vpc,this%gsa_dist%brc,this%gsa_dist%btc,           &
-                 &        this%gsa_dist%bpc,this%gsa_dist%sc,this%gsa_dist%pc,this%gsa_dist%xic,&
+            call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc,           &
+                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
+                 &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
                  &        lGraphHeader)
 #endif
       end if
@@ -284,19 +283,19 @@ contains
          Hel2LMr(:)  =0.0_cp
          HelnaLMr(:) =0.0_cp
          Helna2LMr(:)=0.0_cp
-         call get_helicity(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,         &
-              &            this%gsa_dist%cvrc,this%gsa_dist%dvrdtc,this%gsa_dist%dvrdpc,  &
-              &            this%gsa_dist%dvtdrc,this%gsa_dist%dvpdrc,HelLMr,Hel2LMr, &
+         call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+              &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
+              &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
               &            HelnaLMr,Helna2LMr,this%nR)
       end if
 
       !-- Viscous heating:
       if ( this%lPowerCalc ) then
          viscLMr(:)=0.0_cp
-         call get_visc_heat(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,          &
-              &             this%gsa_dist%cvrc,this%gsa_dist%dvrdrc,this%gsa_dist%dvrdtc,   &
-              &             this%gsa_dist%dvrdpc,this%gsa_dist%dvtdrc,this%gsa_dist%dvtdpc, &
-              &             this%gsa_dist%dvpdrc,this%gsa_dist%dvpdpc,viscLMr,         &
+         call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
+              &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
+              &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
+              &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscLMr,         &
               &             this%nR)
       end if
 
@@ -305,9 +304,9 @@ contains
          gradsLMr(:)=0.0_cp
          uhLMr(:)   =0.0_cp
          duhLMr(:)  =0.0_cp
-         call get_nlBLayers(this%gsa_dist%vtc,this%gsa_dist%vpc,this%gsa_dist%dvtdrc,    &
-              &             this%gsa_dist%dvpdrc,this%gsa_dist%drSc,this%gsa_dist%dsdtc, &
-              &             this%gsa_dist%dsdpc,uhLMr,duhLMr,gradsLMr,nR)
+         call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
+              &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
+              &             this%gsa%dsdpc,uhLMr,duhLMr,gradsLMr,nR)
       end if
 
       !-- Radial flux profiles
@@ -317,11 +316,11 @@ contains
          fviscLMr(:)=0.0_cp
          fpoynLMr(:)=0.0_cp
          fresLMr(:) =0.0_cp
-         call get_fluxes(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,            &
-              &          this%gsa_dist%dvrdrc,this%gsa_dist%dvtdrc,this%gsa_dist%dvpdrc,   &
-              &          this%gsa_dist%dvrdtc,this%gsa_dist%dvrdpc,this%gsa_dist%sc,       &
-              &          this%gsa_dist%pc,this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc,&
-              &          this%gsa_dist%cbtc,this%gsa_dist%cbpc,fconvLMr,fkinLMr,      &
+         call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+              &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
+              &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
+              &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
+              &          this%gsa%cbtc,this%gsa%cbpc,fconvLMr,fkinLMr,      &
               &          fviscLMr,fpoynLMr,fresLMr,nR)
       end if
 
@@ -331,17 +330,17 @@ contains
          EparLMr(:)    =0.0_cp
          EperpaxiLMr(:)=0.0_cp
          EparaxiLMr(:) =0.0_cp
-         call get_perpPar(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,EperpLMr, &
+         call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpLMr, &
               &           EparLMr,EperpaxiLMr,EparaxiLMr,nR )
       end if
 
       !--------- Movie output:
       if ( this%l_frame .and. l_movie_oc .and. l_store_frame ) then
-         call store_movie_frame(this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc, &
-              &                 this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc,         &
-              &                 this%gsa_dist%sc,this%gsa_dist%drSc,this%gsa_dist%dvrdpc,      &
-              &                 this%gsa_dist%dvpdrc,this%gsa_dist%dvtdrc,this%gsa_dist%dvrdtc,&
-              &                 this%gsa_dist%cvrc,this%gsa_dist%cbrc,this%gsa_dist%cbtc,1,    &
+         call store_movie_frame(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+              &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
+              &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
+              &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
+              &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,1,    &
               &                 this%sizeThetaB,this%leg_helper_dist%bCMB)
       end if
 
@@ -350,8 +349,8 @@ contains
       !--------- Calculation of magnetic field production and advection terms
       !          for graphic output:
       if ( l_dtB ) then
-         call get_dtBLM(this%nR,this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,       &
-              &         this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc,               &
+         call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
+              &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,               &
               &         this%dtB_arrays_dist%BtVrLM,            &
               &         this%dtB_arrays_dist%BpVrLM,this%dtB_arrays_dist%BrVtLM,        &
               &         this%dtB_arrays_dist%BrVpLM,this%dtB_arrays_dist%BtVpLM,        &
@@ -366,15 +365,15 @@ contains
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper_dist%zAS,this%gsa_dist%brc,this%gsa_dist%btc,           &
-              &         this%gsa_dist%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),   &
+         call getTOnext(this%leg_helper_dist%zAS,this%gsa%brc,this%gsa%btc,           &
+              &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),   &
               &         dtLast,this%nR,this%BsLast,this%BpLast,this%BzLast)
       end if
 
       if ( this%lTOCalc ) then
-         call getTO(this%gsa_dist%vrc,this%gsa_dist%vtc,this%gsa_dist%vpc,this%gsa_dist%cvrc,   &
-              &     this%gsa_dist%dvpdrc,this%gsa_dist%brc,this%gsa_dist%btc,this%gsa_dist%bpc, &
-              &     this%gsa_dist%cbrc,this%gsa_dist%cbtc,this%BsLast,this%BpLast,    &
+         call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
+              &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
+              &     this%gsa%cbrc,this%gsa%cbtc,this%BsLast,this%BpLast,    &
               &     this%BzLast,this%TO_arrays%dzRstrLM,                    &
               &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
               &     this%TO_arrays%dzLFLM,dtLast,this%nR)
@@ -563,10 +562,10 @@ contains
       
    end subroutine transform_to_grid_space_shtns
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space_shtns(this, gsa_dist, nl_lm)
+   subroutine transform_to_lm_space_shtns(this, gsa, nl_lm)
 
       class(rIterThetaBlocking_shtns_t) :: this
-      type(grid_space_arrays_t) :: gsa_dist
+      type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
 
       ! Local variables
@@ -586,9 +585,9 @@ contains
             if ( this%nR>n_r_LCR ) then
                do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
-                     gsa_dist%Advr(nPhi, nTheta)=gsa_dist%Advr(nPhi, nTheta) + gsa_dist%LFr(nPhi, nTheta)
-                     gsa_dist%Advt(nPhi, nTheta)=gsa_dist%Advt(nPhi, nTheta) + gsa_dist%LFt(nPhi, nTheta)
-                     gsa_dist%Advp(nPhi, nTheta)=gsa_dist%Advp(nPhi, nTheta) + gsa_dist%LFp(nPhi, nTheta)
+                     gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%LFr(nPhi, nTheta)
+                     gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%LFt(nPhi, nTheta)
+                     gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%LFp(nPhi, nTheta)
                   end do
                end do
             end if
@@ -596,17 +595,17 @@ contains
             if ( this%nR > n_r_LCR ) then
                do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
-                     gsa_dist%Advr(nPhi, nTheta) = gsa_dist%LFr(nPhi, nTheta)
-                     gsa_dist%Advt(nPhi, nTheta) = gsa_dist%LFt(nPhi, nTheta)
-                     gsa_dist%Advp(nPhi, nTheta) = gsa_dist%LFp(nPhi, nTheta)
+                     gsa%Advr(nPhi, nTheta) = gsa%LFr(nPhi, nTheta)
+                     gsa%Advt(nPhi, nTheta) = gsa%LFt(nPhi, nTheta)
+                     gsa%Advp(nPhi, nTheta) = gsa%LFp(nPhi, nTheta)
                   end do
                end do
             else
                do nTheta=nThStart, nThStop
                   do nPhi=1, n_phi_max
-                     gsa_dist%Advr(nPhi,nTheta)=0.0_cp
-                     gsa_dist%Advt(nPhi,nTheta)=0.0_cp
-                     gsa_dist%Advp(nPhi,nTheta)=0.0_cp
+                     gsa%Advr(nPhi,nTheta)=0.0_cp
+                     gsa%Advt(nPhi,nTheta)=0.0_cp
+                     gsa%Advp(nPhi,nTheta)=0.0_cp
                   end do
                end do
             end if
@@ -615,9 +614,9 @@ contains
          if ( l_precession ) then
             do nTheta=nThStart, nThStop
                do nPhi=1, n_phi_max
-                  gsa_dist%Advr(nPhi, nTheta)=gsa_dist%Advr(nPhi, nTheta) + gsa_dist%PCr(nPhi, nTheta)
-                  gsa_dist%Advt(nPhi, nTheta)=gsa_dist%Advt(nPhi, nTheta) + gsa_dist%PCt(nPhi, nTheta)
-                  gsa_dist%Advp(nPhi, nTheta)=gsa_dist%Advp(nPhi, nTheta) + gsa_dist%PCp(nPhi, nTheta)
+                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%PCr(nPhi, nTheta)
+                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%PCt(nPhi, nTheta)
+                  gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%PCp(nPhi, nTheta)
                end do
             end do
          end if
@@ -625,74 +624,74 @@ contains
          if ( l_centrifuge ) then
             do nTheta=nThStart, nThStop
                do nPhi=1, n_phi_max
-                  gsa_dist%Advr(nPhi, nTheta)=gsa_dist%Advr(nPhi, nTheta) + gsa_dist%CAr(nPhi, nTheta)
-                  gsa_dist%Advt(nPhi, nTheta)=gsa_dist%Advt(nPhi, nTheta) + gsa_dist%CAt(nPhi, nTheta)
+                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%CAr(nPhi, nTheta)
+                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%CAt(nPhi, nTheta)
                end do
             end do
          end if
          !$omp end parallel
          
-         call spat_to_SH_dist(gsa_dist%Advr, nl_lm%AdvrLM, l_R(this%nR))
-         call spat_to_SH_dist(gsa_dist%Advt, nl_lm%AdvtLM, l_R(this%nR))
-         call spat_to_SH_dist(gsa_dist%Advp, nl_lm%AdvpLM, l_R(this%nR))
+         call spat_to_SH_dist(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
+         call spat_to_SH_dist(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
+         call spat_to_SH_dist(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
-            call spat_to_SH_dist(gsa_dist%LFr, nl_lm%LFrLM, l_R(this%nR))
-            call spat_to_SH_dist(gsa_dist%LFt, nl_lm%LFtLM, l_R(this%nR))
-            call spat_to_SH_dist(gsa_dist%LFp, nl_lm%LFpLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa%LFr, nl_lm%LFrLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa%LFt, nl_lm%LFtLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa%LFp, nl_lm%LFpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call spat_to_qst_dist(gsa_dist%VSr, gsa_dist%VSt, gsa_dist%VSp, &
+         call spat_to_qst_dist(gsa%VSr, gsa%VSt, gsa%VSp, &
               &                nl_lm%VSrLM, nl_lm%VStLM, nl_lm%VSpLM, l_R(this%nR))
          
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
-               call spat_to_SH_dist(gsa_dist%OhmLoss,  nl_lm%OhmLossLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa%OhmLoss,  nl_lm%OhmLossLM, l_R(this%nR))
             else
-               call spat_to_SH_dist(gsa_dist%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH_dist(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
             end if
          end if
          !PERFOFF
       end if
       
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         call spat_to_qst_dist(gsa_dist%VXir, gsa_dist%VXit, gsa_dist%VXip, &
+         call spat_to_qst_dist(gsa%VXir, gsa%VXit, gsa%VXip, &
               &                nl_lm%VXirLM, nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call spat_to_qst_dist(gsa_dist%VxBr, gsa_dist%VxBt, gsa_dist%VxBp, &
+            call spat_to_qst_dist(gsa%VxBr, gsa%VxBt, gsa%VxBp, &
                  &                nl_lm%VxBrLM, nl_lm%VxBtLM,                  &
                  &                nl_lm%VxBpLM, l_R(this%nR))
          else
-            call spat_to_sphertor_dist(gsa_dist%VxBt, gsa_dist%VxBp, nl_lm%VxBtLM, &
+            call spat_to_sphertor_dist(gsa%VxBt, gsa%VxBp, nl_lm%VxBtLM, &
                  &                     nl_lm%VxBpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
 
       if ( this%lRmsCalc ) then
-         call spat_to_sphertor_dist(gsa_dist%dpdtc, gsa_dist%dpdpc, nl_lm%PFt2LM, &
+         call spat_to_sphertor_dist(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, &
               &                     nl_lm%PFp2LM, l_R(this%nR))
-         call spat_to_sphertor_dist(gsa_dist%CFt2, gsa_dist%CFp2, nl_lm%CFt2LM, &
+         call spat_to_sphertor_dist(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, &
               &                     nl_lm%CFp2LM, l_R(this%nR))
-         call spat_to_qst_dist(gsa_dist%dtVr, gsa_dist%dtVt, gsa_dist%dtVp, &
+         call spat_to_qst_dist(gsa%dtVr, gsa%dtVt, gsa%dtVp, &
               &                nl_lm%dtVrLM, nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
          if ( l_conv_nl ) then
-            call spat_to_sphertor_dist(gsa_dist%Advt2, gsa_dist%Advp2, nl_lm%Advt2LM,&
+            call spat_to_sphertor_dist(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM,&
                  &                     nl_lm%Advp2LM, l_R(this%nR))
          end if
          if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call spat_to_SH_dist(gsa_dist%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
+            call spat_to_SH_dist(gsa%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call spat_to_sphertor_dist(gsa_dist%LFt2, gsa_dist%LFp2, nl_lm%LFt2LM, &
+            call spat_to_sphertor_dist(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, &
                  &                     nl_lm%LFp2LM, l_R(this%nR))
          end if
       end if
