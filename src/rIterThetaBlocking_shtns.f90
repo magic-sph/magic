@@ -179,23 +179,23 @@ contains
 
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
       call this%gsa%slice_all(this%gsa_dist)
-      call slice_Flm_cmplx(s_Rloc(:,nR), s_Rdist(:,nR))
-      call slice_Flm_cmplx(p_Rloc(:,nR), p_Rdist(:,nR))
-      if ( l_chemical_conv ) call slice_Flm_cmplx(xi_Rloc(:,nR), xi_Rdist(:,nR))
-      call slice_Flm_cmplx(ds_Rloc(:,nR), ds_Rdist(:,nR))
+      !call slice_Flm_cmplx(s_Rloc(:,nR), s_Rdist(:,nR))
+      !call slice_Flm_cmplx(p_Rloc(:,nR), p_Rdist(:,nR))
+      !if ( l_chemical_conv ) call slice_Flm_cmplx(xi_Rloc(:,nR), xi_Rdist(:,nR))
+      !call slice_Flm_cmplx(ds_Rloc(:,nR), ds_Rdist(:,nR))
       
-      call slice_Flm_cmplx(w_Rloc(:,nR), w_Rdist(:,nR))
-      call slice_Flm_cmplx(dw_Rloc(:,nR), dw_Rdist(:,nR))
-      call slice_Flm_cmplx(z_Rloc(:,nR), z_Rdist(:,nR))
+      !call slice_Flm_cmplx(w_Rloc(:,nR), w_Rdist(:,nR))
+      !call slice_Flm_cmplx(dw_Rloc(:,nR), dw_Rdist(:,nR))
+      !call slice_Flm_cmplx(z_Rloc(:,nR), z_Rdist(:,nR))
       
-      call slice_Flm_cmplx(ddw_Rloc(:,nR), ddw_Rdist(:,nR))
-      call slice_Flm_cmplx(dz_Rloc(:,nR), dz_Rdist(:,nR))
+      !call slice_Flm_cmplx(ddw_Rloc(:,nR), ddw_Rdist(:,nR))
+      !call slice_Flm_cmplx(dz_Rloc(:,nR), dz_Rdist(:,nR))
       
-      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(b_Rloc(:,nR), b_Rdist(:,nR))
-      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(db_Rloc(:,nR), db_Rdist(:,nR))
-      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(aj_Rloc(:,nR), aj_Rdist(:,nR))
-      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(ddb_Rloc(:,nR), ddb_Rdist(:,nR))
-      if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(dj_Rloc(:,nR), dj_Rdist(:,nR))
+      !if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(b_Rloc(:,nR), b_Rdist(:,nR))
+      !if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(db_Rloc(:,nR), db_Rdist(:,nR))
+      !if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(aj_Rloc(:,nR), aj_Rdist(:,nR))
+      !if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(ddb_Rloc(:,nR), ddb_Rdist(:,nR))
+      !if ( l_mag .or. l_mag_LF ) call slice_Flm_cmplx(dj_Rloc(:,nR), dj_Rdist(:,nR))
       
       if (DEBUG_OUTPUT) then
          write(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ", &
@@ -206,12 +206,10 @@ contains
       this%lorentz_torque_ic = 0.0_cp
       lorentz_torques_ic = 0.0_cp
 
-      call this%nl_lm%set_zero(n_lm_loc)
+      call this%nl_lm%set_zero(n_lmP_loc)
 
-      call slice_FlmP_cmplx(br_vt_lm_cmb, br_vt_lm_cmb_dist)
-      call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
-      call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb_dist)
-      call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb_dist)
+      call this%transform_to_grid_space_shtns(this%gsa_dist)
+
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
       
       !--------- Calculation of nonlinear products in grid space:
@@ -247,6 +245,8 @@ contains
       !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
       !     These products are used in get_b_nl_bcs.
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
+         call slice_FlmP_cmplx(br_vt_lm_cmb, br_vt_lm_cmb_dist)
+         call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
          br_vt_lm_cmb_dist(:)=zero
          br_vp_lm_cmb_dist(:)=zero
          call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
@@ -258,6 +258,8 @@ contains
          call gather_FlmP(br_vt_lm_cmb_dist, br_vt_lm_cmb)
          call gather_FlmP(br_vp_lm_cmb_dist, br_vp_lm_cmb)
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
+         call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb_dist)
+         call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb_dist)
          br_vt_lm_icb_dist(:)=zero
          br_vp_lm_icb_dist(:)=zero
          call get_br_v_bcs(this%gsa_dist%brc,this%gsa_dist%vtc,               &
