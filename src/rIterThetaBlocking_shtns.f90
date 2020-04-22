@@ -208,7 +208,9 @@ contains
 
       call this%nl_lm%set_zero(n_lmP_loc)
 
+      call lm2phy_counter%start_count()
       call this%transform_to_grid_space_shtns(this%gsa_dist)
+      call lm2phy_counter%stop_count(l_increment=.false.)
 
       ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of Porting Point
       
