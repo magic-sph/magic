@@ -305,16 +305,16 @@ subroutine initialize_fields_dist
          allocate( ddj_ic_dist(1,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + 6*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
-      allocate( flow_LMdist_container(1:n_lm_loc,n_r_max,1:5) )
-      w_LMdist(llm:,1:)   => flow_LMdist_container(1:n_lm_loc,1:n_r_max,1)
-      dw_LMdist(llm:,1:)  => flow_LMdist_container(1:n_lm_loc,1:n_r_max,2)
-      ddw_LMdist(llm:,1:) => flow_LMdist_container(1:n_lm_loc,1:n_r_max,3)
-      z_LMdist(llm:,1:)   => flow_LMdist_container(1:n_lm_loc,1:n_r_max,4)
-      dz_LMdist(llm:,1:)  => flow_LMdist_container(1:n_lm_loc,1:n_r_max,5)
+      allocate( flow_LMdist_container(n_mlo_loc,n_r_max,1:5) )
+      w_LMdist(1:,1:)   => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,1)
+      dw_LMdist(1:,1:)  => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,2)
+      ddw_LMdist(1:,1:) => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,3)
+      z_LMdist(1:,1:)   => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,4)
+      dz_LMdist(1:,1:)  => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,5)
 
-      allocate( press_LMdist_container(1:n_lm_loc,n_r_max,1:2) )
-      p_LMdist(llm:,1:)   => press_LMdist_container(1:n_lm_loc,1:n_r_max,1)
-      dp_LMdist(llm:,1:)  => press_LMdist_container(1:n_lm_loc,1:n_r_max,2)
+      allocate( press_LMdist_container(n_mlo_loc,n_r_max,1:2) )
+      p_LMdist(1:,1:)   => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,1)
+      dp_LMdist(1:,1:)  => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,2)
 
       allocate( flow_Rdist_container(n_lm_loc,nRstart:nRstop,1:5) )
       w_Rdist(1:,nRstart:)   => flow_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
@@ -328,23 +328,23 @@ subroutine initialize_fields_dist
       dp_Rdist(1:,nRstart:)  => press_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
 
       !-- Entropy:
-      allocate( s_LMdist_container(1:n_lm_loc,n_r_max,1:2) )
-      s_LMdist(llm:,1:)  => s_LMdist_container(1:n_lm_loc,1:n_r_max,1)
-      ds_LMdist(llm:,1:) => s_LMdist_container(1:n_lm_loc,1:n_r_max,2)
+      allocate( s_LMdist_container(n_mlo_loc,n_r_max,1:2) )
+      s_LMdist(1:,1:)  => s_LMdist_container(1:n_mlo_loc,1:n_r_max,1)
+      ds_LMdist(1:,1:) => s_LMdist_container(1:n_mlo_loc,1:n_r_max,2)
       allocate( s_Rdist_container(n_lm_loc,nRstart:nRstop,1:2) )
       s_Rdist(1:,nRstart:)  => s_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
       ds_Rdist(1:,nRstart:) => s_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
 
       bytes_allocated = bytes_allocated + &
-      &                 9*(n_lm_loc)*n_r_max*SIZEOF_DEF_COMPLEX
+      &                 9*(n_mlo_loc)*n_r_max*SIZEOF_DEF_COMPLEX
       bytes_allocated = bytes_allocated + &
       &                 9*n_lm_loc*n_r_loc*SIZEOF_DEF_COMPLEX
 
       !-- Chemical composition:
       if ( l_chemical_conv ) then
-         allocate( xi_LMdist_container(1:n_lm_loc,n_r_max,1:2) )
-         xi_LMdist(llm:,1:)  => xi_LMdist_container(1:n_lm_loc,1:n_r_max,1)
-         dxi_LMdist(llm:,1:) => xi_LMdist_container(1:n_lm_loc,1:n_r_max,2)
+         allocate( xi_LMdist_container(1:n_mlo_loc,n_r_max,1:2) )
+         xi_LMdist(1:,1:)  => xi_LMdist_container(1:n_mlo_loc,1:n_r_max,1)
+         dxi_LMdist(1:,1:) => xi_LMdist_container(1:n_mlo_loc,1:n_r_max,2)
          allocate( xi_Rdist_container(n_lm_loc,nRstart:nRstop,1:2) )
          xi_Rdist(1:,nRstart:)  => xi_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)
          dxi_Rdist(1:,nRstart:) => xi_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
@@ -362,13 +362,13 @@ subroutine initialize_fields_dist
       end if
 
       !-- Magnetic field potentials:
-      allocate( field_LMdist_container(1:n_lmMag_loc,n_r_maxMag,1:6) )
-      b_LMdist(llmMag:,1:)   => field_LMdist_container(1:n_lmMag_loc,1:n_r_maxMag,1)
-      db_LMdist(llmMag:,1:)  => field_LMdist_container(1:n_lmMag_loc,1:n_r_maxMag,2)
-      ddb_LMdist(llmMag:,1:) => field_LMdist_container(1:n_lmMag_loc,1:n_r_maxMag,3)
-      aj_LMdist(llmMag:,1:)  => field_LMdist_container(1:n_lmMag_loc,1:n_r_maxMag,4)
-      dj_LMdist(llmMag:,1:)  => field_LMdist_container(1:n_lmMag_loc,1:n_r_maxMag,5)
-      ddj_LMdist(llmMag:,1:) => field_LMdist_container(1:n_lmMag_loc,1:n_r_maxMag,6)
+      allocate( field_LMdist_container(n_mloMag_loc,n_r_maxMag,1:6) )
+      b_LMdist(1:,1:)   => field_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,1)
+      db_LMdist(1:,1:)  => field_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,2)
+      ddb_LMdist(1:,1:) => field_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,3)
+      aj_LMdist(1:,1:)  => field_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,4)
+      dj_LMdist(1:,1:)  => field_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,5)
+      ddj_LMdist(1:,1:) => field_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,6)
 
       allocate( field_Rdist_container(n_lmMag_loc,nRstart:nRstop,1:5) )
       b_Rdist(1:,nRstart:)   => field_Rdist_container(1:n_lmMag_loc,nRstart:nRstop,1)
@@ -379,22 +379,22 @@ subroutine initialize_fields_dist
 
 
       bytes_allocated = bytes_allocated + &
-      &                 6*n_lmMag_loc*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      &                 6*n_mloMag_loc*n_r_maxMag*SIZEOF_DEF_COMPLEX
       bytes_allocated = bytes_allocated + &
       &                 5*n_lmMag_loc*n_r_loc*SIZEOF_DEF_COMPLEX
 
       !-- Magnetic field potentials in inner core:
       !   NOTE: n_r-dimension may be smaller once CHEBFT is adopted
       !         for even chebs
-      allocate( b_ic_LMdist(1:n_lmMag_loc,n_r_ic_maxMag) )
-      allocate( db_ic_LMdist(1:n_lmMag_loc,n_r_ic_maxMag) )
-      allocate( ddb_ic_LMdist(1:n_lmMag_loc,n_r_ic_maxMag) )
-      allocate( aj_ic_LMdist(1:n_lmMag_loc,n_r_ic_maxMag) )
-      allocate( dj_ic_LMdist(1:n_lmMag_loc,n_r_ic_maxMag) )
-      allocate( ddj_ic_LMdist(1:n_lmMag_loc,n_r_ic_maxMag) )
+      allocate( b_ic_LMdist(1:n_mloMag_loc,n_r_ic_maxMag) )
+      allocate( db_ic_LMdist(1:n_mloMag_loc,n_r_ic_maxMag) )
+      allocate( ddb_ic_LMdist(1:n_mloMag_loc,n_r_ic_maxMag) )
+      allocate( aj_ic_LMdist(1:n_mloMag_loc,n_r_ic_maxMag) )
+      allocate( dj_ic_LMdist(1:n_mloMag_loc,n_r_ic_maxMag) )
+      allocate( ddj_ic_LMdist(1:n_mloMag_loc,n_r_ic_maxMag) )
 
       bytes_allocated = bytes_allocated + &
-      &                 6*n_lmMag_loc*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+      &                 6*n_mloMag_loc*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
       allocate( work_LMdist(1:n_lm_loc,1:n_r_max) )
       bytes_allocated = bytes_allocated + n_lm_loc*n_r_max*SIZEOF_DEF_COMPLEX

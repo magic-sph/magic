@@ -24,7 +24,9 @@ module LMmapping
       
       integer, allocatable :: lm2(:,:),lm2l(:),lm2m(:)
       integer, allocatable :: lm2mc(:),l2lmAS(:)      
-      integer, allocatable :: lm2lmS(:),lm2lmA(:)     
+      integer, allocatable :: lm2lmS(:),lm2lmA(:)
+      integer, allocatable :: m2coord(:,:)  !@>TODO use this instead of m_tsid array, which is very confusing...
+!       integer, allocatable :: lm2coord(:,:)
                                                      
       integer, allocatable :: lmP2(:,:),lmP2l(:),lmP2m(:)
       integer, allocatable :: lmP2lmPS(:),lmP2lmPA(:) 

@@ -30,7 +30,6 @@ module start_fields
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
-   use parallel_mod, only: coord_r, n_ranks_r
    use radial_der, only: get_dr
    use readCheckPoints, only: readStartFields_old, readStartFields
    use time_schemes, only: type_tscheme

@@ -273,7 +273,7 @@ contains
       n_ranks_lo  = n_ranks_r
       coord_mo    = coord_m
       coord_lo    = coord_r
-      coord_mlo   = coord_r
+      coord_mlo   = rank
       
       comm_mlo = mpi_comm_world
       

@@ -13,7 +13,7 @@ module step_time_mod
    use constants, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
-       &                 n_r_icb, n_r_cmb, n_lmP_loc
+       &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -62,6 +62,10 @@ module step_time_mod
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
    use probe_mod
+   
+   use mpi_thetap_mod !! DELETEMEEE
+   use LMmapping
+   use blocking
 
    implicit none
 
@@ -191,6 +195,13 @@ contains
       integer :: n_rst_signal      ! =1 causes output of rst file
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
+      
+      !! DELETEMEEE
+      integer :: l, m, lm, i      
+      complex(cp) :: Fmlo_new(n_mlo_loc, n_r_max)
+      complex(cp) :: Fmlo_old(llm:ulm,   n_r_max)
+      
+      
 
       if ( lVerbose ) write(output_unit,'(/,'' ! STARTING STEP_TIME !'')')
 
@@ -550,6 +561,11 @@ contains
                        &             dbdt_LMloc_container(:,:,:,tscheme%istage))
                end if
                call comm_counter%stop_count()
+
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
+               call transform_old2new(s_LMloc, s_LMdist)
+               call test_field(s_LMdist, s_LMloc, 'entropy_')
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
 
 #ifdef WITH_MPI
                ! ------------------
