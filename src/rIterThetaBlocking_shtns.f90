@@ -427,7 +427,8 @@ contains
       end if
       
       ! I'm not sure if this is needed later, so just to make sure...
-      call this%leg_helper_dist%gather_all(this%leg_helper)
+      !@> TODO: commented out: I don't think we need this
+      !call this%leg_helper_dist%gather_all(this%leg_helper)
     end subroutine do_iteration_ThetaBlocking_shtns
 !-------------------------------------------------------------------------------
    subroutine transform_to_grid_space_shtns(this, gsa)

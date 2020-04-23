@@ -16,7 +16,7 @@ module leg_helper_mod
        &             dj_Rdist, w_Rdist, dw_Rdist, ddw_Rdist
    use constants, only: zero, one, two
    use Lmmapping, only: map_dist_st
-   use parallel_mod, only: comm_r
+   use parallel_mod, only: comm_theta
    use mpi
    
    use communications ! DELETEMEEEE
@@ -70,8 +70,8 @@ contains
       end if
 #endif
 
-      allocate( this%zAS(n_l+1),this%dzAS(n_l+1),this%ddzAS(n_l+1) ) ! used in TO
-      bytes_allocated = bytes_allocated+3*(n_l+1)*SIZEOF_DEF_REAL
+      allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
+      bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
 
       allocate( this%bCMB(n_locMag) )
       bytes_allocated = bytes_allocated+n_locMag*SIZEOF_DEF_COMPLEX
@@ -179,7 +179,7 @@ contains
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             if (map_dist_st%has_m0) then
                do l=0,l_max
-                  i = map_dist_st%lm2(0,l)
+                  i = map_dist_st%lm2(l,0)
                   this%zAS(l+1)  =real(z_Rdist(i,nR))   ! used in TO
                   this%dzAS(l+1) =real(dz_Rdist(i,nR))  ! used in TO (anelastic)
                   this%ddzAS(l+1)=ddzASL(l+1,nR)        ! used in TO
@@ -188,10 +188,15 @@ contains
             
             ! m_tsid(0) is the rank which has m=0 
             ! funfact: m_tsid = dist_m written backwards! Terrible nomeclature, pardon me
-            call MPI_IBCAST(this%zAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), comm_r, Rq(1), ierr)
-            call MPI_IBCAST(this%dzAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), comm_r, Rq(2), ierr)
-            call MPI_IBCAST(this%ddzAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), comm_r, Rq(3), ierr)
-            call MPI_WAITALL(3, Rq, MPI_STATUSES_IGNORE, ierr)
+#ifdef WITH_MPI
+            call MPI_IBcast(this%zAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), &
+                 &          comm_theta, Rq(1), ierr)
+            call MPI_IBcast(this%dzAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), &
+                 &          comm_theta, Rq(2), ierr)
+            call MPI_IBcast(this%ddzAS, l_max+1, MPI_DEF_REAL,  m_tsid(0), &
+                 &          comm_theta, Rq(3), ierr)
+            call MPI_WaitAll(3, Rq, MPI_STATUSES_IGNORE, ierr)
+#endif
          end if
          if ( l_mag .and. l_frame .and. l_movie_oc .and. nR == n_r_cmb ) then
             do i=1,n_lm_loc
