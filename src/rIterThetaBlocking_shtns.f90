@@ -3,6 +3,7 @@ module rIterThetaBlocking_shtns_mod
 #ifdef WITHOMP
    use omp_lib
 #endif
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter,  &
@@ -39,11 +40,7 @@ module rIterThetaBlocking_shtns_mod
    use nl_special_calc
    use shtns
    use horizontal_data
-   use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,   &
-       &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc, &
-       &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc,         &
-       &             s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,   &
-       &             s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
+   use fields, only: s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
        &             b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist,dj_Rdist, &
        &             w_Rdist, dw_Rdist, ddw_Rdist, xi_Rdist
    use time_schemes, only: type_tscheme
@@ -164,12 +161,12 @@ contains
       end if
 
       call this%leg_helper_dist%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
-           &                        this%lTOcalc)
+           &                             this%l_frame,this%lTOnext,this%lTOnext2,    &
+           &                             this%lTOcalc)
       
       if (DEBUG_OUTPUT) then
-         write(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ", &
-              & this%nBc,", lDeriv = ",this%lDeriv,", l_mag = ",l_mag
+         write(output_unit,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ", &
+         &     this%nBc,", lDeriv = ",this%lDeriv,", l_mag = ",l_mag
       end if
 
       this%lorentz_torque_ma = 0.0_cp
@@ -215,9 +212,9 @@ contains
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
          br_vt_lm_cmb(:)=zero
          br_vp_lm_cmb(:)=zero
-         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
-              &            this%gsa%vpc,this%leg_helper_dist%omegaMA,    &
-              &            or2(this%nR),orho1(this%nR),             &
+         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,                 &
+              &            this%gsa%vpc,this%leg_helper_dist%omegaMA, &
+              &            or2(this%nR),orho1(this%nR),               &
               &            br_vt_lm_cmb,br_vp_lm_cmb)
               
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
@@ -225,9 +222,9 @@ contains
          call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb)
          br_vt_lm_icb(:)=zero
          br_vp_lm_icb(:)=zero
-         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,               &
-              &            this%gsa%vpc,this%leg_helper_dist%omegaIC,    &
-              &            or2(this%nR),orho1(this%nR),             &
+         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,                  &
+              &            this%gsa%vpc,this%leg_helper_dist%omegaIC,  &
+              &            or2(this%nR),orho1(this%nR),                &
               &            br_vt_lm_icb,br_vp_lm_icb)
       end if
       
@@ -236,14 +233,16 @@ contains
       !          lorentz_torque_ic
       if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
          lorentz_torques_ic=0.0_cp
-         call get_lorentz_torque(lorentz_torques_ic, this%gsa%brc,this%gsa%bpc,this%nR)
+         call get_lorentz_torque(lorentz_torques_ic, this%gsa%brc,this%gsa%bpc, &
+              &                  this%nR)
       end if
 
       !--------- Calculate Lorentz torque on mantle:
       !          note: this calculates a torque of a wrong sign.
       !          sign is reversed at the end of the theta blocking.
       if ( this%nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-         call get_lorentz_torque(this%lorentz_torque_ma,this%gsa%brc,this%gsa%bpc,this%nR)
+         call get_lorentz_torque(this%lorentz_torque_ma,this%gsa%brc,this%gsa%bpc, &
+              &                  this%nR)
       end if
       
 
@@ -365,8 +364,8 @@ contains
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper_dist%zAS,this%gsa%brc,this%gsa%btc,           &
-              &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),   &
+         call getTOnext(this%leg_helper_dist%zAS,this%gsa%brc,this%gsa%btc,     &
+              &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),  &
               &         dtLast,this%nR,this%BsLast,this%BpLast,this%BzLast)
       end if
 
@@ -404,8 +403,8 @@ contains
       !-- Finish calculation of TO variables:
       if ( this%lTOcalc ) then
          call getTOfinish(this%nR, dtLast, this%leg_helper_dist%zAS,             &
-              &           this%leg_helper_dist%dzAS, this%leg_helper_dist%ddzAS,      &
-              &           this%TO_arrays%dzRstrLM, this%TO_arrays%dzAstrLM, &
+              &           this%leg_helper_dist%dzAS, this%leg_helper_dist%ddzAS, &
+              &           this%TO_arrays%dzRstrLM, this%TO_arrays%dzAstrLM,      &
               &           this%TO_arrays%dzCorLM, this%TO_arrays%dzLFLM)
       end if
 
@@ -457,7 +456,8 @@ contains
          if ( l_heat ) then
             call scal_to_spat_dist(s_Rdist(:,nR), gsa%sc, l_R(nR))
             if ( this%lViscBcCalc ) then
-               call scal_to_grad_spat_dist(s_Rloc(:,nR), gsa%dsdtc, gsa%dsdpc, l_R(nR))
+               call scal_to_grad_spat_dist(s_Rdist(:,nR), gsa%dsdtc, gsa%dsdpc, &
+                    &                      l_R(nR))
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -476,7 +476,8 @@ contains
          if ( this%lPressCalc ) call scal_to_spat_dist(p_Rdist(:,nR), gsa%pc, l_R(nR))
 
          !-- Composition
-         if ( l_chemical_conv ) call scal_to_spat_dist(xi_Rdist(:,nR), gsa%xic, l_R(nR))
+         if ( l_chemical_conv ) call scal_to_spat_dist(xi_Rdist(:,nR), gsa%xic, &
+         &                                             l_R(nR))
 
          if ( l_HT .or. this%lViscBcCalc ) then
             call scal_to_spat_dist(ds_Rdist(:,nR), gsa%drsc, l_R(nR))
@@ -489,8 +490,8 @@ contains
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
-               call torpol_to_curl_spat_dist(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR), &
-                    &                   z_Rdist(:,nR), dz_Rdist(:,nR),           &
+               call torpol_to_curl_spat_dist(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR),&
+                    &                   z_Rdist(:,nR), dz_Rdist(:,nR),               &
                     &                   gsa%cvrc, gsa%cvtc, gsa%cvpc, l_R(nR))
 
                !-- For some outputs one still need the other terms
@@ -498,7 +499,7 @@ contains
                &    .or. this%lFluxProfCalc .or. this%lTOCalc .or.            &
                &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
 
-                  call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),         &
+                  call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),   &
                        &              dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
                        &              gsa%dvpdrc, l_R(nR))
                   call pol_to_grad_spat_dist(w_Rdist(:,nR),gsa%dvrdtc,  &
@@ -509,13 +510,14 @@ contains
 
             else ! Advection is treated as u\grad u
 
-               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
-                 &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
+                    &                   dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
+                    &                   gsa%dvpdrc, l_R(nR))
                call pol_to_curlr_spat_dist(z_Rdist(:,nR), gsa%cvrc, l_R(nR))
                call pol_to_grad_spat_dist(w_Rdist(:,nR), gsa%dvrdtc, &
-                 &              gsa%dvrdpc, l_R(nR))
+                    &                     gsa%dvrdpc, l_R(nR))
                call torpol_to_dphspat_dist(dw_Rdist(:,nR),  z_Rdist(:,nR), &
-                    &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
+                    &                      gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
             end if
 
          else if ( this%nBc == 1 ) then ! Stress free
@@ -527,37 +529,41 @@ contains
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
-               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
+                    &                   dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc,&
+                    &                   gsa%dvpdrc, l_R(nR))
                call pol_to_curlr_spat_dist(z_Rdist(:,nR), gsa%cvrc, l_R(nR))
                call torpol_to_dphspat_dist(dw_Rdist(:,nR),  z_Rdist(:,nR), &
                     &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
             end if
          else if ( this%nBc == 2 ) then
             if ( this%nR == n_r_cmb ) then
-               call v_rigid_boundary(this%nR,this%leg_helper_dist%omegaMA,this%lDeriv, &
-                    &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
-                    &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc)
+               call v_rigid_boundary(this%nR, this%leg_helper_dist%omegaMA,  &
+                    &                this%lDeriv, gsa%vrc, gsa%vtc, gsa%vpc, &
+                    &                gsa%cvrc, gsa%dvrdtc, gsa%dvrdpc,       &
+                    &                gsa%dvtdpc, gsa%dvpdpc)
             else if ( this%nR == n_r_icb ) then
-               call v_rigid_boundary(this%nR,this%leg_helper_dist%omegaIC,this%lDeriv, &
-                    &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
-                    &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc)
+               call v_rigid_boundary(this%nR, this%leg_helper_dist%omegaIC,  &
+                    &                this%lDeriv, gsa%vrc, gsa%vtc, gsa%vpc, &
+                    &                gsa%cvrc, gsa%dvrdtc, gsa%dvrdpc,       &
+                    &                gsa%dvtdpc, gsa%dvpdpc)
             end if
 
             if ( this%lDeriv ) then
-               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
-                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
+                    &                   dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc,&
+                    &                   gsa%dvpdrc, l_R(nR))
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat_dist(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR),    &
-              &              gsa%brc, gsa%btc, gsa%bpc, l_R(nR))
+         call torpol_to_spat_dist(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR), &
+              &                   gsa%brc, gsa%btc, gsa%bpc, l_R(nR))
          if ( this%lDeriv ) then
             call torpol_to_curl_spat_dist(or2(nR), b_Rdist(:,nR), ddb_Rdist(:,nR), &
-                 &                   aj_Rdist(:,nR), dj_Rdist(:,nR),          &
-                 &                   gsa%cbrc, gsa%cbtc, gsa%cbpc, l_R(nR))
+                 &                        aj_Rdist(:,nR), dj_Rdist(:,nR),          &
+                 &                        gsa%cbrc, gsa%cbtc, gsa%cbpc, l_R(nR))
          end if
       end if
       
@@ -584,26 +590,26 @@ contains
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then
-               do nTheta=nThStart, nThStop
-                  do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%LFr(nPhi, nTheta)
-                     gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%LFt(nPhi, nTheta)
-                     gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%LFp(nPhi, nTheta)
+               do nTheta=nThStart,nThStop
+                  do nPhi=1,n_phi_max
+                     gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta)+gsa%LFr(nPhi,nTheta)
+                     gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta)+gsa%LFt(nPhi,nTheta)
+                     gsa%Advp(nPhi,nTheta)=gsa%Advp(nPhi,nTheta)+gsa%LFp(nPhi,nTheta)
                   end do
                end do
             end if
          else if ( l_mag_LF ) then
             if ( this%nR > n_r_LCR ) then
-               do nTheta=nThStart, nThStop
-                  do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi, nTheta) = gsa%LFr(nPhi, nTheta)
-                     gsa%Advt(nPhi, nTheta) = gsa%LFt(nPhi, nTheta)
-                     gsa%Advp(nPhi, nTheta) = gsa%LFp(nPhi, nTheta)
+               do nTheta=nThStart,nThStop
+                  do nPhi=1,n_phi_max
+                     gsa%Advr(nPhi,nTheta)=gsa%LFr(nPhi,nTheta)
+                     gsa%Advt(nPhi,nTheta)=gsa%LFt(nPhi,nTheta)
+                     gsa%Advp(nPhi,nTheta)=gsa%LFp(nPhi,nTheta)
                   end do
                end do
             else
-               do nTheta=nThStart, nThStop
-                  do nPhi=1, n_phi_max
+               do nTheta=nThStart,nThStop
+                  do nPhi=1,n_phi_max
                      gsa%Advr(nPhi,nTheta)=0.0_cp
                      gsa%Advt(nPhi,nTheta)=0.0_cp
                      gsa%Advp(nPhi,nTheta)=0.0_cp
@@ -613,20 +619,20 @@ contains
          end if
 
          if ( l_precession ) then
-            do nTheta=nThStart, nThStop
-               do nPhi=1, n_phi_max
-                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%PCr(nPhi, nTheta)
-                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%PCt(nPhi, nTheta)
-                  gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%PCp(nPhi, nTheta)
+            do nTheta=nThStart,nThStop
+               do nPhi=1,n_phi_max
+                  gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta)+gsa%PCr(nPhi,nTheta)
+                  gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta)+gsa%PCt(nPhi,nTheta)
+                  gsa%Advp(nPhi,nTheta)=gsa%Advp(nPhi,nTheta)+gsa%PCp(nPhi,nTheta)
                end do
             end do
          end if
 
          if ( l_centrifuge ) then
-            do nTheta=nThStart, nThStop
-               do nPhi=1, n_phi_max
-                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%CAr(nPhi, nTheta)
-                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%CAt(nPhi, nTheta)
+            do nTheta=nThStart,nThStop
+               do nPhi=1,n_phi_max
+                  gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta)+gsa%CAr(nPhi,nTheta)
+                  gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta)+gsa%CAt(nPhi,nTheta)
                end do
             end do
          end if
@@ -646,8 +652,8 @@ contains
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call spat_to_qst_dist(gsa%VSr, gsa%VSt, gsa%VSp, &
-              &                nl_lm%VSrLM, nl_lm%VStLM, nl_lm%VSpLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, &
+              &                nl_lm%VStLM, nl_lm%VSpLM, l_R(this%nR))
          
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
@@ -661,15 +667,14 @@ contains
       end if
       
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         call spat_to_qst_dist(gsa%VXir, gsa%VXit, gsa%VXip, &
-              &                nl_lm%VXirLM, nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa%VXir, gsa%VXit, gsa%VXip, nl_lm%VXirLM, &
+              &                nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call spat_to_qst_dist(gsa%VxBr, gsa%VxBt, gsa%VxBp, &
-                 &                nl_lm%VxBrLM, nl_lm%VxBtLM,                  &
-                 &                nl_lm%VxBpLM, l_R(this%nR))
+            call spat_to_qst_dist(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
+                 &                nl_lm%VxBtLM, nl_lm%VxBpLM, l_R(this%nR))
          else
             call spat_to_sphertor_dist(gsa%VxBt, gsa%VxBp, nl_lm%VxBtLM, &
                  &                     nl_lm%VxBpLM, l_R(this%nR))
@@ -682,8 +687,8 @@ contains
               &                     nl_lm%PFp2LM, l_R(this%nR))
          call spat_to_sphertor_dist(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, &
               &                     nl_lm%CFp2LM, l_R(this%nR))
-         call spat_to_qst_dist(gsa%dtVr, gsa%dtVt, gsa%dtVp, &
-              &                nl_lm%dtVrLM, nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
+         call spat_to_qst_dist(gsa%dtVr, gsa%dtVt, gsa%dtVp, nl_lm%dtVrLM, &
+              &                nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
          if ( l_conv_nl ) then
             call spat_to_sphertor_dist(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM,&
                  &                     nl_lm%Advp2LM, l_R(this%nR))

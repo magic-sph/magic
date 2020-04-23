@@ -30,7 +30,6 @@ module nonlinear_lm_mod
    use fields, only: w_Rdist, dw_Rdist, ddw_Rdist, z_Rdist, dz_Rdist, s_Rdist, &
        &             p_Rdist, dp_Rdist, xi_Rdist
    use RMS_helpers, only: hIntRms
-   use communications, only: slice_FlmP_cmplx, gather_FlmP
    use LMmapping, only: map_dist_st
 
 
@@ -57,8 +56,6 @@ module nonlinear_lm_mod
       procedure :: output
       procedure :: set_zero
       procedure :: get_td
-      procedure :: slice_all   !@>TODO temporary function to help transition, delete me!
-      procedure :: gather_all  !@>TODO temporary function to help transition, delete me!
 
    end type nonlinear_lm_t
 
@@ -107,114 +104,6 @@ contains
       end if
 
    end subroutine initialize
-!----------------------------------------------------------------------------
-!@>TODO temporary function to help transition, delete me!
-   subroutine slice_all(nl_lm_glb, nl_lm_loc)
-      
-      class(nonlinear_lm_t), intent(inout) :: nl_lm_loc
-      class(nonlinear_lm_t), intent(inout) :: nl_lm_glb
-   
-      call slice_FlmP_cmplx(nl_lm_glb%AdvrLM, nl_lm_loc%AdvrLM)
-      call slice_FlmP_cmplx(nl_lm_glb%AdvtLM, nl_lm_loc%AdvtLM)
-      call slice_FlmP_cmplx(nl_lm_glb%AdvpLM, nl_lm_loc%AdvpLM)
-      call slice_FlmP_cmplx(nl_lm_glb%LFrLM , nl_lm_loc%LFrLM )
-      call slice_FlmP_cmplx(nl_lm_glb%LFtLM , nl_lm_loc%LFtLM )
-      call slice_FlmP_cmplx(nl_lm_glb%LFpLM , nl_lm_loc%LFpLM )
-      call slice_FlmP_cmplx(nl_lm_glb%VxBrLM, nl_lm_loc%VxBrLM)
-      call slice_FlmP_cmplx(nl_lm_glb%VxBtLM, nl_lm_loc%VxBtLM)
-      call slice_FlmP_cmplx(nl_lm_glb%VxBpLM, nl_lm_loc%VxBpLM)
-
-      if ( l_anel) then
-         call slice_FlmP_cmplx(nl_lm_glb%ViscHeatLM, nl_lm_loc%ViscHeatLM)
-         call slice_FlmP_cmplx(nl_lm_glb%OhmLossLM,  nl_lm_loc%OhmLossLM )
-      end if
-
-      if ( l_heat ) then
-         call slice_FlmP_cmplx(nl_lm_glb%VSrLM, nl_lm_loc%VSrLM)
-         call slice_FlmP_cmplx(nl_lm_glb%VStLM, nl_lm_loc%VStLM)
-         call slice_FlmP_cmplx(nl_lm_glb%VSpLM, nl_lm_loc%VSpLM)
-      end if
-
-      if ( l_chemical_conv ) then
-         call slice_FlmP_cmplx(nl_lm_glb%VXirLM, nl_lm_loc%VXirLM)
-         call slice_FlmP_cmplx(nl_lm_glb%VXitLM, nl_lm_loc%VXitLM)
-         call slice_FlmP_cmplx(nl_lm_glb%VXipLM, nl_lm_loc%VXipLM)
-      end if
-
-      !-- RMS calculations
-      if ( l_RMS ) then
-         call slice_FlmP_cmplx(nl_lm_glb%dtVrLM , nl_lm_loc%dtVrLM )
-         call slice_FlmP_cmplx(nl_lm_glb%dtVtLM , nl_lm_loc%dtVtLM )
-         call slice_FlmP_cmplx(nl_lm_glb%dtVpLM , nl_lm_loc%dtVpLM )
-         call slice_FlmP_cmplx(nl_lm_glb%Advt2LM, nl_lm_loc%Advt2LM)
-         call slice_FlmP_cmplx(nl_lm_glb%Advp2LM, nl_lm_loc%Advp2LM)
-         call slice_FlmP_cmplx(nl_lm_glb%LFt2LM , nl_lm_loc%LFt2LM )
-         call slice_FlmP_cmplx(nl_lm_glb%LFp2LM , nl_lm_loc%LFp2LM )
-         call slice_FlmP_cmplx(nl_lm_glb%CFt2LM , nl_lm_loc%CFt2LM )
-         call slice_FlmP_cmplx(nl_lm_glb%CFp2LM , nl_lm_loc%CFp2LM )
-         call slice_FlmP_cmplx(nl_lm_glb%PFt2LM , nl_lm_loc%PFt2LM )
-         call slice_FlmP_cmplx(nl_lm_glb%PFp2LM , nl_lm_loc%PFp2LM )
-         if ( l_adv_curl ) then
-            call slice_FlmP_cmplx(nl_lm_glb%dpkindrLM, nl_lm_loc%dpkindrLM)
-         end if
-      end if
-   
-   end subroutine slice_all
-   
-!----------------------------------------------------------------------------
-!@>TODO temporary function to help transition, delete me!
-   subroutine gather_all(nl_lm_loc, nl_lm_glb)
-   
-      class(nonlinear_lm_t), intent(inout) :: nl_lm_loc
-      class(nonlinear_lm_t), intent(inout) :: nl_lm_glb
-   
-      call gather_FlmP(nl_lm_loc%AdvrLM, nl_lm_glb%AdvrLM)
-      call gather_FlmP(nl_lm_loc%AdvtLM, nl_lm_glb%AdvtLM)
-      call gather_FlmP(nl_lm_loc%AdvpLM, nl_lm_glb%AdvpLM)
-      call gather_FlmP(nl_lm_loc%LFrLM , nl_lm_glb%LFrLM )
-      call gather_FlmP(nl_lm_loc%LFtLM , nl_lm_glb%LFtLM )
-      call gather_FlmP(nl_lm_loc%LFpLM , nl_lm_glb%LFpLM )
-      call gather_FlmP(nl_lm_loc%VxBrLM, nl_lm_glb%VxBrLM)
-      call gather_FlmP(nl_lm_loc%VxBtLM, nl_lm_glb%VxBtLM)
-      call gather_FlmP(nl_lm_loc%VxBpLM, nl_lm_glb%VxBpLM)
-
-      if ( l_anel) then
-         call gather_FlmP(nl_lm_loc%ViscHeatLM, nl_lm_glb%ViscHeatLM)
-         call gather_FlmP(nl_lm_loc%OhmLossLM,  nl_lm_glb%OhmLossLM )
-      end if
-
-      if ( l_heat ) then
-         call gather_FlmP(nl_lm_loc%VSrLM, nl_lm_glb%VSrLM)
-         call gather_FlmP(nl_lm_loc%VStLM, nl_lm_glb%VStLM)
-         call gather_FlmP(nl_lm_loc%VSpLM, nl_lm_glb%VSpLM)
-      end if
-
-      if ( l_chemical_conv ) then
-         call gather_FlmP(nl_lm_loc%VXirLM, nl_lm_glb%VXirLM)
-         call gather_FlmP(nl_lm_loc%VXitLM, nl_lm_glb%VXitLM)
-         call gather_FlmP(nl_lm_loc%VXipLM, nl_lm_glb%VXipLM)
-      end if
-! ! 
-! !       !-- RMS calculations
-      if ( l_RMS ) then
-         call gather_FlmP(nl_lm_loc%dtVrLM , nl_lm_glb%dtVrLM )
-         call gather_FlmP(nl_lm_loc%dtVtLM , nl_lm_glb%dtVtLM )
-         call gather_FlmP(nl_lm_loc%dtVpLM , nl_lm_glb%dtVpLM )
-         call gather_FlmP(nl_lm_loc%Advt2LM, nl_lm_glb%Advt2LM)
-         call gather_FlmP(nl_lm_loc%Advp2LM, nl_lm_glb%Advp2LM)
-         call gather_FlmP(nl_lm_loc%LFt2LM , nl_lm_glb%LFt2LM )
-         call gather_FlmP(nl_lm_loc%LFp2LM , nl_lm_glb%LFp2LM )
-         call gather_FlmP(nl_lm_loc%CFt2LM , nl_lm_glb%CFt2LM )
-         call gather_FlmP(nl_lm_loc%CFp2LM , nl_lm_glb%CFp2LM )
-         call gather_FlmP(nl_lm_loc%PFt2LM , nl_lm_glb%PFt2LM )
-         call gather_FlmP(nl_lm_loc%PFp2LM , nl_lm_glb%PFp2LM )
-         if ( l_adv_curl ) then
-            call gather_FlmP(nl_lm_loc%dpkindrLM, nl_lm_glb%dpkindrLM)
-         end if
-      end if
-   
-   end subroutine gather_all
-   
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 
@@ -383,7 +272,7 @@ contains
                end if
                if ( l_corr ) then
                   CorPol_loc=two*CorFac*or1(nR) * dTheta2A_loc(lm)*z_Rdist(lmA,nR)
-                  CorTor_loc= two*CorFac*or2(nR) * (                     &
+                  CorTor_loc= two*CorFac*or2(nR) * (                      &
                   &                dTheta3A_loc(lm)*dw_Rdist(lmA,nR) +    &
                   &        or1(nR)*dTheta4A_loc(lm)* w_Rdist(lmA,nR) )
                else
@@ -451,28 +340,28 @@ contains
                      if ( l < l_max .and. l > m ) then
                         CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                         &                dPhi_loc(lm)*(                          &
-                        &         -ddw_Rdist(lm,nR)+beta(nR)*dw_Rdist(lm,nR)     + &
+                        &        -ddw_Rdist(lm,nR)+beta(nR)*dw_Rdist(lm,nR)    + &
                         &             ( beta(nR)*or1(nR)+or2(nR))*               &
-                        &                        dLh_loc(lm)*w_Rdist(lm,nR) )   + &
-                        &         dTheta3A_loc(lm)*( dz_Rdist(lmA,nR)-            &
-                        &                            beta(nR)*z_Rdist(lmA,nR) ) + &
-                        &         dTheta3S_loc(lm)*( dz_Rdist(lmS,nR)-            &
-                        &                            beta(nR)*z_Rdist(lmS,nR) ) + &
+                        &                        dLh_loc(lm)*w_Rdist(lm,nR) )  + &
+                        &         dTheta3A_loc(lm)*( dz_Rdist(lmA,nR)-           &
+                        &                           beta(nR)*z_Rdist(lmA,nR) ) + &
+                        &         dTheta3S_loc(lm)*( dz_Rdist(lmS,nR)-           &
+                        &                           beta(nR)*z_Rdist(lmS,nR) ) + &
                         &          or1(nR)* (                                    &
-                        &             dTheta4A_loc(lm)* z_Rdist(lmA,nR)           &
+                        &             dTheta4A_loc(lm)* z_Rdist(lmA,nR)          &
                         &            -dTheta4S_loc(lm)* z_Rdist(lmS,nR) ) )
                      else if ( l == l_max ) then
                         CorPol_loc =0.0_cp
                      else if ( l == m ) then
                         CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                         &                dPhi_loc(lm)*(                          &
-                        &         -ddw_Rdist(lm,nR)+beta(nR)*dw_Rdist(lm,nR)     + &
+                        &       -ddw_Rdist(lm,nR)+beta(nR)*dw_Rdist(lm,nR)     + &
                         &             ( beta(nR)*or1(nR)+or2(nR))*               &
-                        &                        dLh_loc(lm)*w_Rdist(lm,nR) )   + &
-                        &         dTheta3A_loc(lm)*( dz_Rdist(lmA,nR)-            &
-                        &                            beta(nR)*z_Rdist(lmA,nR) ) + &
+                        &                       dLh_loc(lm)*w_Rdist(lm,nR) )   + &
+                        &              dTheta3A_loc(lm)*( dz_Rdist(lmA,nR)-      &
+                        &                         beta(nR)*z_Rdist(lmA,nR) )   + &
                         &          or1(nR)* (                                    &
-                        &             dTheta4A_loc(lm)* z_Rdist(lmA,nR) ) )
+                        &              dTheta4A_loc(lm)*   z_Rdist(lmA,nR) ) )
                      end if
                   else
                      CorPol_loc=zero
@@ -505,15 +394,15 @@ contains
                   if ( l_corr .and. nBc /= 2 ) then
                      if ( l < l_max .and. l > m ) then
                         CorPol_loc =two*CorFac*or1(nR) * (      &
-                        &        dPhi_loc(lm)*dw_Rdist(lm,nR) +  & ! phi-deriv of dw/dr
-                        &    dTheta2A_loc(lm)*z_Rdist(lmA,nR) -  & ! sin(theta) dtheta z
+                        &       dPhi_loc(lm)*dw_Rdist(lm,nR) +  & ! phi-deriv of dw/dr
+                        &   dTheta2A_loc(lm)*z_Rdist(lmA,nR) -  & ! sin(theta) dtheta z
                         &    dTheta2S_loc(lm)*z_Rdist(lmS,nR) )
                      else if ( l == l_max ) then
                         CorPol_loc=0.0_cp
                      else if ( l == m ) then
                         CorPol_loc = two*CorFac*or1(nR) * (      &
-                        &         dPhi_loc(lm)*dw_Rdist(lm,nR)  + &
-                        &     dTheta2A_loc(lm)*z_Rdist(lmA,nR) )
+                        &        dPhi_loc(lm)*dw_Rdist(lm,nR)  + &
+                        &    dTheta2A_loc(lm)*z_Rdist(lmA,nR) )
                      end if
                   else
                      CorPol_loc=zero
@@ -534,7 +423,7 @@ contains
                   if ( l_anelastic_liquid ) then
                      if (l_heat) then
                         Buo_temp(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(      &
-                        &       rho0(nR)*s_Rdist(lm,nR)-ViscHeatFac*      &
+                        &      rho0(nR)*s_Rdist(lm,nR)-ViscHeatFac*      &
                         &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
                         &     p_Rdist(lm,nR) )
                      else
@@ -542,7 +431,7 @@ contains
                      end if
                      if (l_chemical_conv) then
                         Buo_xi(lm) =ChemFac*alpha0(nR)*rgrav(nR)*(       &
-                        &     rho0(nR)*xi_Rdist(lm,nR)-ViscHeatFac*       &
+                        &    rho0(nR)*xi_Rdist(lm,nR)-ViscHeatFac*       &
                         &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
                         &     p_Rdist(lm,nR) )
                      else
@@ -566,14 +455,14 @@ contains
                      ! since we also want the pressure gradient
                      if ( l_corr .and. nBc /= 2 ) then
                         if ( l < l_max .and. l > m ) then
-                           CorPol_loc =two*CorFac*or1(nR) * (      &
+                           CorPol_loc = two*CorFac*or1(nR) * (      &
                            &        dPhi_loc(lm)*dw_Rdist(lm,nR) +  & ! phi-deriv of dw/dr
                            &    dTheta2A_loc(lm)*z_Rdist(lmA,nR) -  & ! sin(theta) dtheta z
                            &    dTheta2S_loc(lm)*z_Rdist(lmS,nR) )
                         else if ( l == l_max ) then
                            CorPol_loc= 0.0_cp
                         else if ( l == m ) then
-                           CorPol_loc = two*CorFac*or1(nR) * (      &
+                           CorPol_loc = two*CorFac*or1(nR) * (       &
                            &         dPhi_loc(lm)*dw_Rdist(lm,nR)  + &
                            &     dTheta2A_loc(lm)*z_Rdist(lmA,nR) )
                         end if
@@ -590,12 +479,12 @@ contains
 
                      !-- Recalculate the pressure gradient based on the poloidal
                      !-- equation equilibrium
-                     dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+         &
-                     &    dLh_loc(lm)*or2(nR)*hdif_V(lm)*visc(nR)* (            &
+                     dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+          &
+                     &     dLh_loc(lm)*or2(nR)*hdif_V(lm)*visc(nR)* (            &
                      &                                        ddw_Rdist(lm,nR)+  &
                      &         (two*dLvisc(nR)-third*beta(nR))*dw_Rdist(lm,nR)-  &
-                     &     ( dLh_loc(lm)*or2(nR)+four*third*( dbeta(nR)+        &
-                     &         dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
+                     &      ( dLh_loc(lm)*or2(nR)+four*third*( dbeta(nR)+        &
+                     &          dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
                      &         or1(nR)) )*                      w_Rdist(lm,nR))+ &
                      &        beta(nR)*p_Rdist(lm,nR)+AdvPol_loc+CorPol_loc
                   else
@@ -614,7 +503,7 @@ contains
 
                if ( l_corr ) then
                   if ( l < l_max .and. l > m ) then
-                     CorTor_loc=          two*CorFac*or2(nR) * (      &
+                     CorTor_loc=           two*CorFac*or2(nR) * (      &
                      &                 dPhi_loc(lm)*z_Rdist(lm,nR)   + &
                      &            dTheta3A_loc(lm)*dw_Rdist(lmA,nR)  + &
                      &    or1(nR)*dTheta4A_loc(lm)* w_Rdist(lmA,nR)  + &
@@ -623,7 +512,7 @@ contains
                   else if ( l == l_max ) then
                      CorTor_loc=0.0_cp
                   else if ( l == m ) then
-                     CorTor_loc=  two*CorFac*or2(nR) * (      &
+                     CorTor_loc=  two*CorFac*or2(nR) * (       &
                      &         dPhi_loc(lm)*z_Rdist(lm,nR)   + &
                      &    dTheta3A_loc(lm)*dw_Rdist(lmA,nR)  + &
                      &    or1(nR)*dTheta4A_loc(lm)* w_Rdist(lmA,nR)  )
@@ -837,10 +726,10 @@ contains
                   if ( l_corr ) then
                      !PERFON('td_cv2c')
                      if ( l < l_max .and. l > m ) then
-                        CorPol_loc=           two*CorFac*or2(nR) *      &
+                        CorPol_loc=            two*CorFac*or2(nR) *      &
                         &           ( -dPhi_loc(lm)  * ( dw_Rdist(lm,nR) &
                         &            +or1(nR)*dLh_loc(lm)*w_Rdist(lm,nR) &
-                        &                                         )     &
+                        &                                         )      &
                         &              +dTheta3A_loc(lm)*z_Rdist(lmA,nR) &
                         &              +dTheta3S_loc(lm)*z_Rdist(lmS,nR) &
                         &           )
@@ -848,10 +737,10 @@ contains
                      else if ( l == l_max ) then
                         CorPol_loc=0.0_cp
                      else if ( l == m ) then
-                        CorPol_loc=              two*CorFac*or2(nR) *      &
+                        CorPol_loc=              two*CorFac*or2(nR) *       &
                         &              ( -dPhi_loc(lm)  * ( dw_Rdist(lm,nR) &
                         &               +or1(nR)*dLh_loc(lm)*w_Rdist(lm,nR) &
-                        &                                                 )&
+                        &                                                 ) &
                         &                +dTheta3A_loc(lm)*z_Rdist(lmA,nR)  &
                         &              )
 
