@@ -41,6 +41,7 @@ module time_schemes
       procedure(assemble_imex_if),  deferred :: assemble_imex
       procedure(assemble_imex_scalar_if),  deferred :: assemble_imex_scalar
       procedure(set_imex_rhs_if),  deferred :: set_imex_rhs
+      procedure(set_imex_rhs_dist_if),  deferred :: set_imex_rhs_dist
       procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
       procedure(rotate_imex_scalar_if), deferred :: rotate_imex_scalar
@@ -95,6 +96,16 @@ module time_schemes
          type(type_tarray), intent(in) :: dfdt
          complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
       end subroutine set_imex_rhs_if
+
+      subroutine set_imex_rhs_dist_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+         import
+         class(type_tscheme) :: this
+         integer,     intent(in) :: lmStart
+         integer,     intent(in) :: lmStop
+         integer,     intent(in) :: len_rhs
+         type(type_tarray), intent(in) :: dfdt
+         complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+      end subroutine set_imex_rhs_dist_if
 
       subroutine assemble_imex_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
          import

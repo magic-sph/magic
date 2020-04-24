@@ -396,8 +396,8 @@ subroutine initialize_fields_dist
       bytes_allocated = bytes_allocated + &
       &                 6*n_mloMag_loc*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
-      allocate( work_LMdist(1:n_lm_loc,1:n_r_max) )
-      bytes_allocated = bytes_allocated + n_lm_loc*n_r_max*SIZEOF_DEF_COMPLEX
+      allocate( work_LMdist(1:n_mlo_loc,1:n_r_max) )
+      bytes_allocated = bytes_allocated + n_mlo_loc*n_r_max*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_fields_dist
 !----------------------------------------------------------------------------

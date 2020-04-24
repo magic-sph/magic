@@ -21,6 +21,10 @@ module LMLoop_mod
    use updateWPS_mod
    use updateB_mod
    use updateXi_mod
+   
+   ! DELETEMEEEE
+   use communications
+   use mpi_thetap_mod
 
    implicit none
 
@@ -116,6 +120,11 @@ contains
 
       PERFON('LMloop')
       !LIKWID_ON('LMloop')
+      
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
+      call transform_old2new(s_LMloc, s_LMdist)
+      call test_field(s_LMdist, s_LMloc, 'entropy_')
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
 
       if ( lMat ) then ! update matrices:
          !---- The following logicals tell whether the respective inversion
@@ -127,6 +136,7 @@ contains
          else
             lWPmat(:)=.false.
             if ( l_heat ) lSmat(:) =.false.
+            if ( l_heat ) lSmat_dist(:) =.false.
          end if
          lZmat(:) =.false.
          if ( l_mag ) lBmat(:) =.false.
@@ -136,6 +146,10 @@ contains
       if ( l_heat .and. .not. l_single_matrix ) then
          PERFON('up_S')
          call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
+         call updateS_dist( s_LMdist, ds_LMdist, dsdt, tscheme )
+         
+         call test_field(s_LMdist, s_LMloc, 'entropy_')
+         call test_field(ds_LMdist, ds_LMloc, 'entropy_')
          PERFOFF
       end if
       

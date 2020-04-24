@@ -32,6 +32,7 @@ module multistep_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_dist
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -427,6 +428,8 @@ contains
 
       !-- Local variables
       integer :: n_o, n_r, startR, stopR
+      
+      print *, "Yes, Heeeeeeeeeeeere"
 
       !$omp parallel default(shared) private(startR, stopR,n_r)
       startR=1; stopR=len_rhs
@@ -462,6 +465,60 @@ contains
       !$omp end parallel
 
    end subroutine set_imex_rhs
+!------------------------------------------------------------------------------
+   subroutine set_imex_rhs_dist(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme
+      !
+
+      class(type_multistep) :: this
+
+      !-- Input variables:
+      integer,     intent(in) :: lmStart
+      integer,     intent(in) :: lmStop
+      integer,     intent(in) :: len_rhs
+      type(type_tarray), intent(in) :: dfdt
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+
+      !-- Local variables
+      integer :: n_o, n_r, startR, stopR
+      
+      !$omp parallel default(shared) private(startR, stopR,n_r)
+      startR=1; stopR=len_rhs
+      call get_openmp_blocks(startR,stopR)
+      
+      do n_o=1,this%nold
+         if ( n_o == 1 ) then
+            do n_r=startR,stopR
+               rhs(lmStart:lmStop,n_r)=this%wimp(n_o)*dfdt%old_dist(lmStart:lmStop,n_r,n_o)
+            end do
+         else
+            do n_r=startR,stopR
+               rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+&
+               &       this%wimp(n_o)*dfdt%old_dist(lmStart:lmStop,n_r,n_o)
+            end do
+         end if
+      end do
+
+      do n_o=1,this%nimp
+         do n_r=startR,stopR
+            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl_dist(lmStart:lmStop,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nexp
+         do n_r=startR,stopR
+            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl_dist(lmStart:lmStop,n_r,n_o)
+         end do
+      end do
+
+      !$omp end parallel
+
+   end subroutine set_imex_rhs_dist
 !------------------------------------------------------------------------------
    subroutine set_imex_rhs_scalar(this, rhs, dfdt)
       !

@@ -107,7 +107,7 @@ contains
       integer(lip) :: local_bytes_used
       integer :: l1m0
 
-      logical, parameter :: DEBUG_OUTPUT=.true.
+      logical, parameter :: DEBUG_OUTPUT=.false.
       integer :: lm,l,m,sizeLMB
 
       local_bytes_used = bytes_allocated
@@ -299,7 +299,7 @@ contains
       integer :: lm,l,m
       integer :: check(0:l_max,0:l_max)
 
-      logical, parameter :: DEBUG_OUTPUT=.true.
+      logical, parameter :: DEBUG_OUTPUT=.false.
 
       number_of_blocks=sub_map%nLMBs
 

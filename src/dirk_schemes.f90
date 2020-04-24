@@ -35,6 +35,7 @@ module dirk_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_dist
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -722,6 +723,30 @@ contains
       end if
 
    end subroutine set_dt_array
+!------------------------------------------------------------------------------
+   subroutine set_imex_rhs_dist(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme
+      !
+
+      class(type_dirk) :: this
+
+      !-- Input variables:
+      integer,     intent(in) :: lmStart
+      integer,     intent(in) :: lmStop
+      integer,     intent(in) :: len_rhs
+      type(type_tarray), intent(in) :: dfdt
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+
+      !-- Local variables
+      integer :: n_stage, n_r, startR, stopR
+      
+      print *, "dirk_schemes%set_imex_rhs_dist not yet implemented. Aborting..."
+      stop
+      
+   end subroutine set_imex_rhs_dist
 !------------------------------------------------------------------------------
    subroutine set_imex_rhs(this, rhs, dfdt, lmStart, lmStop, len_rhs)
       !

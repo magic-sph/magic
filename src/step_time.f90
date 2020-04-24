@@ -562,15 +562,13 @@ contains
                end if
                call comm_counter%stop_count()
 
-! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
-               call transform_old2new(s_LMloc, s_LMdist)
-               call test_field(s_LMdist, s_LMloc, 'entropy_')
-! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
-
 #ifdef WITH_MPI
                ! ------------------
                ! also exchange the lorentz_torques which are only 
                ! set at the boundary points  but are needed on all processes.
+               !@>TODO: there is an allreduce inside of get_lorentz_torque, maybe 
+               !        this part can be done there already with a single 
+               !        call to mpi, relieving this one here
                ! ------------------
                call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
                     &         n_ranks_r-1,comm_r,ierr)

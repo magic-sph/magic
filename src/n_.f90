@@ -178,7 +178,7 @@ module truncation
    !   was chosen to build this variable. n_mlo_array gives the length of the 
    !   second dimension of this array.
    !   
-   !   mlo_tsid(m,l): this merely returns the coord_mlo (or coord_r in the 
+   !   where_mlo(m,l): this merely returns the coord_mlo (or coord_r in the 
    !   comm_mlo) in which the tuplet (m,l) is allocated.
    !   
    !-- TODO: dist_mlo is created in distribute_mlo, but this is rather poorly
