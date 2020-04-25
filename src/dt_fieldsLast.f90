@@ -321,19 +321,19 @@ contains
 
       if ( l_chemical_conv ) then
          allocate(dxidt_LMdist_container(1:n_mlo_loc,n_r_max,1:2,1:nexp))
-         dxidt%expl(1:,1:,1:)   => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dxidt%expl_dist(1:,1:,1:)   => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
          dVXirLM_LMdist(1:,1:,1:) => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
          bytes_allocated = bytes_allocated+2*n_mlo_loc*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
       else
          allocate(dxidt_LMdist_container(1,1,1:2,1))
-         dxidt%expl(1:,1:,1:)   => dxidt_LMdist_container(1:1,1:1,1,1:)
+         dxidt%expl_dist(1:,1:,1:)   => dxidt_LMdist_container(1:1,1:1,1,1:)
          dVXirLM_LMdist(1:,1:,1:) => dxidt_LMdist_container(1:1,1:1,2,1:)
       end if
 
       allocate(dbdt_LMdist_container(1:n_mloMag_loc,n_r_maxMag,1:3,1:nexp))
-      dbdt%expl(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,1,1:nexp)
-      djdt%expl(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,2,1:nexp)
+      dbdt%expl_dist(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,1,1:nexp)
+      djdt%expl_dist(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,2,1:nexp)
       dVxBhLM_LMdist(1:,1:,1:) => &
       &                         dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,3,1:nexp)
       bytes_allocated = bytes_allocated+ &
