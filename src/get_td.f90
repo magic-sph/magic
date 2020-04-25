@@ -480,7 +480,7 @@ contains
                      !-- Recalculate the pressure gradient based on the poloidal
                      !-- equation equilibrium
                      dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+          &
-                     &     dLh_loc(lm)*or2(nR)*hdif_V(lm)*visc(nR)* (            &
+                     &      dLh_loc(lm)*or2(nR)*hdif_V(l)*visc(nR)* (            &
                      &                                        ddw_Rdist(lm,nR)+  &
                      &         (two*dLvisc(nR)-third*beta(nR))*dw_Rdist(lm,nR)-  &
                      &      ( dLh_loc(lm)*or2(nR)+four*third*( dbeta(nR)+        &
@@ -818,18 +818,16 @@ contains
                dsdt_loc = dLh_loc(lm)*this%VStLM(lmP)
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)* &
                      &          temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m)) * &
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l) * &
                         &          temp0(nR)*this%OhmLossLM(lmP)
                      end if
                   else
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m)) * &
-                     &          this%ViscHeatLM(lmP)
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l) * this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m)) * &
-                        &          this%OhmLossLM(lmP)
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l) * this%OhmLossLM(lmP)
                      end if
                   end if
                end if
@@ -862,17 +860,17 @@ contains
                !PERFON('td_h2')
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)* &
                      &          temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m))*&
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l)*&
                         &          temp0(nR)*this%OhmLossLM(lmP)
                      end if
                   else
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)* &
                      &          this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m))* &
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l)* &
                         &          this%OhmLossLM(lmP)
                      end if
                   end if

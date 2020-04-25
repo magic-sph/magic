@@ -261,10 +261,10 @@ contains
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
-               call get_zMat(tscheme,l1,hdif_V(lm2(l1,0)),zMat(nLMB2), &
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2), &
                     &        zMat_fac(:,nLMB2))
 #else
-               call get_zMat(tscheme,l1,hdif_V(lm2(l1,0)),zMat(nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2))
 #endif
                lZmat(l1)=.true.
             end if
@@ -299,9 +299,9 @@ contains
                   !      Note: no angular momentum correction necessary for this case !
                   if ( .not. lZ10mat ) then
 #ifdef WITH_PRECOND_Z10
-                     call get_z10Mat(tscheme,l1,hdif_V(lm1),z10Mat,z10Mat_fac)
+                     call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
 #else
-                     call get_z10Mat(tscheme,l1,hdif_V(lm1),z10Mat)
+                     call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
 #endif
                      lZ10mat=.true.
                   end if
@@ -648,7 +648,7 @@ contains
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                dL = real(l1*(l1+1),cp)
-               Dif(lm)=hdif_V(lm)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
+               Dif(lm)=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
                &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
                &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
                &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &

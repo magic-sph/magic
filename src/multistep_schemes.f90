@@ -35,6 +35,7 @@ module multistep_schemes
       procedure :: set_imex_rhs_dist
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
+      procedure :: rotate_imex_dist
       procedure :: rotate_imex_scalar
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
@@ -597,6 +598,50 @@ contains
       !$omp end parallel
 
    end subroutine rotate_imex
+!------------------------------------------------------------------------------
+   subroutine rotate_imex_dist(this, dfdt, lmStart, lmStop, n_r_max)
+      !
+      ! This subroutine is used to roll the time arrays from one time step
+      !
+
+      class(type_multistep) :: this
+
+      !-- Input variables:
+      integer,     intent(in) :: lmStart
+      integer,     intent(in) :: lmStop
+      integer,     intent(in) :: n_r_max
+
+      !-- Output variables:
+      type(type_tarray), intent(inout) :: dfdt
+
+      !-- Local variables:
+      integer :: n_o, n_r, startR, stopR
+
+      !$omp parallel default(shared) private(startR,stopR,n_r)
+      startR=1; stopR=n_r_max
+      call get_openmp_blocks(startR,stopR)
+
+      do n_o=this%nexp,2,-1
+         do n_r=startR,stopR
+            dfdt%expl_dist(lmStart:lmStop,n_r,n_o)=dfdt%expl_dist(lmStart:lmStop,n_r,n_o-1)
+         end do
+      end do
+
+      do n_o=this%nold,2,-1
+         do n_r=startR,stopR
+            dfdt%old_dist(lmStart:lmStop,n_r,n_o)=dfdt%old_dist(lmStart:lmStop,n_r,n_o-1)
+         end do
+      end do
+
+      do n_o=this%nimp,2,-1
+         do n_r=startR,stopR
+            dfdt%impl_dist(lmStart:lmStop,n_r,n_o)=dfdt%impl_dist(lmStart:lmStop,n_r,n_o-1)
+         end do
+      end do
+
+      !$omp end parallel
+
+   end subroutine rotate_imex_dist
 !------------------------------------------------------------------------------
    subroutine rotate_imex_scalar(this, dfdt)
       !

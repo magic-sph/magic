@@ -116,9 +116,10 @@ contains
       allocate( dTheta3S(lm_max),dTheta3A(lm_max) )
       allocate( dTheta4S(lm_max),dTheta4A(lm_max) )
       allocate( D_mc2m(n_m_max) )
-      allocate( hdif_B(lm_max),hdif_V(lm_max),hdif_S(lm_max) )
-      allocate( hdif_Xi(lm_max) )
-      bytes_allocated = bytes_allocated+(14*lm_max+n_m_max)*SIZEOF_DEF_REAL
+      allocate( hdif_B(0:l_max),hdif_V(0:l_max),hdif_S(0:l_max) )
+      allocate( hdif_Xi(0:l_max) )
+      bytes_allocated = bytes_allocated+(10*lm_max+n_m_max+4*(l_max+1))* &
+      &                 SIZEOF_DEF_REAL
       
       !-- Distributed arrays depending on l and m:)
       !>@ TODO : decide which one we keep 
@@ -313,47 +314,46 @@ contains
          dTheta4A_loc(lm)=dTheta1A_loc(lm)*real((l+1)*(l+2),cp)
       end do ! lm
 
-      !-- Hyperdiffusion is rather defined with the local mapping
-      do lm=1,lm_max
-         l=lo_map%lm2l(lm)
+      !-- Hyperdiffusion
+      do l=0,l_max
 
          !-- Hyperdiffusion
-         hdif_B(lm) =one
-         hdif_V(lm) =one
-         hdif_S(lm) =one
-         hdif_Xi(lm)=one
+         hdif_B(l) =one
+         hdif_V(l) =one
+         hdif_S(l) =one
+         hdif_Xi(l)=one
          if ( ldifexp > 0 ) then
 
             if ( ldif >= 0 .and. l > ldif ) then
 
             !-- Kuang and Bloxham type:
-            !                 hdif_B(lm)=
+            !                 hdif_B(l)=
             !     *                   one+difeta*real(l+1-ldif,cp)**ldifexp
-            !                 hdif_V(lm)=
+            !                 hdif_V(l)=
             !     *                   one+ difnu*real(l+1-ldif,cp)**ldifexp
-            !                 hdif_S(lm)=
+            !                 hdif_S(l)=
             !     &                   one+difkap*real(l+1-ldif,cp)**ldifexp
 
             !-- Old type:
-               hdif_B(lm)= one + difeta * ( real(l+1-ldif,cp) / &
+               hdif_B(l)= one + difeta * ( real(l+1-ldif,cp) / &
                &                             real(l_max+1-ldif,cp) )**ldifexp
-               hdif_V(lm)= one + difnu * ( real(l+1-ldif,cp) / &
+               hdif_V(l)= one + difnu * ( real(l+1-ldif,cp) / &
                &                            real(l_max+1-ldif,cp) )**ldifexp
-               hdif_S(lm)= one + difkap * ( real(l+1-ldif,cp) / &
+               hdif_S(l)= one + difkap * ( real(l+1-ldif,cp) / &
                &                             real(l_max+1-ldif,cp) )**ldifexp
-               hdif_Xi(lm)= one + difchem * ( real(l+1-ldif,cp) / &
+               hdif_Xi(l)= one + difchem * ( real(l+1-ldif,cp) / &
                &                             real(l_max+1-ldif,cp) )**ldifexp
 
              else if ( ldif < 0 ) then
 
              !-- Grote and Busse type:
-                hdif_B(lm)= (one+difeta*real(l,cp)**ldifexp ) / &
+                hdif_B(l)= (one+difeta*real(l,cp)**ldifexp ) / &
                 &           (one+difeta*real(-ldif,cp)**ldifexp )
-                hdif_V(lm)= (one+difnu*real(l,cp)**ldifexp ) / &
+                hdif_V(l)= (one+difnu*real(l,cp)**ldifexp ) / &
                 &           (one+difnu*real(-ldif,cp)**ldifexp )
-                hdif_S(lm)= (one+difkap*real(l,cp)**ldifexp ) / &
+                hdif_S(l)= (one+difkap*real(l,cp)**ldifexp ) / &
                 &           (one+difkap*real(-ldif,cp)**ldifexp )
-                hdif_Xi(lm)=(one+difchem*real(l,cp)**ldifexp ) / &
+                hdif_Xi(l)=(one+difchem*real(l,cp)**ldifexp ) / &
                 &           (one+difchem*real(-ldif,cp)**ldifexp )
 
              end if
@@ -367,7 +367,7 @@ contains
             !  for example for Ek=1e-4 l_max should be 221.
                ampnu=(r_cmb**2/real(l_max*(l_max+1),cp))*(two/ek)
                ampnu=max(one,ampnu)
-               hdif_V(lm)=ampnu*hdif_V(lm)
+               hdif_V(l)=ampnu*hdif_V(l)
             end if
 
          end if

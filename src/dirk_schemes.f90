@@ -38,6 +38,7 @@ module dirk_schemes
       procedure :: set_imex_rhs_dist
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
+      procedure :: rotate_imex_dist
       procedure :: rotate_imex_scalar
       procedure :: bridge_with_cnab2
       procedure :: start_with_ab1
@@ -911,6 +912,23 @@ contains
       type(type_tarray), intent(inout) :: dfdt
 
    end subroutine rotate_imex
+!------------------------------------------------------------------------------
+   subroutine rotate_imex_dist(this, dfdt, lmStart, lmStop, n_r_max)
+      !
+      ! This subroutine is used to roll the time arrays from one time step
+      !
+
+      class(type_dirk) :: this
+
+      !-- Input variables:
+      integer, intent(in) :: lmStart
+      integer, intent(in) :: lmStop
+      integer, intent(in) :: n_r_max
+
+      !-- Output variables:
+      type(type_tarray), intent(inout) :: dfdt
+
+   end subroutine rotate_imex_dist
 !------------------------------------------------------------------------------
    subroutine rotate_imex_scalar(this, dfdt)
       !

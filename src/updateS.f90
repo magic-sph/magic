@@ -5,7 +5,7 @@ module updateS_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, l_max, n_r_cmb, n_r_icb, &
-       &                 get_openmp_blocks
+       &                 get_openmp_blocks, n_lo_loc, n_mlo_loc
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops
@@ -25,8 +25,6 @@ module updateS_mod
    use dense_matrices
    use real_matrices
    use band_matrices
-   
-   use truncation
    use LMmapping
 
    implicit none
@@ -58,7 +56,8 @@ module updateS_mod
    integer :: maxThreads
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
-   &         finish_exp_entropy, get_entropy_rhs_imp, updateS_dist
+   &         finish_exp_entropy, get_entropy_rhs_imp, updateS_dist,           &
+   &         initialize_updateS_dist
 
 contains
 
@@ -213,8 +212,6 @@ contains
       integer :: lj, mi, i          ! l, m and ml counter
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
-      integer :: lm0_glb            ! shortcut to map_glbl_st%lm2(l,0)
-      integer :: lm_glb             ! shortcut to map_glbl_st%lm2(l,m)
       real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
       
 
@@ -230,7 +227,6 @@ contains
       ! Loop over local l
       do lj=1, n_lo_loc
          l = map_mlo%lj2l(lj)
-         lm0_glb = map_glbl_st%lm2(l,0)
 
          ! Builds matrices if needed
          if ( .not. lSmat_dist(lj) ) then
@@ -242,10 +238,10 @@ contains
 #endif
             else
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l,hdif_S(lm0_glb), &
+               call get_sMat(tscheme,l,hdif_S(l), &
                     &        sMat_dist(lj),sMat_fac_dist(:,lj))
 #else
-               call get_sMat(tscheme,l,hdif_S(lm0_glb),sMat_dist(lj))
+               call get_sMat(tscheme,l,hdif_S(l),sMat_dist(lj))
 #endif
             end if
             lSmat_dist(lj)=.true.
@@ -255,7 +251,6 @@ contains
          do mi=1,map_mlo%n_mi(lj)
             m = map_mlo%milj2m(mi,lj)
             i = map_mlo%milj2i(mi,lj)
-            lm_glb = map_glbl_st%lm2(l,m)
             
             if (l==0) then
             
@@ -305,7 +300,6 @@ contains
          do mi=1,map_mlo%n_mi(lj)
             m = map_mlo%milj2m(mi,lj)
             i = map_mlo%milj2i(mi,lj)
-            lm_glb = map_glbl_st%lm2(l,m)
             
             if ( l == 0 ) then
                do n_r_out=1,rscheme_oc%n_max
@@ -335,19 +329,19 @@ contains
             s(i,n_r_out)=zero
          end do
       end do
-! 
-!       !-- Roll the arrays before filling again the first block
-!       call tscheme%rotate_imex(dsdt, llm, ulm, n_r_max)
-! 
-!       !-- Calculation of the implicit part
-!       if ( tscheme%istage == tscheme%nstages ) then
-!          call get_entropy_rhs_imp(s, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1), &
-!               &                   l_in_cheb_space=.true.)
-!       else
-!          call get_entropy_rhs_imp(s, ds, dsdt, tscheme%istage+1,            &
-!               &                   tscheme%l_imp_calc_rhs(tscheme%istage+1), &
-!               &                   l_in_cheb_space=.true.)
-!       end if
+ 
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex_dist(dsdt, 1, n_mlo_loc, n_r_max)
+ 
+      !-- Calculation of the implicit part
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_entropy_rhs_imp_dist(s, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1), &
+              &                   l_in_cheb_space=.true.)
+      else
+         call get_entropy_rhs_imp_dist(s, ds, dsdt, tscheme%istage+1,            &
+              &                   tscheme%l_imp_calc_rhs(tscheme%istage+1), &
+              &                   l_in_cheb_space=.true.)
+      end if
 
    end subroutine updateS_dist
 !------------------------------------------------------------------------------
@@ -428,10 +422,10 @@ contains
          else
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)), &
+               call get_sMat(tscheme,l1,hdif_S(l1), &
                     &        sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)),sMat(nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
 #endif
                lSmat(l1)=.true.
             end if
@@ -612,6 +606,90 @@ contains
 
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
+   subroutine get_entropy_rhs_imp_dist(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+      logical, optional,   intent(in) :: l_in_cheb_space
+
+      !-- Output variable
+      complex(cp),       intent(inout) :: s(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: ds(n_mlo_loc,n_r_max)
+      type(type_tarray), intent(inout) :: dsdt
+
+      !-- Local variables
+      integer :: n_r, lm, start_lm, stop_lm, l1
+      logical :: l_in_cheb
+      real(cp) :: dL
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr(s, ds, work_LMdist, n_mlo_loc, start_lm, stop_lm, n_r_max, &
+           &       rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(s, n_mlo_loc, start_lm, stop_lm)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
+
+      if ( istage == 1 ) then
+         !$omp do private(n_r)
+         do n_r=1,n_r_max
+            dsdt%old_dist(:,n_r,istage)=s(:,n_r)
+         end do
+         !$omp end do
+      end if
+
+      if ( l_calc_lin ) then
+
+         !-- Calculate explicit time step part:
+         if ( l_anelastic_liquid ) then
+            !$omp do private(n_r,lm,l1,dL)
+            do n_r=1,n_r_max
+               do lm=1,n_mlo_loc
+                  l1 = map_mlo%i2l(lm)
+                  dL = real(l1*(l1+1),cp)
+                  dsdt%impl_dist(lm,n_r,istage)=opr*hdif_S(l1)* kappa(n_r) *  ( &
+                  &                                         work_LMdist(lm,n_r) &
+                  &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
+                  &                                     - dL*or2(n_r)*s(lm,n_r) )
+               end do
+            end do
+            !$omp end do
+         else
+            !$omp do private(n_r,lm,l1,dL)
+            do n_r=1,n_r_max
+               do lm=1,n_mlo_loc
+                  l1 = map_mlo%i2l(lm)
+                  dL = real(l1*(l1+1),cp)
+                  dsdt%impl_dist(lm,n_r,istage)=opr*hdif_S(l1)*kappa(n_r) *   (    &
+                  &                                       work_LMdist(lm,n_r)      &
+                  &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
+                  &                                              * ds(lm,n_r)      &
+                  &        - dL*or2(n_r)                         *  s(lm,n_r) )
+               end do
+            end do
+            !$omp end do
+         end if
+
+      end if
+
+      !$omp end parallel
+
+   end subroutine get_entropy_rhs_imp_dist
+!-----------------------------------------------------------------------------
    subroutine get_entropy_rhs_imp(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
 
       !-- Input variables
@@ -672,7 +750,7 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)* kappa(n_r) *  (    &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l1)* kappa(n_r) *  (    &
                   &                                          work_LMloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                     - dL*or2(n_r)*s(lm,n_r) )
@@ -685,7 +763,7 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)*kappa(n_r) *   (       &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l1)*kappa(n_r) *   (       &
                   &                                        work_LMloc(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &

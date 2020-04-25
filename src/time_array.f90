@@ -100,14 +100,21 @@ contains
 !----------------------------------------------------------------------------------
    subroutine gather_all(this)
       class(type_tarray) :: this
-      integer :: i
+      integer :: i, j
       
-      do i=1,this%n_r
+      do i=1,this%nimp
          call transform_new2old(this%impl_dist(:,:,i), this%impl(:,:,i))
-         call transform_new2old(this%old_dist(:,:,i), this%old(:,:,i))
-         
-         if (associated(this%expl)) call transform_new2old(this%expl_dist(:,:,i), this%expl(:,:,i))
       end do
+
+      do i=1,this%nold
+         call transform_new2old(this%old_dist(:,:,i), this%old(:,:,i))
+      end do
+         
+      if (associated(this%expl)) then
+         do i=1,this%nexp
+            call transform_new2old(this%expl_dist(:,:,i), this%expl(:,:,i))
+         end do
+      end if
       
    end subroutine gather_all
 !----------------------------------------------------------------------------------
@@ -115,12 +122,19 @@ contains
       class(type_tarray) :: this
       integer :: i
       
-      do i=1,this%n_r
+      do i=1,this%nimp
          call transform_old2new(this%impl(:,:,i), this%impl_dist(:,:,i))
-         call transform_old2new(this%old(:,:,i), this%old_dist(:,:,i))
-         
-         if (associated(this%expl)) call transform_old2new(this%expl(:,:,i), this%expl_dist(:,:,i))
       end do
+
+      do i=1,this%nold
+         call transform_old2new(this%old(:,:,i), this%old_dist(:,:,i))
+      end do
+         
+      if (associated(this%expl)) then
+         do i=1,this%nexp
+            call transform_old2new(this%expl(:,:,i), this%expl_dist(:,:,i))
+         end do
+      end if
       
    end subroutine slice_all
 !----------------------------------------------------------------------------------

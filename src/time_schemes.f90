@@ -44,6 +44,7 @@ module time_schemes
       procedure(set_imex_rhs_dist_if),  deferred :: set_imex_rhs_dist
       procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
+      procedure(rotate_imex_dist_if), deferred :: rotate_imex_dist
       procedure(rotate_imex_scalar_if), deferred :: rotate_imex_scalar
       procedure(bridge_with_cnab2_if), deferred :: bridge_with_cnab2
       procedure(start_with_ab1_if), deferred :: start_with_ab1
@@ -139,6 +140,15 @@ module time_schemes
          integer,     intent(in) :: n_r_max
          type(type_tarray), intent(inout) :: dfdt
       end subroutine rotate_imex_if
+
+      subroutine rotate_imex_dist_if(this, dfdt, lmStart, lmStop, n_r_max)
+         import
+         class(type_tscheme) :: this
+         integer,     intent(in) :: lmStart
+         integer,     intent(in) :: lmStop
+         integer,     intent(in) :: n_r_max
+         type(type_tarray), intent(inout) :: dfdt
+      end subroutine rotate_imex_dist_if
 
       subroutine rotate_imex_scalar_if(this, dfdt)
          import

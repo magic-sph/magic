@@ -8,7 +8,8 @@ module fieldsLast
    use precision_mod
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
        &                 n_r_ic_maxMag, nRstart, nRstop,         &
-       &                 nRstartMag, nRstopMag, n_lm_loc, n_lmMag_loc
+       &                 nRstartMag, nRstopMag, n_lm_loc,        &
+       &                 n_lmMag_loc, n_mlo_loc, n_mloMag_loc
    use blocking, only: llm, ulm, llmMag, ulmMag
    use logic, only: l_chemical_conv, l_heat, l_mag, l_cond_ic, l_double_curl, &
        &            l_RMS
@@ -62,6 +63,18 @@ module fieldsLast
    complex(cp), public, pointer :: dVxVhLM_LMloc(:,:,:), dVxBhLM_LMloc(:,:,:)
 
    complex(cp), public, allocatable :: dbdt_CMB_LMloc(:)
+
+   ! The same arrays, but now the LM local part
+   complex(cp), public, allocatable, target  :: dflowdt_LMdist_container(:,:,:,:)
+   complex(cp), public, allocatable, target  :: dsdt_LMdist_container(:,:,:,:)
+   complex(cp), public, allocatable, target  :: dxidt_LMdist_container(:,:,:,:)
+   complex(cp), public, allocatable, target  :: dbdt_LMdist_container(:,:,:,:)
+   complex(cp), public, pointer :: dVSrLM_LMdist(:,:,:), dVXirLM_LMdist(:,:,:)
+   complex(cp), public, pointer :: dVxVhLM_LMdist(:,:,:), dVxBhLM_LMdist(:,:,:)
+
+   complex(cp), public, allocatable :: dbdt_CMB_LMdist(:)
+
+
 
    public :: initialize_fieldsLast, finalize_fieldsLast, gather_dt_fields
 
@@ -284,6 +297,60 @@ contains
       allocate ( dbdt_CMB_LMloc(llmMag:ulmMag) )
       bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
 
+      ! The same arrays, but now the LM local part
+      if ( l_double_curl ) then
+         allocate(dflowdt_LMdist_container(1:n_mlo_loc,n_r_max,1:4,1:nexp))
+         dwdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dzdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
+         dpdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,3,1:nexp)
+         dVxVhLM_LMdist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,4,1:nexp)
+         bytes_allocated = bytes_allocated+4*n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
+      else
+         allocate(dflowdt_LMdist_container(1:n_mlo_loc,n_r_max,1:3,1:nexp))
+         dwdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dzdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
+         dpdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,3,1:nexp)
+         allocate( dVxVhLM_LMdist(1:1,1:1,1:1) )
+         bytes_allocated = bytes_allocated+3*n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
+      end if
+
+      allocate(dsdt_LMdist_container(n_mlo_loc,n_r_max,1:2,1:nexp))
+      dsdt%expl_dist(1:,1:,1:) => dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+      dVSrLM_LMdist(1:,1:,1:) => dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
+      bytes_allocated = bytes_allocated+2*n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
+
+      if ( l_chemical_conv ) then
+         allocate(dxidt_LMdist_container(1:n_mlo_loc,n_r_max,1:2,1:nexp))
+         dxidt%expl(1:,1:,1:)   => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dVXirLM_LMdist(1:,1:,1:) => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
+         bytes_allocated = bytes_allocated+2*n_mlo_loc*n_r_max*nexp* &
+         &                 SIZEOF_DEF_COMPLEX
+      else
+         allocate(dxidt_LMdist_container(1,1,1:2,1))
+         dxidt%expl(1:,1:,1:)   => dxidt_LMdist_container(1:1,1:1,1,1:)
+         dVXirLM_LMdist(1:,1:,1:) => dxidt_LMdist_container(1:1,1:1,2,1:)
+      end if
+
+      allocate(dbdt_LMdist_container(1:n_mloMag_loc,n_r_maxMag,1:3,1:nexp))
+      dbdt%expl(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,1,1:nexp)
+      djdt%expl(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,2,1:nexp)
+      dVxBhLM_LMdist(1:,1:,1:) => &
+      &                         dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,3,1:nexp)
+      bytes_allocated = bytes_allocated+ &
+      &                 3*nexp*n_mloMag_loc*n_r_maxMag*SIZEOF_DEF_COMPLEX
+
+      !-- Set the initial values to zero
+      if ( l_mag ) dVxBhLM_LMdist(:,:,:)=zero
+      dVSrLM_LMdist(:,:,:)=zero
+      if ( l_double_curl ) dVxVhLM_LMdist(:,:,:)=zero
+      if ( l_chemical_conv ) dVXirLM_LMdist(:,:,:)=zero
+
+      ! Only when l_dt_cmb_field is requested
+      ! There might be a way to allocate only when needed
+      allocate ( dbdt_CMB_LMdist(1:n_mloMag_loc) )
+      bytes_allocated = bytes_allocated+n_mloMag_loc*SIZEOF_DEF_COMPLEX
+
+
    end subroutine initialize_fieldsLast
 !-------------------------------------------------------------------------------
    subroutine finalize_fieldsLast
@@ -299,8 +366,12 @@ contains
       deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
       deallocate( dbdt_Rdist_container, dxidt_Rdist_container )
 
+      deallocate( dflowdt_LMdist_container, dbdt_CMB_LMdist )
+      deallocate( dsdt_LMdist_container, dbdt_LMdist_container )
+      deallocate( dxidt_LMdist_container )
+
       if ( .not. l_double_curl ) deallocate( dVxVhLM_Rloc, dVxVhLM_LMloc )
-      if ( .not. l_double_curl ) deallocate( dVxVhLM_Rdist )
+      if ( .not. l_double_curl ) deallocate( dVxVhLM_Rdist, dVxVhLM_LMdist )
 
       call lorentz_torque_ma_dt%finalize()
       call lorentz_torque_ic_dt%finalize()

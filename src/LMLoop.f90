@@ -52,6 +52,7 @@ contains
          call initialize_updateWPS()
       else
          if ( l_heat ) call initialize_updateS()
+         if ( l_heat ) call initialize_updateS_dist()
          call initialize_updateWP(tscheme)
       end if
 
@@ -123,6 +124,7 @@ contains
       
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
       call transform_old2new(s_LMloc, s_LMdist)
+      call dsdt%slice_all() ! <-- needed otherwise the expl array is not filled
       call test_field(s_LMdist, s_LMloc, 'entropy_')
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
 
@@ -149,7 +151,7 @@ contains
          call updateS_dist( s_LMdist, ds_LMdist, dsdt, tscheme )
          
          call test_field(s_LMdist, s_LMloc, 'entropy_')
-         call test_field(ds_LMdist, ds_LMloc, 'entropy_')
+         call test_field(ds_LMdist, ds_LMloc, 'dentropydr_')
          PERFOFF
       end if
       
