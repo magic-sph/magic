@@ -220,7 +220,7 @@ contains
       if ( .not. l_update_s ) return
 
       !-- Now assemble the right hand side and store it in work_LMloc
-      call tscheme%set_imex_rhs_dist(work_LMdist, dsdt, 1, n_mlo_loc, n_r_max)
+      call tscheme%set_imex_rhs(work_LMdist, dsdt, 1, n_mlo_loc, n_r_max)
 
       call solve_counter%start_count()
       
@@ -331,7 +331,7 @@ contains
       end do
  
       !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex_dist(dsdt, 1, n_mlo_loc, n_r_max)
+      call tscheme%rotate_imex(dsdt, 1, n_mlo_loc, n_r_max)
  
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -647,7 +647,7 @@ contains
       if ( istage == 1 ) then
          !$omp do private(n_r)
          do n_r=1,n_r_max
-            dsdt%old_dist(:,n_r,istage)=s(:,n_r)
+            dsdt%old(:,n_r,istage)=s(:,n_r)
          end do
          !$omp end do
       end if
@@ -661,7 +661,7 @@ contains
                do lm=1,n_mlo_loc
                   l1 = map_mlo%i2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl_dist(lm,n_r,istage)=opr*hdif_S(l1)* kappa(n_r) *  ( &
+                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(l1)* kappa(n_r) *  ( &
                   &                                         work_LMdist(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                     - dL*or2(n_r)*s(lm,n_r) )
@@ -674,7 +674,7 @@ contains
                do lm=1,n_mlo_loc
                   l1 = map_mlo%i2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl_dist(lm,n_r,istage)=opr*hdif_S(l1)*kappa(n_r) *   (    &
+                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(l1)*kappa(n_r) *   (    &
                   &                                       work_LMdist(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &

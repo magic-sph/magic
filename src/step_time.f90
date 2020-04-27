@@ -705,6 +705,8 @@ contains
                call lmLoop_counter%start_count()
                call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
                     &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
+                    &      dsdt_dist,dwdt_dist,dzdt_dist,dpdt_dist,dxidt_dist,    &
+                    &      dbdt_dist,djdt_dist,dbdt_ic_dist,djdt_ic_dist,         & 
                     &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
                     &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 

@@ -23,6 +23,10 @@ module fieldsLast
 
    type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
    type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic
+   !@> TODO: remove dsdt and rename d?dt_dst
+   type(type_tarray), public :: dsdt_dist, dwdt_dist, dpdt_dist, dzdt_dist
+   type(type_tarray), public :: dxidt_dist
+   type(type_tarray), public :: dbdt_dist, djdt_dist, dbdt_ic_dist, djdt_ic_dist
    type(type_tscalar), public :: domega_ma_dt, domega_ic_dt
    type(type_tscalar), public :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
@@ -96,12 +100,17 @@ contains
       call lorentz_torque_ma_dt%initialize(nold, nexp, nimp)
 
       if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+      if ( l_heat ) call dsdt_dist%initialize(1, n_mlo_loc, n_r_max, nold, nexp, nimp)
       if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, n_r_max, nold, &
+                                  &                nexp, nimp)
+      if ( l_chemical_conv ) call dxidt_dist%initialize(1, n_mlo_loc, n_r_max, nold, &
                                   &                nexp, nimp)
 
       if ( l_mag ) then
          call dbdt%initialize(llmMag, ulmMag, n_r_maxMag, nold, nexp, nimp)
          call djdt%initialize(llmMag, ulmMag, n_r_maxMag, nold, nexp, nimp)
+         call dbdt_dist%initialize(1, n_mloMag_loc, n_r_maxMag, nold, nexp, nimp)
+         call djdt_dist%initialize(1, n_mloMag_loc, n_r_maxMag, nold, nexp, nimp)
       end if
 
       if ( l_cond_ic ) then
@@ -109,13 +118,20 @@ contains
               &                  nexp, nimp, l_allocate_exp=.true.)
          call djdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, nold, &
               &                  nexp, nimp, l_allocate_exp=.true.)
+         call dbdt_ic_dist%initialize(1, n_mloMag_loc, n_r_ic_maxMag, nold, &
+              &                  nexp, nimp, l_allocate_exp=.true.)
+         call djdt_ic_dist%initialize(1, n_mloMag_loc, n_r_ic_maxMag, nold, &
+              &                  nexp, nimp, l_allocate_exp=.true.)
       end if
 
       call dwdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+      call dwdt_dist%initialize(1, n_mlo_loc, n_r_max, nold, nexp, nimp)
       if ( (.not. l_double_curl) .or. l_RMS ) then
          call dpdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+         call dpdt_dist%initialize(1, n_mlo_loc, n_r_max, nold, nexp, nimp)
       end if
       call dzdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+      call dzdt_dist%initialize(1, n_mlo_loc, n_r_max, nold, nexp, nimp)
 
       if ( l_double_curl ) then
          allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:4) )
@@ -300,40 +316,40 @@ contains
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
          allocate(dflowdt_LMdist_container(1:n_mlo_loc,n_r_max,1:4,1:nexp))
-         dwdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
-         dzdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
-         dpdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,3,1:nexp)
+         dwdt_dist%expl(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dzdt_dist%expl(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
+         dpdt_dist%expl(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,3,1:nexp)
          dVxVhLM_LMdist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,4,1:nexp)
          bytes_allocated = bytes_allocated+4*n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
       else
          allocate(dflowdt_LMdist_container(1:n_mlo_loc,n_r_max,1:3,1:nexp))
-         dwdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
-         dzdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
-         dpdt%expl_dist(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,3,1:nexp)
+         dwdt_dist%expl(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dzdt_dist%expl(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
+         dpdt_dist%expl(1:,1:,1:) => dflowdt_LMdist_container(1:n_mlo_loc,1:n_r_max,3,1:nexp)
          allocate( dVxVhLM_LMdist(1:1,1:1,1:1) )
          bytes_allocated = bytes_allocated+3*n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
       end if
 
       allocate(dsdt_LMdist_container(n_mlo_loc,n_r_max,1:2,1:nexp))
-      dsdt%expl_dist(1:,1:,1:) => dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+      dsdt_dist%expl(1:,1:,1:) => dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
       dVSrLM_LMdist(1:,1:,1:) => dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
       bytes_allocated = bytes_allocated+2*n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
          allocate(dxidt_LMdist_container(1:n_mlo_loc,n_r_max,1:2,1:nexp))
-         dxidt%expl_dist(1:,1:,1:)   => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
+         dxidt_dist%expl(1:,1:,1:)   => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,1:nexp)
          dVXirLM_LMdist(1:,1:,1:) => dxidt_LMdist_container(1:n_mlo_loc,1:n_r_max,2,1:nexp)
          bytes_allocated = bytes_allocated+2*n_mlo_loc*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
       else
          allocate(dxidt_LMdist_container(1,1,1:2,1))
-         dxidt%expl_dist(1:,1:,1:)   => dxidt_LMdist_container(1:1,1:1,1,1:)
+         dxidt_dist%expl(1:,1:,1:)   => dxidt_LMdist_container(1:1,1:1,1,1:)
          dVXirLM_LMdist(1:,1:,1:) => dxidt_LMdist_container(1:1,1:1,2,1:)
       end if
 
       allocate(dbdt_LMdist_container(1:n_mloMag_loc,n_r_maxMag,1:3,1:nexp))
-      dbdt%expl_dist(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,1,1:nexp)
-      djdt%expl_dist(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,2,1:nexp)
+      dbdt_dist%expl(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,1,1:nexp)
+      djdt_dist%expl(1:,1:,1:) => dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,2,1:nexp)
       dVxBhLM_LMdist(1:,1:,1:) => &
       &                         dbdt_LMdist_container(1:n_mloMag_loc,1:n_r_maxMag,3,1:nexp)
       bytes_allocated = bytes_allocated+ &
@@ -378,17 +394,26 @@ contains
       call domega_ma_dt%finalize()
       call domega_ic_dt%finalize()
       call dzdt%finalize()
+      call dzdt_dist%finalize()
       if ( .not. l_double_curl .or. l_RMS ) call dpdt%finalize()
+      if ( .not. l_double_curl .or. l_RMS ) call dpdt_dist%finalize()
       call dwdt%finalize()
+      call dwdt_dist%finalize()
       if ( l_heat ) call dsdt%finalize()
+      if ( l_heat ) call dsdt_dist%finalize()
       if ( l_chemical_conv ) call dxidt%finalize()
+      if ( l_chemical_conv ) call dxidt_dist%finalize()
       if ( l_mag ) then
          call dbdt%finalize()
          call djdt%finalize()
+         call dbdt_dist%finalize()
+         call djdt_dist%finalize()
       end if
       if ( l_cond_ic ) then
          call dbdt_ic%finalize()
          call djdt_ic%finalize()
+         call dbdt_ic_dist%finalize()
+         call djdt_ic_dist%finalize()
       end if
 
    end subroutine finalize_fieldsLast

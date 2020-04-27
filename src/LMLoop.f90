@@ -90,7 +90,9 @@ contains
 !----------------------------------------------------------------------------
    subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
-              &      djdt_ic,domega_ma_dt,domega_ic_dt,                &
+              &      djdt_ic,dsdt_dist,dwdt_dist,dzdt_dist,dpdt_dist,  &
+              &      dxidt_dist,dbdt_dist,djdt_dist,dbdt_ic_dist,      &
+              &      djdt_ic_dist,domega_ma_dt,domega_ic_dt,           &
               &      lorentz_torque_ma_dt,lorentz_torque_ic_dt,        &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
@@ -112,6 +114,9 @@ contains
       !--- Input from radialLoop:
       type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
+      type(type_tarray),  intent(inout) :: dsdt_dist, dxidt_dist, dwdt_dist
+      type(type_tarray),  intent(inout) :: dpdt_dist, dzdt_dist
+      type(type_tarray),  intent(inout) :: dbdt_dist, djdt_dist, dbdt_ic_dist, djdt_ic_dist
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
       !integer,     intent(in) :: n_time_step
@@ -124,7 +129,7 @@ contains
       
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
       call transform_old2new(s_LMloc, s_LMdist)
-      call dsdt%slice_all() ! <-- needed otherwise the expl array is not filled
+      call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
       call test_field(s_LMdist, s_LMloc, 'entropy_')
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
 
@@ -148,7 +153,7 @@ contains
       if ( l_heat .and. .not. l_single_matrix ) then
          PERFON('up_S')
          call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
-         call updateS_dist( s_LMdist, ds_LMdist, dsdt, tscheme )
+         call updateS_dist( s_LMdist, ds_LMdist, dsdt_dist, tscheme )
          
          call test_field(s_LMdist, s_LMloc, 'entropy_')
          call test_field(ds_LMdist, ds_LMloc, 'dentropydr_')
