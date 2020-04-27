@@ -25,7 +25,7 @@ module updateS_mod
    use dense_matrices
    use real_matrices
    use band_matrices
-   use LMmapping
+   use LMmapping, only: map_mlo
 
    implicit none
 
@@ -118,8 +118,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine initialize_updateS_dist
 
-      integer, pointer :: nLMBs2(:)
-      integer :: ll,n_bands
+      integer :: ll, n_bands
 
       if ( l_finite_diff ) then
          allocate( type_bandmat :: sMat_dist(n_lo_loc) )
@@ -214,9 +213,6 @@ contains
       integer :: n_r_out            ! counts cheb modes
       real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
       
-
-      integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
-
       if ( .not. l_update_s ) return
 
       !-- Now assemble the right hand side and store it in work_LMloc
@@ -252,18 +248,16 @@ contains
             m = map_mlo%milj2m(mi,lj)
             i = map_mlo%milj2i(mi,lj)
             
-            if (l==0) then
+            if ( l==0 ) then
             
                rhs(1)      =real(tops(0,0))
                do nR=2,n_r_max-1
                   rhs(nR)=real(work_LMdist(i,nR))
                end do
                rhs(n_r_max)=real(bots(0,0))
-! 
 #ifdef WITH_PRECOND_S0
                rhs(:) = s0Mat_fac_dist(:)*rhs(:)
 #endif
-
                call s0Mat_dist%solve(rhs)
 
             else ! l  /=  0

@@ -57,6 +57,7 @@ contains
       end if
 
       if ( l_chemical_conv ) call initialize_updateXi()
+      if ( l_chemical_conv ) call initialize_updateXi_dist()
 
       call initialize_updateZ()
       if ( l_mag ) call initialize_updateB()
@@ -130,7 +131,13 @@ contains
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
       call transform_old2new(s_LMloc, s_LMdist)
       call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
-      call test_field(s_LMdist, s_LMloc, 'entropy_')
+      !call test_field(s_LMdist, s_LMloc, 'entropy_')
+
+      if ( l_chemical_conv ) then
+         call transform_old2new(xi_LMloc, xi_LMdist)
+         call dxidt%slice_all(dxidt_dist)
+         !call test_field(xi_LMdist, xi_LMloc, 'comp_')
+      end if
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
 
       if ( lMat ) then ! update matrices:
@@ -160,7 +167,13 @@ contains
          PERFOFF
       end if
       
-      if ( l_chemical_conv ) call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
+      if ( l_chemical_conv ) then
+         call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
+         call updateXi_dist(xi_LMdist, dxi_LMdist, dxidt_dist, tscheme)
+
+         call test_field(xi_LMdist, xi_LMloc, 'comp_')
+         call test_field(dxi_LMdist, dxi_LMloc, 'dcompdr_')
+      end if
 
       if ( l_conv ) then
          PERFON('up_Z')

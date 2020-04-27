@@ -428,8 +428,6 @@ contains
       !-- Local variables
       integer :: n_o, n_r, startR, stopR
       
-      print *, "Yes, Heeeeeeeeeeeere"
-
       !$omp parallel default(shared) private(startR, stopR,n_r)
       startR=1; stopR=len_rhs
       call get_openmp_blocks(startR,stopR)
