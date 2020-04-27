@@ -134,15 +134,18 @@ contains
       call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
 
       if ( l_chemical_conv ) then
-         !call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
+         call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
          call dxidt%slice_all(dxidt_dist)
       end if
 
       if ( l_mag ) then
-         !call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
+         call transform_old2new(b_LMloc, b_LMdist, n_r_max)
+         call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
          call dbdt%slice_all(dbdt_dist)
          call djdt%slice_all(djdt_dist)
          if ( l_cond_ic ) then
+            call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+            call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
             call dbdt_ic%slice_all(dbdt_ic_dist)
             call djdt_ic%slice_all(djdt_ic_dist)
          end if

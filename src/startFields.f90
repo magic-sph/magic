@@ -12,6 +12,7 @@ module start_fields
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
+   use mpi_thetap_mod, only: transform_new2old, transform_old2new !@> TODO: remove!!
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use output_data, only: log_file, n_log_file
@@ -277,27 +278,59 @@ contains
       !-- Initialize the weights of the time scheme
       call tscheme%set_weights(lMat)
 
+      !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+      !call transform_old2new(w_LMloc, w_LMdist, n_r_max)
+      call transform_old2new(z_LMloc, z_LMdist, n_r_max)
+      call transform_old2new(p_LMloc, p_LMdist, n_r_max)
+      if ( l_heat ) call transform_old2new(s_LMloc, s_LMdist, n_r_max)
+      if ( l_chemical_conv ) call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
+      if ( l_mag ) then
+         call transform_old2new(b_LMloc, b_LMdist, n_r_max)
+         call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
+         if ( l_cond_ic ) then
+            call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+            call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
+         end if
+      end if 
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
       !-- Initialize/add fields
       !----- Initialize/add magnetic field:
       if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
       &      .and. ( l_mag .or. l_mag_LF ) ) then
-         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
+         call initB(b_LMdist,aj_LMdist,b_ic_LMdist,aj_ic_LMdist)
       end if
 
       !----- Initialize/add velocity, set IC and ma rotation:
       if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
-         call initV(w_LMloc,z_LMloc,omega_ic,omega_ma)
+         call initV(w_LMdist,z_LMdist,omega_ic,omega_ma)
       end if
 
       !----- Initialize/add entropy:
       if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
-         call initS(s_LMloc,p_LMloc)
+         call initS(s_LMdist,p_LMdist)
       end if
 
       !----- Initialize/add chemical convection:
       if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
-         call initXi(xi_LMloc)
+         call initXi(xi_LMdist)
       end if
+
+      !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+      !call transform_new2old(w_LMdist, w_LMloc, n_r_max)
+      call transform_new2old(z_LMdist, z_LMloc, n_r_max)
+      call transform_new2old(p_LMdist, p_LMloc, n_r_max)
+      if ( l_heat ) call transform_new2old(s_LMdist, s_LMloc, n_r_max)
+      if ( l_chemical_conv ) call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
+      if ( l_mag ) then
+         call transform_new2old(b_LMdist, b_LMloc, n_r_max)
+         call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
+         if ( l_cond_ic ) then
+            call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
+            call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
+         end if
+      end if 
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then
