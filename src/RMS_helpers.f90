@@ -8,13 +8,13 @@ module RMS_helpers
    use parallel_mod
    use LMmapping, only: ml_mappings
    use communications, only: reduce_radial
-   use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
+   use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max, n_mlo_loc
    use blocking, only: lm2, st_map
    use radial_functions, only: or2, rscheme_oc, r
    use horizontal_data, only: dLh
    use useful, only: cc2real
    use integration, only: rInt_R
-   use LMmapping, only: mappings
+   use LMmapping
    use constants, only: vol_oc, one
 
    implicit none
@@ -23,7 +23,7 @@ module RMS_helpers
 
    public :: get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
    &         hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM, &
-   &         hInt2PolLM_dist, hInt2TorLM_dist
+   &         hInt2Pol_dist, hInt2PolLM_dist, hInt2TorLM_dist
 
 contains
 
@@ -180,6 +180,39 @@ contains
       end do
 
    end subroutine hInt2Pol
+!-----------------------------------------------------------------------------
+   subroutine hInt2Pol_dist(Pol,lb,ub,nR,PolLMr,Pol2hInt)
+
+      !-- Input variables:
+      integer,         intent(in) :: lb,ub
+      complex(cp),     intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
+      integer,         intent(in) :: nR
+
+      !-- Output variables:
+      complex(cp), intent(out) :: PolLMr(lb:ub)
+      real(cp),    intent(inout) :: Pol2hInt(0:l_max)
+
+      !-- Local variables:
+      real(cp) :: help,rE2
+      integer :: i,l,m,lm_glb
+
+      rE2=r(nR)*r(nR)
+      do i=lb,ub
+         if (map_mlo%m0l0==i) cycle
+         l=map_mlo%i2l(i)
+         m=map_mlo%i2m(i)
+         lm_glb = map_glbl_st%lm2(l,m)
+         help=rE2*cc2real(Pol(i),m)
+         Pol2hInt(l)=Pol2hInt(l)+help
+         PolLMr(i)=rE2/dLh(lm_glb)*Pol(i)
+      end do
+
+      !@>TODO
+      ! Do I need to call MPI_REDUCE on Pol2hInt here? I don't have all m's for 
+      ! each l locally (actually, in the old format I didn't have it either, 
+      ! was this working properly before the port?)
+      ! 
+   end subroutine hInt2Pol_dist
 !-----------------------------------------------------------------------------
    subroutine hInt2PolLM(Pol,lb,ub,nR,lmStart,lmStop,PolLMr,Pol2hInt,map)
 

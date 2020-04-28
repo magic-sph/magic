@@ -244,7 +244,8 @@ contains
             lSmat_dist(lj)=.true.
          end if
          
-         ! Loop over m corresponding to current l
+         ! Build RHS
+         ! Loop over local m corresponding to current l
          do mi=1,map_mlo%n_mi(lj)
             m = map_mlo%milj2m(mi,lj)
             i = map_mlo%milj2i(mi,lj)

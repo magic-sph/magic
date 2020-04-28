@@ -313,8 +313,8 @@ subroutine initialize_fields_dist
       dz_LMdist(1:,1:)  => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,5)
 
       allocate( press_LMdist_container(n_mlo_loc,n_r_max,1:2) )
-      p_LMdist(1:,1:)   => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,1)
-      dp_LMdist(1:,1:)  => flow_LMdist_container(1:n_mlo_loc,1:n_r_max,2)
+      p_LMdist(1:,1:)   => press_LMdist_container(1:n_mlo_loc,1:n_r_max,1)
+      dp_LMdist(1:,1:)  => press_LMdist_container(1:n_mlo_loc,1:n_r_max,2)
 
       allocate( flow_Rdist_container(n_lm_loc,nRstart:nRstop,1:5) )
       w_Rdist(1:,nRstart:)   => flow_Rdist_container(1:n_lm_loc,nRstart:nRstop,1)

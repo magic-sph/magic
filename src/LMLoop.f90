@@ -55,6 +55,7 @@ contains
          if ( l_heat ) call initialize_updateS()
          if ( l_heat ) call initialize_updateS_dist()
          call initialize_updateWP(tscheme)
+         call initialize_updateWP_dist(tscheme)
       end if
 
       if ( l_chemical_conv ) call initialize_updateXi()
@@ -167,6 +168,7 @@ contains
             lWPSmat_dist(:)=.false.
          else
             lWPmat(:)=.false.
+            lWPmat_dist(:)=.false.
             if ( l_heat ) lSmat(:) =.false.
             if ( l_heat ) lSmat_dist(:) =.false.
          end if
@@ -235,9 +237,31 @@ contains
             call test_field(ds_LMdist, ds_LMloc, 'WPS_ds_', n_r_max)
          else
             PERFON('up_WP')
+            ! Slicing again to make sure that numerical differences don't stack
+!             call transform_old2new(s_LMloc, s_LMdist)
+!             if (l_chemical_conv) call transform_old2new(xi_LMloc, xi_LMdist)
+!             call transform_old2new(w_LMloc, w_LMdist)
+!             call transform_old2new(dw_LMloc, dw_LMdist)
+!             call transform_old2new(ddw_LMloc, ddw_LMdist)
+!             call transform_old2new(p_LMloc, p_LMdist)
+!             call transform_old2new(dp_LMloc, dp_LMdist)
+!             call dwdt%slice_all(dwdt_dist)
+!             call dpdt%slice_all(dpdt_dist)
+!             
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
                  &         lRmsNext, lPressNext )
+!             call updateWP_dist( s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist, &
+!                  &         dwdt_dist, p_LMdist, dp_LMdist, dpdt_dist, tscheme,          &
+!                  &         lRmsNext, lPressNext )
+!             
+!             call test_field(s_LMdist, s_LMloc, 'WP_entropy_')
+!             if (l_chemical_conv)  call test_field(xi_LMdist, xi_LMLoc, 'WP_comp_')
+!             call test_field(w_LMdist, w_LMLoc, 'WP_w_')
+!             call test_field(dw_LMdist, dw_LMLoc, 'WP_dw_')
+!             call test_field(ddw_LMdist, ddw_LMLoc, 'WP_ddw_')
+!             call test_field(p_LMdist, p_LMLoc, 'WP_p_')
+!             call test_field(dp_LMdist, dp_LMLoc, 'WP_dp_')
             PERFOFF
          end if
       end if
