@@ -41,7 +41,7 @@ module start_fields
    use updateWP_mod, only: get_pol_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp_dist
    use updateXI_mod, only: get_comp_rhs_imp_dist
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
+   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates, get_tor_rhs_imp_dist
    use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
 
 
@@ -350,7 +350,7 @@ contains
       end if
       call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
       call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
-      call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
+      call get_tor_rhs_imp_dist(time, z_LMdist, dz_LMdist, dzdt_dist, domega_ma_dt, &
            &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
            &               omega_ma1, tscheme, 1, .true., .false.)
 
@@ -375,10 +375,9 @@ contains
          call dwdt_dist%gather_all(dwdt)
          call dpdt_dist%gather_all(dpdt)
       end if
-      !-- Uncomment when updateZ has been ported
-      !call transform_new2old(z_LMdist, z_LMloc, n_r_max)
-      !call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
-      !call dzdt_dist%gather_all(dzdt)
+      call transform_new2old(z_LMdist, z_LMloc, n_r_max)
+      call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
+      call dzdt_dist%gather_all(dzdt)
 
       if ( l_heat ) then
          call transform_new2old(s_LMdist, s_LMloc, n_r_max)

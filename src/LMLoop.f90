@@ -61,6 +61,7 @@ contains
       if ( l_chemical_conv ) call initialize_updateXi_dist()
 
       call initialize_updateZ()
+      call initialize_updateZ_dist()
       if ( l_mag ) call initialize_updateB()
       if ( l_mag ) call initialize_updateB_dist()
       local_bytes_used = bytes_allocated-local_bytes_used
@@ -132,21 +133,23 @@ contains
       
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
       !call transform_old2new(s_LMloc, s_LMdist, n_r_max)
+      call dwdt%slice_all(dwdt_dist) ! <-- needed otherwise the expl array is not sliced
+      call dpdt%slice_all(dpdt_dist) ! <-- needed otherwise the expl array is not sliced
       call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
 
       if ( l_chemical_conv ) then
-         call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
+         !call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
          call dxidt%slice_all(dxidt_dist)
       end if
 
       if ( l_mag ) then
-         call transform_old2new(b_LMloc, b_LMdist, n_r_max)
-         call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
+         !call transform_old2new(b_LMloc, b_LMdist, n_r_max)
+         !call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
          call dbdt%slice_all(dbdt_dist)
          call djdt%slice_all(djdt_dist)
          if ( l_cond_ic ) then
-            call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
-            call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
+            !call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+            !call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
             call dbdt_ic%slice_all(dbdt_ic_dist)
             call djdt_ic%slice_all(djdt_ic_dist)
          end if
@@ -158,16 +161,21 @@ contains
          !     matrices have been updated. lMat=.true. when a general
          !     update is necessary.
          lZ10mat=.false.
+         lZ10mat_dist=.false.
          if ( l_single_matrix ) then
             lWPSmat(:)=.false.
+            lWPSmat_dist(:)=.false.
          else
             lWPmat(:)=.false.
             if ( l_heat ) lSmat(:) =.false.
             if ( l_heat ) lSmat_dist(:) =.false.
          end if
          lZmat(:) =.false.
+         lZmat_dist(:) =.false.
          if ( l_mag ) lBmat(:) =.false.
+         if ( l_mag ) lBmat_dist(:) =.false.
          if ( l_chemical_conv ) lXimat(:)=.false.
+         if ( l_chemical_conv ) lXimat_dist(:)=.false.
       end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
@@ -186,15 +194,22 @@ contains
 
          call test_field(xi_LMdist, xi_LMloc, 'comp_', n_r_max)
          call test_field(dxi_LMdist, dxi_LMloc, 'dcompdr_', n_r_max)
+         !call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
+         !call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
       end if
 
       if ( l_conv ) then
-         PERFON('up_Z')
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
               &        omega_ic, domega_ma_dt,domega_ic_dt,                &
               &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
               &        lRmsNext)
-         PERFOFF
+         call updateZ_dist( time, timeNext, z_LMdist, dz_LMdist, dzdt_dist, omega_ma,  &
+              &        omega_ic, domega_ma_dt,domega_ic_dt,                &
+              &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
+              &        lRmsNext)
+
+         call test_field(z_LMdist, z_LMloc, 'upZ_z_', n_r_max)
+         call test_field(dz_LMdist, dz_LMloc, 'upZ_dz_', n_r_max)
 
          if ( l_single_matrix ) then
             if ( coord_r == rank_with_l1m0 ) then
@@ -207,6 +222,17 @@ contains
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
                  &          dsdt, tscheme, lRmsNext )
+
+            call updateWPS_dist( w_LMdist, dw_LMdist, ddw_LMdist, z10, dwdt_dist,    &
+                 &          p_LMdist, dp_LMdist, dpdt_dist, s_LMdist, ds_LMdist, &
+                 &          dsdt_dist, tscheme, lRmsNext )
+            call test_field(w_LMdist, w_LMloc, 'WPS_w_', n_r_max)
+            call test_field(dw_LMdist, dw_LMloc, 'WPS_dw_', n_r_max)
+            call test_field(ddw_LMdist, ddw_LMloc, 'WPS_ddw_', n_r_max)
+            call test_field(p_LMdist, p_LMloc, 'WPS_p_', n_r_max)
+            call test_field(dp_LMdist, dp_LMloc, 'WPS_dp_', n_r_max)
+            call test_field(s_LMdist, s_LMloc, 'WPS_s_', n_r_max)
+            call test_field(ds_LMdist, ds_LMloc, 'WPS_ds_', n_r_max)
          else
             PERFON('up_WP')
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
