@@ -510,7 +510,7 @@ contains
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do i=1,n_mlo_loc
-            xi(1,n_r_out)=zero
+            xi(i,n_r_out)=zero
          end do
       end do
 
