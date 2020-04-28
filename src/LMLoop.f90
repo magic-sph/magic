@@ -50,6 +50,7 @@ contains
       local_bytes_used = bytes_allocated
       if ( l_single_matrix ) then
          call initialize_updateWPS()
+         call initialize_updateWPS_dist()
       else
          if ( l_heat ) call initialize_updateS()
          if ( l_heat ) call initialize_updateS_dist()

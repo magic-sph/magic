@@ -53,7 +53,7 @@ module updateXi_mod
 
    public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp, &
    &         finish_exp_comp, get_comp_rhs_imp, initialize_updateXi_dist,     &
-   &         updateXi_dist, finish_exp_comp_dist
+   &         updateXi_dist, finish_exp_comp_dist, get_comp_rhs_imp_dist
 
 contains
 

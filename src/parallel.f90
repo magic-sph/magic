@@ -132,8 +132,8 @@ contains
       call mpi_comm_size(mpi_comm_world, n_ranks, ierr)
       n_procs = n_ranks
 
-      if (rank .ne. 0) l_save_out = .false.  !>@TODO check if this is needed/recommended - Lago
-      if (rank .ne. 0) lVerbose   = .false.  !>@TODO check if this is needed/recommended - Lago
+      if (rank /= 0) l_save_out = .false.  !>@TODO check if this is needed/recommended - Lago
+      if (rank /= 0) lVerbose   = .false.  !>@TODO check if this is needed/recommended - Lago
       if (rank == 0) l_master_rank = .true.
       
       !

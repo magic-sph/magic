@@ -57,7 +57,8 @@ module updateS_mod
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
    &         finish_exp_entropy, get_entropy_rhs_imp, updateS_dist,           &
-   &         initialize_updateS_dist, finish_exp_entropy_dist
+   &         initialize_updateS_dist, finish_exp_entropy_dist,                &
+   &         get_entropy_rhs_imp_dist
 
 contains
 

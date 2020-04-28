@@ -62,7 +62,8 @@ module updateWPS_mod
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
    &         get_single_rhs_imp, assemble_single, updateWPS_dist,                 &
-   &         finish_exp_smat_dist, initialize_updateWPS_dist
+   &         finish_exp_smat_dist, initialize_updateWPS_dist,                     &
+   &         get_single_rhs_imp_dist
 
 contains
 

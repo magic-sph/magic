@@ -74,7 +74,8 @@ module updateB_mod
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
    &         assemble_mag, initialize_updateB_dist, updateB_dist,           &
-   &         finish_exp_mag_dist, finish_exp_mag_ic_dist
+   &         finish_exp_mag_dist, finish_exp_mag_ic_dist,                   &
+   &         get_mag_ic_rhs_imp_dist, get_mag_rhs_imp_dist
 
 contains
 
