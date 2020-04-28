@@ -73,7 +73,8 @@ module updateB_mod
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
-   &         assemble_mag, initialize_updateB_dist, updateB_dist
+   &         assemble_mag, initialize_updateB_dist, updateB_dist,           &
+   &         finish_exp_mag_dist, finish_exp_mag_ic_dist
 
 contains
 
@@ -1297,6 +1298,48 @@ contains
 
    end subroutine finish_exp_mag_ic
 !-----------------------------------------------------------------------------
+   subroutine finish_exp_mag_ic_dist(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
+
+      !-- Input variables
+      real(cp),    intent(in) :: omega_ic
+      complex(cp), intent(in) :: aj_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp), intent(in) :: b_ic(n_mloMag_loc,n_r_ic_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: db_exp_last(n_mloMag_loc,n_r_ic_max)
+      complex(cp), intent(inout) :: dj_exp_last(n_mloMag_loc,n_r_ic_max)
+
+      !-- Local variables
+      complex(cp) :: fac
+      integer :: n_r, lm, l, m
+
+      if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
+         !$omp parallel do default(shared) private(lm,n_r,fac,l,m) collapse(2)
+         do n_r=2,n_r_ic_max
+            do lm=1,n_mloMag_loc
+               l = map_mlo%i2l(lm)
+               m = map_mlo%i2m(lm)
+
+               fac = -omega_ic*or2(n_r_max)*cmplx(0.0_cp,real(m,cp),cp)* &
+               &      real(l*(l+1),cp)
+               db_exp_last(lm,n_r)=fac* b_ic(lm,n_r)
+               dj_exp_last(lm,n_r)=fac*aj_ic(lm,n_r)
+            end do
+         end do
+         !$omp end parallel do
+      else
+         !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
+         do n_r=2,n_r_ic_max
+            do lm=1,n_mloMag_loc
+               db_exp_last(lm,n_r)=zero
+               dj_exp_last(lm,n_r)=zero
+            end do
+         end do
+         !$omp end parallel do
+      end if
+
+   end subroutine finish_exp_mag_ic_dist
+!-----------------------------------------------------------------------------
    subroutine finish_exp_mag(dVxBhLM, dj_exp_last)
 
 
@@ -1329,6 +1372,36 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_mag
+!-----------------------------------------------------------------------------
+   subroutine finish_exp_mag_dist(dVxBhLM, dj_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxBhLM(n_mloMag_loc,n_r_maxMag)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dj_exp_last(n_mloMag_loc,n_r_maxMag)
+
+      !-- Local variables
+      integer :: n_r, lm, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm,stop_lm)
+      start_lm=1; stop_lm=n_mloMag_loc
+      call get_openmp_blocks(start_lm, stop_lm)
+
+      call get_dr( dVxBhLM, work_LMdist, n_mloMag_loc, start_lm, &
+           &       stop_lm, n_r_max, rscheme_oc, nocopy=.true. )
+      !$omp barrier
+
+      !$omp do private(n_r,lm)
+      do n_r=1,n_r_max
+         do lm=1,n_mloMag_loc
+            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMdist(lm,n_r)
+         end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_mag_dist
 !-----------------------------------------------------------------------------
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
