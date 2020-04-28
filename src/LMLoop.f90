@@ -50,6 +50,7 @@ contains
       local_bytes_used = bytes_allocated
       if ( l_single_matrix ) then
          call initialize_updateWPS()
+         call initialize_updateWPS_dist()
       else
          if ( l_heat ) call initialize_updateS()
          if ( l_heat ) call initialize_updateS_dist()
@@ -62,6 +63,7 @@ contains
 
       call initialize_updateZ()
       if ( l_mag ) call initialize_updateB()
+      if ( l_mag ) call initialize_updateB_dist()
       local_bytes_used = bytes_allocated-local_bytes_used
 
       call memWrite('LMLoop.f90',local_bytes_used)
@@ -130,14 +132,25 @@ contains
       !LIKWID_ON('LMloop')
       
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
-      call transform_old2new(s_LMloc, s_LMdist)
+      !call transform_old2new(s_LMloc, s_LMdist, n_r_max)
       call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
-      !call test_field(s_LMdist, s_LMloc, 'entropy_')
 
       if ( l_chemical_conv ) then
-         call transform_old2new(xi_LMloc, xi_LMdist)
+         call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
          call dxidt%slice_all(dxidt_dist)
-         !call test_field(xi_LMdist, xi_LMloc, 'comp_')
+      end if
+
+      if ( l_mag ) then
+         call transform_old2new(b_LMloc, b_LMdist, n_r_max)
+         call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
+         call dbdt%slice_all(dbdt_dist)
+         call djdt%slice_all(djdt_dist)
+         if ( l_cond_ic ) then
+            call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+            call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
+            call dbdt_ic%slice_all(dbdt_ic_dist)
+            call djdt_ic%slice_all(djdt_ic_dist)
+         end if
       end if
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
 
@@ -165,8 +178,8 @@ contains
          call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
          call updateS_dist( s_LMdist, ds_LMdist, dsdt_dist, tscheme )
          
-         call test_field(s_LMdist, s_LMloc, 'entropy_')
-         call test_field(ds_LMdist, ds_LMloc, 'dentropydr_')
+         call test_field(s_LMdist, s_LMloc, 'entropy_', n_r_max)
+         call test_field(ds_LMdist, ds_LMloc, 'dentropydr_', n_r_max)
          PERFOFF
       end if
       
@@ -174,8 +187,8 @@ contains
          call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
          call updateXi_dist(xi_LMdist, dxi_LMdist, dxidt_dist, tscheme)
 
-         call test_field(xi_LMdist, xi_LMloc, 'comp_')
-         call test_field(dxi_LMdist, dxi_LMloc, 'dcompdr_')
+         call test_field(xi_LMdist, xi_LMloc, 'comp_', n_r_max)
+         call test_field(dxi_LMdist, dxi_LMloc, 'dcompdr_', n_r_max)
       end if
 
       if ( l_conv ) then
@@ -234,8 +247,30 @@ contains
               &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
               &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
               &        lRmsNext )
+
+         call updateB_dist( b_LMdist,db_LMdist,ddb_LMdist,aj_LMdist,dj_LMdist,  &
+              &             ddj_LMdist, dbdt_dist, djdt_dist, b_ic_LMdist,      &
+              &             db_ic_LMdist, ddb_ic_LMdist, aj_ic_LMdist,          &
+              &             dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic_dist,          &
+              &             djdt_ic_dist, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, &
+              &             tscheme, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
+
+         call test_field(b_LMdist, b_LMloc, 'b_', n_r_maxMag)
+         call test_field(db_LMdist, db_LMloc, 'db_', n_r_maxMag)
+         call test_field(ddb_LMdist, ddb_LMloc, 'ddb_', n_r_maxMag)
+         call test_field(aj_LMdist, aj_LMloc, 'aj_', n_r_maxMag)
+         call test_field(dj_LMdist, dj_LMloc, 'dj_', n_r_maxMag)
+         call test_field(ddj_LMdist, ddj_LMloc, 'ddj_', n_r_maxMag)
+         if ( l_cond_ic ) then
+            call test_field(b_ic_LMdist, b_ic_LMloc, 'b_ic_', n_r_ic_max)
+            call test_field(db_ic_LMdist, db_ic_LMloc, 'db_ic_', n_r_ic_max)
+            call test_field(ddb_ic_LMdist, ddb_ic_LMloc, 'ddb_ic_', n_r_ic_max)
+            call test_field(aj_ic_LMdist, aj_ic_LMloc, 'aj_ic_', n_r_ic_max)
+            call test_field(dj_ic_LMdist, dj_ic_LMloc, 'dj_ic_', n_r_ic_max)
+            call test_field(ddj_ic_LMdist, ddj_ic_LMloc, 'ddj_ic_', n_r_ic_max)
+         end if
       end if
 
       !LIKWID_OFF('LMloop')

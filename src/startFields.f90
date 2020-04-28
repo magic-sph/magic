@@ -12,6 +12,7 @@ module start_fields
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
+   use mpi_thetap_mod, only: transform_new2old, transform_old2new !@> TODO: remove!!
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use output_data, only: log_file, n_log_file
@@ -36,12 +37,12 @@ module start_fields
 #ifdef WITH_MPI
    use readCheckPoints, only: readStartFields_mpi
 #endif
-   use updateWPS_mod, only: get_single_rhs_imp
+   use updateWPS_mod, only: get_single_rhs_imp_dist
    use updateWP_mod, only: get_pol_rhs_imp
-   use updateS_mod, only: get_entropy_rhs_imp
-   use updateXI_mod, only: get_comp_rhs_imp
+   use updateS_mod, only: get_entropy_rhs_imp_dist
+   use updateXI_mod, only: get_comp_rhs_imp_dist
    use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
-   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+   use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
 
 
    implicit none
@@ -242,25 +243,55 @@ contains
             if ( l_master_rank ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
 
-         if ( .not. l_heat ) s_LMloc(:,:)=zero
+         !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+         call transform_old2new(w_LMloc, w_LMdist, n_r_max)
+         call transform_old2new(z_LMloc, z_LMdist, n_r_max)
+         call transform_old2new(p_LMloc, p_LMdist, n_r_max)
+         if ( l_heat ) call transform_old2new(s_LMloc, s_LMdist, n_r_max)
+         if ( l_chemical_conv ) call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
+         if ( l_mag ) then
+            call transform_old2new(b_LMloc, b_LMdist, n_r_max)
+            call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
+            if ( l_cond_ic ) then
+               call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+               call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
+            end if
+         end if 
+
+         call dwdt%slice_all(dwdt_dist)
+         call dzdt%slice_all(dzdt_dist)
+         call dpdt%slice_all(dpdt_dist)
+         if ( l_heat ) call dsdt%slice_all(dsdt_dist)
+         if ( l_chemical_conv ) call dxidt%slice_all(dxidt_dist)
+         if ( l_mag ) then
+            call dbdt%slice_all(dbdt_dist)
+            call djdt%slice_all(djdt_dist)
+            if ( l_cond_ic ) then
+               call dbdt_ic%slice_all(dbdt_ic_dist)
+               call djdt_ic%slice_all(djdt_ic_dist)
+            end if
+         end if
+         !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+         if ( .not. l_heat ) s_LMdist(:,:)=zero
 
       else ! If there's no restart file
 
          ! Initialize with zero
          if ( l_conv .or. l_mag_kin ) then
-            w_LMloc(:,:)=zero
-            z_LMloc(:,:)=zero
-            p_LMloc(:,:)=zero
+            w_LMdist(:,:)=zero
+            z_LMdist(:,:)=zero
+            p_LMdist(:,:)=zero
          end if
-         if ( l_heat ) s_LMloc(:,:)=zero
-         if ( l_chemical_conv ) xi_LMloc(:,:)=zero
+         if ( l_heat ) s_LMdist(:,:)=zero
+         if ( l_chemical_conv ) xi_LMdist(:,:)=zero
          if ( l_mag ) then
-            b_LMloc(:,:) =zero
-            aj_LMloc(:,:)=zero
+            b_LMdist(:,:) =zero
+            aj_LMdist(:,:)=zero
          end if
          if ( l_cond_ic ) then
-            b_ic_LMloc(:,:) =zero
-            aj_ic_LMloc(:,:)=zero
+            b_ic_LMdist(:,:) =zero
+            aj_ic_LMdist(:,:)=zero
          end if
 
          time         =0.0_cp
@@ -277,40 +308,41 @@ contains
       !-- Initialize the weights of the time scheme
       call tscheme%set_weights(lMat)
 
+
       !-- Initialize/add fields
       !----- Initialize/add magnetic field:
       if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
       &      .and. ( l_mag .or. l_mag_LF ) ) then
-         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
+         call initB(b_LMdist,aj_LMdist,b_ic_LMdist,aj_ic_LMdist)
       end if
 
       !----- Initialize/add velocity, set IC and ma rotation:
       if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
-         call initV(w_LMloc,z_LMloc,omega_ic,omega_ma)
+         call initV(w_LMdist,z_LMdist,omega_ic,omega_ma)
       end if
 
       !----- Initialize/add entropy:
       if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
-         call initS(s_LMloc,p_LMloc)
+         call initS(s_LMdist,p_LMdist)
       end if
 
       !----- Initialize/add chemical convection:
       if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
-         call initXi(xi_LMloc)
+         call initXi(xi_LMdist)
       end if
 
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then
-         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
+         call get_comp_rhs_imp_dist(xi_LMdist, dxi_LMdist, dxidt_dist, 1, .true.)
       end if
 
       if ( l_single_matrix ) then
-         call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
-              &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
-              &                  dpdt, tscheme, 1, .true., .false.)
+         call get_single_rhs_imp_dist(s_LMdist, ds_LMdist, w_LMdist, dw_LMdist,   &
+              &                  ddw_LMdist, p_LMdist, dp_LMdist, dsdt_dist, &
+              &                  dwdt_dist, dpdt_dist, tscheme, 1, .true., .false.)
       else
          if ( l_heat ) then
-            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+            call get_entropy_rhs_imp_dist(s_LMdist, ds_LMdist, dsdt_dist, 1, .true.)
          end if
          call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
               &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
@@ -323,15 +355,63 @@ contains
            &               omega_ma1, tscheme, 1, .true., .false.)
 
       if ( l_mag .or. l_mag_kin  ) then
-         call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,     &
-              &               dj_LMloc, ddj_LMloc, dbdt, djdt, tscheme, 1,&
-              &               .true., .false.)
+         call get_mag_rhs_imp_dist(b_LMdist, db_LMdist, ddb_LMdist, aj_LMdist,   &
+              &               dj_LMdist, ddj_LMdist, dbdt_dist, djdt_dist,  &
+              &               tscheme, 1, .true., .false.)
       end if
       if ( l_cond_ic ) then
-         call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &
-              &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
-              &                  dbdt_ic, djdt_ic, 1, .true.)
+         call get_mag_ic_rhs_imp_dist(b_ic_LMdist, db_ic_LMdist, ddb_ic_LMdist,    &
+              &                  aj_ic_LMdist, dj_ic_LMdist, ddj_ic_LMdist,   &
+              &                  dbdt_ic_dist, djdt_ic_dist, 1, .true.)
       end if
+
+      !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+      if ( l_single_matrix ) then
+         call transform_new2old(w_LMdist, w_LMloc, n_r_max)
+         call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
+         call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
+         call transform_new2old(p_LMdist, p_LMloc, n_r_max)
+         call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
+         call dwdt_dist%gather_all(dwdt)
+         call dpdt_dist%gather_all(dpdt)
+      end if
+      !-- Uncomment when updateZ has been ported
+      !call transform_new2old(z_LMdist, z_LMloc, n_r_max)
+      !call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
+      !call dzdt_dist%gather_all(dzdt)
+
+      if ( l_heat ) then
+         call transform_new2old(s_LMdist, s_LMloc, n_r_max)
+         call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
+         call dsdt_dist%gather_all(dsdt)
+      end if
+      if ( l_chemical_conv ) then
+         call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
+         call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
+         call dxidt_dist%gather_all(dxidt)
+      end if
+      if ( l_mag ) then
+         call transform_new2old(b_LMdist, b_LMloc, n_r_max)
+         call transform_new2old(db_LMdist, db_LMloc, n_r_max)
+         call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
+         call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
+         call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
+         call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
+         call dbdt_dist%gather_all(dbdt)
+         call djdt_dist%gather_all(djdt)
+         if ( l_cond_ic ) then
+            call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
+            call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
+            call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
+            call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
+            call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
+            call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
+            call dbdt_ic_dist%gather_all(dbdt_ic)
+            call djdt_ic_dist%gather_all(djdt_ic)
+         end if
+      end if 
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp

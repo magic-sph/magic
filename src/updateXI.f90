@@ -53,7 +53,7 @@ module updateXi_mod
 
    public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp, &
    &         finish_exp_comp, get_comp_rhs_imp, initialize_updateXi_dist,     &
-   &         updateXi_dist
+   &         updateXi_dist, finish_exp_comp_dist, get_comp_rhs_imp_dist
 
 contains
 
@@ -510,7 +510,7 @@ contains
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do i=1,n_mlo_loc
-            xi(1,n_r_out)=zero
+            xi(i,n_r_out)=zero
          end do
       end do
 
@@ -556,6 +556,34 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_comp
+!------------------------------------------------------------------------------
+   subroutine finish_exp_comp_dist(dVXirLM, dxi_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVXirLM(n_mlo_loc,n_r_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dxi_exp_last(n_mlo_loc,n_r_max)
+
+      !-- Local variables
+      integer :: n_r, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+      call get_dr( dVXirLM, work_LMdist, n_mlo_loc, start_lm,  &
+           &       stop_lm, n_r_max, rscheme_oc, nocopy=.true. )
+      !$omp barrier
+
+      !$omp do
+      do n_r=1,n_r_max
+         dxi_exp_last(:,n_r)=orho1(n_r)*( dxi_exp_last(:,n_r)-   &
+         &                        or2(n_r)*work_LMdist(:,n_r) )
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_comp_dist
 !------------------------------------------------------------------------------
    subroutine get_comp_rhs_imp(xi, dxi, dxidt, istage, l_calc_lin, l_in_cheb_space)
 

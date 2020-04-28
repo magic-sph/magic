@@ -223,11 +223,12 @@ contains
 !  LM Loop transposes and Gathers and Etc
 !
 !-------------------------------------------------------------------------------
-   subroutine transform_new2old(Fmlo_new, Fmlo_old)
-      complex(cp), intent(in) :: Fmlo_new(n_mlo_loc, n_r_max)
-      complex(cp), intent(inout) :: Fmlo_old(llm:ulm,   n_r_max)
+   subroutine transform_new2old(Fmlo_new, Fmlo_old, n_r)
+      integer,     intent(in) :: n_r ! Needed since it can be either n_r_ic_max, or n_r_max
+      complex(cp), intent(in) :: Fmlo_new(n_mlo_loc, n_r)
+      complex(cp), intent(inout) :: Fmlo_old(llm:ulm,   n_r)
       
-      complex(cp) :: recvbuff(n_r_max)
+      complex(cp) :: recvbuff(n_r)
       integer :: irank, ierr, lm, l, m, lo
       
       do lm=1,lm_max
@@ -236,7 +237,7 @@ contains
          irank = map_mlo%ml2coord(m,l)
          recvbuff = 0.0
          if (irank==coord_mlo) recvbuff = Fmlo_new(map_mlo%ml2i(m,l),:)
-         call mpi_bcast(recvbuff, n_r_max, MPI_DOUBLE_COMPLEX, irank, comm_mlo, ierr)
+         call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, comm_mlo, ierr)
          lo = lo_map%lm2(l,m)
          if (lo>=llm .and. lo<=ulm) Fmlo_old(lo,:) = recvbuff
       end do
@@ -244,12 +245,13 @@ contains
    
    
 !-------------------------------------------------------------------------------
-   subroutine transform_old2new(Fmlo_old, Fmlo_new)
+   subroutine transform_old2new(Fmlo_old, Fmlo_new, n_r)
 !-------------------------------------------------------------------------------
-      complex(cp), intent(in) :: Fmlo_old(llm:ulm,   n_r_max)
-      complex(cp), intent(inout) :: Fmlo_new(n_mlo_loc, n_r_max)
+      integer,     intent(in) :: n_r ! Needed since it can be either n_r_ic_max, or n_r_max
+      complex(cp), intent(in) :: Fmlo_old(llm:ulm,   n_r)
+      complex(cp), intent(inout) :: Fmlo_new(n_mlo_loc, n_r)
       
-      complex(cp) :: recvbuff(n_r_max)
+      complex(cp) :: recvbuff(n_r)
       integer :: old2coord(l_max, l_max)
       integer :: irank, ierr, lm, l, m, size_irank, i
       
@@ -264,7 +266,7 @@ contains
                call mpi_bcast(m, 1, MPI_INTEGER, irank, comm_r, ierr)
                call mpi_bcast(l, 1, MPI_INTEGER, irank, comm_r, ierr)
                
-               call mpi_bcast(Fmlo_old(lm,:), n_r_max, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
+               call mpi_bcast(Fmlo_old(lm,:), n_r, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
                if (map_mlo%ml2coord(m,l)==coord_mlo) Fmlo_new(map_mlo%ml2i(m,l),:) = Fmlo_old(lm,:)
             end do
          else
@@ -272,7 +274,7 @@ contains
             do i=1, size_irank
                call mpi_bcast(m, 1, MPI_INTEGER, irank, comm_r, ierr)
                call mpi_bcast(l, 1, MPI_INTEGER, irank, comm_r, ierr)
-               call mpi_bcast(recvbuff, n_r_max, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
+               call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
                if (map_mlo%ml2coord(m,l)==coord_mlo) Fmlo_new(map_mlo%ml2i(m,l),:) = recvbuff
             end do
          end if
@@ -281,21 +283,22 @@ contains
    end subroutine transform_old2new
 !--------------------------------------------------------------------------------
 !@> Delete me after conversion!
-   subroutine test_field(newfield, oldfield, name)
+   subroutine test_field(newfield, oldfield, name, n_r)
+      integer,     intent(in) :: n_r ! Needed since it can be either n_r_ic_max, or n_r_max
       character(len=*), intent(in) :: name
-      complex(cp), intent(in) :: newfield(n_mlo_loc,n_r_max)
-      complex(cp), intent(in) :: oldfield(llm:ulm,n_r_max)
-      complex(cp) :: test_old(llm:ulm,n_r_max)
-      complex(cp) :: test_new(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: newfield(n_mlo_loc,n_r)
+      complex(cp), intent(in) :: oldfield(llm:ulm,n_r)
+      complex(cp) :: test_old(llm:ulm,n_r)
+      complex(cp) :: test_new(n_mlo_loc,n_r)
       real(cp)    :: test_norm, error_threshold
       
       error_threshold = 1e-16 !EPSILON(1.0_cp)
       
-      call transform_new2old(newfield, test_old)
+      call transform_new2old(newfield, test_old, n_r)
       test_norm = ABS(SUM(oldfield - test_old))
       IF (test_norm>error_threshold) print *, "||",name,"n2o|| : ", test_norm
 
-      call transform_old2new(oldfield, test_new)
+      call transform_old2new(oldfield, test_new, n_r)
       test_norm = ABS(SUM(newfield - test_new))
       IF (test_norm>error_threshold) print *, "||",name,"o2n|| : ", test_norm
       

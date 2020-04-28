@@ -6,6 +6,7 @@ module RMS_helpers
 
    use precision_mod
    use parallel_mod
+   use LMmapping, only: ml_mappings
    use communications, only: reduce_radial
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max, n_mlo_loc
    use blocking, only: lm2, st_map
@@ -22,7 +23,7 @@ module RMS_helpers
 
    public :: get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
    &         hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM, &
-   &         hInt2Pol_dist
+   &         hInt2Pol_dist, hInt2PolLM_dist, hInt2TorLM_dist
 
 contains
 
@@ -240,6 +241,36 @@ contains
 
    end subroutine hInt2PolLM
 !-----------------------------------------------------------------------------
+   subroutine hInt2PolLM_dist(Pol,lb,ub,nR,lmStart,lmStop,PolLMr,Pol2hInt,map)
+      !
+      !@> TODO get only one of the two routines here!!!!
+      !
+
+      !-- Input variables:
+      integer,            intent(in) :: lb,ub
+      complex(cp),        intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
+      integer,            intent(in) :: nR,lmStart,lmStop
+      type(ml_mappings),  intent(in) :: map
+
+      !-- Output variables:
+      complex(cp), intent(out) :: PolLMr(lb:ub)
+      real(cp),    intent(inout) :: Pol2hInt(lb:ub)
+
+      !-- Local variables:
+      real(cp) :: help,rE2
+      integer :: lm,l,m
+
+      rE2=r(nR)*r(nR)
+      do lm=lmStart,lmStop
+         l=map%i2l(lm)
+         m=map%i2m(lm)
+         help=rE2*cc2real(Pol(lm),m)
+         Pol2hInt(lm)=Pol2hInt(lm)+help
+         PolLMr(lm)=rE2/dLh(st_map%lm2(l,m))*Pol(lm)
+      end do
+
+   end subroutine hInt2PolLM_dist
+!-----------------------------------------------------------------------------
    subroutine hIntRms(f,nR,lmStart,lmStop,lmP,f2hInt,map,sphertor)
 
       !-- Input variables
@@ -338,5 +369,34 @@ contains
       end do
 
    end subroutine hInt2TorLM
+!-----------------------------------------------------------------------------
+   subroutine hInt2TorLM_dist(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,map)
+      !
+      !@> TODO get only one of the two routines here!!!!
+      !
+
+      !-- Input variables:
+      integer,           intent(in) :: lb,ub
+      complex(cp),       intent(in) :: Tor(lb:ub)   ! Toroidal field Potential
+      integer,           intent(in) :: nR
+      integer,           intent(in) :: lmStart,lmStop
+      type(ml_mappings), intent(in) :: map
+
+      !-- Output variables:
+      real(cp),        intent(inout) :: Tor2hInt(lb:ub)
+
+      !-- Local variables:
+      real(cp) :: help,rE4
+      integer :: lm,l,m
+
+      rE4=r(nR)**4
+      do lm=lmStart,lmStop
+         l=map%i2l(lm)
+         m=map%i2m(lm)
+         help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
+         Tor2hInt(lm)=Tor2hInt(lm)+help
+      end do
+
+   end subroutine hInt2TorLM_dist
 !-----------------------------------------------------------------------------
 end module RMS_helpers

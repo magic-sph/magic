@@ -57,7 +57,8 @@ module updateS_mod
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
    &         finish_exp_entropy, get_entropy_rhs_imp, updateS_dist,           &
-   &         initialize_updateS_dist
+   &         initialize_updateS_dist, finish_exp_entropy_dist,                &
+   &         get_entropy_rhs_imp_dist
 
 contains
 
@@ -600,6 +601,57 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_entropy
+!-----------------------------------------------------------------------------
+   subroutine finish_exp_entropy_dist(w, dVSrLM, ds_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp), intent(inout) :: dVSrLM(n_mlo_loc,n_r_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: ds_exp_last(n_mlo_loc,n_r_max)
+
+      !-- Local variables
+      real(cp) :: dL
+      integer :: n_r, lm, start_lm, stop_lm, l
+
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+      call get_dr( dVSrLM, work_LMdist, n_mlo_loc, start_lm,  &
+           &       stop_lm, n_r_max, rscheme_oc, nocopy=.true. )
+      !$omp barrier
+
+      if ( l_anelastic_liquid ) then
+         !$omp do private(n_r,l,lm,dL)
+         do n_r=1,n_r_max
+            do lm=1,n_mlo_loc
+               l = map_mlo%i2l(lm)
+               dL = real(l*(l+1),cp)
+               ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
+               &        or2(n_r)*orho1(n_r)*       work_LMdist(lm,n_r) + &
+               &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
+               &        dL*or2(n_r)*orho1(n_r)*temp0(n_r)*dentropy0(n_r)*&
+               &                                             w(lm,n_r)
+            end do
+         end do
+         !$omp end do
+      else
+         !$omp do private(n_r,l,dL,lm)
+         do n_r=1,n_r_max
+            do lm=1,n_mlo_loc
+               l = map_mlo%i2l(lm)
+               dL = real(l*(l+1),cp)
+               ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
+               &                            or2(n_r)*work_LMdist(lm,n_r)- &
+               &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
+            end do
+         end do
+         !$omp end do
+      end if
+      !$omp end parallel
+
+   end subroutine finish_exp_entropy_dist
 !-----------------------------------------------------------------------------
    subroutine get_entropy_rhs_imp_dist(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
 

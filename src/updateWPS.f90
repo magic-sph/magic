@@ -5,7 +5,8 @@ module updateWPS_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, l_max, n_r_cmb,n_r_icb,         &
-       &                 get_openmp_blocks
+       &                 get_openmp_blocks, n_lo_loc, n_mlo_loc
+   use LMmapping, only: map_mlo
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
@@ -25,7 +26,7 @@ module updateWPS_mod
    use parallel_mod, only: chunksize, coord_r, n_ranks_r
    use radial_der, only: get_dddr, get_ddr, get_dr
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
-   use fields, only: work_LMloc
+   use fields, only: work_LMloc, work_LMdist
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -43,13 +44,26 @@ module updateWPS_mod
    real(cp), allocatable :: wpsMat(:,:,:)
    integer, allocatable :: wpsPivot(:,:)
    real(cp), allocatable :: wpsMat_fac(:,:,:)
-   real(cp) :: Cor00_fac
    logical, public, allocatable :: lWPSmat(:)
 
+   !-- Input of recycled work arrays:
+   complex(cp), allocatable :: workB_dist(:,:), workC_dist(:,:)
+   complex(cp), allocatable :: Dif_dist(:),Pre_dist(:),Buo_dist(:)
+   real(cp), allocatable :: rhs1_dist(:,:,:)
+   real(cp), allocatable :: ps0Mat_dist(:,:), ps0Mat_fac_dist(:,:)
+   integer, allocatable :: ps0Pivot_dist(:)
+   real(cp), allocatable :: wpsMat_dist(:,:,:)
+   integer, allocatable :: wpsPivot_dist(:,:)
+   real(cp), allocatable :: wpsMat_fac_dist(:,:,:)
+   logical, public, allocatable :: lWPSmat_dist(:)
+
+   real(cp) :: Cor00_fac
    integer :: maxThreads
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
-   &         get_single_rhs_imp, assemble_single
+   &         get_single_rhs_imp, assemble_single, updateWPS_dist,                 &
+   &         finish_exp_smat_dist, initialize_updateWPS_dist,                     &
+   &         get_single_rhs_imp_dist
 
 contains
 
@@ -96,6 +110,43 @@ contains
 
    end subroutine initialize_updateWPS
 !-----------------------------------------------------------------------------
+   subroutine initialize_updateWPS_dist
+
+      allocate( ps0Mat_dist(2*n_r_max,2*n_r_max) )
+      allocate( ps0Mat_fac_dist(2*n_r_max,2) )
+      allocate( ps0Pivot_dist(2*n_r_max) )
+      bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
+      &                 +2*n_r_max*SIZEOF_INTEGER
+      allocate( wpsMat_dist(3*n_r_max,3*n_r_max,n_lo_loc) )
+      allocate(wpsMat_fac_dist(3*n_r_max,2,n_lo_loc))
+      allocate ( wpsPivot_dist(3*n_r_max,n_lo_loc) )
+      bytes_allocated = bytes_allocated+(9*n_r_max*n_lo_loc+6*n_r_max* &
+      &                 n_lo_loc)*SIZEOF_DEF_REAL+3*n_r_max*           &
+      &                 n_lo_loc*SIZEOF_INTEGER
+      allocate( lWPSmat_dist(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
+      allocate( workB_dist(n_mlo_loc,n_r_max) )
+      allocate( workC_dist(n_mlo_loc,n_r_max) )
+      bytes_allocated = bytes_allocated+2*n_mlo_loc*n_r_max*SIZEOF_DEF_COMPLEX
+
+      allocate( Dif_dist(n_mlo_loc), Pre_dist(n_mlo_loc), Buo_dist(n_mlo_loc) )
+      bytes_allocated = bytes_allocated+3*n_mlo_loc*SIZEOF_DEF_COMPLEX
+
+#ifdef WITHOMP
+      maxThreads=omp_get_max_threads()
+#else
+      maxThreads=1
+#endif
+
+      allocate( rhs1_dist(3*n_r_max,2*maxval(map_mlo%n_mi(:)),1) )
+      bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
+                      lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+
+      Cor00_fac=four/sqrt(three)
+
+   end subroutine initialize_updateWPS_dist
+!-----------------------------------------------------------------------------
    subroutine finalize_updateWPS
 
       deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
@@ -104,6 +155,185 @@ contains
       deallocate( Dif, Pre, Buo )
 
    end subroutine finalize_updateWPS
+!-----------------------------------------------------------------------------
+   subroutine updateWPS_dist(w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
+      !
+      !  updates the poloidal velocity potential w, the pressure p, the entropy
+      !  and their derivatives.
+      !
+
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: z10(n_r_max)
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      type(type_tarray), intent(inout) :: dsdt
+      complex(cp),       intent(inout) :: w(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: dw(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out)   :: ddw(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: p(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out)   :: dp(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: s(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: ds(n_mlo_loc,n_r_max)
+
+      !-- Local variables:
+      integer :: l, m          ! degree and order
+      integer :: lj, mi, i          ! l, m and ml counter
+      integer :: nR             ! counts radial grid points
+      integer :: n_r_out         ! counts cheb modes
+      real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
+
+      if ( .not. l_update_v ) return
+
+      !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
+      call tscheme%set_imex_rhs(work_LMdist, dwdt, 1, n_mlo_loc, n_r_max)
+      call tscheme%set_imex_rhs(dp, dpdt, 1, n_mlo_loc, n_r_max)
+      call tscheme%set_imex_rhs(ds, dsdt, 1, n_mlo_loc, n_r_max)
+
+      call solve_counter%start_count()
+
+      !-- Loop over local l
+      do lj=1, n_lo_loc
+         l = map_mlo%lj2l(lj)
+
+         ! Builds matrices if needed
+         if ( .not. lWPSmat_dist(lj) ) then
+            if ( l == 0  ) then
+               call get_ps0Mat(tscheme, ps0Mat_dist, ps0Pivot_dist, ps0Mat_fac_dist)
+            else
+               call get_wpsMat(tscheme, l, hdif_V(l), hdif_S(l), wpsMat_dist(:,:,lj),&
+                    &          wpsPivot_dist(:,lj), wpsMat_fac_dist(:,:,lj))
+            end if
+            lWPSmat_dist(lj)=.true.
+         end if
+
+         ! Loop over m corresponding to current l
+         do mi=1,map_mlo%n_mi(lj)
+            m = map_mlo%milj2m(mi,lj)
+            i = map_mlo%milj2i(mi,lj)
+
+            if ( l == 0 ) then
+
+               do nR=2,n_r_max-1
+                  rhs(nR)        =real(ds(i,nR))
+                  rhs(nR+n_r_max)=real(dwdt%expl(i,nR,tscheme%istage))+&
+                  &               Cor00_fac*CorFac*or1(nR)*z10(nR)
+               end do
+               rhs(1)        =real(tops(0,0))
+               rhs(n_r_max)  =real(bots(0,0))
+               rhs(n_r_max+1)=0.0_cp
+
+               do nR=1,2*n_r_max
+                  rhs(nR)=rhs(nR)*ps0Mat_fac_dist(nR,1)
+               end do
+
+               call solve_mat(ps0Mat_dist,2*n_r_max,2*n_r_max,ps0Pivot_dist,rhs)
+
+               do nR=1,2*n_r_max
+                  rhs(nR)=rhs(nR)*ps0Mat_fac_dist(nR,2)
+               end do
+
+            else ! l /= 0
+
+               rhs1_dist(1,2*mi-1,1)          =0.0_cp
+               rhs1_dist(1,2*mi,1)            =0.0_cp
+               rhs1_dist(n_r_max,2*mi-1,1)    =0.0_cp
+               rhs1_dist(n_r_max,2*mi,1)      =0.0_cp
+               rhs1_dist(n_r_max+1,2*mi-1,1)  =0.0_cp
+               rhs1_dist(n_r_max+1,2*mi,1)    =0.0_cp
+               rhs1_dist(2*n_r_max,2*mi-1,1)  =0.0_cp
+               rhs1_dist(2*n_r_max,2*mi,1)    =0.0_cp
+               rhs1_dist(2*n_r_max+1,2*mi-1,1)= real(tops(l,m))
+               rhs1_dist(2*n_r_max+1,2*mi,1)  =aimag(tops(l,m))
+               rhs1_dist(3*n_r_max,2*mi-1,1)  = real(bots(l,m))
+               rhs1_dist(3*n_r_max,2*mi,1)    =aimag(bots(l,m))
+               do nR=2,n_r_max-1
+                  !-- dp and ds used as work arrays here
+                  rhs1_dist(nR,2*mi-1,1)          = real(work_LMdist(i,nR))
+                  rhs1_dist(nR,2*mi,1)            =aimag(work_LMdist(i,nR))
+                  rhs1_dist(nR+n_r_max,2*mi-1,1)  = real(dp(i,nR))
+                  rhs1_dist(nR+n_r_max,2*mi,1)    =aimag(dp(i,nR))
+                  rhs1_dist(nR+2*n_r_max,2*mi-1,1)= real(ds(i,nR))
+                  rhs1_dist(nR+2*n_r_max,2*mi,1)  =aimag(ds(i,nR))
+               end do
+               rhs1_dist(:,2*mi-1,1)=rhs1_dist(:,2*mi-1,1)*wpsMat_fac_dist(:,1,lj)
+               rhs1_dist(:,2*mi,1)  =rhs1_dist(:,2*mi,1)*wpsMat_fac_dist(:,1,lj)
+            end if
+
+         end do ! Loop over m
+
+         if ( l > 0 ) then
+            call solve_mat(wpsMat_dist(:,:,lj), 3*n_r_max, 3*n_r_max,              &
+                 &         wpsPivot_dist(:,lj),rhs1_dist(:,1:2*map_mlo%n_mi(lj),1),&
+                 &         2*map_mlo%n_mi(lj))
+         end if
+
+         ! Loop over m corresponding to current l (again)
+         do mi=1,map_mlo%n_mi(lj)
+            m = map_mlo%milj2m(mi,lj)
+            i = map_mlo%milj2i(mi,lj)
+
+            if ( l == 0 ) then
+               do n_r_out=1,rscheme_oc%n_max
+                  s(i,n_r_out)=rhs(n_r_out)
+                  p(i,n_r_out)=rhs(n_r_out+n_r_max)
+               end do
+            else ! Non spherically-symmetric modes
+               rhs1_dist(:,2*mi-1,1)=rhs1_dist(:,2*mi-1,1)*wpsMat_fac_dist(:,2,lj)
+               rhs1_dist(:,2*mi,1)  =rhs1_dist(:,2*mi,1)*wpsMat_fac_dist(:,2,lj)
+               if ( m > 0 ) then
+                  do n_r_out=1,rscheme_oc%n_max
+                     w(i,n_r_out)=cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
+                     &                  rhs1_dist(n_r_out,2*mi,1),cp)
+                     p(i,n_r_out)=cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1,1),&
+                     &                  rhs1_dist(n_r_max+n_r_out,2*mi,1),cp)
+                     s(i,n_r_out)=cmplx(rhs1_dist(2*n_r_max+n_r_out,2*mi-1,1), &
+                     &                  rhs1_dist(2*n_r_max+n_r_out,2*mi,1),cp)
+                  end do
+               else
+                  do n_r_out=1,rscheme_oc%n_max
+                     w(i,n_r_out)= cmplx(rhs1_dist(n_r_out,2*mi-1,1),0.0_cp,cp)
+                     p(i,n_r_out)= cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1,1), &
+                     &                   0.0_cp,cp)
+                     s(i,n_r_out)= cmplx(rhs1_dist(2*n_r_max+n_r_out,2*mi-1,1), &
+                     &                   0.0_cp,cp)
+                  end do
+               end if
+            end if
+         end do  ! Loop over m 
+      end do     ! Loop over l
+
+      call solve_counter%stop_count()
+
+      !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+      do n_r_out=rscheme_oc%n_max+1,n_r_max
+         do i=1,n_mlo_loc
+            w(i,n_r_out)=zero
+            p(i,n_r_out)=zero
+            s(i,n_r_out)=zero
+         end do
+      end do
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dwdt, 1, n_mlo_loc, n_r_max)
+      call tscheme%rotate_imex(dpdt, 1, n_mlo_loc, n_r_max)
+      call tscheme%rotate_imex(dsdt, 1, n_mlo_loc, n_r_max)
+
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_single_rhs_imp_dist(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
+              &                  tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
+              &                  lRmsNext, l_in_cheb_space=.true.)
+      else
+         call get_single_rhs_imp_dist(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
+              &                  tscheme, tscheme%istage+1,                  &
+              &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
+              &                  lRmsNext, l_in_cheb_space=.true.)
+      end if
+
+   end subroutine updateWPS_dist
 !-----------------------------------------------------------------------------
    subroutine updateWPS(w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
       !
@@ -383,6 +613,34 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_smat
+!------------------------------------------------------------------------------
+   subroutine finish_exp_smat_dist(dVSrLM, ds_exp_last)
+
+      complex(cp), intent(inout) :: dVSrLM(n_mlo_loc,n_r_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: ds_exp_last(n_mlo_loc,n_r_max)
+
+      !-- Local variables
+      integer :: n_r, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+      call get_dr( dVSrLM, work_LMdist, n_mlo_loc, start_lm,  &
+           &       stop_lm, n_r_max, rscheme_oc, nocopy=.true. )
+      !$omp barrier
+
+      !$omp do
+      do n_r=1,n_r_max
+         ds_exp_last(:,n_r)=orho1(n_r)*( ds_exp_last(:,n_r)-   &
+         &                      or2(n_r)*work_LMdist(:,n_r))
+      end do
+      !$omp end do
+
+      !$omp end parallel
+
+   end subroutine finish_exp_smat_dist
 !------------------------------------------------------------------------------
    subroutine assemble_single(s, ds, w, dw, ddw, dsdt, dwdt, dpdt, tscheme, lRmsNext)
       !
@@ -666,6 +924,182 @@ contains
       !$omp end parallel
 
    end subroutine assemble_single
+!------------------------------------------------------------------------------
+   subroutine get_single_rhs_imp_dist(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
+              &                  tscheme, istage, l_calc_lin, lRmsNext,      &
+              &                  l_in_cheb_space)
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: l_calc_lin
+      logical,             intent(in) :: lRmsNext
+      logical, optional,   intent(in) :: l_in_cheb_space
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dsdt
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      complex(cp),       intent(inout) :: s(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: w(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: p(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: ds(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: dp(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: dw(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: ddw(n_mlo_loc,n_r_max)
+
+      !-- Local variables 
+      logical :: l_in_cheb
+      real(cp) :: dL
+      integer :: n_r_top, n_r_bot, l
+      integer :: n_r, lm, start_lm, stop_lm
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr( s, ds, workB_dist, n_mlo_loc, start_lm, stop_lm, &
+           &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(s, n_mlo_loc, start_lm, stop_lm)
+      call get_dddr( w, dw, ddw, work_LMdist, n_mlo_loc, start_lm, &
+           &         stop_lm, n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(w, n_mlo_loc, start_lm, stop_lm)
+      call get_ddr( p, dp, workC_dist, n_mlo_loc, start_lm, stop_lm, &
+           &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(p, n_mlo_loc, start_lm, stop_lm)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count()
+      !$omp end single
+
+      if ( istage == 1 ) then
+         !$omp do private(n_r,lm,l,dL)
+         do n_r=2,n_r_max-1
+            do lm=1,n_mlo_loc
+               l = map_mlo%i2l(lm)
+               dL = real(l*(l+1),cp)
+               dsdt%old(lm,n_r,istage)= s(lm,n_r)
+               dwdt%old(lm,n_r,istage)= dL*or2(n_r)*w(lm,n_r)
+               dpdt%old(lm,n_r,istage)=-dL*or2(n_r)*dw(lm,n_r)
+            end do
+         end do
+         !$omp end do
+      end if
+
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+
+         if ( lRmsNext ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         else
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
+         end if
+
+         !-- Calculate explicit time step part:
+         if ( l_temperature_diff ) then
+            !$omp do private(n_r,lm,l,Dif_dist,Pre_dist,Buo_dist,dL)
+            do n_r=n_r_top,n_r_bot
+               do lm=1,n_mlo_loc
+                  l=map_mlo%i2l(lm)
+                  dL = real(l*(l+1),cp)
+
+                  Dif_dist(lm) = hdif_V(l)*dL*or2(n_r)*visc(n_r) *   (    ddw(lm,n_r) &
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+                  &        -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
+                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
+                  &                                                    w(lm,n_r) )
+                  Pre_dist(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo_dist(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  dwdt%impl(lm,n_r,istage)=Pre_dist(lm)+Buo_dist(lm)+Dif_dist(lm)
+                  dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)  &
+                  &            + hdif_V(l)*visc(n_r)*dL*or2(n_r)                 &
+                  &                                    * ( -work_LMdist(lm,n_r)  &
+                  &                   + (beta(n_r)-dLvisc(n_r))    *ddw(lm,n_r)  &
+                  &           + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r)   &
+                  &               +two*(dLvisc(n_r)+beta(n_r))*or1(n_r) ) *      &
+                  &                                                  dw(lm,n_r)  &
+                  &           - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)   &
+                  &                      +dLvisc(n_r) )   *           w(lm,n_r) ) 
+                  dsdt%impl(lm,n_r,istage)= opr*hdif_S(l)* kappa(n_r)*(          &
+                  &                                          workB_dist(lm,n_r)  &
+                  &          + ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+        &
+                  &              dLkappa(n_r) )                    * ds(lm,n_r)  &
+                  &          + ( ddLtemp0(n_r)+ dLtemp0(n_r)*( two*or1(n_r)+     &
+                  &              dLkappa(n_r)+dLtemp0(n_r)+beta(n_r))-dL*        &
+                  &              or2(n_r) ) *                         s(lm,n_r)  &
+                  &          +  alpha0(n_r)*orho1(n_r)*ViscHeatFac*ThExpNb*(     &
+                  &                                          workC_dist(lm,n_r)  &
+                  &          +  ( dLkappa(n_r)+two*(dLtemp0(n_r)+dLalpha0(n_r))  &
+                  &               +two*or1(n_r)-beta(n_r) ) *        dp(lm,n_r)  &
+                  &          +  ( (dLkappa(n_r)+dLtemp0(n_r)+dLalpha0(n_r)+      &
+                  &               two*or1(n_r))*(dLalpha0(n_r)+dLtemp0(n_r)-     &
+                  &               beta(n_r))+ddLtemp0(n_r)+ddLalpha0(n_r)-       &
+                  &               dbeta(n_r)-dL*or2(n_r) )*           p(lm,n_r)))&
+                  &          - dL*or2(n_r)*orho1(n_r)*dentropy0(n_r)* w(lm,n_r)
+               end do
+               if ( lRmsNext ) then
+                  !call hInt2Pol(Dif_dist, 1, n_mlo_loc, n_r, 1, n_mlo_loc, &
+                  !     &        DifPolLMr(:,n_r), DifPol2hInt(:,n_r), map_mlo)
+               end if
+            end do
+            !$omp end do
+
+         else ! entropy diffusion
+
+            !$omp do private(n_r,lm,l,Dif_dist,Pre_dist,Buo_dist,dL)
+            do n_r=n_r_top,n_r_bot
+               do lm=1,n_mlo_loc
+                  l=map_mlo%i2l(lm)
+                  dL = real(l*(l+1),cp)
+
+                  Dif_dist(lm) = hdif_V(l)*dL*or2(n_r)*visc(n_r) *  (     ddw(lm,n_r) &
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
+                  &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
+                  &                                                    w(lm,n_r) )
+                  Pre_dist(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo_dist(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  dwdt%impl(lm,n_r,istage)=Pre_dist(lm)+Buo_dist(lm)+Dif_dist(lm)
+                  dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)&
+                  &                         + hdif_V(l)* visc(n_r)*dL*or2(n_r) &
+                  &                                  * ( -work_LMdist(lm,n_r)  &
+                  &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
+                  &        + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+ dbeta(n_r)   &
+                  &                   + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)   &
+                  &                                            ) * dw(lm,n_r)  &
+                  &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
+                  &                      +dLvisc(n_r) )   *         w(lm,n_r) )
+                  dsdt%impl(lm,n_r,istage)=           opr*hdif_S(l)*kappa(n_r)*&
+                  &        ( workB_dist(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+     &
+                  &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
+                  &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
+                  &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)
+
+               end do
+
+               if ( lRmsNext ) then
+                  !call hInt2Pol(Dif_dist, 1, n_mlo_loc, n_r, 1, n_mlo_loc, &
+                  !     &        DifPolLMr(:,n_r), DifPol2hInt(:,n_r), map_mlo)
+               end if
+            end do
+            !$omp end do
+         end if
+
+      end if
+
+      !$omp end parallel
+
+   end subroutine get_single_rhs_imp_dist
 !------------------------------------------------------------------------------
    subroutine get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
               &                  tscheme, istage, l_calc_lin, lRmsNext,      &

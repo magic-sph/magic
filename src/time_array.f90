@@ -19,7 +19,7 @@ module time_array
       complex(cp), pointer :: expl(:,:,:) ! Array that contains the explicit states
       complex(cp), allocatable :: old(:,:,:) ! Array that contains the old states
       logical :: l_exp
-      integer :: nold, nexp, nimp
+      integer :: nold, nexp, nimp, n_r
    contains
       procedure :: initialize
       procedure :: finalize
@@ -67,6 +67,7 @@ contains
       this%nold = nold
       this%nexp = nexp
       this%nimp = nimp
+      this%n_r = n_r_max
 
       this%l_exp = l_allocate
 
@@ -92,16 +93,16 @@ contains
       integer :: i, j
       
       do i=1,dist%nimp
-         call transform_new2old(dist%impl(:,:,i), old%impl(:,:,i))
+         call transform_new2old(dist%impl(:,:,i), old%impl(:,:,i), dist%n_r)
       end do
 
       do i=1,dist%nold
-         call transform_new2old(dist%old(:,:,i), old%old(:,:,i))
+         call transform_new2old(dist%old(:,:,i), old%old(:,:,i), dist%n_r)
       end do
          
       if (associated(dist%expl)) then
          do i=1,dist%nexp
-            call transform_new2old(dist%expl(:,:,i), old%expl(:,:,i))
+            call transform_new2old(dist%expl(:,:,i), old%expl(:,:,i), dist%n_r)
          end do
       end if
       
@@ -113,16 +114,16 @@ contains
       integer :: i
       
       do i=1,this%nimp
-         call transform_old2new(this%impl(:,:,i), dist%impl(:,:,i))
+         call transform_old2new(this%impl(:,:,i), dist%impl(:,:,i), this%n_r)
       end do
 
       do i=1,this%nold
-         call transform_old2new(this%old(:,:,i), dist%old(:,:,i))
+         call transform_old2new(this%old(:,:,i), dist%old(:,:,i), this%n_r)
       end do
          
       if (associated(this%expl)) then
          do i=1,this%nexp
-            call transform_old2new(this%expl(:,:,i), dist%expl(:,:,i))
+            call transform_old2new(this%expl(:,:,i), dist%expl(:,:,i), this%n_r)
          end do
       end if
       
