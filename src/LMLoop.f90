@@ -137,6 +137,7 @@ contains
       call dwdt%slice_all(dwdt_dist) ! <-- needed otherwise the expl array is not sliced
       call dpdt%slice_all(dpdt_dist) ! <-- needed otherwise the expl array is not sliced
       call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
+      call dzdt%slice_all(dzdt_dist) ! <-- needed otherwise the expl array is not sliced
 
       if ( l_chemical_conv ) then
          !call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
