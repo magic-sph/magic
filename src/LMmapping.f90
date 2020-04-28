@@ -34,7 +34,7 @@ module LMmapping
       integer, allocatable :: lm2lmP(:),lmP2lm(:)
       
       logical :: has_m0
-      integer :: m0l0
+      integer :: l0m0
  
    end type mappings
  
@@ -89,7 +89,8 @@ module LMmapping
       integer, allocatable :: ml2i(:,:), ml2coord(:,:)
       integer, allocatable :: milj2i(:,:), milj2m(:,:)
       integer, allocatable :: n_mi(:), lj2l(:)
-      integer :: n_li
+      integer :: n_mi_max
+      integer :: m0l0
    end type ml_mappings
    
    type(mappings), target :: map_dist_st, map_glbl_st
@@ -381,7 +382,7 @@ contains
       end do
       
       map%has_m0 = any(m_arr==0)
-      map%m0l0 = map_dist_st%lm2(0,0) ! This is -1 if the point (0,0) is not local
+      map%l0m0 = map%lm2(0,0) ! This is -1 if the point (0,0) is not local
       
    end subroutine set_lmmapping_default
    
@@ -453,6 +454,8 @@ contains
          end do
          map%n_mi(lj) = mi
       end do
+      map%n_mi_max = maxval(map%n_mi(:))
+      map%m0l0 = map%ml2i(0,0) ! This is -1 if the point (0,0) is not local
       
    end subroutine set_mlmapping
    

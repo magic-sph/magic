@@ -202,7 +202,7 @@ contains
             do i=1,n_lm_loc
                this%bCMB(i)=b_Rdist(i,nR)  ! used for movie output of surface field
             end do
-            if (map_dist_st%has_m0) this%bCMB(map_dist_st%m0l0)=zero ! used in s_store_movie_frame.f
+            if (map_dist_st%has_m0) this%bCMB(map_dist_st%l0m0)=zero ! used in s_store_movie_frame.f
          end if
 
 #ifndef WITH_SHTNS

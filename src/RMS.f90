@@ -15,7 +15,7 @@ module RMS
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
        &                 lm_max_dtB, fd_ratio, fd_stretch, nRstop, nRstart,  &
-       &                 radial_balance, nR_per_rank
+       &                 radial_balance, nR_per_rank, n_mlo_loc
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
    use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF, &
@@ -49,9 +49,9 @@ module RMS
    real(cp), public, allocatable :: dtBTor2hInt(:,:)
    complex(cp), public, allocatable :: dtBPolLMr(:,:)
 
-   real(cp), public, allocatable :: DifPol2hInt(:,:)
+   real(cp), public, allocatable :: DifPol2hInt(:,:), DifPol2hInt_dist(:,:)
    real(cp), public, allocatable :: DifTor2hInt(:,:)
-   complex(cp), public, allocatable :: DifPolLMr(:,:)
+   complex(cp), public, allocatable :: DifPolLMr(:,:), DifPolLMr_dist(:,:)
 
    real(cp), public, allocatable :: Adv2hInt(:,:), Cor2hInt(:,:)
    real(cp), public, allocatable :: LF2hInt(:,:), Buo_temp2hInt(:,:)
@@ -94,8 +94,10 @@ contains
       &                 (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
       allocate( DifPol2hInt(0:l_max,n_r_max) )
+      allocate( DifPol2hInt_dist(0:l_max,n_r_max) )
       allocate( DifTor2hInt(0:l_max,n_r_max) )
       allocate( DifPolLMr(llm:ulm,n_r_max) )
+      allocate( DifPolLMr_dist(1:n_mlo_loc,n_r_max) )
       bytes_allocated = bytes_allocated+                      &
       &                 2*(l_max+1)*n_r_max*SIZEOF_DEF_REAL+  &
       &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX

@@ -5,7 +5,7 @@ module updateWP_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, l_max, n_r_cmb, n_r_icb,     &
-       &                 get_openmp_blocks
+       &                 get_openmp_blocks, n_mlo_loc, n_lo_loc
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun,      &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
@@ -16,13 +16,13 @@ module updateWP_mod
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
-   use RMS, only: DifPol2hInt, DifPolLMr
+   use RMS, only: DifPol2hInt, DifPolLMr, DifPol2hInt_dist, DifPolLMr_dist
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, coord_r, n_ranks_r
-   use RMS_helpers, only:  hInt2Pol
+   use RMS_helpers, only:  hInt2Pol, hInt2Pol_dist
    use radial_der, only: get_dddr, get_ddr, get_dr
    use integration, only: rInt_R
-   use fields, only: work_LMloc
+   use fields, only: work_LMloc, work_LMdist
    use constants, only: zero, one, two, three, four, third, half
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
@@ -30,6 +30,7 @@ module updateWP_mod
    use dense_matrices
    use real_matrices
    use band_matrices
+   use LMmapping
 
    implicit none
 
@@ -46,10 +47,24 @@ module updateWP_mod
    class(type_realmat), allocatable :: wpMat(:), p0Mat, ellMat(:)
    logical, public, allocatable :: lWPmat(:)
    logical, allocatable :: l_ellMat(:)
+   
+   
+   !-- Input of recycled work arrays:
+   complex(cp), allocatable :: ddddw_dist(:,:)
+   complex(cp), allocatable :: dwold_dist(:,:)
+   real(cp), allocatable :: work_dist(:)
+   complex(cp), allocatable :: Dif_dist(:),Pre_dist(:),Buo_dist(:)
+   real(cp), allocatable :: rhs1_dist(:,:,:)
+   real(cp), allocatable :: rhs0_dist(:,:,:)
+   real(cp), allocatable :: wpMat_fac_dist(:,:,:)
+   class(type_realmat), allocatable :: wpMat_dist(:), p0Mat_dist, ellMat_dist(:)
+   logical, public, allocatable :: lWPmat_dist(:)
+   logical, allocatable :: l_ellMat_dist(:)
+   
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol, &
-   &         finish_exp_pol, get_pol_rhs_imp
+   &         finish_exp_pol, get_pol_rhs_imp, updateWP_dist, initialize_updateWP_dist
 
 contains
 
@@ -170,6 +185,115 @@ contains
       end if
 
    end subroutine initialize_updateWP
+!-----------------------------------------------------------------------------
+   subroutine initialize_updateWP_dist(tscheme)
+      !
+      ! Purpose of this subroutine is to allocate the matrices needed
+      ! to time advance the poloidal/pressure equations. Depending on the
+      ! radial scheme, it can be either full or band matrices.
+      !
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+
+      !-- Local variables:
+      integer :: ll, n_bands
+
+      if ( l_finite_diff ) then
+         allocate( type_bandmat :: wpMat_dist(n_lo_loc) )
+
+         if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
+            n_bands =rscheme_oc%order+3
+         else
+            n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
+         end if
+         !print*, 'WP', n_bands
+         do ll=1,n_lo_loc
+            call wpMat_dist(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+         end do
+         allocate( wpMat_fac_dist(n_r_max,2,n_lo_loc) )
+         bytes_allocated=bytes_allocated+2*n_r_max*n_lo_loc*    &
+         &               SIZEOF_DEF_REAL
+
+         allocate( type_bandmat :: p0Mat_dist )
+         n_bands = rscheme_oc%order+1
+         call p0Mat_dist%initialize(n_bands,n_r_max,l_pivot=.true.)
+      else
+         allocate( type_densemat :: wpMat_dist(n_lo_loc) )
+         if ( l_double_curl ) then
+            do ll=1,n_lo_loc
+               call wpMat_dist(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
+            end do
+            allocate( wpMat_fac_dist(n_r_max,2,n_lo_loc) )
+            bytes_allocated=bytes_allocated+2*n_r_max*n_lo_loc*    &
+            &               SIZEOF_DEF_REAL
+         else
+            do ll=1,n_lo_loc
+               call wpMat_dist(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
+            end do
+            allocate( wpMat_fac_dist(2*n_r_max,2,n_lo_loc) )
+            bytes_allocated=bytes_allocated+4*n_r_max*n_lo_loc*    &
+            &               SIZEOF_DEF_REAL
+         end if
+
+         allocate( type_densemat :: p0Mat_dist )
+         call p0Mat_dist%initialize(n_r_max,n_r_max,l_pivot=.true.)
+      end if
+
+      allocate( lWPmat_dist(0:n_lo_loc) )
+      bytes_allocated=bytes_allocated+(n_lo_loc+1)*SIZEOF_LOGICAL
+
+      if ( l_double_curl ) then
+         allocate( ddddw_dist(n_mlo_loc,n_r_max) )
+         bytes_allocated = bytes_allocated+(n_mlo_loc)*n_r_max*SIZEOF_DEF_COMPLEX
+         if ( l_RMS .or. l_FluxProfs ) then
+            allocate( dwold_dist(n_mlo_loc,n_r_max) )
+            bytes_allocated = bytes_allocated+(n_mlo_loc)*n_r_max*SIZEOF_DEF_COMPLEX
+            dwold_dist(:,:)=zero
+         end if
+      end if
+
+      allocate( work_dist(n_r_max) )
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+
+      allocate( Dif_dist(n_mlo_loc) )
+      allocate( Pre_dist(n_mlo_loc) )
+      allocate( Buo_dist(n_mlo_loc) )
+      bytes_allocated = bytes_allocated+3*(n_mlo_loc)*SIZEOF_DEF_COMPLEX
+
+      if ( l_double_curl ) then
+         size_rhs1 = n_r_max
+         allocate( rhs1_dist(n_r_max,2*map_mlo%n_mi_max,1) )
+         bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
+         &               map_mlo%n_mi_max*SIZEOF_DEF_COMPLEX
+      else
+         size_rhs1 = 2*n_r_max
+         allocate( rhs1_dist(2*n_r_max,2*map_mlo%n_mi_max,1) )
+         bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
+         &               map_mlo%n_mi_max*SIZEOF_DEF_COMPLEX
+      end if
+
+      if ( tscheme%l_assembly .and. l_double_curl ) then
+         allocate( type_bandmat :: ellMat_dist(n_lo_loc) )
+         if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 .and. &
+         &    ktopv /=1 .and. kbotv /=1 ) then
+            !n_bands =rscheme_oc%order+1 # should be that but yield matrix singularity?
+            n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
+         else
+            n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
+         end if
+         do ll=1,n_lo_loc
+            call ellMat_dist(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+         end do
+         allocate( l_ellMat_dist(0:n_lo_loc) )
+         l_ellMat_dist(:) = .false.
+         allocate( rhs0_dist(n_r_max,2*map_mlo%n_mi_max,1) )
+         rhs0_dist(:,:,:)=zero
+         bytes_allocated = bytes_allocated+(n_lo_loc+1)*SIZEOF_LOGICAL+&
+         &                 n_r_max*maxThreads*2*map_mlo%n_mi_max*SIZEOF_DEF_REAL
+      end if
+
+   end subroutine initialize_updateWP_dist
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWP(tscheme)
       !
@@ -558,6 +682,292 @@ contains
 
 
    end subroutine updateWP
+!-----------------------------------------------------------------------------
+   subroutine updateWP_dist(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
+              &        lRmsNext, lPressNext)
+      !
+      !  updates the poloidal velocity potential w, the pressure p,  and
+      !  their derivatives
+      !  adds explicit part to time derivatives of w and p
+      !
+
+      !-- Input/output of scalar fields:
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+      logical,             intent(in) :: lPressNext
+
+      type(type_tarray), intent(inout) :: dpdt
+      type(type_tarray), intent(inout) :: dwdt
+      complex(cp),       intent(inout) :: s(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: xi(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: w(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: dw(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: ddw(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: p(n_mlo_loc,n_r_max)
+
+      complex(cp),       intent(out) :: dp(n_mlo_loc,n_r_max)
+
+      !-- Local variables:
+      integer :: l, m               ! degree and order corresponding
+      integer :: lj, mi, i, nRHS    ! l, m and ml counter
+      integer :: nR                 ! counts radial grid points
+      integer :: n_r_out            ! counts cheb modes
+      real(cp) :: rhs(n_r_max)  ! real RHS for l=m=0
+
+
+      if ( .not. l_update_v ) return
+      
+      !-- Now assemble the right hand side and store it in work_LMloc
+      call tscheme%set_imex_rhs(work_LMdist, dwdt, 1, n_mlo_loc, n_r_max)
+      if ( .not. l_double_curl ) then
+         call tscheme%set_imex_rhs(ddw, dpdt, 1, n_mlo_loc, n_r_max)
+      end if
+
+      call solve_counter%start_count()
+      ! Loop over local l
+      do lj=1, n_lo_loc
+         l = map_mlo%lj2l(lj)
+
+         if ( .not. lWPmat_dist(lj) ) then
+            if ( l == 0 ) then
+               call get_p0Mat(p0Mat_dist)
+            else
+               if ( l_double_curl ) then
+                  call get_wMat(tscheme,l,hdif_V(l),    &
+                       &        wpMat_dist(lj),wpMat_fac_dist(:,:,lj))
+               else
+                  call get_wpMat(tscheme,l,hdif_V(l),   &
+                       &         wpMat_dist(lj),wpMat_fac_dist(:,:,lj))
+               end if
+            end if         
+            lWPmat_dist(lj)=.true.
+         end if
+
+         ! Build RHS
+         ! Loop over local m corresponding to current l
+         nRHS = map_mlo%n_mi(lj)
+         do mi=1,nRHS
+            m = map_mlo%milj2m(mi,lj)
+            i = map_mlo%milj2i(mi,lj)
+            
+            if ( l==0 ) then
+            
+               !-- The integral of rho' r^2 dr vanishes
+               if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
+                  if ( rscheme_oc%version == 'cheb' ) then
+                     do nR=1,n_r_max
+                        work_dist(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
+                        &        r(nR)*real(s(map_mlo%m0l0,nR))
+                     end do
+                     rhs(1)=rInt_R(work_dist,r,rscheme_oc)
+                  else
+                     rhs(1)=0.0_cp
+                  end if
+               else
+                  rhs(1)=0.0_cp
+               end if
+
+               if ( l_chemical_conv ) then
+                  do nR=2,n_r_max
+                     rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(map_mlo%m0l0,nR))+   &
+                     &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(map_mlo%m0l0,nR))+ &
+                     &       real(dwdt%expl(map_mlo%m0l0,nR,tscheme%istage))
+                  end do
+               else
+                  do nR=2,n_r_max
+                     rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(map_mlo%m0l0,nR))+  &
+                     &       real(dwdt%expl(map_mlo%m0l0,nR,tscheme%istage))
+                  end do
+               end if
+
+               call p0Mat_dist%solve(rhs)
+               
+            else ! l /= 0
+               rhs1_dist(1,2*mi-1,1)      =0.0_cp
+               rhs1_dist(1,2*mi,1)        =0.0_cp
+               rhs1_dist(n_r_max,2*mi-1,1)=0.0_cp
+               rhs1_dist(n_r_max,2*mi,1)  =0.0_cp
+               if ( l_double_curl ) then
+                  rhs1_dist(2,2*mi-1,1)        =0.0_cp
+                  rhs1_dist(2,2*mi,1)          =0.0_cp
+                  rhs1_dist(n_r_max-1,2*mi-1,1)=0.0_cp
+                  rhs1_dist(n_r_max-1,2*mi,1)  =0.0_cp
+                  do nR=3,n_r_max-2
+                     rhs1_dist(nR,2*mi-1,1)= real(work_LMdist(i,nR))
+                     rhs1_dist(nR,2*mi,1)  =aimag(work_LMdist(i,nR))
+                  end do
+
+                  if ( l_heat ) then
+                     do nR=3,n_r_max-2
+                        rhs1_dist(nR,2*mi-1,1)=rhs1_dist(nR,2*mi-1,1)+ &
+                        &      tscheme%wimp_lin(1)*real(l*(l+1),cp) *      &
+                        &      or2(nR)*BuoFac*rgrav(nR)*real(s(i,nR))
+                        rhs1_dist(nR,2*mi,1)  =rhs1_dist(nR,2*mi,1)+   &
+                        &      tscheme%wimp_lin(1)*real(l*(l+1),cp) *      &
+                        &      or2(nR)*BuoFac*rgrav(nR)*aimag(s(i,nR))
+                     end do
+                  end if
+
+                  if ( l_chemical_conv ) then
+                     do nR=3,n_r_max-2
+                        rhs1_dist(nR,2*mi-1,1)=rhs1_dist(nR,2*mi-1,1)+ &
+                        &      tscheme%wimp_lin(1)*real(l*(l+1),cp) * &
+                        &      or2(nR)*ChemFac*rgrav(nR)*real(xi(i,nR))
+                        rhs1_dist(nR,2*mi,1)  =rhs1_dist(nR,2*mi,1)+   &
+                        &      tscheme%wimp_lin(1)*real(l*(l+1),cp) * &
+                        &      or2(nR)*ChemFac*rgrav(nR)*aimag(xi(i,nR))
+                     end do
+                  end if
+               else
+                  rhs1_dist(n_r_max+1,2*mi-1,1)=0.0_cp
+                  rhs1_dist(n_r_max+1,2*mi,1)  =0.0_cp
+                  rhs1_dist(2*n_r_max,2*mi-1,1)=0.0_cp
+                  rhs1_dist(2*n_r_max,2*mi,1)  =0.0_cp
+                  do nR=2,n_r_max-1
+                     rhs1_dist(nR,2*mi-1,1)        = real(work_LMdist(i,nR))
+                     rhs1_dist(nR,2*mi,1)          =aimag(work_LMdist(i,nR))
+                     rhs1_dist(nR+n_r_max,2*mi-1,1)= real(ddw(i,nR)) ! ddw is a work array
+                     rhs1_dist(nR+n_r_max,2*mi,1)  =aimag(ddw(i,nR))
+                  end do
+
+                  if ( l_heat ) then
+                     do nR=2,n_r_max-1
+                        rhs1_dist(nR,2*mi-1,1)=rhs1_dist(nR,2*mi-1,1)+ &
+                        &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
+                        &                      rgrav(nR)*real(s(i,nR))
+                        rhs1_dist(nR,2*mi,1)  =rhs1_dist(nR,2*mi,1)+   &
+                        &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
+                        &                      rgrav(nR)*aimag(s(i,nR))
+                     end do
+                  end if
+
+                  if ( l_chemical_conv ) then
+                     do nR=2,n_r_max-1
+                        rhs1_dist(nR,2*mi-1,1)=rhs1_dist(nR,2*mi-1,1)+ &
+                        &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
+                        &                      rgrav(nR)*real(xi(i,nR))
+                        rhs1_dist(nR,2*mi,1)  =rhs1_dist(nR,2*mi,1)+   &
+                        &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
+                        &                      rgrav(nR)*aimag(xi(i,nR))
+                     end do
+                  end if
+                  
+               end if
+            end if
+
+         end do ! end of loop over local m corresponding to current l
+            
+         ! Rescale and Solve for all RHS at once
+         if ( l>0 ) then
+
+            ! use the mat_fac(:,1) to scale the rhs
+            do mi=1,nRHS
+               do nR=1,size_rhs1
+                  rhs1_dist(nR,2*mi-1,1)=rhs1_dist(nR,2*mi-1,1)* &
+                  &                        wpMat_fac_dist(nR,1,lj)
+                  rhs1_dist(nR,2*mi,1)  =rhs1_dist(nR,2*mi,1)* &
+                  &                        wpMat_fac_dist(nR,1,lj)
+               end do
+            end do
+            
+            call wpMat_dist(lj)%solve(rhs1_dist(:,1:nRHS,1),nRHS)
+            
+            ! rescale the solution with mat_fac(:,2)
+            do mi=1,nRHS
+               do nR=1,size_rhs1
+                  rhs1_dist(nR,2*mi-1,1)=rhs1_dist(nR,2*mi-1,1)* &
+                  &                        wpMat_fac_dist(nR,2,lj)
+                  rhs1_dist(nR,2*mi,1)  =rhs1_dist(nR,2*mi,1)* &
+                  &                        wpMat_fac_dist(nR,2,lj)
+               end do
+            end do
+         end if
+         
+         
+         do mi=1,nRHS
+            i = map_mlo%milj2i(mi,lj)
+            m = map_mlo%milj2m(mi,lj)
+            
+            ! Store old dw
+            if ( l_double_curl .and. lPressNext .and. tscheme%istage == 1) then
+               do nR=1,n_r_max
+                  dwold_dist(i,nR)=dw(i,nR)
+               end do
+            end if
+            
+            
+            if (l==0) then
+               do n_r_out=1,rscheme_oc%n_max
+                  p(i,n_r_out)=rhs(n_r_out)
+               end do
+            else
+               
+               if ( l_double_curl ) then
+                  if ( m > 0 ) then
+                     do n_r_out=1,rscheme_oc%n_max
+                        w(i,n_r_out)  =cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
+                        &                      rhs1_dist(n_r_out,2*mi,1),cp)
+                     end do
+                  else
+                     do n_r_out=1,rscheme_oc%n_max
+                        w(i,n_r_out)  = cmplx(rhs1_dist(n_r_out,2*mi-1,1),&
+                        &                       0.0_cp,kind=cp)
+                     end do
+                  end if
+               else
+                  if ( m > 0 ) then
+                     do n_r_out=1,rscheme_oc%n_max
+                        w(i,n_r_out)=cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
+                        &                    rhs1_dist(n_r_out,2*mi,1),cp)
+                        p(i,n_r_out)=cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1,   &
+                        &                    1),rhs1_dist(n_r_max+n_r_out, &
+                        &                    2*mi,1),cp)
+                     end do
+                  else
+                     do n_r_out=1,rscheme_oc%n_max
+                        w(i,n_r_out)= cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
+                        &                    0.0_cp,kind=cp)
+                        p(i,n_r_out)= cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1, &
+                        &                    1),0.0_cp,kind=cp)
+                     end do
+                  end if
+               end if
+               
+            end if
+            
+         end do
+
+      end do   ! end of loop over local l
+
+
+      !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+      do i=1,n_mlo_loc
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            w(i,n_r_out)=zero
+            p(i,n_r_out)=zero
+         end do
+      end do
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dwdt, 1, n_mlo_loc, n_r_max)
+      if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt, 1, n_mlo_loc, n_r_max)
+
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_pol_rhs_imp_dist(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
+              &               tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
+              &               lPressNext, lRmsNext,                       &
+              &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
+         ! dpdt%expl(:,:,1) needed for RMS calc: first stage explicit term
+      else
+         call get_pol_rhs_imp_dist(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
+              &               tscheme, tscheme%istage+1,                  &
+              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
+              &               lPressNext, lRmsNext,                       &
+              &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
+      end if
+
+
+   end subroutine updateWP_dist
 !------------------------------------------------------------------------------
    subroutine get_pol(w, work)
       !
@@ -968,6 +1378,244 @@ contains
       !$omp end parallel
 
    end subroutine get_pol_rhs_imp
+!------------------------------------------------------------------------------
+   subroutine get_pol_rhs_imp_dist(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, tscheme,     &
+              &               istage, l_calc_lin, lPressNext, lRmsNext, dp_expl, &
+              &               l_in_cheb_space)
+      !
+      ! This subroutine computes the derivatives of w and p and assemble the
+      ! implicit stage if needed.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: s(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: xi(n_mlo_loc,n_r_max)
+      logical,             intent(in) :: l_calc_lin
+      logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lRmsNext
+      logical, optional,   intent(in) :: l_in_cheb_space
+      complex(cp),         intent(in) :: dp_expl(n_mlo_loc,n_r_max)
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dwdt
+      type(type_tarray), intent(inout) :: dpdt
+      complex(cp),       intent(inout) :: w(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: p(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: dp(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: dw(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: ddw(n_mlo_loc,n_r_max)
+
+      !-- Local variables 
+      logical :: l_in_cheb
+      integer :: n_r_top, n_r_bot, l, m
+      integer :: n_r, i, start_lm, stop_lm
+      real(cp) :: dL
+
+      if ( present(l_in_cheb_space) ) then
+         l_in_cheb = l_in_cheb_space
+      else
+         l_in_cheb = .false.
+      end if
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      if ( l_double_curl ) then
+         call get_ddr( w, dw, ddw, n_mlo_loc, start_lm,  &
+              &       stop_lm, n_r_max, rscheme_oc,      &
+              &       l_dct_in=.not. l_in_cheb )
+         call get_ddr( ddw, work_LMdist, ddddw_dist, n_mlo_loc, start_lm,  &
+              &       stop_lm, n_r_max, rscheme_oc )
+      else
+         call get_dddr( w, dw, ddw, work_LMdist, n_mlo_loc, start_lm, &
+              &         stop_lm, n_r_max, rscheme_oc,                &
+              &         l_dct_in=.not. l_in_cheb)
+         call get_dr( p, dp, n_mlo_loc, start_lm, stop_lm, &
+              &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+         if ( l_in_cheb ) call rscheme_oc%costf1(p,n_mlo_loc,start_lm, &
+                               &                 stop_lm)
+      end if
+      if ( l_in_cheb ) call rscheme_oc%costf1(w,n_mlo_loc,start_lm, &
+                            &                 stop_lm)
+      !$omp barrier
+      !$omp single
+      call dct_counter%stop_count()
+      !$omp end single
+
+      if ( istage == 1 ) then
+         if ( l_double_curl ) then
+            !$omp do private(n_r,i,l,dL)
+            do n_r=2,n_r_max-1
+               do i=1,n_mlo_loc
+                  if (map_mlo%m0l0==i) cycle ! skips mode (0,0) if it is local
+                  l = map_mlo%i2l(i)
+                  dL = real(l*(l+1),cp)
+                  dwdt%old(i,n_r,istage)=dL*or2(n_r)* ( -orho1(n_r)*(  &
+                  &                   ddw(i,n_r)-beta(n_r)*dw(i,n_r)- &
+                  &                             dL*or2(n_r)* w(i,n_r) ) )
+               end do
+            end do
+            !$omp end do
+         else
+            !$omp do private(n_r,i,l,dL) 
+            do n_r=2,n_r_max-1
+               do i=1,n_mlo_loc
+                  if (map_mlo%m0l0==i) cycle ! skips mode (0,0) if it is local
+                  l = map_mlo%i2l(i)
+                  dL = real(l*(l+1),cp)
+                  dwdt%old(i,n_r,istage)= dL*or2(n_r)*w(i,n_r)
+                  dpdt%old(i,n_r,istage)=-dL*or2(n_r)*dw(i,n_r)
+               end do
+            end do
+            !$omp end do
+         end if
+      end if
+
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+
+         if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         else
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
+         end if
+
+         !PERFON('upWP_ex')
+         !-- Calculate explicit time step part:
+         if ( l_double_curl ) then
+
+            if ( lPressNext ) then
+               n_r_top=n_r_cmb
+               n_r_bot=n_r_icb
+            end if
+
+            !$omp do private(n_r,i,l,Dif_dist,Buo_dist,dL)
+            do n_r=n_r_top,n_r_bot
+               do i=1,n_mlo_loc
+                  if (map_mlo%m0l0==i) cycle ! skips mode (0,0) if it is local
+                  l=map_mlo%i2l(i)
+                  dL=real(l*(l+1),cp)
+
+                  Dif_dist(i)=-hdif_V(l)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  &                                              ddddw_dist(i,n_r)  &
+                  &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMdist(i,n_r)  &
+                  &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
+                  &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
+                  &           or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
+                  &                                                    ddw(i,n_r)  &
+                  &        +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
+                  &           two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
+                  &           beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
+                  &           beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
+                  &           two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
+                  &           two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
+                  &                                    *                dw(i,n_r)  &
+                  &        + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
+                  &          dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
+                  &          dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
+                  &          beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(i,n_r) )
+
+                  Buo_dist(i) = zero
+                  if ( l_heat ) Buo_dist(i) = BuoFac*dL*or2(n_r)*rgrav(n_r)*s(i,n_r)
+                  if ( l_chemical_conv ) Buo_dist(i) = Buo_dist(i)+ChemFac*dL*or2(n_r)*&
+                  &                                rgrav(n_r)*xi(i,n_r)
+
+                  dwdt%impl(i,n_r,istage)=Dif_dist(i)+Buo_dist(i)
+
+                  if ( l /= 0 .and. lPressNext .and. &
+                  &    tscheme%istage==tscheme%nstages) then
+                     ! In the double curl formulation, we can estimate the pressure
+                     ! if required.
+                     p(i,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(i,n_r)  &
+                     &            -one/tscheme%dt(1)*(dw(i,n_r)-dwold_dist(i,n_r))+   &
+                     &              hdif_V(l)*visc(n_r)* ( work_LMdist(i,n_r)     &
+                     &                       - (beta(n_r)-dLvisc(n_r))*ddw(i,n_r) &
+                     &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                     &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                     &                                              ) * dw(i,n_r) &
+                     &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
+                     &                     +dLvisc(n_r) )   *            w(i,n_r) )
+                  end if
+
+                  if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                     !-- In case RMS force balance is required, one needs to also
+                     !-- compute the classical diffusivity that is used in the non
+                     !-- double-curl version
+                     Dif_dist(i) = hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(i,n_r)   &
+                     &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(i,n_r)   &
+                     &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                     &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                     &                                         *       w(i,n_r) )
+                  end if
+               end do
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  call hInt2Pol_dist(Dif_dist,1,n_mlo_loc,n_r,   &
+                       &        DifPolLMr_dist(1:n_mlo_loc,n_r), &
+                       &        DifPol2hInt_dist(:,n_r))
+               end if
+            end do
+            !$omp end do
+
+         else
+
+            !$omp do private(n_r,i,l,Dif_dist,Buo_dist,Pre_dist,dL)
+            do n_r=n_r_top,n_r_bot
+               do i=1,n_mlo_loc
+                  if (map_mlo%m0l0==i) cycle ! skips mode (0,0) if it is local
+                  l=map_mlo%i2l(i)
+                  dL=real(l*(l+1),cp)
+
+                  Dif_dist(i) = hdif_V(l)*dL*or2(n_r)*visc(n_r)*(       ddw(i,n_r)  & 
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(i,n_r)  &
+                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &                                                   w(i,n_r)  )
+                  Pre_dist(i) = -dp(i,n_r)+beta(n_r)*p(i,n_r)
+                  Buo_dist(i) = zero
+                  if ( l_heat )  Buo_dist(i) = BuoFac*rho0(n_r)*rgrav(n_r)*s(i,n_r)
+                  if ( l_chemical_conv ) Buo_dist(i) = Buo_dist(i)+ChemFac*rho0(n_r)* &
+                  &                                rgrav(n_r)*xi(i,n_r)
+                  dwdt%impl(i,n_r,istage)=Pre_dist(i)+Dif_dist(i)+Buo_dist(i)
+                  dpdt%impl(i,n_r,istage)=               dL*or2(n_r)*p(i,n_r) &
+                  &            + hdif_V(l)*visc(n_r)*dL*or2(n_r)               &
+                  &                                     * ( -work_LMdist(i,n_r) &
+                  &                       + (beta(n_r)-dLvisc(n_r))*ddw(i,n_r) &
+                  &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                  &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                  &                                           ) *    dw(i,n_r) &
+                  &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
+                  &                     +dLvisc(n_r) )   *           w(i,n_r)  )
+               end do
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  call hInt2Pol_dist(Dif_dist,1,n_mlo_loc,n_r,&
+                       &        DifPolLMr_dist(1:n_mlo_loc,n_r),         &
+                       &        DifPol2hInt_dist(:,n_r))
+               end if
+            end do
+            !$omp end do
+
+         end if
+
+      end if
+
+      ! In case pressure is needed in the double curl formulation
+      ! we also have to compute the radial derivative of p
+      if ( lPressNext .and. l_double_curl ) then
+         call get_dr( p, dp,n_mlo_loc, start_lm, stop_lm, &
+              &       n_r_max, rscheme_oc)
+         !$omp barrier
+      end if
+
+      !$omp end parallel
+
+   end subroutine get_pol_rhs_imp_dist
 !------------------------------------------------------------------------------
    subroutine assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
               &            tscheme, lPressNext, lRmsNext)
