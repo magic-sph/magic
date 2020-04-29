@@ -637,8 +637,6 @@ contains
                        &                 dVxBhLM_LMdist(:,:,tscheme%istage),n_r_max)
                   call djdt%slice_all(djdt_dist)
                   if ( l_cond_ic ) then
-                     !call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
-                     !call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
                      call dbdt_ic%slice_all(dbdt_ic_dist)
                      call djdt_ic%slice_all(djdt_ic_dist)
                   end if
@@ -649,19 +647,6 @@ contains
                   call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
                end if
                !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-               call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
-                    &                        aj_ic_LMloc,                         &
-                    &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
-                    &                        dVXirLM_LMLoc(:,:,tscheme%istage),   &
-                    &                        dVxVhLM_LMloc(:,:,tscheme%istage),   &
-                    &                        dVxBhLM_LMloc(:,:,tscheme%istage),   &
-                    &                        lorentz_torque_ma,lorentz_torque_ic, &
-                    &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
-                    &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
-                    &                        lorentz_torque_ma_dt,                &
-                    &                        lorentz_torque_ic_dt, tscheme)
-
 
                call finish_explicit_assembly_dist(omega_ic,w_LMdist,b_ic_LMdist,   &
                     &                        aj_ic_LMdist,                         &
@@ -757,8 +742,7 @@ contains
             if ( (.not. tscheme%l_assembly) .or. (tscheme%istage/=tscheme%nstages) ) then
                if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
                call lmLoop_counter%start_count()
-               call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
-                    &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
+               call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,       &
                     &      dsdt_dist,dwdt_dist,dzdt_dist,dpdt_dist,dxidt_dist,    &
                     &      dbdt_dist,djdt_dist,dbdt_ic_dist,djdt_ic_dist,         & 
                     &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
@@ -775,6 +759,51 @@ contains
                ! Increment current stage
                tscheme%istage = tscheme%istage+1
             end if
+
+            !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+            call transform_new2old(w_LMdist, w_LMloc, n_r_max)
+            call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
+            call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
+            call transform_new2old(p_LMdist, p_LMloc, n_r_max)
+            call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
+            call dwdt_dist%gather_all(dwdt)
+            call dpdt_dist%gather_all(dpdt)
+            call transform_new2old(z_LMdist, z_LMloc, n_r_max)
+            call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
+            call dzdt_dist%gather_all(dzdt)
+
+            if ( l_heat ) then
+               call transform_new2old(s_LMdist, s_LMloc, n_r_max)
+               call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
+               call dsdt_dist%gather_all(dsdt)
+            end if
+            if ( l_chemical_conv ) then
+               call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
+               call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
+               call dxidt_dist%gather_all(dxidt)
+            end if
+            if ( l_mag ) then
+               call transform_new2old(b_LMdist, b_LMloc, n_r_max)
+               call transform_new2old(db_LMdist, db_LMloc, n_r_max)
+               call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
+               call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
+               call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
+               call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
+               call dbdt_dist%gather_all(dbdt)
+               call djdt_dist%gather_all(djdt)
+               if ( l_cond_ic ) then
+                  call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
+                  call dbdt_ic_dist%gather_all(dbdt_ic)
+                  call djdt_ic_dist%gather_all(djdt_ic)
+               end if
+            end if
+            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End conversion 
+
          end do
 
          !----------------------------

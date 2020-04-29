@@ -10,10 +10,11 @@ module LMLoop_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max, &
-       &                 n_mlo_loc, n_mloMag_loc
-   use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
+       &                 n_mlo_loc, n_mloMag_loc, mlo_tsid
+   use blocking, only: lo_map, llm, ulm, llmMag, ulmMag !@> TODO: remove those
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic
+   use LMmapping, only: map_mlo
    use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use updateS_mod
@@ -23,10 +24,6 @@ module LMLoop_mod
    use updateB_mod
    use updateXi_mod
    
-   ! DELETEMEEEE
-   use communications
-   use mpi_thetap_mod
-
    implicit none
 
    private
@@ -95,8 +92,7 @@ contains
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
    subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
-              &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
-              &      djdt_ic,dsdt_dist,dwdt_dist,dzdt_dist,dpdt_dist,  &
+              &      dsdt_dist,dwdt_dist,dzdt_dist,dpdt_dist,          &
               &      dxidt_dist,dbdt_dist,djdt_dist,dbdt_ic_dist,      &
               &      djdt_ic_dist,domega_ma_dt,domega_ic_dt,           &
               &      lorentz_torque_ma_dt,lorentz_torque_ic_dt,        &
@@ -118,8 +114,6 @@ contains
       complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Input from radialLoop:
-      type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt
-      type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tarray),  intent(inout) :: dsdt_dist, dxidt_dist, dwdt_dist
       type(type_tarray),  intent(inout) :: dpdt_dist, dzdt_dist
       type(type_tarray),  intent(inout) :: dbdt_dist, djdt_dist, dbdt_ic_dist, djdt_ic_dist
@@ -130,152 +124,62 @@ contains
       !--- Inner core rotation from last time step
       real(cp) :: z10(n_r_max)
 
-      PERFON('LMloop')
-      !LIKWID_ON('LMloop')
-      
       if ( lMat ) then ! update matrices:
          !---- The following logicals tell whether the respective inversion
          !     matrices have been updated. lMat=.true. when a general
          !     update is necessary.
-         lZ10mat=.false.
          lZ10mat_dist=.false.
          if ( l_single_matrix ) then
-            lWPSmat(:)=.false.
             lWPSmat_dist(:)=.false.
          else
-            lWPmat(:)=.false.
             lWPmat_dist(:)=.false.
-            if ( l_heat ) lSmat(:) =.false.
             if ( l_heat ) lSmat_dist(:) =.false.
          end if
-         lZmat(:) =.false.
          lZmat_dist(:) =.false.
-         if ( l_mag ) lBmat(:) =.false.
          if ( l_mag ) lBmat_dist(:) =.false.
-         if ( l_chemical_conv ) lXimat(:)=.false.
          if ( l_chemical_conv ) lXimat_dist(:)=.false.
       end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
-         PERFON('up_S')
-         call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
          call updateS_dist( s_LMdist, ds_LMdist, dsdt_dist, tscheme )
-         
-         call test_field(s_LMdist, s_LMloc, 'entropy_', n_r_max)
-         call test_field(ds_LMdist, ds_LMloc, 'dentropydr_', n_r_max)
-         PERFOFF
       end if
       
       if ( l_chemical_conv ) then
-         call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
          call updateXi_dist(xi_LMdist, dxi_LMdist, dxidt_dist, tscheme)
-
-         call test_field(xi_LMdist, xi_LMloc, 'comp_', n_r_max)
-         call test_field(dxi_LMdist, dxi_LMloc, 'dcompdr_', n_r_max)
-         !call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
-         !call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
       end if
 
       if ( l_conv ) then
-         call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
-              &        omega_ic, domega_ma_dt,domega_ic_dt,                &
-              &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
-              &        lRmsNext)
          call updateZ_dist( time, timeNext, z_LMdist, dz_LMdist, dzdt_dist, omega_ma,  &
               &        omega_ic, domega_ma_dt,domega_ic_dt,                &
               &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
               &        lRmsNext)
 
-         call test_field(z_LMdist, z_LMloc, 'upZ_z_', n_r_max)
-         call test_field(dz_LMdist, dz_LMloc, 'upZ_dz_', n_r_max)
-
          if ( l_single_matrix ) then
-            if ( coord_r == rank_with_l1m0 ) then
-               z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
+            if ( map_mlo%ml2i(0,1) > 0 ) then
+               z10(:)=real(z_LMloc(map_mlo%ml2i(0,1),:))
             end if
 #ifdef WITH_MPI
-            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
-                 &         comm_r,ierr)
+            !@> TODO: probably overkill here: ask Rafael whether he has an idea
+            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
 #endif
-            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-                 &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
-                 &          dsdt, tscheme, lRmsNext )
-
             call updateWPS_dist( w_LMdist, dw_LMdist, ddw_LMdist, z10, dwdt_dist,    &
                  &          p_LMdist, dp_LMdist, dpdt_dist, s_LMdist, ds_LMdist, &
                  &          dsdt_dist, tscheme, lRmsNext )
-            call test_field(w_LMdist, w_LMloc, 'WPS_w_', n_r_max)
-            call test_field(dw_LMdist, dw_LMloc, 'WPS_dw_', n_r_max)
-            call test_field(ddw_LMdist, ddw_LMloc, 'WPS_ddw_', n_r_max)
-            call test_field(p_LMdist, p_LMloc, 'WPS_p_', n_r_max)
-            call test_field(dp_LMdist, dp_LMloc, 'WPS_dp_', n_r_max)
-            call test_field(s_LMdist, s_LMloc, 'WPS_s_', n_r_max)
-            call test_field(ds_LMdist, ds_LMloc, 'WPS_ds_', n_r_max)
          else
-            PERFON('up_WP')
-            ! Slicing again to make sure that numerical differences don't stack
-!             call transform_old2new(s_LMloc, s_LMdist)
-!             if (l_chemical_conv) call transform_old2new(xi_LMloc, xi_LMdist)
-!             call transform_old2new(w_LMloc, w_LMdist)
-!             call transform_old2new(dw_LMloc, dw_LMdist)
-!             call transform_old2new(ddw_LMloc, ddw_LMdist)
-!             call transform_old2new(p_LMloc, p_LMdist)
-!             call transform_old2new(dp_LMloc, dp_LMdist)
-!             call dwdt%slice_all(dwdt_dist)
-!             call dpdt%slice_all(dpdt_dist)
-!             
-            call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
-                 &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
-                 &         lRmsNext, lPressNext )
             call updateWP_dist( s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,&
                  &         dwdt_dist, p_LMdist, dp_LMdist, dpdt_dist, tscheme,       &
                  &         lRmsNext, lPressNext )
-!             
-!             call test_field(s_LMdist, s_LMloc, 'WP_entropy_')
-!             if (l_chemical_conv)  call test_field(xi_LMdist, xi_LMLoc, 'WP_comp_')
-             call test_field(w_LMdist, w_LMLoc, 'WP_w_', n_r_max)
-             call test_field(dw_LMdist, dw_LMLoc, 'WP_dw_', n_r_max)
-             call test_field(ddw_LMdist, ddw_LMLoc, 'WP_ddw_', n_r_max)
-             call test_field(p_LMdist, p_LMLoc, 'WP_p_', n_r_max)
-             call test_field(dp_LMdist, dp_LMLoc, 'WP_dp_', n_r_max)
-            PERFOFF
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
-         PERFON('up_B')
-         call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
-              &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
-              &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
-              &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
-              &        lRmsNext )
-
          call updateB_dist( b_LMdist,db_LMdist,ddb_LMdist,aj_LMdist,dj_LMdist,  &
               &             ddj_LMdist, dbdt_dist, djdt_dist, b_ic_LMdist,      &
               &             db_ic_LMdist, ddb_ic_LMdist, aj_ic_LMdist,          &
               &             dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic_dist,          &
               &             djdt_ic_dist, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, &
               &             tscheme, lRmsNext )
-         PERFOFF
-         !LIKWID_OFF('up_B')
-
-         call test_field(b_LMdist, b_LMloc, 'b_', n_r_maxMag)
-         call test_field(db_LMdist, db_LMloc, 'db_', n_r_maxMag)
-         call test_field(ddb_LMdist, ddb_LMloc, 'ddb_', n_r_maxMag)
-         call test_field(aj_LMdist, aj_LMloc, 'aj_', n_r_maxMag)
-         call test_field(dj_LMdist, dj_LMloc, 'dj_', n_r_maxMag)
-         call test_field(ddj_LMdist, ddj_LMloc, 'ddj_', n_r_maxMag)
-         if ( l_cond_ic ) then
-            call test_field(b_ic_LMdist, b_ic_LMloc, 'b_ic_', n_r_ic_max)
-            call test_field(db_ic_LMdist, db_ic_LMloc, 'db_ic_', n_r_ic_max)
-            call test_field(ddb_ic_LMdist, ddb_ic_LMloc, 'ddb_ic_', n_r_ic_max)
-            call test_field(aj_ic_LMdist, aj_ic_LMloc, 'aj_ic_', n_r_ic_max)
-            call test_field(dj_ic_LMdist, dj_ic_LMloc, 'dj_ic_', n_r_ic_max)
-            call test_field(ddj_ic_LMdist, ddj_ic_LMloc, 'ddj_ic_', n_r_ic_max)
-         end if
       end if
 
-      !LIKWID_OFF('LMloop')
-      PERFOFF
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
    subroutine finish_explicit_assembly_dist(omega_ic, w, b_ic, aj_ic, dVSr_LMdist,      &
