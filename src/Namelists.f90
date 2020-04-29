@@ -518,6 +518,8 @@ contains
          l_anel=.true.
       else if ( index(interior_model, 'KOI889B') /= 0 ) then
          l_anel=.true.
+      else if ( index(interior_model, 'MESA_5M_ZAMS') /= 0 ) then
+         l_anel=.true.
       end if
 
       !-- If anelastic, the curl formulation is set to .false.
