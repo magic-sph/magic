@@ -252,17 +252,17 @@ contains
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
                  &         lRmsNext, lPressNext )
-!             call updateWP_dist( s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist, &
-!                  &         dwdt_dist, p_LMdist, dp_LMdist, dpdt_dist, tscheme,          &
-!                  &         lRmsNext, lPressNext )
+            call updateWP_dist( s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,&
+                 &         dwdt_dist, p_LMdist, dp_LMdist, dpdt_dist, tscheme,       &
+                 &         lRmsNext, lPressNext )
 !             
 !             call test_field(s_LMdist, s_LMloc, 'WP_entropy_')
 !             if (l_chemical_conv)  call test_field(xi_LMdist, xi_LMLoc, 'WP_comp_')
-!             call test_field(w_LMdist, w_LMLoc, 'WP_w_')
-!             call test_field(dw_LMdist, dw_LMLoc, 'WP_dw_')
-!             call test_field(ddw_LMdist, ddw_LMLoc, 'WP_ddw_')
-!             call test_field(p_LMdist, p_LMLoc, 'WP_p_')
-!             call test_field(dp_LMdist, dp_LMLoc, 'WP_dp_')
+             call test_field(w_LMdist, w_LMLoc, 'WP_w_', n_r_max)
+             call test_field(dw_LMdist, dw_LMLoc, 'WP_dw_', n_r_max)
+             call test_field(ddw_LMdist, ddw_LMLoc, 'WP_ddw_', n_r_max)
+             call test_field(p_LMdist, p_LMLoc, 'WP_p_', n_r_max)
+             call test_field(dp_LMdist, dp_LMLoc, 'WP_dp_', n_r_max)
             PERFOFF
          end if
       end if

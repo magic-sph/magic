@@ -38,7 +38,7 @@ module start_fields
    use readCheckPoints, only: readStartFields_mpi
 #endif
    use updateWPS_mod, only: get_single_rhs_imp_dist
-   use updateWP_mod, only: get_pol_rhs_imp
+   use updateWP_mod, only: get_pol_rhs_imp_dist
    use updateS_mod, only: get_entropy_rhs_imp_dist
    use updateXI_mod, only: get_comp_rhs_imp_dist
    use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates, get_tor_rhs_imp_dist
@@ -344,9 +344,9 @@ contains
          if ( l_heat ) then
             call get_entropy_rhs_imp_dist(s_LMdist, ds_LMdist, dsdt_dist, 1, .true.)
          end if
-         call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
-              &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
-              &               .false., .false., work_LMloc)
+         call get_pol_rhs_imp_dist(s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,  &
+              &               p_LMdist, dp_LMdist, dwdt_dist, dpdt_dist, tscheme, 1, .true.,&
+              &               .false., .false., work_LMdist)
       end if
       call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
       call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
@@ -366,15 +366,13 @@ contains
       end if
 
       !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      if ( l_single_matrix ) then
-         call transform_new2old(w_LMdist, w_LMloc, n_r_max)
-         call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
-         call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
-         call transform_new2old(p_LMdist, p_LMloc, n_r_max)
-         call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
-         call dwdt_dist%gather_all(dwdt)
-         call dpdt_dist%gather_all(dpdt)
-      end if
+      call transform_new2old(w_LMdist, w_LMloc, n_r_max)
+      call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
+      call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
+      call transform_new2old(p_LMdist, p_LMloc, n_r_max)
+      call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
+      call dwdt_dist%gather_all(dwdt)
+      call dpdt_dist%gather_all(dpdt)
       call transform_new2old(z_LMdist, z_LMloc, n_r_max)
       call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
       call dzdt_dist%gather_all(dzdt)

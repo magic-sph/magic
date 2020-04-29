@@ -64,7 +64,8 @@ module updateWP_mod
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol, &
-   &         finish_exp_pol, get_pol_rhs_imp, updateWP_dist, initialize_updateWP_dist
+   &         finish_exp_pol, get_pol_rhs_imp, updateWP_dist, initialize_updateWP_dist,&
+   &         get_pol_rhs_imp_dist
 
 contains
 
@@ -240,7 +241,7 @@ contains
          call p0Mat_dist%initialize(n_r_max,n_r_max,l_pivot=.true.)
       end if
 
-      allocate( lWPmat_dist(0:n_lo_loc) )
+      allocate( lWPmat_dist(0:l_max) )
       bytes_allocated=bytes_allocated+(n_lo_loc+1)*SIZEOF_LOGICAL
 
       if ( l_double_curl ) then
@@ -263,7 +264,7 @@ contains
 
       if ( l_double_curl ) then
          size_rhs1 = n_r_max
-         allocate( rhs1_dist(n_r_max,2*map_mlo%n_mi_max,1) )
+         allocate( rhs1_dist(n_r_max,2*maxval(map_mlo%n_mi(:)),1) )
          bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
          &               map_mlo%n_mi_max*SIZEOF_DEF_COMPLEX
       else
@@ -769,14 +770,14 @@ contains
 
                if ( l_chemical_conv ) then
                   do nR=2,n_r_max
-                     rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(map_mlo%m0l0,nR))+   &
-                     &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(map_mlo%m0l0,nR))+ &
-                     &       real(dwdt%expl(map_mlo%m0l0,nR,tscheme%istage))
+                     rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(i,nR))+   &
+                     &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(i,nR))+ &
+                     &       real(dwdt%expl(i,nR,tscheme%istage))
                   end do
                else
                   do nR=2,n_r_max
-                     rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(map_mlo%m0l0,nR))+  &
-                     &       real(dwdt%expl(map_mlo%m0l0,nR,tscheme%istage))
+                     rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(i,nR))+  &
+                     &       real(dwdt%expl(i,nR,tscheme%istage))
                   end do
                end if
 
@@ -870,7 +871,7 @@ contains
                end do
             end do
             
-            call wpMat_dist(lj)%solve(rhs1_dist(:,1:nRHS,1),nRHS)
+            call wpMat_dist(lj)%solve(rhs1_dist(:,1:2*nRHS,1),2*nRHS)
             
             ! rescale the solution with mat_fac(:,2)
             do mi=1,nRHS
@@ -895,40 +896,38 @@ contains
                end do
             end if
             
-            
-            if (l==0) then
+            if ( l==0 ) then
                do n_r_out=1,rscheme_oc%n_max
                   p(i,n_r_out)=rhs(n_r_out)
                end do
+
             else
-               
                if ( l_double_curl ) then
                   if ( m > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
                         w(i,n_r_out)  =cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
-                        &                      rhs1_dist(n_r_out,2*mi,1),cp)
+                        &                    rhs1_dist(n_r_out,2*mi,1),cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
                         w(i,n_r_out)  = cmplx(rhs1_dist(n_r_out,2*mi-1,1),&
-                        &                       0.0_cp,kind=cp)
+                        &                     0.0_cp,cp)
                      end do
                   end if
                else
                   if ( m > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
                         w(i,n_r_out)=cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
-                        &                    rhs1_dist(n_r_out,2*mi,1),cp)
-                        p(i,n_r_out)=cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1,   &
-                        &                    1),rhs1_dist(n_r_max+n_r_out, &
-                        &                    2*mi,1),cp)
+                        &                  rhs1_dist(n_r_out,2*mi,1),cp)
+                        p(i,n_r_out)=cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1,1), &
+                        &                  rhs1_dist(n_r_max+n_r_out,2*mi,1),cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
                         w(i,n_r_out)= cmplx(rhs1_dist(n_r_out,2*mi-1,1), &
-                        &                    0.0_cp,kind=cp)
-                        p(i,n_r_out)= cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1, &
-                        &                    1),0.0_cp,kind=cp)
+                        &                   0.0_cp,cp)
+                        p(i,n_r_out)= cmplx(rhs1_dist(n_r_max+n_r_out,2*mi-1,1), &
+                        &                   0.0_cp,cp)
                      end do
                   end if
                end if
