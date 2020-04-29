@@ -7,7 +7,8 @@ module mpi_transp
    !
 
    use precision_mod
-   use truncation, only: lm_max, n_r_max, nRstart, nRstop, nR_per_rank
+   use truncation, only: lm_max, n_r_max, nRstart, nRstop, nR_per_rank, &
+       n_mlo_loc, n_lm_loc
    use blocking, only: llm, ulm
 
    implicit none
@@ -21,6 +22,8 @@ module mpi_transp
       procedure(destroy_if), deferred :: destroy_comm
       procedure(transp_lm2r_if), deferred :: transp_lm2r
       procedure(transp_r2lm_if), deferred :: transp_r2lm
+      procedure :: transp_lm2r_dist => transp_lm2r_dist_dummy
+      procedure :: transp_r2lm_dist => transp_r2lm_dist_dummy
    end type type_mpitransp
 
    interface 
@@ -49,8 +52,24 @@ module mpi_transp
          complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
          complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       end subroutine transp_r2lm_if
-
+      
    end interface
+   
+contains
+   !>@TODO delete this after fixing the dimensions in the routines above
+   subroutine transp_lm2r_dist_dummy(this, arr_LMloc, arr_Rloc)
+      class(type_mpitransp) :: this
+      complex(cp), intent(in) :: arr_LMloc(n_mlo_loc,n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(n_lm_loc,nRstart:nRstop,*)
+      print*, "Dummy transp_lm2r_dist_dummy, not yet implemented!"
+   end subroutine transp_lm2r_dist_dummy
+
+   subroutine transp_r2lm_dist_dummy(this, arr_Rloc, arr_LMloc)
+      class(type_mpitransp) :: this
+      complex(cp), intent(in) :: arr_Rloc(n_lm_loc,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(n_mlo_loc,n_r_max,*)
+      print*, "Dummy transp_r2lm_dist_dummy, not yet implemented!"
+   end subroutine transp_r2lm_dist_dummy
 
 end module mpi_transp
 

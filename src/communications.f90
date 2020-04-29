@@ -20,6 +20,7 @@ module communications
    use mpi_transp, only: type_mpitransp
    use truncation
    use LMmapping
+   use mpi_thetap_mod
 
    implicit none
 
@@ -56,6 +57,11 @@ module communications
    class(type_mpitransp), public, pointer :: lo2r_flow, r2lo_flow
    class(type_mpitransp), public, pointer :: lo2r_field, r2lo_field
    class(type_mpitransp), public, pointer :: lo2r_xi, r2lo_xi
+   
+   class(type_mpitransp), public, pointer :: lo2r_s_dist, r2lo_s_dist, lo2r_press_dist
+   class(type_mpitransp), public, pointer :: lo2r_flow_dist, r2lo_flow_dist
+   class(type_mpitransp), public, pointer :: lo2r_field_dist, r2lo_field_dist
+   class(type_mpitransp), public, pointer :: lo2r_xi_dist, r2lo_xi_dist
 
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
@@ -141,7 +147,7 @@ contains
          print *, "Invalid idx: ", idx,", mpi_transp: ", trim(adjustl(mpi_transp))
          call abortRun('Failed to determine optimal transposition method')
       end if
-
+      
       if ( l_heat ) then
          call lo2r_s%create_comm(2)
          call r2lo_s%create_comm(2)
@@ -162,6 +168,39 @@ contains
       if ( l_mag ) then
          call lo2r_field%create_comm(5)
          call r2lo_field%create_comm(3)
+      end if
+      
+      allocate( type_mpisendrecv :: lo2r_s_dist )
+      allocate( type_mpisendrecv :: r2lo_s_dist )
+      allocate( type_mpisendrecv :: lo2r_flow_dist )
+      allocate( type_mpisendrecv :: r2lo_flow_dist )
+      allocate( type_mpisendrecv :: lo2r_field_dist )
+      allocate( type_mpisendrecv :: r2lo_field_dist )
+      allocate( type_mpisendrecv :: lo2r_xi_dist )
+      allocate( type_mpisendrecv :: r2lo_xi_dist )
+      allocate( type_mpisendrecv :: lo2r_press_dist )
+      
+      ! DIST
+      if ( l_heat ) then
+         call lo2r_s_dist%create_comm(2)
+         call r2lo_s_dist%create_comm(2)
+      end if
+      if ( l_chemical_conv ) then
+         call lo2r_xi_dist%create_comm(2)
+         call r2lo_xi_dist%create_comm(2)
+      end if
+      if ( l_conv .or. l_mag_kin) then
+         call lo2r_flow_dist%create_comm(5)
+         call lo2r_press_dist%create_comm(2)
+         if ( l_double_curl ) then
+            call r2lo_flow_dist%create_comm(4)
+         else
+            call r2lo_flow_dist%create_comm(3)
+         end if
+      end if
+      if ( l_mag ) then
+         call lo2r_field_dist%create_comm(5)
+         call r2lo_field_dist%create_comm(3)
       end if
 
       ! allocate a temporary array for the gather operations.

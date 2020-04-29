@@ -58,7 +58,10 @@ module step_time_mod
    use useful, only: l_correct_step, logWrite
    use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
        &                     lo2r_xi,  r2lo_flow, r2lo_s, r2lo_xi,r2lo_field, &
-       &                     lo2r_s, lo2r_press, gather_FlmP, slice_FlmP_cmplx
+       &                     lo2r_s, lo2r_press, gather_FlmP, slice_FlmP_cmplx, &
+       &                     lo2r_field_dist, lo2r_flow_dist, &
+       &                     lo2r_xi_dist,  r2lo_flow_dist, r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist, &
+       &                     lo2r_s_dist, lo2r_press_dist
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -201,6 +204,9 @@ contains
       integer :: l, m, lm, i      
       complex(cp) :: Fmlo_new(n_mlo_loc, n_r_max)
       complex(cp) :: Fmlo_old(llm:ulm,   n_r_max)
+      complex(cp), allocatable :: container_LMtest(:,:,:)
+      complex(cp) :: transp_LMtest(1:n_mlo_loc,n_r_max)
+      
       
       
 
@@ -561,6 +567,26 @@ contains
                   call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
                        &             dbdt_LMloc_container(:,:,:,tscheme%istage))
                end if
+               
+               !//////////////////////////// TESTING NEW TRANSPOSITION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+               
+               allocate(container_LMtest(n_mlo_loc,n_r_max,2))
+               
+               if ( l_heat ) then
+                  call r2lo_s_dist%transp_r2lm_dist(dsdt_Rloc_container,&
+                       &             container_LMtest)
+               end if
+!                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), transp_LMtest, n_r_max)
+               call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,1), &
+                               dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), &
+                               'transp_1', n_r_max)
+!                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage), transp_LMtest, n_r_max)
+               call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,2), &
+                               dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage),  &
+                               'transp_2', n_r_max)
+               print *, "trans_test done"
+               !//////////////////////////// END OF TESTING NEW TRANSPOSITION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+               
                call comm_counter%stop_count()
 
 #ifdef WITH_MPI
