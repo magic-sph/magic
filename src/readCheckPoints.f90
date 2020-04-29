@@ -7,19 +7,19 @@ module readCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use communications, only: scatter_from_rank0_to_lo
-   use fields, only: dw_LMloc, ddw_LMloc, ds_LMloc, dp_LMloc, dz_LMloc,   &
-       &             dxi_LMloc, db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc, &
-       &             db_ic_LMloc, ddb_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc
+   use communications, only: scatter_from_rank0_to_lo, scatter_from_master_to_mlo
+   use LMmapping, only: map_mlo
+   use fields, only: dw_LMdist, ddw_LMdist, ds_LMdist, dp_LMdist, dz_LMdist,   &
+       &             dxi_LMdist, db_LMdist, ddb_LMdist, dj_LMdist, ddj_LMdist, &
+       &             db_ic_LMdist, ddb_ic_LMdist, dj_ic_LMdist, ddj_ic_LMdist
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem,fd_stretch,fd_ratio,n_r_icb,       &
-       &                 n_r_cmb, load, getBlocks
+       &                 n_r_cmb, load, getBlocks, n_mlo_loc, n_mloMag_loc
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,        &
        &            l_double_curl, l_z10Mat, l_single_matrix
-   use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
-       &               ulmMag, st_map
+   use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, st_map, llmMag, ulmMag
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
        &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
        &                  omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,       &
@@ -38,12 +38,12 @@ module readCheckPoints
    use finite_differences, only: type_fd
    use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation, abortRun
-   use updateWP_mod, only: get_pol_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp
-   use updateS_mod, only: get_entropy_rhs_imp
-   use updateXI_mod, only: get_comp_rhs_imp
-   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
-   use updateWPS_mod, only: get_single_rhs_imp
+   use updateWP_mod, only: get_pol_rhs_imp_dist
+   use updateZ_mod, only: get_tor_rhs_imp_dist
+   use updateS_mod, only: get_entropy_rhs_imp_dist
+   use updateXI_mod, only: get_comp_rhs_imp_dist
+   use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
+   use updateWPS_mod, only: get_single_rhs_imp_dist
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
 
@@ -82,13 +82,13 @@ contains
       class(type_tscheme), intent(inout) :: tscheme
       integer,             intent(out) :: n_time_step
       real(cp),            intent(out) :: omega_ic,omega_ma
-      complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(out) :: w(n_mlo_loc,n_r_max),z(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: s(n_mlo_loc,n_r_max),p(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: xi(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: b(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: aj(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: b_ic(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp),         intent(out) :: aj_ic(n_mloMag_loc,n_r_ic_maxMag)
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
@@ -126,7 +126,7 @@ contains
       allocate( dt_array_old(max(2,tscheme%nexp)) )
       dt_array_old(:)=0.0_cp
 
-      if ( coord_r ==0 ) then
+      if ( l_master_rank ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
@@ -298,21 +298,21 @@ contains
       end if ! l_master_rank
 
 #ifdef WITH_MPI
-      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(lreadS,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(lreadXi,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,comm_r,ierr)
-      call MPI_Bcast(inform,1,MPI_INTEGER,0,comm_r,ierr)
-      call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(time,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lreadS,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lreadXi,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(inform,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(dt_array_old,size(dt_array_old),MPI_DEF_REAL,0, &
-           &         comm_r,ierr)
+           &         MPI_COMM_WORLD,ierr)
 #endif
 
       coex = two*(one-alpha)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          allocate( workA(lm_max,n_r_max), workB(lm_max,n_r_max) )
          allocate( workC(lm_max,n_r_max) )
          allocate( workD(lm_max,n_r_max) )
@@ -329,7 +329,7 @@ contains
       workD(:,:)=zero
       workE(:,:)=zero
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          n_r_maxL = max(n_r_max,n_r_max_old)
 
          call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
@@ -340,14 +340,14 @@ contains
 
       !-- Scatter everything
       do nR=1,n_r_max
-         call scatter_from_rank0_to_lo(workA(:,nR),w(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(workB(:,nR),z(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(workC(:,nR),p(llm:ulm,nR))
+         call scatter_from_master_to_mlo(workA(:,nR),w(:,nR))
+         call scatter_from_master_to_mlo(workB(:,nR),z(:,nR))
+         call scatter_from_master_to_mlo(workC(:,nR),p(:,nR))
          if ( l_heat ) then
-            call scatter_from_rank0_to_lo(workD(:,nR),s(llm:ulm,nR))
+            call scatter_from_master_to_mlo(workD(:,nR),s(:,nR))
          end if
          if ( l_chemical_conv ) then
-            call scatter_from_rank0_to_lo(workE(:,nR),xi(llm:ulm,nR))
+            call scatter_from_master_to_mlo(workE(:,nR),xi(:,nR))
          end if
       end do
 
@@ -365,7 +365,7 @@ contains
       workE(:,:)=zero
 
       !-- Read the d?dt fields
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          if ( lreadXi ) then
             if ( lreadS ) then
                read(n_start_file) so,wo,zo,po,xio
@@ -389,47 +389,47 @@ contains
       !-- Scatter everything
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
          do nR=1,n_r_max
-            call scatter_from_rank0_to_lo(workA(:,nR),dwdt%expl(llm:ulm,nR,2))
-            call scatter_from_rank0_to_lo(workB(:,nR),dzdt%expl(llm:ulm,nR,2))
-            call scatter_from_rank0_to_lo(workC(:,nR),dpdt%expl(llm:ulm,nR,2))
+            call scatter_from_master_to_mlo(workA(:,nR),dwdt%expl(:,nR,2))
+            call scatter_from_master_to_mlo(workB(:,nR),dzdt%expl(:,nR,2))
+            call scatter_from_master_to_mlo(workC(:,nR),dpdt%expl(:,nR,2))
             if ( l_heat ) then
-               call scatter_from_rank0_to_lo(workD(:,nR),dsdt%expl(llm:ulm,nR,2))
+               call scatter_from_master_to_mlo(workD(:,nR),dsdt%expl(:,nR,2))
             end if
 
             if ( l_chemical_conv ) then
-               call scatter_from_rank0_to_lo(workE(:,nR),dxidt%expl(llm:ulm,nR,2))
+               call scatter_from_master_to_mlo(workE(:,nR),dxidt%expl(:,nR,2))
             end if
          end do
 
          if ( l_single_matrix ) then
-            call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
-                 &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
+            call get_single_rhs_imp_dist(s, ds_LMdist, w, dw_LMdist, ddw_LMdist, p, &
+                 &                  dp_LMdist, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
          else
-            call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+            call get_pol_rhs_imp_dist(s, xi, w, dw_LMdist, ddw_LMdist, p, dp_LMdist, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp_dist(s, ds_LMdist, dsdt, 1, .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp_dist(time, z, dz_LMdist, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, 1, .true.)
+            call get_comp_rhs_imp_dist(xi, dxi_LMdist, dxidt, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
       end if
 
       deallocate(workA, workB, workC, workD, workE)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          allocate( workA(lm_maxMag,n_r_maxMag), workB(lm_maxMag,n_r_maxMag) )
          allocate( workC(lm_maxMag,n_r_maxMag) )
          allocate( workD(lm_maxMag, n_r_maxMag) )
@@ -445,7 +445,7 @@ contains
       workC(:,:)=zero
       workD(:,:)=zero
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          if ( lreadXi ) then
             read(n_start_file) raxi_old, sc_old
             if ( raxi /= raxi_old ) &
@@ -470,18 +470,18 @@ contains
       !-- Scatter everything
       if ( l_mag_old .and. l_mag ) then
          do nR=1,n_r_maxMag
-            call scatter_from_rank0_to_lo(workA(:,nR),aj(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(workD(:,nR),b(llm:ulm,nR))
+            call scatter_from_master_to_mlo(workA(:,nR),aj(:,nR))
+            call scatter_from_master_to_mlo(workD(:,nR),b(:,nR))
          end do
       end if
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
          if ( l_mag_old .and. l_mag ) then
             do nR=1,n_r_maxMag
-               call scatter_from_rank0_to_lo(workB(:,nR),dbdt%expl(llm:ulm,nR,2))
-               call scatter_from_rank0_to_lo(workC(:,nR),djdt%expl(llm:ulm,nR,2))
+               call scatter_from_master_to_mlo(workB(:,nR),dbdt%expl(:,nR,2))
+               call scatter_from_master_to_mlo(workC(:,nR),djdt%expl(:,nR,2))
             end do
 
-            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
+            call get_mag_rhs_imp_dist(b, db_LMdist, ddb_LMdist, aj, dj_LMdist, ddj_LMdist, &
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
@@ -492,7 +492,7 @@ contains
 
       !-- Inner core part
       if ( l_mag_old ) then
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             allocate( workA(lm_max,n_r_ic_max), workB(lm_max,n_r_ic_max) )
             allocate( workC(lm_max,n_r_ic_max), workD(lm_max,n_r_ic_max) )
             bytes_allocated = bytes_allocated - 4*lm_maxMag*n_r_maxMag* &
@@ -510,7 +510,7 @@ contains
          workD(:,:)=zero
       end if
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          ! deallocation of the local arrays
          deallocate( wo,zo,po,so )
          bytes_allocated = bytes_allocated - 4*(lm_max_old*n_r_max_old)*&
@@ -528,7 +528,7 @@ contains
          if ( l_mag_old ) then
 
             if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
-               if ( coord_r == 0 ) then
+               if ( l_master_rank ) then
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( wo(lm_max_old,n_r_ic_max_old) )
                   allocate( zo(lm_max_old,n_r_ic_max_old) )
@@ -548,22 +548,22 @@ contains
 
                if ( l_cond_ic ) then
                   do nR=1,n_r_ic_max
-                     call scatter_from_rank0_to_lo(workA(:,nR),aj_ic(llm:ulm,nR))
-                     call scatter_from_rank0_to_lo(workD(:,nR),b_ic(llm:ulm,nR))
+                     call scatter_from_master_to_mlo(workA(:,nR),aj_ic(:,nR))
+                     call scatter_from_master_to_mlo(workD(:,nR),b_ic(:,nR))
                   end do
                end if
 
                if ( l_cond_ic .and. tscheme%family == 'MULTISTEP' .and. &
                &    tscheme%nexp >=2 ) then
                   do nR=1,n_r_ic_max
-                     call scatter_from_rank0_to_lo(workB(:,nR), &
-                          &                        dbdt_ic%expl(llm:ulm,nR,2))
-                     call scatter_from_rank0_to_lo(workC(:,nR), &
-                          &                        djdt_ic%expl(llm:ulm,nR,2))
+                     call scatter_from_master_to_mlo(workB(:,nR), &
+                          &                        dbdt_ic%expl(:,nR,2))
+                     call scatter_from_master_to_mlo(workC(:,nR), &
+                          &                        djdt_ic%expl(:,nR,2))
                   end do
 
-                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  & 
-                       &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
+                  call get_mag_ic_rhs_imp_dist(b_ic, db_ic_LMdist, ddb_ic_LMdist, aj_ic,  & 
+                       &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic,      &
                        &                  djdt_ic, 1, .true.)
                   dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
                   djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
@@ -575,7 +575,7 @@ contains
                !      the ICB to r=0:
                if ( l_master_rank ) write(output_unit,'(/,'' ! USING POTENTIAL IC fields!'')')
 
-               do lm=llm,ulm
+               do lm=1,n_mlo_loc
                   do nR=1,n_r_ic_max
                      b_ic(lm,nR)   =b(lm,n_r_CMB)
                      aj_ic(lm,nR)  =aj(lm,n_r_CMB)
@@ -601,7 +601,7 @@ contains
       tOmega_ma2       =0.0_cp
       dt_array_old(1)  =dt_array_old(2)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          deallocate( r_old, lm2lmo )
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
 
@@ -668,49 +668,47 @@ contains
             dom_ma=pm_old*dom_ma
          end if
 
-         if ( l_master_rank ) then
-            if ( l_SRIC ) then
-               if ( omega_ic1Old /= omega_ic1 )                                 &
-               &    write(output_unit,*) '! New IC rotation rate 1 (old/new):', &
-               &    omega_ic1Old,omega_ic1
-               if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                                &
-               &    write(output_unit,*) '! New IC rotation osz. rate 1 (old/new):', &
-               &    omegaOsz_ic1Old,omegaOsz_ic1
-               if ( omega_ic2Old /= omega_ic2 )                                 &
-               &    write(output_unit,*) '! New IC rotation rate 2 (old/new):', &
-               &    omega_ic2Old,omega_ic2
-               if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                                &
-               &    write(output_unit,*) '! New IC rotation osz. rate 2 (old/new):', &
-               &    omegaOsz_ic2Old,omegaOsz_ic2
-            end if
-            if ( l_SRMA ) then
-               if ( omega_ma1Old /= omega_ma1 )                                 &
-               &    write(output_unit,*) '! New MA rotation rate 1 (old/new):', &
-               &    omega_ma1Old,omega_ma1
-               if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                                &
-               &    write(output_unit,*) '! New MA rotation osz. rate 1 (old/new):', &
-               &    omegaOsz_ma1Old,omegaOsz_ma1
-               if ( omega_ma2Old /= omega_ma2 )                                 &
-               &    write(output_unit,*) '! New MA rotation rate 2 (old/new):', &
-               &    omega_ma2Old,omega_ma2
-               if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                                &
-               &    write(output_unit,*) '! New MA rotation osz. rate 2 (old/new):', &
-               &    omegaOsz_ma2Old,omegaOsz_ma2
-            end if
-         end if ! l_master_rank
-      end if ! coord_r == 0
+         if ( l_SRIC ) then
+            if ( omega_ic1Old /= omega_ic1 )                                 &
+            &    write(output_unit,*) '! New IC rotation rate 1 (old/new):', &
+            &    omega_ic1Old,omega_ic1
+            if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                                &
+            &    write(output_unit,*) '! New IC rotation osz. rate 1 (old/new):', &
+            &    omegaOsz_ic1Old,omegaOsz_ic1
+            if ( omega_ic2Old /= omega_ic2 )                                 &
+            &    write(output_unit,*) '! New IC rotation rate 2 (old/new):', &
+            &    omega_ic2Old,omega_ic2
+            if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                                &
+            &    write(output_unit,*) '! New IC rotation osz. rate 2 (old/new):', &
+            &    omegaOsz_ic2Old,omegaOsz_ic2
+         end if
+         if ( l_SRMA ) then
+            if ( omega_ma1Old /= omega_ma1 )                                 &
+            &    write(output_unit,*) '! New MA rotation rate 1 (old/new):', &
+            &    omega_ma1Old,omega_ma1
+            if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                                &
+            &    write(output_unit,*) '! New MA rotation osz. rate 1 (old/new):', &
+            &    omegaOsz_ma1Old,omegaOsz_ma1
+            if ( omega_ma2Old /= omega_ma2 )                                 &
+            &    write(output_unit,*) '! New MA rotation rate 2 (old/new):', &
+            &    omega_ma2Old,omega_ma2
+            if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                                &
+            &    write(output_unit,*) '! New MA rotation osz. rate 2 (old/new):', &
+            &    omegaOsz_ma2Old,omegaOsz_ma2
+         end if
+      end if ! l_master 
 
 #ifdef WITH_MPI
-      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(dom_ic,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(dom_ma,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(dom_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(dom_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(dt_array_old,size(dt_array_old),MPI_DEF_REAL,0, &
-           &         comm_r,ierr)
+           &         MPI_COMM_WORLD,ierr)
 #endif
 
       !-- Fill the time step array
@@ -735,7 +733,7 @@ contains
          l_bridge_step = .false.
       end if
 
-      if (coord_r == 0) close(n_start_file)
+      if ( l_master_rank ) close(n_start_file)
 
       deallocate ( dt_array_old )
 
@@ -746,8 +744,8 @@ contains
       end if
 
       !-- Finish computation to restart
-      call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
-           &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
+      call finish_start_fields_dist(time, minc_old, l_mag_old, omega_ic1Old, &
+           &                        omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
       !----- Get changes in mantle and ic rotation rate:
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
@@ -756,13 +754,13 @@ contains
             lorentz_torque_ma_dt%expl(2)=0.0_cp
          end if
          if ( l_z10mat ) then
-            l1m0=lo_map%lm2(1,0)
+            l1m0=map_mlo%ml2i(0,1)
             if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
-            &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
+            &     (l1m0 > 0) ) then
                domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*dom_ma
             end if
             if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
-                 & (l1m0 >= llm .and. l1m0 <= ulm) ) then
+                 & (l1m0 > 0) ) then
                domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*dom_ic
             end if
          else
@@ -789,13 +787,13 @@ contains
       class(type_tscheme), intent(inout) :: tscheme
       integer,             intent(out) :: n_time_step
       real(cp),            intent(out) :: omega_ic,omega_ma
-      complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(out) :: w(n_mlo_loc,n_r_max),z(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: s(n_mlo_loc,n_r_max),p(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: xi(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: b(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: aj(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: b_ic(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp),         intent(out) :: aj_ic(n_mloMag_loc,n_r_ic_maxMag)
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
@@ -832,7 +830,7 @@ contains
          ratio2 = fd_ratio
       end if
 
-      if ( coord_r ==0 ) then
+      if ( l_master_rank ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
          if ( startfile_does_exist ) then
@@ -860,7 +858,7 @@ contains
             call abortRun('! The restart file does not exist !')
          end if
 
-         if ( index(start_file, 'checkpoint_ave') /= 0 .and. l_master_rank) then
+         if ( index(start_file, 'checkpoint_ave') /= 0 ) then
             write(output_unit,*) '! This is a time-averaged checkpoint'
             write(output_unit,*) '! d#dt arrays will be set to zero'
             l_AB1=.true.
@@ -1020,60 +1018,60 @@ contains
             &                  l_press_store_old, l_cond_ic_old
          end if
 
-      end if ! coord_r == 0
+      end if ! master rank
 
 #ifdef WITH_MPI
-      call MPI_Bcast(version,1,MPI_INTEGER,0,comm_r,ierr)
-      call MPI_Bcast(nexp_old,1,MPI_INTEGER,0,comm_r,ierr)
-      call MPI_Bcast(nold_old,1,MPI_INTEGER,0,comm_r,ierr)
-      call MPI_Bcast(nimp_old,1,MPI_INTEGER,0,comm_r,ierr)
+      call MPI_Bcast(version,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(nexp_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(nold_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(nimp_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tscheme_family_old,len(tscheme_family_old),MPI_CHARACTER,0, &
-           &         comm_r,ierr)
+           &         MPI_COMM_WORLD,ierr)
       if ( tscheme_family_old == 'MULTISTEP' ) then
-         if ( coord_r /= 0 ) allocate( dt_array_old(max(nexp_old,tscheme%nexp)) )
+         if ( .not. l_master_rank ) allocate( dt_array_old(max(nexp_old,tscheme%nexp)) )
       else if ( tscheme_family_old == 'DIRK' ) then
-         if ( coord_r /= 0 ) allocate( dt_array_old(max(1,size(tscheme%dt))) )
+         if ( .not. l_master_rank ) allocate( dt_array_old(max(1,size(tscheme%dt))) )
       end if
       call MPI_Bcast(dt_array_old,size(dt_array_old),MPI_DEF_REAL,0, &
-           &         comm_r,ierr)
-      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(l_press_store_old,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,comm_r,ierr)
-      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,comm_r,ierr)
-      call MPI_Bcast(time,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,comm_r,ierr)
+           &         MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_press_store_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(domega_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ic_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ic_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
-           &         0, comm_r, ierr)
+           &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%nimp, &
-           &         MPI_DEF_REAL, 0, comm_r, ierr)
+           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%nold, MPI_DEF_REAL, &
-           &         0, comm_r, ierr)
+           &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
-           &         0, comm_r, ierr)
+           &         0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%nimp, &
-           &         MPI_DEF_REAL, 0, comm_r, ierr)
+           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
       call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%nold, MPI_DEF_REAL, &
-           &         0, comm_r, ierr)
+           &         0, MPI_COMM_WORLD, ierr)
 #endif
 
       !-- Fill the time step array
@@ -1103,7 +1101,7 @@ contains
       end if
 
       !-- Allocate arrays
-      if ( coord_r==0 ) then
+      if ( l_master_rank ) then
          allocate( work(lm_max,n_r_max), workOld(lm_max_old,n_r_max_old) )
       else
          allocate( work(1,n_r_max))
@@ -1170,7 +1168,7 @@ contains
             if ( l_cond_ic_old ) then
                deallocate( work, workOld )
 
-               if ( coord_r==0 ) then
+               if ( l_master_rank ) then
                   n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
                   allocate( work(lm_max,n_r_ic_max) )
                   allocate( workOld(lm_max_old,n_r_ic_max_old) )
@@ -1179,7 +1177,7 @@ contains
                end if
 
                !-- Read the inner core poloidal magnetic field
-               if ( coord_r==0 ) then
+               if ( l_master_rank ) then
                   work(:,:)=zero
                   read(n_start_file) workOld
                   call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
@@ -1189,13 +1187,13 @@ contains
                   work(1,:)=zero
                end if
                do nR=1,n_r_ic_max
-                  call scatter_from_rank0_to_lo(work(:,nR),b_ic(llm:ulm,nR))
+                  call scatter_from_master_to_mlo(work(:,nR),b_ic(:,nR))
                end do
 
                !-- Read dbdt_ic
                if ( tscheme_family_old == 'MULTISTEP' ) then
                   do n_o=2,nexp_old
-                     if ( coord_r==0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1206,13 +1204,13 @@ contains
                      end if
                      if ( n_o <= tscheme%nexp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
-                           call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%expl(llm:ulm,nR,n_o))
+                           call scatter_from_master_to_mlo(work(:,nR),  &
+                                &                dbdt_ic%expl(:,nR,n_o))
                         end do
                      end if
                   end do
                   do n_o=2,nimp_old
-                     if ( coord_r==0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1223,13 +1221,13 @@ contains
                      end if
                      if ( n_o <= tscheme%nimp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
-                           call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%impl(llm:ulm,nR,n_o))
+                           call scatter_from_master_to_mlo(work(:,nR),  &
+                                &                dbdt_ic%impl(:,nR,n_o))
                         end do
                      end if
                   end do
                   do n_o=2,nold_old
-                     if ( coord_r==0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1241,15 +1239,15 @@ contains
                      if ( n_o <= tscheme%nold .and. &
                      &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
-                           call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%old(llm:ulm,nR,n_o))
+                           call scatter_from_master_to_mlo(work(:,nR),  &
+                                &                dbdt_ic%old(:,nR,n_o))
                         end do
                      end if
                   end do
                end if
 
                !-- Read the inner core toroidal magnetic field
-               if ( coord_r==0 ) then
+               if ( l_master_rank ) then
                   work(:,:)=zero
                   read(n_start_file) workOld
                   call mapOneField( workOld,scale_b,r_old,lm2lmo,     &
@@ -1259,13 +1257,13 @@ contains
                   work(1,:)=zero
                end if
                do nR=1,n_r_ic_max
-                  call scatter_from_rank0_to_lo(work(:,nR),aj_ic(llm:ulm,nR))
+                  call scatter_from_master_to_mlo(work(:,nR),aj_ic(:,nR))
                end do
 
                !-- Read djdt_ic
                if ( tscheme_family_old == 'MULTISTEP' ) then
                   do n_o=2,nexp_old
-                     if ( coord_r==0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1276,13 +1274,13 @@ contains
                      end if
                      if ( n_o <= tscheme%nexp  .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
-                           call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%expl(llm:ulm,nR,n_o))
+                           call scatter_from_master_to_mlo(work(:,nR),  &
+                                &                djdt_ic%expl(:,nR,n_o))
                         end do
                      end if
                   end do
                   do n_o=2,nimp_old
-                     if ( coord_r==0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1293,13 +1291,13 @@ contains
                      end if
                      if ( n_o <= tscheme%nimp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
-                           call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%impl(llm:ulm,nR,n_o))
+                           call scatter_from_master_to_mlo(work(:,nR),  &
+                                &                djdt_ic%impl(:,nR,n_o))
                         end do
                      end if
                   end do
                   do n_o=2,nold_old
-                     if ( coord_r==0 ) then
+                     if ( l_master_rank ) then
                         work(:,:)=zero
                         read(n_start_file) workOld
                         call mapOneField( workOld,scale_b,r_old,lm2lmo,    &
@@ -1311,8 +1309,8 @@ contains
                      if ( n_o <= tscheme%nold .and. &
                      &   tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
-                           call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%old(llm:ulm,nR,n_o))
+                           call scatter_from_master_to_mlo(work(:,nR),  &
+                                &                djdt_ic%old(:,nR,n_o))
                         end do
                      end if
                   end do
@@ -1324,12 +1322,10 @@ contains
                !   the ICB to r=0:
                if ( l_master_rank ) write(output_unit,'(/,'' ! USING POTENTIAL IC fields!'')')
 
-               do lm=llm,ulm
+               do lm=1,n_mlo_loc
                   do nR=1,n_r_ic_max
                      b_ic(lm,nR) =b(lm,n_r_CMB)
                      aj_ic(lm,nR)=aj(lm,n_r_CMB)
-                     !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                     !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
                   end do
                end do
 
@@ -1343,13 +1339,13 @@ contains
       deallocate( work, workOld, dt_array_old, r_old, lm2lmo )
 
       !-- Close file
-      if ( coord_r==0 ) then
+      if ( l_master_rank ) then
          call rscheme_oc_old%finalize() ! deallocate old radial scheme
          close(n_start_file)
-      end if ! coord_r==0
+      end if ! master rank
 
       !-- Finish computation to restart
-      call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
+      call finish_start_fields_dist(time, minc_old, l_mag_old, omega_ic1Old, &
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
       !-- Correct explicit arrays if old version with CNAB2 was stored
@@ -1359,15 +1355,15 @@ contains
          coex = two*(one-alpha)
 
          if ( l_single_matrix ) then
-            call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
-                 &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
+            call get_single_rhs_imp_dist(s, ds_LMdist, w, dw_LMdist, ddw_LMdist, p,     &
+                 &                  dp_LMdist, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
          else
-            call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
+            call get_pol_rhs_imp_dist(s, xi, w, dw_LMdist, ddw_LMdist, p, dp_LMdist, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp_dist(s, ds_LMdist, dsdt, 1, .true.)
          end if
 
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
@@ -1376,27 +1372,27 @@ contains
          end if
          if ( l_heat) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp_dist(time, z, dz_LMdist, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, 1, .true.)
+            call get_comp_rhs_imp_dist(xi, dxi_LMdist, dxidt, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
 
          if ( l_mag ) then
-            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
+            call get_mag_rhs_imp_dist(b, db_LMdist, ddb_LMdist, aj, dj_LMdist, ddj_LMdist, &
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
 
          if ( l_cond_ic ) then
-            call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
-                 &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
+            call get_mag_ic_rhs_imp_dist(b_ic, db_ic_LMdist, ddb_ic_LMdist, aj_ic,  &
+                 &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic,      &
                  &                  djdt_ic, 1, .true.)
             dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
             djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
@@ -1407,13 +1403,13 @@ contains
             lorentz_torque_ma_dt%expl(2)=0.0_cp
          end if
          if ( l_z10mat ) then
-            l1m0=lo_map%lm2(1,0)
+            l1m0=map_mlo%ml2i(0,1)
             if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) .and. &
-            &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
+            &    (l1m0 > 0) ) then
                domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*lorentz_torque_ma_dt%expl(2)
             end if
             if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) .and. &
-            &     (l1m0 >= llm .and. l1m0 <= ulm) ) then
+            &    (l1m0 > 0) ) then
                domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*lorentz_torque_ic_dt%expl(2)
             end if
          else
@@ -1483,13 +1479,13 @@ contains
       !--- Output variables
       complex(cp),       intent(inout) :: wOld(:,:)
       complex(cp),       intent(inout) :: work(:,:)
-      complex(cp),       intent(out) :: w(llm:ulm,dim1)
+      complex(cp),       intent(out) :: w(n_mlo_loc,dim1)
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variable
       integer :: n_o, nR
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          work(:,:)=zero
          read(fh) wOld
          call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1497,13 +1493,13 @@ contains
       end if
       if ( l_map ) then
          do nR=1,dim1
-            call scatter_from_rank0_to_lo(work(:,nR),w(llm:ulm,nR))
+            call scatter_from_master_to_mlo(work(:,nR),w(:,nR))
          end do
       end if
 
       if ( tscheme_family_old == 'MULTISTEP' ) then
          do n_o=2,nexp_old
-            if ( coord_r == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1511,12 +1507,12 @@ contains
             end if
             if ( n_o <= tscheme%nexp .and. l_map .and. tscheme%family == 'MULTISTEP') then
                do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
+                  call scatter_from_master_to_mlo(work(:,nR),dwdt%expl(:,nR,n_o))
                end do
             end if
          end do
          do n_o=2,nimp_old
-            if ( coord_r == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1524,12 +1520,12 @@ contains
             end if
             if ( n_o <= tscheme%nimp .and. l_map .and. tscheme%family=='MULTISTEP') then
                do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%impl(llm:ulm,nR,n_o))
+                  call scatter_from_master_to_mlo(work(:,nR),dwdt%impl(:,nR,n_o))
                end do
             end if
          end do
          do n_o=2,nold_old
-            if ( coord_r == 0 ) then
+            if ( l_master_rank ) then
                work(:,:)=zero
                read(fh) wOld
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
@@ -1538,7 +1534,7 @@ contains
             if ( n_o <= tscheme%nold .and. l_map .and. &
             &    tscheme%family == 'MULTISTEP' ) then
                do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
+                  call scatter_from_master_to_mlo(work(:,nR),dwdt%old(:,nR,n_o))
                end do
             end if
          end do
@@ -1547,8 +1543,10 @@ contains
    end subroutine read_map_one_field
 !------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,   &
-              &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,  &
+   subroutine readStartFields_mpi(w_dist,dwdt_dist,z_dist,dzdt_dist,p_dist,  &
+              &                   dpdt_dist,s_dist,dsdt_dist,xi_dist,dxidt_dist,&
+              &                   b_dist,dbdt_dist,aj_dist,djdt_dist,b_ic_dist, &
+              &                   dbdt_ic_dist,aj_ic_dist,djdt_ic_dist,  &
               &                   omega_ic,omega_ma,domega_ic_dt,           &
               &                   domega_ma_dt,lorentz_torque_ic_dt,        &
               &                   lorentz_torque_ma_dt,time,tscheme,        &
@@ -1558,20 +1556,27 @@ contains
       ! by MagIC using MPI-IO
       !
 
+      !@> TODO remove those 
+      use fields, only: w_LMloc, p_LMloc, s_LMloc, xi_LMloc, p_LMloc, b_LMloc, &
+      &                 aj_LMloc, b_ic_LMloc, aj_ic_LMloc, z_LMloc
+      use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, djdt_ic
+      use mpi_thetap_mod, only: transform_old2new !@> TODO: remove!!
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
       !-- Output:
       real(cp),            intent(out) :: time
       class(type_tscheme), intent(inout) :: tscheme
       integer,             intent(out) :: n_time_step
       real(cp),            intent(out) :: omega_ic,omega_ma
-      complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
-      type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
+      complex(cp),         intent(out) :: w_dist(n_mlo_loc,n_r_max),z_dist(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: s_dist(n_mlo_loc,n_r_max),p_dist(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: xi_dist(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: b_dist(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: aj_dist(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: b_ic_dist(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp),         intent(out) :: aj_ic_dist(n_mloMag_loc,n_r_ic_maxMag)
+      type(type_tarray),   intent(inout) :: dwdt_dist, dzdt_dist, dpdt_dist, dsdt_dist, dxidt_dist
+      type(type_tarray),   intent(inout) :: dbdt_dist, djdt_dist, dbdt_ic_dist, djdt_ic_dist
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
@@ -1638,10 +1643,12 @@ contains
             write(output_unit,*) '! I cannot read it with MPI-IO'
             write(output_unit,*) '! I try to fall back on serial reader...'
          end if
-         call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
-              &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
-              &               omega_ma,domega_ic_dt, domega_ma_dt,         &
-              &               lorentz_torque_ic_dt, lorentz_torque_ma_dt,  &
+         call readStartFields(w_dist,dwdt_dist,z_dist,dzdt_dist,p_dist,      &
+              &               dpdt_dist,s_dist,dsdt_dist,xi_dist,dxidt_dist, &
+              &               b_dist,dbdt_dist,aj_dist,djdt_dist,b_ic_dist,  &
+              &               dbdt_ic_dist,aj_ic_dist,djdt_ic_dist,omega_ic, &
+              &               omega_ma,domega_ic_dt, domega_ma_dt,           &
+              &               lorentz_torque_ic_dt, lorentz_torque_ma_dt,    &
               &               time,tscheme,n_time_step)
          return
       end if
@@ -1870,7 +1877,7 @@ contains
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      nexp_old, nimp_old, nold_old,           &
-           &                      tscheme_family_old, w, dwdt, disp, .true. )
+           &                      tscheme_family_old, w_LMloc, dwdt, disp, .true. )
 
       !-- Toroidal potential: z
       call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1878,7 +1885,7 @@ contains
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      nexp_old, nimp_old, nold_old,           &
-           &                      tscheme_family_old, z, dzdt, disp, .true. )
+           &                      tscheme_family_old, z_LMloc, dzdt, disp, .true. )
 
       !-- Pressure: p
       if ( l_press_store_old ) then
@@ -1887,7 +1894,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_v,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, p, dpdt, disp,      &
+              &                      tscheme_family_old, p_LMloc, dpdt, disp,      &
               &                      .not. l_double_curl )
       end if
 
@@ -1898,7 +1905,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_s,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, s, dsdt, disp, l_heat )
+              &                      tscheme_family_old, s_LMloc, dsdt, disp, l_heat )
       end if
 
       !-- Chemical composition: xi
@@ -1908,13 +1915,13 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_xi,     &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, xi, dxidt, disp,    &
+              &                      tscheme_family_old, xi_LMloc, dxidt, disp,    &
               &                      l_chemical_conv )
       end if
 
-      if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
-      if ( l_heat .and. (.not. l_heat_old) ) s(:,:)=zero
-      if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
+      if ( .not. l_double_curl .and. .not. l_press_store_old ) p_LMloc(:,:)=zero
+      if ( l_heat .and. (.not. l_heat_old) ) s_LMloc(:,:)=zero
+      if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi_LMloc(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and. l_mag_old ) then
          !-- Read poloidal potential: b
@@ -1923,7 +1930,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, b, dbdt, disp, .true. )
+              &                      tscheme_family_old, b_LMloc, dbdt, disp, .true. )
 
          !-- Read toroidal potential: aj
          call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1931,7 +1938,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, aj, djdt, disp, .true. )
+              &                      tscheme_family_old, aj_LMloc, djdt, disp, .true. )
       end if
 
       deallocate(workOld)
@@ -1962,7 +1969,7 @@ contains
                work(1,:)=zero
             end if
             do nR=1,n_r_ic_max
-               call scatter_from_rank0_to_lo(work(:,nR),b_ic(llm:ulm,nR))
+               call scatter_from_rank0_to_lo(work(:,nR),b_ic_LMloc(llm:ulm,nR))
             end do
 
             !-- Read dbdt_ic
@@ -2038,7 +2045,7 @@ contains
                work(1,:)=zero
             end if
             do nR=1,n_r_ic_max
-               call scatter_from_rank0_to_lo(work(:,nR),aj_ic(llm:ulm,nR))
+               call scatter_from_rank0_to_lo(work(:,nR),aj_ic_LMloc(llm:ulm,nR))
             end do
 
             !-- Read djdt_ic
@@ -2113,10 +2120,8 @@ contains
 
             do lm=llm,ulm
                do nR=1,n_r_ic_max
-                  b_ic(lm,nR)   =b(lm,n_r_CMB)
-                  aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                  !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                  !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                  b_ic_LMloc(lm,nR)   =b_LMloc(lm,n_r_CMB)
+                  aj_ic_LMloc(lm,nR)  =aj_LMloc(lm,n_r_CMB)
                end do
             end do
          end if
@@ -2130,49 +2135,83 @@ contains
       deallocate(radial_balance_old, r_old, dt_array_old)
       call rscheme_oc_old%finalize()
 
+      !@> REMOOVVVVVVVVVVEEEEEEEEEEEEEEEEE
+      !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+      call transform_old2new(w_LMloc, w_dist, n_r_max)
+      call transform_old2new(z_LMloc, z_dist, n_r_max)
+      call transform_old2new(p_LMloc, p_dist, n_r_max)
+      if ( l_heat ) call transform_old2new(s_LMloc, s_dist, n_r_max)
+      if ( l_chemical_conv ) call transform_old2new(xi_LMloc, xi_dist, n_r_max)
+      if ( l_mag ) then
+         call transform_old2new(b_LMloc, b_dist, n_r_max)
+         call transform_old2new(aj_LMloc, aj_dist, n_r_max)
+         if ( l_cond_ic ) then
+            call transform_old2new(b_ic_LMloc, b_ic_dist, n_r_ic_max)
+            call transform_old2new(aj_ic_LMloc, aj_ic_dist, n_r_ic_max)
+         end if
+      end if 
+
+      call dwdt%slice_all(dwdt_dist)
+      call dzdt%slice_all(dzdt_dist)
+      call dpdt%slice_all(dpdt_dist)
+      if ( l_heat ) call dsdt%slice_all(dsdt_dist)
+      if ( l_chemical_conv ) call dxidt%slice_all(dxidt_dist)
+      if ( l_mag ) then
+         call dbdt%slice_all(dbdt_dist)
+         call djdt%slice_all(djdt_dist)
+         if ( l_cond_ic ) then
+            call dbdt_ic%slice_all(dbdt_ic_dist)
+            call djdt_ic%slice_all(djdt_ic_dist)
+         end if
+      end if
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
       !-- Correct explicit arrays if old version with CNAB2 was stored
       !-- Back then the d?dtLast arrays did not carry the same meaning
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >= 2 .and. &
       &    version == 1 ) then
          coex = two*(one-alpha)
          if ( l_single_matrix ) then
-            call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
-                 &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
+            call get_single_rhs_imp_dist(s_dist, ds_LMdist, w_dist, dw_LMdist, ddw_LMdist, p_dist,     &
+                 &                  dp_LMdist, dsdt_dist, dwdt_dist, dpdt_dist, tscheme, 1,     &
                  &                  .true., .false.)
          else
-            call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
-                 &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
-                 &               .false., z)
+            call get_pol_rhs_imp_dist(s_dist, xi_dist, w_dist, dw_LMdist, ddw_LMdist, p_dist, dp_LMdist, &
+                 &               dwdt_dist, dpdt_dist, tscheme, 1, .true., .false.,    &
+                 &               .false., z_dist)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp_dist(s_dist, ds_LMdist, dsdt_dist, 1, .true.)
          end if
-         dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
-         if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
-         if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
+         dwdt_dist%expl(:,:,2)=dwdt_dist%expl(:,:,2)+coex*dwdt_dist%impl(:,:,1)
+         if ( .not. l_double_curl ) dpdt_dist%expl(:,:,2)=dpdt_dist%expl(:,:,2)+coex*dpdt_dist%impl(:,:,1)
+         if ( l_heat ) dsdt_dist%expl(:,:,2)=dsdt_dist%expl(:,:,2)+coex*dsdt_dist%impl(:,:,1)
 
-         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp_dist(time, z_dist, dz_LMdist, dzdt_dist, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
-         dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
+         dzdt_dist%expl(:,:,2)=dzdt_dist%expl(:,:,2)+coex*dzdt_dist%impl(:,:,1)
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, 1, .true.)
-            dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
+            call get_comp_rhs_imp_dist(xi_dist, dxi_LMdist, dxidt_dist, 1, .true.)
+            dxidt_dist%expl(:,:,2)=dxidt_dist%expl(:,:,2)+coex*dxidt_dist%impl(:,:,1)
          end if
 
          if ( l_mag ) then
-            call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
-                 &               dbdt, djdt, tscheme, 1, .true., .false.)
-            dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
-            djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
+            call get_mag_rhs_imp_dist(b_dist, db_LMdist, ddb_LMdist, aj_dist, dj_LMdist, ddj_LMdist, &
+                 &               dbdt_dist, djdt_dist, tscheme, 1, .true., .false.)
+            dbdt_dist%expl(:,:,2)=dbdt_dist%expl(:,:,2)+coex*dbdt_dist%impl(:,:,1)
+            djdt_dist%expl(:,:,2)=djdt_dist%expl(:,:,2)+coex*djdt_dist%impl(:,:,1)
          end if
 
          if ( l_cond_ic ) then
-            call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
-                 &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
-                 &                  djdt_ic, 1, .true.)
-            dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
-            djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
+            call get_mag_ic_rhs_imp_dist(b_ic_dist, db_ic_LMdist, ddb_ic_LMdist, aj_ic_dist,  &
+                 &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic_dist,      &
+                 &                  djdt_ic_dist, 1, .true.)
+            dbdt_ic_dist%expl(:,:,2)=dbdt_ic_dist%expl(:,:,2)+coex*dbdt_ic_dist%impl(:,:,1)
+            djdt_ic_dist%expl(:,:,2)=djdt_ic_dist%expl(:,:,2)+coex*djdt_ic_dist%impl(:,:,1)
          end if
 
          if ( .not. l_mag_LF ) then
@@ -2180,13 +2219,13 @@ contains
             lorentz_torque_ma_dt%expl(2)=0.0_cp
          end if
          if ( l_z10mat ) then
-            l1m0=lo_map%lm2(1,0)
+            l1m0=map_mlo%ml2i(0,1)
             if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) .and. &
-            &     (l1m0 >= llm .and.l1m0 <= ulm) ) then
+            &     (l1m0 > 0) ) then
                domega_ma_dt%expl(2)=LFfac*c_lorentz_ma*lorentz_torque_ma_dt%expl(2)
             end if
             if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) .and. &
-            &      (l1m0 >= llm .and. l1m0 <= ulm) ) then
+            &      (l1m0 > 0) ) then
                domega_ic_dt%expl(2)=LFfac*c_lorentz_ic*lorentz_torque_ic_dt%expl(2)
             end if
          else
@@ -2197,8 +2236,8 @@ contains
       end if
 
       !-- Finish computation to restart
-      call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
-           &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
+      call finish_start_fields_dist(time, minc_old, l_mag_old, omega_ic1Old, &
+           &                   omega_ma1Old, z_dist, s_dist, xi_dist, b_dist, omega_ic, omega_ma)
 
    end subroutine readStartFields_mpi
 !------------------------------------------------------------------------------
@@ -2578,10 +2617,10 @@ contains
 
       !$omp parallel do default(shared) private(n_proc,lmStart,lmStop,lm,lmo,woR)
       do n_proc=0,n_ranks_r-1 ! Blocking of loop over all (l,m)
-         lmStart=lm_balance(n_proc)%nStart
-         lmStop =lm_balance(n_proc)%nStop
+         !lmStart=lm_balance(n_proc)%nStart
+         !lmStop =lm_balance(n_proc)%nStop
 
-         do lm=lmStart,lmStop
+         do lm=1,lm_max
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
                if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or.        &
@@ -2949,7 +2988,131 @@ contains
       end if
 
    end subroutine mapDataR
-!---------------------------------------------------------------------
+!------------------------------------------------------------------------------
+   subroutine finish_start_fields_dist(time, minc_old, l_mag_old, omega_ic1Old, &
+              &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
+
+      !-- Input variables
+      real(cp), intent(in) :: time
+      integer,  intent(in) :: minc_old
+      logical,  intent(in) :: l_mag_old
+      real(cp), intent(in) :: omega_ic1Old
+      real(cp), intent(in) :: omega_ma1Old
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: z(n_mlo_loc,n_r_max)
+      complex(cp), intent(inout) :: s(n_mlo_loc,n_r_max)
+      complex(cp), intent(inout) :: xi(n_mlo_loc,n_r_max)
+      complex(cp), intent(inout) :: b(n_mloMag_loc,n_r_maxMag)
+
+      !-- Output variables
+      real(cp), intent(out) :: omega_ic
+      real(cp), intent(out) :: omega_ma
+
+      !-- Local variables
+      real(cp) :: fr
+      integer :: lm, nR, l1m0
+
+
+      !-- If mapping towards reduced symmetry, add thermal perturbation in
+      !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
+      if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
+         lm = map_mlo%ml2i(1,1)
+         if ( lm>0 ) then
+            do nR=1,n_r_max+1
+               fr=sin(pi*(r(nR)-r(n_r_max)))
+               s(lm,nR)=tipdipole*fr
+            end do
+         end if
+      end if
+
+      if ( l_chemical_conv .and. minc<minc_old .and. tipdipole>0.0_cp ) then
+         lm = map_mlo%ml2i(1,1)
+         if ( lm>0 ) then
+            do nR=1,n_r_max+1
+               fr=sin(pi*(r(nR)-r(n_r_max)))
+               xi(lm,nR)=tipdipole*fr
+            end do
+         end if
+      end if
+
+      !-- If starting from data file with longitudinal symmetry, add
+      !   weak non-axisymmetric dipole component if tipdipole  /=  0
+      if ( ( l_mag .or. l_mag_LF )                                &
+      &            .and. minc==1 .and. minc_old/=1 .and.          &
+      &            tipdipole>0.0_cp .and. l_mag_old ) then
+         lm = map_mlo%ml2i(1,1)
+         if ( lm>0 ) then
+            do nR=1,n_r_max+1
+               b(lm,nR)=tipdipole
+            end do
+         end if
+      end if
+
+      !----- Set IC and mantle rotation rates:
+      !      Following cases are covered:
+      !       1) Prescribed inner-core rotation omega_ic_pre
+      !       2) Rotation has been read above ( inform >= 4)
+      !       3) Rotation calculated from flow field z(l=1,m=0)
+      !       4) No rotation
+      !       5) Flow driven by prescribed inner core rotation
+      !       l_SRIC=.true. (spherical Couette case)
+      l1m0=map_mlo%ml2i(0,1)
+      if ( l_rot_ic ) then
+         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
+            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
+            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
+            tOmega_ic1=time+tShift_ic1
+            tOmega_ic2=time+tShift_ic2
+            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+            &        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+            if ( l_master_rank ) then
+               write(output_unit,*)
+               write(output_unit,*) '! I use prescribed inner core rotation rate:'
+               write(output_unit,*) '! omega_ic=',omega_ic
+            end if
+            if ( kbotv == 2 ) then
+               if ( l1m0 > 0 ) then
+                  z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+               end if
+            end if
+         else
+            omega_ic=omega_ic1Old
+         end if
+      else
+         omega_ic=0.0_cp
+      end if
+
+      !----- Mantle rotation, same as for inner core (see above)
+      !      exept the l_SRIC case.
+      if ( l_rot_ma ) then
+         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
+            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
+            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
+            tOmega_ma1=time+tShift_ma1
+            tOmega_ma2=time+tShift_ma2
+            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+            &        omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+            if ( l_master_rank ) then
+               write(output_unit,*)
+               write(output_unit,*) '! I use prescribed mantle rotation rate:'
+               write(output_unit,*) '! omega_ma =',omega_ma
+               write(output_unit,*) '! omega_ma1=',omega_ma1
+            end if
+            if ( ktopv == 2 ) then
+               if ( l1m0 > 0 ) then
+                  z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+               end if
+            end if
+         else
+            omega_ma=omega_ma1Old
+         end if
+      else
+         omega_ma=0.0_cp
+      end if
+
+   end subroutine finish_start_fields_dist
+!------------------------------------------------------------------------------
    subroutine finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
               &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 

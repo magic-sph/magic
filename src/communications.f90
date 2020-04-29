@@ -524,21 +524,25 @@ contains
    subroutine scatter_from_master_to_mlo(arr_full,arr_mlo)
       !@> TODO: ask Rafael to see whether it makes sense here
 
-      complex(cp), intent(in) :: arr_full(1:lm_max)
-      complex(cp), intent(out) :: arr_mlo(1:n_mlo_loc)
+      complex(cp), intent(in) :: arr_full(lm_max)
+      complex(cp), intent(out) :: arr_mlo(n_mlo_loc)
 
       !-- Local variables
+      complex(cp) :: tmp(lm_max)
       integer :: l, m, lm, lm_st
 
+      arr_mlo(:)=0.0_cp
+      if ( rank == 0 ) tmp(:) = arr_full(:) ! In case arr_full is smaller on other  ranks
+
 #ifdef WITH_MPI
-      call MPI_Bcast(arr_full, lm_max, MPI_DEF_COMPLEX, 0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(tmp, lm_max, MPI_DEF_COMPLEX, 0, MPI_COMM_WORLD, ierr)
 #endif
 
       do lm=1,n_mlo_loc
          l = map_mlo%i2l(lm)
          m = map_mlo%i2m(lm)
          lm_st=map_glbl_st%lm2(l,m)
-         arr_mlo(lm)=arr_full(lm_st)
+         arr_mlo(lm)=tmp(lm_st)
       end do
 
    end subroutine scatter_from_master_to_mlo

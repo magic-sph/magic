@@ -12,11 +12,10 @@ module start_fields
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
-   use mpi_thetap_mod, only: transform_new2old, transform_old2new !@> TODO: remove!!
+   use mpi_thetap_mod, only: test_field, transform_new2old !@> TODO: remove!!
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use output_data, only: log_file, n_log_file
-   use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
@@ -28,8 +27,7 @@ module start_fields
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
-   use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
-       &            one, two
+   use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, one, two
    use useful, only: cc2real, logWrite
    use radial_der, only: get_dr
    use readCheckPoints, only: readStartFields_old, readStartFields
@@ -41,7 +39,7 @@ module start_fields
    use updateWP_mod, only: get_pol_rhs_imp_dist
    use updateS_mod, only: get_entropy_rhs_imp_dist
    use updateXI_mod, only: get_comp_rhs_imp_dist
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates, get_tor_rhs_imp_dist
+   use updateZ_mod, only: get_rot_rates, get_tor_rhs_imp_dist
    use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
 
 
@@ -202,30 +200,31 @@ contains
 
          call t_reader%start_count()
          if ( index(start_file, 'rst_') /= 0 ) then
-            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
-                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,      &
-                 &                    dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,    &
-                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
+            call readStartFields_old( w_LMdist,dwdt_dist,z_LMdist,dzdt_dist,p_LMdist,dpdt_dist,   &
+                 &                    s_LMdist,dsdt_dist,xi_LMdist,dxidt_dist,b_LMdist,      &
+                 &                    dbdt_dist,aj_LMdist,djdt_dist,b_ic_LMdist,dbdt_ic_dist,    &
+                 &                    aj_ic_LMdist,djdt_ic_dist,omega_ic,omega_ma,    &
                  &                    domega_ic_dt,domega_ma_dt,                &
                  &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
                  &                    time,tscheme,n_time_step )
          else
 #ifdef WITH_MPI
-            call readStartFields_mpi( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
-                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,dbdt, &
-                 &                    aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
-                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
+            call readStartFields_mpi( w_LMdist,dwdt_dist,z_LMdist,dzdt_dist,p_LMdist,dpdt_dist,   &
+                 &                    s_LMdist,dsdt_dist,xi_LMdist,dxidt_dist,b_LMdist,dbdt_dist, &
+                 &                    aj_LMdist,djdt_dist,b_ic_LMdist,dbdt_ic_dist,         &
+                 &                    aj_ic_LMdist,djdt_ic_dist,omega_ic,omega_ma,    &
                  &                    domega_ic_dt,domega_ma_dt,                &
                  &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
                  &                    time,tscheme,n_time_step )
 #else
-            call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
-                 &                dsdt,xi_LMloc,dxidt,b_LMloc,dbdt,aj_LMloc,djdt,&
-                 &                b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,        &
+            call readStartFields( w_LMdist,dwdt_dist,z_LMdist,dzdt_dist,p_LMdist,dpdt_dist,s_LMdist,&
+                 &                dsdt_dist,xi_LMdist,dxidt_dist,b_LMdist,dbdt_dist,aj_LMdist,djdt_dist,&
+                 &                b_ic_LMdist,dbdt_ic_dist,aj_ic_LMdist,djdt_ic_dist,        &
                  &                omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,   &
                  &                lorentz_torque_ic_dt,lorentz_torque_ma_dt,     &
                  &                time,tscheme,n_time_step )
 #endif
+
          end if
          call t_reader%stop_count()
          if ( l_save_out ) then
@@ -242,36 +241,6 @@ contains
             tscheme%dt(1)=dtMax
             if ( l_master_rank ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
-
-         !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-         call transform_old2new(w_LMloc, w_LMdist, n_r_max)
-         call transform_old2new(z_LMloc, z_LMdist, n_r_max)
-         call transform_old2new(p_LMloc, p_LMdist, n_r_max)
-         if ( l_heat ) call transform_old2new(s_LMloc, s_LMdist, n_r_max)
-         if ( l_chemical_conv ) call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
-         if ( l_mag ) then
-            call transform_old2new(b_LMloc, b_LMdist, n_r_max)
-            call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
-            if ( l_cond_ic ) then
-               call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
-               call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
-            end if
-         end if 
-
-         call dwdt%slice_all(dwdt_dist)
-         call dzdt%slice_all(dzdt_dist)
-         call dpdt%slice_all(dpdt_dist)
-         if ( l_heat ) call dsdt%slice_all(dsdt_dist)
-         if ( l_chemical_conv ) call dxidt%slice_all(dxidt_dist)
-         if ( l_mag ) then
-            call dbdt%slice_all(dbdt_dist)
-            call djdt%slice_all(djdt_dist)
-            if ( l_cond_ic ) then
-               call dbdt_ic%slice_all(dbdt_ic_dist)
-               call djdt_ic%slice_all(djdt_ic_dist)
-            end if
-         end if
-         !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
          if ( .not. l_heat ) s_LMdist(:,:)=zero
 

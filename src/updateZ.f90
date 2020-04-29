@@ -216,17 +216,16 @@ contains
       do lj=1, n_lo_loc
          l = map_mlo%lj2l(lj)
 
-         if ( l /= 0 ) then
-            if ( .not. lZmat(lj) ) then
-#ifdef WITH_PRECOND_Z
-               call get_zMat(tscheme,l,hdif_V(l),zMat(lj),zMat_fac(:,lj))
-#else
-               call get_zMat(tscheme,l,hdif_V(l),zMat(lj))
-#endif
-               lZmat(lj)=.true.
-            end if
-         end if
+         if ( l == 0 ) cycle
 
+         if ( .not. lZmat(lj) ) then
+#ifdef WITH_PRECOND_Z
+            call get_zMat(tscheme,l,hdif_V(l),zMat(lj),zMat_fac(:,lj))
+#else
+            call get_zMat(tscheme,l,hdif_V(l),zMat(lj))
+#endif
+            lZmat(lj)=.true.
+         end if
 
          ! Loop over m corresponding to current l
          do mi=1,map_mlo%n_mi(lj)
@@ -324,9 +323,7 @@ contains
             end if
          end do
 
-         if ( l > 0 ) then
-            call zMat(lj)%solve(rhs1(:,1:2*map_mlo%n_mi(lj),1),2*map_mlo%n_mi(lj))
-         end if
+         call zMat(lj)%solve(rhs1(:,1:2*map_mlo%n_mi(lj),1),2*map_mlo%n_mi(lj))
 
          ! Loop over m corresponding to current l (again)
          do mi=1,map_mlo%n_mi(lj)
