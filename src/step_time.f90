@@ -13,7 +13,8 @@ module step_time_mod
    use constants, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
-       &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc
+       &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc, n_r_ic_max
+       !@> TODO: remove n_r_ic_max: not NEEDED here!!!!
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -30,7 +31,8 @@ module step_time_mod
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage
+   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
+       &                 finish_explicit_assembly_dist
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -611,6 +613,43 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
+               !~~~~~~~~~~~~~~~~~~~~~~~~~ Porting front ~~~~~~~~~~~~~~~~~~~~~~~
+               call dwdt%slice_all(dwdt_dist)
+               call dpdt%slice_all(dpdt_dist)
+               call dzdt%slice_all(dzdt_dist)
+               if ( l_heat ) then
+                  call dsdt%slice_all(dsdt_dist)
+                  call transform_old2new(dVSrLM_LMloc(:,:,tscheme%istage), &
+                       & dVSrLM_LMdist(:,:,tscheme%istage),n_r_max)
+               end if
+               if ( l_chemical_conv ) then
+                  call dxidt%slice_all(dxidt_dist)
+                  call transform_old2new(dVXirLM_LMloc(:,:,tscheme%istage), &
+                       &                 dVXirLM_LMdist(:,:,tscheme%istage),n_r_max)
+               end if
+               if ( l_double_curl ) then
+                  call transform_old2new(dVxVhLM_LMloc(:,:,tscheme%istage), &
+                       &                 dVxVhLM_LMdist(:,:,tscheme%istage),n_r_max)
+               end if 
+               if ( l_mag ) then
+                  call dbdt%slice_all(dbdt_dist)
+                  call transform_old2new(dVxBhLM_LMloc(:,:,tscheme%istage), &
+                       &                 dVxBhLM_LMdist(:,:,tscheme%istage),n_r_max)
+                  call djdt%slice_all(djdt_dist)
+                  if ( l_cond_ic ) then
+                     !call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+                     !call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
+                     call dbdt_ic%slice_all(dbdt_ic_dist)
+                     call djdt_ic%slice_all(djdt_ic_dist)
+                  end if
+               end if
+               call transform_old2new(w_LMloc, w_LMdist, n_r_max)
+               if ( l_cond_ic ) then
+                  call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
+                  call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
+               end if
+               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
                call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
                     &                        aj_ic_LMloc,                         &
                     &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
@@ -620,6 +659,21 @@ contains
                     &                        lorentz_torque_ma,lorentz_torque_ic, &
                     &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
                     &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
+                    &                        lorentz_torque_ma_dt,                &
+                    &                        lorentz_torque_ic_dt, tscheme)
+
+
+               call finish_explicit_assembly_dist(omega_ic,w_LMdist,b_ic_LMdist,   &
+                    &                        aj_ic_LMdist,                         &
+                    &                        dVSrLM_LMdist(:,:,tscheme%istage),    &
+                    &                        dVXirLM_LMdist(:,:,tscheme%istage),   &
+                    &                        dVxVhLM_LMdist(:,:,tscheme%istage),   &
+                    &                        dVxBhLM_LMdist(:,:,tscheme%istage),   &
+                    &                        lorentz_torque_ma,lorentz_torque_ic,  &
+                    &                        dsdt_dist, dxidt_dist, dwdt_dist,     &
+                    &                        djdt_dist, dbdt_ic_dist,              &
+                    &                        djdt_ic_dist, domega_ma_dt,           &
+                    &                        domega_ic_dt, &
                     &                        lorentz_torque_ma_dt,                &
                     &                        lorentz_torque_ic_dt, tscheme)
                call lmLoop_counter%stop_count(l_increment=.false.)

@@ -65,7 +65,7 @@ module updateWP_mod
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol, &
    &         finish_exp_pol, get_pol_rhs_imp, updateWP_dist, initialize_updateWP_dist,&
-   &         get_pol_rhs_imp_dist
+   &         get_pol_rhs_imp_dist, finish_exp_pol_dist
 
 contains
 
@@ -1138,6 +1138,33 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_pol
+!------------------------------------------------------------------------------
+   subroutine finish_exp_pol_dist(dVxVhLM, dw_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxVhLM(n_mlo_loc,n_r_max)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dw_exp_last(n_mlo_loc,n_r_max)
+
+      !-- Local variables
+      integer :: n_r, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm,stop_lm)
+      start_lm=1; stop_lm=n_mlo_loc
+      call get_openmp_blocks(start_lm,stop_lm)
+      call get_dr( dVxVhLM, work_LMdist, n_mlo_loc, start_lm,    &
+           &       stop_lm, n_r_max, rscheme_oc, nocopy=.true. )
+      !$omp barrier
+
+      !$omp do
+      do n_r=1,n_r_max
+         dw_exp_last(:,n_r)= dw_exp_last(:,n_r)+or2(n_r)*work_LMdist(:,n_r)
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_pol_dist
 !------------------------------------------------------------------------------
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, tscheme,     &
               &               istage, l_calc_lin, lPressNext, lRmsNext, dp_expl, &

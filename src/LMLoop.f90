@@ -9,7 +9,8 @@ module LMLoop_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
+   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max, &
+       &                 n_mlo_loc, n_mloMag_loc
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic
@@ -31,7 +32,7 @@ module LMLoop_mod
    private
 
    public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly, &
-   &         assemble_stage
+   &         assemble_stage, finish_explicit_assembly_dist
 
 contains
 
@@ -132,32 +133,6 @@ contains
       PERFON('LMloop')
       !LIKWID_ON('LMloop')
       
-! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
-      !call transform_old2new(s_LMloc, s_LMdist, n_r_max)
-      call dwdt%slice_all(dwdt_dist) ! <-- needed otherwise the expl array is not sliced
-      call dpdt%slice_all(dpdt_dist) ! <-- needed otherwise the expl array is not sliced
-      call dsdt%slice_all(dsdt_dist) ! <-- needed otherwise the expl array is not sliced
-      call dzdt%slice_all(dzdt_dist) ! <-- needed otherwise the expl array is not sliced
-
-      if ( l_chemical_conv ) then
-         !call transform_old2new(xi_LMloc, xi_LMdist, n_r_max)
-         call dxidt%slice_all(dxidt_dist)
-      end if
-
-      if ( l_mag ) then
-         !call transform_old2new(b_LMloc, b_LMdist, n_r_max)
-         !call transform_old2new(aj_LMloc, aj_LMdist, n_r_max)
-         call dbdt%slice_all(dbdt_dist)
-         call djdt%slice_all(djdt_dist)
-         if ( l_cond_ic ) then
-            !call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
-            !call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
-            call dbdt_ic%slice_all(dbdt_ic_dist)
-            call djdt_ic%slice_all(djdt_ic_dist)
-         end if
-      end if
-! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Begin of porting point
-
       if ( lMat ) then ! update matrices:
          !---- The following logicals tell whether the respective inversion
          !     matrices have been updated. lMat=.true. when a general
@@ -302,6 +277,71 @@ contains
       !LIKWID_OFF('LMloop')
       PERFOFF
    end subroutine LMLoop
+!--------------------------------------------------------------------------------
+   subroutine finish_explicit_assembly_dist(omega_ic, w, b_ic, aj_ic, dVSr_LMdist,      &
+              &                        dVXir_LMdist, dVxVh_LMdist, dVxBh_LMdist,     &
+              &                        lorentz_torque_ma, lorentz_torque_ic,      &
+              &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,          &
+              &                        djdt_ic, domega_ma_dt, domega_ic_dt,       &
+              &                        lorentz_torque_ma_dt, lorentz_torque_ic_dt,&
+              &                        tscheme)
+      !
+      ! This subroutine is used to finish the computation of the explicit terms.
+      ! This is only possible in a LM-distributed space since it mainly involves
+      ! computation of radial derivatives.
+      !
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: omega_ic
+      real(cp),            intent(in) :: lorentz_torque_ic
+      real(cp),            intent(in) :: lorentz_torque_ma
+      complex(cp),         intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: b_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(in) :: aj_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(inout) :: dVSr_LMdist(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: dVXir_LMdist(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: dVxVh_LMdist(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: dVxBh_LMdist(n_mloMag_loc,n_r_maxMag)
+
+      !-- Output variables
+      type(type_tarray),   intent(inout) :: dsdt, dxidt, djdt, dwdt
+      type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
+      type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
+
+      if ( l_chemical_conv ) then
+         call finish_exp_comp_dist(dVXir_LMdist, dxidt%expl(:,:,tscheme%istage))
+      end if
+
+      if ( l_single_matrix ) then
+         call finish_exp_smat_dist(dVSr_LMdist, dsdt%expl(:,:,tscheme%istage))
+      else
+         if ( l_heat ) then
+            call finish_exp_entropy_dist(w, dVSr_LMdist, dsdt%expl(:,:,tscheme%istage))
+         end if
+         if ( l_double_curl ) then
+            call finish_exp_pol_dist(dVxVh_LMdist, dwdt%expl(:,:,tscheme%istage))
+         end if
+      end if
+
+      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
+           &              domega_ma_dt%expl(tscheme%istage),        &
+           &              domega_ic_dt%expl(tscheme%istage),        &
+           &              lorentz_torque_ma_dt%expl(tscheme%istage),&
+           &              lorentz_torque_ic_dt%expl(tscheme%istage))
+
+      if ( l_mag ) then
+         call finish_exp_mag_dist(dVxBh_LMdist, djdt%expl(:,:,tscheme%istage))
+      end if
+
+      if ( l_cond_ic ) then
+         call finish_exp_mag_ic_dist(b_ic, aj_ic, omega_ic,            &
+              &                 dbdt_ic%expl(:,:,tscheme%istage), &
+              &                 djdt_ic%expl(:,:,tscheme%istage))
+      end if
+
+   end subroutine finish_explicit_assembly_dist
 !--------------------------------------------------------------------------------
    subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,      &
               &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc,     &
