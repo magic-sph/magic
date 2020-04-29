@@ -14,7 +14,7 @@ module output_mod
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
-       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
+       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_SRIC,           &
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
@@ -39,7 +39,7 @@ module output_mod
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
-   use geos_mod, only: getEgeos, outPV
+   use geos_mod, only: getEgeos
    use outRot, only: write_rot
    use omega, only: outOmega
    use integration, only: rInt_R
@@ -82,7 +82,8 @@ module output_mod
    real(cp) :: dlBMean,dmBMean
    real(cp) :: lvDissMean,lbDissMean
    real(cp) :: RmMean,ElMean,ElCmbMean,RolMean
-   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean,GeosNAMean
+   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean
+   real(cp) :: GeosNAMean,GeosNAPMean
    real(cp) :: RelA,RelZ,RelM,RelNA
    real(cp) :: DipMean,DipCMBMean
    real(cp) :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
@@ -179,6 +180,7 @@ contains
       GeosZMean    =0.0_cp
       GeosMMean    =0.0_cp
       GeosNAMean   =0.0_cp
+      GeosNAPMean  =0.0_cp
       RelA         =0.0_cp
       RelM         =0.0_cp
       RelZ         =0.0_cp
@@ -399,7 +401,8 @@ contains
       real(cp) :: volume,EC
       real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
       real(cp) :: RolRu2(n_r_max),RmR(n_r_max),dlPolPeakR(n_r_max)
-      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,Dip,DipCMB
+      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,GeosNAP
+      real(cp) :: Dip,DipCMB
       real(cp) :: ReConv,RoConv,e_kin_nas,RolC
       real(cp) :: elsAnel,dlVPolPeak,dlBPolPeak
       real(cp) :: dlB,dlBc,dmB
@@ -407,7 +410,6 @@ contains
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
       integer :: l
       real(cp) :: ReEquat
-      logical :: l_PVout
       real(cp) :: timeScaled
       character(len=96) :: message
       logical :: DEBUG_OUTPUT=.false.
@@ -567,17 +569,18 @@ contains
          if ( l_par ) then
             call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
                  &        z_LMloc,dz_LMloc,Geos,GeosA,GeosZ,GeosM,GeosNA, & 
-                 &        dpV,dzV,volume,EC)
+                 &        GeosNAP,dpV,dzV,volume,EC)
          else
-            Geos  =0.0_cp
-            GeosA =0.0_cp
-            GeosZ =0.0_cp
-            GeosM =0.0_cp
-            GeosNA=0.0_cp
-            dpV   =0.0_cp
-            dzV   =0.0_cp
-            volume=0.0_cp ! test volume
-            EC    =0.0_cp ! test kinetic energy
+            Geos   =0.0_cp
+            GeosA  =0.0_cp
+            GeosZ  =0.0_cp
+            GeosM  =0.0_cp
+            GeosNA =0.0_cp
+            GeosNAP=0.0_cp
+            dpV    =0.0_cp
+            dzV    =0.0_cp
+            volume =0.0_cp ! test volume
+            EC     =0.0_cp ! test kinetic energy
          end if
 
          if ( l_mag .or. l_mag_LF ) then
@@ -789,8 +792,6 @@ contains
       ! ===================================================
       ! We have all fields in LMloc space. Thus we gather the whole fields on rank 0.
 
-      l_PVout = l_PV .and. l_log
-
       if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
          PERFON('out_comm')
 
@@ -959,6 +960,7 @@ contains
             GeosZMean  =GeosZMean  +timePassedLog*GeosZ
             GeosMMean  =GeosMMean  +timePassedLog*GeosM
             GeosNAMean =GeosNAMean +timePassedLog*GeosNA
+            GeosNAPMean=GeosNAPMean+timePassedLog*GeosNAP
             if ( e_kin > 0.0_cp ) then
                ! Relative axisymmetric kinetic energy:
                RelA       =RelA       +timePassedLog*(e_kin_p_as+e_kin_t_as)/e_kin
@@ -996,6 +998,7 @@ contains
                GeosZMean  =GeosZMean/timeNormLog 
                GeosMMean  =GeosMMean/timeNormLog 
                GeosNAMean =GeosNAMean/timeNormLog 
+               GeosNAPMean=GeosNAPMean/timeNormLog 
                RelA       =RelA/timeNormLog
                RelZ       =RelZ/timeNormLog
                RelM       =RelM/timeNormLog
@@ -1067,7 +1070,7 @@ contains
                &                         vol_oc
   
                write(n_log_file,                                                &
-               & '(1p,/,A,15(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
+               & '(1p,/,A,16(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
                & " ! Time averaged property parameters :",                      &
                & " !  Rm (Re)          :",RmMean,                               &
                & " !  Elsass           :",ElMean,                               &
@@ -1082,6 +1085,7 @@ contains
                & " !  rel geos Zon Ekin:",GeosZMean,                            &
                & " !  rel geos Mer Ekin:",GeosMMean,                            &
                & " !  rel geos NA Ekin :",GeosNAMean,                           &
+               & " !  rel geos NAP Ekin:",GeosNAPMean,                          &
                & " !  Dip              :",DipMean,                              &
                & " !  DipCMB           :",DipCMBMean,                           &
                & " !  l,m,p,z V scales :",dlVMean,dmVMean,dpVMean,dzVmean,      &
@@ -1105,15 +1109,6 @@ contains
       end if
 
       if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMloc,omega_ic)
-
-      !----- Output of axisymm. rotation rate for potential vorticity analysis:
-      !  NOTE: For l_stop_time=.true. outPV transforms the fields without
-      !        transforming them back. This must thus be the very last
-      !        thing done with them.
-      if ( l_PVout ) call outPV(time,l_stop_time,nPVsets,                   &
-           &                    w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,&
-           &                    omega_ic,omega_ma)
-
 
       if ( l_log ) then
          timePassedLog=0.0_cp
