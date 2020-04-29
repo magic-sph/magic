@@ -39,6 +39,7 @@ module communications
    public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, &
    &         gather_all_from_lo_to_rank0, gather_from_Rloc
    public :: get_global_sum, finalize_communications, initialize_communications
+   public :: scatter_from_master_to_mlo
 
 #ifdef WITH_MPI
    public :: myAllGather
@@ -558,6 +559,28 @@ contains
 #endif
 
    end subroutine scatter_from_rank0_to_lo
+!-------------------------------------------------------------------------------
+   subroutine scatter_from_master_to_mlo(arr_full,arr_mlo)
+      !@> TODO: ask Rafael to see whether it makes sense here
+
+      complex(cp), intent(in) :: arr_full(1:lm_max)
+      complex(cp), intent(out) :: arr_mlo(1:n_mlo_loc)
+
+      !-- Local variables
+      integer :: l, m, lm, lm_st
+
+#ifdef WITH_MPI
+      call MPI_Bcast(arr_full, lm_max, MPI_DEF_COMPLEX, 0, MPI_COMM_WORLD, ierr)
+#endif
+
+      do lm=1,n_mlo_loc
+         l = map_mlo%i2l(lm)
+         m = map_mlo%i2m(lm)
+         lm_st=map_glbl_st%lm2(l,m)
+         arr_mlo(lm)=arr_full(lm_st)
+      end do
+
+   end subroutine scatter_from_master_to_mlo
 !-------------------------------------------------------------------------------
    subroutine lm2lo_redist(arr_LMloc,arr_lo)
 
