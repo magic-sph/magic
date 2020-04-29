@@ -64,7 +64,7 @@ module updateWP_mod
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol, &
-   &         finish_exp_pol, get_pol_rhs_imp, updateWP_dist, initialize_updateWP_dist,&
+   &         finish_exp_pol, get_pol_rhs_imp, initialize_updateWP_dist,&
    &         get_pol_rhs_imp_dist
 
 contains
@@ -241,8 +241,8 @@ contains
          call p0Mat_dist%initialize(n_r_max,n_r_max,l_pivot=.true.)
       end if
 
-      allocate( lWPmat_dist(0:l_max) )
-      bytes_allocated=bytes_allocated+(n_lo_loc+1)*SIZEOF_LOGICAL
+      allocate( lWPmat_dist(n_lo_loc) )
+      bytes_allocated=bytes_allocated+n_lo_loc*SIZEOF_LOGICAL
 
       if ( l_double_curl ) then
          allocate( ddddw_dist(n_mlo_loc,n_r_max) )
@@ -286,7 +286,7 @@ contains
          do ll=1,n_lo_loc
             call ellMat_dist(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
          end do
-         allocate( l_ellMat_dist(0:n_lo_loc) )
+         allocate( l_ellMat_dist(n_lo_loc) )
          l_ellMat_dist(:) = .false.
          allocate( rhs0_dist(n_r_max,2*map_mlo%n_mi_max,1) )
          rhs0_dist(:,:,:)=zero
@@ -306,385 +306,30 @@ contains
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       !-- Local variables:
-      integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
-
       if ( tscheme%l_assembly .and. l_double_curl ) then
-         do ll=1,nLMBs2(1+coord_r)
-            call ellMat(ll)%finalize()
+         do ll=1,n_lo_loc
+            call ellMat_dist(ll)%finalize()
          end do
-         deallocate( l_ellMat, rhs0 )
+         deallocate( l_ellMat_dist, rhs0_dist )
       end if
 
-      do ll=1,nLMBs2(1+coord_r)
-         call wpMat(ll)%finalize()
+      do ll=1,n_lo_loc
+         call wpMat_dist(ll)%finalize()
       end do
-      call p0Mat%finalize()
+      call p0Mat_dist%finalize()
 
-      deallocate( wpMat_fac,lWPmat, rhs1, work )
-      deallocate( Dif, Pre, Buo )
+      deallocate( wpMat_fac_dist,lWPmat_dist, rhs1_dist, work_dist )
+      deallocate( Dif_dist, Pre_dist, Buo_dist )
       if ( l_double_curl ) then
-         deallocate( ddddw )
-         if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
+         deallocate( ddddw_dist )
+         if ( l_RMS .or. l_FluxProfs ) deallocate( dwold_dist )
       end if
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
    subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
-              &        lRmsNext, lPressNext)
-      !
-      !  updates the poloidal velocity potential w, the pressure p,  and
-      !  their derivatives
-      !  adds explicit part to time derivatives of w and p
-      !
-
-      !-- Input/output of scalar fields:
-      class(type_tscheme), intent(in) :: tscheme
-      logical,             intent(in) :: lRmsNext
-      logical,             intent(in) :: lPressNext
-
-      type(type_tarray), intent(inout) :: dpdt
-      type(type_tarray), intent(inout) :: dwdt
-      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
-      complex(cp),       intent(inout) :: xi(llm:ulm,n_r_max)
-      complex(cp),       intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp),       intent(inout) :: dw(llm:ulm,n_r_max)
-      complex(cp),       intent(inout) :: ddw(llm:ulm,n_r_max)
-      complex(cp),       intent(inout) :: p(llm:ulm,n_r_max)
-
-      complex(cp),       intent(out) :: dp(llm:ulm,n_r_max)
-
-      !-- Local variables:
-      integer :: l1,m1          ! degree and order
-      integer :: lm1,lm,lmB     ! position of (l,m) in array
-      integer :: lmStart_00     ! excluding l=0,m=0
-      integer :: nLMB2
-      integer :: nR             ! counts radial grid points
-      integer :: n_r_out         ! counts cheb modes
-      real(cp) :: rhs(n_r_max)  ! real RHS for l=m=0
-      integer :: nLMB
-
-      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
-      integer, pointer :: sizeLMB2(:,:),lm2(:,:)
-      integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
-
-      integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( .not. l_update_v ) return
-
-      nLMBs2(1:n_ranks_r) => lo_sub_map%nLMBs2
-      sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
-      lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
-      lm22l(1:,1:,1:) => lo_sub_map%lm22l
-      lm22m(1:,1:,1:) => lo_sub_map%lm22m
-      lm2(0:,0:) => lo_map%lm2
-      lm2l(1:lm_max) => lo_map%lm2l
-      lm2m(1:lm_max) => lo_map%lm2m
-
-      nLMB       =1+coord_r
-      lmStart_00 =max(2,llm)
-
-      !-- Now assemble the right hand side and store it in work_LMloc
-      call tscheme%set_imex_rhs(work_LMloc, dwdt, llm, ulm, n_r_max)
-      if ( .not. l_double_curl ) then
-         call tscheme%set_imex_rhs(ddw, dpdt, llm, ulm, n_r_max)
-      end if
-
-      !$omp parallel default(shared)
-
-      !$omp single
-      call solve_counter%start_count()
-      !$omp end single
-      !PERFON('upWP_ssol')
-      !$OMP SINGLE
-      ! each of the nLMBs2(nLMB) subblocks have one l value
-      do nLMB2=1,nLMBs2(nLMB)
-
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(dwold,nLMB,nLMBs2,rhs1)
-
-         ! determine the number of chunks of m
-         ! total number for l1 is sizeLMB2(nLMB2,nLMB)
-         ! chunksize is given
-         nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
-         size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
-
-         l1=lm22l(1,nLMB2,nLMB)
-         if ( l1 == 0 ) then
-            if ( .not. lWPmat(l1) ) then
-               call get_p0Mat(p0Mat)
-               lWPmat(l1)=.true.
-            end if
-         else
-            if ( .not. lWPmat(l1) ) then
-               !PERFON('upWP_mat')
-               if ( l_double_curl ) then
-                  call get_wMat(tscheme,l1,hdif_V(l1),    &
-                       &        wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
-               else
-                  call get_wpMat(tscheme,l1,hdif_V(l1),   &
-                       &         wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
-               end if
-               lWPmat(l1)=.true.
-               !PERFOFF
-            end if
-         end if
-
-         do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(threadid)
-
-            !PERFON('upWP_set')
-#ifdef WITHOMP
-            threadid = omp_get_thread_num()
-#else
-            threadid = 0
-#endif
-            lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-            !do lm=1,sizeLMB2(nLMB2,nLMB)
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-
-               if ( l1 == 0 ) then
-                  !-- The integral of rho' r^2 dr vanishes
-                  if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
-                     if ( rscheme_oc%version == 'cheb' ) then
-                        do nR=1,n_r_max
-                           work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
-                           &        r(nR)*real(s(lm2(0,0),nR))
-                        end do
-                        rhs(1)=rInt_R(work,r,rscheme_oc)
-                     else
-                        rhs(1)=0.0_cp
-                     end if
-                  else
-                     rhs(1)=0.0_cp
-                  end if
-
-                  if ( l_chemical_conv ) then
-                     do nR=2,n_r_max
-                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm2(0,0),nR))+   &
-                        &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(lm2(0,0),nR))+ &
-                        &       real(dwdt%expl(lm2(0,0),nR,tscheme%istage))
-                     end do
-                  else
-                     do nR=2,n_r_max
-                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm2(0,0),nR))+  &
-                        &       real(dwdt%expl(lm2(0,0),nR,tscheme%istage))
-                     end do
-                  end if
-
-                  call p0Mat%solve(rhs)
-
-               else ! l1 /= 0
-                  lmB=lmB+1
-                  rhs1(1,2*lmB-1,threadid)      =0.0_cp
-                  rhs1(1,2*lmB,threadid)        =0.0_cp
-                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-                  if ( l_double_curl ) then
-                     rhs1(2,2*lmB-1,threadid)        =0.0_cp
-                     rhs1(2,2*lmB,threadid)          =0.0_cp
-                     rhs1(n_r_max-1,2*lmB-1,threadid)=0.0_cp
-                     rhs1(n_r_max-1,2*lmB,threadid)  =0.0_cp
-                     do nR=3,n_r_max-2
-                        rhs1(nR,2*lmB-1,threadid)= real(work_LMloc(lm1,nR))
-                        rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
-                     end do
-
-                     if ( l_heat ) then
-                        do nR=3,n_r_max-2
-                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
-                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *      &
-                           &      or2(nR)*BuoFac*rgrav(nR)*real(s(lm1,nR))
-                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
-                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *      &
-                           &      or2(nR)*BuoFac*rgrav(nR)*aimag(s(lm1,nR))
-                        end do
-                     end if
-
-                     if ( l_chemical_conv ) then
-                        do nR=3,n_r_max-2
-                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
-                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
-                           &      or2(nR)*ChemFac*rgrav(nR)*real(xi(lm1,nR))
-                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
-                           &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
-                           &      or2(nR)*ChemFac*rgrav(nR)*aimag(xi(lm1,nR))
-                        end do
-                     end if
-                  else
-                     rhs1(n_r_max+1,2*lmB-1,threadid)=0.0_cp
-                     rhs1(n_r_max+1,2*lmB,threadid)  =0.0_cp
-                     rhs1(2*n_r_max,2*lmB-1,threadid)=0.0_cp
-                     rhs1(2*n_r_max,2*lmB,threadid)  =0.0_cp
-                     do nR=2,n_r_max-1
-                        rhs1(nR,2*lmB-1,threadid)        = real(work_LMloc(lm1,nR))
-                        rhs1(nR,2*lmB,threadid)          =aimag(work_LMloc(lm1,nR))
-                        rhs1(nR+n_r_max,2*lmB-1,threadid)= real(ddw(lm1,nR)) ! ddw is a work array
-                        rhs1(nR+n_r_max,2*lmB,threadid)  =aimag(ddw(lm1,nR))
-                     end do
-
-                     if ( l_heat ) then
-                        do nR=2,n_r_max-1
-                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
-                           &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
-                           &                      rgrav(nR)*real(s(lm1,nR))
-                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
-                           &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*       &
-                           &                      rgrav(nR)*aimag(s(lm1,nR))
-                        end do
-                     end if
-
-                     if ( l_chemical_conv ) then
-                        do nR=2,n_r_max-1
-                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
-                           &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
-                           &                      rgrav(nR)*real(xi(lm1,nR))
-                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
-                           &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*      &
-                           &                      rgrav(nR)*aimag(xi(lm1,nR))
-                        end do
-                     end if
-
-                  end if
-               end if
-            end do
-            !PERFOFF
-
-            !PERFON('upWP_sol')
-            if ( lmB > 0 ) then
-
-               ! use the mat_fac(:,1) to scale the rhs
-               do lm=lmB0+1,lmB
-                  do nR=1,size_rhs1
-                     rhs1(nR,2*lm-1,threadid)=rhs1(nR,2*lm-1,threadid)* &
-                     &                        wpMat_fac(nR,1,nLMB2)
-                     rhs1(nR,2*lm,threadid)  =rhs1(nR,2*lm,threadid)* &
-                     &                        wpMat_fac(nR,1,nLMB2)
-                  end do
-               end do
-               call wpMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                                       2*(lmB-lmB0))
-               ! rescale the solution with mat_fac(:,2)
-               do lm=lmB0+1,lmB
-                  do nR=1,size_rhs1
-                     rhs1(nR,2*lm-1,threadid)=rhs1(nR,2*lm-1,threadid)* &
-                     &                        wpMat_fac(nR,2,nLMB2)
-                     rhs1(nR,2*lm,threadid)  =rhs1(nR,2*lm,threadid)* &
-                     &                        wpMat_fac(nR,2,nLMB2)
-                  end do
-               end do
-            end if
-            !PERFOFF
-
-            if ( l_double_curl .and. lPressNext .and. tscheme%istage == 1) then
-               ! Store old dw
-               do nR=1,n_r_max
-                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     lm1=lm22lm(lm,nLMB2,nLMB)
-                     dwold(lm1,nR)=dw(lm1,nR)
-                  end do
-               end do
-            end if
-
-            !PERFON('upWP_aft')
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 == 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     p(lm1,n_r_out)=rhs(n_r_out)
-                  end do
-               else
-                  lmB=lmB+1
-                  if ( l_double_curl ) then
-                     if ( m1 > 0 ) then
-                        do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)  =cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                           &                      rhs1(n_r_out,2*lmB,threadid),cp)
-                        end do
-                     else
-                        do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)  = cmplx(rhs1(n_r_out,2*lmB-1,threadid),&
-                           &                       0.0_cp,kind=cp)
-                        end do
-                     end if
-                  else
-                     if ( m1 > 0 ) then
-                        do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                           &                    rhs1(n_r_out,2*lmB,threadid),cp)
-                           p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,   &
-                           &                    threadid),rhs1(n_r_max+n_r_out, &
-                           &                    2*lmB,threadid),cp)
-                        end do
-                     else
-                        do n_r_out=1,rscheme_oc%n_max
-                           w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                           &                    0.0_cp,kind=cp)
-                           p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1, &
-                           &                    threadid),0.0_cp,kind=cp)
-                        end do
-                     end if
-                  end if
-               end if
-            end do
-            !PERFOFF
-            !$OMP END TASK
-         end do
-         !$OMP END TASK
-      end do   ! end of loop over l1 subblocks
-      !$OMP END SINGLE
-      !PERFOFF
-      !$omp single
-      call solve_counter%stop_count()
-      !$omp end single
-
-      !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-      !$omp do private(n_r_out,lm1) collapse(2)
-      do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=llm,ulm
-            w(lm1,n_r_out)=zero
-            p(lm1,n_r_out)=zero
-         end do
-      end do
-      !$omp end do
-
-      !$omp end parallel
-
-      !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dwdt, llm, ulm, n_r_max)
-      if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt, llm, ulm, n_r_max)
-
-      if ( tscheme%istage == tscheme%nstages ) then
-         call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
-              &               tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
-              &               lPressNext, lRmsNext,                       &
-              &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
-         ! dpdt%expl(:,:,1) needed for RMS calc: first stage explicit term
-      else
-         call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
-              &               tscheme, tscheme%istage+1,                  &
-              &               tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
-              &               lPressNext, lRmsNext,                       &
-              &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
-      end if
-
-
-   end subroutine updateWP
-!-----------------------------------------------------------------------------
-   subroutine updateWP_dist(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
               &        lRmsNext, lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
@@ -966,7 +611,7 @@ contains
       end if
 
 
-   end subroutine updateWP_dist
+   end subroutine updateWP
 !------------------------------------------------------------------------------
    subroutine get_pol(w, work)
       !

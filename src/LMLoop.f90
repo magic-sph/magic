@@ -48,21 +48,15 @@ contains
       local_bytes_used = bytes_allocated
       if ( l_single_matrix ) then
          call initialize_updateWPS()
-         call initialize_updateWPS_dist()
       else
          if ( l_heat ) call initialize_updateS()
-         if ( l_heat ) call initialize_updateS_dist()
          call initialize_updateWP(tscheme)
          call initialize_updateWP_dist(tscheme)
       end if
-
       if ( l_chemical_conv ) call initialize_updateXi()
-      if ( l_chemical_conv ) call initialize_updateXi_dist()
 
       call initialize_updateZ()
-      call initialize_updateZ_dist()
       if ( l_mag ) call initialize_updateB()
-      if ( l_mag ) call initialize_updateB_dist()
       local_bytes_used = bytes_allocated-local_bytes_used
 
       call memWrite('LMLoop.f90',local_bytes_used)
@@ -128,28 +122,28 @@ contains
          !---- The following logicals tell whether the respective inversion
          !     matrices have been updated. lMat=.true. when a general
          !     update is necessary.
-         lZ10mat_dist=.false.
+         lZ10mat=.false.
          if ( l_single_matrix ) then
-            lWPSmat_dist(:)=.false.
+            lWPSmat(:)=.false.
          else
             lWPmat_dist(:)=.false.
-            if ( l_heat ) lSmat_dist(:) =.false.
+            if ( l_heat ) lSmat(:) =.false.
          end if
-         lZmat_dist(:) =.false.
-         if ( l_mag ) lBmat_dist(:) =.false.
-         if ( l_chemical_conv ) lXimat_dist(:)=.false.
+         lZmat(:) =.false.
+         if ( l_mag ) lBmat(:) =.false.
+         if ( l_chemical_conv ) lXimat(:)=.false.
       end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
-         call updateS_dist( s_LMdist, ds_LMdist, dsdt_dist, tscheme )
+         call updateS( s_LMdist, ds_LMdist, dsdt_dist, tscheme )
       end if
       
       if ( l_chemical_conv ) then
-         call updateXi_dist(xi_LMdist, dxi_LMdist, dxidt_dist, tscheme)
+         call updateXi(xi_LMdist, dxi_LMdist, dxidt_dist, tscheme)
       end if
 
       if ( l_conv ) then
-         call updateZ_dist( time, timeNext, z_LMdist, dz_LMdist, dzdt_dist, omega_ma,  &
+         call updateZ( time, timeNext, z_LMdist, dz_LMdist, dzdt_dist, omega_ma,  &
               &        omega_ic, domega_ma_dt,domega_ic_dt,                &
               &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
               &        lRmsNext)
@@ -162,22 +156,22 @@ contains
             !@> TODO: probably overkill here: ask Rafael whether he has an idea
             call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
 #endif
-            call updateWPS_dist( w_LMdist, dw_LMdist, ddw_LMdist, z10, dwdt_dist,    &
+            call updateWPS( w_LMdist, dw_LMdist, ddw_LMdist, z10, dwdt_dist,     &
                  &          p_LMdist, dp_LMdist, dpdt_dist, s_LMdist, ds_LMdist, &
                  &          dsdt_dist, tscheme, lRmsNext )
          else
-            call updateWP_dist( s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,&
-                 &         dwdt_dist, p_LMdist, dp_LMdist, dpdt_dist, tscheme,       &
+            call updateWP( s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,&
+                 &         dwdt_dist, p_LMdist, dp_LMdist, dpdt_dist, tscheme,  &
                  &         lRmsNext, lPressNext )
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
-         call updateB_dist( b_LMdist,db_LMdist,ddb_LMdist,aj_LMdist,dj_LMdist,  &
-              &             ddj_LMdist, dbdt_dist, djdt_dist, b_ic_LMdist,      &
-              &             db_ic_LMdist, ddb_ic_LMdist, aj_ic_LMdist,          &
-              &             dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic_dist,          &
-              &             djdt_ic_dist, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, &
-              &             tscheme, lRmsNext )
+         call updateB( b_LMdist,db_LMdist,ddb_LMdist,aj_LMdist,dj_LMdist,  &
+              &        ddj_LMdist, dbdt_dist, djdt_dist, b_ic_LMdist,      &
+              &        db_ic_LMdist, ddb_ic_LMdist, aj_ic_LMdist,          &
+              &        dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic_dist,          &
+              &        djdt_ic_dist, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, &
+              &        tscheme, lRmsNext )
       end if
 
    end subroutine LMLoop
