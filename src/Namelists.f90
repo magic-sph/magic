@@ -694,6 +694,10 @@ contains
          end if
          l_b_nl_cmb=.true.
       end if
+ 
+      if ( l_PV ) then
+         write(output_unit,*) '! NOTE: Storing flow in cylindrical grid disabled!'
+      end if
 
       !-- Right now it seems Finite differences don't cope very well with rot IC
       !if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
@@ -1128,7 +1132,6 @@ contains
       write(n_out,'(''  l_iner          ='',l3,'','')') l_iner
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
       write(n_out,'(''  l_TOmovie       ='',l3,'','')') l_TOmovie
-      write(n_out,'(''  l_PV            ='',l3,'','')') l_PV
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
@@ -1543,9 +1546,6 @@ contains
       sDens         =one     ! relative s-grid point density
       zDens         =one     ! relative z-grid point density
 
-      !----- Potential vorticity:
-      l_PV          =.false.
-
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
       l_AM          =.false. ! Angular moment in AM.TAG
@@ -1559,6 +1559,7 @@ contains
       l_iner        =.false. ! files for calculating inertial modes
       l_RMS         =.false. ! RMS force balance and dynamo term
                              ! balance in dtVrms.TAG and dtBrms.TAG
+      l_PV          =.false. ! Output of flow on cylinders, disabled !!
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
       rCut          =0.0_cp  ! Thickness of layer to be left out at both
