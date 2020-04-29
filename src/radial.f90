@@ -236,6 +236,7 @@ contains
       real(cp) :: func(n_r_max)
 
       real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
+      real(cp), allocatable :: coeffGrav(:), coeffGrun(:)
       real(cp) :: rrOcmb(n_r_max)
       real(cp) :: dr_top(2*n_r_ic_max-1)
       character(len=80) :: message
@@ -529,6 +530,85 @@ contains
          ogrun(:)=one/GrunNb
 
          l_non_adia = .true.
+
+      else if (index(interior_model,'MESA_5M_ZAMS') /= 0) then
+
+         l_non_adia = .true.
+         rrOcmb = r*r_cut_model/r_cmb
+
+         allocate( coeffAlpha(12), coeffTemp(12), coeffGrav(12), coeffGrun(12),&
+         &         coeffDens(12) )
+
+         coeffAlpha=[1.07280013e+00_cp, -7.35271452e-02_cp,  1.35373501e+00_cp,&
+                 &  -2.70033254e+01_cp,  1.34218482e+02_cp, -1.85203678e+02_cp,&
+                 &  -4.03705669e+02_cp,  1.65171816e+03_cp, -1.91235980e+03_cp,&
+                 &   4.33699991e+02_cp,  6.74102545e+02_cp, -3.67415688e+02_cp]
+
+         coeffTemp=[1.71233163e+01_cp,  2.16376708e-01_cp, -2.33617981e+01_cp, &
+              &     2.95986199e+02_cp, -3.15614535e+03_cp,  1.80265801e+04_cp, &
+              &    -5.99840212e+04_cp,  1.23788205e+05_cp, -1.61112426e+05_cp, &
+              &     1.28833197e+05_cp, -5.78439543e+04_cp,  1.11724125e+04_cp]
+
+         coeffGrav=[1.31049693e+02_cp,  1.04893208e+06_cp,  1.93822208e+06_cp, &
+              &    -5.15044761e+07_cp,  4.41798276e+08_cp, -2.66511461e+09_cp, &
+              &     1.02063273e+10_cp, -2.43712757e+10_cp,  3.64094408e+10_cp, &
+              &    -3.32103850e+10_cp,  1.69572548e+10_cp, -3.72150208e+09_cp]
+
+         coeffGrun=[1.57026325e+00_cp, -4.46247381e-02_cp,  3.03734351e-01_cp, &
+              &    -8.28253239e+00_cp, -2.63234309e+01_cp,  6.05835596e+02_cp, &
+              &    -2.89779916e+03_cp,  6.90494749e+03_cp, -9.29010895e+03_cp, &
+              &     7.04974613e+03_cp, -2.73663642e+03_cp,  3.98015351e+02_cp]
+
+         coeffDens=[3.05336249e+00_cp, -2.52357616e-01_cp, -3.47786718e-01_cp, &
+              &    -3.82246141e+02_cp,  4.44024160e+03_cp, -2.80734664e+04_cp, &
+              &     1.02942741e+05_cp, -2.30659612e+05_cp,  3.22111291e+05_cp, &
+                   -2.74248402e+05_cp,  1.30456564e+05_cp, -2.66069272e+04_cp]
+
+         alpha0(:)=0.0_cp
+         temp0(:) =0.0_cp
+         rgrav(:) =0.0_cp
+         ogrun(:) =0.0_cp
+         dtemp0(:)=0.0_cp
+         rho0(:)  =0.0_cp
+
+         do i=1,12
+            alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
+            temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
+            rgrav(:)  = rgrav(:) +coeffGrav(i) *rrOcmb(:)**(i-1)
+            ogrun(:)  = ogrun(:) +coeffGrun(i) *rrOcmb(:)**(i-1)
+            rho0(:)   = rho0(:)  +coeffDens(i) *rrOcmb(:)**(i-1)
+         end do
+
+         do i=2,12 ! d (lnT)/ dr
+            dtemp0(:) = dtemp0(:)+coeffTemp(i)*(i-1)*rrOcmb(:)**(i-2)
+            drho0(:)  = drho0(:) +coeffDens(i)*(i-1)*rrOcmb(:)**(i-2)
+         end do
+
+         alpha0(:)=alpha0(:)/alpha0(1)
+         rgrav(:) =rgrav(:)/rgrav(1)
+
+         !Normalise
+         call getBackground(dtemp0,0.0_cp,temp0)
+         call getBackground(drho0,0.0_cp,rho0)
+         temp0 = exp(temp0) ! Fit was on ln(temp0)
+         rho0  = exp(rho0)  ! Fit was on ln(rho0)
+         drho0 = drho0 * rho0 ! Fits were on ln(rho0) and ln(temp0)
+         dtemp0= dtemp0* temp0
+
+         beta = drho0
+
+         !-- Final stuff
+         call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+         call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+         call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+         call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
+         dLtemp0 = dtemp0/temp0
+         ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+
+         !-- Multiply the gravity by alpha0 and temp0
+         rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
 
       else  !-- Usual polytropic reference state
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
