@@ -330,7 +330,7 @@ program magic
    !--- Do pre-calculations:
    call preCalc(tscheme)
 
-   if ( l_par .or. l_PV ) call initialize_geos_mod(l_par,l_PV) ! Needs to be called after preCalc, r_icb needed
+   if ( l_par ) call initialize_geos_mod(l_par) ! Needs to be called after preCalc, r_icb needed
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
    if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
    if ( ldtBmem == 1 ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
@@ -453,7 +453,7 @@ program magic
    if ( l_RMS ) call finalize_RMS
    if ( l_TO ) call finalize_outTO_mod
    if ( l_TO ) call finalize_TO
-   if ( l_par .or. l_PV ) call finalize_geos_mod(l_par, l_PV)
+   if ( l_par ) call finalize_geos_mod(l_par)
    if ( ldtBmem == 1 ) call finalize_dtB_mod
    call finalize_fields_average_mod()
    call finalize_coeffs()
