@@ -62,8 +62,7 @@ module updateWPS_mod
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
    &         get_single_rhs_imp, assemble_single, updateWPS_dist,                 &
-   &         finish_exp_smat_dist, initialize_updateWPS_dist,                     &
-   &         get_single_rhs_imp_dist
+   &         initialize_updateWPS_dist, get_single_rhs_imp_dist
 
 contains
 
@@ -588,34 +587,6 @@ contains
 !------------------------------------------------------------------------------
    subroutine finish_exp_smat(dVSrLM, ds_exp_last)
 
-      complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
-
-      !-- Local variables
-      integer :: n_r, start_lm, stop_lm
-
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=llm; stop_lm=ulm
-      call get_openmp_blocks(start_lm,stop_lm)
-      call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-           &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
-      !$omp barrier
-
-      !$omp do
-      do n_r=1,n_r_max
-         ds_exp_last(:,n_r)=orho1(n_r)*(ds_exp_last(:,n_r)-   &
-         &                      or2(n_r)*work_LMloc(:,n_r))
-      end do
-      !$omp end do
-
-      !$omp end parallel
-
-   end subroutine finish_exp_smat
-!------------------------------------------------------------------------------
-   subroutine finish_exp_smat_dist(dVSrLM, ds_exp_last)
-
       complex(cp), intent(inout) :: dVSrLM(n_mlo_loc,n_r_max)
 
       !-- Output variables
@@ -640,7 +611,7 @@ contains
 
       !$omp end parallel
 
-   end subroutine finish_exp_smat_dist
+   end subroutine finish_exp_smat
 !------------------------------------------------------------------------------
    subroutine assemble_single(s, ds, w, dw, ddw, dsdt, dwdt, dpdt, tscheme, lRmsNext)
       !

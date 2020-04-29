@@ -57,8 +57,7 @@ module updateS_mod
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
    &         finish_exp_entropy, get_entropy_rhs_imp, updateS_dist,           &
-   &         initialize_updateS_dist, finish_exp_entropy_dist,                &
-   &         get_entropy_rhs_imp_dist
+   &         initialize_updateS_dist, get_entropy_rhs_imp_dist
 
 contains
 
@@ -550,61 +549,6 @@ contains
    subroutine finish_exp_entropy(w, dVSrLM, ds_exp_last)
 
       !-- Input variables
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
-
-      !-- Local variables
-      real(cp) :: dL
-      integer :: n_r, lm, start_lm, stop_lm, l1
-      integer, pointer :: lm2l(:),lm2m(:)
-
-      lm2l(1:lm_max) => lo_map%lm2l
-      lm2m(1:lm_max) => lo_map%lm2m
-
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=llm; stop_lm=ulm
-      call get_openmp_blocks(start_lm,stop_lm)
-      call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-           &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
-      !$omp barrier
-
-      if ( l_anelastic_liquid ) then
-         !$omp do private(n_r,l1,lm,dL)
-         do n_r=1,n_r_max
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               dL = real(l1*(l1+1),cp)
-               ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
-               &        or2(n_r)*orho1(n_r)*        work_LMloc(lm,n_r) + &
-               &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
-               &        dL*or2(n_r)*orho1(n_r)*temp0(n_r)*dentropy0(n_r)*&
-               &                                             w(lm,n_r)
-            end do
-         end do
-         !$omp end do
-      else
-         !$omp do private(n_r,l1,dL,lm)
-         do n_r=1,n_r_max
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               dL = real(l1*(l1+1),cp)
-               ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
-               &                             or2(n_r)*work_LMloc(lm,n_r)- &
-               &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
-            end do
-         end do
-         !$omp end do
-      end if
-      !$omp end parallel
-
-   end subroutine finish_exp_entropy
-!-----------------------------------------------------------------------------
-   subroutine finish_exp_entropy_dist(w, dVSrLM, ds_exp_last)
-
-      !-- Input variables
       complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(n_mlo_loc,n_r_max)
 
@@ -651,7 +595,7 @@ contains
       end if
       !$omp end parallel
 
-   end subroutine finish_exp_entropy_dist
+   end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
    subroutine get_entropy_rhs_imp_dist(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
 

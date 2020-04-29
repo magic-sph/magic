@@ -31,8 +31,7 @@ module step_time_mod
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
-       &                 finish_explicit_assembly_dist
+   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -48,12 +47,12 @@ module step_time_mod
        &                  n_t_TOZ, t_TOZ, n_probe_step, n_probe_out,       &
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
-   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
-   use updateWP_mod, only: get_pol_rhs_imp
-   use updateWPS_mod, only: get_single_rhs_imp
-   use updateS_mod, only: get_entropy_rhs_imp
-   use updateXI_mod, only: get_comp_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
+   use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
+   use updateWP_mod, only: get_pol_rhs_imp_dist
+   use updateWPS_mod, only: get_single_rhs_imp_dist
+   use updateS_mod, only: get_entropy_rhs_imp_dist
+   use updateXI_mod, only: get_comp_rhs_imp_dist
+   use updateZ_mod, only: get_tor_rhs_imp_dist, get_rot_rates
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
@@ -648,7 +647,7 @@ contains
                end if
                !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-               call finish_explicit_assembly_dist(omega_ic,w_LMdist,b_ic_LMdist,   &
+               call finish_explicit_assembly(omega_ic,w_LMdist,b_ic_LMdist,        &
                     &                        aj_ic_LMdist,                         &
                     &                        dVSrLM_LMdist(:,:,tscheme%istage),    &
                     &                        dVXirLM_LMdist(:,:,tscheme%istage),   &
@@ -658,8 +657,7 @@ contains
                     &                        dsdt_dist, dxidt_dist, dwdt_dist,     &
                     &                        djdt_dist, dbdt_ic_dist,              &
                     &                        djdt_ic_dist, domega_ma_dt,           &
-                    &                        domega_ic_dt, &
-                    &                        lorentz_torque_ma_dt,                &
+                    &                        domega_ic_dt, lorentz_torque_ma_dt,   &
                     &                        lorentz_torque_ic_dt, tscheme)
                call lmLoop_counter%stop_count(l_increment=.false.)
             end if
@@ -966,34 +964,34 @@ contains
            tscheme%family=='MULTISTEP' ) then
 
          if ( l_single_matrix ) then
-            call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
-                 &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
-                 &                  dpdt, tscheme, 1, .true., .false.)
+            call get_single_rhs_imp_dist(s_LMdist, ds_LMdist, w_LMdist, dw_LMdist,  &
+                 &                  ddw_LMdist, p_LMdist, dp_LMdist, dsdt_dist,     &
+                 &                  dwdt_dist, dpdt_dist, tscheme, 1, .true., .false.)
          else
-            call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
-                 &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1,        &
-                 &               .true., .false., .false., work_LMloc)
-            if ( l_heat ) call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+            call get_pol_rhs_imp_dist(s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,  &
+                 &               p_LMdist, dp_LMdist, dwdt_dist, dpdt_dist, tscheme, 1,        &
+                 &               .true., .false., .false., work_LMdist)
+            if ( l_heat ) call get_entropy_rhs_imp_dist(s_LMdist, ds_LMdist, dsdt_dist, 1, .true.)
          end if
 
          call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
          call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
-         call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
+         call get_tor_rhs_imp_dist(time, z_LMdist, dz_LMdist, dzdt_dist, domega_ma_dt,  &
               &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
               &               omega_ma1, tscheme, 1, .true., .false.)
 
-         if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc, dxi_LMloc,  &
-                                     &                dxidt, 1, .true.)
+         if ( l_chemical_conv ) call get_comp_rhs_imp_dist(xi_LMdist, dxi_LMdist,  &
+                                     &                dxidt_dist, 1, .true.)
 
-         if ( l_mag ) call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc,       &
-                           &               aj_LMLoc, dj_LMloc, ddj_LMloc,      &
-                           &               dbdt, djdt, tscheme, 1, .true.,     &
+         if ( l_mag ) call get_mag_rhs_imp_dist(b_LMdist, db_LMdist, ddb_LMdist,   &
+                           &               aj_LMdist, dj_LMdist, ddj_LMdist,      &
+                           &               dbdt_dist, djdt_dist, tscheme, 1, .true.,     &
                            &               .false.)
 
-         if ( l_cond_ic ) call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
-                               &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
-                               &                  dj_ic_LMloc, ddj_ic_LMloc,   &
-                               &                  dbdt_ic, djdt_ic, 1, .true.)
+         if ( l_cond_ic ) call get_mag_ic_rhs_imp_dist(b_ic_LMdist, db_ic_LMdist,     &
+                               &                  ddb_ic_LMdist, aj_ic_LMdist,   &
+                               &                  dj_ic_LMdist, ddj_ic_LMdist,   &
+                               &                  dbdt_ic_dist, djdt_ic_dist, 1, .true.)
 
          call tscheme%bridge_with_cnab2()
 

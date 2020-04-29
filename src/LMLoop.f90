@@ -29,7 +29,7 @@ module LMLoop_mod
    private
 
    public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly, &
-   &         assemble_stage, finish_explicit_assembly_dist
+   &         assemble_stage
 
 contains
 
@@ -182,8 +182,8 @@ contains
 
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly_dist(omega_ic, w, b_ic, aj_ic, dVSr_LMdist,      &
-              &                        dVXir_LMdist, dVxVh_LMdist, dVxBh_LMdist,     &
+   subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMdist,     &
+              &                        dVXir_LMdist, dVxVh_LMdist, dVxBh_LMdist,  &
               &                        lorentz_torque_ma, lorentz_torque_ic,      &
               &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,          &
               &                        djdt_ic, domega_ma_dt, domega_ic_dt,       &
@@ -215,17 +215,17 @@ contains
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       if ( l_chemical_conv ) then
-         call finish_exp_comp_dist(dVXir_LMdist, dxidt%expl(:,:,tscheme%istage))
+         call finish_exp_comp(dVXir_LMdist, dxidt%expl(:,:,tscheme%istage))
       end if
 
       if ( l_single_matrix ) then
-         call finish_exp_smat_dist(dVSr_LMdist, dsdt%expl(:,:,tscheme%istage))
+         call finish_exp_smat(dVSr_LMdist, dsdt%expl(:,:,tscheme%istage))
       else
          if ( l_heat ) then
-            call finish_exp_entropy_dist(w, dVSr_LMdist, dsdt%expl(:,:,tscheme%istage))
+            call finish_exp_entropy(w, dVSr_LMdist, dsdt%expl(:,:,tscheme%istage))
          end if
          if ( l_double_curl ) then
-            call finish_exp_pol_dist(dVxVh_LMdist, dwdt%expl(:,:,tscheme%istage))
+            call finish_exp_pol(dVxVh_LMdist, dwdt%expl(:,:,tscheme%istage))
          end if
       end if
 
@@ -236,72 +236,7 @@ contains
            &              lorentz_torque_ic_dt%expl(tscheme%istage))
 
       if ( l_mag ) then
-         call finish_exp_mag_dist(dVxBh_LMdist, djdt%expl(:,:,tscheme%istage))
-      end if
-
-      if ( l_cond_ic ) then
-         call finish_exp_mag_ic_dist(b_ic, aj_ic, omega_ic,            &
-              &                 dbdt_ic%expl(:,:,tscheme%istage), &
-              &                 djdt_ic%expl(:,:,tscheme%istage))
-      end if
-
-   end subroutine finish_explicit_assembly_dist
-!--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,      &
-              &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc,     &
-              &                        lorentz_torque_ma, lorentz_torque_ic,      &
-              &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,          &
-              &                        djdt_ic, domega_ma_dt, domega_ic_dt,       &
-              &                        lorentz_torque_ma_dt, lorentz_torque_ic_dt,&
-              &                        tscheme)
-      !
-      ! This subroutine is used to finish the computation of the explicit terms.
-      ! This is only possible in a LM-distributed space since it mainly involves
-      ! computation of radial derivatives.
-      !
-
-      !-- Input variables
-      class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: omega_ic
-      real(cp),            intent(in) :: lorentz_torque_ic
-      real(cp),            intent(in) :: lorentz_torque_ma
-      complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(inout) :: dVSr_LMloc(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: dVXir_LMloc(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: dVxVh_LMloc(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: dVxBh_LMloc(llmMag:ulmMag,n_r_maxMag)
-
-      !-- Output variables
-      type(type_tarray),   intent(inout) :: dsdt, dxidt, djdt, dwdt
-      type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
-      type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
-
-      if ( l_chemical_conv ) then
-         call finish_exp_comp(dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
-      end if
-
-      if ( l_single_matrix ) then
-         call finish_exp_smat(dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
-      else
-         if ( l_heat ) then
-            call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
-         end if
-         if ( l_double_curl ) then
-            call finish_exp_pol(dVxVh_LMloc, dwdt%expl(:,:,tscheme%istage))
-         end if
-      end if
-
-      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
-           &              domega_ma_dt%expl(tscheme%istage),        &
-           &              domega_ic_dt%expl(tscheme%istage),        &
-           &              lorentz_torque_ma_dt%expl(tscheme%istage),&
-           &              lorentz_torque_ic_dt%expl(tscheme%istage))
-
-      if ( l_mag ) then
-         call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
+         call finish_exp_mag(dVxBh_LMdist, djdt%expl(:,:,tscheme%istage))
       end if
 
       if ( l_cond_ic ) then
