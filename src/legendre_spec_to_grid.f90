@@ -6,10 +6,11 @@ module legendre_spec_to_grid
 #endif
 
    use precision_mod
-   use truncation, only: lm_max, n_m_max, nrp, l_max, l_axi
+   use truncation, only: lm_max, n_m_max, nrp, l_max, l_axi, n_theta_max, minc
+   use LMmapping, only: map_dist_st
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
-       &                      osn2
+       &                      osn2, Plm_loc
    use constants, only: zero, half, one
    use leg_helper_mod, only: leg_helper_t
    use useful, only: abortRun
@@ -18,7 +19,7 @@ module legendre_spec_to_grid
  
    private
 
-   public :: lmAS2pt, leg_scal_to_grad_spat, leg_scal_to_spat, &
+   public :: lmAS2pt, leg_scal_to_grad_spat, leg_scal_to_spat, sh_to_spat_ml, &
    &         leg_polsphtor_to_spat, leg_pol_to_grad_spat, leg_dphi_vec
 
 contains
@@ -360,6 +361,45 @@ contains
       end if  ! boundary ? nBc?
     
    end subroutine leg_dphi_vec
+!------------------------------------------------------------------------------
+   subroutine sh_to_spat_ml(m, Slm, sc, lcut)
+      !
+      ! Legendre transform from (l) to (theta) for a scalar input field
+      !
+
+
+      !-- Input variable
+      integer,     intent(in) :: m
+      integer,     intent(in) :: lcut
+      complex(cp), intent(in) :: Slm(:)
+
+      !-- Output variables
+      complex(cp), intent(out) :: sc(n_theta_max)
+
+      !-- Local variables
+      integer :: mc, lb, lu, lj
+      integer :: nThetaN, nThetaS, nThetaNHS
+      complex(cp) :: sES, sEA
+
+      lb = map_dist_st%lm2(m, m)
+      lu = map_dist_st%lm2(l_max, m)
+      mc = m/minc+1
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2   ! Loop over thetas for one HS
+         nThetaS=nThetaN+1  ! same theta but at other HS
+         nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
+         sES=zero ! One equatorial symmetry
+         sEA=zero ! The other equatorial symmetry
+         do lj=1,lu-lb,2
+            sES=sES+Slm(lj)  *Plm_loc(lb+lj-1,nThetaNHS)
+            sEA=sEA+Slm(lj+1)*Plm_loc(lb+lj,nThetaNHS)
+         end do
+         if ( mod(lu-lb,2) == 0 ) sES=sES+Slm(lu-lb+1)*Plm_loc(lu,nThetaNHS)
+         sc(nThetaN)=sES+sEA
+         sc(nThetaS)=sES-SEA
+      end do
+
+   end subroutine sh_to_spat_ml
 !------------------------------------------------------------------------------
    subroutine leg_scal_to_spat(nThetaStart, Slm, sc)
       !

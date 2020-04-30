@@ -16,6 +16,7 @@ module horizontal_data
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use LMmapping, only: map_dist_st
+   use communications, only: slice_Flm_real
 
    implicit none
 
@@ -39,6 +40,7 @@ module horizontal_data
 
    !-- Legendres:
    real(cp), public, allocatable :: Plm(:,:)
+   real(cp), public, allocatable :: Plm_loc(:,:)
    real(cp), public, allocatable :: wPlm(:,:)
    real(cp), public, allocatable :: wdPlm(:,:)
    real(cp), public, allocatable :: dPlm(:,:)
@@ -98,6 +100,7 @@ contains
 
 #ifndef WITH_SHTNS
       allocate( Plm(lm_max,n_theta_max/2) )
+      allocate( Plm_loc(n_lm_loc,n_theta_max/2) )
       allocate( wPlm(lmP_max,n_theta_max/2) )
       allocate( dPlm(lm_max,n_theta_max/2) )
       bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
@@ -144,7 +147,7 @@ contains
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
       deallocate( gauss, dPl0Eq )
 #ifndef WITH_SHTNS
-      deallocate( Plm, wPlm, dPlm )
+      deallocate( Plm, Plm_loc, wPlm, dPlm )
       if ( l_RMS ) deallocate( wdPlm )
 #endif
       deallocate( dPhi, dLh, dTheta1S, dTheta1A )
@@ -214,6 +217,8 @@ contains
             wPlm(lmP,n_theta) =two*pi*gauss(n_theta)*plma(lmP)
             if ( l_RMS ) wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
          end do
+
+         call slice_Flm_real(Plm(:,n_theta), Plm_loc(:,n_theta))
 #endif
 
          ! Get dP for all degrees and order m=0 at the equator only
