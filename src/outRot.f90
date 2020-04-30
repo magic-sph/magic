@@ -509,7 +509,6 @@ contains
       lorentz_torque=0.0_cp
       fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
-      nTheta=nThetaStart-1
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(none) &
       !$OMP& private(nTheta, nPhi, nThetaNHS, b0r) &
@@ -539,8 +538,9 @@ contains
       !$OMP END PARALLEL DO
 #endif
 
-      if (n_ranks_theta>1) then
-         call mpi_allreduce(MPI_IN_PLACE, lorentz_torque, 1, MPI_DEF_REAL, MPI_SUM, comm_theta, ierr)
+      if ( n_ranks_theta>1 ) then
+         call MPI_AllReduce(MPI_IN_PLACE, lorentz_torque, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
       end if
 
    end subroutine get_lorentz_torque

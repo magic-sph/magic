@@ -13,7 +13,8 @@ module step_time_mod
    use constants, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
-       &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc, n_r_ic_max
+       &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc,   &
+       &                 n_r_ic_max, mlo_tsid
        !@> TODO: remove n_r_ic_max: not NEEDED here!!!!
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
@@ -283,10 +284,10 @@ contains
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         comm_r,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         comm_r,ierr)
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
 #endif
 
          !----------------
@@ -597,10 +598,9 @@ contains
                !        this part can be done there already with a single 
                !        call to mpi, relieving this one here
                ! ------------------
-               call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
-                    &         n_ranks_r-1,comm_r,ierr)
-               call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
-                    &         0,comm_r,ierr)
+               call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL,n_ranks_r-1,comm_r, &
+                    &         ierr)
+               call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL,0,comm_r,ierr)
 #endif
                if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
 

@@ -232,8 +232,7 @@ contains
       !          each call adds the contribution of the theta-block to
       !          lorentz_torque_ic
       if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
-         lorentz_torques_ic=0.0_cp
-         call get_lorentz_torque(lorentz_torques_ic, this%gsa%brc,this%gsa%bpc, &
+         call get_lorentz_torque(this%lorentz_torque_ic, this%gsa%brc, this%gsa%bpc, &
               &                  this%nR)
       end if
 
@@ -379,8 +378,7 @@ contains
       end if
       PERFOFF
 
-      lorentz_torque_ic = lorentz_torques_ic
-      this%lorentz_torque_ic = lorentz_torques_ic
+      lorentz_torque_ic = this%lorentz_torque_ic
       lorentz_torque_ma = this%lorentz_torque_ma
 
       if ( DEBUG_OUTPUT ) call this%nl_lm%output()

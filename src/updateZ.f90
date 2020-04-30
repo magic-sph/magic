@@ -178,7 +178,7 @@ contains
       integer :: lj, mi, i          ! l, m and ml counter
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
-      complex(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
+      real(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
 
@@ -273,7 +273,7 @@ contains
 
                !----- This is the normal RHS for the other radial grid points:
                do nR=2,n_r_max-1
-                  rhs(nR)=work_LMdist(i,nR)
+                  rhs(nR)=real(work_LMdist(i,nR))
                end do
 
 #ifdef WITH_PRECOND_Z10
@@ -282,7 +282,7 @@ contains
 
                call z10Mat%solve(rhs)
 
-            else if ( l /= 0 ) then
+            else
 
                rhs1(1,2*mi-1,1)      =0.0_cp
                rhs1(1,2*mi,1)        =0.0_cp
@@ -331,9 +331,9 @@ contains
 
             if ( l_z10mat .and. l==1 .and. m==0 ) then
                do n_r_out=1,rscheme_oc%n_max
-                  z(i,n_r_out)=real(rhs(n_r_out))
+                  z(i,n_r_out)=cmplx(rhs(n_r_out),0.0_cp,kind=cp)
                end do
-            else if ( l /= 0 ) then
+            else
                if ( m > 0 ) then
                   do n_r_out=1,rscheme_oc%n_max
                      z(i,n_r_out)=cmplx(rhs1(n_r_out,2*mi-1,1), &
@@ -583,16 +583,18 @@ contains
       if ( (l1m0>0) .and. l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
-            domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-            &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
-            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
+            domega_ma_dt%impl(istage)=visc(n_r_cmb)*( (two*or1(n_r_cmb)+   &
+            &                         beta(n_r_cmb))*real(z(l1m0,n_r_cmb))-&
+            &                                       real(dz(l1m0,n_r_cmb)) )
+            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma* &
+            &                                           real(z(l1m0,n_r_cmb))
          end if
          if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
-            domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
-            &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
-            &                          real(dz(l1m0,n_r_max)) )
+            domega_ic_dt%impl(istage)=-visc(n_r_icb)* ( (two*or1(n_r_icb)+   &
+            &                          beta(n_r_icb))*real(z(l1m0,n_r_icb))- &
+            &                                        real(dz(l1m0,n_r_icb)) )
             if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
-            &                                           real(z(l1m0,n_r_max))
+            &                                           real(z(l1m0,n_r_icb))
          end if
       end if
 
