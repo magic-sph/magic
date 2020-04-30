@@ -38,12 +38,12 @@ module readCheckPoints
    use finite_differences, only: type_fd
    use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation, abortRun
-   use updateWP_mod, only: get_pol_rhs_imp_dist
-   use updateZ_mod, only: get_tor_rhs_imp_dist
-   use updateS_mod, only: get_entropy_rhs_imp_dist
-   use updateXI_mod, only: get_comp_rhs_imp_dist
-   use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
-   use updateWPS_mod, only: get_single_rhs_imp_dist
+   use updateWP_mod, only: get_pol_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp
+   use updateS_mod, only: get_entropy_rhs_imp
+   use updateXI_mod, only: get_comp_rhs_imp
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+   use updateWPS_mod, only: get_single_rhs_imp
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
 
@@ -402,27 +402,27 @@ contains
          end do
 
          if ( l_single_matrix ) then
-            call get_single_rhs_imp_dist(s, ds_LMdist, w, dw_LMdist, ddw_LMdist, p, &
-                 &                  dp_LMdist, dsdt, dwdt, dpdt, tscheme, 1,     &
+            call get_single_rhs_imp(s, ds_LMdist, w, dw_LMdist, ddw_LMdist, p, &
+                 &                  dp_LMdist, dsdt, dwdt, dpdt, tscheme, 1,   &
                  &                  .true., .false.)
          else
-            call get_pol_rhs_imp_dist(s, xi, w, dw_LMdist, ddw_LMdist, p, dp_LMdist, &
-                 &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
+            call get_pol_rhs_imp(s, xi, w, dw_LMdist, ddw_LMdist, p, dp_LMdist, &
+                 &               dwdt, dpdt, tscheme, 1, .true., .false.,       &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp_dist(s, ds_LMdist, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMdist, dsdt, 1, .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp_dist(time, z, dz_LMdist, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp(time, z, dz_LMdist, dzdt, domega_ma_dt, domega_ic_dt,&
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp_dist(xi, dxi_LMdist, dxidt, 1, .true.)
+            call get_comp_rhs_imp(xi, dxi_LMdist, dxidt, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
       end if
@@ -481,7 +481,7 @@ contains
                call scatter_from_master_to_mlo(workC(:,nR),djdt%expl(:,nR,2))
             end do
 
-            call get_mag_rhs_imp_dist(b, db_LMdist, ddb_LMdist, aj, dj_LMdist, ddj_LMdist, &
+            call get_mag_rhs_imp(b, db_LMdist, ddb_LMdist, aj, dj_LMdist, ddj_LMdist,&
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
@@ -562,8 +562,8 @@ contains
                           &                        djdt_ic%expl(:,nR,2))
                   end do
 
-                  call get_mag_ic_rhs_imp_dist(b_ic, db_ic_LMdist, ddb_ic_LMdist, aj_ic,  & 
-                       &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic,      &
+                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMdist, ddb_ic_LMdist, aj_ic, & 
+                       &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic,     &
                        &                  djdt_ic, 1, .true.)
                   dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
                   djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
@@ -1355,15 +1355,15 @@ contains
          coex = two*(one-alpha)
 
          if ( l_single_matrix ) then
-            call get_single_rhs_imp_dist(s, ds_LMdist, w, dw_LMdist, ddw_LMdist, p,     &
+            call get_single_rhs_imp(s, ds_LMdist, w, dw_LMdist, ddw_LMdist, p,   &
                  &                  dp_LMdist, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
          else
-            call get_pol_rhs_imp_dist(s, xi, w, dw_LMdist, ddw_LMdist, p, dp_LMdist, &
-                 &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
+            call get_pol_rhs_imp(s, xi, w, dw_LMdist, ddw_LMdist, p, dp_LMdist, &
+                 &               dwdt, dpdt, tscheme, 1, .true., .false.,       &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp_dist(s, ds_LMdist, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMdist, dsdt, 1, .true.)
          end if
 
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
@@ -1372,26 +1372,26 @@ contains
          end if
          if ( l_heat) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
-         call get_tor_rhs_imp_dist(time, z, dz_LMdist, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp(time, z, dz_LMdist, dzdt, domega_ma_dt, domega_ic_dt,&
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp_dist(xi, dxi_LMdist, dxidt, 1, .true.)
+            call get_comp_rhs_imp(xi, dxi_LMdist, dxidt, 1, .true.)
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
 
          if ( l_mag ) then
-            call get_mag_rhs_imp_dist(b, db_LMdist, ddb_LMdist, aj, dj_LMdist, ddj_LMdist, &
+            call get_mag_rhs_imp(b, db_LMdist, ddb_LMdist, aj, dj_LMdist, ddj_LMdist,&
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
 
          if ( l_cond_ic ) then
-            call get_mag_ic_rhs_imp_dist(b_ic, db_ic_LMdist, ddb_ic_LMdist, aj_ic,  &
+            call get_mag_ic_rhs_imp(b_ic, db_ic_LMdist, ddb_ic_LMdist, aj_ic,  &
                  &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic,      &
                  &                  djdt_ic, 1, .true.)
             dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
@@ -2175,41 +2175,43 @@ contains
       &    version == 1 ) then
          coex = two*(one-alpha)
          if ( l_single_matrix ) then
-            call get_single_rhs_imp_dist(s_dist, ds_LMdist, w_dist, dw_LMdist, ddw_LMdist, p_dist,     &
+            call get_single_rhs_imp(s_dist, ds_LMdist, w_dist, dw_LMdist, ddw_LMdist, p_dist,     &
                  &                  dp_LMdist, dsdt_dist, dwdt_dist, dpdt_dist, tscheme, 1,     &
                  &                  .true., .false.)
          else
-            call get_pol_rhs_imp_dist(s_dist, xi_dist, w_dist, dw_LMdist, ddw_LMdist, p_dist, dp_LMdist, &
+            call get_pol_rhs_imp(s_dist, xi_dist, w_dist, dw_LMdist, ddw_LMdist, p_dist, dp_LMdist, &
                  &               dwdt_dist, dpdt_dist, tscheme, 1, .true., .false.,    &
                  &               .false., z_dist)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp_dist(s_dist, ds_LMdist, dsdt_dist, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s_dist, ds_LMdist, dsdt_dist, &
+            &                                      1, .true.)
          end if
          dwdt_dist%expl(:,:,2)=dwdt_dist%expl(:,:,2)+coex*dwdt_dist%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt_dist%expl(:,:,2)=dpdt_dist%expl(:,:,2)+coex*dpdt_dist%impl(:,:,1)
          if ( l_heat ) dsdt_dist%expl(:,:,2)=dsdt_dist%expl(:,:,2)+coex*dsdt_dist%impl(:,:,1)
 
-         call get_tor_rhs_imp_dist(time, z_dist, dz_LMdist, dzdt_dist, domega_ma_dt, domega_ic_dt, &
-              &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
-              &               .true., .false.)
+         call get_tor_rhs_imp(time, z_dist, dz_LMdist, dzdt_dist, domega_ma_dt, &
+              &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,      &
+              &               omega_ma1, tscheme, 1, .true., .false.)
          dzdt_dist%expl(:,:,2)=dzdt_dist%expl(:,:,2)+coex*dzdt_dist%impl(:,:,1)
 
          if ( l_chemical_conv ) then
-            call get_comp_rhs_imp_dist(xi_dist, dxi_LMdist, dxidt_dist, 1, .true.)
+            call get_comp_rhs_imp(xi_dist, dxi_LMdist, dxidt_dist, 1, .true.)
             dxidt_dist%expl(:,:,2)=dxidt_dist%expl(:,:,2)+coex*dxidt_dist%impl(:,:,1)
          end if
 
          if ( l_mag ) then
-            call get_mag_rhs_imp_dist(b_dist, db_LMdist, ddb_LMdist, aj_dist, dj_LMdist, ddj_LMdist, &
-                 &               dbdt_dist, djdt_dist, tscheme, 1, .true., .false.)
+            call get_mag_rhs_imp(b_dist, db_LMdist, ddb_LMdist, aj_dist, dj_LMdist, &
+                 &               ddj_LMdist, dbdt_dist, djdt_dist, tscheme, 1,      &
+                 &               .true., .false.)
             dbdt_dist%expl(:,:,2)=dbdt_dist%expl(:,:,2)+coex*dbdt_dist%impl(:,:,1)
             djdt_dist%expl(:,:,2)=djdt_dist%expl(:,:,2)+coex*djdt_dist%impl(:,:,1)
          end if
 
          if ( l_cond_ic ) then
-            call get_mag_ic_rhs_imp_dist(b_ic_dist, db_ic_LMdist, ddb_ic_LMdist, aj_ic_dist,  &
-                 &                  dj_ic_LMdist, ddj_ic_LMdist, dbdt_ic_dist,      &
-                 &                  djdt_ic_dist, 1, .true.)
+            call get_mag_ic_rhs_imp(b_ic_dist, db_ic_LMdist, ddb_ic_LMdist,      &
+                 &                  aj_ic_dist, dj_ic_LMdist, ddj_ic_LMdist,     &
+                 &                  dbdt_ic_dist, djdt_ic_dist, 1, .true.)
             dbdt_ic_dist%expl(:,:,2)=dbdt_ic_dist%expl(:,:,2)+coex*dbdt_ic_dist%impl(:,:,1)
             djdt_ic_dist%expl(:,:,2)=djdt_ic_dist%expl(:,:,2)+coex*djdt_ic_dist%impl(:,:,1)
          end if

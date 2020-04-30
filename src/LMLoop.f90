@@ -9,9 +9,8 @@ module LMLoop_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max, &
+   use truncation, only: lm_max, n_r_max, n_r_maxMag, n_r_ic_max, &
        &                 n_mlo_loc, n_mloMag_loc, mlo_tsid
-   use blocking, only: lo_map, llm, ulm, llmMag, ulmMag !@> TODO: remove those
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic
    use LMmapping, only: map_mlo
@@ -51,7 +50,6 @@ contains
       else
          if ( l_heat ) call initialize_updateS()
          call initialize_updateWP(tscheme)
-         call initialize_updateWP_dist(tscheme)
       end if
       if ( l_chemical_conv ) call initialize_updateXi()
 
@@ -126,7 +124,7 @@ contains
          if ( l_single_matrix ) then
             lWPSmat(:)=.false.
          else
-            lWPmat_dist(:)=.false.
+            lWPmat(:)=.false.
             if ( l_heat ) lSmat(:) =.false.
          end if
          lZmat(:) =.false.
@@ -261,29 +259,29 @@ contains
       real(cp),            intent(in) :: time
 
       !-- Output variables
-      complex(cp),         intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: dw(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: ddw(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: z(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: dz(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: p(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: dp(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: s(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: ds(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: dxi(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(inout) :: w(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: dw(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: ddw(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: z(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: dz(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: p(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: dp(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: s(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: ds(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: xi(n_mlo_loc,n_r_max)
+      complex(cp),         intent(out) :: dxi(n_mlo_loc,n_r_max)
+      complex(cp),         intent(inout) :: b(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: db(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: ddb(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(inout) :: aj(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: dj(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(out) :: ddj(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(inout) :: b_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(out) :: db_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(out) :: ddb_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(inout) :: aj_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(out) :: dj_ic(n_mloMag_loc,n_r_ic_max)
+      complex(cp),         intent(out) :: ddj_ic(n_mloMag_loc,n_r_ic_max)
 
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt

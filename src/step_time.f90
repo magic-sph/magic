@@ -47,12 +47,12 @@ module step_time_mod
        &                  n_t_TOZ, t_TOZ, n_probe_step, n_probe_out,       &
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
-   use updateB_mod, only: get_mag_rhs_imp_dist, get_mag_ic_rhs_imp_dist
-   use updateWP_mod, only: get_pol_rhs_imp_dist
-   use updateWPS_mod, only: get_single_rhs_imp_dist
-   use updateS_mod, only: get_entropy_rhs_imp_dist
-   use updateXI_mod, only: get_comp_rhs_imp_dist
-   use updateZ_mod, only: get_tor_rhs_imp_dist, get_rot_rates
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+   use updateWP_mod, only: get_pol_rhs_imp
+   use updateWPS_mod, only: get_single_rhs_imp
+   use updateS_mod, only: get_entropy_rhs_imp
+   use updateXI_mod, only: get_comp_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
@@ -570,21 +570,21 @@ contains
                
                !//////////////////////////// TESTING NEW TRANSPOSITION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                
-               allocate(container_LMtest(n_mlo_loc,n_r_max,2))
+               !allocate(container_LMtest(n_mlo_loc,n_r_max,2))
                
-               if ( l_heat ) then
-                  call r2lo_s_dist%transp_r2lm_dist(dsdt_Rloc_container,&
-                       &             container_LMtest)
-               end if
+               !if ( l_heat ) then
+               !   call r2lo_s_dist%transp_r2lm_dist(dsdt_Rloc_container,&
+               !        &             container_LMtest)
+               !end if
 !                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), transp_LMtest, n_r_max)
-               call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,1), &
-                               dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), &
-                               'transp_1', n_r_max)
+               !call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,1), &
+               !                dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), &
+               !                'transp_1', n_r_max)
 !                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage), transp_LMtest, n_r_max)
-               call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,2), &
-                               dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage),  &
-                               'transp_2', n_r_max)
-               print *, "trans_test done"
+               !call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,2), &
+               !                dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage),  &
+               !                'transp_2', n_r_max)
+               !print *, "trans_test done"
                !//////////////////////////// END OF TESTING NEW TRANSPOSITION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                
                call comm_counter%stop_count()
@@ -834,16 +834,62 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
-            call assemble_stage(time, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,        &
-                 &              dp_LMloc, z_LMloc, dz_LMloc, s_LMloc, ds_LMloc,     &
-                 &              xi_LMloc, dxi_LMloc, b_LMloc, db_LMloc, ddb_LMloc,  &
-                 &              aj_LMloc, dj_LMloc, ddj_LMloc, b_ic_LMloc,          &
-                 &              db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc, dj_ic_LMloc,&
-                 &              ddj_ic_LMloc, omega_ic, omega_ic1, omega_ma,        &
-                 &              omega_ma1, dwdt, dzdt, dpdt, dsdt, dxidt, dbdt,     &
-                 &              djdt, dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt, &
-                 &              lorentz_torque_ic_dt, lorentz_torque_ma_dt,         &
-                 &              lPressNext, lRmsNext, tscheme)
+            call assemble_stage(time, w_LMdist, dw_LMdist, ddw_LMdist, p_LMdist,     &
+                 &              dp_LMdist, z_LMdist, dz_LMdist, s_LMdist, ds_LMdist, &
+                 &              xi_LMdist, dxi_LMdist, b_LMdist, db_LMdist,          &
+                 &              ddb_LMdist, aj_LMdist, dj_LMdist, ddj_LMdist,        &
+                 &              b_ic_LMdist, db_ic_LMdist, ddb_ic_LMdist,            &
+                 &              aj_ic_LMdist, dj_ic_LMdist, ddj_ic_LMdist, omega_ic, &
+                 &              omega_ic1, omega_ma, omega_ma1, dwdt_dist, dzdt_dist,&
+                 &              dpdt_dist, dsdt_dist, dxidt_dist, dbdt_dist,         &
+                 &              djdt_dist, dbdt_ic_dist, djdt_ic_dist, domega_ic_dt, &
+                 &              domega_ma_dt, lorentz_torque_ic_dt,                  &
+                 &              lorentz_torque_ma_dt, lPressNext, lRmsNext, tscheme)
+
+            !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
+            !-- Again here if there's an assembly stage
+            call transform_new2old(w_LMdist, w_LMloc, n_r_max)
+            call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
+            call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
+            call transform_new2old(p_LMdist, p_LMloc, n_r_max)
+            call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
+            call dwdt_dist%gather_all(dwdt)
+            call dpdt_dist%gather_all(dpdt)
+            call transform_new2old(z_LMdist, z_LMloc, n_r_max)
+            call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
+            call dzdt_dist%gather_all(dzdt)
+
+            if ( l_heat ) then
+               call transform_new2old(s_LMdist, s_LMloc, n_r_max)
+               call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
+               call dsdt_dist%gather_all(dsdt)
+            end if
+            if ( l_chemical_conv ) then
+               call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
+               call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
+               call dxidt_dist%gather_all(dxidt)
+            end if
+            if ( l_mag ) then
+               call transform_new2old(b_LMdist, b_LMloc, n_r_max)
+               call transform_new2old(db_LMdist, db_LMloc, n_r_max)
+               call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
+               call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
+               call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
+               call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
+               call dbdt_dist%gather_all(dbdt)
+               call djdt_dist%gather_all(djdt)
+               if ( l_cond_ic ) then
+                  call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
+                  call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
+                  call dbdt_ic_dist%gather_all(dbdt_ic)
+                  call djdt_ic_dist%gather_all(djdt_ic)
+               end if
+            end if
+            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End conversion 
          end if
 
          !-- Update counters
@@ -990,34 +1036,37 @@ contains
            tscheme%family=='MULTISTEP' ) then
 
          if ( l_single_matrix ) then
-            call get_single_rhs_imp_dist(s_LMdist, ds_LMdist, w_LMdist, dw_LMdist,  &
-                 &                  ddw_LMdist, p_LMdist, dp_LMdist, dsdt_dist,     &
+            call get_single_rhs_imp(s_LMdist, ds_LMdist, w_LMdist, dw_LMdist,     &
+                 &                  ddw_LMdist, p_LMdist, dp_LMdist, dsdt_dist,   &
                  &                  dwdt_dist, dpdt_dist, tscheme, 1, .true., .false.)
          else
-            call get_pol_rhs_imp_dist(s_LMdist, xi_LMdist, w_LMdist, dw_LMdist, ddw_LMdist,  &
-                 &               p_LMdist, dp_LMdist, dwdt_dist, dpdt_dist, tscheme, 1,        &
-                 &               .true., .false., .false., work_LMdist)
-            if ( l_heat ) call get_entropy_rhs_imp_dist(s_LMdist, ds_LMdist, dsdt_dist, 1, .true.)
+            call get_pol_rhs_imp(s_LMdist, xi_LMdist, w_LMdist, dw_LMdist,   &
+                 &               ddw_LMdist, p_LMdist, dp_LMdist, dwdt_dist, &
+                 &               dpdt_dist, tscheme, 1, .true., .false.,     &
+                 &               .false., work_LMdist)
+            if ( l_heat ) call get_entropy_rhs_imp(s_LMdist, ds_LMdist, dsdt_dist, &
+            &                                      1, .true.)
          end if
 
          call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
          call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
-         call get_tor_rhs_imp_dist(time, z_LMdist, dz_LMdist, dzdt_dist, domega_ma_dt,  &
-              &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
+         call get_tor_rhs_imp(time, z_LMdist, dz_LMdist, dzdt_dist, domega_ma_dt, &
+              &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,        &
               &               omega_ma1, tscheme, 1, .true., .false.)
 
-         if ( l_chemical_conv ) call get_comp_rhs_imp_dist(xi_LMdist, dxi_LMdist,  &
+         if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMdist, dxi_LMdist,  &
                                      &                dxidt_dist, 1, .true.)
 
-         if ( l_mag ) call get_mag_rhs_imp_dist(b_LMdist, db_LMdist, ddb_LMdist,   &
-                           &               aj_LMdist, dj_LMdist, ddj_LMdist,      &
-                           &               dbdt_dist, djdt_dist, tscheme, 1, .true.,     &
-                           &               .false.)
+         if ( l_mag ) call get_mag_rhs_imp(b_LMdist, db_LMdist, ddb_LMdist,   &
+                           &               aj_LMdist, dj_LMdist, ddj_LMdist,  &
+                           &               dbdt_dist, djdt_dist, tscheme, 1,  &
+                           &               .true., .false.)
 
-         if ( l_cond_ic ) call get_mag_ic_rhs_imp_dist(b_ic_LMdist, db_ic_LMdist,     &
+         if ( l_cond_ic ) call get_mag_ic_rhs_imp(b_ic_LMdist, db_ic_LMdist,     &
                                &                  ddb_ic_LMdist, aj_ic_LMdist,   &
                                &                  dj_ic_LMdist, ddj_ic_LMdist,   &
-                               &                  dbdt_ic_dist, djdt_ic_dist, 1, .true.)
+                               &                  dbdt_ic_dist, djdt_ic_dist, 1, &
+                               &                  .true.)
 
          call tscheme%bridge_with_cnab2()
 
