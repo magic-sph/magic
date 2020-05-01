@@ -440,7 +440,7 @@ contains
       
       !-- Take n_r_cmb into account now
       !-- TODO check if this is correct
-      dist_r(:,1:2) = dist_r(:,1:2) + n_r_cmb - 1
+      dist_r(:,1:2) = dist_r(:,1:2) !+ n_r_cmb - 1
       
       dist_r(:,0) = dist_r(:,2) - dist_r(:,1) + 1
       n_r_loc = dist_r(coord_r,0)

@@ -570,24 +570,25 @@ contains
                        &             dbdt_LMloc_container(:,:,:,tscheme%istage))
                end if
                
-               !//////////////////////////// TESTING NEW TRANSPOSITION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+               !//////////////////////////// TESTING NEW TRANSPOSITION ////////////////
                
-               !allocate(container_LMtest(n_mlo_loc,n_r_max,2))
+               block
                
-               !if ( l_heat ) then
-               !   call r2lo_s_dist%transp_r2lm_dist(dsdt_Rloc_container,&
-               !        &             container_LMtest)
-               !end if
-!                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), transp_LMtest, n_r_max)
-               !call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,1), &
-               !                dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), &
-               !                'transp_1', n_r_max)
+               if ( l_heat ) then
+                  call r2lo_s_dist%transp_r2lm_dist(dsdt_Rdist_container,&
+                       & dsdt_LMdist_container(:,:,:,tscheme%istage))
+               end if
+               !call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), transp_LMtest, n_r_max)
+               call test_field(dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,tscheme%istage), &
+                               dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), &
+                               'transp_1', n_r_max)
 !                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage), transp_LMtest, n_r_max)
                !call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,2), &
                !                dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage),  &
                !                'transp_2', n_r_max)
                !print *, "trans_test done"
-               !//////////////////////////// END OF TESTING NEW TRANSPOSITION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+               end block
+               !//////////////////////////// END OF TESTING NEW TRANSPOSITION ///////
                
                call comm_counter%stop_count()
 
