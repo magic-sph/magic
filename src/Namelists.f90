@@ -124,7 +124,7 @@ contains
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
       &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
-      &    l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
+      &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,         &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
@@ -697,10 +697,6 @@ contains
          l_b_nl_cmb=.true.
       end if
  
-      if ( l_PV ) then
-         write(output_unit,*) '! NOTE: Storing flow in cylindrical grid disabled!'
-      end if
-
       !-- Right now it seems Finite differences don't cope very well with rot IC
       !if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
       !   call abortRun('! There might be stability issues with rotating IC + FD')
@@ -1561,7 +1557,6 @@ contains
       l_iner        =.false. ! files for calculating inertial modes
       l_RMS         =.false. ! RMS force balance and dynamo term
                              ! balance in dtVrms.TAG and dtBrms.TAG
-      l_PV          =.false. ! Output of flow on cylinders, disabled !!
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
       rCut          =0.0_cp  ! Thickness of layer to be left out at both

@@ -6,7 +6,7 @@ module geos_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrp,     &
+   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrp,  &
        &                 minc, l_max, m_max, l_axi, n_phi_tot
    use radial_functions, only: r_ICB, r_CMB, rscheme_oc, orho1
    use physical_parameters, only: ra, ek, pr, prmag, radratio
@@ -16,10 +16,9 @@ module geos_mod
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out, l_SRIC
    use output_data, only: sDens, zDens, tag, runid
    use constants, only: pi, zero, ci, one, two, three, four,  half
-   use communications, only: gather_all_from_lo_to_rank0,gt_OC
+   use communications, only: gather_all_from_lo_to_rank0, gt_OC
    use plms_theta, only: plm_theta
    use fft, only: fft_to_real
-   use TO_helpers, only: getPAStr
    use cosine_transform_odd, only: costf_odd_t
    use chebInt_mod
 
@@ -27,18 +26,16 @@ module geos_mod
 
    private
 
-   real(cp) :: timeOld
-   real(cp), allocatable :: PlmS(:,:,:), PlmZ(:,:,:)
-   real(cp), allocatable :: dPlmS(:,:,:), dPlmZ(:,:,:)
+   real(cp), allocatable :: PlmS(:,:,:)
+   real(cp), allocatable :: dPlmS(:,:,:)
    real(cp), allocatable :: sinTS(:,:)
 
    complex(cp), allocatable :: wS_global(:,:), dwS_global(:,:), ddwS_global(:,:)
    complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
 
    type(costf_odd_t), allocatable :: chebt_Z(:)
-   integer, allocatable :: nZmaxS(:), nZC(:), nZC_Sloc(:), nZ2(:,:)
+   integer, allocatable :: nZmaxS(:)
    real(cp), allocatable :: zZ(:,:), rZS(:,:)
-   real(cp), allocatable :: VorOld(:,:,:)
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
 
    integer :: n_geos_file, nrp_geos
@@ -189,8 +186,7 @@ contains
       real(cp) :: VtNA(nZmaxA),VtNAIntS
       real(cp) :: VpNA(nZmaxA),VpNAIntS
       real(cp) :: VsNA(nZmaxA),VsNAIntS
-      real(cp) :: VzNA(nZmaxA),VzNAIntS
-      real(cp) :: VA2(nZmaxA),VZ2(nZmaxA),VM2(nZmaxA)
+      real(cp) :: VzNA(nZmaxA),VA2(nZmaxA),VZ2(nZmaxA),VM2(nZmaxA)
       real(cp) :: VNA2(nZmaxA),VNAP2(nZmaxA)
       real(cp) :: rZ(nZmaxA),sinT(nZmaxA),cosT(nZmaxA)
       integer :: nInt,nInts   ! index for NHS and SHS integral
@@ -206,7 +202,7 @@ contains
 
       !-- Correlation (new Oct. 4 2007)
       logical :: lCorrel
-      real(cp) :: VzS,VzN,VorS,VorN,surf,delz
+      real(cp) :: VzS,VzN,VorS,VorN,delz
       real(cp) :: VzSN,VzSS,VzNN,VorSN,VorSS,VorNN,HelZZ,VZZ,VorZZ
       real(cp) :: CVz_I,CVor_I,CHel_I
       real(cp) :: CVz_s,CVor_s,CHel_s
@@ -288,7 +284,7 @@ contains
          end if
 
 
-      ! zero contributions for this s:
+         !-- zero contributions for this s:
          volume_s   =0.0_cp
          volumeOTC_s=0.0_cp
          EkSTC_s    =0.0_cp
@@ -463,10 +459,10 @@ contains
                &              cosT(1:nZmaxI)*VtNA(1:nZmaxI)
                VzNA(1:nZmaxI)=cosT(1:nZmaxI)*VrNA(1:nZmaxI) - & 
                &              sinT(1:nZmaxI)*VtNA(1:nZmaxI)
-               V2(:)=Vr(:)**2+Vt(:)**2+Vp(:)**2
-               VNA2(:)=VrNA(:)**2+VtNA(:)**2+VpNA(:)**2 
-               VNA2(:)=VrNA(:)**2+VtNA(:)**2+VpNA(:)**2 
-               VNAP2(:)=VsNA(:)**2+VpNA(:)**2 
+               V2(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2+Vp(1:nZmaxI)**2
+               VNA2(1:nZmaxI)=VrNA(1:nZmaxI)**2+VtNA(1:nZmaxI)**2+VpNA(1:nZmaxI)**2 
+               VNA2(1:nZmaxI)=VrNA(1:nZmaxI)**2+VtNA(1:nZmaxI)**2+VpNA(1:nZmaxI)**2 
+               VNAP2(1:nZmaxI)=VsNA(1:nZmaxI)**2+VpNA(1:nZmaxI)**2 
 
                !--- Perform z-integral:
                !-------- NOTE: chebIntD replaces VrInt with z-derivative
@@ -614,7 +610,7 @@ contains
          end do
 
 
-   ! Collect, integrate in s:
+         !-- Collect, integrate in s:
          Egeos   =Egeos   +Egeos_s
          EgeosA  =EgeosA  +EgeosA_s
          EgeosZ  =EgeosZ  +EgeosZ_s
@@ -902,7 +898,7 @@ contains
 
       !--- Local variables:
       real(cp) :: chebS(n_r_max)
-      integer :: nSmaxH,nS,nN,mc,lm,l,m,nCheb,nPhi,n
+      integer :: nS,nN,mc,lm,l,m,nCheb,nPhi,n
       integer :: nZmaxH,nEquator
       real(cp) :: x,phiNorm,mapFac,OS,Or_e1,Or_e2
       complex(cp) :: Vr,Vt1,Vt2,Vp1,Vp2,Vor,Vot1,Vot2
@@ -1114,9 +1110,7 @@ contains
       end if
 
    end subroutine getDVptr
-
 !----------------------------------------------------------------------------
-
    subroutine costf_arrays(w,dw,ddw,z,dz)
       !
       ! This subroutine performs local copy of LM-distributed arrays, do

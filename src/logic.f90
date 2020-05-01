@@ -64,7 +64,6 @@ module logic
    logical :: l_RMS          ! Switch for RMS force balances calculation
    logical :: l_par          ! Switch for additional parameters calculation in s_getEgeos.f
    logical :: l_corrMov      ! Switch for North/south correlation movie (see s_getEgeos.f)
-   logical :: l_PV           ! Switch for output of flow on cylinder grid, disabled !!
    logical :: l_newmap       ! Switch for non-linear mapping (see Bayliss and Turkel, 1990)
    logical :: l_viscBcCalc   ! Switch for dissipation layer for stress-free BCs plots
    logical :: l_fluxProfs    ! Switch for calculation of radial profiles of flux contributions

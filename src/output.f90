@@ -67,12 +67,10 @@ module output_mod
 
    private
 
-   integer :: nPotSets
    !-- Counter for output files/sets:
+   integer :: nPotSets, n_spec
    integer :: n_dt_cmb_sets, n_cmb_setsMov
    integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
-   integer :: n_spec,nPVsets
-
    integer :: nTOsets,nTOmovSets,nTOrmsSets
 
    !--- For averaging:
