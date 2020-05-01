@@ -427,6 +427,7 @@ contains
             if ( n_stores > 0 ) l_store=.true.    ! diagnostics before dying !
             l_log=.true.
             lRmsNext=.false.
+            if ( n_specs > 0 ) l_spectrum=.true.
          end if
 
          lHelCalc=l_hel.and.l_log

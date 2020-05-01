@@ -23,8 +23,3 @@ Support for ``TO`` outputs
    :members:
    :private-members:
    :special-members:
-
-.. autoclass:: magic.MagicPV
-   :members:
-   :private-members:
-   :special-members:

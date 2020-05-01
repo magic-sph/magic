@@ -5,7 +5,7 @@ module chebInt_mod
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd
    use radial_der, only: get_dcheb
-   use constants, only: two, four, half
+   use constants, only: one, two, four, half
    use useful, only: abortRun
 
    implicit none
@@ -75,8 +75,6 @@ contains
          n=135
       else if ( n > 135 .and. n <= 150 ) then
          n=150
-      else if ( n > 135 .and. n <= 150 ) then
-         n=150
       else if ( n > 150 .and. n <= 180 ) then
          n=180
       else if ( n > 180 .and. n <= 200 ) then
@@ -99,6 +97,7 @@ contains
       if ( nGridPointsMax < nGridPoints ) then
          write(*,*) '! nGridPointsMax too small in chebIntInit!'
          write(*,*) '! Should be at least:',nGridPoints
+         write(*,*) '!        but is only:',nGridPointsMax
          call abortRun('Stop run in chebIntInit')
       end if
 
@@ -176,32 +175,32 @@ contains
       chebNorm=sqrt(two/real(nGridPoints-1,cp))
 
       !----- Copy:
-      do nCheb=1,nGridPoints
-         work1(nCheb)=f(nCheb)
-      end do
+      work1(:)=f(:)
 
       !-- Transform to cheb space:
       call chebt%costf1(work1,work2)
 
-
       !-- Integration:
-      work1(1)          =half*work1(1)
-      work1(nGridPoints)=half*work1(nGridPoints)
       chebIntD=0.0_cp
       do nCheb=1,nGridPoints,2  ! only even chebs contribute
-         chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*work1(nCheb)
+         if ( nCheb.eq.1 .or. nCheb.eq.nGridPoints ) then
+            chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*half*work1(nCheb)
+         else
+            chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*work1(nCheb)
+         end if
       end do
       !-- Normalize with interval:
       chebIntD=chebNorm*chebIntD/(zMax-zMin)
 
       !-- Get derivatives:
       if ( lDeriv ) then
-         drFac=two/(zMax-zMin)
-         call get_dcheb(f,work1,nGridPointsMax,nGridPoints,drFac)
+         drFac=one/(zMax-zMin) ! get_cheb seems to have been changed
+                               ! so that now one instead of two is needed here.
+         call get_dcheb(work1,work2,nGridPointsMax,nGridPoints,drFac)
          !-- Transform back to grid space:
-         call chebt%costf1(work1,work2)
+         call chebt%costf1(work2,work1)
          do nCheb=1,nGridPoints
-            f(nCheb)=work1(nCheb)
+            f(nCheb)=work2(nCheb)
          end do
       end if
 

@@ -114,11 +114,6 @@ Parallel/perpendicular decomposition
 
 * **l_perpPar** (default :f:var:`l_perpPar=.false. <l_perppar>`) is a logical. When set to ``.true.``, this logical enables the decomposition of kinetic energy into components parallel and perpendicular to the rotation axis. The time series are stored in :ref:`perpPar.TAG <secperpParFile>` and the time-averaged radial profiles in :ref:`perpParR.TAG <secPerpParRfile>`.
 
-Potential vorticity
-+++++++++++++++++++
-
-* **l_PV** (default :f:var:`l_PV=.false. <l_pv>`) is a logical. When set to ``.true.``, this logical enables some potential vorticity diagnostics. At the end of the run, the results are stored in the the files ``PVZ.TAG`` and ``Vcy.TAG``.
-
 Pressure
 ++++++++
 
