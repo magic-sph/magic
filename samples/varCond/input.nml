@@ -67,7 +67,6 @@ l_correct_AMz=.TRUE.,
  movie(3)    ="Br SUR",
  l_rMagSpec  =.TRUE.,
  l_DTrMagSpec=.TRUE.,
- l_PV        =.TRUE.,
  l_hel       =.TRUE.,
 /
 &mantle 

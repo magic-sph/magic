@@ -128,7 +128,7 @@ contains
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
       &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
-      &    l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
+      &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,         &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
@@ -547,6 +547,8 @@ contains
          l_anel=.true.
       else if ( index(interior_model, 'KOI889B') /= 0 ) then
          l_anel=.true.
+      else if ( index(interior_model, 'MESA_5M_ZAMS') /= 0 ) then
+         l_anel=.true.
       end if
 
       !-- If anelastic, the curl formulation is set to .false.
@@ -723,7 +725,7 @@ contains
          end if
          l_b_nl_cmb=.true.
       end if
-
+ 
       !-- Right now it seems Finite differences don't cope very well with rot IC
       !if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
       !   call abortRun('! There might be stability issues with rotating IC + FD')
@@ -1164,7 +1166,6 @@ contains
       write(n_out,'(''  l_iner          ='',l3,'','')') l_iner
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
       write(n_out,'(''  l_TOmovie       ='',l3,'','')') l_TOmovie
-      write(n_out,'(''  l_PV            ='',l3,'','')') l_PV
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
@@ -1586,9 +1587,6 @@ contains
       l_TOmovie     =.false. ! TO movies
       sDens         =one     ! relative s-grid point density
       zDens         =one     ! relative z-grid point density
-
-      !----- Potential vorticity:
-      l_PV          =.false.
 
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
