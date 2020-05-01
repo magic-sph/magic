@@ -436,18 +436,6 @@ contains
       !-- Local variables
       integer :: nR
       
-      
-      real(cp) :: gathered_sc(n_phi_max, n_theta_max)
-      real(cp) :: sliced_sc(n_phi_max, n_theta_loc), t(n_phi_max, n_theta_loc)
-      complex(cp) :: gathered_s(lm_max)
-      complex(cp) :: sliced_s(n_lm_loc)
-      
-      complex(cp) :: f_theta_m(n_theta_max, n_m_loc)
-      complex(cp) :: f_m_theta(n_m_max, n_theta_loc)
-      
-      integer :: l,m, lm, i
-      
-      
       nR = this%nR
 
       if ( l_conv .or. l_mag_kin ) then

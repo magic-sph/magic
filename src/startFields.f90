@@ -12,7 +12,6 @@ module start_fields
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
-   use mpi_thetap_mod, only: test_field, transform_new2old !@> TODO: remove!!
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use output_data, only: log_file, n_log_file
@@ -333,51 +332,6 @@ contains
               &                  aj_ic_LMdist, dj_ic_LMdist, ddj_ic_LMdist,   &
               &                  dbdt_ic_dist, djdt_ic_dist, 1, .true.)
       end if
-
-      !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      call transform_new2old(w_LMdist, w_LMloc, n_r_max)
-      call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
-      call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
-      call transform_new2old(p_LMdist, p_LMloc, n_r_max)
-      call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
-      call dwdt_dist%gather_all(dwdt)
-      call dpdt_dist%gather_all(dpdt)
-      call transform_new2old(z_LMdist, z_LMloc, n_r_max)
-      call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
-      call dzdt_dist%gather_all(dzdt)
-
-      if ( l_heat ) then
-         call transform_new2old(s_LMdist, s_LMloc, n_r_max)
-         call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
-         call dsdt_dist%gather_all(dsdt)
-      end if
-      if ( l_chemical_conv ) then
-         call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
-         call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
-         call dxidt_dist%gather_all(dxidt)
-      end if
-      if ( l_mag ) then
-         call transform_new2old(b_LMdist, b_LMloc, n_r_max)
-         call transform_new2old(db_LMdist, db_LMloc, n_r_max)
-         call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
-         call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
-         call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
-         call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
-         call dbdt_dist%gather_all(dbdt)
-         call djdt_dist%gather_all(djdt)
-         if ( l_cond_ic ) then
-            call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
-            call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
-            call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
-            call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
-            call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
-            call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
-            call dbdt_ic_dist%gather_all(dbdt_ic)
-            call djdt_ic_dist%gather_all(djdt_ic)
-         end if
-      end if 
-      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp

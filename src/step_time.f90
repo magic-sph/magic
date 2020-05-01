@@ -14,8 +14,7 @@ module step_time_mod
    use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
        &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc,   &
-       &                 n_r_ic_max, mlo_tsid
-       !@> TODO: remove n_r_ic_max: not NEEDED here!!!!
+       &                 mlo_tsid
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -57,20 +56,14 @@ module step_time_mod
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
-   use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
-       &                     lo2r_xi,  r2lo_flow, r2lo_s, r2lo_xi,r2lo_field, &
-       &                     lo2r_s, lo2r_press, gather_FlmP, slice_FlmP_cmplx, &
-       &                     lo2r_field_dist, lo2r_flow_dist, &
-       &                     lo2r_xi_dist,  r2lo_flow_dist, r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist, &
+   use communications, only: scatter_from_rank0_to_lo, lo2r_field_dist,     &
+       &                     lo2r_flow_dist, lo2r_xi_dist,  r2lo_flow_dist, &
+       &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist,     &
        &                     lo2r_s_dist, lo2r_press_dist
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
-   use probe_mod
-   
-   use mpi_thetap_mod !! DELETEMEEE
-   use LMmapping
-   use blocking
+   use communications, only: gather_FlmP !@> TODO: DELETE-MEEEEE
 
    implicit none
 
@@ -201,16 +194,6 @@ contains
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
       
-      !! DELETEMEEE
-      integer :: l, m, lm, i      
-      complex(cp) :: Fmlo_new(n_mlo_loc, n_r_max)
-      complex(cp) :: Fmlo_old(llm:ulm,   n_r_max)
-      complex(cp), allocatable :: container_LMtest(:,:,:)
-      complex(cp) :: transp_LMtest(1:n_mlo_loc,n_r_max)
-      
-      
-      
-
       if ( lVerbose ) write(output_unit,'(/,'' ! STARTING STEP_TIME !'')')
 
       run_time_passed=0.0_cp
@@ -479,38 +462,30 @@ contains
 
                !----------------------
                ! Here now comes the block where the LM distributed fields
-               ! are redistributed to Rloc distribution which is needed for 
+               ! are redistributed to Rdist distribution which is needed for 
                ! the radialLoop.
                !----------------------
                call comm_counter%start_count()
                if ( l_heat ) then
-                  call lo2r_s%transp_lm2r(s_LMloc_container, s_Rloc_container)
+                  call lo2r_s_dist%transp_lm2r_dist(s_LMdist_container, s_Rdist_container)
                end if
                if ( l_chemical_conv ) then
-                  call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
+                  call lo2r_xi_dist%transp_lm2r_dist(xi_LMdist_container,xi_Rdist_container)
                end if
                if ( l_conv .or. l_mag_kin ) then
-                  call lo2r_flow%transp_lm2r(flow_LMloc_container, &
-                       &                     flow_Rloc_container)
+                  call lo2r_flow_dist%transp_lm2r_dist(flow_LMdist_container, &
+                       &                     flow_Rdist_container)
                end if
                if ( lPressCalc ) then
-                  call lo2r_press%transp_lm2r(press_LMloc_container, &
-                       &                      press_Rloc_container)
+                  call lo2r_press_dist%transp_lm2r_dist(press_LMdist_container, &
+                       &                      press_Rdist_container)
                end if
                if ( l_mag ) then
-                  call lo2r_field%transp_lm2r(field_LMloc_container, &
-                       &                      field_Rloc_container)
+                  call lo2r_field_dist%transp_lm2r_dist(field_LMdist_container, &
+                       &                      field_Rdist_container)
                end if
                call comm_counter%stop_count(l_increment=.false.)
 
-               !@> TODO stop porting here call the slicing of Rloc -> Rdist arrays
-               call slice_fields_Rloc_Rdist()
-               call slice_FlmP_cmplx(br_vt_lm_cmb, br_vt_lm_cmb_dist)
-               call slice_FlmP_cmplx(br_vp_lm_cmb, br_vp_lm_cmb_dist)
-               call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb_dist)
-               call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb_dist)
-               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-               
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
@@ -533,14 +508,6 @@ contains
                nl_counter%n_counts=nl_counter%n_counts+1
                td_counter%n_counts=td_counter%n_counts+1
 
-               !@> TODO stop porting here call the gather of Rdist -> Rloc arrays
-               call gather_dt_fields()
-               call gather_FlmP(br_vt_lm_cmb_dist, br_vt_lm_cmb)
-               call gather_FlmP(br_vp_lm_cmb_dist, br_vp_lm_cmb)
-               call gather_FlmP(br_vt_lm_icb_dist, br_vt_lm_icb)
-               call gather_FlmP(br_vp_lm_icb_dist, br_vp_lm_icb)
-               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
                !---------------------------------------
@@ -551,45 +518,24 @@ contains
                call comm_counter%start_count()
                PERFON('r2lo_dst')
                if ( l_conv .or. l_mag_kin ) then
-                  call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
-                       &             dflowdt_LMloc_container(:,:,:,tscheme%istage))
+                  call r2lo_flow_dist%transp_r2lm_dist(dflowdt_Rdist_container,  &
+                       &             dflowdt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_heat ) then
-                  call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
-                       &             dsdt_LMloc_container(:,:,:,tscheme%istage))
+                  call r2lo_s_dist%transp_r2lm_dist(dsdt_Rdist_container,&
+                       &             dsdt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_chemical_conv ) then
-                  call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
-                       &             dxidt_LMloc_container(:,:,:,tscheme%istage))
+                  call r2lo_xi_dist%transp_r2lm_dist(dxidt_Rdist_container, &
+                       &             dxidt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_mag ) then
-                  call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
-                       &             dbdt_LMloc_container(:,:,:,tscheme%istage))
+                  call r2lo_field_dist%transp_r2lm_dist(dbdt_Rdist_container, &
+                       &             dbdt_LMdist_container(:,:,:,tscheme%istage))
                end if
-               
-               !//////////////////////////// TESTING NEW TRANSPOSITION ////////////////
-               
-               block
-               
-               if ( l_heat ) then
-                  call r2lo_s_dist%transp_r2lm_dist(dsdt_Rdist_container,&
-                       & dsdt_LMdist_container(:,:,:,tscheme%istage))
-               end if
-               !call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), transp_LMtest, n_r_max)
-               call test_field(dsdt_LMdist_container(1:n_mlo_loc,1:n_r_max,1,tscheme%istage), &
-                               dsdt_LMloc_container(llm:ulm,1:n_r_max,1,tscheme%istage), &
-                               'transp_1', n_r_max)
-!                call transform_old2new(dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage), transp_LMtest, n_r_max)
-               !call test_field(container_LMtest(1:n_mlo_loc,1:n_r_max,2), &
-               !                dsdt_LMloc_container(llm:ulm,1:n_r_max,2,tscheme%istage),  &
-               !                'transp_2', n_r_max)
-               !print *, "trans_test done"
-               end block
-               !//////////////////////////// END OF TESTING NEW TRANSPOSITION ///////
-               
                call comm_counter%stop_count()
 
 #ifdef WITH_MPI
@@ -610,6 +556,14 @@ contains
                !------ Nonlinear magnetic boundary conditions:
                !       For stress-free conducting boundaries
                PERFON('nl_m_bnd')
+               !@> TODO: still gather those or not ???
+               if ( l_b_nl_cmb .or. l_b_nl_icb ) then
+                  call gather_FlmP(br_vt_lm_cmb_dist, br_vt_lm_cmb)
+                  call gather_FlmP(br_vp_lm_cmb_dist, br_vp_lm_cmb)
+                  call gather_FlmP(br_vt_lm_icb_dist, br_vt_lm_icb)
+                  call gather_FlmP(br_vp_lm_icb_dist, br_vp_lm_icb)
+               end if
+               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                if ( l_b_nl_cmb .and. (nRStart <= n_r_cmb) ) then
                   b_nl_cmb(1) =zero
                   aj_nl_cmb(1)=zero
@@ -640,41 +594,6 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
-               !~~~~~~~~~~~~~~~~~~~~~~~~~ Porting front ~~~~~~~~~~~~~~~~~~~~~~~
-               call dwdt%slice_all(dwdt_dist)
-               call dpdt%slice_all(dpdt_dist)
-               call dzdt%slice_all(dzdt_dist)
-               if ( l_heat ) then
-                  call dsdt%slice_all(dsdt_dist)
-                  call transform_old2new(dVSrLM_LMloc(:,:,tscheme%istage), &
-                       & dVSrLM_LMdist(:,:,tscheme%istage),n_r_max)
-               end if
-               if ( l_chemical_conv ) then
-                  call dxidt%slice_all(dxidt_dist)
-                  call transform_old2new(dVXirLM_LMloc(:,:,tscheme%istage), &
-                       &                 dVXirLM_LMdist(:,:,tscheme%istage),n_r_max)
-               end if
-               if ( l_double_curl ) then
-                  call transform_old2new(dVxVhLM_LMloc(:,:,tscheme%istage), &
-                       &                 dVxVhLM_LMdist(:,:,tscheme%istage),n_r_max)
-               end if 
-               if ( l_mag ) then
-                  call dbdt%slice_all(dbdt_dist)
-                  call transform_old2new(dVxBhLM_LMloc(:,:,tscheme%istage), &
-                       &                 dVxBhLM_LMdist(:,:,tscheme%istage),n_r_max)
-                  call djdt%slice_all(djdt_dist)
-                  if ( l_cond_ic ) then
-                     call dbdt_ic%slice_all(dbdt_ic_dist)
-                     call djdt_ic%slice_all(djdt_ic_dist)
-                  end if
-               end if
-               call transform_old2new(w_LMloc, w_LMdist, n_r_max)
-               if ( l_cond_ic ) then
-                  call transform_old2new(b_ic_LMloc, b_ic_LMdist, n_r_ic_max)
-                  call transform_old2new(aj_ic_LMloc, aj_ic_LMdist, n_r_ic_max)
-               end if
-               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
                call finish_explicit_assembly(omega_ic,w_LMdist,b_ic_LMdist,        &
                     &                        aj_ic_LMdist,                         &
                     &                        dVSrLM_LMdist(:,:,tscheme%istage),    &
@@ -786,50 +705,6 @@ contains
                tscheme%istage = tscheme%istage+1
             end if
 
-            !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-            call transform_new2old(w_LMdist, w_LMloc, n_r_max)
-            call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
-            call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
-            call transform_new2old(p_LMdist, p_LMloc, n_r_max)
-            call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
-            call dwdt_dist%gather_all(dwdt)
-            call dpdt_dist%gather_all(dpdt)
-            call transform_new2old(z_LMdist, z_LMloc, n_r_max)
-            call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
-            call dzdt_dist%gather_all(dzdt)
-
-            if ( l_heat ) then
-               call transform_new2old(s_LMdist, s_LMloc, n_r_max)
-               call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
-               call dsdt_dist%gather_all(dsdt)
-            end if
-            if ( l_chemical_conv ) then
-               call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
-               call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
-               call dxidt_dist%gather_all(dxidt)
-            end if
-            if ( l_mag ) then
-               call transform_new2old(b_LMdist, b_LMloc, n_r_max)
-               call transform_new2old(db_LMdist, db_LMloc, n_r_max)
-               call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
-               call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
-               call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
-               call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
-               call dbdt_dist%gather_all(dbdt)
-               call djdt_dist%gather_all(djdt)
-               if ( l_cond_ic ) then
-                  call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
-                  call dbdt_ic_dist%gather_all(dbdt_ic)
-                  call djdt_ic_dist%gather_all(djdt_ic)
-               end if
-            end if
-            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End conversion 
-
          end do
 
          !----------------------------
@@ -847,51 +722,6 @@ contains
                  &              djdt_dist, dbdt_ic_dist, djdt_ic_dist, domega_ic_dt, &
                  &              domega_ma_dt, lorentz_torque_ic_dt,                  &
                  &              lorentz_torque_ma_dt, lPressNext, lRmsNext, tscheme)
-
-            !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-            !-- Again here if there's an assembly stage
-            call transform_new2old(w_LMdist, w_LMloc, n_r_max)
-            call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
-            call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
-            call transform_new2old(p_LMdist, p_LMloc, n_r_max)
-            call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
-            call dwdt_dist%gather_all(dwdt)
-            call dpdt_dist%gather_all(dpdt)
-            call transform_new2old(z_LMdist, z_LMloc, n_r_max)
-            call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
-            call dzdt_dist%gather_all(dzdt)
-
-            if ( l_heat ) then
-               call transform_new2old(s_LMdist, s_LMloc, n_r_max)
-               call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
-               call dsdt_dist%gather_all(dsdt)
-            end if
-            if ( l_chemical_conv ) then
-               call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
-               call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
-               call dxidt_dist%gather_all(dxidt)
-            end if
-            if ( l_mag ) then
-               call transform_new2old(b_LMdist, b_LMloc, n_r_max)
-               call transform_new2old(db_LMdist, db_LMloc, n_r_max)
-               call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
-               call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
-               call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
-               call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
-               call dbdt_dist%gather_all(dbdt)
-               call djdt_dist%gather_all(djdt)
-               if ( l_cond_ic ) then
-                  call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
-                  call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
-                  call dbdt_ic_dist%gather_all(dbdt_ic)
-                  call djdt_ic_dist%gather_all(djdt_ic)
-               end if
-            end if
-            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End conversion 
          end if
 
          !-- Update counters
