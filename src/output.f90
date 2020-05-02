@@ -511,8 +511,8 @@ contains
 
          PERFON('out_ekin')
          n_e_sets=n_e_sets+1
-         call get_e_kin(time,.true.,l_stop_time,n_e_sets,w_LMloc,    &
-              &         dw_LMloc,z_LMloc,e_kin_p,e_kin_t,e_kin_p_as, &
+         call get_e_kin(time,.true.,l_stop_time,n_e_sets,w_LMdist,     &
+              &         dw_LMdist,z_LMdist,e_kin_p,e_kin_t,e_kin_p_as, &
               &         e_kin_t_as,ekinR)
          e_kin=e_kin_p+e_kin_t
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
@@ -612,13 +612,13 @@ contains
 
          !----- If anelastic additional u**2 outputs
          if ( l_anel ) then
-            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2)
+            call get_u_square(time,w_LMdist,dw_LMdist,z_LMdist,RolRu2)
          else
             RolRu2(:)=0.0_cp
          end if
 
          !-- Get flow lengthscales
-         call getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVPolPeak, &
+         call getDlm(w_LMdist,dw_LMdist,z_LMdist,dlV,dlVR,dmV,dlVc,dlVPolPeak, &
               &      dlVRc,dlPolPeakR,'V')
 
          !-- Out radial profiles of parameters
@@ -663,7 +663,7 @@ contains
 
          if ( l_mag .or. l_mag_LF ) then
             !-- Get magnetic field lengthscales
-            call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlVR,dmB, &
+            call getDlm(b_LMdist,db_LMdist,aj_LMdist,dlB,dlVR,dmB, &
                  &      dlBc,dlBPolPeak,dlVRc,dlPolPeakR,'B')
          else
             dlB=0.0_cp
@@ -704,8 +704,8 @@ contains
          if ( lVerbose ) write(*,*) '! Calling outTO !'
          lTOrms   =.true.
          if ( .not. l_log ) then
-            call get_e_kin(time,.false.,l_stop_time,0,w_LMloc,dw_LMloc,  &
-                 &         z_LMloc,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
+            call get_e_kin(time,.false.,l_stop_time,0,w_LMdist,dw_LMdist, &
+                 &         z_LMdist,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
                  &         ekinR)
             e_kin=e_kin_p+e_kin_t
          end if

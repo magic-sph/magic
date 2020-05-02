@@ -370,10 +370,11 @@ contains
          if ( l_stop_time ) then
             !----- Calculate energies of averaged field:
             n_e_sets=1
-            call get_e_kin(time,.false.,.true.,n_e_sets, &
-                 &         w_ave,dw_ave,z_ave,           &
-                 &         e_kin_p_ave,e_kin_t_ave,      &
-                 &         e_kin_p_as_ave,e_kin_t_as_ave)
+            !@> TODO: uncomment later this fellow
+            !call get_e_kin(time,.false.,.true.,n_e_sets, &
+            !     &         w_ave,dw_ave,z_ave,           &
+            !     &         e_kin_p_ave,e_kin_t_ave,      &
+            !     &         e_kin_p_as_ave,e_kin_t_as_ave)
 
             call get_e_mag(time,.false.,.true.,n_e_sets,                  &
                  &         b_ave,db_ave,aj_ave,                           &
@@ -391,9 +392,9 @@ contains
                &    ' ! ENERGIES OF TIME AVERAGED FIELD'
                write(n_log_file,                                   &
                &    '('' !  (total,poloidal,toroidal,total density)'')')
-               write(n_log_file,'(1P,'' !  Kinetic energies:'',4ES16.6)') &
-               &    (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave,    &
-               &    (e_kin_p_ave+e_kin_t_ave)/vol_oc
+               !write(n_log_file,'(1P,'' !  Kinetic energies:'',4ES16.6)') &
+               !&    (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave,    &
+               !&    (e_kin_p_ave+e_kin_t_ave)/vol_oc
                write(n_log_file,'(1P,'' !  OC Mag  energies:'',4ES16.6)') &
                &    (e_mag_p_ave+e_mag_t_ave),e_mag_p_ave,e_mag_t_ave,    &
                &    (e_mag_p_ave+e_mag_t_ave)/vol_oc

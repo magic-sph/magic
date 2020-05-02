@@ -3,18 +3,16 @@ module kinetic_energy
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use communications, only: reduce_radial
-   use truncation, only: n_r_max, l_max
+   use communications, only: reduce_to_master
+   use truncation, only: n_r_max, l_max, n_mlo_loc
+   use LMmapping, only: map_mlo
    use radial_functions, only: r, or1, rscheme_oc, or2, r_cmb, r_icb, &
        &                       orho1, orho2, sigma
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh
    use logic, only: l_save_out, l_non_rot, l_anel
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
-   use communications, only: get_global_sum
    use integration, only: rInt_R
    use useful, only: cc2real
 
@@ -81,9 +79,9 @@ contains
       real(cp),    intent(in) :: time                  ! Current time
       logical,     intent(in) :: l_write               ! Switch to write output
       logical,     intent(in) :: l_stop_time           ! Indicates when last time step of the run is reached for radial output
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)    ! Array containing kinetic field poloidal potential
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)   ! Array containing radial derivative of w
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)    ! Array containing kinetic field toroidal potential
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)  ! Array containing kinetic field poloidal potential
+      complex(cp), intent(in) :: dw(n_mlo_loc,n_r_max) ! Array containing radial derivative of w
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max)  ! Array containing kinetic field toroidal potential
 
       !-- Output variables:
       real(cp), intent(out), optional :: ekinR(n_r_max)  ! Radial profile of kinetic energy
@@ -114,16 +112,13 @@ contains
       real(cp) :: e_p_eas_r_global(n_r_max),e_t_eas_r_global(n_r_max)
 
       integer nR,lm,l,m,fileHandle
-      real(cp) :: fac
+      real(cp) :: fac, dLh
       real(cp) :: O_rho ! 1/rho (anelastic)
 
       !-- time averaging of e(r):
       character(len=80) :: filename
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
-
-      !write(*,"(A,6ES22.14)") "ekin: w,dw,z = ",get_global_sum( w(llm:ulm,:) ),&
-      !     & get_global_sum( dw(llm:ulm,:) ), get_global_sum( z(llm:ulm,:) )
 
       do nR=1,n_r_max
          e_p_r(nR)    =0.0_cp
@@ -135,16 +130,16 @@ contains
          e_p_eas_r(nR)=0.0_cp
          e_t_eas_r(nR)=0.0_cp
          O_rho        =orho1(nR)
-         !do lm=2,lm_max
-         do lm=max(2,llm),ulm
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l = map_mlo%i2l(lm)
+            m = map_mlo%i2m(lm)
+            if ( l == 0 ) cycle
+            dLh = real(l*(l+1),cp)
 
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
-            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            e_p_temp= O_rho*dLh * ( dLh*or2(nR)*cc2real(w(lm,nR),m) &
             &           + cc2real(dw(lm,nR),m) )
-            e_t_temp= O_rho*dLh(st_map%lm2(l,m)) * cc2real(z(lm,nR),m)
-            !write(*,"(A,3I4,ES22.14)") "e_p_temp = ",nR,l,m,e_p_temp
+            e_t_temp= O_rho*dLh*cc2real(z(lm,nR),m)
+
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR) = e_p_as_r(nR) + e_p_temp
                e_t_as_r(nR) = e_t_as_r(nR) + e_t_temp
@@ -163,29 +158,23 @@ contains
                e_t_es_r(nR)=e_t_es_r(nR)+e_t_temp
             end if
 
-            !write(*,"(8X,A,4I4,ES22.14)") "e_p_r: ",lm,l,m,nR,e_p_r(nR)
-
          end do    ! do loop over lms in block
          e_p_r(nR)=e_p_r(nR)+e_p_as_r(nR)
          e_t_r(nR)=e_t_r(nR)+e_t_as_r(nR)
-         !write(*,"(4X,A,I4,2ES22.14)") "e_p_r: ",nR,e_p_r(nR),e_p_as_r(nR)
       end do    ! radial grid points
 
       ! reduce over the ranks
-      call reduce_radial(e_p_r, e_p_r_global, 0)
-      call reduce_radial(e_t_r, e_t_r_global, 0)
-      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
-      call reduce_radial(e_p_es_r, e_p_es_r_global, 0)
-      call reduce_radial(e_t_es_r, e_t_es_r_global, 0)
-      call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
-      call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
+      call reduce_to_master(e_p_r, e_p_r_global, 0)
+      call reduce_to_master(e_t_r, e_t_r_global, 0)
+      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_to_master(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_to_master(e_p_es_r, e_p_es_r_global, 0)
+      call reduce_to_master(e_t_es_r, e_t_es_r_global, 0)
+      call reduce_to_master(e_p_eas_r, e_p_eas_r_global, 0)
+      call reduce_to_master(e_t_eas_r, e_t_eas_r_global, 0)
 
-      if ( coord_r == 0 ) then
-         !do nR=1,n_r_max
-         !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
-         !end do
+      if ( l_master_rank ) then
          !-- Radial Integrals:
          e_p    =rInt_R(e_p_r_global,r,rscheme_oc)
          e_t    =rInt_R(e_t_r_global,r,rscheme_oc)
@@ -212,7 +201,7 @@ contains
                ekinR(nR)=fac*(e_p_r_global(nR)+e_t_r_global(nR))
             end do
          end if
-         if ( l_write .and. l_master_rank) then
+         if ( l_write ) then
             if ( l_save_out ) then
                open(newunit=n_e_kin_file, file=e_kin_file, status='unknown', &
                &    position='append')
@@ -246,8 +235,7 @@ contains
             e_t_asA=e_t_asA + dt*e_t_as_r_global
          end if
 
-         !write(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
-         if ( l_stop_time .and. (n_e_sets > 1) .and. l_master_rank) then
+         if ( l_stop_time .and. (n_e_sets > 1) ) then
             fac=half*eScale
             filename='eKinR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
@@ -271,13 +259,13 @@ contains
       ! broadcast the output arguments of the function to have them on all ranks
       ! e_p,e_t,e_p_as,e_t_as
 #ifdef WITH_MPI
-      call MPI_Bcast(e_p,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(e_t,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(e_p_as,1,MPI_DEF_REAL,0,comm_r,ierr)
-      call MPI_Bcast(e_t_as,1,MPI_DEF_REAL,0,comm_r,ierr)
+      call MPI_Bcast(e_p,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_t,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_p_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_t_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 
       if ( present(ekinR) ) then
-         call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,comm_r,ierr)
+         call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       end if
 #endif
 
@@ -294,9 +282,9 @@ contains
 
       !-- Input of scalar fields:
       real(cp),    intent(in) :: time                 ! Current time
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)   ! Array containing kinetic field poloidal potential
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)  ! Array containing radial derivative of w
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)   ! Array containing kinetic field toroidal potential
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max) ! Array containing kinetic field poloidal potential
+      complex(cp), intent(in) :: dw(n_mlo_loc,n_r_max)! Array containing radial derivative of w
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max) ! Array containing kinetic field toroidal potential
 
       !-- Output variables:
       real(cp), intent(out) :: RolR(n_r_max)    ! local Rossby number
@@ -321,7 +309,7 @@ contains
       real(cp) :: e_l,E,EL,Ec,ELc
 
       integer :: nR,lm,l,m
-      real(cp) :: fac
+      real(cp) :: fac,dLh
       real(cp) :: O_rho ! 1/rho**2 (anelastic)
 
       !-- property parameters
@@ -339,17 +327,15 @@ contains
             e_lr_c(nR,l)=0.0_cp
          end do
 
-         do lm=max(2,llm),ulm
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
-            !do lm=2,lm_max
-            !  l=lm2l(lm)
-            !  m=lm2m(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            m=map_mlo%i2m(lm)
+            if ( l == 0 ) cycle
+            dLh = real(l*(l+1),cp)
 
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
-            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
-            &           + cc2real(dw(lm,nR),m) )
-            e_t_temp= O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+            e_p_temp= O_rho*dLh * ( dLh*or2(nR)*cc2real(w(lm,nR),m) &
+            &                                 + cc2real(dw(lm,nR),m) )
+            e_t_temp= O_rho*dLh*cc2real(z(lm,nR),m)
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR)+ e_p_temp
                e_t_as_r(nR)=e_t_as_r(nR)+ e_t_temp
@@ -366,14 +352,14 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
-      call reduce_radial(e_p_r, e_p_r_global, 0)
-      call reduce_radial(e_t_r, e_t_r_global, 0)
-      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
-      call reduce_radial(e_lr_c, e_lr_c_global, 0)
-      call reduce_radial(e_lr, e_lr_global, 0)
+      call reduce_to_master(e_p_r, e_p_r_global, 0)
+      call reduce_to_master(e_t_r, e_t_r_global, 0)
+      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_to_master(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_to_master(e_lr_c, e_lr_c_global, 0)
+      call reduce_to_master(e_lr, e_lr_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !-- Radial Integrals:
          e_p   =rInt_R(e_p_r_global,   r,rscheme_oc)
          e_t   =rInt_R(e_t_r_global,   r,rscheme_oc)
@@ -436,7 +422,7 @@ contains
          end do
 
          !-- Local Rossby number
-         if ( dl/=0.0_cp ) then
+         if ( dl /= 0.0_cp ) then
             Rol =Ro/dl
             RolC=RoConv/dlc
          else
@@ -466,16 +452,14 @@ contains
          end if
 
          !-- Output
-         if (l_master_rank) then
-            if ( l_save_out ) then
-               open(newunit=n_u_square_file, file=u_square_file,  &
-               &    status='unknown',position='append')
-            end if
-            write(n_u_square_file,'(1P,ES20.12,10ES16.8)')   &
-            &     time*tScale, e_p, e_t, e_p_as, e_t_as,     & ! 1,2,3, 4,5
-            &     Ro, Rm, Rol, dl, RolC, dlc                   ! 6,7,8,9,10,11
-            if ( l_save_out ) close(n_u_square_file)
+         if ( l_save_out ) then
+            open(newunit=n_u_square_file, file=u_square_file,  &
+            &    status='unknown',position='append')
          end if
+         write(n_u_square_file,'(1P,ES20.12,10ES16.8)')   &
+         &     time*tScale, e_p, e_t, e_p_as, e_t_as,     & ! 1,2,3, 4,5
+         &     Ro, Rm, Rol, dl, RolC, dlc                   ! 6,7,8,9,10,11
+         if ( l_save_out ) close(n_u_square_file)
       end if
 
    end subroutine get_u_square

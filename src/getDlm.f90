@@ -5,16 +5,15 @@ module getDlm_mod
 
    use parallel_mod
    use precision_mod
-   use communications, only: reduce_radial
-   use truncation, only: minc, m_max, l_max, n_r_max
+   use communications, only: reduce_to_master
+   use truncation, only: minc, m_max, l_max, n_r_max, n_mlo_loc
    use radial_functions, only: or2, r, rscheme_oc, orho1
    use num_param, only: eScale
-   use blocking, only: lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh
    use constants, only: pi, half
    use useful, only: cc2real, cc22real
    use integration, only: rInt_R
    use useful, only: abortRun
+   use LMmapping, only: map_mlo
 
    implicit none
 
@@ -36,9 +35,9 @@ contains
       !
 
       !-- Input variables:
-      complex(cp),      intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp),      intent(in) :: dw(n_mlo_loc,n_r_max)
+      complex(cp),      intent(in) :: z(n_mlo_loc,n_r_max)
       character(len=1), intent(in) :: switch
 
       !-- Output variables:
@@ -57,7 +56,7 @@ contains
       real(cp) :: ER(n_r_max),ELR(n_r_max)
       real(cp) :: E,EL,EM
       real(cp) :: ERc(n_r_max),ELRc(n_r_max)
-      real(cp) :: Ec,ELc
+      real(cp) :: Ec,ELc,dLh
       real(cp) :: O_rho ! 1/rho (anelastic)
 
       if ( switch == 'B' ) then
@@ -69,14 +68,15 @@ contains
                e_pol_lr(nR,l)=0.0_cp
                e_mr(nR,l)    =0.0_cp
             end do
-            do lm=max(2,llm),ulm
-               l =lo_map%lm2l(lm)
-               m =lo_map%lm2m(lm)
+            do lm=1,n_mlo_loc
+               l =map_mlo%i2l(lm)
+               m =map_mlo%i2m(lm)
+               if ( l == 0 ) cycle
+               dLh = real(l*(l+1),cp)
 
-               e_p= dLh(st_map%lm2(l,m)) *  (                         &
-               &    dLh(st_map%lm2(l,m))*or2(nR)*cc2real( w(lm,nR),m) &
-               &                               + cc2real(dw(lm,nR),m) )
-               e_t=dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+               e_p= dLh *  ( dLh*or2(nR)*cc2real( w(lm,nR),m) &
+               &                       + cc2real(dw(lm,nR),m) )
+               e_t=dLh*cc2real(z(lm,nR),m)
 
                e_lr(nR,l)    =e_lr(nR,l) + e_p+e_t
                e_lr_c(nR,l)  =0.0_cp
@@ -98,14 +98,15 @@ contains
                e_pol_lr(nR,l)=0.0_cp
                e_mr(nR,l)    =0.0_cp
             end do
-            do lm=max(2,llm),ulm
-               l =lo_map%lm2l(lm)
-               m =lo_map%lm2m(lm)
+            do lm=1,n_mlo_loc
+               l =map_mlo%i2l(lm)
+               m =map_mlo%i2m(lm)
+               if ( l == 0 ) cycle
+               dLh = real(l*(l+1),cp)
 
-               e_p= O_rho * dLh(st_map%lm2(l,m)) *  (                 &
-               &    dLh(st_map%lm2(l,m))*or2(nR)*cc2real( w(lm,nR),m) &
+               e_p= O_rho * dLh *  ( dLh*or2(nR)*cc2real( w(lm,nR),m) &
                &                               + cc2real(dw(lm,nR),m) )
-               e_t=O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+               e_t=O_rho*dLh*cc2real(z(lm,nR),m)
                if ( m /= 0 ) then
                   e_lr_c(nR,l)=e_lr_c(nR,l) + e_p+e_t
                end if
@@ -124,13 +125,13 @@ contains
          call abortRun('Wrong switch in getDlm')
       end if
 
-      ! reduce to coord_r 0
-      call reduce_radial(e_lr, e_lr_global, 0)
-      call reduce_radial(e_mr, e_mr_global, 0)
-      call reduce_radial(e_lr_c, e_lr_c_global, 0)
-      call reduce_radial(e_pol_lr, e_pol_lr_global, 0)
+      ! reduce to master rank
+      call reduce_to_master(e_lr, e_lr_global, 0)
+      call reduce_to_master(e_mr, e_mr_global, 0)
+      call reduce_to_master(e_lr_c, e_lr_c_global, 0)
+      call reduce_to_master(e_pol_lr, e_pol_lr_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          !-- Radial Integrals:
          fac=half*eScale
          E  =0.0_cp
