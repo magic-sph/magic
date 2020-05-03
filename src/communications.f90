@@ -10,6 +10,7 @@ module communications
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
        &            l_mag_kin, l_double_curl, l_save_out
+   use constants, only: zero
    use useful, only: abortRun
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
@@ -39,11 +40,17 @@ module communications
    public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, &
    &         gather_all_from_lo_to_rank0, gather_from_Rloc
    public :: get_global_sum, finalize_communications, initialize_communications
-   public :: scatter_from_master_to_mlo
+   public :: scatter_from_master_to_mlo, gather_from_mlo_to_master
 
 #ifdef WITH_MPI
    public :: myAllGather
 #endif
+
+   interface send_lm_pair_to_master
+      module procedure send_lm_pair_to_master_arr
+      module procedure send_lm_pair_to_master_scal
+      module procedure send_scal_lm_to_master
+   end interface
 
    interface reduce_radial !@> TODO: remove later
       module procedure reduce_radial_1D
@@ -56,6 +63,7 @@ module communications
    end interface
 
    public :: reduce_radial, reduce_scalar, reduce_to_master
+   public :: send_lm_pair_to_master
 
    ! declaration of the types for the redistribution
    class(type_mpitransp), public, pointer :: lo2r_s, r2lo_s, lo2r_press
@@ -566,7 +574,7 @@ contains
    end subroutine scatter_from_rank0_to_lo
 !-------------------------------------------------------------------------------
    subroutine scatter_from_master_to_mlo(arr_full,arr_mlo)
-      !@> TODO: ask Rafael to see whether it makes sense here
+      !@> TODO: ask Rafael to see how one could improve this
 
       complex(cp), intent(in) :: arr_full(lm_max)
       complex(cp), intent(out) :: arr_mlo(n_mlo_loc)
@@ -590,6 +598,150 @@ contains
       end do
 
    end subroutine scatter_from_master_to_mlo
+!-------------------------------------------------------------------------------
+   subroutine gather_from_mlo_to_master(arr_mlo,arr_full)
+      !@> TODO: ask Rafael to see whether one could improve this
+      ! Right now merely sum 0's with one good value somewhere
+
+      complex(cp), intent(in) :: arr_mlo(n_mlo_loc)
+      complex(cp), intent(out) :: arr_full(lm_max)
+
+      !-- Local variables
+      complex(cp) :: tmp(lm_max)
+      integer :: l, m, lm, lm_mlo
+
+      do lm=1,lm_max
+         l = map_glbl_st%lm2l(lm)
+         m = map_glbl_st%lm2m(lm)
+         lm_mlo = map_mlo%ml2i(m,l)
+         if ( lm_mlo > 0 ) then
+            tmp(lm)=arr_mlo(lm_mlo)
+         else
+            tmp(lm)=zero
+         end if
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Reduce(tmp, arr_full, lm_max, MPI_DEF_COMPLEX, &
+           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+#endif
+
+   end subroutine gather_from_mlo_to_master
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_arr(b,l,m,blm0)
+
+      complex(cp), intent(in) :: b(n_mlo_loc,n_r_max)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      complex(cp), intent(out) :: blm0(n_r_max)
+
+      !-- Local variables:
+      integer :: lm_mlo,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17931
+
+      lm_mlo = map_mlo%ml2i(m,l)
+      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+         blm0(:) = b(lm_mlo,:)
+         return ! Exit if rank==0 already has the data
+      else
+         if ( lm_mlo > 0 ) then
+            blm0(:) = b(lm_mlo,:)
+#ifdef WITH_MPI
+            call MPI_Send(blm0, n_r_max, MPI_DEF_COMPLEX, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+#ifdef WITH_MPI
+         call MPI_IRecv(blm0, n_r_max, MPI_DEF_COMPLEX, mlo_tsid(m,l),&
+              &         sr_tag, MPI_COMM_WORLD, request, ierr)
+         call MPI_Wait(request, st, ierr)
+#endif
+      end if
+
+   end subroutine send_lm_pair_to_master_arr
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_scal(b,l,m,blm0)
+
+      complex(cp), intent(in) :: b(n_mlo_loc)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      complex(cp), intent(out) :: blm0
+
+      !-- Local variables:
+      integer :: lm_mlo,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17952
+
+      lm_mlo = map_mlo%ml2i(m,l)
+      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+         blm0 = b(lm_mlo)
+         return ! Exit if rank==0 already has the data
+      else
+         if ( lm_mlo > 0 ) then
+            blm0 = b(lm_mlo)
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_COMPLEX, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+#ifdef WITH_MPI
+         call MPI_IRecv(blm0, 1, MPI_DEF_COMPLEX, mlo_tsid(m,l),&
+              &         sr_tag, MPI_COMM_WORLD, request, ierr)
+         call MPI_Wait(request, st, ierr)
+#endif
+      end if
+
+   end subroutine send_lm_pair_to_master_scal
+!-------------------------------------------------------------------------------
+   subroutine send_scal_lm_to_master(blm0,l,m)
+
+      real(cp), intent(inout) :: blm0
+      integer,  intent(in) :: l
+      integer,  intent(in) :: m
+
+      !-- Local variables:
+      integer :: sr_tag, lm_mlo
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17963
+      lm_mlo = map_mlo%ml2i(m,l)
+      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+         return ! Exit if rank==0 already has the data
+      else
+         if ( lm_mlo > 0 ) then
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_REAL, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+#ifdef WITH_MPI
+         call MPI_IRecv(blm0, 1, MPI_DEF_REAL, mlo_tsid(m,l), &
+              &         sr_tag, MPI_COMM_WORLD, request, ierr)
+         call MPI_Wait(request, st, ierr)
+#endif
+      end if
+
+   end subroutine send_scal_lm_to_master
 !-------------------------------------------------------------------------------
    subroutine lm2lo_redist(arr_LMloc,arr_lo)
 
@@ -768,7 +920,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(scal_dist, scal_glob, 1, MPI_DEF_REAL, &
-           &          MPI_SUM, irank, comm_r, ierr)
+           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
 #else
       scal_glob=scal_dist
 #endif

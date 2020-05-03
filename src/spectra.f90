@@ -2,16 +2,16 @@ module spectra
 
    use parallel_mod
    use precision_mod
-   use communications, only: reduce_radial
+   use communications, only: reduce_to_master
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
-       &                 n_r_ic_max, l_max, minc, n_r_cmb, n_r_icb
+   use LMmapping, only: map_mlo
+   use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, n_mlo_loc, &
+       &                 n_r_ic_max, l_max, minc, n_r_cmb, n_r_icb,     &
+       &                 n_mloMag_loc
    use radial_functions, only: orho1, orho2, r_ic, chebt_ic, r, r_cmb,  &
        &                       rscheme_oc, or2, r_icb, dr_fac_ic
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
-   use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
-   use horizontal_data, only: dLh
    use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, &
        &            l_energy_modes, l_2D_spectra
    use output_data, only: tag, log_file, n_log_file, m_max_modes
@@ -196,15 +196,15 @@ contains
       real(cp),    intent(in) :: time
       real(cp),    intent(in) :: time_passed
       real(cp),    intent(in) :: time_norm
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: dw(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: b(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: db(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: aj(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(n_mloMag_loc,n_r_ic_maxMag)
       logical,     intent(in) :: l_avg, l_stop_time
 
       !-- Output:
@@ -238,7 +238,7 @@ contains
       real(cp) :: u2_p_temp,u2_t_temp
       real(cp) :: O_surface
       real(cp) :: fac_mag,fac_kin
-      real(cp) :: nearSurfR
+      real(cp) :: nearSurfR, dLh
 
       real(cp) :: e_mag_p_r_l(n_r_max,l_max),e_mag_p_r_l_global(n_r_max,l_max)
       real(cp) :: e_mag_t_r_l(n_r_max,l_max),e_mag_t_r_l_global(n_r_max,l_max)
@@ -295,27 +295,26 @@ contains
          end do
     
          !do lm=2,lm_max
-         do lm=max(llm,2),ulm
-    
-            l  =lo_map%lm2l(lm)
-            m  =lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l  =map_mlo%i2l(lm)
+            m  =map_mlo%i2m(lm)
+            if ( l == 0 ) cycle
+            dLh = real(l*(l+1),cp)
             mc=m+1
     
             if ( l_mag ) then
-               e_mag_p_temp= dLh(st_map%lm2(l,m)) * ( dLh(st_map%lm2(l,m))*     &
-               &             or2(n_r)*cc2real(b(lm,n_r),m) + cc2real(db(lm,n_r),m) )
-               e_mag_t_temp=dLh(st_map%lm2(l,m))*cc2real(aj(lm,n_r),m)
+               e_mag_p_temp= dLh * ( dLh*or2(n_r)*cc2real( b(lm,n_r),m) + &
+               &                                  cc2real(db(lm,n_r),m) )
+               e_mag_t_temp=dLh*cc2real(aj(lm,n_r),m)
             end if
             if ( l_anel ) then
-               u2_p_temp=  orho2(n_r)*dLh(st_map%lm2(l,m)) *  (                   &
-               &             dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(w(lm,n_r),m) + &
-               &             cc2real(dw(lm,n_r),m) )
-               u2_t_temp=orho2(n_r)*dLh(st_map%lm2(l,m))*cc2real(z(lm,n_r),m)
+               u2_p_temp=  orho2(n_r)*dLh* (dLh*or2(n_r)*cc2real( w(lm,n_r),m) + &
+               &                                         cc2real(dw(lm,n_r),m) )
+               u2_t_temp=orho2(n_r)*dLh*cc2real(z(lm,n_r),m)
             end if
-            e_kin_p_temp= orho1(n_r)*dLh(st_map%lm2(l,m)) *  (                   &
-            &               dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(w(lm,n_r),m) + &
-            &               cc2real(dw(lm,n_r),m) )
-            e_kin_t_temp=orho1(n_r)*dLh(st_map%lm2(l,m))*cc2real(z(lm,n_r),m)
+            e_kin_p_temp= orho1(n_r)*dLh* (dLh*or2(n_r)*cc2real( w(lm,n_r),m) + &
+            &                                           cc2real(dw(lm,n_r),m) )
+            e_kin_t_temp=orho1(n_r)*dLh*cc2real(z(lm,n_r),m)
     
             !----- l-spectra:
             if ( l_mag ) then
@@ -349,26 +348,26 @@ contains
       ! ----------- We need a reduction here ----------------
       ! first the l-spectra
       if ( l_mag ) then
-         call reduce_radial(e_mag_p_r_l, e_mag_p_r_l_global, 0)
-         call reduce_radial(e_mag_t_r_l, e_mag_t_r_l_global, 0)
-         call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
-         call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
-         call reduce_radial(eCMB, eCMB_global, 0)
+         call reduce_to_master(e_mag_p_r_l, e_mag_p_r_l_global, 0)
+         call reduce_to_master(e_mag_t_r_l, e_mag_t_r_l_global, 0)
+         call reduce_to_master(e_mag_p_r_m, e_mag_p_r_m_global, 0)
+         call reduce_to_master(e_mag_t_r_m, e_mag_t_r_m_global, 0)
+         call reduce_to_master(eCMB, eCMB_global, 0)
       end if
       if ( l_anel ) then
-         call reduce_radial(u2_p_r_l, u2_p_r_l_global, 0)
-         call reduce_radial(u2_t_r_l, u2_t_r_l_global, 0)
-         call reduce_radial(u2_p_r_m, u2_p_r_m_global, 0)
-         call reduce_radial(u2_t_r_m, u2_t_r_m_global, 0)
+         call reduce_to_master(u2_p_r_l, u2_p_r_l_global, 0)
+         call reduce_to_master(u2_t_r_l, u2_t_r_l_global, 0)
+         call reduce_to_master(u2_p_r_m, u2_p_r_m_global, 0)
+         call reduce_to_master(u2_t_r_m, u2_t_r_m_global, 0)
       end if
-      call reduce_radial(e_kin_p_r_l, e_kin_p_r_l_global, 0)
-      call reduce_radial(e_kin_t_r_l, e_kin_t_r_l_global, 0)
-      call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
-      call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
+      call reduce_to_master(e_kin_p_r_l, e_kin_p_r_l_global, 0)
+      call reduce_to_master(e_kin_t_r_l, e_kin_t_r_l_global, 0)
+      call reduce_to_master(e_kin_p_r_m, e_kin_p_r_m_global, 0)
+      call reduce_to_master(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
-      ! now switch to coord_r 0 for the postprocess
+      ! now switch to master for the postprocess
     
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          ! Getting appropriate radius index for e_kin_nearSurf spectra
          nearSurfR = r_cmb-0.01_cp
          do n_r=2,n_r_max
@@ -438,7 +437,7 @@ contains
       end if
 
       !-- Averaging:
-      if ( coord_r == 0 .and. l_avg ) then
+      if ( l_avg ) then
          if ( l_mag ) then
             call e_mag_p_l_ave%compute(e_mag_p_l, n_time_ave, time_passed, time_norm)
             call e_mag_t_l_ave%compute(e_mag_t_l, n_time_ave, time_passed, time_norm)
@@ -485,7 +484,8 @@ contains
             call e_kin_t_r_m_ave%compute(e_kin_t_r_m_global, n_time_ave, &
                  &                       time_passed, time_norm)
          end if
-      end if
+
+      end if ! master rank
     
       !-- inner core:
     
@@ -503,18 +503,19 @@ contains
                e_mag_t_ic_r_l(n_r,l)=0.0_cp
             end do
             !do lm=2,lm_max
-            do lm=max(llm,2),ulm
-               l =lo_map%lm2l(lm)
-               m =lo_map%lm2m(lm)
+            do lm=1,n_mlo_loc
+               l = map_mlo%i2l(lm)
+               m = map_mlo%i2m(lm)
+               if ( l == 0 ) cycle
+               dLh = real(l*(l+1),cp)
                mc=m+1
                r_dr_b=r_ic(n_r)*db_ic(lm,n_r)
     
-               e_mag_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * ( &
+               e_mag_p_temp=dLh*O_r_icb_E_2*r_ratio**(2*l) * (                  &
                &            real((2*l+1)*(l+1),cp)*cc2real(b_ic(lm,n_r),m)   +  &
                &            real(2*(l+1),cp)*cc22real(b_ic(lm,n_r),r_dr_b,m) +  &
                &            cc2real(r_dr_b,m) )
-               e_mag_t_temp=dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) * &
-               &            cc2real(aj_ic(lm,n_r),m)
+               e_mag_t_temp=dLh*r_ratio**(2*l+2)*cc2real(aj_ic(lm,n_r),m)
     
                e_mag_p_ic_r_l(n_r,l)=e_mag_p_ic_r_l(n_r,l) + e_mag_p_temp
                e_mag_t_ic_r_l(n_r,l)=e_mag_t_ic_r_l(n_r,l) + e_mag_t_temp
@@ -523,12 +524,12 @@ contains
             end do  ! loop over lm's
          end do ! loop over radial levels
     
-         call reduce_radial(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, 0)
-         call reduce_radial(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, 0)
-         call reduce_radial(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, 0)
-         call reduce_radial(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, 0)
+         call reduce_to_master(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, 0)
+         call reduce_to_master(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, 0)
+         call reduce_to_master(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, 0)
+         call reduce_to_master(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, 0)
     
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             !----- Radial Integrals:
             fac_mag=LFfac*half*eScale
             do l=1,l_max
@@ -799,19 +800,15 @@ contains
       logical,     intent(in) :: l_stop_time
       real(cp),    intent(in) :: time_passed
       real(cp),    intent(in) :: time_norm
-      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: ds(n_mlo_loc,n_r_max)
       logical,     intent(in) :: l_avg
 
       !-- Local:
       character(len=14) :: string
       character(len=72) :: spec_file
-      integer :: n_temp_spec_file
-      integer :: n_r,lm,l,m,lc,mc
-      real(cp) :: T_temp
-      real(cp) :: dT_temp
-      real(cp) :: surf_ICB
-      real(cp) :: fac,facICB
+      integer :: n_temp_spec_file,n_r,lm,l,m,lc,mc,nOut
+      real(cp) :: T_temp,dT_temp,surf_ICB,fac,facICB
 
       real(cp) :: T_r_l(n_r_max,l_max+1),T_r_l_global(n_r_max,l_max+1)
       real(cp) :: T_r_m(n_r_max,l_max+1),T_r_m_global(n_r_max,l_max+1)
@@ -820,8 +817,6 @@ contains
       real(cp) :: dT_ICB_l(l_max+1), dT_ICB_l_global(l_max+1)
       real(cp) :: T_ICB_m(l_max+1), T_ICB_m_global(l_max+1)
       real(cp) :: dT_ICB_m(l_max+1), dT_ICB_m_global(l_max+1)
-
-      integer :: nOut
 
       T_l(:)     =0.0_cp
       T_ICB_l(:) =0.0_cp
@@ -839,9 +834,9 @@ contains
             T_ICB_m(l)  =0.0_cp
             dT_ICB_m(l) =0.0_cp
          end do
-         do lm=llm,ulm
-            l =lo_map%lm2l(lm)
-            m =lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l = map_mlo%i2l(lm)
+            m = map_mlo%i2m(lm)
             lc=l+1
             mc=m+1
 
@@ -865,14 +860,14 @@ contains
       end do    ! radial grid points 
 
       ! Reduction over all ranks
-      call reduce_radial(T_r_l, T_r_l_global, 0)
-      call reduce_radial(T_r_m, T_r_m_global, 0)
-      call reduce_radial(T_ICB_l, T_ICB_l_global, 0)
-      call reduce_radial(T_ICB_m, T_ICB_m_global, 0)
-      call reduce_radial(dT_ICB_l, dT_ICB_l_global, 0)
-      call reduce_radial(dT_ICB_m, dT_ICB_m_global, 0)
+      call reduce_to_master(T_r_l, T_r_l_global, 0)
+      call reduce_to_master(T_r_m, T_r_m_global, 0)
+      call reduce_to_master(T_ICB_l, T_ICB_l_global, 0)
+      call reduce_to_master(T_ICB_m, T_ICB_m_global, 0)
+      call reduce_to_master(dT_ICB_l, dT_ICB_l_global, 0)
+      call reduce_to_master(dT_ICB_m, dT_ICB_m_global, 0)
 
-      if ( coord_r == 0 .and. l_heat ) then
+      if ( l_master_rank ) then
          !-- Radial Integrals:
          surf_ICB=four*pi*r_icb*r_icb
          fac      =one/vol_oc
@@ -908,30 +903,28 @@ contains
                call dT_ICB_m_ave%finalize_SD(time_norm)
 
                !------ Output:
-               if (l_master_rank) then
-                  spec_file='T_spec_ave.'//tag
-                  open(newunit=nOut,file=spec_file,status='unknown')
-                  do l=1,l_max+1
-                     write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave%mean(l), &
-                     &                T_m_ave%mean(l),  T_ICB_l_ave%mean(l), &
-                     &            T_ICB_m_ave%mean(l), dT_ICB_l_ave%mean(l), &
-                     &           dT_ICB_m_ave%mean(l),        T_l_ave%SD(l), &
-                     &                  T_m_ave%SD(l),    T_ICB_l_ave%SD(l), &
-                     &              T_ICB_m_ave%SD(l),   dT_ICB_l_ave%SD(l), &
-                     &             dT_ICB_m_ave%SD(l)
-                  end do
-                  close(nOut)
+               spec_file='T_spec_ave.'//tag
+               open(newunit=nOut,file=spec_file,status='unknown')
+               do l=1,l_max+1
+                  write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave%mean(l), &
+                  &                T_m_ave%mean(l),  T_ICB_l_ave%mean(l), &
+                  &            T_ICB_m_ave%mean(l), dT_ICB_l_ave%mean(l), &
+                  &           dT_ICB_m_ave%mean(l),        T_l_ave%SD(l), &
+                  &                  T_m_ave%SD(l),    T_ICB_l_ave%SD(l), &
+                  &              T_ICB_m_ave%SD(l),   dT_ICB_l_ave%SD(l), &
+                  &             dT_ICB_m_ave%SD(l)
+               end do
+               close(nOut)
 
-                  if ( l_save_out ) then
-                     open(newunit=n_log_file, file=log_file, status='unknown', &
-                     &    position='append')
-                  end if
-                  write(n_log_file,"(/,A,A)")  &
-                  &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', spec_file
-                  write(n_log_file,"(A,I5)")  &
-                  &    ' !              No. of averaged spectra: ', n_time_ave
-                  if ( l_save_out ) close(n_log_file)
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
                end if
+               write(n_log_file,"(/,A,A)")  &
+               &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', spec_file
+               write(n_log_file,"(A,I5)")  &
+               &    ' !              No. of averaged spectra: ', n_time_ave
+               if ( l_save_out ) close(n_log_file)
             end if
 
          else ! Just one spectrum
@@ -939,21 +932,19 @@ contains
             !-- Output into files:
             write(string, *) n_spec
             spec_file='T_spec_'//trim(adjustl(string))//'.'//tag
-            if (l_master_rank) then
-               open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
-               write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)')  &
-               &     time*tScale
-               do l=0,l_max
-                  write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1), &
-                  &                                    T_ICB_l(l+1), T_ICB_m(l+1), &
-                  &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
-               end do
-               close(n_temp_spec_file)
-            end if
+            open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
+            write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)')  &
+            &     time*tScale
+            do l=0,l_max
+               write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1), &
+               &                                    T_ICB_l(l+1), T_ICB_m(l+1), &
+               &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
+            end do
+            close(n_temp_spec_file)
 
          end if
 
-      end if
+      end if ! l_master_rank
 
    end subroutine spectrum_temp
 !----------------------------------------------------------------------------
@@ -961,12 +952,12 @@ contains
 
       !-- Input of variables:
       real(cp),    intent(in) :: time
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: dw(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: b(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: db(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: aj(n_mloMag_loc,n_r_maxMag)
 
       !-- Output: 
       real(cp) :: e_mag_p_m(0:l_max),e_mag_t_m(0:l_max)
@@ -974,11 +965,8 @@ contains
 
       !-- Local variables:
       integer :: n_r,lm,l,m
-
-      real(cp) :: e_mag_p_temp,e_mag_t_temp
-      real(cp) :: e_kin_p_temp,e_kin_t_temp
-      real(cp) :: fac_mag,fac_kin
-
+      real(cp) :: e_mag_p_temp,e_mag_t_temp,e_kin_p_temp,e_kin_t_temp
+      real(cp) :: fac_mag,fac_kin,dLh
       real(cp) :: e_mag_p_r_m(n_r_max,0:l_max),e_mag_p_r_m_global(n_r_max,0:l_max)
       real(cp) :: e_mag_t_r_m(n_r_max,0:l_max),e_mag_t_r_m_global(n_r_max,0:l_max)
       real(cp) :: e_kin_p_r_m(n_r_max,0:l_max),e_kin_p_r_m_global(n_r_max,0:l_max)
@@ -995,21 +983,22 @@ contains
             e_kin_t_r_m(n_r,m)=0.0_cp
          end do
 
-         do lm=max(llm,2),ulm
+         do lm=1,n_mlo_loc
 
-            l  =lo_map%lm2l(lm)
-            m  =lo_map%lm2m(lm)
+            l  =map_mlo%i2l(lm)
+            m  =map_mlo%i2m(lm)
+            if ( l==0) cycle
+            dLh = real(l*(l+1),cp)
 
             if ( l_mag ) then
-               e_mag_p_temp=dLh(st_map%lm2(l,m)) * ( dLh(st_map%lm2(l,m))*    &
-               &            or2(n_r)*cc2real(b(lm,n_r),m) + cc2real(db(lm,n_r),m) )
-               e_mag_t_temp=dLh(st_map%lm2(l,m))*cc2real(aj(lm,n_r),m)     
+               e_mag_p_temp=dLh * ( dLh*or2(n_r)*cc2real( b(lm,n_r),m) + &
+               &                                 cc2real(db(lm,n_r),m) )
+               e_mag_t_temp=dLh*cc2real(aj(lm,n_r),m)     
             end if
 
-            e_kin_p_temp=orho1(n_r)*dLh(st_map%lm2(l,m)) *  (                 &
-            &            dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(w(lm,n_r),m) + &
-            &            cc2real(dw(lm,n_r),m) )
-            e_kin_t_temp=orho1(n_r)*dLh(st_map%lm2(l,m))*cc2real(z(lm,n_r),m)
+            e_kin_p_temp=orho1(n_r)*dLh * ( dLh*or2(n_r)*cc2real( w(lm,n_r),m) + &
+            &                                            cc2real(dw(lm,n_r),m) )
+            e_kin_t_temp=orho1(n_r)*dLh*cc2real(z(lm,n_r),m)
 
             !----- m-spectra:
             if ( l_mag ) then
@@ -1024,13 +1013,13 @@ contains
       end do    ! radial grid points 
 
       if ( l_mag ) then
-         call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
-         call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
+         call reduce_to_master(e_mag_p_r_m, e_mag_p_r_m_global, 0)
+         call reduce_to_master(e_mag_t_r_m, e_mag_t_r_m_global, 0)
       end if
-      call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
-      call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
+      call reduce_to_master(e_kin_p_r_m, e_kin_p_r_m_global, 0)
+      call reduce_to_master(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          !-- Radial Integrals:
          fac_mag=0.5*LFfac*eScale
@@ -1045,51 +1034,49 @@ contains
          end do
 
          !-- Output
-         if (l_master_rank) then
+         if ( l_save_out ) then
+            open(newunit=n_am_kpol_file,file=am_kpol_file,status='unknown', &
+            &    form='unformatted',position='append')
+         end if
+
+         write(n_am_kpol_file) time,(e_kin_p_m(m),m=0,m_max_modes)
+
+         if ( l_save_out ) then
+            close(n_am_kpol_file)
+         end if
+
+         if ( l_save_out ) then
+            open(newunit=n_am_ktor_file,file=am_ktor_file,status='unknown', &
+            &    form='unformatted',position='append')
+         end if
+
+         write(n_am_ktor_file) time,(e_kin_t_m(m),m=0,m_max_modes)
+
+         if ( l_save_out ) then
+            close(n_am_ktor_file)
+         end if
+
+         if ( l_mag ) then
             if ( l_save_out ) then
-               open(newunit=n_am_kpol_file,file=am_kpol_file,status='unknown', &
+               open(newunit=n_am_mpol_file,file=am_mpol_file,status='unknown', &
                &    form='unformatted',position='append')
             end if
 
-            write(n_am_kpol_file) time,(e_kin_p_m(m),m=0,m_max_modes)
+            write(n_am_mpol_file) time,(e_mag_p_m(m),m=0,m_max_modes)
 
             if ( l_save_out ) then
-               close(n_am_kpol_file)
+               close(n_am_mpol_file)
             end if
 
             if ( l_save_out ) then
-               open(newunit=n_am_ktor_file,file=am_ktor_file,status='unknown', &
+               open(newunit=n_am_mtor_file,file=am_mtor_file,status='unknown', &
                &    form='unformatted',position='append')
             end if
 
-            write(n_am_ktor_file) time,(e_kin_t_m(m),m=0,m_max_modes)
+            write(n_am_mtor_file) time,(e_mag_t_m(m),m=0,m_max_modes)
 
             if ( l_save_out ) then
-               close(n_am_ktor_file)
-            end if
-
-            if ( l_mag ) then
-               if ( l_save_out ) then
-                  open(newunit=n_am_mpol_file,file=am_mpol_file,status='unknown', &
-                  &    form='unformatted',position='append')
-               end if
-
-               write(n_am_mpol_file) time,(e_mag_p_m(m),m=0,m_max_modes)
-
-               if ( l_save_out ) then
-                  close(n_am_mpol_file)
-               end if
-
-               if ( l_save_out ) then
-                  open(newunit=n_am_mtor_file,file=am_mtor_file,status='unknown', &
-                  &    form='unformatted',position='append')
-               end if
-
-               write(n_am_mtor_file) time,(e_mag_t_m(m),m=0,m_max_modes)
-
-               if ( l_save_out ) then
-                  close(n_am_mtor_file)
-               end if
+               close(n_am_mtor_file)
             end if
          end if
 

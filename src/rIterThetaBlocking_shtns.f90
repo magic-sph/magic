@@ -218,8 +218,6 @@ contains
               &            br_vt_lm_cmb,br_vp_lm_cmb)
               
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
-         call slice_FlmP_cmplx(br_vt_lm_icb, br_vt_lm_icb)
-         call slice_FlmP_cmplx(br_vp_lm_icb, br_vp_lm_icb)
          br_vt_lm_icb(:)=zero
          br_vp_lm_icb(:)=zero
          call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,                  &

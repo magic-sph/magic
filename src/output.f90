@@ -5,10 +5,12 @@ module output_mod
    use parallel_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max, nRstart, nRstop,        &
-       &                 nRstartMag, nRstopMag, n_r_cmb, n_r_icb
+       &                 nRstartMag, nRstopMag, n_r_cmb, n_r_icb,    &
+       &                 n_mlo_loc
    use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb,  &
        &                       orho1, sigma
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
+   use LMmapping, only : map_mlo
    use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
@@ -503,8 +505,8 @@ contains
 
          !----- Write torques and rotation rates:
          PERFON('out_rot')
-         call write_rot( time,tscheme%dt(1),eKinIC,eKinMA,w_LMloc,z_LMloc, &
-              &          dz_LMloc,b_LMloc,omega_ic,omega_ma,               &
+         call write_rot( time,tscheme%dt(1),eKinIC,eKinMA,w_LMdist,z_LMdist, &
+              &          dz_LMdist,b_LMdist,omega_ic,omega_ma,               &
               &          lorentz_torque_ic,lorentz_torque_ma)
          PERFOFF
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on coord_r ",coord_r
@@ -519,10 +521,10 @@ contains
          if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on coord_r ",coord_r
 
 
-         call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMloc,db_LMloc, &
-              &         aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc,       &
-              &         e_mag_p,e_mag_t,e_mag_p_as,e_mag_t_as,e_mag_p_ic,  &
-              &         e_mag_t_ic,e_mag_p_as_ic,e_mag_t_as_ic,            &
+         call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMdist,db_LMdist, &
+              &         aj_LMdist,b_ic_LMdist,db_ic_LMdist,aj_ic_LMdist,     &
+              &         e_mag_p,e_mag_t,e_mag_p_as,e_mag_t_as,e_mag_p_ic,    &
+              &         e_mag_t_ic,e_mag_p_as_ic,e_mag_t_as_ic,              &
               &         e_mag_os,e_mag_as_os,e_mag_cmb,Dip,DipCMB,elsAnel )
          e_mag   =e_mag_p+e_mag_t
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
@@ -531,10 +533,8 @@ contains
 
          !----- Calculate distribution of energies on all m's
          if ( l_energy_modes ) then
-            PERFON('out_amplitude')
-            call get_amplitude(time,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,&
-                 &             db_LMloc,aj_LMloc)
-            PERFOFF
+            call get_amplitude(time,w_LMdist,dw_LMdist,z_LMdist,b_LMdist,&
+                 &             db_LMdist,aj_LMdist)
             if ( DEBUG_OUTPUT ) &
                & write(*,"(A,I6)") "Written  amplitude  on coord_r ",coord_r
          endif
@@ -542,16 +542,16 @@ contains
          !---- Surface zonal velocity at the equator
          if ( ktopv==1 ) then
             ReEquat=0.0_cp
-            do lm=llm,ulm
-               l = lo_map%lm2l(lm)
-               m = lo_map%lm2m(lm)
+            do lm=1,n_mlo_loc
+               l = map_mlo%i2l(lm)
+               m = map_mlo%i2m(lm)
                if ( m == 0 ) then
-                  ReEquat=ReEquat-real(z_LMloc(lm,n_r_cmb))*dPl0Eq(l+1)*or1(n_r_cmb)
+                  ReEquat=ReEquat-real(z_LMdist(lm,n_r_cmb))*dPl0Eq(l+1)*or1(n_r_cmb)
                end if
             end do
 #ifdef WITH_MPI
             call MPI_AllReduce(MPI_IN_PLACE, ReEquat, 1, MPI_DEF_REAL, MPI_SUM, &
-                 &             comm_r, ierr)
+                 &             MPI_COMM_WORLD, ierr)
 #endif
          else
             ReEquat=0.0_cp
@@ -559,21 +559,20 @@ contains
 
          if ( l_spec_avg ) then
             call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
-                 &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
-                 &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
+                 &        timeNormLog,w_LMdist,dw_LMdist,z_LMdist,b_LMdist,      &
+                 &        db_LMdist,aj_LMdist,b_ic_LMdist,db_ic_LMdist,aj_ic_LMdist)
             if ( l_heat ) then
                call spectrum_temp(n_spec,time,.true.,nLogs,l_stop_time,     &
-                    &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
+                    &             timePassedLog,timeNormLog,s_LMdist,ds_LMdist)
             end if
          end if
 
          if ( l_average ) then
-            PERFON('out_aver')
-            call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
-                 &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
-                 &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
-                 &              b_ic_LMloc,aj_ic_LMloc)
-            PERFOFF
+            !@> TODO: uncomennt later
+            !call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
+            !     &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
+            !     &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
+            !     &              b_ic_LMloc,aj_ic_LMloc)
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on coord_r ",coord_r
          end if
 
@@ -674,11 +673,11 @@ contains
       if ( l_spectrum ) then
          n_spec=n_spec+1
          call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
-              &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
-              &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
+              &        timeNormLog,w_LMdist,dw_LMdist,z_LMdist,b_LMdist,    &
+              &        db_LMdist,aj_LMdist,b_ic_LMdist,db_ic_LMdist,aj_ic_LMdist)
          if ( l_heat ) then
             call spectrum_temp(n_spec,time,.false.,nLogs,l_stop_time,     &
-                 &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
+                 &             timePassedLog,timeNormLog,s_LMdist,ds_LMdist)
          end if
          if ( l_master_rank ) then
             write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&

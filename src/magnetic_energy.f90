@@ -3,14 +3,13 @@ module magnetic_energy
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
+   use LMmapping, only: map_mlo, map_glbl_st
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max, &
-       &                 lm_max, minc, n_r_cmb
+       &                 lm_max, minc, n_r_cmb, n_mloMag_loc, n_mlo_loc
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, &
        &                       sigma, orho1, r, or2, rscheme_oc
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
-   use blocking, only: st_map, lo_map, llmMag, ulmMag
-   use horizontal_data, only: dLh
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness, &
        &            l_full_sphere
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
@@ -21,8 +20,8 @@ module magnetic_energy
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
    use plms_theta, only: plm_theta
-   use communications, only: gather_from_lo_to_rank0, reduce_radial, &
-       &                     reduce_scalar
+   use communications, only: gather_from_mlo_to_master, reduce_to_master, &
+       &                     reduce_scalar, send_lm_pair_to_master
 
    implicit none
 
@@ -157,12 +156,12 @@ contains
       real(cp),    intent(in) :: time      ! Current time
       logical,     intent(in) :: l_write   ! Switch to write output
       logical,     intent(in) :: l_stop_time ! Indicates when last time step of the run is reached for radial output
-      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)        ! Array containing magnetic field poloidal potential
-      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)       ! Array containing radial derivative of b
-      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)       ! Array containing magnetic field toroidal potential
-      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)  ! Array containing IC magnetic field poloidal potential
-      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Array containing radial derivative of IC b
-      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Array containing IC magnetic field toroidal potential
+      complex(cp), intent(in) :: b(n_mloMag_loc,n_r_maxMag)        ! Array containing magnetic field poloidal potential
+      complex(cp), intent(in) :: db(n_mloMag_loc,n_r_maxMag)       ! Array containing radial derivative of b
+      complex(cp), intent(in) :: aj(n_mloMag_loc,n_r_maxMag)       ! Array containing magnetic field toroidal potential
+      complex(cp), intent(in) :: b_ic(n_mloMag_loc,n_r_ic_maxMag)  ! Array containing IC magnetic field poloidal potential
+      complex(cp), intent(in) :: db_ic(n_mloMag_loc,n_r_ic_maxMag) ! Array containing radial derivative of IC b
+      complex(cp), intent(in) :: aj_ic(n_mloMag_loc,n_r_ic_maxMag) ! Array containing IC magnetic field toroidal potential
 
       !-- Output variables:
       real(cp), intent(out) :: e_p          ! Volume averaged poloidal magnetic energy
@@ -181,8 +180,7 @@ contains
       real(cp), intent(out) :: elsAnel      ! Radially averaged Elsasser number
 
       !-- local:
-      integer :: nR,lm,l,m,l1m0,l1m1
-      integer :: l_geo
+      integer :: nR,lm,l,m,l_geo
 
       real(cp) :: e_p_r(n_r_max), e_p_r_global(n_r_max)
       real(cp) :: e_t_r(n_r_max), e_t_r_global(n_r_max)
@@ -204,15 +202,12 @@ contains
       real(cp) :: e_geo,e_es_geo,e_as_geo,e_eas_geo
       real(cp) :: e_geo_global,e_es_geo_global,e_as_geo_global,e_eas_geo_global
       real(cp) :: e_p_ic_global, e_p_as_ic_global, e_p_os_global, e_p_as_os_global
-      real(cp) :: e_p_e,e_p_as_e
-      real(cp) :: e_p_e_global,e_p_as_e_global
+      real(cp) :: e_p_e,e_p_as_e,e_p_e_global,e_p_as_e_global
 
-      real(cp) :: r_ratio,fac
-      real(cp) :: e_p_temp,e_t_temp
+      real(cp) :: r_ratio,fac,e_p_temp,e_t_temp,dLh
       real(cp) :: e_dipole, e_dipole_ax, e_dipole_ax_cmb
       real(cp) :: e_dipole_e, e_dipole_e_global
-      real(cp) :: e_p_e_ratio
-      real(cp) :: O_r_icb_E_2,rad
+      real(cp) :: e_p_e_ratio,O_r_icb_E_2,rad
       real(cp) :: e_p_es,e_t_es,e_es_cmb,e_as_cmb
       real(cp) :: e_p_eas,e_t_eas,e_eas_cmb
 
@@ -221,8 +216,7 @@ contains
       real(cp) :: ad_global, nad_global, sym_global, asym_global
       real(cp) :: zon_global, nzon_global
 
-      real(cp) :: e_dip_cmb,eTot,eDR
-      real(cp) :: theta_dip,phi_dip
+      real(cp) :: e_dip_cmb,eTot,eDR,theta_dip,phi_dip
 
       complex(cp) :: r_dr_b,b10,b11
 
@@ -230,15 +224,7 @@ contains
       character(len=80) :: filename
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
-      logical :: rank_has_l1m0,rank_has_l1m1
-#ifdef WITH_MPI
-      integer :: status(MPI_STATUS_SIZE)
-#endif
       integer :: fileHandle
-      integer :: sr_tag,request1,request2
-
-      ! some arbitrary send recv tag
-      sr_tag=18654
 
       l_geo=11   ! max degree for geomagnetic field seen on Earth
 
@@ -280,15 +266,15 @@ contains
          e_dipole_r(nR)=0.0_cp
          e_dipole_ax_r(nR)=0.0_cp
 
-         !do lm=2,lm_max
-         do lm=max(2,llmMag),ulmMag
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            m=map_mlo%i2m(lm)
+            if ( l == 0 ) cycle
+            dLh = real(l*(l+1),cp)
 
-            e_p_temp= dLh(st_map%lm2(l,m))*( dLh(st_map%lm2(l,m))*    &
-            &                            or2(nR)*cc2real( b(lm,nR),m) &
-            &                                  + cc2real(db(lm,nR),m) )
-            e_t_temp= dLh(st_map%lm2(l,m)) * cc2real(aj(lm,nR),m)
+            e_p_temp= dLh*( dLh*or2(nR)*cc2real( b(lm,nR),m) &
+            &                         + cc2real(db(lm,nR),m) )
+            e_t_temp= dLh * cc2real(aj(lm,nR),m)
 
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR) + e_p_temp
@@ -352,17 +338,17 @@ contains
 
       end do    ! radial grid points
 
-      call reduce_radial(e_p_r, e_p_r_global, 0)
-      call reduce_radial(e_t_r, e_t_r_global, 0)
-      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
-      call reduce_radial(e_p_es_r, e_p_es_r_global, 0)
-      call reduce_radial(e_t_es_r, e_t_es_r_global, 0)
-      call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
-      call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
-      call reduce_radial(e_dipole_ax_r, e_dipole_ax_r_global, 0)
-      call reduce_radial(e_dipole_r, e_dipole_r_global, 0)
-      call reduce_radial(els_r, els_r_global, 0)
+      call reduce_to_master(e_p_r, e_p_r_global, 0)
+      call reduce_to_master(e_t_r, e_t_r_global, 0)
+      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_to_master(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_to_master(e_p_es_r, e_p_es_r_global, 0)
+      call reduce_to_master(e_t_es_r, e_t_es_r_global, 0)
+      call reduce_to_master(e_p_eas_r, e_p_eas_r_global, 0)
+      call reduce_to_master(e_t_eas_r, e_t_eas_r_global, 0)
+      call reduce_to_master(e_dipole_ax_r, e_dipole_ax_r_global, 0)
+      call reduce_to_master(e_dipole_r, e_dipole_r_global, 0)
+      call reduce_to_master(els_r, els_r_global, 0)
 
       ! reduce some scalars
       call reduce_scalar(e_geo, e_geo_global, 0)
@@ -378,9 +364,9 @@ contains
          call reduce_scalar(nzon, nzon_global, 0)
       end if
 
-      if ( l_earth_likeness ) call gather_from_lo_to_rank0(b(:,n_r_cmb), bCMB)
+      if ( l_earth_likeness ) call gather_from_mlo_to_master(b(:,n_r_cmb), bCMB)
 
-      if ( rank == 0 ) then
+      if ( l_master_rank ) then
          !-- Get Values at CMB:
          e_cmb          =e_p_r_global(n_r_cmb)+e_t_r_global(n_r_cmb)
          e_dip_cmb      =e_dipole_r_global(n_r_cmb)
@@ -431,32 +417,29 @@ contains
          if ( l_stop_time ) then
             fac=half*LFfac*eScale
             filename='eMagR.'//tag
-            if (l_master_rank) then
-               open(newunit=fileHandle, file=filename, status='unknown')
-               do nR=1,n_r_max
-                  eTot=e_pA(nR)+e_tA(nR)
-                  if ( e_dipA(nR)  <  1.e-6_cp*eTot ) then
-                     eDR=0.0_cp
-                  else
-                     eDR=e_dipA(nR)/eTot
-                  end if
-                  osurf=0.25_cp/pi*or2(nR)
-                  write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
-                  &                    fac*e_pA(nR)/timetot,           &
-                  &                    fac*e_p_asA(nR)/timetot,        &
-                  &                    fac*e_tA(nR)/timetot,           &
-                  &                    fac*e_t_asA(nR)/timetot,        &
-                  &                    fac*e_pA(nR)/timetot*osurf,     &
-                  &                    fac*e_p_asA(nR)/timetot*osurf,  &
-                  &                    fac*e_tA(nR)/timetot*osurf,     &
-                  &                    fac*e_t_asA(nR)/timetot*osurf,  &
-                  &                    eDR
-               end do
-               close(fileHandle)
-            end if
+            open(newunit=fileHandle, file=filename, status='unknown')
+            do nR=1,n_r_max
+               eTot=e_pA(nR)+e_tA(nR)
+               if ( e_dipA(nR)  <  1.e-6_cp*eTot ) then
+                  eDR=0.0_cp
+               else
+                  eDR=e_dipA(nR)/eTot
+               end if
+               osurf=0.25_cp/pi*or2(nR)
+               write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
+               &                    fac*e_pA(nR)/timetot,           &
+               &                    fac*e_p_asA(nR)/timetot,        &
+               &                    fac*e_tA(nR)/timetot,           &
+               &                    fac*e_t_asA(nR)/timetot,        &
+               &                    fac*e_pA(nR)/timetot*osurf,     &
+               &                    fac*e_p_asA(nR)/timetot*osurf,  &
+               &                    fac*e_tA(nR)/timetot*osurf,     &
+               &                    fac*e_t_asA(nR)/timetot*osurf,  &
+               &                    eDR
+            end do
+            close(fileHandle)
          end if
          timeLast=time
-
 
          !-- Radial integrals:
          e_p        =rInt_R(e_p_r_global,r,rscheme_oc)
@@ -512,18 +495,18 @@ contains
             e_p_as_ic_r(nR)=0.0_cp
             e_t_as_ic_r(nR)=0.0_cp
 
-            !do lm=2,lm_max
-            do lm=max(2,llmMag),ulmMag
-               l=lo_map%lm2l(lm)
-               m=lo_map%lm2m(lm)
+            do lm=1,n_mlo_loc
+               l=map_mlo%i2l(lm)
+               m=map_mlo%i2m(lm)
+               if ( l == 0 ) cycle
+               dLh = real(l*(l+1),cp)
                r_dr_b=r_ic(nR)*db_ic(lm,nR)
 
-               e_p_temp=     dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
-               &                real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
-               &                real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
-               &                                      cc2real(r_dr_b,m)            )
-               e_t_temp=  dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *                  &
-               &                                  cc2real(aj_ic(lm,nR),m)
+               e_p_temp=     dLh*O_r_icb_E_2*r_ratio**(2*l) * (               &
+               &         real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
+               &         real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
+               &                                 cc2real(r_dr_b,m)            )
+               e_t_temp=  dLh*r_ratio**(2*l+2)*cc2real(aj_ic(lm,nR),m)
 
                if ( m == 0 ) then  ! axisymmetric part
                   e_p_as_ic_r(nR)=e_p_as_ic_r(nR) + e_p_temp
@@ -541,12 +524,12 @@ contains
          end do    ! radial grid points
 
          ! reduce over the ranks
-         call reduce_radial(e_p_ic_r, e_p_ic_r_global, 0)
-         call reduce_radial(e_t_ic_r, e_t_ic_r_global, 0)
-         call reduce_radial(e_p_as_ic_r, e_p_as_ic_r_global, 0)
-         call reduce_radial(e_t_as_ic_r, e_t_as_ic_r_global, 0)
+         call reduce_to_master(e_p_ic_r, e_p_ic_r_global, 0)
+         call reduce_to_master(e_t_ic_r, e_t_ic_r_global, 0)
+         call reduce_to_master(e_p_as_ic_r, e_p_as_ic_r_global, 0)
+         call reduce_to_master(e_t_as_ic_r, e_t_as_ic_r_global, 0)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
             e_t_ic   =rIntIC(e_t_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
             e_p_as_ic=rIntIC(e_p_as_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
@@ -561,9 +544,10 @@ contains
       else if ( (.not. l_cond_ic) .and. (.not. l_full_sphere) ) then
 
          !do lm=2,lm_max
-         do lm=max(2,llmMag),ulmMag
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            m=map_mlo%i2m(lm)
+            if ( l == 0 ) cycle
             fac=real(l*(l+1)*(l+1),cp)
             e_p_temp=fac*cc2real(b(lm,n_r_max),m)
             e_p_ic=e_p_ic + e_p_temp
@@ -573,7 +557,7 @@ contains
          call reduce_scalar(e_p_ic, e_p_ic_global, 0)
          call reduce_scalar(e_p_as_ic, e_p_as_ic_global, 0)
 
-         if (coord_r == 0) then
+         if ( l_master_rank ) then
             fac      =half*LFfac/r_icb*eScale
             e_p_ic   =fac*e_p_ic_global
             e_t_ic   =0.0_cp
@@ -583,15 +567,15 @@ contains
 
       end if  ! conducting inner core ?
 
-
       !-- Outside energy:
       nR=n_r_cmb
       e_p_os   =0.0_cp
       e_p_as_os=0.0_cp
       !do lm=2,lm_max
-      do lm=max(2,llmMag),ulmMag
-         l=lo_map%lm2l(lm)
-         m=lo_map%lm2m(lm)
+      do lm=1,n_mlo_loc
+         l=map_mlo%i2l(lm)
+         m=map_mlo%i2m(lm)
+         if ( l == 0 ) cycle
          fac=real( l*l*(l+1),cp)
          e_p_temp=fac*cc2real(b(lm,nR),m)
          e_p_os  =e_p_os + e_p_temp
@@ -601,7 +585,7 @@ contains
       call reduce_scalar(e_p_os, e_p_os_global, 0)
       call reduce_scalar(e_p_as_os, e_p_as_os_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          fac      =half*LFfac/r_cmb*eScale
          e_p_os   =fac*e_p_os_global
          e_p_as_os=fac*e_p_as_os_global
@@ -612,10 +596,10 @@ contains
       e_p_as_e  =0.0_cp
       e_dipole_e=0.0_cp
       if ( n_imp == 1 ) then
-         !do lm=2,lm_max
-         do lm=max(2,llmMag),ulmMag
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            m=map_mlo%i2m(lm)
+            if ( l == 0 ) cycle
             fac=real(l*(l+1)**2*(2*l+1),cp)*one/(rrMP**(2*l+1)-one)
             e_p_temp=fac*cc2real(b(lm,nR),m)
             e_p_e   =e_p_e  + e_p_temp
@@ -627,7 +611,7 @@ contains
          call reduce_scalar(e_p_as_e, e_p_as_e_global, 0)
          call reduce_scalar(e_dipole_e, e_dipole_e_global, 0)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             fac       =half*LFfac/r_cmb**2*eScale
             e_p_e     =fac*e_p_e_global
             e_p_as_e  =fac*e_p_as_e_global
@@ -668,58 +652,13 @@ contains
          end if
       end if
 
-      l1m0=lo_map%lm2(1,0)
-      l1m1=lo_map%lm2(1,1)
+      call send_lm_pair_to_master(b(:,n_r_cmb),1,0,b10)
+      call send_lm_pair_to_master(b(:,n_r_cmb),1,1,b11)
 
-      rank_has_l1m0=.false.
-      rank_has_l1m1=.false.
-
-      if ( (l1m0 >= llmMag) .and. (l1m0 <= ulmMag) ) then
-         b10=b(l1m0,n_r_cmb)
-#ifdef WITH_MPI
-         if (coord_r /= 0) then
-            call MPI_Send(b10,1,MPI_DEF_COMPLEX,0,sr_tag,comm_r,ierr)
-         end if
-#endif
-         rank_has_l1m0=.true.
-      end if
-      if ( l1m1 > 0 ) then
-         if ( (l1m1 >= llmMag) .and. (l1m1 <= ulmMag) ) then
-            b11=b(l1m1,n_r_cmb)
-#ifdef WITH_MPI
-            if (coord_r /= 0) then
-               call MPI_Send(b11,1,MPI_DEF_COMPLEX,0,sr_tag+1,comm_r,ierr)
-            end if
-#endif
-            rank_has_l1m1=.true.
-         end if
-      else
-         b11=zero
-         rank_has_l1m1=.true.
-      end if
-
-
-      if ( rank == 0 ) then
+      if ( l_master_rank) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
-#ifdef WITH_MPI
-         if (.not.rank_has_l1m0) then
-            call MPI_IRecv(b10,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag,comm_r,request1, ierr)
-         end if
-         if ( .not. rank_has_l1m1 ) then
-            call MPI_IRecv(b11,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag+1,comm_r,request2,ierr)
-         end if
-         if ( .not. rank_has_l1m0 ) then
-            call MPI_Wait(request1,status,ierr)
-         end if
-         if ( .not. rank_has_l1m1 ) then
-            call MPI_Wait(request2,status,ierr)
-         end if
-#endif
 
-         !print*, "------------", b10, b11
          theta_dip= rad*atan2(sqrt(two)*abs(b11),real(b10))
          if ( theta_dip < 0.0_cp ) theta_dip=180.0_cp+theta_dip
          if ( abs(b11) < 1.e-20_cp ) then
@@ -741,29 +680,24 @@ contains
             else
                e_p_e_ratio=e_dipole_e/e_p_e
             end if
-            !write(*,"(A,4ES25.17)") "e_cmb = ",e_cmb,e_es_cmb,e_cmb-e_es_cmb,(e_cmb-e_es_cmb)/e_cmb
-            ! There are still differences in field 17 of the dipole file. These
-            ! differences are due to the summation for e_es_cmb and are only of the order
-            ! of machine accuracy.
-            if (l_master_rank) then
-               write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
-               &            time*tScale,                      &! 1
-               &            theta_dip,phi_dip,                &! 2,3
-               &            Dip,                              &! 4
-               &            DipCMB,                           &! 5
-               &            e_dipole_ax_cmb/e_geo,            &! 6
-               &            e_dipole/(e_p+e_t),               &! 7
-               &            e_dip_cmb/e_cmb,                  &! 8
-               &            e_dip_cmb/e_geo,                  &! 9
-               &            e_dip_cmb,e_dipole_ax_cmb,        &! 10,11
-               &            e_dipole,e_dipole_ax,             &! 12,13
-               &            e_cmb,e_geo,                      &! 14,15
-               &            e_p_e_ratio,                      &! 16
-               &            (e_cmb-e_es_cmb)/e_cmb,           &! 17
-               &            (e_cmb-e_as_cmb)/e_cmb,           &! 18
-               &            (e_geo-e_es_geo)/e_geo,           &! 19
-               &            (e_geo-e_as_geo)/e_geo             ! 20
-            end if
+
+            write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
+            &            time*tScale,                      &! 1
+            &            theta_dip,phi_dip,                &! 2,3
+            &            Dip,                              &! 4
+            &            DipCMB,                           &! 5
+            &            e_dipole_ax_cmb/e_geo,            &! 6
+            &            e_dipole/(e_p+e_t),               &! 7
+            &            e_dip_cmb/e_cmb,                  &! 8
+            &            e_dip_cmb/e_geo,                  &! 9
+            &            e_dip_cmb,e_dipole_ax_cmb,        &! 10,11
+            &            e_dipole,e_dipole_ax,             &! 12,13
+            &            e_cmb,e_geo,                      &! 14,15
+            &            e_p_e_ratio,                      &! 16
+            &            (e_cmb-e_es_cmb)/e_cmb,           &! 17
+            &            (e_cmb-e_as_cmb)/e_cmb,           &! 18
+            &            (e_geo-e_es_geo)/e_geo,           &! 19
+            &            (e_geo-e_as_geo)/e_geo             ! 20
             if ( l_save_out ) close(n_dipole_file)
 
             if ( l_earth_likeness ) then
@@ -790,12 +724,9 @@ contains
                else
                   zon=0.0_cp
                end if
-               if (l_master_rank) then 
-                  write(n_compliance_file,'(1P,ES20.12,4ES16.8)')    &
-                  &            time*tScale, ad,                      &
-                  &            sym, zon, fluxConcentration
-               end if
-
+               write(n_compliance_file,'(1P,ES20.12,4ES16.8)')    &
+               &            time*tScale, ad,                      &
+               &            sym, zon, fluxConcentration
                if ( l_save_out ) close(n_compliance_file)
             end if
 
@@ -835,7 +766,7 @@ contains
          lm1 = 1
          do m=0,l_max_comp,minc
             do l=m,l_max_comp
-               lm=st_map%lm2(l,m)
+               lm=map_glbl_st%lm2(l,m)
                fac = (-one)**(m)*l*sqrt(two*l+one)*osq4pi
                if ( m > 0 ) fac = fac*sqrt(two)
                glm =  fac*real(bCMB(lm))
