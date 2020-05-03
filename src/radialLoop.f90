@@ -80,7 +80,7 @@ contains
               &          dVSrLM,dVXirLM,lorentz_torque_ic,               &
               &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,    &
               &          br_vt_lm_icb,br_vp_lm_icb,                      &
-              &          HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,&
+              &          HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscAS,uhLMr, &
               &          duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,      &
               &          fpoynLMr,fresLMr,EperpLMr,EparLMr,              &
               &          EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
@@ -123,7 +123,7 @@ contains
       real(cp),    intent(out) :: Helna2LMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: uhLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: viscLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: viscAS(nRstart:nRstop)
       real(cp),    intent(out) :: gradsLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: fkinLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: fconvLMr(l_max+1,nRstart:nRstop)
@@ -240,7 +240,7 @@ contains
               & dVSrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,                        &
               & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,       &
               & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),    &
-              & Helna2LMr(:,nR),viscLMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),         &
+              & Helna2LMr(:,nR),viscAS(nR),uhLMr(:,nR),duhLMr(:,nR),         &
               & gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),     &
               & fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),EperpLMr(:,nR),            &
               & EparLMr(:,nR),EperpaxiLMr(:,nR),EparaxiLMr(:,nR))

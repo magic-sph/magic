@@ -320,7 +320,7 @@ contains
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
-              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,     &
+              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscASr,uhLMr,     &
               &      duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
               &      fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
       !
@@ -373,7 +373,7 @@ contains
       real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: viscLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: viscASr(nRstart:nRstop)
       real(cp),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
@@ -598,12 +598,12 @@ contains
                end if
             end if
 
-            call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
-                 &          omega_ic,omega_ma,lorentz_torque_ic,             &
-                 &          lorentz_torque_ma,w_LMloc,z_LMloc,               &
-                 &          dz_LMloc,s_LMloc,xi_LMloc,                       &
-                 &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
-                 &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
+            call get_power( time,timePassedLog,timeNormLog,l_stop_time,          &
+                 &          omega_ic,omega_ma,lorentz_torque_ic,                 &
+                 &          lorentz_torque_ma,w_LMdist,z_LMdist,                 &
+                 &          dz_LMdist,s_LMdist,xi_LMdist,                        &
+                 &          b_LMdist,ddb_LMdist,aj_LMdist,dj_LMdist,db_ic_LMdist,&
+                 &          ddb_ic_LMdist,aj_ic_LMdist,dj_ic_LMdist,viscASr,     &
                  &          visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on coord_r ",coord_r

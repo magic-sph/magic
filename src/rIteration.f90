@@ -39,7 +39,7 @@ module rIteration_mod
                  &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,   &
                  &               br_vp_lm_icb,lorentz_torque_ic,           &
                  &               lorentz_torque_ma,HelLMr,Hel2LMr,         &
-                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,  &
+                 &               HelnaLMr,Helna2LMr,viscAS,uhLMr,duhLMr,  &
                  &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,       &
                  &               fpoynLMr,fresLMr,EperpLMr,EparLMr,        &
                  &               EperpaxiLMr,EparaxiLMr)
@@ -64,7 +64,7 @@ module rIteration_mod
          real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
          real(cp),    intent(out) :: HelLMr(:), Hel2LMr(:)
          real(cp),    intent(out) :: HelnaLMr(:), Helna2LMr(:)
-         real(cp),    intent(out) :: viscLMr(:)
+         real(cp),    intent(out) :: viscAS
          real(cp),    intent(out) :: uhLMr(:), duhLMr(:), gradsLMr(:)
          real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
          real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)

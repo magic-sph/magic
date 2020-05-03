@@ -116,7 +116,7 @@ contains
               &           br_vt_lm_cmb,br_vp_lm_cmb,                         &
               &           br_vt_lm_icb,br_vp_lm_icb,                         &
               &           lorentz_torque_ic, lorentz_torque_ma,              &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,         &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscAS,          &
               &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,   &
               &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,     &
               &           EparaxiLMr)
@@ -137,7 +137,7 @@ contains
       complex(cp), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
       real(cp),    intent(out) :: lorentz_torque_ma, lorentz_torque_ic
       real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
-      real(cp),    intent(out) :: viscLMr(:)
+      real(cp),    intent(out) :: viscAS
       real(cp),    intent(out) :: uhLMr(:), duhLMr(:) ,gradsLMr(:)
       real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
       real(cp),    intent(out) :: fpoynLMr(:), fresLMr(:)
@@ -287,11 +287,10 @@ contains
 
       !-- Viscous heating:
       if ( this%lPowerCalc ) then
-         viscLMr(:)=0.0_cp
          call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
               &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
               &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
-              &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscLMr,         &
+              &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscAS,          &
               &             this%nR)
       end if
 

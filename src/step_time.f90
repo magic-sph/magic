@@ -151,7 +151,7 @@ contains
       real(cp) :: Hel2LMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: viscLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: viscAS_Rloc(nRstart:nRstop)
       real(cp) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
@@ -497,7 +497,7 @@ contains
                     &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb_dist,  &
                     &           br_vp_lm_cmb_dist,br_vt_lm_icb_dist,br_vp_lm_icb_dist,HelLMr_Rloc,&
                     &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,         &
-                    &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc, &
+                    &           viscAS_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,  &
                     &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,          &
                     &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,          &
                     &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,     &
@@ -627,7 +627,7 @@ contains
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
                     &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-                    &      viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
+                    &      viscAS_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
                     &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
                     &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
                     &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)

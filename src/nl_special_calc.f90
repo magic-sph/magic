@@ -12,12 +12,9 @@ module nl_special_calc
    use physical_parameters, only: ek, ViscHeatFac, ThExpNb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
        &                       visc, or4, r, alpha0
-   use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2
-#ifdef WITH_SHTNS
+   use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2, gauss
    use shtns, only: spat_to_SH_axi_dist
-#else
-   use legendre_grid_to_spec, only: legTFAS, legTFAS2
-#endif
+   use parallel_mod
 
    implicit none
 
@@ -510,7 +507,7 @@ contains
    end subroutine get_helicity
 !------------------------------------------------------------------------------
    subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
-              &             dvtdp,dvpdr,dvpdp,viscLMr,nR)
+              &             dvtdp,dvpdr,dvpdp,viscAS,nR)
       !
       !   Calculates axisymmetric contributions of the viscous heating
       !
@@ -531,24 +528,25 @@ contains
       real(cp), intent(in) :: dvpdp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
-      real(cp), intent(out) :: viscLMr(l_max+1)
+      real(cp), intent(out) :: viscAS
 
       !-- Local variables:
       integer :: nTheta, nPhi, nThetaNHS
-      real(cp) :: viscAS(nThetaStart:nThetaStop),vischeat,csn2, phinorm
+      real(cp) :: vischeat,csn2, phinorm
 
       phiNorm=two*pi/real(n_phi_max,cp)
+      viscAS=0.0_cp
 
 #ifdef WITH_SHTNS
-      !$omp parallel do default(shared)             &
-      !$omp& private(nTheta, nPhi, vischeat, csn2, nThetaNHS)
+      !$omp parallel do default(shared)                       &
+      !$omp& private(nTheta, nPhi, vischeat, csn2, nThetaNHS) &
+      !$omp& reduction(+:viscAS)
 #endif
       do nTheta=nThetaStart, nThetaStop
          nThetaNHS=(nTheta+1)/2
          csn2     =cosn2(nThetaNHS)
          if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
 
-         viscAS(nTheta)=0.0_cp
          do nPhi=1,n_phi_max
             vischeat=         or2(nR)*orho1(nR)*visc(nR)*(       &
             &     two*(                     dvrdr(nPhi,nTheta) - & ! (1)
@@ -572,19 +570,17 @@ contains
             &     or1(nR)*            dvrdp(nPhi,nTheta) )**2 )- &
             &    two*third*(  beta(nR)*        vr(nPhi,nTheta) )**2 )
 
-            viscAS(nTheta)=viscAS(nTheta)+vischeat
+            viscAS=viscAS+phiNorm*gauss(nThetaNHS)*vischeat
          end do
-         viscAS(nTheta)=phiNorm*viscAS(nTheta)
       end do
 #ifdef WITH_SHTNS
       !$omp end parallel do
 #endif
 
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi_dist(viscAS, viscLMr)
-#else
-      call legTFAS(viscLMr,viscAS,l_max+1,nThetaStart,n_theta_loc)
-#endif
+      if ( n_ranks_theta>1 ) then
+         call MPI_AllReduce(MPI_IN_PLACE, viscAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+      end if
 
    end subroutine get_visc_heat
 !------------------------------------------------------------------------------

@@ -48,7 +48,8 @@ module communications
 
    interface send_lm_pair_to_master
       module procedure send_lm_pair_to_master_arr
-      module procedure send_lm_pair_to_master_scal
+      module procedure send_lm_pair_to_master_scal_cmplx
+      module procedure send_lm_pair_to_master_scal_real
       module procedure send_scal_lm_to_master
    end interface
 
@@ -668,7 +669,47 @@ contains
 
    end subroutine send_lm_pair_to_master_arr
 !-------------------------------------------------------------------------------
-   subroutine send_lm_pair_to_master_scal(b,l,m,blm0)
+   subroutine send_lm_pair_to_master_scal_real(b,l,m,blm0)
+
+      complex(cp), intent(in) :: b(n_mlo_loc)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      real(cp), intent(out) :: blm0
+
+      !-- Local variables:
+      integer :: lm_mlo,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17952
+
+      lm_mlo = map_mlo%ml2i(m,l)
+      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+         blm0 = real(b(lm_mlo))
+         return ! Exit if rank==0 already has the data
+      else
+         if ( lm_mlo > 0 ) then
+            blm0 = real(b(lm_mlo))
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_REAL, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+#ifdef WITH_MPI
+         call MPI_IRecv(blm0, 1, MPI_DEF_REAL, mlo_tsid(m,l),&
+              &         sr_tag, MPI_COMM_WORLD, request, ierr)
+         call MPI_Wait(request, st, ierr)
+#endif
+      end if
+
+   end subroutine send_lm_pair_to_master_scal_real
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_scal_cmplx(b,l,m,blm0)
 
       complex(cp), intent(in) :: b(n_mlo_loc)
       integer,     intent(in) :: l
@@ -706,7 +747,7 @@ contains
 #endif
       end if
 
-   end subroutine send_lm_pair_to_master_scal
+   end subroutine send_lm_pair_to_master_scal_cmplx
 !-------------------------------------------------------------------------------
    subroutine send_scal_lm_to_master(blm0,l,m)
 
