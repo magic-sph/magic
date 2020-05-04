@@ -647,8 +647,10 @@ contains
 
       lm_mlo = map_mlo%ml2i(m,l)
       if ( mlo_tsid(m,l) == 0 ) then ! Directly there
-         blm0(:) = b(lm_mlo,:)
-         return ! Exit if rank==0 already has the data
+         if ( rank == 0 ) then
+            blm0(:) = b(lm_mlo,:)
+            return ! Exit if rank==0 already has the data
+         end if
       else
          if ( lm_mlo > 0 ) then
             blm0(:) = b(lm_mlo,:)
@@ -687,8 +689,10 @@ contains
 
       lm_mlo = map_mlo%ml2i(m,l)
       if ( mlo_tsid(m,l) == 0 ) then ! Directly there
-         blm0 = real(b(lm_mlo))
-         return ! Exit if rank==0 already has the data
+         if ( rank == 0 ) then
+            blm0 = real(b(lm_mlo))
+            return ! Exit if rank==0 already has the data
+         end if
       else
          if ( lm_mlo > 0 ) then
             blm0 = real(b(lm_mlo))
@@ -727,8 +731,10 @@ contains
 
       lm_mlo = map_mlo%ml2i(m,l)
       if ( mlo_tsid(m,l) == 0 ) then ! Directly there
-         blm0 = b(lm_mlo)
-         return ! Exit if rank==0 already has the data
+         if ( rank == 0 ) then
+            blm0 = b(lm_mlo)
+            return ! Exit if rank==0 already has the data
+         end if
       else
          if ( lm_mlo > 0 ) then
             blm0 = b(lm_mlo)

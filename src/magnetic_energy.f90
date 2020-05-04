@@ -651,6 +651,8 @@ contains
             if ( l_save_out ) close(n_e_mag_ic_file)
          end if
       end if
+      b10=zero
+      b11=zero
 
       call send_lm_pair_to_master(b(:,n_r_cmb),1,0,b10)
       call send_lm_pair_to_master(b(:,n_r_cmb),1,1,b11)
