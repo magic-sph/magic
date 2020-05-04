@@ -2,12 +2,11 @@ module power
 
    use parallel_mod
    use precision_mod
-   use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc, reduce_to_master,  &
        &                     send_lm_pair_to_master
    use LMmapping, only: map_mlo
-   use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, l_max, &
-       &                 n_r_maxMag, n_r_icb, n_r_cmb, nRstart,     &
+   use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max,      &
+       &                 n_r_maxMag, n_r_icb, n_r_cmb, nRstart,   &
        &                 nRstop, n_mlo_loc, n_mloMag_loc
    use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
        &                       or2, O_r_ic2, lambda, temp0,           &
@@ -119,9 +118,8 @@ contains
       real(cp),    intent(out) :: viscDiss,ohmDiss
 
       !-- local:
-      integer :: n_r,lm,l,m,n
+      integer :: n_r,lm,l,m
       real(cp) :: r_ratio
-      real(cp) :: viscHeatR(nRstart:nRstop)
       real(cp) :: viscHeatR_global(n_r_max)
       real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat
       real(cp) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)

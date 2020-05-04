@@ -136,7 +136,7 @@ contains
 
       !-- Local variables:
       real(cp) :: eKinOC
-      integer :: n_r1,n_r2,n_r3,nR,l1m0
+      integer :: n_r1,n_r2,n_r3,l1m0
       real(cp) :: viscous_torque_ic,viscous_torque_ma
       real(cp) :: AMz,eKinAMz
       real(cp) :: angular_moment_oc(3)

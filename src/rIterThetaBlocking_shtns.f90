@@ -110,16 +110,14 @@ contains
 
    end subroutine finalize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
-   subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,timeStage,   &
-              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,&
-              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                    &
-              &           br_vt_lm_cmb,br_vp_lm_cmb,                         &
-              &           br_vt_lm_icb,br_vp_lm_icb,                         &
-              &           lorentz_torque_ic, lorentz_torque_ma,              &
-              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscAS,          &
-              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,   &
-              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,     &
-              &           EparaxiLMr)
+   subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,timeStage,    &
+              &           tscheme,dtLast,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt, &
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                     &
+              &           br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,&
+              &           lorentz_torque_ic,lorentz_torque_ma,HelAS,Hel2AS,   &
+              &           HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,duhAS,         &
+              &           gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,      &
+              &           EperpAS,EparAS,EperpaxiAS,EparaxiAS)
 
       class(rIterThetaBlocking_shtns_t) :: this
       integer,             intent(in) :: nR,nBc
@@ -136,12 +134,10 @@ contains
       complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
       complex(cp), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
       real(cp),    intent(out) :: lorentz_torque_ma, lorentz_torque_ic
-      real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
-      real(cp),    intent(out) :: viscAS
-      real(cp),    intent(out) :: uhLMr(:), duhLMr(:) ,gradsLMr(:)
-      real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
-      real(cp),    intent(out) :: fpoynLMr(:), fresLMr(:)
-      real(cp),    intent(out) :: EperpLMr(:), EparLMr(:), EperpaxiLMr(:), EparaxiLMr(:)
+      real(cp),    intent(out) :: HelAS(2),Hel2AS(2),HelnaAS(2),Helna2AS(2)
+      real(cp),    intent(out) :: HelEAAS, viscAS, uhAS, duhAS ,gradsAS
+      real(cp),    intent(out) :: fconvAS, fkinAS, fviscAS, fpoynAS, fresAS
+      real(cp),    intent(out) :: EperpAS, EparAS, EperpaxiAS, EparaxiAS
 
       integer :: lm
       logical :: lGraphHeader=.false.
@@ -275,14 +271,10 @@ contains
 
       !--------- Helicity output:
       if ( this%lHelCalc ) then
-         HelLMr(:)   =0.0_cp
-         Hel2LMr(:)  =0.0_cp
-         HelnaLMr(:) =0.0_cp
-         Helna2LMr(:)=0.0_cp
          call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
               &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
-              &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr, &
-              &            HelnaLMr,Helna2LMr,this%nR)
+              &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelAS,Hel2AS,   & 
+              &            HelnaAS,Helna2AS,HelEAAs,this%nR)
       end if
 
       !-- Viscous heating:
@@ -296,37 +288,25 @@ contains
 
       !-- horizontal velocity :
       if ( this%lViscBcCalc ) then
-         gradsLMr(:)=0.0_cp
-         uhLMr(:)   =0.0_cp
-         duhLMr(:)  =0.0_cp
          call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
               &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
-              &             this%gsa%dsdpc,uhLMr,duhLMr,gradsLMr,nR)
+              &             this%gsa%dsdpc,uhAS,duhAS,gradsAS,nR)
       end if
 
       !-- Radial flux profiles
       if ( this%lFluxProfCalc ) then
-         fconvLMr(:)=0.0_cp
-         fkinLMr(:) =0.0_cp
-         fviscLMr(:)=0.0_cp
-         fpoynLMr(:)=0.0_cp
-         fresLMr(:) =0.0_cp
          call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
               &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
               &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
               &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
-              &          this%gsa%cbtc,this%gsa%cbpc,fconvLMr,fkinLMr,      &
-              &          fviscLMr,fpoynLMr,fresLMr,nR)
+              &          this%gsa%cbtc,this%gsa%cbpc,fconvAS,fkinAS,        &
+              &          fviscAS,fpoynAS,fresAS,nR)
       end if
 
       !-- Kinetic energy parallel and perpendicular to rotation axis
       if ( this%lPerpParCalc ) then
-         EperpLMr(:)   =0.0_cp
-         EparLMr(:)    =0.0_cp
-         EperpaxiLMr(:)=0.0_cp
-         EparaxiLMr(:) =0.0_cp
-         call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpLMr, &
-              &           EparLMr,EperpaxiLMr,EparaxiLMr,nR )
+         call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpAS, &
+              &           EparAS,EperpaxiAS,EparaxiAS,nR )
       end if
 
       !--------- Movie output:

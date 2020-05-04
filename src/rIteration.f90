@@ -33,16 +33,16 @@ module rIteration_mod
          class(rIteration_t) :: this
       end subroutine empty_if
    !-----------------------------------------------------------------------------
-      subroutine do_iteration_if(this,nR,nBc,time,timeStage,tscheme,dtLast,&
-                 &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,      &
-                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,           &
-                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,   &
-                 &               br_vp_lm_icb,lorentz_torque_ic,           &
-                 &               lorentz_torque_ma,HelLMr,Hel2LMr,         &
-                 &               HelnaLMr,Helna2LMr,viscAS,uhLMr,duhLMr,  &
-                 &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,       &
-                 &               fpoynLMr,fresLMr,EperpLMr,EparLMr,        &
-                 &               EperpaxiLMr,EparaxiLMr)
+      subroutine do_iteration_if(this,nR,nBc,time,timeStage,tscheme,dtLast, &
+                 &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,       &
+                 &               dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,            &
+                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,    &
+                 &               br_vp_lm_icb,lorentz_torque_ic,            &
+                 &               lorentz_torque_ma,HelAS,Hel2AS,            &
+                 &               HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,duhAS,&
+                 &               gradsAS,fconvAS,fkinAS,fviscAS,            &
+                 &               fpoynAS,fresAS,EperpAS,EparAS,             &
+                 &               EperpaxiAS,EparaxiAS)
          import
          class(rIteration_t) :: this
  
@@ -62,14 +62,10 @@ module rIteration_mod
          complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
          complex(cp), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
          real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-         real(cp),    intent(out) :: HelLMr(:), Hel2LMr(:)
-         real(cp),    intent(out) :: HelnaLMr(:), Helna2LMr(:)
-         real(cp),    intent(out) :: viscAS
-         real(cp),    intent(out) :: uhLMr(:), duhLMr(:), gradsLMr(:)
-         real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
-         real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
-         real(cp),    intent(out) :: EperpLMr(:), EparLMr(:)
-         real(cp),    intent(out) :: EperpaxiLMr(:), EparaxiLMr(:)
+         real(cp),    intent(out) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2)
+         real(cp),    intent(out) :: HelEAAS, viscAS, uhAS, duhAS, gradsAS
+         real(cp),    intent(out) :: fconvAS, fkinAS, fviscAS, fpoynAS,fresAS
+         real(cp),    intent(out) :: EperpAS, EparAS, EperpaxiAS, EparaxiAS
  
       end subroutine do_iteration_if
    !-----------------------------------------------------------------------------

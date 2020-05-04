@@ -5,15 +5,13 @@ module nl_special_calc
    !
 
    use precision_mod
-   use truncation, only: nrp, n_phi_max, l_max, l_maxMag, n_r_icb, &
-       &                 n_r_cmb, nThetaStart, nThetaStop, n_theta_loc
+   use truncation, only: nrp, n_phi_max, n_r_icb, n_r_cmb, nThetaStart, nThetaStop
    use constants, only: pi, one, two, third, half
    use logic, only: l_mag_nl, l_anelastic_liquid
    use physical_parameters, only: ek, ViscHeatFac, ThExpNb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
        &                       visc, or4, r, alpha0
    use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2, gauss
-   use shtns, only: spat_to_SH_axi_dist
    use parallel_mod
 
    implicit none
@@ -25,8 +23,7 @@ module nl_special_calc
 
 contains
 
-   subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,uhLMr,duhLMr, &
-              &             gradsLMr,nR)
+   subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,uhAS,duhAS,gradsAS,nR)
       !
       !   Calculates axisymmetric contributions of:
       !
@@ -49,28 +46,27 @@ contains
       real(cp), intent(in) :: dsdp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
-      real(cp), intent(out) :: uhLMr(l_max+1)
-      real(cp), intent(out) :: duhLMr(l_max+1)
-      real(cp), intent(out) :: gradsLMr(l_max+1)
+      real(cp), intent(out) :: uhAS
+      real(cp), intent(out) :: duhAS
+      real(cp), intent(out) :: gradsAS
 
       !-- Local variables:
-      integer :: nTheta
-      integer :: nPhi
+      integer :: nTheta,nPhi,nThetaNHS
       real(cp) :: uh, duh, phiNorm, grads
-      real(cp) :: uhAS(nThetaStart:nThetaStop), duhAS(nThetaStart:nThetaStop)
-      real(cp) :: gradsAS(nThetaStart:nThetaStop)
 
       phiNorm=one/real(n_phi_max,cp)
+      uhAS   =0.0_cp
+      duhAS  =0.0_cp
+      gradsAS=0.0_cp
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
 #ifdef WITH_SHTNS
-      !$omp parallel do default(shared)                     &
-      !$omp& private(nTheta, nPhi, uh, duh, grads)
+      !$omp parallel do default(shared)              &
+      !$omp& private(nTheta, nPhi, uh, duh, grads)   &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
 #endif
       do nTheta=nThetaStart,nThetaStop
-         uhAS(nTheta)   =0.0_cp
-         duhAS(nTheta)  =0.0_cp
-         gradsAS(nTheta)=0.0_cp
+         nThetaNHS=(nTheta+1)/2
          do nPhi=1,n_phi_max
             uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(   &
             &             vt(nPhi,nTheta)*vt(nPhi,nTheta)+  &
@@ -86,31 +82,27 @@ contains
             &              dsdt(nPhi,nTheta)*dsdt(nPhi,nTheta)    &
             &             +dsdp(nPhi,nTheta)*dsdp(nPhi,nTheta) )
 
-            uhAS(nTheta)=uhAS(nTheta)+sqrt(uh)
-            if (uh /= 0.0_cp) duhAS(nTheta)=duhAS(nTheta)+abs(duh)/sqrt(uh)
-            gradsAS(nTheta)=gradsAS(nTheta)+grads
+            uhAS=uhAS+phiNorm*gauss(nThetaNHS)*sqrt(uh)
+            if (uh /= 0.0_cp) duhAS=duhAS+phiNorm*gauss(nThetaNHS)*abs(duh)/sqrt(uh)
+            gradsAS=gradsAS+phiNorm*gauss(nThetaNHS)*grads
          end do
-         uhAS(nTheta)   =phiNorm*uhAS(nTheta)
-         duhAS(nTheta)  =phiNorm*duhAS(nTheta)
-         gradsAS(nTheta)=phiNorm*gradsAS(nTheta)
       end do
 #ifdef WITH_SHTNS
       !$omp end parallel do
 #endif
 
-      !------ Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi_dist(gradsAS,gradsLMr)
-      call spat_to_SH_axi_dist(uhAS,uhLMr)
-      call spat_to_SH_axi_dist(duhAS,duhLMr)
-#else
-      call legTFAS2(uhLMr,duhLMr,uhAS,duhAS,l_max+1,nThetaStart,n_theta_loc)
-      call legTFAS(gradsLMr,gradsAS,l_max+1,nThetaStart,n_theta_loc)
-#endif
+      if ( n_ranks_theta>1 ) then
+         call MPI_AllReduce(MPI_IN_PLACE, uhAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, duhAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, gradsAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+      end if
 
    end subroutine get_nlBLayers
 !------------------------------------------------------------------------------
-   subroutine get_perpPar(vr,vt,vp,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,nR)
+   subroutine get_perpPar(vr,vt,vp,EperpAS,EparAS,EperpaxiAS,EparaxiAS,nR)
       !
       !   Calculates the energies parallel and perpendicular to the rotation axis
       !
@@ -127,30 +119,28 @@ contains
       real(cp), intent(in) :: vp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
-      real(cp), intent(out) :: EperpLMr(l_max+1),EparLMr(l_max+1)
-      real(cp), intent(out) :: EperpaxiLMr(l_max+1),EparaxiLMr(l_max+1)
+      real(cp), intent(out) :: EperpAS,EparAS
+      real(cp), intent(out) :: EperpaxiAS,EparaxiAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaNHS
-      integer :: nPhi
+      integer :: nTheta,nThetaNHS,nPhi
       real(cp) :: vras,vtas,vpas,phiNorm,Eperp,Epar,Eperpaxi,Eparaxi
-      real(cp) :: EperpAS(nThetaStart:nThetaStop),EparAS(nThetaStart:nThetaStop)
-      real(cp) :: EperpaxiAS(nThetaStart:nThetaStop),EparaxiAS(nThetaStart:nThetaStop)
 
       phiNorm=one/real(n_phi_max,cp)
+      EperpAS   =0.0_cp
+      EparAS    =0.0_cp
+      EperpaxiAS=0.0_cp
+      EparaxiAS =0.0_cp
 
 #ifdef WITH_SHTNS
       !$omp parallel do default(shared)                             &
       !$omp& private(nTheta, nPhi, Eperp, Epar, Eperpaxi, Eparaxi)  &
-      !$omp& private(vras, vtas, vpas, nThetaNHS)
+      !$omp& private(vras, vtas, vpas, nThetaNHS)                   &
+      !$omp& reduction(+:EperpAS,EparAS,EperpaxiAS,EparaxiAS)
 #endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2
 
-         EperpAS(nTheta)   =0.0_cp
-         EparAS(nTheta)    =0.0_cp
-         EperpaxiAS(nTheta)=0.0_cp
-         EparaxiAS(nTheta) =0.0_cp
          Eperp   =0.0_cp
          Epar    =0.0_cp
          Eperpaxi=0.0_cp
@@ -191,36 +181,31 @@ contains
             &                                      vtas*vtas - &
             &         two*or1(nR)*cosTheta(nTheta)*vras*vtas )
 
-            EperpAS(nTheta)   =   EperpAS(nTheta)+Eperp
-            EparAS(nTheta)    =    EparAS(nTheta)+Epar
-            EperpaxiAS(nTheta)=EperpaxiAS(nTheta)+Eperpaxi
-            EparaxiAS(nTheta) = EparaxiAS(nTheta)+Eparaxi
+            EperpAS   =   EperpAS+phiNorm*gauss(nThetaNHS)*Eperp
+            EparAS    =    EparAS+phiNorm*gauss(nThetaNHS)*Epar
+            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nThetaNHS)*Eperpaxi
+            EparaxiAS = EparaxiAS+phiNorm*gauss(nThetaNHS)*Eparaxi
          end do
-         EperpAS(nTheta)   =phiNorm*   EperpAS(nTheta)
-         EparAS(nTheta)    =phiNorm*    EparAS(nTheta)
-         EperpaxiAS(nTheta)=phiNorm*EperpaxiAS(nTheta)
-         EparaxiAS(nTheta) =phiNorm* EparaxiAS(nTheta)
       end do
 #ifdef WITH_SHTNS
       !$omp end parallel do
 #endif
 
-      !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi_dist(EperpAS, EperpLMr)
-      call spat_to_SH_axi_dist(EparAS, EparLMr)
-      call spat_to_SH_axi_dist(EperpaxiAS, EperpaxiLMr)
-      call spat_to_SH_axi_dist(EparaxiAS, EparaxiLMr)
-#else
-      call legTFAS2(EperpLMr,EparLMr,EperpAS,EparAS,l_max+1,nThetaStart,n_theta_loc)
-      call legTFAS2(EperpaxiLMr,EparaxiLMr,EperpaxiAS,EparaxiAS,l_max+1, &
-           &        nThetaStart,n_theta_loc)
-#endif
+      if ( n_ranks_theta>1 ) then
+         call MPI_AllReduce(MPI_IN_PLACE, EperpAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, EparAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, EperpaxiAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, EparaxiAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+      end if
 
    end subroutine get_perpPar
 !------------------------------------------------------------------------------
    subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt,bp, &
-              &          cbt,cbp,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMR,nR)
+              &          cbt,cbp,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,nR)
       !
       !   Calculates the fluxes:
       !
@@ -253,30 +238,27 @@ contains
       real(cp), intent(in) :: cbp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
-      real(cp), intent(out) :: fkinLMr(l_max+1)
-      real(cp), intent(out) :: fconvLMr(l_max+1)
-      real(cp), intent(out) :: fviscLMr(l_max+1)
-      real(cp), intent(out) :: fresLMr(l_maxMag+1),fpoynLMr(l_maxMag+1)
+      real(cp), intent(out) :: fkinAS, fconvAS
+      real(cp), intent(out) :: fviscAS, fresAS, fpoynAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaNHS
-      integer :: nPhi
+      integer :: nTheta,nThetaNHS,nPhi
       real(cp) :: fkin, fconv, phiNorm, fvisc, fpoyn, fres
-      real(cp) :: fkinAS(nThetaStart:nThetaStop),fconvAS(nThetaStart:nThetaStop)
-      real(cp) :: fviscAS(nThetaStart:nThetaStop)
-      real(cp) :: fpoynAS(nThetaStart:nThetaStop),fresAS(nThetaStart:nThetaStop)
 
       phiNorm=two*pi/real(n_phi_max,cp)
+      fkinAS =0.0_cp
+      fconvAS=0.0_cp
+      fviscAS=0.0_cp
+      fpoynAS=0.0_cp
+      fresAS =0.0_cp
 
 #ifdef WITH_SHTNS
-      !$omp parallel do default(shared)         &
-      !$omp& private(nTheta, nPhi, fkin, fconv, fvisc, nThetaNHS)
+      !$omp parallel do default(shared)                           &
+      !$omp& private(nTheta, nPhi, fkin, fconv, fvisc, nThetaNHS) &
+      !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
 #endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2
-         fkinAS(nTheta) =0.0_cp
-         fconvAS(nTheta)=0.0_cp
-         fviscAS(nTheta)=0.0_cp
          fkin=0.0_cp
          fconv=0.0_cp
          fvisc=0.0_cp
@@ -311,27 +293,32 @@ contains
                &       -(two*or1(nR)+beta(nR))*vp(nPhi,nTheta) )
             end if
 
-            fkinAS(nTheta) = fkinAS(nTheta)+fkin
-            fconvAS(nTheta)=fconvAS(nTheta)+fconv
-            fviscAS(nTheta)=fviscAS(nTheta)+fvisc
+            fkinAS = fkinAS+phiNorm*gauss(nThetaNHS)*fkin
+            fconvAS=fconvAS+phiNorm*gauss(nThetaNHS)*fconv
+            fviscAS=fviscAS+phiNorm*gauss(nThetaNHS)*fvisc
          end do
-         fkinAS(nTheta) =phiNorm* fkinAS(nTheta)
-         fconvAS(nTheta)=phiNorm*fconvAS(nTheta)
-         fviscAS(nTheta)=phiNorm*fviscAS(nTheta)
       end do
 #ifdef WITH_SHTNS
       !$omp end parallel do
 #endif
 
+      if ( n_ranks_theta>1 ) then
+         call MPI_AllReduce(MPI_IN_PLACE, fkinAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, fconvAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, fviscAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+      end if
+
       if ( l_mag_nl) then
 #ifdef WITH_SHTNS
-         !$omp parallel do default(shared)         &
-         !$omp& private(nTheta, nPhi, fkin, fconv, fvisc, nThetaNHS)
+         !$omp parallel do default(shared)                           &
+         !$omp& private(nTheta, nPhi, fkin, fconv, fvisc, nThetaNHS) &
+         !$omp& reduction(+:fpoynAS,fresAS)
 #endif
          do nTheta=nThetaStart,nThetaStop
             nThetaNHS=(nTheta+1)/2
-            fresAS(nTheta) =0.0_cp
-            fpoynAS(nTheta)=0.0_cp
             fres=0.0_cp
             fpoyn=0.0_cp
             do nPhi=1,n_phi_max
@@ -345,39 +332,25 @@ contains
                 &           vr(nPhi,nTheta)*bt(nPhi,nTheta)*bt(nPhi,nTheta)  + &
                 &           vt(nPhi,nTheta)*br(nPhi,nTheta)*bt(nPhi,nTheta) )
 
-                fresAS(nTheta) = fresAS(nTheta)+fres
-                fpoynAS(nTheta)=fpoynAS(nTheta)+fpoyn
+                fresAS = fresAS+phiNorm*gauss(nThetaNHS)*fres
+                fpoynAS=fpoynAS+phiNorm*gauss(nThetaNHS)*fpoyn
             end do
-            fresAS(nTheta) =phiNorm* fresAS(nTheta)
-            fpoynAS(nTheta)=phiNorm*fpoynAS(nTheta)
          end do
 #ifdef WITH_SHTNS
          !$omp end parallel do
 #endif
-
-#ifdef WITH_SHTNS
-         call spat_to_SH_axi_dist(fresAS,fresLMr)
-         call spat_to_SH_axi_dist(fpoynAS,fpoynLMr)
-#else
-         call legTFAS2(fresLMr,fpoynLMr,fresAS,fpoynAS,l_max+1,nThetaStart, &
-              &        n_theta_loc)
-#endif
+         if ( n_ranks_theta>1 ) then
+            call MPI_AllReduce(MPI_IN_PLACE, fresAS, 1, MPI_DEF_REAL, &
+                 &             MPI_SUM, comm_theta, ierr)
+            call MPI_AllReduce(MPI_IN_PLACE, fpoynAS, 1, MPI_DEF_REAL, &
+                 &             MPI_SUM, comm_theta, ierr)
+         end if
       end if
-
-      !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi_dist(fviscAS,fviscLMr)
-      call spat_to_SH_axi_dist(fconvAS,fconvLMr)
-      call spat_to_SH_axi_dist(fkinAS,fkinLMr)
-#else
-      call legTFAS(fviscLMr,fviscAS,l_max+1,nThetaStart,n_theta_loc)
-      call legTFAS2(fconvLMr,fkinLMr,fconvAS,fkinAS,l_max+1,nThetaStart,n_theta_loc)
-#endif
 
    end subroutine get_fluxes
 !------------------------------------------------------------------------------
-   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,HelLMr, &
-              &            Hel2LMr,HelnaLMr,Helna2LMr,nR)
+   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,HelAS, &
+              &            Hel2AS,HelnaAS,Helna2AS,HelEAAS,nR)
       !
       !   Calculates axisymmetric contributions of helicity HelLMr and
       !   helicity**2  Hel2LMr in (l,m=0,r) space.
@@ -395,16 +368,14 @@ contains
       real(cp), intent(in) :: dvpdr(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
-      real(cp), intent(out) :: HelLMr(l_max+1)
-      real(cp), intent(out) :: Hel2LMr(l_max+1)
-      real(cp), intent(out) :: HelnaLMr(l_max+1)
-      real(cp), intent(out) :: Helna2LMr(l_max+1)
+      real(cp), intent(out) :: HelAS(2)
+      real(cp), intent(out) :: Hel2AS(2)
+      real(cp), intent(out) :: HelnaAS(2)
+      real(cp), intent(out) :: Helna2AS(2)
+      real(cp), intent(out) :: HelEAAS
 
       !-- Local variables:
-      integer :: nTheta
-      integer :: nPhi
-      real(cp) :: HelAS(nThetaStart:nThetaStop),Hel2AS(nThetaStart:nThetaStop)
-      real(cp) ::HelnaAS(nThetaStart:nThetaStop),Helna2AS(nThetaStart:nThetaStop)
+      integer :: nTheta,nPhi,nThetaNHS
       real(cp) :: Helna, Hel, phiNorm
       real(cp) :: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
@@ -413,19 +384,22 @@ contains
       !-- this is why we have a 2pi factor after radial integration
       !-- in the subroutine outHelicity()
       phiNorm=one/real(n_phi_max,cp)
+      HelAS(:)   =0.0_cp
+      Hel2AS(:)  =0.0_cp
+      HelnaAS(:) =0.0_cp
+      Helna2AS(:)=0.0_cp
+      HelEAAS    =0.0_cp
 
       !--- Helicity:
 #ifdef WITH_SHTNS
       !$omp parallel do default(shared)                     &
       !$omp& private(nTheta, nPhi, Hel, Helna)              &
       !$omp& private(vrna, cvrna, vtna, vpna)               &
-      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)
+      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
+      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
 #endif
       do nTheta=nThetaStart,nThetaStop
-         HelAS(nTheta)   =0.0_cp
-         Hel2AS(nTheta)  =0.0_cp
-         HelnaAS(nTheta) =0.0_cp
-         Helna2AS(nTheta)=0.0_cp
+         nThetaNHS=(nTheta+1)/2
          vras=0.0_cp
          cvras=0.0_cp
          vtas=0.0_cp
@@ -473,36 +447,42 @@ contains
             &                          (         dvtdr(nPhi,nTheta) - &
             &                           beta(nR)*   vt(nPhi,nTheta) - &
             &                            or2(nR)*dvrdt(nPhi,nTheta) ) )
-            Helna=                      or4(nR)*orho2(nR)*vrna*cvrna + &
-            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
-            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
-            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
+            Helna=                     or4(nR)*orho2(nR)*vrna*cvrna + &
+            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                      vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
+            &                      vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
-            HelAS(nTheta)   =HelAS(nTheta) +Hel
-            Hel2AS(nTheta)  =Hel2AS(nTheta)+Hel*Hel
-            HelnaAS(nTheta) =HelnaAS(nTheta) +Helna
-            Helna2AS(nTheta)=Helna2AS(nTheta)+Helna*Helna
+            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nThetaNHS)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nThetaNHS)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nThetaNHS)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nThetaNHS)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nThetaNHS)*Hel
+            else
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nThetaNHS)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nThetaNHS)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nThetaNHS)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nThetaNHS)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nThetaNHS)*Hel
+            end if
          end do
-         HelAS(nTheta) =phiNorm*HelAS(nTheta)
-         Hel2AS(nTheta)=phiNorm*Hel2AS(nTheta)
-         HelnaAS(nTheta) =phiNorm*HelnaAS(nTheta)
-         Helna2AS(nTheta)=phiNorm*Helna2AS(nTheta)
       end do
 #ifdef WITH_SHTNS
       !$omp end parallel do
 #endif
 
-      !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi_dist(HelAS, HelLMr)
-      call spat_to_SH_axi_dist(Hel2AS, Hel2LMr)
-      call spat_to_SH_axi_dist(HelnaAS, HelnaLMr)
-      call spat_to_SH_axi_dist(Helna2AS, Helna2LMr)
-#else
-      call legTFAS2(HelLMr,Hel2LMr,HelAS,Hel2AS,l_max+1,nThetaStart,n_theta_loc)
-      call legTFAS2(HelnaLMr,Helna2LMr,HelnaAS,Helna2AS,l_max+1,nThetaStart,&
-           &        n_theta_loc)
-#endif
+      if ( n_ranks_theta>1 ) then
+         call MPI_AllReduce(MPI_IN_PLACE, HelAS, 2, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, Hel2AS, 2, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, HelnaAS, 2, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, Helna2AS, 2, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+         call MPI_AllReduce(MPI_IN_PLACE, HelEAAS, 1, MPI_DEF_REAL, &
+              &             MPI_SUM, comm_theta, ierr)
+      end if
 
    end subroutine get_helicity
 !------------------------------------------------------------------------------

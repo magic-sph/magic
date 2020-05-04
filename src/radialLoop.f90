@@ -3,7 +3,7 @@ module radialLoop
 
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: n_lm_loc, n_lmMag_loc, l_max, l_maxMag, lmP_max, &
+   use truncation, only: n_lm_loc, n_lmMag_loc, &
        &                 nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag,   &
        &                 n_r_icb, n_lmP_loc
    use physical_parameters, only: ktopv, kbotv
@@ -12,7 +12,7 @@ module radialLoop
        &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,            &
        &            l_single_matrix, l_double_curl, l_chemical_conv
    use constants, only: zero
-   use parallel_mod, only: coord_r, n_ranks_r, coord_r, l_master_rank
+   use parallel_mod, only: n_ranks_r, coord_r, l_master_rank
    use time_schemes, only: type_tscheme
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
@@ -79,11 +79,11 @@ contains
               &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM, &
               &          dVSrLM,dVXirLM,lorentz_torque_ic,               &
               &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,    &
-              &          br_vt_lm_icb,br_vp_lm_icb,                      &
-              &          HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscAS,uhLMr, &
-              &          duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,      &
-              &          fpoynLMr,fresLMr,EperpLMr,EparLMr,              &
-              &          EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
+              &          br_vt_lm_icb,br_vp_lm_icb,HelASr,Hel2ASr,       &
+              &          HelnaASr,Helna2ASr,HelEAASr,viscAS,uhASr,       &
+              &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,      &
+              &          fpoynASr,fresASr,EperpASr,EparASr,              &
+              &          EperpaxiASr,EparaxiASr,dtrkc,dthkc)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -117,23 +117,24 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
       !---- Output for axisymmetric helicity:
-      real(cp),    intent(out) :: HelLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: Hel2LMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: HelnaLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: Helna2LMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: duhLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: HelASr(2,nRstart:nRstop)
+      real(cp),    intent(out) :: Hel2ASr(2,nRstart:nRstop)
+      real(cp),    intent(out) :: HelnaASr(2,nRstart:nRstop)
+      real(cp),    intent(out) :: Helna2ASr(2,nRstart:nRstop)
+      real(cp),    intent(out) :: HelEAASr(nRstart:nRstop)
+      real(cp),    intent(out) :: uhASr(nRstart:nRstop)
+      real(cp),    intent(out) :: duhASr(nRstart:nRstop)
       real(cp),    intent(out) :: viscAS(nRstart:nRstop)
-      real(cp),    intent(out) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: gradsASr(nRstart:nRstop)
+      real(cp),    intent(out) :: fkinASr(nRstart:nRstop)
+      real(cp),    intent(out) :: fconvASr(nRstart:nRstop)
+      real(cp),    intent(out) :: fviscASr(nRstart:nRstop)
+      real(cp),    intent(out) :: fresASr(nRstartMag:nRstopMag)
+      real(cp),    intent(out) :: fpoynASr(nRstartMag:nRstopMag)
+      real(cp),    intent(out) :: EperpASr(nRstart:nRstop)
+      real(cp),    intent(out) :: EparASr(nRstart:nRstop)
+      real(cp),    intent(out) :: EperpaxiASr(nRstart:nRstop)
+      real(cp),    intent(out) :: EparaxiASr(nRstart:nRstop)
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -239,11 +240,11 @@ contains
               & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxVhLM(:,nR),dVxBhLM(:,nR_Mag),  &
               & dVSrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,                        &
               & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,       &
-              & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),    &
-              & Helna2LMr(:,nR),viscAS(nR),uhLMr(:,nR),duhLMr(:,nR),         &
-              & gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),     &
-              & fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),EperpLMr(:,nR),            &
-              & EparLMr(:,nR),EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
+              & lorentz_torque_ma,HelASr(:,nR),Hel2ASr(:,nR),HelnaASr(:,nR),    &
+              & Helna2ASr(:,nR),HelEAASr(nR),viscAS(nR),uhASr(nR),duhASr(nR),   &
+              & gradsASr(nR),fconvASr(nR),fkinASr(nR),fviscASr(nR),             &
+              & fpoynASr(nR_Mag),fresASr(nR_Mag),EperpASr(nR),                  &
+              & EparASr(nR),EperpaxiASr(nR),EparaxiASr(nR))
 
          dtrkc(nR)=this_rIteration%dtrkc
          dthkc(nR)=this_rIteration%dthkc

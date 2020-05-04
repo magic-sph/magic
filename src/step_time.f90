@@ -146,24 +146,17 @@ contains
       !--- Lorentz torques:
       real(cp) :: lorentz_torque_ma,lorentz_torque_ic
 
-      !-- Arrays for m_outMisc.F90 and m_outPar.F90
-      real(cp) :: HelLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: Hel2LMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: viscAS_Rloc(nRstart:nRstop)
-      real(cp) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: fconvLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: fkinLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: fviscLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: fpoynLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp) :: fresLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp) :: EperpLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: EparLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: EperpaxiLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: EparaxiLMr_Rloc(l_max+1,nRstart:nRstop)
+      !-- Arrays for outMisc.f90 and outPar.f90
+      real(cp) :: HelASr_Rloc(2,nRstart:nRstop),Hel2ASr_Rloc(2,nRstart:nRstop)
+      real(cp) :: HelnaASr_Rloc(2,nRstart:nRstop),Helna2ASr_Rloc(2,nRstart:nRstop)
+      real(cp) :: viscAS_Rloc(nRstart:nRstop), uhASr_Rloc(nRstart:nRstop)
+      real(cp) :: duhASr_Rloc(nRstart:nRstop), gradsASr_Rloc(nRstart:nRstop)
+      real(cp) :: fconvASr_Rloc(nRstart:nRstop), fkinASr_Rloc(nRstart:nRstop)
+      real(cp) :: fviscASr_Rloc(nRstart:nRstop), HelEAASr_Rloc(nRstart:nRstop)
+      real(cp) :: fpoynASr_Rloc(nRstartMag:nRstopMag)
+      real(cp) :: fresASr_Rloc(nRstartMag:nRstopMag)
+      real(cp) :: EperpASr_Rloc(nRstart:nRstop), EparASr_Rloc(nRstart:nRstop)
+      real(cp) :: EperpaxiASr_Rloc(nRstart:nRstop), EparaxiASr_Rloc(nRstart:nRstop)
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
       complex(cp) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
@@ -494,14 +487,15 @@ contains
                     &           dsdt_Rdist,dwdt_Rdist,dzdt_Rdist,dpdt_Rdist,       &
                     &           dxidt_Rdist,dbdt_Rdist,djdt_Rdist,dVxVhLM_Rdist,   &
                     &           dVxBhLM_Rdist,dVSrLM_Rdist,dVXirLM_Rdist,          &
-                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb_dist,  &
-                    &           br_vp_lm_cmb_dist,br_vt_lm_icb_dist,br_vp_lm_icb_dist,HelLMr_Rloc,&
-                    &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,         &
-                    &           viscAS_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,  &
-                    &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,          &
-                    &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,          &
-                    &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,     &
-                    &           dtrkc_Rloc,dthkc_Rloc)
+                    &           lorentz_torque_ic,lorentz_torque_ma,               &
+                    &           br_vt_lm_cmb_dist,br_vp_lm_cmb_dist,               &
+                    &           br_vt_lm_icb_dist,br_vp_lm_icb_dist,HelASr_Rloc,   &
+                    &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,         &
+                    &           HelEAASr_Rloc,viscAS_Rloc,uhASr_Rloc,duhASr_Rloc,  &
+                    &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,          &
+                    &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,          &
+                    &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,       &
+                    &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
                call rLoop_counter%stop_count()
                phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
                lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
@@ -621,16 +615,16 @@ contains
 
                if ( lVerbose ) write(output_unit,*) "! start real output"
                call io_counter%start_count()
-               call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,     &
-                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,              &
-                    &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
-                    &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
-                    &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
-                    &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-                    &      viscAS_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
-                    &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
-                    &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
-                    &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
+               call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,      &
+                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
+                    &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                 &
+                    &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                  &
+                    &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,    &
+                    &      HelASr_Rloc,Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc, &
+                    &      HelEAASr_Rloc,viscAS_Rloc,uhASr_Rloc,duhASr_Rloc,      &
+                    &      gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,fviscASr_Rloc,&
+                    &      fpoynASr_Rloc,fresASr_Rloc,EperpASr_Rloc,EparASr_Rloc, &
+                    &      EperpaxiASr_Rloc,EparaxiASr_Rloc)
                call io_counter%stop_count()
                if ( lVerbose ) write(output_unit,*) "! output finished"
 

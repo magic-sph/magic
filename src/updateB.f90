@@ -248,8 +248,6 @@ contains
 
       real(cp), save :: direction
 
-      integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
       if ( .not. l_update_b ) return
 
       !-- Now assemble the right hand side and store it in work_LMdist

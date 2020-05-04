@@ -608,7 +608,7 @@ contains
 
       !-- Local variables 
       logical :: l_in_cheb
-      integer :: n_r_top, n_r_bot, l, m
+      integer :: n_r_top, n_r_bot, l
       integer :: n_r, lm, start_lm, stop_lm
       real(cp) :: dL
 
