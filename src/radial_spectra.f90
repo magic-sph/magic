@@ -2,13 +2,11 @@ module radial_spectra
 
    use precision_mod
    use parallel_mod
-   use communications, only: reduce_radial
-   use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, & 
-       &                 n_r_tot, n_r_icb
+   use communications, only: reduce_to_master
+   use LMmapping, only: map_mlo
+   use truncation, only: n_r_max, n_r_ic_max, n_mlo_loc, n_r_tot, n_r_icb
    use radial_functions, only: or2, r_icb, r_ic
    use num_param, only: eScale
-   use blocking, only: st_map, llm, ulm
-   use horizontal_data, only: dLh
    use logic, only: l_cond_ic
    use output_data, only: tag
    use useful, only: cc2real
@@ -25,15 +23,14 @@ module radial_spectra
 
 contains
 
-   subroutine rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
+   subroutine rBrSpec(time,Pol,PolIC,fileRoot,lIC)
 
       !-- Input variables
       real(cp),         intent(in) :: time
-      complex(cp),      intent(in) :: Pol(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: PolIC(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: Pol(n_mlo_loc,n_r_max)
+      complex(cp),      intent(in) :: PolIC(n_mlo_loc,n_r_ic_max)
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
-      type(mappings),   intent(in) :: map
     
       !-- Output to file:
       real(cp) :: e_p_AS(6,n_r_tot), e_p_AS_global(6,n_r_tot)
@@ -43,7 +40,7 @@ contains
       character(len=72) :: specFile
       integer :: n_r,lm,l,m
       real(cp) :: fac,O_r_icb_E_2,rRatio,amp
-      real(cp) :: e_p_temp
+      real(cp) :: e_p_temp,dLh
       logical :: lAS
     
 
@@ -54,12 +51,14 @@ contains
          e_p(1:6,n_r)   =0.0_cp
          e_p_AS(1:6,n_r)=0.0_cp
     
-         do lm=max(2,llm),ulm
-            l=map%lm2l(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            if ( l == 0 ) cycle
             if ( l <= 6 ) then
-               m=map%lm2m(lm)
+               m=map_mlo%i2m(lm)
+               dLh = real(l*(l+1),cp)
                amp=real(Pol(lm,n_r))
-               e_p_temp=dLh(st_map%lm2(l,m))**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
+               e_p_temp=dLh**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
                if ( m == 0 ) then
                   if ( abs(amp)/=0.0_cp ) then
                      e_p_AS(l,n_r)=fac*amp/abs(amp)*e_p_temp
@@ -84,19 +83,20 @@ contains
                e_p(l,n_r_max-1+n_r)=0.0_cp
                e_p_AS(l,n_r_max-1+n_r)=0.0_cp
             end do
-            do lm=max(2,llm),ulm
-               l=map%lm2l(lm)
+            do lm=1,n_mlo_loc
+               l=map_mlo%i2l(lm)
+               if ( l == 0 ) cycle
                if ( l <= 6 ) then
-                  m=map%lm2m(lm)
+                  dLh = real(l*(l+1),cp)
+                  m=map_mlo%i2m(lm)
                   if ( m /= 0 .or. lAS ) then
                      if ( l_cond_ic ) then
-                        e_p_temp=dLh(st_map%lm2(l,m))*rRatio**(2*l) * &
-                        &        dLh(st_map%lm2(l,m))*O_r_icb_E_2*    &
+                        e_p_temp=dLh*rRatio**(2*l)*dLh*O_r_icb_E_2*    &
                         &        cc2real(PolIC(lm,n_r),m)
                         amp=real(PolIC(lm,n_r))
                      else
-                        e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
-                        &        dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_ICB),m)
+                        e_p_temp=dLh*O_r_icb_E_2*rRatio**(2*l) * &
+                        &        dLh*cc2real(PolIC(lm,n_r_ICB),m)
                         amp=real(Pol(lm,n_r_ICB))
                      end if
                      if ( m == 0 ) then
@@ -118,8 +118,8 @@ contains
          end do
       end if
 
-      call reduce_radial(e_p, e_p_global, 0)
-      call reduce_radial(e_p_AS, e_p_AS_global, 0)
+      call reduce_to_master(e_p, e_p_global, 0)
+      call reduce_to_master(e_p_AS, e_p_AS_global, 0)
       
       if ( l_master_rank ) then
 
@@ -150,18 +150,17 @@ contains
     
    end subroutine rBrSpec
 !----------------------------------------------------------------------------
-   subroutine rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
+   subroutine rBpSpec(time,Tor,TorIC,fileRoot,lIC)
       !
       !  Called from rank0, map gives the lm order of Tor and TorIC
       !
 
       !-- Input variables:
       real(cp),         intent(in) :: time
-      complex(cp),      intent(in) :: Tor(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: TorIC(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: Tor(n_mlo_loc,n_r_max)
+      complex(cp),      intent(in) :: TorIC(n_mlo_loc,n_r_ic_max)
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
-      type(mappings),   intent(in) :: map
     
       !-- Output:
       real(cp) :: e_t_AS(6,n_r_tot), e_t_AS_global(6,n_r_tot)
@@ -170,8 +169,7 @@ contains
       !-- Local:
       character(len=72) :: specFile
       integer :: n_r,lm,l,m
-      real(cp) :: fac,rRatio,amp
-      real(cp) :: e_t_temp
+      real(cp) :: fac,rRatio,amp,e_t_temp,dLh
       LOGICAl :: lAS
     
       fac=half*eScale/(four*pi)
@@ -181,12 +179,14 @@ contains
             e_t(l,n_r)   =0.0_cp
             e_t_AS(l,n_r)=0.0_cp
          end do
-         do lm=max(2,llm),ulm
-            l=map%lm2l(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            if ( l == 0 ) cycle
             if ( l <= 6 ) then
-               m=map%lm2m(lm)
+               m=map_mlo%i2m(lm)
+               dLh = real(l*(l+1),cp)
                amp=real(Tor(lm,n_r))
-               e_t_temp=dLh(st_map%lm2(l,m))*cc2real(Tor(lm,n_r),m)
+               e_t_temp=dLh*cc2real(Tor(lm,n_r),m)
                if ( abs(amp)/=0.0_cp ) then
                   if ( m == 0 ) e_t_AS(l,n_r)=fac*amp/abs(amp)*e_t_temp
                end if
@@ -209,17 +209,17 @@ contains
     
          do n_r=2,n_r_ic_max
             rRatio=r_ic(n_r)/r_ic(1)
-            do lm=max(2,llm),ulm
-               l=map%lm2l(lm)
+            do lm=1,n_mlo_loc
+               l=map_mlo%i2l(lm)
+               if ( l == 0 ) cycle
                if ( l <= 6 ) then
-                  m=map%lm2m(lm)
+                  m=map_mlo%i2m(lm)
+                  dLh = real(l*(l+1),cp)
                   if ( m /= 0 .or. lAS ) then
-                     e_t_temp= dLh(st_map%lm2(l,m))*rRatio**(2*l+2) &
-                          &    * cc2real(TorIC(lm,n_r),m)
+                     e_t_temp= dLh*rRatio**(2*l+2)*cc2real(TorIC(lm,n_r),m)
                      amp=real(TorIC(lm,n_r))
                      if ( abs(amp)/=0.0_cp ) then
-                        if ( m == 0 ) e_t_AS(l,n_r_max-1+n_r)= &
-                             fac*amp/abs(amp)*e_t_temp
+                        if ( m == 0 ) e_t_AS(l,n_r_max-1+n_r)=fac*amp/abs(amp)*e_t_temp
                      end if
                      e_t(l,n_r_max-1+n_r)=e_t(l,n_r_max-1+n_r)+fac*e_t_temp
                   end if
@@ -229,8 +229,8 @@ contains
     
       end if
 
-      call reduce_radial(e_t, e_t_global, 0)
-      call reduce_radial(e_t_AS, e_t_AS_global, 0)
+      call reduce_to_master(e_t, e_t_global, 0)
+      call reduce_to_master(e_t_AS, e_t_AS_global, 0)
       
       if ( l_master_rank ) then
     

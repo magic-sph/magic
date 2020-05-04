@@ -15,8 +15,8 @@ module updateWP_mod
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
-   use RMS, only: DifPol2hInt, DifPolLMr, DifPol2hInt_dist, DifPolLMr_dist
-   use RMS_helpers, only:  hInt2Pol, hInt2Pol_dist
+   use RMS, only: DifPol2hInt, DifPolLMr
+   use RMS_helpers, only:  hInt2Pol
    use radial_der, only: get_dddr, get_ddr, get_dr
    use integration, only: rInt_R
    use fields, only: work_LMdist
@@ -750,9 +750,8 @@ contains
                   end if
                end do
                if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  call hInt2Pol_dist(Dif,1,n_mlo_loc,n_r,   &
-                       &        DifPolLMr_dist(1:n_mlo_loc,n_r), &
-                       &        DifPol2hInt_dist(:,n_r))
+                  call hInt2Pol(Dif,1,n_mlo_loc,n_r,DifPolLMr(:,n_r), &
+                       &        DifPol2hInt(:,n_r))
                end if
             end do
             !$omp end do
@@ -788,9 +787,8 @@ contains
                   &                     +dLvisc(n_r) )   *           w(lm,n_r)  )
                end do
                if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  call hInt2Pol_dist(Dif,1,n_mlo_loc,n_r,&
-                       &        DifPolLMr_dist(1:n_mlo_loc,n_r),         &
-                       &        DifPol2hInt_dist(:,n_r))
+                  call hInt2Pol(Dif,1,n_mlo_loc,n_r,DifPolLMr(:,n_r), &
+                       &        DifPol2hInt(:,n_r))
                end if
             end do
             !$omp end do
@@ -948,9 +946,8 @@ contains
                   end if
                end do
                if ( lRmsNext ) then
-                  !call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                  !     &        DifPolLMr(llm:ulm,n_r),         &
-                  !     &        DifPol2hInt(:,n_r),lo_map)
+                  call hInt2Pol(Dif,1,n_mlo_loc,n_r,DifPolLMr(:,n_r), &
+                       &        DifPol2hInt(:,n_r))
                end if
             end do
             !$omp end do
@@ -1120,8 +1117,8 @@ contains
                end do
 
                if ( lRmsNext ) then
-                  !call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm,DifPolLMr(llm:ulm,n_r), &
-                  !     &        DifPol2hInt(:,n_r),lo_map)
+                  call hInt2Pol(Dif,1,n_mlo_loc,n_r,DifPolLMr(:,n_r), &
+                       &        DifPol2hInt(:,n_r))
                end if
             end do
             !$omp end do

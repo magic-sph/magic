@@ -7,29 +7,28 @@ module RMS
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
-       &               lm2m, llm, ulm, llmMag, ulmMag
    use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
-   use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
-       &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB, fd_ratio, fd_stretch, nRstop, nRstart,  &
-       &                 radial_balance, nR_per_rank, n_mlo_loc
+   use fields, only: work_LMdist
+   use LMmapping, only: map_mlo
+   use communications, only: reduce_to_master
+   use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, n_mloMag_loc,      &
+       &                 l_max, n_phi_max, n_r_max_dtB, fd_ratio, fd_stretch,&
+       &                 nRstop, nRstart, radial_balance, nR_per_rank, n_mlo_loc
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
    use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF, &
        &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS
    use num_param, only: tScale, alph1, alph2
-   use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
    use integration, only: rInt_R
    use radial_der, only: get_dr
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM
-   use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
-       &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
+   use dtB_mod, only: PdifLM_LMdist, TdifLM_LMdist, PstrLM_LMdist, PadvLM_LMdist, &
+       &              TadvLM_LMdist, TstrLM_LMdist, TomeLM_LMdist
    use useful, only: abortRun
    use mean_sd, only: mean_sd_type, mean_sd_2D_type
 
@@ -49,9 +48,9 @@ module RMS
    real(cp), public, allocatable :: dtBTor2hInt(:,:)
    complex(cp), public, allocatable :: dtBPolLMr(:,:)
 
-   real(cp), public, allocatable :: DifPol2hInt(:,:), DifPol2hInt_dist(:,:)
+   real(cp), public, allocatable :: DifPol2hInt(:,:)
    real(cp), public, allocatable :: DifTor2hInt(:,:)
-   complex(cp), public, allocatable :: DifPolLMr(:,:), DifPolLMr_dist(:,:)
+   complex(cp), public, allocatable :: DifPolLMr(:,:)
 
    real(cp), public, allocatable :: Adv2hInt(:,:), Cor2hInt(:,:)
    real(cp), public, allocatable :: LF2hInt(:,:), Buo_temp2hInt(:,:)
@@ -86,21 +85,19 @@ contains
       ! Memory allocation
       !
 
-      allocate( dtBPol2hInt(llmMag:ulmMag,n_r_maxMag) )
-      allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag) )
-      allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
+      allocate( dtBPol2hInt(n_mloMag_loc,n_r_maxMag) )
+      allocate( dtBTor2hInt(n_mloMag_loc,n_r_maxMag) )
+      allocate( dtBPolLMr(n_mloMag_loc,n_r_maxMag) )
       bytes_allocated = bytes_allocated+                               &
-      &                 2*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_REAL+&
-      &                 (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      &                 2*n_mloMag_loc*n_r_maxMag*SIZEOF_DEF_REAL+&
+      &                 n_mloMag_loc*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
       allocate( DifPol2hInt(0:l_max,n_r_max) )
-      allocate( DifPol2hInt_dist(0:l_max,n_r_max) )
       allocate( DifTor2hInt(0:l_max,n_r_max) )
-      allocate( DifPolLMr(llm:ulm,n_r_max) )
-      allocate( DifPolLMr_dist(1:n_mlo_loc,n_r_max) )
+      allocate( DifPolLMr(n_mlo_loc,n_r_max) )
       bytes_allocated = bytes_allocated+                      &
       &                 2*(l_max+1)*n_r_max*SIZEOF_DEF_REAL+  &
-      &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      &                 n_mlo_loc*n_r_max*SIZEOF_DEF_COMPLEX
 
       allocate( Adv2hInt(0:l_max,n_r_max), Cor2hInt(0:l_max,n_r_max) )
       allocate( LF2hInt(0:l_max,n_r_max), Iner2hInt(0:l_max,n_r_max) )
@@ -486,7 +483,6 @@ contains
       real(cp) :: volC
       real(cp) :: Dif2hInt(n_r_max)
 
-      complex(cp) :: workA(llm:ulm,n_r_max)
       integer :: recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
       integer :: irank,sendcount
@@ -497,21 +493,20 @@ contains
       !-- Diffusion
       DifRms=0.0_cp
       if ( rscheme_RMS%version == 'cheb' ) then
-         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
+         call get_dr(DifPolLMr, work_LMdist, n_mlo_loc, 1, n_mlo_loc, &
+              &      n_r_max, rscheme_oc, nocopy=.true.)
       else
-         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc)
+         call get_dr(DifPolLMr, work_LMdist, n_mlo_loc, 1, n_mlo_loc, &
+              &      n_r_max, rscheme_oc)
       end if
 
       do nR=1,n_r_max
-         call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR), &
-              &         lo_map)
+         call hInt2dPol(work_LMdist, 1, n_mlo_loc, DifPol2hInt(:,nR))
       end do
 #ifdef WITH_MPI
       call MPI_Reduce(DifPol2hInt,global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,comm_r,ierr)
-      if ( coord_r == 0 ) DifPol2hInt(:,:)=global_sum(:,:)
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( l_master_rank) DifPol2hInt(:,:)=global_sum(:,:)
 #endif
 
       ! First gather all needed arrays on coord_r 0
@@ -624,11 +619,11 @@ contains
       ! dtVPolLMr, DifPolLMr
 
       call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,comm_r,ierr)
-      if ( coord_r == 0 ) DifTor2hInt(:,:)=global_sum
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( l_master_rank ) DifTor2hInt(:,:)=global_sum
 #endif
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          nRMS_sets=nRMS_sets+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
@@ -723,69 +718,67 @@ contains
 
 
          !----- Output:
-         if ( l_master_rank ) then
-            if ( l_save_out ) then
-               open(newunit=n_dtvrms_file, file=dtvrms_file, &
-               &    form='formatted', status='unknown', position='append')
-            end if
-            write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
-            &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
-            &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
-            &     MagRms/(CorRms+PreRms+LFRms),                          &
-            &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
-            &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
-            &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
-            &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
-            if ( l_save_out) then
-               close(n_dtvrms_file)
-            end if
+         if ( l_save_out ) then
+            open(newunit=n_dtvrms_file, file=dtvrms_file, &
+            &    form='formatted', status='unknown', position='append')
+         end if
+         write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
+         &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
+         &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
+         &     MagRms/(CorRms+PreRms+LFRms),                          &
+         &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
+         &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
+         &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
+         &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
+         if ( l_save_out) then
+            close(n_dtvrms_file)
+         end if
 
-            if ( l_stop_time ) then
-               fileName='dtVrms_spec.'//tag
-               open(newunit=fileHandle,file=fileName,form='formatted',status='unknown')
-               do l=0,l_max
-                  write(fileHandle,'(1P,I4,30ES16.8)') l+1,                   &
-                  &     InerRmsL%mean(l),CorRmsL%mean(l),LFRmsL%mean(l),      &
-                  &     AdvRmsL%mean(l),DifRmsL%mean(l),Buo_tempRmsL%mean(l), &
-                  &     Buo_xiRmsL%mean(l), PreRmsL%mean(l),                  &
-                  &     GeoRmsL%mean(l),MagRmsL%mean(l),                      &
-                  &     ArcRmsL%mean(l),ArcMagRmsL%mean(l),CLFRmsL%mean(l),   &
-                  &     PLFRmsL%mean(l),CIARmsL%mean(l),InerRmsL%SD(l),       &
-                  &     CorRmsL%SD(l),LFRmsL%SD(l),AdvRmsL%SD(l),             &
-                  &     DifRmsL%SD(l),Buo_tempRmsL%SD(l), Buo_xiRmsL%SD(l),   &
-                  &     PreRmsL%SD(l), GeoRmsL%SD(l), MagRmsL%SD(l),          &
-                  &     ArcRmsL%SD(l),  ArcMagRmsL%SD(l),CLFRmsL%SD(l),       &
-                  &     PLFRmsL%SD(l), CIARmsL%SD(l)
-               end do
-               close(fileHandle)
-            end if
-         
+         if ( l_stop_time ) then
+            fileName='dtVrms_spec.'//tag
+            open(newunit=fileHandle,file=fileName,form='formatted',status='unknown')
+            do l=0,l_max
+               write(fileHandle,'(1P,I4,30ES16.8)') l+1,                   &
+               &     InerRmsL%mean(l),CorRmsL%mean(l),LFRmsL%mean(l),      &
+               &     AdvRmsL%mean(l),DifRmsL%mean(l),Buo_tempRmsL%mean(l), &
+               &     Buo_xiRmsL%mean(l), PreRmsL%mean(l),                  &
+               &     GeoRmsL%mean(l),MagRmsL%mean(l),                      &
+               &     ArcRmsL%mean(l),ArcMagRmsL%mean(l),CLFRmsL%mean(l),   &
+               &     PLFRmsL%mean(l),CIARmsL%mean(l),InerRmsL%SD(l),       &
+               &     CorRmsL%SD(l),LFRmsL%SD(l),AdvRmsL%SD(l),             &
+               &     DifRmsL%SD(l),Buo_tempRmsL%SD(l), Buo_xiRmsL%SD(l),   &
+               &     PreRmsL%SD(l), GeoRmsL%SD(l), MagRmsL%SD(l),          &
+               &     ArcRmsL%SD(l),  ArcMagRmsL%SD(l),CLFRmsL%SD(l),       &
+               &     PLFRmsL%SD(l), CIARmsL%SD(l)
+            end do
+            close(fileHandle)
+         end if
+      
 
-            if ( l_2D_RMS .and. l_stop_time ) then
-               version = 1
-               fileName='2D_dtVrms_spec.'//tag
-               open(newunit=fileHandle,file=fileName,form='unformatted', &
-               &    status='unknown')
-               write(fileHandle) version
-               write(fileHandle) n_r_max, l_max
-               write(fileHandle) r
-               write(fileHandle) CorRmsLnR%mean(:,:)
-               write(fileHandle) AdvRmsLnR%mean(:,:)
-               write(fileHandle) LFRmsLnR%mean(:,:)
-               write(fileHandle) Buo_tempRmsLnR%mean(:,:)
-               write(fileHandle) Buo_xiRmsLnR%mean(:,:)
-               write(fileHandle) PreRmsLnR%mean(:,:)
-               write(fileHandle) DifRmsLnR%mean(:,:)
-               write(fileHandle) InerRmsLnR%mean(:,:)
-               write(fileHandle) GeoRmsLnR%mean(:,:)
-               write(fileHandle) MagRmsLnR%mean(:,:)
-               write(fileHandle) ArcRmsLnR%mean(:,:)
-               write(fileHandle) ArcMagRmsLnR%mean(:,:)
-               write(fileHandle) CIARmsLnR%mean(:,:)
-               write(fileHandle) CLFRmsLnR%mean(:,:)
-               write(fileHandle) PLFRmsLnR%mean(:,:)
-               close(fileHandle)
-            end if
+         if ( l_2D_RMS .and. l_stop_time ) then
+            version = 1
+            fileName='2D_dtVrms_spec.'//tag
+            open(newunit=fileHandle,file=fileName,form='unformatted', &
+            &    status='unknown')
+            write(fileHandle) version
+            write(fileHandle) n_r_max, l_max
+            write(fileHandle) r
+            write(fileHandle) CorRmsLnR%mean(:,:)
+            write(fileHandle) AdvRmsLnR%mean(:,:)
+            write(fileHandle) LFRmsLnR%mean(:,:)
+            write(fileHandle) Buo_tempRmsLnR%mean(:,:)
+            write(fileHandle) Buo_xiRmsLnR%mean(:,:)
+            write(fileHandle) PreRmsLnR%mean(:,:)
+            write(fileHandle) DifRmsLnR%mean(:,:)
+            write(fileHandle) InerRmsLnR%mean(:,:)
+            write(fileHandle) GeoRmsLnR%mean(:,:)
+            write(fileHandle) MagRmsLnR%mean(:,:)
+            write(fileHandle) ArcRmsLnR%mean(:,:)
+            write(fileHandle) ArcMagRmsLnR%mean(:,:)
+            write(fileHandle) CIARmsLnR%mean(:,:)
+            write(fileHandle) CLFRmsLnR%mean(:,:)
+            write(fileHandle) PLFRmsLnR%mean(:,:)
+            close(fileHandle)
          end if
 
       end if
@@ -807,11 +800,9 @@ contains
       real(cp) :: TdynRms,TdynAsRms
       real(cp) :: dummy1,dummy2,dummy3
 
-      complex(cp) :: PdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: TdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max_dtB)
-
+      complex(cp) :: PdynLM(n_mloMag_loc,n_r_max_dtB)
+      complex(cp) :: drPdynLM(n_mloMag_loc,n_r_max_dtB)
+      complex(cp) :: TdynLM(n_mloMag_loc,n_r_max_dtB)
       real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)
       real(cp) :: dtBT(n_r_max),dtBTAs(n_r_max)
       real(cp) :: dtBP_global(n_r_max),dtBPAs_global(n_r_max)
@@ -819,80 +810,62 @@ contains
 
       real(cp) :: PdifRms, PdifAsRms, TdifRms, TdifAsRms, TomeRms, TomeAsRms
 
-      !-- For new movie output
-      ! character(len=80) :: fileName
-      ! integer :: nField,nFields,nFieldSize
-      ! integer :: nTheta,nThetaN,nThetaS,nThetaStart
-      ! integer :: nPos, fileHandle
-      ! real(cp) :: dumm(12),rS
-      ! real(cp) :: fOut(n_theta_max*n_r_max)
-      ! real(cp) :: outBlock(nfs)
-      ! character(len=80) :: version
-      ! logical :: lRmsMov
-
-
       !--- Stretching
-      call get_dr(PstrLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
-           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,      &
-           &      nocopy=.true.)
+      call get_dr(PstrLM_LMdist, work_LMdist, n_mloMag_loc, 1, n_mloMag_loc, &
+           &       n_r_max, rscheme_oc, nocopy=.true.)
 
       !--- Add to the total dynamo term
       do nR=1,n_r_max
-         do lm=llmMag,ulmMag
-            PdynLM(lm,nR)  =PstrLM_LMloc(lm,nR)
-            drPdynLM(lm,nR)=work_LMloc(lm,nR)
+         do lm=1,n_mloMag_loc
+            PdynLM(lm,nR)  =PstrLM_LMdist(lm,nR)
+            drPdynLM(lm,nR)=work_LMdist(lm,nR)
          end do
       end do
 
       !-- Finalize advection
-      call get_dr(PadvLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
-           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,      &
-           &      nocopy=.true.)
+      call get_dr(PadvLM_LMdist, work_LMdist, n_mloMag_loc, 1, n_mloMag_loc, &
+           &      n_r_max, rscheme_oc, nocopy=.true.)
 
       !-- Add to total dynamo term:
       do nR=1,n_r_max
-         do lm=llmMag,ulmMag
-            PdynLM(lm,nR)  =PdynLM(lm,nR)-PadvLM_LMloc(lm,nR)
-            drPdynLM(lm,nR)=drPdynLM(lm,nR)-work_LMloc(lm,nR)
-            TdynLM(lm,nR)  =TstrLM_LMloc(lm,nR)-TadvLM_LMloc(lm,nR)
+         do lm=1,n_mloMag_loc
+            PdynLM(lm,nR)  =PdynLM(lm,nR)-PadvLM_LMdist(lm,nR)
+            drPdynLM(lm,nR)=drPdynLM(lm,nR)-work_LMdist(lm,nR)
+            TdynLM(lm,nR)  =TstrLM_LMdist(lm,nR)-TadvLM_LMdist(lm,nR)
          end do
       end do
 
       !--- Get RMS values of the total dynamo term:
-      call get_PolTorRms(PdynLM,drPdynLM,TdynLM,llmMag,ulmMag,PdynRms,TdynRms, &
-           &             PdynAsRms,TdynAsRms,lo_map)
-
+      call get_PolTorRms(PdynLM,drPdynLM,TdynLM,1,n_mloMag_loc,PdynRms,TdynRms, &
+           &             PdynAsRms,TdynAsRms)
 
       !--- Finalize diffusion:
-      call get_dr(PdifLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
-           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,      &
-           &      nocopy=.true.)
+      call get_dr(PdifLM_LMdist, work_LMdist, n_mloMag_loc, 1, n_mloMag_loc, &
+           &      n_r_max, rscheme_oc, nocopy=.true.)
 
       !-- Get RMS values for diffusion
-      call get_PolTorRms(PdifLM_LMloc,work_LMloc,TdifLM_LMloc,llmMag,ulmMag, &
-           &             PdifRms,TdifRms,PdifAsRms,TdifAsRms,lo_map)
+      call get_PolTorRms(PdifLM_LMdist,work_LMdist,TdifLM_LMdist,1,n_mloMag_loc,&
+           &             PdifRms,TdifRms,PdifAsRms,TdifAsRms)
 
       !--- Get Omega effect rms: total toroidal field changes due to zonal flow
       !    (this is now stretching plus advection, changed May 23 2013):
       !    TomeAsRms is the rms of the more classical Omega effect which
       !    decribes the creation of axisymmetric azimuthal field by zonal flow.
-      call get_PolTorRms(PdifLM_LMloc,work_LMloc,TomeLM_LMloc,llmMag,ulmMag, &
-           &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
+      call get_PolTorRms(PdifLM_LMdist,work_LMdist,TomeLM_LMdist,1,n_mloMag_loc,&
+           &             dummy1,TomeRms,dummy2,TomeAsRms)
 
       !--- B changes:
-      call get_dr(dtBPolLMr(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
-           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,   &
-           &      nocopy=.true.)
+      call get_dr(dtBPolLMr, work_LMdist, n_mloMag_loc, 1, n_mloMag_loc, &
+           &      n_r_max, rscheme_oc, nocopy=.true.)
 
       do nR=1,n_r_max
-         call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
-              &           dtBPol2hInt(llm:ulm,nR),lo_map)
+         call hInt2dPolLM(work_LMdist(:,nR), 1, n_mloMag_loc, dtBPol2hInt(:,nR))
          dtBP(nR)  =0.0_cp
          dtBT(nR)  =0.0_cp
          dtBPAs(nR)=0.0_cp
          dtBTAs(nR)=0.0_cp
-         do lm=llm,ulm
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mloMag_loc
+            m=map_mlo%i2m(lm)
             dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
             dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
             if ( m == 0 ) then
@@ -902,23 +875,12 @@ contains
          end do
       end do
 
-#ifdef WITH_MPI
-      call MPI_Reduce(dtBP, dtBP_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, comm_r, ierr)
-      call MPI_Reduce(dtBT, dtBT_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, comm_r, ierr)
-      call MPI_Reduce(dtBPAs, dtBPAs_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, comm_r, ierr)
-      call MPI_Reduce(dtBTAs, dtBTAs_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
-           &          0, comm_r, ierr)
-#else
-      dtBP_global(:)  =dtBP(:)
-      dtBT_global(:)  =dtBT(:)
-      dtBPAs_global(:)=dtBPAs(:)
-      dtBTAs_global(:)=dtBTAs(:)
-#endif
+      call reduce_to_master(dtBP, dtBP_global, 0)
+      call reduce_to_master(dtBT, dtBT_global, 0)
+      call reduce_to_master(dtBPAs, dtBPAs_global, 0)
+      call reduce_to_master(dtBTAs, dtBTAs_global, 0)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
 
          dtBPolRms  =rInt_R(dtBP_global,r,rscheme_oc)
          dtBPolAsRms=rInt_R(dtBPAs_global,r,rscheme_oc)
@@ -930,125 +892,13 @@ contains
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)
          dtBTorAsRms=sqrt(dtBTorAsRms/vol_oc)
 
-
-         !-- Output of movie files for axisymmetric toroidal field changes:
-         !   Tstr,Tome,Tdyn=Tstr+Tadv,
-         ! lRmsMov=.false.
-         ! if ( lRmsMov ) then
-
-         !    nFieldSize=n_theta_max*n_r_max
-         !    nFields=7
-         !    fileName='dtTas_mov.'//tag
-         !    open(newunit=fileHandle, file=fileName, status='unknown', &
-         !    &    form='unformatted')
-
-         !    !------ Write header
-         !    version='JW_Movie_Version_2'
-         !    write(fileHandle) version
-         !    dumm(1)=112           ! type of input
-         !    dumm(2)=3             ! marker for constant phi plane
-         !    dumm(3)=0.0_cp          ! surface constant
-         !    dumm(4)=nFields       ! no of fields
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,4)
-
-         !    !------ Define marker for output fields stored in movie field
-         !    dumm(1)=101           ! Field marker for AS Br stretching
-         !    dumm(2)=102           ! Field marker for AS Br dynamo term
-         !    dumm(3)=103           ! Field marker for AS Br diffusion
-         !    dumm(4)=104           ! Field marker for AS Bp stretching
-         !    dumm(5)=105           ! Field marker for AS Bp dynamo term
-         !    dumm(6)=106           ! Field marker for AS Bp omega effect
-         !    dumm(7)=107           ! Field marker for AS Bp diffusion
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,nFields)
-
-         !    !------ Now other info about grid and parameters:
-         !    write(fileHandle) runid        ! run identifier
-         !    dumm( 1)=n_r_max          ! total number of radial points
-         !    dumm( 2)=n_r_max          ! no of radial point in outer core
-         !    dumm( 3)=n_theta_max      ! no. of theta points
-         !    dumm( 4)=n_phi_max        ! no. of phi points
-         !    dumm( 5)=minc             ! imposed symmetry
-         !    dumm( 6)=ra               ! control parameters
-         !    dumm( 7)=ek               ! (for information only)
-         !    dumm( 8)=pr               !      -"-
-         !    dumm( 9)=prmag            !      -"-
-         !    dumm(10)=radratio         ! ratio of inner / outer core
-         !    dumm(11)=tScale           ! timescale
-         !    write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
-         !    write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
-         !    write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
-         !    write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
-
-         !    dumm(1)=1    ! time frame number for movie
-         !    dumm(2)=0.0_cp ! time
-         !    dumm(3)=0.0_cp
-         !    dumm(4)=0.0_cp
-         !    dumm(5)=0.0_cp
-         !    dumm(6)=0.0_cp
-         !    dumm(7)=0.0_cp
-         !    dumm(8)=0.0_cp
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,8)
-
-         !    !------ Loop over different output field:
-         !    do nField=1,nFields
-
-         !       !------ Loop over r and theta:
-         !       do nR=1,n_r_max ! Loop over radial points
-         !          rS=r(nR)
-         !          do n=1,nThetaBs ! Loop over theta blocks
-         !             nThetaStart=(n-1)*sizeThetaB+1
-
-         !             !------ Convert from lm to theta block and store in outBlock:
-         !             if ( nField == 1 ) then
-         !                call get_RAS(PstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 2 ) then
-         !                ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
-         !                call get_RAS(PdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 3 ) then
-         !                ! Note that PdynLM stores PdifLM at this point!
-         !                call get_RAS(PdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 4 ) then
-         !                call get_PASLM(TstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 5 ) then
-         !                call get_PASLM(TdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 6 ) then
-         !                call get_PASLM(TomeLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 7 ) then
-         !                call get_PASLM(TdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             end if
-
-         !             !------ Storage of field in fout for theta block
-         !             do nTheta=1,sizeThetaB,2
-         !                !-- Convert to correct order in theta grid points
-         !                !-- and store of fOut:
-         !                nThetaN=(nThetaStart+nTheta)/2
-         !                nPos=(nR-1)*n_theta_max+nThetaN
-         !                fOut(nPos)=outBlock(nTheta)
-         !                nThetaS=n_theta_max-nThetaN+1
-         !                nPos=(nR-1)*n_theta_max+nThetaS
-         !                fOut(nPos)=outBlock(nTheta+1)
-         !             end do ! Loop over thetas in block
-
-         !          end do ! Loop over theta blocks
-
-         !       end do ! Loop over R
-
-         !       !------ Output of field:
-         !       write(fileHandle) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
-
-         !    end do ! Loop over different fields
-
-         !    close(fileHandle)
-
-         ! end if ! output of mov fields ?
-
       end if
 
       !-- Get dipole dynamo contribution:
-      l1m0=lo_map%lm2(1,0)
-      l1m1=lo_map%lm2(1,1)
+      l1m0=map_mlo%ml2i(0,1)
+      l1m1=map_mlo%ml2i(1,1)
       do nR=1,n_r_max
-         do lm=llmMag,ulmMag
+         do lm=1,n_mloMag_loc
             if ( lm/=l1m0 .and. lm/=l1m1 ) then
                PdynLM(lm,nR)  =zero
                drPdynLM(lm,nR)=zero
@@ -1057,8 +907,8 @@ contains
       end do
 
       !-- Get dipole dynamo terms:
-      call get_PolTorRms(PdynLM,drPdynLM,TdynLM,llm,ulm,DdynRms,dummy1, &
-           &             DdynAsRms,dummy3,lo_map)
+      call get_PolTorRms(PdynLM,drPdynLM,TdynLM,1,n_mloMag_loc,DdynRms,dummy1, &
+           &             DdynAsRms,dummy3)
 
       if ( l_master_rank ) then
          !-- Output:
@@ -1069,7 +919,7 @@ contains
          write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')               &
          &     time*tScale, dtBPolRms, dtBTorRms, PdynRms, TdynRms, &
          &     PdifRms, TdifRms, TomeRms/TdynRms,                   &
-         &     TomeAsRms/TdynRms,  DdynRms,DdynAsRms
+         &     TomeAsRms/TdynRms,  DdynRms, DdynAsRms
          if ( l_save_out) close(n_dtbrms_file)
 
       end if

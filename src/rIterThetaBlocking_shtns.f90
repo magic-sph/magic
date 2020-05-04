@@ -63,7 +63,6 @@ module rIterThetaBlocking_shtns_mod
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
-      type(dtB_arrays_t) :: dtB_arrays_dist
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_shtns
@@ -91,8 +90,7 @@ contains
       call this%allocate_common_arrays()
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
-      call this%dtB_arrays%initialize(lmP_max_dtB)
-      call this%dtB_arrays_dist%initialize(n_lmP_loc)
+      call this%dtB_arrays%initialize(n_lmP_loc)
       call this%nl_lm%initialize(n_lmP_loc)
 
    end subroutine initialize_rIterThetaBlocking_shtns
@@ -105,7 +103,6 @@ contains
       call this%gsa%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
-      call this%dtB_arrays_dist%finalize()
       call this%nl_lm%finalize()
 
    end subroutine finalize_rIterThetaBlocking_shtns
@@ -326,16 +323,15 @@ contains
       if ( l_dtB ) then
          call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
               &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,               &
-              &         this%dtB_arrays_dist%BtVrLM,            &
-              &         this%dtB_arrays_dist%BpVrLM,this%dtB_arrays_dist%BrVtLM,        &
-              &         this%dtB_arrays_dist%BrVpLM,this%dtB_arrays_dist%BtVpLM,        &
-              &         this%dtB_arrays_dist%BpVtLM,this%dtB_arrays_dist%BrVZLM,        &
-              &         this%dtB_arrays_dist%BtVZLM,this%dtB_arrays_dist%BtVpCotLM,     &
-              &         this%dtB_arrays_dist%BpVtCotLM,this%dtB_arrays_dist%BtVZcotLM,  &
-              &         this%dtB_arrays_dist%BtVpSn2LM,this%dtB_arrays_dist%BpVtSn2LM,  &
-              &         this%dtB_arrays_dist%BtVZsn2LM)
+              &         this%dtB_arrays%BtVrLM,                               &
+              &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
+              &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
+              &         this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,        &
+              &         this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM,     &
+              &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,  &
+              &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,  &
+              &         this%dtB_arrays%BtVZsn2LM)
       end if
-
 
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
@@ -386,18 +382,12 @@ contains
       !--- Form partial horizontal derivaties of magnetic production and
       !    advection terms:
       if ( l_dtB ) then
-         !@> TODO: try to port this later to _dist arrays
-         ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-         call this%dtB_arrays_dist%gather_dtB_all(this%dtB_arrays)
-         ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ End of Porting Point
-         PERFON('dtBLM')
          call get_dH_dtBLM(this%nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,&
               &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,        &
               &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,        &
               &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,        &
               &            this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,  &
               &            this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM)
-         PERFOFF
       end if
       
       ! I'm not sure if this is needed later, so just to make sure...

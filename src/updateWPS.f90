@@ -579,8 +579,8 @@ contains
             end do
 
             if ( lRmsNext ) then
-               !call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-               !     &        DifPol2hInt(:,n_r),lo_map)
+               call hInt2Pol(Dif,1,n_mlo_loc,n_r,DifPolLMr(:,n_r), &
+                    &        DifPol2hInt(:,n_r))
             end if
          end do
          !$omp end do
@@ -713,8 +713,8 @@ contains
                   &          - dL*or2(n_r)*orho1(n_r)*dentropy0(n_r)* w(lm,n_r)
                end do
                if ( lRmsNext ) then
-                  !call hInt2Pol(Dif, 1, n_mlo_loc, n_r, 1, n_mlo_loc, &
-                  !     &        DifPolLMr(:,n_r), DifPol2hInt(:,n_r), map_mlo)
+                  call hInt2Pol(Dif, 1, n_mlo_loc, n_r, DifPolLMr(:,n_r), &
+                       &        DifPol2hInt(:,n_r))
                end if
             end do
             !$omp end do
@@ -753,8 +753,8 @@ contains
                end do
 
                if ( lRmsNext ) then
-                  !call hInt2Pol(Dif, 1, n_mlo_loc, n_r, 1, n_mlo_loc, &
-                  !     &        DifPolLMr(:,n_r), DifPol2hInt(:,n_r), map_mlo)
+                  call hInt2Pol(Dif, 1, n_mlo_loc, n_r, DifPolLMr(:,n_r), &
+                  &             DifPol2hInt(:,n_r))
                end if
             end do
             !$omp end do

@@ -27,8 +27,7 @@ module updateB_mod
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
-   use RMS_helpers, only: hInt2PolLM, hInt2TorLM !@> TODO: keep only one of two here
-   use RMS_helpers, only: hInt2PolLM_dist, hInt2TorLM_dist
+   use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMdist
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_dr, get_ddr
@@ -1135,11 +1134,9 @@ contains
                end if
             end do
             if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-               call hInt2PolLM_dist(dtP,1,n_mloMag_loc,n_r,1,n_mloMag_loc, &
-                    &          dtBPolLMr(1:n_mloMag_loc,n_r),              &
-                    &          dtBPol2hInt(1:n_mloMag_loc,n_r),map_mlo)
-               call hInt2TorLM_dist(dtT,1,n_mloMag_loc,n_r,1,n_mloMag_loc, &
-                    &          dtBTor2hInt(1:n_mloMag_loc,n_r),map_mlo)
+               call hInt2PolLM(dtP, 1, n_mloMag_loc, n_r, dtBPolLMr(:,n_r), &
+                    &          dtBPol2hInt(:,n_r))
+               call hInt2TorLM(dtT, 1, n_mloMag_loc, n_r, dtBTor2hInt(:,n_r))
             end if
          end do
          !$omp end do

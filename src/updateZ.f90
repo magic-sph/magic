@@ -570,8 +570,7 @@ contains
                end if
             end do
             if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               !call hInt2Tor(Dif,1,n_mlo_loc,n_r,1,n_mlo_loc, &
-               !     &        DifTor2hInt(:,n_r),map_mlo)
+               call hInt2Tor(Dif,1,n_mlo_loc,n_r,DifTor2hInt(:,n_r))
             end if
          end do
          !$omp end do

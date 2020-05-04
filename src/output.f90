@@ -431,9 +431,8 @@ contains
       timePassedLog=timePassedLog+tscheme%dt(1)
 
       !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      if ( l_log .or. l_spectrum .or. lTOCalc .or. l_dtB .or. l_RMS .or. &
-      &    l_cmb .or. l_r .or. l_pot .or. (l_rMagSpec .and. n_time_step > 1) &
-      &    .or. l_frame .or. (l_SRIC .and. l_stop_time ) ) then
+      if ( l_log .or. lTOCalc .or. l_cmb .or. l_r .or. l_pot .or. &
+      &    l_frame .or. (l_SRIC .and. l_stop_time ) ) then
          call transform_new2old(w_LMdist, w_LMloc, n_r_max)
          call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
          call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
@@ -721,12 +720,11 @@ contains
 
       !--- Get radial derivatives and add dt dtB terms:
       if ( l_dtB ) then
-         call get_dtBLMfinish(time,n_time_step,omega_ic,b_LMloc,ddb_LMloc, &
-              &               aj_LMloc,dj_LMloc,ddj_LMloc,b_ic_LMloc,      &
-              &               db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,        &
-              &               dj_ic_LMloc,ddj_ic_LMloc,l_frame)
+         call get_dtBLMfinish(time,n_time_step,omega_ic,b_LMdist,ddb_LMdist, &
+              &               aj_LMdist,dj_LMdist,ddj_LMdist,b_ic_LMdist,    &
+              &               db_ic_LMdist,ddb_ic_LMdist,aj_ic_LMdist,       &
+              &               dj_ic_LMdist,ddj_ic_LMdist,l_frame)
       end if
-
 
       if ( l_RMS ) then
          if ( n_time_step == 1 ) then
@@ -837,12 +835,12 @@ contains
       !--- Write spectra output that has partially been calculated in LMLoop
       if ( l_rMagSpec .and. n_time_step > 1 ) then
          if ( l_frame ) then
-            call rBrSpec(time,b_LMloc, b_ic_LMloc ,'rBrSpecMov',.true.,lo_map)
-            call rBpSpec(time,aj_LMloc,aj_ic_LMloc,'rBpSpecMov',.true.,lo_map)
+            call rBrSpec(time,b_LMdist, b_ic_LMdist ,'rBrSpecMov',.true.)
+            call rBpSpec(time,aj_LMdist,aj_ic_LMdist,'rBpSpecMov',.true.)
          end if
          if ( l_log ) then
-            call rBrSpec(time,b_LMloc, b_ic_LMloc ,'rBrSpec',.true.,lo_map)
-            call rBpSpec(time,aj_LMloc,aj_ic_LMloc,'rBpSpec',.true.,lo_map)
+            call rBrSpec(time,b_LMdist, b_ic_LMdist ,'rBrSpec',.true.)
+            call rBpSpec(time,aj_LMdist,aj_ic_LMdist,'rBpSpec',.true.)
          end if
       end if
 
