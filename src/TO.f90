@@ -6,12 +6,12 @@ module torsional_oscillations
    use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: bytes_allocated
+   use LMmapping, only: map_glbl_st
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, &
        &                 n_r_cmb, nRstart, nRstop, nThetaStart, nThetaStop
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
-   use blocking, only: nfs, lm2, llmMag, ulmMag, lo_map
-   use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh
+   use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
 #ifdef WITH_SHTNS
@@ -349,7 +349,7 @@ contains
 
          dzddVpLMr_Rloc(1,nR)=0.0_cp
          do l=1,l_max
-            lm=lm2(l,0)
+            lm=map_glbl_st%lm2(l,0)
             dzddVpLMr_Rloc(l+1,nR)=zAS(l+1)
          end do
 
@@ -383,7 +383,7 @@ contains
          dzdVpLMr_Rloc(1,nR) =0.0_cp
          dzddVpLMr_Rloc(1,nR)=0.0_cp
          do l=1,l_max
-            lm=lm2(l,0)
+            lm=map_glbl_st%lm2(l,0)
             dzdVpLMr_Rloc(l+1,nR) = zAS(l+1)
             dzddVpLMr_Rloc(l+1,nR)= ( dzddVpLMr_Rloc(l+1,nR) - &
             &                  ((dtLast+dt)/dt)*zAS(l+1) )/dtLast
@@ -412,6 +412,7 @@ contains
       real(cp), intent(in) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
       !-- Local variables:
+      real(cp) :: dLh
       integer :: l,lS,lA,lm
 
       !------ When all thetas are done calculate viscous stress in LM space:
@@ -425,24 +426,25 @@ contains
       do l=1,l_max
          lS=(l-1)+1
          lA=(l+1)+1
-         lm=lm2(l,0)
-         dzStrLMr_Rloc(l+1,nR)= hdif_V(lo_map%lm2(1,0)) * (    &
+         lm=map_glbl_st%lm2(l,0)
+         dLh = real(l*(l+1),cp)
+         dzStrLMr_Rloc(l+1,nR)= hdif_V(l) * (    &
          &                                        ddzAS(l+1) - &
          &                               beta(nR)* dzAS(l+1) - &
-         &  (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &
+         &  (dLh*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &
          &                                          zAS(l+1) )
          !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
          !     minus sign to bring stuff on the RHS of NS equation !
-         dzRstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
+         dzRstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh * ( &
          &                   dTheta1S(lm)*dzRstrLM(lS) - &
          &                   dTheta1A(lm)*dzRstrLM(lA) )
-         dzAstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
+         dzAstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh * ( &
          &                   dTheta1S(lm)*dzAstrLM(lS) - &
          &                   dTheta1A(lm)*dzAstrLM(lA) )
-         dzCorLMr_Rloc(l+1,nR) =-r(nR)*r(nR)/dLh(lm) * ( &
+         dzCorLMr_Rloc(l+1,nR) =-r(nR)*r(nR)/dLh * ( &
          &                    dTheta1S(lm)*dzCorLM(lS) - &
          &                    dTheta1A(lm)*dzCorLM(lA) )
-         dzLFLMr_Rloc(l+1,nR)  = r(nR)*r(nR)/dLh(lm) * ( &
+         dzLFLMr_Rloc(l+1,nR)  = r(nR)*r(nR)/dLh * ( &
          &                     dTheta1S(lm)*dzLFLM(lS) - &
          &                     dTheta1A(lm)*dzLFLM(lA) )
          dzdVpLMr_Rloc(l+1,nR) =(zAS(l+1)-dzdVpLMr_Rloc(l+1,nR))/dtLast

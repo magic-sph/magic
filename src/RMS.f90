@@ -501,7 +501,7 @@ contains
       end if
 
       do nR=1,n_r_max
-         call hInt2dPol(work_LMdist, 1, n_mlo_loc, DifPol2hInt(:,nR))
+         call hInt2dPol(work_LMdist(:,nR), 1, n_mlo_loc, DifPol2hInt(:,nR))
       end do
 #ifdef WITH_MPI
       call MPI_Reduce(DifPol2hInt,global_sum,n_r_max*(l_max+1), &

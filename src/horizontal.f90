@@ -41,6 +41,7 @@ module horizontal_data
    !-- Legendres:
    real(cp), public, allocatable :: Plm(:,:)
    real(cp), public, allocatable :: Plm_loc(:,:)
+   real(cp), public, allocatable :: dPlm_loc(:,:)
    real(cp), public, allocatable :: wPlm(:,:)
    real(cp), public, allocatable :: wdPlm(:,:)
    real(cp), public, allocatable :: dPlm(:,:)
@@ -51,9 +52,6 @@ module horizontal_data
    complex(cp), public, allocatable :: dPhi(:)
    real(cp), public, allocatable :: dLh(:)
    real(cp), public, allocatable :: dTheta1S(:),dTheta1A(:)
-   real(cp), public, allocatable :: dTheta2S(:),dTheta2A(:)
-   real(cp), public, allocatable :: dTheta3S(:),dTheta3A(:)
-   real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
    real(cp), public, allocatable :: D_mc2m(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
 
@@ -101,6 +99,7 @@ contains
 #ifndef WITH_SHTNS
       allocate( Plm(lm_max,n_theta_max/2) )
       allocate( Plm_loc(n_lm_loc,n_theta_max/2) )
+      allocate( dPlm_loc(n_lm_loc,n_theta_max/2) )
       allocate( wPlm(lmP_max,n_theta_max/2) )
       allocate( dPlm(lm_max,n_theta_max/2) )
       bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
@@ -115,13 +114,10 @@ contains
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max), dLh(lm_max) )
       allocate( dTheta1S(lm_max),dTheta1A(lm_max) )
-      allocate( dTheta2S(lm_max),dTheta2A(lm_max) )
-      allocate( dTheta3S(lm_max),dTheta3A(lm_max) )
-      allocate( dTheta4S(lm_max),dTheta4A(lm_max) )
       allocate( D_mc2m(n_m_max) )
       allocate( hdif_B(0:l_max),hdif_V(0:l_max),hdif_S(0:l_max) )
       allocate( hdif_Xi(0:l_max) )
-      bytes_allocated = bytes_allocated+(10*lm_max+n_m_max+4*(l_max+1))* &
+      bytes_allocated = bytes_allocated+(4*lm_max+n_m_max+4*(l_max+1))* &
       &                 SIZEOF_DEF_REAL
       
       !-- Distributed arrays depending on l and m:)
@@ -147,11 +143,10 @@ contains
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
       deallocate( gauss, dPl0Eq )
 #ifndef WITH_SHTNS
-      deallocate( Plm, Plm_loc, wPlm, dPlm )
+      deallocate( Plm, Plm_loc, dPlm_loc, wPlm, dPlm )
       if ( l_RMS ) deallocate( wdPlm )
 #endif
       deallocate( dPhi, dLh, dTheta1S, dTheta1A )
-      deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
       deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
 
@@ -219,6 +214,7 @@ contains
          end do
 
          call slice_Flm_real(Plm(:,n_theta), Plm_loc(:,n_theta))
+         call slice_Flm_real(dPlm(:,n_theta), dPlm_loc(:,n_theta))
 #endif
 
          ! Get dP for all degrees and order m=0 at the equator only
@@ -275,7 +271,6 @@ contains
          m=lm2m(lm)
 
          !---- Operators for derivatives:
-
          !-- Phi derivative:
          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
          !-- Negative horizontal Laplacian *r^2
@@ -283,15 +278,6 @@ contains
          !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 )
          dTheta1S(lm)=real(l+1,cp)        *clm(l,m)    ! = qcl1
          dTheta1A(lm)=real(l,cp)          *clm(l+1,m)  ! = qcl
-         !-- Operator ( sin(thetaR) * d/d theta )
-         dTheta2S(lm)=real(l-1,cp)        *clm(l,m)    ! = qclm1
-         dTheta2A(lm)=real(l+2,cp)        *clm(l+1,m)  ! = qcl2
-         !-- Operator ( sin(theta) * d/d theta + cos(theta) dLh )
-         dTheta3S(lm)=real((l-1)*(l+1),cp)*clm(l,m)    ! = q0l1lm1(lm)
-         dTheta3A(lm)=real(l*(l+2),cp)    *clm(l+1,m)  ! = q0cll2(lm)
-         !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
-         dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
-         dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
 
       end do ! lm
 
