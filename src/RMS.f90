@@ -12,7 +12,7 @@ module RMS
    use radial_scheme, only: type_rscheme
    use fields, only: work_LMdist
    use LMmapping, only: map_mlo
-   use communications, only: reduce_to_master
+   use communications, only: reduce_radial
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, n_mloMag_loc,      &
        &                 l_max, n_phi_max, n_r_max_dtB, fd_ratio, fd_stretch,&
        &                 nRstop, nRstart, radial_balance, nR_per_rank, n_mlo_loc
@@ -875,10 +875,10 @@ contains
          end do
       end do
 
-      call reduce_to_master(dtBP, dtBP_global, 0)
-      call reduce_to_master(dtBT, dtBT_global, 0)
-      call reduce_to_master(dtBPAs, dtBPAs_global, 0)
-      call reduce_to_master(dtBTAs, dtBTAs_global, 0)
+      call reduce_radial(dtBP, dtBP_global, 0)
+      call reduce_radial(dtBT, dtBT_global, 0)
+      call reduce_radial(dtBPAs, dtBPAs_global, 0)
+      call reduce_radial(dtBTAs, dtBTAs_global, 0)
 
       if ( l_master_rank ) then
 

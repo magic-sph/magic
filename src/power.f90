@@ -2,7 +2,7 @@ module power
 
    use parallel_mod
    use precision_mod
-   use communications, only: gather_from_Rloc, reduce_to_master,  &
+   use communications, only: gather_from_Rloc, reduce_radial,  &
        &                     send_lm_pair_to_master
    use LMmapping, only: map_mlo
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max,      &
@@ -193,9 +193,9 @@ contains
 
       end do    ! radial grid points
 
-      if ( l_mag ) call reduce_to_master(curlB2_r, curlB2_r_global, 0)
-      if ( l_heat ) call reduce_to_master(buoy_r, buoy_r_global, 0)
-      if ( l_chemical_conv ) call reduce_to_master(buoy_chem_r, buoy_chem_r_global, 0)
+      if ( l_mag ) call reduce_radial(curlB2_r, curlB2_r_global, 0)
+      if ( l_heat ) call reduce_radial(buoy_r, buoy_r_global, 0)
+      if ( l_chemical_conv ) call reduce_radial(buoy_chem_r, buoy_chem_r_global, 0)
       if ( l_conv ) call gather_from_Rloc(viscASr, viscHeatR_global, 0)
 
       curlB2   =0.0_cp
@@ -248,7 +248,7 @@ contains
             end do
          end do    ! radial grid points
 
-         call reduce_to_master(curlB2_rIC, curlB2_rIC_global, 0)
+         call reduce_radial(curlB2_rIC, curlB2_rIC_global, 0)
 
          if ( l_master_rank ) then
             curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic,chebt_ic)

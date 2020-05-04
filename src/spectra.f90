@@ -2,7 +2,7 @@ module spectra
 
    use parallel_mod
    use precision_mod
-   use communications, only: reduce_to_master
+   use communications, only: reduce_radial
    use mem_alloc, only: bytes_allocated
    use LMmapping, only: map_mlo
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, n_mlo_loc, &
@@ -348,22 +348,22 @@ contains
       ! ----------- We need a reduction here ----------------
       ! first the l-spectra
       if ( l_mag ) then
-         call reduce_to_master(e_mag_p_r_l, e_mag_p_r_l_global, 0)
-         call reduce_to_master(e_mag_t_r_l, e_mag_t_r_l_global, 0)
-         call reduce_to_master(e_mag_p_r_m, e_mag_p_r_m_global, 0)
-         call reduce_to_master(e_mag_t_r_m, e_mag_t_r_m_global, 0)
-         call reduce_to_master(eCMB, eCMB_global, 0)
+         call reduce_radial(e_mag_p_r_l, e_mag_p_r_l_global, 0)
+         call reduce_radial(e_mag_t_r_l, e_mag_t_r_l_global, 0)
+         call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
+         call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
+         call reduce_radial(eCMB, eCMB_global, 0)
       end if
       if ( l_anel ) then
-         call reduce_to_master(u2_p_r_l, u2_p_r_l_global, 0)
-         call reduce_to_master(u2_t_r_l, u2_t_r_l_global, 0)
-         call reduce_to_master(u2_p_r_m, u2_p_r_m_global, 0)
-         call reduce_to_master(u2_t_r_m, u2_t_r_m_global, 0)
+         call reduce_radial(u2_p_r_l, u2_p_r_l_global, 0)
+         call reduce_radial(u2_t_r_l, u2_t_r_l_global, 0)
+         call reduce_radial(u2_p_r_m, u2_p_r_m_global, 0)
+         call reduce_radial(u2_t_r_m, u2_t_r_m_global, 0)
       end if
-      call reduce_to_master(e_kin_p_r_l, e_kin_p_r_l_global, 0)
-      call reduce_to_master(e_kin_t_r_l, e_kin_t_r_l_global, 0)
-      call reduce_to_master(e_kin_p_r_m, e_kin_p_r_m_global, 0)
-      call reduce_to_master(e_kin_t_r_m, e_kin_t_r_m_global, 0)
+      call reduce_radial(e_kin_p_r_l, e_kin_p_r_l_global, 0)
+      call reduce_radial(e_kin_t_r_l, e_kin_t_r_l_global, 0)
+      call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
+      call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
       ! now switch to master for the postprocess
     
@@ -524,10 +524,10 @@ contains
             end do  ! loop over lm's
          end do ! loop over radial levels
     
-         call reduce_to_master(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, 0)
-         call reduce_to_master(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, 0)
-         call reduce_to_master(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, 0)
-         call reduce_to_master(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, 0)
+         call reduce_radial(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, 0)
+         call reduce_radial(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, 0)
+         call reduce_radial(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, 0)
+         call reduce_radial(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, 0)
     
          if ( l_master_rank ) then
             !----- Radial Integrals:
@@ -860,12 +860,12 @@ contains
       end do    ! radial grid points 
 
       ! Reduction over all ranks
-      call reduce_to_master(T_r_l, T_r_l_global, 0)
-      call reduce_to_master(T_r_m, T_r_m_global, 0)
-      call reduce_to_master(T_ICB_l, T_ICB_l_global, 0)
-      call reduce_to_master(T_ICB_m, T_ICB_m_global, 0)
-      call reduce_to_master(dT_ICB_l, dT_ICB_l_global, 0)
-      call reduce_to_master(dT_ICB_m, dT_ICB_m_global, 0)
+      call reduce_radial(T_r_l, T_r_l_global, 0)
+      call reduce_radial(T_r_m, T_r_m_global, 0)
+      call reduce_radial(T_ICB_l, T_ICB_l_global, 0)
+      call reduce_radial(T_ICB_m, T_ICB_m_global, 0)
+      call reduce_radial(dT_ICB_l, dT_ICB_l_global, 0)
+      call reduce_radial(dT_ICB_m, dT_ICB_m_global, 0)
 
       if ( l_master_rank ) then
          !-- Radial Integrals:
@@ -1013,11 +1013,11 @@ contains
       end do    ! radial grid points 
 
       if ( l_mag ) then
-         call reduce_to_master(e_mag_p_r_m, e_mag_p_r_m_global, 0)
-         call reduce_to_master(e_mag_t_r_m, e_mag_t_r_m_global, 0)
+         call reduce_radial(e_mag_p_r_m, e_mag_p_r_m_global, 0)
+         call reduce_radial(e_mag_t_r_m, e_mag_t_r_m_global, 0)
       end if
-      call reduce_to_master(e_kin_p_r_m, e_kin_p_r_m_global, 0)
-      call reduce_to_master(e_kin_t_r_m, e_kin_t_r_m_global, 0)
+      call reduce_radial(e_kin_p_r_m, e_kin_p_r_m_global, 0)
+      call reduce_radial(e_kin_t_r_m, e_kin_t_r_m_global, 0)
 
       if ( l_master_rank ) then
 

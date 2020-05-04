@@ -53,17 +53,12 @@ module communications
       module procedure send_scal_lm_to_master
    end interface
 
-   interface reduce_radial !@> TODO: remove later
+   interface reduce_radial
       module procedure reduce_radial_1D
       module procedure reduce_radial_2D
    end interface
 
-   interface reduce_to_master
-      module procedure reduce_to_master_1D
-      module procedure reduce_to_master_2D
-   end interface
-
-   public :: reduce_radial, reduce_scalar, reduce_to_master
+   public :: reduce_radial, reduce_scalar
    public :: send_lm_pair_to_master
 
    ! declaration of the types for the redistribution
@@ -884,42 +879,6 @@ contains
 
    end subroutine gather_from_Rloc
 !-------------------------------------------------------------------------------
-   subroutine reduce_to_master_2D(arr_dist, arr_glob, irank)
-
-      !-- Input variable
-      integer,  intent(in) :: irank
-      real(cp), intent(in) :: arr_dist(:,:)
-
-      !-- Output variable
-      real(cp), intent(out) :: arr_glob(:,:)
-
-#ifdef WITH_MPI
-      call MPI_Reduce(arr_dist, arr_glob, size(arr_dist), MPI_DEF_REAL, &
-           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
-#else
-      arr_glob(:,:)=arr_dist(:,:)
-#endif
-
-   end subroutine reduce_to_master_2D
-!-------------------------------------------------------------------------------
-   subroutine reduce_to_master_1D(arr_dist, arr_glob, irank)
-
-      !-- input variable
-      integer,  intent(in) :: irank
-      real(cp), intent(in) :: arr_dist(:)
-
-      !-- output variable
-      real(cp), intent(inout) :: arr_glob(:)
-
-#ifdef WITH_MPI
-      call MPI_Reduce(arr_dist, arr_glob, size(arr_dist), MPI_DEF_REAL, &
-           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
-#else
-      arr_glob(:)=arr_dist(:)
-#endif
-
-   end subroutine reduce_to_master_1D
-!-------------------------------------------------------------------------------
    subroutine reduce_radial_2D(arr_dist, arr_glob, irank)
 
       !-- Input variable
@@ -931,7 +890,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(arr_dist, arr_glob, size(arr_dist), MPI_DEF_REAL, &
-           &          MPI_SUM, irank, comm_r, ierr)
+           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
 #else
       arr_glob(:,:)=arr_dist(:,:)
 #endif
@@ -949,7 +908,7 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(arr_dist, arr_glob, size(arr_dist), MPI_DEF_REAL, &
-           &          MPI_SUM, irank, comm_r, ierr)
+           &          MPI_SUM, irank, MPI_COMM_WORLD, ierr)
 #else
       arr_glob(:)=arr_dist(:)
 #endif

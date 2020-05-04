@@ -5,7 +5,7 @@ module getDlm_mod
 
    use parallel_mod
    use precision_mod
-   use communications, only: reduce_to_master
+   use communications, only: reduce_radial
    use truncation, only: minc, m_max, l_max, n_r_max, n_mlo_loc
    use radial_functions, only: or2, r, rscheme_oc, orho1
    use num_param, only: eScale
@@ -126,10 +126,10 @@ contains
       end if
 
       ! reduce to master rank
-      call reduce_to_master(e_lr, e_lr_global, 0)
-      call reduce_to_master(e_mr, e_mr_global, 0)
-      call reduce_to_master(e_lr_c, e_lr_c_global, 0)
-      call reduce_to_master(e_pol_lr, e_pol_lr_global, 0)
+      call reduce_radial(e_lr, e_lr_global, 0)
+      call reduce_radial(e_mr, e_mr_global, 0)
+      call reduce_radial(e_lr_c, e_lr_c_global, 0)
+      call reduce_radial(e_pol_lr, e_pol_lr_global, 0)
 
       if ( l_master_rank ) then
          !-- Radial Integrals:

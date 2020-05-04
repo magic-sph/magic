@@ -2,7 +2,7 @@ module radial_spectra
 
    use precision_mod
    use parallel_mod
-   use communications, only: reduce_to_master
+   use communications, only: reduce_radial
    use LMmapping, only: map_mlo
    use truncation, only: n_r_max, n_r_ic_max, n_mlo_loc, n_r_tot, n_r_icb
    use radial_functions, only: or2, r_icb, r_ic
@@ -118,8 +118,8 @@ contains
          end do
       end if
 
-      call reduce_to_master(e_p, e_p_global, 0)
-      call reduce_to_master(e_p_AS, e_p_AS_global, 0)
+      call reduce_radial(e_p, e_p_global, 0)
+      call reduce_radial(e_p_AS, e_p_AS_global, 0)
       
       if ( l_master_rank ) then
 
@@ -229,8 +229,8 @@ contains
     
       end if
 
-      call reduce_to_master(e_t, e_t_global, 0)
-      call reduce_to_master(e_t_AS, e_t_AS_global, 0)
+      call reduce_radial(e_t, e_t_global, 0)
+      call reduce_radial(e_t_AS, e_t_AS_global, 0)
       
       if ( l_master_rank ) then
     

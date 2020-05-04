@@ -3,7 +3,7 @@ module kinetic_energy
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use communications, only: reduce_to_master
+   use communications, only: reduce_radial
    use truncation, only: n_r_max, l_max, n_mlo_loc
    use LMmapping, only: map_mlo
    use radial_functions, only: r, or1, rscheme_oc, or2, r_cmb, r_icb, &
@@ -164,15 +164,15 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
-      call reduce_to_master(e_p_r, e_p_r_global, 0)
-      call reduce_to_master(e_t_r, e_t_r_global, 0)
-      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_to_master(e_t_as_r, e_t_as_r_global, 0)
-      call reduce_to_master(e_p_es_r, e_p_es_r_global, 0)
-      call reduce_to_master(e_t_es_r, e_t_es_r_global, 0)
-      call reduce_to_master(e_p_eas_r, e_p_eas_r_global, 0)
-      call reduce_to_master(e_t_eas_r, e_t_eas_r_global, 0)
+      call reduce_radial(e_p_r, e_p_r_global, 0)
+      call reduce_radial(e_t_r, e_t_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_radial(e_p_es_r, e_p_es_r_global, 0)
+      call reduce_radial(e_t_es_r, e_t_es_r_global, 0)
+      call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
+      call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
       if ( l_master_rank ) then
          !-- Radial Integrals:
@@ -352,12 +352,12 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
-      call reduce_to_master(e_p_r, e_p_r_global, 0)
-      call reduce_to_master(e_t_r, e_t_r_global, 0)
-      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_to_master(e_t_as_r, e_t_as_r_global, 0)
-      call reduce_to_master(e_lr_c, e_lr_c_global, 0)
-      call reduce_to_master(e_lr, e_lr_global, 0)
+      call reduce_radial(e_p_r, e_p_r_global, 0)
+      call reduce_radial(e_t_r, e_t_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_radial(e_lr_c, e_lr_c_global, 0)
+      call reduce_radial(e_lr, e_lr_global, 0)
 
       if ( l_master_rank ) then
          !-- Radial Integrals:

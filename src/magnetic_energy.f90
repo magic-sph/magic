@@ -20,7 +20,7 @@ module magnetic_energy
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
    use plms_theta, only: plm_theta
-   use communications, only: gather_from_mlo_to_master, reduce_to_master, &
+   use communications, only: gather_from_mlo_to_master, reduce_radial, &
        &                     reduce_scalar, send_lm_pair_to_master
 
    implicit none
@@ -338,17 +338,17 @@ contains
 
       end do    ! radial grid points
 
-      call reduce_to_master(e_p_r, e_p_r_global, 0)
-      call reduce_to_master(e_t_r, e_t_r_global, 0)
-      call reduce_to_master(e_p_as_r, e_p_as_r_global, 0)
-      call reduce_to_master(e_t_as_r, e_t_as_r_global, 0)
-      call reduce_to_master(e_p_es_r, e_p_es_r_global, 0)
-      call reduce_to_master(e_t_es_r, e_t_es_r_global, 0)
-      call reduce_to_master(e_p_eas_r, e_p_eas_r_global, 0)
-      call reduce_to_master(e_t_eas_r, e_t_eas_r_global, 0)
-      call reduce_to_master(e_dipole_ax_r, e_dipole_ax_r_global, 0)
-      call reduce_to_master(e_dipole_r, e_dipole_r_global, 0)
-      call reduce_to_master(els_r, els_r_global, 0)
+      call reduce_radial(e_p_r, e_p_r_global, 0)
+      call reduce_radial(e_t_r, e_t_r_global, 0)
+      call reduce_radial(e_p_as_r, e_p_as_r_global, 0)
+      call reduce_radial(e_t_as_r, e_t_as_r_global, 0)
+      call reduce_radial(e_p_es_r, e_p_es_r_global, 0)
+      call reduce_radial(e_t_es_r, e_t_es_r_global, 0)
+      call reduce_radial(e_p_eas_r, e_p_eas_r_global, 0)
+      call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
+      call reduce_radial(e_dipole_ax_r, e_dipole_ax_r_global, 0)
+      call reduce_radial(e_dipole_r, e_dipole_r_global, 0)
+      call reduce_radial(els_r, els_r_global, 0)
 
       ! reduce some scalars
       call reduce_scalar(e_geo, e_geo_global, 0)
@@ -524,10 +524,10 @@ contains
          end do    ! radial grid points
 
          ! reduce over the ranks
-         call reduce_to_master(e_p_ic_r, e_p_ic_r_global, 0)
-         call reduce_to_master(e_t_ic_r, e_t_ic_r_global, 0)
-         call reduce_to_master(e_p_as_ic_r, e_p_as_ic_r_global, 0)
-         call reduce_to_master(e_t_as_ic_r, e_t_as_ic_r_global, 0)
+         call reduce_radial(e_p_ic_r, e_p_ic_r_global, 0)
+         call reduce_radial(e_t_ic_r, e_t_ic_r_global, 0)
+         call reduce_radial(e_p_as_ic_r, e_p_as_ic_r_global, 0)
+         call reduce_radial(e_t_as_ic_r, e_t_as_ic_r_global, 0)
 
          if ( l_master_rank ) then
             e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)

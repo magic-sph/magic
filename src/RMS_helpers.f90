@@ -7,7 +7,7 @@ module RMS_helpers
    use precision_mod
    use parallel_mod
    use LMmapping, only: map_mlo, mappings
-   use communications, only: reduce_to_master
+   use communications, only: reduce_radial
    use truncation, only: l_max, n_r_max
    use radial_functions, only: or2, rscheme_oc, r
    use useful, only: cc2real
@@ -82,10 +82,10 @@ contains
          TorRms_r(n_r)=TorRms_r(n_r) + TorAsRms_r(n_r)
       end do    ! radial grid points
 
-      call reduce_to_master(PolRms_r, PolRms_r_global, 0)
-      call reduce_to_master(PolAsRms_r, PolAsRms_r_global, 0)
-      call reduce_to_master(TorRms_r, TorRms_r_global, 0)
-      call reduce_to_master(TorAsRms_r, TorAsRms_r_global, 0)
+      call reduce_radial(PolRms_r, PolRms_r_global, 0)
+      call reduce_radial(PolAsRms_r, PolAsRms_r_global, 0)
+      call reduce_radial(TorRms_r, TorRms_r_global, 0)
+      call reduce_radial(TorAsRms_r, TorAsRms_r_global, 0)
 
       if ( l_master_rank ) then
          !-- Radial Integrals:
