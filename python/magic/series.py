@@ -838,7 +838,7 @@ class TsLookUpTable:
                 self.mantlePower = data[:, 7]
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
-                 self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
+            self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
         elif self.field == 'SRIC':
             self.time = data[:,0]
             self.omega_ic = data[:,1]
