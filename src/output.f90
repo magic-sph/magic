@@ -19,27 +19,18 @@ module output_mod
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg
-   use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
-       &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
-       &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
-       &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,     &
-       &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
-       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
-       &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-       &             aj_Rloc, bICB,  & !@>TODO rmove the LMloc at some point
+   use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic, bICB,  &
        &             w_Rdist,z_Rdist,p_Rdist,s_Rdist,xi_Rdist,b_Rdist,  aj_Rdist, &
        &             ddj_ic, w_LMdist, dw_LMdist, ddw_LMdist, p_LMdist, xi_LMdist,&
        &             s_LMdist, ds_LMdist, z_LMdist, dz_LMdist, b_LMdist,          &
        &             db_LMdist, ddb_LMdist, aj_LMdist, dj_LMdist, ddj_LMdist,     &
-       &             b_ic_LMdist, db_ic_LMdist, ddb_ic_LMdist, aj_ic_LMdist,     &
-       &             dj_ic_LMdist, ddj_ic_LMdist, dp_LMdist, xi_LMdist,          &
+       &             b_ic_LMdist, db_ic_LMdist, ddb_ic_LMdist, aj_ic_LMdist,      &
+       &             dj_ic_LMdist, ddj_ic_LMdist, dp_LMdist, xi_LMdist,           &
        &             dxi_LMdist
-   use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
-       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,   &
-       &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt,   &
-       &                 dwdt_dist, dzdt_dist, dpdt_dist, dsdt_dist,   &
-       &                 dbdt_dist, djdt_dist, dbdt_ic_dist,  &
-       &                 djdt_ic_dist, dxidt_dist
+   use fieldsLast, only: domega_ic_dt, domega_ma_dt, lorentz_torque_ma_dt,  &
+       &                 lorentz_torque_ic_dt, dwdt_dist, dzdt_dist,        &
+       &                 dpdt_dist, dsdt_dist, dbdt_dist, djdt_dist,        &
+       &                 dbdt_ic_dist, djdt_ic_dist, dxidt_dist
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -71,9 +62,6 @@ module output_mod
    use radial_spectra  ! rBrSpec, rBpSpec
    use time_schemes, only: type_tscheme
    use storeCheckPoints
-   use mpi_thetap_mod, only: transform_new2old !REMOVEEEEE
-   use communications, only: gather_Flm !@> TODO: remove!!
-
 
    implicit none
 
@@ -420,71 +408,6 @@ contains
       
       timeScaled=tScale*time
       timePassedLog=timePassedLog+tscheme%dt(1)
-
-      !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      if ( l_frame .or. (l_SRIC .and. l_stop_time ) ) then
-         call transform_new2old(w_LMdist, w_LMloc, n_r_max)
-         call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
-         call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
-         call transform_new2old(p_LMdist, p_LMloc, n_r_max)
-         call transform_new2old(dp_LMdist, dp_LMloc, n_r_max)
-         call transform_new2old(z_LMdist, z_LMloc, n_r_max)
-         call transform_new2old(dz_LMdist, dz_LMloc, n_r_max)
-
-         if ( l_heat ) then
-            call transform_new2old(s_LMdist, s_LMloc, n_r_max)
-            call transform_new2old(ds_LMdist, ds_LMloc, n_r_max)
-         end if
-         if ( l_chemical_conv ) then
-            call transform_new2old(xi_LMdist, xi_LMloc, n_r_max)
-            call transform_new2old(dxi_LMdist, dxi_LMloc, n_r_max)
-         end if
-         if ( l_mag ) then
-            call transform_new2old(b_LMdist, b_LMloc, n_r_max)
-            call transform_new2old(db_LMdist, db_LMloc, n_r_max)
-            call transform_new2old(ddb_LMdist, ddb_LMloc, n_r_max)
-            call transform_new2old(aj_LMdist, aj_LMloc, n_r_max)
-            call transform_new2old(dj_LMdist, dj_LMloc, n_r_max)
-            call transform_new2old(ddj_LMdist, ddj_LMloc, n_r_max)
-            if ( l_cond_ic ) then
-               call transform_new2old(b_ic_LMdist, b_ic_LMloc, n_r_ic_max)
-               call transform_new2old(db_ic_LMdist, db_ic_LMloc, n_r_ic_max)
-               call transform_new2old(ddb_ic_LMdist, ddb_ic_LMloc, n_r_ic_max)
-               call transform_new2old(aj_ic_LMdist, aj_ic_LMloc, n_r_ic_max)
-               call transform_new2old(dj_ic_LMdist, dj_ic_LMloc, n_r_ic_max)
-               call transform_new2old(ddj_ic_LMdist, ddj_ic_LMloc, n_r_ic_max)
-            end if
-         end if
-      end if
-
-      if ( l_store ) then
-         do nR=nRstart,nRstop
-            call gather_Flm(w_Rdist(:,nR), w_Rloc(:,nR))
-            call gather_Flm(z_Rdist(:,nR), z_Rloc(:,nR))
-            call gather_Flm(p_Rdist(:,nR), p_Rloc(:,nR))
-            if ( l_heat ) call gather_Flm(s_Rdist(:,nR), s_Rloc(:,nR))
-            if ( l_chemical_conv ) call gather_Flm(xi_Rdist(:,nR), xi_Rloc(:,nR))
-            if ( l_mag ) then
-               call gather_Flm(b_Rdist(:,nR), b_Rloc(:,nR))
-               call gather_Flm(aj_Rdist(:,nR), aj_Rloc(:,nR))
-            end if
-         end do
-         call dwdt_dist%gather_all(dwdt)
-         call dpdt_dist%gather_all(dpdt)
-         call dzdt_dist%gather_all(dzdt)
-         if ( l_heat ) call dsdt_dist%gather_all(dsdt)
-         if ( l_chemical_conv ) call dxidt_dist%gather_all(dxidt)
-         if ( l_mag ) then
-            call dbdt_dist%gather_all(dbdt)
-            call djdt_dist%gather_all(djdt)
-            if ( l_cond_ic ) then
-               call dbdt_ic_dist%gather_all(dbdt_ic)
-               call djdt_ic_dist%gather_all(djdt_ic)
-            end if
-         end if
-      end if
-      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
       ! We start with the computation of the energies
       ! in parallel.
@@ -857,7 +780,7 @@ contains
       ! ===================================================
       !      GATHERING for output
       ! ===================================================
-      ! We have all fields in LMloc space. Thus we gather the whole fields on coord_r 0.
+      ! We have all fields in LMdist space. Thus we gather the whole fields on coord_r 0.
 
       if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
          PERFON('out_comm')
@@ -906,8 +829,8 @@ contains
          call logWrite(message)
 
          !--- Storing the movie frame:
-         call write_movie_frame(n_frame,timeScaled,b_LMloc,db_LMloc,aj_LMloc, &
-              &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic,     &
+         call write_movie_frame(n_frame,timeScaled,b_LMdist,db_LMdist,aj_LMdist, &
+              &                 dj_LMdist,b_ic,db_ic,aj_ic,dj_ic,omega_ic,       & 
               &                 omega_ma)
       end if
 

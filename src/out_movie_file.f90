@@ -2,12 +2,12 @@ module out_movie
 
    use precision_mod
    use parallel_mod, only: coord_r, l_master_rank
-   use communications, only: gt_OC, gather_all_from_lo_to_rank0, gather_f, gather_Flm
+   use communications, only: gather_all_from_mlo_to_master, gather_f, gather_Flm
    !@> TODO remove gather_f once finished
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
        &                 n_r_ic_max, n_r_max, l_axi, n_r_icb, nThetaStart,  &
-       &                 nThetaStop, n_lm_loc
+       &                 nThetaStop, n_lm_loc, n_mloMag_loc
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
@@ -19,11 +19,12 @@ module out_movie
        &                       r_surface, r_cmb, r, r_ic
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
    use num_param, only: vScale, tScale
-   use blocking, only: nfs, lm2l, lm2, llmMag, ulmMag
+   use blocking, only: nfs
+   use LMmapping, only: map_glbl_st
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      dLh, osn1, phi, theta_ord
-   use fields, only: w_Rloc, b_Rloc, b_ic, bICB
+   use fields, only: b_ic, bICB, w_Rdist, b_Rdist
 #ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat
 #else
@@ -206,8 +207,8 @@ contains
 
    end subroutine store_movie_frame
 !----------------------------------------------------------------------------
-   subroutine write_movie_frame(n_frame,time,b_LMloc,db_LMloc,aj_LMloc,   &
-              &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic, &
+   subroutine write_movie_frame(n_frame,time,b_LMdist,db_LMdist,aj_LMdist,   &
+              &                 dj_LMdist,b_ic,db_ic,aj_ic,dj_ic,omega_ic, &
               &                 omega_ma)
       !
       !  Writes different movie frames into respective output files.
@@ -218,10 +219,10 @@ contains
       real(cp),    intent(in) :: time
       integer,     intent(in) :: n_frame
       real(cp),    intent(in) :: omega_ic,omega_ma
-      complex(cp), intent(in) :: b_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: db_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: dj_LMloc(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_LMdist(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: db_LMdist(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: aj_LMdist(n_mloMag_loc,n_r_maxMag)
+      complex(cp), intent(in) :: dj_LMdist(n_mloMag_loc,n_r_maxMag)
       complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
@@ -255,17 +256,17 @@ contains
       end do
 
       if ( l_dtB_frame ) then
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             allocate( b(lm_maxMag,n_r_maxMag), aj(lm_maxMag,n_r_maxMag) )
             allocate( db(lm_maxMag,n_r_maxMag), dj(lm_maxMag,n_r_maxMag) )
          else
             allocate( b(1,1), aj(1,1), db(1,1), dj(1,1) )
          end if
 
-         call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
-         call gather_all_from_lo_to_rank0(gt_OC,db_LMloc,db)
-         call gather_all_from_lo_to_rank0(gt_OC,aj_LMloc,aj)
-         call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
+         call gather_all_from_mlo_to_master(b_LMdist,b,n_r_max)
+         call gather_all_from_mlo_to_master(db_LMdist,db,n_r_max)
+         call gather_all_from_mlo_to_master(aj_LMdist,aj,n_r_max)
+         call gather_all_from_mlo_to_master(dj_LMdist,dj,n_r_max)
       end if
 
       if ( l_master_rank ) then
@@ -1542,6 +1543,7 @@ contains
 
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
+      complex(cp) :: w_Rloc(lm_max)
 #ifdef WITH_SHTNS
       complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
       complex(cp) :: Tl_AX(1:l_max+1)
@@ -1552,11 +1554,13 @@ contains
       !-- Calculate radial dependencies:
       O_r=or1(n_r)
 
+      call gather_Flm(w_Rdist(:,n_r),w_Rloc) !@> TODO: one should find a better fix here!
+
 #ifdef WITH_SHTNS
       Tl_AX(1)=zero
       do l=1,l_max
-         lm=lm2(l,0)
-         Tl_AX(l+1)=O_r*w_Rloc(lm,n_r)
+         lm=map_glbl_st%lm2(l,0)
+         Tl_AX(l+1)=O_r*w_Rloc(lm)
       end do
 
       call shtns_load_cfg(0)
@@ -1583,7 +1587,7 @@ contains
          do l=1,l_max
             lm=lm+1
             sign=-sign
-            sl_1=O_r*real(w_Rloc(lm,n_r))*dPlm(lm,n_theta_nhs)
+            sl_1=O_r*real(w_Rloc(lm))*dPlm(lm,n_theta_nhs)
              !-------- Northern hemisphere:
             sl_n=sl_n+sl_1
              !-------- Southern hemisphere:
@@ -1628,12 +1632,15 @@ contains
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
+      complex(cp) :: b_Rloc(lm_max)
 #ifdef WITH_SHTNS
       complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
       complex(cp) :: Tl_AX(1:l_max+1)
 #else
       real(cp) :: fl_s,fl_n,fl_1, sign
 #endif
+
+      if ( .not. l_ic ) call gather_Flm(b_Rdist(:,n_r),b_Rloc) !@> TODO: one should find a better fix here!
 
       if ( l_ic ) then
          r_ratio =r_ic(n_r)/r_ic(1)
@@ -1648,7 +1655,7 @@ contains
 #ifdef WITH_SHTNS
       Tl_AX(1)=zero
       do l=1,l_max
-         lm=lm2(l,0)
+         lm=map_glbl_st%lm2(l,0)
          if ( l_ic ) then ! Inner Core
             if ( l_cond_ic ) then
                Tl_AX(l+1)=r_dep(l)*b_ic(lm,n_r)
@@ -1656,7 +1663,7 @@ contains
                Tl_AX(l+1)=r_dep(l)*bICB(lm)
             end if
          else             ! Outer Core
-            Tl_AX(l+1)=O_r*b_Rloc(lm,n_r)
+            Tl_AX(l+1)=O_r*b_Rloc(lm)
          end if
       end do
 
@@ -1693,7 +1700,7 @@ contains
                   fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(bICB(lm))
                end if
             else             ! Outer Core
-               fl_1=O_r*dPlm(lm,n_theta_nhs) * real(b_Rloc(lm,n_r))
+               fl_1=O_r*dPlm(lm,n_theta_nhs) * real(b_Rloc(lm))
             end if
             !-------- Northern hemisphere:
             fl_n=fl_n+fl_1
@@ -1760,7 +1767,7 @@ contains
       cs1(1)=zero
       cs2(1)=zero
       do lm=2,lm_max
-         l = lm2l(lm)
+         l = map_glbl_st%lm2l(lm)
 #ifdef WITH_SHTNS
          cs1(lm) = bCMB(lm)*r_dep(l) ! multiplication by l(l+1) in shtns.f90
 #else
@@ -1793,7 +1800,7 @@ contains
             b_p_s=zero
 
             do l=m,l_max
-               lm=lm2(l,m)
+               lm=map_glbl_st%lm2(l,m)
                sign=-sign
 
                b_r_1=         cs1(lm)*Plm(lm,n_theta_nhs)
