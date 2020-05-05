@@ -272,9 +272,9 @@ contains
       class(type_mpisendrecv) :: this
       integer :: i, ierr
       
-      do i=1,size(this%rq)
-         call mpi_cancel(this%rq(i), ierr)
-      end do
+      !do i=1,size(this%rq)
+      !   call mpi_cancel(this%rq(i), ierr)
+      !end do
       
       nullify(this%sends)
       nullify(this%recvs)

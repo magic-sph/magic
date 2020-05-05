@@ -7,16 +7,16 @@ module storeCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use mpi_alltoall_mod, only: type_mpiatoav
-   use communications, only: gt_OC, gt_IC, gather_all_from_lo_to_rank0
+   use mpi_thetap_mod, only: type_mpisendrecv
+   use communications, only: gather_all_from_mlo_to_master, gather_Flm
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
-       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
+       &                 lm_max, n_r_maxMag,n_r_ic_maxMag, n_mlo_loc,          &
        &                 fd_stretch, fd_ratio, nRstart, nRstop, nRstartMag,    &
-       &                 nRstopMag, nR_per_rank
+       &                 nRstopMag, nR_per_rank, n_mloMag_loc, n_lm_loc,       &
+       &                 n_lmMag_loc
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
-   use blocking, only: llm, ulm, llmMag, ulmMag
    use num_param, only: tScale, alph1, alph2
    use init_fields, only: inform,omega_ic1,omegaOsz_ic1,tOmega_ic1, &
        &                  omega_ic2,omegaOsz_ic2,tOmega_ic2,        &
@@ -64,15 +64,15 @@ contains
       logical,             intent(in) :: l_new_rst_file
 
       !-- Input of scalar fields to be stored:
-      complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: z(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: p(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: s(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: xi(n_mlo_loc,n_r_max)
+      complex(cp),         intent(in) :: b(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(in) :: aj(n_mloMag_loc,n_r_maxMag)
+      complex(cp),         intent(in) :: b_ic(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: aj_ic(n_mloMag_loc,n_r_ic_maxMag)
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
       type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
@@ -175,13 +175,13 @@ contains
       end if
 
       !-- Memory allocation of global arrays to write outputs
-      if ( coord_r==0 ) then
+      if ( l_master_rank ) then
          allocate( work(lm_max,n_r_max) )
       else
          allocate( work(1,1) )
       end if
 
-      !-- Gather fields on coord_r 0 and write
+      !-- Gather fields on master and write
 
       !-- Poloidal flow
       call write_one_field(n_rst_file, tscheme, w, dwdt, work)
@@ -207,41 +207,41 @@ contains
       !-- Inner core magnetic field
       if ( l_mag .and. l_cond_ic ) then
          deallocate( work )
-         if ( coord_r==0 ) then
+         if ( l_master_rank ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1) )
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
+         call gather_all_from_mlo_to_master(b_ic,work,n_r_ic_max)
          if ( l_master_rank ) write(n_rst_file) work
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(dbdt_ic%expl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%impl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(dbdt_ic%impl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%old(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(dbdt_ic%old(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) write(n_rst_file) work
             end do
          end if
-         call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
+         call gather_all_from_mlo_to_master(aj_ic,work,n_r_ic_max)
          if ( l_master_rank ) write(n_rst_file) work
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(djdt_ic%expl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%impl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(djdt_ic%impl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) write(n_rst_file) work
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%old(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(djdt_ic%old(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) write(n_rst_file) work
             end do
          end if
@@ -283,7 +283,7 @@ contains
       !-- Input variables
       integer,             intent(in) :: fh ! file unit
       class(type_tscheme), intent(in) :: tscheme ! Time scheme
-      complex(cp),         intent(in) :: w(llm:ulm,n_r_max) ! field
+      complex(cp),         intent(in) :: w(n_mlo_loc,n_r_max) ! field
       type(type_tarray),   intent(in) :: dwdt
 
       !-- Output variables
@@ -292,22 +292,22 @@ contains
       !-- Local variables
       integer :: n_o
       
-      call gather_all_from_lo_to_rank0(gt_OC, w, work)
+      call gather_all_from_mlo_to_master(w, work, n_r_max)
       if ( l_master_rank ) write(fh) work
 
       if ( tscheme%family == 'MULTISTEP' ) then
          do n_o=2,tscheme%nexp
-            call gather_all_from_lo_to_rank0(gt_OC, dwdt%expl(:,:,n_o), work)
+            call gather_all_from_mlo_to_master(dwdt%expl(:,:,n_o), work, n_r_max)
             if ( l_master_rank ) write(fh) work
          end do
 
          do n_o=2,tscheme%nimp
-            call gather_all_from_lo_to_rank0(gt_OC, dwdt%impl(:,:,n_o), work)
+            call gather_all_from_mlo_to_master(dwdt%impl(:,:,n_o), work, n_r_max)
             if ( l_master_rank ) write(fh) work
          end do
 
          do n_o=2,tscheme%nold
-            call gather_all_from_lo_to_rank0(gt_OC, dwdt%old(:,:,n_o), work)
+            call gather_all_from_mlo_to_master(dwdt%old(:,:,n_o), work, n_r_max)
             if ( l_master_rank ) write(fh) work
          end do
       end if
@@ -338,15 +338,15 @@ contains
       logical,             intent(in) :: l_new_rst_file
 
       !-- Input of scalar fields to be stored:
-      complex(cp),         intent(in) :: w(lm_max,nRstart:nRstop)
-      complex(cp),         intent(in) :: z(lm_max,nRstart:nRstop)
-      complex(cp),         intent(in) :: p(lm_max,nRstart:nRstop)
-      complex(cp),         intent(in) :: s(lm_max,nRstart:nRstop)
-      complex(cp),         intent(in) :: xi(lm_max,nRstart:nRstop)
-      complex(cp),         intent(in) :: b(lm_maxMag,nRstartMag:nRstopMag)
-      complex(cp),         intent(in) :: aj(lm_maxMag,nRstartMag:nRstopMag)
-      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: w(n_lm_loc,nRstart:nRstop)
+      complex(cp),         intent(in) :: z(n_lm_loc,nRstart:nRstop)
+      complex(cp),         intent(in) :: p(n_lm_loc,nRstart:nRstop)
+      complex(cp),         intent(in) :: s(n_lm_loc,nRstart:nRstop)
+      complex(cp),         intent(in) :: xi(n_lm_loc,nRstart:nRstop)
+      complex(cp),         intent(in) :: b(n_lmMag_loc,nRstartMag:nRstopMag)
+      complex(cp),         intent(in) :: aj(n_lmMag_loc,nRstartMag:nRstopMag)
+      complex(cp),         intent(in) :: b_ic(n_mloMag_loc,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: aj_ic(n_mloMag_loc,n_r_ic_maxMag)
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
       type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
@@ -355,7 +355,7 @@ contains
       !-- Local variables
       complex(cp), allocatable :: work(:,:)
 
-      type(type_mpiatoav) :: lo2r
+      type(type_mpisendrecv) :: lo2r
       logical :: l_press_store
       integer :: version, info, fh, datatype
       character(len=72) :: string, rst_file
@@ -367,7 +367,7 @@ contains
       l_press_store = (.not. l_double_curl)
 
       call lo2r%create_comm(1)
-      allocate( work(lm_max,nRstart:nRstop) )
+      allocate( work(n_lm_loc,nRstart:nRstop) )
 
       if ( l_ave_file ) then
          rst_file="checkpoint_ave."//tag
@@ -391,8 +391,8 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_BYTE, MPI_BYTE, "native", &
            &                 info, ierr)
 
-      !-- Only coord_r=0 writes the header of the file
-      if ( l_master_rank ) then
+      !-- Only master writes the header of the file
+      if ( coord_r==0 ) then
          !-- Write the header of the file
          call MPI_File_Write(fh, version, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, time*tScale, 1, MPI_DEF_REAL, istat, ierr)
@@ -510,7 +510,7 @@ contains
          call MPI_File_Write(fh, l_press_store, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_cond_ic, 1, MPI_LOGICAL, istat, ierr)
 
-         !-- coord_r 0 gets the displacement
+         !-- master gets the displacement
          call MPI_File_get_position(fh, offset, ierr)
          call MPI_File_get_byte_offset(fh, offset, disp, ierr)
       end if
@@ -584,37 +584,37 @@ contains
       call MPI_Type_Free(datatype, ierr)
       deallocate( work )
 
-      !-- Inner core magnetic field (only written by coord_r 0 for now)
+      !-- Inner core magnetic field (only written by master for now)
       if ( l_mag .and. l_cond_ic ) then
 
-         if ( coord_r==0 ) then
+         if ( l_master_rank ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1) )
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
+         call gather_all_from_mlo_to_master(b_ic,work,n_r_ic_max)
          if ( l_master_rank ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(dbdt_ic%expl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%impl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(dbdt_ic%impl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%old(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(dbdt_ic%old(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
@@ -622,28 +622,28 @@ contains
             end do
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
+         call gather_all_from_mlo_to_master(aj_ic,work,n_r_ic_max)
          if ( l_master_rank ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(djdt_ic%expl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%impl(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(djdt_ic%impl(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%old(:,:,n_o),work)
+               call gather_all_from_mlo_to_master(djdt_ic%old(:,:,n_o),work,n_r_ic_max)
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
@@ -695,19 +695,26 @@ contains
       integer,             intent(in) :: datatype ! MPI file info
       class(type_tscheme), intent(in) :: tscheme
       integer(lip),        intent(in) :: size_tmp
-      complex(cp),         intent(in) :: w(llm:ulm, n_r_max) ! field
+      complex(cp),         intent(in) :: w(n_lm_loc,nRstart:nRstop) ! field
       type(type_tarray),   intent(in) :: dwdt
-      type(type_mpiatoav), intent(in) :: lo2r
+      type(type_mpisendrecv), intent(in) :: lo2r
 
       !-- Output variables
       integer(lip),        intent(inout) :: disp
-      complex(cp),         intent(inout) :: work(llm:ulm, n_r_max) 
+      complex(cp),         intent(inout) :: work(n_lm_loc,nRstart:nRstop)
 
       !-- Local variables
-      integer :: n_o
+      complex(cp) :: w_glb(lm_max,nRstart:nRstop) !@> TODO: remove
+      integer :: n_o,nR
       integer :: istat(MPI_STATUS_SIZE)
 
-      call MPI_File_Write_all(fh, w, lm_max*nR_per_rank, &
+      !@> TODO: remove that at some point
+      do nR=nRstart,nRstop
+         call gather_Flm(w(:,nR), w_glb(:,nR))
+      end do
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+      call MPI_File_Write_all(fh, w_glb, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
       disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -716,8 +723,13 @@ contains
       if ( tscheme%family == 'MULTISTEP' ) then
 
          do n_o=2,tscheme%nexp
-            call lo2r%transp_lm2r(dwdt%expl(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
+            call lo2r%transp_lm2r_dist(dwdt%expl(:,:,n_o), work)
+            !@> TODO: remove that at some point
+            do nR=nRstart,nRstop
+               call gather_Flm(work(:,nR), w_glb(:,nR))
+            end do
+            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            call MPI_File_Write_all(fh, w_glb, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -725,8 +737,13 @@ contains
          end do
 
          do n_o=2,tscheme%nimp
-            call lo2r%transp_lm2r(dwdt%impl(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
+            call lo2r%transp_lm2r_dist(dwdt%impl(:,:,n_o), work)
+            !@> TODO: remove that at some point
+            do nR=nRstart,nRstop
+               call gather_Flm(work(:,nR), w_glb(:,nR))
+            end do
+            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            call MPI_File_Write_all(fh, w_glb, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
@@ -734,8 +751,13 @@ contains
          end do
 
          do n_o=2,tscheme%nold
-            call lo2r%transp_lm2r(dwdt%old(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
+            call lo2r%transp_lm2r_dist(dwdt%old(:,:,n_o), work)
+            !@> TODO: remove that at some point
+            do nR=nRstart,nRstop
+               call gather_Flm(work(:,nR), w_glb(:,nR))
+            end do
+            !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            call MPI_File_Write_all(fh, w_glb, lm_max*nR_per_rank, &
                  &                  MPI_DEF_COMPLEX, istat, ierr)
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &

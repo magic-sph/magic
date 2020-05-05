@@ -14,7 +14,7 @@ module dtB_mod
        &                 n_r_ic_max, n_phi_max, l_axi, n_mloMag_loc,          &
        &                 nRstart, nRstop, nThetaStart, nThetaStop, n_lm_loc,  &
        &                 n_lmP_loc
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
+   use communications, only: gather_all_from_mlo_to_master
    use mpi_transp, only: type_mpitransp
    use mpi_thetap_mod, only: type_mpisendrecv
    use physical_parameters, only: opm, O_sr
@@ -174,21 +174,17 @@ contains
       ! outputs have been improved
       !
 
-      use useful, only: abortRun
-
-      call abortRun('Not ported yet! Stop heere...!')
-
-      call gather_all_from_lo_to_rank0(gt_OC,PstrLM_LMdist,PstrLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TstrLM_LMdist,TstrLM)
-      call gather_all_from_lo_to_rank0(gt_OC,PadvLM_LMdist,PadvLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TadvLM_LMdist,TadvLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TomeLM_LMdist,TomeLM)
-      call gather_all_from_lo_to_rank0(gt_OC,PdifLM_LMdist,PdifLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TdifLM_LMdist,TdifLM)
-      call gather_all_from_lo_to_rank0(gt_IC,PadvLMIC_LMdist,PadvLMIC)
-      call gather_all_from_lo_to_rank0(gt_IC,TadvLMIC_LMdist,TadvLMIC)
-      call gather_all_from_lo_to_rank0(gt_IC,PdifLMIC_LMdist,PdifLMIC)
-      call gather_all_from_lo_to_rank0(gt_IC,TdifLMIC_LMdist,TdifLMIC)
+      call gather_all_from_mlo_to_master(PstrLM_LMdist,PstrLM,n_r_max)
+      call gather_all_from_mlo_to_master(TstrLM_LMdist,TstrLM,n_r_max)
+      call gather_all_from_mlo_to_master(PadvLM_LMdist,PadvLM,n_r_max)
+      call gather_all_from_mlo_to_master(TadvLM_LMdist,TadvLM,n_r_max)
+      call gather_all_from_mlo_to_master(TomeLM_LMdist,TomeLM,n_r_max)
+      call gather_all_from_mlo_to_master(PdifLM_LMdist,PdifLM,n_r_max)
+      call gather_all_from_mlo_to_master(TdifLM_LMdist,TdifLM,n_r_max)
+      call gather_all_from_mlo_to_master(PadvLMIC_LMdist,PadvLMIC,n_r_ic_max)
+      call gather_all_from_mlo_to_master(TadvLMIC_LMdist,TadvLMIC,n_r_ic_max)
+      call gather_all_from_mlo_to_master(PdifLMIC_LMdist,PdifLMIC,n_r_ic_max)
+      call gather_all_from_mlo_to_master(TdifLMIC_LMdist,TdifLMIC,n_r_ic_max)
 
    end subroutine dtb_gather_lo_on_rank0
 !----------------------------------------------------------------------------

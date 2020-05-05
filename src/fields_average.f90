@@ -22,9 +22,10 @@ module fields_average_mod
    use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
-   use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
-       &                 djdt_ic, domega_ma_dt, domega_ic_dt,                &
-       &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt
+   use fieldsLast, only: dwdt_dist, dpdt_dist, dzdt_dist, dsdt_dist, dxidt_dist, &
+       &                 dbdt_dist, djdt_dist, dbdt_ic_dist, djdt_ic_dist,       &
+       &                 domega_ma_dt, domega_ic_dt, lorentz_torque_ic_dt,       &
+       &                 lorentz_torque_ma_dt
    use storeCheckPoints, only: store
    use time_schemes, only: type_tscheme
 
@@ -458,11 +459,12 @@ contains
          if ( l_save_out ) close(n_log_file)
 
          !--- Store checkpoint file
-         !call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,          &
-         !     &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,   &
-         !     &     aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,  &
-         !     &     djdt_ic,domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt, &
-         !     &     lorentz_torque_ic_dt)
+         call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,            &
+              &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,     &
+              &     aj_ic_ave,dwdt_dist,dzdt_dist,dpdt_dist,dsdt_dist,        &
+              &     dxidt_dist,dbdt_dist,djdt_dist,dbdt_ic_dist,djdt_ic_dist, &
+              &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,          &
+              &     lorentz_torque_ic_dt)
 
          ! now correct the stored average fields by the factor which has been
          ! applied before

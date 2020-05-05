@@ -56,8 +56,7 @@ module output_mod
    use outPar_mod, only: outPar, outPerpPar
    use graphOut_mod, only: graphOut_IC
    use power, only: get_power
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
-       &                     gather_from_lo_to_rank0
+   use communications, only: gather_all_from_mlo_to_master, gather_from_mlo_to_master
    use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
 #ifdef WITH_MPI
    use out_coeff, only: write_Pot_mpi
@@ -838,16 +837,18 @@ contains
       !
       if ( l_store ) then
 #ifdef WITH_MPI
-         call store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
-              &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,   &
-              &         dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,         &
+         call store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,      & 
+              &         .false.,w_Rdist,z_Rdist,p_Rdist,s_Rdist,xi_Rdist,b_Rdist, &
+              &         aj_Rdist,b_ic_LMdist,aj_ic_LMdist,dwdt_dist,dzdt_dist,    &
+              &         dpdt_dist,dsdt_dist,dxidt_dist,dbdt_dist,djdt_dist,       &
+              &         dbdt_ic_dist,djdt_ic_dist,domega_ma_dt,                   &
               &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #else
          call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
-              &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
-              &     b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,       &
-              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,              &
+              &     w_LMdist,z_LMdist,p_LMdist,s_LMdist,xi_LMdist,b_LMdist,      &
+              &     aj_LMdist,b_ic_LMdist,aj_ic_LMdist,dwdt_dist,dzdt_dist,      &
+              &     dpdt_dist,dsdt_dist,dxidt_dist,dbdt_dist,djdt_dist,          &
+              &     dbdt_ic_dist,djdt_ic_dist,domega_ma_dt,domega_ic_dt,         &
               &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #endif
       end if
@@ -861,16 +862,16 @@ contains
       if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
          PERFON('out_comm')
 
-         if ( l_mag ) call gather_from_lo_to_rank0(b_LMloc(:,n_r_icb),bICB)
+         if ( l_mag ) call gather_from_mlo_to_master(b_LMdist(:,n_r_icb),bICB)
 
          if ( l_cond_ic ) then
-            call gather_all_from_lo_to_rank0(gt_IC,b_ic_LMloc,b_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,db_ic_LMloc,db_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_LMloc,ddb_ic)
+            call gather_all_from_mlo_to_master(b_ic_LMdist,b_ic,n_r_ic_max)
+            call gather_all_from_mlo_to_master(db_ic_LMdist,db_ic,n_r_ic_max)
+            call gather_all_from_mlo_to_master(ddb_ic_LMdist,ddb_ic,n_r_ic_max)
 
-            call gather_all_from_lo_to_rank0(gt_IC,aj_ic_LMloc,aj_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,dj_ic_LMloc,dj_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,ddj_ic_LMloc,ddj_ic)
+            call gather_all_from_mlo_to_master(aj_ic_LMdist,aj_ic,n_r_ic_max)
+            call gather_all_from_mlo_to_master(dj_ic_LMdist,dj_ic,n_r_ic_max)
+            call gather_all_from_mlo_to_master(ddj_ic_LMdist,ddj_ic,n_r_ic_max)
          end if
 
          ! for writing a restart file, we also need the d?dtLast arrays,
@@ -911,7 +912,7 @@ contains
       end if
 
       ! =======================================================================
-      ! ======= compute output on coord_r 0 ==============
+      ! ======= compute output on master
       ! =======================================================================
       if ( l_master_rank ) then
          PERFON('out_out')
