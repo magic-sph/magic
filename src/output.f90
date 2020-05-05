@@ -423,8 +423,7 @@ contains
       timePassedLog=timePassedLog+tscheme%dt(1)
 
       !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      if ( (l_log .and. l_par) .or. l_pot .or. &
-      &    l_frame .or. (l_SRIC .and. l_stop_time ) ) then
+      if ( l_frame .or. (l_SRIC .and. l_stop_time ) ) then
          call transform_new2old(w_LMdist, w_LMloc, n_r_max)
          call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
          call transform_new2old(ddw_LMdist, ddw_LMloc, n_r_max)
@@ -459,7 +458,7 @@ contains
          end if
       end if
 
-      if ( l_store .or. l_pot ) then
+      if ( l_store ) then
          do nR=nRstart,nRstop
             call gather_Flm(w_Rdist(:,nR), w_Rloc(:,nR))
             call gather_Flm(z_Rdist(:,nR), z_Rloc(:,nR))
@@ -636,8 +635,8 @@ contains
          end if
          
          if ( l_par ) then
-            call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
-                 &        z_LMloc,dz_LMloc,Geos,GeosA,GeosZ,GeosM,GeosNA, & 
+            call getEgeos(timeScaled,nLogs,w_LMdist,dw_LMdist,ddw_LMdist,   &
+                 &        z_LMdist,dz_LMdist,Geos,GeosA,GeosZ,GeosM,GeosNA, & 
                  &        GeosNAP,dpV,dzV,volume,EC)
          else
             Geos   =0.0_cp
@@ -789,33 +788,33 @@ contains
 
       if ( l_pot ) then
 #ifdef WITH_MPI
-         call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+         call write_Pot_mpi(time,w_Rdist,z_Rdist,b_ic_LMdist,aj_ic_LMdist, &
               &             nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
-           call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+           call write_Pot_mpi(time,s_Rdist,z_Rdist,b_ic_LMdist,aj_ic_LMdist, &
                 &             nPotSets,'T_lmr.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-           call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+           call write_Pot_mpi(time,xi_Rdist,z_Rdist,b_ic_LMdist,aj_ic_LMdist, &
                 &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
          end if
          if ( l_mag ) then
-            call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+            call write_Pot_mpi(time,b_Rdist,aj_Rdist,b_ic_LMdist,aj_ic_LMdist, &
                  &             nPotSets,'B_lmr.',omega_ma,omega_ic)
          end if
 #else
-         call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+         call write_Pot(time,w_LMdist,z_LMdist,b_ic_LMdist,aj_ic_LMdist, &
               &         nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
-           call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           call write_Pot(time,s_LMdist,z_LMdist,b_ic_LMdist,aj_ic_LMdist, &
                 &         nPotSets,'T_lmr.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-           call write_Pot(time,xi_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           call write_Pot(time,xi_LMdist,z_LMdist,b_ic_LMdist,aj_ic_LMdist, &
                 &         nPotSets,'Xi_lmr.',omega_ma,omega_ic)
          end if
          if ( l_mag ) then
-            call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+            call write_Pot(time,b_LMdist,aj_LMdist,b_ic_LMdist,aj_ic_LMdist, &
                  &         nPotSets,'B_lmr.',omega_ma,omega_ic)
          end if
 #endif

@@ -41,6 +41,7 @@ module communications
    &         gather_all_from_lo_to_rank0, gather_from_Rloc
    public :: get_global_sum, finalize_communications, initialize_communications
    public :: scatter_from_master_to_mlo, gather_from_mlo_to_master
+   public :: gather_all_from_mlo_to_master
 
 #ifdef WITH_MPI
    public :: myAllGather
@@ -623,6 +624,21 @@ contains
 #endif
 
    end subroutine gather_from_mlo_to_master
+!-------------------------------------------------------------------------------
+   subroutine gather_all_from_mlo_to_master(arr_mlo,arr_full,n_r_loc)
+      !@> TODO: UGLY!!!!!
+
+      integer,     intent(in) :: n_r_loc
+      complex(cp), intent(in) :: arr_mlo(n_mlo_loc,n_r_loc)
+      complex(cp), intent(out) :: arr_full(lm_max,n_r_loc)
+
+      integer :: n_r
+
+      do n_r=1,n_r_loc
+         call gather_from_mlo_to_master(arr_mlo(:,n_r),arr_full(:,n_r))
+      end do
+
+   end subroutine gather_all_from_mlo_to_master
 !-------------------------------------------------------------------------------
    subroutine send_lm_pair_to_master_arr(b,l,m,blm0)
 

@@ -7,16 +7,17 @@ module geos_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrp,  &
-       &                 minc, l_max, m_max, l_axi, getBlocks, load
+       &                 minc, l_max, m_max, l_axi, getBlocks, load,&
+       &                 n_mlo_loc
+   use LMmapping, only: map_mlo, map_glbl_st
    use radial_functions, only: r_ICB, r_CMB, rscheme_oc, orho1
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use num_param, only: tScale
-   use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh, phi, dPhi
+   use horizontal_data, only: phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out, l_SRIC
    use output_data, only: sDens, zDens, tag, runid
    use constants, only: pi, zero, ci, one, two, three, four,  half
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC
+   use communications, only: gather_all_from_mlo_to_master
    use plms_theta, only: plm_theta
    use fft, only: fft_to_real
    use cosine_transform_odd, only: costf_odd_t
@@ -142,11 +143,11 @@ contains
       !-- Input of variables:
       real(cp),    intent(in) :: time
       integer,     intent(in) :: nGeosSets
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: dw(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: ddw(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: dz(n_mlo_loc,n_r_max)
 
       !-- Output variables:
       real(cp), intent(out) :: Geos    ! ratio of geostrophic to total energy
@@ -945,9 +946,9 @@ contains
          Or_e2=one/rS(nN)**2
 
          do lm=1,lm_max     ! Sum over lms
-            l =lm2l(lm)
-            m =lm2m(lm)
-            mc=lm2mc(lm)
+            l =map_glbl_st%lm2l(lm)
+            m =map_glbl_st%lm2m(lm)
+            mc=map_glbl_st%lm2mc(lm)
             wSr  =zero
             dwSr =zero
             ddwSr=zero
@@ -965,7 +966,7 @@ contains
             Vt2 =  zSr* PlmS(lm,nN)*dPhi(lm)
             Vp1 = dwSr* PlmS(lm,nN)*dPhi(lm)
             Vp2 = -zSr*dPlmS(lm,nN)
-            Vor =  zSr* PlmS(lm,nN)*dLh(lm)
+            Vor =  zSr* PlmS(lm,nN)*real(l*(l+1),cp)
             Vot1= dzSr*dPlmS(lm,nN)
             Vot2= (wSr*Or_e2-ddwSr) * PlmS(lm,nN)*dPhi(lm)
             VrS(2*mc-1,nN) =VrS(2*mc-1,nN) + real(Vr)
@@ -1118,26 +1119,27 @@ contains
       !
 
       !-- Input variables
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: w(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: dw(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: ddw(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max)
+      complex(cp), intent(in) :: dz(n_mlo_loc,n_r_max)
 
       !-- Local variables
-      complex(cp) :: wS(llm:ulm,n_r_max)
-      complex(cp) :: dwS(llm:ulm,n_r_max)
-      complex(cp) :: ddwS(llm:ulm,n_r_max)
-      complex(cp) :: zS(llm:ulm,n_r_max)
-      complex(cp) :: dzS(llm:ulm,n_r_max)
-
+      complex(cp) :: wS(n_mlo_loc,n_r_max)
+      complex(cp) :: dwS(n_mlo_loc,n_r_max)
+      complex(cp) :: ddwS(n_mlo_loc,n_r_max)
+      complex(cp) :: zS(n_mlo_loc,n_r_max)
+      complex(cp) :: dzS(n_mlo_loc,n_r_max)
+      real(cp) :: dLh
       integer :: nR, lm, l, m
 
       do nR=1,n_r_max
-         do lm=llm,ulm
-            l = lo_map%lm2l(lm)
-            m = lo_map%lm2m(lm)
-            wS(lm,nR)  =orho1(nR)*w(lm,nR)*dLh(st_map%lm2(l,m))
+         do lm=1,n_mlo_loc
+            l = map_mlo%i2l(lm)
+            m = map_mlo%i2m(lm)
+            dLh = real(l*(l+1),cp)
+            wS(lm,nR)  =orho1(nR)*w(lm,nR)*dLh
             dwS(lm,nR) =orho1(nR)*dw(lm,nR)
             ddwS(lm,nR)=orho1(nR)*ddw(lm,nR)
             zS(lm,nR)  =orho1(nR)*z(lm,nR)
@@ -1145,29 +1147,29 @@ contains
          end do
       end do
 
-      call rscheme_oc%costf1(wS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dwS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(ddwS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(zS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dzS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(wS,n_mlo_loc,1,n_mlo_loc)
+      call rscheme_oc%costf1(dwS,n_mlo_loc,1,n_mlo_loc)
+      call rscheme_oc%costf1(ddwS,n_mlo_loc,1,n_mlo_loc)
+      call rscheme_oc%costf1(zS,n_mlo_loc,1,n_mlo_loc)
+      call rscheme_oc%costf1(dzS,n_mlo_loc,1,n_mlo_loc)
 
       !-- Unfortunately they need to be broadcasted...
-      call gather_all_from_lo_to_rank0(gt_OC,wS,wS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dwS,dwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,ddwS,ddwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,zS,zS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
+      call gather_all_from_mlo_to_master(wS,wS_global,n_r_max)
+      call gather_all_from_mlo_to_master(dwS,dwS_global,n_r_max)
+      call gather_all_from_mlo_to_master(ddwS,ddwS_global,n_r_max)
+      call gather_all_from_mlo_to_master(zS,zS_global,n_r_max)
+      call gather_all_from_mlo_to_master(dzS,dzS_global,n_r_max)
 #ifdef WITH_MPI
       call MPI_Bcast(wS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(dwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(ddwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,&
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(zS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(dzS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         comm_r, ierr)
+           &         MPI_COMM_WORLD, ierr)
 #endif
    end subroutine costf_arrays
 !------------------------------------------------------------------------------

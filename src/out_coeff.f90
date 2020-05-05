@@ -14,13 +14,12 @@ module out_coeff
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
-   use blocking, only: llm, ulm
    use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc,    &
-       &                 nRstart, nRstop, nR_per_rank, n_mlo_loc
-   use communications, only: gather_from_mlo_to_master, gather_all_from_lo_to_rank0,&
-       &                     gt_IC, gt_OC
+       &                 nRstart, nRstop, nR_per_rank, n_mlo_loc, n_lm_loc
+   use communications, only: gather_from_mlo_to_master, gather_all_from_mlo_to_master
    use output_data, only: tag
    use constants, only: two, half
+   use communications, only: gather_Flm !@> TODO: remove it at some point
 
    implicit none
 
@@ -380,10 +379,10 @@ contains
       !
       !-- Input of variables:
       real(cp),         intent(in) :: time ! Time
-      complex(cp),      intent(in) :: b(lm_max,nRstart:nRstop) ! Poloidal potential
-      complex(cp),      intent(in) :: aj(lm_max,nRstart:nRstop)! Toroidal potential
-      complex(cp),      intent(in) :: b_ic(llm:ulm,n_r_ic_max)
-      complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: b(n_lm_loc,nRstart:nRstop) ! Poloidal potential
+      complex(cp),      intent(in) :: aj(n_lm_loc,nRstart:nRstop)! Toroidal potential
+      complex(cp),      intent(in) :: b_ic(n_mlo_loc,n_r_ic_max)
+      complex(cp),      intent(in) :: aj_ic(n_mlo_loc,n_r_ic_max)
       character(len=*), intent(in) :: root
       real(cp),         intent(in) :: omega_ma,omega_ic
       integer,          intent(in) :: nPotSets
@@ -391,7 +390,8 @@ contains
       !-- Local variables
       complex(outp), allocatable :: tmp(:,:)
       complex(cp), allocatable :: work(:,:)
-      integer :: info, fh, version, istat(MPI_STATUS_SIZE), datatype
+      complex(cp) :: b_loc(lm_max,nRstart:nRstop), aj_loc(lm_max,nRstart:nRstop)
+      integer :: info, fh, version, istat(MPI_STATUS_SIZE), datatype, nR
       integer :: arr_size(2), arr_loc_size(2), arr_start(2)
       integer(lip) :: disp, offset, size_tmp
       character(80) :: string
@@ -400,6 +400,13 @@ contains
       logical :: lVB
 
       version = 1 ! file version
+
+      !@> TODO remove that at some point
+      do nR = nRstart,nRstop
+         call gather_Flm(b(:,nR), b_loc(:,nR))
+         call gather_Flm(aj(:,nR), aj_loc(:,nR))
+      end do
+      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
       allocate( tmp(lm_max,nRstart:nRstop) )
@@ -481,8 +488,7 @@ contains
       call MPI_Type_Commit(datatype, ierr)
 
       !-- Copy into a single precision  
-      tmp(:,:) = cmplx(b(:,:), kind=outp)
-
+      tmp(:,:) = cmplx(b_loc(:,:), kind=outp)
 
       !-- Set the view after the header
       call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
@@ -500,14 +506,13 @@ contains
 
       !-- Toroidal potential
       if ( lVB ) then
-         tmp(:,:) = cmplx(aj(:,:), kind=outp)
+         tmp(:,:) = cmplx(aj_loc(:,:), kind=outp)
          call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
               &                  istat, ierr)
          disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
               &                 info, ierr)
       end if
-
 
       !-- Displacement at the end of the file
       offset = 0
@@ -522,20 +527,20 @@ contains
       !-- Now inner core field
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank) then
             allocate ( work(lm_max, n_r_ic_max), tmp(lm_max, n_r_ic_max) ) 
          else
             allocate ( work(1,1), tmp(1,1) )
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC, b_ic, work)
+         call gather_all_from_mlo_to_master(b_ic, work,n_r_ic_max)
          if ( coord_r == 0 ) then
             tmp(:,:)=cmplx(work(:,:), kind=outp)
             call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
                  &              istat, ierr)
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC, aj_ic, work)
+         call gather_all_from_mlo_to_master(aj_ic, work, n_r_ic_max)
          if ( coord_r == 0 ) then
             tmp(:,:)=cmplx(work(:,:), kind=outp)
             call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
@@ -559,10 +564,10 @@ contains
 
       !-- Input of variables:
       real(cp),         intent(in) :: time
-      complex(cp),      intent(in) :: b(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: aj(llm:ulm,n_r_max)
-      complex(cp),      intent(in) :: b_ic(llm:ulm,n_r_ic_max)
-      complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: b(n_mlo_loc,n_r_max)
+      complex(cp),      intent(in) :: aj(n_mlo_loc,n_r_max)
+      complex(cp),      intent(in) :: b_ic(n_mlo_loc,n_r_ic_max)
+      complex(cp),      intent(in) :: aj_ic(n_mlo_loc,n_r_ic_max)
       character(len=*), intent(in) :: root
       real(cp),         intent(in) :: omega_ma,omega_ic
       integer,          intent(in) :: nPotSets
@@ -588,7 +593,7 @@ contains
       ! now gather the fields on coord_r 0 and write them to file
       ! it would be nicer to write the fields with MPI IO in parallel
       ! but then presumably the file format will change
-      if ( coord_r == 0 ) then
+      if ( l_master_rank) then
          allocate(workA_global(lm_max,n_r_max))
          allocate(workB_global(lm_max,n_r_max))
       else
@@ -596,8 +601,8 @@ contains
          allocate(workB_global(1,n_r_max))
       end if
 
-      call gather_all_from_lo_to_rank0(gt_OC, b, workA_global)
-      call gather_all_from_lo_to_rank0(gt_OC, aj, workB_global)
+      call gather_all_from_mlo_to_master(b, workA_global, n_r_max)
+      call gather_all_from_mlo_to_master(aj, workB_global, n_r_max)
 
       if ( l_master_rank ) then
          !--- Write:
@@ -639,8 +644,8 @@ contains
       !-- Now inner core field
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
 
-         call gather_all_from_lo_to_rank0(gt_IC, b_ic, workA_global)
-         call gather_all_from_lo_to_rank0(gt_IC, aj_ic, workB_global)
+         call gather_all_from_mlo_to_master(b_ic, workA_global, n_r_ic_max)
+         call gather_all_from_mlo_to_master(aj_ic, workB_global, n_r_ic_max)
 
          if ( l_master_rank ) then
             write(fileHandle) ( (cmplx( real(workA_global(lm,n_r)),    &

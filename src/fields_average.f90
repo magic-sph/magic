@@ -440,19 +440,19 @@ contains
          !--- Store potentials of averaged field:
          !    dw_ave and db_ave used as work arrays here.
          nPotSets=-1
-         !call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,      &
-         !     &        'V_lmr_ave.',omega_ma,omega_ic)
+         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,      &
+              &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
-         !   call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
-         !        &        'B_lmr_ave.',omega_ma,omega_ic)
+            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
+                 &        'B_lmr_ave.',omega_ma,omega_ic)
          end if
          if ( l_heat ) then
-         !   call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,   &
-         !        &        'T_lmr_ave.',omega_ma,omega_ic)
+            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,   &
+                 &        'T_lmr_ave.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-         !   call write_Pot(time,xi_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
-         !        &        'Xi_lmr_ave.',omega_ma,omega_ic)
+            call write_Pot(time,xi_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
+                 &        'Xi_lmr_ave.',omega_ma,omega_ic)
          end if
 
          if ( l_save_out ) close(n_log_file)
