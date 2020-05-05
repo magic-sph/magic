@@ -6,6 +6,7 @@ module out_coeff
   
    use precision_mod
    use parallel_mod
+   use LMmapping, only: map_glbl_st
    use mem_alloc, only: bytes_allocated
    use logic, only: l_r_field, l_cmb_field, l_save_out, l_average, &
        &            l_cond_ic
@@ -13,10 +14,10 @@ module out_coeff
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
-   use blocking, only: lm2, llm, ulm
+   use blocking, only: llm, ulm
    use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc,    &
-       &                 nRstart, nRstop, nR_per_rank
-   use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
+       &                 nRstart, nRstop, nR_per_rank, n_mlo_loc
+   use communications, only: gather_from_mlo_to_master, gather_all_from_lo_to_rank0,&
        &                     gt_IC, gt_OC
    use output_data, only: tag
    use constants, only: two, half
@@ -27,32 +28,14 @@ module out_coeff
 
    integer :: fileHandle
 
-   complex(cp), allocatable :: work(:) ! work array for r_field
-
-   public :: write_Bcmb, write_coeff_r, initialize_coeffs, finalize_coeffs, &
-   &         write_Pot
+   public :: write_Bcmb, write_coeff_r, write_Pot
 #ifdef WITH_MPI
    public :: write_Pot_mpi
 #endif
 
 contains
 
-   subroutine initialize_coeffs()
-
-      if ( l_r_field .or. l_cmb_field .or. l_average ) then
-         allocate ( work(lm_max) )
-         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-      end if
-
-   end subroutine initialize_coeffs
-!-------------------------------------------------------------------------------
-   subroutine finalize_coeffs()
-
-      if ( l_r_field .or. l_cmb_field .or. l_average ) deallocate( work )
-
-   end subroutine finalize_coeffs
-!-------------------------------------------------------------------------------
-   subroutine write_Bcmb(time,b_LMloc,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
+   subroutine write_Bcmb(time,b,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
       !
       ! Each call of this subroutine writes time and the poloidal magnetic
       ! potential coefficients b at the CMB up to degree and order        
@@ -72,9 +55,9 @@ contains
       !
 
       !-- Input variables:
-      real(cp),         intent(in) :: time             ! Time
-      complex(cp),      intent(in) :: b_LMloc(llm:ulm) ! Poloidal field potential
-      character(len=*), intent(in) :: cmb_file         ! Name of output file
+      real(cp),         intent(in) :: time         ! Time
+      complex(cp),      intent(in) :: b(n_mlo_loc) ! Poloidal field potential
+      character(len=*), intent(in) :: cmb_file     ! Name of output file
 
       !-- Output variables:
       integer, intent(inout) :: n_cmb_file    ! Output unit for $cmb_file
@@ -83,6 +66,7 @@ contains
       ! should be set to zero before first call
 
       !-- Local variables:
+      complex(cp) :: work(lm_max)
       integer :: n,n_out        ! counters
       integer :: l,m            ! degree and order
       integer :: lm             ! position of (l,m) in b(*,n_r_cmb)
@@ -93,7 +77,7 @@ contains
 
       real(cp), allocatable ::  output(:) ! Output array
 
-      call gather_from_lo_to_rank0(b_LMloc, work)
+      call gather_from_mlo_to_master(b, work)
 
       if ( l_master_rank ) then
 
@@ -129,7 +113,7 @@ contains
 
          !--- Axisymmetric part: (m=0) only real part stored
          do l=1,l_max_cmb
-            lm=lm2(l,0)
+            lm=map_glbl_st%lm2(l,0)
             n_out=n_out+1
             output(n_out)=real(work(lm))
          end do
@@ -137,7 +121,7 @@ contains
          !--- Non-axisymmetric part: store real and imag part
          do m=minc,l_max_cmb,minc
             do l=m,l_max_cmb
-               lm=lm2(l,m)
+               lm=map_glbl_st%lm2(l,m)
                n_out=n_out+1
                output(n_out)=real(work(lm))
                n_out=n_out+1
@@ -159,8 +143,7 @@ contains
 
    end subroutine write_Bcmb
 !----------------------------------------------------------------------
-   subroutine write_coeff_r(time,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,r,  &
-              &             l_max_r,n_sets,file,n_file,nVBS)
+   subroutine write_coeff_r(time,w,dw,ddw,z,r,l_max_r,n_sets,file,n_file,nVBS)
       !
       ! Each call of this subroutine writes time and the poloidal and     
       ! toroidal coeffitients w,dw,z at a specific radius up to degree    
@@ -191,14 +174,14 @@ contains
       !                                                                   
 
       !-- Input variables:
-      real(cp),         intent(in) :: r                 ! radius of coeffs
-      real(cp),         intent(in) :: time              ! Time
-      complex(cp),      intent(in) :: w_LMloc(llm:ulm)  ! Poloidal field potential
-      complex(cp),      intent(in) :: dw_LMloc(llm:ulm) ! dr of Poloidal field potential
-      complex(cp),      intent(in) :: ddw_LMloc(llm:ulm)! dr^2 of Poloidal field potential
-      complex(cp),      intent(in) :: z_LMloc(llm:ulm)   ! Toroidal field potential
-      character(len=*), intent(in) :: file         ! Name of output file
-      integer,          intent(in) :: nVBS         ! True if output is flow
+      real(cp),         intent(in) :: r              ! radius of coeffs
+      real(cp),         intent(in) :: time           ! Time
+      complex(cp),      intent(in) :: w(n_mlo_loc)   ! Poloidal field potential
+      complex(cp),      intent(in) :: dw(n_mlo_loc)  ! dr of Poloidal field potential
+      complex(cp),      intent(in) :: ddw(n_mlo_loc) ! dr^2 of Poloidal field potential
+      complex(cp),      intent(in) :: z(n_mlo_loc)   ! Toroidal field potential
+      character(len=*), intent(in) :: file           ! Name of output file
+      integer,          intent(in) :: nVBS           ! True if output is flow
 
       !-- Output:
       integer, intent(inout) :: n_file      ! Output unit for $file
@@ -207,6 +190,7 @@ contains
       ! should be set to zero before first call
 
       !-- Local variables:
+      complex(cp) :: work(lm_max)
       integer :: n,n_out        ! counter
       integer :: l,m            ! degree and order
       integer :: lm             ! position of (l,m) in v(*),..
@@ -225,7 +209,7 @@ contains
       &        l_max_r-m_max_r+1
       n_data=2*lm_max_r-l_max_r-2
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          if ( nVBS == 1 ) then
             allocate(output(3*n_data))
          else if ( nVBS == 2 ) then
@@ -241,13 +225,13 @@ contains
       !--- Write b(*) into output array output(*):
       n_out=0
 
-      call gather_from_lo_to_rank0(w_LMloc, work)
+      call gather_from_mlo_to_master(w, work)
 
-      if ( coord_r == 0 ) then
+      if ( l_master_rank ) then
          if ( nVBS == 3 ) then
             !--- Axisymmetric part of s: (m=0) only real part stored
             do l=0,l_max ! start with l=0
-               lm=lm2(l,0)
+               lm=map_glbl_st%lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
                   output(n_out)=real(work(lm))
@@ -256,7 +240,7 @@ contains
          else
             !--- Axisymmetric part of w: (m=0) only real part stored
             do l=1,l_max ! start with l=1
-               lm=lm2(l,0)
+               lm=map_glbl_st%lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
                   output(n_out)=real(work(lm))
@@ -267,7 +251,7 @@ contains
          !--- Non-axisymmetric part of w: store real and imag part
          do m=minc,l_max_r,minc
             do l=m,l_max
-               lm=lm2(l,m)
+               lm=map_glbl_st%lm2(l,m)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
                   output(n_out)=real(work(lm))
@@ -280,13 +264,13 @@ contains
 
       if ( nVBS /= 3 ) then
 
-         call gather_from_lo_to_rank0(dw_LMloc, work)
+         call gather_from_mlo_to_master(dw, work)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             !-- Now output for flow or magnetic field only:
             !--- Axisymmetric part of dw: (m=0) only real part stored
             do l=1,l_max
-               lm=lm2(l,0)
+               lm=map_glbl_st%lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
                   output(n_out)=real(work(lm))
@@ -295,7 +279,7 @@ contains
             !--- Non-axisymmetric part of dv: store real and imag part
             do m=minc,l_max_r,minc
                do l=m,l_max
-                  lm=lm2(l,m)
+                  lm=map_glbl_st%lm2(l,m)
                   if ( l <= l_max_r ) then
                      n_out=n_out+1
                      output(n_out)=real(work(lm))
@@ -306,12 +290,12 @@ contains
             end do
          end if
 
-         call gather_from_lo_to_rank0(z_LMloc, work)
+         call gather_from_mlo_to_master(z, work)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             !--- Axisymmetric part of z: (m=0) only real part stored
             do l=1,l_max
-               lm=lm2(l,0)
+               lm=map_glbl_st%lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
                   output(n_out)=real(work(lm))
@@ -320,7 +304,7 @@ contains
             !--- Non-axisymmetric part of z: store real and imag part
             do m=minc,l_max_r,minc
                do l=m,l_max
-                  lm=lm2(l,m)
+                  lm=map_glbl_st%lm2(l,m)
                   if ( l <= l_max_r ) then
                      n_out=n_out+1
                      output(n_out)=real(work(lm))
@@ -336,12 +320,12 @@ contains
       !    of the poloidal potential to caluclate diffusion:
       if ( nVBS == 2 ) then
 
-         call gather_from_lo_to_rank0(ddw_LMloc, work)
+         call gather_from_mlo_to_master(ddw, work)
 
-         if ( coord_r == 0 ) then
+         if ( l_master_rank ) then
             !--- Axisymmetric part of ddw: (m=0) only real part stored
             do l=1,l_max
-               lm=lm2(l,0)
+               lm=map_glbl_st%lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
                   output(n_out)=real(work(lm))
@@ -350,7 +334,7 @@ contains
             !--- Non-axisymmetric part of ddw: store real and imag part
             do m=minc,l_max_r,minc
                do l=m,l_max
-                  lm=lm2(l,m)
+                  lm=map_glbl_st%lm2(l,m)
                   if ( l <= l_max_r ) then
                      n_out=n_out+1
                      output(n_out)=real(work(lm))
@@ -374,7 +358,6 @@ contains
          if ( n_sets == 1 ) then
             write(n_file) l_max_r,minc,n_data,r
          end if
-
 
          !--- Finally write output array output(*) into file:
          write(n_file) time,(output(n),n=1,n_out)

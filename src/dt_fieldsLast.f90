@@ -66,8 +66,6 @@ module fieldsLast
    complex(cp), public, pointer :: dVSrLM_LMloc(:,:,:), dVXirLM_LMloc(:,:,:)
    complex(cp), public, pointer :: dVxVhLM_LMloc(:,:,:), dVxBhLM_LMloc(:,:,:)
 
-   complex(cp), public, allocatable :: dbdt_CMB_LMloc(:)
-
    ! The same arrays, but now the LM local part
    complex(cp), public, allocatable, target  :: dflowdt_LMdist_container(:,:,:,:)
    complex(cp), public, allocatable, target  :: dsdt_LMdist_container(:,:,:,:)
@@ -308,11 +306,6 @@ contains
       if ( l_double_curl ) dVxVhLM_LMloc(:,:,:)=zero
       if ( l_chemical_conv ) dVXirLM_LMloc(:,:,:)=zero
 
-      ! Only when l_dt_cmb_field is requested
-      ! There might be a way to allocate only when needed
-      allocate ( dbdt_CMB_LMloc(llmMag:ulmMag) )
-      bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
-
       ! The same arrays, but now the LM local part
       if ( l_double_curl ) then
          allocate(dflowdt_LMdist_container(1:n_mlo_loc,n_r_max,1:4,1:nexp))
@@ -378,11 +371,11 @@ contains
       deallocate( dflowdt_Rdist_container, dsdt_Rdist_container )
       deallocate( dbdt_Rloc_container, dflowdt_LMloc_container )
       deallocate( dsdt_LMloc_container, dbdt_LMloc_container )
-      deallocate( dbdt_CMB_LMloc )
+      deallocate( dbdt_CMB_LMdist )
       deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
       deallocate( dbdt_Rdist_container, dxidt_Rdist_container )
 
-      deallocate( dflowdt_LMdist_container, dbdt_CMB_LMdist )
+      deallocate( dflowdt_LMdist_container )
       deallocate( dsdt_LMdist_container, dbdt_LMdist_container )
       deallocate( dxidt_LMdist_container )
 

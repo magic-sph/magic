@@ -6,9 +6,9 @@ module omega
 
    use precision_mod
    use parallel_mod
-   use truncation, only: n_r_max, lm_max, l_max, minc
+   use truncation, only: n_r_max, l_max, minc, n_mlo_loc
    use radial_functions, only: r_CMB, r_ICB, rscheme_oc, orho1
-   use blocking, only: lo_map, llm, ulm
+   use LMmapping, only: map_mlo
    use logic, only: lVerbose
    use output_data, only: tag
    use plms_theta, only: plm_theta
@@ -34,7 +34,7 @@ contains
       !
 
       !-- Input variables:
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(n_mlo_loc,n_r_max)
       real(cp),    intent(in) :: omega_IC
               
       !-- Local stuff:
@@ -47,7 +47,7 @@ contains
       real(cp) ::  sZ,zZ,dsZ
       real(cp) :: rZ,thetaZ
       real(cp) :: VpS,omega(2)
-      real(cp) :: workA(lm_max,n_r_max) ! work array
+      real(cp) :: workA(l_max+1,n_r_max) ! work array
 
       integer :: fileHandle
       character(len=64) :: fileName
@@ -60,14 +60,15 @@ contains
       !--- Transform to lm-space for all radial grid points:
       do nR=1,n_r_max
          dzVpLMr_loc(:,nR)=0.0_cp
-         do lm=llm,ulm
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            if ( l == 0 ) cycle
+            m=map_mlo%i2m(lm)
             if ( m == 0 ) dzVpLMr_loc(l+1,nR)=orho1(nR)*real(z(lm,nR))
          end do
 #ifdef WITH_MPI
          call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVpLMr(:,nR), l_max+1, &
-              &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
+              &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
 #else
          dzVpLMr(:,nR)=dzVpLMr_loc(:,nR)
 #endif
@@ -98,7 +99,7 @@ contains
 
                  !------ Get the function values for (sZ,zCy)
                VpS=lnPAS2tr(dzVpLMr,l_max+1,r_ICB,r_CMB, &
-                            l_max,minc,n_r_max,thetaZ,rZ)
+                   &        l_max,minc,n_r_max,thetaZ,rZ)
                omega(nNS)=VpS/(rZ*sin(thetaZ))/omega_IC
 
             end do inner ! Loop over north and south hemisphere

@@ -6,14 +6,13 @@ module output_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max, nRstart, nRstop,        &
        &                 nRstartMag, nRstopMag, n_r_cmb, n_r_icb,    &
-       &                 n_mlo_loc
+       &                 n_mlo_loc, n_mloMag_loc
    use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb,  &
        &                       orho1, sigma
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use LMmapping, only : map_mlo
-   use num_param, only: tScale,eScale
-   use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
-   use horizontal_data, only: dLh,hdif_B,dPl0Eq
+   use num_param, only: tScale, eScale
+   use horizontal_data, only: dPl0Eq, hdif_B
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_SRIC,           &
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
@@ -319,7 +318,7 @@ contains
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
-              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
+              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMdist, &
               &      HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr,viscASr,  &
               &      uhASr,duhASr,gradsASr,fconvASr,fkinASr,fviscASr,     &
               &      fpoynASr,fresASr,EperpASr,EparASr,EperpaxiASr,EparaxiASr)
@@ -388,21 +387,16 @@ contains
       real(cp),    intent(inout) :: EperpaxiASr(nRstart:nRstop)
       real(cp),    intent(inout) :: EparaxiASr(nRstart:nRstop)
 
-      complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
+      complex(cp), intent(in) :: dbdt_CMB_LMdist(n_mloMag_loc)
 
       !--- Local stuff:
       !--- Energies:
       real(cp) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(cp) :: e_mag,e_mag_ic,e_mag_cmb
-      real(cp) :: e_mag_p,e_mag_t
-      real(cp) :: e_mag_p_as,e_mag_t_as
-      real(cp) :: e_mag_p_ic,e_mag_t_ic
-      real(cp) :: e_mag_p_as_ic,e_mag_t_as_ic
-      real(cp) :: e_mag_os,e_mag_as_os
-      real(cp) :: e_kin,e_kin_p,e_kin_t
-      real(cp) :: e_kin_p_as,e_kin_t_as
-      real(cp) :: eKinIC,eKinMA
-      real(cp) :: dtE
+      real(cp) :: e_mag,e_mag_ic,e_mag_cmb,e_mag_p,e_mag_t
+      real(cp) :: e_mag_p_as,e_mag_t_as,e_mag_p_ic,e_mag_t_ic
+      real(cp) :: e_mag_p_as_ic,e_mag_t_as_ic,e_mag_os,e_mag_as_os
+      real(cp) :: e_kin,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as
+      real(cp) :: eKinIC,eKinMA,dtE
 
       integer :: nR,lm,n,m
 
@@ -410,16 +404,14 @@ contains
       logical :: lTOrms
 
       !--- Property parameters:
-      complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
+      complex(cp) :: dbdtCMB(n_mloMag_loc)        ! SV at CMB !
       real(cp) :: volume,EC
       real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
       real(cp) :: RolRu2(n_r_max),RmR(n_r_max),dlPolPeakR(n_r_max)
       real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,GeosNAP
-      real(cp) :: Dip,DipCMB
-      real(cp) :: ReConv,RoConv,e_kin_nas,RolC
+      real(cp) :: Dip,DipCMB,ReConv,RoConv,e_kin_nas,RolC
       real(cp) :: elsAnel,dlVPolPeak,dlBPolPeak
-      real(cp) :: dlB,dlBc,dmB
-      real(cp) :: dlV,dlVc,dmV,dpV,dzV
+      real(cp) :: dlB,dlBc,dmB,dLh,dlV,dlVc,dmV,dpV,dzV
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
       integer :: l
       real(cp) :: ReEquat
@@ -431,7 +423,7 @@ contains
       timePassedLog=timePassedLog+tscheme%dt(1)
 
       !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      if ( l_log .or. lTOCalc .or. l_cmb .or. l_r .or. l_pot .or. &
+      if ( (l_log .and. l_par) .or. lTOCalc .or. l_pot .or. &
       &    l_frame .or. (l_SRIC .and. l_stop_time ) ) then
          call transform_new2old(w_LMdist, w_LMloc, n_r_max)
          call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
@@ -747,20 +739,19 @@ contains
       !--- Store poloidal magnetic coeffs at cmb
       if ( l_cmb ) then
          PERFON('out_cmb')
-         call write_Bcmb(timeScaled,b_LMloc(:,n_r_cmb),l_max_cmb,n_cmb_sets,   &
+         call write_Bcmb(timeScaled,b_LMdist(:,n_r_cmb),l_max_cmb,n_cmb_sets,   &
               &          cmb_file,n_cmb_file)
 
          !--- Store SV of poloidal magnetic coeffs at cmb
          if ( l_dt_cmb_field ) then
-            !nR=8! at CMB dbdt=induction=0, only diffusion !
-            !do lm=max(2,llm),ulm
-            do lm=max(2,llm),ulm
-               l=lo_map%lm2l(lm)
-               m=lo_map%lm2m(lm)
-               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                    &
-               &         (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
-               &         + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
-               &           dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
+            do lm=1,n_mloMag_loc
+               l=map_mlo%i2l(lm)
+               if ( l == 0 ) cycle
+               m=map_mlo%i2m(lm)
+               dLh = real(l*(l+1),cp)
+               dbdtCMB(lm)= dbdt_CMB_LMdist(lm)/(dLh*or2(n_r_cmb))    &
+               &         + opm*hdif_B(l) * ( ddb_LMdist(lm,n_r_cmb) - &
+               &           dLh*or2(n_r_cmb)*   b_LMdist(lm,n_r_cmb) )
             end do
 
             call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &
@@ -770,7 +761,7 @@ contains
       end if
 
       if ( l_frame .and. l_cmb_field ) then
-         call write_Bcmb(timeScaled,b_LMloc(:,n_r_cmb),l_max_cmb,   &
+         call write_Bcmb(timeScaled,b_LMdist(:,n_r_cmb),l_max_cmb,   &
               &          n_cmb_setsMov,cmbMov_file,n_cmbMov_file)
       end if
 
@@ -779,19 +770,19 @@ contains
          PERFON('out_r')
          do n=1,n_coeff_r_max
             nR=n_coeff_r(n)
-            call write_coeff_r(timeScaled,w_LMloc(:,nR),dw_LMloc(:,nR),  &
-                 &             ddw_LMloc(:,nR),z_LMloc(:,nR),r(nR),      &
-                 &             l_max_r,n_v_r_sets(n),v_r_file(n),        &
+            call write_coeff_r(timeScaled,w_LMdist(:,nR),dw_LMdist(:,nR),  &
+                 &             ddw_LMdist(:,nR),z_LMdist(:,nR),r(nR),      &
+                 &             l_max_r,n_v_r_sets(n),v_r_file(n),          &
                  &             n_v_r_file(n),1)
-            if ( l_mag )                                                   &
-               call write_coeff_r(timeScaled,b_LMloc(:,nR),db_LMloc(:,nR), &
-                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
-                    &             l_max_r,n_b_r_sets(n),b_r_file(n),       &
+            if ( l_mag )                                                     &
+               call write_coeff_r(timeScaled,b_LMdist(:,nR),db_LMdist(:,nR), &
+                    &             ddb_LMdist(:,nR),aj_LMdist(:,nR),r(nR),    &
+                    &             l_max_r,n_b_r_sets(n),b_r_file(n),         &
                     &             n_b_r_file(n),2)
-            if ( l_r_fieldT )                                              &
-               call write_coeff_r(timeScaled,s_LMloc(:,nR),db_LMloc(:,nR), &
-                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
-                    &             l_max_r,n_T_r_sets(n),T_r_file(n),       &
+            if ( l_r_fieldT )                                                &
+               call write_coeff_r(timeScaled,s_LMdist(:,nR),db_LMdist(:,nR), &
+                    &             ddb_LMdist(:,nR),aj_LMdist(:,nR),r(nR),    &
+                    &             l_max_r,n_T_r_sets(n),T_r_file(n),         &
                     &             n_t_r_file(n),3)
          end do
          PERFOFF
@@ -1185,7 +1176,7 @@ contains
          PERFOFF
       end if
 
-      if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMloc,omega_ic)
+      if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMdist,omega_ic)
 
       if ( l_log ) then
          timePassedLog=0.0_cp

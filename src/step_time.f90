@@ -56,7 +56,7 @@ module step_time_mod
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
-   use communications, only: scatter_from_rank0_to_lo, lo2r_field_dist,     &
+   use communications, only: lo2r_field_dist,     &
        &                     lo2r_flow_dist, lo2r_xi_dist,  r2lo_flow_dist, &
        &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist,     &
        &                     lo2r_s_dist, lo2r_press_dist
@@ -610,7 +610,7 @@ contains
                if ( lVerbose ) write(output_unit,*) "! start output"
 
                if ( l_cmb .and. l_dt_cmb_field ) then
-                  call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
+                  dbdt_CMB_LMdist(:)=dbdt_dist%expl(:,n_r_cmb,tscheme%istage)
                end if
 
                if ( lVerbose ) write(output_unit,*) "! start real output"
@@ -619,7 +619,7 @@ contains
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
                     &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                 &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                  &
-                    &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,    &
+                    &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMdist,   &
                     &      HelASr_Rloc,Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc, &
                     &      HelEAASr_Rloc,viscAS_Rloc,uhASr_Rloc,duhASr_Rloc,      &
                     &      gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,fviscASr_Rloc,&
