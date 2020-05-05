@@ -423,7 +423,7 @@ contains
       timePassedLog=timePassedLog+tscheme%dt(1)
 
       !~~~~~~~~~~~~~~~~~~~~~~~ Conversion Loc > Dist ~~~~~~~~~~~~~~~~~~~~~~
-      if ( (l_log .and. l_par) .or. lTOCalc .or. l_pot .or. &
+      if ( (l_log .and. l_par) .or. l_pot .or. &
       &    l_frame .or. (l_SRIC .and. l_stop_time ) ) then
          call transform_new2old(w_LMdist, w_LMloc, n_r_max)
          call transform_new2old(dw_LMdist, dw_LMloc, n_r_max)
@@ -701,7 +701,7 @@ contains
             e_kin=e_kin_p+e_kin_t
          end if
          call outTO(time,n_time_step,e_kin,e_kin_t_as,nTOsets,nTOmovSets, &
-         &          nTOrmsSets,lTOframe,lTOrms,lTOZwrite,z_LMloc,omega_ic,&
+         &          nTOrmsSets,lTOframe,lTOrms,lTOZwrite,z_LMdist,omega_ic,&
          &          omega_ma)
          !------ Note: time averaging, time differencing done by IDL routine!
 

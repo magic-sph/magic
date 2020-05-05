@@ -5,8 +5,8 @@ module outTO_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
-       &                 lm_max, nRstart, nRstop, radial_balance,    &
-       &                 nR_per_rank, load, getBlocks
+       &                 nRstart, nRstop, radial_balance,            &
+       &                 nR_per_rank, load, getBlocks, n_mlo_loc
    use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: BpzAS_Rloc, BspdAS_Rloc, BpsdAS_Rloc, &
@@ -19,7 +19,8 @@ module outTO_mod
        &                             dzddVpLMr_Rloc, dzdVpLMr_Rloc,        &
        &                             dzLFLMr_Rloc, dzStrLMr_Rloc
    use num_param, only: tScale
-   use blocking, only: nThetaBs, sizeThetaB, nfs, lo_map, llm, ulm
+   use LMmapping, only: map_mlo
+   use blocking, only: nThetaBs, sizeThetaB, nfs 
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file
@@ -226,7 +227,7 @@ contains
       integer,          intent(in) :: n_time_step
       real(cp),         intent(in) :: eKin, eKinTAS
       logical,          intent(in) :: lTOmov
-      complex(cp),      intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: z(n_mlo_loc,n_r_max)
       real(cp),         intent(in) :: omega_ic, omega_ma
       integer,          intent(inout) :: nTOsets, nTOmovSets, nTOrmsSets
       logical,          intent(inout) :: lTOrms, lTOZwrite
@@ -430,14 +431,15 @@ contains
 
       do nR=1,n_r_max
          dzVpLMr_loc(:,nR)=0.0_cp
-         do lm=llm,ulm
-            l=lo_map%lm2l(lm)
-            m=lo_map%lm2m(lm)
+         do lm=1,n_mlo_loc
+            l=map_mlo%i2l(lm)
+            if ( l == 0 ) cycle
+            m=map_mlo%i2m(lm)
             if ( m == 0 ) dzVpLMr_loc(l+1,nR)=orho1(nR)*real(z(lm,nR))
          end do
 #ifdef WITH_MPI
          call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVPLMr(:,nR), l_max+1, &
-              &             MPI_DEF_REAL, MPI_SUM, comm_r, ierr)
+              &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
 #else
          dzVPLMr(:,nR)=dzVpLMr_loc(:,nR)
 #endif
