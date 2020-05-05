@@ -560,11 +560,10 @@ contains
          end if
 
          if ( l_average ) then
-            !@> TODO: uncomennt later
-            !call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
-            !     &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
-            !     &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
-            !     &              b_ic_LMloc,aj_ic_LMloc)
+            call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,    &
+                 &              timeNormLog,omega_ic,omega_ma,w_LMdist,z_LMdist, &
+                 &              p_LMdist,s_LMdist,xi_LMdist,b_LMdist,aj_LMdist,  &
+                 &              b_ic_LMdist,aj_ic_LMdist)
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on coord_r ",coord_r
          end if
 
