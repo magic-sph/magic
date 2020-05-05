@@ -11,10 +11,9 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max,&
+   use truncation, only: lm_max, mlo_tsid, n_lm_loc, n_mlo_loc,    &
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
-       &                 n_r_icb, n_r_cmb, n_lmP_loc, n_mlo_loc,   &
-       &                 mlo_tsid
+       &                 n_r_icb, n_r_cmb, n_lmP_loc
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -56,14 +55,13 @@ module step_time_mod
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
-   use communications, only: lo2r_field_dist,     &
+   use communications, only: lo2r_field_dist, lo2r_s_dist, lo2r_press_dist, &
        &                     lo2r_flow_dist, lo2r_xi_dist,  r2lo_flow_dist, &
-       &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist,     &
-       &                     lo2r_s_dist, lo2r_press_dist
+       &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
-   use communications, only: gather_FlmP !@> TODO: DELETE-MEEEEE
+   use communications, only: gather_Flm !@> TODO: DELETE-MEEEEE
 
    implicit none
 
@@ -159,10 +157,6 @@ contains
       real(cp) :: EperpaxiASr_Rloc(nRstart:nRstop), EparaxiASr_Rloc(nRstart:nRstop)
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
-      complex(cp) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
-      complex(cp) :: br_vp_lm_cmb(lmP_max)    ! product br*vp at CMB
-      complex(cp) :: br_vt_lm_icb(lmP_max)    ! product br*vt at ICB
-      complex(cp) :: br_vp_lm_icb(lmP_max)    ! product br*vp at ICB
       complex(cp) :: br_vt_lm_cmb_dist(n_lmP_loc)    ! product br*vt at CMB
       complex(cp) :: br_vp_lm_cmb_dist(n_lmP_loc)    ! product br*vp at CMB
       complex(cp) :: br_vt_lm_icb_dist(n_lmP_loc)    ! product br*vt at ICB
@@ -171,6 +165,9 @@ contains
       complex(cp) :: b_nl_cmb(lm_max)         ! nonlinear bc for b at CMB
       complex(cp) :: aj_nl_cmb(lm_max)        ! nonlinear bc for aj at CMB
       complex(cp) :: aj_nl_icb(lm_max)        ! nonlinear bc for dr aj at ICB
+      complex(cp) :: b_nl_cmb_dist(n_lm_loc)  ! nonlinear bc for b at CMB
+      complex(cp) :: aj_nl_cmb_dist(n_lm_loc) ! nonlinear bc for aj at CMB
+      complex(cp) :: aj_nl_icb_dist(n_lm_loc) ! nonlinear bc for dr aj at ICB
 
       !--- Various stuff for time control:
       real(cp) :: timeLast, timeStage, dtLast
@@ -550,19 +547,14 @@ contains
                !------ Nonlinear magnetic boundary conditions:
                !       For stress-free conducting boundaries
                PERFON('nl_m_bnd')
-               !@> TODO: still gather those or not ???
-               if ( l_b_nl_cmb .or. l_b_nl_icb ) then
-                  call gather_FlmP(br_vt_lm_cmb_dist, br_vt_lm_cmb)
-                  call gather_FlmP(br_vp_lm_cmb_dist, br_vp_lm_cmb)
-                  call gather_FlmP(br_vt_lm_icb_dist, br_vt_lm_icb)
-                  call gather_FlmP(br_vp_lm_icb_dist, br_vp_lm_icb)
-               end if
-               !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                if ( l_b_nl_cmb .and. (nRStart <= n_r_cmb) ) then
+                  call get_b_nl_bcs('CMB', br_vt_lm_cmb_dist,br_vp_lm_cmb_dist,   &
+                       &            b_nl_cmb_dist,aj_nl_cmb_dist)
+                  !@> TODO: still gather those or not ???
+                  call gather_Flm(b_nl_cmb_dist, b_nl_cmb)
+                  call gather_Flm(aj_nl_cmb_dist, aj_nl_cmb)
                   b_nl_cmb(1) =zero
                   aj_nl_cmb(1)=zero
-                  call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
-                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
                end if
                !-- Replace by scatter from rank to lo (and in updateB accordingly)
                if ( l_b_nl_cmb ) then
@@ -572,9 +564,10 @@ contains
 #endif
                end if
                if ( l_b_nl_icb .and. (nRstop >= n_r_icb) ) then
+                  call get_b_nl_bcs('ICB',br_vt_lm_icb_dist,br_vp_lm_icb_dist,    &
+                       &            b_nl_cmb_dist,aj_nl_icb_dist)
+                  call gather_Flm(aj_nl_icb_dist, aj_nl_icb)
                   aj_nl_icb(1)=zero
-                  call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
-                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
                end if
                if ( l_b_nl_icb ) then
 #ifdef WITH_MPI

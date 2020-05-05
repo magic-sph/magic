@@ -2,22 +2,15 @@ module nonlinear_bcs
 
    use iso_fortran_env, only: output_unit
    use precision_mod
-   use truncation, only: nrp, lmP_max, n_phi_max, l_axi, l_max,     &
-       &                 n_r_cmb, n_r_icb, nThetaStart, nThetaStop, &
-       &                 n_lmP_loc
+   use LMmapping, only: map_dist_st
+   use truncation, only: nrp, n_phi_max, l_axi, l_max, n_r_cmb, n_r_icb, &
+       &                 nThetaStart, nThetaStop, n_lmP_loc, n_lm_loc
    use radial_functions, only: r_cmb, r_icb, rho0
-   use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, nfs, &
-       &               sizeThetaB
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
-   use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
-       &                      dLh, sn2, cosTheta
+   use horizontal_data, only: dTheta1S_loc, dTheta1A_loc, dPhi_loc, O_sin_theta, &
+       &                      dLh_loc, sn2, cosTheta
    use constants, only: two
-#ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH, spat_to_SH_dist
-#else
-   use fft, only: fft_thetab
-   use legendre_grid_to_spec, only: legTF2
-#endif
+   use shtns, only: spat_to_SH_dist
    use useful, only: abortRun
 
    implicit none
@@ -53,26 +46,19 @@ contains
       real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
       real(cp), intent(in) :: O_r_E_2        ! 1/r**2
       real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
-!       integer,  intent(in) :: n_theta_min    ! start of theta block
-!       integer,  intent(in) :: n_theta_block  ! size of theta_block
 
       !-- Output variables:
-      ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(n_lmP_loc)
-      ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(n_lmP_loc)
+      complex(cp), intent(inout) :: br_vt_lm(n_lmP_loc) ! br*vt/(sin(theta)**2*r**2)
+      complex(cp), intent(inout) :: br_vp_lm(n_lmP_loc) ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
 
       !-- Local variables:
       integer :: n_theta      ! number of theta position
-      integer :: n_phi       ! number of longitude
+      integer :: n_phi        ! number of longitude
       real(cp) :: br_vt(nrp,nThetaStart:nThetaStop)
       real(cp) :: br_vp(nrp,nThetaStart:nThetaStop)
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
 
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP& private(n_phi,fac,n_theta)
-#endif
+      !$omp parallel do default(shared) private(n_phi,fac,n_theta)
       do n_theta=nThetaStart,nThetaStop
          fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
 
@@ -83,30 +69,15 @@ contains
             &                        ( fac*vp(n_phi,n_theta) - omega )
          end do
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
-
+      !$omp end parallel do
 
       !-- Fourier transform phi 2 m (real 2 complex!)
-#ifdef WITH_SHTNS
       call spat_to_SH_dist(br_vt, br_vt_lm, l_max)
       call spat_to_SH_dist(br_vp, br_vp_lm, l_max)
-#else
-      print *, "PANIC, NOT PORTED!!", __FILE__, __LINE__
-      if ( .not. l_axi ) then
-         call fft_thetab(br_vt, -1)
-         call fft_thetab(br_vp, -1)
-      end if
-
-
-      !-- Legendre transform contribution of thetas in block:
-      call legTF2(nThetaStart,br_vt_lm,br_vp_lm,br_vt,br_vp)
-#endif
 
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------
-   subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
+   subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,b_nl_bc,aj_nl_bc)
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
       !  of the magnetic boundary condition for a conducting mantle in
@@ -121,13 +92,12 @@ contains
 
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
-      integer,          intent(in) :: lm_min_b,lm_max_b  ! limits of lm-block
-      complex(cp),      intent(in) :: br_vt_lm(lmP_max)  ! [br*vt/(r**2*sin(theta)**2)]
-      complex(cp),      intent(in) :: br_vp_lm(lmP_max)  ! [br*vp/(r**2*sin(theta)**2)
+      complex(cp),      intent(in) :: br_vt_lm(n_lmP_loc)  ! [br*vt/(r**2*sin(theta)**2)]
+      complex(cp),      intent(in) :: br_vp_lm(n_lmP_loc)  ! [br*vp/(r**2*sin(theta)**2)
 
       !-- Output variables:
-      complex(cp), intent(out) :: b_nl_bc(lm_min_b:lm_max_b)  ! nonlinear bc for b
-      complex(cp), intent(out) :: aj_nl_bc(lm_min_b:lm_max_b) ! nonlinear bc for aj
+      complex(cp), intent(out) :: b_nl_bc(n_lm_loc)  ! nonlinear bc for b
+      complex(cp), intent(out) :: aj_nl_bc(n_lm_loc) ! nonlinear bc for aj
 
       !-- Local variables:
       integer :: l,m       ! degree and order
@@ -140,46 +110,51 @@ contains
 
          fac=conductance_ma*prmag
 
-         do lm=lm_min_b,lm_max_b
-            l   =lm2l(lm)
-            m   =lm2m(lm)
-            lmP =lm2lmP(lm)
-            lmPS=lmP2lmPS(lmP)
-            lmPA=lmP2lmPA(lmP)
+         !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS,lmPA)
+         do lm=1,n_lm_loc
+            l   =map_dist_st%lm2l(lm)
+            if ( l == 0 ) cycle
+            m   =map_dist_st%lm2m(lm)
+            lmP =map_dist_st%lm2lmP(lm)
+            lmPS=map_dist_st%lmP2lmPS(lmP)
+            lmPA=map_dist_st%lmP2lmPA(lmP)
             if ( l > m ) then
-               b_nl_bc(lm)= fac/dLh(lm) * (  dTheta1S(lm)*br_vt_lm(lmPS)  &
-               &                           - dTheta1A(lm)*br_vt_lm(lmPA)  &
-               &                           +     dPhi(lm)*br_vp_lm(lmP)   )
-               aj_nl_bc(lm)=-fac/dLh(lm) * ( dTheta1S(lm)*br_vp_lm(lmPS)  &
-               &                           - dTheta1A(lm)*br_vp_lm(lmPA)  &
-               &                           -     dPhi(lm)*br_vt_lm(lmP)    )
+               b_nl_bc(lm)= fac/dLh_loc(lm) * (  dTheta1S_loc(lm)*br_vt_lm(lmPS)  &
+               &                               - dTheta1A_loc(lm)*br_vt_lm(lmPA)  &
+               &                               +     dPhi_loc(lm)*br_vp_lm(lmP)   )
+               aj_nl_bc(lm)=-fac/dLh_loc(lm) * ( dTheta1S_loc(lm)*br_vp_lm(lmPS)  &
+               &                               - dTheta1A_loc(lm)*br_vp_lm(lmPA)  &
+               &                               -     dPhi_loc(lm)*br_vt_lm(lmP)    )
             else if ( l == m ) then
-               b_nl_bc(lm)= fac/dLh(lm) * ( - dTheta1A(lm)*br_vt_lm(lmPA)  &
-               &                                + dPhi(lm)*br_vp_lm(lmP)   )
-               aj_nl_bc(lm)=-fac/dLh(lm) * ( - dTheta1A(lm)*br_vp_lm(lmPA) &
-               &                                 - dPhi(lm)*br_vt_lm(lmP)   )
+               b_nl_bc(lm)= fac/dLh_loc(lm) * ( - dTheta1A_loc(lm)*br_vt_lm(lmPA)  &
+               &                                    + dPhi_loc(lm)*br_vp_lm(lmP)   )
+               aj_nl_bc(lm)=-fac/dLh_loc(lm) * ( - dTheta1A_loc(lm)*br_vp_lm(lmPA) &
+               &                                     - dPhi_loc(lm)*br_vt_lm(lmP)   )
             end if
          end do
+         !$omp end parallel do
 
       else if ( bc == 'ICB' ) then
 
          fac=sigma_ratio*prmag
-
-         do lm=lm_min_b,lm_max_b
-            l   =lm2l(lm)
-            m   =lm2m(lm)
-            lmP =lm2lmP(lm)
-            lmPS=lmP2lmPS(lmP)
-            lmPA=lmP2lmPA(lmP)
+         !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS,lmPA)
+         do lm=1,n_lm_loc
+            l   =map_dist_st%lm2l(lm)
+            if ( l == 0 ) cycle
+            m   =map_dist_st%lm2m(lm)
+            lmP =map_dist_st%lm2lmP(lm)
+            lmPS=map_dist_st%lmP2lmPS(lmP)
+            lmPA=map_dist_st%lmP2lmPA(lmP)
             if ( l > m ) then
-               aj_nl_bc(lm)=-fac/dLh(lm) * ( dTheta1S(lm)*br_vp_lm(lmPS)   &
-               &                           - dTheta1A(lm)*br_vp_lm(lmPA)   &
-               &                           -     dPhi(lm)*br_vt_lm(lmP)    )
+               aj_nl_bc(lm)=-fac/dLh_loc(lm) * ( dTheta1S_loc(lm)*br_vp_lm(lmPS)   &
+               &                               - dTheta1A_loc(lm)*br_vp_lm(lmPA)   &
+               &                               -     dPhi_loc(lm)*br_vt_lm(lmP)    )
             else if ( l == m ) then
-               aj_nl_bc(lm)=-fac/dLh(lm) * (- dTheta1A(lm)*br_vp_lm(lmPA) &
-               &                                - dPhi(lm)*br_vt_lm(lmP)    )
+               aj_nl_bc(lm)=-fac/dLh_loc(lm) * (- dTheta1A_loc(lm)*br_vp_lm(lmPA) &
+               &                                    - dPhi_loc(lm)*br_vt_lm(lmP)    )
             end if
          end do
+         !$omp end parallel do
 
       else
          call abortRun('Wrong input of bc into get_b_nl_bcs')
@@ -220,7 +195,6 @@ contains
       integer :: nTheta,nThetaNHS
       integer :: nPhi
 
-
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
       else if ( nR == n_r_icb ) then
@@ -232,16 +206,13 @@ contains
          return
       end if
 
+      !$omp parallel do default(shared) private(nTheta,nThetaNHS,nPhi)
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
          do nPhi=1,n_phi_max
-
-               vrr(nPhi,nTheta)=0.0_cp
-
-               vtr(nPhi,nTheta)=0.0_cp
-
-               vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
-
+            vrr(nPhi,nTheta)=0.0_cp
+            vtr(nPhi,nTheta)=0.0_cp
+            vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
             if ( lDeriv ) then
                cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
                dvrdtr(nPhi,nTheta)=0.0_cp
@@ -251,6 +222,8 @@ contains
             end if
          end do
       end do
+      !$omp end parallel do
+
    end subroutine v_rigid_boundary
 !-------------------------------------------------------------------------
 end module nonlinear_bcs
