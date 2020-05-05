@@ -3,12 +3,12 @@ module chebyshev
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use constants, only: half, one, two, three, four, pi
-   use blocking, only: llm, ulm
    use radial_scheme, only: type_rscheme
    use useful, only: factorise
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd, only: costf_odd_t
    use num_param, only: map_function
+   use truncation, only: n_mlo_loc
 
    implicit none
 
@@ -72,8 +72,8 @@ contains
       allocate( this%r_cheb(n_r_max) )
       bytes_allocated=bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 
-      allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
-      bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+      allocate( this%work_costf(n_mlo_loc,n_r_max) )
+      bytes_allocated=bytes_allocated+n_r_max*n_mlo_loc*SIZEOF_DEF_COMPLEX
 
       allocate( this%dr_top(n_r_max,1), this%dr_bot(n_r_max,1) )
       bytes_allocated=bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL

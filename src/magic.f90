@@ -98,7 +98,7 @@ program magic
    use torsional_oscillations
    use init_fields
    use special, only: initialize_Grenoble, finalize_Grenoble
-   use blocking, only: initialize_blocking, finalize_blocking, llm, ulm
+   use blocking, only: initialize_blocking, finalize_blocking
    use timing, only: timer_type
    use horizontal_data
    use logic
@@ -308,7 +308,7 @@ program magic
    call initialize_step_time()
    call initialize_communications()
 
-   call initialize_der_arrays(n_r_max,llm,ulm)
+   call initialize_der_arrays(n_r_max,n_mlo_loc)
 
    !-- Array allocation for I/O
    local_bytes_used=bytes_allocated

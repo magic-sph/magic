@@ -6,13 +6,11 @@ module init_fields
    use precision_mod
    use iso_fortran_env, only: output_unit
    use parallel_mod
-   use mpi_ptop_mod, only: type_mpiptop
-   use mpi_transp, only: type_mpitransp
-   use communications, only: gather_FLMP, gather_Flm
-   use mpi_thetap_mod, only:  transform_old2new !@> TODO: remove !!!!!!!!!!!
+   use mpi_thetap_mod, only: type_mpisendrecv
+   use communications, only: gather_FLMP
    use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
-       &                 minc,n_cheb_ic_max,lm_max, n_r_icb,    &
+       &                 minc,n_cheb_ic_max,lm_max, n_r_icb,          &
        &                 n_r_cmb, nRstart, nRstop, nThetaStart,       &
        &                 nThetaStop, n_lmP_loc, n_mlo_loc, n_lm_loc,  &
        &                 n_mloMag_loc, mlo_tsid
@@ -141,28 +139,21 @@ contains
       ! Because s is needed for dwdt init_s has to be called before.
       !
 
-      use blocking, only: llm, ulm !@> remove it once z_LMloc is gone
-
       !-- Output variables
       complex(cp), intent(inout) :: w_LMdist(n_mlo_loc,n_r_max)
       complex(cp), intent(inout) :: z_LMdist(n_mlo_loc,n_r_max)
       real(cp), intent(out) :: omega_ic,omega_ma
 
       !-- Local variables
-      complex(cp) :: z_Rloc(lm_max,nRstart:nRstop) !@> TODO: remove it
-      complex(cp) :: z_LMloc(llm:ulm,n_r_max)      !@> TODO: remove it
       complex(cp) :: z_Rdist(n_lm_loc,nRstart:nRstop) 
       integer :: lm, l, m, n, st_lmP, l1m0, lm_maybe_skip_first
       integer :: nR, n_th, n_phi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
-      class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
+      type(type_mpisendrecv) :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nrp,nThetaStart:nThetaStop)
       complex(cp) :: omeLM(n_lmP_loc)
-
-      allocate( type_mpiptop :: r2lo_initv )
-      allocate( type_mpiptop :: lo2r_initv )
 
       !-- Initialize rotation according to
       !   given inner core and mantel rotation rate:
@@ -172,7 +163,7 @@ contains
          call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
-         call lo2r_initv%transp_lm2r(z_LMdist, z_Rloc)
+         call lo2r_initv%transp_lm2r_dist(z_LMdist, z_Rdist)
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -216,11 +207,7 @@ contains
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
-         !@> TODO: use directly the new transposes here!
-         call gather_Flm(z_Rdist, z_Rloc)
-         call r2lo_initv%transp_r2lm(z_Rloc, z_LMloc)
-         call transform_old2new(z_LMloc, z_LMdist, n_r_max)
-         !--------------------------------------------
+         call r2lo_initv%transp_r2lm_dist(z_Rdist, z_LMdist)
 
          !-- Destroy MPI communicators
          call r2lo_initv%destroy_comm()
@@ -232,7 +219,7 @@ contains
          call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
-         call lo2r_initv%transp_lm2r(z_LMdist, z_Rloc)
+         call lo2r_initv%transp_lm2r_dist(z_LMdist, z_Rdist)
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -273,11 +260,7 @@ contains
 
          end do ! close loop over radial grid points
 
-         !@> TODO: use directly the new transposes here!
-         call gather_Flm(z_Rdist, z_Rloc)
-         call r2lo_initv%transp_r2lm(z_Rloc, z_LMloc)
-         call transform_old2new(z_LMloc, z_LMdist, n_r_max)
-         !--------------------------------------------
+         call r2lo_initv%transp_r2lm(z_Rdist, z_LMdist)
 
          !-- Destroy MPI communicators
          call r2lo_initv%destroy_comm()
@@ -301,19 +284,17 @@ contains
             !write(output_unit,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
             do lm=1,n_mlo_loc
                l=map_mlo%i2l(lm)
+               if ( l == 0 ) cycle
                m=map_mlo%i2m(lm)
-               if ( l /= 0 ) then
-                  ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
-                  ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
-                  c_r=ra1*rDep(nR)
-                  c_i=ra2*rDep(nR)
-                  if ( m == 0 ) then  ! Axisymmetric modes
-                     z_LMdist(lm,nR)=z_LMdist(lm,nR)+cmplx(c_r,0.0_cp,kind=cp)
-                  else
-                     z_LMdist(lm,nR)=z_LMdist(lm,nR)+cmplx(c_r,c_i,kind=cp)
-                  end if
+               ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
+               ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
+               c_r=ra1*rDep(nR)
+               c_i=ra2*rDep(nR)
+               if ( m == 0 ) then  ! Axisymmetric modes
+                  z_LMdist(lm,nR)=z_LMdist(lm,nR)+cmplx(c_r,0.0_cp,kind=cp)
+               else
+                  z_LMdist(lm,nR)=z_LMdist(lm,nR)+cmplx(c_r,c_i,kind=cp)
                end if
-               write(output_unit,"(A,4I4,2ES20.12)") "z = ",nR,lm,l,m,z_LMdist(lm,nR)
             end do
          end do
 
@@ -332,6 +313,7 @@ contains
             rDep(nR)=-amp_r*sin( (r(nR)-r_ICB)*PI )
             do lm=1,n_mlo_loc
                l=map_mlo%i2l(lm)
+               if ( l == 0 ) cycle
                m=map_mlo%i2m(lm)
                ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(-init_v1-1)
                ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(-init_v1-1)
@@ -385,10 +367,8 @@ contains
          end if
 
 #ifdef WITH_MPI
-         !@> TODO: is it clear enough than the rank with l1m0 should broadcast
-         ! it
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,mlo_tsid(0,1),comm_r,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,mlo_tsid(0,1),comm_r,ierr)
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
 #endif
 
       else
@@ -445,7 +425,6 @@ contains
       real(cp) :: sCMB(nrp,nThetaStart:nThetaStop)
       complex(cp) :: sLMP_loc(n_lmP_loc), sLMP(lmP_max)
       integer :: info,i,j,l1,m1,filehandle, lm_00_map_dist_st
-      integer :: rank_with_l0m0
       logical :: rank_has_l0m0
 
       lm00=map_mlo%ml2i(0,0)
@@ -587,9 +566,7 @@ contains
 
       !-- Now care for the prescribed boundary condition:
 
-      if ( minc /= 1 ) then
-         call abortRun('! impS doesnt work for minc /= 1')
-      end if
+      if ( minc /= 1 ) call abortRun('! impS doesnt work for minc /= 1')
 
       if ( abs(impS) == 1 ) then
          n_impS=2
@@ -675,9 +652,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      !@> TODO ask Rafael how to handle it properly here???
-      rank_with_l0m0=0
-      call MPI_Bcast(s00, 1, MPI_DEF_REAL, rank_with_l0m0, comm_theta, ierr)
+      call MPI_Bcast(s00, 1, MPI_DEF_REAL, mlo_tsid(0,0), MPI_COMM_WORLD, ierr)
 #endif
 
       !--- Now get the total thing so that the mean (l=0,m=0) due
@@ -757,7 +732,7 @@ contains
       real(cp) :: ra1,ra2
       real(cp) :: xi0(n_r_max),xi1(n_r_max)
 
-      integer :: nXi, n_th, n_phi, nS, rank_with_l0m0
+      integer :: nXi, n_th, n_phi, nS
       real(cp) :: xL,yL,zL,rH,angleL,xi00,xi00P
       real(cp) :: mata(n_impXi_max,n_impXi_max)
       real(cp) :: amp(n_impXi_max)
@@ -975,9 +950,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      !@> TODO ask Rafael how to handle it properly here???
-      rank_with_l0m0=0
-      call MPI_Bcast(xi00, 1, MPI_DEF_REAL, rank_with_l0m0, comm_theta, ierr)
+      call MPI_Bcast(xi00, 1, MPI_DEF_REAL, mlo_tsid(0,0), MPI_COMM_WORLD, ierr)
 #endif
 
       !--- Now get the total thing so that the mean (l=0,m=0) due

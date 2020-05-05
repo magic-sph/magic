@@ -33,21 +33,19 @@ module radial_der
 contains
 
 !------------------------------------------------------------------------------
-   subroutine initialize_der_arrays(n_r_max,llm,ulm)
+   subroutine initialize_der_arrays(n_r_max,n_mlo_loc)
       !
       ! Allocate work arrays to compute derivatives
       !
 
       integer, intent(in) :: n_r_max
-      integer, intent(in) :: llm
-      integer, intent(in) :: ulm
+      integer, intent(in) :: n_mlo_loc
 
       if ( .not. l_finite_diff ) then
          allocate( work_1d_real(n_r_max) )
-         allocate( work(1:ulm-llm+1,n_r_max) )
-         !@TODO> replace work by work(1:n_mlo_loc) here
+         allocate( work(n_mlo_loc,n_r_max) )
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
-         &                 n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+         &                 n_r_max*n_mlo_loc*SIZEOF_DEF_COMPLEX
       end if
 
    end subroutine initialize_der_arrays
