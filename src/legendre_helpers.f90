@@ -6,14 +6,9 @@ module leg_helper_mod
        &                 n_lmMag_loc, m_tsid, n_lm_loc
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
-   use special, only: lGrenoble, b0, db0, ddb0
-   use blocking, only: lm2l, lm2m, lm2
    use horizontal_data, only: dLh
-   use logic, only: l_conv, l_mag_kin, l_mag, l_movie_oc, l_mag_LF, l_adv_curl
-   use fields, only: z_Rloc,dz_Rloc, b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc, &
-       &             dj_Rloc, w_Rloc, dw_Rloc, ddw_Rloc, omega_ic,omega_ma, &
-       &             z_Rdist,dz_Rdist, b_Rdist,db_Rdist,ddb_Rdist, aj_Rdist, &
-       &             dj_Rdist, w_Rdist, dw_Rdist, ddw_Rdist
+   use logic, only: l_conv, l_mag_kin, l_mag, l_movie_oc
+   use fields, only: omega_ic, omega_ma, z_Rdist, dz_Rdist, b_Rdist
    use constants, only: zero, one, two
    use Lmmapping, only: map_dist_st
    use parallel_mod, only: comm_theta
@@ -29,10 +24,7 @@ module leg_helper_mod
       ! Help arrays for Legendre transform calculated in legPrepG:
       ! Parallelizatio note: these are the R-distributed versions
       ! of the field scalars.
-      complex(cp), allocatable :: dLhw(:), dLhdw(:), dLhz(:), dLhb(:), dLhj(:)
-      complex(cp), allocatable :: vhG(:), vhC(:), dvhdrG(:), dvhdrC(:)
-      complex(cp), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
-      complex(cp), allocatable :: bCMB(:), cvhG(:), cvhC(:)
+      complex(cp), allocatable :: bCMB(:)
       !----- R-distributed versions of scalar fields (see fields.f90):
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
@@ -54,21 +46,6 @@ contains
 
       class(leg_helper_t) :: this
       integer,intent(in) :: n_loc,n_locMag,n_l
-
-#ifndef WITH_SHTNS
-      allocate( this%dLhw(n_loc), this%dLhdw(n_loc), this%dLhz(n_loc) )
-      allocate( this%dLhb(n_loc), this%dLhj(n_loc), this%vhG(n_loc) )
-      allocate( this%vhC(n_loc), this%dvhdrG(n_loc), this%dvhdrC(n_loc) )
-      bytes_allocated = bytes_allocated+9*n_loc*SIZEOF_DEF_COMPLEX
-      allocate( this%bhG(n_locMag), this%bhC(n_locMag) )
-      allocate( this%cbhG(n_locMag), this%cbhC(n_locMag) )
-      bytes_allocated = bytes_allocated+4*n_locMag*SIZEOF_DEF_COMPLEX
-
-      if ( l_adv_curl ) then
-         allocate( this%cvhG(n_loc), this%cvhC(n_loc) )
-         bytes_allocated = bytes_allocated+2*n_locMag*SIZEOF_DEF_COMPLEX
-      end if
-#endif
 
       allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
       bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
@@ -122,12 +99,6 @@ contains
 
       class(leg_helper_t) :: this
 
-#ifndef WITH_SHTNS
-      deallocate( this%dLhw, this%dLhdw, this%dLhz, this%dLhb, this%dLhj )
-      deallocate( this%vhG, this%vhC, this%dvhdrG, this%dvhdrC )
-      deallocate( this%bhG, this%bhC, this%cbhG, this%cbhC )
-      if ( l_adv_curl ) deallocate( this%cvhC, this%cvhG )
-#endif
       deallocate( this%zAS, this%dzAS, this%ddzAS )
       deallocate( this%bCMB )
 
@@ -167,9 +138,6 @@ contains
       !-- Local variables:
       integer :: lm,l,m,i, ierr
       integer :: Rq(3)
-#ifndef WITH_SHTNS
-      complex(cp) :: dbd
-#endif
 
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
       if ( nR == n_r_cmb ) this%omegaMA=omega_ma
@@ -205,94 +173,7 @@ contains
             if (map_dist_st%has_m0) this%bCMB(map_dist_st%l0m0)=zero ! used in s_store_movie_frame.f
          end if
 
-#ifndef WITH_SHTNS
-         if ( nBc /= 2 ) then ! nBc=2 is flag for fixed boundary
-            this%dLhw(1)=zero
-            this%vhG(1) =zero
-            this%vhC(1) =zero
-            do lm=2,lm_max
-               this%dLhw(lm)=dLh(lm)*w_Rloc(lm,nR)
-               this%vhG(lm) =dw_Rloc(lm,nR) - &
-                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
-               this%vhC(lm) =dw_Rloc(lm,nR) + &
-                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
-            end do
-         else if ( lRmsCalc ) then
-            do lm=1,lm_max
-               this%dLhw(lm)=zero
-               this%vhG(lm) =zero
-               this%vhC(lm) =zero
-            end do
-         end if
-
-         if ( lDeriv ) then
-            this%dLhdw(1) =zero
-            this%dLhz(1)  =zero
-            this%dvhdrG(1)=zero
-            this%dvhdrC(1)=zero
-            do lm=2,lm_max
-               this%dLhz(lm)  =dLh(lm)*z_Rloc(lm,nR)
-               this%dLhdw(lm) =dLh(lm)*dw_Rloc(lm,nR)
-               this%dvhdrG(lm)=ddw_Rloc(lm,nR) - &
-                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
-               this%dvhdrC(lm)=ddw_Rloc(lm,nR) + &
-                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
-            end do
-         end if
-#endif
-
       end if
-
-#ifndef WITH_SHTNS
-      if ( l_mag .or. l_mag_LF ) then
-
-         !PRINT*,"aj: ",SUM(ABS(aj(:,nR))),SUM(ABS(dLh))
-         !PRINT*,"dj: ",SUM(ABS(dj(:,nR)))
-         this%dLhb(1)=zero
-         this%bhG(1) =zero
-         this%bhC(1) =zero
-         do lm=2,lm_max
-            this%dLhb(lm)=dLh(lm)*b_Rloc(lm,nR)
-            this%bhG(lm) =db_Rloc(lm,nR) - &
-                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
-            this%bhC(lm) =db_Rloc(lm,nR) + &
-                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
-         end do
-         if ( lGrenoble ) then ! Add dipole imposed by inner core
-            lm=lm2(1,0)
-            this%dLhb(lm)=this%dLhb(lm)+dLh(lm)*b0(nR)
-            this%bhG(lm) =this%bhG(lm)+db0(nR)
-            this%bhC(lm) =this%bhC(lm)+db0(nR)
-         end if
-         if ( lDeriv ) then
-            this%dLhj(1)=zero
-            this%cbhG(1)=zero
-            this%cbhC(1)=zero
-            do lm=2,lm_max
-               this%dLhj(lm)=dLh(lm)*aj_Rloc(lm,nR)
-               dbd     =or2(nR)*this%dLhb(lm)-ddb_Rloc(lm,nR)
-               this%cbhG(lm)=dj_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd),kind=cp)
-               this%cbhC(lm)=dj_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd),kind=cp)
-            end do
-            if ( lGrenoble ) then ! Add dipole imposed by inner core
-               lm=lm2(1,0)
-               this%cbhG(lm)=this%cbhG(lm)+cmplx(0.0_cp,ddb0(nR),kind=cp)
-               this%cbhC(lm)=this%cbhC(lm)-cmplx(0.0_cp,ddb0(nR),kind=cp)
-            end if
-         end if
-
-         if ( l_adv_curl ) then
-            this%cvhG(1)=zero
-            this%cvhC(1)=zero
-            do lm=2,lm_max
-               dbd     =or2(nR)*this%dLhw(lm)-ddw_Rloc(lm,nR)
-               this%cvhG(lm)=dz_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd),kind=cp)
-               this%cvhC(lm)=dz_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd),kind=cp)
-            end do
-         end if
-
-      end if   ! magnetic terms required ?
-#endif
 
    end subroutine legPrepG
 !------------------------------------------------------------------------------

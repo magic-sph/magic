@@ -13,7 +13,7 @@ module storeCheckPoints
        &                 lm_max, n_r_maxMag,n_r_ic_maxMag, n_mlo_loc,          &
        &                 fd_stretch, fd_ratio, nRstart, nRstop, nRstartMag,    &
        &                 nRstopMag, nR_per_rank, n_mloMag_loc, n_lm_loc,       &
-       &                 n_lmMag_loc
+       &                 n_lmMag_loc, mlo_tsid
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
@@ -362,6 +362,33 @@ contains
       integer :: istat(MPI_STATUS_SIZE)
       integer :: arr_size(2), arr_loc_size(2), arr_start(2), n_o
       integer(lip) :: disp, offset, size_tmp
+
+      if ( tscheme%family == 'MULTISTEP' ) then
+         call MPI_Bcast(domega_ic_dt%expl(2:tscheme%nexp), tscheme%nexp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(domega_ic_dt%impl(2:tscheme%nimp), tscheme%nimp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(domega_ic_dt%old(2:tscheme%nimp), tscheme%nold-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(domega_ma_dt%expl(2:tscheme%nexp), tscheme%nexp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(domega_ma_dt%impl(2:tscheme%nimp), tscheme%nimp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(domega_ma_dt%old(2:tscheme%nimp), tscheme%nold-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(lorentz_torque_ic_dt%expl(2:tscheme%nexp), tscheme%nexp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(lorentz_torque_ic_dt%impl(2:tscheme%nimp), tscheme%nimp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(lorentz_torque_ic_dt%old(2:tscheme%nimp), tscheme%nold-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(lorentz_torque_ma_dt%expl(2:tscheme%nexp), tscheme%nexp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(lorentz_torque_ma_dt%impl(2:tscheme%nimp), tscheme%nimp-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+         call MPI_Bcast(lorentz_torque_ma_dt%old(2:tscheme%nimp), tscheme%nold-1, &
+              &         MPI_DEF_REAL, mlo_tsid(0,1), MPI_COMM_WORLD, ierr)
+      end if
 
       version = 2
       l_press_store = (.not. l_double_curl)

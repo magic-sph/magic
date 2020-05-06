@@ -22,7 +22,6 @@ module rIterThetaBlocking_mod
        &                            leg_polsphtor_to_spat, leg_pol_to_grad_spat,&
        &                            leg_dphi_vec
    use leg_helper_mod, only: leg_helper_t
-   use fields, only: s_Rloc, ds_Rloc, xi_Rloc, p_Rloc
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use physical_parameters, only: kbots, ktops, n_r_LCR
