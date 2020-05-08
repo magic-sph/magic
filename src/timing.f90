@@ -53,8 +53,8 @@ contains
 
 #ifdef WITH_MPI
       call MPI_AllReduce(MPI_IN_PLACE, this%tTot, 1, MPI_DEF_REAL, MPI_SUM, &
-           &             comm_r, ierr)
-      this%tTot=this%tTot/real(n_ranks_r,cp)
+           &             MPI_COMM_WORLD, ierr)
+      this%tTot=this%tTot/real(n_ranks,cp)
 #endif
 
       if ( l_master_rank ) then

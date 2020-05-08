@@ -21,7 +21,6 @@ module rIterThetaBlocking_mod
    use legendre_spec_to_grid, only: leg_scal_to_grad_spat, leg_scal_to_spat,    &
        &                            leg_polsphtor_to_spat, leg_pol_to_grad_spat,&
        &                            leg_dphi_vec
-   use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use physical_parameters, only: kbots, ktops, n_r_LCR
@@ -39,8 +38,6 @@ module rIterThetaBlocking_mod
       integer :: sizeThetaB, nThetaBs
 
       !type(nonlinear_lm_t) :: nl_lm
-      type(leg_helper_t) :: leg_helper
-      type(leg_helper_t) :: leg_helper_dist
 
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
@@ -70,9 +67,6 @@ contains
       !----- Help arrays for Legendre transform calculated in legPrepG:
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
-      call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
-      call this%leg_helper_dist%initialize(n_lm_loc,n_lmMag_loc,l_max)
-
       if ( l_TO ) then
          allocate( this%BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
          allocate( this%BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
@@ -88,7 +82,6 @@ contains
 
       class(rIterThetaBlocking_t) :: this
 
-      call this%leg_helper%finalize()
       if ( l_TO ) deallocate( this%BsLast,this%BpLast,this%BzLast )
 
    end subroutine deallocate_common_arrays
