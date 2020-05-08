@@ -22,6 +22,7 @@ module communications
    use truncation
    use LMmapping
    use mpi_thetap_mod
+   use mod_mpialltoallp
 
    implicit none
 
@@ -72,6 +73,13 @@ module communications
    class(type_mpitransp), public, pointer :: lo2r_flow_dist, r2lo_flow_dist
    class(type_mpitransp), public, pointer :: lo2r_field_dist, r2lo_field_dist
    class(type_mpitransp), public, pointer :: lo2r_xi_dist, r2lo_xi_dist
+   
+   class(type_mpitransp), public, pointer :: lo2r_s_a2a, r2lo_s_a2a, lo2r_press_a2a
+   class(type_mpitransp), public, pointer :: lo2r_flow_a2a, r2lo_flow_a2a
+   class(type_mpitransp), public, pointer :: lo2r_field_a2a, r2lo_field_a2a
+   class(type_mpitransp), public, pointer :: lo2r_xi_a2a, r2lo_xi_a2a
+   
+   class(type_mpitransp), public, pointer :: test_alltoall
 
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
@@ -88,6 +96,12 @@ contains
 
       integer(lip) :: local_bytes_used
       integer :: idx
+      
+      complex(cp) :: test_LMloc(n_mlo_loc, n_r_max, 2)
+      complex(cp) :: ver_LMloc(n_mlo_loc, n_r_max, 2)
+      complex(cp) :: test_Rloc(n_lm_loc, nRstart:nRstop, 2)
+      
+      integer :: i, r, lm, l, m, f
 
       local_bytes_used=bytes_allocated
 
@@ -180,6 +194,9 @@ contains
          call r2lo_field%create_comm(3)
       end if
       
+      
+      !-------- LOTS OF TESTING STUFF --------------------------------------------------
+      
       allocate( type_mpisendrecv :: lo2r_s_dist )
       allocate( type_mpisendrecv :: r2lo_s_dist )
       allocate( type_mpisendrecv :: lo2r_flow_dist )
@@ -189,6 +206,16 @@ contains
       allocate( type_mpisendrecv :: lo2r_xi_dist )
       allocate( type_mpisendrecv :: r2lo_xi_dist )
       allocate( type_mpisendrecv :: lo2r_press_dist )
+      
+      allocate( type_mpialltoallp :: lo2r_s_a2a )
+      allocate( type_mpialltoallp :: r2lo_s_a2a )
+      allocate( type_mpialltoallp :: lo2r_flow_a2a )
+      allocate( type_mpialltoallp :: r2lo_flow_a2a )
+      allocate( type_mpialltoallp :: lo2r_field_a2a )
+      allocate( type_mpialltoallp :: r2lo_field_a2a )
+      allocate( type_mpialltoallp :: lo2r_xi_a2a )
+      allocate( type_mpialltoallp :: r2lo_xi_a2a )
+      allocate( type_mpialltoallp :: lo2r_press_a2a )
       
       ! DIST
       if ( l_heat ) then
@@ -212,6 +239,52 @@ contains
          call lo2r_field_dist%create_comm(5)
          call r2lo_field_dist%create_comm(3)
       end if
+      
+      ! A2A
+      if ( l_heat ) then
+         call lo2r_s_a2a%create_comm(2)
+         call r2lo_s_a2a%create_comm(2)
+      end if
+      if ( l_chemical_conv ) then
+         call lo2r_xi_a2a%create_comm(2)
+         call r2lo_xi_a2a%create_comm(2)
+      end if
+      if ( l_conv .or. l_mag_kin) then
+         call lo2r_flow_a2a%create_comm(5)
+         call lo2r_press_a2a%create_comm(2)
+         if ( l_double_curl ) then
+            call r2lo_flow_a2a%create_comm(4)
+         else
+            call r2lo_flow_a2a%create_comm(3)
+         end if
+      end if
+      if ( l_mag ) then
+         call lo2r_field_a2a%create_comm(5)
+         call r2lo_field_a2a%create_comm(3)
+      end if
+      
+!       do f=1,2
+!          do r=nRstart,nRstop
+!             do i=1, n_lm_loc
+!                l = map_dist_st%lm2l(i)
+!                m = map_dist_st%lm2m(i)
+!                test_Rloc(i, r, f) = cmplx(l+1000*r, m+1000*f)
+!             end do
+!          end do
+!       end do
+! !       print *, test_Rloc
+! !       print *, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+!       call lo2r_s_a2a%transp_r2lm_dist(test_Rloc, ver_LMloc)
+!       call lo2r_s_dist%transp_r2lm_dist(test_Rloc, test_LMloc)
+!       print *, "~~~~~~~~~DIFF~~~~~~~~", MAXVAL(ABS(test_LMloc - ver_LMloc))
+!       print *, test_LMloc - ver_LMloc
+!       print *, "~~~~~~~~~VER~~~~~~~~"
+!       print *, ver_LMloc
+!       print *, "~~~~~~~~~TEST~~~~~~~~"
+!       print *, test_LMloc
+!       STOP
+      
+      !-------- END OF LOTS OF TESTING STUFF --------------------------------------------------
 
       ! allocate a temporary array for the gather operations.
       if ( coord_r == 0 ) then

@@ -57,7 +57,10 @@ module step_time_mod
    use useful, only: l_correct_step, logWrite
    use communications, only: lo2r_field_dist, lo2r_s_dist, lo2r_press_dist, &
        &                     lo2r_flow_dist, lo2r_xi_dist,  r2lo_flow_dist, &
-       &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist
+       &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist,     &
+       &                     lo2r_field_a2a, lo2r_s_a2a, lo2r_press_a2a, &
+       &                     lo2r_flow_a2a, lo2r_xi_a2a,  r2lo_flow_a2a, &
+       &                     r2lo_s_a2a, r2lo_xi_a2a,r2lo_field_a2a
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -514,8 +517,10 @@ contains
                end if
 
                if ( l_heat ) then
-                  call r2lo_s_dist%transp_r2lm_dist(dsdt_Rdist_container,&
+                  call r2lo_s_a2a%transp_r2lm_dist(dsdt_Rdist_container,&
                        &             dsdt_LMdist_container(:,:,:,tscheme%istage))
+!                   call r2lo_s_dist%transp_r2lm_dist(dsdt_Rdist_container,&
+!                        &             dsdt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_chemical_conv ) then

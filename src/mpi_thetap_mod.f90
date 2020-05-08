@@ -227,8 +227,14 @@ contains
       do i=1,size(lm2r_s_type)
          call MPI_Type_free(lm2r_s_type(i),ierr)
       end do
+      do i=1,size(lm2r_r_type)
+         call MPI_Type_free(lm2r_r_type(i),ierr)
+      end do
+      do i=1,size(lm2r_sources)
+         if (lm2r_sources(i) /= MPI_REQUEST_NULL) call MPI_Cancel(lm2r_sources(i),ierr)
+      end do
       do i=1,size(lm2r_dests)
-         call MPI_Type_free(lm2r_dests(i),ierr)
+         if (lm2r_dests(i) /= MPI_REQUEST_NULL) call MPI_Cancel(lm2r_dests(i),ierr)
       end do
       
       deallocate(lm2r_s_type)

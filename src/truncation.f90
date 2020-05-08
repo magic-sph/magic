@@ -125,7 +125,7 @@ module truncation
 
    !-- Distributed Grid Space 
    integer, allocatable, protected :: dist_theta(:,:)
-   integer, allocatable, protected :: dist_r(:,:), rB_tsid(:,:)
+   integer, allocatable, protected :: dist_r(:,:)
    integer, protected :: n_theta_loc, nThetaStart, nThetaStop
    integer, protected :: n_r_loc, nRstart, nRstop
    integer, protected :: nR_per_rank ! kinda misleading name, should be deleted later; use n_r_loc instead; kept only to ease merge
@@ -440,7 +440,7 @@ contains
       
       !-- Take n_r_cmb into account now
       !-- TODO check if this is correct
-      dist_r(:,1:2) = dist_r(:,1:2) !+ n_r_cmb - 1
+!       dist_r(:,1:2) = dist_r(:,1:2) !+ n_r_cmb - 1
       
       dist_r(:,0) = dist_r(:,2) - dist_r(:,1) + 1
       n_r_loc = dist_r(coord_r,0)
