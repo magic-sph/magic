@@ -21,12 +21,11 @@ module rIterThetaBlocking_shtns_mod
        &            l_full_sphere
    use radial_functions, only: or2, orho1, l_R
    use constants, only: zero
-   use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
    use dtB_arrays_mod, only: dtB_arrays_t
-   use torsional_oscillations, only: getTO, getTOnext, getTOfinish
+   use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
 #else
@@ -42,7 +41,8 @@ module rIterThetaBlocking_shtns_mod
    use horizontal_data
    use fields, only: s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
        &             b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist,dj_Rdist, &
-       &             w_Rdist, dw_Rdist, ddw_Rdist, xi_Rdist
+       &             w_Rdist, dw_Rdist, ddw_Rdist, xi_Rdist, omega_ic,&
+       &             omega_ma
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR
    use probe_mod
@@ -153,9 +153,9 @@ contains
          call this%TO_arrays%set_zero()
       end if
 
-      call this%leg_helper_dist%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                             this%l_frame,this%lTOnext,this%lTOnext2,    &
-           &                             this%lTOcalc)
+      if ( this%lTOnext .or. this%lTOnext2 .or. this%lTOCalc ) then
+         call prep_TO_axi(z_Rdist(:,nR), dz_Rdist(:,nR))
+      end if
       
       if (DEBUG_OUTPUT) then
          write(output_unit,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ", &
@@ -178,8 +178,7 @@ contains
 
          call nl_counter%start_count()
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(timeStage, tscheme, this%nR, this%nBc, &
-              &                     this%lRmsCalc)
+         call this%gsa%get_nl(timeStage, tscheme, this%nR, this%nBc, this%lRmsCalc)
          PERFOFF
          call nl_counter%stop_count(l_increment=.false.)
 
@@ -205,18 +204,16 @@ contains
       if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
          br_vt_lm_cmb(:)=zero
          br_vp_lm_cmb(:)=zero
-         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,                 &
-              &            this%gsa%vpc,this%leg_helper_dist%omegaMA, &
-              &            or2(this%nR),orho1(this%nR),               &
-              &            br_vt_lm_cmb,br_vp_lm_cmb)
+         call get_br_v_bcs(this%gsa%brc, this%gsa%vtc, this%gsa%vpc, &
+              &            omega_ma, or2(this%nR),orho1(this%nR),    &
+              &            br_vt_lm_cmb, br_vp_lm_cmb)
               
       else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
          br_vt_lm_icb(:)=zero
          br_vp_lm_icb(:)=zero
-         call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,                  &
-              &            this%gsa%vpc,this%leg_helper_dist%omegaIC,  &
-              &            or2(this%nR),orho1(this%nR),                &
-              &            br_vt_lm_icb,br_vp_lm_icb)
+         call get_br_v_bcs(this%gsa%brc, this%gsa%vtc, this%gsa%vpc,   &
+              &            omega_ic, or2(this%nR), orho1(this%nR),     &
+              &            br_vt_lm_icb, br_vp_lm_icb)
       end if
       
       !--------- Calculate Lorentz torque on inner core:
@@ -313,7 +310,7 @@ contains
               &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
               &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
               &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,1,    &
-              &                 this%sizeThetaB,this%leg_helper_dist%bCMB)
+              &                 this%sizeThetaB)
       end if
 
 
@@ -336,9 +333,9 @@ contains
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper_dist%zAS,this%gsa%brc,this%gsa%btc,     &
-              &         this%gsa%bpc,this%lTONext,this%lTONext2,tscheme%dt(1),  &
-              &         dtLast,this%nR,this%BsLast,this%BpLast,this%BzLast)
+         call getTOnext(this%gsa%brc, this%gsa%btc, this%gsa%bpc, this%lTONext, &
+              &         this%lTONext2, tscheme%dt(1), dtLast, this%nR,          &
+              &         this%BsLast, this%BpLast, this%BzLast)
       end if
 
       if ( this%lTOCalc ) then
@@ -360,8 +357,8 @@ contains
       !   input flm...  is in (l,m) space at radial grid points this%nR !
       !   Only dVxBh needed for boundaries !
       !   get_td finally calculates the d*dt terms needed for the
-      !   time step performed in s_LMLoop.f . This should be distributed
-      !   over the different models that s_LMLoop.f parallelizes over.
+      !   time step performed in LMLoop. This should be distributed
+      !   over the different modes that LMLoop.f parallelizes over.
       !PERFON('get_td')
       call td_counter%start_count()
       call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,         &
@@ -373,10 +370,9 @@ contains
       !PERFOFF
       !-- Finish calculation of TO variables:
       if ( this%lTOcalc ) then
-         call getTOfinish(this%nR, dtLast, this%leg_helper_dist%zAS,             &
-              &           this%leg_helper_dist%dzAS, this%leg_helper_dist%ddzAS, &
-              &           this%TO_arrays%dzRstrLM, this%TO_arrays%dzAstrLM,      &
-              &           this%TO_arrays%dzCorLM, this%TO_arrays%dzLFLM)
+         call getTOfinish(this%nR, dtLast, this%TO_arrays%dzRstrLM,         &
+              &           this%TO_arrays%dzAstrLM, this%TO_arrays%dzCorLM,  &
+              &           this%TO_arrays%dzLFLM)
       end if
 
       !--- Form partial horizontal derivaties of magnetic production and
@@ -390,9 +386,6 @@ contains
               &            this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM)
       end if
       
-      ! I'm not sure if this is needed later, so just to make sure...
-      !@> TODO: commented out: I don't think we need this
-      !call this%leg_helper_dist%gather_all(this%leg_helper)
     end subroutine do_iteration_ThetaBlocking_shtns
 !-------------------------------------------------------------------------------
    subroutine transform_to_grid_space_shtns(this, gsa)
@@ -491,15 +484,13 @@ contains
             end if
          else if ( this%nBc == 2 ) then
             if ( this%nR == n_r_cmb ) then
-               call v_rigid_boundary(this%nR, this%leg_helper_dist%omegaMA,  &
-                    &                this%lDeriv, gsa%vrc, gsa%vtc, gsa%vpc, &
-                    &                gsa%cvrc, gsa%dvrdtc, gsa%dvrdpc,       &
-                    &                gsa%dvtdpc, gsa%dvpdpc)
+               call v_rigid_boundary(this%nR, omega_ma, this%lDeriv, gsa%vrc, &
+                    &                gsa%vtc, gsa%vpc, gsa%cvrc, gsa%dvrdtc,  &
+                    &                gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
             else if ( this%nR == n_r_icb ) then
-               call v_rigid_boundary(this%nR, this%leg_helper_dist%omegaIC,  &
-                    &                this%lDeriv, gsa%vrc, gsa%vtc, gsa%vpc, &
-                    &                gsa%cvrc, gsa%dvrdtc, gsa%dvrdpc,       &
-                    &                gsa%dvtdpc, gsa%dvpdpc)
+               call v_rigid_boundary(this%nR, omega_ic, this%lDeriv, gsa%vrc, &
+                    &                gsa%vtc, gsa%vpc, gsa%cvrc, gsa%dvrdtc,  &
+                    &                gsa%dvrdpc, gsa%dvtdpc, gsa%dvpdpc)
             end if
 
             if ( this%lDeriv ) then

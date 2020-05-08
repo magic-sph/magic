@@ -148,7 +148,7 @@ contains
 
          if ( l_single_matrix ) then
             if ( map_mlo%ml2i(0,1) > 0 ) then
-               z10(:)=real(z_LMloc(map_mlo%ml2i(0,1),:))
+               z10(:)=real(z_LMdist(map_mlo%ml2i(0,1),:))
             end if
 #ifdef WITH_MPI
             !@> TODO: probably overkill here: ask Rafael whether he has an idea

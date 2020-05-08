@@ -5,10 +5,12 @@ module torsional_oscillations
 
    use iso_fortran_env, only: output_unit
    use precision_mod
+   use parallel_mod
    use mem_alloc, only: bytes_allocated
-   use LMmapping, only: map_glbl_st
+   use LMmapping, only: map_glbl_st, map_dist_st
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, &
-       &                 n_r_cmb, nRstart, nRstop, nThetaStart, nThetaStop
+       &                 n_r_cmb, nRstart, nRstop, nThetaStart, nThetaStop,    &
+       &                 n_lm_loc, m_tsid
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S
@@ -32,6 +34,8 @@ module torsional_oscillations
    real(cp), public, allocatable :: dzdVpLMr(:,:)
    real(cp), public, allocatable :: dzddVpLMr(:,:)
    real(cp), public, allocatable :: ddzASL(:,:)
+   real(cp), allocatable :: dzASL(:)
+   real(cp), allocatable :: zASL(:)
 
    real(cp), public, allocatable :: dzStrLMr_Rloc(:,:)
    real(cp), public, allocatable :: dzRstrLMr_Rloc(:,:)
@@ -50,7 +54,7 @@ module torsional_oscillations
    real(cp), public, allocatable :: BzpdAS_Rloc(:,:)
    real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
 
-   public :: initialize_TO, getTO, getTOnext, getTOfinish, finalize_TO
+   public :: initialize_TO, prep_TO_axi, getTO, getTOnext, getTOfinish, finalize_TO
 
 contains
 
@@ -89,8 +93,11 @@ contains
       bytes_allocated = bytes_allocated+9*(nRstop-nRstart+1)* &
       &                 (nThetaStop-nThetaStart+1)*SIZEOF_DEF_REAL
 
-      allocate( ddzASL(l_max+1,n_r_maxStr) )
-      bytes_allocated = bytes_allocated+ (l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
+      allocate( ddzASL(l_max+1,n_r_maxStr), dzASL(l_max+1), zASL(l_max+1) )
+      bytes_allocated = bytes_allocated+ 3*(l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
+      ddzASL(:,:)=0.0_cp
+      dzASL(:)   =0.0_cp
+      zASL(:)    =0.0_cp
 
    end subroutine initialize_TO
 !-----------------------------------------------------------------------------
@@ -104,9 +111,38 @@ contains
       deallocate( dzddVpLMr_Rloc, dzdVpLMr_Rloc, dzLFLMr_Rloc, dzCorLMr_Rloc )
       deallocate( dzAStrLMr_Rloc, dzRstrLMr_Rloc, dzStrLMr_Rloc )
       deallocate( dzStrLMr, dzRstrLMr, dzAstrLMr, dzCorLMr, dzLFLMr, dzdVpLMr )
-      deallocate( dzddVpLMr )
+      deallocate( dzddVpLMr, zASL, dzASL )
 
    end subroutine finalize_TO
+!-----------------------------------------------------------------------------
+   subroutine prep_TO_axi(z,dz)
+
+      !-- Input variables
+      complex(cp), intent(in) :: z(n_lm_loc)
+      complex(cp), intent(in) :: dz(n_lm_loc)
+
+      !-- Local variables
+      integer :: l, lm, Rq(2)
+
+      if ( map_dist_st%has_m0 ) then
+         do l=0,l_max
+            lm = map_dist_st%lm2(l,0)
+            zASL(l+1)  =real(z(lm))   ! used in TO
+            dzASL(l+1) =real(dz(lm))  ! used in TO (anelastic)
+         end do
+      end if
+
+      ! m_tsid(0) is the rank which has m=0 
+      ! funfact: m_tsid = dist_m written backwards! Terrible nomeclature, pardon me
+#ifdef WITH_MPI
+      call MPI_IBcast(zASL, l_max+1, MPI_DEF_REAL,  m_tsid(0), &
+           &          comm_theta, Rq(1), ierr)
+      call MPI_IBcast(dzASL, l_max+1, MPI_DEF_REAL,  m_tsid(0), &
+           &          comm_theta, Rq(2), ierr)
+      call MPI_WaitAll(2, Rq, MPI_STATUSES_IGNORE, ierr)
+#endif
+
+   end subroutine prep_TO_axi
 !-----------------------------------------------------------------------------
    subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,BsLast,BpLast,BzLast, &
               &     dzRstrLM,dzAstrLM,dzCorLM,dzLFLM,dtLast,nR)
@@ -148,7 +184,7 @@ contains
       real(cp), intent(in) :: BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
       real(cp), intent(in) :: BzLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
 
-      !-- Output of arrays needing further treatment in s_getTOfinish.f:
+      !-- Output of arrays needing further treatment in getTOfinish:
       real(cp), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
       real(cp), intent(out) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
@@ -318,8 +354,7 @@ contains
 
    end subroutine getTO
 !-----------------------------------------------------------------------------
-   subroutine getTOnext(zAS,br,bt,bp,lTONext,lTONext2,dt,dtLast,nR, &
-              &         BsLast,BpLast,BzLast)
+   subroutine getTOnext(br,bt,bp,lTONext,lTONext2,dt,dtLast,nR,BsLast,BpLast,BzLast)
       !
       !  Preparing TO calculation by storing flow and magnetic field
       !  contribution to build time derivative.
@@ -329,7 +364,6 @@ contains
       real(cp), intent(in) :: dt,dtLast
       integer,  intent(in) :: nR
       logical,  intent(in) :: lTONext,lTONext2
-      real(cp), intent(in) :: zAS(l_max+1)
       real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)
       real(cp), intent(in) :: bt(nrp,nThetaStart:nThetaStop)
       real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)
@@ -350,7 +384,7 @@ contains
          dzddVpLMr_Rloc(1,nR)=0.0_cp
          do l=1,l_max
             lm=map_glbl_st%lm2(l,0)
-            dzddVpLMr_Rloc(l+1,nR)=zAS(l+1)
+            dzddVpLMr_Rloc(l+1,nR)=zASL(l+1)
          end do
 
       else if ( lTOnext ) then
@@ -384,9 +418,9 @@ contains
          dzddVpLMr_Rloc(1,nR)=0.0_cp
          do l=1,l_max
             lm=map_glbl_st%lm2(l,0)
-            dzdVpLMr_Rloc(l+1,nR) = zAS(l+1)
+            dzdVpLMr_Rloc(l+1,nR) = zASL(l+1)
             dzddVpLMr_Rloc(l+1,nR)= ( dzddVpLMr_Rloc(l+1,nR) - &
-            &                  ((dtLast+dt)/dt)*zAS(l+1) )/dtLast
+            &                  ((dtLast+dt)/dt)*zASL(l+1) )/dtLast
          end do
 
       end if
@@ -395,8 +429,7 @@ contains
 
    end subroutine getTOnext
 !-----------------------------------------------------------------------------
-   subroutine getTOfinish(nR,dtLast,zAS,dzAS,ddzAS,dzRstrLM, &
-              &           dzAstrLM,dzCorLM,dzLFLM)
+   subroutine getTOfinish(nR,dtLast,dzRstrLM,dzAstrLM,dzCorLM,dzLFLM)
       !
       !  This program was previously part of getTO(...)
       !  It has now been separated to get it out of the theta-block loop.
@@ -405,9 +438,6 @@ contains
       !-- Input of variables:
       integer,  intent(in) :: nR
       real(cp), intent(in) :: dtLast
-      real(cp), intent(in) :: zAS(l_max+1)
-      real(cp), intent(in) :: dzAS(l_max+1) ! anelastic
-      real(cp), intent(in) :: ddzAS(l_max+1)
       real(cp), intent(in) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
       real(cp), intent(in) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
@@ -428,11 +458,10 @@ contains
          lA=(l+1)+1
          lm=map_glbl_st%lm2(l,0)
          dLh = real(l*(l+1),cp)
-         dzStrLMr_Rloc(l+1,nR)= hdif_V(l) * (    &
-         &                                        ddzAS(l+1) - &
-         &                               beta(nR)* dzAS(l+1) - &
+         dzStrLMr_Rloc(l+1,nR)= hdif_V(l) * (  ddzASL(l+1,nR) - &
+         &                               beta(nR)* dzASL(l+1) - &
          &  (dLh*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &
-         &                                          zAS(l+1) )
+         &                                          zASL(l+1) )
          !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
          !     minus sign to bring stuff on the RHS of NS equation !
          dzRstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh * ( &
@@ -447,8 +476,8 @@ contains
          dzLFLMr_Rloc(l+1,nR)  = r(nR)*r(nR)/dLh * ( &
          &                     dTheta1S(lm)*dzLFLM(lS) - &
          &                     dTheta1A(lm)*dzLFLM(lA) )
-         dzdVpLMr_Rloc(l+1,nR) =(zAS(l+1)-dzdVpLMr_Rloc(l+1,nR))/dtLast
-         dzddVpLMr_Rloc(l+1,nR)=(zAS(l+1)/dtLast+dzddVpLMr_Rloc(l+1,nR))/dtLast
+         dzdVpLMr_Rloc(l+1,nR) =(zASL(l+1)-dzdVpLMr_Rloc(l+1,nR))/dtLast
+         dzddVpLMr_Rloc(l+1,nR)=(zASL(l+1)/dtLast+dzddVpLMr_Rloc(l+1,nR))/dtLast
       end do
 
    end subroutine getTOfinish

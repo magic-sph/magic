@@ -10,9 +10,8 @@ module legendre_spec_to_grid
    use LMmapping, only: map_dist_st
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
-       &                      osn2, Plm_loc
-   use constants, only: zero, half, one
-   use leg_helper_mod, only: leg_helper_t
+       &                      osn2, Plm_loc, dPlm_loc
+   use constants, only: zero, half, one, ci
    use useful, only: abortRun
 
    implicit none
@@ -361,6 +360,93 @@ contains
       end if  ! boundary ? nBc?
     
    end subroutine leg_dphi_vec
+!------------------------------------------------------------------------------
+   subroutine qst_to_spat_ml(m, Qlm, Slm, Tlm, brc, btc, bpc, lcut)
+      !
+      ! Take Q,S,T and transform them to a vector
+      !
+      
+      !-- Input variables:
+      integer,     intent(in) :: m
+      integer,     intent(in) :: lcut
+      complex(cp), intent(in) :: Qlm(:) ! Poloidal
+      complex(cp), intent(in) :: Slm(:)
+      complex(cp), intent(in) :: Tlm(:)
+    
+      complex(cp), intent(out) :: brc(n_theta_max), btc(n_theta_max), bpc(n_theta_max)
+    
+      !------ Legendre Polynomials helpers
+      complex(cp) :: bhG(size(Slm)), bhC(size(Slm))
+      real(cp) :: PlmG(size(Slm)), PlmC(size(Slm))
+    
+      !-- Local variables:
+      integer :: nThetaN,nThetaS,nThetaNHS
+      integer :: mc,lj,lb,lu
+      real(cp) :: dm
+      complex(cp) :: brES,brEA,bhN,bhN1,bhN2,bhS,bhS1,bhS2
+    
+      nThetaNHS=0
+      lb = map_dist_st%lm2(m, m)
+      lu = map_dist_st%lm2(l_max, m)
+      mc = m/minc+1
+      dm = real(m,cp)
+      
+      do lj=1,lu-lb+1
+         bhG(lj)=Slm(lj)-ci*Tlm(lj)
+         bhC(lj)=Slm(lj)+ci*Tlm(lj)
+      end do
+
+      do nThetaN=1,n_theta_max,2   ! Loop over thetas for north HS
+         nThetaS  =nThetaN+1      ! same theta but for southern HS
+         nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
+ 
+         !--- Loop over all orders m: (numbered by mc)
+         brES=zero
+         brEA=zero
+         !--- 6 add/mult, 26 dble words
+         do lj=1,lu-lb,2
+            brES   =brES + Qlm(lj)  *Plm_loc(lb+lj-1,nThetaNHS)
+            brEA   =brEA + Qlm(lj+1)*Plm_loc(lb+lj,nThetaNHS)
+            PlmG(lj)=dPlm_loc(lb+lj-1,nThetaNHS)-dm*Plm_loc(lb+lj-1,nThetaNHS)
+            PlmC(lj)=dPlm_loc(lb+lj-1,nThetaNHS)+dm*Plm_loc(lb+lj-1,nThetaNHS)
+            PlmG(lj+1)=dPlm_loc(lb+lj,nThetaNHS)-dm*Plm_loc(lb+lj,nThetaNHS)
+            PlmC(lj+1)=dPlm_loc(lb+lj,nThetaNHS)+dm*Plm_loc(lb+lj,nThetaNHS)
+         end do
+         if ( mod(lu-lb,2) == 0 ) then
+            brES   =brES + Qlm(lu-lb+1)*Plm(lu,nThetaNHS)
+            PlmG(lu-lb+1)=dPlm(lu,nThetaNHS)-dm*Plm(lu,nThetaNHS)
+            PlmC(lu-lb+1)=dPlm(lu,nThetaNHS)+dm*Plm(lu,nThetaNHS)
+         end if
+         brc(nThetaN)=brES+brEA
+         brc(nThetaS)=brES-brEA
+ 
+         bhN1=zero
+         bhS1=zero
+         bhN2=zero
+         bhS2=zero
+         !--- 8 add/mult, 20 dble words
+         do lj=1,lu-lb,2
+            bhN1=bhN1+bhG(lj)*PlmG(lj)+bhG(lj+1)*PlmG(lj+1)
+            bhS1=bhS1-bhG(lj)*PlmC(lj)+bhG(lj+1)*PlmC(lj+1)
+            bhN2=bhN2+bhC(lj)*PlmC(lj)+bhC(lj+1)*PlmC(lj+1)
+            bhS2=bhS2-bhC(lj)*PlmG(lj)+bhC(lj+1)*PlmG(lj+1)
+         end do
+         if ( mod(lu-lb,2) == 0 ) then
+            bhN1=bhN1+bhG(lu-lb+1)*PlmG(lu-lb+1)
+            bhS1=bhS1-bhG(lu-lb+1)*PlmC(lu-lb+1)
+            bhN2=bhN2+bhC(lu-lb+1)*PlmC(lu-lb+1)
+            bhS2=bhS2-bhC(lu-lb+1)*PlmG(lu-lb+1)
+         end if
+         btc(nThetaN)=half*(bhN1+bhN2)
+         btc(nThetaS)=half*(bhS1+bhS2)
+         bhN         =half*(bhN1-bhN2)
+         bhS         =half*(bhS1-bhS2)
+         bpc(nThetaN)=cmplx(aimag(bhN),-real(bhN),cp)
+         bpc(nThetaS)=cmplx(aimag(bhS),-real(bhS),cp)
+ 
+      end do      ! End global loop over nTheta
+ 
+   end subroutine qst_to_spat_ml
 !------------------------------------------------------------------------------
    subroutine sh_to_spat_ml(m, Slm, sc, lcut)
       !

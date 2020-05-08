@@ -130,7 +130,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-      !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
+      !-- Now assemble the right hand side and store it in work_LMdist, dp and ds
       call tscheme%set_imex_rhs(work_LMdist, dwdt, 1, n_mlo_loc, n_r_max)
       call tscheme%set_imex_rhs(dp, dpdt, 1, n_mlo_loc, n_r_max)
       call tscheme%set_imex_rhs(ds, dsdt, 1, n_mlo_loc, n_r_max)

@@ -7,7 +7,7 @@ module out_movie
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
        &                 n_r_ic_max, n_r_max, l_axi, n_r_icb, nThetaStart,  &
-       &                 nThetaStop, n_lm_loc, n_mloMag_loc
+       &                 nThetaStop, n_lm_loc, n_mloMag_loc, n_r_cmb
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
@@ -23,7 +23,7 @@ module out_movie
    use LMmapping, only: map_glbl_st
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
-       &                      dLh, osn1, phi, theta_ord
+       &                      osn1, phi, theta_ord
    use fields, only: b_ic, bICB, w_Rdist, b_Rdist
 #ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat
@@ -48,7 +48,7 @@ contains
    subroutine store_movie_frame(n_r,vr_loc,vt_loc,vp_loc,br_loc,bt_loc,     &
               &                 bp_loc,sr_loc,drSr_loc,dvrdp_loc,dvpdr_loc, &
               &                 dvtdr_loc,dvrdt_loc,cvr_loc,cbr_loc,cbt_loc,&
-              &                 n_theta_start,n_theta_block,bCMB_loc)
+              &                 n_theta_start,n_theta_block)
       !
       !  Controls output of movie frames.
       !  Usually called from radialLoop.
@@ -73,7 +73,6 @@ contains
       real(cp),    intent(in) :: cvr_loc(nrp,nThetaStart:nThetaStop)
       real(cp),    intent(in) :: cbr_loc(nrp,nThetaStart:nThetaStop)
       real(cp),    intent(in) :: cbt_loc(nrp,nThetaStart:nThetaStop)
-      complex(cp), intent(in) :: bCMB_loc(n_lm_loc)
 
       !-- Local variables:
       integer :: n_movie        ! No. of movie
@@ -108,7 +107,7 @@ contains
       call gather_f(cvr_loc, cvr)
       call gather_f(cbr_loc, cbr)
       call gather_f(cbt_loc, cbt)
-      call gather_Flm(bCMB_loc, bCMB)
+      if ( n_r == n_r_cmb ) call gather_Flm(b_Rdist(:,n_r_cmb), bCMB)
       !@> END suppression blocks once DONE...
 
 
@@ -1771,7 +1770,7 @@ contains
 #ifdef WITH_SHTNS
          cs1(lm) = bCMB(lm)*r_dep(l) ! multiplication by l(l+1) in shtns.f90
 #else
-         cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(l)
+         cs1(lm) = bCMB(lm)*real(l*(l+1),cp)*r_dep(l)
 #endif
          cs2(lm)= -bCMB(lm)*real(l,cp)*r_dep(l)
       end do
