@@ -127,6 +127,8 @@ class MagicSpectrum(MagicSetup):
                         self.stop_time = None
                         pass
 
+                if not hasattr(self, 'stop_time'):
+                    self.stop_time = None
                 data = fast_read(filename)
                 speclut = SpecLookUpTable(data, self.name, self.start_time,
                                           self.stop_time)
@@ -177,6 +179,8 @@ class MagicSpectrum(MagicSetup):
 
             if not quiet:
                 print('reading %s' % filename)
+            if not hasattr(self, 'stop_time'):
+                self.stop_time = None
             data = fast_read(filename, skiplines=1)
             speclut = SpecLookUpTable(data, self.name, self.start_time,
                                       self.stop_time)
