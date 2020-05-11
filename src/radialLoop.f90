@@ -54,7 +54,7 @@ contains
       call this_rIteration%initialize()
       select type (this_rIteration)
          class is (rIterThetaBlocking_t)
-            call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
+            !call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
          class default
             write(*,*) "This_rIteration has no matching type in radialLoop.f90"
       end select

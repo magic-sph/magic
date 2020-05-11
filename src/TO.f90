@@ -54,6 +54,8 @@ module torsional_oscillations
    real(cp), public, allocatable :: BzpdAS_Rloc(:,:)
    real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
 
+   real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
+
    public :: initialize_TO, prep_TO_axi, getTO, getTOnext, getTOfinish, finalize_TO
 
 contains
@@ -99,6 +101,13 @@ contains
       dzASL(:)   =0.0_cp
       zASL(:)    =0.0_cp
 
+      allocate( BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
+      allocate( BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
+      allocate( BzLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+3*n_phi_maxStr*               &
+      &                 (nThetaStop-nThetaStart+1)*(nRstop-nRstart+1)*&
+      &                 SIZEOF_DEF_REAL
+
    end subroutine initialize_TO
 !-----------------------------------------------------------------------------
    subroutine finalize_TO
@@ -111,7 +120,7 @@ contains
       deallocate( dzddVpLMr_Rloc, dzdVpLMr_Rloc, dzLFLMr_Rloc, dzCorLMr_Rloc )
       deallocate( dzAStrLMr_Rloc, dzRstrLMr_Rloc, dzStrLMr_Rloc )
       deallocate( dzStrLMr, dzRstrLMr, dzAstrLMr, dzCorLMr, dzLFLMr, dzdVpLMr )
-      deallocate( dzddVpLMr, zASL, dzASL )
+      deallocate( dzddVpLMr, zASL, dzASL,BsLast, BpLast, BzLast )
 
    end subroutine finalize_TO
 !-----------------------------------------------------------------------------
@@ -144,7 +153,7 @@ contains
 
    end subroutine prep_TO_axi
 !-----------------------------------------------------------------------------
-   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,BsLast,BpLast,BzLast, &
+   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt, &
               &     dzRstrLM,dzAstrLM,dzCorLM,dzLFLM,dtLast,nR)
       !
       !  This program calculates various axisymmetric linear
@@ -180,9 +189,6 @@ contains
       real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)
       real(cp), intent(in) :: cbr(nrp,nThetaStart:nThetaStop)
       real(cp), intent(in) :: cbt(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(in) :: BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
-      real(cp), intent(in) :: BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
-      real(cp), intent(in) :: BzLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
 
       !-- Output of arrays needing further treatment in getTOfinish:
       real(cp), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
@@ -354,7 +360,7 @@ contains
 
    end subroutine getTO
 !-----------------------------------------------------------------------------
-   subroutine getTOnext(br,bt,bp,lTONext,lTONext2,dt,dtLast,nR,BsLast,BpLast,BzLast)
+   subroutine getTOnext(br,bt,bp,lTONext,lTONext2,dt,dtLast,nR)
       !
       !  Preparing TO calculation by storing flow and magnetic field
       !  contribution to build time derivative.
@@ -367,11 +373,6 @@ contains
       real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)
       real(cp), intent(in) :: bt(nrp,nThetaStart:nThetaStop)
       real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)
-
-      !-- Output variables:
-      real(cp), intent(out) :: BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
-      real(cp), intent(out) :: BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
-      real(cp), intent(out) :: BzLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop)
 
       !-- Local variables:
       integer :: l, lm, nTheta, nPhi

@@ -35,7 +35,7 @@ module rIterThetaBlocking_mod
       ! or with len parameters for the theta block size and number
       !type,public,extends(rIteration_t) :: rIterThetaBlocking_t(sizeThetaB,nThetaBs)
       !integer,len :: sizeThetaB,nThetaBs
-      integer :: sizeThetaB, nThetaBs
+      !integer :: sizeThetaB, nThetaBs
 
       !type(nonlinear_lm_t) :: nl_lm
 
@@ -44,15 +44,9 @@ module rIterThetaBlocking_mod
       !      the variables calulated with this don't give any
       !      deep insight. TO should be changes in the future to
       !      eliminate this.
-      real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
 
    contains
 
-      !procedure :: initialize => initialize_rIterThetaBlocking
-      procedure :: allocate_common_arrays
-      procedure :: deallocate_common_arrays
-      procedure :: set_ThetaBlocking
-      !procedure,deferred :: do_iteration
       procedure :: transform_to_grid_space
       procedure :: transform_to_lm_space
 
@@ -60,43 +54,6 @@ module rIterThetaBlocking_mod
 
 contains
 
-   subroutine allocate_common_arrays(this)
-
-      class(rIterThetaBlocking_t) :: this
-
-      !----- Help arrays for Legendre transform calculated in legPrepG:
-      !      Parallelizatio note: these are the R-distributed versions
-      !      of the field scalars.
-      if ( l_TO ) then
-         allocate( this%BsLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%BpLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%BzLast(n_phi_maxStr,nThetaStart:nThetaStop,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated+3*n_phi_maxStr*               &
-         &                 (nThetaStop-nThetaStart+1)*(nRstop-nRstart+1)*&
-         &                 SIZEOF_DEF_REAL
-      end if
-
-   end subroutine allocate_common_arrays
-!-------------------------------------------------------------------------------
-   subroutine deallocate_common_arrays(this)
-
-      class(rIterThetaBlocking_t) :: this
-
-      if ( l_TO ) deallocate( this%BsLast,this%BpLast,this%BzLast )
-
-   end subroutine deallocate_common_arrays
-!-------------------------------------------------------------------------------
-   subroutine set_ThetaBlocking(this,nThetaBs,sizeThetaB)
-
-      class(rIterThetaBlocking_t) :: this
-      integer,intent(in) :: nThetaBs, sizeThetaB
-
-      this%nThetaBs = nThetaBs
-
-      this%sizeThetaB = sizeThetaB
-
-   end subroutine set_ThetaBlocking
-!-------------------------------------------------------------------------------
    subroutine transform_to_grid_space(this,nThetaStart,gsa)
 
       class(rIterThetaBlocking_t), target :: this

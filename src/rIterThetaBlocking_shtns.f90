@@ -87,7 +87,6 @@ contains
 
       class(rIterThetaBlocking_shtns_t) :: this
 
-      call this%allocate_common_arrays()
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize(n_lmP_loc)
@@ -99,7 +98,6 @@ contains
 
       class(rIterThetaBlocking_shtns_t) :: this
 
-      call this%deallocate_common_arrays()
       call this%gsa%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
@@ -310,7 +308,7 @@ contains
               &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
               &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
               &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,1,    &
-              &                 this%sizeThetaB)
+              &                 n_theta_max)
       end if
 
 
@@ -334,15 +332,13 @@ contains
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
          call getTOnext(this%gsa%brc, this%gsa%btc, this%gsa%bpc, this%lTONext, &
-              &         this%lTONext2, tscheme%dt(1), dtLast, this%nR,          &
-              &         this%BsLast, this%BpLast, this%BzLast)
+              &         this%lTONext2, tscheme%dt(1), dtLast, this%nR)
       end if
 
       if ( this%lTOCalc ) then
          call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
               &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
-              &     this%gsa%cbrc,this%gsa%cbtc,this%BsLast,this%BpLast,    &
-              &     this%BzLast,this%TO_arrays%dzRstrLM,                    &
+              &     this%gsa%cbrc,this%gsa%cbtc, this%TO_arrays%dzRstrLM,   &
               &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
               &     this%TO_arrays%dzLFLM,dtLast,this%nR)
       end if
