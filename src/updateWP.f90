@@ -438,6 +438,8 @@ contains
 
       end do   ! end of loop over local l
 
+      call solve_counter%stop_count()
+
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       do i=1,n_mlo_loc
