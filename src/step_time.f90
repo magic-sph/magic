@@ -55,12 +55,9 @@ module step_time_mod
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
-   use communications, only: lo2r_field_dist, lo2r_s_dist, lo2r_press_dist, &
-       &                     lo2r_flow_dist, lo2r_xi_dist,  r2lo_flow_dist, &
-       &                     r2lo_s_dist, r2lo_xi_dist,r2lo_field_dist,     &
-       &                     lo2r_field_a2a, lo2r_s_a2a, lo2r_press_a2a, &
-       &                     lo2r_flow_a2a, lo2r_xi_a2a,  r2lo_flow_a2a, &
-       &                     r2lo_s_a2a, r2lo_xi_a2a,r2lo_field_a2a
+   use communications, only: lo2r_field, lo2r_s, lo2r_press, &
+       &                     lo2r_flow, lo2r_xi,  r2lo_flow, &
+       &                     r2lo_s, r2lo_xi,r2lo_field
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -460,21 +457,21 @@ contains
                !----------------------
                call comm_counter%start_count()
                if ( l_heat ) then
-                  call lo2r_s_dist%transp_lm2r_dist(s_LMdist_container, s_Rdist_container)
+                  call lo2r_s%transp_lm2r_dist(s_LMdist_container, s_Rdist_container)
                end if
                if ( l_chemical_conv ) then
-                  call lo2r_xi_dist%transp_lm2r_dist(xi_LMdist_container,xi_Rdist_container)
+                  call lo2r_xi%transp_lm2r_dist(xi_LMdist_container,xi_Rdist_container)
                end if
                if ( l_conv .or. l_mag_kin ) then
-                  call lo2r_flow_dist%transp_lm2r_dist(flow_LMdist_container, &
+                  call lo2r_flow%transp_lm2r_dist(flow_LMdist_container, &
                        &                     flow_Rdist_container)
                end if
                if ( lPressCalc ) then
-                  call lo2r_press_dist%transp_lm2r_dist(press_LMdist_container, &
+                  call lo2r_press%transp_lm2r_dist(press_LMdist_container, &
                        &                      press_Rdist_container)
                end if
                if ( l_mag ) then
-                  call lo2r_field_dist%transp_lm2r_dist(field_LMdist_container, &
+                  call lo2r_field%transp_lm2r_dist(field_LMdist_container, &
                        &                      field_Rdist_container)
                end if
                call comm_counter%stop_count(l_increment=.false.)
@@ -512,24 +509,22 @@ contains
                call comm_counter%start_count()
                PERFON('r2lo_dst')
                if ( l_conv .or. l_mag_kin ) then
-                  call r2lo_flow_dist%transp_r2lm_dist(dflowdt_Rdist_container,  &
+                  call r2lo_flow%transp_r2lm_dist(dflowdt_Rdist_container,  &
                        &             dflowdt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_heat ) then
-                  call r2lo_s_a2a%transp_r2lm_dist(dsdt_Rdist_container,&
+                  call r2lo_s%transp_r2lm_dist(dsdt_Rdist_container,&
                        &             dsdt_LMdist_container(:,:,:,tscheme%istage))
-!                   call r2lo_s_dist%transp_r2lm_dist(dsdt_Rdist_container,&
-!                        &             dsdt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_chemical_conv ) then
-                  call r2lo_xi_dist%transp_r2lm_dist(dxidt_Rdist_container, &
+                  call r2lo_xi%transp_r2lm_dist(dxidt_Rdist_container, &
                        &             dxidt_LMdist_container(:,:,:,tscheme%istage))
                end if
 
                if ( l_mag ) then
-                  call r2lo_field_dist%transp_r2lm_dist(dbdt_Rdist_container, &
+                  call r2lo_field%transp_r2lm_dist(dbdt_Rdist_container, &
                        &             dbdt_LMdist_container(:,:,:,tscheme%istage))
                end if
                call comm_counter%stop_count()

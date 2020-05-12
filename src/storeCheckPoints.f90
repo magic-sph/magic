@@ -7,8 +7,8 @@ module storeCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use mpi_thetap_mod, only: type_mpisendrecv
-   use communications, only: gather_all_from_mlo_to_master, gather_Flm
+   use communications, only: gather_all_from_mlo_to_master, gather_Flm,        &
+       &                     lo2r_store
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
        &                 lm_max, n_r_maxMag,n_r_ic_maxMag, n_mlo_loc,          &
        &                 fd_stretch, fd_ratio, nRstart, nRstop, nRstartMag,    &
@@ -355,7 +355,6 @@ contains
       !-- Local variables
       complex(cp), allocatable :: work(:,:)
 
-      type(type_mpisendrecv) :: lo2r
       logical :: l_press_store
       integer :: version, info, fh, datatype
       character(len=72) :: string, rst_file
@@ -393,7 +392,7 @@ contains
       version = 2
       l_press_store = (.not. l_double_curl)
 
-      call lo2r%create_comm(1)
+      call lo2r_store%create_comm(1)
       allocate( work(n_lm_loc,nRstart:nRstop) )
 
       if ( l_ave_file ) then
@@ -569,36 +568,36 @@ contains
 
       !-- Poloidal potential: w
       call write_one_field_mpi(fh, info, datatype, tscheme, w, dwdt, &
-           &                   work, lo2r, size_tmp,  disp)
+           &                   work, size_tmp,  disp)
 
       !-- Toroidal potential: z
       call write_one_field_mpi(fh, info, datatype, tscheme, z, dzdt, &
-           &                   work, lo2r, size_tmp,  disp)
+           &                   work, size_tmp,  disp)
 
       !-- Pressure: p
       if ( l_press_store ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, p, dpdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp)
       end if
 
       !-- Entropy: s
       if ( l_heat ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, s, dsdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp)
       end if
 
       !-- Chemical composition: xi
       if ( l_chemical_conv ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, xi, dxidt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp)
       end if
 
       !-- Outer core magnetic field:
       if ( l_mag ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, b, dbdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp)
          call write_one_field_mpi(fh, info, datatype, tscheme, aj, djdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp)
       end if
 
       !-- Displacement at the end of the file
@@ -683,7 +682,7 @@ contains
       end if
 
       !-- Destroy the MPI communicator
-      call lo2r%destroy_comm()
+      call lo2r_store%destroy_comm()
 
       !-- Close file 
       call MPI_Info_free(info, ierr)
@@ -714,7 +713,7 @@ contains
    end subroutine store_mpi
 !-----------------------------------------------------------------------------------
    subroutine write_one_field_mpi(fh, info, datatype, tscheme, w, dwdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp)
 
       !-- Input variables
       integer,             intent(in) :: fh ! file unit
@@ -724,7 +723,6 @@ contains
       integer(lip),        intent(in) :: size_tmp
       complex(cp),         intent(in) :: w(n_lm_loc,nRstart:nRstop) ! field
       type(type_tarray),   intent(in) :: dwdt
-      type(type_mpisendrecv), intent(in) :: lo2r
 
       !-- Output variables
       integer(lip),        intent(inout) :: disp
@@ -750,7 +748,7 @@ contains
       if ( tscheme%family == 'MULTISTEP' ) then
 
          do n_o=2,tscheme%nexp
-            call lo2r%transp_lm2r_dist(dwdt%expl(:,:,n_o), work)
+            call lo2r_store%transp_lm2r_dist(dwdt%expl(:,:,n_o), work)
             !@> TODO: remove that at some point
             do nR=nRstart,nRstop
                call gather_Flm(work(:,nR), w_glb(:,nR))
@@ -764,7 +762,7 @@ contains
          end do
 
          do n_o=2,tscheme%nimp
-            call lo2r%transp_lm2r_dist(dwdt%impl(:,:,n_o), work)
+            call lo2r_store%transp_lm2r_dist(dwdt%impl(:,:,n_o), work)
             !@> TODO: remove that at some point
             do nR=nRstart,nRstop
                call gather_Flm(work(:,nR), w_glb(:,nR))
@@ -778,7 +776,7 @@ contains
          end do
 
          do n_o=2,tscheme%nold
-            call lo2r%transp_lm2r_dist(dwdt%old(:,:,n_o), work)
+            call lo2r_store%transp_lm2r_dist(dwdt%old(:,:,n_o), work)
             !@> TODO: remove that at some point
             do nR=nRstart,nRstop
                call gather_Flm(work(:,nR), w_glb(:,nR))

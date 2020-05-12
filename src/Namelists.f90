@@ -60,7 +60,8 @@ contains
       character(len=1024) :: sbuffer         ! for parallel namelist
       character(:), allocatable :: cmd_args  ! for parallel namelist
       
-      namelist/parallel/n_ranks_r,n_ranks_theta,mlo_dist_method
+      namelist/parallel/n_ranks_r,n_ranks_theta,mlo_dist_method, &
+      &     mpi_transp
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
@@ -79,7 +80,7 @@ contains
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
       &    radial_scheme,polo_flow_eq, time_scheme,         &
-      &    mpi_transp,l_adv_curl
+      &    l_adv_curl
 
       namelist/phys_param/                                      &
       &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,    &
@@ -845,6 +846,7 @@ contains
       write(n_out,'(''  n_ranks_r        ='',i5,'','')') n_ranks_r
       write(n_out,'(''  n_ranks_theta    ='',i5,'','')') n_ranks_theta
       write(n_out,'(''  mlo_dist_method  ='',A,'','')') mlo_dist_method
+      write(n_out,'(''  mpi_transp       ='',A,'','')') mpi_transp
 
 
       !-- Output of name lists:
@@ -910,8 +912,6 @@ contains
       write(n_out,*) " polo_flow_eq    = """,polo_flow_eq(1:length),""","
       length=length_to_blank(anelastic_flavour)
       write(n_out,*) "anelastic_flavour= """,anelastic_flavour(1:length),""","
-      length=length_to_blank(mpi_transp)
-      write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
@@ -1228,6 +1228,7 @@ contains
       n_ranks_lo    = 0
       n_ranks_mo    = 0
       mlo_dist_method = "mfirst"
+      mpi_transp    = "AUTO"
 
       !----- Namelist grid
       ! must be of form 4*integer+1
@@ -1279,7 +1280,6 @@ contains
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
       time_scheme   ="CNAB2"   
-      mpi_transp    ="AUTO" ! automatic detection of the MPI strategy
 
       cacheblock_size_in_B=4096
 

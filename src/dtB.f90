@@ -14,9 +14,7 @@ module dtB_mod
        &                 n_r_ic_max, n_phi_max, l_axi, n_mloMag_loc,          &
        &                 nRstart, nRstop, nThetaStart, nThetaStop, n_lm_loc,  &
        &                 n_lmP_loc
-   use communications, only: gather_all_from_mlo_to_master
-   use mpi_transp, only: type_mpitransp
-   use mpi_thetap_mod, only: type_mpisendrecv
+   use communications, only: gather_all_from_mlo_to_master, r2lo_dtB_dist
    use physical_parameters, only: opm, O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
        &                       or1, orho1, l_R
@@ -58,7 +56,7 @@ module dtB_mod
    complex(cp), public, allocatable :: PadvLMIC_LMdist(:,:), PdifLMIC_LMdist(:,:)
    complex(cp), public, allocatable :: TadvLMIC_LMdist(:,:), TdifLMIC_LMdist(:,:)
 
-   class(type_mpitransp), pointer :: r2lo_dtB_dist
+!    class(type_mpitransp), pointer :: r2lo_dtB_dist
 
    public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
    &         finalize_dtB_mod
@@ -146,7 +144,7 @@ contains
       bytes_allocated = bytes_allocated+8*n_mloMag_loc*n_r_max_dtB* &
       &                 SIZEOF_DEF_COMPLEX
 
-      allocate ( type_mpisendrecv :: r2lo_dtB_dist )
+!       allocate ( type_mpisendrecv :: r2lo_dtB_dist )
 
       call r2lo_dtB_dist%create_comm(8)
 

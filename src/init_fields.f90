@@ -6,8 +6,7 @@ module init_fields
    use precision_mod
    use iso_fortran_env, only: output_unit
    use parallel_mod
-   use mpi_thetap_mod, only: type_mpisendrecv
-   use communications, only: gather_FLMP
+   use communications, only: gather_FLMP, r2lo_initv, lo2r_initv
    use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
        &                 minc,n_cheb_ic_max,lm_max, n_r_icb,          &
@@ -151,7 +150,6 @@ contains
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
-      type(type_mpisendrecv) :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nrp,nThetaStart:nThetaStop)
       complex(cp) :: omeLM(n_lmP_loc)
 
