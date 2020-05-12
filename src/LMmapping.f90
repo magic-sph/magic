@@ -6,8 +6,8 @@ module LMmapping
        &                 n_lmP_loc, minc, n_mlo_loc, n_m_max,       &
        &                 n_mlo_array
    use mem_alloc, only: bytes_allocated, memWrite
-   use parallel_mod, only: n_ranks_mlo, coord_mlo, coord_m, coord_r,&
-       &                 n_ranks_m
+   use parallel_mod, only: n_ranks_mo, n_ranks_lo, coord_mo, coord_lo, coord_m,&
+       &                 coord_r, n_ranks_m, mpi_map
    use useful, only: abortRun
 
    implicit none
@@ -56,10 +56,6 @@ module LMmapping
    ! dist_ml2l(coord_r,mlo): the value of l for the index mlo in coord_r "coord_r"
    ! dist_ml2m(coord_r,mlo): the value of m for the index mlo in coord_r "coord_r"
    !
-   ! ml2(m,l): a pointer to dist_ml2(coord_mlo,m,l)
-   ! ml2l(mlo): a pointer to dist_ml2l(coord_mlo,mlo)
-   ! ml2m(mlo): a pointer to dist_ml2m(coord_mlo,mlo)
-   ! 
    ! li2lo(n_lo_loc): the list of all l's found in the current coord_r
    ! mi2mo(n_mo_loc): the list of all m's found in the current coord_r
    ! Notice that not all (m,l) pairs are present in this coord_r; for instance
@@ -86,7 +82,8 @@ module LMmapping
    !--------------------------------------------------------------------------
    type, public :: ml_mappings
       integer, allocatable :: i2l(:), i2m(:), i2ml(:)
-      integer, allocatable :: ml2i(:,:), ml2coord(:,:)
+      integer, allocatable :: ml2i(:,:), ml2coord_mo(:,:), ml2coord_lo(:,:)
+      integer, allocatable :: ml2rnk(:,:) ! point directly to rank in comm_world
       integer, allocatable :: milj2i(:,:), milj2m(:,:)
       integer, allocatable :: n_mi(:), lj2l(:)
       integer :: n_mi_max
@@ -183,7 +180,9 @@ contains
       !   
       type(ml_mappings), intent(inout) :: self
       
-      allocate( self%ml2coord(0:l_max, 0:l_max) )
+      allocate( self%ml2coord_lo(0:l_max, 0:l_max) )
+      allocate( self%ml2coord_mo(0:l_max, 0:l_max) )
+      allocate( self%ml2rnk(0:l_max, 0:l_max) )
       
       ! These two will point to their target in set_mlmapping
       allocate( self%i2m(n_mlo_loc) )
@@ -217,8 +216,9 @@ contains
    !----------------------------------------------------------------------------
    subroutine deallocate_ml_mappings(self)
       type(ml_mappings) :: self
+      deallocate(self%ml2coord_lo, self%ml2coord_mo, self%ml2rnk)
       deallocate(self%i2l, self%i2m, self%i2ml)
-      deallocate(self%ml2i, self%ml2coord, self%milj2i, self%milj2m)
+      deallocate(self%ml2i, self%milj2i, self%milj2m)
       deallocate(self%n_mi, self%lj2l)
    end subroutine deallocate_ml_mappings
    
@@ -403,28 +403,36 @@ contains
       integer, parameter :: Invalid_Idx = -1
       
       !-- Local variables
-      integer :: m, l, mi, lj, i, ml, irank
+      integer :: m, l, mi, lj, i, ml, irank_mo, irank_lo
       
-      map%ml2coord = Invalid_Idx
-      map%i2ml     = Invalid_Idx
-      map%ml2i     = Invalid_Idx
-      map%i2m      = Invalid_Idx
-      map%i2l      = Invalid_Idx
+      map%ml2coord_mo = Invalid_Idx
+      map%ml2coord_lo = Invalid_Idx
+      map%ml2rnk = Invalid_Idx
+      map%i2ml   = Invalid_Idx
+      map%ml2i   = Invalid_Idx
+      map%i2m    = Invalid_Idx
+      map%i2l    = Invalid_Idx
 
       ! Which ranks contain the specified (m,l) tuplet
-      do irank=0,n_ranks_mlo-1
-         do i=1,n_mlo_array
-            m = dist_mlo(irank,i,1)
-            l = dist_mlo(irank,i,2)
-            if(m>=0 .and. l>=0) map%ml2coord(m,l) = irank
+      do irank_mo=0,n_ranks_mo-1
+         do irank_lo=0,n_ranks_lo-1
+            do i=1,n_mlo_array
+               m = dist_mlo(irank_mo, irank_lo,i,1)
+               l = dist_mlo(irank_mo, irank_lo,i,2)
+               if(m>=0 .and. l>=0) then
+                  map%ml2coord_lo(m,l) = irank_lo
+                  map%ml2coord_mo(m,l) = irank_mo
+                  map%ml2rnk(m,l) = mpi_map%mlo2rnk(irank_mo,irank_lo)
+               end if
+            end do
          end do
       end do
       
       ! Maps all local m,l tuplets into a global array of size l_max,l_max
       ! The tuples which do not belong to this coord_r are marked with Invalid_Idx
       do i = 1,n_mlo_loc
-         m  = dist_mlo(coord_mlo,i,1)
-         l  = dist_mlo(coord_mlo,i,2)
+         m  = dist_mlo(coord_mo,coord_lo,i,1)
+         l  = dist_mlo(coord_mo,coord_lo,i,2)
          
          if (m < 0) cycle
          if (l < 0) cycle
@@ -439,7 +447,7 @@ contains
       
       lj = 0
       do l=0,l_max
-         if (.not. any(dist_mlo(coord_mlo,:,2)==l)) cycle
+         if (.not. any(dist_mlo(coord_mo,coord_lo,:,2)==l)) cycle
          lj = lj + 1
          map%lj2l(lj) = l
 

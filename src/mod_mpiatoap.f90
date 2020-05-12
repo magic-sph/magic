@@ -63,7 +63,7 @@ contains
       !   Author: Rafael Lago (MPCDF) May 2020
       !    
       !-- Local variables
-      integer :: i, j, l, m, mlo, icoord_m, icoord_mlo, icoord_r, ierr
+      integer :: i, j, l, m, mlo, icoord_mo, icoord_molo, icoord_lo, ierr
       
       !-- Help variables for computing lmr2buf
       integer :: send_count_array(0:n_ranks_r-1)
@@ -79,23 +79,17 @@ contains
          l = map_dist_st%lm2l(i)
          m = map_dist_st%lm2m(i)
          
-         icoord_mlo = map_mlo%ml2coord(m,l)
-         icoord_m   = mpi_map%mlo2lmr(icoord_mlo,1)
-         icoord_r   = mpi_map%mlo2lmr(icoord_mlo,2)
-         if (icoord_m /= coord_m) then
-            call abortRun("Something went wrong in initialize_mlo_alltoallp; some point belongs to another coord_m.")
-         end if
-         
-         dest(i) = icoord_r
-         send_count_array(icoord_r) = send_count_array(icoord_r) + 1
+         icoord_lo   = map_mlo%ml2coord_lo(m,l)
+         dest(i) = icoord_lo
+         send_count_array(icoord_lo) = send_count_array(icoord_lo) + 1
       end do
-      send_count = maxval(send_count_array) ! = n_mlo_array = maxval(dist_n_mlo)
+      send_count = maxval(send_count_array)
      
 ! !       ! BUUUUG REPORTTT
 ! !       send_displacements = 0
-! !       do icoord_r=1,n_ranks_r-1
-! !          send_displacements(icoord_r) = sum(send_count_array(0:icoord_r-1))
-! ! !          print * , "SUM: ", icoord_r, sum(send_count_array(0:icoord_r-1))
+! !       do icoord_lo=1,n_ranks_r-1
+! !          send_displacements(icoord_lo) = sum(send_count_array(0:icoord_lo-1))
+! ! !          print * , "SUM: ", icoord_lo, sum(send_count_array(0:icoord_lo-1))
 ! !       end do
 ! !       print *, "send_displacements: ", send_displacements
 ! !       ! END BUUUUG REPORTTT
@@ -105,15 +99,15 @@ contains
       allocate(lmr2buf(n_lm_loc))
       allocate(buf2mlo(n_mlo_loc))
       do i=1,n_lm_loc
-         icoord_r = dest(i)
-         lmr2buf(i) = icoord_r*send_count + counter(icoord_r)
-         if (icoord_r == coord_r) then
+         icoord_lo = dest(i)
+         lmr2buf(i) = icoord_lo*send_count + counter(icoord_lo)
+         if (icoord_lo == coord_r) then
             l = map_dist_st%lm2l(i)
             m = map_dist_st%lm2m(i)
             mlo = map_mlo%ml2i(m,l)
-            buf2mlo(counter(icoord_r)) = mlo
+            buf2mlo(counter(icoord_lo)) = mlo
          end if
-         counter(icoord_r) = counter(icoord_r) + 1
+         counter(icoord_lo) = counter(icoord_lo) + 1
       end do
       
       recv_count = maxval(dist_r(:,0))
@@ -164,16 +158,16 @@ contains
    !   
       class(type_mpiatoap) :: this
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
-      integer :: icoord_r, lr, ur, lb, ub, i, nr
+      integer :: icoord_lo, lr, ur, lb, ub, i, nr
       
       !>@TODO optimize the order of this loop
       do i=1, n_mlo_loc
-         do icoord_r=0,n_ranks_r-1
-            nr = dist_r(icoord_r,0)
-            lr = dist_r(icoord_r,1)
-            ur = dist_r(icoord_r,2)
+         do icoord_lo=0,n_ranks_r-1
+            nr = dist_r(icoord_lo,0)
+            lr = dist_r(icoord_lo,1)
+            ur = dist_r(icoord_lo,2)
             arr_LMloc(buf2mlo(i), lr:ur, 1:this%n_fields) = &
-            &  this%recv_buf(1:nr, 1:this%n_fields, i, icoord_r)
+            &  this%recv_buf(1:nr, 1:this%n_fields, i, icoord_lo)
          end do
       end do
    end subroutine
@@ -188,15 +182,15 @@ contains
    !   
       class(type_mpiatoap) :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
-      integer :: icoord_r, lr, ur, lb, ub, i, nr
+      integer :: icoord_lo, lr, ur, lb, ub, i, nr
       
       !>@TODO optimize the order of this loop
       do i=1, n_mlo_loc
-         do icoord_r=0,n_ranks_r-1
-            nr = dist_r(icoord_r,0)
-            lr = dist_r(icoord_r,1)
-            ur = dist_r(icoord_r,2)
-            this%recv_buf(1:nr, 1:this%n_fields, i, icoord_r) = &
+         do icoord_lo=0,n_ranks_r-1
+            nr = dist_r(icoord_lo,0)
+            lr = dist_r(icoord_lo,1)
+            ur = dist_r(icoord_lo,2)
+            this%recv_buf(1:nr, 1:this%n_fields, i, icoord_lo) = &
             & arr_LMloc(buf2mlo(i), lr:ur, 1:this%n_fields)
          end do
       end do

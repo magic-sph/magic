@@ -79,10 +79,9 @@ module parallel_mod
    integer ::   coord_m
    
    !   ML-Space (ML Loop)
-   integer ::   comm_mlo
    integer ::    comm_lo,    comm_mo
    integer :: n_ranks_lo, n_ranks_mo, n_ranks_mlo
-   integer ::   coord_lo,   coord_mo, coord_mlo
+   integer ::   coord_lo,   coord_mo
    
    
    !   Maps coordinates from one cartesian grid to another.
@@ -97,13 +96,11 @@ module parallel_mod
    !   rnk: coord_r according to MPI_COMM_WORLD
    type, public :: mpi_map_t
       integer, pointer :: gsp2rnk(:,:)
-      integer, pointer :: mlo2rnk(:,:)
       integer, pointer :: rnk2gsp(:,:)  ! rnk2gsp(:,1) => θ, rnk2gsp(:,2) => r
+      integer, pointer :: mlo2rnk(:,:)
+      integer, pointer :: rnk2mlo(:,:)   
       integer, pointer :: rnk2lmr(:,:)  ! rnk2lmr(:,1) => m, rnk2lmr(:,2) => r
-      integer, pointer :: rnk2mlo(:)   
-      integer, pointer :: lmr2mlo(:,:)
       integer, pointer :: lmr2rnk(:,:)
-      integer, pointer :: mlo2lmr(:,:)  ! mlo2lmr(:,1) => m, mlo2lmr(:,2) => r
    end type mpi_map_t
    
    type(mpi_map_t) :: mpi_map
@@ -185,9 +182,8 @@ contains
       if (associated(mpi_map%gsp2rnk)) nullify(mpi_map%gsp2rnk)
       if (associated(mpi_map%rnk2gsp)) nullify(mpi_map%rnk2gsp)
       if (associated(mpi_map%rnk2lmr)) nullify(mpi_map%rnk2lmr)
+      if (associated(mpi_map%lmr2rnk)) nullify(mpi_map%lmr2rnk)
       if (associated(mpi_map%rnk2mlo)) nullify(mpi_map%rnk2mlo)
-      if (associated(mpi_map%lmr2mlo)) nullify(mpi_map%lmr2mlo)
-      if (associated(mpi_map%mlo2lmr)) nullify(mpi_map%mlo2lmr)
       if (associated(mpi_map%mlo2rnk)) nullify(mpi_map%mlo2rnk)
    
    end subroutine finalize_mpi_map
@@ -268,22 +264,14 @@ contains
       !-- ML Space (ML Loop)
       !   
       !   
+      ! I know, it is unnecessary. But it helps with the reading of the code imho
       n_ranks_mlo = n_ranks
       n_ranks_mo  = n_ranks_m
       n_ranks_lo  = n_ranks_r
       coord_mo    = coord_m
       coord_lo    = coord_r
-      coord_mlo   = rank
       
-      comm_mlo = mpi_comm_world
-      
-      ! I know, it is unnecessary. But it helps with the reading of the code imho
-      allocate(mpi_map%rnk2mlo(0:n_ranks-1))
-      do i=0,n_ranks-1
-         mpi_map%rnk2mlo(i) = i
-      end do
-      mpi_map%mlo2lmr => mpi_map%rnk2gsp
-      mpi_map%lmr2mlo => mpi_map%lmr2rnk
+      mpi_map%rnk2mlo => mpi_map%rnk2gsp
       mpi_map%mlo2rnk => mpi_map%gsp2rnk
       
       if (l_verb_paral) call print_mpi_distribution
@@ -314,14 +302,9 @@ contains
       n_ranks_lo  = 1
       coord_mo    = 0
       coord_lo    = 0
-      coord_mlo   = 0
-      
-      comm_mlo = 0
       
       ! I know, it is unnecessary. But it helps with the reading of the code imho
-      allocate(mpi_map%rnk2mlo(0))
-      mpi_map%mlo2lmr => mpi_map%rnk2gsp
-      mpi_map%lmr2mlo => mpi_map%lmr2rnk
+      mpi_map%rnk2mlo => mpi_map%rnk2gsp
       mpi_map%mlo2rnk => mpi_map%gsp2rnk
 #endif
       

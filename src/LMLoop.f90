@@ -10,7 +10,7 @@ module LMLoop_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: lm_max, n_r_max, n_r_maxMag, n_r_ic_max, &
-       &                 n_mlo_loc, n_mloMag_loc, mlo_tsid
+       &                 n_mlo_loc, n_mloMag_loc
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic
    use LMmapping, only: map_mlo
@@ -152,7 +152,7 @@ contains
             end if
 #ifdef WITH_MPI
             !@> TODO: probably overkill here: ask Rafael whether he has an idea
-            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
 #endif
             call updateWPS( w_LMdist, dw_LMdist, ddw_LMdist, z10, dwdt_dist,     &
                  &          p_LMdist, dp_LMdist, dpdt_dist, s_LMdist, ds_LMdist, &

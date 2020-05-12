@@ -11,7 +11,7 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: lm_max, mlo_tsid, n_lm_loc, n_mlo_loc,    &
+   use truncation, only: lm_max, n_lm_loc, n_mlo_loc,    &
        &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
        &                 n_r_icb, n_r_cmb, n_lmP_loc
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
@@ -61,7 +61,9 @@ module step_time_mod
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
+   use LMmapping, only: map_mlo
    use communications, only: gather_Flm !@> TODO: DELETE-MEEEEE
+   
 
    implicit none
 
@@ -234,7 +236,7 @@ contains
       else
          n_time_steps_go=n_time_steps+1  ! Last time step for output only !
       end if
-
+      
 #ifdef WITH_MPI
       call MPI_Barrier(comm_r,ierr)
 #endif
@@ -257,10 +259,10 @@ contains
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
 #endif
 
          !----------------

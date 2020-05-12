@@ -170,23 +170,20 @@ module truncation
    !   The key variable here is dist_mlo. It contains the tuplets associated
    !   with each coord_r.
    !   
-   !   dist_mlo(irank,j,1) = value of m in the j-th tuplet in irank.
-   !   dist_mlo(irank,j,2) = value of l in the j-th tuplet in irank.
+   !   dist_mlo(irank_mo,irank_lo,j,1) = value of m in the j-th tuplet in irank.
+   !   dist_mlo(irank_mo,irank_lo,j,2) = value of l in the j-th tuplet in irank.
    !   
    !   Everything should be written such that the tuplets given in this array
    !   are respected. The code should be agnostic to what order or what criteria
    !   was chosen to build this variable. n_mlo_array gives the length of the 
    !   second dimension of this array.
    !   
-   !   mlo_tsid(m,l): this merely returns the coord_mlo (or coord_r in the 
-   !   comm_mlo) in which the tuplet (m,l) is allocated.
-   !   
    !-- TODO: dist_mlo is created in distribute_mlo, but this is rather poorly
    !   optimized. I'm afraid that a reasonable distribution would require a very
    !   complex routine which deals with graphs and trees.
    !
-   integer, allocatable, protected :: dist_mlo(:,:,:), mlo_tsid(:,:)
-   integer, allocatable, protected :: dist_n_mlo(:)
+   integer, allocatable, protected :: dist_mlo(:,:,:,:)
+   integer, allocatable, protected :: dist_n_mlo(:,:)
    integer, protected :: n_mo_loc, n_lo_loc, n_mlo_loc
    integer, protected :: n_mlo_array, mlo_max
    
@@ -382,11 +379,7 @@ contains
       call distribute_lm
       call print_discontiguous_distribution(dist_m, n_m_array, n_ranks_m, 'm')
       
-      if (mlo_dist_method=='optlb') then
-         call distribute_mlo_optlb
-      else
-         call distribute_mlo
-      end if
+      call distribute_mlo
       call print_mlo_distribution_summary
       
 !       if (l_verb_paral) call print_mlo_distribution
@@ -411,7 +404,7 @@ contains
       deallocate(dist_m, m_tsid)
       
       !-- Finalize distributed mlo
-      deallocate(dist_mlo, mlo_tsid)
+      deallocate(dist_mlo)
       deallocate(dist_n_mlo)
       
    end subroutine finalize_geometry
@@ -537,57 +530,40 @@ contains
       !   Author: Rafael Lago, MPCDF, June 2018
       !   
       integer :: tmp(0:n_ranks_r-1,0:2)
-      integer :: icoord_mlo, icoord_mo, icoord_lo
+      integer :: icoord_mo, icoord_lo
       integer :: l, m, i
       
-      allocate(dist_n_mlo(0:n_ranks-1))
-      dist_n_mlo = 0
+      allocate(dist_n_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1))
       
-      !-- Compute how many ml-pairs will be store in each coord_r
-      !
-      do icoord_mo=0,n_ranks_m-1
-         tmp = 0
-         call distribute_contiguous_last(tmp, dist_n_lm(icoord_mo), n_ranks_lo)
-         
-         !-- We have split all the n_lm points of coord_m=coord_mo into
-         !   n_rank_lo parts. Now we just need to copy this amount into each
-         !   coord_lo
-         do icoord_lo=0,n_ranks_lo-1
-            icoord_mlo = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
-            dist_n_mlo(icoord_mlo) = tmp(icoord_lo,2) - tmp(icoord_lo,1) + 1
-         end do
-      end do
-      
-      !-- Assign the (m,l) pairs to each coord_r, according to the count of 
-      !   ml-pairs in dist_n_mlo
-      n_mlo_array = maxval(dist_n_mlo)
-      allocate(dist_mlo(0:n_ranks-1, n_mlo_array, 2))
+      !-- Assign the (m,l) pairs to each coord_mo and coord_lo
+      !   After calling one of these functions the following must be determined:
+      !     dist_mlo
+      !     dist_n_mlo
       if (trim(mlo_dist_method)=="mfirst") then
-         call distribute_mlo_mfirst(dist_mlo, dist_n_mlo)
+         call distribute_mlo_mfirst
       else if (trim(mlo_dist_method)=="lfirst") then
-         call distribute_mlo_lfirst(dist_mlo, dist_n_mlo)
+         call distribute_mlo_lfirst
       else 
          print *, " Invalid mlo_dist_method given in Namelists."
          print *, " Ignoring and using 'mfirst'..."
-         call distribute_mlo_mfirst(dist_mlo, dist_n_mlo)
+         call distribute_mlo_mfirst
       end if
       
-  
-      !-- Count how many different l's this coord_r has
+      !-- Count how many different lo's are local
       n_lo_loc = 0
       do l=0,l_max
-         if (any(dist_mlo(coord_mlo,:,2)==l)) n_lo_loc = n_lo_loc + 1
+         if (any(dist_mlo(coord_mo,coord_lo,:,2)==l)) n_lo_loc = n_lo_loc + 1
       end do
       
-      !-- Count how many different m's this coord_r has
+      !-- Count how many different mo's are local
       n_mo_loc = 0
       do m=0,l_max
-         if (any(dist_mlo(coord_mlo,:,1)==m)) n_mo_loc = n_mo_loc + 1
+         if (any(dist_mlo(coord_mo,coord_lo,:,1)==m)) n_mo_loc = n_mo_loc + 1
       end do
       
-      !-- Count how many (m,l) pairs this coord_r has (in case it differs from 
+      !-- Count how many (m,l) pairs are local (in case it differs from 
       !   the original estimation of the dist_n_mlo variable)
-      dist_n_mlo = count(dist_mlo(:,:,1)>=0, dim=2)
+      dist_n_mlo = count(dist_mlo(:,:,:,1)>=0, dim=3)
       
       if (sum(dist_n_mlo) /= lm_max) then
          print *, "Something went wrong while distributing mlo. Aborting!"
@@ -595,20 +571,23 @@ contains
          stop
       end if
       
-      n_mlo_loc = dist_n_mlo(coord_mlo)
+      n_mlo_loc = dist_n_mlo(coord_mo,coord_lo)
       mlo_max = lm_max
       
-      !-- Fills the reverse mapping
-      !  
-      allocate(mlo_tsid(0:l_max,0:l_max))
-      mlo_tsid = -1
-      do icoord_mlo=0,n_ranks_mlo-1
-         do i=1,dist_n_mlo(icoord_mlo)
-            m = dist_mlo(icoord_mlo,i,1)
-            l = dist_mlo(icoord_mlo,i,2)
-            if(m>=0 .and. l>=0) mlo_tsid(m,l) = icoord_mlo
-         end do
-      end do
+! ! !       !-- Fills the reverse mapping
+! ! !       !  
+! ! !       allocate(mlo_tsid(0:l_max,0:l_max,2))
+! ! !       mlo_tsid = -1
+! ! !       do icoord_mo=0,n_ranks_mo-1
+! ! !          do icoord_lo=0,n_ranks_lo-1
+! ! !             do i=1,dist_n_mlo(icoord_mo, icoord_lo)
+! ! !                m = dist_mlo(icoord_mo, icoord_lo,i,1)
+! ! !                l = dist_mlo(icoord_mo, icoord_lo,i,2)
+! ! !                if(m>=0 .and. l>=0) mlo_tsid(m,l,1) = icoord_mo
+! ! !                if(m>=0 .and. l>=0) mlo_tsid(m,l,2) = icoord_lo
+! ! !             end do
+! ! !          end do
+! ! !       end do
       
       n_mloMag_loc = 1
       n_mloChe_loc = 1
@@ -620,45 +599,55 @@ contains
    end subroutine distribute_mlo
    
    !----------------------------------------------------------------------------   
-   subroutine distribute_mlo_mfirst(mlo,n_mlo)
+   subroutine distribute_mlo_mfirst
       !
-      !   This loop will now distribute the (m,l) pairs amongst all the 
-      !   rank_mlo. It will make sure that each coord_mo will only keep the 
-      !   (m,l) pairs whose m is in coord_m. This is aimed at reducing 
-      !   communication. It will also follow the number of (m,l) points 
-      !   that we saved in n_mlo input variable.
-      !   
-      !   This subroutine will minimize the number of l's in each coord_r by 
-      !   looping over m first, and then over l while distributing the pairs.
+      !   This loop will distribute (m,l) points (for lmloop) with the following
+      !   priority:
+      !     - fair total number of points between ranks
+      !     - minimize the l points in a rank
       !   
       !   This distribution is far from being optimal and should work just as 
       !   a placeholder.
       !   
-      !   This will place l as the slowest index and m as the fastest!
-      !   
       !   Author: Rafael Lago, MPCDF, June 2018
       !
-      integer, intent(in)    :: n_mlo(0:n_ranks-1)
-      integer, intent(inout) :: mlo(0:n_ranks-1, n_mlo_array, 2)
-      integer :: icoord_mo, icoord_lo, icoord_mlo
+      integer :: tmp_cont(0:n_ranks_r-1,0:2)
+      integer :: icoord_mo, icoord_lo, irank
       integer :: l, m, m_idx, mlo_idx
       integer :: taken(0:m_max, 0:l_max)
+      
+      dist_n_mlo = 0
+      
+      !-- Compute how many ml-pairs will be store in each rank
+      !
+      do icoord_mo=0,n_ranks_m-1
+         tmp_cont = 0
+         call distribute_contiguous_last(tmp_cont, dist_n_lm(icoord_mo), n_ranks_lo)
+         do icoord_lo=0,n_ranks_lo-1
+            dist_n_mlo(icoord_mo, icoord_lo) = tmp_cont(icoord_lo,2) - tmp_cont(icoord_lo,1) + 1
+         end do
+      end do
+      
+      !-- Assign the (m,l) pairs to each rank, according to the count of 
+      !   ml-pairs in dist_n_mlo
+      n_mlo_array = maxval(dist_n_mlo)
+      allocate(dist_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, n_mlo_array, 2))
+      dist_mlo = -1
       
       taken = -1
       do m=0,m_max
          taken(m,m:l_max) =  (/(l, l=m,l_max,1)/)
       end do
       
-      mlo = -1
-      
       do icoord_mo=0,n_ranks_mo-1
          l = 0
          m_idx = 1
          do icoord_lo=0,n_ranks_lo-1
-            icoord_mlo = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
+            
+            irank = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
             
             mlo_idx = 1
-            do while (mlo_idx<=n_mlo(icoord_mlo))
+            do while (mlo_idx<=dist_n_mlo(icoord_mo, icoord_lo))
                if (m_idx>dist_m(icoord_mo,0)) then
                   m_idx = 1
                   l = l + 1
@@ -671,8 +660,8 @@ contains
                   cycle
                end if
                
-               mlo(icoord_mlo, mlo_idx, 1) = m
-               mlo(icoord_mlo, mlo_idx, 2) = l
+               dist_mlo(icoord_mo, icoord_lo, mlo_idx, 1) = m
+               dist_mlo(icoord_mo, icoord_lo, mlo_idx, 2) = l
                mlo_idx = mlo_idx + 1
                m_idx = m_idx + 1
             end do
@@ -683,7 +672,7 @@ contains
    end subroutine distribute_mlo_mfirst
    
    !----------------------------------------------------------------------------   
-   subroutine distribute_mlo_lfirst(mlo,n_mlo)
+   subroutine distribute_mlo_lfirst
       !
       !   This loop will now distribute the (m,l) pairs amongst all the 
       !   rank_mlo. It will make sure that each coord_mo will only keep the 
@@ -699,146 +688,51 @@ contains
       !
       !   Author: Rafael Lago, MPCDF, June 2018
       !
-      integer, intent(in)    :: n_mlo(0:n_ranks-1)
-      integer, intent(inout) :: mlo(0:n_ranks-1, n_mlo_array, 2)
-      integer :: icoord_mo, icoord_lo, icoord_mlo
-      integer :: l, m, m_idx, mlo_idx
+      integer :: n_mlo(0:n_ranks-1)
+      integer :: mlo(0:n_ranks-1, n_mlo_array, 2)
+      integer :: icoord_mo, icoord_lo, irank
+      integer :: n_l_array, n_l, l_min
+      
+      integer, allocatable :: dist_l(:,:)
+      
+      
       
       mlo = -1
       do icoord_mo=0,n_ranks_mo-1
-         m_idx = 1
-         m = dist_m(icoord_mo, 1)
-         l = m-1
          
-         do icoord_lo=0,n_ranks_lo-1
-            icoord_mlo = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
-            
-            do mlo_idx=1,n_mlo(icoord_mlo)
-               l = l + 1
-               if (l>l_max) then
-                  m_idx = m_idx + 1
-                  m = dist_m(icoord_mo, m_idx)
-                  l = m
-               end if
-               mlo(icoord_mlo, mlo_idx, 1) = m
-               mlo(icoord_mlo, mlo_idx, 2) = l
-            end do
+         ! Number of l points in icoord_mo
+         l_min = minval(dist_m(icoord_mo, 1:))
+         n_l = l_max - l_min + 1
+         n_l_array = ceiling(real(n_l) / real(n_ranks_lo))
+         allocate(dist_l(0:n_ranks_lo-1, 0:n_l_array))
+         dist_l = -1
+         
+         ! Distribute l points with snake ordering
+         call distribute_discontiguous_snake(dist_l, n_l_array, n_l, n_ranks_lo)
+         print *, "For icoord_mo=", icoord_mo
+         do icoord_lo=0, n_ranks_lo-1
+            print *, dist_l(icoord_lo,1:)
          end do
+         deallocate(dist_l)
+         
+!          do icoord_lo=0,n_ranks_lo-1
+!             irank = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
+!             
+!             do mlo_idx=1,n_mlo(irank)
+!                l = l + 1
+!                if (l>l_max) then
+!                   m_idx = m_idx + 1
+!                   m = dist_m(icoord_mo, m_idx)
+!                   l = m
+!                end if
+!                mlo(irank, mlo_idx, 1) = m
+!                mlo(irank, mlo_idx, 2) = l
+!             end do
+!          end do
       end do
+      stop
    end subroutine distribute_mlo_lfirst
    
-   !----------------------------------------------------------------------------   
-   subroutine distribute_mlo_optlb
-      !
-      !   This loop will now distribute the (m,l) pairs amongst all the 
-      !   rank_mlo, disregarding where the (m,l) pairs were in coord_m. 
-      !   This might increase the communication volume, but it is the 
-      !   "fairest" distribution in what concerns work balance.
-      !   
-      !   This subroutine will minimize the number of l's in each coord_r by 
-      !   looping over m first, and then over l while distributing the pairs.
-      !   
-      !   This will place l as the slowest index and m as the fastest!
-      !   
-      !   TODO: this ASSUMES that we have more l points than ranks! 
-      !      If this is not the case, very weird stuff may happen!
-      !   
-      !   Author: Rafael Lago, MPCDF, November 2019
-      !
-      integer :: icoord_mlo, n_l_array
-      integer :: l, m, i, lj
-      integer, allocatable :: dist_l(:,:)
-      
-      n_l_array = ceiling(real(l_max+1) / real(n_ranks))
-      allocate(dist_l(0:n_ranks-1, 0:n_l_array))
-      
-      call distribute_discontiguous_snake(dist_l, n_l_array, l_max+1, n_ranks)
-      
-      !-- Adjust and counts how many l points were assigned to each coord_r
-      dist_l(:,1:) = dist_l(:,1:)-1
-      dist_l(:,0) = count(dist_l(:,1:) >= 0, 2)
-      
-      allocate(dist_n_mlo(0:n_ranks-1))
-      dist_n_mlo = 0
-      
-      !-- Counts how many pairs per coord_r, and invert direction of dist_l
-      do icoord_mlo=0,n_ranks-1
-         do lj=1,dist_l(icoord_mlo,0)
-            dist_l(icoord_mlo,lj) = l_max - dist_l(icoord_mlo,lj)
-            l = dist_l(icoord_mlo,lj)
-            do m=0, l_max, minc
-               if (m<=l) dist_n_mlo(icoord_mlo) = dist_n_mlo(icoord_mlo) + 1
-            end do
-         end do
-      end do
-      
-      !-- Assign the (m,l) pairs to each coord_r, according to the count of 
-      !   ml-pairs in dist_n_mlo
-      n_mlo_array = maxval(dist_n_mlo)
-      allocate(dist_mlo(0:n_ranks-1, n_mlo_array, 2))
-      dist_mlo = -1
-      
-      ! Trivially distribute pairs now
-      do icoord_mlo=0,n_ranks-1
-         i = 1
-         do lj=1,dist_l(icoord_mlo,0)
-            l = dist_l(icoord_mlo,lj)
-            do m=0, l_max, minc
-               if (m<=l) then
-                  dist_mlo(icoord_mlo,i,1) = m
-                  dist_mlo(icoord_mlo,i,2) = l
-                  i = i + 1
-               end if
-            end do
-         end do
-      end do
-      
-      !-- Count how many different l's this coord_r has
-      n_lo_loc = 0
-      do l=0,l_max
-         if (any(dist_mlo(coord_mlo,:,2)==l)) n_lo_loc = n_lo_loc + 1
-      end do
-      
-      !-- Count how many different m's this coord_r has
-      n_mo_loc = 0
-      do m=0,l_max
-         if (any(dist_mlo(coord_mlo,:,1)==m)) n_mo_loc = n_mo_loc + 1
-      end do
-      
-      !-- Count how many (m,l) pairs this coord_r has (in case it differs from 
-      !   the original estimation of the dist_n_mlo variable)
-      dist_n_mlo = count(dist_mlo(:,:,1)>=0, dim=2)
-      
-      if (sum(dist_n_mlo) /= lm_max) then
-         print *, "Something went wrong while distributing mlo_optlb. Aborting!"
-         print *, "sum(dist_n_mlo) = ", sum(dist_n_mlo), ", lm_max=", lm_max
-         stop
-      end if
-      
-      n_mlo_loc = dist_n_mlo(coord_mlo)
-      mlo_max = lm_max
-      
-      !-- Fills the reverse mapping
-      !  
-      allocate(mlo_tsid(0:l_max,0:l_max))
-      mlo_tsid = -1
-      do icoord_mlo=0,n_ranks_mlo-1
-         do i=1,dist_n_mlo(icoord_mlo)
-            m = dist_mlo(icoord_mlo,i,1)
-            l = dist_mlo(icoord_mlo,i,2)
-            if(m>=0 .and. l>=0) mlo_tsid(m,l) = icoord_mlo
-         end do
-      end do
-      
-      n_mloMag_loc = 1
-      n_mloChe_loc = 1
-      n_mloDC_loc  = 1
-      if (l_mag          ) n_mloMag_loc = n_mlo_loc
-      if (l_chemical_conv) n_mloChe_loc = n_mlo_loc
-      if (l_double_curl  ) n_mloDC_loc  = n_mlo_loc
-      
-   end subroutine distribute_mlo_optlb
-
    !----------------------------------------------------------------------------
    subroutine check_geometry
       !
@@ -1058,30 +952,34 @@ contains
       !   
       !   Author: Rafael Lago, MPCDF, June 2018
       !
-      integer :: icoord_mlo, i
+      integer :: icoord_mo, icoord_lo, i
       integer :: l, m
       logical :: mfirst
       
       if (.not. l_master_rank) return
       
-      do icoord_mlo=0,n_ranks-1
-         write (*,'(A,I0,A)') ' !  Distribution rank_mlo ',icoord_mlo,' :'
+      do icoord_mo=0,n_ranks_mo-1
+         do icoord_lo=0,n_ranks_lo-1
+            write (*,'(A,I0,A,I0,A)') ' !  Distribution rank (mo,lo) ', &
+            &    icoord_mo,'x',icoord_lo,' :'
 
-         do l=0,m_max
-            if (.not. any(dist_mlo(icoord_mlo,:,2)==l)) cycle
-            write (*,'(A,I0,A)', ADVANCE='NO') ' !                            l=',l,', m=['
-            mfirst = .true.
-            do i=1,dist_n_mlo(icoord_mlo)
-               if (dist_mlo(icoord_mlo,i,2)/=l) cycle
-               m = dist_mlo(icoord_mlo,i,1)
-               if (mfirst) then
-                  write (*,'(I0)', ADVANCE='NO') m
-                  mfirst = .false.
-               else
-                  write (*,'(A,I0)', ADVANCE='NO') ',',m
-               end if
+            do l=0,m_max
+               if (.not. any(dist_mlo(icoord_mo,icoord_lo,:,2)==l)) cycle
+               write (*,'(A,I0,A)', ADVANCE='NO') &
+               &    ' !                            l=',l,', m=['
+               mfirst = .true.
+               do i=1,dist_n_mlo(icoord_mo,icoord_lo)
+                  if (dist_mlo(icoord_mo,icoord_lo,i,2)/=l) cycle
+                  m = dist_mlo(icoord_mo,icoord_lo,i,1)
+                  if (mfirst) then
+                     write (*,'(I0)', ADVANCE='NO') m
+                     mfirst = .false.
+                  else
+                     write (*,'(A,I0)', ADVANCE='NO') ',',m
+                  end if
+               end do
+               write (*,'(A)', ADVANCE='NO') "]"//NEW_LINE("a")
             end do
-            write (*,'(A)', ADVANCE='NO') "]"//NEW_LINE("a")
          end do
       end do
       
@@ -1094,29 +992,34 @@ contains
       !   
       !   Author: Rafael Lago, MPCDF, June 2018
       !
-      integer :: icoord_mlo, m_count, l_count
+      integer :: icoord_mo, icoord_lo, m_count, l_count
       integer :: l, m
       
       if (.not. l_master_rank) return
       
       write (*,'(A,A)') ' !   mlo_dist_method: ', mlo_dist_method
-      do icoord_mlo=0,n_ranks-1
-         if (icoord_mlo==0) write (*,'(A,I0,A)', ADVANCE='NO') ' !   # points in rank_mlo ',icoord_mlo,' :'
-         if (icoord_mlo/=0) write (*,'(A,I0,A)', ADVANCE='NO') ' !               rank_mlo ',icoord_mlo,' :'
-         
-         !-- Count how many different l's
-         l_count = 0
-         do l=0,l_max
-            if (any(dist_mlo(icoord_mlo,:,2)==l)) l_count = l_count + 1
+      do icoord_mo=0,n_ranks_mo-1
+         do icoord_lo=0,n_ranks_lo-1
+            if (icoord_mo==0 .and. icoord_lo==0) then
+               write (*,'(A,I0,A,I0,A)', ADVANCE='NO') ' !   # points in rank (mo,lo) ',icoord_mo,'x',icoord_lo,' :'
+            else
+               write (*,'(A,I0,A,I0,A)', ADVANCE='NO') ' !               rank (mo,lo) ',icoord_mo,'x',icoord_lo,' :'
+            end if
+            
+            !-- Count how many different l's
+            l_count = 0
+            do l=0,l_max
+               if (any(dist_mlo(icoord_mo,icoord_lo,:,2)==l)) l_count = l_count + 1
+            end do
+            
+            !-- Count how many different m's
+            m_count = 0
+            do m=0,l_max
+               if (any(dist_mlo(icoord_mo,icoord_lo,:,1)==m)) m_count = m_count + 1
+            end do
+            
+            write (*,'(I0,A,I0,A,I0,A)') m_count, " m, ", l_count, " l (", dist_n_mlo(icoord_mo,icoord_lo), " total)"
          end do
-         
-         !-- Count how many different m's
-         m_count = 0
-         do m=0,l_max
-            if (any(dist_mlo(icoord_mlo,:,1)==m)) m_count = m_count + 1
-         end do
-         
-         write (*,'(I0,A,I0,A,I0,A)') m_count, " m, ", l_count, " l (", dist_n_mlo(icoord_mlo), " total)"
       end do
       
    end subroutine print_mlo_distribution_summary

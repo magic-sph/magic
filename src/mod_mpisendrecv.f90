@@ -59,7 +59,7 @@ module mod_mpisendrecv
       !-- TODO
       !
       !-- Local variables
-      integer :: i, j, l, m, icoord_m, icoord_mlo, icoord_r, in_r, lm, ierr
+      integer :: i, j, l, m, icoord_m, irank, icoord_r, in_r, lm, ierr
       integer :: col_type, ext_type, mtx_type
       integer :: send_displacements(n_mlo_array, 0:n_ranks_mlo-1)
       integer :: recv_displacements(n_lm_loc, 0:n_ranks_mlo-1)
@@ -94,10 +94,10 @@ module mod_mpisendrecv
          icoord_m = m_tsid(m)
          
          do icoord_r=0, n_ranks_r-1
-            icoord_mlo = mpi_map%lmr2mlo(icoord_m, icoord_r)
-            inblocks = send_counter_i(icoord_mlo) + 1
-            send_counter_i(icoord_mlo) = inblocks
-            send_displacements(inblocks,icoord_mlo) = i-1
+            irank = mpi_map%lmr2rnk(icoord_m, icoord_r)
+            inblocks = send_counter_i(irank) + 1
+            send_counter_i(irank) = inblocks
+            send_displacements(inblocks,irank) = i-1
          end do
       end do
       
@@ -108,7 +108,7 @@ module mod_mpisendrecv
       !   I cannot fathom a realitic situation in which a rank would *not* have to
       !   send something to itself, but who knows, maybe I'm missing something
       nsends = count(send_counter_i>0)
-      if (send_counter_i(coord_mlo)>0) nsends = nsends - 1
+      if (send_counter_i(rank)>0) nsends = nsends - 1
       allocate(lm2r_s_type(nsends))
       allocate(lm2r_dests(nsends))
       
@@ -122,16 +122,16 @@ module mod_mpisendrecv
       !   variable. Since we send the whole containers at once, we will be sending
       !   and array of those last types
       j = 0
-      do icoord_mlo=0,n_ranks_mlo-1
+      do irank=0,n_ranks_mlo-1
          
-         inblocks = send_counter_i(icoord_mlo)
-         if (inblocks>0 .and. icoord_mlo /= coord_mlo) then
+         inblocks = send_counter_i(irank)
+         if (inblocks>0 .and. irank /= rank) then
             j=j+1
-            lm2r_dests(j) = icoord_mlo
-            icoord_r = mpi_map%mlo2lmr(icoord_mlo,2)
+            lm2r_dests(j) = irank
+            icoord_r = mpi_map%rnk2lmr(irank,2)
             in_r = dist_r(icoord_r,0)
             
-            call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks), send_displacements(1:inblocks,icoord_mlo), &
+            call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks), send_displacements(1:inblocks,irank), &
                MPI_DOUBLE_COMPLEX, col_type, ierr)
                
             extend = int(n_mlo_loc*bytesCMPLX,kind=mpi_address_kind)
@@ -153,30 +153,30 @@ module mod_mpisendrecv
       do i=1,n_lm_loc
          m  = map_dist_st%lm2m(i)
          l  = map_dist_st%lm2l(i)
-         icoord_mlo = mlo_tsid(m,l)
+         irank = map_mlo%ml2rnk(m,l)
          
-         inblocks = recv_counter_i(icoord_mlo) + 1
-         recv_counter_i(icoord_mlo) = inblocks
-         recv_displacements(inblocks,icoord_mlo) = i-1
+         inblocks = recv_counter_i(irank) + 1
+         recv_counter_i(irank) = inblocks
+         recv_displacements(inblocks,irank) = i-1
       end do
       
       !-- Counts how many ranks will send to me (similar to nsends)
       nrecvs = count(recv_counter_i>0)
-      if (send_counter_i(coord_mlo)>0) nrecvs = nrecvs - 1
+      if (send_counter_i(rank)>0) nrecvs = nrecvs - 1
       allocate(lm2r_r_type(nrecvs))
       allocate(lm2r_sources(nrecvs))
       
       !-- Build the Recv MPI types (similar to Send MPI Types)
       !
       j = 0
-      do icoord_mlo=0,n_ranks_mlo-1
+      do irank=0,n_ranks_mlo-1
 
-         inblocks = recv_counter_i(icoord_mlo)
-         if (inblocks>0 .and. icoord_mlo /= coord_mlo) then
+         inblocks = recv_counter_i(irank)
+         if (inblocks>0 .and. irank /= rank) then
             j = j + 1
-            lm2r_sources(j) = icoord_mlo
+            lm2r_sources(j) = irank
             call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks),&
-               recv_displacements(1:inblocks,icoord_mlo), MPI_DOUBLE_COMPLEX, col_type, ierr)
+               recv_displacements(1:inblocks,irank), MPI_DOUBLE_COMPLEX, col_type, ierr)
             
             extend = int(n_lm_loc*bytesCMPLX,kind=mpi_address_kind)
             call MPI_Type_create_resized(col_type, lb, extend, ext_type, ierr)
@@ -194,10 +194,10 @@ module mod_mpisendrecv
       
       !-- Finally, we need to keep the info pertaining to the copying of 
       !   data which is already local
-      inblocks = send_counter_i(coord_mlo)
+      inblocks = send_counter_i(rank)
       allocate(lm2r_loc_dspl(inblocks,2))
-      lm2r_loc_dspl(:,1) = send_displacements(1:inblocks,coord_mlo) + 1
-      lm2r_loc_dspl(:,2) = recv_displacements(1:inblocks,coord_mlo) + 1
+      lm2r_loc_dspl(:,1) = send_displacements(1:inblocks,rank) + 1
+      lm2r_loc_dspl(:,2) = recv_displacements(1:inblocks,rank) + 1
       
       mlo_sendrecv_initialized = .true.
    end subroutine initialize_mlo_sendrecv
@@ -288,20 +288,20 @@ module mod_mpisendrecv
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
       complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       
-      integer :: i, j, k, icoord_mlo, icoord_r, il_r, ierr
+      integer :: i, j, k, irank, icoord_r, il_r, ierr
       
       !-- Starts the sends
       do j=1,size(lm2r_dests)
-         icoord_mlo = lm2r_dests(j)
-         icoord_r = mpi_map%mlo2lmr(icoord_mlo,2)
+         irank = lm2r_dests(j)
+         icoord_r = mpi_map%rnk2lmr(irank,2)
          il_r = dist_r(icoord_r,1)
-         call mpi_isend(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), icoord_mlo, 1, comm_mlo, this%sends(j), ierr)
+         call mpi_isend(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), irank, 1, mpi_comm_world, this%sends(j), ierr)
       end do
       
       !-- Starts the receives
       do j=1,size(lm2r_sources)
-         icoord_mlo = lm2r_sources(j)
-         call mpi_irecv(arr_Rloc, this%n_fields, lm2r_r_type(j), icoord_mlo, 1, comm_mlo, this%recvs(j), ierr)
+         irank = lm2r_sources(j)
+         call mpi_irecv(arr_Rloc, this%n_fields, lm2r_r_type(j), irank, 1, mpi_comm_world, this%recvs(j), ierr)
       end do
       
       !-- Copies data which is already local
@@ -344,20 +344,20 @@ module mod_mpisendrecv
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
       
-      integer :: i, j, k, icoord_mlo, icoord_r, il_r, ierr
+      integer :: i, j, k, irank, icoord_r, il_r, ierr
       
       !-- Starts the receives
       do j=1,size(lm2r_sources)
-         icoord_mlo = lm2r_sources(j)
-         call mpi_isend(arr_Rloc, this%n_fields, lm2r_r_type(j), icoord_mlo, 1, comm_mlo, this%recvs(j), ierr)
+         irank = lm2r_sources(j)
+         call mpi_isend(arr_Rloc, this%n_fields, lm2r_r_type(j), irank, 1, mpi_comm_world, this%recvs(j), ierr)
       end do
       
       !-- Starts the sends
       do j=1,size(lm2r_dests)
-         icoord_mlo = lm2r_dests(j)
-         icoord_r = mpi_map%mlo2lmr(icoord_mlo,2)
+         irank = lm2r_dests(j)
+         icoord_r = mpi_map%rnk2lmr(irank,2)
          il_r = dist_r(icoord_r,1)
-         call mpi_irecv(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), icoord_mlo, 1, comm_mlo, this%sends(j), ierr)
+         call mpi_irecv(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), irank, 1, mpi_comm_world, this%sends(j), ierr)
       end do
       
       !-- Copies data which is already local

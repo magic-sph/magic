@@ -230,10 +230,10 @@ contains
       do lm=1,lm_max
          m = map_glbl_st%lm2m(lm)
          l = map_glbl_st%lm2l(lm)
-         irank = map_mlo%ml2coord(m,l)
+         irank = map_mlo%ml2rnk(m,l)
          recvbuff = 0.0
-         if (irank==coord_mlo) recvbuff = Fmlo_new(map_mlo%ml2i(m,l),:)
-         call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, comm_mlo, ierr)
+         if (irank==rank) recvbuff = Fmlo_new(map_mlo%ml2i(m,l),:)
+         call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, mpi_comm_world, ierr)
          lo = lo_map%lm2(l,m)
          if (lo>=llm .and. lo<=ulm) Fmlo_old(lo,:) = recvbuff
       end do
@@ -263,7 +263,7 @@ contains
                call mpi_bcast(l, 1, MPI_INTEGER, irank, comm_r, ierr)
                
                call mpi_bcast(Fmlo_old(lm,:), n_r, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
-               if (map_mlo%ml2coord(m,l)==coord_mlo) Fmlo_new(map_mlo%ml2i(m,l),:) = Fmlo_old(lm,:)
+               if (map_mlo%ml2rnk(m,l)==rank) Fmlo_new(map_mlo%ml2i(m,l),:) = Fmlo_old(lm,:)
             end do
          else
             call mpi_bcast(size_irank, 1, MPI_INTEGER, irank, comm_r, ierr)
@@ -271,7 +271,7 @@ contains
                call mpi_bcast(m, 1, MPI_INTEGER, irank, comm_r, ierr)
                call mpi_bcast(l, 1, MPI_INTEGER, irank, comm_r, ierr)
                call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
-               if (map_mlo%ml2coord(m,l)==coord_mlo) Fmlo_new(map_mlo%ml2i(m,l),:) = recvbuff
+               if (map_mlo%ml2rnk(m,l)==rank) Fmlo_new(map_mlo%ml2i(m,l),:) = recvbuff
             end do
          end if
          

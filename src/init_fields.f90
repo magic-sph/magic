@@ -12,7 +12,7 @@ module init_fields
        &                 minc,n_cheb_ic_max,lm_max, n_r_icb,          &
        &                 n_r_cmb, nRstart, nRstop, nThetaStart,       &
        &                 nThetaStop, n_lmP_loc, n_mlo_loc, n_lm_loc,  &
-       &                 n_mloMag_loc, mlo_tsid
+       &                 n_mloMag_loc
    use LMmapping,only: map_mlo, map_dist_st, map_glbl_st
    use mem_alloc, only: bytes_allocated
    use horizontal_data, only: sinTheta, dLh_loc, dTheta1S_loc, dTheta1A_loc, &
@@ -365,8 +365,8 @@ contains
          end if
 
 #ifdef WITH_MPI
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,mlo_tsid(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
 #endif
 
       else
@@ -650,7 +650,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call MPI_Bcast(s00, 1, MPI_DEF_REAL, mlo_tsid(0,0), MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(s00, 1, MPI_DEF_REAL, map_mlo%ml2rnk(0,0), MPI_COMM_WORLD, ierr)
 #endif
 
       !--- Now get the total thing so that the mean (l=0,m=0) due
@@ -948,7 +948,7 @@ contains
       end if
 
 #ifdef WITH_MPI
-      call MPI_Bcast(xi00, 1, MPI_DEF_REAL, mlo_tsid(0,0), MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(xi00, 1, MPI_DEF_REAL, map_mlo%ml2rnk(0,0), MPI_COMM_WORLD, ierr)
 #endif
 
       !--- Now get the total thing so that the mean (l=0,m=0) due

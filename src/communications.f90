@@ -690,7 +690,7 @@ contains
       sr_tag = 17931
 
       lm_mlo = map_mlo%ml2i(m,l)
-      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+      if ( map_mlo%ml2rnk(m,l) == 0 ) then ! Directly there
          if ( rank == 0 ) then
             blm0(:) = b(lm_mlo,:)
             return ! Exit if rank==0 already has the data
@@ -707,7 +707,7 @@ contains
 
       if ( rank == 0 ) then
 #ifdef WITH_MPI
-         call MPI_IRecv(blm0, n_r_max, MPI_DEF_COMPLEX, mlo_tsid(m,l),&
+         call MPI_IRecv(blm0, n_r_max, MPI_DEF_COMPLEX, map_mlo%ml2rnk(m,l),&
               &         sr_tag, MPI_COMM_WORLD, request, ierr)
          call MPI_Wait(request, st, ierr)
 #endif
@@ -732,7 +732,7 @@ contains
       sr_tag = 17952
 
       lm_mlo = map_mlo%ml2i(m,l)
-      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+      if ( map_mlo%ml2rnk(m,l) == 0 ) then ! Directly there
          if ( rank == 0 ) then
             blm0 = real(b(lm_mlo))
             return ! Exit if rank==0 already has the data
@@ -749,7 +749,7 @@ contains
 
       if ( rank == 0 ) then
 #ifdef WITH_MPI
-         call MPI_IRecv(blm0, 1, MPI_DEF_REAL, mlo_tsid(m,l),&
+         call MPI_IRecv(blm0, 1, MPI_DEF_REAL, map_mlo%ml2rnk(m,l),&
               &         sr_tag, MPI_COMM_WORLD, request, ierr)
          call MPI_Wait(request, st, ierr)
 #endif
@@ -774,7 +774,7 @@ contains
       sr_tag = 17952
 
       lm_mlo = map_mlo%ml2i(m,l)
-      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+      if ( map_mlo%ml2rnk(m,l) == 0 ) then ! Directly there
          if ( rank == 0 ) then
             blm0 = b(lm_mlo)
             return ! Exit if rank==0 already has the data
@@ -791,7 +791,7 @@ contains
 
       if ( rank == 0 ) then
 #ifdef WITH_MPI
-         call MPI_IRecv(blm0, 1, MPI_DEF_COMPLEX, mlo_tsid(m,l),&
+         call MPI_IRecv(blm0, 1, MPI_DEF_COMPLEX, map_mlo%ml2rnk(m,l),&
               &         sr_tag, MPI_COMM_WORLD, request, ierr)
          call MPI_Wait(request, st, ierr)
 #endif
@@ -813,7 +813,7 @@ contains
 
       sr_tag = 17963
       lm_mlo = map_mlo%ml2i(m,l)
-      if ( mlo_tsid(m,l) == 0 ) then ! Directly there
+      if ( map_mlo%ml2rnk(m,l) == 0 ) then ! Directly there
          return ! Exit if rank==0 already has the data
       else
          if ( lm_mlo > 0 ) then
@@ -826,7 +826,7 @@ contains
 
       if ( rank == 0 ) then
 #ifdef WITH_MPI
-         call MPI_IRecv(blm0, 1, MPI_DEF_REAL, mlo_tsid(m,l), &
+         call MPI_IRecv(blm0, 1, MPI_DEF_REAL, map_mlo%ml2rnk(m,l), &
               &         sr_tag, MPI_COMM_WORLD, request, ierr)
          call MPI_Wait(request, st, ierr)
 #endif
