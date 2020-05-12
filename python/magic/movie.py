@@ -505,6 +505,7 @@ class Movie:
             if self.n_theta_plot == self.n_theta_max:
                 th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
                 fig = plt.figure(figsize=(4, 8))
+                th0 = th
             else:
                 th0 = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
                 th1 = np.linspace(np.pi/2., 3.*np.pi/2., self.n_theta_max)
