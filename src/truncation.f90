@@ -384,7 +384,7 @@ contains
       
 !       if (l_verb_paral) call print_mlo_distribution
       call print_mlo_distribution
-      
+!       stop
    end subroutine initialize_distributed_geometry
    
    !----------------------------------------------------------------------------
@@ -540,6 +540,8 @@ contains
          call distribute_mlo_mfirst
       else if (trim(mlo_dist_method)=="lfirst") then
          call distribute_mlo_lfirst
+      else if (trim(mlo_dist_method)=="lexicographic") then   
+         call distribute_mlo_lexicographic
       else 
          print *, " Invalid mlo_dist_method given in Namelists."
          print *, " Ignoring and using 'mfirst'..."
@@ -727,9 +729,95 @@ contains
          end do
       end do
       
-      
-      
    end subroutine distribute_mlo_lfirst
+   
+   !----------------------------------------------------------------------------   
+   subroutine distribute_mlo_lexicographic
+      !
+      !   This loop will distribute (m,l) points (for lmloop) with the following
+      !   priority:
+      !     - fair total number of points between ranks
+      !     - minimize the l points in a rank
+      !   
+      !   This distribution is far from being optimal and should work just as 
+      !   a placeholder.
+      !   
+      !   Author: Rafael Lago, MPCDF, June 2018
+      !
+      integer :: tmp_cont(0:n_ranks_r-1,0:2)
+      integer :: icoord_mo, icoord_lo, irank
+      integer :: l, m, mi, i, lm
+      integer :: taken(0:m_max, 0:l_max)
+      
+      dist_n_mlo = 0
+      
+      !-- Compute how many ml-pairs will be store in each rank
+      !
+      n_mlo_array = ceiling(real(maxval(dist_n_lm))/real(n_ranks_lo))
+      allocate(dist_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, n_mlo_array, 2))
+      dist_mlo = -1
+      
+      do icoord_mo=0,n_ranks_m-1
+         tmp_cont = 0
+         call distribute_contiguous_last(tmp_cont, dist_n_lm(icoord_mo), n_ranks_lo)
+         lm=1
+         i =1
+         icoord_lo=0
+         do mi=1,dist_m(icoord_mo,0)
+            m = dist_m(icoord_mo,mi)
+            do l=m,l_max
+               dist_mlo(icoord_mo,icoord_lo,i,1) = m
+               dist_mlo(icoord_mo,icoord_lo,i,2) = l
+               lm = lm + 1
+               i = i + 1
+               if (lm>tmp_cont(icoord_lo,2)) then
+                  dist_n_mlo(icoord_mo, icoord_lo) = i - 1
+                  icoord_lo = icoord_lo + 1
+                  i = 1
+               end if
+            end do
+         end do
+      end do
+      
+      !-- Assign the (m,l) pairs to each rank, according to the count of 
+      !   ml-pairs in dist_n_mlo
+      
+!       taken = -1
+!       do m=0,m_max
+!          taken(m,m:l_max) =  (/(l, l=m,l_max,1)/)
+!       end do
+!       
+!       do icoord_mo=0,n_ranks_mo-1
+!          l = 0
+!          m_idx = 1
+!          do icoord_lo=0,n_ranks_lo-1
+!             
+!             irank = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
+!             
+!             i = 1
+!             do while (i<=dist_n_mlo(icoord_mo, icoord_lo))
+!                if (m_idx>dist_m(icoord_mo,0)) then
+!                   m_idx = 1
+!                   l = l + 1
+!                end if
+!                
+!                m = dist_m(icoord_mo, m_idx)
+!                
+!                if (l<m) then
+!                   m_idx = m_idx + 1
+!                   cycle
+!                end if
+!                
+!                dist_mlo(icoord_mo, icoord_lo, i, 1) = m
+!                dist_mlo(icoord_mo, icoord_lo, i, 2) = l
+!                i = i + 1
+!                m_idx = m_idx + 1
+!             end do
+!             
+!          end do
+!       end do
+      
+   end subroutine distribute_mlo_lexicographic
    
    !----------------------------------------------------------------------------
    subroutine check_geometry
