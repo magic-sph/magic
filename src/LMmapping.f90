@@ -201,7 +201,7 @@ contains
                         
    end subroutine allocate_ml_mappings
    
-   !-------------------------------------------------------------------------------
+   !----------------------------------------------------------------------------
    subroutine deallocate_mappings(self)
 
       type(mappings) :: self
@@ -222,7 +222,7 @@ contains
       deallocate(self%n_mi, self%lj2l)
    end subroutine deallocate_ml_mappings
    
-   !-------------------------------------------------------------------------------
+   !----------------------------------------------------------------------------
    subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,lm_balance)
 
       !-- Input variables
@@ -272,7 +272,7 @@ contains
 
    end subroutine allocate_subblocks_mappings
    
-   !-------------------------------------------------------------------------------
+   !----------------------------------------------------------------------------
    subroutine deallocate_subblocks_mappings(self)
 
       type(subblocks_mappings) :: self
@@ -281,7 +281,6 @@ contains
       deallocate( self%lm22m )
 
    end subroutine deallocate_subblocks_mappings
-   !-------------------------------------------------------------------------------
 
    !----------------------------------------------------------------------------
    subroutine set_lmmapping_default(map, m_arr)

@@ -478,9 +478,6 @@ contains
       !   it is pretty simple: p(x) = (x-1)*minc
       dist_m(:,1:) = (dist_m(:,1:)-1)*minc
       
-      !-- Counts how many points were assigned to each coord_r
-      dist_m(:,0) = count(dist_m(:,1:) >= 0, 2)
-      
       !-- Formula for the number of lm-points in each coord_r:
       !   n_lm = Σ(l_max+1 - m) = (l_max+1)*n_m - Σm
       !   for every m in the specified coord_r. Read the
@@ -574,21 +571,6 @@ contains
       n_mlo_loc = dist_n_mlo(coord_mo,coord_lo)
       mlo_max = lm_max
       
-! ! !       !-- Fills the reverse mapping
-! ! !       !  
-! ! !       allocate(mlo_tsid(0:l_max,0:l_max,2))
-! ! !       mlo_tsid = -1
-! ! !       do icoord_mo=0,n_ranks_mo-1
-! ! !          do icoord_lo=0,n_ranks_lo-1
-! ! !             do i=1,dist_n_mlo(icoord_mo, icoord_lo)
-! ! !                m = dist_mlo(icoord_mo, icoord_lo,i,1)
-! ! !                l = dist_mlo(icoord_mo, icoord_lo,i,2)
-! ! !                if(m>=0 .and. l>=0) mlo_tsid(m,l,1) = icoord_mo
-! ! !                if(m>=0 .and. l>=0) mlo_tsid(m,l,2) = icoord_lo
-! ! !             end do
-! ! !          end do
-! ! !       end do
-      
       n_mloMag_loc = 1
       n_mloChe_loc = 1
       n_mloDC_loc  = 1
@@ -613,7 +595,7 @@ contains
       !
       integer :: tmp_cont(0:n_ranks_r-1,0:2)
       integer :: icoord_mo, icoord_lo, irank
-      integer :: l, m, m_idx, mlo_idx
+      integer :: l, m, m_idx, i
       integer :: taken(0:m_max, 0:l_max)
       
       dist_n_mlo = 0
@@ -646,8 +628,8 @@ contains
             
             irank = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
             
-            mlo_idx = 1
-            do while (mlo_idx<=dist_n_mlo(icoord_mo, icoord_lo))
+            i = 1
+            do while (i<=dist_n_mlo(icoord_mo, icoord_lo))
                if (m_idx>dist_m(icoord_mo,0)) then
                   m_idx = 1
                   l = l + 1
@@ -660,9 +642,9 @@ contains
                   cycle
                end if
                
-               dist_mlo(icoord_mo, icoord_lo, mlo_idx, 1) = m
-               dist_mlo(icoord_mo, icoord_lo, mlo_idx, 2) = l
-               mlo_idx = mlo_idx + 1
+               dist_mlo(icoord_mo, icoord_lo, i, 1) = m
+               dist_mlo(icoord_mo, icoord_lo, i, 2) = l
+               i = i + 1
                m_idx = m_idx + 1
             end do
             
@@ -688,20 +670,17 @@ contains
       !
       !   Author: Rafael Lago, MPCDF, June 2018
       !
-      integer :: n_mlo(0:n_ranks-1)
-      integer :: mlo(0:n_ranks-1, n_mlo_array, 2)
-      integer :: icoord_mo, icoord_lo, irank
-      integer :: n_l_array, n_l, l_min
+      integer :: tmp_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, lm_max, 2)
+      integer :: icoord_mo, icoord_lo
+      integer :: n_l_array, n_l, l_min, k, mi, lj, n, l, m, n_lj
       
       integer, allocatable :: dist_l(:,:)
       
-      
-      
-      mlo = -1
+      tmp_mlo = -1
       do icoord_mo=0,n_ranks_mo-1
          
          ! Number of l points in icoord_mo
-         l_min = minval(dist_m(icoord_mo, 1:))
+         l_min = minval(dist_m(icoord_mo, 1:dist_m(icoord_mo,0)))
          n_l = l_max - l_min + 1
          n_l_array = ceiling(real(n_l) / real(n_ranks_lo))
          allocate(dist_l(0:n_ranks_lo-1, 0:n_l_array))
@@ -709,28 +688,47 @@ contains
          
          ! Distribute l points with snake ordering
          call distribute_discontiguous_snake(dist_l, n_l_array, n_l, n_ranks_lo)
-         print *, "For icoord_mo=", icoord_mo
+         ! The function above gives numbers from 1:n_l. 
+         ! We want them from l_min:l_min+n_l, but in descending order:
+         dist_l(:,1:) = l_max - (l_min + dist_l(:,1:) - 1) + l_min
          do icoord_lo=0, n_ranks_lo-1
-            print *, dist_l(icoord_lo,1:)
+            ! Stores mapping in a temporary array
+            k = 1
+            
+            ! Loops lj backwards, otherwise the ls will be arranged backwards
+            ! in memory
+            do lj = dist_l(icoord_lo,0),1,-1
+               l = dist_l(icoord_lo,lj)
+               do mi=1, dist_m(icoord_mo,0)
+                  m = dist_m(icoord_mo,mi)
+                  if (l>=m) then
+                     tmp_mlo(icoord_mo, icoord_lo, k, 1) = m
+                     tmp_mlo(icoord_mo, icoord_lo, k, 2) = l
+                     k = k + 1
+                  end if
+               end do
+            end do
+            
+            ! Stores number of mlo points in this rank_mo/rank_lo
+            dist_n_mlo(icoord_mo, icoord_lo) = k-1
          end do
          deallocate(dist_l)
-         
-!          do icoord_lo=0,n_ranks_lo-1
-!             irank = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
-!             
-!             do mlo_idx=1,n_mlo(irank)
-!                l = l + 1
-!                if (l>l_max) then
-!                   m_idx = m_idx + 1
-!                   m = dist_m(icoord_mo, m_idx)
-!                   l = m
-!                end if
-!                mlo(irank, mlo_idx, 1) = m
-!                mlo(irank, mlo_idx, 2) = l
-!             end do
-!          end do
       end do
-      stop
+      
+      ! Now that sizes are known, copy from tmp into dist_mlo
+      n_mlo_array = maxval(dist_n_mlo)
+      allocate(dist_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, n_mlo_array, 2))
+      dist_mlo = -1
+      do icoord_mo=0,n_ranks_mo-1
+         do icoord_lo=0,n_ranks_lo-1
+            n = dist_n_mlo(icoord_mo,icoord_lo)
+            dist_mlo(icoord_mo, icoord_lo, 1:n, 1:2) = &
+            &   tmp_mlo(icoord_mo, icoord_lo, 1:n, 1:2) 
+         end do
+      end do
+      
+      
+      
    end subroutine distribute_mlo_lfirst
    
    !----------------------------------------------------------------------------
@@ -804,16 +802,20 @@ contains
          do j=0, p-1
             dist(j, irow) = ipt
             ipt = ipt + 1
-            if (ipt > N) return
+            if (ipt > N) goto 10
          end do
          irow = irow + 1
          do j=p-1,0,-1
             dist(j, irow) = ipt
             ipt = ipt + 1
-            if (ipt > N) return
+            if (ipt > N) goto 10
          end do
          irow = irow + 1
       end do
+      
+      10 continue
+      dist(:,0) = count(dist(:,1:) >= 0, 2)
+
    end subroutine distribute_discontiguous_snake
    !----------------------------------------------------------------------------   
    subroutine distribute_discontiguous_roundrobin(dist, max_len, N, p)
@@ -954,19 +956,21 @@ contains
       !
       integer :: icoord_mo, icoord_lo, i
       integer :: l, m
-      logical :: mfirst
+      logical :: mfirst, lfirst
       
       if (.not. l_master_rank) return
       
-      do icoord_mo=0,n_ranks_mo-1
-         do icoord_lo=0,n_ranks_lo-1
-            write (*,'(A,I0,A,I0,A)') ' !  Distribution rank (mo,lo) ', &
-            &    icoord_mo,'x',icoord_lo,' :'
-
+      do icoord_lo=0,n_ranks_lo-1
+         write (*,'(A,I0)') ' !   # points in rank_lo ',icoord_lo
+         do icoord_mo=0,n_ranks_mo-1
+            write (*,'(A,I0,A)', ADVANCE='NO') ' !               rank_mo ',icoord_mo, ' :'
+            lfirst = .true.
             do l=0,m_max
                if (.not. any(dist_mlo(icoord_mo,icoord_lo,:,2)==l)) cycle
-               write (*,'(A,I0,A)', ADVANCE='NO') &
-               &    ' !                            l=',l,', m=['
+               if (.not. lfirst) write (*,'(A,I0,A)', ADVANCE='NO') &
+               &    ' !                          '
+               lfirst = .false.
+               write (*,'(A,I0,A)', ADVANCE='NO') ' l=',l,', m=['
                mfirst = .true.
                do i=1,dist_n_mlo(icoord_mo,icoord_lo)
                   if (dist_mlo(icoord_mo,icoord_lo,i,2)/=l) cycle
@@ -998,13 +1002,10 @@ contains
       if (.not. l_master_rank) return
       
       write (*,'(A,A)') ' !   mlo_dist_method: ', mlo_dist_method
-      do icoord_mo=0,n_ranks_mo-1
-         do icoord_lo=0,n_ranks_lo-1
-            if (icoord_mo==0 .and. icoord_lo==0) then
-               write (*,'(A,I0,A,I0,A)', ADVANCE='NO') ' !   # points in rank (mo,lo) ',icoord_mo,'x',icoord_lo,' :'
-            else
-               write (*,'(A,I0,A,I0,A)', ADVANCE='NO') ' !               rank (mo,lo) ',icoord_mo,'x',icoord_lo,' :'
-            end if
+      do icoord_lo=0,n_ranks_lo-1
+         write (*,'(A,I0)') ' !   # points in rank_lo ',icoord_lo
+         do icoord_mo=0,n_ranks_mo-1
+            write (*,'(A,I0,A)', ADVANCE='NO') ' !               rank_mo ',icoord_mo, ' :'
             
             !-- Count how many different l's
             l_count = 0
