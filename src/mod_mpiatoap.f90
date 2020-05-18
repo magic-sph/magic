@@ -3,6 +3,11 @@ module mod_mpiatoap
    !-- First alltoall implementation, with zero padding.
    !>@TODO Test alltoall without padding, followed by bcast with "extra"
    !  points from/to ranks which have/need them
+   !>@TODO use MPI_TYPES to create a strided array! We will still need the 
+   !  reordering into the buffer, but we can force n_fields to remain the last
+   !  dimension thus reducing considerably the memory reshuffling
+   !>@TODO skip the reordering of the local data into the buffer; we can copy it
+   ! into the the output array directly
    !  
 
    use precision_mod
@@ -26,25 +31,25 @@ module mod_mpiatoap
       logical :: initialized = .false.
 
    contains
-      procedure :: create_comm => create_mlo_alltoallp
-      procedure :: destroy_comm => destroy_mlo_alltoallp
-      procedure :: transp_lm2r => transp_lm2r_alltoallp_dummy
-      procedure :: transp_r2lm => transp_r2lm_alltoallp_dummy
-      procedure :: transp_lm2r_dist => transp_lm2r_alltoallp_dist
-      procedure :: transp_r2lm_dist => transp_r2lm_alltoallp_dist
+      procedure :: create_comm => create_mlo_atoap
+      procedure :: destroy_comm => destroy_mlo_atoap
+      procedure :: transp_lm2r => transp_lm2r_atoap_dummy
+      procedure :: transp_r2lm => transp_r2lm_atoap_dummy
+      procedure :: transp_lm2r_dist => transp_lm2r_atoap_dist
+      procedure :: transp_r2lm_dist => transp_r2lm_atoap_dist
       procedure :: reorder_rloc2buffer
       procedure :: reorder_buffer2lmloc
       procedure :: reorder_buffer2rloc
       procedure :: reorder_lmloc2buffer
    end type type_mpiatoap
    
-   logical, private :: mlo_alltoallp_initialized = .false.
-   integer, private :: n_alltoallp_obj = 0
+   logical, private :: mlo_atoap_initialized = .false.
+   integer, private :: n_atoap_obj = 0
    
    integer, private, allocatable :: lmr2buf(:)
    integer, private, allocatable :: buf2mlo(:)
-   integer, private, allocatable :: send_count
-   integer, private, allocatable :: recv_count
+   integer, private :: send_count
+   integer, private :: recv_count
    
    public :: type_mpiatoap
 
@@ -54,7 +59,7 @@ contains
    !-- Transposition from (n_lm_loc,nRStart) to (n_mlo_loc,n_r_max).
    !   
    !   Author: Rafael Lago (MPCDF) April 2020
-   subroutine initialize_mlo_alltoallp
+   subroutine initialize_mlo_atoap
       !-- Initialize the MPI types for the transposition from ML to Radial
       !   
       !   This transposition assumes that all m's are kept within the comm_r
@@ -70,7 +75,7 @@ contains
       integer :: dest(n_lm_loc) ! holds rank_R which will receive the corresponding lm point
       integer :: counter(0:n_ranks_r-1)
       
-      if (mlo_alltoallp_initialized) return
+      if (mlo_atoap_initialized) return
       
       !-- Counts how many (l,m) tuples will be sent to each rank.
       !   The max will be taken afterwards
@@ -112,8 +117,8 @@ contains
       
       recv_count = maxval(dist_r(:,0))
       
-      mlo_alltoallp_initialized = .true.
-   end subroutine initialize_mlo_alltoallp
+      mlo_atoap_initialized = .true.
+   end subroutine initialize_mlo_atoap
    
    !----------------------------------------------------------------------------
    subroutine reorder_rloc2buffer(this, arr_Rloc)
@@ -197,29 +202,29 @@ contains
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine finalize_mlo_alltoallp
+   subroutine finalize_mlo_atoap
    !
    !   Author: Rafael Lago (MPCDF) January 2018
    !   
       integer :: i, ierr
       
       deallocate(lmr2buf)
-      mlo_alltoallp_initialized = .false.
-   end subroutine finalize_mlo_alltoallp
+      deallocate(buf2mlo)
+      mlo_atoap_initialized = .false.
+   end subroutine finalize_mlo_atoap
    
 
    !----------------------------------------------------------------------------
-   subroutine create_mlo_alltoallp(this, n_fields)
+   subroutine create_mlo_atoap(this, n_fields)
    !   
    !   Author: Rafael Lago (MPCDF) April 2020
 
       class(type_mpiatoap) :: this
       integer, intent(in) :: n_fields
-      integer :: nsends, nrecvs
       
       if (this%initialized) return 
       
-      if (.not. mlo_alltoallp_initialized) call initialize_mlo_alltoallp
+      if (.not. mlo_atoap_initialized) call initialize_mlo_atoap
       this%n_fields = n_fields
       this%ncount = send_count*recv_count*n_fields
       
@@ -228,12 +233,12 @@ contains
       this%recv_buf(1:recv_count, 1:n_fields, 1:send_count, 0:n_ranks_r-1) => this%buffer
       this%buffer = cmplx(-1.0, -1.0)
       
-      n_alltoallp_obj = n_alltoallp_obj + 1
+      n_atoap_obj = n_atoap_obj + 1
       
-   end subroutine create_mlo_alltoallp
+   end subroutine create_mlo_atoap
    
    !----------------------------------------------------------------------------
-   subroutine destroy_mlo_alltoallp(this)
+   subroutine destroy_mlo_atoap(this)
    !   
    !   Author: Rafael Lago (MPCDF) April 2020
    !   
@@ -246,15 +251,15 @@ contains
       nullify(this%recv_buf)
       nullify(this%buffer)
       
-      n_alltoallp_obj = n_alltoallp_obj - 1
+      n_atoap_obj = n_atoap_obj - 1
       this%initialized = .false.
       
-      if (n_alltoallp_obj==0) call finalize_mlo_alltoallp
+      if (n_atoap_obj==0) call finalize_mlo_atoap
       
-   end subroutine destroy_mlo_alltoallp
+   end subroutine destroy_mlo_atoap
    
    !----------------------------------------------------------------------------
-   subroutine transp_lm2r_alltoallp_dist(this, arr_LMloc, arr_Rloc)
+   subroutine transp_lm2r_atoap_dist(this, arr_LMloc, arr_Rloc)
    !   
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
@@ -270,10 +275,10 @@ contains
          &  MPI_DEF_COMPLEX, comm_r, ierr)
       call this%reorder_buffer2rloc(arr_Rloc)
       
-   end subroutine transp_lm2r_alltoallp_dist
+   end subroutine transp_lm2r_atoap_dist
    
    !----------------------------------------------------------------------------
-   subroutine transp_r2lm_alltoallp_dist(this, arr_Rloc, arr_LMloc)
+   subroutine transp_r2lm_atoap_dist(this, arr_Rloc, arr_LMloc)
    !   
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
@@ -289,21 +294,21 @@ contains
          &  MPI_DEF_COMPLEX, comm_r, ierr)
       call this%reorder_buffer2lmloc(arr_LMloc)
 
-   end subroutine transp_r2lm_alltoallp_dist
+   end subroutine transp_r2lm_atoap_dist
    
    !----------------------------------------------------------------------------
-   subroutine transp_lm2r_alltoallp_dummy(this, arr_LMloc, arr_Rloc)
+   subroutine transp_lm2r_atoap_dummy(this, arr_LMloc, arr_Rloc)
       class(type_mpiatoap) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      print*, "Dummy transp_lm2r_alltoallp_dummy, not yet implemented!"
-   end subroutine transp_lm2r_alltoallp_dummy
+      print*, "Dummy transp_lm2r_atoap_dummy, not yet implemented!"
+   end subroutine transp_lm2r_atoap_dummy
 
-   subroutine transp_r2lm_alltoallp_dummy(this, arr_Rloc, arr_LMloc)
+   subroutine transp_r2lm_atoap_dummy(this, arr_Rloc, arr_LMloc)
       class(type_mpiatoap) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      print*, "Dummy transp_r2lm_alltoallp_dummy, not yet implemented!"
-   end subroutine transp_r2lm_alltoallp_dummy
+      print*, "Dummy transp_r2lm_atoap_dummy, not yet implemented!"
+   end subroutine transp_r2lm_atoap_dummy
    
 end module mod_mpiatoap

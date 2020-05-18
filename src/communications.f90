@@ -23,6 +23,7 @@ module communications
    use LMmapping
    use mpi_thetap_mod
    use mod_mpiatoap
+   use mod_mpiatoav_new
    use mod_mpisendrecv
 
    implicit none
@@ -120,7 +121,11 @@ contains
          &         .or. index(mpi_transp, 'ALLTOALLV') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLV') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLV') /= 0 ) then
-            idx = 2
+            if (n_ranks_theta==1) then
+               idx = 2
+            else
+               idx = 6
+            end if
          else if ( index(mpi_transp, 'ATOAW') /= 0 .or. index(mpi_transp, 'A2AW') /=0&
          &         .or. index(mpi_transp, 'ALLTOALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLW') /= 0 .or. &
@@ -186,6 +191,8 @@ contains
 !          allocate( type_mpiatoaw :: lo2r_store ) ! from storeCheckpoints
 !       else 
       if ( idx == 4 ) then
+         ! I don't quite get why we need both directions, since each object
+         ! can do both transpositions!
          allocate( type_mpisendrecv :: lo2r_s )
          allocate( type_mpisendrecv :: r2lo_s )
          allocate( type_mpisendrecv :: lo2r_flow )
@@ -203,6 +210,8 @@ contains
          allocate( type_mpisendrecv :: lo2r_store ) ! from storeCheckpoints
          
       else if ( idx == 5 ) then
+         ! I don't quite get why we need both directions, since each object
+         ! can do both transpositions!
          allocate( type_mpiatoap :: lo2r_s )
          allocate( type_mpiatoap :: r2lo_s )
          allocate( type_mpiatoap :: lo2r_flow )
@@ -218,6 +227,25 @@ contains
          allocate( type_mpiatoap :: r2lo_initv ) ! from init_fields
          allocate( type_mpiatoap :: lo2r_initv ) ! from init_fields
          allocate( type_mpiatoap :: lo2r_store ) ! from storeCheckpoints
+      
+      else if ( idx == 6 ) then
+         ! I don't quite get why we need both directions, since each object
+         ! can do both transpositions!
+         allocate( type_mpiatoav_new :: lo2r_s )
+         allocate( type_mpiatoav_new :: r2lo_s )
+         allocate( type_mpiatoav_new :: lo2r_flow )
+         allocate( type_mpiatoav_new :: r2lo_flow )
+         allocate( type_mpiatoav_new :: lo2r_field )
+         allocate( type_mpiatoav_new :: r2lo_field )
+         allocate( type_mpiatoav_new :: lo2r_xi )
+         allocate( type_mpiatoav_new :: r2lo_xi )
+         allocate( type_mpiatoav_new :: lo2r_press )
+         
+         ! The following are created/destroyed in other modules
+         allocate( type_mpiatoav_new :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiatoav_new:: r2lo_initv ) ! from init_fields
+         allocate( type_mpiatoav_new :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiatoav_new :: lo2r_store ) ! from storeCheckpoints
       
       else
          print *, "Invalid idx: ", idx,", mpi_transp: ", trim(adjustl(mpi_transp))
