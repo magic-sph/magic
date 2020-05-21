@@ -27,9 +27,11 @@ contains
 
       tsig = 0.0_cp
       file_name = 'signal.'//tag
-      open(newunit=n_sig_file, file=file_name, status='unknown')
-      write(n_sig_file,'(A3)') 'NOT'
-      close(n_sig_file)
+      if ( l_master_rank ) then
+         open(newunit=n_sig_file, file=file_name, status='unknown')
+         write(n_sig_file,'(A3)') 'NOT'
+         close(n_sig_file)
+      end if
 
    end subroutine initialize_signals
 !------------------------------------------------------------------------------
