@@ -672,13 +672,50 @@ contains
       !
       !   Author: Rafael Lago, MPCDF, June 2018
       !
-      integer :: tmp_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, lm_max, 2)
       integer :: icoord_mo, icoord_lo
       integer :: n_l_array, n_l, l_min, k, mi, lj, n, l, m, n_lj
       
       integer, allocatable :: dist_l(:,:)
       
-      tmp_mlo = -1
+      ! Loop to count how many points are stored per rank
+      do icoord_mo=0,n_ranks_mo-1
+         ! Number of l points in icoord_mo
+         l_min = minval(dist_m(icoord_mo, 1:dist_m(icoord_mo,0)))
+         n_l = l_max - l_min + 1
+         n_l_array = ceiling(real(n_l) / real(n_ranks_lo))
+         allocate(dist_l(0:n_ranks_lo-1, 0:n_l_array))
+         dist_l = -1
+         
+         ! Distribute l points with snake ordering
+         call distribute_discontiguous_snake(dist_l, n_l_array, n_l, n_ranks_lo)
+         ! The function above gives numbers from 1:n_l. 
+         ! We want them from l_min:l_min+n_l, but in descending order:
+         dist_l(:,1:) = l_max - (l_min + dist_l(:,1:) - 1) + l_min
+         do icoord_lo=0, n_ranks_lo-1
+            k = 1
+            ! Loops lj backwards, otherwise the ls will be arranged backwards
+            ! in memory
+            do lj = dist_l(icoord_lo,0),1,-1
+               l = dist_l(icoord_lo,lj)
+               do mi=1, dist_m(icoord_mo,0)
+                  m = dist_m(icoord_mo,mi)
+                  if (l>=m) k = k + 1
+               end do
+            end do
+            
+            ! Stores number of mlo points in this rank_mo/rank_lo
+            dist_n_mlo(icoord_mo, icoord_lo) = k-1
+         end do
+         deallocate(dist_l)
+      end do
+      
+      ! Now that sizes are known, copy from tmp into dist_mlo
+      n_mlo_array = maxval(dist_n_mlo)
+      allocate(dist_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, n_mlo_array, 2))
+      dist_mlo = -1
+      
+      ! Essentially the same as the previous loop, but we 
+      ! now store the values.
       do icoord_mo=0,n_ranks_mo-1
          
          ! Number of l points in icoord_mo
@@ -694,7 +731,6 @@ contains
          ! We want them from l_min:l_min+n_l, but in descending order:
          dist_l(:,1:) = l_max - (l_min + dist_l(:,1:) - 1) + l_min
          do icoord_lo=0, n_ranks_lo-1
-            ! Stores mapping in a temporary array
             k = 1
             
             ! Loops lj backwards, otherwise the ls will be arranged backwards
@@ -704,32 +740,93 @@ contains
                do mi=1, dist_m(icoord_mo,0)
                   m = dist_m(icoord_mo,mi)
                   if (l>=m) then
-                     tmp_mlo(icoord_mo, icoord_lo, k, 1) = m
-                     tmp_mlo(icoord_mo, icoord_lo, k, 2) = l
+                     dist_mlo(icoord_mo, icoord_lo, k, 1) = m
+                     dist_mlo(icoord_mo, icoord_lo, k, 2) = l
                      k = k + 1
                   end if
                end do
             end do
-            
-            ! Stores number of mlo points in this rank_mo/rank_lo
-            dist_n_mlo(icoord_mo, icoord_lo) = k-1
          end do
          deallocate(dist_l)
       end do
       
-      ! Now that sizes are known, copy from tmp into dist_mlo
-      n_mlo_array = maxval(dist_n_mlo)
-      allocate(dist_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, n_mlo_array, 2))
-      dist_mlo = -1
-      do icoord_mo=0,n_ranks_mo-1
-         do icoord_lo=0,n_ranks_lo-1
-            n = dist_n_mlo(icoord_mo,icoord_lo)
-            dist_mlo(icoord_mo, icoord_lo, 1:n, 1:2) = &
-            &   tmp_mlo(icoord_mo, icoord_lo, 1:n, 1:2) 
-         end do
-      end do
-      
    end subroutine distribute_mlo_lfirst
+   
+!    !----------------------------------------------------------------------------   
+!    subroutine distribute_mlo_lfirst
+!       !
+!       !   This loop will now distribute the (m,l) pairs amongst all the 
+!       !   rank_mlo. It will make sure that each coord_mo will only keep the 
+!       !   (m,l) pairs whose m is in coord_m. This is aimed at reducing 
+!       !   communication. It will also follow the number of (m,l) points 
+!       !   that we saved in n_mlo input variable.
+!       !   
+!       !   This subroutine will minimize the number of m's in each coord_r by 
+!       !   looping over l first, and then over m while distributing the pairs.
+!       !   
+!       !   This is probably not what you want. This subroutine is here mostly
+!       !   for academic purposes and tests!
+!       !
+!       !   Author: Rafael Lago, MPCDF, June 2018
+!       !
+!       integer :: tmp_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, lm_max, 2)
+!       integer :: icoord_mo, icoord_lo
+!       integer :: n_l_array, n_l, l_min, k, mi, lj, n, l, m, n_lj
+!       
+!       integer, allocatable :: dist_l(:,:)
+!       
+!       tmp_mlo = -1
+!       do icoord_mo=0,n_ranks_mo-1
+!          
+!          ! Number of l points in icoord_mo
+!          l_min = minval(dist_m(icoord_mo, 1:dist_m(icoord_mo,0)))
+!          n_l = l_max - l_min + 1
+!          n_l_array = ceiling(real(n_l) / real(n_ranks_lo))
+!          allocate(dist_l(0:n_ranks_lo-1, 0:n_l_array))
+!          dist_l = -1
+!          
+!          ! Distribute l points with snake ordering
+!          call distribute_discontiguous_snake(dist_l, n_l_array, n_l, n_ranks_lo)
+!          ! The function above gives numbers from 1:n_l. 
+!          ! We want them from l_min:l_min+n_l, but in descending order:
+!          dist_l(:,1:) = l_max - (l_min + dist_l(:,1:) - 1) + l_min
+!          do icoord_lo=0, n_ranks_lo-1
+!             ! Stores mapping in a temporary array
+!             k = 1
+!             
+!             ! Loops lj backwards, otherwise the ls will be arranged backwards
+!             ! in memory
+!             do lj = dist_l(icoord_lo,0),1,-1
+!                l = dist_l(icoord_lo,lj)
+!                do mi=1, dist_m(icoord_mo,0)
+!                   m = dist_m(icoord_mo,mi)
+!                   if (l>=m) then
+!                      tmp_mlo(icoord_mo, icoord_lo, k, 1) = m
+!                      tmp_mlo(icoord_mo, icoord_lo, k, 2) = l
+!                      k = k + 1
+!                   end if
+!                end do
+!             end do
+!             
+!             ! Stores number of mlo points in this rank_mo/rank_lo
+!             dist_n_mlo(icoord_mo, icoord_lo) = k-1
+!          end do
+!          deallocate(dist_l)
+!       end do
+!       
+!       ! Now that sizes are known, copy from tmp into dist_mlo
+!       n_mlo_array = maxval(dist_n_mlo)
+!       allocate(dist_mlo(0:n_ranks_mo-1, 0:n_ranks_lo-1, n_mlo_array, 2))
+!       dist_mlo = -1
+!       do icoord_mo=0,n_ranks_mo-1
+!          do icoord_lo=0,n_ranks_lo-1
+!             n = dist_n_mlo(icoord_mo,icoord_lo)
+!             dist_mlo(icoord_mo, icoord_lo, 1:n, 1:2) = &
+!             &   tmp_mlo(icoord_mo, icoord_lo, 1:n, 1:2) 
+!          end do
+!       end do
+!       
+!    end subroutine distribute_mlo_lfirst
    
    !----------------------------------------------------------------------------   
    subroutine distribute_mlo_lexicographic
@@ -778,44 +875,6 @@ contains
             end do
          end do
       end do
-      
-      !-- Assign the (m,l) pairs to each rank, according to the count of 
-      !   ml-pairs in dist_n_mlo
-      
-!       taken = -1
-!       do m=0,m_max
-!          taken(m,m:l_max) =  (/(l, l=m,l_max,1)/)
-!       end do
-!       
-!       do icoord_mo=0,n_ranks_mo-1
-!          l = 0
-!          m_idx = 1
-!          do icoord_lo=0,n_ranks_lo-1
-!             
-!             irank = mpi_map%gsp2rnk(icoord_mo, icoord_lo)
-!             
-!             i = 1
-!             do while (i<=dist_n_mlo(icoord_mo, icoord_lo))
-!                if (m_idx>dist_m(icoord_mo,0)) then
-!                   m_idx = 1
-!                   l = l + 1
-!                end if
-!                
-!                m = dist_m(icoord_mo, m_idx)
-!                
-!                if (l<m) then
-!                   m_idx = m_idx + 1
-!                   cycle
-!                end if
-!                
-!                dist_mlo(icoord_mo, icoord_lo, i, 1) = m
-!                dist_mlo(icoord_mo, icoord_lo, i, 2) = l
-!                i = i + 1
-!                m_idx = m_idx + 1
-!             end do
-!             
-!          end do
-!       end do
       
    end subroutine distribute_mlo_lexicographic
    

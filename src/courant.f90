@@ -379,17 +379,14 @@ contains
 
       character(len=200) :: message
 ! 
-!       print *, "courant.f90 - dtrkc:", dtrkc
-!       print *, "courant.f90 - dthkc:", dthkc
       dt_fac=two
       dt_r  =1000.0_cp*dtMax
       dt_h  =dt_r
       do n_r=nRstart,nRstop
          dt_r=min(dtrkc(n_r),dt_r)
          dt_h=min(dthkc(n_r),dt_h)
-!          if (dtrkc(n_r)<1.e-5) print *, "courant.f90 - n_r:", n_r
       end do
-!       print *, "courant.f90 - dt_r dt_h:", dt_r, dt_h
+
 #ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL,MPI_MIN, &
            &             comm_r,ierr)
