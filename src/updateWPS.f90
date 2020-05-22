@@ -62,8 +62,8 @@ contains
       allocate( wpsMat(3*n_r_max,3*n_r_max,n_lo_loc) )
       allocate(wpsMat_fac(3*n_r_max,2,n_lo_loc))
       allocate ( wpsPivot(3*n_r_max,n_lo_loc) )
-      bytes_allocated = bytes_allocated+(9*n_r_max*n_lo_loc+6*n_r_max* &
-      &                 n_lo_loc)*SIZEOF_DEF_REAL+3*n_r_max*           &
+      bytes_allocated = bytes_allocated+(9*n_r_max*n_r_max*n_lo_loc+6*n_r_max* &
+      &                 n_lo_loc)*SIZEOF_DEF_REAL+3*n_r_max*                   &
       &                 n_lo_loc*SIZEOF_INTEGER
       allocate( lWPSmat(n_lo_loc) )
       bytes_allocated = bytes_allocated+n_lo_loc*SIZEOF_LOGICAL
@@ -159,7 +159,7 @@ contains
 
             if ( l == 0 ) then
 
-               do nR=2,n_r_max-1
+               do nR=1,n_r_max
                   rhs(nR)        =real(ds(i,nR))
                   rhs(nR+n_r_max)=real(dwdt%expl(i,nR,tscheme%istage))+&
                   &               Cor00_fac*CorFac*or1(nR)*z10(nR)
