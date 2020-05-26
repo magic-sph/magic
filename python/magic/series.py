@@ -95,8 +95,8 @@ class MagicTs(MagicSetup):
             # Concatenate the files that correspond to the tag
             for k, file in enumerate(files):
                 filename = file
-                if filename in  ('gwEntropy,gwPressure'):
-                    datanew = ReadBinaryTimeseries(filename,ncols=14)
+                if self.field in  ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename, binary=binary)
                 if k == 0:
@@ -110,8 +110,8 @@ class MagicTs(MagicSetup):
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                if filename in  ('gwEntropy,gwPressure'):
-                    datanew = ReadBinaryTimeseries(filename,ncols=14)
+                if self.fied in  ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename, binary=binary)
             else:
@@ -119,8 +119,8 @@ class MagicTs(MagicSetup):
                 dat = [(os.stat(i).st_mtime, i) for i in glob.glob(mot)]
                 dat.sort()
                 filename = dat[-1][1]
-                if filename in  ('gwEntropy,gwPressure'):
-                    datanew = ReadBinaryTimeseries(filename,ncols=14)
+                if self.field in ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename, binary=binary)
             tslut = TsLookUpTable(data, self.field)
@@ -133,8 +133,8 @@ class MagicTs(MagicSetup):
             files = scanDir(pattern)
             for k, file in enumerate(files):
                 filename = file
-                if filename in  ('gwEntropy,gwPressure'):
-                    datanew = ReadBinaryTimeseries(filename,ncols=14)
+                if self.field in  ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename, binary=binary)
                 if k == 0:
@@ -1140,8 +1140,12 @@ class AvgField:
 
                 self.emag_tot_avg = avgField(ts4.time[ind:], ts4.emagoc_pol[ind:]+ts4.emagoc_tor[ind:])
 
-            Emag_Ekin = (ts4.emagoc_pol[ind:]+ts4.emagoc_tor[ind:])/(ts.ekin_pol[ind:]+ts.ekin_tor[ind:])
-            self.Emag_Ekin, self.Emag_Ekin_std = avgField(ts4.time[ind:], Emag_Ekin,std=True)
+            try:
+                Emag_Ekin = (ts4.emagoc_pol[ind:]+ts4.emagoc_tor[ind:])/(ts.ekin_pol[ind:]+ts.ekin_tor[ind:])
+                self.Emag_Ekin, self.Emag_Ekin_std = avgField(ts4.time[ind:], Emag_Ekin,std=True)
+            except ValueError:
+                print(10*'!','Failed to compute the ratio Ekin/Emag',10*'!')
+                self.Emag_Ekin, self.Emag_Ekin_std = (None,None)
 
             if self.dipExtra:
                 # dipole.TAG files

@@ -1032,7 +1032,8 @@ def getCpuTime(file):
 def ReadBinaryTimeseries(infile,
                          ncols,
                          datatype='f8',
-                         endianness='>'):
+                         endianness='>',
+                         quiet=True):
     """
     This function reads binary timeseries. It is then faster than
     the fast_read function.
@@ -1050,6 +1051,9 @@ def ReadBinaryTimeseries(infile,
               the data of the binary file
     :rtype: numpy.ndarray
     """
+    if not quiet:
+        print('Reading',infile)
+
     DUMM = endianness+'i4'
     FTYP = endianness+datatype
 
@@ -1061,6 +1065,9 @@ def ReadBinaryTimeseries(infile,
 
     with open(infile,'rb') as f:
         data = np.fromfile(f,dtype=typeG,count=size)['line']
+
+    if np.isnan(data).any():
+        print(40*'!',infile, 'has NaN',40*'!')
 
     return data
 
