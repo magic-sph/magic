@@ -1847,51 +1847,76 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     r3 = 1.03 * s.gr.radratio
     r2 = (r1+r3)/2.
 
-    s.avg(field='vp', levels=levels, cm='RdYlBu_r', normed=True)
+    v_map = 'seismic'
+    s_map = 'magma'
+    b_map = 'RdBu_r'
+
+    s.avg(field='vp', levels=levels, cm=v_map, normed=True)
     plt.savefig('vp.png')
     plt.close()
 
-    s.avg(field='entropy', levels=levels, cm='RdYlBu_r', normed=True)
+    s.avg(field='entropy', levels=levels, cm=s_map, normed=True)
     plt.savefig('entropy.png')
     plt.close()
 
-    s.equat(field='entropy', levels=levels, cm='RdYlBu_r', normed=False)
+    s.equat(field='entropy', levels=levels, cm=s_map, normed=False)
     plt.savefig('equ_s.png')
     plt.close()
 
-    s.equat(field='vr', levels=levels, cm='RdYlBu_r', normed=False)
+    s.equat(field='vr', levels=levels, cm=v_map, normed=False)
     plt.savefig('equ_vr.png')
     plt.close()
 
-    s.surf(field='vp', cm='RdYlBu_r', levels=levels, r=r1, proj='moll',
+    s.surf(field='vp', cm=v_map, levels=levels, r=r1, proj='moll',
            normed=False)
     plt.savefig('surf_vp.png')
     plt.close()
 
-    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r2, proj='moll',
+    s.surf(field='vp', cm=v_map, levels=levels, r=r2, proj='moll',
            normed=False)
     plt.savefig('surf_vp_08.png')
     plt.close()
 
-    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r3, proj='moll',
+    s.surf(field='vp', cm=v_map, levels=levels, r=r3, proj='moll',
            normed=False)
     plt.savefig('surf_vp_06.png')
     plt.close()
 
-    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r1, proj='moll',
+    s.surf(field='vr', cm=v_map, levels=levels, r=r1, proj='moll',
            normed=False)
     plt.savefig('surf_vr.png')
     plt.close()
 
-    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r2, proj='moll',
+    s.surf(field='vr', cm=v_map, levels=levels, r=r2, proj='moll',
            normed=False)
     plt.savefig('surf_vr_08.png')
     plt.close()
 
-    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r3, proj='moll',
+    s.surf(field='vr', cm=v_map, levels=levels, r=r3, proj='moll',
            normed=False)
     plt.savefig('surf_vr_06.png')
     plt.close()
+
+    if s.gr.mode in (0,8):
+        s.avg(field='bp', levels=levels, cm=b_map, normed=True)
+        plt.savefig('bp.png')
+        plt.close()
+
+        s.equat(field='br', levels=levels, cm=b_map,)
+        plt.savefig('equ_br.png')
+        plt.close()
+
+        s.surf(field='br', cm=b_map, levels=levels, r=r1, proj='moll',)
+        plt.savefig('surf_br.png')
+        plt.close()
+
+        s.surf(field='br', cm=b_map, levels=levels, r=r2, proj='moll',)
+        plt.savefig('surf_br_08.png')
+        plt.close()
+
+        s.surf(field='br', cm=b_map, levels=levels, r=r3, proj='moll',)
+        plt.savefig('surf_br_06.png')
+        plt.close()
 
     file.write("\\begin{figure}[htbp]\n")
     file.write(" \\centering\n")
@@ -1899,6 +1924,10 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     file.write(" \\includegraphics[width=9cm]{equ_vr}\n")
     file.write(" \\includegraphics[height=9cm]{entropy}\n")
     file.write(" \\includegraphics[height=9cm]{vp}\n")
+    if s.gr.mode in (0,8):
+        file.write(" \\includegraphics[width=0.45\\textwidth]{equ_br}\n")
+        file.write(" \\includegraphics[height=0.45\\textwidth]{bp}\n")
+
     file.write("\\end{figure}\n")
     file.write("\\newpage\n")
 
@@ -1915,6 +1944,15 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     file.write(" \\includegraphics[width=18cm]{surf_vp}\n")
     file.write("\\end{figure}\n")
 
+    if s.gr.mode in (0,8):
+        file.write("\\newpage\n")
+        file.write("\\begin{figure}\n")
+        file.write(" \\centering\n")
+        file.write(" \\includegraphics[width=15cm]{surf_br_06}\n")
+        file.write(" \\includegraphics[width=15cm]{surf_br_08}\n")
+        file.write(" \\includegraphics[width=15cm]{surf_br}\n")
+        file.write("\\end{figure}\n")
+
     file.write("\\end{document}")
 
 
@@ -1923,5 +1961,5 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     if lclean:
         os.system("rm vp.png entropy.png equ_s.png equ_vr.png surf_vp.png \
                    surf_vr.png surf_vr_06.png surf_vr_08.png surf_vp_06.png\
-                   surf_vp_08.png")
+                   surf_vp_08.png *br*.png")
         os.system("rm report.log report.aux report.tex")
