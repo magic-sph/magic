@@ -187,8 +187,8 @@ contains
 
       else if ( l_mag ) then
          do lm=1,n_lmP_loc
-            this%nl_lm%VxBtLM(lm)=0.0_cp
-            this%nl_lm%VxBpLM(lm)=0.0_cp
+            this%nl_lm%VxBtLM(lm)=zero
+            this%nl_lm%VxBpLM(lm)=zero
          end do
       end if
       

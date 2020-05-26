@@ -174,7 +174,7 @@ contains
       real(cp) :: e_mag_os_ave,e_mag_as_os_ave,Dip,DipCMB,e_cmb,elsAnel
       real(cp) :: time,dt_norm
 
-      integer :: lm,nR,n_e_sets,n_spec,nOut,n_cmb_sets,nPotSets
+      integer :: nR,n_e_sets,n_spec,nOut,n_cmb_sets,nPotSets
 
       character(len=72) :: graph_file
       character(len=80) :: outFile

@@ -144,7 +144,7 @@ contains
       complex(cp), intent(out) :: br_vp_lm_icb(n_lmP_loc) ! product br*vp at ICB
 
       !---- Output for Courant criteria:
-      real(cp),intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
+      real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
 
       !--- Local variables:
@@ -159,7 +159,7 @@ contains
       lGraphHeader=l_graph
       if ( lGraphHeader ) then
 #ifdef WITH_MPI
-         call graphOut_mpi_header(time,nR,nThetaStart,sizeThetaB)
+         call graphOut_mpi_header(time,nThetaStart,sizeThetaB)
 #else
          call graphOut_header(time)
 #endif

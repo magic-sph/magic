@@ -643,14 +643,13 @@ contains
 
    end subroutine graphOut_mpi
 !----------------------------------------------------------------------------
-   subroutine graphOut_mpi_header(time,n_r,n_theta_start,n_theta_block_size)
+   subroutine graphOut_mpi_header(time,n_theta_start,n_theta_block_size)
       !
       ! Writes the header (MPI version)
       !
 
       !-- Input variables:
       real(cp), intent(in) :: time
-      integer,  intent(in) :: n_r                    ! radial grod point no.
       integer,  intent(in) :: n_theta_start          ! start theta no.
       integer,  intent(in) :: n_theta_block_size     ! size of theta block
 

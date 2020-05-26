@@ -31,6 +31,10 @@ module shtns
    &         pol_to_grad_spat_dist, torpol_to_dphspat_dist,                 &
    &         pol_to_curlr_spat_dist
 
+   public :: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb, torpol_to_curl_hyb, &
+   &         pol_to_grad_hyb, torpol_to_dphhyb, pol_to_curlr_hyb, hyb_to_SH,   &
+   &         hyb_to_qst, hyb_to_sphertor
+
 contains
 
    subroutine init_shtns()
@@ -456,6 +460,7 @@ contains
 
       
       !-- Local variables
+      !complex(cp) :: tmp1(n_lm_loc)
       complex(cp) :: fL_loc(n_theta_max,n_m_loc)
       integer :: i, l_lm, u_lm, m
       
@@ -468,7 +473,23 @@ contains
         end if
         l_lm = map_dist_st%lm2(m, m)
         u_lm = map_dist_st%lm2(l_max, m)
+        !tmp1=fLM_loc
+
         call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i),lcut)
+
+        !block
+        !
+        !   use legendre_spec_to_grid, only: sh_to_spat_ml
+        !   complex(cp) :: tmp(n_theta_max)
+        !
+        !  call sh_to_spat_ml(m, tmp1(l_lm:u_lm), tmp, lcut)
+        !
+        !   if( maxval(abs(tmp-fL_loc(:,i))) >= 2.0_cp*epsilon(1.0_cp) ) then
+        !      print*, maxval(abs(tmp-fL_loc(:,i)))
+        !   end if
+        !
+        !end block
+
       end do
       !$omp end parallel do
       
@@ -704,7 +725,7 @@ contains
    subroutine pol_to_curlr_spat_dist(Qlm, cvrc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Qlm(lm_max)
+      complex(cp), intent(in) :: Qlm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variable
@@ -744,21 +765,16 @@ contains
   
    !----------------------------------------------------------------------------
    subroutine spat_to_SH_dist(f_loc, fLMP_loc, lcut)
-      !   
-      !   Transform the spherical harmonic coefficients Qlm into its spatial 
-      !   representation Vr.
-      !  
-      !   Author: Rafael Lago, MPCDF, July 2017
-      !
+
+      !-- Input variables
       real(cp),    intent(inout) :: f_loc(n_phi_max,n_theta_loc)
-      complex(cp), intent(out)   :: fLMP_loc(n_lmP_loc)
       integer,     intent(in)    :: lcut
+
+      !-- Output variable
+      complex(cp), intent(out)   :: fLMP_loc(n_lmP_loc)
       
       !-- Local variables
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
-      complex(cp) ::  transpose_loc(n_m_max,n_theta_loc)
-      complex(cp) ::  Fr_loc(n_phi_max/2+1,n_theta_loc)
-      
       integer :: m, l_lm, u_lm, i
       
       call shtns_load_cfg(1) ! l_max + 1
@@ -800,9 +816,6 @@ contains
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
       complex(cp) ::  gL_loc(n_theta_max,n_m_loc)
       complex(cp) ::  hL_loc(n_theta_max,n_m_loc)
-      
-      complex(cp) ::  transpose_loc(n_m_max,n_theta_loc)
-      complex(cp) ::  Fr_loc(n_phi_max/2+1,n_theta_loc)
       integer :: i, l_lm, u_lm, m
 
       call shtns_load_cfg(1)
@@ -848,15 +861,11 @@ contains
       !-- Local variables
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
       complex(cp) ::  gL_loc(n_theta_max,n_m_loc)
-      
-      complex(cp) ::  transpose_loc(n_m_max,n_theta_loc)
-      complex(cp) ::  Fr_loc(n_phi_max/2+1,n_theta_loc)
       integer :: i, l_lm, u_lm, m
 
       call shtns_load_cfg(1)
       
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
-      
       call transform_phi2m(f_loc, fL_loc)
       call transform_phi2m(g_loc, gL_loc)
       
@@ -913,5 +922,362 @@ contains
 
    end subroutine spat_to_SH_axi_dist
 !------------------------------------------------------------------------------
+   
 
+!--------------------------------
+!
+!-- Legendre only
+!
+!--------------------------------
+   subroutine scal_to_hyb(fLM_loc, field_hyb, lcut)
+      !   
+      !   Transform the spherical harmonic coefficients Qlm into its hybrid
+      !   representation Vr(n_theta,n_m)
+      !  
+      
+      !-- Input variables
+      integer,     intent(in) :: lcut
+      complex(cp), intent(in) :: fLM_loc(n_lm_loc)
+      
+      !-- Output variables
+      complex(cp), intent(out) :: field_hyb(n_theta_max, n_m_loc)
+
+      !-- Local variables
+      integer :: i, l_lm, u_lm, m
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+        m = dist_m(coord_m, i)
+        if (m>lcut) then
+           field_hyb(:,i)=zero
+           cycle
+        end if
+        l_lm = map_dist_st%lm2(m, m)
+        u_lm = map_dist_st%lm2(l_max, m)
+
+        call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), field_hyb(:,i),lcut)
+
+      end do
+      !$omp end parallel do
+      
+   end subroutine scal_to_hyb
+!------------------------------------------------------------------------------
+   subroutine scal_to_grad_hyb(Slm, gradtL, gradpL, lcut)
+      !
+      !   Transform a scalar spherical harmonic field into it's gradient
+      !   on hybrid (n_theta,n_m) space
+      !
+
+      !-- Input variables
+      complex(cp), intent(in) :: Slm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: gradtL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: gradpL(n_theta_max,n_m_loc)
+      
+      !-- Local variables
+      
+      integer :: i, l_lm, u_lm, m
+
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            gradtL(:,i)=zero
+            gradpL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         call shtns_sph_to_spat_ml(m/minc, Slm(l_lm:u_lm), gradtL(:,i), gradpL(:,i), &
+              &                    lcut)
+      end do
+      !$omp end parallel do
+      
+   end subroutine scal_to_grad_hyb
+!------------------------------------------------------------------------------
+   subroutine torpol_to_hyb(Wlm, dWlm, Zlm, fL, gL, hL, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Wlm(n_lm_loc), dWlm(n_lm_loc), Zlm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: gL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: hL(n_theta_max,n_m_loc)
+
+      !-- Local variables
+      complex(cp) :: Qlm(0:l_max)
+      integer :: i, l_lm, u_lm, m
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            hL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Wlm(l_lm:u_lm)
+         !if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
+         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
+              &                    Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
+      end do
+      !$omp end parallel do
+      
+   end subroutine torpol_to_hyb
+!------------------------------------------------------------------------------
+   subroutine torpol_to_curl_hyb(or2, Blm, ddBlm, Jlm, dJlm, fL, gL, hL, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
+      complex(cp), intent(in) :: Jlm(n_lm_loc), dJlm(n_lm_loc)
+      real(cp),    intent(in) :: or2
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: gL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: hL(n_theta_max,n_m_loc)
+
+      !-- Local variables
+      complex(cp) :: Qlm(0:l_max), Tlm(0:l_max)
+      integer :: i, l_lm, u_lm, m
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            hL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Jlm(l_lm:u_lm)
+         Tlm(m:l_max) = or2 * dLh_loc(l_lm:u_lm) * Blm(l_lm:u_lm) - ddBlm(l_lm:u_lm)
+         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), &
+              &                    Tlm(m:l_max), fL(:,i), gL(:,i), hL(:,i), lcut)
+      end do
+      !$omp end parallel do
+      
+   end subroutine torpol_to_curl_hyb
+!------------------------------------------------------------------------------
+   subroutine pol_to_grad_hyb(Slm, fL, gL, lcut)
+
+       !-- Input variables
+      complex(cp), intent(in) :: Slm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: gL(n_theta_max,n_m_loc)
+
+      !-- Local variables
+      complex(cp) :: Qlm(0:l_max)
+      integer :: i, l_lm, u_lm, m
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Slm(l_lm:u_lm)
+         call shtns_sph_to_spat_ml(m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
+      end do
+      !$omp end parallel do
+      
+   end subroutine pol_to_grad_hyb
+!------------------------------------------------------------------------------
+   subroutine torpol_to_dphhyb(dWlm, Zlm, fL, gL, lcut)
+      !
+      ! Computes horizontal phi derivative of a toroidal/poloidal field
+      !
+
+      !-- Input variables
+      complex(cp), intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
+      complex(cp), intent(out) :: gL(n_theta_max,n_m_loc)
+
+      !-- Local variables
+      complex(cp) :: Slm(0:l_max), Tlm(0:l_max)
+      integer :: i, l_lm, u_lm, m, it
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            fL(:,i)=zero
+            gL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         Slm(m:l_max) = ci*m*dWlm(l_lm:u_lm)
+         Tlm(m:l_max) = ci*m*Zlm(l_lm:u_lm)
+         call shtns_sphtor_to_spat_ml(m/minc, Slm(m:l_max), Tlm(m:l_max), &
+              &                       fL(:,i), gL(:,i), lcut)
+         do it=1,n_theta_max
+            fL(it,i)=fL(it,i)*O_sin_theta_E2(it)
+            gL(it,i)=gL(it,i)*O_sin_theta_E2(it)
+         end do
+      end do
+      !$omp end parallel do
+      
+   end subroutine torpol_to_dphhyb
+!------------------------------------------------------------------------------
+   subroutine pol_to_curlr_hyb(Qlm, fL, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Qlm(n_lm_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variable
+      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
+
+      !-- Local variables
+      complex(cp) :: dQlm(0:l_max)
+      integer :: i, l_lm, u_lm, m
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         if (m>lcut) then
+            fL(:,i)=zero
+            cycle
+         end if
+         l_lm = map_dist_st%lm2(m, m)
+         u_lm = map_dist_st%lm2(l_max, m)
+         
+         dQlm(m:l_max) = dLh_loc(l_lm:u_lm) * Qlm(l_lm:u_lm)
+         call shtns_SH_to_spat_ml(m/minc, dQlm(m:l_max), fL(:,i), lcut)
+      end do
+      !$omp end parallel do
+      
+   end subroutine pol_to_curlr_hyb
+!------------------------------------------------------------------------------
+   subroutine hyb_to_SH(fL_loc, fLMP_loc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: fL_loc(n_theta_max,n_m_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variable
+      complex(cp), intent(out) :: fLMP_loc(n_lmP_loc)
+      
+      !-- Local variables
+      integer :: m, l_lm, u_lm, i
+      
+      call shtns_load_cfg(1) ! l_max + 1
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         l_lm = map_dist_st%lmP2(m, m)
+         u_lm = map_dist_st%lmP2(l_max+1, m)
+         if ( m>min(m_max,lcut+1) ) then
+            fLMP_loc(l_lm:u_lm)=zero
+            cycle
+         end if 
+         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLMP_loc(l_lm:u_lm),lcut+1)
+      end do
+      !$omp end parallel do
+      
+      call shtns_load_cfg(0) ! l_max
+
+   end subroutine hyb_to_SH
+!------------------------------------------------------------------------------
+   subroutine hyb_to_qst(fL_loc, gL_loc, hL_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: fL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(in) :: gL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(in) :: hL_loc(n_theta_max,n_m_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: qLMP_loc(n_lmP_loc)
+      complex(cp), intent(out) :: sLMP_loc(n_lmP_loc)
+      complex(cp), intent(out) :: tLMP_loc(n_lmP_loc)
+      
+      !-- Local variables
+      integer :: i, l_lm, u_lm, m
+
+      call shtns_load_cfg(1)
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         l_lm = map_dist_st%lmP2(m, m)
+         u_lm = map_dist_st%lmP2(l_max+1, m)
+         if ( m>min(m_max,lcut+1) ) then
+            qLMP_loc(l_lm:u_lm)=zero
+            sLMP_loc(l_lm:u_lm)=zero
+            tLMP_loc(l_lm:u_lm)=zero
+            cycle
+         end if
+         call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
+              &                    qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),   &
+              &                    tLMP_loc(l_lm:u_lm),lcut+1)
+      end do
+      !$omp end parallel do
+      
+      call shtns_load_cfg(0)
+
+   end subroutine hyb_to_qst
+!------------------------------------------------------------------------------
+   subroutine hyb_to_sphertor(fL_loc, gL_loc, fLMP_loc, gLMP_loc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: fL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(in) :: gL_loc(n_theta_max,n_m_loc)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      complex(cp), intent(out) :: fLMP_loc(n_lmP_loc)
+      complex(cp), intent(out) :: gLMP_loc(n_lmP_loc)
+      
+      !-- Local variables
+      integer :: i, l_lm, u_lm, m
+
+      call shtns_load_cfg(1)
+      
+      !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
+      do i = 1, n_m_loc
+         m = dist_m(coord_m, i)
+         l_lm = map_dist_st%lmP2(m, m)
+         u_lm = map_dist_st%lmP2(l_max+1, m)
+         if ( m>min(m_max,lcut+1) ) then
+            fLMP_loc(l_lm:u_lm)=zero
+            gLMP_loc(l_lm:u_lm)=zero
+            cycle
+         end if
+         call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
+              &                       fLMP_loc(l_lm:u_lm),           &
+              &                       gLMP_loc(l_lm:u_lm),lcut+1)
+      end do
+      !$omp end parallel do
+      
+      call shtns_load_cfg(0)
+
+   end subroutine hyb_to_sphertor
+!------------------------------------------------------------------------------
 end module shtns
