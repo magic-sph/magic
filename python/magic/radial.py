@@ -135,7 +135,13 @@ class MagicRadial(MagicSetup):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                             nml='log.%s' % ending)
-                    except AttributeError:
+                        ### bug when job crashed
+                        if not hasattr(self,'stop_time'):
+                            print(10*'!','Missing attribute stop_time')
+                            print(10*'!','check','log.%s' % ending)
+                            self.start_time = None
+                            self.stop_time = None
+                    except AttributeError as e:
                         self.start_time = None
                         self.stop_time = None
                         pass
