@@ -25,7 +25,7 @@ module outMisc_mod
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, ci
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
-   use useful, only: cc2real, round_off
+   use useful, only: cc2real, round_off, abortRun
    use integration, only: rInt_R
 #ifdef WITH_SHTNS
    use shtns, only: axi_to_spat
@@ -347,12 +347,9 @@ contains
             !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
             !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
             !      &               real(p(1,n_r)) )
-            prefactor = -ThExpNb*alpha0(nR)*rho0(nR)
+            call abortRun('This setup is not ready')
          else
-            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-            !      &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
-            !      &               ogrun(n_r)*real(p(1,n_r)) )
-            prefactor = -ThExpNb*alpha0(nR)*rho0(nR)*temp0(nR)
+            prefactor = -alpha0(nR)*rho0(nR)*temp0(nR)/ViscHeatFac
          end if
 
          do lm=max(2,llm), ulm
@@ -545,20 +542,11 @@ contains
          ddPhiQs_pressure_22_r(nR)=0.0
 
          if ( l_anelastic_liquid ) then
-            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-            !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
-            !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
-            !      &               real(p(1,n_r)) )
-            prefactor = ThExpNb*alpha0(nR)*ViscHeatFac*(ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))
+            call abortRun('This setup is not ready')
          else
-            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-            !      &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
-            !      &               ogrun(n_r)*real(p(1,n_r)) )
-            !prefactor = osq4pi*ThExpNb*alpha0(nR)*ViscHeatFac*ogrun(nR)
             !-- Rem: ogrun normalized at the outer radius in radial
             ! but it is then rescaled in preCalculation
-            prefactor = ThExpNb*ViscHeatFac*alpha0(nR)*ogrun(nR)
-            !prefactor = osq4pi*ViscHeatFac*alpha0(nR)*beta(nR)/dLtemp0(nR) ! equivalent formula if adiabatic background
+            prefactor = alpha0(nR)*ogrun(nR)
          end if
 
          do lm=max(2,llm),ulm
