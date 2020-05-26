@@ -110,7 +110,7 @@ class MagicTs(MagicSetup):
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                if self.fied in  ('gwEntropy','gwPressure'):
+                if self.field in  ('gwEntropy','gwPressure'):
                     data = ReadBinaryTimeseries(filename,ncols=14)
                 else:
                     data = fast_read(filename, binary=binary)
@@ -219,7 +219,7 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Rotation inner core')
             ax.legend(loc='best', frameon=False)
             fig.tight_layout()
-            
+
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
             ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='C0',
