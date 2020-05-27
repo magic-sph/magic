@@ -34,7 +34,7 @@ module rIter_split
    use graphOut_mod, only: graphOut_header, graphOut
 #endif
    use parallel_mod, only: n_ranks_r, coord_r, get_openmp_blocks
-   use fft, only: fft_phi_loc
+   use fft, only: fft_phi_loc, fft_phi_many
 
    implicit none
 
@@ -49,11 +49,13 @@ module rIter_split
    contains 
       procedure :: initialize
       procedure :: finalize
-      procedure :: do_loops
-      procedure :: phys_loop
-      procedure :: td_loop
-      procedure :: fft_hyb_to_grid
-      procedure :: fft_grid_to_hyb
+      procedure :: radialLoop
+      procedure, private :: phys_loop
+      procedure, private :: td_loop
+      procedure, private :: fft_hyb_to_grid
+      procedure, private :: fft_grid_to_hyb
+      procedure, private :: fft_hyb_to_grid_loop
+      procedure, private :: fft_grid_to_hyb_loop
    end type rIter_split_t
 
 contains
@@ -82,17 +84,17 @@ contains
 
    end subroutine finalize
 !-----------------------------------------------------------------------------------
-   subroutine do_loops(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
-              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,     &
-              &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,       &
-              &          lFluxProfCalc,lPerpParCalc,l_probe_out,dsdt,      &
-              &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,   &
-              &          dVSrLM,dVXirLM,lorentz_torque_ic,                 &
-              &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,      &
-              &          br_vt_lm_icb,br_vp_lm_icb,HelASr,Hel2ASr,         &
-              &          HelnaASr,Helna2ASr,HelEAASr,viscAS,uhASr,         &
-              &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,        &
-              &          fpoynASr,fresASr,EperpASr,EparASr,                &
+   subroutine radialLoop(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
+              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
+              &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
+              &          lFluxProfCalc,lPerpParCalc,l_probe_out,dsdt,        &
+              &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,     &
+              &          dVSrLM,dVXirLM,lorentz_torque_ic,                   &
+              &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
+              &          br_vt_lm_icb,br_vp_lm_icb,HelASr,Hel2ASr,           &
+              &          HelnaASr,Helna2ASr,HelEAASr,viscAS,uhASr,           &
+              &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,          &
+              &          fpoynASr,fresASr,EperpASr,EparASr,                  &
               &          EperpaxiASr,EparaxiASr,dtrkc,dthkc)
 
 
@@ -244,7 +246,7 @@ contains
       !----- Correct sign of mantle Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma
 
-   end subroutine do_loops
+   end subroutine radialLoop
 !-----------------------------------------------------------------------------------
    subroutine td_loop(this, lMagNlBc, lRmsCalc, lPressNext, dVSrLM, dVXirLM, &
               &       dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt)
@@ -642,7 +644,7 @@ contains
 
    end subroutine phys_loop
 !-----------------------------------------------------------------------------------
-   subroutine fft_hyb_to_grid(this,lVisc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &
+   subroutine fft_hyb_to_grid_loop(this,lVisc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc,&
               &               lFluxProfCalc,lPerpParCalc,lHelCalc,l_frame)
 
       class(rIter_split_t) :: this
@@ -799,9 +801,140 @@ contains
          end if
       end do
 
+   end subroutine fft_hyb_to_grid_loop
+!-----------------------------------------------------------------------------------
+   subroutine fft_hyb_to_grid(this,lVisc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &
+              &               lFluxProfCalc,lPerpParCalc,lHelCalc,l_frame)
+
+      class(rIter_split_t) :: this
+      logical, intent(in) :: lVisc, lRmsCalc, lPressCalc, lPowerCalc
+      logical, intent(in) :: lTOCalc, lFluxProfCalc, l_frame, lPerpParCalc
+      logical, intent(in) :: lHelCalc
+
+      if ( l_heat ) then
+         call fft_phi_many(this%gsa%sc, this%hsa%s_Thloc,-1)
+         if ( lVisc ) then
+            call fft_phi_many(this%gsa%dsdtc, this%hsa%dsdt_Thloc,-1)
+            call fft_phi_many(this%gsa%dsdpc, this%hsa%dsdp_Thloc,-1)
+         end if
+      end if
+
+      if ( lPressCalc ) call fft_phi_many(this%gsa%pc, this%hsa%p_Thloc,-1)
+
+      if ( lRmsCalc) then
+         call fft_phi_many(this%gsa%dpdtc, this%hsa%dpdt_Thloc,-1)
+         call fft_phi_many(this%gsa%dpdpc, this%hsa%dpdp_Thloc,-1)
+      end if
+
+      if ( l_HT .or. lVisc ) call fft_phi_many(this%gsa%drsc, this%hsa%dsdr_Thloc,-1)
+
+      if ( l_chemical_conv ) call fft_phi_many(this%gsa%xic, this%hsa%xi_Thloc,-1)
+
+      call fft_phi_many(this%gsa%vrc, this%hsa%vr_Thloc,-1)
+      call fft_phi_many(this%gsa%vtc, this%hsa%vt_Thloc,-1)
+      call fft_phi_many(this%gsa%vpc, this%hsa%vp_Thloc,-1)
+      call fft_phi_many(this%gsa%cvrc, this%hsa%cvr_Thloc,-1)
+
+      if ( l_adv_curl ) then
+         call fft_phi_many(this%gsa%cvtc, this%hsa%cvt_Thloc,-1)
+         call fft_phi_many(this%gsa%cvpc, this%hsa%cvp_Thloc,-1)
+            if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc .or.  &
+            &    lTOCalc .or. ( l_frame .and. l_movie_oc .and.                &
+            &    l_store_frame) ) then
+               call fft_phi_many(this%gsa%dvrdrc, this%hsa%dvrdr_Thloc,-1)
+               call fft_phi_many(this%gsa%dvtdrc, this%hsa%dvtdr_Thloc,-1)
+               call fft_phi_many(this%gsa%dvpdrc, this%hsa%dvpdr_Thloc,-1)
+               call fft_phi_many(this%gsa%dvrdpc, this%hsa%dvrdp_Thloc,-1)
+               call fft_phi_many(this%gsa%dvtdpc, this%hsa%dvtdp_Thloc,-1)
+               call fft_phi_many(this%gsa%dvpdpc, this%hsa%dvpdp_Thloc,-1)
+               call fft_phi_many(this%gsa%dvrdtc, this%hsa%dvrdt_Thloc,-1)
+            end if
+      else
+         call fft_phi_many(this%gsa%dvrdrc, this%hsa%dvrdr_Thloc,-1)
+         call fft_phi_many(this%gsa%dvtdrc, this%hsa%dvtdr_Thloc,-1)
+         call fft_phi_many(this%gsa%dvpdrc, this%hsa%dvpdr_Thloc,-1)
+         call fft_phi_many(this%gsa%dvrdpc, this%hsa%dvrdp_Thloc,-1)
+         call fft_phi_many(this%gsa%dvtdpc, this%hsa%dvtdp_Thloc,-1)
+         call fft_phi_many(this%gsa%dvpdpc, this%hsa%dvpdp_Thloc,-1)
+         call fft_phi_many(this%gsa%dvrdtc, this%hsa%dvrdt_Thloc,-1)
+      end if
+
+      if ( l_mag .or. l_mag_LF ) then
+         call fft_phi_many(this%gsa%brc, this%hsa%br_Thloc,-1)
+         call fft_phi_many(this%gsa%btc, this%hsa%bt_Thloc,-1)
+         call fft_phi_many(this%gsa%bpc, this%hsa%bp_Thloc,-1)
+         call fft_phi_many(this%gsa%cbrc, this%hsa%cbr_Thloc,-1)
+         call fft_phi_many(this%gsa%cbtc, this%hsa%cbt_Thloc,-1)
+         call fft_phi_many(this%gsa%cbpc, this%hsa%cbp_Thloc,-1)
+      end if
+
    end subroutine fft_hyb_to_grid
 !-----------------------------------------------------------------------------------
    subroutine fft_grid_to_hyb(this, lRmsCalc)
+
+      class(rIter_split_t) :: this
+      logical, intent(in) :: lRmsCalc
+
+      if ( l_conv_nl .or. l_mag_LF ) then
+         call fft_phi_many(this%gsa%Advr, this%hsa%Advr_Thloc, 1)
+         call fft_phi_many(this%gsa%Advt, this%hsa%Advt_Thloc, 1)
+         call fft_phi_many(this%gsa%Advp, this%hsa%Advp_Thloc, 1)
+      end if
+
+      if ( lRmsCalc .and. l_mag_LF ) then
+         call fft_phi_many(this%gsa%LFr, this%hsa%LFr_Thloc, 1)
+         call fft_phi_many(this%gsa%LFt, this%hsa%LFt_Thloc, 1)
+         call fft_phi_many(this%gsa%LFp, this%hsa%LFp_Thloc, 1)
+      end if
+
+      if ( l_heat ) then
+         call fft_phi_many(this%gsa%VSr, this%hsa%VSr_Thloc, 1)
+         call fft_phi_many(this%gsa%VSt, this%hsa%VSt_Thloc, 1)
+         call fft_phi_many(this%gsa%VSp, this%hsa%VSp_Thloc, 1)
+         if ( l_anel ) then
+            call fft_phi_many(this%gsa%ViscHeat, this%hsa%ViscHeat_Thloc, 1)
+            if ( l_mag_nl ) then
+               call fft_phi_many(this%gsa%OhmLoss, this%hsa%OhmLoss_Thloc, 1)
+            end if
+         end if
+      end if
+
+      if ( l_chemical_conv ) then
+         call fft_phi_many(this%gsa%VXir, this%hsa%VXir_Thloc, 1)
+         call fft_phi_many(this%gsa%VXit, this%hsa%VXit_Thloc, 1)
+         call fft_phi_many(this%gsa%VXip, this%hsa%VXip_Thloc, 1)
+      end if
+
+      if ( l_mag_nl ) then
+         call fft_phi_many(this%gsa%VxBr, this%hsa%VxBr_Thloc, 1)
+         call fft_phi_many(this%gsa%VxBt, this%hsa%VxBt_Thloc, 1)
+         call fft_phi_many(this%gsa%VxBp, this%hsa%VxBp_Thloc, 1)
+      end if
+
+      if ( lRmsCalc ) then
+         call fft_phi_many(this%gsa%dpdtc, this%hsa%PFt2_Thloc, 1)
+         call fft_phi_many(this%gsa%dpdpc, this%hsa%PFp2_Thloc, 1)
+         call fft_phi_many(this%gsa%CFt2, this%hsa%CFt2_Thloc, 1)
+         call fft_phi_many(this%gsa%CFp2, this%hsa%CFp2_Thloc, 1)
+         call fft_phi_many(this%gsa%dtVr, this%hsa%dtVr_Thloc, 1)
+         call fft_phi_many(this%gsa%dtVt, this%hsa%dtVt_Thloc, 1)
+         call fft_phi_many(this%gsa%dtVp, this%hsa%dtVp_Thloc, 1)
+         if ( l_conv_nl ) then
+            call fft_phi_many(this%gsa%Advt2, this%hsa%Advt2_Thloc, 1)
+            call fft_phi_many(this%gsa%Advp2, this%hsa%Advp2_Thloc, 1)
+         end if
+         if ( l_adv_curl ) then
+            call fft_phi_many(this%gsa%dpkindrc, this%hsa%dpkindr_Thloc, 1)
+         end if
+         if ( l_mag_nl ) then
+            call fft_phi_many(this%gsa%LFt2, this%hsa%LFt2_Thloc, 1)
+            call fft_phi_many(this%gsa%LFp2, this%hsa%LFp2_Thloc, 1)
+         end if
+      end if
+
+   end subroutine fft_grid_to_hyb
+!-----------------------------------------------------------------------------------
+   subroutine fft_grid_to_hyb_loop(this, lRmsCalc)
 
       class(rIter_split_t) :: this
       logical, intent(in) :: lRmsCalc
@@ -909,6 +1042,6 @@ contains
 
       end do
 
-   end subroutine fft_grid_to_hyb
+   end subroutine fft_grid_to_hyb_loop
 !-----------------------------------------------------------------------------------
 end module rIter_split

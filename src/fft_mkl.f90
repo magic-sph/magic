@@ -4,8 +4,8 @@
 module fft
 
    use precision_mod
-   use constants, only: one
-   use truncation, only: nrp, ncp, n_phi_max, n_theta_loc
+   use constants, only: one, zero
+   use truncation, only: nrp, ncp, n_phi_max, n_theta_loc, n_m_max, n_r_loc
    use blocking, only: nfs
    !use parallel_mod, only: nThreads
    use mkl_dfti
@@ -18,11 +18,14 @@ module fft
    integer :: status
    type(DFTI_DESCRIPTOR), pointer :: c2r_handle, r2c_handle
    type(DFTI_DESCRIPTOR), pointer :: phi2m_dhandle, m2phi_dhandle
+   type(DFTI_DESCRIPTOR), pointer :: p2m_many_handle, m2p_many_handle
    !----------- END MKL specific variables
  
    public :: fft_thetab, init_fft, fft_to_real, finalize_fft
    public :: finalize_fft_phi, fft_phi_loc
    public :: initialize_fft_phi
+   public :: finalize_fft_phi_many, fft_phi_many
+   public :: initialize_fft_phi_many
 
 contains
 
@@ -178,8 +181,7 @@ contains
       status = DftiSetValue( m2phi_dhandle, DFTI_FORWARD_SCALE, 1.0_cp/real(n_phi_max,cp) )
       status = DftiCommitDescriptor( m2phi_dhandle )
     
-  end subroutine initialize_fft_phi
-
+   end subroutine initialize_fft_phi
    !----------------------------------------------------------------------------
    subroutine finalize_fft_phi
       !
@@ -221,6 +223,62 @@ contains
       end if
       PERFOFF
     
-  end subroutine fft_phi_loc
+   end subroutine fft_phi_loc
+!-----------------------------------------------------------------------------------
+   subroutine initialize_fft_phi_many
+
+      integer :: st
+      
+      st = DftiCreateDescriptor( p2m_many_handle, DFTI_DOUBLE, DFTI_REAL, 1, n_phi_max )
+      st = DftiSetValue( p2m_many_handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+      st = DftiSetValue( p2m_many_handle, DFTI_NUMBER_OF_TRANSFORMS, n_theta_loc*n_r_loc)
+      st = DftiSetValue( p2m_many_handle, DFTI_INPUT_DISTANCE, n_phi_max )
+      st = DftiSetValue( p2m_many_handle, DFTI_OUTPUT_DISTANCE, n_phi_max/2+1 )
+      st = DftiSetValue( p2m_many_handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+      st = DftiSetValue( p2m_many_handle, DFTI_FORWARD_SCALE, 1.0_cp/real(n_phi_max,cp) )
+      st = DftiCommitDescriptor( p2m_many_handle )
+      
+      st = DftiCreateDescriptor( m2p_many_handle, DFTI_DOUBLE, DFTI_REAL, 1, n_phi_max )
+      st = DftiSetValue( m2p_many_handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+      st = DftiSetValue( m2p_many_handle, DFTI_NUMBER_OF_TRANSFORMS, n_theta_loc*n_r_loc)
+      st = DftiSetValue( m2p_many_handle, DFTI_INPUT_DISTANCE, n_phi_max/2+1 )
+      st = DftiSetValue( m2p_many_handle, DFTI_OUTPUT_DISTANCE, n_phi_max )
+      st = DftiSetValue( m2p_many_handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+      st = DftiSetValue( m2p_many_handle, DFTI_FORWARD_SCALE, 1.0_cp/real(n_phi_max,cp) )
+      st = DftiCommitDescriptor( m2p_many_handle )
+    
+   end subroutine initialize_fft_phi_many
+!-----------------------------------------------------------------------------------
+   subroutine finalize_fft_phi_many
+   
+      integer :: st
+      
+      st = DftiFreeDescriptor(p2m_many_handle)
+      st = DftiFreeDescriptor(m2p_many_handle)
+
+   end subroutine finalize_fft_phi_many
+!-----------------------------------------------------------------------------------
+   subroutine fft_phi_many(f, g, dir)
+
+      real(cp),    intent(inout)  :: f(n_phi_max,n_theta_loc,n_r_loc)
+      complex(cp), intent(inout)  :: g(n_m_max,n_theta_loc,n_r_loc)
+      integer,     intent(in)     :: dir
+
+      !-- Local variables
+      complex(cp) :: tmp((n_phi_max/2+1),n_theta_loc,n_r_loc)
+      integer :: st
+      
+      if (dir == 1) then
+         st = DftiComputeForward( p2m_many_handle, f(:,1,1), tmp(:,1,1) )
+         g(:,:,:)=tmp(1:n_m_max,:,:)
+      else if (dir == -1) then
+         tmp(1:n_m_max,:,:) =g(:,:,:)
+         tmp(n_m_max+1:,:,:)=zero
+         st = DftiComputeBackward( m2p_many_handle, tmp(:,1,1), f(:,1,1) )
+      else
+         print *, "Unknown direction in fft_phi_loc: ", dir
+      end if
+    
+  end subroutine fft_phi_many
 
 end module fft
