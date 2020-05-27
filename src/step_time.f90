@@ -63,21 +63,32 @@ module step_time_mod
    use timing ! Everything is needed
    use LMmapping, only: map_mlo
    use communications, only: gather_Flm !@> TODO: DELETE-MEEEEE
+
+   use rIter_split, only: rIter_split_t
    
 
    implicit none
 
    private
 
-   public :: initialize_step_time, step_time
+   public :: initialize_step_time, finalize_step_time, step_time
+
+   type(rIter_split_t) :: rIter
 
 contains
 
    subroutine initialize_step_time()
 
       call initialize_signals()
+      !call rIter%initialize()
 
    end subroutine initialize_step_time
+!-------------------------------------------------------------------------------
+   subroutine finalize_step_time()
+
+      !call rIter%finalize()
+
+   end subroutine finalize_step_time
 !-------------------------------------------------------------------------------
    subroutine step_time(time, tscheme, n_time_step, run_time_start)
       !
@@ -495,11 +506,23 @@ contains
                     &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,          &
                     &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,       &
                     &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+               !call rIter%radialLoop(l_graph, l_frame,time,timeStage,tscheme,        &
+               !     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+               !     &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
+               !     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
+               !     &           dsdt_Rdist,dwdt_Rdist,dzdt_Rdist,dpdt_Rdist,       &
+               !     &           dxidt_Rdist,dbdt_Rdist,djdt_Rdist,dVxVhLM_Rdist,   &
+               !     &           dVxBhLM_Rdist,dVSrLM_Rdist,dVXirLM_Rdist,          &
+               !     &           lorentz_torque_ic,lorentz_torque_ma,               &
+               !     &           br_vt_lm_cmb_dist,br_vp_lm_cmb_dist,               &
+               !     &           br_vt_lm_icb_dist,br_vp_lm_icb_dist,HelASr_Rloc,   &
+               !     &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,         &
+               !     &           HelEAASr_Rloc,viscAS_Rloc,uhASr_Rloc,duhASr_Rloc,  &
+               !     &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,          &
+               !     &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,          &
+               !     &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,       &
+               !     &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
                call rLoop_counter%stop_count()
-               phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
-               lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
-               nl_counter%n_counts=nl_counter%n_counts+1
-               td_counter%n_counts=td_counter%n_counts+1
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 

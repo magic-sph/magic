@@ -3,6 +3,8 @@ module rIter_split
    use precision_mod
    use constants, only: zero
    use fields
+   use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter,  &
+       &                td_counter
    use truncation, only: n_lmP_loc, nRstart, nRstop, nRstartMag, nRstopMag,   &
        &                 n_lm_loc, n_lmMag_loc, n_r_cmb, n_r_icb, n_theta_max,&
        &                 n_phi_max, n_theta_loc, n_m_max, nThetaStart,        &
@@ -202,6 +204,7 @@ contains
            &     lMagNlBc=.true.
 
 
+      call lm2phy_counter%start_count()
       !-- Legendre transforms
       call this%hsa%leg_spec_to_hyb(w_Rdist, dw_Rdist, ddw_Rdist, z_Rdist, dz_Rdist, &
            &                        b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist, dj_Rdist,&
@@ -217,8 +220,10 @@ contains
       !-- FFT's
       call this%fft_hyb_to_grid(lViscBcCalc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &
            &                    lFluxProfCalc,lPerpParCalc,lHelCalc,l_frame)
+      call lm2phy_counter%stop_count()
 
       !-- Physical space loop
+      call nl_counter%start_count()
       call this%phys_loop(l_graph,l_frame,time,timeStage,tscheme,dtLast,    &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,      &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,        &
@@ -229,7 +234,9 @@ contains
               &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,         &
               &          fpoynASr,fresASr,EperpASr,EparASr,                 &
               &          EperpaxiASr,EparaxiASr,dtrkc,dthkc)
+      call nl_counter%stop_count()
 
+      call phy2lm_counter%start_count()
       !-- FFT's
       call this%fft_grid_to_hyb(lRmsCalc)
 
@@ -238,10 +245,13 @@ contains
 
       !-- Legendre transforms
       call this%hsa%leg_hyb_to_spec(this%nl_lm, lRmsCalc)
+      call phy2lm_counter%stop_count()
 
       !-- get td and other spectral calls
+      call td_counter%start_count()
       call this%td_loop(lMagNlBc, lRmsCalc, lPressNext, dVSrLM, dVXirLM, dVxVhLM,  &
            &            dVxBhLM, dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt)
+      call td_counter%stop_count()
 
       !----- Correct sign of mantle Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma

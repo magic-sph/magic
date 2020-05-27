@@ -3,6 +3,8 @@ module radialLoop
 
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
+   use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter,  &
+       &                td_counter
    use truncation, only: n_lm_loc, n_lmMag_loc, &
        &                 nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag,   &
        &                 n_r_icb, n_lmP_loc
@@ -253,6 +255,11 @@ contains
 
       !----- Correct sign of mantel Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma
+
+      phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
+      lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
+      nl_counter%n_counts=nl_counter%n_counts+1
+      td_counter%n_counts=td_counter%n_counts+1
       
       !LIKWID_OFF('rloop')
       PERFOFF
