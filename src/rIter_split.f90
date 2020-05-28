@@ -223,7 +223,6 @@ contains
       call lm2phy_counter%stop_count()
 
       !-- Physical space loop
-      call nl_counter%start_count()
       call this%phys_loop(l_graph,l_frame,time,timeStage,tscheme,dtLast,    &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,      &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,        &
@@ -234,7 +233,7 @@ contains
               &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,         &
               &          fpoynASr,fresASr,EperpASr,EparASr,                 &
               &          EperpaxiASr,EparaxiASr,dtrkc,dthkc)
-      call nl_counter%stop_count()
+      nl_counter%n_counts = nl_counter%n_counts+1
 
       call phy2lm_counter%start_count()
       !-- FFT's
@@ -405,9 +404,11 @@ contains
             end if
          end if
 
+         call nl_counter%start_count()
          if ( .not. l_bound .or. lRmsCalc .or. lMagNlBc ) then
             call this%gsa%get_nl(timeStage, tscheme, nR, nBc, lRmsCalc)
          end if
+         call nl_counter%stop_count(l_increment=.false.)
 
          if ( (.not. l_bound .or. lRmsCalc ) .and. (l_conv_nl .or. l_mag_LF) ) then
 
