@@ -36,7 +36,7 @@ module rIter_split
    use graphOut_mod, only: graphOut_header, graphOut
 #endif
    use parallel_mod, only: n_ranks_r, coord_r, get_openmp_blocks
-   use fft, only: fft_phi_loc, fft_phi_many
+   use fft, only: fft_phi_loc, fft_phi_many, ifft_phi
 
    implicit none
 
@@ -823,61 +823,35 @@ contains
       logical, intent(in) :: lHelCalc
 
       if ( l_heat ) then
-         call fft_phi_many(this%gsa%sc, this%hsa%s_Thloc,-1)
+         call ifft_phi(this%hsa%s_pThloc, this%gsa%sc, 1)
          if ( lVisc ) then
-            call fft_phi_many(this%gsa%dsdtc, this%hsa%dsdt_Thloc,-1)
-            call fft_phi_many(this%gsa%dsdpc, this%hsa%dsdp_Thloc,-1)
+            call ifft_phi(this%hsa%grads_pThloc,this%gsa%grads,3)
+         else if ( (.not. lVisc) .and. l_HT ) then
+            call ifft_phi(this%hsa%grads_pThloc,this%gsa%grads,1)
          end if
       end if
 
-      if ( lPressCalc ) call fft_phi_many(this%gsa%pc, this%hsa%p_Thloc,-1)
+      if ( lPressCalc ) call ifft_phi(this%hsa%p_pThloc,this%gsa%pc,1)
 
       if ( lRmsCalc) then
-         call fft_phi_many(this%gsa%dpdtc, this%hsa%dpdt_Thloc,-1)
-         call fft_phi_many(this%gsa%dpdpc, this%hsa%dpdp_Thloc,-1)
+         call ifft_phi(this%hsa%gradp_pThloc,this%gsa%gradp, 2)
       end if
 
-      if ( l_HT .or. lVisc ) call fft_phi_many(this%gsa%drsc, this%hsa%dsdr_Thloc,-1)
-
-      if ( l_chemical_conv ) call fft_phi_many(this%gsa%xic, this%hsa%xi_Thloc,-1)
-
-      call fft_phi_many(this%gsa%vrc, this%hsa%vr_Thloc,-1)
-      call fft_phi_many(this%gsa%vtc, this%hsa%vt_Thloc,-1)
-      call fft_phi_many(this%gsa%vpc, this%hsa%vp_Thloc,-1)
-      call fft_phi_many(this%gsa%cvrc, this%hsa%cvr_Thloc,-1)
+      if ( l_chemical_conv ) call ifft_phi(this%hsa%xi_pThloc, this%gsa%xic, 1)
 
       if ( l_adv_curl ) then
-         call fft_phi_many(this%gsa%cvtc, this%hsa%cvt_Thloc,-1)
-         call fft_phi_many(this%gsa%cvpc, this%hsa%cvp_Thloc,-1)
-            if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc .or.  &
-            &    lTOCalc .or. ( l_frame .and. l_movie_oc .and.                &
-            &    l_store_frame) ) then
-               call fft_phi_many(this%gsa%dvrdrc, this%hsa%dvrdr_Thloc,-1)
-               call fft_phi_many(this%gsa%dvtdrc, this%hsa%dvtdr_Thloc,-1)
-               call fft_phi_many(this%gsa%dvpdrc, this%hsa%dvpdr_Thloc,-1)
-               call fft_phi_many(this%gsa%dvrdpc, this%hsa%dvrdp_Thloc,-1)
-               call fft_phi_many(this%gsa%dvtdpc, this%hsa%dvtdp_Thloc,-1)
-               call fft_phi_many(this%gsa%dvpdpc, this%hsa%dvpdp_Thloc,-1)
-               call fft_phi_many(this%gsa%dvrdtc, this%hsa%dvrdt_Thloc,-1)
-            end if
+         call ifft_phi(this%hsa%vel_pThloc, this%gsa%vel, 6)
+         if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc .or.  &
+         &    lTOCalc .or. ( l_frame .and. l_movie_oc .and.                &
+         &    l_store_frame) ) then
+            call ifft_phi(this%hsa%gradvel_pThloc, this%gsa%gradvel, 7)
+         end if
       else
-         call fft_phi_many(this%gsa%dvrdrc, this%hsa%dvrdr_Thloc,-1)
-         call fft_phi_many(this%gsa%dvtdrc, this%hsa%dvtdr_Thloc,-1)
-         call fft_phi_many(this%gsa%dvpdrc, this%hsa%dvpdr_Thloc,-1)
-         call fft_phi_many(this%gsa%dvrdpc, this%hsa%dvrdp_Thloc,-1)
-         call fft_phi_many(this%gsa%dvtdpc, this%hsa%dvtdp_Thloc,-1)
-         call fft_phi_many(this%gsa%dvpdpc, this%hsa%dvpdp_Thloc,-1)
-         call fft_phi_many(this%gsa%dvrdtc, this%hsa%dvrdt_Thloc,-1)
+         call ifft_phi(this%hsa%vel_pThloc, this%gsa%vel, 4)
+         call ifft_phi(this%hsa%gradvel_pThloc, this%gsa%gradvel, 7)
       end if
 
-      if ( l_mag .or. l_mag_LF ) then
-         call fft_phi_many(this%gsa%brc, this%hsa%br_Thloc,-1)
-         call fft_phi_many(this%gsa%btc, this%hsa%bt_Thloc,-1)
-         call fft_phi_many(this%gsa%bpc, this%hsa%bp_Thloc,-1)
-         call fft_phi_many(this%gsa%cbrc, this%hsa%cbr_Thloc,-1)
-         call fft_phi_many(this%gsa%cbtc, this%hsa%cbt_Thloc,-1)
-         call fft_phi_many(this%gsa%cbpc, this%hsa%cbp_Thloc,-1)
-      end if
+      if ( l_mag .or. l_mag_LF ) call ifft_phi(this%hsa%mag_pThloc, this%gsa%mag, 6)
 
    end subroutine fft_hyb_to_grid
 !-----------------------------------------------------------------------------------

@@ -689,8 +689,8 @@ module grid_space_arrays_3d_mod
    use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
-       &            l_RMS, l_chemical_conv, l_precession,             &
-       &            l_centrifuge, l_adv_curl
+       &            l_RMS, l_chemical_conv, l_precession, l_mag,      &
+       &            l_centrifuge, l_adv_curl, l_viscBcCalc
    use time_schemes, only: type_tscheme
    use communications, only: slice_f, gather_f
 
@@ -711,19 +711,22 @@ module grid_space_arrays_3d_mod
 
       !---- RMS calculations
       real(cp), allocatable :: Advt2(:,:,:), Advp2(:,:,:), LFt2(:,:,:), LFp2(:,:,:)
-      real(cp), allocatable :: CFt2(:,:,:), CFp2(:,:,:), dpdtc(:,:,:), dpdpc(:,:,:)
+      real(cp), allocatable :: CFt2(:,:,:), CFp2(:,:,:)
       real(cp), allocatable :: dtVr(:,:,:), dtVp(:,:,:), dtVt(:,:,:)
       real(cp), allocatable :: dpkindrc(:,:,:)
 
       !----- Fields calculated from these help arrays by legtf:
+      real(cp), pointer :: vel(:,:,:,:), gradvel(:,:,:,:), xic(:,:,:)
+      real(cp), pointer :: mag(:,:,:,:), grads(:,:,:,:), gradp(:,:,:,:)
+      real(cp), pointer :: pc(:,:,:), sc(:,:,:), dpdtc(:,:,:), dpdpc(:,:,:)
       real(cp), pointer :: vrc(:,:,:), vtc(:,:,:), vpc(:,:,:)
       real(cp), pointer :: dvrdrc(:,:,:), dvtdrc(:,:,:), dvpdrc(:,:,:)
-      real(cp), pointer :: cvrc(:,:,:), sc(:,:,:), drSc(:,:,:)
+      real(cp), pointer :: cvrc(:,:,:), drSc(:,:,:)
       real(cp), pointer :: dvrdtc(:,:,:), dvrdpc(:,:,:)
       real(cp), pointer :: dvtdpc(:,:,:), dvpdpc(:,:,:)
       real(cp), pointer :: brc(:,:,:), btc(:,:,:), bpc(:,:,:)
       real(cp), pointer :: cbrc(:,:,:), cbtc(:,:,:), cbpc(:,:,:)
-      real(cp), pointer :: pc(:,:,:), xic(:,:,:), cvtc(:,:,:), cvpc(:,:,:)
+      real(cp), pointer :: cvtc(:,:,:), cvpc(:,:,:)
       real(cp), pointer :: dsdtc(:,:,:), dsdpc(:,:,:)
 
    contains
@@ -783,43 +786,85 @@ contains
       end if
 
       !----- Fields calculated from these help arrays by legtf:
-      allocate( this%vrc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &         this%vtc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &         this%vpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%dvrdrc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &         this%dvtdrc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%dvpdrc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &         this%cvrc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%dvrdtc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &         this%dvrdpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%dvtdpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &         this%dvpdpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%brc(nrp,nThetaStart:nThetaStop,nRstart:nRstop),    &
-      &         this%btc(nrp,nThetaStart:nThetaStop,nRstart:nRstop),    &
-      &         this%bpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      this%btc(:,:,:)=1.0e50_cp
-      this%bpc(:,:,:)=1.0e50_cp
-      allocate( this%cbrc(nrp,nThetaStart:nThetaStop,nRstart:nRstop),   &
-      &         this%cbtc(nrp,nThetaStart:nThetaStop,nRstart:nRstop),   &
-      &         this%cbpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%sc(nrp,nThetaStart:nThetaStop,nRstart:nRstop),     &
-      &         this%drSc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
+      if ( l_adv_curl ) then
+         allocate( this%vel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,6) )
+      else
+         allocate( this%vel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,4) )
+      end if
+      this%vrc(1:,nThetaStart:,nRstart:) => &
+      &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+      this%vtc(1:,nThetaStart:,nRstart:) => &
+      &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+      this%vpc(1:,nThetaStart:,nRstart:) => &
+      &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      this%cvrc(1:,nThetaStart:,nRstart:) => &
+      &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,4)
+      if ( l_adv_curl ) then
+         this%cvtc(1:,nThetaStart:,nRstart:) => &
+         &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,5)
+         this%cvpc(1:,nThetaStart:,nRstart:) => &
+         &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,6)
+      end if
+
+      allocate( this%gradvel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,7) )
+      this%dvrdrc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+      this%dvtdrc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+      this%dvpdrc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      this%dvrdpc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,4)
+      this%dvtdpc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,5)
+      this%dvpdpc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,6)
+      this%dvrdtc(1:,nThetaStart:,nRstart:) => &
+      &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,7)
+
+      if ( l_mag .or. l_mag_LF ) then
+         allocate( this%mag(nrp,nThetaStart:nThetaStop,nRstart:nRstop,6) )
+         this%brc(1:,nThetaStart:,nRstart:) => &
+         &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%btc(1:,nThetaStart:,nRstart:) => &
+         &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%bpc(1:,nThetaStart:,nRstart:) => &
+         &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+         this%cbrc(1:,nThetaStart:,nRstart:) => &
+         &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,4)
+         this%cbtc(1:,nThetaStart:,nRstart:) => &
+         &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,5)
+         this%cbpc(1:,nThetaStart:,nRstart:) => &
+         &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,6)
+      end if
+
+      allocate( this%sc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
       allocate( this%pc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%dsdtc(nrp,nThetaStart:nThetaStop,nRstart:nRstop),  &
-      &         this%dsdpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      bytes_allocated=bytes_allocated + 22*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
 
       if ( l_chemical_conv ) then
          allocate( this%xic(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
-      else
-         allocate( this%xic(1,1,1) )
       end if
 
-      if ( l_adv_curl ) then
-         allocate( this%cvtc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-                   this%cvpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
+      if ( l_viscBcCalc ) then
+         allocate( this%grads(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+      else 
+         allocate( this%grads(nrp,nThetaStart:nThetaStop,nRstart:nRstop,1) )
+      end if
+      this%drSc(1:,nThetaStart:,nRstart:) => &
+      &          this%grads(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+      if ( l_viscBcCalc ) then
+         this%dsdtc(1:,nThetaStart:,nRstart:) => &
+         &          this%grads(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%dsdpc(1:,nThetaStart:,nRstart:) => &
+         &          this%grads(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      end if
+
+      if ( l_RMS ) then
+         allocate( this%gradp(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+         this%dpdtc(1:,nThetaStart:,nRstart:) => &
+         &          this%gradp(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%dpdpc(1:,nThetaStart:,nRstart:) => &
+         &          this%gradp(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
       end if
 
       !-- RMS Calculations
@@ -833,8 +878,6 @@ contains
                    this%LFp2(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
          allocate ( this%CFt2(nrp,nThetaStart:nThetaStop,nRstart:nRstop),  &
                    this%CFp2(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate ( this%dpdtc(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-                   this%dpdpc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
          bytes_allocated=bytes_allocated + 11*nrp*n_theta_loc*n_r_loc* &
          &               SIZEOF_DEF_REAL
 
@@ -872,17 +915,14 @@ contains
       deallocate( this%ViscHeat, this%OhmLoss )
 
       !----- Fields calculated from these help arrays by legtf:
-      deallocate( this%vrc,this%vtc,this%vpc )
-      deallocate( this%dvrdrc,this%dvtdrc,this%dvpdrc,this%cvrc )
-      deallocate( this%dvrdtc,this%dvrdpc,this%dvtdpc,this%dvpdpc )
-      deallocate( this%brc,this%btc,this%bpc,this%cbrc,this%cbtc,this%cbpc )
-      deallocate( this%sc,this%drSc, this%pc, this%xic )
-      deallocate( this%dsdtc, this%dsdpc )
+      deallocate( this%vel, this%gradvel, this%sc, this%grads, this%pc )
+      if ( l_chemical_conv ) deallocate( this%xic )
+      if ( l_mag .or. l_mag_LF ) deallocate ( this%mag)
 
       !-- RMS Calculations
       if ( l_RMS ) then
          deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
-         deallocate ( this%CFt2, this%CFp2, this%dpdtc, this%dpdpc )
+         deallocate ( this%CFt2, this%CFp2, this%gradp )
          deallocate ( this%dtVr, this%dtVt, this%dtVp )
          if (allocated(vr_old)) deallocate ( vr_old )
          if (allocated(vt_old)) deallocate ( vt_old )
