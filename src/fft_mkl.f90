@@ -31,7 +31,7 @@ module fft
    public :: finalize_fft_phi, fft_phi_loc
    public :: initialize_fft_phi
    public :: finalize_fft_phi_many, fft_phi_many
-   public :: initialize_fft_phi_many, ifft_phi
+   public :: initialize_fft_phi_many, ifft_phi, fft_phi
 
 contains
 
@@ -357,5 +357,35 @@ contains
       end if
 
    end subroutine ifft_phi
+!-----------------------------------------------------------------------------------
+   subroutine fft_phi(f,g,n_fields)
+
+      !-- Input variables
+      integer,     intent(in) :: n_fields
+      real(cp),    intent(in)  :: f(n_phi_max,n_theta_loc,n_r_loc,n_fields)
+
+      !-- Output variables
+      complex(cp), intent(out)  :: g(n_phi_max/2+1,n_theta_loc,n_r_loc,n_fields)
+
+      !-- Local variables
+      integer :: st
+
+      if ( n_fields == 1 ) then
+         st = DftiComputeForward( p2m_handle_1, f(:,1,1,1), g(:,1,1,1) )
+      else if ( n_fields == 2 ) then
+         st = DftiComputeForward( p2m_handle_2, f(:,1,1,1), g(:,1,1,1) )
+      else if ( n_fields == 3 ) then
+         st = DftiComputeForward( p2m_handle_3, f(:,1,1,1), g(:,1,1,1) )
+      else if ( n_fields == 4 ) then
+         st = DftiComputeForward( p2m_handle_4, f(:,1,1,1), g(:,1,1,1) )
+      else if ( n_fields == 5 ) then
+         st = DftiComputeForward( p2m_handle_5, f(:,1,1,1), g(:,1,1,1) )
+      else if ( n_fields == 6 ) then
+         st = DftiComputeForward( p2m_handle_6, f(:,1,1,1), g(:,1,1,1) )
+      else if ( n_fields == 7 ) then
+         st = DftiComputeForward( p2m_handle_7, f(:,1,1,1), g(:,1,1,1) )
+      end if
+
+   end subroutine fft_phi
 !-----------------------------------------------------------------------------------
 end module fft

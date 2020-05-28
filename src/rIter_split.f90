@@ -36,7 +36,7 @@ module rIter_split
    use graphOut_mod, only: graphOut_header, graphOut
 #endif
    use parallel_mod, only: n_ranks_r, coord_r, get_openmp_blocks
-   use fft, only: fft_phi_loc, fft_phi_many, ifft_phi
+   use fft, only: fft_phi_loc, ifft_phi, fft_phi
 
    implicit none
 
@@ -861,59 +861,39 @@ contains
       logical, intent(in) :: lRmsCalc
 
       if ( l_conv_nl .or. l_mag_LF ) then
-         call fft_phi_many(this%gsa%Advr, this%hsa%Advr_Thloc, 1)
-         call fft_phi_many(this%gsa%Advt, this%hsa%Advt_Thloc, 1)
-         call fft_phi_many(this%gsa%Advp, this%hsa%Advp_Thloc, 1)
-      end if
-
-      if ( lRmsCalc .and. l_mag_LF ) then
-         call fft_phi_many(this%gsa%LFr, this%hsa%LFr_Thloc, 1)
-         call fft_phi_many(this%gsa%LFt, this%hsa%LFt_Thloc, 1)
-         call fft_phi_many(this%gsa%LFp, this%hsa%LFp_Thloc, 1)
+         call fft_phi(this%gsa%NSadv, this%hsa%NSAdv_pThloc, 3)
       end if
 
       if ( l_heat ) then
-         call fft_phi_many(this%gsa%VSr, this%hsa%VSr_Thloc, 1)
-         call fft_phi_many(this%gsa%VSt, this%hsa%VSt_Thloc, 1)
-         call fft_phi_many(this%gsa%VSp, this%hsa%VSp_Thloc, 1)
+         call fft_phi(this%gsa%heatadv, this%hsa%heatadv_pThloc, 3)
          if ( l_anel ) then
-            call fft_phi_many(this%gsa%ViscHeat, this%hsa%ViscHeat_Thloc, 1)
             if ( l_mag_nl ) then
-               call fft_phi_many(this%gsa%OhmLoss, this%hsa%OhmLoss_Thloc, 1)
+               call fft_phi(this%gsa%anel, this%hsa%anel_pThloc, 2)
+            else
+               call fft_phi(this%gsa%anel, this%hsa%anel_pThloc, 1)
             end if
          end if
       end if
 
       if ( l_chemical_conv ) then
-         call fft_phi_many(this%gsa%VXir, this%hsa%VXir_Thloc, 1)
-         call fft_phi_many(this%gsa%VXit, this%hsa%VXit_Thloc, 1)
-         call fft_phi_many(this%gsa%VXip, this%hsa%VXip_Thloc, 1)
+         call fft_phi(this%gsa%compadv, this%hsa%compadv_pThloc, 3)
       end if
 
       if ( l_mag_nl ) then
-         call fft_phi_many(this%gsa%VxBr, this%hsa%VxBr_Thloc, 1)
-         call fft_phi_many(this%gsa%VxBt, this%hsa%VxBt_Thloc, 1)
-         call fft_phi_many(this%gsa%VxBp, this%hsa%VxBp_Thloc, 1)
+         call fft_phi(this%gsa%emf, this%hsa%emf_pThloc, 3)
       end if
 
       if ( lRmsCalc ) then
-         call fft_phi_many(this%gsa%dpdtc, this%hsa%PFt2_Thloc, 1)
-         call fft_phi_many(this%gsa%dpdpc, this%hsa%PFp2_Thloc, 1)
-         call fft_phi_many(this%gsa%CFt2, this%hsa%CFt2_Thloc, 1)
-         call fft_phi_many(this%gsa%CFp2, this%hsa%CFp2_Thloc, 1)
-         call fft_phi_many(this%gsa%dtVr, this%hsa%dtVr_Thloc, 1)
-         call fft_phi_many(this%gsa%dtVt, this%hsa%dtVt_Thloc, 1)
-         call fft_phi_many(this%gsa%dtVp, this%hsa%dtVp_Thloc, 1)
-         if ( l_conv_nl ) then
-            call fft_phi_many(this%gsa%Advt2, this%hsa%Advt2_Thloc, 1)
-            call fft_phi_many(this%gsa%Advp2, this%hsa%Advp2_Thloc, 1)
-         end if
+         call fft_phi(this%gsa%gradp, this%hsa%PF2_pThloc, 2)
+         call fft_phi(this%gsa%dtV, this%hsa%dtV_pThloc, 3)
          if ( l_adv_curl ) then
-            call fft_phi_many(this%gsa%dpkindrc, this%hsa%dpkindr_Thloc, 1)
+            call fft_phi(this%gsa%RMS, this%hsa%RMS_pThloc, 5)
+         else
+            call fft_phi(this%gsa%RMS, this%hsa%RMS_pThloc, 4)
          end if
-         if ( l_mag_nl ) then
-            call fft_phi_many(this%gsa%LFt2, this%hsa%LFt2_Thloc, 1)
-            call fft_phi_many(this%gsa%LFp2, this%hsa%LFp2_Thloc, 1)
+         if ( l_mag_nl .or. l_mag_LF ) then
+            call fft_phi(this%gsa%LF, this%hsa%LF_pThloc, 3)
+            call fft_phi(this%gsa%LF2, this%hsa%LF2_pThloc, 2)
          end if
       end if
 

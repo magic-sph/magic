@@ -61,6 +61,11 @@ module hybrid_space_mod
       complex(cp), pointer :: Advt2_Mloc(:,:,:), Advp2_Mloc(:,:,:)
       complex(cp), pointer :: LFt2_Mloc(:,:,:), LFp2_Mloc(:,:,:)
 
+      complex(cp), pointer :: NSadv_pThloc(:,:,:,:), heatadv_pThloc(:,:,:,:)
+      complex(cp), pointer :: compadv_pThloc(:,:,:,:), emf_pThloc(:,:,:,:)
+      complex(cp), pointer :: RMS_pThloc(:,:,:,:), LF_pThloc(:,:,:,:)
+      complex(cp), pointer :: LF2_pThloc(:,:,:,:), PF2_pThloc(:,:,:,:)
+      complex(cp), pointer :: dtV_pThloc(:,:,:,:), anel_pThloc(:,:,:,:)
       complex(cp), pointer :: Advr_Thloc(:,:,:), Advt_Thloc(:,:,:), Advp_Thloc(:,:,:)
       complex(cp), pointer :: LFr_Thloc(:,:,:), LFt_Thloc(:,:,:), LFp_Thloc(:,:,:)
       complex(cp), pointer :: VSr_Thloc(:,:,:), VSt_Thloc(:,:,:), VSp_Thloc(:,:,:)
@@ -247,50 +252,65 @@ contains
          this%gradp_pThloc(:,:,:,:)=zero
       end if
 
-      allocate( this%Advr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%Advt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%Advp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-
-      if ( l_RMS .and. l_mag ) then
-         allocate( this%LFr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%LFt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%LFp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-      end if
+      allocate( this%NSadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+      this%NSadv_pThloc(:,:,:,:)=zero
+      this%Advr_Thloc(1:,nThetaStart:,nRstart:) => &
+      &      this%NSadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+      this%Advt_Thloc(1:,nThetaStart:,nRstart:) => &
+      &      this%NSadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+      this%Advp_Thloc(1:,nThetaStart:,nRstart:) => &
+      &      this%NSadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
 
       if ( l_heat ) then
-         allocate( this%VSr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%VSt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%VSp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-      end if
+         allocate( this%heatadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%heatadv_pThloc(:,:,:,:)=zero
+         this%VSr_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%heatadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%VSt_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%heatadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%VSp_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%heatadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      end if 
 
       if ( l_chemical_conv ) then
-         allocate( this%VXir_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%VXit_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%VXip_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( this%compadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%compadv_pThloc(:,:,:,:)=zero
+         this%VXir_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%compadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%VXit_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%compadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%VXip_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%compadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
       if ( l_anel ) then
          if ( l_mag ) then
-            allocate( this%OhmLoss_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
+            allocate( this%anel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+         else
+            allocate( this%anel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,1) )
          end if
-         allocate( this%ViscHeat_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
+         this%ViscHeat_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%anel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         if ( l_mag ) then
+            this%OhmLoss_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%anel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         end if
       end if
 
       if ( l_mag_nl ) then
-         allocate( this%VxBr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%VxBt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%VxBp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( this%emf_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%emf_pThloc(:,:,:,:)=zero
+         this%VxBr_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%VxBt_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%VxBp_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
       allocate( this%Advr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
       allocate( this%Advt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
       allocate( this%Advp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-
-      if ( l_RMS .and. l_mag ) then
-         allocate( this%LFr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%LFt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%LFp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-      end if
 
       if ( l_heat ) then
          allocate( this%VSr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
@@ -318,133 +338,79 @@ contains
       end if
 
       if ( l_RMS ) then
-         allocate( this%PFt2_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%PFp2_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%CFt2_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%CFp2_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%Advt2_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%Advp2_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
+         allocate( this%PF2_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+         this%PF2_pThloc(:,:,:,:)=zero
+         this%PFt2_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%PF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%PFp2_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%PF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
          if ( l_adv_curl ) then
-            allocate( this%dpkindr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop))
+            allocate( this%RMS_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,5) )
+         else
+            allocate( this%RMS_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,4) )
          end if
-
-         allocate( this%PFt2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%PFp2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%CFt2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%CFp2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%Advt2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%Advp2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+         this%RMS_pThloc(:,:,:,:)=zero
+         this%CFt2_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%CFp2_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%Advt2_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
+         this%Advp2_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,4)
          if ( l_adv_curl ) then
-            allocate( this%dpkindr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+            this%dpkindr_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,5)
          end if
+         allocate( this%dtV_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%dtV_pThloc(:,:,:,:)=zero
+         this%dtVr_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%dtV_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%dtVt_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%dtV_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%dtVp_Thloc(1:,nThetaStart:,nRstart:) => &
+         &      this%dtV_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
 
-#ifdef WITH_POINTERS
-      !-- Instead of allocating again some arrays now use pointers
-      this%Advr_Thloc(1:, nThetaStart:, nRstart:) => this%vr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      this%Advt_Thloc(1:, nThetaStart:, nRstart:) => this%vt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      this%Advp_Thloc(1:, nThetaStart:, nRstart:) => this%vp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-
-      if ( l_RMS .and. l_mag ) then
-         this%LFr_Thloc(1:, nThetaStart:, nRstart:) => this%br_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%LFt_Thloc(1:, nThetaStart:, nRstart:) => this%bt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%LFp_Thloc(1:, nThetaStart:, nRstart:) => this%bp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      end if
-
-      if ( l_heat ) then
-         this%VSr_Thloc(1:, nThetaStart:, nRstart:) => this%s_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%VSt_Thloc(1:, nThetaStart:, nRstart:) => this%dsdr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%VSp_Thloc(1:, nThetaStart:, nRstart:) => this%p_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      end if
-
-      if ( l_chemical_conv ) then
-         this%VXir_Thloc(1:, nThetaStart:, nRstart:) => this%xi_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%VXit_Thloc(1:, nThetaStart:, nRstart:) => this%dvrdp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%VXip_Thloc(1:, nThetaStart:, nRstart:) => this%dvtdp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      end if
-
-      if ( l_anel ) then
          if ( l_mag ) then
-            this%OhmLoss_Thloc(1:, nThetaStart:, nRstart:) => this%dvrdr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
+            allocate( this%LF_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+            allocate( this%LF2_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+            this%LF_pThloc(:,:,:,:)=zero
+            this%LF2_pThloc(:,:,:,:)=zero
+            this%LFr_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%LF_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+            this%LFt_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%LF_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
+            this%LFp_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%LF_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
+            this%LFt2_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%LF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
+            this%LFp2_Thloc(1:,nThetaStart:,nRstart:) => &
+            &      this%LF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
          end if
-         this%ViscHeat_Thloc(1:, nThetaStart:, nRstart:) => this%dvtdr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      end if
 
-      if ( l_mag_nl ) then
-         this%VxBr_Thloc(1:, nThetaStart:, nRstart:) => this%cbr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%VxBt_Thloc(1:, nThetaStart:, nRstart:) => this%cbt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%VxBp_Thloc(1:, nThetaStart:, nRstart:) => this%cbp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-      end if
-
-      this%Advr_Mloc(1:, 1:, nRstart:) => this%vr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      this%Advt_Mloc(1:, 1:, nRstart:) => this%vt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      this%Advp_Mloc(1:, 1:, nRstart:) => this%vp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-
-      if ( l_RMS .and. l_mag ) then
-         this%LFr_Mloc(1:, 1:, nRstart:) => this%br_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%LFt_Mloc(1:, 1:, nRstart:) => this%bt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%LFp_Mloc(1:, 1:, nRstart:) => this%bp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      end if
-
-      if ( l_heat ) then
-         this%VSr_Mloc(1:, 1:, nRstart:) => this%s_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%VSt_Mloc(1:, 1:, nRstart:) => this%dsdr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%VSp_Mloc(1:, 1:, nRstart:) => this%p_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      end if
-
-      if ( l_chemical_conv ) then
-         this%VXir_Mloc(1:, 1:, nRstart:) => this%xi_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%VXit_Mloc(1:, 1:, nRstart:) => this%dvrdp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%VXip_Mloc(1:, 1:, nRstart:) => this%dvtdp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      end if
-
-      if ( l_mag_nl ) then
-         this%VxBr_Mloc(1:, 1:, nRstart:) => this%cbr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%VxBt_Mloc(1:, 1:, nRstart:) => this%cbt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%VxBp_Mloc(1:, 1:, nRstart:) => this%cbp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      end if
-
-      if ( l_anel ) then
-         if ( l_mag ) then
-            this%OhmLoss_Mloc(1:, 1:, nRstart:) => this%dvrdr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         end if
-         this%ViscHeat_Mloc(1:, 1:, nRstart:) => this%dvtdr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-      end if
-
-      if ( l_RMS ) then
-         this%PFt2_Thloc(1:, nThetaStart:, nRstart:) => this%dpdt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%PFp2_Thloc(1:, nThetaStart:, nRstart:) => this%dpdp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%CFt2_Thloc(1:, nThetaStart:, nRstart:) => this%dvpdp_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%CFp2_Thloc(1:, nThetaStart:, nRstart:) => this%dvpdr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%Advt2_Thloc(1:, nThetaStart:, nRstart:) => this%dvrdt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
-         this%Advp2_Thloc(1:, nThetaStart:, nRstart:) => this%cvr_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
+         allocate( this%PFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%PFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%CFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%CFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%Advt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%Advp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
          if ( l_adv_curl ) then
-            this%dpkindr_Thloc(1:, nThetaStart:, nRstart:) => this%cvt_Thloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
+            allocate( this%dpkindr_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
          end if
-
-         this%PFt2_Mloc(1:, 1:, nRstart:) => this%dpdt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%PFp2_Mloc(1:, 1:, nRstart:) => this%dpdp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%CFt2_Mloc(1:, 1:, nRstart:) => this%dvpdp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%CFp2_Mloc(1:, 1:, nRstart:) => this%dvpdr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%Advt2_Mloc(1:, 1:, nRstart:) => this%dvrdt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         this%Advp2_Mloc(1:, 1:, nRstart:) => this%cvr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         if ( l_adv_curl ) then
-            this%dpkindr_Mloc(1:, 1:, nRstart:) => this%cvt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop)
-         end if
-#endif
 
          allocate( this%dtVr_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
          allocate( this%dtVt_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
          allocate( this%dtVp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%LFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%LFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         if ( l_mag ) then
+            allocate( this%LFr_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+            allocate( this%LFt_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+            allocate( this%LFp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+            allocate( this%LFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+            allocate( this%LFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         end if
          bytes_allocated = bytes_allocated+5*n_m_loc*n_theta_max*n_r_loc* &
          &                 SIZEOF_DEF_COMPLEX
 
-         allocate( this%dtVr_Thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%dtVt_Thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%dtVp_Thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%LFt2_Thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( this%LFp2_Thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop) )
          bytes_allocated = bytes_allocated+5*n_m_max*n_theta_loc*n_r_loc* &
          &                 SIZEOF_DEF_COMPLEX
       end if
@@ -462,34 +428,28 @@ contains
          deallocate( this%dtVr_Mloc, this%dtVt_Mloc, this%dtVp_Mloc ) 
          deallocate( this%LFt2_Mloc, this%LFp2_Mloc)
          deallocate( this%dpdt_Mloc, this%dpdp_Mloc )
-         deallocate( this%dpdt_Thloc, this%dpdp_Thloc )
-         deallocate( this%dtVr_Thloc, this%dtVt_Thloc, this%dtVp_Thloc ) 
-         deallocate( this%LFt2_Thloc, this%LFp2_Thloc)
-      end if
-      if ( l_viscBcCalc ) then
-         deallocate( this%dsdt_Mloc, this%dsdp_Mloc )
-         deallocate( this%dsdt_Thloc, this%dsdp_Thloc )
+         deallocate( this%RMS_pThloc, this%dtV_pThloc )
+         if ( l_mag ) deallocate( this%LF_pThloc )
       end if
       if ( l_adv_curl ) then
-         deallocate( this%cvt_Mloc, this%cvp_Mloc, this%cvt_Thloc, this%cvp_Thloc )
+         deallocate( this%cvt_Mloc, this%cvp_Mloc )
       end if
       if ( l_mag ) then
          deallocate( this%br_Mloc, this%bt_Mloc, this%bp_Mloc, &
          &           this%cbr_Mloc, this%cbt_Mloc, this%cbp_Mloc )
-         deallocate( this%br_Thloc, this%bt_Thloc, this%bp_Thloc, &
-         &           this%cbr_Thloc, this%cbt_Thloc, this%cbp_Thloc )
+         deallocate( this%mag_pThloc )
       end if
       if ( l_chemical_conv ) then
-         deallocate( this%xi_Mloc, this%xi_Thloc )
+         deallocate( this%xi_Mloc, this%xi_pThloc )
       end if
+
       deallocate( this%vr_Mloc, this%vt_Mloc, this%vp_Mloc )
       deallocate( this%dvrdr_Mloc, this%dvtdr_Mloc, this%dvpdr_Mloc )
       deallocate( this%cvr_Mloc, this%dvrdt_Mloc, this%dvrdp_Mloc, this%dvtdp_Mloc )
       deallocate( this%dvpdp_Mloc, this%p_Mloc, this%s_Mloc, this%dsdr_Mloc )
-      deallocate( this%vr_Thloc, this%vt_Thloc, this%vp_Thloc )
-      deallocate( this%dvrdr_Thloc, this%dvtdr_Thloc, this%dvpdr_Thloc )
-      deallocate( this%cvr_Thloc, this%dvrdt_Thloc, this%dvrdp_Thloc, this%dvtdp_Thloc )
-      deallocate( this%dvpdp_Thloc, this%p_Thloc, this%s_Thloc, this%dsdr_Thloc )
+
+      deallocate( this%vel_pThloc, this%gradvel_pThloc )
+      deallocate( this%s_pThloc,this%p_pThloc, this%grads_pThloc)
 
    end subroutine finalize
 !-----------------------------------------------------------------------------------

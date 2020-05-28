@@ -690,7 +690,7 @@ module grid_space_arrays_3d_mod
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
        &            l_RMS, l_chemical_conv, l_precession, l_mag,      &
-       &            l_centrifuge, l_adv_curl, l_viscBcCalc
+       &            l_centrifuge, l_adv_curl, l_viscBcCalc, l_heat
    use time_schemes, only: type_tscheme
    use communications, only: slice_f, gather_f
 
@@ -700,20 +700,23 @@ module grid_space_arrays_3d_mod
 
    type, public, extends(general_arrays_t) :: grid_3D_arrays_t
       !----- Nonlinear terms in phi/theta space:
-      real(cp), allocatable :: Advr(:,:,:), Advt(:,:,:), Advp(:,:,:)
-      real(cp), allocatable :: LFr(:,:,:), LFt(:,:,:), LFp(:,:,:)
       real(cp), allocatable :: PCr(:,:,:), PCt(:,:,:), PCp(:,:,:)
       real(cp), allocatable :: CAr(:,:,:), CAt(:,:,:)
-      real(cp), allocatable :: VxBr(:,:,:), VxBt(:,:,:), VxBp(:,:,:)
-      real(cp), allocatable :: VSr(:,:,:), VSt(:,:,:), VSp(:,:,:)
-      real(cp), allocatable :: VXir(:,:,:), VXit(:,:,:), VXip(:,:,:)
-      real(cp), allocatable :: ViscHeat(:,:,:), OhmLoss(:,:,:)
+      real(cp), pointer :: NSadv(:,:,:,:), heatadv(:,:,:,:), LF(:,:,:,:)
+      real(cp), pointer :: compadv(:,:,:,:), anel(:,:,:,:), emf(:,:,:,:)
+      real(cp), pointer :: Advr(:,:,:), Advt(:,:,:), Advp(:,:,:)
+      real(cp), pointer :: LFr(:,:,:), LFt(:,:,:), LFp(:,:,:)
+      real(cp), pointer :: VxBr(:,:,:), VxBt(:,:,:), VxBp(:,:,:)
+      real(cp), pointer :: VSr(:,:,:), VSt(:,:,:), VSp(:,:,:)
+      real(cp), pointer :: VXir(:,:,:), VXit(:,:,:), VXip(:,:,:)
+      real(cp), pointer :: ViscHeat(:,:,:), OhmLoss(:,:,:)
 
       !---- RMS calculations
-      real(cp), allocatable :: Advt2(:,:,:), Advp2(:,:,:), LFt2(:,:,:), LFp2(:,:,:)
-      real(cp), allocatable :: CFt2(:,:,:), CFp2(:,:,:)
-      real(cp), allocatable :: dtVr(:,:,:), dtVp(:,:,:), dtVt(:,:,:)
-      real(cp), allocatable :: dpkindrc(:,:,:)
+      real(cp), pointer :: RMS(:,:,:,:), dtV(:,:,:,:), LF2(:,:,:,:)
+      real(cp), pointer :: Advt2(:,:,:), Advp2(:,:,:), LFt2(:,:,:), LFp2(:,:,:)
+      real(cp), pointer :: CFt2(:,:,:), CFp2(:,:,:)
+      real(cp), pointer :: dtVr(:,:,:), dtVp(:,:,:), dtVt(:,:,:)
+      real(cp), pointer :: dpkindrc(:,:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), pointer :: vel(:,:,:,:), gradvel(:,:,:,:), xic(:,:,:)
@@ -749,21 +752,47 @@ contains
 
       class(grid_3D_arrays_t) :: this
 
-      allocate( this%Advr(nrp,nThetaStart:nThetaStop,nRstart:nRstop),     &
-      &         this%Advt(nrp,nThetaStart:nThetaStop,nRstart:nRstop),     &
-      &         this%Advp(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%LFr(nrp,nThetaStart:nThetaStop,nRstart:nRstop),      &
-      &         this%LFt(nrp,nThetaStart:nThetaStop,nRstart:nRstop),      &
-      &         this%LFp(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%VxBr(nrp,nThetaStart:nThetaStop,nRstart:nRstop),     &
-      &         this%VxBt(nrp,nThetaStart:nThetaStop,nRstart:nRstop),     &
-      &         this%VxBp(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%VSr(nrp,nThetaStart:nThetaStop,nRstart:nRstop),      &
-      &         this%VSt(nrp,nThetaStart:nThetaStop,nRstart:nRstop),      &
-      &         this%VSp(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( this%ViscHeat(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-      &          this%OhmLoss(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-      bytes_allocated=bytes_allocated + 14*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
+      allocate( this%NSadv(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+      this%Advr(1:,nThetaStart:,nRstart:) => &
+      &         this%NSadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+      this%Advt(1:,nThetaStart:,nRstart:) => &
+      &         this%NSadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+      this%Advp(1:,nThetaStart:,nRstart:) => &
+      &         this%NSadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+
+      allocate( this%anel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+      this%ViscHeat(1:,nThetaStart:,nRstart:) => &
+      &         this%anel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+      this%OhmLoss(1:,nThetaStart:,nRstart:) => &
+      &         this%anel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+
+      if ( l_mag .or. l_mag_LF ) then
+         allocate( this%LF(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%LFr(1:,nThetaStart:,nRstart:) => &
+         &         this%LF(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%LFt(1:,nThetaStart:,nRstart:) => &
+         &         this%LF(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%LFp(1:,nThetaStart:,nRstart:) => &
+         &         this%LF(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+
+         allocate( this%emf(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%VxBr(1:,nThetaStart:,nRstart:) => &
+         &         this%emf(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%VxBt(1:,nThetaStart:,nRstart:) => &
+         &         this%emf(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%VxBp(1:,nThetaStart:,nRstart:) => &
+         &         this%emf(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      end if
+
+      if ( l_heat ) then
+         allocate( this%heatadv(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%VSr(1:,nThetaStart:,nRstart:) => &
+         &         this%heatadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%VSt(1:,nThetaStart:,nRstart:) => &
+         &         this%heatadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%VSp(1:,nThetaStart:,nRstart:) => &
+         &         this%heatadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      end if
 
       if ( l_precession ) then
          allocate( this%PCr(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
@@ -779,10 +808,13 @@ contains
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%VXir(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-         &         this%VXit(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-         &         this%VXip(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
+         allocate( this%compadv(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%VXir(1:,nThetaStart:,nRstart:) => &
+         &         this%compadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%VXit(1:,nThetaStart:,nRstart:) => &
+         &         this%compadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%VXip(1:,nThetaStart:,nRstart:) => &
+         &         this%compadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
       !----- Fields calculated from these help arrays by legtf:
@@ -859,27 +891,47 @@ contains
          &          this%grads(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
+      !-- RMS Calculations
       if ( l_RMS ) then
          allocate( this%gradp(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
          this%dpdtc(1:,nThetaStart:,nRstart:) => &
          &          this%gradp(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
          this%dpdpc(1:,nThetaStart:,nRstart:) => &
          &          this%gradp(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
-      end if
 
-      !-- RMS Calculations
-      if ( l_RMS ) then
-         allocate ( this%Advt2(nrp,nThetaStart:nThetaStop,nRstart:nRstop), &
-                   this%Advp2(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate ( this%dtVr(nrp,nThetaStart:nThetaStop,nRstart:nRstop),  &
-                   this%dtVt(nrp,nThetaStart:nThetaStop,nRstart:nRstop),   &
-                   this%dtVp(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate ( this%LFt2(nrp,nThetaStart:nThetaStop,nRstart:nRstop),  &
-                   this%LFp2(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate ( this%CFt2(nrp,nThetaStart:nThetaStop,nRstart:nRstop),  &
-                   this%CFp2(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + 11*nrp*n_theta_loc*n_r_loc* &
-         &               SIZEOF_DEF_REAL
+         if ( l_adv_curl ) then
+            allocate( this%RMS(nrp,nThetaStart:nThetaStop,nRstart:nRstop,5) )
+         else
+            allocate( this%RMS(nrp,nThetaStart:nThetaStop,nRstart:nRstop,4) )
+         end if
+         this%CFt2(1:,nThetaStart:,nRstart:) => &
+         &         this%RMS(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%CFp2(1:,nThetaStart:,nRstart:) => &
+         &         this%RMS(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%Advt2(1:,nThetaStart:,nRstart:) => &
+         &         this%RMS(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+         this%Advp2(1:,nThetaStart:,nRstart:) => &
+         &         this%RMS(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,4)
+         if ( l_adv_curl ) then
+            this%dpkindrc(1:,nThetaStart:,nRstart:) => &
+            &         this%RMS(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,5)
+         end if
+
+         allocate( this%dtV(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         this%dtVr(1:,nThetaStart:,nRstart:) => &
+         &         this%dtV(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+         this%dtVt(1:,nThetaStart:,nRstart:) => &
+         &         this%dtV(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         this%dtVp(1:,nThetaStart:,nRstart:) => &
+         &         this%dtV(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+
+         if ( l_mag ) then
+            allocate( this%LF2(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+            this%LFt2(1:,nThetaStart:,nRstart:) => &
+            &         this%LF2(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
+            this%LFp2(1:,nThetaStart:,nRstart:) => &
+            &         this%LF2(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+         end if
 
          allocate( vr_old_dist(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
          allocate( vp_old_dist(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
@@ -894,10 +946,6 @@ contains
          vr_old_dist(:,:,:)=0.0_cp
          vp_old_dist(:,:,:)=0.0_cp
 
-         if ( l_adv_curl ) then
-            allocate ( this%dpkindrc(nrp, nThetaStart:nThetaStop, nRstart:nRstop) )
-            bytes_allocated=bytes_allocated + nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
-         end if
       end if
 
    end subroutine initialize
@@ -906,13 +954,12 @@ contains
 
       class(grid_3D_arrays_t) :: this
 
-      deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
-      deallocate( this%VxBr, this%VxBt, this%VxBp, this%VSr, this%VSt, this%VSp )
-      if ( l_chemical_conv ) deallocate( this%VXir, this%VXit, this%VXip )
+      deallocate( this%NSadv, this%anel )
+      if ( l_heat ) deallocate( this%heatadv )
+      if ( l_mag .or. l_mag_LF ) deallocate( this%LF, this%emf )
+      if ( l_chemical_conv ) deallocate( this%compadv )
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
-      if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
-      deallocate( this%ViscHeat, this%OhmLoss )
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vel, this%gradvel, this%sc, this%grads, this%pc )
@@ -921,16 +968,13 @@ contains
 
       !-- RMS Calculations
       if ( l_RMS ) then
-         deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
-         deallocate ( this%CFt2, this%CFp2, this%gradp )
-         deallocate ( this%dtVr, this%dtVt, this%dtVp )
+         deallocate ( this%dtV, this%RMS, this%LF2, this%gradp )
          if (allocated(vr_old)) deallocate ( vr_old )
          if (allocated(vt_old)) deallocate ( vt_old )
          if (allocated(vp_old)) deallocate ( vp_old )
          if (allocated(vr_old_dist)) deallocate ( vr_old_dist )
          if (allocated(vt_old_dist)) deallocate ( vt_old_dist )
          if (allocated(vp_old_dist)) deallocate ( vp_old_dist )
-         if ( l_adv_curl ) deallocate ( this%dpkindrc )
       end if
 
    end subroutine finalize
