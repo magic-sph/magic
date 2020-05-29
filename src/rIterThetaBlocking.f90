@@ -127,9 +127,10 @@ contains
          end if
 
          !-- For some outputs one still need the other terms
-         if ( this%lViscBcCalc .or. this%lPowerCalc .or.                    &
+         if ( this%lViscBcCalc .or. this%lPowerCalc .or. this%lHelCalc .or. &
          &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or.  &
-         &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+         &    this%lPerpParCalc .or. ( this%l_frame .and. l_movie_oc .and.  &
+         &    l_store_frame) ) then
             call leg_pol_to_grad_spat(l_calc, nThetaStart, this%leg_helper%dLhw, &
                  &                    gsa%dvrdtc)
             call leg_dphi_vec(l_calc, nThetaStart, gsa%vrc, gsa%vtc, gsa%vpc, &
@@ -240,9 +241,10 @@ contains
                   call fft_thetab(gsa%cvtc,1)
                   call fft_thetab(gsa%cvpc,1)
 
-                  if ( this%lViscBcCalc .or. this%lPowerCalc .or.                   &
-                  &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or. &
-                  &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+                  if ( this%lViscBcCalc .or. this%lPowerCalc .or. this%lHelCalc .or. &
+                  &    this%lFluxProfCalc .or. this%lTOCalc .or. this%lRmsCalc .or.  &
+                  &    this%lPerpParCalc .or. ( this%l_frame .and. l_movie_oc .and.  &
+                  &    l_store_frame) ) then
                      call fft_thetab(gsa%dvrdrc,1)
                      call fft_thetab(gsa%dvtdrc,1)
                      call fft_thetab(gsa%dvpdrc,1)
@@ -276,9 +278,10 @@ contains
                      call fft_thetab(gsa%cvrc,1)
                      call fft_thetab(gsa%cvtc,1)
                      call fft_thetab(gsa%cvpc,1)
-                     if ( this%lViscBcCalc .or. this%lPowerCalc .or.  &
-                     &    this%lFluxProfCalc .or. this%lTOCalc .or.   &
-                     &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+                     if ( this%lViscBcCalc .or. this%lPowerCalc .or. this%lHelCalc &
+                     &    .or. this%lFluxProfCalc .or. this%lTOCalc .or.           &
+                     &    this%lPerpParCalc .or. ( this%l_frame .and. l_movie_oc   &
+                     &    .and. l_store_frame) ) then
                         call fft_thetab(gsa%dvrdrc,1)
                         call fft_thetab(gsa%dvtdrc,1)
                         call fft_thetab(gsa%dvpdrc,1)
