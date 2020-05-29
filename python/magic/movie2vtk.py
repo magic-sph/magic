@@ -154,6 +154,7 @@ class Movie2Vtk:
             self.var2 = nlines
         else:
             self.nvar = nvar
+        self.var2 = int(self.var2)
 
         if n_surface == 0:
             self.surftype = '3d volume'
@@ -235,7 +236,7 @@ class Movie2Vtk:
                         fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
                                                         str(self.phiCut), k+1)
                         self.mer2vtk(fname, datoc0.T, self.phiCut, fieldName)
-                        name = str(self.phiCut+np.pi/2)
+                        name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
                         fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,

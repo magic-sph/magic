@@ -243,11 +243,13 @@ contains
       integer :: nR                ! No of radial grid point
 
       !-- for feedback
+      integer :: l1m0
       real(cp) :: ff,cimp,aimp,b10max
-
       real(cp), save :: direction
 
       if ( .not. l_update_b ) return
+
+      l1m0=map_mlo%ml2i(0,1)
 
       !-- Now assemble the right hand side and store it in work_LMdist
       call tscheme%set_imex_rhs(work_LMdist, dbdt, 1, n_mloMag_loc, n_r_maxMag)
@@ -260,10 +262,8 @@ contains
 
       call solve_counter%start_count()
 
-      if (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7 ) then
-         call abortRun('Those imposed field setups are not in place!')
-         !-- One would likely need to Broadcast the dipole field over the other
-         !-- ranks I guess
+      if ( (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7) .and. ( l_imp /= 1 ) ) then
+         call abortRun('l_imp /= 1 not implemented for this imposed field setup!')
       end if
 
       do lj=1, n_lo_loc
@@ -374,21 +374,16 @@ contains
                         !  Chose external field coefficient so that amp_imp is
                         !  the amplitude of the external field:
                         bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-
-                        !@> TODO this statement is non-sense even on the master
-                        !   branch b(2,1) is what here??? (l=1,m=0 I assume?)
-                        if ( real(b(2,1)) > 1.0e-9_cp ) &
-                        &    direction=real(b(2,1))/abs(real(b(2,1)))
+                        if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
+                        &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
                         rhs1(1,2*mi-1,1)=bpeaktop
                         rhs1(1,2*mi,1)  =0.0_cp
                         rhs1(1,2*mi-1,1)=bpeaktop*direction
                         rhs1(1,2*mi,1)  =0.0_cp
                      else if ( n_imp == 4 ) then
                         !  I have forgotten what this was supposed to do:
-                        !@> TODO this statement is non-sense even on the master
-                        !   branch b(2,1) is what here???? (l=1,m=0 I assume?)
-                        bpeaktop=three/r_cmb*amp_imp*real(b(2,1))**2
-                        rhs1(1,2*mi-1,1)=bpeaktop/real(b(2,1))
+                        bpeaktop=three/r_cmb*amp_imp*real(b(l1m0,n_r_cmb))**2
+                        rhs1(1,2*mi-1,1)=bpeaktop/real(b(l1m0,n_r_cmb))
                         rhs1(1,2*mi,1)  =0.0_cp
 
                      else
@@ -397,7 +392,7 @@ contains
                         ! dependence on the internal dipole via a feedback function ff:
                         !              b10_external=ff(b10_internal)
                         ! where b10_external is the external axial dipole field coeff. and
-                        ! b10_internal=b(2,1) is the internal axial dipole field coeff.
+                        ! b10_internal=b(l1m0,n_r_cmb) is the internal axial dipole field coeff.
                         ! Then rhs1 is always given by:
                         !              rhs1 = (2*l+1)/r_cmb * ff
                         ! because of the special formulation of the CMB matching condition!
@@ -429,15 +424,12 @@ contains
                            ! b10 as required.
 
                            !  I have forgotten what this was supposed to do:
-                           !@> TODO this statement is non-sense even on the master
-                           !   branch b(2,1) is what here???? (l=1,m=0 I assume?)
                            b10max=bmax_imp*r_cmb**2
                            cimp=b10max**expo_imp / (expo_imp-1)
                            aimp=amp_imp*cimp*expo_imp / &
                            &    (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
-
-                           ff=aimp*real(b(2,1))**expo_imp/(cimp+real(b(2,1))**expo_imp)
-
+                           ff=aimp*real(b(l1m0,n_r_cmb))**expo_imp/ &
+                           &  (cimp+real(b(l1m0,n_r_cmb))**expo_imp)
                         end if
                         rhs1(1,2*mi-1,1)=(2*l+1)/r_cmb*ff
                         rhs1(1,2*mi,1)  =0.0_cp

@@ -1030,19 +1030,19 @@ contains
             &         (-half*ampKap + half)*tanh(slopeKap*(r - rStrat)) + half)* &
             &         (half*ampKap + (half*ampKap - half)*tanh(slopeKap*(r -     &
             &         rStrat - thickStrat)) + half))
-          else if ( nVarDiff == 7 ) then ! Bottom stratified
-             ampKap = 10.0_cp
-             slopeKap = 30.0_cp
-             if ( rStrat <= r_icb ) then
-                kappa(:) = one
-             else
-                kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
-                &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
-             end if
-             dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
-             &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
-             &         rStrat))+half)
-          end if
+         else if ( nVarDiff == 7 ) then ! Bottom stratified
+            ampKap = 10.0_cp
+            slopeKap = 30.0_cp
+            if ( rStrat <= r_icb ) then
+               kappa(:) = one
+            else
+               kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
+               &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
+            end if
+            dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
+            &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
+            &         rStrat))+half)
+         end if
 
       end if
 

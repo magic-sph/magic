@@ -16,9 +16,8 @@ module rIterThetaBlocking_shtns_mod
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
-       &            l_TO, l_chemical_conv, l_probe,                  &
-       &            l_precession, l_centrifuge, l_adv_curl,          &
-       &            l_full_sphere
+       &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
+       &            l_precession, l_centrifuge, l_adv_curl
    use radial_functions, only: or2, orho1, l_R
    use constants, only: zero
    use nonlinear_lm_mod, only:nonlinear_lm_t
@@ -433,15 +432,16 @@ contains
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
                call torpol_to_curl_spat(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR),&
-                    &                   z_Rdist(:,nR), dz_Rdist(:,nR),               &
+                    &                   z_Rdist(:,nR), dz_Rdist(:,nR),          &
                     &                   gsa%cvrc, gsa%cvtc, gsa%cvpc, l_R(nR))
 
                !-- For some outputs one still need the other terms
-               if ( this%lViscBcCalc .or. this%lPowerCalc .or. this%lRmsCalc  &
-               &    .or. this%lFluxProfCalc .or. this%lTOCalc .or.            &
-               &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
+               if ( this%lViscBcCalc .or. this%lPowerCalc .or. this%lRmsCalc      &
+               &    .or. this%lFluxProfCalc .or. this%lTOCalc .or. this%lHelCalc  &
+               &    .or. this%lPerpParCalc  .or.  ( this%l_frame .and. l_movie_oc &
+               &    .and. l_store_frame) ) then
 
-                  call torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),   &
+                  call torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
                        &              dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
                        &              gsa%dvpdrc, l_R(nR))
                   call pol_to_grad_spat(w_Rdist(:,nR),gsa%dvrdtc,  &
