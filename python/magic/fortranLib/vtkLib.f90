@@ -290,8 +290,8 @@ subroutine partXMLVts(filename,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs,&
 
    lf = char(10) ! line feed character
 
-   nbytes_scal   = nnos*sizeof(floatSize)
-   nbytes_vec    = 3*nnos*sizeof(floatSize)
+   nbytes_scal   = nnos*int(sizeof(floatSize),kind=4)
+   nbytes_vec    = 3*nnos*int(sizeof(floatSize),kind=4)
 
    open(unit=ivtk,file=filename,form='unformatted', access='stream', &
    &    convert='big_endian')
@@ -315,7 +315,7 @@ subroutine partXMLVts(filename,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs,&
       & //trim(scalnames(i))//&
       & '" format="appended" offset="'//offset(1:12)//'"       />'//lf
       write(ivtk) trim(buffer)
-      ioff=ioff+sizeof(intSize)+nbytes_scal
+      ioff=ioff+int(sizeof(intSize),kind=4)+nbytes_scal
    end do
    do i=1,nvecs
       write(offset(1:12),'(i12)') ioff
@@ -323,7 +323,7 @@ subroutine partXMLVts(filename,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs,&
       & //trim(vecnames(i))//&
       & '" NumberOfComponents="3" format="appended" offset="'//offset(1:12)//'"       />'//lf
       write(ivtk) trim(buffer)
-      ioff=ioff+sizeof(intSize)+nbytes_vec
+      ioff=ioff+int(sizeof(intSize),kind=4)+nbytes_vec
    end do
    buffer = '      </PointData>'//lf
    write(ivtk) trim(buffer)
@@ -670,7 +670,7 @@ subroutine vti(filename,vecx,vecy,vecz,scalars,scalcodes,veccodes,&
    integer(kind=8) :: nnos
    integer :: i,j,k,l,iscal,ivec
 
-   nnos = nx*ny*nz
+   nnos = int(nx*ny*nz,kind=8)
 
    call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
 
@@ -764,10 +764,9 @@ subroutine WriteXmlVTI(filename,scals,scalnames,vecs,vecnames, &
    character(len=*), intent(in) :: vecnames(nvecs)
 
    !-- Local variables
-   integer :: ioff
-   integer :: nbytes_scal, nbytes_vec
-   integer :: nnos
-   integer :: nscals,nvecs,i,j,k
+   integer(kind=8) :: nbytes_scal, nbytes_vec, nnos, ioff
+   integer(kind=8) :: i, j, k
+   integer :: nscals,nvecs
    character(len=200) :: buffer
    character(len=1) :: lf
    character(len=12) :: offset
@@ -778,8 +777,8 @@ subroutine WriteXmlVTI(filename,scals,scalnames,vecs,vecnames, &
 
    lf = char(10) ! line feed character
 
-   nbytes_scal   = int( nnos * sizeof(floatSize)     )
-   nbytes_vec    = int( 3  * nnos * sizeof(floatSize))
+   nbytes_scal   = nnos * sizeof(floatSize) 
+   nbytes_vec    = 3  * nnos * sizeof(floatSize)
 
    open(unit=ivtk,file=trim(filename)//'.vti',form='unformatted',access='stream', &
    &    convert='big_endian')
@@ -806,7 +805,7 @@ subroutine WriteXmlVTI(filename,scals,scalnames,vecs,vecnames, &
                & //trim(scalnames(i))//&
                & '" format="appended" offset="'//offset(1:12)//'"       />'//lf
       write(ivtk) trim(buffer)
-      ioff=int(ioff+sizeof(ivtk)+nbytes_scal)
+      ioff=ioff+sizeof(ivtk)+nbytes_scal
    enddo
    do i=1,nvecs
       write(offset(1:12),'(i12)') ioff
@@ -815,7 +814,7 @@ subroutine WriteXmlVTI(filename,scals,scalnames,vecs,vecnames, &
                & '" NumberOfComponents="3" format="appended" offset="&
                & '//offset(1:12)//'" />'//lf
       write(ivtk) trim(buffer)
-      ioff=int(ioff+sizeof(ivtk)+nbytes_vec)
+      ioff=ioff+sizeof(ivtk)+nbytes_vec
    enddo
    buffer = '      </PointData>'//lf
    write(ivtk) trim(buffer)
