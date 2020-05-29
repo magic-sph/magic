@@ -259,13 +259,13 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       !-- for feedback
+      integer :: l1m0
       real(cp) :: ff,cimp,aimp,b10max
-
       real(cp), save :: direction
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
-      if ( .not. l_update_b ) RETURN
+      if ( .not. l_update_b ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -275,6 +275,7 @@ contains
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
+      l1m0 = lm2(1,0)
 
       nLMB=1+rank
       lmStart_00=max(2,llmMag)
@@ -289,6 +290,10 @@ contains
               &                    n_r_ic_max)
          call tscheme%set_imex_rhs(ddj_ic, djdt_ic, llmMag, ulmMag, &
               &                    n_r_ic_max)
+      end if
+
+      if ( (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7) .and. ( l_imp /= 1 ) ) then
+         call abortRun('l_imp /= 1 not implemented for this imposed field setup!')
       end if
 
       !$omp parallel default(shared)
@@ -432,16 +437,16 @@ contains
                            !  Chose external field coefficient so that amp_imp is
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                           if ( real(b(2,1)) > 1.0e-9_cp ) &
-                           &    direction=real(b(2,1))/abs(real(b(2,1)))
+                           if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
+                           &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
                            rhs1(1,2*lmB-1,threadid)=bpeaktop
                            rhs1(1,2*lmB,threadid)  =0.0_cp
                            rhs1(1,2*lmB-1,threadid)=bpeaktop*direction
                            rhs1(1,2*lmB,threadid)  =0.0_cp
                         else if ( n_imp == 4 ) then
                            !  I have forgotten what this was supposed to do:
-                           bpeaktop=three/r_cmb*amp_imp*real(b(2,1))**2
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop/real(b(2,1))
+                           bpeaktop=three/r_cmb*amp_imp*real(b(l1m0,n_r_cmb))**2
+                           rhs1(1,2*lmB-1,threadid)=bpeaktop/real(b(l1m0,n_r_cmb))
                            rhs1(1,2*lmB,threadid)  =0.0_cp
 
                         else
@@ -451,7 +456,7 @@ contains
                            ! dependence on the internal dipole via a feedback function ff:
                            !              b10_external=ff(b10_internal)
                            ! where b10_external is the external axial dipole field coeff. and
-                           ! b10_internal=b(2,1) is the internal axial dipole field coeff.
+                           ! b10_internal=b(l1m0,n_r_cmb) is the internal axial dipole field coeff.
                            ! Then rhs1 is always given by:
                            !              rhs1 = (2*l+1)/r_cmb * ff
                            ! because of the special formulation of the CMB matching condition!
@@ -485,10 +490,8 @@ contains
                               cimp=b10max**expo_imp / (expo_imp-1)
                               aimp=amp_imp*cimp*expo_imp / &
                               &    (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
-
-                              ff=  aimp*real(b(2,1))**expo_imp/ &
-                              &    (cimp+real(b(2,1))**expo_imp)
-
+                              ff=  aimp*real(b(l1m0,n_r_cmb))**expo_imp/ &
+                              &    (cimp+real(b(l1m0,n_r_cmb))**expo_imp)
                            end if
                            rhs1(1,2*lmB-1,threadid)=(2*l1+1)/r_cmb*ff
                            rhs1(1,2*lmB,threadid)  =0.0_cp
