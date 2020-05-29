@@ -340,6 +340,7 @@ contains
          l_mag_LF =.false.
          l_heat   =.false.
          l_heat_nl=.false.
+         l_PressGraph=.false.
       else if ( mode == 4 ) then
          !-- Magneto convection:
          l_mag    =.false.
