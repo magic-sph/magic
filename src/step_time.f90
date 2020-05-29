@@ -64,7 +64,7 @@ module step_time_mod
    use LMmapping, only: map_mlo
    use communications, only: gather_Flm !@> TODO: DELETE-MEEEEE
 
-   use rIter_split, only: rIter_split_t
+!    use rIter_split, only: rIter_split_t
    
 
    implicit none
@@ -73,7 +73,7 @@ module step_time_mod
 
    public :: initialize_step_time, finalize_step_time, step_time
 
-   type(rIter_split_t) :: rIter
+!    type(rIter_split_t) :: rIter
 
 contains
 

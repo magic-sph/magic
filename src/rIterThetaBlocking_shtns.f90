@@ -396,9 +396,9 @@ contains
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call scal_to_spat_dist(s_Rdist(:,nR), gsa%sc, l_R(nR))
+            call scal_to_spat(s_Rdist(:,nR), gsa%sc, l_R(nR))
             if ( this%lViscBcCalc ) then
-               call scal_to_grad_spat_dist(s_Rdist(:,nR), gsa%dsdtc, gsa%dsdpc, &
+               call scal_to_grad_spat(s_Rdist(:,nR), gsa%dsdtc, gsa%dsdpc, &
                     &                      l_R(nR))
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
@@ -411,28 +411,28 @@ contains
             end if
          end if
 
-         if ( this%lRmsCalc ) call scal_to_grad_spat_dist(p_Rdist(:,nR), gsa%dpdtc, &
+         if ( this%lRmsCalc ) call scal_to_grad_spat(p_Rdist(:,nR), gsa%dpdtc, &
                                    &                 gsa%dpdpc, l_R(nR))
 
          !-- Pressure
-         if ( this%lPressCalc ) call scal_to_spat_dist(p_Rdist(:,nR), gsa%pc, l_R(nR))
+         if ( this%lPressCalc ) call scal_to_spat(p_Rdist(:,nR), gsa%pc, l_R(nR))
 
          !-- Composition
-         if ( l_chemical_conv ) call scal_to_spat_dist(xi_Rdist(:,nR), gsa%xic, &
+         if ( l_chemical_conv ) call scal_to_spat(xi_Rdist(:,nR), gsa%xic, &
          &                                             l_R(nR))
 
          if ( l_HT .or. this%lViscBcCalc ) then
-            call scal_to_spat_dist(ds_Rdist(:,nR), gsa%drsc, l_R(nR))
+            call scal_to_spat(ds_Rdist(:,nR), gsa%drsc, l_R(nR))
          endif
          if ( this%nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
-            call torpol_to_spat_dist(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
+            call torpol_to_spat(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
                  &              gsa%vrc, gsa%vtc, gsa%vpc, l_R(nR))
 
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
-               call torpol_to_curl_spat_dist(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR),&
+               call torpol_to_curl_spat(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR),&
                     &                   z_Rdist(:,nR), dz_Rdist(:,nR),               &
                     &                   gsa%cvrc, gsa%cvtc, gsa%cvpc, l_R(nR))
 
@@ -441,41 +441,41 @@ contains
                &    .or. this%lFluxProfCalc .or. this%lTOCalc .or.            &
                &    ( this%l_frame .and. l_movie_oc .and. l_store_frame) ) then
 
-                  call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),   &
+                  call torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),   &
                        &              dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
                        &              gsa%dvpdrc, l_R(nR))
-                  call pol_to_grad_spat_dist(w_Rdist(:,nR),gsa%dvrdtc,  &
+                  call pol_to_grad_spat(w_Rdist(:,nR),gsa%dvrdtc,  &
                        &              gsa%dvrdpc, l_R(nR))
-                  call torpol_to_dphspat_dist(dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                  call torpol_to_dphspat(dw_Rdist(:,nR),  z_Rdist(:,nR), &
                        &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
                end if
 
             else ! Advection is treated as u\grad u
 
-               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
+               call torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
                     &                   dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc, &
                     &                   gsa%dvpdrc, l_R(nR))
-               call pol_to_curlr_spat_dist(z_Rdist(:,nR), gsa%cvrc, l_R(nR))
-               call pol_to_grad_spat_dist(w_Rdist(:,nR), gsa%dvrdtc, &
+               call pol_to_curlr_spat(z_Rdist(:,nR), gsa%cvrc, l_R(nR))
+               call pol_to_grad_spat(w_Rdist(:,nR), gsa%dvrdtc, &
                     &                     gsa%dvrdpc, l_R(nR))
-               call torpol_to_dphspat_dist(dw_Rdist(:,nR),  z_Rdist(:,nR), &
+               call torpol_to_dphspat(dw_Rdist(:,nR),  z_Rdist(:,nR), &
                     &                      gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
             end if
 
          else if ( this%nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
-            call torpol_to_spat_dist(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
+            call torpol_to_spat(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
                  &              gsa%vrc, gsa%vtc, gsa%vpc, l_R(nR))
                  
             gsa%vrc = 0.0_cp
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
-               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
+               call torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
                     &                   dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc,&
                     &                   gsa%dvpdrc, l_R(nR))
-               call pol_to_curlr_spat_dist(z_Rdist(:,nR), gsa%cvrc, l_R(nR))
-               call torpol_to_dphspat_dist(dw_Rdist(:,nR),  z_Rdist(:,nR), &
+               call pol_to_curlr_spat(z_Rdist(:,nR), gsa%cvrc, l_R(nR))
+               call torpol_to_dphspat(dw_Rdist(:,nR),  z_Rdist(:,nR), &
                     &                 gsa%dvtdpc, gsa%dvpdpc, l_R(nR))
             end if
          else if ( this%nBc == 2 ) then
@@ -490,7 +490,7 @@ contains
             end if
 
             if ( this%lDeriv ) then
-               call torpol_to_spat_dist(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
+               call torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
                     &                   dz_Rdist(:,nR), gsa%dvrdrc, gsa%dvtdrc,&
                     &                   gsa%dvpdrc, l_R(nR))
             end if
@@ -498,10 +498,10 @@ contains
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat_dist(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR), &
+         call torpol_to_spat(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR), &
               &                   gsa%brc, gsa%btc, gsa%bpc, l_R(nR))
          if ( this%lDeriv ) then
-            call torpol_to_curl_spat_dist(or2(nR), b_Rdist(:,nR), ddb_Rdist(:,nR), &
+            call torpol_to_curl_spat(or2(nR), b_Rdist(:,nR), ddb_Rdist(:,nR), &
                  &                        aj_Rdist(:,nR), dj_Rdist(:,nR),          &
                  &                        gsa%cbrc, gsa%cbtc, gsa%cbpc, l_R(nR))
          end if
@@ -578,66 +578,66 @@ contains
          end if
          !$omp end parallel
          
-         call spat_to_SH_dist(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
-         call spat_to_SH_dist(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
-         call spat_to_SH_dist(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
+         call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
+         call spat_to_SH(gsa%Advt, nl_lm%AdvtLM, l_R(this%nR))
+         call spat_to_SH(gsa%Advp, nl_lm%AdvpLM, l_R(this%nR))
 
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then
             ! LF treated extra:
-            call spat_to_SH_dist(gsa%LFr, nl_lm%LFrLM, l_R(this%nR))
-            call spat_to_SH_dist(gsa%LFt, nl_lm%LFtLM, l_R(this%nR))
-            call spat_to_SH_dist(gsa%LFp, nl_lm%LFpLM, l_R(this%nR))
+            call spat_to_SH(gsa%LFr, nl_lm%LFrLM, l_R(this%nR))
+            call spat_to_SH(gsa%LFt, nl_lm%LFtLM, l_R(this%nR))
+            call spat_to_SH(gsa%LFp, nl_lm%LFpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call spat_to_qst_dist(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, &
+         call spat_to_qst(gsa%VSr, gsa%VSt, gsa%VSp, nl_lm%VSrLM, &
               &                nl_lm%VStLM, nl_lm%VSpLM, l_R(this%nR))
          
          if (l_anel) then ! anelastic stuff
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-               call spat_to_SH_dist(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
-               call spat_to_SH_dist(gsa%OhmLoss,  nl_lm%OhmLossLM, l_R(this%nR))
+               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH(gsa%OhmLoss,  nl_lm%OhmLossLM, l_R(this%nR))
             else
-               call spat_to_SH_dist(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
+               call spat_to_SH(gsa%ViscHeat, nl_lm%ViscHeatLM, l_R(this%nR))
             end if
          end if
          !PERFOFF
       end if
       
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         call spat_to_qst_dist(gsa%VXir, gsa%VXit, gsa%VXip, nl_lm%VXirLM, &
+         call spat_to_qst(gsa%VXir, gsa%VXit, gsa%VXip, nl_lm%VXirLM, &
               &                nl_lm%VXitLM, nl_lm%VXipLM, l_R(this%nR))
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call spat_to_qst_dist(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
+            call spat_to_qst(gsa%VxBr, gsa%VxBt, gsa%VxBp, nl_lm%VxBrLM, &
                  &                nl_lm%VxBtLM, nl_lm%VxBpLM, l_R(this%nR))
          else
-            call spat_to_sphertor_dist(gsa%VxBt, gsa%VxBp, nl_lm%VxBtLM, &
+            call spat_to_sphertor(gsa%VxBt, gsa%VxBp, nl_lm%VxBtLM, &
                  &                     nl_lm%VxBpLM, l_R(this%nR))
          end if
          !PERFOFF
       end if
 
       if ( this%lRmsCalc ) then
-         call spat_to_sphertor_dist(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, &
+         call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, &
               &                     nl_lm%PFp2LM, l_R(this%nR))
-         call spat_to_sphertor_dist(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, &
+         call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, &
               &                     nl_lm%CFp2LM, l_R(this%nR))
-         call spat_to_qst_dist(gsa%dtVr, gsa%dtVt, gsa%dtVp, nl_lm%dtVrLM, &
+         call spat_to_qst(gsa%dtVr, gsa%dtVt, gsa%dtVp, nl_lm%dtVrLM, &
               &                nl_lm%dtVtLM, nl_lm%dtVpLM, l_R(this%nR))
          if ( l_conv_nl ) then
-            call spat_to_sphertor_dist(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM,&
+            call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM,&
                  &                     nl_lm%Advp2LM, l_R(this%nR))
          end if
          if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call spat_to_SH_dist(gsa%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
+            call spat_to_SH(gsa%dpkindrc, nl_lm%dpkindrLM, l_R(this%nR))
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call spat_to_sphertor_dist(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, &
+            call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, &
                  &                     nl_lm%LFp2LM, l_R(this%nR))
          end if
       end if

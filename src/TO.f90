@@ -17,7 +17,7 @@ module torsional_oscillations
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
 #ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH_axi_dist
+   use shtns, only: spat_to_SH_axi
 #else
    use legendre_grid_to_spec, only: legTFAS2
 #endif
@@ -345,10 +345,10 @@ contains
       !------ Add contribution from thetas in block:
       !       note legtfAS2 returns modes l=0 -- l=l_max+1
 #ifdef WITH_SHTNS
-      call spat_to_SH_axi_dist(Rmean,dzRstrLM)
-      call spat_to_SH_axi_dist(Amean,dzAstrLM)
-      call spat_to_SH_axi_dist(dzCorMean,dzCorLM)
-      call spat_to_SH_axi_dist(dZLFmean,dzLFLM)
+      call spat_to_SH_axi(Rmean,dzRstrLM)
+      call spat_to_SH_axi(Amean,dzAstrLM)
+      call spat_to_SH_axi(dzCorMean,dzCorLM)
+      call spat_to_SH_axi(dZLFmean,dzLFLM)
 #else
       call legTFAS2(dzRstrLM,dzAstrLM,Rmean,Amean,     &
            &        l_max+2,nThetaStart,nThetaBlockSize)

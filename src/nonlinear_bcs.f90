@@ -10,7 +10,7 @@ module nonlinear_bcs
    use horizontal_data, only: dTheta1S_loc, dTheta1A_loc, dPhi_loc, O_sin_theta, &
        &                      dLh_loc, sn2, cosTheta
    use constants, only: two
-   use shtns, only: spat_to_SH_dist
+   use shtns, only: spat_to_SH
    use useful, only: abortRun
 
    implicit none
@@ -72,8 +72,8 @@ contains
       !$omp end parallel do
 
       !-- Fourier transform phi 2 m (real 2 complex!)
-      call spat_to_SH_dist(br_vt, br_vt_lm, l_max)
-      call spat_to_SH_dist(br_vp, br_vp_lm, l_max)
+      call spat_to_SH(br_vt, br_vt_lm, l_max)
+      call spat_to_SH(br_vp, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------

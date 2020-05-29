@@ -23,7 +23,7 @@ module dtB_mod
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use constants, only: ci, two
    use radial_spectra ! rBrSpec, rBpSpec
-   use shtns, only: spat_to_SH_dist
+   use shtns, only: spat_to_SH
    use radial_der, only: get_dr
 
    implicit none
@@ -281,24 +281,24 @@ contains
       !$omp end parallel do
 
       call shtns_load_cfg(1)
-      call spat_to_SH_dist(BtVr, BtVrLM, l_R(nR))
-      call spat_to_SH_dist(BpVr, BpVrLM, l_R(nR))
-      call spat_to_SH_dist(BrVt, BrVtLM, l_R(nR))
+      call spat_to_SH(BtVr, BtVrLM, l_R(nR))
+      call spat_to_SH(BpVr, BpVrLM, l_R(nR))
+      call spat_to_SH(BrVt, BrVtLM, l_R(nR))
 
-      call spat_to_SH_dist(BrVp, BrVpLM, l_R(nR))
-      call spat_to_SH_dist(BtVp, BtVpLM, l_R(nR))
-      call spat_to_SH_dist(BpVt, BpVtLM, l_R(nR))
+      call spat_to_SH(BrVp, BrVpLM, l_R(nR))
+      call spat_to_SH(BtVp, BtVpLM, l_R(nR))
+      call spat_to_SH(BpVt, BpVtLM, l_R(nR))
 
-      call spat_to_SH_dist(BtVpCot, BtVpCotLM, l_R(nR))
-      call spat_to_SH_dist(BpVtCot, BpVtCotLM, l_R(nR))
-      call spat_to_SH_dist(BtVZCot, BtVZCotLM, l_R(nR))
+      call spat_to_SH(BtVpCot, BtVpCotLM, l_R(nR))
+      call spat_to_SH(BpVtCot, BpVtCotLM, l_R(nR))
+      call spat_to_SH(BtVZCot, BtVZCotLM, l_R(nR))
 
-      call spat_to_SH_dist(BrVZ, BrVZLM, l_R(nR))
-      call spat_to_SH_dist(BtVZ, BtVZLM, l_R(nR))
-      call spat_to_SH_dist(BtVZsn2, BtVZsn2LM, l_R(nR))
+      call spat_to_SH(BrVZ, BrVZLM, l_R(nR))
+      call spat_to_SH(BtVZ, BtVZLM, l_R(nR))
+      call spat_to_SH(BtVZsn2, BtVZsn2LM, l_R(nR))
 
-      call spat_to_SH_dist(BtVpSn2, BtVpSn2LM, l_R(nR))
-      call spat_to_SH_dist(BpVtsn2, BpVtsn2LM, l_R(nR))
+      call spat_to_SH(BtVpSn2, BtVpSn2LM, l_R(nR))
+      call spat_to_SH(BpVtsn2, BpVtsn2LM, l_R(nR))
       call shtns_load_cfg(0)
 
    end subroutine get_dtBLM

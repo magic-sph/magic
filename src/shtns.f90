@@ -20,21 +20,127 @@ module shtns
 
    private
 
-   public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
-   &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
-   &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor,               &
-   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,     &
-   &         axi_to_spat, spat_to_qst,                                      &
-   &         spat_to_SH_dist, spat_to_qst_dist, spat_to_sphertor_dist,      &
-   &         spat_to_SH_axi_dist, scal_to_spat_dist, scal_to_grad_spat_dist,&
-   &         torpol_to_spat_dist, torpol_to_curl_spat_dist,                 &
-   &         pol_to_grad_spat_dist, torpol_to_dphspat_dist,                 &
-   &         pol_to_curlr_spat_dist
+   !@>TODO: the following functions do not have a "_dist" version; the existing
+   ! implementation is _loc. Is the _dist version needed?
+   public :: init_shtns, torpol_to_spat_IC, torpol_to_curl_spat_IC, axi_to_spat 
 
+   !@>TODO: the following functions do not have a "_loc" version; the existing
+   ! implementation is _dist. Is the _loc version needed?
    public :: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb, torpol_to_curl_hyb, &
    &         pol_to_grad_hyb, torpol_to_dphhyb, pol_to_curlr_hyb, hyb_to_SH,   &
    &         hyb_to_qst, hyb_to_sphertor
+   
+   interface
+      subroutine scal_to_spat_if(Slm, fieldc, lcut)
+         import
+         complex(cp), intent(in) :: Slm(n_lm_loc)
+         integer,     intent(in) :: lcut
+         real(cp),   intent(out) :: fieldc(n_phi_max, n_theta_loc)
+      end subroutine
+      
+      subroutine scal_to_grad_spat_if(Slm, gradtc, gradpc, lcut)
+         import
+         complex(cp), intent(in) :: Slm(n_lm_loc)
+         integer,     intent(in) :: lcut
+         real(cp),   intent(out) :: gradtc(n_phi_max, n_theta_loc)
+         real(cp),   intent(out) :: gradpc(n_phi_max, n_theta_loc)
+      end subroutine
+      
+      subroutine spat_to_SH_if(f_loc, fLMP_loc, lcut)
+         import
+         real(cp),    intent(inout) :: f_loc(n_phi_max,n_theta_loc)
+         integer,     intent(in)    :: lcut
+         complex(cp), intent(out)   :: fLMP_loc(n_lmP_loc)
+      end subroutine
+      
+      subroutine spat_to_qst_if(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
+         import
+         real(cp), intent(inout) :: f_loc(n_phi_max,n_theta_loc)
+         real(cp), intent(inout) :: g_loc(n_phi_max,n_theta_loc)
+         real(cp), intent(inout) :: h_loc(n_phi_max,n_theta_loc)
+         integer,  intent(in)    :: lcut
+         complex(cp), intent(out) :: qLMP_loc(n_lmP_loc)
+         complex(cp), intent(out) :: sLMP_loc(n_lmP_loc)
+         complex(cp), intent(out) :: tLMP_loc(n_lmP_loc)
+      end subroutine
+      
+      subroutine spat_to_sphertor_if(f_loc, g_loc, fLMP_loc, gLMP_loc, lcut)
+         import
+         real(cp), intent(inout) :: f_loc(n_phi_max,n_theta_loc)
+         real(cp), intent(inout) :: g_loc(n_phi_max,n_theta_loc)
+         integer,  intent(in)    :: lcut
+         complex(cp), intent(out) :: fLMP_loc(n_lmP_loc)
+         complex(cp), intent(out) :: gLMP_loc(n_lmP_loc)
+      end subroutine
+      
+      subroutine torpol_to_spat_if(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+         import
+         complex(cp), intent(in) :: Wlm(n_lm_loc), dWlm(n_lm_loc), Zlm(n_lm_loc)
+         integer,     intent(in) :: lcut
+         real(cp), intent(out) :: vrc(n_phi_max, n_theta_loc)
+         real(cp), intent(out) :: vtc(n_phi_max, n_theta_loc)
+         real(cp), intent(out) :: vpc(n_phi_max, n_theta_loc)
+      end subroutine
+      
+      subroutine torpol_to_curl_spat_if(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, &
+              &                        cvpc, lcut)
+         import
+         complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
+         complex(cp), intent(in) :: Jlm(n_lm_loc), dJlm(n_lm_loc)
+         real(cp),    intent(in) :: or2
+         integer,     intent(in) :: lcut
+         real(cp), intent(out) :: cvrc(n_phi_max, n_theta_loc)
+         real(cp), intent(out) :: cvtc(n_phi_max, n_theta_loc)
+         real(cp), intent(out) :: cvpc(n_phi_max, n_theta_loc)
+      end subroutine
+      
+      subroutine pol_to_curlr_spat_if(Qlm, cvrc, lcut)
+         import
+         complex(cp), intent(in) :: Qlm(n_lm_loc)
+         integer,     intent(in) :: lcut
+         real(cp), intent(out) :: cvrc(n_phi_max, n_theta_max)
+      end subroutine
+      
+      subroutine pol_to_grad_spat_if(Slm, gradtc, gradpc, lcut)
+         import
+         complex(cp), intent(in) :: Slm(n_lm_loc)
+         integer,     intent(in) :: lcut
+         real(cp), intent(out) :: gradtc(n_phi_max, n_theta_loc)
+         real(cp), intent(out) :: gradpc(n_phi_max, n_theta_loc)
+      end subroutine
+      
+      subroutine torpol_to_dphspat_if(dWlm, Zlm, dvtdp, dvpdp, lcut)
+         import
+         complex(cp), intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+         integer,     intent(in) :: lcut
+         real(cp), intent(out) :: dvtdp(n_phi_max, nThetaStart:nThetaStop) ! Careful with dimensions here!
+         real(cp), intent(out) :: dvpdp(n_phi_max, nThetaStart:nThetaStop) ! Careful with dimensions here!
+      end subroutine
+      
+      subroutine spat_to_SH_axi_if(f, fLM)
+         import
+         real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
+         real(cp), intent(out) :: fLM(:)
+      end subroutine 
 
+   end interface
+   
+   public :: scal_to_spat, scal_to_grad_spat, spat_to_SH, spat_to_qst, &
+   & spat_to_sphertor, torpol_to_spat, torpol_to_curl_spat, pol_to_curlr_spat, &
+   & pol_to_grad_spat, torpol_to_dphspat, spat_to_SH_axi
+   
+   procedure (scal_to_spat_if), pointer :: scal_to_spat => null ()
+   procedure (scal_to_grad_spat_if), pointer :: scal_to_grad_spat => null ()
+   procedure (spat_to_SH_if), pointer :: spat_to_SH => null ()
+   procedure (spat_to_qst_if), pointer :: spat_to_qst => null ()
+   procedure (spat_to_sphertor_if), pointer :: spat_to_sphertor => null ()
+   procedure (torpol_to_spat_if), pointer :: torpol_to_spat => null ()
+   procedure (torpol_to_curl_spat_if), pointer :: torpol_to_curl_spat => null ()
+   procedure (pol_to_curlr_spat_if), pointer :: pol_to_curlr_spat => null ()
+   procedure (pol_to_grad_spat_if), pointer :: pol_to_grad_spat => null ()
+   procedure (torpol_to_dphspat_if), pointer :: torpol_to_dphspat => null ()
+   procedure (spat_to_SH_axi_if), pointer :: spat_to_SH_axi => null ()
+   
 contains
 
    subroutine init_shtns()
@@ -64,12 +170,38 @@ contains
            &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(1)
            
-
       call shtns_load_cfg(0)
       
+      ! Assigns all pointers to the correct functions
+      if (n_ranks_theta>1) then
+         scal_to_spat => scal_to_spat_dist
+         scal_to_grad_spat => scal_to_grad_spat_dist
+         spat_to_SH => spat_to_SH_dist
+         spat_to_qst => spat_to_qst_dist
+         spat_to_sphertor => spat_to_sphertor_dist
+         torpol_to_spat => torpol_to_spat_dist
+         torpol_to_curl_spat => torpol_to_curl_spat_dist
+         pol_to_curlr_spat => pol_to_curlr_spat_dist
+         pol_to_grad_spat => pol_to_grad_spat_dist
+         torpol_to_dphspat => torpol_to_dphspat_dist
+         spat_to_SH_axi => spat_to_SH_axi_dist
+      else
+         scal_to_spat => scal_to_spat_loc
+         scal_to_grad_spat => scal_to_grad_spat_loc
+         spat_to_SH => spat_to_SH_loc
+         spat_to_qst => spat_to_qst_loc
+         spat_to_sphertor => spat_to_sphertor_loc
+         torpol_to_spat => torpol_to_spat_loc
+         torpol_to_curl_spat => torpol_to_curl_spat_loc
+         pol_to_curlr_spat => pol_to_curlr_spat_loc
+         pol_to_grad_spat => pol_to_grad_spat_loc
+         torpol_to_dphspat => torpol_to_dphspat_loc
+         spat_to_SH_axi => spat_to_SH_axi_loc
+      end if
    end subroutine
+   
 !------------------------------------------------------------------------------
-   subroutine scal_to_spat(Slm, fieldc, lcut)
+   subroutine scal_to_spat_loc(Slm, fieldc, lcut)
       ! transform a spherical harmonic field into grid space
 
       !-- Input variables
@@ -81,9 +213,9 @@ contains
 
       call shtns_SH_to_spat_l(Slm, fieldc, lcut)
 
-   end subroutine scal_to_spat
+   end subroutine scal_to_spat_loc
 !------------------------------------------------------------------------------
-   subroutine scal_to_grad_spat(Slm, gradtc, gradpc, lcut)
+   subroutine scal_to_grad_spat_loc(Slm, gradtc, gradpc, lcut)
       ! transform a scalar spherical harmonic field into it's gradient
       ! on the grid
 
@@ -97,9 +229,9 @@ contains
 
       call shtns_sph_to_spat_l(Slm, gradtc, gradpc, lcut)
 
-   end subroutine scal_to_grad_spat
+   end subroutine scal_to_grad_spat_loc
 !------------------------------------------------------------------------------
-   subroutine pol_to_grad_spat(Slm, gradtc, gradpc, lcut)
+   subroutine pol_to_grad_spat_loc(Slm, gradtc, gradpc, lcut)
 
       !-- Input variables
       complex(cp), intent(in) :: Slm(lm_max)
@@ -126,9 +258,9 @@ contains
 
       call shtns_sph_to_spat_l(Qlm, gradtc, gradpc, lcut)
 
-   end subroutine pol_to_grad_spat
+   end subroutine pol_to_grad_spat_loc
 !------------------------------------------------------------------------------
-   subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+   subroutine torpol_to_spat_loc(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
       complex(cp), intent(in) :: Wlm(lm_max), dWlm(lm_max), Zlm(lm_max)
@@ -156,7 +288,7 @@ contains
 
       call shtns_qst_to_spat_l(Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
-   end subroutine torpol_to_spat
+   end subroutine torpol_to_spat_loc
 !------------------------------------------------------------------------------
    subroutine torpol_to_curl_spat_IC(r, r_ICB, dBlm, ddBlm, Jlm, dJlm, &
               &                      cbr, cbt, cbp)
@@ -246,7 +378,7 @@ contains
 
    end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
-   subroutine torpol_to_dphspat(dWlm, Zlm, dvtdp, dvpdp, lcut)
+   subroutine torpol_to_dphspat_loc(dWlm, Zlm, dvtdp, dvpdp, lcut)
       !
       ! Computes horizontal phi derivative of a toroidal/poloidal field
       !
@@ -289,9 +421,9 @@ contains
       end do
       !$omp end parallel do
 
-   end subroutine torpol_to_dphspat
+   end subroutine torpol_to_dphspat_loc
 !------------------------------------------------------------------------------
-   subroutine pol_to_curlr_spat(Qlm, cvrc, lcut)
+   subroutine pol_to_curlr_spat_loc(Qlm, cvrc, lcut)
 
       !-- Input variables
       complex(cp), intent(in) :: Qlm(lm_max)
@@ -317,9 +449,9 @@ contains
 
       call shtns_SH_to_spat_l(dQlm, cvrc, lcut)
 
-   end subroutine pol_to_curlr_spat
+   end subroutine pol_to_curlr_spat_loc
 !------------------------------------------------------------------------------
-   subroutine torpol_to_curl_spat(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, cvpc, &
+   subroutine torpol_to_curl_spat_loc(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, cvpc, &
               &                   lcut)
 
       !-- Input variables
@@ -353,9 +485,9 @@ contains
 
       call shtns_qst_to_spat_l(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
 
-   end subroutine torpol_to_curl_spat
+   end subroutine torpol_to_curl_spat_loc
 !------------------------------------------------------------------------------
-   subroutine spat_to_SH(f, fLM, lcut)
+   subroutine spat_to_SH_loc(f, fLM, lcut)
 
       real(cp), intent(in) :: f(n_phi_max, n_theta_max)
       integer,  intent(in) :: lcut
@@ -365,9 +497,9 @@ contains
       call shtns_spat_to_sh_l(f, fLM, lcut+1)
       call shtns_load_cfg(0)
 
-   end subroutine spat_to_SH
+   end subroutine spat_to_SH_loc
 !------------------------------------------------------------------------------
-   subroutine spat_to_qst(f, g, h, qLM, sLM, tLM, lcut)
+   subroutine spat_to_qst_loc(f, g, h, qLM, sLM, tLM, lcut)
 
       !-- Input variables
       real(cp), intent(in) :: f(n_phi_max,n_theta_max)
@@ -384,9 +516,9 @@ contains
       call shtns_spat_to_qst_l(f, g, h, qLM, sLM, tLM, lcut+1)
       call shtns_load_cfg(0)
 
-   end subroutine spat_to_qst
+   end subroutine spat_to_qst_loc
 !------------------------------------------------------------------------------
-   subroutine spat_to_sphertor(f, g, fLM, gLM, lcut)
+   subroutine spat_to_sphertor_loc(f, g, fLM, gLM, lcut)
 
       !-- Input variables
       real(cp), intent(in) :: f(n_phi_max,n_theta_max)
@@ -401,7 +533,7 @@ contains
       call shtns_spat_to_sphtor_l(f, g, fLM, gLM, lcut+1)
       call shtns_load_cfg(0)
 
-   end subroutine spat_to_sphertor
+   end subroutine spat_to_sphertor_loc
 !------------------------------------------------------------------------------
    subroutine axi_to_spat(fl_ax, f)
 
@@ -418,7 +550,7 @@ contains
 
    end subroutine axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine spat_to_SH_axi(f, fLM)
+   subroutine spat_to_SH_axi_loc(f, fLM)
 
       real(cp), intent(in) :: f(n_theta_max)
       real(cp), intent(out) :: fLM(:)
@@ -433,7 +565,7 @@ contains
       if ( size(fLM) == l_max+2 ) call shtns_load_cfg(0)
       fLM(:)=real(tmpLM(:))
 
-   end subroutine spat_to_SH_axi
+   end subroutine spat_to_SH_axi_loc
 !------------------------------------------------------------------------------
 
 
