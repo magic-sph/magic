@@ -734,8 +734,8 @@ contains
                call fft_phi_loc(this%gsa%cvpc(:,:,nR),F,-1)
 
                if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc .or.  &
-               &    lTOCalc .or. ( l_frame .and. l_movie_oc .and.                &
-               &    l_store_frame) ) then
+               &    lTOCalc .or. lHelCalc .or. lPerpParCalc .or. ( l_frame .and. &
+               &    l_movie_oc .and. l_store_frame) ) then
                   F(1:n_m_max,:)=this%hsa%dvrdr_Thloc(:,:,nR)
                   call fft_phi_loc(this%gsa%dvrdrc(:,:,nR),F,-1)
                   F(1:n_m_max,:)=this%hsa%dvtdr_Thloc(:,:,nR)
@@ -842,8 +842,8 @@ contains
       if ( l_adv_curl ) then
          call ifft_phi(this%hsa%vel_pThloc, this%gsa%vel, 6)
          if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc .or.  &
-         &    lTOCalc .or. ( l_frame .and. l_movie_oc .and.                &
-         &    l_store_frame) ) then
+         &    lTOCalc .or. lHelCalc .or. lPerpParCalc .or. ( l_frame .and. &
+         &    l_movie_oc .and. l_store_frame) ) then
             call ifft_phi(this%hsa%gradvel_pThloc, this%gsa%gradvel, 7)
          end if
       else
