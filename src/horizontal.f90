@@ -8,14 +8,13 @@ module horizontal_data
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
-   use blocking, only: lmP2l, lmP2lm, lm2l, lm2m, lo_map
    use logic, only: l_non_rot, l_RMS
    use plms_theta, only: plm_theta
    use fft
    use constants, only: pi, zero, one, two, half
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use LMmapping, only: map_dist_st
+   use LMmapping, only: map_dist_st, map_glbl_st
    use communications, only: slice_Flm_real
 
    implicit none
@@ -203,9 +202,9 @@ contains
          call plm_theta(colat,l_max+1,m_max,minc, &
               &         plma,dtheta_plma,lmP_max,norm)
          do lmP=1,lmP_max
-            l=lmP2l(lmP)
+            l=map_glbl_st%lmP2l(lmP)
             if ( l <= l_max ) then
-               lm=lmP2lm(lmP)
+               lm=map_glbl_st%lmP2lm(lmP)
                Plm(lm,n_theta) =plma(lmP)
                dPlm(lm,n_theta)=dtheta_plma(lmP)
             end if
@@ -267,8 +266,8 @@ contains
       end do
 
       do lm=1,lm_max
-         l=lm2l(lm)
-         m=lm2m(lm)
+         l=map_glbl_st%lm2l(lm)
+         m=map_glbl_st%lm2m(lm)
 
          !---- Operators for derivatives:
          !-- Phi derivative:

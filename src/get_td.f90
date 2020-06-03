@@ -18,7 +18,6 @@ module nonlinear_lm_mod
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ChemFac, ThExpNb
-   use blocking, only: lo_map
    use horizontal_data, only: dLh_loc, dTheta1S_loc, dTheta1A_loc, dPhi_loc,    &
        &                      dTheta2A_loc, dTheta3A_loc, dTheta4A_loc,         &
        &                      dTheta2S_loc, hdif_B, dTheta3S_loc, dTheta4S_loc, &
@@ -1099,7 +1098,6 @@ module nonlinear_3D_lm_mod
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ChemFac, ThExpNb
-   use blocking, only: lo_map
    use horizontal_data, only: dLh_loc, dTheta1S_loc, dTheta1A_loc, dPhi_loc,    &
        &                      dTheta2A_loc, dTheta3A_loc, dTheta4A_loc,         &
        &                      dTheta2S_loc, hdif_B, dTheta3S_loc, dTheta4S_loc, &

@@ -7,8 +7,8 @@ module legendre_spec_to_grid
 
    use precision_mod
    use truncation, only: lm_max, n_m_max, nrp, l_max, l_axi, n_theta_max, minc
-   use LMmapping, only: map_dist_st
-   use blocking, only: nfs, sizeThetaB, lm2mc, lm2
+   use LMmapping, only: map_dist_st, map_glbl_st
+   use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
        &                      osn2, Plm_loc, dPlm_loc
    use constants, only: zero, half, one, ci
@@ -640,7 +640,7 @@ contains
 
          sign=-one
          do l=0,l_max
-            lm=lm2(l,0)
+            lm=map_glbl_st%lm2(l,0)
             sign=-sign
             ! Northern hemisphere
             aij(nThetaN)=aij(nThetaN) +      alm(l+1)*Plm(lm,nThetaNHS)

@@ -2,7 +2,6 @@ module shtns
 
    use iso_fortran_env, only: output_unit
    use precision_mod, only: cp, MPI_DEF_REAL
-   use blocking, only: st_map
    use constants, only: ci, one, zero
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
        &                 minc, lm_max, lmP_max, n_lm_loc, n_theta_loc, &
@@ -247,7 +246,7 @@ contains
 
       !$omp parallel do default(shared) private(lm, l)
       do lm = 1, lm_max
-         l = st_map%lm2l(lm)
+         l = map_glbl_st%lm2l(lm)
          if ( l <= lcut ) then
             Qlm(lm) = dLh(lm) * Slm(lm)
          else
@@ -277,7 +276,7 @@ contains
 
       !$omp parallel do default(shared) private(lm, l)
       do lm = 1, lm_max
-         l = st_map%lm2l(lm)
+         l = map_glbl_st%lm2l(lm)
          if ( l <= lcut ) then
             Qlm(lm) = dLh(lm) * Wlm(lm)
          else
@@ -398,8 +397,8 @@ contains
 
       !$omp parallel do default(shared) private(lm, m, l)
       do lm = 1, lm_max
-         l = st_map%lm2l(lm)
-         m = st_map%lm2m(lm)
+         l = map_glbl_st%lm2l(lm)
+         m = map_glbl_st%lm2m(lm)
          if ( l <= lcut ) then
             Slm(lm) = ci*m*dWlm(lm)
             Tlm(lm) = ci*m*Zlm(lm)
@@ -438,7 +437,7 @@ contains
 
       !$omp parallel do default(shared) private(lm, l)
       do lm = 1, lm_max
-         l = st_map%lm2l(lm)
+         l = map_glbl_st%lm2l(lm)
          if ( l <= lcut ) then
             dQlm(lm) = dLh(lm) * Qlm(lm)
          else
@@ -471,7 +470,7 @@ contains
 
       !$omp parallel do default(shared) private(lm, l)
       do lm = 1, lm_max
-         l = st_map%lm2l(lm)
+         l = map_glbl_st%lm2l(lm)
          if ( l <= lcut ) then
             Qlm(lm) = dLh(lm) * Jlm(lm)
             Tlm(lm) = or2 * dLh(lm) * Blm(lm) - ddBlm(lm)
