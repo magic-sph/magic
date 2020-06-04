@@ -700,8 +700,8 @@ contains
                   if ( l==0 ) cycle ! skips mode (0,0) if it is local
                   dL=real(l*(l+1),cp)
 
-                  Dif(lm)=-hdif_V(l)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (  &
-                  &                                             ddddw(lm,n_r)  &
+                  Dif(lm)=     -hdif_V(l)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (  &
+                  &                                                  ddddw(lm,n_r)  &
                   &           +two*( dLvisc(n_r)-beta(n_r) ) * work_LMdist(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
                   &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
@@ -744,7 +744,7 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     Dif(lm) =  hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                      &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
                      &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
                      &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
@@ -768,9 +768,9 @@ contains
                   dL=real(l*(l+1),cp)
 
                   Dif(lm) = hdif_V(l)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  & 
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
-                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
-                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &       +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
+                  &       -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &         beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
                   &                                                   w(lm,n_r)  )
                   Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
                   Buo(lm) = zero
@@ -779,8 +779,8 @@ contains
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)+Buo(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r) &
-                  &            + hdif_V(l)*visc(n_r)*dL*or2(n_r)               &
-                  &                                     * ( -work_LMdist(lm,n_r) &
+                  &             + hdif_V(l)*visc(n_r)*dL*or2(n_r)               &
+                  &                                    * ( -work_LMdist(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                   &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &

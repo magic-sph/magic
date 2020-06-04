@@ -7,7 +7,7 @@ module LMmapping
        &                 n_mlo_array
    use mem_alloc, only: bytes_allocated, memWrite
    use parallel_mod, only: n_ranks_mo, n_ranks_lo, coord_mo, coord_lo, coord_m,&
-       &                 coord_r, n_ranks_m, mpi_map
+       &                   coord_r, n_ranks_m, mpi_map
    use useful, only: abortRun
 
    implicit none
@@ -100,7 +100,6 @@ module LMmapping
 
 contains
 
-   !----------------------------------------------------------------------------
    subroutine initialize_mapping
       !   
       !   Author: Rafael Lago, MPCDF, April 2018
@@ -126,17 +125,16 @@ contains
       
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('LMmapping.f90', local_bytes_used)
+
    end subroutine initialize_mapping
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine finalize_mapping
 
       call deallocate_mappings(map_glbl_st)
       call deallocate_mappings(map_dist_st)
 
    end subroutine finalize_mapping
-   !----------------------------------------------------------------------------
-
+!----------------------------------------------------------------------------
    subroutine allocate_mappings(self,l_max,lm_max,lmP_max)
 
       type(mappings) :: self
@@ -167,8 +165,7 @@ contains
                         ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
 
    end subroutine allocate_mappings
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine allocate_ml_mappings(self)
       !   
       !   Allocates the mapping objects. 
@@ -183,25 +180,26 @@ contains
       allocate( self%ml2coord_lo(0:l_max, 0:l_max) )
       allocate( self%ml2coord_mo(0:l_max, 0:l_max) )
       allocate( self%ml2rnk(0:l_max, 0:l_max) )
+      bytes_allocated = bytes_allocated+3*(l_max+1)*(l_max+1)*SIZEOF_INTEGER
       
       ! These two will point to their target in set_mlmapping
       allocate( self%i2m(n_mlo_loc) )
       allocate( self%i2l(n_mlo_loc) )
       allocate( self%i2ml(n_mlo_loc) )
+      bytes_allocated = bytes_allocated+3*n_mlo_loc*SIZEOF_INTEGER
       
       allocate( self%ml2i(0:l_max, 0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*(l_max+1)*SIZEOF_INTEGER
       
       allocate( self%milj2i(n_mo_loc,n_lo_loc) )
       allocate( self%milj2m(n_mo_loc,n_lo_loc) )
       allocate( self%lj2l(n_lo_loc) )
       allocate( self%n_mi(n_lo_loc) )
+      bytes_allocated = bytes_allocated+(2*n_mlo_loc*n_lo_loc+n_lo_loc*2)* &
+      &                 SIZEOF_INTEGER
       
-!       bytes_allocated = bytes_allocated + &
-!         (2*(l_max+1)*(l_max+1)+2*(l_max+1))*SIZEOF_INTEGER
-                        
    end subroutine allocate_ml_mappings
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine deallocate_mappings(self)
 
       type(mappings) :: self
@@ -212,17 +210,18 @@ contains
       deallocate( self%lmP2lm )
 
    end subroutine deallocate_mappings
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine deallocate_ml_mappings(self)
+
       type(ml_mappings) :: self
+
       deallocate(self%ml2coord_lo, self%ml2coord_mo, self%ml2rnk)
       deallocate(self%i2l, self%i2m, self%i2ml)
       deallocate(self%ml2i, self%milj2i, self%milj2m)
       deallocate(self%n_mi, self%lj2l)
+
    end subroutine deallocate_ml_mappings
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,lm_balance)
 
       !-- Input variables
@@ -271,8 +270,7 @@ contains
                         3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
 
    end subroutine allocate_subblocks_mappings
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine deallocate_subblocks_mappings(self)
 
       type(subblocks_mappings) :: self
@@ -281,8 +279,7 @@ contains
       deallocate( self%lm22m )
 
    end subroutine deallocate_subblocks_mappings
-
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine set_lmmapping_default(map, m_arr)
       !   
       !   This function will place (all l_max) l's sequentially in increasing 
@@ -384,8 +381,7 @@ contains
       map%l0m0 = map%lm2(0,0) ! This is -1 if the point (0,0) is not local
       
    end subroutine set_lmmapping_default
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine set_mlmapping(map)
       !   
       !   This function assumes that m_arr is of size (n,2), where n is the 
@@ -465,8 +461,7 @@ contains
       map%m0l0 = map%ml2i(0,0) ! This is -1 if the point (0,0) is not local
       
    end subroutine set_mlmapping
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine print_mapping(map,name)
       !  
       !   Author: Rafael Lago, MPCDF, June 2018
@@ -499,4 +494,5 @@ contains
          call mpi_barrier(mpi_comm_world,ierr)
       end do 
    end subroutine print_mapping
+!----------------------------------------------------------------------------
 end module LMmapping
