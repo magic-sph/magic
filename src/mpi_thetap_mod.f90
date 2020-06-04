@@ -123,7 +123,7 @@ contains
          
          sendcount(irank) = pos - senddispl(irank) - 1
          recvdispl(irank) = sum(recvcount)
-         recvcount(irank) = dist_m(irank,0) * n_t
+         recvcount(irank) = dist_m(irank,0) * n_theta_loc
       end do
       
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DOUBLE_COMPLEX, &
