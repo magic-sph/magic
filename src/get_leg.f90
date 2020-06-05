@@ -48,6 +48,11 @@ module hybrid_space_mod
       complex(cp), pointer :: dsdt_Thloc(:,:,:), dsdp_Thloc(:,:,:)
       complex(cp), pointer :: dpdt_Thloc(:,:,:), dpdp_Thloc(:,:,:)
 
+      complex(cp), pointer :: NSadv_Mloc(:,:,:,:), heatadv_Mloc(:,:,:,:)
+      complex(cp), pointer :: compadv_Mloc(:,:,:,:), emf_Mloc(:,:,:,:)
+      complex(cp), pointer :: RMS_Mloc(:,:,:,:), LF_Mloc(:,:,:,:)
+      complex(cp), pointer :: LF2_Mloc(:,:,:,:), PF2_Mloc(:,:,:,:)
+      complex(cp), pointer :: dtV_Mloc(:,:,:,:), anel_Mloc(:,:,:,:)
       complex(cp), pointer :: Advr_Mloc(:,:,:), Advt_Mloc(:,:,:), Advp_Mloc(:,:,:)
       complex(cp), pointer :: LFr_Mloc(:,:,:), LFt_Mloc(:,:,:), LFp_Mloc(:,:,:)
       complex(cp), pointer :: VSr_Mloc(:,:,:), VSt_Mloc(:,:,:), VSp_Mloc(:,:,:)
@@ -308,33 +313,56 @@ contains
          &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
-      allocate( this%Advr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-      allocate( this%Advt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-      allocate( this%Advp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+      allocate( this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+      this%Advr_Mloc(1:,1:,nRstart:) => &
+      &          this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+      this%Advt_Mloc(1:,1:,nRstart:) => &
+      &          this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+      this%Advp_Mloc(1:,1:,nRstart:) => &
+      &          this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
 
       if ( l_heat ) then
-         allocate( this%VSr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%VSt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%VSp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+         allocate( this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         this%VSr_Mloc(1:,1:,nRstart:) => &
+         &          this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         this%VSt_Mloc(1:,1:,nRstart:) => &
+         &          this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         this%VSp_Mloc(1:,1:,nRstart:) => &
+         &          this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%VXir_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%VXit_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%VXip_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+         allocate( this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         this%VXir_Mloc(1:,1:,nRstart:) => &
+         &          this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         this%VXit_Mloc(1:,1:,nRstart:) => &
+         &          this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         this%VXip_Mloc(1:,1:,nRstart:) => &
+         &          this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       end if
 
       if ( l_anel ) then
          if ( l_mag ) then
-            allocate( this%OhmLoss_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop))
+            allocate( this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2) )
+         else
+            allocate( this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1) )
          end if
-         allocate( this%ViscHeat_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+         this%ViscHeat_Mloc(1:,1:,nRstart:) => &
+         &          this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         if ( l_mag ) then
+            this%OhmLoss_Mloc(1:,1:,nRstart:) => &
+            &          this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         end if
       end if
 
       if ( l_mag_nl ) then
-         allocate( this%VxBr_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%VxBt_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
-         allocate( this%VxBp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop) )
+         allocate( this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         this%VxBr_Mloc(1:,1:,nRstart:) => &
+         &          this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         this%VxBt_Mloc(1:,1:,nRstart:) => &
+         &          this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         this%VxBp_Mloc(1:,1:,nRstart:) => &
+         &          this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       end if
 
       if ( l_RMS ) then
@@ -388,31 +416,51 @@ contains
             &      this%LF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
          end if
 
-         allocate( this%PFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%PFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%CFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%CFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%Advt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%Advp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%PF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+         this%PFt2_Mloc(1:,1:,nRstart:) => &
+         &          this%PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         this%PFp2_Mloc(1:,1:,nRstart:) => &
+         &          this%PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          if ( l_adv_curl ) then
-            allocate( this%dpkindr_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+            allocate( this%RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,5) )
+         else
+            allocate( this%RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
+         end if
+         this%CFt2_Mloc(1:,1:,nRstart:) => &
+         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         this%CFp2_Mloc(1:,1:,nRstart:) => &
+         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         this%Advt2_Mloc(1:,1:,nRstart:) => &
+         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         this%Advp2_Mloc(1:,1:,nRstart:) => &
+         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
+         if ( l_adv_curl ) then
+            this%dpkindr_Mloc(1:,1:,nRstart:) => &
+            &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
          end if
 
-         allocate( this%dtVr_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%dtVt_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         allocate( this%dtVp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( this%dtV_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+         this%dtVr_Mloc(1:,1:,nRstart:) => &
+         &          this%dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         this%dtVt_Mloc(1:,1:,nRstart:) => &
+         &          this%dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         this%dtVp_Mloc(1:,1:,nRstart:) => &
+         &          this%dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+
          if ( l_mag ) then
-            allocate( this%LFr_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-            allocate( this%LFt_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-            allocate( this%LFp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-            allocate( this%LFt2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-            allocate( this%LFp2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+            allocate( this%LF_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+            this%LFr_Mloc(1:,1:,nRstart:) => &
+            &          this%LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+            this%LFt_Mloc(1:,1:,nRstart:) => &
+            &          this%LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+            this%LFp_Mloc(1:,1:,nRstart:) => &
+            &          this%LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+            allocate( this%LF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+            this%LFt2_Mloc(1:,1:,nRstart:) => &
+            &          this%LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+            this%LFp2_Mloc(1:,1:,nRstart:) => &
+            &          this%LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          end if
-         bytes_allocated = bytes_allocated+5*n_m_loc*n_theta_max*n_r_loc* &
-         &                 SIZEOF_DEF_COMPLEX
-
-         bytes_allocated = bytes_allocated+5*n_m_max*n_theta_loc*n_r_loc* &
-         &                 SIZEOF_DEF_COMPLEX
       end if
 
    end subroutine initialize
@@ -425,11 +473,11 @@ contains
       class(hybrid_3D_arrays_t) :: this
 
       if ( l_RMS ) then
-         deallocate( this%dtVr_Mloc, this%dtVt_Mloc, this%dtVp_Mloc ) 
-         deallocate( this%LFt2_Mloc, this%LFp2_Mloc)
          deallocate( this%dpdt_Mloc, this%dpdp_Mloc )
-         deallocate( this%RMS_pThloc, this%dtV_pThloc )
-         if ( l_mag ) deallocate( this%LF_pThloc )
+         deallocate( this%RMS_pThloc, this%dtV_pThloc, this%PF2_pThloc )
+         if ( l_mag ) deallocate( this%LF_pThloc, this%LF2_pThloc )
+         deallocate( this%RMS_Mloc, this%dtV_Mloc, this%PF2_Mloc )
+         if ( l_mag ) deallocate( this%LF_Mloc, this%LF2_Mloc )
       end if
       if ( l_adv_curl ) then
          deallocate( this%cvt_Mloc, this%cvp_Mloc )
@@ -785,57 +833,41 @@ contains
       class(hybrid_3D_arrays_t) :: this
       logical, intent(in) :: lRmsCalc
 
-      call transpose_m_theta_many(this%Advr_Thloc, this%Advr_Mloc, 1)
-      call transpose_m_theta_many(this%Advt_Thloc, this%Advt_Mloc, 1)
-      call transpose_m_theta_many(this%Advp_Thloc, this%Advp_Mloc, 1)
+      call transpose_m_theta_many(this%NSadv_pThloc, this%NSadv_Mloc, 3)
 
       if ( l_heat ) then
-         call transpose_m_theta_many(this%VSr_Thloc, this%VSr_Mloc, 1)
-         call transpose_m_theta_many(this%VSt_Thloc, this%VSt_Mloc, 1)
-         call transpose_m_theta_many(this%VSp_Thloc, this%VSp_Mloc, 1)
+         call transpose_m_theta_many(this%heatadv_pThloc, this%heatadv_Mloc, 3)
       end if
 
       if ( l_chemical_conv ) then
-         call transpose_m_theta_many(this%VXir_Thloc, this%VXir_Mloc, 1)
-         call transpose_m_theta_many(this%VXit_Thloc, this%VXit_Mloc, 1)
-         call transpose_m_theta_many(this%VXip_Thloc, this%VXip_Mloc, 1)
+         call transpose_m_theta_many(this%compadv_pThloc, this%compadv_Mloc, 3)
       end if
 
       if ( l_anel ) then
-         call transpose_m_theta_many(this%ViscHeat_Thloc, this%ViscHeat_Mloc, 1)
          if ( l_mag ) then
-            call transpose_m_theta_many(this%OhmLoss_Thloc, this%OhmLoss_Mloc, 1)
+            call transpose_m_theta_many(this%anel_pThloc, this%anel_Mloc, 2)
+         else
+            call transpose_m_theta_many(this%anel_pThloc, this%anel_Mloc, 1)
          end if
       end if
 
       if ( l_mag_nl ) then
-         call transpose_m_theta_many(this%VxBr_Thloc, this%VxBr_Mloc, 1)
-         call transpose_m_theta_many(this%VxBt_Thloc, this%VxBt_Mloc, 1)
-         call transpose_m_theta_many(this%VxBp_Thloc, this%VxBp_Mloc, 1)
+         call transpose_m_theta_many(this%emf_pThloc, this%emf_Mloc, 3)
       end if
 
       if ( lRmsCalc ) then
-         call transpose_m_theta_many(this%dtVr_Thloc, this%dtVr_Mloc, 1)
-         call transpose_m_theta_many(this%dtVt_Thloc, this%dtVt_Mloc, 1)
-         call transpose_m_theta_many(this%dtVp_Thloc, this%dtVp_Mloc, 1)
-         call transpose_m_theta_many(this%PFt2_Thloc, this%PFt2_Mloc, 1)
-         call transpose_m_theta_many(this%PFp2_Thloc, this%PFp2_Mloc, 1)
-         call transpose_m_theta_many(this%CFt2_Thloc, this%CFt2_Mloc, 1)
-         call transpose_m_theta_many(this%CFp2_Thloc, this%CFp2_Mloc, 1)
-         call transpose_m_theta_many(this%Advt2_Thloc, this%Advt2_Mloc, 1)
-         call transpose_m_theta_many(this%Advp2_Thloc, this%Advp2_Mloc, 1)
+         call transpose_m_theta_many(this%dtV_pThloc, this%dtV_Mloc, 3)
+         call transpose_m_theta_many(this%PF2_pThloc, this%PF2_Mloc, 2)
          if ( l_adv_curl ) then
-            call transpose_m_theta_many(this%dpkindr_Thloc, this%dpkindr_Mloc, 1)
+            call transpose_m_theta_many(this%RMS_pThloc, this%RMS_Mloc, 5)
+         else
+            call transpose_m_theta_many(this%RMS_pThloc, this%RMS_Mloc, 4)
          end if
          if ( l_mag_LF ) then
-            call transpose_m_theta_many(this%LFr_Thloc, this%LFr_Mloc, 1)
-            call transpose_m_theta_many(this%LFt_Thloc, this%LFt_Mloc, 1)
-            call transpose_m_theta_many(this%LFp_Thloc, this%LFp_Mloc, 1)
-            call transpose_m_theta_many(this%LFt2_Thloc, this%LFt2_Mloc, 1)
-            call transpose_m_theta_many(this%LFp2_Thloc, this%LFp2_Mloc, 1)
+            call transpose_m_theta_many(this%LF_pThloc, this%LF_Mloc, 3)
+            call transpose_m_theta_many(this%LF2_pThloc, this%LF2_Mloc, 2)
          end if
       end if
-
 
    end subroutine transp_Thloc_to_Mloc
 !-----------------------------------------------------------------------------------

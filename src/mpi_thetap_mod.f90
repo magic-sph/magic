@@ -160,7 +160,7 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: n_fields
-      complex(cp), intent(in) :: f_thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
+      complex(cp), intent(in) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
 
       !-- Output variable:
       complex(cp), intent(out) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
