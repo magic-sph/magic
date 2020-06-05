@@ -33,29 +33,31 @@ module mpi_thetap_mod
 
 
   public :: transpose_m_theta, transpose_theta_m, transform_m2phi,            &
-     & transform_phi2m, transform_new2old, transform_old2new, test_field
+  &         transform_phi2m, transform_new2old, transform_old2new, test_field,&
+  &         transpose_theta_m_many, transpose_m_theta_many
 
 contains
 
-   !-- Transposition from (m_loc,θ_glb) to (θ_loc,m_glb).
-   !   
-   !   
-   !   Author: Rafael Lago (MPCDF) August 2017
-   !
-   !-- TODO this with mpi_type to stride the data and check if performance 
-   !--      improves
-   !
    subroutine transpose_m_theta(f_m_theta, f_theta_m)
-      complex(cp), intent(inout) :: f_m_theta(n_m_max, n_theta_loc)
-      complex(cp), intent(inout) :: f_theta_m(n_theta_max, n_m_loc)
+      !-- Transposition from (m_loc,θ_glb) to (θ_loc,m_glb).
+      !   
+      !   
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      !-- TODO this with mpi_type to stride the data and check if performance 
+      !--      improves
+      !
+      !-- Input variable
+      complex(cp), intent(in) :: f_m_theta(n_m_max, n_theta_loc)
+
+      !-- Output variable
+      complex(cp), intent(out) :: f_theta_m(n_theta_max, n_m_loc)
       
+      !-- Local variables
       complex(cp) :: sendbuf(n_m_max * n_theta_loc)
       complex(cp) :: recvbuf(n_m_loc, n_theta_max)
-      
-      integer :: sendcount(0:n_ranks_m-1)
-      integer :: recvcount(0:n_ranks_m-1)
-      integer :: senddispl(0:n_ranks_m-1)
-      integer :: recvdispl(0:n_ranks_m-1)
+      integer :: sendcount(0:n_ranks_m-1),recvcount(0:n_ranks_m-1)
+      integer :: senddispl(0:n_ranks_m-1),recvdispl(0:n_ranks_m-1)
       integer :: irank, j, itheta, m, pos
       
       pos = 1
@@ -79,30 +81,34 @@ contains
          recvcount(irank) =   n_m_loc*dist_theta(irank,0)
       end do
       
-      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DOUBLE_COMPLEX, &
-                         recvbuf, recvcount, recvdispl, MPI_DOUBLE_COMPLEX, &
-                         comm_m, irank)
+#ifdef WITH_MPI
+      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
+           &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
+           &             comm_m, ierr)
+#endif
+
       f_theta_m = transpose(recvbuf)
       
    end subroutine transpose_m_theta
-   
-   !-- Transposition from (θ_loc,m_glb) to (m_loc,θ_glb)
-   !   
-   !   Author: Rafael Lago (MPCDF) August 2017
-   !
-   !-- TODO this with mpi_type to stride the data
-   !
+!----------------------------------------------------------------------------------
    subroutine transpose_theta_m(f_theta_m, f_m_theta)
-      complex(cp), intent(inout) :: f_theta_m(n_theta_max, n_m_loc)
-      complex(cp), intent(inout) :: f_m_theta(n_m_max, n_theta_loc)
+      !-- Transposition from (θ_loc,m_glb) to (m_loc,θ_glb)
+      !   
+      !   Author: Rafael Lago (MPCDF) August 2017
+      !
+      !-- TODO this with mpi_type to stride the data
+      !
+      !-- Input variable
+      complex(cp), intent(in) :: f_theta_m(n_theta_max, n_m_loc)
+
+      !-- Output variable
+      complex(cp), intent(out) :: f_m_theta(n_m_max, n_theta_loc)
       
+      !-- Local variables
       complex(cp) :: sendbuf(n_m_loc * n_theta_max)
       complex(cp) :: recvbuf(n_theta_loc,  n_m_max)
-      
-      integer :: sendcount(0:n_ranks_theta-1)
-      integer :: recvcount(0:n_ranks_theta-1)
-      integer :: senddispl(0:n_ranks_theta-1)
-      integer :: recvdispl(0:n_ranks_theta-1)
+      integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
+      integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
       integer :: irank, j, pos, n_t, l_t, u_t
       integer :: m_arr(n_ranks_theta*n_m_array) 
       
@@ -126,9 +132,11 @@ contains
          recvcount(irank) = dist_m(irank,0) * n_theta_loc
       end do
       
-      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DOUBLE_COMPLEX, &
-                         recvbuf, recvcount, recvdispl, MPI_DOUBLE_COMPLEX, &
-                         comm_theta, irank)
+#ifdef WITH_MPI
+      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
+           &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
+           &             comm_theta, ierr)
+#endif
       
       !-- Now we reorder the receiver buffer. If the m distribution looks like:
       !   coord_r 0: 0, 4,  8, 12, 16
@@ -145,20 +153,151 @@ contains
          f_m_theta(m_arr(pos),:) = recvbuf(:,j)
          j = j + 1
       end do
+
    end subroutine transpose_theta_m
-   
-   !-- Transforms from (θ,m) space into (φ,θ) space including transpositions 
-   !   and FFT. 
-   !   
-   !   Author: Rafael Lago (MPCDF) April 2020
-   !   TODO: some functions might requires this transformation for multiple
-   !      fields at once (e.g. vector transform). In that case, a non-blocking 
-   !      transpose_theta_m would make more sense. This would make this 
-   !      function obsolete.
-   !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
-   !     use just one intermediate buffer, vector transform, etc)
-   !
+!----------------------------------------------------------------------------------
+   subroutine transpose_m_theta_many(f_thloc, f_mloc, n_fields)
+
+      !-- Input variables:
+      integer,     intent(in) :: n_fields
+      complex(cp), intent(in) :: f_thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
+
+      !-- Output variable:
+      complex(cp), intent(out) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
+      
+      !-- Local variables:
+      complex(cp) :: recvbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
+      complex(cp) :: sendbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
+      integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
+      integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
+      integer :: irank, pos, n_th, n_m, n_r, n_f, m_idx
+
+      do irank=0,n_ranks_theta-1
+         sendcount(irank)=dist_m(irank,0) * n_theta_loc * n_r_loc * n_fields
+         recvcount(irank)=dist_theta(irank,0) * n_m_loc * n_r_loc * n_fields
+      end do
+
+      senddispl(0)=0
+      recvdispl(0)=0
+      do irank=1,n_ranks_theta-1
+         senddispl(irank)=senddispl(irank-1)+sendcount(irank-1)
+         recvdispl(irank)=recvdispl(irank-1)+recvcount(irank-1)
+      end do
+      
+      do irank=0,n_ranks_theta-1
+         pos = senddispl(irank)+1
+         do n_f=1,n_fields
+            do n_r=nRstart,nRstop
+               do n_m=1,dist_m(irank,0)
+                  m_idx = dist_m(irank,n_m)/minc+1
+                  do n_th=nThetaStart,nThetaStop
+                     sendbuf(pos)=f_thloc(m_idx,n_th,n_r,n_f)
+                     pos = pos+1
+                  end do
+               end do
+            end do
+         end do
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
+           &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
+           &             comm_theta, ierr)
+#endif
+
+      do irank=0,n_ranks_theta-1
+         pos = recvdispl(irank)+1
+         do n_f=1,n_fields
+            do n_r=nRstart,nRstop
+               do n_m=1,n_m_loc
+                  do n_th=dist_theta(irank,1),dist_theta(irank,2)
+                     f_mloc(n_th,n_m,n_r,n_f)=recvbuf(pos)
+                     pos = pos+1
+                  end do
+               end do
+            end do
+         end do
+      end do
+
+   end subroutine transpose_m_theta_many
+!----------------------------------------------------------------------------------
+   subroutine transpose_theta_m_many(f_mloc, f_thloc, n_fields)
+
+      !-- Input variables:
+      integer,     intent(in) :: n_fields
+      complex(cp), intent(in) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
+
+      !-- Output variable:
+      complex(cp), intent(out) :: f_thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
+      
+      !-- Local variables:
+      complex(cp) :: sendbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
+      complex(cp) :: recvbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
+      integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
+      integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
+      integer :: irank, pos, n_th, n_m, n_r, n_f, m_idx
+
+      do irank=0,n_ranks_theta-1
+         recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_r_loc * n_fields
+         sendcount(irank)=dist_theta(irank,0) * n_m_loc * n_r_loc * n_fields
+      end do
+
+      senddispl(0)=0
+      recvdispl(0)=0
+      do irank=1,n_ranks_theta-1
+         senddispl(irank)=senddispl(irank-1)+sendcount(irank-1)
+         recvdispl(irank)=recvdispl(irank-1)+recvcount(irank-1)
+      end do
+
+      do irank=0,n_ranks_theta-1
+         pos = senddispl(irank)+1
+         do n_f=1,n_fields
+            do n_r=nRstart,nRstop
+               do n_m=1, n_m_loc
+                  do n_th=dist_theta(irank,1),dist_theta(irank,2)
+                     sendbuf(pos)=f_mloc(n_th,n_m,n_r,n_f)
+                     pos = pos+1
+                  end do
+               end do
+            end do
+         end do
+      end do
+      
+#ifdef WITH_MPI
+      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
+           &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
+           &             comm_theta, ierr)
+#endif
+      
+      do irank=0,n_ranks_theta-1
+         pos = recvdispl(irank)+1
+         do n_f=1,n_fields
+            do n_r=nRstart,nRstop
+               do n_m=1,dist_m(irank,0)
+                  m_idx = dist_m(irank,n_m)/minc+1
+                  do n_th=nThetaStart,nThetaStop
+                     f_thloc(m_idx,n_th,n_r,n_f) = recvbuf(pos)
+                     pos = pos+1
+                  end do
+               end do
+            end do
+         end do
+      end do
+
+   end subroutine transpose_theta_m_many
+!----------------------------------------------------------------------------------
    subroutine transform_m2phi(fL, f)
+      !-- Transforms from (θ,m) space into (φ,θ) space including transpositions 
+      !   and FFT. 
+      !   
+      !   Author: Rafael Lago (MPCDF) April 2020
+      !   TODO: some functions might requires this transformation for multiple
+      !      fields at once (e.g. vector transform). In that case, a non-blocking 
+      !      transpose_theta_m would make more sense. This would make this 
+      !      function obsolete.
+      !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
+      !     use just one intermediate buffer, vector transform, etc)
+      !
       
       !-- Input variables
       complex(cp), intent(inout) :: fL(n_theta_max,n_m_loc)
@@ -178,21 +317,21 @@ contains
       Ff(1:n_m_max,1:n_theta_loc) = lF
       
       call fft_phi_loc(f, Ff, -1)
+
    end subroutine transform_m2phi
-   
-   
-   !-- Transforms from (φ,θ) space into (θ,m) space including transpositions 
-   !   and FFT. 
-   !   
-   !   Author: Rafael Lago (MPCDF) April 2020
-   !   TODO: some functions might requires this transformation for multiple
-   !      fields at once (e.g. vector transform). In that case, a non-blocking 
-   !      transpose_theta_m would make more sense. This would make this 
-   !      function obsolete.
-   !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
-   !     use just one intermediate buffer, vector transform, etc)
-   !
+!----------------------------------------------------------------------------------
    subroutine transform_phi2m(f, fL)
+      !-- Transforms from (φ,θ) space into (θ,m) space including transpositions 
+      !   and FFT. 
+      !   
+      !   Author: Rafael Lago (MPCDF) April 2020
+      !   TODO: some functions might requires this transformation for multiple
+      !      fields at once (e.g. vector transform). In that case, a non-blocking 
+      !      transpose_theta_m would make more sense. This would make this 
+      !      function obsolete.
+      !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
+      !     use just one intermediate buffer, vector transform, etc)
+      !
       
       !-- Input variables
       real(cp),    intent(inout) :: f(n_phi_max, n_theta_loc)
@@ -233,16 +372,14 @@ contains
          irank = map_mlo%ml2rnk(m,l)
          recvbuff = 0.0
          if (irank==rank) recvbuff = Fmlo_new(map_mlo%ml2i(m,l),:)
-         call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, mpi_comm_world, ierr)
+         call mpi_bcast(recvbuff, n_r, MPI_DEF_COMPLEX, irank, mpi_comm_world, ierr)
          lo = lo_map%lm2(l,m)
          if (lo>=llm .and. lo<=ulm) Fmlo_old(lo,:) = recvbuff
       end do
    end subroutine transform_new2old
-   
-   
-!-------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------
    subroutine transform_old2new(Fmlo_old, Fmlo_new, n_r)
-!-------------------------------------------------------------------------------
+
       integer,     intent(in) :: n_r ! Needed since it can be either n_r_ic_max, or n_r_max
       complex(cp), intent(in) :: Fmlo_old(llm:ulm,   n_r)
       complex(cp), intent(inout) :: Fmlo_new(n_mlo_loc, n_r)
@@ -262,7 +399,7 @@ contains
                call mpi_bcast(m, 1, MPI_INTEGER, irank, comm_r, ierr)
                call mpi_bcast(l, 1, MPI_INTEGER, irank, comm_r, ierr)
                
-               call mpi_bcast(Fmlo_old(lm,:), n_r, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
+               call mpi_bcast(Fmlo_old(lm,:), n_r, MPI_DEF_COMPLEX, irank, comm_r, ierr)
                if (map_mlo%ml2rnk(m,l)==rank) Fmlo_new(map_mlo%ml2i(m,l),:) = Fmlo_old(lm,:)
             end do
          else
@@ -270,7 +407,7 @@ contains
             do i=1, size_irank
                call mpi_bcast(m, 1, MPI_INTEGER, irank, comm_r, ierr)
                call mpi_bcast(l, 1, MPI_INTEGER, irank, comm_r, ierr)
-               call mpi_bcast(recvbuff, n_r, MPI_DOUBLE_COMPLEX, irank, comm_r, ierr)
+               call mpi_bcast(recvbuff, n_r, MPI_DEF_COMPLEX, irank, comm_r, ierr)
                if (map_mlo%ml2rnk(m,l)==rank) Fmlo_new(map_mlo%ml2i(m,l),:) = recvbuff
             end do
          end if

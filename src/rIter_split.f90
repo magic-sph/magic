@@ -215,7 +215,8 @@ contains
 
       !-- Transposes
       call this%hsa%transp_Mloc_to_Thloc(lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, &
-           &                             lPowerCalc, lFluxProfCalc, l_frame)
+           &                             lPowerCalc, lFluxProfCalc, lPerpParCalc,    &
+           &                             lHelCalc, l_frame)
 
       !-- FFT's
       call this%fft_hyb_to_grid(lViscBcCalc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &

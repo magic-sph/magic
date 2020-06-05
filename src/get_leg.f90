@@ -15,7 +15,7 @@ module hybrid_space_mod
    use shtns, only: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb,          &
        &            torpol_to_curl_hyb, pol_to_grad_hyb, torpol_to_dphhyb, &
        &            pol_to_curlr_hyb, hyb_to_SH, hyb_to_qst, hyb_to_sphertor
-   use mpi_thetap_mod, only: transpose_theta_m, transpose_m_theta
+   use mpi_thetap_mod, only: transpose_theta_m_many, transpose_m_theta_many
 
    implicit none
 
@@ -615,7 +615,8 @@ contains
    end subroutine leg_spec_to_hyb
 !-----------------------------------------------------------------------------------
    subroutine transp_Mloc_to_Thloc(this, lVisc, lRmsCalc, lPressCalc, lTOCalc, &
-              &                    lPowerCalc, lFluxProfCalc, l_frame)
+              &                    lPowerCalc, lFluxProfCalc, lPerpParCalc,    &
+              &                    lHelCalc, l_frame)
       !
       ! This subroutine performs the MPI transposition from (n_theta,
       ! n_m_loc,n_r_loc) to (n_theta_loc, n_m_max, n_r_loc)
@@ -623,76 +624,69 @@ contains
 
       class(hybrid_3D_arrays_t) :: this
       logical, intent(in) :: lVisc, lRmsCalc, lPressCalc, lTOCalc, lPowerCalc
-      logical, intent(in) :: lFluxProfCalc, l_frame
+      logical, intent(in) :: lFluxProfCalc, l_frame, lPerpParCalc, lHelCalc
        
-
-      integer :: nR !@> TODO: remove this to have global comm's
-
-      !@> TODO: remove this loop obviously
-      do nR=nRstart,nRstop
-
-         if ( l_conv .or. l_mag_kin ) then
-            if ( l_heat ) then
-               call transpose_theta_m(this%s_Mloc(:,:,nR), this%s_Thloc(:,:,nR))
-               if ( lVisc ) then
-                  call transpose_theta_m(this%dsdt_Mloc(:,:,nR), this%dsdt_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dsdp_Mloc(:,:,nR), this%dsdp_Thloc(:,:,nR))
-               end if
-               if ( l_HT .or. lVisc ) then
-                  call transpose_theta_m(this%dsdr_Mloc(:,:,nR), this%dsdr_Thloc(:,:,nR))
-               endif
+      if ( l_conv .or. l_mag_kin ) then
+         if ( l_heat ) then
+            call transpose_theta_m_many(this%s_Mloc, this%s_Thloc, 1)
+            if ( lVisc ) then
+               call transpose_theta_m_many(this%dsdt_Mloc, this%dsdt_Thloc, 1)
+               call transpose_theta_m_many(this%dsdp_Mloc, this%dsdp_Thloc, 1)
             end if
-
-            !-- Pressure
-            if ( lPressCalc ) call transpose_theta_m(this%p_Mloc(:,:,nR), &
-                                   &                 this%p_Thloc(:,:,nR))
-
-            !-- Composition
-            if ( l_chemical_conv ) call transpose_theta_m(this%xi_Mloc(:,:,nR), &
-                                        &                 this%xi_Thloc(:,:,nR))
-
-            call transpose_theta_m(this%vr_Mloc(:,:,nR), this%vr_Thloc(:,:,nR))
-            call transpose_theta_m(this%vt_Mloc(:,:,nR), this%vt_Thloc(:,:,nR))
-            call transpose_theta_m(this%vp_Mloc(:,:,nR), this%vp_Thloc(:,:,nR))
-            call transpose_theta_m(this%cvr_Mloc(:,:,nR), this%cvr_Thloc(:,:,nR))
-
-            if ( l_adv_curl ) then
-               call transpose_theta_m(this%cvt_Mloc(:,:,nR), this%cvt_Thloc(:,:,nR))
-               call transpose_theta_m(this%cvp_Mloc(:,:,nR), this%cvp_Thloc(:,:,nR))
-
-               !@> TODO: I thinks one also needs lHelCalc, lPerpParCalc, ...
-               if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
-               &    .or. lTOCalc .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-                  call transpose_theta_m(this%dvrdr_Mloc(:,:,nR), this%dvrdr_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dvtdr_Mloc(:,:,nR), this%dvtdr_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dvpdr_Mloc(:,:,nR), this%dvpdr_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dvrdp_Mloc(:,:,nR), this%dvrdp_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dvtdp_Mloc(:,:,nR), this%dvtdp_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dvpdp_Mloc(:,:,nR), this%dvpdp_Thloc(:,:,nR))
-                  call transpose_theta_m(this%dvrdt_Mloc(:,:,nR), this%dvrdt_Thloc(:,:,nR))
-
-               end if
-            else
-               call transpose_theta_m(this%dvrdr_Mloc(:,:,nR), this%dvrdr_Thloc(:,:,nR))
-               call transpose_theta_m(this%dvtdr_Mloc(:,:,nR), this%dvtdr_Thloc(:,:,nR))
-               call transpose_theta_m(this%dvpdr_Mloc(:,:,nR), this%dvpdr_Thloc(:,:,nR))
-               call transpose_theta_m(this%dvrdp_Mloc(:,:,nR), this%dvrdp_Thloc(:,:,nR))
-               call transpose_theta_m(this%dvtdp_Mloc(:,:,nR), this%dvtdp_Thloc(:,:,nR))
-               call transpose_theta_m(this%dvpdp_Mloc(:,:,nR), this%dvpdp_Thloc(:,:,nR))
-               call transpose_theta_m(this%dvrdt_Mloc(:,:,nR), this%dvrdt_Thloc(:,:,nR))
-            end if
+            if ( l_HT .or. lVisc ) then
+               call transpose_theta_m_many(this%dsdr_Mloc, this%dsdr_Thloc, 1)
+            endif
          end if
 
-         if ( l_mag .or. l_mag_LF ) then
-            call transpose_theta_m(this%br_Mloc(:,:,nR), this%br_Thloc(:,:,nR))
-            call transpose_theta_m(this%bt_Mloc(:,:,nR), this%bt_Thloc(:,:,nR))
-            call transpose_theta_m(this%bp_Mloc(:,:,nR), this%bp_Thloc(:,:,nR))
-            call transpose_theta_m(this%cbr_Mloc(:,:,nR), this%cbr_Thloc(:,:,nR))
-            call transpose_theta_m(this%cbt_Mloc(:,:,nR), this%cbt_Thloc(:,:,nR))
-            call transpose_theta_m(this%cbp_Mloc(:,:,nR), this%cbp_Thloc(:,:,nR))
+         !-- Pressure
+         if ( lPressCalc ) call transpose_theta_m_many(this%p_Mloc, &
+                                &                 this%p_Thloc, 1)
+
+         !-- Composition
+         if ( l_chemical_conv ) call transpose_theta_m_many(this%xi_Mloc, &
+                                     &                 this%xi_Thloc, 1)
+
+         call transpose_theta_m_many(this%vr_Mloc, this%vr_Thloc, 1)
+         call transpose_theta_m_many(this%vt_Mloc, this%vt_Thloc, 1)
+         call transpose_theta_m_many(this%vp_Mloc, this%vp_Thloc, 1)
+         call transpose_theta_m_many(this%cvr_Mloc, this%cvr_Thloc, 1)
+
+         if ( l_adv_curl ) then
+            call transpose_theta_m_many(this%cvt_Mloc, this%cvt_Thloc, 1)
+            call transpose_theta_m_many(this%cvp_Mloc, this%cvp_Thloc, 1)
+
+            !@> TODO: I thinks one also needs lHelCalc, lPerpParCalc, ...
+            if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
+            &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or.      &
+            &    ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
+               call transpose_theta_m_many(this%dvrdr_Mloc, this%dvrdr_Thloc, 1)
+               call transpose_theta_m_many(this%dvtdr_Mloc, this%dvtdr_Thloc, 1)
+               call transpose_theta_m_many(this%dvpdr_Mloc, this%dvpdr_Thloc, 1)
+               call transpose_theta_m_many(this%dvrdp_Mloc, this%dvrdp_Thloc, 1)
+               call transpose_theta_m_many(this%dvtdp_Mloc, this%dvtdp_Thloc, 1)
+               call transpose_theta_m_many(this%dvpdp_Mloc, this%dvpdp_Thloc, 1)
+               call transpose_theta_m_many(this%dvrdt_Mloc, this%dvrdt_Thloc, 1)
+
+            end if
+         else
+            call transpose_theta_m_many(this%dvrdr_Mloc, this%dvrdr_Thloc, 1)
+            call transpose_theta_m_many(this%dvtdr_Mloc, this%dvtdr_Thloc, 1)
+            call transpose_theta_m_many(this%dvpdr_Mloc, this%dvpdr_Thloc, 1)
+            call transpose_theta_m_many(this%dvrdp_Mloc, this%dvrdp_Thloc, 1)
+            call transpose_theta_m_many(this%dvtdp_Mloc, this%dvtdp_Thloc, 1)
+            call transpose_theta_m_many(this%dvpdp_Mloc, this%dvpdp_Thloc, 1)
+            call transpose_theta_m_many(this%dvrdt_Mloc, this%dvrdt_Thloc, 1)
          end if
-      end do
-      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      end if
+
+      if ( l_mag .or. l_mag_LF ) then
+         call transpose_theta_m_many(this%br_Mloc, this%br_Thloc, 1)
+         call transpose_theta_m_many(this%bt_Mloc, this%bt_Thloc, 1)
+         call transpose_theta_m_many(this%bp_Mloc, this%bp_Thloc, 1)
+         call transpose_theta_m_many(this%cbr_Mloc, this%cbr_Thloc, 1)
+         call transpose_theta_m_many(this%cbt_Mloc, this%cbt_Thloc, 1)
+         call transpose_theta_m_many(this%cbp_Mloc, this%cbp_Thloc, 1)
+      end if
 
    end subroutine transp_Mloc_to_Thloc
 !-----------------------------------------------------------------------------------
@@ -791,62 +785,57 @@ contains
       class(hybrid_3D_arrays_t) :: this
       logical, intent(in) :: lRmsCalc
 
-      integer :: nR !@> TODO: remove this to have global comm's
+      call transpose_m_theta_many(this%Advr_Thloc, this%Advr_Mloc, 1)
+      call transpose_m_theta_many(this%Advt_Thloc, this%Advt_Mloc, 1)
+      call transpose_m_theta_many(this%Advp_Thloc, this%Advp_Mloc, 1)
 
-      !@> TODO: remove this loop obviously
-      do nR=nRstart,nRstop
-         call transpose_m_theta(this%Advr_Thloc(:,:,nR), this%Advr_Mloc(:,:,nR))
-         call transpose_m_theta(this%Advt_Thloc(:,:,nR), this%Advt_Mloc(:,:,nR))
-         call transpose_m_theta(this%Advp_Thloc(:,:,nR), this%Advp_Mloc(:,:,nR))
+      if ( l_heat ) then
+         call transpose_m_theta_many(this%VSr_Thloc, this%VSr_Mloc, 1)
+         call transpose_m_theta_many(this%VSt_Thloc, this%VSt_Mloc, 1)
+         call transpose_m_theta_many(this%VSp_Thloc, this%VSp_Mloc, 1)
+      end if
 
-         if ( l_heat ) then
-            call transpose_m_theta(this%VSr_Thloc(:,:,nR), this%VSr_Mloc(:,:,nR))
-            call transpose_m_theta(this%VSt_Thloc(:,:,nR), this%VSt_Mloc(:,:,nR))
-            call transpose_m_theta(this%VSp_Thloc(:,:,nR), this%VSp_Mloc(:,:,nR))
+      if ( l_chemical_conv ) then
+         call transpose_m_theta_many(this%VXir_Thloc, this%VXir_Mloc, 1)
+         call transpose_m_theta_many(this%VXit_Thloc, this%VXit_Mloc, 1)
+         call transpose_m_theta_many(this%VXip_Thloc, this%VXip_Mloc, 1)
+      end if
+
+      if ( l_anel ) then
+         call transpose_m_theta_many(this%ViscHeat_Thloc, this%ViscHeat_Mloc, 1)
+         if ( l_mag ) then
+            call transpose_m_theta_many(this%OhmLoss_Thloc, this%OhmLoss_Mloc, 1)
          end if
+      end if
 
-         if ( l_chemical_conv ) then
-            call transpose_m_theta(this%VXir_Thloc(:,:,nR), this%VXir_Mloc(:,:,nR))
-            call transpose_m_theta(this%VXit_Thloc(:,:,nR), this%VXit_Mloc(:,:,nR))
-            call transpose_m_theta(this%VXip_Thloc(:,:,nR), this%VXip_Mloc(:,:,nR))
+      if ( l_mag_nl ) then
+         call transpose_m_theta_many(this%VxBr_Thloc, this%VxBr_Mloc, 1)
+         call transpose_m_theta_many(this%VxBt_Thloc, this%VxBt_Mloc, 1)
+         call transpose_m_theta_many(this%VxBp_Thloc, this%VxBp_Mloc, 1)
+      end if
+
+      if ( lRmsCalc ) then
+         call transpose_m_theta_many(this%dtVr_Thloc, this%dtVr_Mloc, 1)
+         call transpose_m_theta_many(this%dtVt_Thloc, this%dtVt_Mloc, 1)
+         call transpose_m_theta_many(this%dtVp_Thloc, this%dtVp_Mloc, 1)
+         call transpose_m_theta_many(this%PFt2_Thloc, this%PFt2_Mloc, 1)
+         call transpose_m_theta_many(this%PFp2_Thloc, this%PFp2_Mloc, 1)
+         call transpose_m_theta_many(this%CFt2_Thloc, this%CFt2_Mloc, 1)
+         call transpose_m_theta_many(this%CFp2_Thloc, this%CFp2_Mloc, 1)
+         call transpose_m_theta_many(this%Advt2_Thloc, this%Advt2_Mloc, 1)
+         call transpose_m_theta_many(this%Advp2_Thloc, this%Advp2_Mloc, 1)
+         if ( l_adv_curl ) then
+            call transpose_m_theta_many(this%dpkindr_Thloc, this%dpkindr_Mloc, 1)
          end if
-
-         if ( l_anel ) then
-            call transpose_m_theta(this%ViscHeat_Thloc(:,:,nR), this%ViscHeat_Mloc(:,:,nR))
-            if ( l_mag ) then
-               call transpose_m_theta(this%OhmLoss_Thloc(:,:,nR), this%OhmLoss_Mloc(:,:,nR))
-            end if
+         if ( l_mag_LF ) then
+            call transpose_m_theta_many(this%LFr_Thloc, this%LFr_Mloc, 1)
+            call transpose_m_theta_many(this%LFt_Thloc, this%LFt_Mloc, 1)
+            call transpose_m_theta_many(this%LFp_Thloc, this%LFp_Mloc, 1)
+            call transpose_m_theta_many(this%LFt2_Thloc, this%LFt2_Mloc, 1)
+            call transpose_m_theta_many(this%LFp2_Thloc, this%LFp2_Mloc, 1)
          end if
+      end if
 
-         if ( l_mag_nl ) then
-            call transpose_m_theta(this%VxBr_Thloc(:,:,nR), this%VxBr_Mloc(:,:,nR))
-            call transpose_m_theta(this%VxBt_Thloc(:,:,nR), this%VxBt_Mloc(:,:,nR))
-            call transpose_m_theta(this%VxBp_Thloc(:,:,nR), this%VxBp_Mloc(:,:,nR))
-         end if
-
-         if ( lRmsCalc ) then
-            call transpose_m_theta(this%dtVr_Thloc(:,:,nR), this%dtVr_Mloc(:,:,nR))
-            call transpose_m_theta(this%dtVt_Thloc(:,:,nR), this%dtVt_Mloc(:,:,nR))
-            call transpose_m_theta(this%dtVp_Thloc(:,:,nR), this%dtVp_Mloc(:,:,nR))
-            call transpose_m_theta(this%PFt2_Thloc(:,:,nR), this%PFt2_Mloc(:,:,nR))
-            call transpose_m_theta(this%PFp2_Thloc(:,:,nR), this%PFp2_Mloc(:,:,nR))
-            call transpose_m_theta(this%CFt2_Thloc(:,:,nR), this%CFt2_Mloc(:,:,nR))
-            call transpose_m_theta(this%CFp2_Thloc(:,:,nR), this%CFp2_Mloc(:,:,nR))
-            call transpose_m_theta(this%Advt2_Thloc(:,:,nR), this%Advt2_Mloc(:,:,nR))
-            call transpose_m_theta(this%Advp2_Thloc(:,:,nR), this%Advp2_Mloc(:,:,nR))
-            if ( l_adv_curl ) then
-               call transpose_m_theta(this%dpkindr_Thloc(:,:,nR), this%dpkindr_Mloc(:,:,nR))
-            end if
-            if ( l_mag_LF ) then
-               call transpose_m_theta(this%LFr_Thloc(:,:,nR), this%LFr_Mloc(:,:,nR))
-               call transpose_m_theta(this%LFt_Thloc(:,:,nR), this%LFt_Mloc(:,:,nR))
-               call transpose_m_theta(this%LFp_Thloc(:,:,nR), this%LFp_Mloc(:,:,nR))
-               call transpose_m_theta(this%LFt2_Thloc(:,:,nR), this%LFt2_Mloc(:,:,nR))
-               call transpose_m_theta(this%LFp2_Thloc(:,:,nR), this%LFp2_Mloc(:,:,nR))
-            end if
-         end if
-
-      end do
 
    end subroutine transp_Thloc_to_Mloc
 !-----------------------------------------------------------------------------------
