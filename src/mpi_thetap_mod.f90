@@ -5,6 +5,7 @@ module mpi_thetap_mod
    ! This module contains the implementation of theta-parallel transpositions
    !
 
+   use constants, only: zero
    use precision_mod
    use parallel_mod
    use mem_alloc
@@ -156,6 +157,73 @@ contains
 
    end subroutine transpose_theta_m
 !----------------------------------------------------------------------------------
+   subroutine transpose_theta_m_many(f_mloc, f_thloc, n_fields)
+
+      !-- Input variables:
+      integer,     intent(in) :: n_fields
+      complex(cp), intent(in) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
+
+      !-- Output variable:
+      complex(cp), intent(out) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
+      
+      !-- Local variables:
+      complex(cp) :: sendbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
+      complex(cp) :: recvbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
+      integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
+      integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
+      integer :: irank, pos, n_th, n_m, n_r, n_f, m_idx
+
+      do irank=0,n_ranks_theta-1
+         recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_r_loc * n_fields
+         sendcount(irank)=dist_theta(irank,0) * n_m_loc * n_r_loc * n_fields
+      end do
+
+      senddispl(0)=0
+      recvdispl(0)=0
+      do irank=1,n_ranks_theta-1
+         senddispl(irank)=senddispl(irank-1)+sendcount(irank-1)
+         recvdispl(irank)=recvdispl(irank-1)+recvcount(irank-1)
+      end do
+
+      do irank=0,n_ranks_theta-1
+         pos = senddispl(irank)+1
+         do n_f=1,n_fields
+            do n_r=nRstart,nRstop
+               do n_m=1, n_m_loc
+                  do n_th=dist_theta(irank,1),dist_theta(irank,2)
+                     sendbuf(pos)=f_mloc(n_th,n_m,n_r,n_f)
+                     pos = pos+1
+                  end do
+               end do
+            end do
+         end do
+      end do
+      
+#ifdef WITH_MPI
+      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
+           &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
+           &             comm_theta, ierr)
+#endif
+      
+      do irank=0,n_ranks_theta-1
+         pos = recvdispl(irank)+1
+         do n_f=1,n_fields
+            do n_r=nRstart,nRstop
+               do n_m=1,dist_m(irank,0)
+                  m_idx = dist_m(irank,n_m)/minc+1
+                  do n_th=nThetaStart,nThetaStop
+                     f_thloc(m_idx,n_th,n_r,n_f) = recvbuf(pos)
+                     pos = pos+1
+                  end do
+               end do
+            end do
+         end do
+      end do
+
+      f_thloc(n_m_max+1:,:,:,:)=zero
+
+   end subroutine transpose_theta_m_many
+!----------------------------------------------------------------------------------
    subroutine transpose_m_theta_many(f_thloc, f_mloc, n_fields)
 
       !-- Input variables:
@@ -220,71 +288,6 @@ contains
       end do
 
    end subroutine transpose_m_theta_many
-!----------------------------------------------------------------------------------
-   subroutine transpose_theta_m_many(f_mloc, f_thloc, n_fields)
-
-      !-- Input variables:
-      integer,     intent(in) :: n_fields
-      complex(cp), intent(in) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
-
-      !-- Output variable:
-      complex(cp), intent(out) :: f_thloc(n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
-      
-      !-- Local variables:
-      complex(cp) :: sendbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
-      complex(cp) :: recvbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
-      integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
-      integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
-      integer :: irank, pos, n_th, n_m, n_r, n_f, m_idx
-
-      do irank=0,n_ranks_theta-1
-         recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_r_loc * n_fields
-         sendcount(irank)=dist_theta(irank,0) * n_m_loc * n_r_loc * n_fields
-      end do
-
-      senddispl(0)=0
-      recvdispl(0)=0
-      do irank=1,n_ranks_theta-1
-         senddispl(irank)=senddispl(irank-1)+sendcount(irank-1)
-         recvdispl(irank)=recvdispl(irank-1)+recvcount(irank-1)
-      end do
-
-      do irank=0,n_ranks_theta-1
-         pos = senddispl(irank)+1
-         do n_f=1,n_fields
-            do n_r=nRstart,nRstop
-               do n_m=1, n_m_loc
-                  do n_th=dist_theta(irank,1),dist_theta(irank,2)
-                     sendbuf(pos)=f_mloc(n_th,n_m,n_r,n_f)
-                     pos = pos+1
-                  end do
-               end do
-            end do
-         end do
-      end do
-      
-#ifdef WITH_MPI
-      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
-           &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
-           &             comm_theta, ierr)
-#endif
-      
-      do irank=0,n_ranks_theta-1
-         pos = recvdispl(irank)+1
-         do n_f=1,n_fields
-            do n_r=nRstart,nRstop
-               do n_m=1,dist_m(irank,0)
-                  m_idx = dist_m(irank,n_m)/minc+1
-                  do n_th=nThetaStart,nThetaStop
-                     f_thloc(m_idx,n_th,n_r,n_f) = recvbuf(pos)
-                     pos = pos+1
-                  end do
-               end do
-            end do
-         end do
-      end do
-
-   end subroutine transpose_theta_m_many
 !----------------------------------------------------------------------------------
    subroutine transform_m2phi(fL, f)
       !-- Transforms from (θ,m) space into (φ,θ) space including transpositions 
