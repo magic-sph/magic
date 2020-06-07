@@ -161,21 +161,21 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: n_fields
-      complex(cp), intent(in) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
+      complex(cp), intent(in) :: f_mloc(n_theta_max,n_m_loc,*)
 
       !-- Output variable:
-      complex(cp), intent(out) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
+      complex(cp), intent(inout) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,*)
       
       !-- Local variables:
-      complex(cp) :: sendbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
-      complex(cp) :: recvbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
+      complex(cp) :: sendbuf(n_m_loc*n_theta_max*n_fields)
+      complex(cp) :: recvbuf(n_theta_loc*n_m_max*n_fields)
       integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
-      integer :: irank, pos, n_th, n_m, n_r, n_f, m_idx
+      integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
 
       do irank=0,n_ranks_theta-1
-         recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_r_loc * n_fields
-         sendcount(irank)=dist_theta(irank,0) * n_m_loc * n_r_loc * n_fields
+         recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_fields
+         sendcount(irank)=dist_theta(irank,0) * n_m_loc * n_fields
       end do
 
       senddispl(0)=0
@@ -186,15 +186,14 @@ contains
       end do
 
       do irank=0,n_ranks_theta-1
+         l_t=dist_theta(irank,1)
+         u_t=dist_theta(irank,2)
+         n_t=dist_theta(irank,0)
          pos = senddispl(irank)+1
          do n_f=1,n_fields
-            do n_r=nRstart,nRstop
-               do n_m=1, n_m_loc
-                  do n_th=dist_theta(irank,1),dist_theta(irank,2)
-                     sendbuf(pos)=f_mloc(n_th,n_m,n_r,n_f)
-                     pos = pos+1
-                  end do
-               end do
+            do n_m=1, n_m_loc
+               sendbuf(pos:pos+n_t-1)=f_mloc(l_t:u_t,n_m,n_f)
+               pos = pos+n_t
             end do
          end do
       end do
@@ -208,19 +207,15 @@ contains
       do irank=0,n_ranks_theta-1
          pos = recvdispl(irank)+1
          do n_f=1,n_fields
-            do n_r=nRstart,nRstop
-               do n_m=1,dist_m(irank,0)
-                  m_idx = dist_m(irank,n_m)/minc+1
-                  do n_th=nThetaStart,nThetaStop
-                     f_thloc(m_idx,n_th,n_r,n_f) = recvbuf(pos)
-                     pos = pos+1
-                  end do
-               end do
+            do n_m=1,dist_m(irank,0)
+               m_idx = dist_m(irank,n_m)/minc+1
+               f_thloc(m_idx,:,n_f)=recvbuf(pos:pos+n_theta_loc-1)
+               pos = pos+n_theta_loc
             end do
          end do
       end do
 
-      f_thloc(n_m_max+1:,:,:,:)=zero
+      !f_thloc(n_m_max+1:,:,*)=zero
 
    end subroutine transpose_theta_m_many
 !----------------------------------------------------------------------------------
@@ -228,21 +223,21 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: n_fields
-      complex(cp), intent(in) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,n_fields)
+      complex(cp), intent(in) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,n_fields)
 
       !-- Output variable:
-      complex(cp), intent(out) :: f_mloc(n_theta_max,n_m_loc,nRstart:nRstop,n_fields)
+      complex(cp), intent(out) :: f_mloc(n_theta_max,n_m_loc,n_fields)
       
       !-- Local variables:
       complex(cp) :: recvbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
       complex(cp) :: sendbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
       integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
-      integer :: irank, pos, n_th, n_m, n_r, n_f, m_idx
+      integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
 
       do irank=0,n_ranks_theta-1
-         sendcount(irank)=dist_m(irank,0) * n_theta_loc * n_r_loc * n_fields
-         recvcount(irank)=dist_theta(irank,0) * n_m_loc * n_r_loc * n_fields
+         sendcount(irank)=dist_m(irank,0) * n_theta_loc * n_fields
+         recvcount(irank)=dist_theta(irank,0) * n_m_loc * n_fields
       end do
 
       senddispl(0)=0
@@ -255,14 +250,10 @@ contains
       do irank=0,n_ranks_theta-1
          pos = senddispl(irank)+1
          do n_f=1,n_fields
-            do n_r=nRstart,nRstop
-               do n_m=1,dist_m(irank,0)
-                  m_idx = dist_m(irank,n_m)/minc+1
-                  do n_th=nThetaStart,nThetaStop
-                     sendbuf(pos)=f_thloc(m_idx,n_th,n_r,n_f)
-                     pos = pos+1
-                  end do
-               end do
+            do n_m=1,dist_m(irank,0)
+               m_idx = dist_m(irank,n_m)/minc+1
+               sendbuf(pos:pos+n_theta_loc-1)=f_thloc(m_idx,:,n_f)
+               pos = pos+n_theta_loc
             end do
          end do
       end do
@@ -275,14 +266,13 @@ contains
 
       do irank=0,n_ranks_theta-1
          pos = recvdispl(irank)+1
+         l_t=dist_theta(irank,1)
+         u_t=dist_theta(irank,2)
+         n_t=dist_theta(irank,0)
          do n_f=1,n_fields
-            do n_r=nRstart,nRstop
-               do n_m=1,n_m_loc
-                  do n_th=dist_theta(irank,1),dist_theta(irank,2)
-                     f_mloc(n_th,n_m,n_r,n_f)=recvbuf(pos)
-                     pos = pos+1
-                  end do
-               end do
+            do n_m=1,n_m_loc
+               f_mloc(l_t:u_t,n_m,n_f)=recvbuf(pos:pos+n_t-1)
+               pos = pos+n_t
             end do
          end do
       end do
@@ -350,6 +340,7 @@ contains
       lF(1:n_m_max,1:n_theta_loc) = Ff(1:n_m_max,1:n_theta_loc)
       call transpose_m_theta(lF, fL)
    end subroutine transform_phi2m
+!----------------------------------------------------------------------------------
    
 !  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
 !  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\

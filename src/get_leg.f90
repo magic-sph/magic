@@ -21,73 +21,53 @@ module hybrid_space_mod
 
    private
 
+   complex(cp), target, allocatable :: vel_Mloc(:,:,:,:), gradvel_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: s_Mloc(:,:,:), grads_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: p_Mloc(:,:,:), gradp_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: xi_Mloc(:,:,:), mag_Mloc(:,:,:,:)
+
+   complex(cp), target, allocatable :: NSadv_Mloc(:,:,:,:), heatadv_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: compadv_Mloc(:,:,:,:), emf_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: RMS_Mloc(:,:,:,:), LF_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: LF2_Mloc(:,:,:,:), PF2_Mloc(:,:,:,:)
+   complex(cp), target, allocatable :: dtV_Mloc(:,:,:,:), anel_Mloc(:,:,:,:)
+
    type, public :: hybrid_3D_arrays_t
-      complex(cp), pointer :: vel_Mloc(:,:,:,:), gradvel_Mloc(:,:,:,:)
-      complex(cp), pointer :: s_Mloc(:,:,:), grads_Mloc(:,:,:,:)
-      complex(cp), pointer :: p_Mloc(:,:,:), gradp_Mloc(:,:,:,:)
-      complex(cp), pointer :: xi_Mloc(:,:,:), mag_Mloc(:,:,:,:)
      
-      complex(cp), pointer :: vr_Mloc(:,:,:), vt_Mloc(:,:,:), vp_Mloc(:,:,:)
-      complex(cp), pointer :: dvrdr_Mloc(:,:,:), dvtdr_Mloc(:,:,:), dvpdr_Mloc(:,:,:)
-      complex(cp), pointer :: cvr_Mloc(:,:,:), dsdr_Mloc(:,:,:)
-      complex(cp), pointer :: dvrdt_Mloc(:,:,:), dvrdp_Mloc(:,:,:)
-      complex(cp), pointer :: dvtdp_Mloc(:,:,:), dvpdp_Mloc(:,:,:)
-      complex(cp), pointer :: br_Mloc(:,:,:), bt_Mloc(:,:,:), bp_Mloc(:,:,:)
-      complex(cp), pointer :: cbr_Mloc(:,:,:), cbt_Mloc(:,:,:), cbp_Mloc(:,:,:)
-      complex(cp), pointer :: cvt_Mloc(:,:,:), cvp_Mloc(:,:,:)
-      complex(cp), pointer :: dsdt_Mloc(:,:,:), dsdp_Mloc(:,:,:)
-      complex(cp), pointer :: dpdt_Mloc(:,:,:), dpdp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: vr_Mloc(:,:,:), vt_Mloc(:,:,:), vp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dvrdr_Mloc(:,:,:), dvtdr_Mloc(:,:,:), dvpdr_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: cvr_Mloc(:,:,:), dsdr_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dvrdt_Mloc(:,:,:), dvrdp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dvtdp_Mloc(:,:,:), dvpdp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: br_Mloc(:,:,:), bt_Mloc(:,:,:), bp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: cbr_Mloc(:,:,:), cbt_Mloc(:,:,:), cbp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: cvt_Mloc(:,:,:), cvp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dsdt_Mloc(:,:,:), dsdp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dpdt_Mloc(:,:,:), dpdp_Mloc(:,:,:)
 
-      complex(cp), pointer :: vel_pThloc(:,:,:,:), gradvel_pThloc(:,:,:,:)
-      complex(cp), pointer :: s_pThloc(:,:,:), grads_pThloc(:,:,:,:)
-      complex(cp), pointer :: p_pThloc(:,:,:), gradp_pThloc(:,:,:,:)
-      complex(cp), pointer :: xi_pThloc(:,:,:), mag_pThloc(:,:,:,:)
-      complex(cp), pointer :: vr_Thloc(:,:,:), vt_Thloc(:,:,:), vp_Thloc(:,:,:)
-      complex(cp), pointer :: dvrdr_Thloc(:,:,:), dvtdr_Thloc(:,:,:), dvpdr_Thloc(:,:,:)
-      complex(cp), pointer :: cvr_Thloc(:,:,:), s_Thloc(:,:,:), dsdr_Thloc(:,:,:)
-      complex(cp), pointer :: dvrdt_Thloc(:,:,:), dvrdp_Thloc(:,:,:)
-      complex(cp), pointer :: dvtdp_Thloc(:,:,:), dvpdp_Thloc(:,:,:)
-      complex(cp), pointer :: br_Thloc(:,:,:), bt_Thloc(:,:,:), bp_Thloc(:,:,:)
-      complex(cp), pointer :: cbr_Thloc(:,:,:), cbt_Thloc(:,:,:), cbp_Thloc(:,:,:)
-      complex(cp), pointer :: p_Thloc(:,:,:), xi_Thloc(:,:,:), cvt_Thloc(:,:,:), cvp_Thloc(:,:,:)
-      complex(cp), pointer :: dsdt_Thloc(:,:,:), dsdp_Thloc(:,:,:)
-      complex(cp), pointer :: dpdt_Thloc(:,:,:), dpdp_Thloc(:,:,:)
+      complex(cp), allocatable :: vel_pThloc(:,:,:,:), gradvel_pThloc(:,:,:,:)
+      complex(cp), allocatable :: s_pThloc(:,:,:), grads_pThloc(:,:,:,:)
+      complex(cp), allocatable :: p_pThloc(:,:,:), gradp_pThloc(:,:,:,:)
+      complex(cp), allocatable :: xi_pThloc(:,:,:), mag_pThloc(:,:,:,:)
 
-      complex(cp), pointer :: NSadv_Mloc(:,:,:,:), heatadv_Mloc(:,:,:,:)
-      complex(cp), pointer :: compadv_Mloc(:,:,:,:), emf_Mloc(:,:,:,:)
-      complex(cp), pointer :: RMS_Mloc(:,:,:,:), LF_Mloc(:,:,:,:)
-      complex(cp), pointer :: LF2_Mloc(:,:,:,:), PF2_Mloc(:,:,:,:)
-      complex(cp), pointer :: dtV_Mloc(:,:,:,:), anel_Mloc(:,:,:,:)
-      complex(cp), pointer :: Advr_Mloc(:,:,:), Advt_Mloc(:,:,:), Advp_Mloc(:,:,:)
-      complex(cp), pointer :: LFr_Mloc(:,:,:), LFt_Mloc(:,:,:), LFp_Mloc(:,:,:)
-      complex(cp), pointer :: VSr_Mloc(:,:,:), VSt_Mloc(:,:,:), VSp_Mloc(:,:,:)
-      complex(cp), pointer :: VXir_Mloc(:,:,:), VXit_Mloc(:,:,:), VXip_Mloc(:,:,:)
-      complex(cp), pointer :: VxBr_Mloc(:,:,:), VxBt_Mloc(:,:,:), VxBp_Mloc(:,:,:)
-      complex(cp), pointer :: ViscHeat_Mloc(:,:,:), OhmLoss_Mloc(:,:,:)
-      complex(cp), pointer :: dpkindr_Mloc(:,:,:)
-      complex(cp), pointer :: dtVr_Mloc(:,:,:), dtVt_Mloc(:,:,:), dtVp_Mloc(:,:,:)
-      complex(cp), pointer :: PFt2_Mloc(:,:,:), PFp2_Mloc(:,:,:)
-      complex(cp), pointer :: CFt2_Mloc(:,:,:), CFp2_Mloc(:,:,:)
-      complex(cp), pointer :: Advt2_Mloc(:,:,:), Advp2_Mloc(:,:,:)
-      complex(cp), pointer :: LFt2_Mloc(:,:,:), LFp2_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: Advr_Mloc(:,:,:), Advt_Mloc(:,:,:), Advp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: LFr_Mloc(:,:,:), LFt_Mloc(:,:,:), LFp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: VSr_Mloc(:,:,:), VSt_Mloc(:,:,:), VSp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: VXir_Mloc(:,:,:), VXit_Mloc(:,:,:), VXip_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: VxBr_Mloc(:,:,:), VxBt_Mloc(:,:,:), VxBp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: ViscHeat_Mloc(:,:,:), OhmLoss_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dpkindr_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: dtVr_Mloc(:,:,:), dtVt_Mloc(:,:,:), dtVp_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: PFt2_Mloc(:,:,:), PFp2_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: CFt2_Mloc(:,:,:), CFp2_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: Advt2_Mloc(:,:,:), Advp2_Mloc(:,:,:)
+      complex(cp), contiguous, pointer :: LFt2_Mloc(:,:,:), LFp2_Mloc(:,:,:)
 
-      complex(cp), pointer :: NSadv_pThloc(:,:,:,:), heatadv_pThloc(:,:,:,:)
-      complex(cp), pointer :: compadv_pThloc(:,:,:,:), emf_pThloc(:,:,:,:)
-      complex(cp), pointer :: RMS_pThloc(:,:,:,:), LF_pThloc(:,:,:,:)
-      complex(cp), pointer :: LF2_pThloc(:,:,:,:), PF2_pThloc(:,:,:,:)
-      complex(cp), pointer :: dtV_pThloc(:,:,:,:), anel_pThloc(:,:,:,:)
-      complex(cp), pointer :: Advr_Thloc(:,:,:), Advt_Thloc(:,:,:), Advp_Thloc(:,:,:)
-      complex(cp), pointer :: LFr_Thloc(:,:,:), LFt_Thloc(:,:,:), LFp_Thloc(:,:,:)
-      complex(cp), pointer :: VSr_Thloc(:,:,:), VSt_Thloc(:,:,:), VSp_Thloc(:,:,:)
-      complex(cp), pointer :: VXir_Thloc(:,:,:), VXit_Thloc(:,:,:), VXip_Thloc(:,:,:)
-      complex(cp), pointer :: VxBr_Thloc(:,:,:), VxBt_Thloc(:,:,:), VxBp_Thloc(:,:,:)
-      complex(cp), pointer :: ViscHeat_Thloc(:,:,:), OhmLoss_Thloc(:,:,:)
-      complex(cp), pointer :: dpkindr_Thloc(:,:,:)
-      complex(cp), pointer :: dtVr_Thloc(:,:,:), dtVt_Thloc(:,:,:), dtVp_Thloc(:,:,:)
-      complex(cp), pointer :: PFt2_Thloc(:,:,:), PFp2_Thloc(:,:,:)
-      complex(cp), pointer :: CFt2_Thloc(:,:,:), CFp2_Thloc(:,:,:)
-      complex(cp), pointer :: Advt2_Thloc(:,:,:), Advp2_Thloc(:,:,:)
-      complex(cp), pointer :: LFt2_Thloc(:,:,:), LFp2_Thloc(:,:,:)
+      complex(cp), allocatable :: NSadv_pThloc(:,:,:,:), heatadv_pThloc(:,:,:,:)
+      complex(cp), allocatable :: compadv_pThloc(:,:,:,:), emf_pThloc(:,:,:,:)
+      complex(cp), allocatable :: RMS_pThloc(:,:,:,:), LF_pThloc(:,:,:,:)
+      complex(cp), allocatable :: LF2_pThloc(:,:,:,:), PF2_pThloc(:,:,:,:)
+      complex(cp), allocatable :: dtV_pThloc(:,:,:,:), anel_pThloc(:,:,:,:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -108,215 +88,139 @@ contains
 
 
       if ( l_adv_curl ) then
-         allocate( this%vel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,6) )
+         allocate( vel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,6) )
       else
-         allocate( this%vel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
+         allocate( vel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
       end if
       this%vr_Mloc(1:,1:,nRstart:) => &
-      &          this%vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+      &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
       this%vt_Mloc(1:,1:,nRstart:) => &
-      &          this%vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+      &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
       this%vp_Mloc(1:,1:,nRstart:) => &
-      &          this%vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+      &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       this%cvr_Mloc(1:,1:,nRstart:) => &
-      &          this%vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
+      &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
       if ( l_adv_curl ) then
          this%cvt_Mloc(1:,1:,nRstart:) => &
-         &          this%vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
+         &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
          this%cvp_Mloc(1:,1:,nRstart:) => &
-         &          this%vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
+         &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
       end if
 
-      allocate( this%gradvel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,7) )
+      allocate( gradvel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,7) )
       this%dvrdr_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
       this%dvtdr_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
       this%dvpdr_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       this%dvrdp_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
       this%dvtdp_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
       this%dvpdp_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
       this%dvrdt_Mloc(1:,1:,nRstart:) => &
-      &          this%gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,7)
+      &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,7)
 
-      allocate( this%p_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-      allocate( this%s_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+      allocate( p_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+      allocate( s_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
 
       if ( l_adv_curl ) then
          allocate( this%vel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop, 6) )
       else
          allocate( this%vel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop, 4) )
       end if
-      this%vr_Thloc(1:,nThetaStart:,nRstart:) => &
-      &          this%vel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-      this%vt_Thloc(1:,nThetaStart:,nRstart:) => &
-      &          this%vel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-      this%vp_Thloc(1:,nThetaStart:,nRstart:) => &
-      &          this%vel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
-      this%cvr_Thloc(1:,nThetaStart:,nRstart:) => &
-      &          this%vel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,4)
-      if ( l_adv_curl ) then
-         this%cvt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &          this%vel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,5)
-         this%cvp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &          this%vel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,6)
-      end if
       this%vel_pThloc(:,:,:,:)=zero
 
 
       allocate( this%p_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop) )
-      this%p_Thloc(1:,nThetaStart:,nRstart:) => &
-      &          this%p_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
       allocate( this%s_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop) )
-      this%s_Thloc(1:,nThetaStart:,nRstart:) => &
-      &          this%s_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
       this%p_pThloc(:,:,:)=zero
       this%s_pThloc(:,:,:)=zero
 
       allocate( this%gradvel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop, 7) )
-      this%dvrdr_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-      this%dvtdr_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-      this%dvpdr_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
-      this%dvrdp_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,4)
-      this%dvtdp_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,5)
-      this%dvpdp_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,6)
-      this%dvrdt_Thloc(1:,nThetaStart:,nRstart:) => &
-      &        this%gradvel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,7)
       this%gradvel_pThloc(:,:,:,:)=zero
       bytes_allocated = bytes_allocated+14*n_theta_loc*n_m_max*n_r_loc*&
       &                 SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
-         allocate( this%xi_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+         allocate( xi_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
          bytes_allocated = bytes_allocated+1*n_theta_max*n_m_loc*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
 
          allocate( this%xi_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop) )
-         this%xi_Thloc(1:,nThetaStart:,nRstart:) => &
-         &            this%xi_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop)
          this%xi_pThloc(:,:,:)=zero
          bytes_allocated = bytes_allocated+1*n_theta_loc*n_m_max*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_mag ) then
-         allocate( this%mag_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,6) )
+         allocate( mag_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,6) )
          this%br_Mloc(1:,1:,nRstart:) => &
-         &          this%mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%bt_Mloc(1:,1:,nRstart:) => &
-         &          this%mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%bp_Mloc(1:,1:,nRstart:) => &
-         &          this%mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
          this%cbr_Mloc(1:,1:,nRstart:) => &
-         &          this%mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
+         &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
          this%cbt_Mloc(1:,1:,nRstart:) => &
-         &          this%mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
+         &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
          this%cbp_Mloc(1:,1:,nRstart:) => &
-         &          this%mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
+         &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
 
          allocate( this%mag_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,6) )
          bytes_allocated = bytes_allocated+6*n_theta_loc*n_m_max*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
 
-         this%br_Thloc(1:,nThetaStart:,nRstart:) => &
-         &         this%mag_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%bt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &         this%mag_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%bp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &         this%mag_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
-         this%cbr_Thloc(1:,nThetaStart:,nRstart:) => &
-         &         this%mag_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,4)
-         this%cbt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &         this%mag_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,5)
-         this%cbp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &         this%mag_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,6)
          this%mag_pThloc(:,:,:,:)=zero
       end if
 
       if ( l_viscBcCalc ) then
-         allocate( this%grads_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+         allocate( grads_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
          this%dsdr_Mloc(1:,1:,nRstart:) => &
-         &          this%grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%dsdt_Mloc(1:,1:,nRstart:) => &
-         &          this%grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%dsdp_Mloc(1:,1:,nRstart:) => &
-         &          this%grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
 
          allocate( this%grads_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
          bytes_allocated = bytes_allocated+2*n_theta_loc*n_m_max*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
-         this%dsdr_Thloc(1:,nThetaStart:,nRstart:) => &
-         &       this%grads_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%dsdt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &       this%grads_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%dsdp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &       this%grads_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       else
-         allocate( this%grads_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,1) )
+         allocate( grads_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,1) )
          this%dsdr_Mloc(1:,1:,nRstart:) => &
-         &          this%grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          allocate( this%grads_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,1) )
-         this%dsdr_Thloc(1:,nThetaStart:,nRstart:) => &
-         &       this%grads_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
       end if
       this%grads_pThloc(:,:,:,:)=zero
 
       if ( l_RMS ) then
-         allocate( this%gradp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+         allocate( gradp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
          this%dpdt_Mloc(1:,1:,nRstart:) => &
-         &          this%gradp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          gradp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%dpdp_Mloc(1:,1:,nRstart:) => &
-         &          this%gradp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          gradp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
 
          allocate( this%gradp_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
          bytes_allocated = bytes_allocated+2*n_theta_loc*n_m_max*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
-         this%dpdt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &          this%gradp_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%dpdp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &          this%gradp_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
          this%gradp_pThloc(:,:,:,:)=zero
       end if
 
       allocate( this%NSadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
       this%NSadv_pThloc(:,:,:,:)=zero
-      this%Advr_Thloc(1:,nThetaStart:,nRstart:) => &
-      &      this%NSadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-      this%Advt_Thloc(1:,nThetaStart:,nRstart:) => &
-      &      this%NSadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-      this%Advp_Thloc(1:,nThetaStart:,nRstart:) => &
-      &      this%NSadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
 
       if ( l_heat ) then
          allocate( this%heatadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
          this%heatadv_pThloc(:,:,:,:)=zero
-         this%VSr_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%heatadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%VSt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%heatadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%VSp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%heatadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if 
 
       if ( l_chemical_conv ) then
          allocate( this%compadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
          this%compadv_pThloc(:,:,:,:)=zero
-         this%VXir_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%compadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%VXit_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%compadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%VXip_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%compadv_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
       if ( l_anel ) then
@@ -325,172 +229,128 @@ contains
          else
             allocate( this%anel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,1) )
          end if
-         this%ViscHeat_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%anel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         if ( l_mag ) then
-            this%OhmLoss_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%anel_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         end if
       end if
 
       if ( l_mag_nl ) then
          allocate( this%emf_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
          this%emf_pThloc(:,:,:,:)=zero
-         this%VxBr_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%VxBt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%VxBp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%emf_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
       end if
 
-      allocate( this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+      allocate( NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
       this%Advr_Mloc(1:,1:,nRstart:) => &
-      &          this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+      &          NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
       this%Advt_Mloc(1:,1:,nRstart:) => &
-      &          this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+      &          NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
       this%Advp_Mloc(1:,1:,nRstart:) => &
-      &          this%NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+      &          NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
 
       if ( l_heat ) then
-         allocate( this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         allocate( heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
          this%VSr_Mloc(1:,1:,nRstart:) => &
-         &          this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%VSt_Mloc(1:,1:,nRstart:) => &
-         &          this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%VSp_Mloc(1:,1:,nRstart:) => &
-         &          this%heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         allocate( compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
          this%VXir_Mloc(1:,1:,nRstart:) => &
-         &          this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%VXit_Mloc(1:,1:,nRstart:) => &
-         &          this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%VXip_Mloc(1:,1:,nRstart:) => &
-         &          this%compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       end if
 
       if ( l_anel ) then
          if ( l_mag ) then
-            allocate( this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2) )
+            allocate( anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2) )
          else
-            allocate( this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1) )
+            allocate( anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1) )
          end if
          this%ViscHeat_Mloc(1:,1:,nRstart:) => &
-         &          this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          if ( l_mag ) then
             this%OhmLoss_Mloc(1:,1:,nRstart:) => &
-            &          this%anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+            &          anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          end if
       end if
 
       if ( l_mag_nl ) then
-         allocate( this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         allocate( emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
          this%VxBr_Mloc(1:,1:,nRstart:) => &
-         &          this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%VxBt_Mloc(1:,1:,nRstart:) => &
-         &          this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%VxBp_Mloc(1:,1:,nRstart:) => &
-         &          this%emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
       end if
 
       if ( l_RMS ) then
          allocate( this%PF2_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
          this%PF2_pThloc(:,:,:,:)=zero
-         this%PFt2_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%PF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%PFp2_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%PF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
          if ( l_adv_curl ) then
             allocate( this%RMS_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,5) )
          else
             allocate( this%RMS_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,4) )
          end if
          this%RMS_pThloc(:,:,:,:)=zero
-         this%CFt2_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%CFp2_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%Advt2_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
-         this%Advp2_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,4)
-         if ( l_adv_curl ) then
-            this%dpkindr_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%RMS_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,5)
-         end if
          allocate( this%dtV_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
          this%dtV_pThloc(:,:,:,:)=zero
-         this%dtVr_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%dtV_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-         this%dtVt_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%dtV_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-         this%dtVp_Thloc(1:,nThetaStart:,nRstart:) => &
-         &      this%dtV_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
 
          if ( l_mag ) then
             allocate( this%LF_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
             allocate( this%LF2_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
             this%LF_pThloc(:,:,:,:)=zero
             this%LF2_pThloc(:,:,:,:)=zero
-            this%LFr_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%LF_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-            this%LFt_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%LF_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
-            this%LFp_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%LF_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,3)
-            this%LFt2_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%LF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,1)
-            this%LFp2_Thloc(1:,nThetaStart:,nRstart:) => &
-            &      this%LF2_pThloc(1:n_m_max,nThetaStart:nThetaStop,nRstart:nRstop,2)
          end if
 
-         allocate( this%PF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+         allocate( PF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
          this%PFt2_Mloc(1:,1:,nRstart:) => &
-         &          this%PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%PFp2_Mloc(1:,1:,nRstart:) => &
-         &          this%PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          if ( l_adv_curl ) then
-            allocate( this%RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,5) )
+            allocate( RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,5) )
          else
-            allocate( this%RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
+            allocate( RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
          end if
          this%CFt2_Mloc(1:,1:,nRstart:) => &
-         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%CFp2_Mloc(1:,1:,nRstart:) => &
-         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%Advt2_Mloc(1:,1:,nRstart:) => &
-         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
          this%Advp2_Mloc(1:,1:,nRstart:) => &
-         &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
+         &          RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,4)
          if ( l_adv_curl ) then
             this%dpkindr_Mloc(1:,1:,nRstart:) => &
-            &          this%RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
+            &          RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,5)
          end if
 
-         allocate( this%dtV_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+         allocate( dtV_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
          this%dtVr_Mloc(1:,1:,nRstart:) => &
-         &          this%dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+         &          dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%dtVt_Mloc(1:,1:,nRstart:) => &
-         &          this%dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+         &          dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          this%dtVp_Mloc(1:,1:,nRstart:) => &
-         &          this%dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+         &          dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
 
          if ( l_mag ) then
-            allocate( this%LF_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+            allocate( LF_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
             this%LFr_Mloc(1:,1:,nRstart:) => &
-            &          this%LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+            &          LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
             this%LFt_Mloc(1:,1:,nRstart:) => &
-            &          this%LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+            &          LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
             this%LFp_Mloc(1:,1:,nRstart:) => &
-            &          this%LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
-            allocate( this%LF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+            &          LF_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
+            allocate( LF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
             this%LFt2_Mloc(1:,1:,nRstart:) => &
-            &          this%LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
+            &          LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
             this%LFp2_Mloc(1:,1:,nRstart:) => &
-            &          this%LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+            &          LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          end if
       end if
 
@@ -504,19 +364,19 @@ contains
       class(hybrid_3D_arrays_t) :: this
 
       if ( l_RMS ) then
-         deallocate( this%dpdt_Mloc, this%dpdp_Mloc )
+         deallocate( gradp_Mloc )
          deallocate( this%RMS_pThloc, this%dtV_pThloc, this%PF2_pThloc )
          if ( l_mag ) deallocate( this%LF_pThloc, this%LF2_pThloc )
-         deallocate( this%RMS_Mloc, this%dtV_Mloc, this%PF2_Mloc )
-         if ( l_mag ) deallocate( this%LF_Mloc, this%LF2_Mloc )
+         deallocate( RMS_Mloc, dtV_Mloc, PF2_Mloc )
+         if ( l_mag ) deallocate( LF_Mloc, LF2_Mloc )
       end if
-      if ( l_mag ) deallocate( this%mag_pThloc, this%mag_Mloc )
+      if ( l_mag ) deallocate( this%mag_pThloc, mag_Mloc )
       if ( l_chemical_conv ) then
-         deallocate( this%xi_Mloc, this%xi_pThloc )
+         deallocate( xi_Mloc, this%xi_pThloc )
       end if
 
-      deallocate( this%vel_Mloc, this%gradvel_Mloc )
-      deallocate( this%s_Mloc,this%p_Mloc, this%grads_Mloc)
+      deallocate( vel_Mloc, gradvel_Mloc )
+      deallocate( s_Mloc, p_Mloc, grads_Mloc)
       deallocate( this%vel_pThloc, this%gradvel_pThloc )
       deallocate( this%s_pThloc,this%p_pThloc, this%grads_pThloc)
 
@@ -568,7 +428,7 @@ contains
 
          if ( l_conv .or. l_mag_kin ) then
             if ( l_heat ) then
-               call scal_to_hyb(s(:,nR), this%s_Mloc(:,:,nR), l_R(nR))
+               call scal_to_hyb(s(:,nR), s_Mloc(:,:,nR), l_R(nR))
                if ( lVisc ) then
                   call scal_to_grad_hyb(s(:,nR), this%dsdt_Mloc(:,:,nR), &
                        &                this%dsdp_Mloc(:,:,nR),&
@@ -588,10 +448,10 @@ contains
                                  &                this%dpdp_Mloc(:,:,nR), l_R(nR))
 
             !-- Pressure
-            if ( lPressCalc ) call scal_to_hyb(p(:,nR), this%p_Mloc(:,:,nR), l_R(nR))
+            if ( lPressCalc ) call scal_to_hyb(p(:,nR), p_Mloc(:,:,nR), l_R(nR))
 
             !-- Composition
-            if ( l_chemical_conv ) call scal_to_hyb(xi(:,nR), this%xi_Mloc(:,:,nR),&
+            if ( l_chemical_conv ) call scal_to_hyb(xi(:,nR), xi_Mloc(:,:,nR),&
                                         &           l_R(nR))
 
             if ( l_HT .or. lVisc ) then
@@ -698,37 +558,39 @@ contains
       if ( l_conv .or. l_mag_kin ) then
        
          if ( l_heat ) then
-            call transpose_theta_m_many(this%s_Mloc, this%s_pThloc, 1)
+            call transpose_theta_m_many(s_Mloc, this%s_pThloc, n_r_loc)
             if ( lVisc ) then
-               call transpose_theta_m_many(this%grads_Mloc, this%grads_pThloc, 3)
+               call transpose_theta_m_many(grads_Mloc, this%grads_pThloc, 3*n_r_loc)
             end if
             if ( l_HT .and. (.not. lVisc) ) then
-               call transpose_theta_m_many(this%grads_Mloc, this%grads_pThloc, 1)
+               call transpose_theta_m_many(grads_Mloc, this%grads_pThloc, n_r_loc)
             endif
          end if
 
          !-- Pressure
-         if ( lPressCalc ) call transpose_theta_m_many(this%p_Mloc, &
-                                &                 this%p_pThloc, 1)
+         if ( lPressCalc ) call transpose_theta_m_many(p_Mloc, &
+                                &                 this%p_pThloc, n_r_loc)
 
          !-- Composition
-         if ( l_chemical_conv ) call transpose_theta_m_many(this%xi_Mloc, &
-                                     &                 this%xi_pThloc, 1)
+         if ( l_chemical_conv ) call transpose_theta_m_many(xi_Mloc, &
+                                     &                 this%xi_pThloc, n_r_loc)
          if ( l_adv_curl ) then
-            call transpose_theta_m_many(this%vel_Mloc, this%vel_pThloc, 6)
+            call transpose_theta_m_many(vel_Mloc, this%vel_pThloc, 6*n_r_loc)
             if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
             &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or.      &
             &    ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-               call transpose_theta_m_many(this%gradvel_Mloc, this%gradvel_pThloc, 7)
+               call transpose_theta_m_many(gradvel_Mloc, this%gradvel_pThloc, &
+                    &                      7*n_r_loc)
             end if
          else
-            call transpose_theta_m_many(this%vel_Mloc, this%vel_pThloc, 4)
-            call transpose_theta_m_many(this%gradvel_Mloc, this%gradvel_pThloc, 7)
+            call transpose_theta_m_many(vel_Mloc, this%vel_pThloc, 4*n_r_loc)
+            call transpose_theta_m_many(gradvel_Mloc, this%gradvel_pThloc, &
+                 &                      7*n_r_loc)
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call transpose_theta_m_many(this%mag_Mloc, this%mag_pThloc, 6)
+         call transpose_theta_m_many(mag_Mloc, this%mag_pThloc, 6*n_r_loc)
       end if
 
    end subroutine transp_Mloc_to_Thloc
@@ -828,39 +690,39 @@ contains
       class(hybrid_3D_arrays_t) :: this
       logical, intent(in) :: lRmsCalc
 
-      call transpose_m_theta_many(this%NSadv_pThloc, this%NSadv_Mloc, 3)
+      call transpose_m_theta_many(this%NSadv_pThloc, NSadv_Mloc, 3*n_r_loc)
 
       if ( l_heat ) then
-         call transpose_m_theta_many(this%heatadv_pThloc, this%heatadv_Mloc, 3)
+         call transpose_m_theta_many(this%heatadv_pThloc, heatadv_Mloc, 3*n_r_loc)
       end if
 
       if ( l_chemical_conv ) then
-         call transpose_m_theta_many(this%compadv_pThloc, this%compadv_Mloc, 3)
+         call transpose_m_theta_many(this%compadv_pThloc, compadv_Mloc, 3*n_r_loc)
       end if
 
       if ( l_anel ) then
          if ( l_mag ) then
-            call transpose_m_theta_many(this%anel_pThloc, this%anel_Mloc, 2)
+            call transpose_m_theta_many(this%anel_pThloc, anel_Mloc, 2*n_r_loc)
          else
-            call transpose_m_theta_many(this%anel_pThloc, this%anel_Mloc, 1)
+            call transpose_m_theta_many(this%anel_pThloc, anel_Mloc, n_r_loc)
          end if
       end if
 
       if ( l_mag_nl ) then
-         call transpose_m_theta_many(this%emf_pThloc, this%emf_Mloc, 3)
+         call transpose_m_theta_many(this%emf_pThloc, emf_Mloc, 3*n_r_loc)
       end if
 
       if ( lRmsCalc ) then
-         call transpose_m_theta_many(this%dtV_pThloc, this%dtV_Mloc, 3)
-         call transpose_m_theta_many(this%PF2_pThloc, this%PF2_Mloc, 2)
+         call transpose_m_theta_many(this%dtV_pThloc, dtV_Mloc, 3*n_r_loc)
+         call transpose_m_theta_many(this%PF2_pThloc, PF2_Mloc, 2*n_r_loc)
          if ( l_adv_curl ) then
-            call transpose_m_theta_many(this%RMS_pThloc, this%RMS_Mloc, 5)
+            call transpose_m_theta_many(this%RMS_pThloc, RMS_Mloc, 5*n_r_loc)
          else
-            call transpose_m_theta_many(this%RMS_pThloc, this%RMS_Mloc, 4)
+            call transpose_m_theta_many(this%RMS_pThloc, RMS_Mloc, 4*n_r_loc)
          end if
          if ( l_mag_LF ) then
-            call transpose_m_theta_many(this%LF_pThloc, this%LF_Mloc, 3)
-            call transpose_m_theta_many(this%LF2_pThloc, this%LF2_Mloc, 2)
+            call transpose_m_theta_many(this%LF_pThloc, LF_Mloc, 3*n_r_loc)
+            call transpose_m_theta_many(this%LF2_pThloc, LF2_Mloc, 2*n_r_loc)
          end if
       end if
 
