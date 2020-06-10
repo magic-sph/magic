@@ -89,8 +89,12 @@ contains
 
       if ( l_adv_curl ) then
          allocate( vel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,6) )
+         bytes_allocated=bytes_allocated+6*n_r_loc*n_m_loc*n_theta_max*&
+         &               SIZEOF_DEF_COMPLEX
       else
          allocate( vel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
+         bytes_allocated=bytes_allocated+4*n_r_loc*n_m_loc*n_theta_max*&
+         &               SIZEOF_DEF_COMPLEX
       end if
       this%vr_Mloc(1:,1:,nRstart:) => &
       &          vel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
@@ -108,6 +112,8 @@ contains
       end if
 
       allocate( gradvel_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,7) )
+      bytes_allocated=bytes_allocated+7*n_r_loc*n_m_loc*n_theta_max*&
+      &               SIZEOF_DEF_COMPLEX
       this%dvrdr_Mloc(1:,1:,nRstart:) => &
       &          gradvel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
       this%dvtdr_Mloc(1:,1:,nRstart:) => &
@@ -125,38 +131,47 @@ contains
 
       allocate( p_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
       allocate( s_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
+      bytes_allocated=bytes_allocated+2*n_r_loc*n_m_loc*n_theta_max*&
+      &               SIZEOF_DEF_COMPLEX
 
       if ( l_adv_curl ) then
          allocate( this%vel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop, 6) )
+         bytes_allocated=bytes_allocated+6*n_theta_loc*n_r_loc*(n_phi_max/2+1)* &
+         &               SIZEOF_DEF_COMPLEX
       else
          allocate( this%vel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop, 4) )
+         bytes_allocated=bytes_allocated+4*n_theta_loc*n_r_loc*(n_phi_max/2+1)* &
+         &               SIZEOF_DEF_COMPLEX
       end if
       this%vel_pThloc(:,:,:,:)=zero
-
 
       allocate( this%p_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop) )
       allocate( this%s_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop) )
       this%p_pThloc(:,:,:)=zero
       this%s_pThloc(:,:,:)=zero
+      bytes_allocated=bytes_allocated+2*n_theta_loc*n_r_loc*(n_phi_max/2+1)* &
+      &               SIZEOF_DEF_COMPLEX
 
       allocate( this%gradvel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop, 7) )
+      bytes_allocated=bytes_allocated+7*n_theta_loc*n_r_loc*(n_phi_max/2+1)* &
+      &               SIZEOF_DEF_COMPLEX
       this%gradvel_pThloc(:,:,:,:)=zero
-      bytes_allocated = bytes_allocated+14*n_theta_loc*n_m_max*n_r_loc*&
-      &                 SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
          allocate( xi_Mloc(n_theta_max,n_m_loc,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated+1*n_theta_max*n_m_loc*n_r_loc*&
+         bytes_allocated = bytes_allocated+n_theta_max*n_m_loc*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
 
          allocate( this%xi_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop) )
          this%xi_pThloc(:,:,:)=zero
-         bytes_allocated = bytes_allocated+1*n_theta_loc*n_m_max*n_r_loc*&
+         bytes_allocated = bytes_allocated+n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_mag ) then
          allocate( mag_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,6) )
+         bytes_allocated = bytes_allocated+6*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%br_Mloc(1:,1:,nRstart:) => &
          &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%bt_Mloc(1:,1:,nRstart:) => &
@@ -171,7 +186,7 @@ contains
          &          mag_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,6)
 
          allocate( this%mag_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,6) )
-         bytes_allocated = bytes_allocated+6*n_theta_loc*n_m_max*n_r_loc*&
+         bytes_allocated = bytes_allocated+6*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
 
          this%mag_pThloc(:,:,:,:)=zero
@@ -179,6 +194,8 @@ contains
 
       if ( l_viscBcCalc ) then
          allocate( grads_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%dsdr_Mloc(1:,1:,nRstart:) => &
          &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%dsdt_Mloc(1:,1:,nRstart:) => &
@@ -187,56 +204,78 @@ contains
          &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3)
 
          allocate( this%grads_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
-         bytes_allocated = bytes_allocated+2*n_theta_loc*n_m_max*n_r_loc*&
+         bytes_allocated = bytes_allocated+3*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
       else
          allocate( grads_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,1) )
+         bytes_allocated = bytes_allocated+n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%dsdr_Mloc(1:,1:,nRstart:) => &
          &          grads_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          allocate( this%grads_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,1) )
+         bytes_allocated = bytes_allocated+n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
       end if
       this%grads_pThloc(:,:,:,:)=zero
 
       if ( l_RMS ) then
          allocate( gradp_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+         bytes_allocated = bytes_allocated+2*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%dpdt_Mloc(1:,1:,nRstart:) => &
          &          gradp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%dpdp_Mloc(1:,1:,nRstart:) => &
          &          gradp_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
 
          allocate( this%gradp_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+         bytes_allocated = bytes_allocated+2*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
          bytes_allocated = bytes_allocated+2*n_theta_loc*n_m_max*n_r_loc*&
          &                 SIZEOF_DEF_COMPLEX
          this%gradp_pThloc(:,:,:,:)=zero
       end if
 
       allocate( this%NSadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+      bytes_allocated = bytes_allocated+3*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+      &                 SIZEOF_DEF_COMPLEX
       this%NSadv_pThloc(:,:,:,:)=zero
 
       if ( l_heat ) then
          allocate( this%heatadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
          this%heatadv_pThloc(:,:,:,:)=zero
       end if 
 
       if ( l_chemical_conv ) then
          allocate( this%compadv_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
          this%compadv_pThloc(:,:,:,:)=zero
       end if
 
       if ( l_anel ) then
          if ( l_mag ) then
             allocate( this%anel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+            bytes_allocated = bytes_allocated+2*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+            &                 SIZEOF_DEF_COMPLEX
          else
             allocate( this%anel_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,1) )
+            bytes_allocated = bytes_allocated+n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+            &                 SIZEOF_DEF_COMPLEX
          end if
       end if
 
       if ( l_mag_nl ) then
          allocate( this%emf_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
          this%emf_pThloc(:,:,:,:)=zero
       end if
 
       allocate( NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+      bytes_allocated = bytes_allocated+3*n_r_loc*n_m_loc*n_theta_max* &
+      &                 SIZEOF_DEF_COMPLEX
       this%Advr_Mloc(1:,1:,nRstart:) => &
       &          NSadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
       this%Advt_Mloc(1:,1:,nRstart:) => &
@@ -246,6 +285,8 @@ contains
 
       if ( l_heat ) then
          allocate( heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%VSr_Mloc(1:,1:,nRstart:) => &
          &          heatadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%VSt_Mloc(1:,1:,nRstart:) => &
@@ -256,6 +297,8 @@ contains
 
       if ( l_chemical_conv ) then
          allocate( compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%VXir_Mloc(1:,1:,nRstart:) => &
          &          compadv_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%VXit_Mloc(1:,1:,nRstart:) => &
@@ -267,8 +310,12 @@ contains
       if ( l_anel ) then
          if ( l_mag ) then
             allocate( anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2) )
+            bytes_allocated = bytes_allocated+2*n_r_loc*n_m_loc*n_theta_max* &
+            &                 SIZEOF_DEF_COMPLEX
          else
             allocate( anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1) )
+            bytes_allocated = bytes_allocated+n_r_loc*n_m_loc*n_theta_max* &
+            &                 SIZEOF_DEF_COMPLEX
          end if
          this%ViscHeat_Mloc(1:,1:,nRstart:) => &
          &          anel_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
@@ -280,6 +327,8 @@ contains
 
       if ( l_mag_nl ) then
          allocate( emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%VxBr_Mloc(1:,1:,nRstart:) => &
          &          emf_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%VxBt_Mloc(1:,1:,nRstart:) => &
@@ -290,32 +339,48 @@ contains
 
       if ( l_RMS ) then
          allocate( this%PF2_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+         bytes_allocated = bytes_allocated+2*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
          this%PF2_pThloc(:,:,:,:)=zero
          if ( l_adv_curl ) then
             allocate( this%RMS_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,5) )
+            bytes_allocated = bytes_allocated+5*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+            &                 SIZEOF_DEF_COMPLEX
          else
             allocate( this%RMS_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,4) )
+            bytes_allocated = bytes_allocated+4*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+            &                 SIZEOF_DEF_COMPLEX
          end if
          this%RMS_pThloc(:,:,:,:)=zero
          allocate( this%dtV_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+         &                 SIZEOF_DEF_COMPLEX
          this%dtV_pThloc(:,:,:,:)=zero
 
          if ( l_mag ) then
             allocate( this%LF_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,3) )
             allocate( this%LF2_pThloc(n_phi_max/2+1,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+            bytes_allocated = bytes_allocated+5*n_theta_loc*(n_phi_max/2+1)*n_r_loc*&
+            &                 SIZEOF_DEF_COMPLEX
             this%LF_pThloc(:,:,:,:)=zero
             this%LF2_pThloc(:,:,:,:)=zero
          end if
 
          allocate( PF2_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,2) )
+         bytes_allocated = bytes_allocated+2*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%PFt2_Mloc(1:,1:,nRstart:) => &
          &          PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%PFp2_Mloc(1:,1:,nRstart:) => &
          &          PF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
          if ( l_adv_curl ) then
             allocate( RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,5) )
+            bytes_allocated = bytes_allocated+5*n_r_loc*n_m_loc*n_theta_max* &
+            &                 SIZEOF_DEF_COMPLEX
          else
             allocate( RMS_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,4) )
+            bytes_allocated = bytes_allocated+4*n_r_loc*n_m_loc*n_theta_max* &
+            &                 SIZEOF_DEF_COMPLEX
          end if
          this%CFt2_Mloc(1:,1:,nRstart:) => &
          &          RMS_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
@@ -331,6 +396,8 @@ contains
          end if
 
          allocate( dtV_Mloc(n_theta_max,n_m_loc,nRstart:nRstop,3) )
+         bytes_allocated = bytes_allocated+3*n_r_loc*n_m_loc*n_theta_max* &
+         &                 SIZEOF_DEF_COMPLEX
          this%dtVr_Mloc(1:,1:,nRstart:) => &
          &          dtV_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
          this%dtVt_Mloc(1:,1:,nRstart:) => &
@@ -351,6 +418,8 @@ contains
             &          LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,1)
             this%LFp2_Mloc(1:,1:,nRstart:) => &
             &          LF2_Mloc(1:n_theta_max,1:n_m_loc,nRstart:nRstop,2)
+            bytes_allocated = bytes_allocated+5*n_r_loc*n_m_loc*n_theta_max* &
+            &                 SIZEOF_DEF_COMPLEX
          end if
       end if
 

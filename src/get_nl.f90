@@ -54,15 +54,15 @@ module grid_space_arrays_mod
       real(cp), allocatable :: dpkindrc(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
-      real(cp), pointer :: vrc(:,:), vtc(:,:), vpc(:,:)
-      real(cp), pointer :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
-      real(cp), pointer :: cvrc(:,:), sc(:,:), drSc(:,:)
-      real(cp), pointer :: dvrdtc(:,:), dvrdpc(:,:)
-      real(cp), pointer :: dvtdpc(:,:), dvpdpc(:,:)
-      real(cp), pointer :: brc(:,:), btc(:,:), bpc(:,:)
-      real(cp), pointer :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
-      real(cp), pointer :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
-      real(cp), pointer :: dsdtc(:,:), dsdpc(:,:)
+      real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
+      real(cp), allocatable :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
+      real(cp), allocatable :: cvrc(:,:), sc(:,:), drSc(:,:)
+      real(cp), allocatable :: dvrdtc(:,:), dvrdpc(:,:)
+      real(cp), allocatable :: dvtdpc(:,:), dvpdpc(:,:)
+      real(cp), allocatable :: brc(:,:), btc(:,:), bpc(:,:)
+      real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
+      real(cp), allocatable :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
+      real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:)
 
    contains
 
@@ -193,7 +193,6 @@ contains
             bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
          end if
       end if
-      !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
 
    end subroutine initialize
    
@@ -759,12 +758,14 @@ contains
       &         this%NSadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
       this%Advp(1:,nThetaStart:,nRstart:) => &
       &         this%NSadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+      bytes_allocated=bytes_allocated+3*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
 
       allocate( this%anel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
       this%ViscHeat(1:,nThetaStart:,nRstart:) => &
       &         this%anel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
       this%OhmLoss(1:,nThetaStart:,nRstart:) => &
       &         this%anel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
+      bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
 
       if ( l_mag .or. l_mag_LF ) then
          allocate( this%LF(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
@@ -782,6 +783,7 @@ contains
          &         this%emf(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
          this%VxBp(1:,nThetaStart:,nRstart:) => &
          &         this%emf(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+         bytes_allocated=bytes_allocated+6*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_heat ) then
@@ -792,6 +794,7 @@ contains
          &         this%heatadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
          this%VSp(1:,nThetaStart:,nRstart:) => &
          &         this%heatadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+         bytes_allocated=bytes_allocated+3*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_precession ) then
@@ -815,13 +818,16 @@ contains
          &         this%compadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,2)
          this%VXip(1:,nThetaStart:,nRstart:) => &
          &         this%compadv(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,3)
+         bytes_allocated=bytes_allocated+3*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       end if
 
       !----- Fields calculated from these help arrays by legtf:
       if ( l_adv_curl ) then
          allocate( this%vel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,6) )
+         bytes_allocated=bytes_allocated+6*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       else
          allocate( this%vel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,4) )
+         bytes_allocated=bytes_allocated+4*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       end if
       this%vrc(1:,nThetaStart:,nRstart:) => &
       &          this%vel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
@@ -839,6 +845,7 @@ contains
       end if
 
       allocate( this%gradvel(nrp,nThetaStart:nThetaStop,nRstart:nRstop,7) )
+      bytes_allocated=bytes_allocated+7*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       this%dvrdrc(1:,nThetaStart:,nRstart:) => &
       &          this%gradvel(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
       this%dvtdrc(1:,nThetaStart:,nRstart:) => &
@@ -856,6 +863,7 @@ contains
 
       if ( l_mag .or. l_mag_LF ) then
          allocate( this%mag(nrp,nThetaStart:nThetaStop,nRstart:nRstop,6) )
+         bytes_allocated=bytes_allocated+6*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
          this%brc(1:,nThetaStart:,nRstart:) => &
          &          this%mag(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
          this%btc(1:,nThetaStart:,nRstart:) => &
@@ -872,15 +880,19 @@ contains
 
       allocate( this%sc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
       allocate( this%pc(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
+      bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
 
       if ( l_chemical_conv ) then
          allocate( this%xic(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated+nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_viscBcCalc ) then
          allocate( this%grads(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         bytes_allocated=bytes_allocated+3*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       else 
          allocate( this%grads(nrp,nThetaStart:nThetaStop,nRstart:nRstop,1) )
+         bytes_allocated=bytes_allocated+nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
       end if
       this%drSc(1:,nThetaStart:,nRstart:) => &
       &          this%grads(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
@@ -894,6 +906,7 @@ contains
       !-- RMS Calculations
       if ( l_RMS ) then
          allocate( this%gradp(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+         bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
          this%dpdtc(1:,nThetaStart:,nRstart:) => &
          &          this%gradp(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
          this%dpdpc(1:,nThetaStart:,nRstart:) => &
@@ -901,8 +914,10 @@ contains
 
          if ( l_adv_curl ) then
             allocate( this%RMS(nrp,nThetaStart:nThetaStop,nRstart:nRstop,5) )
+            bytes_allocated=bytes_allocated+5*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
          else
             allocate( this%RMS(nrp,nThetaStart:nThetaStop,nRstart:nRstop,4) )
+            bytes_allocated=bytes_allocated+4*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
          end if
          this%CFt2(1:,nThetaStart:,nRstart:) => &
          &         this%RMS(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
@@ -918,6 +933,7 @@ contains
          end if
 
          allocate( this%dtV(nrp,nThetaStart:nThetaStop,nRstart:nRstop,3) )
+         bytes_allocated=bytes_allocated+3*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
          this%dtVr(1:,nThetaStart:,nRstart:) => &
          &         this%dtV(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
          this%dtVt(1:,nThetaStart:,nRstart:) => &
@@ -927,6 +943,7 @@ contains
 
          if ( l_mag ) then
             allocate( this%LF2(nrp,nThetaStart:nThetaStop,nRstart:nRstop,2) )
+            bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
             this%LFt2(1:,nThetaStart:,nRstart:) => &
             &         this%LF2(1:nrp,nThetaStart:nThetaStop,nRstart:nRstop,1)
             this%LFp2(1:,nThetaStart:,nRstart:) => &
