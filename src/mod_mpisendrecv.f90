@@ -43,7 +43,7 @@ module mod_mpisendrecv
    
    public :: type_mpisendrecv
    
-   contains
+contains
    
    subroutine initialize_mlo_sendrecv
       !-- Initialize the MPI types for the transposition from ML to Radial
@@ -71,7 +71,7 @@ module mod_mpisendrecv
       
       if (mlo_sendrecv_initialized) return
       
-      call mpi_type_get_extent(MPI_DOUBLE_COMPLEX, lb, bytesCMPLX, ierr) 
+      call MPI_Type_Get_Extent(MPI_DEF_COMPLEX, lb, bytesCMPLX, ierr) 
       
       send_displacements = -1
       recv_displacements = -1
@@ -111,6 +111,7 @@ module mod_mpisendrecv
       if (send_counter_i(rank)>0) nsends = nsends - 1
       allocate(lm2r_s_type(nsends))
       allocate(lm2r_dests(nsends))
+      bytes_allocated=bytes_allocated+2*nsends*SIZEOF_INTEGER
       
       !-- Build the Send MPI types:
       !   First we create indexed type; it is a vector which looks more or less like
@@ -131,8 +132,9 @@ module mod_mpisendrecv
             icoord_r = mpi_map%rnk2lmr(irank,2)
             in_r = dist_r(icoord_r,0)
             
-            call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks), send_displacements(1:inblocks,irank), &
-               MPI_DOUBLE_COMPLEX, col_type, ierr)
+            call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks),    &
+                 &                send_displacements(1:inblocks,irank), &
+                 &                MPI_DEF_COMPLEX, col_type, ierr)
                
             extend = int(n_mlo_loc*bytesCMPLX,kind=mpi_address_kind)
             call MPI_Type_create_resized(col_type, lb, extend, ext_type, ierr)
@@ -165,6 +167,7 @@ module mod_mpisendrecv
       if (send_counter_i(rank)>0) nrecvs = nrecvs - 1
       allocate(lm2r_r_type(nrecvs))
       allocate(lm2r_sources(nrecvs))
+      bytes_allocated=bytes_allocated+2*nrecvs*SIZEOF_INTEGER
       
       !-- Build the Recv MPI types (similar to Send MPI Types)
       !
@@ -175,8 +178,9 @@ module mod_mpisendrecv
          if (inblocks>0 .and. irank /= rank) then
             j = j + 1
             lm2r_sources(j) = irank
-            call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks),&
-               recv_displacements(1:inblocks,irank), MPI_DOUBLE_COMPLEX, col_type, ierr)
+            call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks),    &
+                 &                recv_displacements(1:inblocks,irank), &
+                 &                MPI_DEF_COMPLEX, col_type, ierr)
             
             extend = int(n_lm_loc*bytesCMPLX,kind=mpi_address_kind)
             call MPI_Type_create_resized(col_type, lb, extend, ext_type, ierr)
@@ -196,13 +200,13 @@ module mod_mpisendrecv
       !   data which is already local
       inblocks = send_counter_i(rank)
       allocate(lm2r_loc_dspl(inblocks,2))
+      bytes_allocated=bytes_allocated+2*inblocks*SIZEOF_INTEGER
       lm2r_loc_dspl(:,1) = send_displacements(1:inblocks,rank) + 1
       lm2r_loc_dspl(:,2) = recv_displacements(1:inblocks,rank) + 1
       
       mlo_sendrecv_initialized = .true.
    end subroutine initialize_mlo_sendrecv
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine finalize_mlo_sendrecv
       !
       !   Author: Rafael Lago (MPCDF) January 2018
@@ -224,12 +228,11 @@ module mod_mpisendrecv
       mlo_sendrecv_initialized = .false.
 !       print *, "finalize_mlo_sendrecv" 
    end subroutine finalize_mlo_sendrecv
-   
-
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine create_mlo_sendrecv(this, n_fields)
-   !   
-   !   Author: Rafael Lago (MPCDF) April 2020
+      !   
+      !   Author: Rafael Lago (MPCDF) April 2020
+      !
 
       class(type_mpisendrecv) :: this
       integer, intent(in) :: n_fields
@@ -242,6 +245,7 @@ module mod_mpisendrecv
       nsends = size(lm2r_dests)
       nrecvs = size(lm2r_sources)
       allocate(this%rq(nsends+nrecvs))
+      bytes_allocated=bytes_allocated+(nsends+nrcevs)*SIZEOF_INTEGER
       this%sends => this%rq(1:nsends)
       this%recvs => this%rq(nsends+1:nrecvs)
       
@@ -251,11 +255,11 @@ module mod_mpisendrecv
       this%initialized = .true.
       
    end subroutine create_mlo_sendrecv
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine destroy_mlo_sendrecv(this)
-   !   
-   !   Author: Rafael Lago (MPCDF) April 2020
+      !   
+      !   Author: Rafael Lago (MPCDF) April 2020
+      !
       
       class(type_mpisendrecv) :: this
       integer :: i, ierr
@@ -276,14 +280,13 @@ module mod_mpisendrecv
       if (n_sendrecv_obj==0) call finalize_mlo_sendrecv
       
    end subroutine destroy_mlo_sendrecv
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine transp_lm2r_sendrecv_start(this, arr_LMloc, arr_Rloc)
-   !-- General-purpose transposition. All the customization should happen 
-   !   during the creation of the types!
-   !
-   !   Author: Rafael Lago (MPCDF) January 2018
-   !   transp_lm2r_sendrecv_start
+      !-- General-purpose transposition. All the customization should happen 
+      !   during the creation of the types!
+      !
+      !   Author: Rafael Lago (MPCDF) January 2018
+      !   transp_lm2r_sendrecv_start
       class(type_mpisendrecv)     :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
       complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
@@ -295,51 +298,55 @@ module mod_mpisendrecv
          irank = lm2r_dests(j)
          icoord_r = mpi_map%rnk2lmr(irank,2)
          il_r = dist_r(icoord_r,1)
-         call mpi_isend(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), irank, 1, mpi_comm_world, this%sends(j), ierr)
+         call MPI_Isend(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), &
+              &         irank, 1, MPI_COMM_WORLD, this%sends(j), ierr)
       end do
       
       !-- Starts the receives
       do j=1,size(lm2r_sources)
          irank = lm2r_sources(j)
-         call mpi_irecv(arr_Rloc, this%n_fields, lm2r_r_type(j), irank, 1, mpi_comm_world, this%recvs(j), ierr)
+         call MPI_Irecv(arr_Rloc, this%n_fields, lm2r_r_type(j), irank, 1, &
+              &         MPI_COMM_WORLD, this%recvs(j), ierr)
       end do
       
       !-- Copies data which is already local
       do i=1,size(lm2r_loc_dspl,1)
          k = lm2r_loc_dspl(i,1)
          j = lm2r_loc_dspl(i,2)
-         arr_Rloc(j,nRstart:nRstop,1:this%n_fields) = arr_LMloc(k,nRstart:nRstop,1:this%n_fields)
+         arr_Rloc(j,nRstart:nRstop,1:this%n_fields) = &
+         &                  arr_LMloc(k,nRstart:nRstop,1:this%n_fields)
       end do
       
    end subroutine transp_lm2r_sendrecv_start
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine transp_lm2r_sendrecv_wait(this)
-   !
-   !   Author: Rafael Lago (MPCDF) January 2018
-   !   
+      !
+      !   Author: Rafael Lago (MPCDF) January 2018
+      !   
       class(type_mpisendrecv) :: this
-      call mpi_waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
+
+      call MPI_Waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
+
    end subroutine transp_lm2r_sendrecv_wait
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine transp_lm2r_sendrecv_dist(this, arr_LMloc, arr_Rloc)
-   !   Author: Rafael Lago (MPCDF) May 2020
+      !   Author: Rafael Lago (MPCDF) May 2020
       class(type_mpisendrecv)     :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
       complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       
       call this%lm2r_start(arr_LMloc,arr_Rloc)
       call this%lm2r_wait()
+
    end subroutine transp_lm2r_sendrecv_dist
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine transp_r2lm_sendrecv_start(this, arr_Rloc, arr_LMloc)
-   !-- General-purpose transposition. All the customization should happen 
-   !   during the creation of the types!
-   !
-   !   Author: Rafael Lago (MPCDF) October 2019
-   !   
+      !-- General-purpose transposition. All the customization should happen 
+      !   during the creation of the types!
+      !
+      !   Author: Rafael Lago (MPCDF) October 2019
+      !   
+
       class(type_mpisendrecv)     :: this
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
@@ -349,7 +356,8 @@ module mod_mpisendrecv
       !-- Starts the receives
       do j=1,size(lm2r_sources)
          irank = lm2r_sources(j)
-         call mpi_isend(arr_Rloc, this%n_fields, lm2r_r_type(j), irank, 1, mpi_comm_world, this%recvs(j), ierr)
+         call MPI_Isend(arr_Rloc, this%n_fields, lm2r_r_type(j), irank, 1, &
+              &         MPI_COMM_WORLD, this%recvs(j), ierr)
       end do
       
       !-- Starts the sends
@@ -357,51 +365,54 @@ module mod_mpisendrecv
          irank = lm2r_dests(j)
          icoord_r = mpi_map%rnk2lmr(irank,2)
          il_r = dist_r(icoord_r,1)
-         call mpi_irecv(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), irank, 1, mpi_comm_world, this%sends(j), ierr)
+         call MPI_Irecv(arr_LMloc(1,il_r,1), this%n_fields, lm2r_s_type(j), &
+              &         irank, 1, MPI_COMM_WORLD, this%sends(j), ierr)
       end do
       
       !-- Copies data which is already local
       do i=1,size(lm2r_loc_dspl,1)
          k = lm2r_loc_dspl(i,1)
          j = lm2r_loc_dspl(i,2)
-         arr_LMloc(k,nRstart:nRstop,1:this%n_fields) = arr_Rloc(j,nRstart:nRstop,1:this%n_fields)
+         arr_LMloc(k,nRstart:nRstop,1:this%n_fields) = &
+         &                    arr_Rloc(j,nRstart:nRstop,1:this%n_fields)
       end do
    end subroutine transp_r2lm_sendrecv_start
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine transp_r2lm_sendrecv_wait(this)
-   !
-   !   Author: Rafael Lago (MPCDF) October 2019
-   !   
+      !
+      !   Author: Rafael Lago (MPCDF) October 2019
+      !   
       class(type_mpisendrecv) :: this
-      call mpi_waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
+
+      call MPI_Waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
+
    end subroutine transp_r2lm_sendrecv_wait
-   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine transp_r2lm_sendrecv_dist(this, arr_Rloc, arr_LMloc)
-   !   
-   !   Author: Rafael Lago (MPCDF) May 2020
-   !   
+      !   
+      !   Author: Rafael Lago (MPCDF) May 2020
+      !   
       class(type_mpisendrecv)     :: this
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
       
       call this%r2lm_start(arr_Rloc, arr_LMloc)
       call this%r2lm_wait()
+
    end subroutine transp_r2lm_sendrecv_dist
-   
+!----------------------------------------------------------------------------
    subroutine transp_lm2r_sendrecv_dummy(this, arr_LMloc, arr_Rloc)
       class(type_mpisendrecv) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       print*, "Dummy transp_lm2r_sendrecv_dummy, not yet implemented!"
    end subroutine transp_lm2r_sendrecv_dummy
-
+!----------------------------------------------------------------------------
    subroutine transp_r2lm_sendrecv_dummy(this, arr_Rloc, arr_LMloc)
       class(type_mpisendrecv) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       print*, "Dummy transp_r2lm_sendrecv_dummy, not yet implemented!"
    end subroutine transp_r2lm_sendrecv_dummy
-   
+!----------------------------------------------------------------------------
 end module mod_mpisendrecv

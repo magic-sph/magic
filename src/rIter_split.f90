@@ -37,12 +37,13 @@ module rIter_split
 #endif
    use parallel_mod, only: n_ranks_r, coord_r, get_openmp_blocks
    use fft, only: ifft_phi, fft_phi
+   use rIteration, only: rIter_t
 
    implicit none
 
    private
 
-   type, public :: rIter_split_t
+   type, public, extends(rIter_t)  :: rIter_split_t
       type(grid_3D_arrays_t) :: gsa
       type(hybrid_3D_arrays_t) :: hsa
       type(TO_arrays_t) :: TO_arrays
@@ -91,11 +92,11 @@ contains
               &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,     &
               &          dVSrLM,dVXirLM,lorentz_torque_ic,                   &
               &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
-              &          br_vt_lm_icb,br_vp_lm_icb,HelASr,Hel2ASr,           &
-              &          HelnaASr,Helna2ASr,HelEAASr,viscAS,uhASr,           &
-              &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,          &
-              &          fpoynASr,fresASr,EperpASr,EparASr,                  &
-              &          EperpaxiASr,EparaxiASr,dtrkc,dthkc)
+              &          br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,             &
+              &          HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,               &
+              &          duhAS,gradsAS,fconvAS,fkinAS,fviscAS,               &
+              &          fpoynAS,fresAS,EperpAS,EparAS,                      &
+              &          EperpaxiAS,EparaxiAS,dtrkc,dthkc)
 
 
       class(rIter_split_t) :: this
@@ -129,24 +130,24 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
       !---- inoutput for axisymmetric helicity:
-      real(cp),    intent(inout) :: HelASr(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: Hel2ASr(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: HelnaASr(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: Helna2ASr(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: HelEAASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: uhASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: duhASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: HelAS(2,nRstart:nRstop)
+      real(cp),    intent(inout) :: Hel2AS(2,nRstart:nRstop)
+      real(cp),    intent(inout) :: HelnaAS(2,nRstart:nRstop)
+      real(cp),    intent(inout) :: Helna2AS(2,nRstart:nRstop)
+      real(cp),    intent(inout) :: HelEAAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: uhAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: duhAS(nRstart:nRstop)
       real(cp),    intent(inout) :: viscAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: gradsASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: fkinASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: fconvASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: fviscASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: fresASr(nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: fpoynASr(nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: EperpASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: EparASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: EperpaxiASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: EparaxiASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: gradsAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: fkinAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: fconvAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: fviscAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: fresAS(nRstartMag:nRstopMag)
+      real(cp),    intent(inout) :: fpoynAS(nRstartMag:nRstopMag)
+      real(cp),    intent(inout) :: EperpAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: EparAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: EperpaxiAS(nRstart:nRstop)
+      real(cp),    intent(inout) :: EparaxiAS(nRstart:nRstop)
 
       !---- inoutput of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -227,11 +228,11 @@ contains
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,        &
               &          lMagNlBc,lFluxProfCalc,lPerpParCalc,l_probe_out,   &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
-              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr,     &
-              &          Hel2ASr,HelnaASr,Helna2ASr,HelEAASr,viscAS,uhASr,  &
-              &          duhASr,gradsASr,fconvASr,fkinASr,fviscASr,         &
-              &          fpoynASr,fresASr,EperpASr,EparASr,                 &
-              &          EperpaxiASr,EparaxiASr,dtrkc,dthkc)
+              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelAS,      &
+              &          Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,       &
+              &          duhAS,gradsAS,fconvAS,fkinAS,fviscAS,              &
+              &          fpoynAS,fresAS,EperpAS,EparAS,                     &
+              &          EperpaxiAS,EparaxiAS,dtrkc,dthkc)
       nl_counter%n_counts = nl_counter%n_counts+1
 
       call phy2lm_counter%start_count()

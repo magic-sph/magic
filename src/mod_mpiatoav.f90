@@ -81,6 +81,7 @@ contains
       
       allocate(send_lm_count(0:n_ranks_lo-1))
       allocate(recv_mlo_count(0:n_ranks_lo-1))
+      bytes_allocated = bytes_allocated+2*n_ranks_lo*SIZEOF_INTEGER
       
       ! First we count only (l,m) points here
       send_lm_count = 0
@@ -97,6 +98,7 @@ contains
       counter = 1
       allocate(lmr2buf(n_lm_loc))
       allocate(buf2mlo(n_mlo_loc))
+      bytes_allocated = bytes_allocated+(n_lm_loc+n_mlo_loc)*SIZEOF_INTEGER
       do i=1,n_lm_loc
          icoord_lo = dest(i)
          if (icoord_lo>0) then
@@ -263,6 +265,7 @@ contains
       allocate(this%recv_count(0:n_ranks_lo-1))
       allocate(this%send_disp(0:n_ranks_lo-1))
       allocate(this%recv_disp(0:n_ranks_lo-1))
+      bytes_allocated = bytes_allocated+4*n_ranks_lo*SIZEOF_INTEGER
       
       this%send_count = send_lm_count*n_r_loc*n_fields
       this%recv_count = recv_mlo_count*n_mlo_loc*n_fields
@@ -279,6 +282,8 @@ contains
       
       allocate(this%send_buf(n_r_loc, n_fields, n_lm_loc))
       allocate(this%recv_buf(n_r_max*n_fields*n_mlo_loc))
+      bytes_allocated = bytes_allocated+(n_r_loc*n_fields*n_lm_loc+n_r_max*n_fields*&
+      &                 n_mlo_loc)*SIZEOF_DEF_COMPLEX
       this%send_buf = cmplx(-1.0, -1.0)
       this%recv_buf = cmplx(-1.0, -1.0)
       

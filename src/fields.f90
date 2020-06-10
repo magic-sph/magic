@@ -132,7 +132,7 @@ contains
       ds_Rdist(1:,nRstart:) => s_Rdist_container(1:n_lm_loc,nRstart:nRstop,2)
 
       bytes_allocated = bytes_allocated + &
-      &                 9*(n_mlo_loc)*n_r_max*SIZEOF_DEF_COMPLEX
+      &                 9*n_mlo_loc*n_r_max*SIZEOF_DEF_COMPLEX
       bytes_allocated = bytes_allocated + &
       &                 9*n_lm_loc*n_r_loc*SIZEOF_DEF_COMPLEX
 

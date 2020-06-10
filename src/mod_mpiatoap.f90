@@ -103,6 +103,7 @@ contains
       counter = 1
       allocate(lmr2buf(n_lm_loc))
       allocate(buf2mlo(n_mlo_loc))
+      bytes_allocated=bytes_allocated+(n_lm_loc+n_mlo_loc)*SIZEOF_INTEGER
       do i=1,n_lm_loc
          icoord_lo = dest(i)
          lmr2buf(i) = icoord_lo*send_count + counter(icoord_lo)
@@ -229,6 +230,8 @@ contains
       this%ncount = send_count*recv_count*n_fields
       
       allocate(this%buffer(recv_count*send_count*n_ranks_r*n_fields))
+      bytes_allocated=bytes_allocated+recv_count*send_count*n_ranks_r*n_fields*&
+      &               SIZEOF_DEF_COMPLEX
       this%send_buf(1:recv_count, 1:n_fields, 1:send_count*n_ranks_r) => this%buffer
       this%recv_buf(1:recv_count, 1:n_fields, 1:send_count, 0:n_ranks_r-1) => this%buffer
       this%buffer = cmplx(-1.0, -1.0)
@@ -271,8 +274,8 @@ contains
       integer :: ierr
 
       call reorder_lmloc2buffer(this, arr_LMloc)
-      call mpi_alltoall(  MPI_IN_PLACE, 1, 1, this%buffer, this%ncount,  &
-         &  MPI_DEF_COMPLEX, comm_r, ierr)
+      call MPI_Alltoall( MPI_IN_PLACE, 1, 1, this%buffer, this%ncount,  &
+           &             MPI_DEF_COMPLEX, comm_r, ierr)
       call this%reorder_buffer2rloc(arr_Rloc)
       
    end subroutine transp_lm2r_atoap_dist
@@ -290,8 +293,8 @@ contains
       integer :: ierr
       
       call this%reorder_rloc2buffer(arr_Rloc)
-      call mpi_alltoall(  MPI_IN_PLACE, 1, 1, this%buffer, this%ncount,  &
-         &  MPI_DEF_COMPLEX, comm_r, ierr)
+      call MPI_Alltoall( MPI_IN_PLACE, 1, 1, this%buffer, this%ncount,  &
+           &             MPI_DEF_COMPLEX, comm_r, ierr)
       call this%reorder_buffer2lmloc(arr_LMloc)
 
    end subroutine transp_r2lm_atoap_dist

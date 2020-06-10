@@ -885,6 +885,8 @@ contains
       if ( l_chemical_conv ) then
          allocate( this%xic(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
          bytes_allocated=bytes_allocated+nrp*n_theta_loc*n_r_loc*SIZEOF_DEF_REAL
+      else
+         allocate( this%xic(1,1,nRstart:nRstop) )
       end if
 
       if ( l_viscBcCalc ) then

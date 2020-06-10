@@ -136,7 +136,6 @@ program magic
    use fft, only: initialize_fft_phi, finalize_fft_phi, initialize_fft_phi_many, &
        &          finalize_fft_phi_many
 
-   !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
 #endif
@@ -287,7 +286,9 @@ program magic
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
    call initialize_fft_phi()
-   call initialize_fft_phi_many()
+   if ( index(rIter_type, 'SPLIT') /= 0 ) then
+      call initialize_fft_phi_many()
+   end if
 
    !-- Initialize time scheme
    call tscheme%initialize(time_scheme, courfac, intfac, alffac)

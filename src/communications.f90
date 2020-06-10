@@ -1477,7 +1477,7 @@ contains
          in_m = dist_m(irank,0)
          ilen = in_m*(l_max+2) - sum(dist_m(irank,1:in_m))
          if (coord_m == irank) buffer(pos:pos+ilen-1) = FlmP_local(1:n_lmP_loc)
-         CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DOUBLE_COMPLEX, &
+         CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DEF_COMPLEX, &
                          irank, comm_m, Rq(irank+1), ierr)
          pos = pos + ilen
       end do
@@ -1533,7 +1533,7 @@ contains
          in_m = dist_m(irank,0)
          ilen = in_m*(l_max+1) - sum(dist_m(irank,1:in_m))
          if (coord_m == irank) buffer(pos:pos+ilen-1) = Flm_local(1:n_lm_loc)
-         CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DOUBLE_COMPLEX, &
+         CALL MPI_IBCAST(buffer(pos:pos+ilen-1), ilen, MPI_DEF_COMPLEX, &
                          irank, comm_m, Rq(irank+1), ierr)
          pos = pos + ilen
       end do
@@ -1571,8 +1571,8 @@ contains
       f_global(:,nThetaStart:nThetaStop) = f_local(:,nThetaStart:nThetaStop)
       
       do i=0,n_ranks_theta-1
-         CALL MPI_IBCAST(f_global(:,dist_theta(i,1):dist_theta(i,2)),        &
-                         n_phi_max*dist_theta(i,0), MPI_DOUBLE_PRECISION, i, &
+         CALL MPI_IBCAST(f_global(:,dist_theta(i,1):dist_theta(i,2)),   &
+                         n_phi_max*dist_theta(i,0), MPI_DEF_REAL, i,    &
                          comm_theta, Rq(i+1), ierr)
       end do
       

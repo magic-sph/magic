@@ -34,7 +34,8 @@ module truncation
    !   global geometry (e.g. n_r_max, n_phi_max) to the "glb" suffix
    !   (e.g. n_r_glb, n_phi_glb) to highlight the differences
    
-   character(len=72), public :: mlo_dist_method ! Read from namelist
+   character(len=20), public :: rIter_type
+   character(len=20), public :: mlo_dist_method ! Read from namelist
 
    !-- Basic quantities:
    integer :: n_r_max       ! number of radial grid points

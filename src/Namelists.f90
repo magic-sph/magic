@@ -61,7 +61,7 @@ contains
       character(:), allocatable :: cmd_args  ! for parallel namelist
       
       namelist/parallel/n_ranks_r,n_ranks_theta,mlo_dist_method, &
-      &     mpi_transp
+      &     mpi_transp, rIter_type
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
@@ -283,6 +283,8 @@ contains
 
          !-- Correcting some parameters:
       end if
+
+      call capitalize(rIter_type)
 
       !-- Does log-file already exist?
       log_file='log.'//tag
@@ -847,6 +849,7 @@ contains
       write(n_out,'(''  n_ranks_r        ='',i5,'','')') n_ranks_r
       write(n_out,'(''  n_ranks_theta    ='',i5,'','')') n_ranks_theta
       write(n_out,'(''  mlo_dist_method  ='',A,'','')') mlo_dist_method
+      write(n_out,'(''  rIter_type       ='',A,'','')') rIter_type
       write(n_out,'(''  mpi_transp       ='',A,'','')') mpi_transp
 
 
@@ -1223,13 +1226,14 @@ contains
       integer :: n
       
        !----- Namelist parallel
-      n_ranks_r     = 0
-      n_ranks_theta = 0
-      n_ranks_m     = 0
-      n_ranks_lo    = 0
-      n_ranks_mo    = 0
-      mlo_dist_method = "mfirst"
-      mpi_transp    = "AUTO"
+      n_ranks_r       = 0
+      n_ranks_theta   = 0
+      n_ranks_m       = 0
+      n_ranks_lo      = 0
+      n_ranks_mo      = 0
+      mlo_dist_method = "lfirst"
+      mpi_transp      = "AUTO"
+      rIter_type      = "single"
 
       !----- Namelist grid
       ! must be of form 4*integer+1
