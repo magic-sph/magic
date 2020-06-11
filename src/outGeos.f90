@@ -920,6 +920,7 @@ contains
       VotS(:,:)=zero   
       if ( mod(nZmax,2)==0 ) then
          nZmaxH=nZmax/2
+         nEquator=0
       else
          nZmaxH=(nZmax-1)/2+1 ! Number of points including equator
          nEquator=nZmaxH 
