@@ -23,7 +23,9 @@ module fft
    integer :: i_fft_init(ni)
    real(cp), allocatable ::  d_fft_init(:)
  
-   public :: fft_thetab, init_fft, fft_to_real, finalize_fft
+   public :: fft_thetab, init_fft, fft_to_real, finalize_fft, initialize_fft_phi, &
+   &         finalize_fft_phi, fft_phi_loc, initialize_fft_phi_many,              &
+   &         finalize_fft_phi_many, fft_phi, ifft_phi
 
 contains
   
@@ -140,18 +142,115 @@ contains
 
    end subroutine finalize_fft
 !------------------------------------------------------------------------------
+   subroutine initialize_fft_phi
+   end subroutine initialize_fft_phi
+!------------------------------------------------------------------------------
+   subroutine initialize_fft_phi_many
+   end subroutine initialize_fft_phi_many
+!------------------------------------------------------------------------------
+   subroutine finalize_fft_phi
+   end subroutine finalize_fft_phi
+!------------------------------------------------------------------------------
+   subroutine finalize_fft_phi_many
+   end subroutine finalize_fft_phi_many
+!------------------------------------------------------------------------------
    subroutine fft_to_real(f,ld_f,nrep)
 
+      !-- Input variables
       integer,  intent(in) :: ld_f, nrep
+
+      !-- In/Out variables
       real(cp), intent(inout) :: f(ld_f, nrep)
 
-      real(cp) :: work(ld_f,nrep)
+      !-- Local variables
+      real(cp) :: tmp(ld_f+2,nrep),work(ld_f+2,nrep)
 
-      !PERFON('fft2r')
-      call fftJW(f,ld_f,n_phi_max,1,nrep,work,ld_f,nrep,i_fft_init,d_fft_init)
-      !PERFOFF
+      !-- Need to pad the arrays with two zeroes for inplace transforms
+      tmp(1:ld_f,:)=f(:,:)
+      tmp(ld_f+1:,:)=0.0_cp
+
+      call fftJW(tmp,ld_f+2,n_phi_max,1,nrep,work,ld_f+2,nrep,i_fft_init,d_fft_init)
+
+      f(:,:)=tmp(1:ld_f,:)
 
    end subroutine fft_to_real
+!------------------------------------------------------------------------------
+   subroutine fft_phi_loc(f, g, dir)
+
+      real(cp),    intent(inout)  :: f(n_phi_max,n_theta_loc)
+      complex(cp), intent(inout)  :: g((n_phi_max/2+1),n_theta_loc)
+      integer,     intent(in)     :: dir
+
+      !-- Local variables
+      integer :: nt, np
+      real(cp) :: tmp(n_phi_max+2,n_theta_loc), work(n_phi_max+2,n_theta_loc)
+
+      if ( dir == 1 ) then
+         tmp(1:n_phi_max,:) =f(:,:)
+         tmp(n_phi_max+1:,:)=0.0_cp
+      else if ( dir == -1 ) then
+         do nt=1,n_theta_loc
+            do np=1,n_phi_max/2+1
+               tmp(2*np-1,nt)=real(g(np,nt))
+               tmp(2*np,nt)  =aimag(g(np,nt))
+            end do
+         end do
+      end if
+
+      call fftJW(tmp,n_phi_max+2,n_phi_max,-dir,n_theta_loc,work,n_phi_max+2, &
+           &     n_theta_loc,i_fft_init,d_fft_init)
+
+      if ( dir == 1 ) then
+         do nt=1,n_theta_loc
+            do np=1,n_phi_max/2+1
+               g(np,nt)=cmplx(tmp(2*np-1,nt),tmp(2*np,nt),cp)
+            end do
+         end do
+      else if ( dir == -1 ) then
+         f(:,:)=tmp(1:n_phi_max,:)
+      end if
+
+   end subroutine fft_phi_loc
+!------------------------------------------------------------------------------
+   subroutine fft_phi(f,g,n_fields)
+
+      !-- Input variables
+      integer,     intent(in) :: n_fields
+      real(cp),    intent(inout)  :: f(n_phi_max,n_theta_loc,n_r_loc,n_fields)
+
+      !-- Output variables
+      complex(cp), intent(out)  :: g(n_phi_max/2+1,n_theta_loc,n_r_loc,n_fields)
+
+      !-- Local variables
+      integer :: n_f,n_r
+
+      do n_f=1,n_fields
+         do n_r=1,n_r_loc
+            call fft_phi_loc(f(:,:,n_r,n_f),g(:,:,n_r,n_f),1)
+         end do
+      end do
+
+   end subroutine fft_phi
+!------------------------------------------------------------------------------
+   subroutine ifft_phi(g,f,n_fields)
+
+      !-- Input variables
+      integer,     intent(in) :: n_fields
+      complex(cp), intent(inout)  :: g(n_phi_max/2+1,n_theta_loc,n_r_loc,n_fields)
+
+      !-- Output variables
+      real(cp),    intent(out)  :: f(n_phi_max,n_theta_loc,n_r_loc,n_fields)
+
+      !-- Local variables
+      integer :: n_f,n_r
+
+      do n_f=1,n_fields
+         do n_r=1,n_r_loc
+            call fft_phi_loc(f(:,:,n_r,n_f),g(:,:,n_r,n_f),-1)
+         end do
+      end do
+
+   end subroutine ifft_phi
 !------------------------------------------------------------------------------
    subroutine fft_thetab(f,dir)
 
