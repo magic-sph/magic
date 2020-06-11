@@ -227,13 +227,14 @@ if(USE_OMP)
    message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
 endif()
 
+
 if( USE_FFTLIB MATCHES FFTW )
-   if ( FFTW3_FOUND ) 
-      message(STATUS "FFTW3: '${FFTW3}'")
-      set(USE_FFTLIB "FFTW")
-   else()
+   if ( FFTW3-NOTFOUND )
       message(STATUS "FFTW3 was not found")
       set(USE_FFTLIB "JW")
+   else()
+      message(STATUS "FFTW3: '${FFTW3}'")
+      set(USE_FFTLIB "FFTW")
    endif()
 endif()
 

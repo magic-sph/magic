@@ -488,8 +488,11 @@ contains
 !------------------------------------------------------------------------------
    subroutine spat_to_SH_loc(f, fLM, lcut)
 
-      real(cp), intent(in) :: f(n_phi_max, n_theta_max)
+      !-- Input variables
+      real(cp), intent(inout) :: f(n_phi_max, n_theta_max)
       integer,  intent(in) :: lcut
+
+      !-- Output variable
       complex(cp), intent(out) :: fLM(lmP_max)
 
       call shtns_load_cfg(1)
@@ -501,9 +504,9 @@ contains
    subroutine spat_to_qst_loc(f, g, h, qLM, sLM, tLM, lcut)
 
       !-- Input variables
-      real(cp), intent(in) :: f(n_phi_max,n_theta_max)
-      real(cp), intent(in) :: g(n_phi_max,n_theta_max)
-      real(cp), intent(in) :: h(n_phi_max,n_theta_max)
+      real(cp), intent(inout) :: f(n_phi_max,n_theta_max)
+      real(cp), intent(inout) :: g(n_phi_max,n_theta_max)
+      real(cp), intent(inout) :: h(n_phi_max,n_theta_max)
       integer,  intent(in) :: lcut
 
       !-- Output variables
@@ -520,8 +523,8 @@ contains
    subroutine spat_to_sphertor_loc(f, g, fLM, gLM, lcut)
 
       !-- Input variables
-      real(cp), intent(in) :: f(n_phi_max,n_theta_max)
-      real(cp), intent(in) :: g(n_phi_max,n_theta_max)
+      real(cp), intent(inout) :: f(n_phi_max,n_theta_max)
+      real(cp), intent(inout) :: g(n_phi_max,n_theta_max)
       integer,  intent(in) :: lcut
 
       !-- Output variables
@@ -583,7 +586,7 @@ contains
       !
       
       !-- Input variables
-      complex(cp),  intent(inout) :: fLM_loc(n_lm_loc)
+      complex(cp),  intent(in) :: fLM_loc(n_lm_loc)
       
       !-- Output variables
       real(cp),     intent(out)   :: fieldc_loc(n_phi_max, n_theta_loc)
