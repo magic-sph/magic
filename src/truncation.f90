@@ -64,7 +64,7 @@ module truncation
    integer :: lm_max      ! number of l/m combinations
    integer :: lmP_max     ! number of l/m combination if l runs to l_max+1
    integer :: lm_max_real ! number of l/m combination for real representation (cos/sin)
-   integer :: nrp,ncp     ! dimension of phi points in for real/complex arrays
+   integer :: nrp         ! dimension of phi points in for real/complex arrays
    integer :: n_r_tot     ! total number of radial grid points
  
    !--- Now quantities for magnetic fields:
@@ -240,7 +240,6 @@ contains
 #else
       nrp=n_phi_max+2
 #endif
-      ncp=nrp/2
 
       ! total number of radial grid points
       n_r_tot = n_r_max

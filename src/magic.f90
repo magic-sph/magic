@@ -491,7 +491,9 @@ program magic
    call finalize_radial_functions()
    call finalize_blocking()
    call finalize_mapping()
-   call finalize_fft_phi_many()
+   if ( index(rIter_type, 'SPLIT') /= 0 ) then
+      call finalize_fft_phi_many()
+   end if
    call finalize_fft_phi()
    call finalize_radial_data()
 

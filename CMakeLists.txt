@@ -173,7 +173,7 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
    else()
       message(STATUS "MKL was not found")
       set(USE_LAPACKLIB "LIBFLAME")
-      set(USE_FFTLIB "JW")
+      set(USE_FFTLIB "FFTW")
    endif()
 endif()
 
@@ -207,8 +207,6 @@ if(USE_LAPACKLIB MATCHES LAPACK)
    endif()
 endif()
 
-message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
-message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 
 find_library(FFTW3 NAME fftw3
     PATHS $ENV{HOME}/local/lib
@@ -217,7 +215,6 @@ find_library(FFTW3 NAME fftw3
           $ENV{FFTW_ROOT}/lib
           $ENV{FFTW_HOME}/lib                 #Hydra
           $ENV{FFTWDIR})                      #GWDG
-message(STATUS "FFTW3: '${FFTW3}'")
 
 if(USE_OMP)
    find_library(FFTW3_OMP NAME fftw3_omp
@@ -229,6 +226,19 @@ if(USE_OMP)
              $ENV{FFTWDIR})                   #GWDG
    message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
 endif()
+
+if( USE_FFTLIB MATCHES FFTW )
+   if ( FFTW3_FOUND ) 
+      message(STATUS "FFTW3: '${FFTW3}'")
+      set(USE_FFTLIB "FFTW")
+   else()
+      message(STATUS "FFTW3 was not found")
+      set(USE_FFTLIB "JW")
+   endif()
+endif()
+
+message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
+message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)

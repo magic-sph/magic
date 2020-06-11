@@ -55,11 +55,7 @@ contains
       !
       logical, intent(in) :: l_geos
 
-#ifdef WITH_SHTNS
-      nrp_geos=nrp+2 ! One has to include the 2 extra points again
-#else
       nrp_geos=nrp
-#endif
 
       ! Number of grid point in s:
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
@@ -105,9 +101,7 @@ contains
       end if
 
    end subroutine initialize_geos_mod
-
 !----------------------------------------------------------------------------
-
    subroutine finalize_geos_mod(l_geos)
       !
       ! Memory deallocation
@@ -125,11 +119,9 @@ contains
       deallocate( cyl_balance )
 
    end subroutine finalize_geos_mod
- 
 !----------------------------------------------------------------------------
-
    subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,Geos,GeosA,GeosZ,GeosM,GeosNA, &
-   &                   GeosNAP,dpFlow,dzFlow,volume,Ekin)
+              &        GeosNAP,dpFlow,dzFlow,volume,Ekin)
       !
       !   Output of axisymmetric zonal flow, its relative strength,
       !   its time variation, and all forces acting on it.
@@ -392,8 +384,8 @@ contains
          !--------- Get the flow components for all northern and
          !          southern thetas and all phis:
          call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
-              &        r_ICB,r_CMB,rZ,nZmaxV,nZmaxA,PlmS(:,:,nS),       &
-              &        dPlmS(:,:,nS),sinT,cosT,kindCalc,VrS,VtS,VpS,VozS,  &
+              &        r_ICB,r_CMB,rZ,nZmaxV,nZmaxA,PlmS(:,:,nS),             &
+              &        dPlmS(:,:,nS),sinT,cosT,kindCalc,VrS,VtS,VpS,VozS,     &  
               &        VrAS,VtAS,VpAS,dpEkInt)
 
          !------- Perform z-integrals for axisymmetric stuff:
@@ -914,13 +906,14 @@ contains
       mapFac=two/(rMax-rMin)
       phiNorm=two*pi/n_phi_max
 
-      VrS(:,:) =zero   
-      VtS(:,:) =zero   
-      VpS(:,:) =zero   
-      VorS(:,:)=zero   
-      VotS(:,:)=zero   
+      VrS(:,:) =0.0_cp
+      VtS(:,:) =0.0_cp
+      VpS(:,:) =0.0_cp
+      VorS(:,:)=0.0_cp
+      VotS(:,:)=0.0_cp
       if ( mod(nZmax,2)==0 ) then
          nZmaxH=nZmax/2
+         nEquator=0
       else
          nZmaxH=(nZmax-1)/2+1 ! Number of points including equator
          nEquator=nZmaxH 

@@ -9,6 +9,7 @@ module out_dtB_frame
        &                      dLh
 #ifndef WITH_SHTNS
    use horizontal_data, only: dPlm, Plm, dPhi
+   use fft, only: fft_thetab
 #endif
    use dtB_mod, only: PstrLM, PadvLM, PdifLM, TstrLM, TadvLM, TdifLM, &
        &              PadvLMIC, PdifLMIC, TadvLMIC, TomeLM, TdifLMIC
@@ -16,7 +17,6 @@ module out_dtB_frame
        &                 n_movie_file, n_movie_const, n_movie_surface,    &
        &                 movie_const, n_movie_field_type
    use logic, only: l_cond_ic
-   use fft
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_dr
