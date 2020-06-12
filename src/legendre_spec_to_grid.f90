@@ -1,366 +1,22 @@
-#include "perflib_preproc.cpp"
 module legendre_spec_to_grid
 
-#ifdef WITH_LIKWID
-#include "likwid_f90.h"
-#endif
-
    use precision_mod
-   use truncation, only: lm_max, n_m_max, nrp, l_max, l_axi, n_theta_max, minc
+   use truncation, only: lm_max, n_m_max, l_max, l_axi, n_theta_max, minc, n_phi_max
    use LMmapping, only: map_dist_st, map_glbl_st
-   use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
-       &                      osn2, Plm_loc, dPlm_loc
+       &                      Plm_loc, dPlm_loc
    use constants, only: zero, half, one, ci
-   use useful, only: abortRun
+   use fft, only: fft_phi_loc
 
    implicit none
  
    private
 
-   public :: lmAS2pt, leg_scal_to_grad_spat, leg_scal_to_spat, sh_to_spat_ml, &
-   &         leg_polsphtor_to_spat, leg_pol_to_grad_spat, leg_dphi_vec
+   public :: lmAS2pt, qst_to_spat_ml, sh_to_spat_ml, qst_to_spat, sphtor_to_spat,&
+   &         sh_to_spat, sh_to_grad_spat
 
 contains
 
-   subroutine leg_polsphtor_to_spat(l_calc, nThetaStart, Qlm, bhG, bhC, brc, &
-              &                     btc, bpc, n_thetas)
-      !
-      ! Take Q,S,T and transform them to vectors
-      !
-      
-      !-- Input variables:
-      logical,     intent(in) :: l_calc
-      integer,     intent(in) :: nThetaStart
-      complex(cp), intent(in) :: Qlm(lm_max) ! Poloidal
-      complex(cp), intent(in) :: bhG(lm_max)
-      complex(cp), intent(in) :: bhC(lm_max)
-      integer, optional, intent(in) :: n_thetas
-    
-      !-- Output: field on grid (theta,m) for the radial grid point nR
-      !           and equatorially symmetric and antisymmetric contribution
-      real(cp), intent(out) :: brc(nrp,nfs), btc(nrp,nfs), bpc(nrp,nfs)
-    
-      !------ Legendre Polynomials 
-      real(cp) :: PlmG(lm_max)
-      real(cp) :: PlmC(lm_max)
-    
-      !-- Local variables:
-      complex(cp) :: brES,brEA
-      integer :: nThetaN,nThetaS,nThetaNHS,sThetaB
-      integer :: mc,lm,lmS
-      real(cp) :: dm
-    
-      complex(cp) :: bhN1M(n_m_max),bhN2M(n_m_max),bhN,bhN1,bhN2
-      complex(cp) :: bhS1M(n_m_max),bhS2M(n_m_max),bhS,bhS1,bhS2
-    
-      nThetaNHS=(nThetaStart-1)/2
-
-      if ( present(n_thetas) ) then
-         sThetaB = n_thetas
-      else
-         sThetaB = sizeThetaB
-      end if
-    
-      if ( l_calc ) then ! not a boundary or derivs required
-         do nThetaN=1,sThetaB,2   ! Loop over thetas for north HS
-            nThetaS  =nThetaN+1      ! same theta but for southern HS
-            nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
-    
-            !--- Loop over all orders m: (numbered by mc)
-            PERFON_I('TFG_2')
-            do mc=1,n_m_max
-               dm = D_mc2m(mc)
-               lmS=lStop(mc)
-               brES   =zero
-               brEA   =zero
-               !--- 6 add/mult, 26 dble words
-               do lm=lStart(mc),lmS-1,2
-                  brES   =brES + Qlm(lm)  *Plm(lm,nThetaNHS)
-                  brEA   =brEA + Qlm(lm+1)*Plm(lm+1,nThetaNHS)
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
-                  PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
-                  PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) then
-                  brES   =brES + Qlm(lmS)*Plm(lmS,nThetaNHS)
-                  PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
-                  PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
-               end if
-               brc(2*mc-1,nThetaN)   = real(brES+brEA)
-               brc(2*mc  ,nThetaN)   =aimag(brES+brEA)
-               brc(2*mc-1,nThetaS)   = real(brES-brEA)
-               brc(2*mc  ,nThetaS)   =aimag(brES-brEA)
-            end do
-    
-            do mc=1,n_m_max
-               lmS=lStop(mc)
-               bhN1=zero
-               bhS1=zero
-               bhN2=zero
-               bhS2=zero
-               !--- 8 add/mult, 20 dble words
-               do lm=lStart(mc),lmS-1,2
-                  bhN1=bhN1+bhG(lm)*PlmG(lm)+bhG(lm+1)*PlmG(lm+1)
-                  bhS1=bhS1-bhG(lm)*PlmC(lm)+bhG(lm+1)*PlmC(lm+1)
-                  bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
-                  bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
-               end do
-               if ( lmOdd(mc) ) then
-                  bhN1=bhN1+bhG(lmS)*PlmG(lmS)
-                  bhS1=bhS1-bhG(lmS)*PlmC(lmS)
-                  bhN2=bhN2+bhC(lmS)*PlmC(lmS)
-                  bhS2=bhS2-bhC(lmS)*PlmG(lmS)
-               end if
-               bhN1M(mc)=half*bhN1
-               bhS1M(mc)=half*bhS1
-               bhN2M(mc)=half*bhN2
-               bhS2M(mc)=half*bhS2
-            end do
-    
-            !--- 6 add/mult, 20 dble words
-            do mc=1,n_m_max
-               btc(2*mc-1,nThetaN)= real(bhN1M(mc)+bhN2M(mc))
-               btc(2*mc  ,nThetaN)=aimag(bhN1M(mc)+bhN2M(mc))
-               bhN                =bhN1M(mc)-bhN2M(mc)
-               btc(2*mc-1,nThetaS)= real(bhS1M(mc)+bhS2M(mc))
-               btc(2*mc  ,nThetaS)=aimag(bhS1M(mc)+bhS2M(mc))
-               bhS                =bhS1M(mc)-bhS2M(mc)
-               bpc(2*mc-1,nThetaN)=aimag(bhN)
-               bpc(2*mc  ,nThetaN)=-real(bhN)
-               bpc(2*mc-1,nThetaS)=aimag(bhS)
-               bpc(2*mc  ,nThetaS)=-real(bhS)
-            end do
-    
-         end do      ! End global loop over nTheta
-    
-         !PERFOFF
-    
-         !-- Zero out terms with index mc > n_m_max:
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sThetaB
-               do mc=2*n_m_max+1,nrp
-                  brc(mc,nThetaN)   =0.0_cp
-                  btc(mc,nThetaN)   =0.0_cp
-                  bpc(mc,nThetaN)   =0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-         !PERFOFF
-    
-      else   ! boundary ?
-    
-         !-- Calculation for boundary r_cmb or r_icb:
-         do nThetaN=1,sThetaB,2
-            nThetaS=nThetaN+1
-            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-    
-            do mc=1,n_m_max
-               dm =D_mc2m(mc)
-               lmS=lStop(mc)
-    
-               !------ br = r^2 B_r , bt = r sin(theta) B_theta , bp= r sin(theta) B_phi
-               brES=zero
-               brEA=zero
-               do lm=lStart(mc),lmS-1,2
-                  brES=brES + Qlm(lm)  *Plm(lm,nThetaNHS)
-                  brEA=brEA + Qlm(lm+1)*Plm(lm+1,nThetaNHS)
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
-                  PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
-                  PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) then
-                  brES=brES+Qlm(lm)*Plm(lm,nThetaNHS)
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
-               end if
-               brc(2*mc-1,nThetaN)=real(brES+brEA)
-               brc(2*mc  ,nThetaN)=aimag(brES+brEA)
-               brc(2*mc-1,nThetaS)=real(brES-brEA)
-               brc(2*mc  ,nThetaS)=aimag(brES-brEA)
-    
-               bhN1=zero
-               bhS1=zero
-               bhN2=zero
-               bhS2=zero
-               do lm=lStart(mc),lmS-1,2
-                  bhN1=bhN1+bhG(lm)*PlmG(lm)+bhG(lm+1)*PlmG(lm+1)
-                  bhS1=bhS1-bhG(lm)*PlmC(lm)+bhG(lm+1)*PlmC(lm+1)
-                  bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
-                  bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
-               end do
-               if ( lmOdd(mc) ) then
-                  bhN1=bhN1+bhG(lmS)*PlmG(lmS)
-                  bhS1=bhS1-bhG(lmS)*PlmC(lmS)
-                  bhN2=bhN2+bhC(lmS)*PlmC(lmS)
-                  bhS2=bhS2-bhC(lmS)*PlmG(lmS)
-               end if
-               btc(2*mc-1,nThetaN)=real(half*bhN1+half*bhN2)
-               btc(2*mc  ,nThetaN)=aimag(half*bhN1+half*bhN2)
-               btc(2*mc-1,nThetaS)=real(half*bhS1+half*bhS2)
-               btc(2*mc  ,nThetaS)=aimag(half*bhS1+half*bhS2)
-               bhN                =half*bhN1-half*bhN2
-               bhS                =half*bhS1-half*bhS2
-               bpc(2*mc-1,nThetaN)=aimag(bhN)
-               bpc(2*mc  ,nThetaN)=-real(bhN)
-               bpc(2*mc-1,nThetaS)=aimag(bhS)
-               bpc(2*mc  ,nThetaS)=-real(bhS)
-    
-            end do
-    
-         end do    ! End loop over nThetaN
-    
-         !-- Zero out terms with index mc > n_m_max :
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sThetaB
-               do mc=2*n_m_max+1,nrp
-                  brc(mc,nThetaN)=0.0_cp
-                  btc(mc,nThetaN)=0.0_cp
-                  bpc(mc,nThetaN)=0.0_cp
-               end do
-            end do
-         end if
-
-      end if  ! boundary ? nBc?
-    
-   end subroutine leg_polsphtor_to_spat
-!------------------------------------------------------------------------------
-   subroutine leg_pol_to_grad_spat(l_calc,nThetaStart,Qlm,dvrdtc)
-      !
-      ! Poloidal to d/dth
-      !
-
-      !-- Input:
-      logical,     intent(in) :: l_calc
-      integer,     intent(in) :: nThetaStart
-      complex(cp), intent(in) :: Qlm(lm_max)
-    
-      !-- Output fields
-      real(cp), intent(out) :: dvrdtc(nrp,nfs)
-    
-      !------ Legendre Polynomials
-      real(cp) :: PlmG(lm_max)
-      real(cp) :: PlmC(lm_max)
-    
-      !-- Local:
-      complex(cp) :: dvrdtEA,dvrdtES
-    
-      integer :: nThetaN,nThetaS,nThetaNHS
-      integer :: mc,lm,lmS
-      real(cp) :: dm
-    
-    
-      nThetaNHS=(nThetaStart-1)/2
-    
-      if ( l_calc ) then ! not a boundary
-    
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
-            nThetaS  =nThetaN+1      ! same theta but for southern HS
-            nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
-    
-            do mc=1,n_m_max
-               dm =D_mc2m(mc)
-               lmS=lStop(mc)
-               dvrdtES=zero
-               dvrdtEA=zero
-               !--- 8 add/mult, 29 dble words
-               do lm=lStart(mc),lmS-1,2
-                  dvrdtEA =dvrdtEA + Qlm(lm)*  dPlm(lm,nThetaNHS)
-                  dvrdtES =dvrdtES + Qlm(lm+1)*dPlm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) then
-                  dvrdtEA =dvrdtEA + Qlm(lmS)*dPlm(lmS,nThetaNHS)
-                  PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
-                  PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
-               end if
-               dvrdtc(2*mc-1,nThetaN)= real(dvrdtES+dvrdtEA)
-               dvrdtc(2*mc  ,nThetaN)=aimag(dvrdtES+dvrdtEA)
-               dvrdtc(2*mc-1,nThetaS)= real(dvrdtES-dvrdtEA)
-               dvrdtc(2*mc  ,nThetaS)=aimag(dvrdtES-dvrdtEA)
-            end do
-
-         end do
-    
-         !-- Zero out terms with index mc > n_m_max:
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  dvrdtc(mc,nThetaN)=0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-    
-      end if  ! boundary ? nBc?
-    
-   end subroutine leg_pol_to_grad_spat
-!------------------------------------------------------------------------------
-   subroutine leg_dphi_vec(l_calc,nThetaStart,vrc,vtc,vpc,dvrdpc,dvtdpc,dvpdpc)
-      !
-      ! Take the phi derivative of an input vector
-      !
-
-      !-- Input:
-      logical, intent(in) :: l_calc
-      integer, intent(in) :: nThetaStart
-      real(cp), intent(in) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
-    
-    
-      !-- Output: field on grid (theta,m) for the radial grid point nR
-      !           and equatorially symmetric and antisymmetric contribution
-      real(cp), intent(out) :: dvrdpc(nrp, nfs), dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
-    
-      integer :: nThetaN,nThetaS,nThetaNHS
-      integer :: mc
-      real(cp) :: dm,dmT
-    
-      nThetaNHS=(nThetaStart-1)/2
-    
-      if ( l_calc  ) then ! not a boundary or derivs required
-    
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
-            nThetaS  =nThetaN+1      ! same theta but for southern HS
-            nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
-    
-            !--- Calculate phi derivatives:
-            do mc=1,n_m_max
-               dm=D_mc2m(mc)
-               dvrdpc(2*mc-1,nThetaN)=-dm*vrc(2*mc  ,nThetaN)
-               dvrdpc(2*mc  ,nThetaN)= dm*vrc(2*mc-1,nThetaN)
-               dvrdpc(2*mc-1,nThetaS)=-dm*vrc(2*mc  ,nThetaS)
-               dvrdpc(2*mc  ,nThetaS)= dm*vrc(2*mc-1,nThetaS)
-            end do
-            do mc=1,n_m_max
-               dmT=D_mc2m(mc)*osn2(nThetaNHS)
-               dvtdpc(2*mc-1,nThetaN)=-dmT*vtc(2*mc  ,nThetaN)
-               dvtdpc(2*mc  ,nThetaN)= dmT*vtc(2*mc-1,nThetaN)
-               dvtdpc(2*mc-1,nThetaS)=-dmT*vtc(2*mc  ,nThetaS)
-               dvtdpc(2*mc  ,nThetaS)= dmT*vtc(2*mc-1,nThetaS)
-               dvpdpc(2*mc-1,nThetaN)=-dmT*vpc(2*mc  ,nThetaN)
-               dvpdpc(2*mc  ,nThetaN)= dmT*vpc(2*mc-1,nThetaN)
-               dvpdpc(2*mc-1,nThetaS)=-dmT*vpc(2*mc  ,nThetaS)
-               dvpdpc(2*mc  ,nThetaS)= dmT*vpc(2*mc-1,nThetaS)
-            end do   ! End of loop over oder m numbered by mc
-    
-         end do      ! End global loop over nTheta
-    
-    
-         !-- Zero out terms with index mc > n_m_max:
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  dvrdpc(mc,nThetaN)=0.0_cp
-                  dvtdpc(mc,nThetaN)=0.0_cp
-                  dvpdpc(mc,nThetaN)=0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-    
-      end if  ! boundary ? nBc?
-    
-   end subroutine leg_dphi_vec
-!------------------------------------------------------------------------------
    subroutine qst_to_spat_ml(m, Qlm, Slm, Tlm, brc, btc, bpc, lcut)
       !
       ! Take Q,S,T and transform them to a vector
@@ -487,26 +143,257 @@ contains
 
    end subroutine sh_to_spat_ml
 !------------------------------------------------------------------------------
-   subroutine leg_scal_to_spat(nThetaStart, Slm, sc)
+   subroutine qst_to_spat(Qlm, Slm, Tlm, brc, btc, bpc)
       !
-      ! Legendre transform from (l) to (theta) for a scalar input field
+      ! Vector spherical harmonic transform: take Q,S,T and transform them 
+      ! to a vector field
       !
+      
+      !-- Input variables:
+      complex(cp), intent(in) :: Qlm(lm_max) ! Poloidal
+      complex(cp), intent(in) :: Slm(lm_max) ! Spheroidal
+      complex(cp), intent(in) :: Tlm(lm_max) ! Toroidal
+    
+      !-- Output: field on grid (theta,m) for the radial grid point nR
+      !           and equatorially symmetric and antisymmetric contribution
+      real(cp), intent(out) :: brc(n_phi_max,n_theta_max)
+      real(cp), intent(out) :: btc(n_phi_max,n_theta_max)
+      real(cp), intent(out) :: bpc(n_phi_max,n_theta_max)
+    
+      !------ Legendre Polynomials 
+      real(cp) :: PlmG(lm_max),PlmC(lm_max)
+      complex(cp) :: bhG(lm_max),bhC(lm_max)
+      complex(cp) :: tmpr(n_phi_max/2+1,n_theta_max)
+      complex(cp) :: tmpt(n_phi_max/2+1,n_theta_max)
+      complex(cp) :: tmpp(n_phi_max/2+1,n_theta_max)
+    
+      !-- Local variables:
+      complex(cp) :: brES,brEA
+      integer :: nThetaN,nThetaS,nThetaNHS
+      integer :: mc,lm,lmS
+      real(cp) :: dm
+    
+      complex(cp) :: bhN1M(n_m_max),bhN2M(n_m_max),bhN,bhN1,bhN2
+      complex(cp) :: bhS1M(n_m_max),bhS2M(n_m_max),bhS,bhS1,bhS2
+    
+      bhG(1)=zero
+      bhC(1)=zero
+      do lm=2,lm_max
+         bhG(lm)=Slm(lm)-ci*Tlm(lm)
+         bhC(lm)=Slm(lm)+ci*Tlm(lm)
+      end do
 
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2   ! Loop over thetas for north HS
+         nThetaS  =nThetaN+1      ! same theta but for southern HS
+         nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
+ 
+         !--- Loop over all orders m: (numbered by mc)
+         do mc=1,n_m_max
+            dm = D_mc2m(mc)
+            lmS=lStop(mc)
+            brES   =zero
+            brEA   =zero
+            !--- 6 add/mult, 26 dble words
+            do lm=lStart(mc),lmS-1,2
+               brES   =brES + Qlm(lm)  *Plm(lm,nThetaNHS)
+               brEA   =brEA + Qlm(lm+1)*Plm(lm+1,nThetaNHS)
+               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
+               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+               PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
+               PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
+            end do
+            if ( lmOdd(mc) ) then
+               brES   =brES + Qlm(lmS)*Plm(lmS,nThetaNHS)
+               PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
+               PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
+            end if
+            tmpr(mc,nThetaN)=brES+brEA
+            tmpr(mc,nThetaS)=brES-brEA
+         end do
+ 
+         do mc=1,n_m_max
+            lmS=lStop(mc)
+            bhN1=zero
+            bhS1=zero
+            bhN2=zero
+            bhS2=zero
+            !--- 8 add/mult, 20 dble words
+            do lm=lStart(mc),lmS-1,2
+               bhN1=bhN1+bhG(lm)*PlmG(lm)+bhG(lm+1)*PlmG(lm+1)
+               bhS1=bhS1-bhG(lm)*PlmC(lm)+bhG(lm+1)*PlmC(lm+1)
+               bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
+               bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
+            end do
+            if ( lmOdd(mc) ) then
+               bhN1=bhN1+bhG(lmS)*PlmG(lmS)
+               bhS1=bhS1-bhG(lmS)*PlmC(lmS)
+               bhN2=bhN2+bhC(lmS)*PlmC(lmS)
+               bhS2=bhS2-bhC(lmS)*PlmG(lmS)
+            end if
+            bhN1M(mc)=half*bhN1
+            bhS1M(mc)=half*bhS1
+            bhN2M(mc)=half*bhN2
+            bhS2M(mc)=half*bhS2
+         end do
+ 
+         !--- 6 add/mult, 20 dble words
+         do mc=1,n_m_max
+            tmpt(mc,nThetaN)=bhN1M(mc)+bhN2M(mc)
+            bhN             =bhN1M(mc)-bhN2M(mc)
+            tmpt(mc,nThetaS)=bhS1M(mc)+bhS2M(mc)
+            bhS             =bhS1M(mc)-bhS2M(mc)
+            tmpp(mc,nThetaN)=-ci*bhN
+            tmpp(mc,nThetaS)=-ci*bhS
+         end do
+ 
+      end do      ! End global loop over nTheta
+ 
+      !-- Zero out terms with index mc > n_m_max:
+      if ( n_m_max < n_phi_max/2+1 ) then
+         do nThetaN=1,n_theta_max
+            tmpr(n_m_max+1:,nThetaN)=zero
+            tmpt(n_m_max+1:,nThetaN)=zero
+            tmpp(n_m_max+1:,nThetaN)=zero
+         end do  ! loop over nThetaN (theta)
+      end if
+
+      if ( .not. l_axi ) then
+         call fft_phi_loc(brc,tmpr,-1)
+         call fft_phi_loc(btc,tmpt,-1)
+         call fft_phi_loc(bpc,tmpp,-1)
+      end if
+    
+   end subroutine qst_to_spat
+!------------------------------------------------------------------------------
+   subroutine sphtor_to_spat(Slm, Tlm, btc, bpc)
+      !
+      ! Use spheroidal and toroidal potentials to transform them to angular
+      ! vector components btheta and bphi
+      !
+      
+      !-- Input variables:
+      complex(cp), intent(in) :: Slm(lm_max)
+      complex(cp), intent(in) :: Tlm(lm_max)
+    
+      !-- Output: field on grid (theta,m) for the radial grid point nR
+      !           and equatorially symmetric and antisymmetric contribution
+      real(cp), intent(out) :: btc(n_phi_max,n_theta_max)
+      real(cp), intent(out) :: bpc(n_phi_max,n_theta_max)
+    
+      !------ Legendre Polynomials 
+      real(cp) :: PlmG(lm_max),PlmC(lm_max)
+      complex(cp) :: bhG(lm_max),bhC(lm_max)
+      complex(cp) :: tmpt(n_phi_max/2+1,n_theta_max)
+      complex(cp) :: tmpp(n_phi_max/2+1,n_theta_max)
+    
+      !-- Local variables:
+      integer :: nThetaN,nThetaS,nThetaNHS
+      integer :: mc,lm,lmS
+      real(cp) :: dm
+    
+      complex(cp) :: bhN1M(n_m_max),bhN2M(n_m_max),bhN,bhN1,bhN2
+      complex(cp) :: bhS1M(n_m_max),bhS2M(n_m_max),bhS,bhS1,bhS2
+    
+      nThetaNHS=0
+
+      do lm=1,lm_max
+         bhG(lm)=Slm(lm)-ci*Tlm(lm)
+         bhC(lm)=Slm(lm)+ci*Tlm(lm)
+      end do
+
+      do nThetaN=1,n_theta_max,2   ! Loop over thetas for north HS
+         nThetaS  =nThetaN+1      ! same theta but for southern HS
+         nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
+ 
+         !--- Loop over all orders m: (numbered by mc)
+         do mc=1,n_m_max
+            dm = D_mc2m(mc)
+            lmS=lStop(mc)
+            !--- 6 add/mult, 26 dble words
+            do lm=lStart(mc),lmS-1,2
+               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
+               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+               PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
+               PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
+            end do
+            if ( lmOdd(mc) ) then
+               PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
+               PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
+            end if
+         end do
+ 
+         do mc=1,n_m_max
+            lmS=lStop(mc)
+            bhN1=zero
+            bhS1=zero
+            bhN2=zero
+            bhS2=zero
+            !--- 8 add/mult, 20 dble words
+            do lm=lStart(mc),lmS-1,2
+               bhN1=bhN1+bhG(lm)*PlmG(lm)+bhG(lm+1)*PlmG(lm+1)
+               bhS1=bhS1-bhG(lm)*PlmC(lm)+bhG(lm+1)*PlmC(lm+1)
+               bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
+               bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
+            end do
+            if ( lmOdd(mc) ) then
+               bhN1=bhN1+bhG(lmS)*PlmG(lmS)
+               bhS1=bhS1-bhG(lmS)*PlmC(lmS)
+               bhN2=bhN2+bhC(lmS)*PlmC(lmS)
+               bhS2=bhS2-bhC(lmS)*PlmG(lmS)
+            end if
+            bhN1M(mc)=half*bhN1
+            bhS1M(mc)=half*bhS1
+            bhN2M(mc)=half*bhN2
+            bhS2M(mc)=half*bhS2
+         end do
+ 
+         !--- 6 add/mult, 20 dble words
+         do mc=1,n_m_max
+            tmpt(mc,nThetaN)=bhN1M(mc)+bhN2M(mc)
+            bhN             =bhN1M(mc)-bhN2M(mc)
+            tmpt(mc,nThetaS)=bhS1M(mc)+bhS2M(mc)
+            bhS             =bhS1M(mc)-bhS2M(mc)
+            tmpp(mc,nThetaN)=-ci*bhN
+            tmpp(mc,nThetaS)=-ci*bhS
+         end do
+ 
+      end do      ! End global loop over nTheta
+ 
+      !-- Zero out terms with index mc > n_m_max:
+      if ( n_m_max < n_phi_max/2+1 ) then
+         do nThetaN=1,n_theta_max
+            tmpt(n_m_max+1:,nThetaN)=zero
+            tmpp(n_m_max+1:,nThetaN)=zero
+         end do  ! loop over nThetaN (theta)
+      end if
+
+      if ( .not. l_axi ) then
+         call fft_phi_loc(btc,tmpt,-1)
+         call fft_phi_loc(bpc,tmpp,-1)
+      end if
+    
+   end subroutine sphtor_to_spat
+!------------------------------------------------------------------------------
+   subroutine sh_to_spat(Slm, sc)
+      !
+      ! Spherical Harmonic Transform for a scalar input field
+      !
 
       !-- Input variable
-      integer,     intent(in) :: nThetaStart
       complex(cp), intent(in) :: Slm(lm_max)
 
       !-- Output variables
-      real(cp), intent(out) :: sc(nrp,nfs)
+      real(cp), intent(out) :: sc(n_phi_max,n_theta_max)
 
       !-- Local variables
+      complex(cp) :: tmp(n_phi_max/2+1,n_theta_max)
       integer :: mc, lm, lmS
       integer :: nThetaN, nThetaS, nThetaNHS
       complex(cp) :: sES, sEA
 
-      nThetaNHS=(nThetaStart-1)/2
-      do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2   ! Loop over thetas for one HS
          nThetaS  =nThetaN+1  ! same theta but at other HS
          nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
          do mc=1,n_m_max
@@ -518,44 +405,41 @@ contains
                sEA=sEA+Slm(lm+1)*Plm(lm+1,nThetaNHS)
             end do
             if ( lmOdd(mc) ) sES=sES+Slm(lmS)*Plm(lmS,nThetaNHS)
-            sc(2*mc-1,nThetaN)= real(sES+sEA)
-            sc(2*mc  ,nThetaN)=aimag(sES+sEA)
-            sc(2*mc-1,nThetaS)= real(sES-sEA)
-            sc(2*mc  ,nThetaS)=aimag(sES-sEA)
+            tmp(mc,nThetaN)=sES+sEA
+            tmp(mc,nThetaS)=sES-sEA
          end do
       end do
 
-      if ( n_m_max < nrp/2 ) then
-         do nThetaN=1,sizeThetaB
-            do mc=2*n_m_max+1,nrp
-               sc(mc,nThetaN)=0.0_cp
-            end do
+      if ( n_m_max < n_phi_max/2+1 ) then
+         do nThetaN=1,n_theta_max
+            tmp(n_m_max+1:,nThetaN)=zero
          end do  ! loop over nThetaN (theta)
       end if
 
-   end subroutine leg_scal_to_spat
+      if ( .not. l_axi ) call fft_phi_loc(sc,tmp,-1)
+
+   end subroutine sh_to_spat
 !------------------------------------------------------------------------------
-   subroutine leg_scal_to_grad_spat(nThetaStart, slm, gradtc, gradpc)
+   subroutine sh_to_grad_spat(slm, gradtc, gradpc)
       !
       ! Transform s(l) into dsdt(theta) and dsdp(theta)
       !
 
       !-- Input variable
-      integer,     intent(in) :: nThetaStart
       complex(cp), intent(in) :: Slm(lm_max)
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(nrp,nfs), gradpc(nrp,nfs)
+      real(cp), intent(out) :: gradtc(n_phi_max,n_theta_max)
+      real(cp), intent(out) :: gradpc(n_phi_max,n_theta_max)
 
       !-- Local variables
-      integer :: mc, lm, lmS
-      integer :: nThetaN, nThetaS, nThetaNHS
+      complex(cp) :: tmpt(n_phi_max/2+1,n_theta_max),tmpp(n_phi_max/2+1,n_theta_max)
+      integer :: mc, lm, lmS, nThetaN, nThetaS, nThetaNHS
       real(cp) :: dm
       complex(cp) :: gradtcES, gradtcEA, sES, sEA
 
-      nThetaNHS=(nThetaStart-1)/2
-
-      do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2   ! Loop over thetas for north HS
          nThetaS  =nThetaN+1      ! same theta but for southern HS
          nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
          do mc=1,n_m_max
@@ -575,29 +459,26 @@ contains
                gradtcEA=gradtcEA + Slm(lmS)*dPlm(lmS,nThetaNHS)
                sES     =sES      + Slm(lmS)* Plm(lmS,nThetaNHS)
             end if
-            gradtc(2*mc-1,nThetaN)= real(gradtcES+gradtcEA)
-            gradtc(2*mc  ,nThetaN)=aimag(gradtcES+gradtcEA)
-            gradtc(2*mc-1,nThetaS)= real(gradtcES-gradtcEA)
-            gradtc(2*mc  ,nThetaS)=aimag(gradtcES-gradtcEA)
-
-            gradpc(2*mc-1,nThetaN)=-dm*aimag(sES+sEA)
-            gradpc(2*mc  ,nThetaN)= dm* real(sES+sEA)
-            gradpc(2*mc-1,nThetaS)=-dm*aimag(sES-sEA)
-            gradpc(2*mc  ,nThetaS)= dm* real(sES-sEA)
+            tmpt(mc,nThetaN)=gradtcES+gradtcEA
+            tmpt(mc,nThetaS)=gradtcES-gradtcEA
+            tmpp(mc,nThetaN)=dm*ci*(sES+sEA)
+            tmpp(mc,nThetaS)=dm*ci*(sES-sEA)
          end do
-    
       end do
 
-      if ( n_m_max < nrp/2 ) then
-         do nThetaN=1,sizeThetaB
-            do mc=2*n_m_max+1,nrp
-               gradtc(mc,nThetaN)=0.0_cp
-               gradpc(mc,nThetaN)=0.0_cp
-            end do
+      if ( n_m_max < n_phi_max/2+1 ) then
+         do nThetaN=1,n_theta_max
+            tmpt(n_m_max+1:,nThetaN)=zero
+            tmpp(n_m_max+1:,nThetaN)=zero
          end do  ! loop over nThetaN (theta)
       end if
 
-   end subroutine leg_scal_to_grad_spat
+      if ( .not. l_axi ) then
+         call fft_phi_loc(gradtc,tmpt,-1)
+         call fft_phi_loc(gradpc,tmpp,-1)
+      end if
+
+   end subroutine sh_to_grad_spat
 !------------------------------------------------------------------------------
    subroutine lmAS2pt(alm,aij,nThetaStart,nThetaBlockSize)
       !
