@@ -136,8 +136,8 @@ contains
          allocate( type_mpiatoaw :: lo2r_press )
       end if
 
+      call lo2r_one%create_comm(1)
       if ( l_finite_diff ) then
-         call lo2r_one%create_comm(1)
          call r2lo_one%create_comm(1)
       end if
       if ( l_heat ) then
@@ -180,8 +180,8 @@ contains
       call destroy_gather_type(gt_OC)
       call destroy_gather_type(gt_IC)
 
+      call lo2r_one%destroy_comm()
       if ( l_finite_diff ) then
-         call lo2r_one%destroy_comm()
          call r2lo_one%destroy_comm()
       end if
       if ( l_heat ) then
