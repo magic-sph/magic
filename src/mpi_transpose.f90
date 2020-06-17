@@ -483,7 +483,7 @@ module  mpi_ptop_mod
       integer, allocatable :: s_request(:)
       integer, allocatable :: r_request(:)
       integer, allocatable :: final_wait_array(:)
-      complex(cp), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
+      complex(cp), allocatable :: temp_Rloc(:,:,:)
       integer, allocatable :: s_transfer_type_cont(:,:)
       integer, allocatable :: s_transfer_type_nr_end_cont(:,:)
       integer, allocatable :: r_transfer_type_cont(:,:)
@@ -739,20 +739,21 @@ contains
 
    end subroutine lm2r_redist_wait
 !----------------------------------------------------------------------------------
-   subroutine lo2r_redist_start(this,arr_lo,arr_Rloc)
+   subroutine lo2r_redist_start(this,arr_lo)
 
       type(type_mpiptop) :: this
       complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max,*)
-      complex(cp), target, intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
-      this%arr_Rloc(1:,nRstart:,1:) => arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
       call lm2r_redist_start(this,arr_lo,this%temp_Rloc)
 
    end subroutine lo2r_redist_start
 !-------------------------------------------------------------------------------
-   subroutine lo2r_redist_wait(this)
+   subroutine lo2r_redist_wait(this,arr_Rloc)
 
       type(type_mpiptop) :: this
+
+      !-- Output variable
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
       ! Local variables
       integer :: nR, l, m, lm, i
@@ -770,7 +771,7 @@ contains
                do lm=1,lm_max
                   l = st_map%lm2l(lm)
                   m = st_map%lm2m(lm)
-                  this%arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
+                  arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
                end do
             end do
          end do
@@ -779,8 +780,7 @@ contains
          do i=1,this%n_fields
             do nR=nRstart,nRstop
                do l=0,l_max
-                  this%arr_Rloc(st_map%lm2(l,0),nR,i) = &
-                  &      this%temp_Rloc(lo_map%lm2(l,0),nR,i)
+                  arr_Rloc(st_map%lm2(l,0),nR,i)=this%temp_Rloc(lo_map%lm2(l,0),nR,i)
                end do
             end do
          end do
@@ -818,8 +818,7 @@ contains
          do i=1,this%n_fields
             do nR=nRstart,nRstop
                do l=0,l_max
-                  this%temp_Rloc(lo_map%lm2(l,0),nR,i) = &
-                  &                arr_Rloc(st_map%lm2(l,0),nR,i)
+                  this%temp_Rloc(lo_map%lm2(l,0),nR,i)=arr_Rloc(st_map%lm2(l,0),nR,i)
                end do
             end do
          end do
@@ -953,8 +952,8 @@ contains
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
-      call lo2r_redist_start(this, arr_LMloc, arr_Rloc)
-      call lo2r_redist_wait(this)
+      call lo2r_redist_start(this, arr_LMloc)
+      call lo2r_redist_wait(this, arr_Rloc)
 
    end subroutine transp_lm2r
 !----------------------------------------------------------------------------------

@@ -9,7 +9,9 @@ module LMLoop_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max
+   use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max, lm_max, &
+       &                 lm_maxMag
+   use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic
@@ -27,7 +29,7 @@ module LMLoop_mod
    private
 
    public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly, &
-   &         assemble_stage
+   &         assemble_stage, finish_explicit_assembly_Rdist
 
 contains
 
@@ -246,6 +248,66 @@ contains
       end if
 
    end subroutine finish_explicit_assembly
+!--------------------------------------------------------------------------------
+   subroutine finish_explicit_assembly_Rdist(omega_ic, w, b_ic, aj_ic, dVSr_Rloc, &
+              &                        dVXir_Rloc, dVxVh_Rloc, dVxBh_Rloc,        &
+              &                        lorentz_torque_ma, lorentz_torque_ic,      &
+              &                        dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,          &
+              &                        djdt_Rloc, dbdt_ic, djdt_ic, domega_ma_dt, &
+              &                        domega_ic_dt, lorentz_torque_ma_dt,        &
+              &                        lorentz_torque_ic_dt,tscheme)
+      !
+      ! This subroutine is used to finish the computation of the explicit terms.
+      ! This is only possible in a LM-distributed space since it mainly involves
+      ! computation of radial derivatives.
+      !
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: omega_ic
+      real(cp),            intent(in) :: lorentz_torque_ic
+      real(cp),            intent(in) :: lorentz_torque_ma
+      complex(cp),         intent(in) :: w(lm_max,nRstart:nRstop)
+      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp),         intent(inout) :: dVSr_Rloc(lm_max,nRstart:nRstop)
+      complex(cp),         intent(inout) :: dVXir_Rloc(lm_max,nRstart:nRstop)
+      complex(cp),         intent(inout) :: dVxVh_Rloc(lm_max,nRstart:nRstop)
+      complex(cp),         intent(inout) :: dVxBh_Rloc(lm_maxMag,nRstartMag:nRstopMag)
+
+      !-- Output variables
+      complex(cp),         intent(inout) :: dxidt_Rloc(lm_max,nRstart:nRstop)
+      complex(cp),         intent(inout) :: dsdt_Rloc(lm_max,nRstart:nRstop)
+      complex(cp),         intent(inout) :: dwdt_Rloc(lm_max,nRstart:nRstop)
+      complex(cp),         intent(inout) :: djdt_Rloc(lm_max,nRstart:nRstop)
+      type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
+      type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
+
+      if ( l_chemical_conv ) call finish_exp_comp_Rdist(dVXir_Rloc, dxidt_Rloc)
+
+      if ( l_single_matrix ) then
+         call finish_exp_smat_Rdist(dVSr_Rloc, dsdt_Rloc)
+      else
+         if ( l_heat ) call finish_exp_entropy_Rdist(w, dVSr_Rloc, dsdt_Rloc)
+         if ( l_double_curl ) call finish_exp_pol_Rdist(dVxVh_Rloc, dwdt_Rloc)
+      end if
+
+      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
+           &              domega_ma_dt%expl(tscheme%istage),        &
+           &              domega_ic_dt%expl(tscheme%istage),        &
+           &              lorentz_torque_ma_dt%expl(tscheme%istage),&
+           &              lorentz_torque_ic_dt%expl(tscheme%istage))
+
+      if ( l_mag ) call finish_exp_mag_Rdist(dVxBh_Rloc, djdt_Rloc)
+
+      if ( l_cond_ic ) then
+         call finish_exp_mag_ic(b_ic, aj_ic, omega_ic,            &
+              &                 dbdt_ic%expl(:,:,tscheme%istage), &
+              &                 djdt_ic%expl(:,:,tscheme%istage))
+      end if
+
+   end subroutine finish_explicit_assembly_Rdist
 !--------------------------------------------------------------------------------
    subroutine assemble_stage(time, w, dw, ddw, p, dp, z, dz, s, ds, xi, dxi, b, db, &
               &              ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, dj_ic,   &

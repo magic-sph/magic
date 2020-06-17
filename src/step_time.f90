@@ -11,13 +11,16 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max
+   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max, fd_order, &
+       &                 fd_order_bound
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
        &                phy2lm_counter, nl_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
+   use radial_der, only: get_dr_Rloc, get_ddr_Rloc
+   use radial_functions, only: rscheme_oc
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
        &            l_DTrMagSpec, lVerbose, l_b_nl_icb,                &
@@ -30,7 +33,8 @@ module step_time_mod
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage
+   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
+       &                 finish_explicit_assembly_Rdist
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -57,7 +61,7 @@ module step_time_mod
    use useful, only: l_correct_step, logWrite
    use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
        &                     lo2r_xi,  r2lo_flow, r2lo_s, r2lo_xi,r2lo_field, &
-       &                     lo2r_s, lo2r_press
+       &                     lo2r_s, lo2r_press, lo2r_one, r2lo_one
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -175,6 +179,7 @@ contains
       !--- Various stuff for time control:
       real(cp) :: timeLast, timeStage, dtLast
       integer :: n_time_steps_go
+      logical :: l_finish_exp_early
       logical :: l_new_dt         ! causes call of matbuild !
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
@@ -196,6 +201,9 @@ contains
       lMatNext    =.true.
       timeLast    =time
       timeStage   =time
+
+      l_finish_exp_early = ( l_finite_diff .and. rscheme_oc%order==2 .and. &
+      &                      rscheme_oc%order_boundary==2 )
 
       tenth_n_time_steps=real(n_time_steps,kind=cp)/10.0_cp
       nPercent=9
@@ -315,7 +323,6 @@ contains
             l_dtB=( l_frame .and. l_dtBmovie ) .or.         &
             &                   ( l_log .and. l_DTrMagSpec )
          end if
-         l_HT  = l_frame .and. l_HTmovie
 
          lTOframe=l_TOmovie .and.                                                &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
@@ -415,6 +422,7 @@ contains
          lFluxProfCalc =l_FluxProfs.and.l_log
 
          lViscBcCalc =l_ViscBcCalc.and.l_log
+         l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc
 
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
          &            .or. lFluxProfCalc
@@ -453,32 +461,15 @@ contains
 
             if ( tscheme%l_exp_calc(n_stage) ) then
 
-               !----------------------
-               ! Here now comes the block where the LM distributed fields
-               ! are redistributed to Rloc distribution which is needed for 
-               ! the radialLoop.
-               !----------------------
-               call comm_counter%start_count()
-               if ( l_heat ) then
-                  call lo2r_s%transp_lm2r(s_LMloc_container, s_Rloc_container)
-               end if
-               if ( l_chemical_conv ) then
-                  call lo2r_xi%transp_lm2r(xi_LMloc_container,xi_Rloc_container)
-               end if
-               if ( l_conv .or. l_mag_kin ) then
-                  call lo2r_flow%transp_lm2r(flow_LMloc_container, &
-                       &                     flow_Rloc_container)
-               end if
-               if ( lPressCalc ) then
-                  call lo2r_press%transp_lm2r(press_LMloc_container, &
-                       &                      press_Rloc_container)
-               end if
-               if ( l_mag ) then
-                  call lo2r_field%transp_lm2r(field_LMloc_container, &
-                       &                      field_Rloc_container)
-               end if
-               call comm_counter%stop_count(l_increment=.false.)
+               !----------------
+               !- Mloc -> Rloc transposes
+               !----------------
+               call transp_LMloc_to_Rloc(comm_counter, l_finish_exp_early, &
+                    &                    lPressCalc,l_HT)
 
+               !---------------
+               !- Radial loop
+               !---------------
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
@@ -503,34 +494,6 @@ contains
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
-               !---------------------------------------
-               !- MPI transposition from r-distributed to LM-distributed
-               !---------------------------------------
-               if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
-
-               call comm_counter%start_count()
-               PERFON('r2lo_dst')
-               if ( l_conv .or. l_mag_kin ) then
-                  call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
-                       &             dflowdt_LMloc_container(:,:,:,tscheme%istage))
-               end if
-
-               if ( l_heat ) then
-                  call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
-                       &             dsdt_LMloc_container(:,:,:,tscheme%istage))
-               end if
-
-               if ( l_chemical_conv ) then
-                  call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
-                       &             dxidt_LMloc_container(:,:,:,tscheme%istage))
-               end if
-
-               if ( l_mag ) then
-                  call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
-                       &             dbdt_LMloc_container(:,:,:,tscheme%istage))
-               end if
-               call comm_counter%stop_count()
-
 #ifdef WITH_MPI
                ! ------------------
                ! also exchange the lorentz_torques which are only 
@@ -541,7 +504,27 @@ contains
                call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
                     &         0,MPI_COMM_WORLD,ierr)
 #endif
-               if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
+
+               !---------------
+               ! Finish assembing the explicit terms
+               !---------------
+               if ( l_finish_exp_early ) then
+                  call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
+                       &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
+                       &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
+                       &                      lorentz_torque_ma,lorentz_torque_ic,  &
+                       &                      dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,     &
+                       &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
+                       &                      domega_ma_dt, domega_ic_dt,           &
+                       &                      lorentz_torque_ma_dt,                 &
+                       &                      lorentz_torque_ic_dt, tscheme)
+               end if
+
+               !----------------
+               !-- Rloc to Mloc transposes
+               !----------------
+               call transp_Rloc_to_LMloc(comm_counter,tscheme%istage, &
+                    &                    l_finish_exp_early)
 
 
                !------ Nonlinear magnetic boundary conditions:
@@ -579,17 +562,19 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
-               call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
-                    &                        aj_ic_LMloc,                         &
-                    &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
-                    &                        dVXirLM_LMLoc(:,:,tscheme%istage),   &
-                    &                        dVxVhLM_LMloc(:,:,tscheme%istage),   &
-                    &                        dVxBhLM_LMloc(:,:,tscheme%istage),   &
-                    &                        lorentz_torque_ma,lorentz_torque_ic, &
-                    &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
-                    &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
-                    &                        lorentz_torque_ma_dt,                &
-                    &                        lorentz_torque_ic_dt, tscheme)
+               if ( .not. l_finish_exp_early ) then
+                  call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
+                       &                        aj_ic_LMloc,                         &
+                       &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
+                       &                        dVXirLM_LMLoc(:,:,tscheme%istage),   &
+                       &                        dVxVhLM_LMloc(:,:,tscheme%istage),   &
+                       &                        dVxBhLM_LMloc(:,:,tscheme%istage),   &
+                       &                        lorentz_torque_ma,lorentz_torque_ic, &
+                       &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
+                       &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
+                       &                        lorentz_torque_ma_dt,                &
+                       &                        lorentz_torque_ic_dt, tscheme)
+               end if
                call lmLoop_counter%stop_count(l_increment=.false.)
             end if
 
@@ -888,5 +873,122 @@ contains
       end if
 
    end subroutine start_from_another_scheme
+!--------------------------------------------------------------------------------
+   subroutine transp_LMloc_to_Rloc(comm_counter, l_Rloc, lPressCalc, lHTCalc)
+      ! Here now comes the block where the LM distributed fields
+      ! are redistributed to Rloc distribution which is needed for 
+      ! the radialLoop.
+
+      !-- Input variables
+      logical, intent(in) :: l_Rloc, lPressCalc, lHTCalc
+
+      !-- Output variable
+      type(timer_type), intent(inout) :: comm_counter
+
+      call comm_counter%start_count()
+      if ( l_Rloc ) then
+         if ( l_heat ) then
+            call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+            if ( lHTCalc ) then
+               call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+         end if
+         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+         if ( l_conv .or. l_mag_kin ) then
+            call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
+            call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
+                 &            n_r_max, rscheme_oc)
+            call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
+            call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                 &           rscheme_oc)
+         end if
+         if ( lPressCalc ) then
+            call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+            call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                 &           rscheme_oc)
+         end if
+         if ( l_mag ) then
+            call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
+            call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
+                 &            n_r_max, rscheme_oc)
+            call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+            call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                 &           rscheme_oc)
+         end if
+      else
+         if ( l_heat ) then
+            call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+            if ( lHTCalc ) call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
+         end if
+         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+         if ( l_conv .or. l_mag_kin ) then
+            call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
+         end if
+         if ( lPressCalc ) then
+            call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
+         end if
+         if ( l_mag ) then
+            call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
+         end if
+      end if
+      call comm_counter%stop_count(l_increment=.false.)
+
+   end subroutine transp_LMloc_to_Rloc
+!--------------------------------------------------------------------------------
+   subroutine transp_Rloc_to_LMloc(comm_counter, istage, lRloc)
+      !
+      !- MPI transposition from r-distributed to LM-distributed
+      !
+
+      !-- Input variable
+      logical, intent(in) :: lRloc
+      integer, intent(in) :: istage
+
+      !-- Output variable
+      type(timer_type), intent(inout) :: comm_counter
+
+      if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
+
+      call comm_counter%start_count()
+      if ( lRloc ) then
+         if ( l_conv .or. l_mag_kin ) then
+            call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
+            call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
+            if ( .not. l_double_curl ) then
+               call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+            end if
+         end if
+         if ( l_heat ) call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
+         if ( l_chemical_conv ) then
+            call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
+         end if
+         if ( l_mag ) then
+            call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
+            call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
+         end if
+      else
+         if ( l_conv .or. l_mag_kin ) then
+            call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
+                 &                     dflowdt_LMloc_container(:,:,:,istage))
+         end if
+         if ( l_heat ) then
+            call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
+                 &                  dsdt_LMloc_container(:,:,:,istage))
+         end if
+         if ( l_chemical_conv ) then
+            call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
+                 &                   dxidt_LMloc_container(:,:,:,istage))
+         end if
+         if ( l_mag ) then
+            call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
+                 &                      dbdt_LMloc_container(:,:,:,istage))
+         end if
+      end if
+      call comm_counter%stop_count()
+
+      if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
+
+   end subroutine transp_Rloc_to_LMloc
 !--------------------------------------------------------------------------------
 end module step_time_mod

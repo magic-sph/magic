@@ -5,7 +5,7 @@ module updateWP_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, l_max
-   use radial_data, only: n_r_cmb, n_r_icb
+   use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun,      &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
@@ -20,7 +20,7 @@ module updateWP_mod
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
    use RMS_helpers, only:  hInt2Pol
-   use radial_der, only: get_dddr, get_ddr, get_dr
+   use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc
    use integration, only: rInt_R
    use fields, only: work_LMloc
    use constants, only: zero, one, two, three, four, third, half
@@ -49,7 +49,7 @@ module updateWP_mod
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol, &
-   &         finish_exp_pol, get_pol_rhs_imp
+   &         finish_exp_pol, get_pol_rhs_imp, finish_exp_pol_Rdist
 
 contains
 
@@ -729,6 +729,31 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_pol
+!------------------------------------------------------------------------------
+   subroutine finish_exp_pol_Rdist(dVxVhLM, dw_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxVhLM(lm_max,nRstart:nRstop)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dw_exp_last(lm_max,nRstart:nRstop)
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      integer :: n_r
+
+      call get_dr_Rloc(dVxVhLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+           &           rscheme_oc)
+
+      !$omp parallel default(shared)
+      !$omp do
+      do n_r=nRstart,nRstop
+         dw_exp_last(:,n_r)= dw_exp_last(:,n_r)+or2(n_r)*work_Rloc(:,n_r)
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_pol_Rdist
 !------------------------------------------------------------------------------
    subroutine get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, tscheme,     &
               &               istage, l_calc_lin, lPressNext, lRmsNext, dp_expl, &

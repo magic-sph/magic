@@ -14,7 +14,7 @@ module updateB_mod
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
        &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
-   use radial_data, only: n_r_cmb, n_r_icb
+   use radial_data, only: n_r_cmb, n_r_icb, nRstartMag, nRstopMag
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb
    use init_fields, only: bpeaktop, bpeakbot
@@ -31,7 +31,7 @@ module updateB_mod
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
-   use radial_der, only: get_dr, get_ddr
+   use radial_der, only: get_dr, get_ddr, get_dr_Rloc
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -58,7 +58,7 @@ module updateB_mod
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
-   &         assemble_mag
+   &         assemble_mag, finish_exp_mag_Rdist
 
 contains
 
@@ -721,7 +721,7 @@ contains
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
          !$omp parallel do default(shared) private(lm,n_r,fac,l1,m1) collapse(2)
          do n_r=2,n_r_ic_max
-            do lm=llmMag, ulmMag
+            do lm=llmMag,ulmMag
                l1=lm2l(lm)
                m1=lm2m(lm)
 
@@ -735,7 +735,7 @@ contains
       else
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
          do n_r=2,n_r_ic_max
-            do lm=llmMag, ulmMag
+            do lm=llmMag,ulmMag
                db_exp_last(lm,n_r)=zero
                dj_exp_last(lm,n_r)=zero
             end do
@@ -777,6 +777,32 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_mag
+!-----------------------------------------------------------------------------
+   subroutine finish_exp_mag_Rdist(dVxBhLM, dj_exp_last)
+
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxBhLM(lm_max,nRstartMag:nRstopMag)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dj_exp_last(lm_max,nRstartMag:nRstopMag)
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(lm_max,nRstartMag:nRstopMag)
+      integer :: n_r
+
+      call get_dr_Rloc(dVxBhLM, work_Rloc, lm_max, nRstartMag, nRstopMag, n_r_max, &
+           &           rscheme_oc)
+
+      !$omp parallel
+      !$omp do private(n_r)
+      do n_r=nRstartMag,nRstopMag
+         dj_exp_last(:,n_r)=dj_exp_last(:,n_r)+or2(n_r)*work_Rloc(:,n_r)
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_mag_Rdist
 !-----------------------------------------------------------------------------
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &

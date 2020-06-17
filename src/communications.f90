@@ -52,9 +52,9 @@ module communications
 
    ! declaration of the types for the redistribution
    class(type_mpitransp), public, pointer :: lo2r_s, r2lo_s, lo2r_press
-   class(type_mpitransp), public, pointer :: lo2r_flow, r2lo_flow
+   class(type_mpitransp), public, pointer :: lo2r_flow, r2lo_flow, r2lo_one
    class(type_mpitransp), public, pointer :: lo2r_field, r2lo_field
-   class(type_mpitransp), public, pointer :: lo2r_xi, r2lo_xi
+   class(type_mpitransp), public, pointer :: lo2r_xi, r2lo_xi, lo2r_one
 
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
@@ -74,7 +74,11 @@ contains
 
       call capitalize(mpi_transp)
       if ( index(mpi_transp, 'AUTO') /= 0 ) then
-         call find_faster_comm(idx)
+         if ( l_finite_diff ) then
+            call find_faster_comm(idx, 1)
+         else
+            call find_faster_comm(idx, 5)
+         end if
       else
          if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
          &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
@@ -95,6 +99,8 @@ contains
       !call find_faster_block(idx)
 
       if ( idx == 1 ) then
+         allocate( type_mpiptop :: lo2r_one )
+         allocate( type_mpiptop :: r2lo_one )
          allocate( type_mpiptop :: lo2r_s )
          allocate( type_mpiptop :: r2lo_s )
          allocate( type_mpiptop :: lo2r_flow )
@@ -105,6 +111,8 @@ contains
          allocate( type_mpiptop :: r2lo_xi )
          allocate( type_mpiptop :: lo2r_press )
       else if ( idx == 2 ) then
+         allocate( type_mpiatoav :: lo2r_one )
+         allocate( type_mpiatoav :: r2lo_one )
          allocate( type_mpiatoav :: lo2r_s )
          allocate( type_mpiatoav :: r2lo_s )
          allocate( type_mpiatoav :: lo2r_flow )
@@ -115,6 +123,8 @@ contains
          allocate( type_mpiatoav :: r2lo_xi )
          allocate( type_mpiatoav :: lo2r_press )
       else if ( idx == 3 ) then
+         allocate( type_mpiatoav :: lo2r_one )
+         allocate( type_mpiatoav :: r2lo_one )
          allocate( type_mpiatoaw :: lo2r_s )
          allocate( type_mpiatoaw :: r2lo_s )
          allocate( type_mpiatoaw :: lo2r_flow )
@@ -126,6 +136,10 @@ contains
          allocate( type_mpiatoaw :: lo2r_press )
       end if
 
+      if ( l_finite_diff ) then
+         call lo2r_one%create_comm(1)
+         call r2lo_one%create_comm(1)
+      end if
       if ( l_heat ) then
          call lo2r_s%create_comm(2)
          call r2lo_s%create_comm(2)
@@ -166,6 +180,10 @@ contains
       call destroy_gather_type(gt_OC)
       call destroy_gather_type(gt_IC)
 
+      if ( l_finite_diff ) then
+         call lo2r_one%destroy_comm()
+         call r2lo_one%destroy_comm()
+      end if
       if ( l_heat ) then
          call lo2r_s%destroy_comm()
          call r2lo_s%destroy_comm()
@@ -767,11 +785,14 @@ contains
 
    end subroutine find_faster_block
 !-------------------------------------------------------------------------------
-   subroutine find_faster_comm(idx)
+   subroutine find_faster_comm(idx,n_fields)
       !
       ! This subroutine tests the two MPI transposition strategies and
       ! selects the fastest one.
       !
+
+      !-- Input variable:
+      integer, intent(in) :: n_fields
 
       !-- Output variable:
       integer, intent(out) :: idx
@@ -779,8 +800,8 @@ contains
 #ifdef WITH_MPI
       !-- Local variables
       class(type_mpitransp), pointer :: lo2r_test
-      complex(cp) :: arr_Rloc(lm_max,nRstart:nRstop,5)
-      complex(cp) :: arr_LMloc(llm:ulm,n_r_max,5)
+      complex(cp) :: arr_Rloc(lm_max,nRstart:nRstop,n_fields)
+      complex(cp) :: arr_LMloc(llm:ulm,n_r_max,n_fields)
       real(cp) :: tStart, tStop, tAlltoAllv, tPointtoPoint, tAlltoAllw
       real(cp) :: rdm_real, rdm_imag, timers(3)
       integer :: n_f, n_r, lm, n_t, n, n_out, ind(1)
@@ -788,7 +809,7 @@ contains
       character(len=80) :: message
 
       !-- First fill an array with random numbers
-      do n_f=1,5
+      do n_f=1,n_fields
          do n_r=nRstart,nRstop
             do lm=1,lm_max
                call random_number(rdm_real)
@@ -800,7 +821,7 @@ contains
 
       !-- Try the all-to-allv strategy (10 back and forth transposes)
       allocate( type_mpiatoav :: lo2r_test )
-      call lo2r_test%create_comm(5)
+      call lo2r_test%create_comm(n_fields)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
          call MPI_Barrier(MPI_COMM_WORLD, ierr)
@@ -814,7 +835,7 @@ contains
 
       !-- Try the point-to-point strategy (10 back and forth transposes)
       allocate( type_mpiptop :: lo2r_test )
-      call lo2r_test%create_comm(5)
+      call lo2r_test%create_comm(n_fields)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
          call MPI_Barrier(MPI_COMM_WORLD, ierr)
@@ -828,7 +849,7 @@ contains
 
       !-- Try the all-to-allw strategy (10 back and forth transposes)
       allocate( type_mpiatoaw :: lo2r_test )
-      call lo2r_test%create_comm(5)
+      call lo2r_test%create_comm(n_fields)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
          call MPI_Barrier(MPI_COMM_WORLD, ierr)

@@ -9,6 +9,8 @@ module radial_der
    use cosine_transform_odd
    use radial_scheme, only: type_rscheme
    use logic, only: l_finite_diff
+   use parallel_mod
+   use useful, only: abortRun
 
    implicit none
 
@@ -25,7 +27,7 @@ module radial_der
    end interface get_dcheb
 
    public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays, &
-   &         finalize_der_arrays
+   &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc
 
    complex(cp), allocatable :: work(:,:)
    real(cp), allocatable :: work_1d_real(:)
@@ -718,5 +720,273 @@ contains
       end if
 
    end subroutine get_dddr
+!------------------------------------------------------------------------------
+   subroutine get_dr_Rloc(f_Rloc, df_Rloc, lm_max, nRstart, nRstop, n_r_max, r_scheme)
+      !
+      ! Purpose of this subroutine is to take the first radial derivative of an input
+      ! complex array distributed over radius. This can only be used with
+      ! finite differences.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: lm_max, nRstart, nRstop, n_r_max
+      class(type_rscheme), intent(in) :: r_scheme
+      complex(cp),         intent(in) :: f_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Output variable
+      complex(cp), intent(out) ::  df_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
+      complex(cp) :: ftop(lm_max,r_scheme%order_boundary+1)
+      complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary:n_r_max)
+      integer :: n_r, od
+
+      if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
+       &   (nRstop-nRstart+1)<r_scheme%order ) then
+         call abortRun('Distributed r-der not implemented in this case yet!')
+      end if
+
+      !-- Copy input array
+      work_ghost(:,nRstart:nRstop)=f_Rloc(:,:)
+      do n_r=1,r_scheme%order_boundary+1
+         if (n_r >= nRstart .and. n_r <= nRstop) then
+            ftop(:,n_r)=f_Rloc(:,n_r)
+         end if
+      end do
+
+      do n_r=n_r_max-r_scheme%order_boundary,n_r_max
+         if (n_r >= nRstart .and. n_r <= nRstop) then
+            fbot(:,n_r)=f_Rloc(:,n_r)
+         end if
+      end do
+
+      !-- Exchange the ghost zones
+      call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
+
+      !-- Initialize to zero:
+      do n_r=nRstart,nRstop
+         df_Rloc(:,n_r) =zero
+      end do
+
+      !-- Bulk points for 1st derivative
+      do od=0,r_scheme%order
+         do n_r=nRstart,nRstop
+            df_Rloc(:,n_r)=df_Rloc(:,n_r)+r_scheme%dr(n_r,od)*&
+            &              work_ghost(:,n_r-r_scheme%order/2+od)
+         end do
+      end do
+
+      !-- Exchange boundary values
+      call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
+           &              r_scheme%order_boundary+1)
+
+      !-- Boundary points for 1st derivative
+      if ( rank == 0 ) then
+         df_Rloc(:,1)=zero
+         do od=0,r_scheme%order_boundary
+            df_Rloc(:,1)=df_Rloc(:,1)+r_scheme%dr_top(1,od)* &
+            &            ftop(:,od+1)
+         end do
+      end if
+
+      if ( rank == n_procs -1 ) then
+         df_Rloc(:,n_r_max)=zero
+         do od=0,r_scheme%order_boundary
+            df_Rloc(:,n_r_max)=df_Rloc(:,n_r_max)+               &
+            &                  r_scheme%dr_bot(1,od)*fbot(:,n_r_max-od)
+         end do
+      end if
+
+   end subroutine get_dr_Rloc
+!------------------------------------------------------------------------------
+   subroutine get_ddr_Rloc(f_Rloc, df_Rloc, ddf_Rloc, lm_max, nRstart, nRstop, &
+              &            n_r_max, r_scheme)
+      !
+      ! Purpose of this subroutine is to take the first and second
+      ! radial derivatives of an input complex array distributed over radius.
+      ! This can only be used with finite differences.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: lm_max, nRstart, nRstop, n_r_max
+      class(type_rscheme), intent(in) :: r_scheme
+      complex(cp),         intent(in) :: f_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Output variable
+      complex(cp), intent(out) ::  df_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddf_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
+      complex(cp) :: ftop(lm_max,r_scheme%order_boundary+2)
+      complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary-1:n_r_max)
+      integer :: n_r, od
+
+      if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
+       &   (nRstop-nRstart+1)<r_scheme%order ) then
+         call abortRun('Distributed r-der not implemented in this case yet!')
+      end if
+
+      !-- Copy input array
+      work_ghost(:,nRstart:nRstop)=f_Rloc(:,:)
+      do n_r=1,r_scheme%order_boundary+2
+         if (n_r >= nRstart .and. n_r <= nRstop) then
+            ftop(:,n_r)=f_Rloc(:,n_r)
+         end if
+      end do
+
+      do n_r=n_r_max-r_scheme%order_boundary-1,n_r_max
+         if (n_r >= nRstart .and. n_r <= nRstop) then
+            fbot(:,n_r)=f_Rloc(:,n_r)
+         end if
+      end do
+
+      !-- Exchange the ghost zones
+      call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
+
+      !-- Initialize to zero:
+      do n_r=nRstart,nRstop
+         df_Rloc(:,n_r) =zero
+         ddf_Rloc(:,n_r)=zero
+      end do
+
+      !-- Bulk points for 1st derivative
+      do od=0,r_scheme%order
+         do n_r=nRstart,nRstop
+            df_Rloc(:,n_r)=df_Rloc(:,n_r)+r_scheme%dr(n_r,od)*    &
+            &              work_ghost(:,n_r-r_scheme%order/2+od)
+            ddf_Rloc(:,n_r)=ddf_Rloc(:,n_r)+r_scheme%ddr(n_r,od)* &
+            &              work_ghost(:,n_r-r_scheme%order/2+od)
+         end do
+      end do
+
+      !-- Exchange boundary values
+      call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
+           &              r_scheme%order_boundary+2)
+
+      !-- Boundary points
+      if ( rank == 0 ) then
+         df_Rloc(:,1) =zero
+         ddf_Rloc(:,1)=zero
+         do od=0,r_scheme%order_boundary
+            df_Rloc(:,1)=df_Rloc(:,1)+r_scheme%dr_top(1,od)*ftop(:,od+1)
+         end do
+         do od=0,r_scheme%order_boundary+1
+            ddf_Rloc(:,1) = ddf_Rloc(:,1)+r_scheme%ddr_top(1,od)*ftop(:,od+1)
+         end do
+      end if
+
+      if ( rank == n_procs-1 ) then
+         df_Rloc(:,n_r_max) =zero
+         ddf_Rloc(:,n_r_max)=zero
+         do od=0,r_scheme%order_boundary
+            df_Rloc(:,n_r_max)=df_Rloc(:,n_r_max)+               &
+            &                  r_scheme%dr_bot(1,od)*fbot(:,n_r_max-od)
+         end do
+         do od=0,r_scheme%order_boundary+1
+            ddf_Rloc(:,n_r_max)=ddf_Rloc(:,n_r_max)+             &
+            &                   r_scheme%ddr_bot(1,od)*fbot(:,n_r_max-od)
+         end do
+      end if
+
+   end subroutine get_ddr_Rloc
+!------------------------------------------------------------------------------
+   subroutine exch_ghosts(f, lm_max, nRstart, nRstop, nghosts)
+
+      integer, intent(in) :: lm_max, nRstart, nRstop, nghosts
+
+      complex(cp), intent(inout) :: f(lm_max, nRstart-nghosts:nRstop+nghosts)
+
+#ifdef WITH_MPI
+      integer :: n_counts, rightProc, leftProc, st(MPI_STATUS_SIZE)
+      !integer :: n_counts, tagsend, tagrecv, req(4), nx
+
+      !req(:)=MPI_REQUEST_NULL
+      !tagsend = rank
+      !tagrecv = MPI_ANY_TAG
+      !n_counts = lm_max*nghosts
+      !if ( rank < n_procs-1 ) then
+      !   call MPI_ISend(f(:,nRstop-nghosts+1:nRstop), n_counts, MPI_DEF_COMPLEX, &
+      !        &         rank+1, tagsend, MPI_COMM_WORLD, req(1), ierr)
+      !   call MPI_IRecv(f(:,nRstop+1:nRstop+nghosts), n_counts, MPI_DEF_COMPLEX, &
+      !        &         rank+1, tagrecv, MPI_COMM_WORLD, req(2), ierr)
+      !end if
+      !if ( and. rank > 0 ) then
+      !   call MPI_ISend(f(:,nRstart:nRstart+nghosts-1), n_counts, MPI_DEF_COMPLEX, &
+      !        &         rank-1, tagsend, MPI_COMM_WORLD, req(3), ierr)
+      !   call MPI_IRecv(f(:,nRstart-nghosts:nRstart-1), n_counts, MPI_DEF_COMPLEX, &
+      !        &         rank-1, tagrecv, MPI_COMM_WORLD, req(4), ierr)
+      !end if
+
+      !call MPI_Waitall(4, req, MPI_STATUSES_IGNORE, ierr)
+
+      leftProc=rank-1
+      if ( leftProc < 0 ) leftProc = MPI_PROC_NULL
+      rightProc=rank+1
+      if ( rightProc >= n_procs ) rightProc = MPI_PROC_NULL
+      n_counts = lm_max*nghosts
+
+      !-- Halo exchange in forward direction
+      call MPI_SendRecv(f(:,nRstop-nghosts+1:nRstop), n_counts, MPI_DEF_COMPLEX,    &
+           &            rightProc, 12345, f(:,nRstart-nghosts:nRstart-1), n_counts, &
+           &            MPI_DEF_COMPLEX, leftProc, 12345, MPI_COMM_WORLD, st, ierr)
+
+      !-- Halo exchange in backward direction
+      call MPI_SendRecv(f(:,nRstart:nRstart+nghosts-1), n_counts, MPI_DEF_COMPLEX, &
+           &            leftProc, 12345, f(:,nRstop+1:nRstop+nghosts), n_counts,   &
+           &            MPI_DEF_COMPLEX, rightProc, 12345, MPI_COMM_WORLD, st, ierr)
+#endif
+
+   end subroutine exch_ghosts
+!------------------------------------------------------------------------------
+   subroutine get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, nbounds)
+
+      !-- Input variables
+      integer, intent(in) :: lm_max, nRstart, nRstop
+      integer, intent(in) :: nbounds, n_r_max
+
+      !-- Output boundary values
+      complex(cp), intent(inout) :: ftop(lm_max,nbounds)
+      complex(cp), intent(inout) :: fbot(lm_max,n_r_max-nbounds+1:n_r_max)
+
+#ifdef WITH_MPI
+      !-- Local variables
+      integer :: nreq, nR, tag, req(2*nbounds)
+
+      if ( nRstart > nbounds .and. nRstop < n_r_max-nbounds ) return
+
+      req(:)=MPI_REQUEST_NULL
+      nreq=0
+      do nR=1,nbounds
+         tag = 754432+nR
+         if ( rank /= 0 .and. nRstart<=nR .and. nRstop>=nR) then
+            call MPI_Send(ftop(:,nR), lm_max, MPI_DEF_COMPLEX, 0, tag, &
+                 &        MPI_COMM_WORLD, ierr)
+         else if ( rank == 0 .and. nRstop < nR ) then
+            nreq=nreq+1
+            call MPI_IRecv(ftop(:,nR), lm_max, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, tag, &
+                 &         MPI_COMM_WORLD, req(nreq), ierr)
+         end if
+      end do
+      call MPI_Waitall(nreq, req(1:nreq), MPI_STATUSES_IGNORE, ierr)
+
+      req(:)=MPI_REQUEST_NULL
+      nreq=0
+      do nR=n_r_max-nbounds+1,n_r_max
+         tag = 92113+nR
+         if ( rank /= n_procs-1 .and. nRstart<=nR .and. nRstop>=nR) then
+            call MPI_Send(fbot(:,nR), lm_max, MPI_DEF_COMPLEX, n_procs-1, tag, &
+                 &        MPI_COMM_WORLD, ierr)
+         else if ( rank == n_procs-1 .and. nR < nRstart ) then
+            nreq=nreq+1
+            call MPI_IRecv(fbot(:,nR), lm_max, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, tag, &
+                 &         MPI_COMM_WORLD, req(nreq), ierr)
+         end if
+      end do
+      call MPI_Waitall(nreq, req(1:nreq), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+   end subroutine get_bound_vals
 !------------------------------------------------------------------------------
 end module radial_der
