@@ -759,26 +759,26 @@ contains
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
       ! Local variables
-      integer :: nR, l, m, lm, i
+      integer :: nR, l, m, lm, i, start_lm, stop_lm
 
       !PERFON("lo2r_wt")
       call lm2r_redist_wait(this)
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,nR,i,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
       ! now in this%temp_Rloc we do have the lo_ordered r-local part
       ! now reorder to the original ordering
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(i,nR,lm,l,m)
          do i=1,this%n_fields
             do nR=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l = st_map%lm2l(lm)
                   m = st_map%lm2m(lm)
                   arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
                end do
             end do
          end do
-         !$omp end parallel do
       else
          do i=1,this%n_fields
             do nR=nRstart,nRstop
@@ -788,6 +788,8 @@ contains
             end do
          end do
       end if
+      !$omp end parallel
+
       !PERFOFF
 
    end subroutine lo2r_redist_wait
@@ -799,24 +801,24 @@ contains
       complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,*)
 
       ! Local variables
-      integer :: nR,l,m,i,lm
+      integer :: nR,l,m,i,lm,start_lm,stop_lm
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,nR,i,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
 
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(i,nR,lm,l,m)
          do i=1,this%n_fields
             do nR=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
                   this%temp_Rloc(lm,nR,i)=arr_Rloc(st_map%lm2(l,m),nR,i)
                end do
             end do
          end do
-         !$omp end parallel do
       else
          do i=1,this%n_fields
             do nR=nRstart,nRstop
@@ -826,6 +828,7 @@ contains
             end do
          end do
       end if
+      !$omp end parallel
 
       call r2lm_redist_start(this,this%temp_Rloc,arr_lo)
       !PERFOFF

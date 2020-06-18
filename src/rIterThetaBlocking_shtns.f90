@@ -534,66 +534,47 @@ contains
       type(nonlinear_lm_t) :: nl_lm
 
       ! Local variables
-      integer :: nTheta, nPhi, nThStart, nThStop
+      integer :: nTheta, nThStart, nThStop
 
       call shtns_load_cfg(1)
 
       if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) &
             .and. ( l_conv_nl .or. l_mag_LF ) ) then
 
-         !$omp parallel default(shared) private(nThStart,nThStop,nTheta,nPhi)
+         !$omp parallel default(shared) private(nThStart,nThStop,nTheta)
          nThStart=1; nThStop=n_theta_max
          call get_openmp_blocks(nThStart,nThStop)
 
-         !PERFON('inner1')
-         if ( l_conv_nl .and. l_mag_LF ) then
-            if ( this%nR>n_r_LCR ) then
-               do nTheta=nThStart, nThStop
-                  do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%LFr(nPhi, nTheta)
-                     gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%LFt(nPhi, nTheta)
-                     gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%LFp(nPhi, nTheta)
-                  end do
-               end do
+         do nTheta=nThStart, nThStop
+            if ( l_conv_nl .and. l_mag_LF ) then
+               if ( this%nR>n_r_LCR ) then
+                  gsa%Advr(:,nTheta)=gsa%Advr(:,nTheta) + gsa%LFr(:,nTheta)
+                  gsa%Advt(:,nTheta)=gsa%Advt(:,nTheta) + gsa%LFt(:,nTheta)
+                  gsa%Advp(:,nTheta)=gsa%Advp(:,nTheta) + gsa%LFp(:,nTheta)
+               end if
+            else if ( l_mag_LF ) then
+               if ( this%nR > n_r_LCR ) then
+                  gsa%Advr(:,nTheta) = gsa%LFr(:,nTheta)
+                  gsa%Advt(:,nTheta) = gsa%LFt(:,nTheta)
+                  gsa%Advp(:,nTheta) = gsa%LFp(:,nTheta)
+               else
+                  gsa%Advr(:,nTheta)=0.0_cp
+                  gsa%Advt(:,nTheta)=0.0_cp
+                  gsa%Advp(:,nTheta)=0.0_cp
+               end if
             end if
-         else if ( l_mag_LF ) then
-            if ( this%nR > n_r_LCR ) then
-               do nTheta=nThStart, nThStop
-                  do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi, nTheta) = gsa%LFr(nPhi, nTheta)
-                     gsa%Advt(nPhi, nTheta) = gsa%LFt(nPhi, nTheta)
-                     gsa%Advp(nPhi, nTheta) = gsa%LFp(nPhi, nTheta)
-                  end do
-               end do
-            else
-               do nTheta=nThStart, nThStop
-                  do nPhi=1, n_phi_max
-                     gsa%Advr(nPhi,nTheta)=0.0_cp
-                     gsa%Advt(nPhi,nTheta)=0.0_cp
-                     gsa%Advp(nPhi,nTheta)=0.0_cp
-                  end do
-               end do
+
+            if ( l_precession ) then
+               gsa%Advr(:,nTheta)=gsa%Advr(:,nTheta) + gsa%PCr(:,nTheta)
+               gsa%Advt(:,nTheta)=gsa%Advt(:,nTheta) + gsa%PCt(:,nTheta)
+               gsa%Advp(:,nTheta)=gsa%Advp(:,nTheta) + gsa%PCp(:,nTheta)
             end if
-         end if
 
-         if ( l_precession ) then
-            do nTheta=nThStart, nThStop
-               do nPhi=1, n_phi_max
-                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%PCr(nPhi, nTheta)
-                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%PCt(nPhi, nTheta)
-                  gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%PCp(nPhi, nTheta)
-               end do
-            end do
-         end if
-
-         if ( l_centrifuge ) then
-            do nTheta=nThStart, nThStop
-               do nPhi=1, n_phi_max
-                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%CAr(nPhi, nTheta)
-                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%CAt(nPhi, nTheta)
-               end do
-            end do
-         end if
+            if ( l_centrifuge ) then
+               gsa%Advr(:, nTheta)=gsa%Advr(:,nTheta) + gsa%CAr(:,nTheta)
+               gsa%Advt(:, nTheta)=gsa%Advt(:,nTheta) + gsa%CAt(:,nTheta)
+            end if
+         end do
          !$omp end parallel
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM, l_R(this%nR))
