@@ -740,63 +740,78 @@ contains
       complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
       complex(cp) :: ftop(lm_max,r_scheme%order_boundary+1)
       complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary:n_r_max)
-      integer :: n_r, od
+      integer :: n_r, od, start_lm, stop_lm
 
       if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
        &   (nRstop-nRstart+1)<r_scheme%order ) then
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
+      !$omp parallel default(shared) private(start_lm,stop_lm)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
       !-- Copy input array
-      work_ghost(:,nRstart:nRstop)=f_Rloc(:,:)
+      work_ghost(start_lm:stop_lm,nRstart:nRstop)=f_Rloc(start_lm:stop_lm,:)
       do n_r=1,r_scheme%order_boundary+1
          if (n_r >= nRstart .and. n_r <= nRstop) then
-            ftop(:,n_r)=f_Rloc(:,n_r)
+            ftop(start_lm:stop_lm,n_r)=f_Rloc(start_lm:stop_lm,n_r)
          end if
       end do
 
       do n_r=n_r_max-r_scheme%order_boundary,n_r_max
          if (n_r >= nRstart .and. n_r <= nRstop) then
-            fbot(:,n_r)=f_Rloc(:,n_r)
+            fbot(start_lm:stop_lm,n_r)=f_Rloc(start_lm:stop_lm,n_r)
          end if
       end do
 
       !-- Exchange the ghost zones
+      !$omp barrier
+      !$omp master
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
+      !$omp end master
+      !$omp barrier
 
       !-- Initialize to zero:
       do n_r=nRstart,nRstop
-         df_Rloc(:,n_r) =zero
+         df_Rloc(start_lm:stop_lm,n_r) =zero
       end do
 
       !-- Bulk points for 1st derivative
       do od=0,r_scheme%order
          do n_r=nRstart,nRstop
-            df_Rloc(:,n_r)=df_Rloc(:,n_r)+r_scheme%dr(n_r,od)*&
-            &              work_ghost(:,n_r-r_scheme%order/2+od)
+            df_Rloc(start_lm:stop_lm,n_r)=df_Rloc(start_lm:stop_lm,n_r) + &
+            &                             r_scheme%dr(n_r,od)*            &
+            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
          end do
       end do
 
       !-- Exchange boundary values
+      !$omp barrier
+      !$omp master
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+1)
+      !$omp end master
+      !$omp barrier
 
       !-- Boundary points for 1st derivative
       if ( rank == 0 ) then
-         df_Rloc(:,1)=zero
+         df_Rloc(start_lm:stop_lm,1)=zero
          do od=0,r_scheme%order_boundary
-            df_Rloc(:,1)=df_Rloc(:,1)+r_scheme%dr_top(1,od)* &
-            &            ftop(:,od+1)
+            df_Rloc(start_lm:stop_lm,1)=df_Rloc(start_lm:stop_lm,1) + &
+            &            r_scheme%dr_top(1,od)*ftop(start_lm:stop_lm,od+1)
          end do
       end if
 
       if ( rank == n_procs -1 ) then
-         df_Rloc(:,n_r_max)=zero
+         df_Rloc(start_lm:stop_lm,n_r_max)=zero
          do od=0,r_scheme%order_boundary
-            df_Rloc(:,n_r_max)=df_Rloc(:,n_r_max)+               &
-            &                  r_scheme%dr_bot(1,od)*fbot(:,n_r_max-od)
+            df_Rloc(start_lm:stop_lm,n_r_max)=df_Rloc(start_lm:stop_lm,n_r_max)+  &
+            &           r_scheme%dr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
          end do
       end if
+
+      !$omp end parallel
 
    end subroutine get_dr_Rloc
 !------------------------------------------------------------------------------
@@ -821,74 +836,92 @@ contains
       complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
       complex(cp) :: ftop(lm_max,r_scheme%order_boundary+2)
       complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary-1:n_r_max)
-      integer :: n_r, od
+      integer :: n_r, od, start_lm, stop_lm
 
       if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
        &   (nRstop-nRstart+1)<r_scheme%order ) then
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,od)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
       !-- Copy input array
-      work_ghost(:,nRstart:nRstop)=f_Rloc(:,:)
+      work_ghost(start_lm:stop_lm,nRstart:nRstop)=f_Rloc(start_lm:stop_lm,:)
       do n_r=1,r_scheme%order_boundary+2
          if (n_r >= nRstart .and. n_r <= nRstop) then
-            ftop(:,n_r)=f_Rloc(:,n_r)
+            ftop(start_lm:stop_lm,n_r)=f_Rloc(start_lm:stop_lm,n_r)
          end if
       end do
 
       do n_r=n_r_max-r_scheme%order_boundary-1,n_r_max
          if (n_r >= nRstart .and. n_r <= nRstop) then
-            fbot(:,n_r)=f_Rloc(:,n_r)
+            fbot(start_lm:stop_lm,n_r)=f_Rloc(start_lm:stop_lm,n_r)
          end if
       end do
 
       !-- Exchange the ghost zones
+      !$omp barrier
+      !$omp master
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
+      !$omp end master
+      !$omp barrier
 
       !-- Initialize to zero:
       do n_r=nRstart,nRstop
-         df_Rloc(:,n_r) =zero
-         ddf_Rloc(:,n_r)=zero
+         df_Rloc(start_lm:stop_lm,n_r) =zero
+         ddf_Rloc(start_lm:stop_lm,n_r)=zero
       end do
 
-      !-- Bulk points for 1st derivative
+      !-- Bulk points for 1st and 2nd derivatives
       do od=0,r_scheme%order
          do n_r=nRstart,nRstop
-            df_Rloc(:,n_r)=df_Rloc(:,n_r)+r_scheme%dr(n_r,od)*    &
-            &              work_ghost(:,n_r-r_scheme%order/2+od)
-            ddf_Rloc(:,n_r)=ddf_Rloc(:,n_r)+r_scheme%ddr(n_r,od)* &
-            &              work_ghost(:,n_r-r_scheme%order/2+od)
+            df_Rloc(start_lm:stop_lm,n_r)=df_Rloc(start_lm:stop_lm,n_r)+   &
+            &                             r_scheme%dr(n_r,od)*             &
+            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
+            ddf_Rloc(start_lm:stop_lm,n_r)=ddf_Rloc(start_lm:stop_lm,n_r)+ &
+            &                            r_scheme%ddr(n_r,od)*             &
+            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
          end do
       end do
 
       !-- Exchange boundary values
+      !$omp barrier
+      !$omp master
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+2)
+      !$omp end master
+      !$omp barrier
 
       !-- Boundary points
       if ( rank == 0 ) then
-         df_Rloc(:,1) =zero
-         ddf_Rloc(:,1)=zero
+         df_Rloc(start_lm:stop_lm,1) =zero
+         ddf_Rloc(start_lm:stop_lm,1)=zero
          do od=0,r_scheme%order_boundary
-            df_Rloc(:,1)=df_Rloc(:,1)+r_scheme%dr_top(1,od)*ftop(:,od+1)
+            df_Rloc(start_lm:stop_lm,1)=df_Rloc(start_lm:stop_lm,1) + &
+            &                 r_scheme%dr_top(1,od)*ftop(start_lm:stop_lm,od+1)
          end do
          do od=0,r_scheme%order_boundary+1
-            ddf_Rloc(:,1) = ddf_Rloc(:,1)+r_scheme%ddr_top(1,od)*ftop(:,od+1)
+            ddf_Rloc(start_lm:stop_lm,1) = ddf_Rloc(start_lm:stop_lm,1) + &
+            &                 r_scheme%ddr_top(1,od)*ftop(start_lm:stop_lm,od+1)
          end do
       end if
 
       if ( rank == n_procs-1 ) then
-         df_Rloc(:,n_r_max) =zero
-         ddf_Rloc(:,n_r_max)=zero
+         df_Rloc(start_lm:stop_lm,n_r_max) =zero
+         ddf_Rloc(start_lm:stop_lm,n_r_max)=zero
          do od=0,r_scheme%order_boundary
-            df_Rloc(:,n_r_max)=df_Rloc(:,n_r_max)+               &
-            &                  r_scheme%dr_bot(1,od)*fbot(:,n_r_max-od)
+            df_Rloc(start_lm:stop_lm,n_r_max)=df_Rloc(start_lm:stop_lm,n_r_max)+  &
+            &             r_scheme%dr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
          end do
          do od=0,r_scheme%order_boundary+1
-            ddf_Rloc(:,n_r_max)=ddf_Rloc(:,n_r_max)+             &
-            &                   r_scheme%ddr_bot(1,od)*fbot(:,n_r_max-od)
+            ddf_Rloc(start_lm:stop_lm,n_r_max)=ddf_Rloc(start_lm:stop_lm,n_r_max)+  &
+            &             r_scheme%ddr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
          end do
       end if
+
+      !$omp end parallel
 
    end subroutine get_ddr_Rloc
 !------------------------------------------------------------------------------
@@ -900,7 +933,7 @@ contains
 
 #ifdef WITH_MPI
       integer :: n_counts, rightProc, leftProc, st(MPI_STATUS_SIZE)
-      !integer :: n_counts, tagsend, tagrecv, req(4), nx
+      !integer :: tagsend, tagrecv, req(4)
 
       !req(:)=MPI_REQUEST_NULL
       !tagsend = rank
@@ -912,7 +945,7 @@ contains
       !   call MPI_IRecv(f(:,nRstop+1:nRstop+nghosts), n_counts, MPI_DEF_COMPLEX, &
       !        &         rank+1, tagrecv, MPI_COMM_WORLD, req(2), ierr)
       !end if
-      !if ( and. rank > 0 ) then
+      !if ( rank > 0 ) then
       !   call MPI_ISend(f(:,nRstart:nRstart+nghosts-1), n_counts, MPI_DEF_COMPLEX, &
       !        &         rank-1, tagsend, MPI_COMM_WORLD, req(3), ierr)
       !   call MPI_IRecv(f(:,nRstart-nghosts:nRstart-1), n_counts, MPI_DEF_COMPLEX, &

@@ -7,7 +7,8 @@ module communications
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr
-   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi
+   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi, &
+       &                 fd_order, fd_order_bound
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
@@ -74,11 +75,7 @@ contains
 
       call capitalize(mpi_transp)
       if ( index(mpi_transp, 'AUTO') /= 0 ) then
-         if ( l_finite_diff ) then
-            call find_faster_comm(idx, 1)
-         else
-            call find_faster_comm(idx, 5)
-         end if
+         call find_faster_comm(idx, 5)
       else
          if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
          &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
@@ -137,29 +134,37 @@ contains
       end if
 
       call lo2r_one%create_comm(1)
-      if ( l_finite_diff ) then
+      if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          call r2lo_one%create_comm(1)
-      end if
-      if ( l_heat ) then
-         call lo2r_s%create_comm(2)
-         call r2lo_s%create_comm(2)
-      end if
-      if ( l_chemical_conv ) then
-         call lo2r_xi%create_comm(2)
-         call r2lo_xi%create_comm(2)
-      end if
-      if ( l_conv .or. l_mag_kin) then
-         call lo2r_flow%create_comm(5)
-         call lo2r_press%create_comm(2)
-         if ( l_double_curl ) then
-            call r2lo_flow%create_comm(4)
+         if ( l_mag ) then
+            call lo2r_flow%create_comm(5)
+            call r2lo_flow%create_comm(5)
          else
+            call lo2r_flow%create_comm(3)
             call r2lo_flow%create_comm(3)
          end if
-      end if
-      if ( l_mag ) then
-         call lo2r_field%create_comm(5)
-         call r2lo_field%create_comm(3)
+      else
+         if ( l_heat ) then
+            call lo2r_s%create_comm(2)
+            call r2lo_s%create_comm(2)
+         end if
+         if ( l_chemical_conv ) then
+            call lo2r_xi%create_comm(2)
+            call r2lo_xi%create_comm(2)
+         end if
+         if ( l_conv .or. l_mag_kin) then
+            call lo2r_flow%create_comm(5)
+            call lo2r_press%create_comm(2)
+            if ( l_double_curl ) then
+               call r2lo_flow%create_comm(4)
+            else
+               call r2lo_flow%create_comm(3)
+            end if
+         end if
+         if ( l_mag ) then
+            call lo2r_field%create_comm(5)
+            call r2lo_field%create_comm(3)
+         end if
       end if
 
       ! allocate a temporary array for the gather operations.
@@ -181,25 +186,28 @@ contains
       call destroy_gather_type(gt_IC)
 
       call lo2r_one%destroy_comm()
-      if ( l_finite_diff ) then
+      if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          call r2lo_one%destroy_comm()
-      end if
-      if ( l_heat ) then
-         call lo2r_s%destroy_comm()
-         call r2lo_s%destroy_comm()
-      end if
-      if ( l_chemical_conv ) then
-         call lo2r_xi%destroy_comm()
-         call r2lo_xi%destroy_comm()
-      end if
-      if ( l_conv .or. l_mag_kin) then
          call lo2r_flow%destroy_comm()
          call r2lo_flow%destroy_comm()
-         call lo2r_press%destroy_comm()
-      end if
-      if ( l_mag ) then
-         call lo2r_field%destroy_comm()
-         call r2lo_field%destroy_comm()
+      else
+         if ( l_heat ) then
+            call lo2r_s%destroy_comm()
+            call r2lo_s%destroy_comm()
+         end if
+         if ( l_chemical_conv ) then
+            call lo2r_xi%destroy_comm()
+            call r2lo_xi%destroy_comm()
+         end if
+         if ( l_conv .or. l_mag_kin) then
+            call lo2r_flow%destroy_comm()
+            call r2lo_flow%destroy_comm()
+            call lo2r_press%destroy_comm()
+         end if
+         if ( l_mag ) then
+            call lo2r_field%destroy_comm()
+            call r2lo_field%destroy_comm()
+         end if
       end if
 
       deallocate( temp_gather_lo )

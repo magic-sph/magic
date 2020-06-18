@@ -887,19 +887,15 @@ contains
 
       call comm_counter%start_count()
       if ( l_Rloc ) then
-         if ( l_heat ) then
-            call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
-            if ( lHTCalc ) then
-               call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
-                    &           rscheme_oc)
-            end if
+         call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
+         if ( l_heat .and. lHTCalc ) then
+            call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                 &           rscheme_oc)
          end if
          if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
          if ( l_conv .or. l_mag_kin ) then
-            call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
             call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                  &            n_r_max, rscheme_oc)
-            call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
             call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                  &           rscheme_oc)
          end if
@@ -909,10 +905,8 @@ contains
                  &           rscheme_oc)
          end if
          if ( l_mag ) then
-            call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
             call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                  &            n_r_max, rscheme_oc)
-            call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
             call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                  &           rscheme_oc)
          end if
@@ -952,20 +946,15 @@ contains
 
       call comm_counter%start_count()
       if ( lRloc ) then
+         call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
+              &                     dflowdt_LMloc_container(:,:,:,istage))
          if ( l_conv .or. l_mag_kin ) then
-            call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
-            call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
             if ( .not. l_double_curl ) then
                call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
             end if
          end if
-         if ( l_heat ) call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
          if ( l_chemical_conv ) then
             call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
-         end if
-         if ( l_mag ) then
-            call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
-            call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
          end if
       else
          if ( l_conv .or. l_mag_kin ) then

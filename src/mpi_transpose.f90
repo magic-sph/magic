@@ -282,7 +282,7 @@ contains
 
       !-- Local variables
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: n_r, l, m, n_f, lm
+      integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
 
 #ifdef WITH_MPI
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
@@ -290,20 +290,21 @@ contains
            &             MPI_COMM_WORLD, ierr)
 #endif
 
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
+
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(n_f,n_r,lm,l,m)
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l = st_map%lm2l(lm)
                   m = st_map%lm2m(lm)
                   arr_Rloc(lm,n_r,n_f)=temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
-         !$omp end parallel do
       else
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
@@ -314,6 +315,7 @@ contains
             end do
          end do
       end if
+      !$omp end parallel
 
    end subroutine transp_lm2r_alltoallw
 !----------------------------------------------------------------------------------
@@ -419,22 +421,22 @@ contains
 
       !-- Local variables
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: n_r, l, m, n_f, lm
+      integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
 
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(n_f,n_r,lm,l,m)
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
-         !$omp end parallel do 
       else
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
@@ -445,6 +447,7 @@ contains
             end do
          end do
       end if
+      !$omp end parallel
 
 #ifdef WITH_MPI
       call MPI_Alltoallw(temp_Rloc, this%counts, this%disp, this%stype, &
