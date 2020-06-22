@@ -12,14 +12,14 @@ module communications
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_double_curl, l_save_out
+       &            l_mag_kin, l_double_curl, l_save_out, l_packed_transp
    use useful, only: abortRun
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
    use charmanip, only: capitalize
-   use num_param, only: mpi_transp
+   use num_param, only: mpi_transp, mpi_packing
    use mpi_transp, only: type_mpitransp
 
    implicit none
@@ -66,7 +66,8 @@ contains
    subroutine initialize_communications
 
       integer(lip) :: local_bytes_used
-      integer :: idx
+      real(cp) :: minTime, minTime5, minTime1
+      integer :: idx, idx5, idx1, n, n_out
 
       local_bytes_used=bytes_allocated
 
@@ -74,9 +75,30 @@ contains
       call create_gather_type(gt_IC,n_r_ic_max)
 
       call capitalize(mpi_transp)
-      if ( index(mpi_transp, 'AUTO') /= 0 ) then
-         call find_faster_comm(idx, 5)
+      call capitalize(mpi_packing)
+      if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'AUTO') /= 0 ) then
+         call find_faster_comm(idx5, minTime5, 5)
+         call find_faster_comm(idx1, minTime1, 1)
+         minTime5 = minTime5/5
+         if ( minTime5 <= minTime1 ) then
+            idx = idx5
+            l_packed_transp=.true.
+         else
+            idx = idx1
+            l_packed_transp=.false.
+         end if
+      else if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'SINGLE') /= 0 ) then
+         call find_faster_comm(idx, minTime, 1)
+         l_packed_transp=.false.
+      else if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'PACKED') /= 0 ) then
+         call find_faster_comm(idx, minTime, 5)
+         l_packed_transp=.true.
       else
+         if ( index(mpi_packing, 'SINGLE') /= 0 ) then
+            l_packed_transp=.false.
+         else
+            l_packed_transp=.true.
+         end if
          if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
          &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
             idx = 1
@@ -91,6 +113,34 @@ contains
          &         index(mpi_transp, 'ALL-TO-ALLW') /= 0 ) then
             idx = 3
          end if
+      end if
+
+      if ( rank == 0 ) then
+         do n=1,2
+            if ( n==1 ) then
+               n_out = n_log_file
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+            else
+               n_out = output_unit
+            end if
+            if ( l_packed_transp ) then
+               write(n_out,*) '! -> I pack some fields for the MPI transposes'
+            else
+               write(n_out,*) '! -> I transpose each field individually'
+            end if
+            if ( idx == 1 ) then
+               write(n_out,*) '! -> I choose isend/irecv/waitall'
+            else if ( idx == 2 ) then
+               write(n_out,*) '! -> I choose alltoallv'
+            else if ( idx == 3 ) then
+               write(n_out,*) '! -> I choose alltoallw'
+            end if
+            write(n_out,*)
+            if ( n==1 .and. l_save_out ) close(n_log_file)
+         end do
       end if
 
       !call find_faster_block(idx)
@@ -133,38 +183,43 @@ contains
          allocate( type_mpiatoaw :: lo2r_press )
       end if
 
-      call lo2r_one%create_comm(1)
-      if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
-         call r2lo_one%create_comm(1)
-         if ( l_mag ) then
-            call lo2r_flow%create_comm(5)
-            call r2lo_flow%create_comm(5)
-         else
-            call lo2r_flow%create_comm(3)
-            call r2lo_flow%create_comm(3)
-         end if
-      else
-         if ( l_heat ) then
-            call lo2r_s%create_comm(2)
-            call r2lo_s%create_comm(2)
-         end if
-         if ( l_chemical_conv ) then
-            call lo2r_xi%create_comm(2)
-            call r2lo_xi%create_comm(2)
-         end if
-         if ( l_conv .or. l_mag_kin) then
-            call lo2r_flow%create_comm(5)
-            call lo2r_press%create_comm(2)
-            if ( l_double_curl ) then
-               call r2lo_flow%create_comm(4)
+      if ( l_packed_transp ) then
+         call lo2r_one%create_comm(1)
+         if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
+            call r2lo_one%create_comm(1)
+            if ( l_mag ) then
+               call lo2r_flow%create_comm(5)
+               call r2lo_flow%create_comm(5)
             else
+               call lo2r_flow%create_comm(3)
                call r2lo_flow%create_comm(3)
             end if
+         else
+            if ( l_heat ) then
+               call lo2r_s%create_comm(2)
+               call r2lo_s%create_comm(2)
+            end if
+            if ( l_chemical_conv ) then
+               call lo2r_xi%create_comm(2)
+               call r2lo_xi%create_comm(2)
+            end if
+            if ( l_conv .or. l_mag_kin) then
+               call lo2r_flow%create_comm(5)
+               call lo2r_press%create_comm(2)
+               if ( l_double_curl ) then
+                  call r2lo_flow%create_comm(4)
+               else
+                  call r2lo_flow%create_comm(3)
+               end if
+            end if
+            if ( l_mag ) then
+               call lo2r_field%create_comm(5)
+               call r2lo_field%create_comm(3)
+            end if
          end if
-         if ( l_mag ) then
-            call lo2r_field%create_comm(5)
-            call r2lo_field%create_comm(3)
-         end if
+      else
+         call lo2r_one%create_comm(1)
+         call r2lo_one%create_comm(1)
       end if
 
       ! allocate a temporary array for the gather operations.
@@ -185,29 +240,34 @@ contains
       call destroy_gather_type(gt_OC)
       call destroy_gather_type(gt_IC)
 
-      call lo2r_one%destroy_comm()
-      if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
-         call r2lo_one%destroy_comm()
-         call lo2r_flow%destroy_comm()
-         call r2lo_flow%destroy_comm()
-      else
-         if ( l_heat ) then
-            call lo2r_s%destroy_comm()
-            call r2lo_s%destroy_comm()
-         end if
-         if ( l_chemical_conv ) then
-            call lo2r_xi%destroy_comm()
-            call r2lo_xi%destroy_comm()
-         end if
-         if ( l_conv .or. l_mag_kin) then
+      if ( l_packed_transp ) then
+         call lo2r_one%destroy_comm()
+         if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
+            call r2lo_one%destroy_comm()
             call lo2r_flow%destroy_comm()
             call r2lo_flow%destroy_comm()
-            call lo2r_press%destroy_comm()
+         else
+            if ( l_heat ) then
+               call lo2r_s%destroy_comm()
+               call r2lo_s%destroy_comm()
+            end if
+            if ( l_chemical_conv ) then
+               call lo2r_xi%destroy_comm()
+               call r2lo_xi%destroy_comm()
+            end if
+            if ( l_conv .or. l_mag_kin) then
+               call lo2r_flow%destroy_comm()
+               call r2lo_flow%destroy_comm()
+               call lo2r_press%destroy_comm()
+            end if
+            if ( l_mag ) then
+               call lo2r_field%destroy_comm()
+               call r2lo_field%destroy_comm()
+            end if
          end if
-         if ( l_mag ) then
-            call lo2r_field%destroy_comm()
-            call r2lo_field%destroy_comm()
-         end if
+      else
+         call lo2r_one%destroy_comm()
+         call r2lo_one%destroy_comm()
       end if
 
       deallocate( temp_gather_lo )
@@ -793,7 +853,7 @@ contains
 
    end subroutine find_faster_block
 !-------------------------------------------------------------------------------
-   subroutine find_faster_comm(idx,n_fields)
+   subroutine find_faster_comm(idx,minTime,n_fields)
       !
       ! This subroutine tests the two MPI transposition strategies and
       ! selects the fastest one.
@@ -803,7 +863,8 @@ contains
       integer, intent(in) :: n_fields
 
       !-- Output variable:
-      integer, intent(out) :: idx
+      integer,  intent(out) :: idx
+      real(cp), intent(out) :: minTime
 
 #ifdef WITH_MPI
       !-- Local variables
@@ -830,11 +891,13 @@ contains
       !-- Try the all-to-allv strategy (10 back and forth transposes)
       allocate( type_mpiatoav :: lo2r_test )
       call lo2r_test%create_comm(n_fields)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
       end do
       tStop = MPI_Wtime()
       tAlltoAllv = tStop-tStart
@@ -844,11 +907,13 @@ contains
       !-- Try the point-to-point strategy (10 back and forth transposes)
       allocate( type_mpiptop :: lo2r_test )
       call lo2r_test%create_comm(n_fields)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
       end do
       tStop = MPI_Wtime()
       tPointtoPoint = tStop-tStart
@@ -858,11 +923,13 @@ contains
       !-- Try the all-to-allw strategy (10 back and forth transposes)
       allocate( type_mpiatoaw :: lo2r_test )
       call lo2r_test%create_comm(n_fields)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       tStart = MPI_Wtime()
       do n_t=1,n_transp
-         call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
       end do
       tStop = MPI_Wtime()
       tAlltoAllw = tStop-tStart
@@ -883,9 +950,10 @@ contains
 
          !-- Determine the fastest
          ind = minloc(timers)
+         minTime = minval(timers)
          idx = ind(1)
 
-         do n=2,2
+         do n=1,2
             if ( n==1 ) then
                n_out = n_log_file
                if ( l_save_out ) open(newunit=n_log_file, file=log_file, &
@@ -894,7 +962,14 @@ contains
                n_out = output_unit
             end if
             write(n_out,*)
-            write(n_out,*) '! MPI transpose strategy :'
+            if ( n_fields == 1 ) then
+               write(message,'('' ! MPI transpose strategy for '', I1,'' field'')') &
+               &     n_fields
+            else
+               write(message,'('' ! MPI transpose strategy for '', I1,'' fields'')') &
+               &     n_fields
+            end if
+            write(n_out,'(A80)') message
             write(message,'('' ! isend/irecv/waitall communicator='', &
             &               ES10.3, '' s'')') timers(1)
             write(n_out,'(A80)') message
@@ -905,23 +980,16 @@ contains
             &               ES10.3, '' s'')') timers(3)
             write(n_out,'(A80)') message
 
-            if ( idx == 1 ) then
-               write(n_out,*) '! -> I choose isend/irecv/waitall'
-            else if ( idx == 2 ) then
-               write(n_out,*) '! -> I choose alltoallv'
-            else if ( idx == 3 ) then
-               write(n_out,*) '! -> I choose alltoallw'
-            end if
-            write(n_out,*)
-
             if ( n==1 .and. l_save_out ) close(n_log_file)
          end do
 
       end if
 
       call MPI_Bcast(idx,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(minTime,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #else
       idx=1  ! In that case it does not matter
+      minTime=0.0_cp
 #endif
 
    end subroutine find_faster_comm

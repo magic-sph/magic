@@ -29,7 +29,8 @@ module step_time_mod
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
-       &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix
+       &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
+       &            l_packed_transp
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
@@ -886,44 +887,102 @@ contains
       type(timer_type), intent(inout) :: comm_counter
 
       call comm_counter%start_count()
-      if ( l_Rloc ) then
-         call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
-         if ( l_heat .and. lHTCalc ) then
-            call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
-                 &           rscheme_oc)
-         end if
-         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-         if ( l_conv .or. l_mag_kin ) then
-            call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
-                 &            n_r_max, rscheme_oc)
-            call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
-                 &           rscheme_oc)
-         end if
-         if ( lPressCalc ) then
-            call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
-            call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
-                 &           rscheme_oc)
-         end if
-         if ( l_mag ) then
-            call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
-                 &            n_r_max, rscheme_oc)
-            call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
-                 &           rscheme_oc)
+      if ( l_packed_transp ) then
+         if ( l_Rloc ) then
+            call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
+            if ( l_heat .and. lHTCalc ) then
+               call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+            if ( l_conv .or. l_mag_kin ) then
+               call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+               call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( l_mag ) then
+               call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+         else
+            if ( l_heat ) then
+               call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+               if ( lHTCalc ) call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
+            end if
+            if ( l_mag ) then
+               call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
+            end if
          end if
       else
-         if ( l_heat ) then
-            call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
-            if ( lHTCalc ) call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
-         end if
-         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-         if ( l_conv .or. l_mag_kin ) then
-            call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
-         end if
-         if ( lPressCalc ) then
-            call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
-         end if
-         if ( l_mag ) then
-            call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
+         if ( l_Rloc ) then
+            if ( l_heat ) then
+               call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+               if ( lHTCalc ) then
+                  call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                       &           rscheme_oc)
+               end if
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
+               call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
+               call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+               call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( l_mag ) then
+               call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
+               call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+               call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+         else
+            if ( l_heat ) then
+               call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+               if ( lHTCalc ) call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
+               call lo2r_one%transp_lm2r(dw_LMloc, dw_Rloc)
+               call lo2r_one%transp_lm2r(ddw_LMloc, ddw_Rloc)
+               call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
+               call lo2r_one%transp_lm2r(dz_LMloc, dz_Rloc)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+               call lo2r_one%transp_lm2r(dp_LMloc, dp_Rloc)
+            end if
+            if ( l_mag ) then
+               call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
+               call lo2r_one%transp_lm2r(db_LMloc, db_Rloc)
+               call lo2r_one%transp_lm2r(ddb_LMloc, ddb_Rloc)
+               call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+               call lo2r_one%transp_lm2r(dj_LMloc, dj_Rloc)
+            end if
          end if
       end if
       call comm_counter%stop_count(l_increment=.false.)
@@ -945,33 +1004,75 @@ contains
       if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
 
       call comm_counter%start_count()
-      if ( lRloc ) then
-         call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
-              &                     dflowdt_LMloc_container(:,:,:,istage))
-         if ( l_conv .or. l_mag_kin ) then
-            if ( .not. l_double_curl ) then
-               call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+      if ( l_packed_transp ) then
+         if ( lRloc ) then
+            call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
+                 &                     dflowdt_LMloc_container(:,:,:,istage))
+            if ( l_conv .or. l_mag_kin ) then
+               if ( .not. l_double_curl ) then
+                  call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+               end if
+            end if
+            if ( l_chemical_conv ) then
+               call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
+            end if
+         else
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
+                    &                     dflowdt_LMloc_container(:,:,:,istage))
+            end if
+            if ( l_heat ) then
+               call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
+                    &                  dsdt_LMloc_container(:,:,:,istage))
+            end if
+            if ( l_chemical_conv ) then
+               call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
+                    &                   dxidt_LMloc_container(:,:,:,istage))
+            end if
+            if ( l_mag ) then
+               call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
+                    &                      dbdt_LMloc_container(:,:,:,istage))
             end if
          end if
-         if ( l_chemical_conv ) then
-            call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
-         end if
       else
-         if ( l_conv .or. l_mag_kin ) then
-            call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
-                 &                     dflowdt_LMloc_container(:,:,:,istage))
-         end if
-         if ( l_heat ) then
-            call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
-                 &                  dsdt_LMloc_container(:,:,:,istage))
-         end if
-         if ( l_chemical_conv ) then
-            call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
-                 &                   dxidt_LMloc_container(:,:,:,istage))
-         end if
-         if ( l_mag ) then
-            call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
-                 &                      dbdt_LMloc_container(:,:,:,istage))
+         if ( lRloc ) then
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
+               if ( .not. l_double_curl ) then
+                  call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+               end if
+            end if
+            if ( l_heat ) call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
+            if ( l_chemical_conv ) then
+               call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
+            end if
+            if ( l_mag ) then
+               call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
+            end if
+         else
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+               if ( l_double_curl ) then
+                  call r2lo_one%transp_r2lm(dVxVhLM_Rloc,dVxVhLM_LMloc(:,:,istage))
+               end if
+            end if
+            if ( l_heat ) then
+               call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(dVSrLM_Rloc,dVSrLM_LMloc(:,:,istage))
+            end if
+            if ( l_chemical_conv ) then
+               call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(dVXirLM_Rloc,dVXirLM_LMloc(:,:,istage))
+            end if
+            if ( l_mag ) then
+               call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
+               call r2lo_one%transp_r2lm(dVxBhLM_Rloc,dVxBhLM_LMloc(:,:,istage))
+            end if
          end if
       end if
       call comm_counter%stop_count()

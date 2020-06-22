@@ -75,7 +75,7 @@ contains
       &    runHours,runMinutes,runSeconds,map_function,     &
       &    cacheblock_size_in_B,anelastic_flavour,          &
       &    radial_scheme,polo_flow_eq, time_scheme,         &
-      &    mpi_transp,l_adv_curl
+      &    mpi_transp,l_adv_curl,mpi_packing
 
       namelist/phys_param/                                      &
       &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,    &
@@ -877,6 +877,8 @@ contains
       write(n_out,*) "anelastic_flavour= """,anelastic_flavour(1:length),""","
       length=length_to_blank(mpi_transp)
       write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
+      length=length_to_blank(mpi_packing)
+      write(n_out,*) " mpi_packing     = """,mpi_packing(1:length),""","
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
@@ -1236,7 +1238,8 @@ contains
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
       time_scheme   ="CNAB2"   
-      mpi_transp    ="AUTO" ! automatic detection of the MPI strategy
+      mpi_transp    ="AUTO"   ! automatic detection of the MPI strategy
+      mpi_packing   ="PACKED" ! automatic detection of the MPI packing ('SINGLE','PACKED')
 
       cacheblock_size_in_B=4096
 

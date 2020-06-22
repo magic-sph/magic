@@ -92,5 +92,6 @@ module logic
    logical :: l_full_sphere ! Set to .true. if this is a full sphere calculation
    logical :: l_var_l ! When set to .true., degree varies with radius
    logical :: l_bridge_step ! Used to bridge missing steps when changing the time integrator
+   logical :: l_packed_transp ! Pack or don't pack MPI transposes
 
 end module logic
