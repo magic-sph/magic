@@ -180,7 +180,7 @@ contains
       !--- Various stuff for time control:
       real(cp) :: timeLast, timeStage, dtLast
       integer :: n_time_steps_go
-      logical :: l_finish_exp_early
+      logical :: l_finish_exp_early, l_last_RMS
       logical :: l_new_dt         ! causes call of matbuild !
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
@@ -197,6 +197,7 @@ contains
 
       run_time_passed=0.0_cp
       l_log       =.false.
+      l_last_RMS  = l_RMS
       l_stop_time =.false.
       l_new_dt    =.true.   ! Invokes calculation of t-step matrices
       lMatNext    =.true.
@@ -295,13 +296,21 @@ contains
                  &             MPI_COMM_WORLD, ierr)
 #endif
             if ( tTot > run_time_limit ) then
-               write(message,'("! Run time limit exeeded !")')
-               call logWrite(message)
+               if ( .not. l_last_RMS ) then
+                  write(message,'("! Run time limit exeeded !")')
+                  call logWrite(message)
+               end if
                l_stop_time=.true.
             end if
+
          end if
-         if ( (n_stop_signal > 0) .or. (n_time_step == n_time_steps_go) ) then
+         !-- Handle an extra iteration in case RMS outputs are requested
+         if ( (n_stop_signal > 0) .or. (l_RMS .and. (.not. l_last_RMS)) ) then
             l_stop_time=.true.   ! last time step !
+         end if
+         if ( n_time_step == n_time_steps_go ) then
+            l_stop_time=.true.   ! last time step !
+            l_last_RMS =.false.
          end if
 
          !--- Another reasons to stop the time integration:
@@ -405,6 +414,17 @@ contains
          lRmsNext=l_RMS .and. l_logNext ! Used for storing in update routines !
 
          if ( n_time_step == 1 ) l_log=.true.
+
+         !-- Compute one more iteration to properly terminate computations of
+         !-- viscosity and pressure in the FD setup
+         if ( l_last_RMS .and. l_stop_time ) then
+            lRmsNext   =.true.
+            l_logNext  =.true.
+            l_last_RMS =.false.
+            lRmsCalc   =.false.
+            l_dtB      =.false.
+            l_stop_time=.false.
+         end if
 
          if ( l_stop_time ) then                  ! Programm stopped by kill -30
             l_new_rst_file=.true.                 ! Write rst-file and some
