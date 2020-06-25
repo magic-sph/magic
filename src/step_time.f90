@@ -525,7 +525,7 @@ contains
                !-- Rloc to Mloc transposes
                !----------------
                call transp_Rloc_to_LMloc(comm_counter,tscheme%istage, &
-                    &                    l_finish_exp_early)
+                    &                    l_finish_exp_early, lPressNext)
 
 
                !------ Nonlinear magnetic boundary conditions:
@@ -989,13 +989,14 @@ contains
 
    end subroutine transp_LMloc_to_Rloc
 !--------------------------------------------------------------------------------
-   subroutine transp_Rloc_to_LMloc(comm_counter, istage, lRloc)
+   subroutine transp_Rloc_to_LMloc(comm_counter, istage, lRloc, lPressNext)
       !
       !- MPI transposition from r-distributed to LM-distributed
       !
 
       !-- Input variable
       logical, intent(in) :: lRloc
+      logical, intent(in) :: lPressNext
       integer, intent(in) :: istage
 
       !-- Output variable
@@ -1009,7 +1010,7 @@ contains
             call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
                  &                     dflowdt_LMloc_container(:,:,:,istage))
             if ( l_conv .or. l_mag_kin ) then
-               if ( .not. l_double_curl ) then
+               if ( .not. l_double_curl .or. lPressNext ) then
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
                end if
             end if
@@ -1039,7 +1040,7 @@ contains
             if ( l_conv .or. l_mag_kin ) then
                call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
-               if ( .not. l_double_curl ) then
+               if ( .not. l_double_curl .or. lPressNext ) then
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
                end if
             end if
