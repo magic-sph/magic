@@ -1474,7 +1474,7 @@ contains
                &    n_field_type == 94 .or. n_field_type == 95 .or. &
                &    n_field_type == 96 .or. n_field_type == 97 .or. &
                &    n_field_type == 98 .or. n_field_type == 99 .or. &
-               &    n_field_type == 19 ) then
+               &    n_field_type == 19 .or. n_field_type == 8 ) then
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
