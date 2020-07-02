@@ -135,9 +135,7 @@ contains
       !-- Local variable
       integer :: lm
 
-#ifdef WITH_SHTNS
       !$omp parallel do private(lm)
-#endif
       do lm=1,lmP_max
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
@@ -179,9 +177,7 @@ contains
             if ( l_adv_curl ) this%dpkindrLM(lm)=zero
          end if
       end do
-#ifdef WITH_SHTNS
       !$omp end parallel do
-#endif
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
@@ -234,9 +230,6 @@ contains
       complex(cp) :: Buo_xi(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
       complex(cp) :: dsdt_loc
-#ifndef WITH_SHTNS
-      complex(cp) :: dxidt_loc
-#endif
 
       integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 
@@ -785,7 +778,6 @@ contains
             end if
             dsdt(1)=dsdt_loc
 
-#ifdef WITH_SHTNS
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l,m)
             do lm=2,lm_max
                l   =lm2l(lm)
@@ -813,59 +805,6 @@ contains
                dsdt(lm) = dsdt_loc
             end do
             !$omp end parallel do
-#else
-            !PERFON('td_heat')
-            !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS) &
-            !$omp private(lmPA,dsdt_loc)
-            !LIKWID_ON('td_heat')
-            do lm=2,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)
-               lmPA=lmP2lmPA(lmP)
-               !------ This is horizontal heat advection:
-               !PERFON('td_h1')
-
-               if ( l > m ) then
-                  dsdt_loc= -dTheta1S(lm)*this%VStLM(lmPS) &
-                  &         +dTheta1A(lm)*this%VStLM(lmPA) &
-                  &         -dPhi(lm)*this%VSpLM(lmP)
-               else if ( l == m ) then
-                  dsdt_loc=  dTheta1A(lm)*this%VStLM(lmPA) &
-                  &          -dPhi(lm)*this%VSpLM(lmP)
-               end if
-               !PERFOFF
-               !PERFON('td_h2')
-               if ( l_anel ) then
-                  if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
-                     &          temp0(nR)*this%ViscHeatLM(lmP)
-                     if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m))*&
-                        &          temp0(nR)*this%OhmLossLM(lmP)
-                     end if
-                  else
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
-                     &          this%ViscHeatLM(lmP)
-                     if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m))* &
-                        &          this%OhmLossLM(lmP)
-                     end if
-                  end if
-               end if
-               !PERFOFF
-               !-----   simplified form for linear onset !
-               !        not ds not saved in the current program form!
-               !                 dsdt(lm)=
-               !                    -dLh(lm)*w(lm,nR)*or2(nR)*dsR(1)
-               dVSrLM(lm)=this%VSrLM(lmP)
-               dsdt(lm) = dsdt_loc
-            end do
-            !LIKWID_OFF('td_heat')
-            !$omp end parallel do
-            !PERFOFF
-#endif
          else
             do lm=2,lm_max
                dsdt(lm)  =0.0_cp
@@ -877,7 +816,6 @@ contains
             dVXirLM(1)=this%VXirLM(1)
             dxidt(1)  =epscXi
 
-#ifdef WITH_SHTNS
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=2,lm_max
                lmP=lm2lmP(lm)
@@ -885,35 +823,11 @@ contains
                dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
             end do
             !$omp end parallel do
-#else
-            !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS) &
-            !$omp private(lmPA,dxidt_loc)
-            do lm=2,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)
-               lmPA=lmP2lmPA(lmP)
-
-               if ( l > m ) then
-                  dxidt_loc= -dTheta1S(lm)*this%VXitLM(lmPS) &
-                  &          +dTheta1A(lm)*this%VXitLM(lmPA) &
-                  &          -dPhi(lm)*this%VXipLM(lmP)
-               else if ( l == m ) then
-                  dxidt_loc=  dTheta1A(lm)*this%VXitLM(lmPA) &
-                  &          -dPhi(lm)*this%VXipLM(lmP)
-               end if
-               dVXirLM(lm)=this%VXirLM(lmP)
-               dxidt(lm) = dxidt_loc
-            end do
-            !$omp end parallel do
-#endif
          end if
 
          if ( l_mag_nl .or. l_mag_kin  ) then
             !PERFON('td_magnl')
 
-#ifdef WITH_SHTNS
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=1,lm_max
                lmP =lm2lmP(lm)
@@ -922,58 +836,6 @@ contains
                djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lmP)
             end do
             !$omp end parallel do
-#else
-            !$omp parallel do default(shared) private(lm,l,m,lmP,lmPS,lmPA)
-            do lm=1,lm_max
-               if (lm == 1) then
-                  lmP=1
-                  lmPA=lmP2lmPA(lmP)
-                  dVxBhLM(lm)= -r(nR)*r(nR)* dTheta1A(lm)*this%VxBtLM(lmPA)
-                  dbdt(lm)   = -dTheta1A(lm)*this%VxBpLM(lmPA)
-                  djdt(lm)   = zero
-                  cycle
-               end if
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)
-               lmPA=lmP2lmPA(lmP)
-
-               !------- This is the radial part of the dynamo terms \curl(VxB)
-               !PERFON('td_mnl1')
-               if ( l > m ) then
-                  dbdt(lm)=  dTheta1S(lm)*this%VxBpLM(lmPS) &
-                  &         -dTheta1A(lm)*this%VxBpLM(lmPA) &
-                  &         -dPhi(lm)    *this%VxBtLM(lmP)
-               else if ( l == m ) then
-                  dbdt(lm)= -dTheta1A(lm)*this%VxBpLM(lmPA) &
-                  &         -dPhi(lm)    *this%VxBtLM(lmP)
-               end if
-               !PERFOFF
-
-               !------- Radial component of
-               !           \curl\curl(UxB) = \grad\div(UxB) - \laplace(VxB)
-
-               !------- This is the radial part of \laplace (UxB)
-               djdt(lm)=dLh(lm)*or4(nR)*this%VxBrLM(lmP)
-
-               !------- This is r^2 * horizontal divergence of (UxB)
-               !        Radial derivative performed in get_dr_td
-               !PERFON('td_mnl2')
-               if ( l > m ) then
-                  dVxBhLM(lm)=            r(nR)*r(nR)* ( &
-                  &    dTheta1S(lm)*this%VxBtLM(lmPS) -  &
-                  &    dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                  &    dPhi(lm)*this%VxBpLM(lmP)  )
-               else if ( l == m ) then
-                  dVxBhLM(lm)=              r(nR)*r(nR)* ( &
-                  &    - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                  &    dPhi(lm)*this%VxBpLM(lmP)  )
-               end if
-               !PERFOFF
-            end do
-            !$omp end parallel do
-#endif
             !PERFOFF
          else
             if ( l_mag ) then
@@ -989,7 +851,6 @@ contains
          !PERFON('td_bnd')
          if ( l_mag_nl .or. l_mag_kin ) then
 
-#ifdef WITH_SHTNS
             dVxBhLM(1)=zero
             dVSrLM(1) =zero
             !$omp parallel do default(shared) private(lm,lmP)
@@ -999,33 +860,6 @@ contains
                dVSrLM(lm) =zero
             end do
             !$omp end parallel do
-#else
-            !----- Stress free boundary, only nl mag. term for poloidal field needed.
-            !      Because the radial derivative will be taken, this will contribute to
-            !      the other radial grid points.
-            dVxBhLM(1)=zero
-            dVSrLM(1) =zero
-            !$omp parallel do default(shared) private(lm,lmP,l,m,lmPS,lmPA)
-            do lm=2,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)   ! l-1
-               lmPA=lmP2lmPA(lmP)   ! l+1
-               if ( l > m ) then
-                  dVxBhLM(lm)=r(nR)*r(nR)* (               &
-                  &      dTheta1S(lm)*this%VxBtLM(lmPS) -  &
-                  &      dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                  &          dPhi(lm)*this%VxBpLM(lmP)  )
-               else if ( l == m ) then ! (l-1) not allowed !
-                  dVxBhLM(lm)=r(nR)*r(nR)* (               &
-                  &    - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                  &    dPhi(lm)*this%VxBpLM(lmP)  )
-               end if
-               dVSrLM(lm)=zero
-            end do
-            !$omp end parallel do
-#endif
 
          else
             do lm=1,lm_max

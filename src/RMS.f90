@@ -7,8 +7,7 @@ module RMS
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
-       &               lm2m, llm, ulm, llmMag, ulmMag
+   use blocking, only: st_map, lo_map, lm2, lm2m, llm, ulm, llmMag, ulmMag
    use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
@@ -772,18 +771,6 @@ contains
 
       real(cp) :: PdifRms, PdifAsRms, TdifRms, TdifAsRms, TomeRms, TomeAsRms
 
-      !-- For new movie output
-      ! character(len=80) :: fileName
-      ! integer :: nField,nFields,nFieldSize
-      ! integer :: nTheta,nThetaN,nThetaS,nThetaStart
-      ! integer :: nPos, fileHandle
-      ! real(cp) :: dumm(12),rS
-      ! real(cp) :: fOut(n_theta_max*n_r_max)
-      ! real(cp) :: outBlock(nfs)
-      ! character(len=80) :: version
-      ! logical :: lRmsMov
-
-
       !--- Stretching
       call get_dr(PstrLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
            &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,      &
@@ -872,7 +859,6 @@ contains
 #endif
 
       if ( rank == 0 ) then
-
          dtBPolRms  =rInt_R(dtBP_global,r,rscheme_oc)
          dtBPolAsRms=rInt_R(dtBPAs_global,r,rscheme_oc)
          dtBTorRms  =rInt_R(dtBT_global,r,rscheme_oc)
@@ -882,119 +868,6 @@ contains
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)
          dtBTorAsRms=sqrt(dtBTorAsRms/vol_oc)
-
-
-         !-- Output of movie files for axisymmetric toroidal field changes:
-         !   Tstr,Tome,Tdyn=Tstr+Tadv,
-         ! lRmsMov=.false.
-         ! if ( lRmsMov ) then
-
-         !    nFieldSize=n_theta_max*n_r_max
-         !    nFields=7
-         !    fileName='dtTas_mov.'//tag
-         !    open(newunit=fileHandle, file=fileName, status='unknown', &
-         !    &    form='unformatted')
-
-         !    !------ Write header
-         !    version='JW_Movie_Version_2'
-         !    write(fileHandle) version
-         !    dumm(1)=112           ! type of input
-         !    dumm(2)=3             ! marker for constant phi plane
-         !    dumm(3)=0.0_cp          ! surface constant
-         !    dumm(4)=nFields       ! no of fields
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,4)
-
-         !    !------ Define marker for output fields stored in movie field
-         !    dumm(1)=101           ! Field marker for AS Br stretching
-         !    dumm(2)=102           ! Field marker for AS Br dynamo term
-         !    dumm(3)=103           ! Field marker for AS Br diffusion
-         !    dumm(4)=104           ! Field marker for AS Bp stretching
-         !    dumm(5)=105           ! Field marker for AS Bp dynamo term
-         !    dumm(6)=106           ! Field marker for AS Bp omega effect
-         !    dumm(7)=107           ! Field marker for AS Bp diffusion
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,nFields)
-
-         !    !------ Now other info about grid and parameters:
-         !    write(fileHandle) runid        ! run identifier
-         !    dumm( 1)=n_r_max          ! total number of radial points
-         !    dumm( 2)=n_r_max          ! no of radial point in outer core
-         !    dumm( 3)=n_theta_max      ! no. of theta points
-         !    dumm( 4)=n_phi_max        ! no. of phi points
-         !    dumm( 5)=minc             ! imposed symmetry
-         !    dumm( 6)=ra               ! control parameters
-         !    dumm( 7)=ek               ! (for information only)
-         !    dumm( 8)=pr               !      -"-
-         !    dumm( 9)=prmag            !      -"-
-         !    dumm(10)=radratio         ! ratio of inner / outer core
-         !    dumm(11)=tScale           ! timescale
-         !    write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
-         !    write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
-         !    write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
-         !    write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
-
-         !    dumm(1)=1    ! time frame number for movie
-         !    dumm(2)=0.0_cp ! time
-         !    dumm(3)=0.0_cp
-         !    dumm(4)=0.0_cp
-         !    dumm(5)=0.0_cp
-         !    dumm(6)=0.0_cp
-         !    dumm(7)=0.0_cp
-         !    dumm(8)=0.0_cp
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,8)
-
-         !    !------ Loop over different output field:
-         !    do nField=1,nFields
-
-         !       !------ Loop over r and theta:
-         !       do nR=1,n_r_max ! Loop over radial points
-         !          rS=r(nR)
-         !          do n=1,nThetaBs ! Loop over theta blocks
-         !             nThetaStart=(n-1)*sizeThetaB+1
-
-         !             !------ Convert from lm to theta block and store in outBlock:
-         !             if ( nField == 1 ) then
-         !                call get_RAS(PstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 2 ) then
-         !                ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
-         !                call get_RAS(PdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 3 ) then
-         !                ! Note that PdynLM stores PdifLM at this point!
-         !                call get_RAS(PdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 4 ) then
-         !                call get_PASLM(TstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 5 ) then
-         !                call get_PASLM(TdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 6 ) then
-         !                call get_PASLM(TomeLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 7 ) then
-         !                call get_PASLM(TdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             end if
-
-         !             !------ Storage of field in fout for theta block
-         !             do nTheta=1,sizeThetaB,2
-         !                !-- Convert to correct order in theta grid points
-         !                !-- and store of fOut:
-         !                nThetaN=(nThetaStart+nTheta)/2
-         !                nPos=(nR-1)*n_theta_max+nThetaN
-         !                fOut(nPos)=outBlock(nTheta)
-         !                nThetaS=n_theta_max-nThetaN+1
-         !                nPos=(nR-1)*n_theta_max+nThetaS
-         !                fOut(nPos)=outBlock(nTheta+1)
-         !             end do ! Loop over thetas in block
-
-         !          end do ! Loop over theta blocks
-
-         !       end do ! Loop over R
-
-         !       !------ Output of field:
-         !       write(fileHandle) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
-
-         !    end do ! Loop over different fields
-
-         !    close(fileHandle)
-
-         ! end if ! output of mov fields ?
-
       end if
 
       !-- Get dipole dynamo contribution:

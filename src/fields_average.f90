@@ -9,28 +9,20 @@ module fields_average_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc, l_R
-   use blocking,only: sizeThetaB, nThetaBs, lm2, nfs, llm, ulm, llmMag, &
-       &              ulmMag
+   use blocking,only: lm2, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
        &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
-#ifdef WITH_SHTNS
-   use shtns
-#else
-   use horizontal_data, only: Plm, dPlm, dLh
-   use fft, only: fft_thetab
-   use legendre_spec_to_grid, only: leg_scal_to_spat, leg_polsphtor_to_spat
-#endif
+   use sht, only: torpol_to_spat, scal_to_spat
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb, write_Pot
    use spectra, only: spectrum, spectrum_temp
    use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file
-   use leg_helper_mod, only: legPrep
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
@@ -174,17 +166,11 @@ contains
       complex(cp) :: workA_LMloc(llm:ulm,n_r_max)
 
       !----- Fields in grid space:
-      real(cp) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
-      real(cp) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
-      real(cp) :: Sr(nrp,nfs),Prer(nrp,nfs)           ! entropy,pressure
-      real(cp) :: Xir(nrp,nfs)                        ! chemical composition
-
-      !----- Help arrays for fields:
-#ifndef WITH_SHTNS
-      complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
-      complex(cp) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
-      integer :: nThetaB, nThetaStart
-#endif
+      real(cp) :: Br(nlat_padded,n_phi_max),Bt(nlat_padded,n_phi_max)
+      real(cp) :: Bp(nlat_padded,n_phi_max),Vr(nlat_padded,n_phi_max)
+      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max) 
+      real(cp) :: Sr(nlat_padded,n_phi_max),Prer(nlat_padded,n_phi_max)
+      real(cp) :: Xir(nlat_padded,n_phi_max)
 
       !----- Energies of time average field:
       real(cp) :: e_kin_p_ave,e_kin_t_ave
@@ -434,8 +420,7 @@ contains
 
             !----- Write header into graphic file:
             lGraphHeader=.true.
-            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,Xir, &
-                 &        0,sizeThetaB,lGraphHeader)
+            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,Xir,lGraphHeader)
          end if
 
          !-- This will be needed for the inner core
@@ -462,7 +447,6 @@ contains
             end if
 
             if ( rank == 0 ) then
-#ifdef WITH_SHTNS
                if ( l_mag ) then
                   call torpol_to_spat(b_ave_global, db_ave_global, &
                        &              aj_ave_global, Br, Bt, Bp, l_R(nR))
@@ -475,49 +459,7 @@ contains
                   call scal_to_spat(xi_ave_global, Xir, l_R(nR))
                end if
                call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
-               &             Xir, 1, sizeThetaB, lGraphHeader)
-#else
-               if ( l_mag ) then
-                  call legPrep(b_ave_global,db_ave_global,db_ave_global, &
-                       &       aj_ave_global,aj_ave_global,dLh,lm_max,   &
-                       &       l_max,minc,r(nR),.false.,.true.,          &
-                       &       dLhb,bhG,bhC,dLhb,bhG,bhC)
-               end if
-               call legPrep(w_ave_global,dw_ave_global,dw_ave_global, &
-                    &       z_ave_global,z_ave_global,dLh,lm_max,     &
-                    &       l_max,minc,r(nR),.false.,.true.,          &
-                    &       dLhw,vhG,vhC,dLhb,bhG,bhC)
-
-               do nThetaB=1,nThetaBs
-                  nThetaStart=(nThetaB-1)*sizeThetaB+1
-
-                  !-------- Transform to grid space:
-                  call leg_polsphtor_to_spat(.true., nThetaStart, dLhb, bhG, bhC, &
-                       &                     Br, Bt, Bp)
-                  call leg_polsphtor_to_spat(.true., nThetaStart, dLhw, vhG, vhC, &
-                       &                     Vr, Vt, Vp)
-                  call leg_scal_to_spat(nThetaStart, s_ave_global, Sr)
-                  if ( l_chemical_conv ) then
-                     call leg_scal_to_spat(nThetaStart, xi_ave_global, Xir)
-                     if ( .not. l_axi ) call fft_thetab(Xir,1)
-                  end if
-                  call leg_scal_to_spat(nThetaStart, p_ave_global, Prer)
-                  if ( .not. l_axi ) then
-                     call fft_thetab(Br,1)
-                     call fft_thetab(Bp,1)
-                     call fft_thetab(Bt,1)
-                     call fft_thetab(Vr,1)
-                     call fft_thetab(Vt,1)
-                     call fft_thetab(Vp,1)
-                     call fft_thetab(Sr,1)
-                     call fft_thetab(Prer,1)
-                  end if
-
-                  !-------- Graphic output:
-                  call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr,Prer, &
-                       &        Xir,nThetaStart,sizeThetaB,lGraphHeader)
-               end do
-#endif
+               &             Xir, lGraphHeader)
             end if
          end do
 

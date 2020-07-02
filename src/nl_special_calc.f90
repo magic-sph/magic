@@ -5,20 +5,14 @@ module nl_special_calc
    !
 
    use precision_mod
-   use truncation, only: nrp, n_phi_max, l_max, l_maxMag
+   use truncation, only: n_phi_max, l_max, l_maxMag, n_theta_max
    use constants, only: pi, one, two, third, half
    use logic, only: l_mag_nl, l_anelastic_liquid
    use physical_parameters, only: ek, ViscHeatFac, ThExpNb
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
        &                       visc, or4, r, alpha0
-   use blocking, only: sizeThetaB, nfs
-   use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2
-#ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH_axi
-#else
-   use legendre_grid_to_spec, only: legTFAS, legTFAS2
-#endif
+   use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2, gauss
 
    implicit none
 
@@ -30,7 +24,7 @@ module nl_special_calc
 contains
 
    subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,&
-              &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
+              &             uhAS,duhAS,gradsAS,nR)
       !
       !   Calculates axisymmetric contributions of:
       !
@@ -44,77 +38,57 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      integer,  intent(in) :: nThetaStart
-      real(cp), intent(in) :: vt(nrp,nfs),vp(nrp,nfs)
-      real(cp), intent(in) :: dvtdr(nrp,nfs),dvpdr(nrp,nfs)
-      real(cp), intent(in) :: dsdr(nrp,nfs),dsdt(nrp,nfs),dsdp(nrp,nfs)
+      real(cp), intent(in) :: vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dsdr(:,:),dsdt(:,:),dsdp(:,:)
 
       !-- Output variables:
-      real(cp), intent(out) :: uhLMr(l_max+1)
-      real(cp), intent(out) :: duhLMr(l_max+1)
-      real(cp), intent(out) :: gradsLMr(l_max+1)
+      real(cp), intent(out) :: uhAS
+      real(cp), intent(out) :: duhAS
+      real(cp), intent(out) :: gradsAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaB
-      integer :: nPhi
-      real(cp) :: uhAS(nfs),duhAS(nfs),gradsAS(nfs),uh,duh,phiNorm,grads
+      integer :: nTheta,nPhi,nThetaNHS
+      real(cp) :: uh,duh,phiNorm,grads
 
       phiNorm=one/real(n_phi_max,cp)
+      uhAS   =0.0_cp
+      duhAS  =0.0_cp
+      gradsAS=0.0_cp
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared)                     &
-      !$OMP& private(nThetaB, nTheta, nPhi)                 &
-      !$OMP& private(uh, duh, grads)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         uhAS(nThetaB) =0.0_cp
-         duhAS(nThetaB)=0.0_cp
-         gradsAS(nThetaB)=0.0_cp
-         do nPhi=1,n_phi_max
+      !$omp parallel do default(shared)                       &
+      !$omp& private(nTheta, nThetaNHS, nPhi, uh, duh, grads) &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
             uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
-            &             vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+  &
-            &             vp(nPhi,nThetaB)*vp(nPhi,nThetaB)  )
-            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(            &
-            &                    dvtdr(nPhi,nThetaB)*vt(nPhi,nThetaB)-&
-            &    (or1(nR)+beta(nR))*vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+&
-            &                    dvpdr(nPhi,nThetaB)*vp(nPhi,nThetaB)-&
-            &    (or1(nR)+beta(nR))*vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )
+            &             vt(nTheta,nPhi)*vt(nTheta,nPhi)+    &
+            &             vp(nTheta,nPhi)*vp(nTheta,nPhi)  )
+            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(          &
+            &                    dvtdr(nTheta,nPhi)*vt(nTheta,nPhi)-&
+            &    (or1(nR)+beta(nR))*vt(nTheta,nPhi)*vt(nTheta,nPhi)+&
+            &                    dvpdr(nTheta,nPhi)*vp(nTheta,nPhi)-&
+            &    (or1(nR)+beta(nR))*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            grads =  dsdr(nPhi,nThetaB)*dsdr(nPhi,nThetaB)          &
-            &      +or2(nR)*O_sin_theta_E2(nTheta)*(                &
-            &              dsdt(nPhi,nThetaB)*dsdt(nPhi,nThetaB)    &
-            &             +dsdp(nPhi,nThetaB)*dsdp(nPhi,nThetaB) )
+            grads =  dsdr(nTheta,nPhi)*dsdr(nTheta,nPhi)          &
+            &      +or2(nR)*O_sin_theta_E2(nTheta)*(              &
+            &              dsdt(nTheta,nPhi)*dsdt(nTheta,nPhi)    &
+            &             +dsdp(nTheta,nPhi)*dsdp(nTheta,nPhi) )
 
-            uhAS(nThetaB)=uhAS(nThetaB)+sqrt(uh)
+            uhAS=uhAS+phiNorm*gauss(nThetaNHS)*sqrt(uh)
             if (uh /= 0.0_cp) then
-               duhAS(nThetaB)=duhAS(nThetaB)+abs(duh)/sqrt(uh)
+               duhAS=duhAS+phiNorm*gauss(nThetaNHS)*abs(duh)/sqrt(uh)
             end if
-            gradsAS(nThetaB)=gradsAS(nThetaB)+grads
+            gradsAS=gradsAS+phiNorm*gauss(nThetaNHS)*grads
          end do
-         uhAS(nThetaB)=phiNorm*uhAS(nThetaB)
-         duhAS(nThetaB)=phiNorm*duhAS(nThetaB)
-         gradsAS(nThetaB)=phiNorm*gradsAS(nThetaB)
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
-
-      !------ Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi(gradsAS,gradsLMr)
-      call spat_to_SH_axi(uhAS,uhLMr)
-      call spat_to_SH_axi(duhAS,duhLMr)
-#else
-      call legTFAS2(uhLMr,duhLMr,uhAS,duhAS,l_max+1,nThetaStart,sizeThetaB)
-      call legTFAS(gradsLMr,gradsAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+      !$omp end parallel do
 
    end subroutine get_nlBLayers
 !------------------------------------------------------------------------------
-   subroutine get_perpPar(vr,vt,vp,EperpLMr,EparLMr,  &
-              &           EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
+   subroutine get_perpPar(vr,vt,vp,EperpAS,EparAS,EperpaxiAS,EparaxiAS,nR)
       !
       !   Calculates the energies parallel and perpendicular to the rotation axis
       !
@@ -126,108 +100,76 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      integer,  intent(in) :: nThetaStart
-      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
 
       !-- Output variables:
-      real(cp), intent(out) :: EperpLMr(l_max+1),EparLMr(l_max+1)
-      real(cp), intent(out) :: EperpaxiLMr(l_max+1),EparaxiLMr(l_max+1)
+      real(cp), intent(out) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaB,nThetaNHS
-      integer :: nPhi
-      real(cp) :: vras,vtas,vpas,phiNorm
-      real(cp) :: EperpAS(nfs),EparAS(nfs),Eperp,Epar
-      real(cp) :: EperpaxiAS(nfs),EparaxiAS(nfs),Eperpaxi,Eparaxi
+      integer :: nTheta,nPhi,nThetaNHS
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
+      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
 
       phiNorm=one/real(n_phi_max,cp)
+      EperpAS   =0.0_cp
+      EparAS    =0.0_cp
+      EperpaxiAS=0.0_cp
+      EparaxiAS =0.0_cp
+      vras(:)   =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
 
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared)                 &
-      !$OMP& private(nThetaB, nTheta, nPhi)             &
-      !$OMP& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
-      !$OMP& private(vras, vtas, vpas, nThetaNHS)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         nThetaNHS=(nTheta+1)/2
-
-         EperpAS(nThetaB)   =0.0_cp
-         EparAS(nThetaB)    =0.0_cp
-         EperpaxiAS(nThetaB)=0.0_cp
-         EparaxiAS(nThetaB) =0.0_cp
-         Eperp   =0.0_cp
-         Epar    =0.0_cp
-         Eperpaxi=0.0_cp
-         Eparaxi =0.0_cp
-         vras    =0.0_cp
-         vtas    =0.0_cp
-         vpas    =0.0_cp
-
-         do nPhi=1,n_phi_max
-            vras=vras+vr(nPhi,nThetaB)
-            vtas=vtas+vt(nPhi,nThetaB)
-            vpas=vpas+vp(nPhi,nThetaB)
-         end do
-         vras=vras*phiNorm
-         vtas=vtas*phiNorm
-         vpas=vpas*phiNorm
-
-         do nPhi=1,n_phi_max
-            Eperp=half*or2(nR)*orho2(nR)*(                                           &
-            &       or2(nR)*sn2(nThetaNHS)*      vr(nPhi,nThetaB)*vr(nPhi,nThetaB) + &
-            &       (osn2(nThetaNHS)-one)*       vt(nPhi,nThetaB)*vt(nPhi,nThetaB) + &
-            &       two*or1(nR)*cosTheta(nTheta)*vr(nPhi,nThetaB)*vt(nPhi,nThetaB) + &
-            &       osn2(nThetaNHS)*                vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )
-
-            Epar =half*or2(nR)*orho2(nR)*(                                           &
-            &       or2(nR)*(one-sn2(nThetaNHS))*vr(nPhi,nThetaB)*vr(nPhi,nThetaB) + &
-            &                                    vt(nPhi,nThetaB)*vt(nPhi,nThetaB) - &
-            &       two*or1(nR)*cosTheta(nTheta)*vr(nPhi,nThetaB)*vt(nPhi,nThetaB) )
-
-            Eperpaxi=half*or2(nR)*orho2(nR)*(                  &
-            &         or2(nR)*sn2(nThetaNHS)*      vras*vras + &
-            &         (osn2(nThetaNHS)-one)*       vtas*vtas + &
-            &         two*or1(nR)*cosTheta(nTheta)*vras*vtas + &
-            &         osn2(nThetaNHS)*             vpas*vpas )
-
-            Eparaxi =half*or2(nR)*orho2(nR)*(                  &
-            &         or2(nR)*(one-sn2(nThetaNHS))*vras*vras + &
-            &                                      vtas*vtas - &
-            &         two*or1(nR)*cosTheta(nTheta)*vras*vtas )
-
-            EperpAS(nThetaB)   =   EperpAS(nThetaB)+Eperp
-            EparAS(nThetaB)    =    EparAS(nThetaB)+Epar
-            EperpaxiAS(nThetaB)=EperpaxiAS(nThetaB)+Eperpaxi
-            EparaxiAS(nThetaB) = EparaxiAS(nThetaB)+Eparaxi
-         end do
-         EperpAS(nThetaB)   =phiNorm*   EperpAS(nThetaB)
-         EparAS(nThetaB)    =phiNorm*    EparAS(nThetaB)
-         EperpaxiAS(nThetaB)=phiNorm*EperpaxiAS(nThetaB)
-         EparaxiAS(nThetaB) =phiNorm* EparaxiAS(nThetaB)
+      do nPhi=1,n_phi_max
+         vras(:)=vras(:)+vr(1:n_theta_max,nPhi)
+         vtas(:)=vtas(:)+vt(1:n_theta_max,nPhi)
+         vpas(:)=vpas(:)+vp(1:n_theta_max,nPhi)
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
+      vras(:)=vras(:)*phiNorm
+      vtas(:)=vtas(:)*phiNorm
+      vpas(:)=vpas(:)*phiNorm
 
-      !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi(EperpAS, EperpLMr)
-      call spat_to_SH_axi(EparAS, EparLMr)
-      call spat_to_SH_axi(EperpaxiAS, EperpaxiLMr)
-      call spat_to_SH_axi(EparaxiAS, EparaxiLMr)
-#else
-      call legTFAS2(EperpLMr,EparLMr,EperpAS,EparAS,l_max+1,nThetaStart,sizeThetaB)
-      call legTFAS2(EperpaxiLMr,EparaxiLMr,EperpaxiAS,EparaxiAS,l_max+1, &
-           &        nThetaStart,sizeThetaB)
-#endif
+      !$omp parallel do default(shared)                 &
+      !$omp& private(nTheta,nPhi,nThetaNHS)             &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
+      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+
+            Eperp=half*or2(nR)*orho2(nR)*(                                         &
+            &       or2(nR)*sn2(nThetaNHS)*      vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &       (osn2(nThetaNHS)-one)*       vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &       osn2(nThetaNHS)*             vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            Epar =half*or2(nR)*orho2(nR)*(                                         &
+            &       or2(nR)*(one-sn2(nThetaNHS))*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &                                    vt(nTheta,nPhi)*vt(nTheta,nPhi) - &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) )
+
+            Eperpaxi=half*or2(nR)*orho2(nR)*(                                  &
+            &         or2(nR)*sn2(nThetaNHS)*      vras(nTheta)*vras(nTheta) + &
+            &         (osn2(nThetaNHS)-one)*       vtas(nTheta)*vtas(nTheta) + &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
+            &         osn2(nThetaNHS)*             vpas(nTheta)*vpas(nTheta) )
+
+            Eparaxi =half*or2(nR)*orho2(nR)*(                                  &
+            &         or2(nR)*(one-sn2(nThetaNHS))*vras(nTheta)*vras(nTheta) + &
+            &                                      vtas(nTheta)*vtas(nTheta) - &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
+
+            EperpAS   =   EperpAS+phiNorm*gauss(nThetaNHS)*Eperp
+            EparAS    =    EparAS+phiNorm*gauss(nThetaNHS)*Epar
+            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nThetaNHS)*Eperpaxi
+            EparaxiAS = EparaxiAS+phiNorm*gauss(nThetaNHS)*Eparaxi
+         end do
+      end do
+      !$omp end parallel do
 
    end subroutine get_perpPar
 !------------------------------------------------------------------------------
-   subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,        &
-              &          dvrdt,dvrdp,sr,pr,br,bt,bp,cbt,cbp,&
-              &          fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
-              &          fresLMR,nR,nThetaStart)
+   subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
+              &          bp,cbt,cbp,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,nR)
       !
       !   Calculates the fluxes:
       !
@@ -243,142 +185,100 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      integer,  intent(in) :: nThetaStart
-      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
-      real(cp), intent(in) :: dvrdr(nrp,nfs),dvtdr(nrp,nfs),dvpdr(nrp,nfs)
-      real(cp), intent(in) :: dvrdt(nrp,nfs),dvrdp(nrp,nfs)
-      real(cp), intent(in) :: sr(nrp,nfs),pr(nrp,nfs)
-      real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
-      real(cp), intent(in) :: cbt(nrp,nfs),cbp(nrp,nfs)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvrdr(:,:),dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: sr(:,:),pr(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: cbt(:,:),cbp(:,:)
 
       !-- Output variables:
-      real(cp), intent(out) :: fkinLMr(l_max+1)
-      real(cp), intent(out) :: fconvLMr(l_max+1)
-      real(cp), intent(out) :: fviscLMr(l_max+1)
-      real(cp), intent(out) :: fresLMr(l_maxMag+1),fpoynLMr(l_maxMag+1)
+      real(cp), intent(out) :: fkinAS,fconvAS,fviscAS
+      real(cp), intent(out) :: fresAS,fpoynAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaB,nThetaNHS
-      integer :: nPhi
-      real(cp) :: fkinAS(nfs),fconvAS(nfs),fkin,fconv,phiNorm
-      real(cp) :: fviscAS(nfs),fvisc
-      real(cp) :: fpoynAS(nfs),fresAS(nfs),fpoyn,fres
+      integer :: nTheta,nThetaNHS,nPhi
+      real(cp) :: fkin,fconv,phiNorm,fvisc,fpoyn,fres
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared)         &
-      !$OMP& private(nThetaB, nTheta, nPhi)     &
-      !$OMP& private(fkin, fconv, fvisc, nThetaNHS)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         nThetaNHS=(nTheta+1)/2
-         fkinAS(nThetaB) =0.0_cp
-         fconvAS(nThetaB)=0.0_cp
-         fviscAS(nThetaB)=0.0_cp
-         fkin=0.0_cp
-         fconv=0.0_cp
-         fvisc=0.0_cp
-         do nPhi=1,n_phi_max
+      fkinAS =0.0_cp
+      fconvAS=0.0_cp
+      fviscAS=0.0_cp
+      fvisc  =0.0_cp
+      !$omp parallel do default(shared)                             &
+      !$omp& private(nTheta, nPhi, nThetaNHS, fconv, fkin, fvisc)   &
+      !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
             if ( l_anelastic_liquid ) then
-               fconv=vr(nPhi,nThetaB)*sr(nPhi,nThetaB)
+               fconv=vr(nTheta,nPhi)*sr(nTheta,nPhi)
             else
-               fconv=temp0(nr)*vr(nPhi,nThetaB)*sr(nPhi,nThetaB)     +    &
-               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)*       &
-               &          orho1(nr)*vr(nPhi,nThetaB)*pr(nPhi,nThetaB)
+               fconv=temp0(nr)*vr(nTheta,nPhi)*sr(nTheta,nPhi)     +    &
+               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)*     &
+               &          orho1(nr)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
             end if
 
-            fkin=half*or2(nR)*orho2(nR)*(osn2(nThetaNHS)*(             &
-            &                  vt(nPhi,nThetaB)*vt(nPhi,nThetaB)  +    &
-            &                  vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )+    &
-            &          or2(nR)*vr(nPhi,nThetaB)*vr(nPhi,nThetaB) )*    &
-            &                             vr(nPhi,nThetaB)
+            fkin=half*or2(nR)*orho2(nR)*(osn2(nThetaNHS)*(           &
+            &                  vt(nTheta,nPhi)*vt(nTheta,nPhi)  +    &
+            &                  vp(nTheta,nPhi)*vp(nTheta,nPhi) )+    &
+            &          or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) )*    &
+            &                             vr(nTheta,nPhi)
 
             if ( nR/=n_r_icb .and. nR/=n_r_cmb ) then
-               fvisc=-two*visc(nR)*orho1(nR)*vr(nPhi,nThetaB)*or2(nR)* (     &
-               &                             dvrdr(nPhi,nThetaB)             &
-               & -(two*or1(nR)+two*third*beta(nR))*vr(nPhi,nThetaB) )-       &
-               &                       visc(nR)*orho1(nR)*vt(nPhi,nThetaB)*  &
-               &                            osn2(nThetaNHS)* (               &
-               &                       or2(nR)*dvrdt(nPhi,nThetaB)           &
-               &                              +dvtdr(nPhi,nThetaB)           &
-               &       -(two*or1(nR)+beta(nR))*vt(nPhi,nThetaB) )  -         &
-               &       visc(nR)*orho1(nR)*vp(nPhi,nThetaB)*                  &
-               &                               osn2(nThetaNHS)* (            &
-               &                       or2(nR)*dvrdp(nPhi,nThetaB)           &
-               &                              +dvpdr(nPhi,nThetaB)           &
-               &       -(two*or1(nR)+beta(nR))*vp(nPhi,nThetaB) )
+               fvisc=-two*visc(nR)*orho1(nR)*vr(nTheta,nPhi)*or2(nR)* (     &
+               &                             dvrdr(nTheta,nPhi)             &
+               & -(two*or1(nR)+two*third*beta(nR))*vr(nTheta,nPhi) )-       &
+               &                       visc(nR)*orho1(nR)*vt(nTheta,nPhi)*  &
+               &                            osn2(nThetaNHS)* (              &
+               &                       or2(nR)*dvrdt(nTheta,nPhi)           &
+               &                              +dvtdr(nTheta,nPhi)           &
+               &       -(two*or1(nR)+beta(nR))*vt(nTheta,nPhi) )  -         &
+               &       visc(nR)*orho1(nR)*vp(nTheta,nPhi)*                  &
+               &                               osn2(nThetaNHS)* (           &
+               &                       or2(nR)*dvrdp(nTheta,nPhi)           &
+               &                              +dvpdr(nTheta,nPhi)           &
+               &       -(two*or1(nR)+beta(nR))*vp(nTheta,nPhi) )
             end if
 
-            fkinAS(nThetaB) = fkinAS(nThetaB)+fkin
-            fconvAS(nThetaB)=fconvAS(nThetaB)+fconv
-            fviscAS(nThetaB)=fviscAS(nThetaB)+fvisc
+            fkinAS = fkinAS+phiNorm*gauss(nThetaNHS)*fkin
+            fconvAS=fconvAS+phiNorm*gauss(nThetaNHS)*fconv
+            fviscAS=fviscAS+phiNorm*gauss(nThetaNHS)*fvisc
          end do
-         fkinAS(nThetaB) =phiNorm* fkinAS(nThetaB)
-         fconvAS(nThetaB)=phiNorm*fconvAS(nThetaB)
-         fviscAS(nThetaB)=phiNorm*fviscAS(nThetaB)
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
+      !$omp end parallel do
 
       if ( l_mag_nl) then
-#ifdef WITH_SHTNS
-         !$OMP PARALLEL DO default(shared)         &
-         !$OMP& private(nThetaB, nTheta, nPhi)     &
-         !$OMP& private(fkin, fconv, fvisc, nThetaNHS)
-#endif
-         do nThetaB=1,sizeThetaB
-            nTheta=nThetaStart+nThetaB-1
-            nThetaNHS=(nTheta+1)/2
-            fresAS(nThetaB) =0.0_cp
-            fpoynAS(nThetaB)=0.0_cp
-            fres=0.0_cp
-            fpoyn=0.0_cp
-            do nPhi=1,n_phi_max
-                fres =osn2(nThetaNHS)*(                              &
-                &              cbt(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
-                &              cbp(nPhi,nThetaB)*bt(nPhi,nThetaB) )
+         fresAS =0.0_cp
+         fpoynAS=0.0_cp
+         !$omp parallel do default(shared)                      &
+         !$omp& private(nTheta, nPhi, nThetaNHS, fres, fpoyn)   &
+         !$omp& reduction(+:fresAS,fpoynAS)
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               nThetaNHS=(nTheta+1)/2
+               fres =osn2(nThetaNHS)*(                            &
+               &              cbt(nTheta,nPhi)*bp(nTheta,nPhi)  - &
+               &              cbp(nTheta,nPhi)*bt(nTheta,nPhi) )
 
-                fpoyn=-orho1(nR)*or2(nR)*osn2(nThetaNHS)*(                        &
-                &           vp(nPhi,nThetaB)*br(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
-                &           vr(nPhi,nThetaB)*bp(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
-                &           vr(nPhi,nThetaB)*bt(nPhi,nThetaB)*bt(nPhi,nThetaB)  + &
-                &           vt(nPhi,nThetaB)*br(nPhi,nThetaB)*bt(nPhi,nThetaB) )
+               fpoyn=-orho1(nR)*or2(nR)*osn2(nThetaNHS)*(                     &
+               &           vp(nTheta,nPhi)*br(nTheta,nPhi)*bp(nTheta,nPhi)  - &
+               &           vr(nTheta,nPhi)*bp(nTheta,nPhi)*bp(nTheta,nPhi)  - &
+               &           vr(nTheta,nPhi)*bt(nTheta,nPhi)*bt(nTheta,nPhi)  + &
+               &           vt(nTheta,nPhi)*br(nTheta,nPhi)*bt(nTheta,nPhi) )
 
-                fresAS(nThetaB) = fresAS(nThetaB)+fres
-                fpoynAS(nThetaB)=fpoynAS(nThetaB)+fpoyn
+               fresAS = fresAS+phiNorm*gauss(nThetaNHS)*fres
+               fpoynAS=fpoynAS+phiNorm*gauss(nThetaNHS)*fpoyn
             end do
-            fresAS(nThetaB) =phiNorm* fresAS(nThetaB)
-            fpoynAS(nThetaB)=phiNorm*fpoynAS(nThetaB)
          end do
-#ifdef WITH_SHTNS
-         !$OMP END PARALLEL DO
-#endif
-
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi(fresAS,fresLMr)
-      call spat_to_SH_axi(fpoynAS,fpoynLMr)
-#else
-      call legTFAS2(fresLMr,fpoynLMr,fresAS,fpoynAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+         !$omp end parallel do
       end if
-
-      !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi(fviscAS,fviscLMr)
-      call spat_to_SH_axi(fconvAS,fconvLMr)
-      call spat_to_SH_axi(fkinAS,fkinLMr)
-#else
-      call legTFAS(fviscLMr,fviscAS,l_max+1,nThetaStart,sizeThetaB)
-      call legTFAS2(fconvLMr,fkinLMr,fconvAS,fkinAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
 
    end subroutine get_fluxes
 !------------------------------------------------------------------------------
-   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,HelLMr, &
-              &            Hel2LMr,HelnaLMr,Helna2LMr,nR,nThetaStart)
+   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,HelAS, &
+              &            Hel2AS,HelnaAS,Helna2AS,HelEAAS,nR)
       !
       !   Calculates axisymmetric contributions of helicity HelLMr and
       !   helicity**2  Hel2LMr in (l,m=0,r) space.
@@ -386,127 +286,117 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      integer,  intent(in) :: nThetaStart
-      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
-      real(cp), intent(in) :: cvr(nrp,nfs)
-      real(cp), intent(in) :: dvrdt(nrp,nfs),dvrdp(nrp,nfs)
-      real(cp), intent(in) :: dvtdr(nrp,nfs),dvpdr(nrp,nfs)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: cvr(:,:),dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
 
       !-- Output variables:
-      real(cp), intent(out) :: HelLMr(l_max+1)
-      real(cp), intent(out) :: Hel2LMr(l_max+1)
-      real(cp), intent(out) :: HelnaLMr(l_max+1)
-      real(cp), intent(out) :: Helna2LMr(l_max+1)
+      real(cp), intent(out) :: HelAS(2)
+      real(cp), intent(out) :: Hel2AS(2)
+      real(cp), intent(out) :: HelnaAS(2)
+      real(cp), intent(out) :: Helna2AS(2)
+      real(cp), intent(out) :: HelEAAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaB
-      integer :: nPhi
-      real(cp) :: Helna,HelAS(nfs),Hel2AS(nfs)
-      real(cp) :: Hel,HelnaAS(nfs),Helna2AS(nfs),phiNorm
-      real(cp) :: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras
+      integer :: nTheta,nThetaNHS,nPhi
+      real(cp) :: Helna,Hel,phiNorm
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max)
+      real(cp) :: cvras(n_theta_max),dvrdtas(n_theta_max),dvrdpas(n_theta_max)
+      real(cp) :: dvtdras(n_theta_max),dvpdras(n_theta_max)
 
       !-- Remark: 2pi not used the normalization below
       !-- this is why we have a 2pi factor after radial integration
       !-- in the subroutine outHelicity()
       phiNorm=one/real(n_phi_max,cp)
+      HelAS(:)   =0.0_cp
+      Hel2AS(:)  =0.0_cp
+      HelnaAS(:) =0.0_cp
+      Helna2AS(:)=0.0_cp
+      HelEAAS    =0.0_cp
+
+      vras(:)   =0.0_cp
+      cvras(:)  =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+      dvrdpas(:)=0.0_cp
+      dvpdras(:)=0.0_cp
+      dvtdras(:)=0.0_cp
+      dvrdtas(:)=0.0_cp
+      do nPhi=1,n_phi_max
+         vras(:)   =vras(:)   +   vr(1:n_theta_max,nPhi)
+         cvras(:)  =cvras(:)  +  cvr(1:n_theta_max,nPhi)
+         vtas(:)   =vtas(:)   +   vt(1:n_theta_max,nPhi)
+         vpas(:)   =vpas(:)   +   vp(1:n_theta_max,nPhi)
+         dvrdpas(:)=dvrdpas(:)+dvrdp(1:n_theta_max,nPhi)
+         dvpdras(:)=dvpdras(:)+dvpdr(1:n_theta_max,nPhi)
+         dvtdras(:)=dvtdras(:)+dvtdr(1:n_theta_max,nPhi)
+         dvrdtas(:)=dvrdtas(:)+dvrdt(1:n_theta_max,nPhi)
+      end do
+      vras(:)   =vras(:)   *phiNorm
+      cvras(:)  =cvras(:)  *phiNorm
+      vtas(:)   =vtas(:)   *phiNorm
+      vpas(:)   =vpas(:)   *phiNorm
+      dvrdpas(:)=dvrdpas(:)*phiNorm
+      dvpdras(:)=dvpdras(:)*phiNorm
+      dvtdras(:)=dvtdras(:)*phiNorm
+      dvrdtas(:)=dvrdtas(:)*phiNorm
 
       !--- Helicity:
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared)                     &
-      !$OMP& private(nThetaB, nTheta, nPhi)                 &
-      !$OMP& private(Hel, Helna)                            &
-      !$OMP& private(vrna, cvrna, vtna, vpna)               &
-      !$OMP& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         HelAS(nThetaB)   =0.0_cp
-         Hel2AS(nThetaB)  =0.0_cp
-         HelnaAS(nThetaB) =0.0_cp
-         Helna2AS(nThetaB)=0.0_cp
-         vras=0.0_cp
-         cvras=0.0_cp
-         vtas=0.0_cp
-         vpas=0.0_cp
-         dvrdpas=0.0_cp
-         dvpdras=0.0_cp
-         dvtdras=0.0_cp
-         dvrdtas=0.0_cp
-         do nPhi=1,n_phi_max
-            vras=vras+vr(nPhi,nThetaB)
-            cvras=cvras+cvr(nPhi,nThetaB)
-            vtas=vtas+vt(nPhi,nThetaB)
-            vpas=vpas+vp(nPhi,nThetaB)
-            dvrdpas=dvrdpas+dvrdp(nPhi,nThetaB)
-            dvpdras=dvpdras+dvpdr(nPhi,nThetaB)
-            dvtdras=dvtdras+dvtdr(nPhi,nThetaB)
-            dvrdtas=dvrdtas+dvrdt(nPhi,nThetaB)
-         end do
-         vras=vras*phiNorm
-         cvras=cvras*phiNorm
-         vtas=vtas*phiNorm
-         vpas=vpas*phiNorm
-         dvrdpas=dvrdpas*phiNorm
-         dvpdras=dvpdras*phiNorm
-         dvtdras=dvtdras*phiNorm
-         dvrdtas=dvrdtas*phiNorm
-         do nPhi=1,n_phi_max
-            vrna   =   vr(nPhi,nThetaB)-vras
-            cvrna  =  cvr(nPhi,nThetaB)-cvras
-            vtna   =   vt(nPhi,nThetaB)-vtas
-            vpna   =   vp(nPhi,nThetaB)-vpas
-            dvrdpna=dvrdp(nPhi,nThetaB)-dvrdpas
-            dvpdrna=dvpdr(nPhi,nThetaB)-beta(nR)*vp(nPhi,nThetaB) &
-            &       -dvpdras+beta(nR)*vpas
-            dvtdrna=dvtdr(nPhi,nThetaB)-beta(nR)*vt(nPhi,nThetaB) &
-            &       -dvtdras+beta(nR)*vtas
-            dvrdtna=dvrdt(nPhi,nThetaB)-dvrdtas
-            Hel=or4(nR)*orho2(nR)*vr(nPhi,nThetaB)*cvr(nPhi,nThetaB) + &
-            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
-            &                                       vt(nPhi,nThetaB) * &
-            &                          ( or2(nR)*dvrdp(nPhi,nThetaB) - &
-            &                                    dvpdr(nPhi,nThetaB) + &
-            &                         beta(nR)*   vp(nPhi,nThetaB) ) + &
-            &                                       vp(nPhi,nThetaB) * &
-            &                          (         dvtdr(nPhi,nThetaB) - &
-            &                           beta(nR)*   vt(nPhi,nThetaB) - &
-            &                            or2(nR)*dvrdt(nPhi,nThetaB) ) )
+      !$omp parallel do default(shared)                     &
+      !$omp& private(nTheta, nThetaNHS, nPhi, Hel, Helna)   &
+      !$omp& private(vrna, cvrna, vtna, vpna)               &
+      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
+      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS = (nTheta+1)/2
+            vrna   =   vr(nTheta,nPhi)-vras(nTheta)
+            cvrna  =  cvr(nTheta,nPhi)-cvras(nTheta)
+            vtna   =   vt(nTheta,nPhi)-vtas(nTheta)
+            vpna   =   vp(nTheta,nPhi)-vpas(nTheta)
+            dvrdpna=dvrdp(nTheta,nPhi)-dvrdpas(nTheta)
+            dvpdrna=dvpdr(nTheta,nPhi)-beta(nR)*vp(nTheta,nPhi) &
+            &       -dvpdras(nTheta)+beta(nR)*vpas(nTheta)
+            dvtdrna=dvtdr(nTheta,nPhi)-beta(nR)*vt(nTheta,nPhi) &
+            &       -dvtdras(nTheta)+beta(nR)*vtas(nTheta)
+            dvrdtna=dvrdt(nTheta,nPhi)-dvrdtas(nTheta)
+            Hel=or4(nR)*orho2(nR)*vr(nTheta,nPhi)*cvr(nTheta,nPhi) +  &
+            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                                       vt(nTheta,nPhi) * &
+            &                          ( or2(nR)*dvrdp(nTheta,nPhi) - &
+            &                                    dvpdr(nTheta,nPhi) + &
+            &                         beta(nR)*   vp(nTheta,nPhi) ) + &
+            &                                       vp(nTheta,nPhi) * &
+            &                          (         dvtdr(nTheta,nPhi) - &
+            &                           beta(nR)*   vt(nTheta,nPhi) - &
+            &                            or2(nR)*dvrdt(nTheta,nPhi) ) )
             Helna=                      or4(nR)*orho2(nR)*vrna*cvrna + &
             &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
             &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
             &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
-            HelAS(nThetaB)   =HelAS(nThetaB) +Hel
-            Hel2AS(nThetaB)  =Hel2AS(nThetaB)+Hel*Hel
-            HelnaAS(nThetaB) =HelnaAS(nThetaB) +Helna
-            Helna2AS(nThetaB)=Helna2AS(nThetaB)+Helna*Helna
+            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nThetaNHS)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nThetaNHS)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nThetaNHS)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nThetaNHS)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nThetaNHS)*Hel
+            else
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nThetaNHS)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nThetaNHS)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nThetaNHS)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nThetaNHS)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nThetaNHS)*Hel
+            end if
          end do
-         HelAS(nThetaB) =phiNorm*HelAS(nThetaB)
-         Hel2AS(nThetaB)=phiNorm*Hel2AS(nThetaB)
-         HelnaAS(nThetaB) =phiNorm*HelnaAS(nThetaB)
-         Helna2AS(nThetaB)=phiNorm*Helna2AS(nThetaB)
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
-
-      !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi(HelAS, HelLMr)
-      call spat_to_SH_axi(Hel2AS, Hel2LMr)
-      call spat_to_SH_axi(HelnaAS, HelnaLMr)
-      call spat_to_SH_axi(Helna2AS, Helna2LMr)
-#else
-      call legTFAS2(HelLMr,Hel2LMr,HelAS,Hel2AS,l_max+1,nThetaStart,sizeThetaB)
-      call legTFAS2(HelnaLMr,Helna2LMr,HelnaAS,Helna2AS,l_max+1,nThetaStart,&
-           &        sizeThetaB)
-#endif
+      !$omp end parallel do
 
    end subroutine get_helicity
 !------------------------------------------------------------------------------
    subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
-              &             dvtdp,dvpdr,dvpdp,viscLMr,nR,nThetaStart)
+              &             dvtdp,dvpdr,dvpdp,viscAS,nR)
       !
       !   Calculates axisymmetric contributions of the viscous heating
       !
@@ -514,69 +404,56 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      integer,  intent(in) :: nThetaStart
-      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs),cvr(nrp,nfs)
-      real(cp), intent(in) :: dvrdr(nrp,nfs),dvrdt(nrp,nfs),dvrdp(nrp,nfs)
-      real(cp), intent(in) :: dvtdr(nrp,nfs),dvtdp(nrp,nfs)
-      real(cp), intent(in) :: dvpdr(nrp,nfs),dvpdp(nrp,nfs)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),cvr(:,:)
+      real(cp), intent(in) :: dvrdr(:,:),dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvtdp(:,:)
+      real(cp), intent(in) :: dvpdr(:,:),dvpdp(:,:)
 
       !-- Output variables:
-      real(cp), intent(out) :: viscLMr(l_max+1)
+      real(cp), intent(out) :: viscAS
 
       !-- Local variables:
-      integer :: nTheta,nThetaB,nPhi, nThetaNHS
-      real(cp) :: viscAS(nfs),vischeat,csn2, phinorm
+      integer :: nTheta,nPhi,nThetaNHS
+      real(cp) :: vischeat,csn2,phiNorm
 
       phiNorm=two*pi/real(n_phi_max,cp)
+      viscAS=0.0_cp
 
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared)                     &
-      !$OMP& private(nThetaB, nTheta, nPhi)                 &
-      !$OMP& private(vischeat, csn2, nThetaNHS)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         nThetaNHS=(nTheta+1)/2
-         csn2     =cosn2(nThetaNHS)
-         if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+      !$omp parallel do default(shared)                &
+      !$omp& private(nTheta, nThetaNHS, csn2, nPhi)    &
+      !$omp& reduction(+:viscAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+            csn2     =cosn2(nThetaNHS)
+            if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
 
-         viscAS(nThetaB)=0.0_cp
-         do nPhi=1,n_phi_max
-            vischeat=         or2(nR)*orho1(nR)*visc(nR)*(        &
-            &     two*(                     dvrdr(nPhi,nThetaB) - & ! (1)
-            &     (two*or1(nR)+beta(nR))*vr(nphi,nThetaB) )**2  + &
-            &     two*( csn2*                  vt(nPhi,nThetaB) + &
-            &                               dvpdp(nphi,nThetaB) + &
-            &                               dvrdr(nPhi,nThetaB) - & ! (2)
-            &     or1(nR)*               vr(nPhi,nThetaB) )**2  + &
-            &     two*(                     dvpdp(nphi,nThetaB) + &
-            &           csn2*                  vt(nPhi,nThetaB) + & ! (3)
-            &     or1(nR)*               vr(nPhi,nThetaB) )**2  + &
-            &          ( two*               dvtdp(nPhi,nThetaB) + &
-            &                                 cvr(nPhi,nThetaB) - & ! (6)
-            &      two*csn2*             vp(nPhi,nThetaB) )**2  + &
-            &                                 osn2(nThetaNHS) * ( &
-            &         ( r(nR)*              dvtdr(nPhi,nThetaB) - &
-            &           (two+beta(nR)*r(nR))*  vt(nPhi,nThetaB) + & ! (4)
-            &     or1(nR)*            dvrdt(nPhi,nThetaB) )**2  + &
-            &         ( r(nR)*              dvpdr(nPhi,nThetaB) - &
-            &           (two+beta(nR)*r(nR))*  vp(nPhi,nThetaB) + & ! (5)
-            &     or1(nR)*            dvrdp(nPhi,nThetaB) )**2 )- &
-            &    two*third*(  beta(nR)*        vr(nPhi,nThetaB) )**2 )
+            vischeat=       or2(nR)*orho1(nR)*visc(nR)*(        &
+            &     two*(                    dvrdr(nTheta,nPhi) - & ! (1)
+            &    (two*or1(nR)+beta(nR))*vr(nTheta,nPhi) )**2  + &
+            &     two*( csn2*                 vt(nTheta,nPhi) + &
+            &                              dvpdp(nTheta,nPhi) + &
+            &                              dvrdr(nTheta,nPhi) - & ! (2)
+            &     or1(nR)*              vr(nTheta,nPhi) )**2  + &
+            &     two*(                    dvpdp(nTheta,nPhi) + &
+            &           csn2*                 vt(nTheta,nPhi) + & ! (3)
+            &     or1(nR)*              vr(nTheta,nPhi) )**2  + &
+            &          ( two*              dvtdp(nTheta,nPhi) + &
+            &                                cvr(nTheta,nPhi) - & ! (6)
+            &      two*csn2*            vp(nTheta,nPhi) )**2  + &
+            &                               osn2(nThetaNHS) * ( &
+            &         ( r(nR)*             dvtdr(nTheta,nPhi) - &
+            &          (two+beta(nR)*r(nR))*  vt(nTheta,nPhi) + & ! (4)
+            &     or1(nR)*           dvrdt(nTheta,nPhi) )**2  + &
+            &         ( r(nR)*             dvpdr(nTheta,nPhi) - &
+            &          (two+beta(nR)*r(nR))*  vp(nTheta,nPhi) + & ! (5)
+            &    or1(nR)*            dvrdp(nTheta,nPhi) )**2 )- &
+            &    two*third*(  beta(nR)*     vr(nTheta,nPhi) )**2 )
 
-            viscAS(nThetaB)=viscAS(nThetaB)+vischeat
+            viscAS=viscAS+phiNorm*gauss(nThetaNHS)*viscHeat
          end do
-         viscAS(nThetaB)=phiNorm*viscAS(nThetaB)
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
-
-#ifdef WITH_SHTNS
-      call spat_to_SH_axi(viscAS, viscLMr)
-#else
-      call legTFAS(viscLMr,viscAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+      !$omp end parallel do
 
    end subroutine get_visc_heat
 !------------------------------------------------------------------------------

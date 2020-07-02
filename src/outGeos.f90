@@ -6,7 +6,7 @@ module geos_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrp,  &
+   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, &
        &                 minc, l_max, m_max, l_axi, n_phi_tot
    use radial_functions, only: r_ICB, r_CMB, rscheme_oc, orho1
    use physical_parameters, only: ra, ek, pr, prmag, radratio
@@ -54,11 +54,7 @@ contains
       !
       logical, intent(in) :: l_geos
 
-#ifdef WITH_SHTNS
-      nrp_geos=nrp+2 ! One has to include the 2 extra points again
-#else
-      nrp_geos=nrp
-#endif
+      nrp_geos=n_phi_max+2 ! One has to include the 2 extra points again
 
       ! Number of grid point in s:
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))

@@ -2,22 +2,16 @@ module nonlinear_bcs
 
    use iso_fortran_env, only: output_unit
    use precision_mod
-   use truncation, only: nrp, lmP_max, n_phi_max, l_axi, l_max
+   use truncation, only: lmP_max, n_phi_max, l_axi, l_max, n_theta_max, nlat_padded
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0
-   use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, nfs, &
-       &               sizeThetaB
+   use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
-   use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
+   use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta_E2, &
        &                      dLh, sn2, cosTheta
    use constants, only: two
-#ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH
-#else
-   use fft, only: fft_thetab
-   use legendre_grid_to_spec, only: legTF2
-#endif
    use useful, only: abortRun
+   use sht, only: scal_to_SH
 
    implicit none
 
@@ -27,8 +21,7 @@ module nonlinear_bcs
 
 contains
 
-   subroutine get_br_v_bcs(br,vt,vp,omega,O_r_E_2,O_rho,n_theta_min,n_theta_block, &
-              &            br_vt_lm,br_vp_lm)
+   subroutine get_br_v_bcs(br,vt,vp,omega,O_r_E_2,O_rho,br_vt_lm,br_vp_lm)
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
       !  of the magnetic boundary condition for a conducting mantle or
@@ -47,14 +40,12 @@ contains
       !
 
       !-- input:
-      real(cp), intent(in) :: br(nrp,*)      ! r**2 * B_r
-      real(cp), intent(in) :: vt(nrp,*)      ! r*sin(theta) U_theta
-      real(cp), intent(in) :: vp(nrp,*)      ! r*sin(theta) U_phi
+      real(cp), intent(in) :: br(:,:)      ! r**2 * B_r
+      real(cp), intent(in) :: vt(:,:)      ! r*sin(theta) U_theta
+      real(cp), intent(in) :: vp(:,:)      ! r*sin(theta) U_phi
       real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
       real(cp), intent(in) :: O_r_E_2        ! 1/r**2
       real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
-      integer,  intent(in) :: n_theta_min    ! start of theta block
-      integer,  intent(in) :: n_theta_block  ! size of theta_block
 
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
@@ -64,49 +55,23 @@ contains
 
       !-- Local variables:
       integer :: n_theta     ! number of theta position
-      integer :: n_theta_rel ! number of theta position in block
       integer :: n_phi       ! number of longitude
-      real(cp) :: br_vt(nrp,n_theta_block)
-      real(cp) :: br_vp(nrp,n_theta_block)
+      real(cp) :: br_vt(nlat_padded,n_phi_max), br_vp(nlat_padded,n_phi_max)
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
 
-      n_theta=n_theta_min-1 ! n_theta needed for O_sin_theta_E_2
-
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP& private(n_theta_rel,n_phi,fac,n_theta)
-#endif
-      do n_theta_rel=1,n_theta_block
-         n_theta=n_theta_min+n_theta_rel-1         ! absolute number of theta
-
-         fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
-
-         do n_phi=1,n_phi_max
-            br_vt(n_phi,n_theta_rel)= fac*br(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel)
-
-            br_vp(n_phi,n_theta_rel)= br(n_phi,n_theta_rel) * &
-            &                        ( fac*vp(n_phi,n_theta_rel) - omega )
+      !$omp parallel do default(shared) &
+      !$omp& private(n_theta,n_phi,fac)
+      do n_phi=1,n_phi_max
+         do n_theta=1,n_theta_max
+            fac=O_sin_theta_E2(n_theta)*O_r_E_2*O_rho
+            br_vt(n_theta,n_phi)= fac*br(n_theta,n_phi)*vt(n_theta,n_phi)
+            br_vp(n_theta,n_phi)= br(n_theta,n_phi)* ( fac*vp(n_theta,n_phi)-omega )
          end do
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
+      !$omp end parallel do
 
-
-      !-- Fourier transform phi 2 m (real 2 complex!)
-#ifdef WITH_SHTNS
-      call spat_to_SH(br_vt, br_vt_lm, l_max)
-      call spat_to_SH(br_vp, br_vp_lm, l_max)
-#else
-      if ( .not. l_axi ) then
-         call fft_thetab(br_vt, -1)
-         call fft_thetab(br_vp, -1)
-      end if
-
-
-      !-- Legendre transform contribution of thetas in block:
-      call legTF2(n_theta_min,br_vt_lm,br_vp_lm,br_vt,br_vp)
-#endif
+      call scal_to_SH(br_vt, br_vt_lm, l_max)
+      call scal_to_SH(br_vp, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------
@@ -192,7 +157,7 @@ contains
    end subroutine get_b_nl_bcs
 !-------------------------------------------------------------------------
    subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
-              &                dvrdpr,dvtdpr,dvpdpr, nThetaStart)
+              &                dvrdpr,dvtdpr,dvpdpr)
       !
       !  Purpose of this subroutine is to set the velocities and their
       !  derivatives at a fixed boundary.
@@ -205,24 +170,18 @@ contains
       !-- Input of variables:
       integer,  intent(in) :: nR            ! no of radial grid point
       logical,  intent(in) :: lDeriv        ! derivatives required ?
-      integer,  intent(in) :: nThetaStart   ! no of theta to start with
 
       !-- Input of boundary rotation rate
       real(cp), intent(in) :: omega
 
       !-- output:
-      real(cp), intent(out) :: vrr(nrp,nfs)
-      real(cp), intent(out) :: vpr(nrp,nfs)
-      real(cp), intent(out) :: vtr(nrp,nfs)
-      real(cp), intent(out) :: cvrr(nrp,nfs)
-      real(cp), intent(out) :: dvrdtr(nrp,nfs)
-      real(cp), intent(out) :: dvrdpr(nrp,nfs)
-      real(cp), intent(out) :: dvtdpr(nrp,nfs)
-      real(cp), intent(out) :: dvpdpr(nrp,nfs)
+      real(cp), intent(out) :: vrr(:,:), vpr(:,:), vtr(:,:)
+      real(cp), intent(out) :: cvrr(:,:), dvrdtr(:,:), dvrdpr(:,:)
+      real(cp), intent(out) :: dvtdpr(:,:), dvpdpr(:,:)
 
       !-- Local variables:
       real(cp) :: r2
-      integer :: nTheta,nThetaNHS,nThetaCalc
+      integer :: nTheta,nThetaNHS
       integer :: nPhi
 
 
@@ -237,26 +196,24 @@ contains
          return
       end if
 
-      do nTheta=1,sizeThetaB
-         nThetaCalc = nThetaStart + nTheta - 1
-         nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
-         do nPhi=1,n_phi_max
-
-               vrr(nPhi,nTheta)=0.0_cp
-
-               vtr(nPhi,nTheta)=0.0_cp
-
-               vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
-
+      !$omp parallel do default(shared) private(nPhi,nTheta,nThetaNHS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
+            vrr(nTheta,nPhi)=0.0_cp
+            vtr(nTheta,nPhi)=0.0_cp
+            vpr(nTheta,nPhi)=r2*rho0(nR)*sn2(nThetaNHS)*omega
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nThetaCalc)*omega
-               dvrdtr(nPhi,nTheta)=0.0_cp
-               dvrdpr(nPhi,nTheta)=0.0_cp
-               dvtdpr(nPhi,nTheta)=0.0_cp
-               dvpdpr(nPhi,nTheta)=0.0_cp
+               cvrr(nTheta,nPhi)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
+               dvrdtr(nTheta,nPhi)=0.0_cp
+               dvrdpr(nTheta,nPhi)=0.0_cp
+               dvtdpr(nTheta,nPhi)=0.0_cp
+               dvpdpr(nTheta,nPhi)=0.0_cp
             end if
          end do
       end do
+      !$omp end parallel do
+
    end subroutine v_rigid_boundary
 !-------------------------------------------------------------------------
 end module nonlinear_bcs

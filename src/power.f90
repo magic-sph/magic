@@ -14,8 +14,7 @@ module power
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map, nfs, nThetaBs, sizeThetaB, llm, &
-       &               ulm, llmMag, ulmMag
+   use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: dLh, gauss
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag,               &
@@ -26,11 +25,6 @@ module power
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
    use constants, only: one, two, half
-#ifdef WITH_SHTNS
-   use shtns, only: axi_to_spat
-#else
-   use legendre_spec_to_grid, only: lmAS2pt
-#endif
 
    implicit none
 
@@ -84,7 +78,7 @@ contains
               &         omega_IC,omega_MA,lorentz_torque_IC,  &
               &         lorentz_torque_MA,w,z,dz,s,           &
               &         xi,b,ddb,aj,dj,db_ic,ddb_ic,aj_ic,    &
-              &         dj_ic,viscLMr,viscDiss,ohmDiss)
+              &         dj_ic,viscASr,viscDiss,ohmDiss)
       !
       !  This subroutine calculates power and dissipation of
       !  the core/mantle system.
@@ -119,7 +113,7 @@ contains
       complex(cp), intent(in) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      real(cp),    intent(in) :: viscLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: viscASr(nRstart:nRstop)
 
       !-- Output:
       real(cp),    intent(out) :: viscDiss,ohmDiss
@@ -129,9 +123,7 @@ contains
       integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
 
       real(cp) :: r_ratio
-      real(cp) :: viscHeatR(nRstart:nRstop)
       real(cp) :: viscHeatR_global(n_r_max)
-      real(cp) :: viscTheta(nfs)
       real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat
       real(cp) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)
       real(cp) :: buoy_r(n_r_max),buoy_r_global(n_r_max)
@@ -151,26 +143,6 @@ contains
 #ifdef WITH_MPI
       integer :: status(MPI_STATUS_SIZE)
 #endif
-
-      do n_r=nRstart,nRstop
-         viscHeatR(n_r)=0.0_cp
-#ifdef WITH_SHTNS
-         call axi_to_spat(viscLMr(:,n_r), viscTheta)
-#endif
-         do n=1,nThetaBs ! Loop over theta blocks
-            nTheta=(n-1)*sizeThetaB
-            nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-            call lmAS2pt(viscLMr(:,n_r),viscTheta,nThetaStart,sizeThetaB)
-#endif
-            do nThetaBlock=1,sizeThetaB
-               nTheta=nTheta+1
-               nThetaNHS=(nTheta+1)/2
-               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*eScale* &
-               &              viscTheta(nThetaBlock)
-            end do
-         end do
-      end do
 
       do n_r=1,n_r_max
 
@@ -228,7 +200,7 @@ contains
       if ( l_mag ) call reduce_radial(curlB2_r, curlB2_r_global, 0)
       if ( l_heat ) call reduce_radial(buoy_r, buoy_r_global, 0)
       if ( l_chemical_conv ) call reduce_radial(buoy_chem_r, buoy_chem_r_global, 0)
-      if ( l_conv ) call gather_from_Rloc(viscHeatR, viscHeatR_global, 0)
+      if ( l_conv ) call gather_from_Rloc(viscASr, viscHeatR_global, 0)
 
       curlB2   =0.0_cp
       viscHeat =0.0_cp
@@ -242,7 +214,7 @@ contains
             !curlU2MeanR=curlU2MeanR+timePassed*curlU2_r_global*eScale
             !curlU2=rInt_R(curlU2_r_global,r,rscheme_oc)
             call visc_ave%compute(viscHeatR_global, n_calls, timePassed, timeNorm)
-            viscHeat=rInt_R(viscHeatR_global,r,rscheme_oc)
+            viscHeat=eScale*rInt_R(viscHeatR_global,r,rscheme_oc)
          end if
          if ( l_mag )  then
             call ohm_ave%compute(curlB2_r_global, n_calls, timePassed, timeNorm)

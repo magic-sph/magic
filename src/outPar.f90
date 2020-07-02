@@ -9,7 +9,6 @@ module outPar_mod
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag
-   use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
        &            l_anelastic_liquid
@@ -22,18 +21,12 @@ module outPar_mod
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
        &                       rscheme_oc, orho1, dLalpha0,       &
        &                       dLtemp0, beta, alpha0
-   use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
-       &                  nRstopMag
+   use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, nRstopMag
    use num_param, only: tScale
    use output_data, only: tag
    use useful, only: cc2real, round_off
    use mean_sd, only: mean_sd_type
    use integration, only: rInt_R
-#ifdef WITH_SHTNS
-   use shtns, only: axi_to_spat
-#else
-   use legendre_spec_to_grid, only: lmAS2pt
-#endif
 
    implicit none
 
@@ -131,8 +124,8 @@ contains
    end subroutine finalize_outPar_mod
 !-----------------------------------------------------------------------
    subroutine outPar(timePassed, timeNorm, l_stop_time, ekinR, RolRu2,  &
-              &      dlVR, dlVRc, dlPolPeakR, uhLMr, duhLMr, gradsLMr,  &
-              &      fconvLMr, fkinLMr, fviscLMr, fpoynLMr, fresLMr, RmR)
+              &      dlVR, dlVRc, dlPolPeakR, uhASr, duhASr, gradT2ASr, &
+              &      fconvASr, fkinASr, fviscASr, fpoynASr, fresASr, RmR)
 
       !--- Input of variables
       real(cp), intent(in) :: timePassed,timeNorm
@@ -140,79 +133,42 @@ contains
       real(cp), intent(in) :: RolRu2(n_r_max),dlPolPeakR(n_r_max)
       real(cp), intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
       real(cp), intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(cp), intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp), intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp), intent(inout) :: uhASr(nRstart:nRstop)
+      real(cp), intent(inout) :: duhASr(nRstart:nRstop)
+      real(cp), intent(inout) :: gradT2ASr(nRstart:nRstop)
+      real(cp), intent(in) :: fkinASr(nRstart:nRstop)
+      real(cp), intent(in) :: fconvASr(nRstart:nRstop)
+      real(cp), intent(in) :: fviscASr(nRstart:nRstop)
+      real(cp), intent(in) :: fpoynASr(nRstartMag:nRstopMag)
+      real(cp), intent(in) :: fresASr(nRstartMag:nRstopMag)
 
       !--- Output of variables
       real(cp), intent(out):: RmR(n_r_max)
 
       !-- Local variables
-      integer :: nR,n
+      integer :: nR,fileHandle
       real(cp) :: ReR(n_r_max), RoR(n_r_max), RolR(n_r_max)
       character(len=76) :: filename
-      integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-      real(cp) :: duhR(nRstart:nRstop), uhR(nRstart:nRstop)
-      real(cp) :: gradT2R(nRstart:nRstop), sR(nRstart:nRstop)
-      real(cp) :: fkinR(nRstart:nRstop), fcR(nRstart:nRstop)
-      real(cp) :: fconvR(nRstart:nRstop), fviscR(nRstart:nRstop)
-      real(cp) :: fresR(nRstartMag:nRstopMag),fpoynR(nRstartMag:nRstopMag)
+      real(cp) :: sR(nRstart:nRstop),fcR(nRstart:nRstop)
       real(cp) :: duhR_global(n_r_max), uhR_global(n_r_max)
       real(cp) :: gradT2R_global(n_r_max), sR_global(n_r_max)
       real(cp) :: fkinR_global(n_r_max), fcR_global(n_r_max)
       real(cp) :: fconvR_global(n_r_max), fviscR_global(n_r_max)
       real(cp) :: fresR_global(n_r_maxMag), fpoynR_global(n_r_maxMag)
-      real(cp) :: duhTh(nfs), uhTh(nfs), gradT2Th(nfs)
-      real(cp) :: fkinTh(nfs), fconvTh(nfs), fviscTh(nfs), fresTh(nfs), fpoynTh(nfs)
-
-      integer :: fileHandle
 
       n_calls = n_calls+1
-
 
       if ( l_viscBcCalc ) then
          sR(:) = real(s_Rloc(1,:))
 
-         do nR=nRstart,nRstop
-            uhR(nR)    =0.0_cp
-            gradT2R(nR)=0.0_cp
-            duhR(nR)   =0.0_cp
-#ifdef WITH_SHTNS
-            call axi_to_spat(duhLMr(:,nR),duhTh)
-            call axi_to_spat(uhLMr(:,nR),uhTh)
-            call axi_to_spat(gradsLMr(:,nR),gradT2Th)
-#endif
-            do n=1,nThetaBs ! Loop over theta blocks
-               nTheta=(n-1)*sizeThetaB
-               nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-               call lmAS2pt(duhLMr(:,nR),duhTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(uhLMr(:,nR),uhTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(gradsLMr(:,nR),gradT2Th,nThetaStart,sizeThetaB)
-#endif
-               do nThetaBlock=1,sizeThetaB
-                  nTheta=nTheta+1
-                  nThetaNHS=(nTheta+1)/2
-                  duhR(nR)=duhR(nR)+gauss(nThetaNHS)*duhTh(nThetaBlock)
-                  uhR(nR) =uhR(nR) +gauss(nThetaNHS)* uhTh(nThetaBlock)
-                  gradT2R(nR)=gradT2R(nR)+gauss(nThetaNHS)*gradT2Th(nThetaBlock)
-               end do
-            end do
-         end do
-         duhR=half*duhR ! Normalisation for the theta integration
-         uhR =half* uhR ! Normalisation for the theta integration
-         gradT2R =half*gradT2R ! Normalisation for the theta integration
+         duhASr(:)=half*duhASr(:) ! Normalisation for the theta integration
+         uhASr(:) =half* uhASr(:) ! Normalisation for the theta integration
+         gradT2ASr(:)=half*gradT2ASr(:) ! Normalisation for the theta integration
 
-         call gather_from_RLoc(duhR, duhR_global, 0)
-         call gather_from_RLoc(uhR, uhR_global, 0)
-         call gather_from_RLoc(gradT2R, gradT2R_global, 0)
+         call gather_from_RLoc(duhASR, duhR_global, 0)
+         call gather_from_RLoc(uhASR, uhR_global, 0)
+         call gather_from_RLoc(gradT2ASR, gradT2R_global, 0)
          call gather_from_RLoc(sR, sR_global, 0)
-
       end if
 
       if ( l_fluxProfs ) then
@@ -250,69 +206,16 @@ contains
                end do
             end if
          end if
-         do nR=nRstart,nRstop
-            fkinR(nR) =0.0_cp
-            fconvR(nR)=0.0_cp
-            fviscR(nR)=0.0_cp
-#ifdef WITH_SHTNS
-            call axi_to_spat(fkinLMr(:,nR),fkinTh)
-            call axi_to_spat(fconvLMr(:,nR),fconvTh)
-            call axi_to_spat(fviscLMr(:,nR),fviscTh)
-#endif
-            do n=1,nThetaBs ! Loop over theta blocks
-               nTheta=(n-1)*sizeThetaB
-               nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-               call lmAS2pt(fkinLMr(:,nR),fkinTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(fconvLMr(:,nR),fconvTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(fviscLMr(:,nR),fviscTh,nThetaStart,sizeThetaB)
-#endif
-               do nThetaBlock=1,sizeThetaB
-                  nTheta=nTheta+1
-                  nThetaNHS=(nTheta+1)/2
-                  fkinR(nR) =fkinR(nR) +gauss(nThetaNHS)* fkinTh(nThetaBlock)
-                  fconvR(nR)=fconvR(nR)+gauss(nThetaNHS)*fconvTh(nThetaBlock)
-                  fviscR(nR)=fviscR(nR)+gauss(nThetaNHS)*fviscTh(nThetaBlock)
-               end do
-            end do
-         end do
 
-         if ( l_mag_nl ) then
-            do nR=nRstart,nRstop
-               fresR(nR) =0.0_cp
-               fpoynR(nR)=0.0_cp
-#ifdef WITH_SHTNS
-               call axi_to_spat(fpoynLMr(:,nR),fpoynTh)
-               call axi_to_spat(fresLMr(:,nR),fresTh)
-#endif
-               do n=1,nThetaBs ! Loop over theta blocks
-                  nTheta=(n-1)*sizeThetaB
-                  nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-                  call lmAS2pt(fpoynLMr(:,nR),fpoynTh,nThetaStart,sizeThetaB)
-                  call lmAS2pt(fresLMr(:,nR),fresTh,nThetaStart,sizeThetaB)
-#endif
-                  do nThetaBlock=1,sizeThetaB
-                     nTheta=nTheta+1
-                     nThetaNHS=(nTheta+1)/2
-                     fpoynR(nR)=fpoynR(nR)+gauss(nThetaNHS)*fpoynTh(nThetaBlock)
-                     fresR(nR) =fresR(nR) +gauss(nThetaNHS)*fresTh(nThetaBlock)
-                  end do
-               end do
-            end do
-         end if
-
-         call gather_from_Rloc(fkinR, fkinR_global, 0)
-         call gather_from_Rloc(fconvR, fconvR_global, 0)
-         call gather_from_Rloc(fviscR, fviscR_global, 0)
+         call gather_from_Rloc(fkinASr, fkinR_global, 0)
+         call gather_from_Rloc(fconvASr, fconvR_global, 0)
+         call gather_from_Rloc(fviscASr, fviscR_global, 0)
          call gather_from_Rloc(fcR, fcR_global, 0)
          if ( l_mag_nl ) then
-            call gather_from_Rloc(fpoynR, fpoynR_global, 0)
-            call gather_from_Rloc(fresR, fresR_global, 0)
+            call gather_from_Rloc(fpoynASr, fpoynR_global, 0)
+            call gather_from_Rloc(fresASr, fresR_global, 0)
          end if
-
       end if
-
 
       if ( rank == 0 ) then
          do nR=1,n_r_max
@@ -457,69 +360,36 @@ contains
    end subroutine outPar
 !----------------------------------------------------------------------------
    subroutine outPerpPar(time,timePassed,timeNorm,l_stop_time, &
-              &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+              &          EperpASr,EparASr,EperpaxiASr,EparaxiASr)
 
 
       !--- Input of variables
       real(cp), intent(in) :: time,timePassed,timeNorm
       logical,  intent(in) :: l_stop_time
-      real(cp), intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(inout) :: EparASr(nRstart:nRstop)
+      real(cp), intent(inout) :: EperpASr(nRstart:nRstop)
+      real(cp), intent(inout) :: EparaxiASr(nRstart:nRstop)
+      real(cp), intent(inout) :: EperpaxiASr(nRstart:nRstop)
 
       !--- Local variables
-      integer :: nR,n,nTheta,nThetaStart,nThetaBlock,nThetaNHS
+      integer :: nR,fileHandle
       character(len=76) :: filename
 
       real(cp) ::EperpaxiR(nRstart:nRstop), EparaxiR(nRstart:nRstop)
       real(cp) :: EperpR(nRstart:nRstop), EparR(nRstart:nRstop)
       real(cp) :: EperpR_global(n_r_max), EparR_global(n_r_max)
       real(cp) :: EperpaxiR_global(n_r_max), EparaxiR_global(n_r_max)
-      real(cp) :: EperpTh(nfs), EparTh(nfs), EperpaxiTh(nfs), EparaxiTh(nfs)
       real(cp) :: EperpT,EparT,EperpaxT,EparaxT
 
-      integer :: fileHandle
+      EperpASr(:)   =half*EperpASr(:)    ! Normalisation for the theta integration
+      EparASr(:)    =half*EparASr(:)     ! Normalisation for the theta integration
+      EperpaxiASr(:)=half*EperpaxiASr(:) ! Normalisation for the theta integration
+      EparaxiASr(:) =half*EparaxiASr(:)  ! Normalisation for the theta integration
 
-      do nR=nRstart,nRstop
-         EperpR(nR)   =0.0_cp
-         EparR(nR)    =0.0_cp
-         EparaxiR(nR) =0.0_cp
-         EperpaxiR(nR)=0.0_cp
-#ifdef WITH_SHTNS
-         call axi_to_spat(EperpLMr(:,nR),EperpTh)
-         call axi_to_spat(EparLMr(:,nR),EparTh)
-         call axi_to_spat(EperpaxiLMr(:,nR),EperpaxiTh)
-         call axi_to_spat(EparaxiLMr(:,nR),EparaxiTh)
-#endif
-         do n=1,nThetaBs ! Loop over theta blocks
-            nTheta=(n-1)*sizeThetaB
-            nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-            call lmAS2pt(EperpLMr(:,nR),EperpTh,nThetaStart,sizeThetaB)
-            call lmAS2pt(EparLMr(:,nR),EparTh,nThetaStart,sizeThetaB)
-            call lmAS2pt(EperpaxiLMr(:,nR),EperpaxiTh,nThetaStart,sizeThetaB)
-            call lmAS2pt(EparaxiLMr(:,nR),EparaxiTh,nThetaStart,sizeThetaB)
-#endif
-            do nThetaBlock=1,sizeThetaB
-               nTheta=nTheta+1
-               nThetaNHS=(nTheta+1)/2
-               EperpR(nR)=EperpR(nR)+gauss(nThetaNHS)*EperpTh(nThetaBlock)
-               EparR(nR) =EparR(nR) +gauss(nThetaNHS)* EparTh(nThetaBlock)
-               EperpaxiR(nR)=EperpaxiR(nR)+gauss(nThetaNHS)*EperpaxiTh(nThetaBlock)
-               EparaxiR(nR)=EparaxiR(nR)+gauss(nThetaNHS)*EparaxiTh(nThetaBlock)
-            end do
-         end do
-      end do
-      EperpR   =half*EperpR    ! Normalisation for the theta integration
-      EparR    =half*EparR     ! Normalisation for the theta integration
-      EperpaxiR=half*EperpaxiR ! Normalisation for the theta integration
-      EparaxiR =half*EparaxiR  ! Normalisation for the theta integration
-
-      call gather_from_Rloc(EperpR, EperpR_global, 0)
-      call gather_from_Rloc(EparR, EparR_global, 0)
-      call gather_from_Rloc(EperpaxiR, EperpaxiR_global, 0)
-      call gather_from_Rloc(EparaxiR, EparaxiR_global, 0)
+      call gather_from_Rloc(EperpASr, EperpR_global, 0)
+      call gather_from_Rloc(EparASr, EparR_global, 0)
+      call gather_from_Rloc(EperpaxiASr, EperpaxiR_global, 0)
+      call gather_from_Rloc(EparaxiASr, EparaxiR_global, 0)
 
       if ( rank == 0 ) then
          EperpT  =four*pi*rInt_R(EperpR_global*r*r,r,rscheme_oc)

@@ -15,7 +15,7 @@ module outMisc_mod
        &                       otemp1, ogrun, rscheme_oc
    use physical_parameters, only: ViscHeatFac, ThExpNb
    use num_param, only: lScale
-   use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
+   use blocking, only: llm, ulm
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
@@ -26,11 +26,6 @@ module outMisc_mod
        &                   deltaxicond
    use useful, only: cc2real, round_off
    use integration, only: rInt_R
-#ifdef WITH_SHTNS
-   use shtns, only: axi_to_spat
-#else
-   use legendre_spec_to_grid, only: lmAS2pt
-#endif
 
    implicit none
 
@@ -86,7 +81,7 @@ contains
 
    end subroutine finalize_outMisc_mod
 !---------------------------------------------------------------------------
-   subroutine outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
+   subroutine outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
       !
       ! This subroutine is used to store informations about kinetic
       ! helicity
@@ -94,109 +89,46 @@ contains
 
       !-- Input of variables:
       real(cp), intent(in) :: timeScaled
-      real(cp), intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: HelASr(2,nRstart:nRstop)
+      real(cp), intent(in) :: Hel2ASr(2,nRstart:nRstop)
+      real(cp), intent(in) :: HelnaASr(2,nRstart:nRstop)
+      real(cp), intent(in) :: Helna2ASr(2,nRstart:nRstop)
+      real(cp), intent(in) :: HelEAASr(nRstart:nRstop)
 
       !-- Local stuff:
-      integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS,n
-      real(cp) :: HelNr(nRstart:nRstop), HelSr(nRstart:nRstop)
-      real(cp) :: HelnaNr(nRstart:nRstop), HelnaSr(nRstart:nRstop)
-      real(cp) :: Hel2Nr(nRstart:nRstop), Hel2Sr(nRstart:nRstop)
-      real(cp) :: Helna2Nr(nRstart:nRstop), Helna2Sr(nRstart:nRstop)
-      real(cp) :: HelEAr(nRstart:nRstop)
       real(cp) :: HelNr_global(n_r_max), HelSr_global(n_r_max)
       real(cp) :: HelnaNr_global(n_r_max), HelnaSr_global(n_r_max)
       real(cp) :: Helna2Nr_global(n_r_max), Helna2Sr_global(n_r_max)
       real(cp) :: Hel2Nr_global(n_r_max), Hel2Sr_global(n_r_max)
       real(cp) :: HelEAr_global(n_r_max)
-      real(cp) :: Hel(nfs), Hel2(nfs), Helna(nfs), Helna2(nfs), r2
-      real(cp) :: HelN,HelS
-      real(cp) :: HelnaN,HelnaS
-      real(cp) :: HelnaRMSN,HelnaRMSS
+      real(cp) :: HelN,HelS,HelnaN,HelnaS,HelnaRMSN,HelnaRMSS
       real(cp) :: HelRMSN,HelRMSS,HelEA,HelRMS,HelnaRMS
-
-      integer :: n_r
-
-      !------ Integration of Helicity, on input the Helicity is
-      !       already axisymmetric !
-      do n_r=nRstart,nRstop
-         r2=r(n_r)*r(n_r)
-         HelNr(n_r)   =0.0_cp
-         HelSr(n_r)   =0.0_cp
-         HelnaNr(n_r) =0.0_cp
-         HelnaSr(n_r) =0.0_cp
-         HelEAr(n_r)  =0.0_cp
-         Hel2Nr(n_r)  =0.0_cp
-         Hel2Sr(n_r)  =0.0_cp
-         Helna2Nr(n_r)=0.0_cp
-         Helna2Sr(n_r)=0.0_cp
-
-#ifdef WITH_SHTNS
-         call axi_to_spat(HelLMr(:,n_r), Hel)
-         call axi_to_spat(Hel2LMr(:,n_r), Hel2)
-         call axi_to_spat(HelnaLMr(:,n_r), Helna)
-         call axi_to_spat(Helna2LMr(:,n_r), Helna2)
-#endif
-
-         do n=1,nThetaBs ! Loop over theta blocks
-            nTheta=(n-1)*sizeThetaB
-            nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-            call lmAS2pt(HelLMr(:,n_r),Hel,nThetaStart,sizeThetaB)
-            call lmAS2pt(Hel2LMr(:,n_r),Hel2,nThetaStart,sizeThetaB)
-            call lmAS2pt(HelnaLMr(:,n_r),Helna,nThetaStart,sizeThetaB)
-            call lmAS2pt(Helna2LMr(:,n_r),Helna2,nThetaStart,sizeThetaB)
-#endif
-            do nThetaBlock=1,sizeThetaB
-               nTheta=nTheta+1
-               nThetaNHS=(nTheta+1)/2
-
-               !------ Integration over theta:
-               if ( mod(nTheta,2) == 1 ) then ! NHS
-                  Hel2Nr(n_r)=Hel2Nr(n_r)+gauss(nThetaNHS)*r2*Hel2(nThetaBlock)
-                  Helna2Nr(n_r)=Helna2Nr(n_r)+gauss(nThetaNHS)*r2*Helna2(nThetaBlock)
-                  HelEAr(n_r)=HelEAr(n_r)+gauss(nThetaNHS)*r2*Hel(nThetaBlock)
-                  HelNr(n_r) =HelNr(n_r)+gauss(nThetaNHS)*r2*Hel(nThetaBlock)
-                  HelnaNr(n_r) =HelnaNr(n_r)+gauss(nThetaNHS)*r2*Helna(nThetaBlock)
-               else
-                  Hel2Sr(n_r)=Hel2Sr(n_r)+gauss(nThetaNHS)*r2*Hel2(nThetaBlock)
-                  Helna2Sr(n_r)=Helna2Sr(n_r)+gauss(nThetaNHS)*r2*Helna2(nThetaBlock)
-                  HelEAr(n_r)=HelEAr(n_r)-gauss(nThetaNHS)*r2*Hel(nThetaBlock)
-                  HelSr(n_r) =HelSr(n_r)+gauss(nThetaNHS)*r2*Hel(nThetaBlock)
-                  HelnaSr(n_r)=HelnaSr(n_r)+gauss(nThetaNHS)*r2*Helna(nThetaBlock)
-               end if
-            end do
-         end do
-
-      end do
 
       ! Now we have to gather the results on rank 0 for
       ! the arrays: Hel2Nr,Helna2Nr,HelEAr,HelNr,HelnaNr
       ! Hel2Sr,Helna2Sr,HelSr,HelnaSr
 
-      call gather_from_Rloc(Hel2Nr, Hel2Nr_global, 0)
-      call gather_from_Rloc(Helna2Nr, Helna2Nr_global, 0)
-      call gather_from_Rloc(HelEAr, HelEAr_global, 0)
-      call gather_from_Rloc(HelNr, HelNr_global, 0)
-      call gather_from_Rloc(HelnaNr, HelnaNr_global, 0)
-      call gather_from_Rloc(HelSr, HelSr_global, 0)
-      call gather_from_Rloc(Helna2Sr, Helna2Sr_global, 0)
-      call gather_from_Rloc(Hel2Sr, Hel2Sr_global, 0)
-      call gather_from_Rloc(HelnaSr, HelnaSr_global, 0)
+      call gather_from_Rloc(Hel2Asr(1,:), Hel2Nr_global, 0)
+      call gather_from_Rloc(Helna2ASr(1,:), Helna2Nr_global, 0)
+      call gather_from_Rloc(HelEAASr, HelEAr_global, 0)
+      call gather_from_Rloc(HelASr(1,:), HelNr_global, 0)
+      call gather_from_Rloc(HelnaASr(1,:), HelnaNr_global, 0)
+      call gather_from_Rloc(HelASr(2,:), HelSr_global, 0)
+      call gather_from_Rloc(Helna2ASr(2,:), Helna2Sr_global, 0)
+      call gather_from_Rloc(Hel2ASr(2,:), Hel2Sr_global, 0)
+      call gather_from_Rloc(HelnaASr(2,:), HelnaSr_global, 0)
 
       if ( rank == 0 ) then
          !------ Integration over r without the boundaries and normalization:
-         HelN  =rInt_R(HelNr_global,r,rscheme_oc)
-         HelS  =rInt_R(HelSr_global,r,rscheme_oc)
-         HelnaN=rInt_R(HelnaNr_global,r,rscheme_oc)
-         HelnaS=rInt_R(HelnaSr_global,r,rscheme_oc)
-         HelEA =rInt_R(HelEAr_global,r,rscheme_oc)
-         HelRMSN=rInt_R(Hel2Nr_global,r,rscheme_oc)
-         HelRMSS=rInt_R(Hel2Sr_global,r,rscheme_oc)
-         HelnaRMSN=rInt_R(Helna2Nr_global,r,rscheme_oc)
-         HelnaRMSS=rInt_R(Helna2Sr_global,r,rscheme_oc)
+         HelN  =rInt_R(HelNr_global*r*r,r,rscheme_oc)
+         HelS  =rInt_R(HelSr_global*r*r,r,rscheme_oc)
+         HelnaN=rInt_R(HelnaNr_global*r*r,r,rscheme_oc)
+         HelnaS=rInt_R(HelnaSr_global*r*r,r,rscheme_oc)
+         HelEA =rInt_R(HelEAr_global*r*r,r,rscheme_oc)
+         HelRMSN=rInt_R(Hel2Nr_global*r*r,r,rscheme_oc)
+         HelRMSS=rInt_R(Hel2Sr_global*r*r,r,rscheme_oc)
+         HelnaRMSN=rInt_R(Helna2Nr_global*r*r,r,rscheme_oc)
+         HelnaRMSS=rInt_R(Helna2Sr_global*r*r,r,rscheme_oc)
 
          HelN  =two*pi*HelN/(vol_oc/2) ! Note integrated over half spheres only !
          HelS  =two*pi*HelS/(vol_oc/2) ! Factor 2*pi is from phi integration

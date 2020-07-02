@@ -8,12 +8,11 @@ module init_fields
    use parallel_mod
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_transp, only: type_mpitransp
-   use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
-       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
-       &                 l_axi,minc,n_cheb_ic_max,lm_max
+   use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max,    &
+       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max, &
+       &                 l_axi,minc,n_cheb_ic_max,lm_max, nlat_padded
    use mem_alloc, only: bytes_allocated
-   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
-       &               llm, ulm, llmMag, ulmMag
+   use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
        &                      phi, cosTheta, hdif_B
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
@@ -31,12 +30,7 @@ module init_fields
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
    use useful, only: random, abortRun
-#ifdef WITH_SHTNS
-   use shtns
-#else
-   use fft
-   use legendre_grid_to_spec, only: legTF1
-#endif
+   use sht, only: scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -151,12 +145,12 @@ contains
       !-- Local variables
       complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
       integer :: lm,l,m,n,st_lmP,l1m0
-      integer :: nR,nTheta,nThetaB,nThetaStart,nPhi
+      integer :: nR,nTheta,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
       class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
-      real(cp) :: ss,ome(nrp,nfs)
+      real(cp) :: ss,ome(nlat_padded,n_phi_max)
       complex(cp) :: omeLM(lmP_max)
 
       allocate( type_mpiptop :: r2lo_initv )
@@ -175,35 +169,17 @@ contains
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
 
-            nTheta=0
-            do n=1,nThetaBs ! loop over the theta blocks
-
-               nThetaStart=(n-1)*sizeThetaB+1
-               do nThetaB=1,sizeThetaB
-                  nTheta=nTheta+1
+            do nPhi=1,n_phi_max
+               do nTheta=1,n_theta_max
                   ss=r(nR)*sinTheta(nTheta)
-                  !------------ start with constructing rotation rate ome:
-                  do nPhi=1,n_phi_max
-                     if ( ss <= r_icb ) then
-                        ome(nPhi,nThetaB)=omega_ma1+half*omega_ic1
-                     else
-                        ome(nPhi,nThetaB)=omega_ma1
-                     end if
-                  end do
-#ifndef WITH_SHTNS
-                  ome(n_phi_max+1,nThetaB)=0.0_cp
-                  ome(n_phi_max+2,nThetaB)=0.0_cp
-#endif
+                  if ( ss <= r_icb ) then
+                     ome(nTheta,nPhi)=omega_ma1+half*omega_ic1
+                  else
+                     ome(nTheta,nPhi)=omega_ma1
+                  end if
                end do
-               !------------ Transform to spherical hamonic space for each theta block
-#ifndef WITH_SHTNS
-               if ( .not. l_axi ) call fft_thetab(ome,-1)
-               call legTF1(nThetaStart,omeLM,ome)
-#endif
-            end do ! End of loop over theta blocks
-#ifdef WITH_SHTNS
-            call spat_to_SH(ome, omeLM, l_max)
-#endif
+            end do 
+            call scal_to_SH(ome, omeLM, l_max)
 
             !------- ome now in spherical harmonic space,
             !        apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -245,33 +221,13 @@ contains
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
 
-            nTheta=0
-            do n=1,nThetaBs ! loop over the theta blocks
-
-               nThetaStart=(n-1)*sizeThetaB+1
-               do nThetaB=1,sizeThetaB
-                  nTheta=nTheta+1
+            do nPhi=1,n_phi_max
+               do nTheta=1,n_theta_max
                   ss=r(nR)*sinTheta(nTheta)
-                  !------------ start with constructing rotation rate ome:
-                  do nPhi=1,n_phi_max
-                     !ome(nPhi,nThetaB)=amp_v1*(one-(r(nR)-r(n_r_max))**2/r(nR)**3)
-                     !ome(nPhi,nThetaB)=amp_v1*r_icb/r(nR)
-                     ome(nPhi,nThetaB)=amp_v1/sqrt(one+ss**4)
-                  end do
-#ifndef WITH_SHTNS
-                  ome(n_phi_max+1,nThetaB)=0.0_cp
-                  ome(n_phi_max+2,nThetaB)=0.0_cp
-#endif
+                  ome(nTheta,nPhi)=amp_v1/sqrt(one+ss**4)
                end do
-               !------------ Transform to spherical hamonic space for each theta block
-#ifndef WITH_SHTNS
-               if ( .not. l_axi ) call fft_thetab(ome,-1)
-               call legTF1(nThetaStart,omeLM,ome)
-#endif
-            end do ! End of loop over theta blocks
-#ifdef WITH_SHTNS
-            call spat_to_SH(ome, omeLM, l_max)
-#endif
+            end do
+            call scal_to_SH(ome, omeLM, l_max)
 
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -454,14 +410,14 @@ contains
       real(cp) :: ra1,ra2
       real(cp) :: s0(n_r_max),p0(n_r_max),s1(n_r_max)
 
-      integer :: nTheta,n,nThetaStart,nThetaB,nPhi,nS
+      integer :: nTheta,n,nPhi,nS
       real(cp) :: xL,yL,zL,rH,angleL,s00,s00P
       real(cp) :: mata(n_impS_max,n_impS_max)
       real(cp) :: amp(n_impS_max)
       integer :: pivot(n_impS_max)
       real(cp) :: xS(n_impS_max),yS(n_impS_max)
       real(cp) :: zS(n_impS_max),sFac(n_impS_max)
-      real(cp) :: sCMB(nrp,nfs)
+      real(cp) :: sCMB(nlat_padded,n_phi_max)
       complex(cp) :: sLM(lmP_max)
       integer :: info,i,j,l1,m1,filehandle
       logical :: rank_has_l0m0
@@ -634,40 +590,22 @@ contains
          yS(nS)=sin(thetaS(nS))*sin(phiS(nS))
          zS(nS)=cos(thetaS(nS))
 
-         nTheta=0
-         do n=1,nThetaBs ! loop over the theta blocks
-
-            nThetaStart=(n-1)*sizeThetaB+1
-            do nThetaB=1,sizeThetaB
-               nTheta=nTheta+1
-               do nPhi=1,n_phi_max
-                  xL=sinTheta(nTheta)*cos(phi(nPhi))
-                  yL=sinTheta(nTheta)*sin(phi(nPhi))
-                  zL=cosTheta(nTheta)
-                  rH=sqrt((xS(nS)-xL)**2 + (yS(nS)-yL)**2+(zS(nS)-zL)**2)
-                  !------ Opening angleL with peak value vector:
-                  angleL=two*abs(asin(rH/2))
-                  if ( angleL <= widthS(nS) ) then
-                     sCMB(nPhi,nThetaB) = (cos(angleL/widthS(nS)*pi)+1)/2
-                  else
-                     sCMB(nPhi,nThetaB)=0.0_cp
-                  end if
-               end do
-#ifndef WITH_SHTNS
-               sCMB(n_phi_max+1,nThetaB)=0.0_cp
-               sCMB(n_phi_max+2,nThetaB)=0.0_cp
-#endif
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               xL=sinTheta(nTheta)*cos(phi(nPhi))
+               yL=sinTheta(nTheta)*sin(phi(nPhi))
+               zL=cosTheta(nTheta)
+               rH=sqrt((xS(nS)-xL)**2 + (yS(nS)-yL)**2+(zS(nS)-zL)**2)
+               !------ Opening angleL with peak value vector:
+               angleL=two*abs(asin(rH/2))
+               if ( angleL <= widthS(nS) ) then
+                  sCMB(nTheta,nPhi)=(cos(angleL/widthS(nS)*pi)+1)/2
+               else
+                  sCMB(nTheta,nPhi)=0.0_cp
+               end if
             end do
-         !------ Transform to spherical hamonic space for each theta block
-#ifndef WITH_SHTNS
-            if ( .not. l_axi ) call fft_thetab(sCMB,-1)
-            call legTF1(nThetaStart,sLM,sCMB)
-#endif
-
-         end do ! Loop over theta blocks
-#ifdef WITH_SHTNS
-         call spat_to_SH(sCMB, sLM, l_max)
-#endif
+         end do
+         call scal_to_SH(sCMB, sLM, l_max)
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
@@ -713,42 +651,25 @@ contains
       !--- Now get the total thing so that the mean (l=0,m=0) due
       !    to the peaks is zero. The (l=0,m=0) contribution is
       !    determined (prescribed) by other means.
-      nTheta=0
-      do n=1,nThetaBs ! loop over the theta blocks
 
-         nThetaStart=(n-1)*sizeThetaB+1
-         do nThetaB=1,sizeThetaB
-            nTheta=nTheta+1
-            do nPhi=1,n_phi_max
-               xL=sinTheta(nTheta)*cos(phi(nPhi))
-               yL=sinTheta(nTheta)*sin(phi(nPhi))
-               zL=cosTheta(nTheta)
-               sCMB(nPhi,nThetaB)=-s00
-               do nS=1,n_impS
-                  rH=sqrt((xS(nS)-xL)**2 + (yS(nS)-yL)**2+(zS(nS)-zL)**2)
-                  !------ Opening angle with peak value vector:
-                  angleL=two*abs(asin(rH/2))
-                  if ( angleL <= widthS(nS) )                &
-                  &  sCMB(nPhi,nThetaB)=sCMB(nPhi,nThetaB) + &
-                  &                     amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
-               end do
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            xL=sinTheta(nTheta)*cos(phi(nPhi))
+            yL=sinTheta(nTheta)*sin(phi(nPhi))
+            zL=cosTheta(nTheta)
+            sCMB(nTheta,nPhi)=-s00
+            do nS=1,n_impS
+               rH=sqrt((xS(nS)-xL)**2 + (yS(nS)-yL)**2+(zS(nS)-zL)**2)
+               !------ Opening angle with peak value vector:
+               angleL=two*abs(asin(rH/2))
+               if ( angleL <= widthS(nS) )              &
+               &  sCMB(nTheta,nPhi)=sCMB(nTheta,nPhi) + &
+               &                    amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
             end do
-#ifndef WITH_SHTNS
-            sCMB(n_phi_max+1,nThetaB)=0.0_cp
-            sCMB(n_phi_max+2,nThetaB)=0.0_cp
-#endif
          end do
-      !------ Transform to spherical hamonic space for each theta block
-#ifndef WITH_SHTNS
-         if ( .not. l_axi ) call fft_thetab(sCMB,-1)
-         call legTF1(nThetaStart,sLM,sCMB)
-#endif
+      end do
 
-      end do ! Loop over theta blocks
-#ifdef WITH_SHTNS
-      call spat_to_SH(sCMB, sLM, l_max)
-#endif
-
+      call scal_to_SH(sCMB, sLM, l_max)
 
       !--- Finally store the boundary condition and care for
       !    the fact that peakS provides the relative amplitudes
@@ -799,14 +720,14 @@ contains
       real(cp) :: ra1,ra2
       real(cp) :: xi0(n_r_max),xi1(n_r_max)
 
-      integer :: nTheta,n,nThetaStart,nThetaB,nPhi,nXi
+      integer :: nTheta,n,nPhi,nXi
       real(cp) :: xL,yL,zL,rH,angleL,xi00,xi00P
       real(cp) :: mata(n_impXi_max,n_impXi_max)
       real(cp) :: amp(n_impXi_max)
       integer :: pivot(n_impXi_max)
       real(cp) :: xXi(n_impXi_max),yXi(n_impXi_max)
       real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
-      real(cp) :: xiCMB(nrp,nfs)
+      real(cp) :: xiCMB(nlat_padded,n_phi_max)
       complex(cp) :: xiLM(lmP_max)
       integer :: info,i,j,l1,m1,fileHandle
 
@@ -950,40 +871,22 @@ contains
          yXi(nXi)=sin(thetaXi(nXi))*sin(phiXi(nXi))
          zXi(nXi)=cos(thetaXi(nXi))
 
-         nTheta=0
-         do n=1,nThetaBs ! loop over the theta blocks
-
-            nThetaStart=(n-1)*sizeThetaB+1
-            do nThetaB=1,sizeThetaB
-               nTheta=nTheta+1
-               do nPhi=1,n_phi_max
-                  xL=sinTheta(nTheta)*cos(phi(nPhi))
-                  yL=sinTheta(nTheta)*sin(phi(nPhi))
-                  zL=cosTheta(nTheta)
-                  rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
-                  !------ Opening angleL with peak value vector:
-                  angleL=two*abs(asin(rH/2))
-                  if ( angleL <= widthXi(nXi) ) then
-                     xiCMB(nPhi,nThetaB) = half*(cos(angleL/widthXi(nXi)*pi)+1)
-                  else
-                     xiCMB(nPhi,nThetaB)=0.0_cp
-                  end if
-               end do
-#ifndef WITH_SHTNS
-               xiCMB(n_phi_max+1,nThetaB)=0.0_cp
-               xiCMB(n_phi_max+2,nThetaB)=0.0_cp
-#endif
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               xL=sinTheta(nTheta)*cos(phi(nPhi))
+               yL=sinTheta(nTheta)*sin(phi(nPhi))
+               zL=cosTheta(nTheta)
+               rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
+               !------ Opening angleL with peak value vector:
+               angleL=two*abs(asin(rH/2))
+               if ( angleL <= widthXi(nXi) ) then
+                  xiCMB(nTheta,nPhi) = half*(cos(angleL/widthXi(nXi)*pi)+1)
+               else
+                  xiCMB(nTheta,nPhi)=0.0_cp
+               end if
             end do
-         !------ Transform to spherical hamonic space for each theta block
-#ifndef WITH_SHTNS
-            if ( .not. l_axi ) call fft_thetab(xiCMB,-1)
-            call legTF1(nThetaStart,xiLM,xiCMB)
-#endif
-
-         end do ! Loop over theta blocks
-#ifdef WITH_SHTNS
-         call spat_to_SH(xiCMB, xiLM, l_max)
-#endif
+         end do
+         call scal_to_SH(xiCMB, xiLM, l_max)
 
       !--- xiFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
@@ -1029,41 +932,24 @@ contains
       !--- Now get the total thing so that the mean (l=0,m=0) due
       !    to the peaks is zero. The (l=0,m=0) contribution is
       !    determined (prescribed) by other means.
-      nTheta=0
-      do n=1,nThetaBs ! loop over the theta blocks
-
-         nThetaStart=(n-1)*sizeThetaB+1
-         do nThetaB=1,sizeThetaB
-            nTheta=nTheta+1
-            do nPhi=1,n_phi_max
-               xL=sinTheta(nTheta)*cos(phi(nPhi))
-               yL=sinTheta(nTheta)*sin(phi(nPhi))
-               zL=cosTheta(nTheta)
-               xiCMB(nPhi,nThetaB)=-xi00
-               do nXi=1,n_impXi
-                  rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
-                  !------ Opening angle with peak value vector:
-                  angleL=two*abs(asin(rH/2))
-                  if ( angleL <= widthXi(nXi) )              &
-                     xiCMB(nPhi,nThetaB)=xiCMB(nPhi,nThetaB) + &
-                                        amp(nXi)*half*(cos(angleL/widthXi(nXi)*pi)+1)
-               end do
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            xL=sinTheta(nTheta)*cos(phi(nPhi))
+            yL=sinTheta(nTheta)*sin(phi(nPhi))
+            zL=cosTheta(nTheta)
+            xiCMB(nTheta,nPhi)=-xi00
+            do nXi=1,n_impXi
+               rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
+               !------ Opening angle with peak value vector:
+               angleL=two*abs(asin(rH/2))
+               if ( angleL <= widthXi(nXi) )              &
+                  xiCMB(nTheta,nPhi)=xiCMB(nTheta,nPhi) + &
+                                     amp(nXi)*half*(cos(angleL/widthXi(nXi)*pi)+1)
             end do
-#ifndef WITH_SHTNS
-            xiCMB(n_phi_max+1,nThetaB)=0.0_cp
-            xiCMB(n_phi_max+2,nThetaB)=0.0_cp
-#endif
          end do
-      !------ Transform to spherical hamonic space for each theta block
-#ifndef WITH_SHTNS
-         if ( .not. l_axi ) call fft_thetab(xiCMB,-1)
-         call legTF1(nThetaStart,xiLM,xiCMB)
-#endif
+      end do
 
-      end do ! Loop over theta blocks
-#ifdef WITH_SHTNS
-      call spat_to_SH(xiCMB, xiLM, l_max)
-#endif
+      call scal_to_SH(xiCMB, xiLM, l_max)
 
       !--- Finally store the boundary condition and care for
       !    the fact that peakS provides the relative amplitudes

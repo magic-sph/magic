@@ -306,9 +306,10 @@ contains
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
-              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,     &
-              &      duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
-              &      fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+              &      HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr,viscASr,  &
+              &      uhASr,duhASr,gradsASr,fconvASr,fkinASr,fviscASr,     &
+              &      fpoynASr,fresASr,EperpASr,EparASr,EperpaxiASr,       &
+              &      EparaxiASr)
       !
       !  This subroutine controls most of the output.
       !
@@ -335,7 +336,7 @@ contains
 
       !--- Input of scales fields via common block in fields.f90:
       !    Parallelization note: these fields are LM-distributed.
-      !    The input fields HelLMr,Hel2LMr,TstrRLM,TadvRLM, and TomeRLM
+      !    The input fields HelASr,Hel2ASr,TstrRLM,TadvRLM, and TomeRLM
       !    are R-distributed. More R-distributed fields are hidden
       !    in TO.f90, RMS.f90, and dtB.f90.
       !    input fields are R-distributed. This has to be taken into
@@ -355,23 +356,24 @@ contains
       !    for calculating axisymmetric helicity.
       !    Parallelization note: These fields are R-distribute on input
       !    and must also be collected on the processor performing this routine.
-      real(cp),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: viscLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp),    intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp),    intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: HelASr(2,nRstart:nRstop)
+      real(cp),    intent(in) :: Hel2ASr(2,nRstart:nRstop)
+      real(cp),    intent(in) :: HelnaASr(2,nRstart:nRstop)
+      real(cp),    intent(in) :: Helna2ASr(2,nRstart:nRstop)
+      real(cp),    intent(in) :: HelEAASr(nRstart:nRstop)
+      real(cp),    intent(in) :: viscASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: uhASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: gradsASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: duhASr(nRstart:nRstop)
+      real(cp),    intent(in) :: fconvASr(nRstart:nRstop)
+      real(cp),    intent(in) :: fkinASr(nRstart:nRstop)
+      real(cp),    intent(in) :: fviscASr(nRstart:nRstop)
+      real(cp),    intent(in) :: fpoynASr(nRstartMag:nRstopMag)
+      real(cp),    intent(in) :: fresASr(nRstartMag:nRstopMag)
+      real(cp),    intent(inout) :: EperpASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: EparASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: EperpaxiASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: EparaxiASr(nRstart:nRstop)
 
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
 
@@ -524,7 +526,7 @@ contains
                  &          lorentz_torque_ma,w_LMloc,z_LMloc,               &
                  &          dz_LMloc,s_LMloc,xi_LMloc,                       &
                  &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
-                 &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
+                 &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscASr,    &
                  &          visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
@@ -543,13 +545,13 @@ contains
 
          !-- Out radial profiles of parameters
          call outPar(timePassedLog,timeNormLog,l_stop_time,ekinR,RolRu2,   &
-              &      dlVR,dlVRc,dlPolPeakR,uhLMr,duhLMr,gradsLMr,fconvLMr, &
-              &      fkinLMr,fviscLMr,fpoynLMr,fresLMr,RmR)
+              &      dlVR,dlVRc,dlPolPeakR,uhASr,duhASr,gradsASr,fconvASr, &
+              &      fkinASr,fviscASr,fpoynASr,fresASr,RmR)
 
          !-- Perpendicular/parallel
          if ( l_perpPar ) then
             call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time, &
-                 &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+                 &          EperpASr,EparASr,EperpaxiASr,EparaxiASr)
          end if
 
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
@@ -561,7 +563,7 @@ contains
          end if
 
          if ( l_hel ) then
-            call outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
+            call outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
          end if
 
          if ( l_par ) then

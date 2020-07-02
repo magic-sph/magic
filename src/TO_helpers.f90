@@ -4,14 +4,11 @@ module TO_helpers
    !
 
    use precision_mod
-   use truncation, only: l_max, n_theta_max
+   use truncation, only: l_max, n_theta_max, nlat_padded
    use blocking, only: lm2
-#ifdef WITH_SHTNS
    use horizontal_data, only: osn1
-#else
-   use horizontal_data, only: dPlm, osn1
-#endif
    use constants, only: one, two, half
+   use sht, only: toraxi_to_spat
 
    implicit none
 
@@ -115,7 +112,7 @@ contains
 
    end subroutine getPAStr
 !---------------------------------------------------------------------------
-   subroutine get_PAS(Tlm,Bp,rT,nThetaStart,sizeThetaBlock)
+   subroutine get_PAS(Tlm,Bp,rT)
       !
       !  Purpose of this subroutine is to calculate the axisymmetric      
       !  phi component Bp of an axisymmetric toroidal field Tlm           
@@ -123,8 +120,6 @@ contains
       !
 
       !-- Input variables
-      integer,  intent(in) :: nThetaStart    ! first theta to be treated
-      integer,  intent(in) :: sizeThetaBlock ! size of theta block
       real(cp), intent(in) :: rT             ! radius
       real(cp), intent(in) :: Tlm(:)         ! field in (l,m)-space for rT
 
@@ -135,50 +130,22 @@ contains
       integer :: lm,l
       integer :: nTheta,nThetaN
       real(cp) :: fac
-#ifdef WITH_SHTNS
       complex(cp) :: Tl_AX(1:l_max+1)
-      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
-#else
-      real(cp) :: sign
-      real(cp) :: Bp_1,Bp_n,Bp_s
-#endif
+      real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
 
-#ifdef WITH_SHTNS
       do l=0,l_max
          lm=lm2(l,0)
          Tl_AX(l+1)=cmplx(Tlm(lm),0.0_cp,kind=cp)
       end do
 
-      call shtns_load_cfg(0)
-      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
-         nThetaN=(nThetaStart+nTheta)/2
+      do nTheta=1,n_theta_max,2 ! loop over thetas in Northern HS
+         nThetaN=(nTheta+1)/2
          fac=osn1(nThetaN)/rT
-         Bp(nTheta)  =fac*real(tmpp(nTheta))
-         Bp(nTheta+1)=fac*real(tmpp(nTheta+1))
+         Bp(nTheta)  =fac*tmpp(nTheta)
+         Bp(nTheta+1)=fac*tmpp(nTheta+1)
       end do
-#else
-      do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
-
-         nThetaN=(nThetaStart+nTheta)/2
-         fac=osn1(nThetaN)/rT
-
-         sign=-one
-         Bp_n=0.0_cp
-         Bp_s=0.0_cp
-         do l=0,l_max
-            lm=lm2(l,0)
-            sign=-sign
-            Bp_1=-Tlm(l+1)*dPlm(lm,nThetaN)
-            Bp_n=Bp_n+Bp_1
-            Bp_s=Bp_s-sign*Bp_1
-         end do  ! Loop over degree
-         Bp(nTheta)  =fac*Bp_n
-         Bp(nTheta+1)=fac*Bp_s
-
-      end do        ! Loop over colatitudes
-#endif
 
    end subroutine get_PAS
 !----------------------------------------------------------------------------

@@ -18,7 +18,6 @@ module Namelists
    use special
    use movie_data, only: movie,n_movies, n_movies_max
    use charmanip, only: length_to_blank,capitalize
-   use blocking, only: cacheblock_size_in_B
    use probe_mod
    use useful, only: abortRun
    use dirk_schemes, only: type_dirk
@@ -55,7 +54,7 @@ contains
       integer :: length
       integer :: argument_count
       integer :: res,n_cour_step
-      integer :: inputHandle
+      integer :: inputHandle, cacheblock_size_in_B
       character(len=100) :: input_filename, errmess
 
       !-- Name lists:
@@ -1240,8 +1239,6 @@ contains
       time_scheme   ="CNAB2"   
       mpi_transp    ="AUTO"   ! automatic detection of the MPI strategy
       mpi_packing   ="PACKED" ! automatic detection of the MPI packing ('SINGLE','PACKED')
-
-      cacheblock_size_in_B=4096
 
       l_update_v    =.true.
       l_update_b    =.true.

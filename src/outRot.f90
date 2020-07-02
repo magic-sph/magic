@@ -2,7 +2,7 @@ module outRot
 
    use parallel_mod
    use precision_mod
-   use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
+   use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max, n_theta_max
    use radial_data, only: n_r_CMB, n_r_ICB
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
    use physical_parameters, only: kbotv, ktopv, LFfac
@@ -471,8 +471,7 @@ contains
 
    end subroutine get_viscous_torque
 !-----------------------------------------------------------------------
-   subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
-              &                  sizeThetaB,br,bp,nR)
+   subroutine get_lorentz_torque(lorentz_torque,br,bp,nR)
       !
       !  Purpose of this subroutine is to calculate the lorentz torque
       !  on mantle or inner core respectively.
@@ -495,10 +494,8 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: nThetaStart    ! first number of theta in block
-      integer,  intent(in) :: sizeThetaB     ! size of theta bloching
-      real(cp), intent(in) :: br(nrp,*)      ! array containing
-      real(cp), intent(in) :: bp(nrp,*)      ! array containing
+      real(cp), intent(in) :: br(:,:)          ! array containing
+      real(cp), intent(in) :: bp(:,:)          ! array containing
       integer,  intent(in) :: nR
 
       real(cp), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
@@ -506,50 +503,37 @@ contains
 
       !-- local variables:
       integer :: nTheta,nPhi,nThetaNHS
-      integer :: nThetaB
       real(cp) :: fac,b0r
 
       ! to avoid rounding errors for different theta blocking, we do not
       ! calculate sub sums with lorentz_torque_local, but keep on adding
       ! the contributions to the total lorentz_torque given as argument.
 
-      if ( nThetaStart == 1 ) then
-         lorentz_torque=0.0_cp
-      end if
+      lorentz_torque=0.0_cp
 
-      !lorentz_torque_local=0.0_cp
       fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
-      nTheta=nThetaStart-1
-#ifdef WITH_SHTNS
-      !$OMP PARALLEL DO default(none) &
-      !$OMP& private(nThetaB, nTheta, nPhi, nThetaNHS, b0r) &
-      !$OMP& shared(n_phi_max, sizeThetaB, r_icb, r, nR) &
-      !$OMP& shared(lGrenoble, nThetaStart, BIC, cosTheta, r_cmb) &
-      !$OMP& shared(fac, gauss) &
-      !$OMP& reduction(+: lorentz_torque)
-#endif
-      do nThetaB=1,sizeThetaB
-         nTheta=nThetaStart+nThetaB-1
-         nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
-         if ( lGrenoble ) then
-            if ( r(nR) == r_icb ) then
-               b0r=two*BIC*r_icb**2*cosTheta(nTheta)
-            else if ( r(nR) == r_cmb ) then
-               b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+      !$omp parallel do default(shared) &
+      !$omp& private(nTheta, nPhi, nThetaNHS, b0r) &
+      !$omp& reduction(+: lorentz_torque)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
+            if ( lGrenoble ) then
+               if ( r(nR) == r_icb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)
+               else if ( r(nR) == r_cmb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+               end if
+            else
+               b0r=0.0_cp
             end if
-         else
-            b0r=0.0_cp
-         end if
 
-         do nPhi=1,n_phi_max
             lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
-            &              (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
+            &              (br(nTheta,nPhi)-b0r)*bp(nTheta,nPhi)
          end do
       end do
-#ifdef WITH_SHTNS
-      !$OMP END PARALLEL DO
-#endif
+      !$omp end parallel do
 
    end subroutine get_lorentz_torque
 !-----------------------------------------------------------------------

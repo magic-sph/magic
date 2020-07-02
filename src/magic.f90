@@ -140,9 +140,8 @@ program magic
 #  include "likwid_f90.h"
 #endif
 
-#ifdef WITH_SHTNS
-   use shtns
-#endif
+   use sht, only: initialize_sht, finalize_sht
+
    implicit none
 
    !-- Local variables:
@@ -275,6 +274,7 @@ program magic
 
    !-- Blocking/radial/horizontal
    call initialize_blocking()
+   call initialize_sht()
    local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
    call initialize_radial_functions()
@@ -316,12 +316,6 @@ program magic
    call initialize_coeffs()
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
-
-
-
-#ifdef WITH_SHTNS
-   call init_shtns()
-#endif
 
    if ( rank == 0 ) then
       call tscheme%print_info(n_log_file)
@@ -478,6 +472,7 @@ program magic
    call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
+   call finalize_sht()
    call finalize_der_arrays()
 
    call finalize_horizontal_data()

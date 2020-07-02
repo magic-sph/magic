@@ -19,7 +19,7 @@ module outTO_mod
        &                             dzddVpLMr_Rloc, dzdVpLMr_Rloc,        &
        &                             dzLFLMr_Rloc, dzStrLMr_Rloc
    use num_param, only: tScale
-   use blocking, only: nThetaBs, sizeThetaB, nfs, lo_map, llm, ulm
+   use blocking, only: lo_map, llm, ulm
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file
@@ -28,12 +28,7 @@ module outTO_mod
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
    use useful, only: logWrite, abortRun
-#ifdef WITH_SHTNS
-   use shtns, only: spat_to_SH_axi
-#else
-   use legendre_grid_to_spec, only: legTFAS, legTFAS2
-#endif
-
+   use sht, only: spat_to_SH_axi
    use chebInt_mod, only: chebInt, chebIntInit
    use cosine_transform_odd
 
@@ -256,10 +251,8 @@ contains
       integer :: n      ! counter for theta blocks
       integer :: nOut,nFields ! counter for output fields
       integer :: nTheta ! counter for all thetas
-      integer :: nThetaBlock ! counter for thetas in block
       integer :: nThetaOrd ! counter for ordered thetas
       integer :: nThetaNHS
-      integer :: nThetaStart
 
       integer :: nZ,nZmax,nZmaxNS!,nZP
 
@@ -347,7 +340,7 @@ contains
       real(cp) :: TayRRMS,TayVRMS
       real(cp) :: VpRMS,VRMS,VgRMS
       real(cp) :: rS,sS
-      real(cp) :: outBlock(nfs)
+      real(cp) :: outBlock(n_theta_max)
       real(outp) :: dt
 
       character(len=255) :: message
@@ -393,7 +386,6 @@ contains
       !--- Transform to lm-space for all radial grid points:
 
       do nR=nRstart,nRstop
-#ifdef WITH_SHTNS
          call spat_to_SH_axi(V2AS_Rloc(:,nR),V2LMr_Rloc(:,nR))
          call spat_to_SH_axi(Bs2AS_Rloc(:,nR),Bs2LMr_Rloc(:,nR))
          call spat_to_SH_axi(BszAS_Rloc(:,nR),BszLMr_Rloc(:,nR))
@@ -403,25 +395,6 @@ contains
          call spat_to_SH_axi(BpsdAS_Rloc(:,nR),BpsdLMr_Rloc(:,nR))
          call spat_to_SH_axi(BzpdAS_Rloc(:,nR),BzpdLMr_Rloc(:,nR))
          call spat_to_SH_axi(BpzdAS_Rloc(:,nR),BpzdLMr_Rloc(:,nR))
-#else
-         do n=1,nThetaBs
-            nThetaStart=(n-1)*sizeThetaB+1
-            call legTFAS(V2LMr_Rloc(:,nR),V2AS_Rloc(nThetaStart,nR),               &
-                 &       l_max+1,nThetaStart,sizeThetaB)
-            call legTFAS2(Bs2LMr_Rloc(:,nR),BszLMr_Rloc(:,nR),                     &
-                 &        Bs2AS_Rloc(nThetaStart,nR),BszAS_Rloc(nThetaStart,nR),   &
-                 &        l_max+1,nThetaStart,sizeThetaB)
-            call legTFAS2(BspLMr_Rloc(:,nR),BpzLMr_Rloc(:,nR),                     &
-                 &        BspAS_Rloc(nThetaStart,nR),BpzAS_Rloc(nThetaStart,nR),   &
-                 &        l_max+1,nThetaStart,sizeThetaB)
-            call legTFAS2(BspdLMr_Rloc(:,nR),BpsdLMr_Rloc(:,nR),                   &
-                 &        BspdAS_Rloc(nThetaStart,nR),BpsdAS_Rloc(nThetaStart,nR), &
-                 &        l_max+1,nThetaStart,sizeThetaB)
-            call legTFAS2(BzpdLMr_Rloc(:,nR),BpzdLMr_Rloc(:,nR),                   &
-                 &        BzpdAS_Rloc(nThetaStart,nR),BpzdAS_Rloc(nThetaStart,nR), &
-                 &        l_max+1,nThetaStart,sizeThetaB)
-         end do
-#endif
       end do ! Loop over radial grid points
 
 
@@ -1376,74 +1349,68 @@ contains
                do nR=1,n_r_max ! Loop over radial points
                   rS=r(nR)
 
-                  do n=1,nThetaBs ! Loop over theta blocks
-                     nThetaStart=(n-1)*sizeThetaB+1
+                  !------ Convert from lm to theta block:
+                  if ( nOut == 1 ) then
+                     call get_PAS(dzVpLMr(:,nR),outBlock,rS)
+                  else if ( nOut == 2 ) then
+                     call get_PAS(dzRstrLMr(:,nR),outBlock,rS)
+                  else if ( nOut == 3 ) then
+                     call get_PAS(dzAstrLMr(:,nR),outBlock,rS)
+                  else if ( nOut == 4 ) then
+                     call get_PAS(dzStrLMr(:,nR),outBlock,rS)
+                  else if ( nOut == 5 ) then
+                     call get_PAS(dzLFLMr(:,nR),outBlock,rS)
+                  else if ( nOut == 6 ) then
+                     call get_PAS(dzCorLMr(:,nR),outBlock,rS)
+                  else if ( nOut == 7 ) then
+                     call get_PAS(dzdVpLMr(:,nR),outBlock,rS)
+                  end if
 
-                     !------ Convert from lm to theta block:
+                  !------ Storage of field in fout for theta block,
+                  !       integration and Max/Min values
+                  do nTheta=1,n_theta_max
+                     nThetaNHS=(nTheta+1)/2
+                     sS       =rS*sinTheta(nTheta)
+                     !--------- Convert to correct order in theta grid points:
+                     if ( mod(nTheta,2) == 1 ) then
+                        nThetaOrd=(nTheta+1)/2
+                     else
+                        nThetaOrd=n_theta_max-nTheta/2+1
+                     end if
+                     nPos=(nR-1)*n_theta_max+nThetaOrd
+
                      if ( nOut == 1 ) then
-                        call get_PAS(dzVpLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- Zonal flow:
+                        fOut(nPos)=vSF*outBlock(nTheta)
+                        VpR(nR)=VpR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                      else if ( nOut == 2 ) then
-                        call get_PAS(dzRstrLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- Reynolds force:
+                        fOut(nPos)=fSF*outBlock(nTheta)
+                        RstrR(nR)=RstrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                      else if ( nOut == 3 ) then
-                        call get_PAS(dzAstrLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- Advective force:
+                        fOut(nPos)=fSF*outBlock(nTheta)
+                        AstrR(nR)=AstrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                      else if ( nOut == 4 ) then
-                        call get_PAS(dzStrLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- Viscous force:
+                        fOut(nPos)=fSF*outBlock(nTheta)
+                        StrR(nR)=StrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                      else if ( nOut == 5 ) then
-                        call get_PAS(dzLFLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- Lorentz force:
+                        fOut(nPos)=fSF*LFfac*outBlock(nTheta)
+                        LFR(nR)=LFR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
+                        LFABSR(nR)=LFABSR(nR) + gauss(nThetaNHS)*abs(fOut(nPos))/sS
                      else if ( nOut == 6 ) then
-                        call get_PAS(dzCorLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- Corriolis force:
+                        fOut(nPos)=fSF*outBlock(nTheta)
+                        CorR(nR)=CorR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                      else if ( nOut == 7 ) then
-                        call get_PAS(dzdVpLMr(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        !--------------- dtVp:
+                        fOut(nPos)=vSF*outBlock(nTheta)
+                        dVpR(nR)  =dVpR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                      end if
 
-                     !------ Storage of field in fout for theta block,
-                     !       integration and Max/Min values
-                     nTheta=(n-1)*sizeThetaB
-                     do nThetaBlock=1,sizeThetaB
-                        nTheta=nTheta+1
-                        nThetaNHS=(nTheta+1)/2
-                        sS       =rS*sinTheta(nTheta)
-                        !--------- Convert to correct order in theta grid points:
-                        if ( mod(nTheta,2) == 1 ) then
-                           nThetaOrd=(nTheta+1)/2
-                        else
-                           nThetaOrd=n_theta_max-nTheta/2+1
-                        end if
-                        nPos=(nR-1)*n_theta_max+nThetaOrd
-
-                        if ( nOut == 1 ) then
-                           !--------------- Zonal flow:
-                           fOut(nPos)=vSF*outBlock(nThetaBlock)
-                           VpR(nR)=VpR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        else if ( nOut == 2 ) then
-                           !--------------- Reynolds force:
-                           fOut(nPos)=fSF*outBlock(nThetaBlock)
-                           RstrR(nR)=RstrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        else if ( nOut == 3 ) then
-                           !--------------- Advective force:
-                           fOut(nPos)=fSF*outBlock(nThetaBlock)
-                           AstrR(nR)=AstrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        else if ( nOut == 4 ) then
-                           !--------------- Viscous force:
-                           fOut(nPos)=fSF*outBlock(nThetaBlock)
-                           StrR(nR)=StrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        else if ( nOut == 5 ) then
-                           !--------------- Lorentz force:
-                           fOut(nPos)=fSF*LFfac*outBlock(nThetaBlock)
-                           LFR(nR)=LFR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                           LFABSR(nR)=LFABSR(nR) + gauss(nThetaNHS)*abs(fOut(nPos))/sS
-                        else if ( nOut == 6 ) then
-                           !--------------- Corriolis force:
-                           fOut(nPos)=fSF*outBlock(nThetaBlock)
-                           CorR(nR)=CorR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        else if ( nOut == 7 ) then
-                           !--------------- dtVp:
-                           fOut(nPos)=vSF*outBlock(nThetaBlock)
-                           dVpR(nR)  =dVpR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        end if
-
-                     end do ! Loop over thetas in block
-                  end do    ! Loop over theta blocks
+                  end do ! Loop over thetas in block
 
                end do ! Loop over R
 

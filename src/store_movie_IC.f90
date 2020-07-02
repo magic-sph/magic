@@ -2,12 +2,11 @@ module out_movie_IC
 
    use precision_mod
    use truncation, only: minc, lm_maxMag, n_r_maxMag, n_r_ic_maxMag, &
-       &                 n_phi_max, lm_max, n_r_ic_max, nrp, l_max,  &
-       &                 n_theta_max, l_axi
+       &                 n_phi_max, lm_max, n_r_ic_max, l_max,       &
+       &                 n_theta_max, l_axi, nlat_padded
    use radial_data, only: n_r_icb
    use radial_functions, only: r_ic, r_ICB, O_r_ic2, O_r_ic
    use physical_parameters, only: LFfac
-   use blocking, only: sizeThetaB, nThetaBs, nfs
    use horizontal_data, only: n_theta_cal2ord, O_sin_theta
    use logic, only: l_cond_ic
    use movie_data, only: frames, n_movie_field_stop, n_movie_field_start, &
@@ -16,14 +15,7 @@ module out_movie_IC
        &                 n_movie_fields
    use out_movie, only: get_fl
    use constants, only: one
-#ifdef WITH_SHTNS
-   use shtns, only: torpol_to_spat_IC, torpol_to_curl_spat_IC
-#else
-   use horizontal_data, only: dLh, Plm, dPlm
-   use leg_helper_mod, only: legPrep_IC
-   use legendre_spec_to_grid, only: leg_polsphtor_to_spat
-   use fft, only: fft_thetab
-#endif
+   use sht, only: torpol_to_spat_IC, torpol_to_curl_spat_IC
 
    implicit none
 
@@ -55,19 +47,15 @@ contains
       integer :: nR
       integer :: n_field_type   ! Numbers field types
       integer :: n_store_last   ! Position i in frame(i) were field starts
-      integer :: nTheta,nThetaB,nThetaR,nThetaC,nThetaStart
+      integer :: nTheta,nThetaR
       integer :: nPhi,nPhi0,nPhi180
       integer :: n_field_size,n_fields,n_fields_oc,n_fields_ic
       integer :: n_o,n_o_r
 
-#ifndef WITH_SHTNS
-      complex(cp) :: dLhb(lm_maxMag), bhG(lm_maxMag)
-      complex(cp) :: bhC(lm_maxMag), dLhj(lm_maxMag)
-      complex(cp) :: cbhG(lm_maxMag), cbhC(lm_maxMag)
-#endif
-      real(cp) :: BrB(nrp,nfs), BtB(nrp,nfs), BpB(nrp,nfs)
-      real(cp) :: cBrB(nrp,nfs), cBtB(nrp,nfs), cBpB(nrp,nfs)
-      real(cp) :: fl(nfs),help
+      real(cp) :: BrB(nlat_padded,n_phi_max), BtB(nlat_padded,n_phi_max)
+      real(cp) :: BpB(nlat_padded,n_phi_max), cBrB(nlat_padded,n_phi_max)
+      real(cp) :: cBtB(nlat_padded,n_phi_max), cBpB(nlat_padded,n_phi_max)
+      real(cp) :: fl(n_theta_max),help
 
       real(cp) ::  phi_norm
 
@@ -86,21 +74,6 @@ contains
 
             do nR=1,n_r_ic_max
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:,nR),  &
                        &                 db_ic(:,nR),aj_ic(:,nR),BrB,BtB,BpB)
@@ -114,82 +87,57 @@ contains
                        &                      ddb_ic(:,1),aj_ic(:,1),      &
                        &                      dj_ic(:,1),cBrB,cBtB,cBpB)
                end if
-#endif
 
                !------ Calculate magnetic field on grid points:
-               do nThetaB=1,nThetaBs
-                  nThetaStart=(nThetaB-1)*sizeThetaB+1
+               do n_field=n_fields_oc+1,n_fields
+                  n_field_type= n_movie_field_type(n_field,n_movie)
+                  n_store_last= n_movie_field_start(n_field,n_movie)-1
 
-#ifndef WITH_SHTNS
-                  !------ Perform Legendre transform:
-                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                       &                     BrB,BtB,BpB)
-                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
-                       &                     cBrB,cBtB,cBpB)
-                  if ( .not. l_axi ) then
-                     call fft_thetab(BrB,1)
-                     call fft_thetab(BtB,1)
-                     call fft_thetab(BpB,1)
-                     call fft_thetab(cBrB,1)
-                     call fft_thetab(cBtB,1)
-                  end if
-#endif
+                  if ( n_store_last >= 0 ) then
+                     n_o_r=n_store_last + (nR-2)*n_theta_max*n_phi_max
 
-                  do n_field=n_fields_oc+1,n_fields
-                     n_field_type= n_movie_field_type(n_field,n_movie)
-                     n_store_last= n_movie_field_start(n_field,n_movie)-1
-
-                     if ( n_store_last >= 0 ) then
-                        n_o_r=n_store_last + (nR-2)*n_theta_max*n_phi_max
-
-                        if ( n_field_type == 1 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)=BrB(nPhi,nThetaR)*O_r_ic2(nR)
-                              end do
+                     if ( n_field_type == 1 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)=BrB(nThetaR,nPhi)*O_r_ic2(nR)
                            end do
-                        else if ( n_field_type == 2 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
-                              end do
+                        end do
+                     else if ( n_field_type == 2 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           help=O_r_ic(nR)*O_sin_theta(nThetaR)
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)=help*BtB(nThetaR,nPhi)
                            end do
-                        else if ( n_field_type == 3 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
-                              end do
+                        end do
+                     else if ( n_field_type == 3 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           help=O_r_ic(nR)*O_sin_theta(nThetaR)
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)=help*BpB(nThetaR,nPhi)
                            end do
-                        else if ( n_field_type == 54 ) then
-                           help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)= help*O_sin_theta(nThetaC) * &
-                                 &    ( cBrB(nPhi,nThetaR)*BtB(nPhi,nThetaR) - &
-                                 &      cBtB(nPhi,nThetaR)*BrB(nPhi,nThetaR) )
-                              end do
+                        end do
+                     else if ( n_field_type == 54 ) then
+                        help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)= help*O_sin_theta(nThetaR) * &
+                              &    ( cBrB(nPhi,nThetaR)*BtB(nThetaR,nPhi) - &
+                              &      cBtB(nPhi,nThetaR)*BrB(nThetaR,nPhi) )
                            end do
-                        end if
-
+                        end do
                      end if
 
-                  end do  ! Loop over fields
+                  end if
 
-               end do     ! Loop over thetas blocks
+               end do  ! Loop over fields
 
             end do        ! Loop over radius
 
@@ -198,21 +146,6 @@ contains
             if ( n_fields_ic > 0 ) then
                nR=abs(n_const)
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:, nR),db_ic(:, nR),&
                        &                 aj_ic(:, nR),BrB,BtB,BpB)
@@ -220,65 +153,45 @@ contains
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic(:,1),  &
                        &                 aj_ic(:,1),BrB,BtB,BpB)
                end if
-#endif
 
                !------ Calculate magnetic field on grid points:
-               do nThetaB=1,nThetaBs
-                  nThetaStart=(nThetaB-1)*sizeThetaB+1
+               do n_field=n_fields_oc+1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
 
-#ifndef WITH_SHTNS
-                  !------ Perform Legendre transform:
-                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                       &                     BrB,BtB,BpB)
-                  if ( .not. l_axi ) then
-                     call fft_thetab(BrB,1)
-                     call fft_thetab(BtB,1)
-                     call fft_thetab(BpB,1)
-                  end if
-#endif
+                  if ( n_store_last >= 0 ) then
+                     n_o_r=n_store_last
 
-                  do n_field=n_fields_oc+1,n_fields
-                     n_field_type=n_movie_field_type(n_field,n_movie)
-                     n_store_last=n_movie_field_start(n_field,n_movie)-1
-
-                     if ( n_store_last >= 0 ) then
-                        n_o_r=n_store_last
-
-                        if ( n_field_type == 1 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)=BrB(nPhi,nThetaR)*O_r_ic2(nR)
-                              end do
+                     if ( n_field_type == 1 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)=BrB(nThetaR,nPhi)*O_r_ic2(nR)
                            end do
-                        else if ( n_field_type == 2 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
-                              end do
+                        end do
+                     else if ( n_field_type == 2 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           help=O_r_ic(nR)*O_sin_theta(nThetaR)
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)=help*BtB(nThetaR,nPhi)
                            end do
-                        else if ( n_field_type == 3 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+(nTheta-1)*n_phi_max
-                              help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                              do nPhi=1,n_phi_max
-                                 frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
-                              end do
+                        end do
+                     else if ( n_field_type == 3 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+(nTheta-1)*n_phi_max
+                           help=O_r_ic(nR)*O_sin_theta(nThetaR)
+                           do nPhi=1,n_phi_max
+                              frames(nPhi+n_o)=help*BpB(nThetaR,nPhi)
                            end do
-                        end if
+                        end do
                      end if
+                  end if
 
-                  end do  ! Loop over fields
-
-               end do     ! Loop over theta blocks
+               end do  ! Loop over fields
 
             end if ! if there anything in the inner core
 
@@ -286,29 +199,6 @@ contains
 
             do nR=1,n_r_ic_max
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-
-               if ( mod(n_const,2) == 1 ) then
-                  nTheta=n_const
-                  nThetaR=1
-               else
-                  nTheta=n_const-1
-                  nThetaR=2
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:,nR),db_ic(:,nR),&
                        &                 aj_ic(:,nR),BrB,BtB,BpB)
@@ -325,22 +215,7 @@ contains
 
                nTheta =n_const
                nThetaR=n_const
-#endif
 
-
-#ifndef WITH_SHTNS
-               !------ Perform Legendre transform for 2 theta points
-               call leg_polsphtor_to_spat(.true.,nTheta,dLhb,bhG,bhC, &
-                    &                     BrB,BtB,BpB,n_thetas=2)
-               call leg_polsphtor_to_spat(.true.,nTheta,dLhj,cbhG,cbhC,&
-                    &                     cBrB,cBtB,cBpB,n_thetas=2)
-               if ( .not. l_axi ) then
-                  call fft_thetab(BrB,1)
-                  call fft_thetab(BtB,1)
-                  call fft_thetab(BpB,1)
-                  call fft_thetab(cBtB,1)
-               end if
-#endif
 
                do n_field=n_fields_oc+1,n_fields
 
@@ -351,17 +226,17 @@ contains
                      n_o=n_store_last+(nR-2)*n_phi_max
                      if ( n_field_type == 1 ) then !-- Br
                         do nPhi=1,n_phi_max
-                           frames(nPhi+n_o)=BrB(nPhi,nThetaR)*O_r_ic2(nR)
+                           frames(nPhi+n_o)=BrB(nThetaR,nPhi)*O_r_ic2(nR)
                         end do
                      else if ( n_field_type == 2 ) then !-- Btheta
                         help=O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
-                           frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                           frames(nPhi+n_o)=help*BtB(nThetaR,nPhi)
                         end do
                      else if ( n_field_type == 3 ) then !-- Bphi
                         help=O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
-                           frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                           frames(nPhi+n_o)=help*BpB(nThetaR,nPhi)
                         end do
                      else if ( n_field_type == 13 ) then
                         help=-O_r_ic(nR)*O_sin_theta(nTheta)
@@ -371,7 +246,7 @@ contains
                      else if ( n_field_type == 14 ) then !-- jtheta
                         help=-O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
-                           frames(nPhi+n_o)=help*cBtB(nPhi,nThetaR)
+                           frames(nPhi+n_o)=help*cBtB(nThetaR,nPhi)
                         end do
                      end if
 
@@ -386,21 +261,6 @@ contains
 
             do nR=1,n_r_ic_max
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:,nR),  &
                        &                 db_ic(:,nR),aj_ic(:,nR),BrB,BtB,BpB)
@@ -414,7 +274,6 @@ contains
                        &                      ddb_ic(:,1),aj_ic(:,1),      &
                        &                      dj_ic(:,1),cBrB,cBtB,cBpB)
                end if
-#endif
 
                !------ Get phi no. for left and righty halfspheres:
                nPhi0=n_const
@@ -425,113 +284,86 @@ contains
                end if
 
                !------ Calculate magnetic field on grid points:
-               do nThetaB=1,nThetaBs
-                  nThetaStart=(nThetaB-1)*sizeThetaB+1
+               if ( n_type == 30 ) then
+                  !------ get_fl returns field for field line plot:
+                  call get_fl(fl,nR,1,n_theta_max,.true.)
+               end if
 
-                  if ( n_type == 30 ) then
-                     !------ get_fl returns field for field line plot:
-                     call get_fl(fl,nR,nThetaStart,sizeThetaB,.true.)
-                  else
-#ifndef WITH_SHTNS
-                     !------ Perform Legendre transform:
-                     call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                          &                     BrB,BtB,BpB)
-                     call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
-                          &                     cBrB,cBtB,cBpB)
-                     if ( .not. l_axi ) then
-                        call fft_thetab(BrB,1)
-                        call fft_thetab(BtB,1)
-                        call fft_thetab(BpB,1)
-                        call fft_thetab(cBrB,1)
-                        call fft_thetab(cBtB,1)
+               do n_field=n_fields_oc+1,n_fields
+
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  n_field_size=( n_movie_field_stop(n_field,n_movie)-n_store_last )/2
+
+                  if ( n_store_last >= 0 ) then
+                     n_o_r=n_store_last+(nR-2)*n_theta_max
+
+                     if ( n_field_type == 1 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+nTheta
+                           frames(n_o)=BrB(nThetaR,nPhi0)*O_r_ic2(nR)
+                           frames(n_o+n_field_size)=O_r_ic2(nR)*BrB(nThetaR,nPhi180)
+                        end do
+                     else if ( n_field_type == 2 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+nTheta
+                           frames(n_o)=BtB(nThetaR,nPhi0) *                &
+                           &           O_r_ic(nR)*O_sin_theta(nThetaR)
+                           frames(n_o+n_field_size)=BtB(nThetaR,nPhi180) * &
+                           &             O_r_ic(nR)*O_sin_theta(nThetaR)
+                       end do
+                     else if ( n_field_type == 3 ) then
+                         do nThetaR=1,n_theta_max
+                            nTheta=n_theta_cal2ord(nThetaR)
+                            n_o=n_o_r+nTheta
+                            frames(n_o)=BpB(nThetaR,nPhi0) *                 &
+                            &           O_r_ic(nR)*O_sin_theta(nThetaR)
+                            frames(n_o+n_field_size)= BpB(nThetaR,nPhi180) * &
+                            &                 O_r_ic(nR)*O_sin_theta(nThetaR)
+                        end do
+                     else if ( n_field_type == 8 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+nTheta
+                           !write(*,"(A,I5,A)") "store_movie_IC: frames(",n_o,")"
+                           frames(n_o)=fl(nThetaR)
+                        end do
+                     else if ( n_field_type == 9 ) then
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+nTheta
+                           help=0.0_cp
+                           do nPhi=1,n_phi_max
+                              help=help+BpB(nPhi,nThetaR)
+                           end do
+                           frames(n_o)=phi_norm*help*O_r_ic(nR)* &
+                           &           O_sin_theta(nThetaR)
+                        end do
+                     else if ( n_field_type == 54 ) then
+                        help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+nTheta
+                           frames(n_o)=        help*O_sin_theta(nThetaR) * &
+                           &    ( cBrB(nThetaR,nPhi0)*BtB(nThetaR,nPhi0) - &
+                           &      cBtB(nThetaR,nPhi0)*BrB(nThetaR,nPhi0) )
+                           frames(n_o)=            help*O_sin_theta(nThetaR) * &
+                           &    ( cBrB(nThetaR,nPhi180)*BtB(nThetaR,nPhi180) - &
+                           &      cBtB(nThetaR,nPhi180)*BrB(nThetaR,nPhi180) )
+                        end do
+                     else
+                        do nThetaR=1,n_theta_max
+                           nTheta=n_theta_cal2ord(nThetaR)
+                           n_o=n_o_r+nTheta
+                           frames(n_o)=0.0_cp
+                           frames(n_o+n_field_size)=0.0_cp
+                        end do
                      end if
-#endif
                   end if
 
-                  do n_field=n_fields_oc+1,n_fields
-
-                     n_field_type=n_movie_field_type(n_field,n_movie)
-                     n_store_last=n_movie_field_start(n_field,n_movie)-1
-                     n_field_size=( n_movie_field_stop(n_field,n_movie)-n_store_last )/2
-
-                     if ( n_store_last >= 0 ) then
-                        n_o_r=n_store_last+(nR-2)*n_theta_max
-
-                        if ( n_field_type == 1 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+nTheta
-                              frames(n_o)=BrB(nPhi0,nThetaR)*O_r_ic2(nR)
-                              frames(n_o+n_field_size)=O_r_ic2(nR)*BrB(nPhi180,nThetaR)
-                           end do
-                        else if ( n_field_type == 2 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+nTheta
-                              frames(n_o)=BtB(nPhi0,nThetaR) *                &
-                              &           O_r_ic(nR)*O_sin_theta(nThetaC)
-                              frames(n_o+n_field_size)=BtB(nPhi180,nThetaR) * &
-                              &             O_r_ic(nR)*O_sin_theta(nThetaC)
-                          end do
-                        else if ( n_field_type == 3 ) then
-                            do nThetaR=1,sizeThetaB
-                               nThetaC=nThetaStart-1+nThetaR
-                               nTheta=n_theta_cal2ord(nThetaC)
-                               n_o=n_o_r+nTheta
-                               frames(n_o)=BpB(nPhi0,nThetaR) *                 &
-                               &           O_r_ic(nR)*O_sin_theta(nThetaC)
-                               frames(n_o+n_field_size)= BpB(nPhi180,nThetaR) * &
-                               &                 O_r_ic(nR)*O_sin_theta(nThetaC)
-                           end do
-                        else if ( n_field_type == 8 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+nTheta
-                              !write(*,"(A,I5,A)") "store_movie_IC: frames(",n_o,")"
-                              frames(n_o)=fl(nThetaR)
-                           end do
-                        else if ( n_field_type == 9 ) then
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+nTheta
-                              help=0.0_cp
-                              do nPhi=1,n_phi_max
-                                 help=help+BpB(nPhi,nThetaR)
-                              end do
-                              frames(n_o)=phi_norm*help*O_r_ic(nR)* &
-                              &           O_sin_theta(nThetaC)
-                           end do
-                        else if ( n_field_type == 54 ) then
-                           help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+nTheta
-                              frames(n_o)=        help*O_sin_theta(nThetaC) * &
-                              &    ( cBrB(nPhi0,nThetaR)*BtB(nPhi0,nThetaR) - &
-                              &      cBtB(nPhi0,nThetaR)*BrB(nPhi0,nThetaR) )
-                              frames(n_o)=            help*O_sin_theta(nThetaC) * &
-                              &    ( cBrB(nPhi180,nThetaR)*BtB(nPhi180,nThetaR) - &
-                              &      cBtB(nPhi180,nThetaR)*BrB(nPhi180,nThetaR) )
-                           end do
-                        else
-                           do nThetaR=1,sizeThetaB
-                              nThetaC=nThetaStart-1+nThetaR
-                              nTheta=n_theta_cal2ord(nThetaC)
-                              n_o=n_o_r+nTheta
-                              frames(n_o)=0.0_cp
-                              frames(n_o+n_field_size)=0.0_cp
-                           end do
-                        end if
-                     end if
-
-                  end do    ! Loop over fields
-
-               end do       ! Loop over theta blocks
+               end do    ! Loop over fields
 
             end do          ! Loop over r
 
