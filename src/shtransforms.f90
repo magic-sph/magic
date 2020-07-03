@@ -160,12 +160,12 @@ contains
          bhC(lm)=Slm(lm)+ci*Tlm(lm)
       end do
 
-      !!$omp parallel default(shared) &
-      !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !!$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2)      &
-      !!$omp private(brES, brEA, bhN1M, bhN2M, bhS1M, bhS2M)
+      !$omp parallel default(shared) &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
+      !$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2)      &
+      !$omp private(brES, brEA, bhN1M, bhN2M, bhS1M, bhS2M, PlmG, PlmC)
       nThStart=1; nThStop=n_theta_max/2
-      !call get_openmp_blocks(nThStart,nThStop)
+      call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThStart-1 ; nThStop=2*nThStop
       !--- Loop over all orders m: (numbered by mc)
       do mc=1,n_m_max
@@ -238,7 +238,7 @@ contains
             end do  ! loop over nThetaN (theta)
          end do
       end if
-      !!$omp end parallel
+      !$omp end parallel
 
       if ( .not. l_axi ) then
          call ifft_many(tmpr,brc)
@@ -283,12 +283,12 @@ contains
       end do
 
       !--- Loop over all orders m: (numbered by mc)
-      !!$omp parallel default(shared) &
-      !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !!$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2)      &
-      !!$omp private(bhN1M, bhN2M, bhS1M, bhS2M)
+      !$omp parallel default(shared) &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
+      !$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2)      &
+      !$omp private(bhN1M, bhN2M, bhS1M, bhS2M, PlmG, PlmC)
       nThStart=1; nThStop=n_theta_max/2
-      !call get_openmp_blocks(nThStart,nThStop)
+      call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
       do mc=1,n_m_max
          nThetaNHS=(nThStart-1)/2
@@ -296,12 +296,12 @@ contains
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
  
-            dm = D_mc2m(mc)
+            dm=D_mc2m(mc)
             lmS=lStop(mc)
             !--- 6 add/mult, 26 dble words
             do lm=lStart(mc),lmS-1,2
-               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+               PlmG(lm)  =dPlm(lm,nThetaNHS)  -dm*Plm(lm,nThetaNHS)
+               PlmC(lm)  =dPlm(lm,nThetaNHS)  +dm*Plm(lm,nThetaNHS)
                PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
                PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
             end do
@@ -352,7 +352,7 @@ contains
             end do  ! loop over nThetaN (theta)
          end do
       end if
-      !!$omp end parallel
+      !$omp end parallel
 
       if ( .not. l_axi ) then
          call ifft_many(tmpt,btc)
@@ -460,9 +460,9 @@ contains
       integer :: nThetaN, nThetaS, nThetaNHS, nThStart, nThStop
       complex(cp) :: sES, sEA
 
-      !!$omp parallel default(shared) &
-      !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !!$omp private(sES, sEA, lm, lmS)
+      !$omp parallel default(shared) &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
+      !$omp private(sES, sEA, lm, lmS)
       nThStart=1; nThStop=n_theta_max/2
       call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
@@ -491,7 +491,7 @@ contains
             end do ! loop over nThetaN (theta)
          end do  
       end if
-      !!$omp end parallel
+      !$omp end parallel
 
       if ( .not. l_axi ) call ifft_many(tmp,sc)
 
@@ -515,9 +515,9 @@ contains
       real(cp) :: dm
       complex(cp) :: gradtcES, gradtcEA, sES, sEA
 
-      !!$omp parallel default(shared) &
-      !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !!$omp private(sES, sEA, gradtcES, gradtcEA, dm, lm, lmS)
+      !$omp parallel default(shared) &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
+      !$omp private(sES, sEA, gradtcES, gradtcEA, dm, lm, lmS)
       nThStart=1; nThStop=n_theta_max/2
       call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
@@ -557,7 +557,7 @@ contains
             end do  ! loop over nThetaN (theta)
          end do
       end if
-      !!$omp end parallel
+      !$omp end parallel
 
       if ( .not. l_axi ) then
          call ifft_many(tmpt,gradtc)
@@ -591,7 +591,7 @@ contains
 
       integer :: mc          ! counter of spherical order
       integer :: lmS,lm      ! counter of spherical mode
-      integer :: nThStart,nThStop
+      integer :: nThStart,nThStop,nTh1Start,nTh1Stop
 
       complex(cp) :: f1TM(n_theta_max,n_phi_max/2+1)
       complex(cp) :: f1ES(n_theta_max/2,n_m_max),f1ES1,f1ES2
@@ -603,10 +603,13 @@ contains
 
       !!$omp parallel default(shared) &
       !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !!$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2)
-      nThStart=1; nThStop=n_theta_max/2
-      call get_openmp_blocks(nThStart,nThStop)
-      nThStart=2*nThstart-1 ; nThStop=2*nThStop
+      !!$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
+      !!$omp private(nTh1Start, nTh1Stop, f1ES, f1EA)
+      nThStart=1; nThStop=n_theta_max/4
+      !call get_openmp_blocks(nThStart,nThStop)
+      nTh1Start=2*nThstart-1 ; nTh1Stop=2*nThStop
+      nThStart=4*nThstart-3 ; nThStop=4*nThStop
+      !nTh1Start=2*nThstart-1 ; nTh1Stop=2*nThStop
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       do mc=1,n_m_max        ! counts spherical harmonic orders
          nThetaNHS=(nThStart-1)/2
@@ -618,7 +621,7 @@ contains
          end do
 
          !-- Loop over half of the thetas with step 2 unrolling:
-         do nTheta1=(nThStart+1)/2,nThStop/2,2
+         do nTheta1=nTh1Start,nTh1Stop,2
             nTheta2=nTheta1+1
             lmS=lStopP(mc)
             f1ES1=f1ES(nTheta1,mc)
@@ -683,9 +686,9 @@ contains
       !!$omp parallel default(shared) &
       !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
       !!$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
-      !!$omp private(f2ES1, f2ES2, f2EA1, f2EA2)
+      !!$omp private(f2ES1, f2ES2, f2EA1, f2EA2, f1ES, f1EA, f2ES, f2EA)
       nThStart=1; nThStop=n_theta_max/2
-      call get_openmp_blocks(nThStart,nThStop)
+      !call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
 
       !-- SHTns MagIC layout adopts the following convention

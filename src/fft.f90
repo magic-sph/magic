@@ -169,24 +169,38 @@ contains
       complex(cp), intent(out) :: f(nlat_padded,n_phi_max/2+1)
 
       !-- Local variables
-      integer :: nt, np
+      integer :: nt, np, nThStart, nThStop, nThLoc
       real(cp) :: tmp(nlat_padded,n_phi_max+2),work(nlat_padded,n_phi_max+1)
 
+      !$omp parallel default(shared) private(nThStart, nThStop, nThLoc, tmp, work)
+      nThStart=1; nThStop=nlat_padded
+      call get_openmp_blocks(nThStart,nThStop)
+      nThLoc = nThStop-nThStart+1
+
       !-- Copy in a larger array with the two trailing zeroes
-      tmp(:,1:n_phi_max) =g(:,:)
-      tmp(:,n_phi_max+1:)=0.0_cp
+      do np=1,n_phi_max
+         do nt=1,nThLoc
+            tmp(nt,np) =g(nt+nThStart-1,np)
+         end do
+      end do
+      do np=n_phi_max+1,n_phi_max+2
+         do nt=1,nThLoc
+            tmp(nt,np)=0.0_cp
+         end do
+      end do
 
       !-- Phi first
       !call fft991(tmp,work,d_fft_init,i_fft_init,1,n_phi_max+2,n_phi_max,nlat_padded,-1) 
       !-- Theta first
-      call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nlat_padded,-1) 
+      call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nThLoc,-1) 
 
       !-- Real to complex
       do np=1,n_phi_max/2+1
-         do nt=1,nlat_padded
-            f(nt,np)=cmplx(tmp(nt,2*np-1),tmp(nt,2*np),cp)
+         do nt=nThStart,nThStop
+            f(nt,np)=cmplx(tmp(nt-nThStart+1,2*np-1),tmp(nt-nThstart+1,2*np),cp)
          end do
       end do
+      !$omp end parallel
 
    end subroutine fft_many
 !------------------------------------------------------------------------------
@@ -202,24 +216,34 @@ contains
       real(cp), intent(out) :: g(nlat_padded,n_phi_max)
 
       !-- Local variables
-      integer :: nt, np
+      integer :: nt, np, nThStart, nThStop, nThloc
       real(cp) :: tmp(nlat_padded,n_phi_max+2),work(nlat_padded,n_phi_max+1)
+
+      !$omp parallel default(shared) private(nThStart, nThStop, nThLoc, tmp, work)
+      nThStart=1; nThStop=nlat_padded
+      call get_openmp_blocks(nThStart,nThStop)
+      nThLoc = nThStop-nThStart+1
 
       !-- Complex to real
       do np=1,n_phi_max/2+1
-         do nt=1,nlat_padded
-            tmp(nt,2*np-1)=real(f(nt,np))
-            tmp(nt,2*np)  =aimag(f(nt,np))
+         do nt=1,nThLoc
+            tmp(nt,2*np-1)=real (f(nt+nThStart-1,np))
+            tmp(nt,2*np)  =aimag(f(nt+nThStart-1,np))
          end do
       end do
 
       !-- Phi-first
       !call fft991(tmp,work,d_fft_init,i_fft_init,1,n_phi_max+2,n_phi_max,nlat_padded,1) 
       !-- Theta first
-      call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nlat_padded,1) 
+      call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nThloc,1)
 
       !-- Copy the solution into g, removing the two last trailing
-      g(:,:) = tmp(:,1:n_phi_max)
+      do np=1,n_phi_max
+         do nt=nThStart,nThStop
+            g(nt,np)=tmp(nt-nThStart+1,np)
+         end do
+      end do
+      !$omp end parallel
 
    end subroutine ifft_many
 !------------------------------------------------------------------------------
@@ -294,7 +318,6 @@ contains
             do L=1,lot
                i=ibase
                j=jbase
-               !dir$ ivdep
                do m=1,n
                   work(j)=a(i)
                   i=i+inc
@@ -344,7 +367,6 @@ contains
          do L=1,lot
             i=ibase
             j=jbase
-            !dir$ ivdep
             do m=1,n
                a(j)=work(i)
                i=i+1
@@ -357,7 +379,6 @@ contains
 
       !-- Fill in zeros at end
       ib=n*inc+1
-      !dir$ ivdep
       do L=1,lot
          a(ib)=0.0_cp
          a(ib+inc)=0.0_cp
@@ -389,7 +410,6 @@ contains
       ib=n*inc+1
       ja=1
       jb=2
-      !dir$ ivdep
       do L=1,lot
          work(ja)=a(ia)+a(ib)
          work(jb)=a(ia)-a(ib)
@@ -412,7 +432,6 @@ contains
          jb=jbbase
          c=trigs(n+k)
          s=trigs(n+k+1)
-         !dir$ ivdep
          do L=1,lot
             work(ja)=(a(ia)+a(ib))-(s*(a(ia)-a(ib))+c*(a(ia+inc)+a(ib+inc)))
             work(jb)=(a(ia)+a(ib))+(s*(a(ia)-a(ib))+c*(a(ia+inc)+a(ib+inc)))
@@ -433,7 +452,6 @@ contains
       if (iabase == ibbase) then
          ia=iabase
          ja=jabase
-         !dir$ ivdep
          do L=1,lot
             work(ja)  =two*a(ia)
             work(ja+1)=-two*a(ia+inc)
@@ -468,7 +486,6 @@ contains
       ib=2
       ja=1
       jb=n*inc+1
-      !dir$ ivdep
       do L=1,lot
          a(ja)=sca*(work(ia)+work(ib))
          a(jb)=sca*(work(ia)-work(ib))
@@ -494,7 +511,6 @@ contains
          jb=jbbase
          c=trigs(n+k)
          s=trigs(n+k+1)
-         !dir$ ivdep
          do L=1,lot
             a(ja)=sca*((work(ia)+work(ib)) &
             &  +(c*(work(ia+1)+work(ib+1))+s*(work(ia)-work(ib))))
@@ -520,7 +536,6 @@ contains
          ia=iabase
          ja=jabase
          sca=two*sca
-          !dir$ ivdep
          do L=1,lot
             a(ja)=sca*work(ia)
             a(ja+inc)=-sca*work(ia+1)
@@ -565,7 +580,6 @@ contains
          do L=1,la
             i=ibase
             j=jbase
-            !dir$ ivdep
             do ijk=1,lot
                c(ja+j)=a(ia+i)+a(ib+i)
                d(ja+j)=b(ia+i)+b(ib+i)
@@ -587,7 +601,6 @@ contains
             do L=1,la
                i=ibase
                j=jbase
-               !dir$ ivdep
                do ijk=1,lot
                   c(ja+j)=a(ia+i)+a(ib+i)
                   d(ja+j)=b(ia+i)+b(ib+i)
@@ -613,7 +626,6 @@ contains
          do L=1,la
             i=ibase
             j=jbase
-            !dir$ ivdep
             do ijk=1,lot
                c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
                d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
@@ -640,7 +652,6 @@ contains
             do L=1,la
                i=ibase
                j=jbase
-               !dir$ ivdep
                do ijk=1,lot
                   c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
                   d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
@@ -678,7 +689,6 @@ contains
          do L=1,la
             i=ibase
             j=jbase
-            !dir$ ivdep
             do ijk=1,lot
                c(ja+j)=(a(ia+i)+a(ic+i))+(a(ib+i)+a(id+i))
                c(jc+j)=(a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i))
@@ -710,7 +720,6 @@ contains
             do L=1,la
                i=ibase
                j=jbase
-               !dir$ ivdep
                do ijk=1,lot
                   c(ja+j)=(a(ia+i)+a(ic+i))+(a(ib+i)+a(id+i))
                   d(ja+j)=(b(ia+i)+b(ic+i))+(b(ib+i)+b(id+i))
@@ -756,7 +765,6 @@ contains
          do L=1,la
             i=ibase
             j=jbase
-            !dir$ ivdep
             do ijk=1,lot
                c(ja+j)=a(ia+i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
                d(ja+j)=b(ia+i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
@@ -801,7 +809,6 @@ contains
             do L=1,la
                i=ibase
                j=jbase
-               !dir$ ivdep
                do ijk=1,lot
                   c(ja+j)=a(ia+i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
                   d(ja+j)=b(ia+i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
