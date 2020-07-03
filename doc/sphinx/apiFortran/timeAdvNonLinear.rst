@@ -13,16 +13,10 @@ Non-linear part of the time stepping (radial loop)
 
 .. f:automodule:: riteration_mod
 
-``rIterThetaBlocking.f90``
+``rIter.f90``
 --------------------------
 
-.. f:automodule:: riterthetablocking_mod
-
-
-``rIterThetaBlocking_OpenMP.f90``
----------------------------------
-
-.. f:automodule:: riterthetablocking_openmp_mod
+.. f:automodule:: riter_mod
 
 
 ``get_nl.f90``

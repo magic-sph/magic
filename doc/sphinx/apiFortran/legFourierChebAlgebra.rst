@@ -24,31 +24,6 @@ Chebyshev polynomials and cosine transforms
 .. f:automodule:: fft_fac_mod
 
 
-Legendre transforms
-===================
-
-``plms.f90``
-------------
-
-.. f:automodule:: plms_theta
-
-
-``legendre_helpers.f90``
-------------------------
-
-.. f:automodule:: leg_helper_mod
-
-``legendre_spec_to_grid.f90``
------------------------------
-
-.. f:automodule:: legendre_spec_to_grid
-
-``legendre_grid_to_spec.f90``
------------------------------
-
-.. f:automodule:: legendre_grid_to_spec
-
-
 Fourier transforms
 ==================
 
@@ -56,6 +31,28 @@ Fourier transforms
 -----------
 
 .. f:automodule:: fft
+
+
+Spherical harmonic transforms
+=============================
+
+``plms.f90``
+------------
+
+.. f:automodule:: plms_theta
+
+
+``shtransforms.f90``
+--------------------
+
+.. f:automodule:: shtransforms
+
+``sht_native.f90``
+--------------------
+
+.. f:automodule:: sht
+
+
 
 Linear algebra
 ==============

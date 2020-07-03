@@ -601,15 +601,15 @@ contains
 
       f1LM(:)=zero
 
-      !!$omp parallel default(shared) &
-      !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !!$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
-      !!$omp private(nTh1Start, nTh1Stop, f1ES, f1EA)
+      !$omp parallel default(shared) &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
+      !$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
+      !$omp private(nTh1Start, nTh1Stop, f1ES, f1EA)                       &
+      !$omp reduction(+:f1LM)
       nThStart=1; nThStop=n_theta_max/4
-      !call get_openmp_blocks(nThStart,nThStop)
+      call get_openmp_blocks(nThStart,nThStop)
       nTh1Start=2*nThstart-1 ; nTh1Stop=2*nThStop
       nThStart=4*nThstart-3 ; nThStop=4*nThStop
-      !nTh1Start=2*nThstart-1 ; nTh1Stop=2*nThStop
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       do mc=1,n_m_max        ! counts spherical harmonic orders
          nThetaNHS=(nThStart-1)/2
@@ -637,7 +637,7 @@ contains
             end if
          end do
       end do 
-      !!$omp end parallel
+      !$omp end parallel
 
    end subroutine native_spat_to_sph
 !------------------------------------------------------------------------------
@@ -661,7 +661,7 @@ contains
       integer :: nTheta1     ! No. of theta (in one HS)
       integer :: nTheta2     ! No. of theta (in one HS)
 
-      integer :: l, nThStart, nThStop
+      integer :: l, nThStart, nThStop, nTh1Start, nTh1Stop
       integer :: mc          ! counter of spherical order
       integer :: lmS,lm      ! counter of spherical mode
 
@@ -683,13 +683,16 @@ contains
       f1LM(:)=zero
       f2LM(:)=zero
 
-      !!$omp parallel default(shared) &
-      !!$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
-      !!$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
-      !!$omp private(f2ES1, f2ES2, f2EA1, f2EA2, f1ES, f1EA, f2ES, f2EA)
-      nThStart=1; nThStop=n_theta_max/2
-      !call get_openmp_blocks(nThStart,nThStop)
-      nThStart=2*nThstart-1 ; nThStop=2*nThStop
+      !$omp parallel default(shared) &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
+      !$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
+      !$omp private(f2ES1, f2ES2, f2EA1, f2EA2, f1ES, f1EA, f2ES, f2EA)    &
+      !$omp private(nTh1Start, nTh1Stop)                                   &
+      !$omp reduction(+:f1LM,f2LM)
+      nThStart=1; nThStop=n_theta_max/4
+      call get_openmp_blocks(nThStart,nThStop)
+      nTh1Start=2*nThstart-1 ; nTh1Stop=2*nThStop
+      nThStart=4*nThstart-3 ; nThStop=4*nThStop
 
       !-- SHTns MagIC layout adopts the following convention
       !-- One has to multiplty by 1/sin(theta)**2 here
@@ -713,7 +716,7 @@ contains
          end do
 
          !-- Loop over half of the thetas with step 2 unrolling:
-         do nTheta1=(nThStart+1)/2,nThStop/2,2
+         do nTheta1=nTh1Start,nTh1Stop,2
             nTheta2 =nTheta1+1
 
             !dm = real((mc-1)*minc,cp)
@@ -758,7 +761,7 @@ contains
          end do !  loop over theta in block
 
       end do 
-      !!$omp end parallel
+      !$omp end parallel
 
       !-- Division by l(l+1) except for (l=0,m=0)
       do lm=2,lmP_max

@@ -36,7 +36,7 @@ endif
 
 # In case MKL is not found, switch back to built-in libraries
 ifndef MKLROOT
-	USE_FFTLIB=JW
+	USE_FFTLIB=FFTW
 endif
 ifeq ($(USE_LAPACKLIB),MKL)
 ifndef MKLROOT
@@ -136,7 +136,7 @@ GIT_VERSION := $(shell git describe --abbrev=7 --always --tags)
 # get the date of the build
 BUILD_DATE := $(shell date "+%Y/%m/%d %H:%M:%S")
 
-PREPROC += -Dsngl=1 -Ddble=2 -DGIT_VERSION=\"$(GIT_VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"
+PREPROC += -Dsngl=1 -Ddble=2 -DGIT_VERSION=\"$(GIT_VERSION)\" #-DBUILD_DATE=\"$(BUILD_DATE)\"
 ifeq ($(USE_MPI),yes)
 	PREPROC += -DWITH_MPI
 	FC = $(COMP_MPFC)
@@ -173,6 +173,7 @@ endif
 
 ifeq ($(USE_FFTLIB),MKL)
 	INCPATHS += -I$(MKLROOT)/include
+	INCPATHS += -I$(MKLROOT)/include/fftw
 	LIBS +=  $(FFLAG_MKL_LIBS)
 endif
 
@@ -244,15 +245,18 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% algebra% shtns% rIterThetaBlocking_shtns% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% sht% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
 	RED_SOURCES += fft.f90
 	FFT_OBJS += fft.o
+else ifeq ($(USE_FFTLIB),FFTW)
+	RED_SOURCES += fft_fftw.f90
+	FFT_OBJS += fft_fftw.o
 else ifeq ($(USE_FFTLIB),MKL)
-	RED_SOURCES += fft_mkl.f90
-	FFT_OBJS += fft_mkl.o
+	RED_SOURCES += fft_fftw.f90
+	FFT_OBJS += fft_fftw.o
 endif
 
 ifeq ($(USE_LAPACKLIB),MKL)
@@ -261,13 +265,20 @@ ifeq ($(USE_LAPACKLIB),MKL)
 else ifeq ($(USE_LAPACKLIB),LAPACK)
 	RED_SOURCES += algebra_lapack.f90
 	LAPACK_OBJS += algebra_lapack.o
+else ifeq ($(USE_LAPACKLIB),LIBFLAME)
+	RED_SOURCES += algebra_lapack.f90
+	LAPACK_OBJS += algebra_lapack.o
 else ifeq ($(USE_LAPACKLIB),JW)
 	RED_SOURCES += algebra.f90
 	LAPACK_OBJS += algebra.o
 endif
 
 ifeq ($(USE_SHTNS),yes)
-	RED_SOURCES += shtns.f90 rIterThetaBlocking_shtns.f90
+	RED_SOURCES += shtns.f90
+	SHT_OBJS += shtns.o
+else
+	RED_SOURCES += sht_native.f90 shtransforms.f90
+	SHT_OBJS += sht_native.o
 endif
 
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
@@ -320,12 +331,12 @@ LMmapping.o           : mem_alloc.o truncation.o
 mem_alloc.o           : parallel.o precision_mod.o output_data.o
 out_TO.o              : truncation.o horizontal.o num_param.o\
                         phys_param.o radial.o logic.o blocking.o\
-                        constants.o output_data.o TO.o legendre_grid_to_spec.o\
+                        constants.o output_data.o TO.o $(SHT_OBJS)\
                         cosine_transform_odd.o chebInt.o plms.o TO_helpers.o\
                         char_manip.o integration.o useful.o mem_alloc.o\
                         communications.o
 TO_helpers.o          : truncation.o blocking.o horizontal.o precision_mod.o\
-                        constants.o
+                        constants.o $(SHT_OBJS)
 TO_arrays.o           : truncation.o precision_mod.o mem_alloc.o
 dtB_arrays.o          : truncation.o precision_mod.o constants.o\
                         mem_alloc.o
@@ -333,15 +344,15 @@ courant.o             : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         useful.o radial_data.o parallel.o
 nonlinear_bcs.o       : truncation.o horizontal.o $(FFT_OBJS)\
-                        legendre_grid_to_spec.o blocking.o phys_param.o\
+                        $(SHT_OBJS) blocking.o phys_param.o\
                         radial.o radial_data.o
 fields_average.o      : truncation.o output_data.o blocking.o time_schemes.o\
                         logic.o constants.o radial.o horizontal.o\
                         radial_derivatives.o radial_derivatives_even.o\
                         spectra.o kinetic_energy.o out_graph_file.o\
-                        magnetic_energy.o legendre_spec_to_grid.o\
+                        magnetic_energy.o $(SHT_OBJS)\
                         $(FFT_OBJS) out_coeff.o storeCheckPoints.o\
-                        legendre_helpers.o mem_alloc.o
+                        mem_alloc.o
 get_nl.o              : truncation.o horizontal.o logic.o time_schemes.o\
                         phys_param.o radial.o blocking.o mem_alloc.o
 out_movie_file.o      : truncation.o output_data.o blocking.o\
@@ -365,7 +376,7 @@ updateXI.o            : truncation.o blocking.o horizontal.o time_array.o\
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         output_data.o outRot.o integration.o useful.o\
-                        mem_alloc.o legendre_spec_to_grid.o mean_sd.o
+                        mem_alloc.o mean_sd.o
 integration.o         : cosine_transform_odd.o precision_mod.o constants.o
 out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         truncation.o communications.o\
@@ -388,27 +399,16 @@ char_manip.o          : precision_mod.o
 constants.o           : precision_mod.o
 outMisc.o             : truncation.o num_param.o phys_param.o logic.o\
                         output_data.o blocking.o constants.o radial.o\
-                        horizontal.o legendre_spec_to_grid.o\
-                        integration.o startFields.o
+                        horizontal.o integration.o startFields.o
 chebyshev_polynoms.o  : constants.o logic.o precision_mod.o num_param.o
-rIteration.o          : precision_mod.o time_schemes.o
-radialLoop.o          : truncation.o blocking.o parallel.o time_schemes.o\
-                        phys_param.o logic.o output_data.o\
-                        constants.o legendre_spec_to_grid.o\
-                        get_td.o out_graph_file.o radial_data.o rIteration.o \
-			rIterThetaBlocking.o rIterThetaBlocking_OpenMP.o \
-			rIterThetaBlocking_seq.o mem_alloc.o
-rIterThetaBlocking.o  : rIteration.o truncation.o blocking.o \
-			logic.o radial.o radial_data.o time_schemes.o\
-			$(FFT_OBJS) legendre_spec_to_grid.o get_nl.o\
-                        legendre_helpers.o get_td.o nonlinear_bcs.o\
-                        legendre_grid_to_spec.o  out_graph_file.o
-rIterThetaBlocking_OpenMP.o : rIterThetaBlocking.o TO.o dtB.o\
-                        out_movie_file.o outRot.o nl_special_calc.o courant.o\
-			TO_arrays.o dtB_arrays.o probes.o time_schemes.o
-rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
-                        out_movie_file.o outRot.o nl_special_calc.o\
-			TO_arrays.o dtB_arrays.o probes.o time_schemes.o
+rIteration.o          : precision_mod.o time_schemes.o truncation.o radial_data.o
+rIter.o               : precision_mod.o parallel.o truncation.o logic.o radial_data.o\
+                        radial.o constants.o get_nl.o get_td.o TO.o dtB.o\
+                        out_graph_file.o nl_special_calc.o nonlinear_bcs.o\
+                        courant.o outRot.o fields.o time_schemes.o phys_param.o\
+                        ${SHT_OBJS}
+radialLoop.o          : truncation.o time_schemes.o precision_mod.o mem_alloc.o\
+                        radial_data.o rIteration.o rIter.o
 LMLoop.o              : truncation.o blocking.o parallel.o time_array.o\
                         logic.o radial_data.o updateWPS.o\
                         output_data.o fields.o dt_fieldsLast.o\
@@ -418,12 +418,7 @@ mpi_transpose.o       : precision_mod.o truncation.o radial_data.o\
                         mem_alloc.o parallel.o blocking.o
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
-legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o\
-                         constants.o legendre_helpers.o
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
-legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
-                        logic.o constants.o blocking.o special.o\
-                        logic.o blocking.o fields.o TO.o mem_alloc.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
@@ -438,7 +433,7 @@ communications.o      : blocking.o parallel.o truncation.o\
 			radial_data.o mem_alloc.o mpi_transpose.o
 outPar.o              : truncation.o blocking.o phys_param.o\
                         logic.o radial.o output_data.o radial_data.o\
-                        horizontal.o fields.o legendre_spec_to_grid.o\
+                        horizontal.o fields.o \
                         num_param.o integration.o constants.o mem_alloc.o
 spectra.o             : truncation.o blocking.o num_param.o mean_sd.o\
                         horizontal.o phys_param.o radial.o logic.o\
@@ -462,18 +457,16 @@ chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
                         radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
-                        RMS.o RMS_helpers.o legendre_helpers.o fields.o\
+                        RMS.o RMS_helpers.o fields.o\
                         cutils_iface.o mem_alloc.o
 store_movie_IC.o      : truncation.o blocking.o logic.o radial_data.o\
                         movie.o radial.o horizontal.o\
-                        legendre_helpers.o legendre_spec_to_grid.o\
-                        $(FFT_OBJS) out_movie_file.o phys_param.o
+                        $(SHT_OBJS) $(FFT_OBJS) out_movie_file.o phys_param.o
 radial_spectra.o      : truncation.o blocking.o horizontal.o radial.o\
                         num_param.o output_data.o logic.o useful.o\
                         char_manip.o radial_data.o LMmapping.o constants.o
 nl_special_calc.o     : truncation.o blocking.o horizontal.o\
-                        radial.o legendre_grid_to_spec.o radial_data.o\
-                        phys_param.o constants.o
+                        radial.o radial_data.o phys_param.o constants.o
 outOmega.o            : truncation.o blocking.o logic.o\
                         output_data.o radial.o cosine_transform_odd.o plms.o
 fft_fac.o             : constants.o precision_mod.o
@@ -496,15 +489,13 @@ updateZ.o             : truncation.o blocking.o phys_param.o time_array.o\
                         communications.o mem_alloc.o special.o
 out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
                         num_param.o radial.o logic.o blocking.o\
-                        output_data.o legendre_helpers.o $(FFT_OBJS)\
-                        legendre_spec_to_grid.o
+                        output_data.o $(FFT_OBJS) $(SHT_OBJS)
 startFields.o         : truncation.o phys_param.o num_param.o constants.o\
                         radial.o init_fields.o blocking.o logic.o output_data.o\
                         dt_fieldsLast.o special.o readCheckPoints.o updateWPS.o\
                         fields.o updateS.o updateZ.o updateWP.o updateB.o timing.o\
                         radial_derivatives.o useful.o communications.o updateXI.o\
                         time_schemes.o
-legendre_grid_to_spec.o : truncation.o horizontal.o blocking.o 
 getDlm.o              : truncation.o blocking.o num_param.o constants.o\
                         horizontal.o radial.o constants.o\
                         useful.o integration.o
@@ -552,7 +543,7 @@ horizontal.o          : truncation.o phys_param.o num_param.o precision_mod.o\
                         mem_alloc.o
 RMS.o	              : truncation.o blocking.o mem_alloc.o
 init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
-                        constants.o logic.o $(FFT_OBJS) legendre_grid_to_spec.o\
+                        constants.o logic.o $(FFT_OBJS) $(SHT_OBJS)\
                         useful.o phys_param.o mpi_transpose.o\
                         cosine_transform_odd.o mem_alloc.o parallel.o 
 mean_sd.o             : precision_mod.o mem_alloc.o matrices.o
@@ -562,11 +553,11 @@ movie.o               : truncation.o parallel.o radial_data.o\
 dtB.o                 : truncation.o radial_data.o parallel.o \
                         $(FFT_OBJS) radial.o logic.o\
                         blocking.o horizontal.o phys_param.o\
-                        mpi_transpose.o legendre_grid_to_spec.o\
+                        mpi_transpose.o $(SHT_OBJS)\
                         radial_spectra.o radial_derivatives.o mem_alloc.o
 TO.o                  : truncation.o blocking.o horizontal.o\
                         radial_data.o phys_param.o radial.o logic.o\
-                        legendre_grid_to_spec.o mem_alloc.o
+                        $(SHT_OBJS) mem_alloc.o
 $(LAPACK_OBJS)        : precision_mod.o constants.o useful.o
 time_schemes.o        : time_array.o logic.o output_data.o precision_mod.o
 time_array.o          : precision_mod.o constants.o mem_alloc.o
@@ -594,13 +585,17 @@ Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.
 
 
 ifeq ($(USE_SHTNS),yes)
-rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
-                        out_movie_file.o outRot.o nl_special_calc.o courant.o\
-			TO_arrays.o dtB_arrays.o probes.o time_schemes.o
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
                         precision_mod.o constants.o blocking.o
-radialLoop.o          : rIterThetaBlocking_shtns.o
+rIter.o               : shtns.o
 magic.o               : shtns.o
+else
+shtransforms.o        : precision_mod.o mem_alloc.o truncation.o blocking.o horizontal.o\
+                        plms.o constants.o ${FFT_OBJS} parallel.o
+sht_native.o          : precision_mod.o blocking.o constants.o truncation.o\
+                        horizontal.o parallel.o shtransforms.o
+rIter.o               : sht_native.o
+magic.o               : sht_native.o
 endif
 
 ifeq ($(USE_LAPACKLIB),MKL)
