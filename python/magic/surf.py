@@ -613,14 +613,13 @@ class Surf:
                 data = np.zeros_like(rr2D)
                 brm = self.gr.Br.mean(axis=0)
                 brm_ic = self.gr.Br_ic.mean(axis=0)
-                brm = np.concatenate((brm, brm_ic), axis=-1)
+                brm = np.concatenate((brm, brm_ic[:, 1:]), axis=-1)
                 for i in range(self.gr.ntheta):
                     th2D[i, :] = self.gr.colatitude[i]+np.pi/2.
                 for i in range(self.gr.nr):
                     rr2D[:, i] = self.gr.radius[i]
                 for i in range(self.gr.n_r_ic_max-1):
-                    rr2D[:, i+self.gr.nr] = self.gr.radius_ic[i] /\
-                                            (1.-self.gr.radratio)
+                    rr2D[:, i+self.gr.nr] = self.gr.radius_ic[i+1]
                 s2D = rr2D * np.abs(np.cos(th2D))
                 data[0, :] = -0.5*s2D[0, :]*brm[0, :]*self.gr.colatitude[0]
 
@@ -1186,8 +1185,8 @@ class Surf:
             
         if pol:
             if ic:
-                xx_big = np.concatenate((xx, xx_ic), axis=-1)
-                yy_big = np.concatenate((yy, yy_ic), axis=-1)
+                xx_big = np.concatenate((xx, xx_ic[:, 1:]), axis=-1)
+                yy_big = np.concatenate((yy, yy_ic[:, 1:]), axis=-1)
                 ax.contour(xx_big, yy_big, poloLines, polLevels, colors=['k'],
                            linewidths=[0.8, 0.8])
             else:

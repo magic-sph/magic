@@ -315,9 +315,9 @@ contains
                end if
  
                !--- Now store the stuff of theta block to dtBrframe:
-               do n_theta_cal=1,n_theta_max
-                  n_theta=n_theta_cal2ord(n_theta_cal)
-                  do n_phi=1,n_phi_max
+               do n_phi=1,n_phi_max
+                  do n_theta_cal=1,n_theta_max
+                     n_theta=n_theta_cal2ord(n_theta_cal)
                      n_pos=n_or+n_phi+(n_theta-1)*n_phi_max
                      if ( n_field_type == 13 .or. n_field_type == 35 .or. &
                      &    n_field_type == 36 .or. n_field_type == 37 .or. &
@@ -447,9 +447,9 @@ contains
                   end if
  
                   !--- Now store the stuff:
-                  do n_theta_cal=1,n_theta_max
-                     n_theta=n_theta_cal2ord(n_theta_cal)
-                     do n_phi=1,n_phi_max
+                  do n_phi=1,n_phi_max
+                     do n_theta_cal=1,n_theta_max
+                        n_theta=n_theta_cal2ord(n_theta_cal)
                         n_pos=n_or+n_phi+(n_theta-1)*n_phi_max
                         if ( n_field_type == 13 .or. n_field_type == 36 .or. &
                         &    n_field_type == 37 .or. n_field_type == 14 .or. &

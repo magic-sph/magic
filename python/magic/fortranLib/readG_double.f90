@@ -1,31 +1,33 @@
-module greader_double
+module greader_single
+
+   use iso_fortran_env, only: cp => real64
 
    implicit none
 
-   real(kind=8) :: ra,ek,pr,prmag,radratio,sigma
-   real(kind=8) :: time
-   integer :: nr,nt,np,minc,nric,nThetasBs
-   real(kind=8), allocatable :: radius(:),colat(:),radius_ic(:)
-   real(kind=8), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
-   real(kind=8), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
-   real(kind=8), allocatable :: Br_ic(:,:,:),Bt_ic(:,:,:),Bp_ic(:,:,:)
-   real(kind=8), allocatable :: xi(:,:,:)
+   real(cp) :: ra,ek,pr,prmag,radratio,sigma,raxi,sc
+   real(cp) :: time
+   integer :: nr,nt,np,minc,nric
+   real(cp), allocatable :: radius(:),colat(:),radius_ic(:)
+   real(cp), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
+   real(cp), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
+   real(cp), allocatable :: Br_ic(:,:,:),Bt_ic(:,:,:),Bp_ic(:,:,:)
+   real(cp), allocatable :: xi(:,:,:)
 
 contains
 
-   subroutine readG(filename,endian)
+   subroutine readG(filename, endian)
 
       !-- Input variables
       character(len=*), intent(in) :: filename
       character(len=1), intent(in) :: endian
    
       !-- Local variables
-      integer :: i,j,nth_loc,nn,n_th,read_ok
+      integer :: i,j,nth_loc,n_th,read_ok,nThetasBs
       character(len=20) :: version
       character(len=64) :: runid
-      real(kind=8) :: ir,rad,ilat1,ilat2,dumm
-      real(kind=8) :: nrF,ntF,npF,mincF,nricF,nThetasBsF
-      real(kind=8), allocatable :: dummy(:,:)
+      real(cp) :: ir,rad,ilat1,ilat2
+      real(cp) :: nrF,ntF,npF,mincF,nricF,nThetasBsF
+      real(cp), allocatable :: dummy(:,:)
    
       if ( endian == 'B' ) then
          open(unit=10, file=filename, form='unformatted', convert='big_endian')
@@ -37,7 +39,7 @@ contains
       read(10) runid
       read(10) time,nrF,ntF,npF,nricF,mincF,nThetasBsF,ra,ek,pr,prmag, &
       &        radratio,sigma
-   
+
       nr=int(nrF)
       nt=int(ntF)
       np=int(npF)
@@ -60,12 +62,12 @@ contains
       &  .or. version=='Graphout_Version_11'.or. version=='Graphout_Version_12') then
          if ( allocated( xi ) ) deallocate( xi )
       end if
-      if ( prmag /= 0. ) then
+      if ( prmag /= 0.0_cp ) then
         if ( allocated(Br) ) deallocate( Br )
         if ( allocated(Bt) ) deallocate( Bt )
         if ( allocated(Bp) ) deallocate( Bp )
       end if
-      if ( (prmag /= 0.) .and. (nric > 1) ) then
+      if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
          if ( allocated(radius_ic) ) deallocate( radius_ic )
          if ( allocated(Br_ic) ) deallocate( Br_ic )
          if ( allocated(Bt_ic) ) deallocate( Bt_ic )
@@ -89,13 +91,13 @@ contains
       allocate( vr(1:np,1:nt,1:nr) )
       allocate( vt(1:np,1:nt,1:nr) )
       allocate( vp(1:np,1:nt,1:nr) )
-      if ( prmag /= 0. ) then
+      if ( prmag /= 0.0_cp ) then
          allocate( Br(1:np,1:nt,1:nr) )
          allocate( Bt(1:np,1:nt,1:nr) )
          allocate( Bp(1:np,1:nt,1:nr) )
       end if
 
-      if ( (prmag /= 0.) .and. (nric > 1) ) then
+      if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
          allocate( radius_ic(1:nric) )
          allocate( Br_ic(1:np,1:nt,1:nric) )
          allocate( Bt_ic(1:np,1:nt,1:nric) )
@@ -121,14 +123,14 @@ contains
             if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_12') then
                read(10) pre(:,int(ilat1):int(ilat2),int(ir+1))
             end if
-            if ( prmag /= 0 ) then
+            if ( prmag /= 0.0_cp ) then
                read(10) Br(:,int(ilat1):int(ilat2),int(ir+1))
                read(10) Bt(:,int(ilat1):int(ilat2),int(ir+1))
                read(10) Bp(:,int(ilat1):int(ilat2),int(ir+1))
             end if
          end do
 
-         if ( (prmag /= 0.) .and. (nric > 1) ) then
+         if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
             ic_loop1: do i=1,nric
                read(10, iostat=read_ok) ir, rad, ilat1, ilat2
                if ( read_ok /= 0 ) then
@@ -184,8 +186,8 @@ contains
             end if
          end do
 
-         if ( (prmag /= 0.) .and. (nric > 1) ) then
-            ic_loop: do i=1,nric
+         if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
+            ic_loop: do i=2,nric
                read(10, iostat=read_ok) ir, rad, ilat1, ilat2
                if ( read_ok /= 0 ) then
                   exit ic_loop
@@ -202,6 +204,9 @@ contains
                   end do
                end if
             end do ic_loop
+            Br_ic(:,:,1)=Br(:,:,nr)
+            Bt_ic(:,:,1)=Bt(:,:,nr)
+            Bp_ic(:,:,1)=Bp(:,:,nr)
          end if
    
       end if
@@ -247,7 +252,7 @@ contains
             end do
          end if
          if ( prmag /= 0 ) then
-            dummy(:,:) = Br(:,:,i)
+            dummy(:,:)= Br(:,:,i)
             do j=1,nt/2
                Br(:,j,i)=dummy(:,2*(j-1)+1)
                Br(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
@@ -264,6 +269,7 @@ contains
             end do
          end if
       end do
+   
 
       !rearanging hemispherical data
       if ( (prmag /= 0) .and. (nric > 1)  .and. (read_ok == 0) ) then
@@ -289,10 +295,147 @@ contains
       deallocate(dummy)
    
       radius(:) = radius(:)/(1.-radratio)
-      if ( (prmag /= 0.) .and. (nric > 1) .and. (read_ok==0) ) then
+      if ( (prmag /= 0.0_cp) .and. (nric > 1) .and. (read_ok==0) ) then
          radius_ic(:) = radius_ic(:)/(1.-radratio)
       end if
+
+      raxi=0.0_cp
+      sc  =0.0_cp
    
    end subroutine readG
 !----------------------------------------------------------------------------
-end module greader_double
+   subroutine readG_stream(filename, endian)
+
+      !-- Input variables
+      character(len=*), intent(in) :: filename
+      character(len=1), intent(in) :: endian
+   
+      !-- Local variables
+      integer :: ir,read_ok,version
+      character(len=64) :: runid
+      real(cp) :: rad
+      real(cp), allocatable :: dummy(:,:)
+      logical :: l_heat, l_mag, l_cond_ic, l_chemical_conv, l_press
+   
+      if ( endian == 'B' ) then
+         open(unit=10, file=filename, form='unformatted', convert='big_endian', &
+         &    access='stream')
+      else
+         open(unit=10, file=filename, form='unformatted', convert='little_endian', &
+         &    access='stream')
+      end if
+
+      read(10) version
+      read(10) runid
+      read(10) time, ra, pr, raxi, sc, ek, prmag, radratio, sigma
+      read(10) nr, nt, np, minc, nric
+      read(10) l_heat, l_chemical_conv, l_mag, l_press, l_cond_ic
+
+      np=np/minc
+
+      if ( allocated(colat) ) deallocate(colat)
+      if ( allocated(radius) ) deallocate(radius)
+
+      if ( allocated(vr) ) deallocate(vr)
+      if ( allocated(vt) ) deallocate(vt)
+      if ( allocated(vp) ) deallocate(vp)
+      if ( l_heat .and. allocated(entropy) ) deallocate(entropy)
+      if ( l_press .and. allocated(pre) ) deallocate(pre)
+      if ( l_chemical_conv .and. allocated(xi) ) deallocate(xi)
+      if ( l_mag ) then
+        if ( allocated(Br) ) deallocate( Br )
+        if ( allocated(Bt) ) deallocate( Bt )
+        if ( allocated(Bp) ) deallocate( Bp )
+      end if
+      if ( l_mag .and. (nric > 1) ) then
+         if ( allocated(radius_ic) ) deallocate( radius_ic )
+         if ( allocated(Br_ic) ) deallocate( Br_ic )
+         if ( allocated(Bt_ic) ) deallocate( Bt_ic )
+         if ( allocated(Bp_ic) ) deallocate( Bp_ic )
+      end if
+   
+      allocate( colat(1:nt) )
+      allocate( radius(1:nr) )
+      allocate( dummy(1:nt,1:np) )
+   
+      if ( l_heat ) allocate( entropy(1:np,1:nt,1:nr) )
+      if ( l_press ) allocate( pre(1:np,1:nt,1:nr) )
+      if ( l_chemical_conv ) allocate( xi(1:np,1:nt,1:nr) )
+      allocate( vr(1:np,1:nt,1:nr) )
+      allocate( vt(1:np,1:nt,1:nr) )
+      allocate( vp(1:np,1:nt,1:nr) )
+      if ( l_mag ) then
+         allocate( Br(1:np,1:nt,1:nr), Bt(1:np,1:nt,1:nr), Bp(1:np,1:nt,1:nr) )
+      end if
+
+      if ( l_mag .and. (nric > 1) ) then
+         allocate( radius_ic(1:nric) )
+         allocate( Br_ic(1:np,1:nt,1:nric), Bt_ic(1:np,1:nt,1:nric), Bp_ic(1:np,1:nt,1:nric) )
+      end if
+
+      read(10) colat
+      read(10) radius
+      if ( l_mag .and. nric > 1 ) read(10) radius_ic
+
+      !-- Reading
+      do ir=1,nr
+         read(10) dummy
+         vr(:,:,ir)=transpose(dummy)
+         read(10) dummy
+         vt(:,:,ir)=transpose(dummy)
+         read(10) dummy
+         vp(:,:,ir)=transpose(dummy)
+         if ( l_heat ) then
+            read(10) dummy
+            entropy(:,:,ir)=transpose(dummy)
+         end if
+         if ( l_chemical_conv ) then
+            read(10) dummy
+            xi(:,:,ir)=transpose(dummy)
+         end if
+         if ( l_press ) then
+            read(10) dummy
+            pre(:,:,ir)=transpose(dummy)
+         end if
+         if ( l_mag ) then
+            read(10) dummy
+            Br(:,:,ir)=transpose(dummy)
+            read(10) dummy
+            Bt(:,:,ir)=transpose(dummy)
+            read(10) dummy
+            Bp(:,:,ir)=transpose(dummy)
+         end if
+      end do
+
+      !-- Inner core
+      if ( l_mag .and. (nric > 1) ) then
+         ic_loop1: do ir=1,nric
+            read(10, iostat=read_ok) dummy
+            if ( read_ok /= 0 ) then
+               exit ic_loop1
+            else
+               Br_ic(:,:,ir)=transpose(dummy)
+            end if
+            read(10, iostat=read_ok) dummy
+            if ( read_ok /= 0 ) then
+               exit ic_loop1
+            else
+               Bt_ic(:,:,ir)=transpose(dummy)
+            end if
+            read(10, iostat=read_ok) dummy
+            if ( read_ok /= 0 ) then
+               exit ic_loop1
+            else
+               Bp_ic(:,:,ir)=transpose(dummy)
+            end if
+         end do ic_loop1
+      end if !-- Inner core
+
+
+      deallocate(dummy)
+
+      close(10)
+   
+   end subroutine readG_stream
+!----------------------------------------------------------------------------
+end module greader_single

@@ -244,6 +244,10 @@ contains
          call ifft_many(tmpr,brc)
          call ifft_many(tmpt,btc)
          call ifft_many(tmpp,bpc)
+      else
+         brc(:,1)=real(tmpr(:,1))
+         btc(:,1)=real(tmpt(:,1))
+         bpc(:,1)=real(tmpp(:,1))
       end if
     
    end subroutine native_qst_to_spat
@@ -357,6 +361,9 @@ contains
       if ( .not. l_axi ) then
          call ifft_many(tmpt,btc)
          call ifft_many(tmpp,bpc)
+      else
+         btc(:,1)=real(tmpt(:,1))
+         bpc(:,1)=real(tmpp(:,1))
       end if
     
    end subroutine native_sphtor_to_spat
@@ -493,7 +500,11 @@ contains
       end if
       !$omp end parallel
 
-      if ( .not. l_axi ) call ifft_many(tmp,sc)
+      if ( .not. l_axi ) then
+         call ifft_many(tmp,sc)
+      else
+         sc(:,1)=real(tmp(:,1))
+      end if
 
    end subroutine native_sph_to_spat
 !------------------------------------------------------------------------------
@@ -562,6 +573,9 @@ contains
       if ( .not. l_axi ) then
          call ifft_many(tmpt,gradtc)
          call ifft_many(tmpp,gradpc)
+      else
+         gradtc(:,1)=real(tmpt(:,1))
+         gradpc(:,1)=real(tmpp(:,1))
       end if
 
    end subroutine native_sph_to_grad_spat
@@ -597,7 +611,11 @@ contains
       complex(cp) :: f1ES(n_theta_max/2,n_m_max),f1ES1,f1ES2
       complex(cp) :: f1EA(n_theta_max/2,n_m_max),f1EA1,f1EA2
 
-      if ( .not. l_axi ) call fft_many(scal,f1TM)
+      if ( .not. l_axi ) then
+         call fft_many(scal,f1TM)
+      else
+         f1TM(1:n_theta_max,1) = cmplx(scal(1:n_theta_max,1), 0.0_cp, kind=cp)
+      end if
 
       f1LM(:)=zero
 
@@ -678,6 +696,9 @@ contains
       if ( .not. l_axi ) then
          call fft_many(vt,f2TM)
          call fft_many(vp,f1TM)
+      else
+         f1TM(:,1) = cmplx(vp(1:n_theta_max,1), 0.0_cp, kind=cp)
+         f2TM(:,1) = cmplx(vt(1:n_theta_max,1), 0.0_cp, kind=cp)
       end if
 
       f1LM(:)=zero

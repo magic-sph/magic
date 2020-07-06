@@ -22,7 +22,7 @@ module fields_average_mod
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb, write_Pot
    use spectra, only: spectrum, spectrum_temp
-   use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file
+   use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file, graphOut_header
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
@@ -188,8 +188,6 @@ contains
       character(len=72) :: graph_file
       character(len=80) :: outFile
       integer :: nOut,n_cmb_sets,nPotSets
-
-      logical :: lGraphHeader
 
       real(cp) :: time
       real(cp) :: dt_norm
@@ -416,11 +414,10 @@ contains
          if ( rank == 0 ) then
             graph_file='G_ave.'//tag
             open(newunit=n_graph_file, file=graph_file, status='unknown', &
-            &    form='unformatted')
+            &    form='unformatted', access='stream')
 
             !----- Write header into graphic file:
-            lGraphHeader=.true.
-            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,Xir,lGraphHeader)
+            call graphOut_header(time)
          end if
 
          !-- This will be needed for the inner core
@@ -458,8 +455,7 @@ contains
                if ( l_chemical_conv ) then
                   call scal_to_spat(xi_ave_global, Xir, l_R(nR))
                end if
-               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
-               &             Xir, lGraphHeader)
+               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir)
             end if
          end do
 

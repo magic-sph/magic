@@ -49,7 +49,7 @@ def generateEkinFile(fileName='e_kin.test'):
     st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( gr.entropy[10, 13, 3], 
          gr.Br[33, 0, 2], gr.Btheta[3, 11, 11], gr.Bphi[34, 12, 25], 
          gr.vr[11, 15, 2], gr.vtheta[33, 33, 3], gr.vphi[32, 33, 7],
-         gr.Br_ic[5, 101, 2], gr.Btheta_ic[40, 39, 12] )
+         gr.Br_ic[5, 101, 3], gr.Btheta_ic[40, 39, 13] )
 
     #Write output for graphic files
     file.write(st+'\n')

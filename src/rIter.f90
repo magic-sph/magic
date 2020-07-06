@@ -154,17 +154,15 @@ contains
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
       integer :: nR, nBc
-      logical :: lGraphHeader, lMagNlBc, l_bound, lDeriv
+      logical :: lMagNlBc, l_bound, lDeriv
 
-      lGraphHeader=l_graph
-      if ( lGraphHeader ) then
+      if ( l_graph ) then
 #ifdef WITH_MPI
          call graphOut_mpi_header(time)
 #else
          call graphOut_header(time)
 #endif
       end if
-      lGraphHeader=.false.
 
       if ( rank == 0 ) then
          dtrkc(n_r_cmb)=1.e10_cp
@@ -296,15 +294,13 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-               call graphOut_mpi(time,nR,this%gsa%vrc,this%gsa%vtc,                &
-                    &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                    &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
-                    &            lGraphHeader)
+               call graphOut_mpi(time,nR,this%gsa%vrc,this%gsa%vtc,            &
+                    &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,       &
+                    &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic)
 #else
                call graphOut(time,nR,this%gsa%vrc,this%gsa%vtc,                &
                     &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                    &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
-                    &        lGraphHeader)
+                    &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic)
 #endif
          end if
 
