@@ -54,7 +54,7 @@ contains
       !
       logical, intent(in) :: l_geos
 
-      nrp_geos=n_phi_max+2 ! One has to include the 2 extra points again
+      nrp_geos=n_phi_max
 
       ! Number of grid point in s:
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))

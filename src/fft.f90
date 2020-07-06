@@ -150,10 +150,12 @@ contains
       real(cp), intent(inout) :: f(ld_f, nrep)
 
       !-- Local variable
-      real(cp) :: work(ld_f-1,nrep)
+      real(cp) :: tmp(ld_f+2,nrep),work(ld_f+1,nrep)
 
+      tmp(:ld_f,:)=f(:,:)
       !-- FFT along the first axis
-      call fft991(f,work,d_fft_init,i_fft_init,1,ld_f,ld_f-2,nrep,1) 
+      call fft991(tmp,work,d_fft_init,i_fft_init,1,ld_f+2,ld_f,nrep,1) 
+      f(:,:)=tmp(:ld_f,:)
 
    end subroutine fft_to_real
 !------------------------------------------------------------------------------
