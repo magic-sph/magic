@@ -259,6 +259,30 @@ else()
    message(STATUS "Use SHTNS: no")
 endif()
 
+# Check whether SHT_ALLOW_PADDING is available
+if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
+   file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testPad.f90"
+   "
+   program TestPad
+   use iso_c_binding
+   implicit none
+   include 'shtns.f03'
+   print*, SHT_ALLOW_PADDING
+   end program TestPad
+   ")
+   try_compile(SHT_PAD ${CMAKE_BINARY_DIR}
+      ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testPad.f90
+      CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HOME}/local/include"
+      COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+      OUTPUT_VARIABLE OUTPUT)
+   if(SHT_PAD)
+      add_definitions(-DSHT_PADDING)
+      message(STATUS "theta padding allowed with this version of SHTns")
+   else()
+      message(STATUS "No theta padding allowed with this version of SHTns")
+   endif()
+endif()
+
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_ARCH} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")
 

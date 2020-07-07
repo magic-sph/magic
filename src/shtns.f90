@@ -1,4 +1,7 @@
 module sht
+   !
+   ! This module contains is a wrapper of the SHTns routines used in MagIC
+   !
 
    use iso_c_binding
    use iso_fortran_env, only: output_unit
@@ -40,18 +43,26 @@ contains
       nthreads =  shtns_use_threads(0)
 
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
+#ifdef SHT_PADDING
       !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
       layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+#else
+      layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
+#endif
       eps_polar = 1.e-10_cp
 
       sht_l = shtns_create(l_max, m_max/minc, minc, norm)
       call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
 
       call c_f_pointer(cptr=sht_l, fptr=sht_info)
+#ifdef SHT_PADDING
       nlat_padded = sht_info%nlat_padded
       if ( nlat_padded /= n_theta_max .and. rank == 0 ) then
          write(output_unit,*) '! SHTns uses theta padding with nlat_padded=', nlat_padded
       end if
+#else
+      nlat_padded = n_theta_max
+#endif
 
       if ( rank == 0 ) then
          call shtns_verbose(0)
