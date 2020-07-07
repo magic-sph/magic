@@ -111,7 +111,10 @@ contains
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
-         write(n_log_file,'(A,I5)') ' ! Number of MPI ranks:', n_procs
+         write(n_log_file,'(A,I5)') ' ! Number of MPI ranks  :', n_procs
+         write(output_unit,'(A,I5)') ' ! Number of MPI ranks  :', n_procs
+         write(n_log_file,'(A,I5)') ' ! Number of OMP threads:', nThreads
+         write(output_unit,'(A,I5)') ' ! Number of OMP threads:', nThreads
          if ( l_save_out ) close(n_log_file)
       end if
 
