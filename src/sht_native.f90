@@ -44,7 +44,7 @@ contains
       !-- Output variable
       real(cp), intent(out) :: fieldc(:,:)
 
-      call native_sph_to_spat(Slm, fieldc)
+      call native_sph_to_spat(Slm, fieldc, lcut)
 
    end subroutine scal_to_spat
 !------------------------------------------------------------------------------
@@ -60,7 +60,7 @@ contains
       real(cp), intent(out) :: gradtc(:,:)
       real(cp), intent(out) :: gradpc(:,:)
 
-      call native_sph_to_grad_spat(Slm, gradtc, gradpc)
+      call native_sph_to_grad_spat(Slm, gradtc, gradpc, lcut)
 
    end subroutine scal_to_grad_spat
 !------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ contains
       end do
       !$omp end parallel do
 
-      call native_sph_to_grad_spat(Qlm, gradtc, gradpc)
+      call native_sph_to_grad_spat(Qlm, gradtc, gradpc, lcut)
 
    end subroutine pol_to_grad_spat
 !------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ contains
       end do
       !$omp end parallel do
 
-      call native_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc)
+      call native_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
    end subroutine torpol_to_spat
 !------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ contains
       real(cp), intent(out) :: vtc(:,:)
       real(cp), intent(out) :: vpc(:,:)
 
-      call native_sphtor_to_spat(dWlm, Zlm, vtc, vpc)
+      call native_sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
 
    end subroutine sphtor_to_spat
 !------------------------------------------------------------------------------
@@ -178,7 +178,7 @@ contains
          end do
       end do
 
-      call native_qst_to_spat(Qlm, Slm, Tlm, cbr, cbt, cbp)
+      call native_qst_to_spat(Qlm, Slm, Tlm, cbr, cbt, cbp, l_max)
 
    end subroutine torpol_to_curl_spat_IC
 !------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ contains
          end do
       end do
 
-      call native_qst_to_spat(Qlm, Slm, Tlm, Br, Bt, Bp)
+      call native_qst_to_spat(Qlm, Slm, Tlm, Br, Bt, Bp, l_max)
 
    end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
@@ -257,7 +257,7 @@ contains
       end do
       !$omp end parallel do
 
-      call native_sphtor_to_spat(Slm, Tlm, dvtdp, dvpdp)
+      call native_sphtor_to_spat(Slm, Tlm, dvtdp, dvpdp, lcut)
 
       !$omp parallel do default(shared) private(ip)
       do ip=1, n_phi_max
@@ -292,7 +292,7 @@ contains
       end do
       !$omp end parallel do
 
-      call native_sph_to_spat(dQlm, cvrc)
+      call native_sph_to_spat(dQlm, cvrc, lcut)
 
    end subroutine pol_to_curlr_spat
 !------------------------------------------------------------------------------
@@ -328,7 +328,7 @@ contains
       !
       !$omp end parallel do
 
-      call native_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc)
+      call native_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
 
    end subroutine torpol_to_curl_spat
 !------------------------------------------------------------------------------
@@ -338,7 +338,7 @@ contains
       integer,  intent(in) :: lcut
       complex(cp), intent(out) :: fLM(:)
 
-      call native_spat_to_sph(f, fLM)
+      call native_spat_to_sph(f, fLM, lcut+1)
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
@@ -355,8 +355,8 @@ contains
       complex(cp), intent(out) :: sLM(:)
       complex(cp), intent(out) :: tLM(:)
 
-      call native_spat_to_sph(f, qLM)
-      call native_spat_to_sph_tor(g, h, sLM, tLM)
+      call native_spat_to_sph(f, qLM, lcut+1)
+      call native_spat_to_sph_tor(g, h, sLM, tLM, lcut+1)
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
@@ -371,7 +371,7 @@ contains
       complex(cp), intent(out) :: fLM(:)
       complex(cp), intent(out) :: gLM(:)
 
-      call native_spat_to_sph_tor(f, g, fLM, gLM)
+      call native_spat_to_sph_tor(f, g, fLM, gLM, lcut+1)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------

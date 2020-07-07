@@ -266,12 +266,11 @@ def getSuite(startdir, cmd, precision, args):
                                                   execCmd=cmd,
                                                   precision=precision))
         # First full sphere benchmark from Marti et al. (2014)
-        if args.use_shtns:
-            suite.addTest(full_sphere.unitTest.FullSphere('outputFileDiff',
-                                                      '%s/full_sphere' \
-                                                      % startdir, 
-                                                      execCmd=cmd,
-                                                      precision=precision))
+        suite.addTest(full_sphere.unitTest.FullSphere('outputFileDiff',
+                                                  '%s/full_sphere' \
+                                                  % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
     if args.test_level in [-1, 1]:
         # Test restart file capabilities
         suite.addTest(testRestart.unitTest.TestRestart('outputFileDiff',

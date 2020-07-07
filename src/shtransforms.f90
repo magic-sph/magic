@@ -23,7 +23,6 @@ module shtransforms
    real(cp), public, allocatable :: D_mc2m(:)
    integer, allocatable :: lStart(:),lStop(:)
    integer, allocatable :: lStartP(:),lStopP(:)
-   logical, allocatable :: lmOdd(:),lmOddP(:)
 
    public :: initialize_transforms, finalize_transforms, native_qst_to_spat,   &
    &         native_sphtor_to_spat, native_sph_to_spat, native_spat_to_sph,    &
@@ -52,8 +51,7 @@ contains
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
       allocate( lStartP(n_m_max),lStopP(n_m_max) )
-      allocate( lmOdd(n_m_max),lmOddP(n_m_max) )
-      bytes_allocated = bytes_allocated+6*n_m_max*SIZEOF_INTEGER
+      bytes_allocated = bytes_allocated+4*n_m_max*SIZEOF_INTEGER
 
       norm=2 ! norm chosen so that a surface integral over
              ! any ylm**2 is 1.
@@ -88,13 +86,6 @@ contains
       lStart(1) =1
       lStop(1)  =l_max+1
       D_mc2m(1)=0
-      if ( mod(l_max,2) == 0 ) then
-         lmOdd(1) =.true.
-         lmOddP(1)=.false.
-      else
-         lmOdd(1) =.false.
-         lmOddP(1)=.true.
-      end if
       do mc=2,n_m_max
          m=(mc-1)*minc
          D_mc2m(mc) =real(m,cp)
@@ -102,13 +93,6 @@ contains
          lStopP(mc) =lStartP(mc) +l_max-m+1
          lStart(mc) =lStop(mc-1) +1
          lStop(mc)  =lStart(mc)  +l_max-m
-         if ( mod(lStop(mc)-lStart(mc),2) == 0 ) then
-            lmOdd(mc) =.true.
-            lmOddP(mc)=.false.
-         else
-            lmOdd(mc) =.false.
-            lmOddP(mc)=.true.
-         end if
       end do
 
    end subroutine initialize_transforms
@@ -116,11 +100,11 @@ contains
    subroutine finalize_transforms
 
       deallocate( Plm, wPlm, wdPlm, dPlm)
-      deallocate( D_mc2m, lStart, lStop, lStartP, lStopP, lmOdd, lmOddP)
+      deallocate( D_mc2m, lStart, lStop, lStartP, lStopP)
 
    end subroutine finalize_transforms
 !------------------------------------------------------------------------------
-   subroutine native_qst_to_spat(Qlm, Slm, Tlm, brc, btc, bpc)
+   subroutine native_qst_to_spat(Qlm, Slm, Tlm, brc, btc, bpc, lcut)
       !
       ! Vector spherical harmonic transform: take Q,S,T and transform them 
       ! to a vector field
@@ -130,6 +114,7 @@ contains
       complex(cp), intent(in) :: Qlm(lm_max) ! Poloidal
       complex(cp), intent(in) :: Slm(lm_max) ! Spheroidal
       complex(cp), intent(in) :: Tlm(lm_max) ! Toroidal
+      integer,     intent(in) :: lcut
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
@@ -145,11 +130,11 @@ contains
       complex(cp) :: tmpp(n_theta_max,n_phi_max/2+1)
     
       !-- Local variables:
+      logical :: l_Odd
       complex(cp) :: brES,brEA
       integer :: nThetaN,nThetaS,nThetaNHS
-      integer :: mc,lm,lmS, nThStart,nThStop
+      integer :: m,mc,lm,lmS, nThStart,nThStop
       real(cp) :: dm
-    
       complex(cp) :: bhN1M,bhN2M,bhN,bhN1,bhN2
       complex(cp) :: bhS1M,bhS2M,bhS,bhS1,bhS2
     
@@ -161,21 +146,33 @@ contains
       end do
 
       !$omp parallel default(shared) &
-      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2)      &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)   &
+      !$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2, l_Odd) &
       !$omp private(brES, brEA, bhN1M, bhN2M, bhS1M, bhS2M, PlmG, PlmC)
       nThStart=1; nThStop=n_theta_max/2
       call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThStart-1 ; nThStop=2*nThStop
       !--- Loop over all orders m: (numbered by mc)
       do mc=1,n_m_max
+         m=(mc-1)*minc
+         if ( m>lcut ) then
+            tmpr(:,mc)=zero
+            tmpt(:,mc)=zero
+            tmpp(:,mc)=zero
+            cycle
+         end if
+         dm = D_mc2m(mc)
+         lmS=lStop(mc)+lcut-l_max
+         if ( mod(lmS-lStart(mc),2) == 0 ) then
+            l_Odd=.true.
+         else
+            l_Odd=.false.
+         end if
          nThetaNHS=(nThStart-1)/2
          do nThetaN=nThStart,nThStop,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
  
-            dm = D_mc2m(mc)
-            lmS=lStop(mc)
             brES   =zero
             brEA   =zero
             !--- 6 add/mult, 26 dble words
@@ -187,7 +184,7 @@ contains
                PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
                PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
             end do
-            if ( lmOdd(mc) ) then
+            if ( l_Odd ) then
                brES   =brES + Qlm(lmS)*Plm(lmS,nThetaNHS)
                PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
                PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
@@ -195,7 +192,6 @@ contains
             tmpr(nThetaN,mc)=brES+brEA
             tmpr(nThetaS,mc)=brES-brEA
  
-            lmS=lStop(mc)
             bhN1=zero
             bhS1=zero
             bhN2=zero
@@ -207,7 +203,7 @@ contains
                bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
                bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
             end do
-            if ( lmOdd(mc) ) then
+            if ( l_Odd ) then
                bhN1=bhN1+bhG(lmS)*PlmG(lmS)
                bhS1=bhS1-bhG(lmS)*PlmC(lmS)
                bhN2=bhN2+bhC(lmS)*PlmC(lmS)
@@ -252,7 +248,7 @@ contains
     
    end subroutine native_qst_to_spat
 !------------------------------------------------------------------------------
-   subroutine native_sphtor_to_spat(Slm, Tlm, btc, bpc)
+   subroutine native_sphtor_to_spat(Slm, Tlm, btc, bpc, lcut)
       !
       ! Use spheroidal and toroidal potentials to transform them to angular
       ! vector components btheta and bphi
@@ -261,6 +257,7 @@ contains
       !-- Input variables:
       complex(cp), intent(in) :: Slm(lm_max)
       complex(cp), intent(in) :: Tlm(lm_max)
+      integer,     intent(in) :: lcut
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
@@ -274,10 +271,10 @@ contains
       complex(cp) :: tmpp(n_theta_max,n_phi_max/2+1)
     
       !-- Local variables:
+      logical :: l_Odd
       integer :: nThetaN,nThetaS,nThetaNHS
-      integer :: mc,lm,lmS,nThStart,nThStop
+      integer :: m,mc,lm,lmS,nThStart,nThStop
       real(cp) :: dm
-    
       complex(cp) :: bhN1M,bhN2M,bhN,bhN1,bhN2
       complex(cp) :: bhS1M,bhS2M,bhS,bhS1,bhS2
     
@@ -290,18 +287,29 @@ contains
       !$omp parallel default(shared) &
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
       !$omp private(dm, lm, lmS, bhN, bhN1, bhN2, bhS, bhS1, bhS2)      &
-      !$omp private(bhN1M, bhN2M, bhS1M, bhS2M, PlmG, PlmC)
+      !$omp private(bhN1M, bhN2M, bhS1M, bhS2M, PlmG, PlmC, l_Odd)
       nThStart=1; nThStop=n_theta_max/2
       call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
       do mc=1,n_m_max
+         dm=D_mc2m(mc)
+         lmS=lStop(mc)-l_max+lcut
+         if ( mod(lmS-lStart(mc),2) == 0 ) then
+            l_Odd=.true.
+         else
+            l_Odd=.false.
+         end if
+         m=(mc-1)*minc
+         if ( m>lcut ) then
+            tmpt(:,mc)=zero
+            tmpp(:,mc)=zero
+            cycle
+         end if
          nThetaNHS=(nThStart-1)/2
          do nThetaN=nThStart,nThStop,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
  
-            dm=D_mc2m(mc)
-            lmS=lStop(mc)
             !--- 6 add/mult, 26 dble words
             do lm=lStart(mc),lmS-1,2
                PlmG(lm)  =dPlm(lm,nThetaNHS)  -dm*Plm(lm,nThetaNHS)
@@ -309,12 +317,11 @@ contains
                PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
                PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
             end do
-            if ( lmOdd(mc) ) then
+            if ( l_Odd ) then
                PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
                PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
             end if
  
-            lmS=lStop(mc)
             bhN1=zero
             bhS1=zero
             bhN2=zero
@@ -326,7 +333,7 @@ contains
                bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
                bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
             end do
-            if ( lmOdd(mc) ) then
+            if ( l_Odd ) then
                bhN1=bhN1+bhG(lmS)*PlmG(lmS)
                bhS1=bhS1-bhG(lmS)*PlmC(lmS)
                bhN2=bhN2+bhC(lmS)*PlmC(lmS)
@@ -411,7 +418,7 @@ contains
             PlmG(lm+1)=dPlm(lm+1,nThetaNHS)
             PlmC(lm+1)=dPlm(lm+1,nThetaNHS)
          end do
-         if ( lmOdd(1) ) then
+         if ( mod(l_max,2) == 0 ) then
             PlmG(lmS)=dPlm(lmS,nThetaNHS)
             PlmC(lmS)=dPlm(lmS,nThetaNHS)
          end if
@@ -428,7 +435,7 @@ contains
             bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
             bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
          end do
-         if ( lmOdd(1) ) then
+         if ( mod(l_max,2) == 0 ) then
             bhN1=bhN1+bhG(lmS)*PlmG(lmS)
             bhS1=bhS1-bhG(lmS)*PlmC(lmS)
             bhN2=bhN2+bhC(lmS)*PlmC(lmS)
@@ -450,42 +457,54 @@ contains
  
    end subroutine native_toraxi_to_spat
 !------------------------------------------------------------------------------
-   subroutine native_sph_to_spat(Slm, sc)
+   subroutine native_sph_to_spat(Slm, sc, lcut)
       !
       ! Spherical Harmonic Transform for a scalar input field
       !
 
       !-- Input variable
       complex(cp), intent(in) :: Slm(lm_max)
+      integer,     intent(in) :: lcut
 
       !-- Output variables
       real(cp), intent(out) :: sc(n_theta_max,n_phi_max)
 
       !-- Local variables
       complex(cp) :: tmp(n_theta_max,n_phi_max/2+1)
-      integer :: mc, lm, lmS
+      logical :: l_Odd
+      integer :: m, mc, lm, lmS
       integer :: nThetaN, nThetaS, nThetaNHS, nThStart, nThStop
       complex(cp) :: sES, sEA
 
       !$omp parallel default(shared) &
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !$omp private(sES, sEA, lm, lmS)
+      !$omp private(sES, sEA, lm, lmS, l_Odd)
       nThStart=1; nThStop=n_theta_max/2
       call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
       do mc=1,n_m_max
+         m=(mc-1)*minc
+         lmS=lStop(mc)-l_max+lcut
+         if ( mod(lmS-lStart(mc),2) == 0 ) then
+            l_Odd=.true.
+         else
+            l_Odd=.false.
+         end if
+         if ( m>lcut ) then
+            tmp(:,mc)=zero
+            cycle
+         end if
          nThetaNHS=(nThStart-1)/2
          do nThetaN=nThStart,nThStop,2   ! Loop over thetas for one HS
             nThetaS  =nThetaN+1  ! same theta but at other HS
             nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-            lmS=lStop(mc)
             sES=zero ! One equatorial symmetry
             sEA=zero ! The other equatorial symmetry
             do lm=lStart(mc),lmS-1,2
                sES=sES+Slm(lm)  *Plm(lm,nThetaNHS)
                sEA=sEA+Slm(lm+1)*Plm(lm+1,nThetaNHS)
             end do
-            if ( lmOdd(mc) ) sES=sES+Slm(lmS)*Plm(lmS,nThetaNHS)
+            if ( l_Odd ) sES=sES+Slm(lmS)*Plm(lmS,nThetaNHS)
             tmp(nThetaN,mc)=sES+sEA
             tmp(nThetaS,mc)=sES-sEA
          end do
@@ -508,13 +527,14 @@ contains
 
    end subroutine native_sph_to_spat
 !------------------------------------------------------------------------------
-   subroutine native_sph_to_grad_spat(slm, gradtc, gradpc)
+   subroutine native_sph_to_grad_spat(slm, gradtc, gradpc, lcut)
       !
       ! Transform s(l) into dsdt(theta) and dsdp(theta)
       !
 
       !-- Input variable
       complex(cp), intent(in) :: Slm(lm_max)
+      integer,     intent(in) :: lcut
 
       !-- Output variables
       real(cp), intent(out) :: gradtc(n_theta_max,n_phi_max)
@@ -522,23 +542,35 @@ contains
 
       !-- Local variables
       complex(cp) :: tmpt(n_theta_max,n_phi_max/2+1),tmpp(n_theta_max,n_phi_max/2+1)
-      integer :: mc, lm, lmS, nThetaN, nThetaS, nThetaNHS, nThStart, nThStop
+      integer :: m, mc, lm, lmS, nThetaN, nThetaS, nThetaNHS, nThStart, nThStop
+      logical :: l_Odd
       real(cp) :: dm
       complex(cp) :: gradtcES, gradtcEA, sES, sEA
 
       !$omp parallel default(shared) &
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc) &
-      !$omp private(sES, sEA, gradtcES, gradtcEA, dm, lm, lmS)
+      !$omp private(sES, sEA, gradtcES, gradtcEA, dm, lm, lmS, l_Odd)
       nThStart=1; nThStop=n_theta_max/2
       call get_openmp_blocks(nThStart,nThStop)
       nThStart=2*nThstart-1 ; nThStop=2*nThStop
       do mc=1,n_m_max
+         dm =D_mc2m(mc)
+         lmS=lStop(mc)-l_max+lcut
+         if ( mod(lmS-lStart(mc),2) == 0 ) then
+            l_Odd=.true.
+         else
+            l_Odd=.false.
+         end if
+         m=(mc-1)*minc
+         if ( m>lcut ) then
+            tmpt(:,mc)=zero
+            tmpp(:,mc)=zero
+            cycle
+         end if
          nThetaNHS=(nThStart-1)/2
          do nThetaN=nThStart,nThStop,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
-            dm =D_mc2m(mc)
-            lmS=lStop(mc)
             sES=zero  ! One equatorial symmetry
             sEA=zero  ! The other equatorial symmetry
             gradtcES=zero
@@ -549,7 +581,7 @@ contains
                sES     =sES      + Slm(lm)  * Plm(lm,nThetaNHS)
                sEA     =sEA      + Slm(lm+1)* Plm(lm+1,nThetaNHS)
             end do
-            if ( lmOdd(mc) ) then
+            if ( l_Odd ) then
                gradtcEA=gradtcEA + Slm(lmS)*dPlm(lmS,nThetaNHS)
                sES     =sES      + Slm(lmS)* Plm(lmS,nThetaNHS)
             end if
@@ -580,7 +612,7 @@ contains
 
    end subroutine native_sph_to_grad_spat
 !------------------------------------------------------------------------------
-   subroutine native_spat_to_sph(scal,f1LM)
+   subroutine native_spat_to_sph(scal,f1LM,lcut)
       !
       !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
       !  [grid to spectral] for 2 arrays
@@ -592,6 +624,7 @@ contains
 
       !-- Input variables:
       real(cp), intent(inout) :: scal(:,:)
+      integer,  intent(in) :: lcut
 
       !-- Output variable:
       complex(cp), intent(out) :: f1LM(lmP_max)
@@ -602,9 +635,8 @@ contains
       integer :: nThetaNHS   ! No. of thetas in one HS only
       integer :: nTheta1     ! No. of theta (in one HS)
       integer :: nTheta2     ! No. of theta (in one HS)
-
-      integer :: mc          ! counter of spherical order
-      integer :: lmS,lm      ! counter of spherical mode
+      logical :: l_Odd
+      integer :: mc,m,lmS,lm
       integer :: nThStart,nThStop,nTh1Start,nTh1Stop
 
       complex(cp) :: f1TM(n_theta_max,n_phi_max/2+1)
@@ -622,7 +654,7 @@ contains
       !$omp parallel default(shared) &
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
       !$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
-      !$omp private(nTh1Start, nTh1Stop, f1ES, f1EA)                       &
+      !$omp private(nTh1Start, nTh1Stop, f1ES, f1EA,l_Odd)                 &
       !$omp reduction(+:f1LM)
       nThStart=1; nThStop=n_theta_max/4
       call get_openmp_blocks(nThStart,nThStop)
@@ -630,6 +662,16 @@ contains
       nThStart=4*nThstart-3 ; nThStop=4*nThStop
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       do mc=1,n_m_max        ! counts spherical harmonic orders
+         lmS=lStopP(mc)-l_max-1+lcut
+         if ( mod(lmS-lStartP(mc),2) == 0 ) then
+            l_Odd=.true.
+         else
+            l_Odd=.false.
+         end if
+         m=(mc-1)*minc
+         if ( m>min(m_max,lcut) ) then
+            f1TM(:,mc)=zero
+         end if
          nThetaNHS=(nThStart-1)/2
          do nThetaN=nThStart,nThStop,2 ! thetas in NHS
             nThetaS=nThetaN+1      ! thetas in SHS
@@ -641,7 +683,6 @@ contains
          !-- Loop over half of the thetas with step 2 unrolling:
          do nTheta1=nTh1Start,nTh1Stop,2
             nTheta2=nTheta1+1
-            lmS=lStopP(mc)
             f1ES1=f1ES(nTheta1,mc)
             f1ES2=f1ES(nTheta2,mc)
             f1EA1=f1EA(nTheta1,mc)
@@ -650,7 +691,7 @@ contains
                f1LM(lm)  =f1LM(lm)  +f1ES1*wPlm(lm,nTheta1)  +f1ES2*wPlm(lm,nTheta2)
                f1LM(lm+1)=f1LM(lm+1)+f1EA1*wPlm(lm+1,nTheta1)+f1EA2*wPlm(lm+1,nTheta2)
             end do
-            if ( lmOddP(mc) ) then
+            if ( l_Odd ) then
                f1LM(lmS)=f1LM(lmS) + f1ES1*wPlm(lmS,nTheta1) + f1ES2*wPlm(lmS,nTheta2)
             end if
          end do
@@ -659,7 +700,7 @@ contains
 
    end subroutine native_spat_to_sph
 !------------------------------------------------------------------------------
-   subroutine native_spat_to_sph_tor(vt,vp,f1LM,f2LM)
+   subroutine native_spat_to_sph_tor(vt,vp,f1LM,f2LM,lcut)
       !
       !  Vector Legendre transform
       !  vt(n_r,n_theta,m), vp(n_r,n_theta,m) to Spheroidal(n_r,l,m)
@@ -668,6 +709,7 @@ contains
       !-- Input variables:
       real(cp), intent(inout) :: vt(:,:)
       real(cp), intent(inout) :: vp(:,:)
+      integer,  intent(in) :: lcut
 
       !-- Output variables:
       complex(cp), intent(out) :: f1LM(lmP_max),f2LM(lmP_max)
@@ -678,10 +720,9 @@ contains
       integer :: nThetaNHS   ! No. of thetas in one HS only
       integer :: nTheta1     ! No. of theta (in one HS)
       integer :: nTheta2     ! No. of theta (in one HS)
-
+      logical :: l_Odd
       integer :: l, nThStart, nThStop, nTh1Start, nTh1Stop
-      integer :: mc          ! counter of spherical order
-      integer :: lmS,lm      ! counter of spherical mode
+      integer :: m,mc,lmS,lm
 
       complex(cp) :: f1TM(n_theta_max,n_phi_max/2+1)
       complex(cp) :: f2TM(n_theta_max,n_phi_max/2+1)
@@ -708,7 +749,7 @@ contains
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
       !$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
       !$omp private(f2ES1, f2ES2, f2EA1, f2EA2, f1ES, f1EA, f2ES, f2EA)    &
-      !$omp private(nTh1Start, nTh1Stop)                                   &
+      !$omp private(nTh1Start, nTh1Stop,l_Odd)                             &
       !$omp reduction(+:f1LM,f2LM)
       nThStart=1; nThStop=n_theta_max/4
       call get_openmp_blocks(nThStart,nThStop)
@@ -726,6 +767,18 @@ contains
 
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       do mc=1,n_m_max         ! counts spherical harmonic orders
+         lmS=lStopP(mc)-l_max-1+lcut
+         if ( mod(lmS-lStartP(mc),2) == 0 ) then
+            l_Odd=.true.
+         else
+            l_Odd=.false.
+         end if
+         dm = D_mc2m(mc)
+         m=(mc-1)*minc
+         if ( m>min(m_max,lcut) ) then
+            f1TM(:,mc)=zero
+            f2TM(:,mc)=zero
+         end if
          nThetaNHS=(nThStart-1)/2
          do nThetaN=nThStart,nThStop,2 ! thetas in NHS
             nThetaS=nThetaN+1       ! thetas in SHS
@@ -740,9 +793,6 @@ contains
          do nTheta1=nTh1Start,nTh1Stop,2
             nTheta2 =nTheta1+1
 
-            !dm = real((mc-1)*minc,cp)
-            dm = D_mc2m(mc)
-            lmS=lStopP(mc)
             f1ES1=f1ES(nTheta1,mc)
             f1ES2=f1ES(nTheta2,mc)
             f1EA1=f1EA(nTheta1,mc)
@@ -769,7 +819,7 @@ contains
                &                    -ci*dm*f2EA1* wPlm(lm+1,nTheta1) &
                &                    -ci*dm*f2EA2* wPlm(lm+1,nTheta2)
             end do
-            if ( lmOddP(mc) ) then
+            if ( l_Odd ) then
                f1LM(lmS)=f1LM(lmS)-ci*dm*f1ES1* wPlm(lmS,nTheta1) &
                &                  -ci*dm*f1ES2* wPlm(lmS,nTheta2) &
                &                  +      f2EA1*wdPlm(lmS,nTheta1) &
