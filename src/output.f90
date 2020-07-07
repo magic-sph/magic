@@ -847,7 +847,7 @@ contains
       !----- Plot out inner core magnetic field, outer core
       !      field has been written in radialLoop !
       if ( l_graph .and. l_mag .and. n_r_ic_max > 0 ) then
-         call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
+         call graphOut_IC(b_ic,db_ic,aj_ic,bICB)
       end if
 
       ! =======================================================================

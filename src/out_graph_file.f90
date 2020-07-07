@@ -99,7 +99,7 @@ contains
 
    end subroutine close_graph_file
 !--------------------------------------------------------------------------------
-   subroutine graphOut(time,n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
+   subroutine graphOut(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
       !
       !
       !  Output of components of velocity, magnetic field vector and
@@ -115,7 +115,6 @@ contains
       !
 
       !-- Input variables
-      real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                    ! radial grod point no.
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
@@ -264,13 +263,12 @@ contains
    end subroutine graphOut_header
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine graphOut_mpi(time,n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
+   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                      ! radial grod point no.
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
@@ -483,7 +481,7 @@ contains
    end subroutine write_one_field
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB,l_avg)
+   subroutine graphOut_IC(b_ic,db_ic,aj_ic,bICB,l_avg)
       !
       !  Purpose of this subroutine is to write inner core magnetic
       !  field onto graphic output file. If the inner core is
@@ -494,8 +492,7 @@ contains
       !
 
       !-- Input variables:
-      complex(cp), intent(in) :: b_ic(:,:), db_ic(:,:), ddb_ic(:,:)
-      complex(cp), intent(in) :: aj_ic(:,:), dj_ic(:,:)
+      complex(cp), intent(in) :: b_ic(:,:), db_ic(:,:), aj_ic(:,:)
       complex(cp), intent(in) :: bICB(:)
       logical, optional, intent(in) :: l_avg
 

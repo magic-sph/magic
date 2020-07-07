@@ -118,9 +118,8 @@ contains
       !-- Output:
       real(cp),    intent(out) :: viscDiss,ohmDiss
 
-      !-- local:
-      integer :: n_r,lm,l,m,l1m0,n
-      integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
+      !-- Local:
+      integer :: n_r,lm,l,m,l1m0
 
       real(cp) :: r_ratio
       real(cp) :: viscHeatR_global(n_r_max)

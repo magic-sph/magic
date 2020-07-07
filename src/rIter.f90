@@ -294,13 +294,13 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-               call graphOut_mpi(time,nR,this%gsa%vrc,this%gsa%vtc,            &
-                    &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,       &
-                    &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic)
+               call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+                    &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
+                    &            this%gsa%sc,this%gsa%pc,this%gsa%xic)
 #else
-               call graphOut(time,nR,this%gsa%vrc,this%gsa%vtc,                &
-                    &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                    &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic)
+               call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+                    &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc,&
+                    &        this%gsa%pc,this%gsa%xic)
 #endif
          end if
 

@@ -455,7 +455,7 @@ contains
                if ( l_chemical_conv ) then
                   call scal_to_spat(xi_ave_global, Xir, l_R(nR))
                end if
-               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir)
+               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir)
             end if
          end do
 
@@ -469,8 +469,7 @@ contains
 
             if ( rank == 0 ) then
                call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
-                    &           ddb_ic_ave_global,aj_ic_ave_global, &
-                    &           dj_ic_ave_global,bICB,l_avg=.true.)
+                    &           aj_ic_ave_global,bICB,l_avg=.true.)
             end if
          end if
 

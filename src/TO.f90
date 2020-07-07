@@ -173,24 +173,15 @@ contains
       real(cp), intent(out) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
       !-- Local variables:
-      integer :: nTheta,nThetaBlock
-      integer :: nPhi
-      real(cp) :: VrMean,VtMean,VpMean
-      real(cp) :: Vr2Mean,Vt2Mean,Vp2Mean
-      real(cp) :: LFmean
-      real(cp) :: cvrMean,dvpdrMean
-      real(cp) :: VrdVpdrMean,VtcVrMean
-      real(cp) :: Bs2Mean,BszMean
-      real(cp) :: BspMean,BpzMean
-      real(cp) :: BspdMean,BpsdMean
+      integer :: nTheta,nPhi
+      real(cp) :: VrMean,VtMean,VpMean,Vr2Mean,Vt2Mean,Vp2Mean
+      real(cp) :: LFmean,cvrMean,dvpdrMean,VrdVpdrMean,VtcVrMean
+      real(cp) :: Bs2Mean,BszMean,BspMean,BpzMean,BspdMean,BpsdMean
       real(cp) :: BzpdMean,BpzdMean
       real(cp) :: Rmean(nlat_padded),Amean(nlat_padded)
       real(cp) :: dzCorMean(nlat_padded),dzLFmean(nlat_padded)
-      real(cp) :: sinT,Osin,Osin2,cosT,cosOsin2
-      real(cp) :: phiNorm
-
-      real(cp) :: BsL,BzL,BpL
-      real(cp) :: Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
+      real(cp) :: sinT,Osin,Osin2,cosT,cosOsin2,phiNorm
+      real(cp) :: BsL,BzL,BpL,Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
       real(cp) :: BpzF1,BpzF2,BszF1,BszF2,BszF3
       real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
 

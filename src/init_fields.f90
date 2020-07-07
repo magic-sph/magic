@@ -144,7 +144,7 @@ contains
 
       !-- Local variables
       complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
-      integer :: lm,l,m,n,st_lmP,l1m0
+      integer :: lm,l,m,st_lmP,l1m0
       integer :: nR,nTheta,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
@@ -410,7 +410,7 @@ contains
       real(cp) :: ra1,ra2
       real(cp) :: s0(n_r_max),p0(n_r_max),s1(n_r_max)
 
-      integer :: nTheta,n,nPhi,nS
+      integer :: nTheta,nPhi,nS
       real(cp) :: xL,yL,zL,rH,angleL,s00,s00P
       real(cp) :: mata(n_impS_max,n_impS_max)
       real(cp) :: amp(n_impS_max)
@@ -720,7 +720,7 @@ contains
       real(cp) :: ra1,ra2
       real(cp) :: xi0(n_r_max),xi1(n_r_max)
 
-      integer :: nTheta,n,nPhi,nXi
+      integer :: nTheta,nPhi,nXi
       real(cp) :: xL,yL,zL,rH,angleL,xi00,xi00P
       real(cp) :: mata(n_impXi_max,n_impXi_max)
       real(cp) :: amp(n_impXi_max)

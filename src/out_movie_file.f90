@@ -68,7 +68,7 @@ contains
       logical :: lThetaFound
       complex(cp) :: bCMB(lm_max)
 
-      if ( l_mag ) bCMB = b_Rloc(:,n_r_cmb)
+      if ( rank==0 .and. l_mag ) bCMB = b_Rloc(:,n_r_cmb)
 
       do n_movie=1,n_movies
 
@@ -689,7 +689,7 @@ contains
       else if ( n_field_type == 8 ) then
 
          !--- Field for axisymmetric poloidal field lines:
-         call get_fl(fl,n_r,1,n_theta_max,.false.)
+         call get_fl(fl,n_r,.false.)
          do n_theta_cal=1,n_theta_max,2
             
             n_theta    =n_theta_cal2ord(n_theta_cal)
@@ -714,7 +714,7 @@ contains
       else if ( n_field_type == 10 ) then
 
          !--- Field for axisymmetric velocity stream lines:
-         call get_sl(fl,n_r,1,n_theta_max)
+         call get_sl(fl,n_r)
          do n_theta_cal=1,n_theta_max,2
             
             n_theta =n_theta_cal2ord(n_theta_cal)
@@ -1365,7 +1365,7 @@ contains
 
    end subroutine store_fields_3d
 !----------------------------------------------------------------------------
-   subroutine get_sl(sl,n_r,n_theta_start,n_theta_block)
+   subroutine get_sl(sl,n_r)
       !
       !  Return field sl whose contourlines are the stream lines
       !  of the axisymmetric poloidal velocity field.
@@ -1374,8 +1374,6 @@ contains
 
       !-- Input variables:
       integer, intent(in) :: n_r             ! No. of radial grid point
-      integer, intent(in) :: n_theta_start   ! No. of theta to start with
-      integer, intent(in) :: n_theta_block   ! Size of theta block
 
       !-- Output variables:
       real(cp), intent(out) ::  sl(:)           ! Field for field lines
@@ -1410,7 +1408,7 @@ contains
 
    end subroutine get_sl
 !----------------------------------------------------------------------------
-   subroutine get_fl(fl,n_r,n_theta_start,n_theta_block,l_ic)
+   subroutine get_fl(fl,n_r,l_ic)
       !
       !  Return field fl whose contourlines are the fields lines
       !  of the axisymmetric poloidal mangetic field.
@@ -1423,8 +1421,6 @@ contains
 
       !-- Input variables:
       integer, intent(in) :: n_r             ! No. of radial grid point
-      integer, intent(in) :: n_theta_start   ! No. of theta to start with
-      integer, intent(in) :: n_theta_block   ! Size of theta block
       logical, intent(in) :: l_ic            ! =true if inner core field
 
       !-- Output variables:
@@ -1468,8 +1464,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do n_theta=1,n_theta_block,2 ! loop over thetas in Northern HS
-         n_theta_nhs=(n_theta_start+n_theta)/2
+      do n_theta=1,n_theta_max,2 ! loop over thetas in Northern HS
+         n_theta_nhs=(n_theta+1)/2
          O_sint=osn1(n_theta_nhs)
          fl(n_theta)  =O_sint*tmpp(n_theta)
          fl(n_theta+1)=O_sint*tmpp(n_theta+1)

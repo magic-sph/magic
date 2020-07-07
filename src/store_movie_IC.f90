@@ -286,7 +286,7 @@ contains
                !------ Calculate magnetic field on grid points:
                if ( n_type == 30 ) then
                   !------ get_fl returns field for field line plot:
-                  call get_fl(fl,nR,1,n_theta_max,.true.)
+                  call get_fl(fl,nR,.true.)
                end if
 
                do n_field=n_fields_oc+1,n_fields

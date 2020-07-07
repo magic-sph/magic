@@ -121,7 +121,7 @@ contains
 
       !-- Local variables:
       integer :: norm,n_theta,n_phi
-      integer :: l,m,lm,mc
+      integer :: l,m,lm
       real(cp) :: ampnu!,q0
       real(cp) :: clm(0:l_max+1,0:l_max+1)
       real(cp) :: colat

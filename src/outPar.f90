@@ -375,8 +375,6 @@ contains
       integer :: nR,fileHandle
       character(len=76) :: filename
 
-      real(cp) ::EperpaxiR(nRstart:nRstop), EparaxiR(nRstart:nRstop)
-      real(cp) :: EperpR(nRstart:nRstop), EparR(nRstart:nRstop)
       real(cp) :: EperpR_global(n_r_max), EparR_global(n_r_max)
       real(cp) :: EperpaxiR_global(n_r_max), EparaxiR_global(n_r_max)
       real(cp) :: EperpT,EparT,EperpaxT,EparaxT

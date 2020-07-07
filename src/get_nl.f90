@@ -146,10 +146,10 @@ contains
          allocate( this%dpdtc(nlat_padded,n_phi_max), this%dpdpc(nlat_padded,n_phi_max) )
          bytes_allocated=bytes_allocated + 11*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
 
-         allocate( vt_old(n_theta_max,n_phi_max,nRstart:nRstop) )
-         allocate( vp_old(n_theta_max,n_phi_max,nRstart:nRstop) )
-         allocate( vr_old(n_theta_max,n_phi_max,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + 3*n_phi_max*n_theta_max*(nRstop-nRstart+1)*&
+         allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+         allocate( vp_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+         allocate( vr_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*(nRstop-nRstart+1)*&
          &               SIZEOF_DEF_REAL
 
          this%dtVr(:,:)=0.0_cp
