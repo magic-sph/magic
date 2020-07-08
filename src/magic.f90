@@ -228,12 +228,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____ ___        '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/ _ \       '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| (_) |      '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\__, |      '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | / /       '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_/        '
+      write(n_log_file,*) '!      __  __             _____ _____   _____ __  ___    '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/_ |/ _ \   '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| | | | | |  '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\| | | | |  '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) || | |_| |  '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_|\___/   '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
