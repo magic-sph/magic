@@ -31,6 +31,7 @@ module horizontal_data
    real(cp), public, allocatable :: osn1(:)
    real(cp), public, allocatable :: O_sin_theta(:)
    real(cp), public, allocatable :: O_sin_theta_E2(:)
+   real(cp), public, allocatable :: cosn_theta_E2(:)
    real(cp), public, allocatable :: sinTheta(:)
    real(cp), public, allocatable :: cosTheta(:)
 
@@ -82,9 +83,10 @@ contains
       allocate( O_sin_theta(n_theta_max) )
       allocate( O_sin_theta_E2(n_theta_max) )
       allocate( sinTheta(n_theta_max) )
+      allocate( cosn_theta_E2(n_theta_max) )
       allocate( cosTheta(n_theta_max) )
       bytes_allocated = bytes_allocated+n_theta_max*SIZEOF_INTEGER+&
-      &                 8*n_theta_max*SIZEOF_DEF_REAL
+      &                 9*n_theta_max*SIZEOF_DEF_REAL
 
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
@@ -138,7 +140,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine finalize_horizontal_data
 
-      deallocate( sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
+      deallocate( cosn_theta_E2, sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
       deallocate( gauss, dPl0Eq )
 #ifndef WITH_SHTNS
@@ -233,7 +235,8 @@ contains
          sinTheta(2*n_theta  )      =sin(colat)
          cosTheta(2*n_theta-1)      =cos(colat)
          cosTheta(2*n_theta  )      =-cos(colat)
-
+         cosn_theta_E2(2*n_theta-1) =cos(colat)/sin(colat)/sin(colat)
+         cosn_theta_E2(2*n_theta)   =-cos(colat)/sin(colat)/sin(colat)
       end do
 
 

@@ -11,7 +11,7 @@ module updateB_mod
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_ic_max,    &
        &                 n_r_ic_maxMag, n_r_maxMag, n_r_totMag, n_r_cmb, &
        &                 n_r_icb, get_openmp_blocks, n_lo_loc, n_mlo_loc,&
-       &                 n_mloMag_loc
+       &                 n_mloMag_loc, n_lmMag_loc, nRstartMag, nRstopMag
    use LMmapping, only: map_mlo, map_glbl_st
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
@@ -30,7 +30,7 @@ module updateB_mod
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMdist
    use radial_der_even, only: get_ddr_even
-   use radial_der, only: get_dr, get_ddr
+   use radial_der, only: get_dr, get_ddr, get_dr_Rloc
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -57,7 +57,7 @@ module updateB_mod
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
-   &         assemble_mag
+   &         assemble_mag, finish_exp_mag_Rdist
 
 contains
 
@@ -687,6 +687,32 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_mag
+!-----------------------------------------------------------------------------
+   subroutine finish_exp_mag_Rdist(dVxBhLM, dj_exp_last)
+
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxBhLM(n_lmMag_loc,nRstartMag:nRstopMag)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dj_exp_last(n_lmMag_loc,nRstartMag:nRstopMag)
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(n_lmMag_loc,nRstartMag:nRstopMag)
+      integer :: n_r
+
+      call get_dr_Rloc(dVxBhLM, work_Rloc, n_lmMag_loc, nRstartMag, nRstopMag, &
+           &           n_r_max, rscheme_oc)
+
+      !$omp parallel
+      !$omp do private(n_r)
+      do n_r=nRstartMag,nRstopMag
+         dj_exp_last(:,n_r)=dj_exp_last(:,n_r)+or2(n_r)*work_Rloc(:,n_r)
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_mag_Rdist
 !-----------------------------------------------------------------------------
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &

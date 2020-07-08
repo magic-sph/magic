@@ -5,7 +5,7 @@ module updateWPS_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_cmb, n_r_icb, get_openmp_blocks, &
-       &                 n_lo_loc, n_mlo_loc
+       &                 n_lo_loc, n_mlo_loc, n_lm_loc, nRstart, nRstop
    use LMmapping, only: map_mlo
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
@@ -22,7 +22,7 @@ module updateWPS_mod
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
-   use radial_der, only: get_dddr, get_ddr, get_dr
+   use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
    use fields, only: work_LMdist
    use useful, only: abortRun
@@ -48,7 +48,7 @@ module updateWPS_mod
    integer :: maxThreads
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
-   &         get_single_rhs_imp, assemble_single
+   &         get_single_rhs_imp, assemble_single, finish_exp_smat_Rdist
 
 contains
 
@@ -304,6 +304,30 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_smat
+!------------------------------------------------------------------------------
+   subroutine finish_exp_smat_Rdist(dVSrLM, ds_exp_last)
+
+      complex(cp), intent(inout) :: dVSrLM(n_lm_loc,nRstart:nRstop)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: ds_exp_last(n_lm_loc,nRstart:nRstop)
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(n_lm_loc,nRstart:nRstop)
+      integer :: n_r
+
+      call get_dr_Rloc(dVSrLM, work_Rloc, n_lm_loc, nRstart, nRstop, n_r_max, &
+           &           rscheme_oc)
+
+      !$omp parallel default(shared)
+      !$omp do
+      do n_r=nRstart,nRstop
+         ds_exp_last(:,n_r)=orho1(n_r)*(ds_exp_last(:,n_r)-or2(n_r)*work_Rloc(:,n_r))
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_smat_Rdist
 !------------------------------------------------------------------------------
    subroutine assemble_single(s, ds, w, dw, ddw, dsdt, dwdt, dpdt, tscheme, lRmsNext)
       !

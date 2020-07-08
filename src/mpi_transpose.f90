@@ -300,7 +300,7 @@ contains
 
       !-- Local variables
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: n_r, l, m, n_f, lm
+      integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
 
 #ifdef WITH_MPI
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
@@ -308,20 +308,21 @@ contains
            &             comm_r, ierr)
 #endif
 
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
+
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(n_f,n_r,lm,l,m)
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l = st_map%lm2l(lm)
                   m = st_map%lm2m(lm)
                   arr_Rloc(lm,n_r,n_f)=temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
-         !$omp end parallel do
       else
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
@@ -332,6 +333,7 @@ contains
             end do
          end do
       end if
+      !$omp end parallel
 
    end subroutine transp_lm2r_alltoallw
 !----------------------------------------------------------------------------------
@@ -437,22 +439,22 @@ contains
 
       !-- Local variables
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: n_r, l, m, n_f, lm
+      integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
 
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(n_f,n_r,lm,l,m)
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
                end do
             end do
          end do
-         !$omp end parallel do 
       else
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
@@ -463,6 +465,7 @@ contains
             end do
          end do
       end if
+      !$omp end parallel
 
 #ifdef WITH_MPI
       call MPI_Alltoallw(temp_Rloc, this%counts, this%disp, this%stype, &
@@ -500,7 +503,7 @@ module  mpi_ptop_mod
       integer, allocatable :: s_request(:)
       integer, allocatable :: r_request(:)
       integer, allocatable :: final_wait_array(:)
-      complex(cp), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
+      complex(cp), allocatable :: temp_Rloc(:,:,:)
       integer, allocatable :: s_transfer_type_cont(:,:)
       integer, allocatable :: s_transfer_type_nr_end_cont(:,:)
       integer, allocatable :: r_transfer_type_cont(:,:)
@@ -756,52 +759,54 @@ contains
 
    end subroutine lm2r_redist_wait
 !----------------------------------------------------------------------------------
-   subroutine lo2r_redist_start(this,arr_lo,arr_Rloc)
+   subroutine lo2r_redist_start(this,arr_lo)
 
       type(type_mpiptop) :: this
       complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max,*)
-      complex(cp), target, intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
-      this%arr_Rloc(1:,nRstart:,1:) => arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
       call lm2r_redist_start(this,arr_lo,this%temp_Rloc)
 
    end subroutine lo2r_redist_start
 !-------------------------------------------------------------------------------
-   subroutine lo2r_redist_wait(this)
+   subroutine lo2r_redist_wait(this,arr_Rloc)
 
       type(type_mpiptop) :: this
 
+      !-- Output variable
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+
       ! Local variables
-      integer :: nR, l, m, lm, i
+      integer :: nR, l, m, lm, i, start_lm, stop_lm
 
       !PERFON("lo2r_wt")
       call lm2r_redist_wait(this)
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,nR,i,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
       ! now in this%temp_Rloc we do have the lo_ordered r-local part
       ! now reorder to the original ordering
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(i,nR,lm,l,m)
          do i=1,this%n_fields
             do nR=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l = st_map%lm2l(lm)
                   m = st_map%lm2m(lm)
-                  this%arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
+                  arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
                end do
             end do
          end do
-         !$omp end parallel do
       else
          do i=1,this%n_fields
             do nR=nRstart,nRstop
                do l=0,l_max
-                  this%arr_Rloc(st_map%lm2(l,0),nR,i) = &
-                  &      this%temp_Rloc(lo_map%lm2(l,0),nR,i)
+                  arr_Rloc(st_map%lm2(l,0),nR,i)=this%temp_Rloc(lo_map%lm2(l,0),nR,i)
                end do
             end do
          end do
       end if
+      !$omp end parallel
+
       !PERFOFF
 
    end subroutine lo2r_redist_wait
@@ -813,34 +818,34 @@ contains
       complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,*)
 
       ! Local variables
-      integer :: nR,l,m,i,lm
+      integer :: nR,l,m,i,lm,start_lm,stop_lm
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,nR,i,lm,l,m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
 
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
       if ( .not. l_axi ) then
-         !$omp barrier
-         !$omp parallel do default(shared) &
-         !$omp private(i,nR,lm,l,m)
          do i=1,this%n_fields
             do nR=nRstart,nRstop
-               do lm=1,lm_max
+               do lm=start_lm,stop_lm
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
                   this%temp_Rloc(lm,nR,i)=arr_Rloc(st_map%lm2(l,m),nR,i)
                end do
             end do
          end do
-         !$omp end parallel do
       else
          do i=1,this%n_fields
             do nR=nRstart,nRstop
                do l=0,l_max
-                  this%temp_Rloc(lo_map%lm2(l,0),nR,i) = &
-                  &                arr_Rloc(st_map%lm2(l,0),nR,i)
+                  this%temp_Rloc(lo_map%lm2(l,0),nR,i)=arr_Rloc(st_map%lm2(l,0),nR,i)
                end do
             end do
          end do
       end if
+      !$omp end parallel
 
       call r2lm_redist_start(this,this%temp_Rloc,arr_lo)
       !PERFOFF
@@ -970,8 +975,8 @@ contains
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
-      call lo2r_redist_start(this, arr_LMloc, arr_Rloc)
-      call lo2r_redist_wait(this)
+      call lo2r_redist_start(this, arr_LMloc)
+      call lo2r_redist_wait(this, arr_Rloc)
 
    end subroutine transp_lm2r
 !----------------------------------------------------------------------------------

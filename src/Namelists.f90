@@ -61,7 +61,7 @@ contains
       character(:), allocatable :: cmd_args  ! for parallel namelist
       
       namelist/parallel/n_ranks_r,n_ranks_theta,mlo_dist_method, &
-      &     mpi_transp, rIter_type
+      &     mpi_transp, mpi_packing, rIter_type
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
@@ -846,11 +846,16 @@ contains
       !-- Output of name lists:
       write(n_out,*) " "
       write(n_out,*) "&parallel"
-      write(n_out,'(''  n_ranks_r        ='',i5,'','')') n_ranks_r
-      write(n_out,'(''  n_ranks_theta    ='',i5,'','')') n_ranks_theta
-      write(n_out,'(''  mlo_dist_method  ='',A,'','')') mlo_dist_method
-      write(n_out,'(''  rIter_type       ='',A,'','')') rIter_type
-      write(n_out,'(''  mpi_transp       ='',A,'','')') mpi_transp
+      write(n_out,'(''  n_ranks_r       ='',i5,'','')') n_ranks_r
+      write(n_out,'(''  n_ranks_theta   ='',i5,'','')') n_ranks_theta
+      length=length_to_blank(mlo_dist_method)
+      write(n_out,*) " mlo_dist_method = """,mlo_dist_method(1:length),""","
+      length=length_to_blank(rIter_type)
+      write(n_out,*) " rIter_type      = """,rIter_type(1:length),""","
+      length=length_to_blank(mpi_transp)
+      write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
+      length=length_to_blank(mpi_packing)
+      write(n_out,*) " mpi_packing     = """,mpi_packing(1:length),""","
 
 
       !-- Output of name lists:
@@ -1233,6 +1238,7 @@ contains
       n_ranks_mo      = 0
       mlo_dist_method = "lfirst"
       mpi_transp      = "AUTO"
+      mpi_packing     ="PACKED" ! MPI packing ('SINGLE','PACKED')
       rIter_type      = "single"
 
       !----- Namelist grid

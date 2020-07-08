@@ -292,15 +292,15 @@ class Movie:
                         len1 = (self.n_r_max*self.n_theta_max*2)
                         datoc = dat[:len1]
                         datic = dat[len1:]
-                        datoc0 = datoc[:len(datoc)/2].reshape(self.n_r_max,
-                                                              self.n_theta_max)
-                        datoc1 = datoc[len(datoc)/2:].reshape(self.n_r_max,
-                                                              self.n_theta_max)
+                        datoc0 = datoc[:len(datoc)//2].reshape(self.n_r_max,
+                                                               self.n_theta_max)
+                        datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
+                                                               self.n_theta_max)
                         dat = np.hstack((datoc0, datoc1))
-                        datic0 = datic[:len(datic)/2].reshape(self.n_r_ic_max+2,
-                                                              self.n_theta_max)
-                        datic1 = datic[len(datic)/2:].reshape(self.n_r_ic_max+2,
-                                                              self.n_theta_max)
+                        datic0 = datic[:len(datic)//2].reshape(self.n_r_ic_max+2,
+                                                               self.n_theta_max)
+                        datic1 = datic[len(datic)//2:].reshape(self.n_r_ic_max+2,
+                                                               self.n_theta_max)
                         dat = np.hstack((datoc0, datoc1))
                         datic = np.hstack((datic0, datic1))
                         self.data[ll, k, ...] = dat.T

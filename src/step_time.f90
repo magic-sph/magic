@@ -11,13 +11,15 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: lm_max, n_lm_loc, n_mlo_loc,    &
-       &                 nRstart, nRstop, nRstartMag, nRstopMag,   &
-       &                 n_r_icb, n_r_cmb, n_lmP_loc
+   use truncation, only: lm_max, n_lm_loc, n_mlo_loc, fd_order, n_r_max,   &
+       &                 nRstart, nRstop, nRstartMag, nRstopMag, n_r_icb,  &
+       &                 n_r_cmb, n_lmP_loc, fd_order_bound
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
        &                phy2lm_counter, nl_counter
+   use radial_der, only: get_dr_Rloc, get_ddr_Rloc
+   use radial_functions, only: rscheme_oc
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
        &            l_DTrMagSpec, lVerbose, l_b_nl_icb,                &
@@ -26,11 +28,13 @@ module step_time_mod
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
-       &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix
+       &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
+       &            l_packed_transp
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
-   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage
+   use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
+       &                 finish_explicit_assembly_Rdist
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -55,8 +59,8 @@ module step_time_mod
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
-   use communications, only: lo2r_field, lo2r_s, lo2r_press, &
-       &                     lo2r_flow, lo2r_xi,  r2lo_flow, &
+   use communications, only: lo2r_field, lo2r_s, lo2r_press, lo2r_one, &
+       &                     lo2r_flow, lo2r_xi,  r2lo_flow, r2lo_one, &
        &                     r2lo_s, r2lo_xi,r2lo_field
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
@@ -173,6 +177,7 @@ contains
       !--- Various stuff for time control:
       real(cp) :: timeLast, timeStage, dtLast
       integer :: n_time_steps_go
+      logical :: l_finish_exp_early, l_last_RMS
       logical :: l_new_dt         ! causes call of matbuild !
       integer :: nPercent         ! percentage of finished time stepping
       real(cp) :: tenth_n_time_steps
@@ -189,11 +194,15 @@ contains
 
       run_time_passed=0.0_cp
       l_log       =.false.
+      l_last_RMS  = l_RMS
       l_stop_time =.false.
       l_new_dt    =.true.   ! Invokes calculation of t-step matrices
       lMatNext    =.true.
       timeLast    =time
       timeStage   =time
+
+      l_finish_exp_early = ( l_finite_diff .and. rscheme_oc%order==2 .and. &
+      &                      rscheme_oc%order_boundary==2 )
 
       tenth_n_time_steps=real(n_time_steps,kind=cp)/10.0_cp
       nPercent=9
@@ -284,13 +293,21 @@ contains
                  &             comm_r, ierr)
 #endif
             if ( tTot > run_time_limit ) then
-               write(message,'("! Run time limit exeeded !")')
-               call logWrite(message)
+               if ( .not. l_last_RMS ) then
+                  write(message,'("! Run time limit exeeded !")')
+                  call logWrite(message)
+               end if
                l_stop_time=.true.
             end if
+
          end if
-         if ( (n_stop_signal > 0) .or. (n_time_step == n_time_steps_go) ) then
+         !-- Handle an extra iteration in case RMS outputs are requested
+         if ( (n_stop_signal > 0) .or. (l_RMS .and. (.not. l_last_RMS)) ) then
             l_stop_time=.true.   ! last time step !
+         end if
+         if ( n_time_step == n_time_steps_go ) then
+            l_stop_time=.true.   ! last time step !
+            l_last_RMS =.false.
          end if
 
          !--- Another reasons to stop the time integration:
@@ -313,7 +330,6 @@ contains
             l_dtB=( l_frame .and. l_dtBmovie ) .or.         &
             &                   ( l_log .and. l_DTrMagSpec )
          end if
-         l_HT  = l_frame .and. l_HTmovie
 
          lTOframe=l_TOmovie .and.                                                &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
@@ -396,6 +412,17 @@ contains
 
          if ( n_time_step == 1 ) l_log=.true.
 
+         !-- Compute one more iteration to properly terminate computations of
+         !-- viscosity and pressure in the FD setup
+         if ( l_last_RMS .and. l_stop_time ) then
+            lRmsNext   =.true.
+            l_logNext  =.true.
+            l_last_RMS =.false.
+            lRmsCalc   =.false.
+            l_dtB      =.false.
+            l_stop_time=.false.
+         end if
+
          if ( l_stop_time ) then                  ! Programm stopped by kill -30
             l_new_rst_file=.true.                 ! Write rst-file and some
             if ( n_stores > 0 ) l_store=.true.    ! diagnostics before dying !
@@ -413,6 +440,7 @@ contains
          lFluxProfCalc =l_FluxProfs.and.l_log
 
          lViscBcCalc =l_ViscBcCalc.and.l_log
+         l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc
 
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
          &            .or. lFluxProfCalc
@@ -451,32 +479,15 @@ contains
 
             if ( tscheme%l_exp_calc(n_stage) ) then
 
-               !----------------------
-               ! Here now comes the block where the LM distributed fields
-               ! are redistributed to Rdist distribution which is needed for 
-               ! the radialLoop.
-               !----------------------
-               call comm_counter%start_count()
-               if ( l_heat ) then
-                  call lo2r_s%transp_lm2r_dist(s_LMdist_container, s_Rdist_container)
-               end if
-               if ( l_chemical_conv ) then
-                  call lo2r_xi%transp_lm2r_dist(xi_LMdist_container,xi_Rdist_container)
-               end if
-               if ( l_conv .or. l_mag_kin ) then
-                  call lo2r_flow%transp_lm2r_dist(flow_LMdist_container, &
-                       &                     flow_Rdist_container)
-               end if
-               if ( lPressCalc ) then
-                  call lo2r_press%transp_lm2r_dist(press_LMdist_container, &
-                       &                      press_Rdist_container)
-               end if
-               if ( l_mag ) then
-                  call lo2r_field%transp_lm2r_dist(field_LMdist_container, &
-                       &                      field_Rdist_container)
-               end if
-               call comm_counter%stop_count(l_increment=.false.)
+               !----------------
+               !- Mloc -> Rloc transposes
+               !----------------
+               call transp_LMdist_to_Rdist(comm_counter, l_finish_exp_early, &
+                    &                      lPressCalc,l_HT)
 
+               !---------------
+               !- Radial loop
+               !---------------
                call rLoop_counter%start_count()
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
@@ -498,34 +509,6 @@ contains
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
-               !---------------------------------------
-               !- MPI transposition from r-distributed to LM-distributed
-               !---------------------------------------
-               if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
-
-               call comm_counter%start_count()
-               PERFON('r2lo_dst')
-               if ( l_conv .or. l_mag_kin ) then
-                  call r2lo_flow%transp_r2lm_dist(dflowdt_Rdist_container,  &
-                       &             dflowdt_LMdist_container(:,:,:,tscheme%istage))
-               end if
-
-               if ( l_heat ) then
-                  call r2lo_s%transp_r2lm_dist(dsdt_Rdist_container,&
-                       &             dsdt_LMdist_container(:,:,:,tscheme%istage))
-               end if
-
-               if ( l_chemical_conv ) then
-                  call r2lo_xi%transp_r2lm_dist(dxidt_Rdist_container, &
-                       &             dxidt_LMdist_container(:,:,:,tscheme%istage))
-               end if
-
-               if ( l_mag ) then
-                  call r2lo_field%transp_r2lm_dist(dbdt_Rdist_container, &
-                       &             dbdt_LMdist_container(:,:,:,tscheme%istage))
-               end if
-               call comm_counter%stop_count()
-
 #ifdef WITH_MPI
                ! ------------------
                ! also exchange the lorentz_torques which are only 
@@ -538,7 +521,27 @@ contains
                     &         ierr)
                call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL,0,comm_r,ierr)
 #endif
-               if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
+
+               !---------------
+               ! Finish assembing the explicit terms
+               !---------------
+               if ( l_finish_exp_early ) then
+                  call finish_explicit_assembly_Rdist(omega_ic,w_Rdist,b_ic_LMdist,   &
+                       &                      aj_ic_LMdist,dVSrLM_Rdist,dVXirLM_Rdist,&
+                       &                      dVxVhLM_Rdist,dVxBhLM_Rdist,            &
+                       &                      lorentz_torque_ma,lorentz_torque_ic,    &
+                       &                      dsdt_Rdist, dxidt_Rdist, dwdt_Rdist,    &
+                       &                      djdt_Rdist, dbdt_ic_dist, djdt_ic_dist, &
+                       &                      domega_ma_dt, domega_ic_dt,             &
+                       &                      lorentz_torque_ma_dt,                   &
+                       &                      lorentz_torque_ic_dt, tscheme)
+               end if
+
+               !----------------
+               !-- Rloc to Mloc transposes
+               !----------------
+               call transp_Rdist_to_LMdist(comm_counter,tscheme%istage, &
+                    &                      l_finish_exp_early, lPressNext)
 
 
                !------ Nonlinear magnetic boundary conditions:
@@ -578,18 +581,20 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
-               call finish_explicit_assembly(omega_ic,w_LMdist,b_ic_LMdist,        &
-                    &                        aj_ic_LMdist,                         &
-                    &                        dVSrLM_LMdist(:,:,tscheme%istage),    &
-                    &                        dVXirLM_LMdist(:,:,tscheme%istage),   &
-                    &                        dVxVhLM_LMdist(:,:,tscheme%istage),   &
-                    &                        dVxBhLM_LMdist(:,:,tscheme%istage),   &
-                    &                        lorentz_torque_ma,lorentz_torque_ic,  &
-                    &                        dsdt_dist, dxidt_dist, dwdt_dist,     &
-                    &                        djdt_dist, dbdt_ic_dist,              &
-                    &                        djdt_ic_dist, domega_ma_dt,           &
-                    &                        domega_ic_dt, lorentz_torque_ma_dt,   &
-                    &                        lorentz_torque_ic_dt, tscheme)
+               if ( .not. l_finish_exp_early ) then
+                  call finish_explicit_assembly(omega_ic,w_LMdist,b_ic_LMdist,        &
+                       &                        aj_ic_LMdist,                         &
+                       &                        dVSrLM_LMdist(:,:,tscheme%istage),    &
+                       &                        dVXirLM_LMdist(:,:,tscheme%istage),   &
+                       &                        dVxVhLM_LMdist(:,:,tscheme%istage),   &
+                       &                        dVxBhLM_LMdist(:,:,tscheme%istage),   &
+                       &                        lorentz_torque_ma,lorentz_torque_ic,  &
+                       &                        dsdt_dist, dxidt_dist, dwdt_dist,     &
+                       &                        djdt_dist, dbdt_ic_dist,              &
+                       &                        djdt_ic_dist, domega_ma_dt,           &
+                       &                        domega_ic_dt, lorentz_torque_ma_dt,   &
+                       &                        lorentz_torque_ic_dt, tscheme)
+               end if
                call lmLoop_counter%stop_count(l_increment=.false.)
             end if
 
@@ -894,5 +899,212 @@ contains
       end if
 
    end subroutine start_from_another_scheme
+!--------------------------------------------------------------------------------
+   subroutine transp_LMdist_to_Rdist(comm_counter, l_Rdist, lPressCalc, lHTCalc)
+      ! Here now comes the block where the LM distributed fields
+      ! are redistributed to Rdist distribution which is needed for 
+      ! the radialLoop.
+
+      !-- Input variables
+      logical, intent(in) :: l_Rdist, lPressCalc, lHTCalc
+
+      !-- Output variable
+      type(timer_type), intent(inout) :: comm_counter
+
+      call comm_counter%start_count()
+      if ( l_packed_transp ) then
+         if ( l_Rdist ) then
+            call lo2r_flow%transp_lm2r_dist(flow_LMdist_container, flow_Rdist_container)
+            if ( l_heat .and. lHTCalc ) then
+               call get_dr_Rloc(s_Rdist, ds_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r_dist(xi_LMdist,xi_Rdist)
+            if ( l_conv .or. l_mag_kin ) then
+               call get_ddr_Rloc(w_Rdist, dw_Rdist, ddw_Rdist, n_lm_loc, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call get_dr_Rloc(z_Rdist, dz_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_one%transp_lm2r_dist(p_LMdist, p_Rdist)
+               call get_dr_Rloc(p_Rdist, dp_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( l_mag ) then
+               call get_ddr_Rloc(b_Rdist, db_Rdist, ddb_Rdist, n_lm_loc, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call get_dr_Rloc(aj_Rdist, dj_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+         else
+            if ( l_heat ) then
+               call lo2r_one%transp_lm2r_dist(s_LMdist, s_Rdist)
+               if ( lHTCalc ) call lo2r_one%transp_lm2r_dist(ds_LMdist, ds_Rdist)
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r_dist(xi_LMdist,xi_Rdist)
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_flow%transp_lm2r_dist(flow_LMdist_container,flow_Rdist_container)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_press%transp_lm2r_dist(press_LMdist_container,press_Rdist_container)
+            end if
+            if ( l_mag ) then
+               call lo2r_field%transp_lm2r_dist(field_LMdist_container,field_Rdist_container)
+            end if
+         end if
+      else
+         if ( l_Rdist ) then
+            if ( l_heat ) then
+               call lo2r_one%transp_lm2r_dist(s_LMdist, s_Rdist)
+               if ( lHTCalc ) then
+                  call get_dr_Rloc(s_Rdist, ds_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                       &           rscheme_oc)
+               end if
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r_dist(xi_LMdist,xi_Rdist)
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_one%transp_lm2r_dist(w_LMdist, w_Rdist)
+               call get_ddr_Rloc(w_Rdist, dw_Rdist, ddw_Rdist, n_lm_loc, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call lo2r_one%transp_lm2r_dist(z_LMdist, z_Rdist)
+               call get_dr_Rloc(z_Rdist, dz_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_one%transp_lm2r_dist(p_LMdist, p_Rdist)
+               call get_dr_Rloc(p_Rdist, dp_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+            if ( l_mag ) then
+               call lo2r_one%transp_lm2r_dist(b_LMdist, b_Rdist)
+               call get_ddr_Rloc(b_Rdist, db_Rdist, ddb_Rdist, n_lm_loc, nRstart, nRstop, &
+                    &            n_r_max, rscheme_oc)
+               call lo2r_one%transp_lm2r_dist(aj_LMdist, aj_Rdist)
+               call get_dr_Rloc(aj_Rdist, dj_Rdist, n_lm_loc, nRstart, nRstop, n_r_max, &
+                    &           rscheme_oc)
+            end if
+         else
+            if ( l_heat ) then
+               call lo2r_one%transp_lm2r_dist(s_LMdist, s_Rdist)
+               if ( lHTCalc ) call lo2r_one%transp_lm2r_dist(ds_LMdist, ds_Rdist)
+            end if
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r_dist(xi_LMdist,xi_Rdist)
+            if ( l_conv .or. l_mag_kin ) then
+               call lo2r_one%transp_lm2r_dist(w_LMdist, w_Rdist)
+               call lo2r_one%transp_lm2r_dist(dw_LMdist, dw_Rdist)
+               call lo2r_one%transp_lm2r_dist(ddw_LMdist, ddw_Rdist)
+               call lo2r_one%transp_lm2r_dist(z_LMdist, z_Rdist)
+               call lo2r_one%transp_lm2r_dist(dz_LMdist, dz_Rdist)
+            end if
+            if ( lPressCalc ) then
+               call lo2r_one%transp_lm2r_dist(p_LMdist, p_Rdist)
+               call lo2r_one%transp_lm2r_dist(dp_LMdist, dp_Rdist)
+            end if
+            if ( l_mag ) then
+               call lo2r_one%transp_lm2r_dist(b_LMdist, b_Rdist)
+               call lo2r_one%transp_lm2r_dist(db_LMdist, db_Rdist)
+               call lo2r_one%transp_lm2r_dist(ddb_LMdist, ddb_Rdist)
+               call lo2r_one%transp_lm2r_dist(aj_LMdist, aj_Rdist)
+               call lo2r_one%transp_lm2r_dist(dj_LMdist, dj_Rdist)
+            end if
+         end if
+      end if
+      call comm_counter%stop_count(l_increment=.false.)
+
+   end subroutine transp_LMdist_to_Rdist
+!--------------------------------------------------------------------------------
+   subroutine transp_Rdist_to_LMdist(comm_counter, istage, lRdist, lPressNext)
+      !
+      !- MPI transposition from r-distributed to LM-distributed
+      !
+
+      !-- Input variable
+      logical, intent(in) :: lRdist
+      logical, intent(in) :: lPressNext
+      integer, intent(in) :: istage
+
+      !-- Output variable
+      type(timer_type), intent(inout) :: comm_counter
+
+      if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
+
+      call comm_counter%start_count()
+      if ( l_packed_transp ) then
+         if ( lRdist ) then
+            call r2lo_flow%transp_r2lm_dist(dflowdt_Rdist_container, &
+                 &                     dflowdt_LMdist_container(:,:,:,istage))
+            if ( l_conv .or. l_mag_kin ) then
+               if ( .not. l_double_curl .or. lPressNext ) then
+                  call r2lo_one%transp_r2lm_dist(dpdt_Rdist,dpdt_dist%expl(:,:,istage))
+               end if
+            end if
+            if ( l_chemical_conv ) then
+               call r2lo_one%transp_r2lm_dist(dxidt_Rdist,dxidt_dist%expl(:,:,istage))
+            end if
+         else
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_flow%transp_r2lm_dist(dflowdt_Rdist_container,  &
+                    &                     dflowdt_LMdist_container(:,:,:,istage))
+            end if
+            if ( l_heat ) then
+               call r2lo_s%transp_r2lm_dist(dsdt_Rdist_container,&
+                    &                  dsdt_LMdist_container(:,:,:,istage))
+            end if
+            if ( l_chemical_conv ) then
+               call r2lo_xi%transp_r2lm_dist(dxidt_Rdist_container, &
+                    &                   dxidt_LMdist_container(:,:,:,istage))
+            end if
+            if ( l_mag ) then
+               call r2lo_field%transp_r2lm_dist(dbdt_Rdist_container, &
+                    &                      dbdt_LMdist_container(:,:,:,istage))
+            end if
+         end if
+      else
+         if ( lRdist ) then
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_one%transp_r2lm_dist(dwdt_Rdist,dwdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(dzdt_Rdist,dzdt_dist%expl(:,:,istage))
+               if ( .not. l_double_curl .or. lPressNext ) then
+                  call r2lo_one%transp_r2lm_dist(dpdt_Rdist,dpdt_dist%expl(:,:,istage))
+               end if
+            end if
+            if ( l_heat ) call r2lo_one%transp_r2lm_dist(dsdt_Rdist,dsdt_dist%expl(:,:,istage))
+            if ( l_chemical_conv ) then
+               call r2lo_one%transp_r2lm_dist(dxidt_Rdist,dxidt_dist%expl(:,:,istage))
+            end if
+            if ( l_mag ) then
+               call r2lo_one%transp_r2lm_dist(dbdt_Rdist,dbdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(djdt_Rdist,djdt_dist%expl(:,:,istage))
+            end if
+         else
+            if ( l_conv .or. l_mag_kin ) then
+               call r2lo_one%transp_r2lm_dist(dwdt_Rdist,dwdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(dzdt_Rdist,dzdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(dpdt_Rdist,dpdt_dist%expl(:,:,istage))
+               if ( l_double_curl ) then
+                  call r2lo_one%transp_r2lm_dist(dVxVhLM_Rdist,dVxVhLM_LMdist(:,:,istage))
+               end if
+            end if
+            if ( l_heat ) then
+               call r2lo_one%transp_r2lm_dist(dsdt_Rdist,dsdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(dVSrLM_Rdist,dVSrLM_LMdist(:,:,istage))
+            end if
+            if ( l_chemical_conv ) then
+               call r2lo_one%transp_r2lm_dist(dxidt_Rdist,dxidt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(dVXirLM_Rdist,dVXirLM_LMdist(:,:,istage))
+            end if
+            if ( l_mag ) then
+               call r2lo_one%transp_r2lm_dist(dbdt_Rdist,dbdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(djdt_Rdist,djdt_dist%expl(:,:,istage))
+               call r2lo_one%transp_r2lm_dist(dVxBhLM_Rdist,dVxBhLM_LMdist(:,:,istage))
+            end if
+         end if
+      end if
+      call comm_counter%stop_count()
+
+      if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
+
+   end subroutine transp_Rdist_to_LMdist
 !--------------------------------------------------------------------------------
 end module step_time_mod

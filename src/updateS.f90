@@ -4,7 +4,8 @@ module updateS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, get_openmp_blocks, n_lo_loc, n_mlo_loc
+   use truncation, only: n_r_max, get_openmp_blocks, n_lo_loc, n_mlo_loc, &
+       &                 nRstart, nRstop, n_lm_loc
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops
@@ -13,7 +14,7 @@ module updateS_mod
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
        &            l_full_sphere
-   use radial_der, only: get_ddr, get_dr
+   use radial_der, only: get_ddr, get_dr, get_dr_Rloc
    use fields, only:  work_LMdist
    use constants, only: zero, one, two
    use useful, only: abortRun
@@ -22,7 +23,7 @@ module updateS_mod
    use dense_matrices
    use real_matrices
    use band_matrices
-   use LMmapping, only: map_mlo
+   use LMmapping, only: map_mlo, map_dist_st
 
    implicit none
 
@@ -42,7 +43,7 @@ module updateS_mod
    integer :: maxThreads
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
-   &         finish_exp_entropy, get_entropy_rhs_imp
+   &         finish_exp_entropy, get_entropy_rhs_imp, finish_exp_entropy_Rdist
 
 contains
 
@@ -314,6 +315,55 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_entropy
+!-----------------------------------------------------------------------------
+   subroutine finish_exp_entropy_Rdist(w, dVSrLM, ds_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(in) :: w(n_lm_loc,nRstart:nRstop)
+      complex(cp), intent(inout) :: dVSrLM(n_lm_loc,nRstart:nRstop)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: ds_exp_last(n_lm_loc,nRstart:nRstop)
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(n_lm_loc,nRstart:nRstop)
+      real(cp) :: dL
+      integer :: n_r, lm, l1
+
+      call get_dr_Rloc(dVSrLM, work_Rloc, n_lm_loc, nRstart, nRstop, n_r_max, &
+           &           rscheme_oc)
+
+      !$omp parallel default(shared)
+      if ( l_anelastic_liquid ) then
+         !$omp do private(n_r,l1,lm,dL)
+         do n_r=nRstart,nRstop
+            do lm=1,n_lm_loc
+               l1 = map_dist_st%lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
+               &         or2(n_r)*orho1(n_r)*        work_Rloc(lm,n_r) + &
+               &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
+               &        dL*or2(n_r)*orho1(n_r)*temp0(n_r)*dentropy0(n_r)*&
+               &                                             w(lm,n_r)
+            end do
+         end do
+         !$omp end do
+      else
+         !$omp do private(n_r,l1,dL,lm)
+         do n_r=nRstart,nRstop
+            do lm=1,n_lm_loc
+               l1 = map_dist_st%lm2l(lm)
+               dL = real(l1*(l1+1),cp)
+               ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
+               &                              or2(n_r)*work_Rloc(lm,n_r)- &
+               &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
+            end do
+         end do
+         !$omp end do
+      end if
+      !$omp end parallel
+
+   end subroutine finish_exp_entropy_Rdist
 !-----------------------------------------------------------------------------
    subroutine get_entropy_rhs_imp(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
 

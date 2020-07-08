@@ -3,7 +3,8 @@ module updateXi_mod
 
    use omp_lib
    use precision_mod
-   use truncation, only: n_r_max, get_openmp_blocks, n_mlo_loc, n_lo_loc
+   use truncation, only: n_r_max, get_openmp_blocks, n_mlo_loc, n_lo_loc, &
+       &                 nRstart, nRstop, n_lm_loc
    use LMmapping, only: map_mlo
    use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r
    use physical_parameters, only: osc, kbotxi, ktopxi
@@ -11,7 +12,7 @@ module updateXi_mod
    use init_fields, only: topxi, botxi
    use horizontal_data, only: hdif_Xi
    use logic, only: l_update_xi, l_finite_diff, l_full_sphere
-   use radial_der, only: get_ddr, get_dr
+   use radial_der, only: get_ddr, get_dr, get_dr_Rloc
    use constants, only: zero, one, two
    use fields, only: work_LMdist
    use mem_alloc, only: bytes_allocated
@@ -39,7 +40,7 @@ module updateXi_mod
    logical, public, allocatable :: lXimat(:)
 
    public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp, &
-   &         finish_exp_comp, get_comp_rhs_imp
+   &         finish_exp_comp, get_comp_rhs_imp, finish_exp_comp_Rdist
 
 contains
 
@@ -284,6 +285,32 @@ contains
       !$omp end parallel
 
    end subroutine finish_exp_comp
+!------------------------------------------------------------------------------
+   subroutine finish_exp_comp_Rdist(dVXirLM, dxi_exp_last)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dVXirLM(n_lm_loc,nRstart:nRstop)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dxi_exp_last(n_lm_loc,nRstart:nRstop)
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(n_lm_loc,nRstart:nRstop)
+      integer :: n_r
+
+      call get_dr_Rloc(dVXirLM, work_Rloc, n_lm_loc, nRstart, nRstop, n_r_max, &
+           &           rscheme_oc)
+
+      !$omp parallel default(shared)
+      !$omp do
+      do n_r=nRstart,nRstop
+         dxi_exp_last(:,n_r)=orho1(n_r)*( dxi_exp_last(:,n_r)-   &
+         &                         or2(n_r)*work_Rloc(:,n_r) )
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine finish_exp_comp_Rdist
 !------------------------------------------------------------------------------
    subroutine get_comp_rhs_imp(xi, dxi, dxidt, istage, l_calc_lin, l_in_cheb_space)
 
