@@ -14,7 +14,7 @@ module fields_average_mod
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
-   use shtns, only: torpol_to_spat_loc, scal_to_spat_loc
+   use sht, only: torpol_to_spat_loc, scal_to_spat_loc
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: gather_from_mlo_to_master
    use out_coeff, only: write_Bcmb, write_Pot

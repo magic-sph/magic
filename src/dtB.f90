@@ -23,7 +23,7 @@ module dtB_mod
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use constants, only: ci, two
    use radial_spectra ! rBrSpec, rBpSpec
-   use shtns, only: spat_to_SH
+   use sht, only: spat_to_SH
    use radial_der, only: get_dr
 
    implicit none

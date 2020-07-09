@@ -31,7 +31,7 @@ module rIter_single
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
    use nl_special_calc
-   use shtns
+   use sht
    !use horizontal_data
    use fields, only: s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
        &             b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist,dj_Rdist, &

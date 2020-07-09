@@ -16,7 +16,7 @@ module torsional_oscillations
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
-   use shtns, only: spat_to_SH_axi
+   use sht, only: spat_to_SH_axi
 
    implicit none
 

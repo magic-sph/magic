@@ -16,7 +16,7 @@ module out_dtB_frame
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_dr
-   use shtns, only: torpol_to_spat_loc, sphtor_to_spat, scal_to_spat_loc, toraxi_to_spat
+   use sht, only: torpol_to_spat_loc, sphtor_to_spat, scal_to_spat_loc, toraxi_to_spat
 
    implicit none
 

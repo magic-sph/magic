@@ -141,7 +141,7 @@ program magic
 #endif
 
 #ifdef WITH_SHTNS
-   use shtns
+   use sht
 #endif
    implicit none
 

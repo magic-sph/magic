@@ -12,7 +12,7 @@ module hybrid_space_mod
    use mem_alloc, only: bytes_allocated
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use radial_functions, only: l_R, or2
-   use shtns, only: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb,          &
+   use sht, only: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb,          &
        &            torpol_to_curl_hyb, pol_to_grad_hyb, torpol_to_dphhyb, &
        &            pol_to_curlr_hyb, hyb_to_SH, hyb_to_qst, hyb_to_sphertor
    use mpi_thetap_mod, only: transpose_theta_m_many, transpose_m_theta_many

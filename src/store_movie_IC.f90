@@ -15,7 +15,7 @@ module out_movie_IC
        &                 n_movie_fields
    use out_movie, only: get_fl
    use constants, only: one
-   use shtns, only: torpol_to_spat_IC, torpol_to_curl_spat_IC
+   use sht, only: torpol_to_spat_IC, torpol_to_curl_spat_IC
 
    implicit none
 

@@ -31,7 +31,7 @@ module init_fields
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
    use useful, only: random, abortRun
-   use shtns, only: spat_to_SH
+   use sht, only: spat_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &

@@ -8,7 +8,7 @@ module TO_helpers
    use blocking, only: lm2
    use horizontal_data, only: osn1
    use constants, only: one, two, half
-   use shtns, only: toraxi_to_spat
+   use sht, only: toraxi_to_spat
 
    implicit none
 

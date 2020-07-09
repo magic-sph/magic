@@ -29,7 +29,7 @@ module outTO_mod
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
    use useful, only: logWrite, abortRun
-   use shtns, only: spat_to_SH_axi
+   use sht, only: spat_to_SH_axi
 
    use chebInt_mod, only: chebInt, chebIntInit
    use cosine_transform_odd

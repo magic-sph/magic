@@ -10,7 +10,7 @@ module nonlinear_bcs
    use horizontal_data, only: dTheta1S_loc, dTheta1A_loc, dPhi_loc, O_sin_theta, &
        &                      dLh_loc, sn2, cosTheta
    use constants, only: two
-   use shtns, only: spat_to_SH
+   use sht, only: spat_to_SH
    use useful, only: abortRun
 
    implicit none

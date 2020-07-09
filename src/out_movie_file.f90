@@ -25,7 +25,7 @@ module out_movie
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      osn1, phi, theta_ord
    use fields, only: b_ic, bICB, w_Rdist, b_Rdist
-   use shtns, only: torpol_to_spat_loc, toraxi_to_spat
+   use sht, only: torpol_to_spat_loc, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame

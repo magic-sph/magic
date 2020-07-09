@@ -21,7 +21,7 @@ module graphOut_mod
    use logic, only: l_mag, l_cond_ic, l_PressGraph, l_chemical_conv,  &
        &            l_save_out
    use output_data, only: runid, n_log_file, log_file, tag
-   use shtns, only: torpol_to_spat_IC
+   use sht, only: torpol_to_spat_IC
    use communications, only: gather_f !>@ TODO remove it once MPI-2D
 
    implicit none

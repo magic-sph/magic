@@ -1,4 +1,4 @@
-module shtns
+module sht
 
    use iso_fortran_env, only: output_unit
    use precision_mod, only: cp, MPI_DEF_REAL
@@ -1434,4 +1434,4 @@ contains
 
    end subroutine hyb_to_sphertor
 !------------------------------------------------------------------------------
-end module shtns
+end module sht
