@@ -21,7 +21,9 @@ module shtns
 
    !@>TODO: the following functions do not have a "_dist" version; the existing
    ! implementation is _loc. Is the _dist version needed?
-   public :: init_shtns, torpol_to_spat_IC, torpol_to_curl_spat_IC, axi_to_spat 
+   public :: init_shtns, torpol_to_spat_IC, torpol_to_curl_spat_IC, toraxi_to_spat, &
+   &         sphtor_to_spat
+   public :: torpol_to_spat_loc, scal_to_spat_loc
 
    !@>TODO: the following functions do not have a "_loc" version; the existing
    ! implementation is _dist. Is the _loc version needed?
@@ -289,6 +291,20 @@ contains
 
    end subroutine torpol_to_spat_loc
 !------------------------------------------------------------------------------
+   subroutine sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(inout) :: dWlm(:), Zlm(:)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: vtc(:,:)
+      real(cp), intent(out) :: vpc(:,:)
+
+      call shtns_sphtor_to_spat_l(dWlm, Zlm, vtc, vpc, lcut)
+
+   end subroutine sphtor_to_spat
+!------------------------------------------------------------------------------
    subroutine torpol_to_curl_spat_IC(r, r_ICB, dBlm, ddBlm, Jlm, dJlm, &
               &                      cbr, cbt, cbp)
       !
@@ -537,20 +553,24 @@ contains
 
    end subroutine spat_to_sphertor_loc
 !------------------------------------------------------------------------------
-   subroutine axi_to_spat(fl_ax, f)
+   subroutine toraxi_to_spat(fl_ax, ft, fp)
 
-      real(cp), intent(in) :: fl_ax(l_max+1)
-      real(cp), intent(out) :: f(n_theta_max)
+      !-- Input field
+      complex(cp), intent(inout) :: fl_ax(l_max+1) !-- Axi-sym toroidal
+
+      !-- Output fields on grid
+      real(cp), intent(out) :: ft(:)
+      real(cp), intent(out) :: fp(:)
 
       !-- Local arrays
-      complex(cp) :: tmp(n_theta_max)
-      complex(cp) :: tmp_ax(l_max+1)
+      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
 
-      tmp_ax(:)=cmplx(fl_ax(:),0.0_cp,kind=cp)
-      call shtns_sh_to_spat_ml(0, tmp_ax, tmp, l_max)
-      f(:)=real(tmp(:))
+      call shtns_tor_to_spat_ml(0, fl_ax, tmpt, tmpp, l_max)
 
-   end subroutine axi_to_spat
+      ft(:)=real(tmpt(:))
+      fp(:)=real(tmpp(:))
+
+   end subroutine toraxi_to_spat
 !------------------------------------------------------------------------------
    subroutine spat_to_SH_axi_loc(f, fLM)
 

@@ -60,11 +60,9 @@ contains
       gradsAS=0.0_cp
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
-#ifdef WITH_SHTNS
       !$omp parallel do default(shared)              &
       !$omp& private(nTheta, nPhi, uh, duh, grads)   &
       !$omp& reduction(+:uhAS,duhAS,gradsAS)
-#endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2
          do nPhi=1,n_phi_max
@@ -87,9 +85,7 @@ contains
             gradsAS=gradsAS+phiNorm*gauss(nThetaNHS)*grads
          end do
       end do
-#ifdef WITH_SHTNS
       !$omp end parallel do
-#endif
 
       if ( n_ranks_theta>1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, uhAS, 1, MPI_DEF_REAL, &
@@ -132,12 +128,10 @@ contains
       EperpaxiAS=0.0_cp
       EparaxiAS =0.0_cp
 
-#ifdef WITH_SHTNS
       !$omp parallel do default(shared)                             &
       !$omp& private(nTheta, nPhi, Eperp, Epar, Eperpaxi, Eparaxi)  &
       !$omp& private(vras, vtas, vpas, nThetaNHS)                   &
       !$omp& reduction(+:EperpAS,EparAS,EperpaxiAS,EparaxiAS)
-#endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2
 
@@ -187,9 +181,7 @@ contains
             EparaxiAS = EparaxiAS+phiNorm*gauss(nThetaNHS)*Eparaxi
          end do
       end do
-#ifdef WITH_SHTNS
       !$omp end parallel do
-#endif
 
       if ( n_ranks_theta>1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, EperpAS, 1, MPI_DEF_REAL, &
@@ -252,11 +244,9 @@ contains
       fpoynAS=0.0_cp
       fresAS =0.0_cp
 
-#ifdef WITH_SHTNS
       !$omp parallel do default(shared)                           &
       !$omp& private(nTheta, nPhi, fkin, fconv, fvisc, nThetaNHS) &
       !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
-#endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2
          fkin=0.0_cp
@@ -298,9 +288,7 @@ contains
             fviscAS=fviscAS+phiNorm*gauss(nThetaNHS)*fvisc
          end do
       end do
-#ifdef WITH_SHTNS
       !$omp end parallel do
-#endif
 
       if ( n_ranks_theta>1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, fkinAS, 1, MPI_DEF_REAL, &
@@ -312,11 +300,9 @@ contains
       end if
 
       if ( l_mag_nl) then
-#ifdef WITH_SHTNS
          !$omp parallel do default(shared)                           &
          !$omp& private(nTheta, nPhi, fkin, fconv, fvisc, nThetaNHS) &
          !$omp& reduction(+:fpoynAS,fresAS)
-#endif
          do nTheta=nThetaStart,nThetaStop
             nThetaNHS=(nTheta+1)/2
             fres=0.0_cp
@@ -336,9 +322,7 @@ contains
                 fpoynAS=fpoynAS+phiNorm*gauss(nThetaNHS)*fpoyn
             end do
          end do
-#ifdef WITH_SHTNS
          !$omp end parallel do
-#endif
          if ( n_ranks_theta>1 ) then
             call MPI_AllReduce(MPI_IN_PLACE, fresAS, 1, MPI_DEF_REAL, &
                  &             MPI_SUM, comm_theta, ierr)
@@ -391,13 +375,11 @@ contains
       HelEAAS    =0.0_cp
 
       !--- Helicity:
-#ifdef WITH_SHTNS
       !$omp parallel do default(shared)                     &
       !$omp& private(nTheta, nPhi, Hel, Helna)              &
       !$omp& private(vrna, cvrna, vtna, vpna)               &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
-#endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2
          vras=0.0_cp
@@ -467,9 +449,7 @@ contains
             end if
          end do
       end do
-#ifdef WITH_SHTNS
       !$omp end parallel do
-#endif
 
       if ( n_ranks_theta>1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, HelAS, 2, MPI_DEF_REAL, &
@@ -517,11 +497,9 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
       viscAS=0.0_cp
 
-#ifdef WITH_SHTNS
       !$omp parallel do default(shared)                       &
       !$omp& private(nTheta, nPhi, vischeat, csn2, nThetaNHS) &
       !$omp& reduction(+:viscAS)
-#endif
       do nTheta=nThetaStart, nThetaStop
          nThetaNHS=(nTheta+1)/2
          csn2     =cosn2(nThetaNHS)
@@ -553,9 +531,7 @@ contains
             viscAS=viscAS+phiNorm*gauss(nThetaNHS)*vischeat
          end do
       end do
-#ifdef WITH_SHTNS
       !$omp end parallel do
-#endif
 
       if ( n_ranks_theta>1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, viscAS, 1, MPI_DEF_REAL, &

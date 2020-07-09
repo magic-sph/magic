@@ -440,14 +440,12 @@ contains
       lorentz_torque=0.0_cp
       fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
-#ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(none) &
       !$OMP& private(nTheta, nPhi, nThetaNHS, b0r) &
       !$OMP& shared(n_phi_max, r_icb, r, nR) &
       !$OMP& shared(lGrenoble, nThetaStart, nThetaStop, BIC, cosTheta, r_cmb) &
       !$OMP& shared(fac, gauss, br, bp) &
       !$OMP& reduction(+: lorentz_torque)
-#endif
       do nTheta=nThetaStart,nThetaStop
          nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
          if ( lGrenoble ) then
@@ -465,9 +463,7 @@ contains
             &              (br(nPhi,nTheta)-b0r)*bp(nPhi,nTheta)
          end do
       end do
-#ifdef WITH_SHTNS
       !$OMP END PARALLEL DO
-#endif
 
       if ( n_ranks_theta>1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, lorentz_torque, 1, MPI_DEF_REAL, &

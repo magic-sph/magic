@@ -25,12 +25,7 @@ module out_movie
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      osn1, phi, theta_ord
    use fields, only: b_ic, bICB, w_Rdist, b_Rdist
-#ifdef WITH_SHTNS
-   use shtns, only: torpol_to_spat
-#else
-   use fft, only: fft_thetab
-   use horizontal_data, only: dPlm, Plm, dPhi
-#endif
+   use shtns, only: torpol_to_spat_loc, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
@@ -449,12 +444,12 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(cp), intent(in) :: cvr(nrp,*)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
+      real(cp), intent(in) :: cvr(:,:)
 
       integer,  intent(in) :: n_r
       integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
@@ -663,13 +658,13 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(cp), intent(in) :: cvr(nrp,*)
-      real(cp), intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
+      real(cp), intent(in) :: cvr(:,:)
+      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
       integer,  intent(in) :: n_r              ! No. of radial point
       integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
       integer,  intent(in) :: n_field_type     ! Defines field type
@@ -689,11 +684,7 @@ contains
       real(cp) ::  phi_norm
       real(cp) ::  fac,fac_r
 
-#ifdef WITH_SHTNS
       real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
-#else
-      real(cp) ::  fl(2)           ! Field for poloidal field lines
-#endif
 
 
       !--- Get phi no. for left and right halfspheres:
@@ -787,22 +778,14 @@ contains
       else if ( n_field_type == 8 ) then
 
          !--- Field for axisymmetric poloidal field lines:
-#ifdef WITH_SHTNS
          call get_fl(fl,n_r,1,n_theta_max,.false.)
-#endif
          do n_theta_b=1,n_theta_block,2
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta    =n_theta_cal2ord(n_theta_cal)
             n_theta2   =n_theta_cal2ord(n_theta_cal+1)
-#ifdef WITH_SHTNS
             !call get_fl(fl,n_r,n_theta_cal,1,.false.)
             frames(n_0+n_theta) =fl(n_theta_cal)
             frames(n_0+n_theta2)=fl(n_theta_cal+1)
-#else
-            call get_fl(fl,n_r,n_theta_cal,2,.false.)
-            frames(n_0+n_theta) =fl(1)
-            frames(n_0+n_theta2)=fl(2)
-#endif
          end do
 
       else if ( n_field_type == 9 ) then
@@ -821,21 +804,13 @@ contains
       else if ( n_field_type == 10 ) then
 
          !--- Field for axisymmetric velocity stream lines:
-#ifdef WITH_SHTNS
          call get_sl(fl,n_r,1,n_theta_max)
-#endif
          do n_theta_b=1,n_theta_block,2
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta =n_theta_cal2ord(n_theta_cal)
             n_theta2=n_theta_cal2ord(n_theta_cal+1)
-#ifdef WITH_SHTNS
             frames(n_0+n_theta) =fl(n_theta_cal)
             frames(n_0+n_theta2)=fl(n_theta_cal+1)
-#else
-            call get_sl(fl,n_r,n_theta_cal,2)
-            frames(n_0+n_theta) =fl(1)
-            frames(n_0+n_theta2)=fl(2)
-#endif
          end do
 
       else if ( n_field_type == 11 ) then
@@ -1117,12 +1092,12 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(cp), intent(in) :: cvr(nrp,*),cbt(nrp,*)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
+      real(cp), intent(in) :: cvr(:,:),cbt(:,:)
       integer,  intent(in) :: n_r              ! No. of radial grid point
       integer,  intent(in) :: n_store_last     ! Position in frame(*)-1
       integer,  intent(in) :: n_field_type     ! Defines field
@@ -1264,13 +1239,13 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(cp), intent(in) :: cvr(nrp,*)
-      real(cp), intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
+      real(cp), intent(in) :: cvr(:,:)
+      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
 
       integer,  intent(in) :: n_r              ! No. of radial grid point
       integer,  intent(in) :: n_store_last     ! Position in frame(*)-1
@@ -1543,62 +1518,28 @@ contains
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
       complex(cp) :: w_Rloc(lm_max)
-#ifdef WITH_SHTNS
-      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      real(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
       complex(cp) :: Tl_AX(1:l_max+1)
-#else
-      real(cp) :: sl_s,sl_n,sl_1,sign
-#endif
 
       !-- Calculate radial dependencies:
       O_r=or1(n_r)
 
       call gather_Flm(w_Rdist(:,n_r),w_Rloc) !@> TODO: one should find a better fix here!
 
-#ifdef WITH_SHTNS
       Tl_AX(1)=zero
       do l=1,l_max
          lm=map_glbl_st%lm2(l,0)
          Tl_AX(l+1)=O_r*w_Rloc(lm)
       end do
 
-      call shtns_load_cfg(0)
-      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
       do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
          n_theta_nhs=(n_theta_start+n_theta)/2
          O_sint=osn1(n_theta_nhs)
-         sl(n_theta)  =O_sint*real(tmpp(n_theta))
-         sl(n_theta+1)=O_sint*real(tmpp(n_theta+1))
+         sl(n_theta)  =O_sint*tmpp(n_theta)
+         sl(n_theta+1)=O_sint*tmpp(n_theta+1)
       end do
-#else
-      !----- Loop over colatitudes:
-      do n_theta=1,n_theta_block,2
-
-         n_theta_nhs=(n_theta_start+n_theta)/2
-         O_sint=osn1(n_theta_nhs)
-
-         !------- Loop over degrees and orders:
-         sign=one
-         sl_n=0.0_cp
-         sl_s=0.0_cp
-         lm=1
-         do l=1,l_max
-            lm=lm+1
-            sign=-sign
-            sl_1=O_r*real(w_Rloc(lm))*dPlm(lm,n_theta_nhs)
-             !-------- Northern hemisphere:
-            sl_n=sl_n+sl_1
-             !-------- Southern hemisphere:
-            sl_s=sl_s-sign*sl_1
-         end do  ! Loop over order
-
-         !-- Divide by sin(theta):
-         sl(n_theta)  =O_sint*sl_n
-         sl(n_theta+1)=O_sint*sl_s
-
-      end do        ! Loop over colatitudes
-#endif
 
    end subroutine get_sl
 !----------------------------------------------------------------------------
@@ -1632,12 +1573,8 @@ contains
       real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
       complex(cp) :: b_Rloc(lm_max)
-#ifdef WITH_SHTNS
-      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      real(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
       complex(cp) :: Tl_AX(1:l_max+1)
-#else
-      real(cp) :: fl_s,fl_n,fl_1, sign
-#endif
 
       if ( .not. l_ic ) call gather_Flm(b_Rdist(:,n_r),b_Rloc) !@> TODO: one should find a better fix here!
 
@@ -1651,7 +1588,6 @@ contains
          O_r=or1(n_r)
       end if
 
-#ifdef WITH_SHTNS
       Tl_AX(1)=zero
       do l=1,l_max
          lm=map_glbl_st%lm2(l,0)
@@ -1666,53 +1602,14 @@ contains
          end if
       end do
 
-      call shtns_load_cfg(0)
-      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
       do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
          n_theta_nhs=(n_theta_start+n_theta)/2
          O_sint=osn1(n_theta_nhs)
-         fl(n_theta)  =O_sint*real(tmpp(n_theta))
-         fl(n_theta+1)=O_sint*real(tmpp(n_theta+1))
+         fl(n_theta)  =O_sint*tmpp(n_theta)
+         fl(n_theta+1)=O_sint*tmpp(n_theta+1)
       end do
-#else
-      !----- Loop over colatitudes:
-      do n_theta=1,n_theta_block,2
-
-         n_theta_nhs=(n_theta_start+n_theta)/2
-         O_sint=osn1(n_theta_nhs)
-
-         !------- Loop over degrees and orders:
-         sign=one
-         fl_n=0.0_cp
-         fl_s=0.0_cp
-
-         lm=1
-         do l=1,l_max
-            lm=lm+1
-            sign=-sign
-
-            if ( l_ic ) then ! Inner Core
-               if ( l_cond_ic ) then
-                  fl_1=r_dep(l)*real(b_ic(lm,n_r))*dPlm(lm,n_theta_nhs)
-               else
-                  fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(bICB(lm))
-               end if
-            else             ! Outer Core
-               fl_1=O_r*dPlm(lm,n_theta_nhs) * real(b_Rloc(lm))
-            end if
-            !-------- Northern hemisphere:
-            fl_n=fl_n+fl_1
-            !-------- Southern hemisphere:
-            fl_s=fl_s-sign*fl_1
-         end do  ! Loop over order
-
-         !-- Divide by sin(theta):
-         fl(n_theta)  =-O_sint*fl_n
-         fl(n_theta+1)=-O_sint*fl_s
-
-      end do        ! Loop over colatitudes
-#endif
 
    end subroutine get_fl
 !----------------------------------------------------------------------------
@@ -1734,9 +1631,9 @@ contains
       complex(cp), intent(in) :: bCMB(lm_max)
 
       !-- Output:
-      real(cp), intent(out) :: b_r(nrp,*) !Radial magnetic field in (phi,theta)-space
-      real(cp), intent(out) :: b_t(nrp,*) !Latitudinal magnetic field
-      real(cp), intent(out) :: b_p(nrp,*) !Azimuthal magnetic field.
+      real(cp), intent(out) :: b_r(:,:) !Radial magnetic field in (phi,theta)-space
+      real(cp), intent(out) :: b_t(:,:) !Latitudinal magnetic field
+      real(cp), intent(out) :: b_p(:,:) !Azimuthal magnetic field.
 
       !-- Local variables:
       integer :: l,lm
@@ -1744,15 +1641,7 @@ contains
       real(cp) :: r_ratio          ! r_cmb/r_surface
       real(cp) :: r_dep(l_max)     ! Radial dependence
       complex(cp) :: cs1(lm_max),cs2(lm_max) ! help arrays
-#ifdef WITH_SHTNS
       complex(cp) :: zerosc(lm_max)
-#else
-      complex(cp) :: b_r_1,b_t_1,b_p_1
-      complex(cp) :: b_r_n,b_t_n,b_p_n
-      complex(cp) :: b_r_s,b_t_s,b_p_s
-      real(cp) :: O_sint, sign
-      integer :: n_theta, n_theta_nhs, m, mc
-#endif
 
       !-- Radial dependence:
       r_ratio=r_cmb/r_surface
@@ -1767,96 +1656,12 @@ contains
       cs2(1)=zero
       do lm=2,lm_max
          l = map_glbl_st%lm2l(lm)
-#ifdef WITH_SHTNS
          cs1(lm) = bCMB(lm)*r_dep(l) ! multiplication by l(l+1) in shtns.f90
-#else
-         cs1(lm) = bCMB(lm)*real(l*(l+1),cp)*r_dep(l)
-#endif
          cs2(lm)= -bCMB(lm)*real(l,cp)*r_dep(l)
       end do
 
-#ifdef WITH_SHTNS
       zerosc(:)=zero
-      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
-#else
-      !-- Build field components:
-      !----- Loop over colatitudes:
-
-      do n_theta=1,n_theta_block,2
-         n_theta_nhs=(n_theta_start+n_theta)/2
-         O_sint     =osn1(n_theta_nhs)
-
-         !------- Loop over degrees and orders:
-         do mc=1,n_m_max   ! Numbers ms
-            m=(mc-1)*minc
-            sign=-one
-
-            b_r_n=zero
-            b_t_n=zero
-            b_p_n=zero
-            b_r_s=zero
-            b_t_s=zero
-            b_p_s=zero
-
-            do l=m,l_max
-               lm=map_glbl_st%lm2(l,m)
-               sign=-sign
-
-               b_r_1=         cs1(lm)*Plm(lm,n_theta_nhs)
-               b_t_1=         cs2(lm)*dPlm(lm,n_theta_nhs)
-               b_p_1=dPhi(lm)*cs2(lm)*Plm(lm,n_theta_nhs)
-
-               !-------- Northern hemisphere:
-               b_r_n=b_r_n+b_r_1
-               b_t_n=b_t_n+b_t_1
-               b_p_n=b_p_n+b_p_1
-
-               !-------- Southern hemisphere:
-               b_r_s=b_r_s+sign*b_r_1
-               b_t_s=b_t_s-sign*b_t_1
-               b_p_s=b_p_s+sign*b_p_1
-
-            end do  ! Loop over order
-
-            b_r(2*mc-1,n_theta)  =real(b_r_n)
-            b_r(2*mc,n_theta)    =aimag(b_r_n)
-            b_t(2*mc-1,n_theta)  =real(b_t_n)
-            b_t(2*mc,n_theta)    =aimag(b_t_n)
-            b_p(2*mc-1,n_theta)  =real(b_p_n)
-            b_p(2*mc,n_theta)    =aimag(b_p_n)
-            b_r(2*mc-1,n_theta+1)=real(b_r_s)
-            b_r(2*mc,n_theta+1)  =aimag(b_r_s)
-            b_t(2*mc-1,n_theta+1)=real(b_t_s)
-            b_t(2*mc,n_theta+1)  =aimag(b_t_s)
-            b_p(2*mc-1,n_theta+1)=real(b_p_s)
-            b_p(2*mc,n_theta+1)  =aimag(b_p_s)
-
-         end do     ! Loop over degree
-
-         do mc=1,2*n_m_max
-            b_t(mc,n_theta)  =O_sint*b_t(mc,n_theta)
-            b_p(mc,n_theta)  =O_sint*b_p(mc,n_theta)
-            b_t(mc,n_theta+1)=O_sint*b_t(mc,n_theta+1)
-            b_p(mc,n_theta+1)=O_sint*b_p(mc,n_theta+1)
-         end do
-         do mc=2*n_m_max+1,nrp
-            b_r(mc,n_theta)  =0.0_cp
-            b_t(mc,n_theta)  =0.0_cp
-            b_p(mc,n_theta)  =0.0_cp
-            b_r(mc,n_theta+1)=0.0_cp
-            b_t(mc,n_theta+1)=0.0_cp
-            b_p(mc,n_theta+1)=0.0_cp
-         end do
-
-      end do        ! Loop over colatitudes
-
-      !-- Transform m 2 phi:
-      if ( .not. l_axi ) then
-         call fft_thetab(b_r,1)
-         call fft_thetab(b_t,1)
-         call fft_thetab(b_p,1)
-      end if
-#endif
+      call torpol_to_spat_loc(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
 
    end subroutine get_B_surface
 !----------------------------------------------------------------------------

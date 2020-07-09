@@ -16,11 +16,7 @@ module torsional_oscillations
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
-#ifdef WITH_SHTNS
    use shtns, only: spat_to_SH_axi
-#else
-   use legendre_grid_to_spec, only: legTFAS2
-#endif
 
    implicit none
 
@@ -344,17 +340,10 @@ contains
       !--- Transform and Add to LM-Space:
       !------ Add contribution from thetas in block:
       !       note legtfAS2 returns modes l=0 -- l=l_max+1
-#ifdef WITH_SHTNS
       call spat_to_SH_axi(Rmean,dzRstrLM)
       call spat_to_SH_axi(Amean,dzAstrLM)
       call spat_to_SH_axi(dzCorMean,dzCorLM)
       call spat_to_SH_axi(dZLFmean,dzLFLM)
-#else
-      call legTFAS2(dzRstrLM,dzAstrLM,Rmean,Amean,     &
-           &        l_max+2,nThetaStart,nThetaBlockSize)
-      call legTFAS2(dzCorLM,dzLFLM,dzCorMean,dZLFmean, &
-           &        l_max+2,nThetaStart,nThetaBlockSize)
-#endif
 
       if ( lVerbose ) write(output_unit,*) '! End of getTO!'
 
@@ -390,10 +379,8 @@ contains
 
       else if ( lTOnext ) then
 
-#ifdef WITH_SHTNS
          !$omp parallel do default(shared)                     &
          !$omp& private(nTheta,nPhi,sinT,cosT,BsF1,BsF2,BpF1,BzF1,BzF2)
-#endif
          do nTheta=nThetaStart,nThetaStop
             sinT =sinTheta(nTheta)
             cosT =cosTheta(nTheta)
@@ -411,9 +398,7 @@ contains
             end do
 
          end do ! Loop over thetas in block !
-#ifdef WITH_SHTNS
          !$omp end parallel do
-#endif
 
          dzdVpLMr_Rloc(1,nR) =0.0_cp
          dzddVpLMr_Rloc(1,nR)=0.0_cp

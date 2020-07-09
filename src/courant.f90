@@ -108,12 +108,10 @@ contains
 
          af2=alffac*alffac
 
-#ifdef WITH_SHTNS
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_theta_nhs,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vflr2max,valr2max,vflh2max,valh2max)
-#endif
          do n_theta=nThetaStart,nThetaStop
 
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
@@ -142,9 +140,7 @@ contains
 
          end do
          
-#ifdef WITH_SHTNS
          !$omp end parallel do
-#endif
 
 #ifdef WITH_MPI
          if ( n_ranks_theta>1 ) then
@@ -189,12 +185,10 @@ contains
 
       else   ! Magnetic field ?
 
-#ifdef WITH_SHTNS
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_theta_nhs,n_phi) &
          !$omp private(vflr2,vflh2) &
          !$omp reduction(max:vflr2max,vflh2max)
-#endif
          do n_theta=nThetaStart, nThetaStop
 
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
@@ -212,9 +206,7 @@ contains
             end do
 
          end do
-#ifdef WITH_SHTNS
          !$omp end parallel do
-#endif
 
 #ifdef WITH_MPI
          if ( n_ranks_theta>1 ) then
@@ -263,12 +255,10 @@ contains
 
          af2=alffac*alffac
 
-#ifdef WITH_SHTNS
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_theta_nhs,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vr2max,vh2max)
-#endif
          do n_theta=nThetaStart, nThetaStop
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
 
@@ -292,9 +282,7 @@ contains
             end do
 
          end do
-#ifdef WITH_SHTNS
          !$omp end parallel do
-#endif
 
 #ifdef WITH_MPI
          if ( n_ranks_theta>1 ) then
@@ -307,12 +295,10 @@ contains
 
       else   ! Magnetic field ?
 
-#ifdef WITH_SHTNS
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_theta_nhs,n_phi) &
          !$omp private(vflr2,vflh2) &
          !$omp reduction(max:vr2max,vh2max)
-#endif
          do n_theta=nThetaStart, nThetaStop
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
 
@@ -329,9 +315,7 @@ contains
             end do
 
          end do
-#ifdef WITH_SHTNS
          !$omp end parallel do
-#endif
 
 #ifdef WITH_MPI
          if ( n_ranks_theta>1 ) then

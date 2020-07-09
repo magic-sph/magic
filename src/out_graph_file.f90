@@ -21,14 +21,7 @@ module graphOut_mod
    use logic, only: l_mag, l_cond_ic, l_PressGraph, l_chemical_conv,  &
        &            l_save_out
    use output_data, only: runid, n_log_file, log_file, tag
-#ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat_IC
-#else
-   use fft
-   use horizontal_data, only: dLh, Plm, dPlm
-   use legendre_spec_to_grid, only: leg_polsphtor_to_spat
-#endif
-   use leg_helper_mod, only: legPrep_IC
    use communications, only: gather_f !>@ TODO remove it once MPI-2D
 
    implicit none
@@ -811,11 +804,6 @@ contains
       logical :: l_avg_loc
       integer :: nR,nPhi,nThetaB,nTheta,nThetaStart,nThetaC
 
-#ifndef WITH_SHTNS
-      complex(cp) :: dLhb(lm_max), dLhj(lm_max)
-      complex(cp) :: bhG(lm_max), bhC(lm_max)
-      complex(cp) :: cbhG(lm_max), cbhC(lm_max)
-#endif
       real(cp) :: BrB(nrp,nfs), BtB(nrp,nfs), BpB(nrp,nfs)
       real(outp) :: Br(n_phi_max,n_theta_max)
       real(outp) :: Bt(n_phi_max,n_theta_max)
@@ -846,20 +834,6 @@ contains
 
       do nR=2,n_r_ic_max  ! nR=1 is ICB
 
-#ifndef WITH_SHTNS
-         if ( l_cond_ic ) then
-            call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                 &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                 &          l_max,minc,r_ic(nR),r_ICB,.false.,   &
-                 &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                 &          cbhG,cbhC)
-         else
-            call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),           &
-                 &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,         &
-                 &          l_max,minc,r_ic(nR),r_ICB,.false.,.true., &
-                 &          l_cond_ic,dLhb,bhG,bhC,dLhj,cbhG,cbhC)
-         end if
-#else
          if ( l_cond_ic ) then
             call torpol_to_spat_IC(r_ic(nR), r_ICB, b_ic(:, nR), db_ic(:, nR), &
                  &                 aj_ic(:, nR), BrB, BtB, BpB)
@@ -867,21 +841,9 @@ contains
             call torpol_to_spat_IC(r_ic(nR), r_ICB, bICB(:),db_ic(:,1), &
                  &                 aj_ic(:,1), BrB, BtB, BpB)
          end if
-#endif
+
          do nThetaB=1,nThetaBs
             nThetaStart=(nThetaB-1)*sizeThetaB+1
-
-#ifndef WITH_SHTNS
-            !------ Perform Legendre transform:
-            call leg_polsphtor_to_spat(.true., nThetaStart, dLhb, bhG, bhC, &
-                 &                     BrB, BtB, BpB)
-            if ( .not. l_axi ) then
-               !-- Fourier transforms
-               call fft_thetab(BrB,1)
-               call fft_thetab(BtB,1)
-               call fft_thetab(BpB,1)
-            end if
-#endif
 
             !------ Copy theta block and calculate real components:
             do nTheta=1,sizeThetaB

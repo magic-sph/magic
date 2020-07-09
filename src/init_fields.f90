@@ -673,9 +673,7 @@ contains
          end do
       end do
       !------ Transform to spherical hamonic space for each theta block
-#ifdef WITH_SHTNS
       call spat_to_SH(sCMB, sLMP_loc, l_max)
-#endif
 
       !@> TODO: is there another way than gathering here?
       call gather_FLMP(sLMP_loc, sLMP)
@@ -897,9 +895,7 @@ contains
                end if
             end do
          end do
-#ifdef WITH_SHTNS
          call spat_to_SH(xiCMB, xiLM_loc, l_max)
-#endif
 
          !--- xiFac describes the linear dependence of the (l=0,m=0) mode
          !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
@@ -970,9 +966,7 @@ contains
             end do
          end do
       end do
-#ifdef WITH_SHTNS
       call spat_to_SH(xiCMB, xiLM_loc, l_max)
-#endif
 
       !@> TODO: is there another way than gathering here?
       call gather_FLMP(xiLM_loc, xiLM)

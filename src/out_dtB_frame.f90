@@ -7,10 +7,6 @@ module out_dtB_frame
    use blocking, only: nThetaBs, sizeThetaB, lm2m, lm2l, nfs, lm2
    use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, osn1, &
        &                      dLh
-#ifndef WITH_SHTNS
-   use horizontal_data, only: dPlm, Plm, dPhi
-   use fft, only: fft_thetab
-#endif
    use dtB_mod, only: PstrLM, PadvLM, PdifLM, TstrLM, TadvLM, TdifLM, &
        &              PadvLMIC, PdifLMIC, TadvLMIC, TomeLM, TdifLMIC
    use movie_data, only: n_movie_type, n_movie_fields, n_movie_fields_ic, &
@@ -20,6 +16,7 @@ module out_dtB_frame
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_dr
+   use shtns, only: torpol_to_spat_loc, sphtor_to_spat, scal_to_spat_loc, toraxi_to_spat
 
    implicit none
 
@@ -534,13 +531,8 @@ contains
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
-#ifdef WITH_SHTNS
-      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      real(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
       complex(cp) :: Tl_AX(1:l_max+1)
-#else
-      real(cp) :: fl_s,fl_n,fl_1
-      real(cp) :: sign
-#endif
     
       !-- Calculate radial dependencies:
       !     for IC: (r/r_ICB)**l / r_ICB
@@ -555,7 +547,6 @@ contains
          O_r=or1(n_r)
       end if
     
-#ifdef WITH_SHTNS
       Tl_AX(1)=zero
       do l=1,l_max
          lm=lm2(l,0)
@@ -566,42 +557,14 @@ contains
          end if
       end do
 
-      call shtns_load_cfg(0)
-      call shtns_tor_to_spat_ml(0, Tl_AX(1:l_max+1),  tmpt(:), tmpp(:), l_max)
+      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
       do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
          n_theta_nhs=(n_theta_start+n_theta)/2
          O_sint=osn1(n_theta_nhs)
-         dtB(n_theta)  =O_sint*real(tmpp(n_theta))
-         dtB(n_theta+1)=O_sint*real(tmpp(n_theta+1))
+         dtB(n_theta)  =O_sint*tmpp(n_theta)
+         dtB(n_theta+1)=O_sint*tmpp(n_theta+1)
       end do
-#else
-      !----- Loop over colatitudes:
-      do n_theta=1,n_theta_block,2
-         n_theta_nhs=(n_theta_start+n_theta)/2
-         !------- Loop over degrees and orders:
-         sign=one
-         fl_n=0.0_cp
-         fl_s=0.0_cp
-         lm=1
-         do l=1,l_max
-            lm=lm+1
-            sign=-sign
-            if ( l_ic ) then ! Inner Core
-               fl_1=r_dep(l)*real(dtBLM(lm,n_r))*dPlm(lm,n_theta_nhs)
-            else             ! Outer Core
-               fl_1=O_r*real(dtBLM(lm,n_r))*dPlm(lm,n_theta_nhs)
-            end if
-            !-------- Northern hemisphere:
-            fl_n=fl_n+fl_1
-            !-------- Southern hemisphere:
-            fl_s=fl_s-sign*fl_1
-         end do  ! Loop over order
-         O_sint=osn1(n_theta_nhs)
-         dtB(n_theta)  =-O_sint*fl_n
-         dtB(n_theta+1)=-O_sint*fl_s
-      end do        ! Loop over colatitudes
-#endif
 
    end subroutine get_dtB
 !-------------------------------------------------------------------------
@@ -626,20 +589,14 @@ contains
       complex(cp), intent(in) :: dPolLM(lm_max) ! dr field in (l,m)-space for rT
 
       !-- Output variables
-      real(cp), intent(out) :: Br(nrp,*),Bt(nrp,*),Bp(nrp,*)
+      real(cp), intent(out) :: Br(:,:),Bt(:,:),Bp(:,:)
 
       !-- Local variables
       integer :: lm,mc,m,l,n_theta
       real(cp) :: rRatio,rDep(0:l_max)
       real(cp) :: O_r_E_2
       complex(cp) :: cs1(lm_max),cs2(lm_max)
-#ifdef WITH_SHTNS
       complex(cp) :: zeros(lm_max)
-#else
-      integer :: n_theta_nhs
-      real(cp) :: sign, O_sint
-      complex(cp) :: Br_1,Bt_1,Bp_1,Br_n,Bt_n,Bp_n,Br_s,Bt_s,Bp_s
-#endif
 
       !-- Calculate radial dependencies: (r_ic(1)=r(n_r_max)=inner core boundary)
       !   Radial dependence = (r/r_ICB)**(l-1) / r_ICB**2
@@ -696,91 +653,11 @@ contains
          end do
       endif
 
-#ifndef WITH_SHTNS
-      !-- Calculate northern and southern hemisphere components:
-      do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
-
-         n_theta_nhs=(n_theta_start+n_theta)/2
-         O_sint     =osn1(n_theta_nhs)
-
-         mc=0
-         do m=0,m_max,minc   ! Numbers ms
-            mc=mc+1
-            sign=-one
-
-            Br_n =zero
-            Bt_n =zero
-            Bp_n =zero
-            Br_s =zero
-            Bt_s =zero
-            Bp_s =zero
-
-            do l=m,l_max
-               lm=lm2(l,m)
-               sign=-sign
-                                   
-               Br_1=         cs1(lm)*Plm(lm,n_theta_nhs)
-               Bt_1=         cs2(lm)*dPlm(lm,n_theta_nhs)
-               Bp_1=dPhi(lm)*cs2(lm)*Plm(lm,n_theta_nhs)
-
-               !-- Northern hemisphere:
-               Br_n=Br_n+Br_1
-               Bt_n=Bt_n+Bt_1
-               Bp_n=Bp_n+Bp_1
-
-               !-- Southern hemisphere:
-               Br_s=Br_s+sign*Br_1
-               Bt_s=Bt_s-sign*Bt_1 ! Different equatoria symmetry
-               Bp_s=Bp_s+sign*Bp_1
-
-            end do  ! Loop over degree
-
-            !-- Divide theta and phi component by sin(theta):
-            Bt_n =O_sint*Bt_n
-            Bp_n =O_sint*Bp_n
-            Bt_s =O_sint*Bt_s
-            Bp_s =O_sint*Bp_s
-
-            !-- Copy to real array:
-            Br(2*mc-1,n_theta)   =real(Br_n)
-            Br(2*mc  ,n_theta)   =aimag(Br_n)
-            Bt(2*mc-1,n_theta)   =real(Bt_n)
-            Bt(2*mc  ,n_theta)   =aimag(Bt_n)
-            Bp(2*mc-1,n_theta)   =real(Bp_n)
-            Bp(2*mc  ,n_theta)   =aimag(Bp_n)
-            Br(2*mc-1,n_theta+1) =real(Br_s)
-            Br(2*mc  ,n_theta+1) =aimag(Br_s)
-            Bt(2*mc-1,n_theta+1) =real(Bt_s)
-            Bt(2*mc  ,n_theta+1) =aimag(Bt_s)
-            Bp(2*mc-1,n_theta+1) =real(Bp_s)
-            Bp(2*mc  ,n_theta+1) =aimag(Bp_s)
-
-         end do     ! Loop over order
-
-         !-- Zero remaining elements in array:
-         do mc=2*n_m_max+1,nrp
-            Br(mc,n_theta)  =0.0_cp
-            Bt(mc,n_theta)  =0.0_cp
-            Bp(mc,n_theta)  =0.0_cp
-            Br(mc,n_theta+1)=0.0_cp
-            Bt(mc,n_theta+1)=0.0_cp
-            Bp(mc,n_theta+1)=0.0_cp
-         end do
-
-      end do        ! Loop over colatitudes
-
-      !-- Transform m 2 phi:
-      call fft_thetab(Br,1)
-      call fft_thetab(Bt,1)
-      call fft_thetab(Bp,1)
-#else
-
       do lm=1,lm_max
          zeros(lm)=zero
       end do
 
-      call shtns_qst_to_spat(cs1, cs2, zeros, Br, Bt, Bp)
-#endif
+      call torpol_to_spat_loc(cs1, cs2, zeros, Br, Bt, Bp, l_max)
             
    end subroutine get_Bpol
 !-------------------------------------------------------------------------------------
@@ -804,20 +681,14 @@ contains
       complex(cp), intent(in) :: Tlm(lm_max)   ! field in (l,m)-space for rT
 
       !-- Output variables:
-      real(cp), intent(out) :: Bt(nrp,*),Bp(nrp,*)
+      real(cp), intent(out) :: Bt(:,:),Bp(:,:)
 
       !-- Local variables:
       integer :: lm,mc,m,l
       integer :: n_theta
       real(cp) :: rRatio,rDep(0:l_max)
       complex(cp) :: cs1(lm_max)
-#ifdef WITH_SHTNS
       complex(cp) :: zeros(lm_max)
-#else
-      integer :: n_theta_nhs
-      real(cp) :: O_sint, sign
-      complex(cp) :: Bt_1,Bp_1,Bt_n,Bp_n,Bt_s,Bp_s
-#endif
 
       !-- Zero output field:
       do n_theta=1,n_theta_block
@@ -851,80 +722,11 @@ contains
          do l=m,l_max
             lm=lm2(l,m)
             cs1(lm)=rDep(l)*Tlm(lm)
-#ifdef WITH_SHTNS
             zeros(lm)=zero
-#endif
          end do
       end do
 
-#ifndef WITH_SHTNS
-      !-- Calculate northern and southern hemisphere components:
-      do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
-
-         n_theta_nhs=(n_theta_start+n_theta)/2
-         O_sint     =osn1(n_theta_nhs)
-
-         mc=0
-         do m=0,m_max,minc   ! Numbers ms
-            mc=mc+1
-            sign=-one
-
-            Bt_n =zero
-            Bp_n =zero
-            Bt_s =zero
-            Bp_s =zero
-
-            do l=m,l_max
-               lm=lm2(l,m)
-               sign=-sign
-                                   
-               Bt_1=ci*real(m,cp)*cs1(lm)*Plm(lm,n_theta_nhs)
-               Bp_1=             -cs1(lm)*dPlm(lm,n_theta_nhs)
-
-               !-- Northern hemisphere:
-               Bt_n=Bt_n+Bt_1
-               Bp_n=Bp_n+Bp_1
-
-               !-- Southern hemisphere:
-               Bt_s=Bt_s+sign*Bt_1 ! Different equatoria symmetry
-               Bp_s=Bp_s-sign*Bp_1
-
-            end do  ! Loop over degree
-
-            !-- Divide theta and phi component by sin(theta):
-            Bt_n =O_sint*Bt_n
-            Bp_n =O_sint*Bp_n
-            Bt_s =O_sint*Bt_s
-            Bp_s =O_sint*Bp_s
-
-            !-- Copy to real array:
-            Bt(2*mc-1,n_theta)   =real(Bt_n)
-            Bt(2*mc  ,n_theta)   =aimag(Bt_n)
-            Bp(2*mc-1,n_theta)   =real(Bp_n)
-            Bp(2*mc  ,n_theta)   =aimag(Bp_n)
-            Bt(2*mc-1,n_theta+1) =real(Bt_s)
-            Bt(2*mc  ,n_theta+1) =aimag(Bt_s)
-            Bp(2*mc-1,n_theta+1) =real(Bp_s)
-            Bp(2*mc  ,n_theta+1) =aimag(Bp_s)
-
-         end do     ! Loop over order
-
-         !-- Zero remaining elements in array:
-         do mc=2*n_m_max+1,nrp
-            Bt(mc,n_theta)  =0.0_cp
-            Bp(mc,n_theta)  =0.0_cp
-            Bt(mc,n_theta+1)=0.0_cp
-            Bp(mc,n_theta+1)=0.0_cp
-         end do
-
-      end do        ! Loop over colatitudes
-
-      !-- Transform m 2 phi:
-      call fft_thetab(Bt,1)
-      call fft_thetab(Bp,1)
-#else
-      call shtns_sphtor_to_spat(zeros, cs1, Bt, Bp)
-#endif
+      call sphtor_to_spat(zeros, cs1, Bt, Bp, l_max)
             
    end subroutine get_Btor
 !-------------------------------------------------------------------------------------
@@ -944,18 +746,13 @@ contains
       complex(cp), intent(in) :: alm(*)      ! field in (l,m)-space
 
       !-- Output variables:
-      real(cp), intent(out) :: aij(nrp,*)  ! field in (theta,phi)-space
+      real(cp), intent(out) :: aij(:,:)  ! field in (theta,phi)-space
 
       !-- Local variables:
       integer :: nThetaN
       integer :: l,lm,mca     ! degree/order
       complex(cp) :: cs1(lm_max) ! help array
       real(cp) :: O_r_E_2,rRatio
-#ifndef WITH_SHTNS
-      integer :: nThetaS,nThetaHS,m
-      real(cp) :: sign
-      complex(cp) :: a_n, a_s
-#endif
 
       O_r_E_2=one/(rT*rT)
       rRatio=rT/r_icb
@@ -976,35 +773,7 @@ contains
          if ( lIC )    cs1(lm)=rRatio**real(l+1,cp)*cs1(lm)
       end do
 
-#ifndef WITH_SHTNS
-      !-- Transform l 2 theta:
-      nThetaHS=(nThetaStart-1)/2  ! last theta in one HS
-      do nThetaN=1,sizeThetaB,2
-         nThetaS =nThetaN+1
-         nThetaHS=nThetaHS+1
-         lm=0
-         mca=0
-         do m=0,m_max,minc
-            mca=mca+1
-            sign=-one
-            do l=m,l_max
-               lm=lm+1
-               sign=-sign
-               a_n = a_n+     cs1(lm)*Plm(lm,nThetaHS)
-               a_s = a_s+sign*cs1(lm)*Plm(lm,nThetaHS)
-            end do
-            aij(2*mca-1,nThetaN)=real(a_n)
-            aij(2*mca,  nThetaN)=aimag(a_n)
-            aij(2*mca-1,nThetaS)=real(a_s)
-            aij(2*mca,  nThetaS)=aimag(a_s)
-         end do
-      end do
-
-      !-- Transform m 2 phi:
-      call fft_thetab(aij,1)
-#else
-      call shtns_SH_to_spat(cs1, aij)
-#endif
+      call scal_to_spat_loc(cs1, aij, l_max)
 
    end subroutine lm2pt
 !---------------------------------------------------------------------------------

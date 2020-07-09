@@ -213,13 +213,13 @@ contains
       real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)
 
       !-- Output variables:
-      complex(cp), intent(out) :: BtVrLM(*),BpVrLM(*)
-      complex(cp), intent(out) :: BrVtLM(*),BrVpLM(*)
-      complex(cp), intent(out) :: BtVpLM(*),BpVtLM(*)
-      complex(cp), intent(out) :: BrVZLM(*),BtVZLM(*)
-      complex(cp), intent(out) :: BpVtCotLM(*),BtVpCotLM(*),BtVZcotLM(*)
-      complex(cp), intent(out) :: BtVpSn2LM(*),BpVtSn2LM(*)
-      complex(cp), intent(out) :: BtVZsn2LM(*)
+      complex(cp), intent(out) :: BtVrLM(:),BpVrLM(:)
+      complex(cp), intent(out) :: BrVtLM(:),BrVpLM(:)
+      complex(cp), intent(out) :: BtVpLM(:),BpVtLM(:)
+      complex(cp), intent(out) :: BrVZLM(:),BtVZLM(:)
+      complex(cp), intent(out) :: BpVtCotLM(:),BtVpCotLM(:),BtVZcotLM(:)
+      complex(cp), intent(out) :: BtVpSn2LM(:),BpVtSn2LM(:)
+      complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
       integer :: n_theta,n_phi,n_theta_nhs

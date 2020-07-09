@@ -14,7 +14,7 @@ module fields_average_mod
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
-   use shtns
+   use shtns, only: torpol_to_spat_loc, scal_to_spat_loc
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: gather_from_mlo_to_master
    use out_coeff, only: write_Bcmb, write_Pot
@@ -391,15 +391,15 @@ contains
 
             if ( l_master_rank ) then
                if ( l_mag ) then
-                  call torpol_to_spat(b_ave_global, db_ave_global, &
+                  call torpol_to_spat_loc(b_ave_global, db_ave_global, &
                        &              aj_ave_global, Br, Bt, Bp, l_R(nR))
                end if
-               call torpol_to_spat(w_ave_global, dw_ave_global, &
+               call torpol_to_spat_loc(w_ave_global, dw_ave_global, &
                     &              z_ave_global, Vr, Vt, Vp, l_R(nR))
-               call scal_to_spat(p_ave_global, Prer, l_R(nR))
-               call scal_to_spat(s_ave_global, Sr, l_R(nR))
+               call scal_to_spat_loc(p_ave_global, Prer, l_R(nR))
+               call scal_to_spat_loc(s_ave_global, Sr, l_R(nR))
                if ( l_chemical_conv ) then
-                  call scal_to_spat(xi_ave_global, Xir, l_R(nR))
+                  call scal_to_spat_loc(xi_ave_global, Xir, l_R(nR))
                end if
                if (l_master_rank) &
                   call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &

@@ -233,15 +233,7 @@ contains
             if ( sphertor ) then
                ! The l(l+1) factor comes from the orthogonality properties of
                ! vector spherical harmonics
-#ifdef WITH_SHTNS
                help=rE2*cc2real(f(lm),m)*l*(l+one)!*l*(l+1)
-#else
-               if ( l /= 0 ) then
-                  help=rE2*cc2real(f(lm),m)/(l*(l+one))
-               else
-                  help=rE2*cc2real(f(lm),m)
-               end if
-#endif
             else
                help=rE2*cc2real(f(lm),m)
             end if

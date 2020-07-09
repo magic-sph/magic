@@ -15,14 +15,7 @@ module out_movie_IC
        &                 n_movie_fields
    use out_movie, only: get_fl
    use constants, only: one
-#ifdef WITH_SHTNS
    use shtns, only: torpol_to_spat_IC, torpol_to_curl_spat_IC
-#else
-   use horizontal_data, only: dLh, Plm, dPlm
-   use leg_helper_mod, only: legPrep_IC
-   use legendre_spec_to_grid, only: leg_polsphtor_to_spat
-   use fft, only: fft_thetab
-#endif
 
    implicit none
 
@@ -59,11 +52,6 @@ contains
       integer :: n_field_size,n_fields,n_fields_oc,n_fields_ic
       integer :: n_o,n_o_r
 
-#ifndef WITH_SHTNS
-      complex(cp) :: dLhb(lm_maxMag), bhG(lm_maxMag)
-      complex(cp) :: bhC(lm_maxMag), dLhj(lm_maxMag)
-      complex(cp) :: cbhG(lm_maxMag), cbhC(lm_maxMag)
-#endif
       real(cp) :: BrB(nrp,nfs), BtB(nrp,nfs), BpB(nrp,nfs)
       real(cp) :: cBrB(nrp,nfs), cBtB(nrp,nfs), cBpB(nrp,nfs)
       real(cp) :: fl(nfs),help
@@ -85,21 +73,6 @@ contains
 
             do nR=1,n_r_ic_max
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:,nR),  &
                        &                 db_ic(:,nR),aj_ic(:,nR),BrB,BtB,BpB)
@@ -113,26 +86,10 @@ contains
                        &                      ddb_ic(:,1),aj_ic(:,1),      &
                        &                      dj_ic(:,1),cBrB,cBtB,cBpB)
                end if
-#endif
 
                !------ Calculate magnetic field on grid points:
                do nThetaB=1,nThetaBs
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
-
-#ifndef WITH_SHTNS
-                  !------ Perform Legendre transform:
-                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                       &                     BrB,BtB,BpB)
-                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
-                       &                     cBrB,cBtB,cBpB)
-                  if ( .not. l_axi ) then
-                     call fft_thetab(BrB,1)
-                     call fft_thetab(BtB,1)
-                     call fft_thetab(BpB,1)
-                     call fft_thetab(cBrB,1)
-                     call fft_thetab(cBtB,1)
-                  end if
-#endif
 
                   do n_field=n_fields_oc+1,n_fields
                      n_field_type= n_movie_field_type(n_field,n_movie)
@@ -197,21 +154,6 @@ contains
             if ( n_fields_ic > 0 ) then
                nR=abs(n_const)
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:, nR),db_ic(:, nR),&
                        &                 aj_ic(:, nR),BrB,BtB,BpB)
@@ -219,22 +161,10 @@ contains
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic(:,1),  &
                        &                 aj_ic(:,1),BrB,BtB,BpB)
                end if
-#endif
 
                !------ Calculate magnetic field on grid points:
                do nThetaB=1,nThetaBs
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
-
-#ifndef WITH_SHTNS
-                  !------ Perform Legendre transform:
-                  call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                       &                     BrB,BtB,BpB)
-                  if ( .not. l_axi ) then
-                     call fft_thetab(BrB,1)
-                     call fft_thetab(BtB,1)
-                     call fft_thetab(BpB,1)
-                  end if
-#endif
 
                   do n_field=n_fields_oc+1,n_fields
                      n_field_type=n_movie_field_type(n_field,n_movie)
@@ -285,29 +215,6 @@ contains
 
             do nR=1,n_r_ic_max
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-
-               if ( mod(n_const,2) == 1 ) then
-                  nTheta=n_const
-                  nThetaR=1
-               else
-                  nTheta=n_const-1
-                  nThetaR=2
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:,nR),db_ic(:,nR),&
                        &                 aj_ic(:,nR),BrB,BtB,BpB)
@@ -324,22 +231,6 @@ contains
 
                nTheta =n_const
                nThetaR=n_const
-#endif
-
-
-#ifndef WITH_SHTNS
-               !------ Perform Legendre transform for 2 theta points
-               call leg_polsphtor_to_spat(.true.,nTheta,dLhb,bhG,bhC, &
-                    &                     BrB,BtB,BpB,n_thetas=2)
-               call leg_polsphtor_to_spat(.true.,nTheta,dLhj,cbhG,cbhC,&
-                    &                     cBrB,cBtB,cBpB,n_thetas=2)
-               if ( .not. l_axi ) then
-                  call fft_thetab(BrB,1)
-                  call fft_thetab(BtB,1)
-                  call fft_thetab(BpB,1)
-                  call fft_thetab(cBtB,1)
-               end if
-#endif
 
                do n_field=n_fields_oc+1,n_fields
 
@@ -385,21 +276,6 @@ contains
 
             do nR=1,n_r_ic_max
 
-#ifndef WITH_SHTNS
-               if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
-                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               else
-                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
-                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
-                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                       &          cbhG,cbhC)
-               end if
-#else
                if ( l_cond_ic ) then
                   call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic(:,nR),  &
                        &                 db_ic(:,nR),aj_ic(:,nR),BrB,BtB,BpB)
@@ -413,7 +289,6 @@ contains
                        &                      ddb_ic(:,1),aj_ic(:,1),      &
                        &                      dj_ic(:,1),cBrB,cBtB,cBpB)
                end if
-#endif
 
                !------ Get phi no. for left and righty halfspheres:
                nPhi0=n_const
@@ -430,21 +305,6 @@ contains
                   if ( n_type == 30 ) then
                      !------ get_fl returns field for field line plot:
                      call get_fl(fl,nR,nThetaStart,sizeThetaB,.true.)
-                  else
-#ifndef WITH_SHTNS
-                     !------ Perform Legendre transform:
-                     call leg_polsphtor_to_spat(.true.,nThetaStart,dLhb,bhG,bhC, &
-                          &                     BrB,BtB,BpB)
-                     call leg_polsphtor_to_spat(.true.,nThetaStart,dLhj,cbhG,cbhC,&
-                          &                     cBrB,cBtB,cBpB)
-                     if ( .not. l_axi ) then
-                        call fft_thetab(BrB,1)
-                        call fft_thetab(BtB,1)
-                        call fft_thetab(BpB,1)
-                        call fft_thetab(cBrB,1)
-                        call fft_thetab(cBtB,1)
-                     end if
-#endif
                   end if
 
                   do n_field=n_fields_oc+1,n_fields
