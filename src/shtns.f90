@@ -1,5 +1,6 @@
 module sht
 
+   use iso_c_binding
    use iso_fortran_env, only: output_unit
    use precision_mod, only: cp, MPI_DEF_REAL
    use constants, only: ci, one, zero
@@ -15,7 +16,7 @@ module sht
 
    implicit none
 
-   include "shtns.f"
+   include "shtns.f03"
 
    private
 
@@ -30,18 +31,20 @@ module sht
    public :: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb, torpol_to_curl_hyb, &
    &         pol_to_grad_hyb, torpol_to_dphhyb, pol_to_curlr_hyb, hyb_to_SH,   &
    &         hyb_to_qst, hyb_to_sphertor
+
+   type(c_ptr) :: sht_l, sht_lP
    
    interface
       subroutine scal_to_spat_if(Slm, fieldc, lcut)
          import
-         complex(cp), intent(in) :: Slm(n_lm_loc)
+         complex(cp), intent(inout) :: Slm(n_lm_loc)
          integer,     intent(in) :: lcut
          real(cp),   intent(out) :: fieldc(n_phi_max, n_theta_loc)
       end subroutine
       
       subroutine scal_to_grad_spat_if(Slm, gradtc, gradpc, lcut)
          import
-         complex(cp), intent(in) :: Slm(n_lm_loc)
+         complex(cp), intent(inout) :: Slm(n_lm_loc)
          integer,     intent(in) :: lcut
          real(cp),   intent(out) :: gradtc(n_phi_max, n_theta_loc)
          real(cp),   intent(out) :: gradpc(n_phi_max, n_theta_loc)
@@ -126,13 +129,13 @@ module sht
 
    end interface
    
-   public :: scal_to_spat, scal_to_grad_spat, spat_to_SH, spat_to_qst, &
+   public :: scal_to_spat, scal_to_grad_spat, scal_to_SH, spat_to_qst, &
    & spat_to_sphertor, torpol_to_spat, torpol_to_curl_spat, pol_to_curlr_spat, &
    & pol_to_grad_spat, torpol_to_dphspat, spat_to_SH_axi
    
    procedure (scal_to_spat_if), pointer :: scal_to_spat => null ()
    procedure (scal_to_grad_spat_if), pointer :: scal_to_grad_spat => null ()
-   procedure (spat_to_SH_if), pointer :: spat_to_SH => null ()
+   procedure (spat_to_SH_if), pointer :: scal_to_SH => null ()
    procedure (spat_to_qst_if), pointer :: spat_to_qst => null ()
    procedure (spat_to_sphertor_if), pointer :: spat_to_sphertor => null ()
    procedure (torpol_to_spat_if), pointer :: torpol_to_spat => null ()
@@ -146,38 +149,39 @@ contains
 
    subroutine init_shtns()
 
-      integer :: norm
+      integer :: norm, layout, nthreads
+      real(cp) :: eps_polar
+      type(shtns_info), pointer :: sht_info
 
       if ( l_master_rank ) then
+         write(output_unit,*) ''
          call shtns_verbose(1)
       end if
 
-      call shtns_use_threads(0)
+      nthreads =  shtns_use_threads(0)
 
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 
-      call shtns_set_size(l_max, m_max/minc, minc, norm)
-      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
-           &                1.e-10_cp, n_theta_max, n_phi_max)
-      call shtns_save_cfg(0)
+      eps_polar = 1.e-10_cp
+
+      sht_l = shtns_create(l_max, m_max/minc, minc, norm)
+      call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
+
+      call c_f_pointer(cptr=sht_l, fptr=sht_info)
 
       if ( l_master_rank ) then
          call shtns_verbose(0)
          write(output_unit,*) ''
       end if
 
-      call shtns_set_size(l_max+1, m_max/minc, minc, norm)
-      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
-           &                1.e-10_cp, n_theta_max, n_phi_max)
-      call shtns_save_cfg(1)
-           
-      call shtns_load_cfg(0)
+      sht_lP = shtns_create(l_max+1, m_max/minc, minc, norm)
+      call shtns_set_grid(sht_lP, layout, eps_polar, n_theta_max, n_phi_max)
       
       ! Assigns all pointers to the correct functions
       if (n_ranks_theta>1) then
          scal_to_spat => scal_to_spat_dist
          scal_to_grad_spat => scal_to_grad_spat_dist
-         spat_to_SH => spat_to_SH_dist
+         scal_to_SH => spat_to_SH_dist
          spat_to_qst => spat_to_qst_dist
          spat_to_sphertor => spat_to_sphertor_dist
          torpol_to_spat => torpol_to_spat_dist
@@ -189,7 +193,7 @@ contains
       else
          scal_to_spat => scal_to_spat_loc
          scal_to_grad_spat => scal_to_grad_spat_loc
-         spat_to_SH => spat_to_SH_loc
+         scal_to_SH => spat_to_SH_loc
          spat_to_qst => spat_to_qst_loc
          spat_to_sphertor => spat_to_sphertor_loc
          torpol_to_spat => torpol_to_spat_loc
@@ -206,13 +210,13 @@ contains
       ! transform a spherical harmonic field into grid space
 
       !-- Input variables
-      complex(cp), intent(in) :: Slm(lm_max)
+      complex(cp), intent(inout) :: Slm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variable
       real(cp), intent(out) :: fieldc(n_phi_max, n_theta_max)
 
-      call shtns_SH_to_spat_l(Slm, fieldc, lcut)
+      call SH_to_spat_l(sht_l, Slm, fieldc, lcut)
 
    end subroutine scal_to_spat_loc
 !------------------------------------------------------------------------------
@@ -221,14 +225,14 @@ contains
       ! on the grid
 
       !-- Input variables
-      complex(cp), intent(in) :: Slm(lm_max)
+      complex(cp), intent(inout) :: Slm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variables
       real(cp), intent(out) :: gradtc(n_phi_max, n_theta_max)
       real(cp), intent(out) :: gradpc(n_phi_max, n_theta_max)
 
-      call shtns_sph_to_spat_l(Slm, gradtc, gradpc, lcut)
+      call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
 
    end subroutine scal_to_grad_spat_loc
 !------------------------------------------------------------------------------
@@ -257,14 +261,15 @@ contains
       end do
       !$omp end parallel do
 
-      call shtns_sph_to_spat_l(Qlm, gradtc, gradpc, lcut)
+      call SHsph_to_spat_l(sht_l, Qlm, gradtc, gradpc, lcut)
 
    end subroutine pol_to_grad_spat_loc
 !------------------------------------------------------------------------------
    subroutine torpol_to_spat_loc(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Wlm(lm_max), dWlm(lm_max), Zlm(lm_max)
+      complex(cp), intent(in) :: Wlm(lm_max)
+      complex(cp), intent(inout) :: dWlm(lm_max), Zlm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -287,7 +292,7 @@ contains
       end do
       !$omp end parallel do
 
-      call shtns_qst_to_spat_l(Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+      call SHqst_to_spat_l(sht_l, Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
    end subroutine torpol_to_spat_loc
 !------------------------------------------------------------------------------
@@ -301,7 +306,7 @@ contains
       real(cp), intent(out) :: vtc(:,:)
       real(cp), intent(out) :: vpc(:,:)
 
-      call shtns_sphtor_to_spat_l(dWlm, Zlm, vtc, vpc, lcut)
+      call SHsphtor_to_spat_l(sht_l, dWlm, Zlm, vtc, vpc, lcut)
 
    end subroutine sphtor_to_spat
 !------------------------------------------------------------------------------
@@ -346,7 +351,7 @@ contains
          end do
       end do
 
-      call shtns_qst_to_spat(Qlm, Slm, Tlm, cbr, cbt, cbp)
+      call SHqst_to_spat(sht_l, Qlm, Slm, Tlm, cbr, cbt, cbp)
 
    end subroutine torpol_to_curl_spat_IC
 !------------------------------------------------------------------------------
@@ -389,7 +394,7 @@ contains
          end do
       end do
 
-      call shtns_qst_to_spat(Qlm, Slm, Tlm, Br, Bt, Bp)
+      call SHqst_to_spat(sht_l, Qlm, Slm, Tlm, Br, Bt, Bp)
 
    end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
@@ -408,7 +413,7 @@ contains
 
       !-- Local variables
       complex(cp) :: Slm(lm_max), Tlm(lm_max)
-      integer :: lm, it, ip, l
+      integer :: lm, it, l
       real(cp) :: m
 
       !$omp parallel do default(shared) private(lm, m, l)
@@ -425,14 +430,12 @@ contains
       end do
       !$omp end parallel do
 
-      call shtns_sphtor_to_spat_l(Slm, Tlm, dvtdp, dvpdp, lcut)
+      call SHsphtor_to_spat_l(sht_l, Slm, Tlm, dvtdp, dvpdp, lcut)
 
-      !$omp parallel do default(shared) private(it,ip)
+      !$omp parallel do default(shared) private(it)
       do it=1, n_theta_max
-         do ip=1, n_phi_max
-            dvtdp(ip, it) = dvtdp(ip, it) * O_sin_theta_E2(it)
-            dvpdp(ip, it) = dvpdp(ip, it) * O_sin_theta_E2(it)
-         end do
+         dvtdp(:, it) = dvtdp(:, it) * O_sin_theta_E2(it)
+         dvpdp(:, it) = dvpdp(:, it) * O_sin_theta_E2(it)
       end do
       !$omp end parallel do
 
@@ -462,7 +465,7 @@ contains
       end do
       !$omp end parallel do
 
-      call shtns_SH_to_spat_l(dQlm, cvrc, lcut)
+      call SH_to_spat_l(sht_l, dQlm, cvrc, lcut)
 
    end subroutine pol_to_curlr_spat_loc
 !------------------------------------------------------------------------------
@@ -470,8 +473,8 @@ contains
               &                   lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Blm(lm_max), ddBlm(lm_max)
-      complex(cp), intent(in) :: Jlm(lm_max), dJlm(lm_max)
+      complex(cp), intent(in) :: Blm(lm_max), ddBlm(lm_max), Jlm(lm_max)
+      complex(cp), intent(inout) :: dJlm(lm_max)
       real(cp),    intent(in) :: or2
       integer,     intent(in) :: lcut
 
@@ -498,7 +501,7 @@ contains
       !
       !$omp end parallel do
 
-      call shtns_qst_to_spat_l(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
+      call SHqst_to_spat_l(sht_l, Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
 
    end subroutine torpol_to_curl_spat_loc
 !------------------------------------------------------------------------------
@@ -511,9 +514,7 @@ contains
       !-- Output variable
       complex(cp), intent(out) :: fLM(lmP_max)
 
-      call shtns_load_cfg(1)
-      call shtns_spat_to_sh_l(f, fLM, lcut+1)
-      call shtns_load_cfg(0)
+      call spat_to_SH_l(sht_lP, f, fLM, lcut+1)
 
    end subroutine spat_to_SH_loc
 !------------------------------------------------------------------------------
@@ -530,9 +531,7 @@ contains
       complex(cp), intent(out) :: sLM(lmP_max)
       complex(cp), intent(out) :: tLM(lmP_max)
 
-      call shtns_load_cfg(1)
-      call shtns_spat_to_qst_l(f, g, h, qLM, sLM, tLM, lcut+1)
-      call shtns_load_cfg(0)
+      call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
 
    end subroutine spat_to_qst_loc
 !------------------------------------------------------------------------------
@@ -547,9 +546,7 @@ contains
       complex(cp), intent(out) :: fLM(lmP_max)
       complex(cp), intent(out) :: gLM(lmP_max)
 
-      call shtns_load_cfg(1)
-      call shtns_spat_to_sphtor_l(f, g, fLM, gLM, lcut+1)
-      call shtns_load_cfg(0)
+      call spat_to_SHsphtor_l(sht_lP, f, g, fLM, gLM, lcut+1)
 
    end subroutine spat_to_sphertor_loc
 !------------------------------------------------------------------------------
@@ -565,8 +562,7 @@ contains
       !-- Local arrays
       complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
 
-      call shtns_tor_to_spat_ml(0, fl_ax, tmpt, tmpp, l_max)
-
+      call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, l_max)
       ft(:)=real(tmpt(:))
       fp(:)=real(tmpp(:))
 
@@ -581,10 +577,12 @@ contains
       complex(cp) :: tmp(n_theta_max)
       complex(cp) :: tmpLM(size(fLM))
 
-      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(1)
       tmp(:)=cmplx(f(:),0.0_cp,kind=cp)
-      call shtns_spat_to_sh_ml(0, tmp, tmpLM, size(fLM)-1)
-      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(0)
+      if ( size(fLM) == l_max+2 ) then
+         call spat_to_SH_ml(sht_lP, 0, tmp, tmpLM, l_max+1)
+      else if ( size(fLM) == l_max+1 ) then
+         call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
+      end if
       fLM(:)=real(tmpLM(:))
 
    end subroutine spat_to_SH_axi_loc
@@ -606,7 +604,7 @@ contains
       !
       
       !-- Input variables
-      complex(cp),  intent(in) :: fLM_loc(n_lm_loc)
+      complex(cp),  intent(inout) :: fLM_loc(n_lm_loc)
       
       !-- Output variables
       real(cp),     intent(out)   :: fieldc_loc(n_phi_max, n_theta_loc)
@@ -629,7 +627,7 @@ contains
         u_lm = map_dist_st%lm2(l_max, m)
         !tmp1=fLM_loc
 
-        call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i),lcut)
+        call SH_to_spat_ml(sht_l, m/minc, fLM_loc(l_lm:u_lm), fL_loc(:,i), lcut)
 
         !block
         !
@@ -661,7 +659,7 @@ contains
       !
 
       !-- Input variables
-      complex(cp), intent(in) :: Slm(n_lm_loc)
+      complex(cp), intent(inout) :: Slm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -684,7 +682,7 @@ contains
          end if
          l_lm = map_dist_st%lm2(m, m)
          u_lm = map_dist_st%lm2(l_max, m)
-         call shtns_sph_to_spat_ml(m/minc, Slm(l_lm:u_lm), fL(:,i), gL(:,i), lcut)
+         call SHsph_to_spat_ml(sht_l, m/minc, Slm(l_lm:u_lm), fL(:,i), gL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -697,7 +695,8 @@ contains
    subroutine torpol_to_spat_dist(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Wlm(n_lm_loc), dWlm(n_lm_loc), Zlm(n_lm_loc)
+      complex(cp), intent(in) :: Wlm(n_lm_loc)
+      complex(cp), intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -726,8 +725,8 @@ contains
          
          Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Wlm(l_lm:u_lm)
          !if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
-         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
-              &                    Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
+         call SHqst_to_spat_ml(sht_l, m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
+              &                Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -742,8 +741,8 @@ contains
               &                        cvpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
-      complex(cp), intent(in) :: Jlm(n_lm_loc), dJlm(n_lm_loc)
+      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc), Jlm(n_lm_loc)
+      complex(cp), intent(inout) :: dJlm(n_lm_loc)
       real(cp),    intent(in) :: or2
       integer,     intent(in) :: lcut
 
@@ -773,8 +772,8 @@ contains
          
          Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Jlm(l_lm:u_lm)
          Tlm(m:l_max) = or2 * dLh_loc(l_lm:u_lm) * Blm(l_lm:u_lm) - ddBlm(l_lm:u_lm)
-         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), &
-              &                    Tlm(m:l_max), fL(:,i), gL(:,i), hL(:,i), lcut)
+         call SHqst_to_spat_ml(sht_l, m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), &
+              &                Tlm(m:l_max), fL(:,i), gL(:,i), hL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -813,7 +812,7 @@ contains
          u_lm = map_dist_st%lm2(l_max, m)
          
          Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Slm(l_lm:u_lm)
-         call shtns_sph_to_spat_ml(m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
+         call SHsph_to_spat_ml(sht_l, m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -856,8 +855,8 @@ contains
          
          Slm(m:l_max) = ci*m*dWlm(l_lm:u_lm)
          Tlm(m:l_max) = ci*m*Zlm(l_lm:u_lm)
-         call shtns_sphtor_to_spat_ml(m/minc, Slm(m:l_max), Tlm(m:l_max), &
-              &                       fL(:,i), gL(:,i), lcut)
+         call SHsphtor_to_spat_ml(sht_l, m/minc, Slm(m:l_max), Tlm(m:l_max), &
+              &                   fL(:,i), gL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -901,7 +900,7 @@ contains
          u_lm = map_dist_st%lm2(l_max, m)
          
          dQlm(m:l_max) = dLh_loc(l_lm:u_lm) * Qlm(l_lm:u_lm)
-         call shtns_SH_to_spat_ml(m/minc, dQlm(m:l_max), fL(:,i), lcut)
+         call SH_to_spat_ml(sht_l, m/minc, dQlm(m:l_max), fL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -917,7 +916,7 @@ contains
 !   
 !------------------------------------------------------------------------------
   
-   !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
    subroutine spat_to_SH_dist(f_loc, fLMP_loc, lcut)
 
       !-- Input variables
@@ -931,8 +930,6 @@ contains
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
       integer :: m, l_lm, u_lm, i
       
-      call shtns_load_cfg(1) ! l_max + 1
-      
       call transform_phi2m(f_loc, fL_loc)
       
       !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
@@ -944,15 +941,12 @@ contains
             fLMP_loc(l_lm:u_lm)=zero
             cycle
          end if 
-         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLMP_loc(l_lm:u_lm),lcut+1)
+         call spat_to_SH_ml(sht_lP, m/minc,fL_loc(:,i),fLMP_loc(l_lm:u_lm),lcut+1)
       end do
       !$omp end parallel do
       
-      call shtns_load_cfg(0) ! l_max
-
    end subroutine spat_to_SH_dist
-   
-   !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
    subroutine spat_to_qst_dist(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
 
       !-- Input variables
@@ -972,8 +966,6 @@ contains
       complex(cp) ::  hL_loc(n_theta_max,n_m_loc)
       integer :: i, l_lm, u_lm, m
 
-      call shtns_load_cfg(1)
-      
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
       call transform_phi2m(f_loc, fL_loc)
       call transform_phi2m(g_loc, gL_loc)
@@ -990,17 +982,14 @@ contains
             tLMP_loc(l_lm:u_lm)=zero
             cycle
          end if
-         call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
-              &                    qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),   &
-              &                    tLMP_loc(l_lm:u_lm),lcut+1)
+         call spat_to_SHqst_ml(sht_lP,m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
+              &                qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),          &
+              &                tLMP_loc(l_lm:u_lm),lcut+1)
       end do
       !$omp end parallel do
-      
-      call shtns_load_cfg(0)
 
    end subroutine spat_to_qst_dist
-   
-   !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
    subroutine spat_to_sphertor_dist(f_loc, g_loc, fLMP_loc, gLMP_loc, lcut)
 
       !-- Input variables
@@ -1017,8 +1006,6 @@ contains
       complex(cp) ::  gL_loc(n_theta_max,n_m_loc)
       integer :: i, l_lm, u_lm, m
 
-      call shtns_load_cfg(1)
-      
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
       call transform_phi2m(f_loc, fL_loc)
       call transform_phi2m(g_loc, gL_loc)
@@ -1033,17 +1020,13 @@ contains
             gLMP_loc(l_lm:u_lm)=zero
             cycle
          end if
-         call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
-              &                       fLMP_loc(l_lm:u_lm),           &
-              &                       gLMP_loc(l_lm:u_lm),lcut+1)
+         call spat_to_SHsphtor_ml(sht_lP,m/minc,fL_loc(:,i),gL_loc(:,i),&
+              &                   fLMP_loc(l_lm:u_lm),gLMP_loc(l_lm:u_lm),lcut+1)
       end do
       !$omp end parallel do
-      
-      call shtns_load_cfg(0)
 
    end subroutine spat_to_sphertor_dist
-   
-   !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
    subroutine spat_to_SH_axi_dist(f, fLM)
 
       real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
@@ -1055,7 +1038,6 @@ contains
       complex(cp) :: tmpLM(size(fLM))
       integer     :: ierr
 
-      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(1)
       tmp_r(nThetaStart:nThetaStop)=f(nThetaStart:nThetaStop)
 
 #ifdef WITH_MPI
@@ -1069,9 +1051,12 @@ contains
       end if
 #endif
       tmp_c = cmplx(tmp_r, 0.0, kind=cp)
-      call shtns_spat_to_sh_ml(0, tmp_c, tmpLM, size(fLM)-1)
-      
-      if ( size(fLM) == l_max+2 ) call shtns_load_cfg(0)
+      if ( size(fLM) == l_max+2 ) then
+         call spat_to_SH_ml(sht_lP, 0, tmp_c, tmpLM, size(fLM)-1)
+      else if ( size(fLM) == l_max+1 ) then
+         call spat_to_SH_ml(sht_l, 0, tmp_c, tmpLM, size(fLM)-1)
+      end if
+       
       fLM(:)=real(tmpLM(:))
 
    end subroutine spat_to_SH_axi_dist
@@ -1091,7 +1076,7 @@ contains
       
       !-- Input variables
       integer,     intent(in) :: lcut
-      complex(cp), intent(in) :: fLM_loc(n_lm_loc)
+      complex(cp), intent(inout) :: fLM_loc(n_lm_loc)
       
       !-- Output variables
       complex(cp), intent(out) :: field_hyb(n_theta_max, n_m_loc)
@@ -1109,7 +1094,7 @@ contains
         l_lm = map_dist_st%lm2(m, m)
         u_lm = map_dist_st%lm2(l_max, m)
 
-        call shtns_sh_to_spat_ml(m/minc, fLM_loc(l_lm:u_lm), field_hyb(:,i),lcut)
+        call SH_to_spat_ml(sht_l, m/minc, fLM_loc(l_lm:u_lm), field_hyb(:,i),lcut)
 
       end do
       !$omp end parallel do
@@ -1123,7 +1108,7 @@ contains
       !
 
       !-- Input variables
-      complex(cp), intent(in) :: Slm(n_lm_loc)
+      complex(cp), intent(inout) :: Slm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -1144,8 +1129,8 @@ contains
          end if
          l_lm = map_dist_st%lm2(m, m)
          u_lm = map_dist_st%lm2(l_max, m)
-         call shtns_sph_to_spat_ml(m/minc, Slm(l_lm:u_lm), gradtL(:,i), gradpL(:,i), &
-              &                    lcut)
+         call SHsph_to_spat_ml(sht_l, m/minc, Slm(l_lm:u_lm), gradtL(:,i), gradpL(:,i), &
+              &                lcut)
       end do
       !$omp end parallel do
       
@@ -1154,7 +1139,8 @@ contains
    subroutine torpol_to_hyb(Wlm, dWlm, Zlm, fL, gL, hL, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Wlm(n_lm_loc), dWlm(n_lm_loc), Zlm(n_lm_loc)
+      complex(cp), intent(in) :: Wlm(n_lm_loc)
+      complex(cp), intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -1180,8 +1166,8 @@ contains
          
          Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Wlm(l_lm:u_lm)
          !if (lcut<l_max) Qlm(lcut+1:u_lm) = zero
-         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
-              &                    Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
+         call SHqst_to_spat_ml(sht_l, m/minc, Qlm(m:l_max), dWlm(l_lm:u_lm), &
+              &                Zlm(l_lm:u_lm), fL(:,i), gL(:,i), hL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -1190,8 +1176,8 @@ contains
    subroutine torpol_to_curl_hyb(or2, Blm, ddBlm, Jlm, dJlm, fL, gL, hL, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
-      complex(cp), intent(in) :: Jlm(n_lm_loc), dJlm(n_lm_loc)
+      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc), Jlm(n_lm_loc)
+      complex(cp), intent(inout) :: dJlm(n_lm_loc)
       real(cp),    intent(in) :: or2
       integer,     intent(in) :: lcut
 
@@ -1218,8 +1204,8 @@ contains
          
          Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Jlm(l_lm:u_lm)
          Tlm(m:l_max) = or2 * dLh_loc(l_lm:u_lm) * Blm(l_lm:u_lm) - ddBlm(l_lm:u_lm)
-         call shtns_qst_to_spat_ml(m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), &
-              &                    Tlm(m:l_max), fL(:,i), gL(:,i), hL(:,i), lcut)
+         call SHqst_to_spat_ml(sht_l, m/minc, Qlm(m:l_max), dJlm(l_lm:u_lm), &
+              &                Tlm(m:l_max), fL(:,i), gL(:,i), hL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -1251,7 +1237,7 @@ contains
          u_lm = map_dist_st%lm2(l_max, m)
          
          Qlm(m:l_max) = dLh_loc(l_lm:u_lm) * Slm(l_lm:u_lm)
-         call shtns_sph_to_spat_ml(m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
+         call SHsph_to_spat_ml(sht_l, m/minc, Qlm(m:l_max), fL(:,i), gL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -1287,8 +1273,8 @@ contains
          
          Slm(m:l_max) = ci*m*dWlm(l_lm:u_lm)
          Tlm(m:l_max) = ci*m*Zlm(l_lm:u_lm)
-         call shtns_sphtor_to_spat_ml(m/minc, Slm(m:l_max), Tlm(m:l_max), &
-              &                       fL(:,i), gL(:,i), lcut)
+         call SHsphtor_to_spat_ml(sht_l, m/minc, Slm(m:l_max), Tlm(m:l_max), &
+              &                   fL(:,i), gL(:,i), lcut)
          do it=1,n_theta_max
             fL(it,i)=fL(it,i)*O_sin_theta_E2(it)
             gL(it,i)=gL(it,i)*O_sin_theta_E2(it)
@@ -1322,7 +1308,7 @@ contains
          u_lm = map_dist_st%lm2(l_max, m)
          
          dQlm(m:l_max) = dLh_loc(l_lm:u_lm) * Qlm(l_lm:u_lm)
-         call shtns_SH_to_spat_ml(m/minc, dQlm(m:l_max), fL(:,i), lcut)
+         call SH_to_spat_ml(sht_l, m/minc, dQlm(m:l_max), fL(:,i), lcut)
       end do
       !$omp end parallel do
       
@@ -1331,7 +1317,7 @@ contains
    subroutine hyb_to_SH(fL_loc, fLMP_loc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: fL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(inout) :: fL_loc(n_theta_max,n_m_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variable
@@ -1339,8 +1325,6 @@ contains
       
       !-- Local variables
       integer :: m, l_lm, u_lm, i
-      
-      call shtns_load_cfg(1) ! l_max + 1
       
       !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
@@ -1351,20 +1335,18 @@ contains
             fLMP_loc(l_lm:u_lm)=zero
             cycle
          end if 
-         call shtns_spat_to_sh_ml(m/minc,fL_loc(:,i),fLMP_loc(l_lm:u_lm),lcut+1)
+         call spat_to_SH_ml(sht_lP, m/minc,fL_loc(:,i),fLMP_loc(l_lm:u_lm),lcut+1)
       end do
       !$omp end parallel do
-      
-      call shtns_load_cfg(0) ! l_max
 
    end subroutine hyb_to_SH
 !------------------------------------------------------------------------------
    subroutine hyb_to_qst(fL_loc, gL_loc, hL_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: fL_loc(n_theta_max,n_m_loc)
-      complex(cp), intent(in) :: gL_loc(n_theta_max,n_m_loc)
-      complex(cp), intent(in) :: hL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(inout) :: fL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(inout) :: gL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(inout) :: hL_loc(n_theta_max,n_m_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -1375,8 +1357,6 @@ contains
       !-- Local variables
       integer :: i, l_lm, u_lm, m
 
-      call shtns_load_cfg(1)
-      
       !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
@@ -1388,21 +1368,19 @@ contains
             tLMP_loc(l_lm:u_lm)=zero
             cycle
          end if
-         call shtns_spat_to_qst_ml(m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
-              &                    qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),   &
-              &                    tLMP_loc(l_lm:u_lm),lcut+1)
+         call spat_to_SHqst_ml(sht_lP, m/minc,fL_loc(:,i),gL_loc(:,i),hL_loc(:,i),&
+              &                qLMP_loc(l_lm:u_lm),sLMP_loc(l_lm:u_lm),           &
+              &                tLMP_loc(l_lm:u_lm),lcut+1)
       end do
       !$omp end parallel do
-      
-      call shtns_load_cfg(0)
 
    end subroutine hyb_to_qst
 !------------------------------------------------------------------------------
    subroutine hyb_to_sphertor(fL_loc, gL_loc, fLMP_loc, gLMP_loc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: fL_loc(n_theta_max,n_m_loc)
-      complex(cp), intent(in) :: gL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(inout) :: fL_loc(n_theta_max,n_m_loc)
+      complex(cp), intent(inout) :: gL_loc(n_theta_max,n_m_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -1412,8 +1390,6 @@ contains
       !-- Local variables
       integer :: i, l_lm, u_lm, m
 
-      call shtns_load_cfg(1)
-      
       !$omp parallel do default(shared) private(i,m,l_lm,u_lm)
       do i = 1, n_m_loc
          m = dist_m(coord_m, i)
@@ -1424,13 +1400,11 @@ contains
             gLMP_loc(l_lm:u_lm)=zero
             cycle
          end if
-         call shtns_spat_to_sphtor_ml(m/minc,fL_loc(:,i),gL_loc(:,i),&
-              &                       fLMP_loc(l_lm:u_lm),           &
-              &                       gLMP_loc(l_lm:u_lm),lcut+1)
+         call spat_to_SHsphtor_ml(sht_lP,m/minc,fL_loc(:,i),gL_loc(:,i),&
+              &                   fLMP_loc(l_lm:u_lm),                  &
+              &                   gLMP_loc(l_lm:u_lm),lcut+1)
       end do
       !$omp end parallel do
-      
-      call shtns_load_cfg(0)
 
    end subroutine hyb_to_sphertor
 !------------------------------------------------------------------------------

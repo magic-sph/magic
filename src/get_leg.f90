@@ -459,20 +459,20 @@ contains
       class(hybrid_3D_arrays_t) :: this
 
       !-- Input variables
-      complex(cp), intent(in) :: w(n_lm_loc,nRstart:nRstop)   ! Poloidal potential
-      complex(cp), intent(in) :: dw(n_lm_loc,nRstart:nRstop)  ! dw/dr
-      complex(cp), intent(in) :: ddw(n_lm_loc,nRstart:nRstop) ! d^2w/dr^2
-      complex(cp), intent(in) :: z(n_lm_loc,nRstart:nRstop)   ! Toroidal potential
-      complex(cp), intent(in) :: dz(n_lm_loc,nRstart:nRstop)  ! dz/dr
-      complex(cp), intent(in) :: b(n_lm_loc,nRstart:nRstop)   ! Magnetic poloidal potential
-      complex(cp), intent(in) :: db(n_lm_loc,nRstart:nRstop)  ! db/dr
-      complex(cp), intent(in) :: ddb(n_lm_loc,nRstart:nRstop) ! d^2b/dr^2
-      complex(cp), intent(in) :: aj(n_lm_loc,nRstart:nRstop)  ! Magnetic toroidal potential
-      complex(cp), intent(in) :: dj(n_lm_loc,nRstart:nRstop)  ! dj/dr
-      complex(cp), intent(in) :: s(n_lm_loc,nRstart:nRstop)   ! Entropy
-      complex(cp), intent(in) :: ds(n_lm_loc,nRstart:nRstop)  ! ds/dr
-      complex(cp), intent(in) :: p(n_lm_loc,nRstart:nRstop)   ! Pressure
-      complex(cp), intent(in) :: xi(n_lm_loc,nRstart:nRstop)  ! Chemical composition
+      complex(cp), intent(inout) :: w(n_lm_loc,nRstart:nRstop)   ! Poloidal potential
+      complex(cp), intent(inout) :: dw(n_lm_loc,nRstart:nRstop)  ! dw/dr
+      complex(cp), intent(inout) :: ddw(n_lm_loc,nRstart:nRstop) ! d^2w/dr^2
+      complex(cp), intent(inout) :: z(n_lm_loc,nRstart:nRstop)   ! Toroidal potential
+      complex(cp), intent(inout) :: dz(n_lm_loc,nRstart:nRstop)  ! dz/dr
+      complex(cp), intent(inout) :: b(n_lm_loc,nRstart:nRstop)   ! Magnetic poloidal potential
+      complex(cp), intent(inout) :: db(n_lm_loc,nRstart:nRstop)  ! db/dr
+      complex(cp), intent(inout) :: ddb(n_lm_loc,nRstart:nRstop) ! d^2b/dr^2
+      complex(cp), intent(inout) :: aj(n_lm_loc,nRstart:nRstop)  ! Magnetic toroidal potential
+      complex(cp), intent(inout) :: dj(n_lm_loc,nRstart:nRstop)  ! dj/dr
+      complex(cp), intent(inout) :: s(n_lm_loc,nRstart:nRstop)   ! Entropy
+      complex(cp), intent(inout) :: ds(n_lm_loc,nRstart:nRstop)  ! ds/dr
+      complex(cp), intent(inout) :: p(n_lm_loc,nRstart:nRstop)   ! Pressure
+      complex(cp), intent(inout) :: xi(n_lm_loc,nRstart:nRstop)  ! Chemical composition
       logical,     intent(in) :: lVisc, lRmsCalc, lPressCalc, lPowerCalc
       logical,     intent(in) :: lTOCalc, lFluxProfCalc, l_frame, lHelCalc
       logical,     intent(in) :: lPerpParCalc
@@ -678,7 +678,6 @@ contains
       logical :: l_bound
       integer :: nR
 
-      call shtns_load_cfg(1)
       do nR=nRstart,nRstop
          l_bound = (nR == n_r_cmb ) .or. ( nR == n_r_icb )
 
@@ -750,7 +749,6 @@ contains
          end if
 
       end do
-      call shtns_load_cfg(0)
 
    end subroutine leg_hyb_to_spec
 !-----------------------------------------------------------------------------------

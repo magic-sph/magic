@@ -591,8 +591,6 @@ contains
       !-- Local variables
       integer :: nTheta, nThStart, nThStop
 
-      call shtns_load_cfg(1)
-
       if ( ( l_conv_nl .or. l_mag_LF ) ) then
 
          !$omp parallel default(shared) private(nThStart,nThStop,nTheta)
@@ -640,15 +638,15 @@ contains
          end if
          !$omp end parallel
          
-         call spat_to_SH(this%gsa%Advr, this%nl_lm%AdvrLM, l_R(nR))
-         call spat_to_SH(this%gsa%Advt, this%nl_lm%AdvtLM, l_R(nR))
-         call spat_to_SH(this%gsa%Advp, this%nl_lm%AdvpLM, l_R(nR))
+         call scal_to_SH(this%gsa%Advr, this%nl_lm%AdvrLM, l_R(nR))
+         call scal_to_SH(this%gsa%Advt, this%nl_lm%AdvtLM, l_R(nR))
+         call scal_to_SH(this%gsa%Advp, this%nl_lm%AdvpLM, l_R(nR))
 
          if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
             ! LF treated extra:
-            call spat_to_SH(this%gsa%LFr, this%nl_lm%LFrLM, l_R(nR))
-            call spat_to_SH(this%gsa%LFt, this%nl_lm%LFtLM, l_R(nR))
-            call spat_to_SH(this%gsa%LFp, this%nl_lm%LFpLM, l_R(nR))
+            call scal_to_SH(this%gsa%LFr, this%nl_lm%LFrLM, l_R(nR))
+            call scal_to_SH(this%gsa%LFt, this%nl_lm%LFtLM, l_R(nR))
+            call scal_to_SH(this%gsa%LFp, this%nl_lm%LFpLM, l_R(nR))
          end if
       end if
       if ( l_heat ) then
@@ -657,10 +655,10 @@ contains
          
          if ( l_anel ) then ! anelastic stuff
             if ( l_mag_nl .and. nR>n_r_LCR ) then
-               call spat_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
-               call spat_to_SH(this%gsa%OhmLoss,  this%nl_lm%OhmLossLM, l_R(nR))
+               call scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
+               call scal_to_SH(this%gsa%OhmLoss,  this%nl_lm%OhmLossLM, l_R(nR))
             else
-               call spat_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
+               call scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
             end if
          end if
          !PERFOFF
@@ -697,7 +695,7 @@ contains
                  &                this%nl_lm%Advp2LM, l_R(nR))
          end if
          if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call spat_to_SH(this%gsa%dpkindrc, this%nl_lm%dpkindrLM, l_R(nR))
+            call scal_to_SH(this%gsa%dpkindrc, this%nl_lm%dpkindrLM, l_R(nR))
          end if
          if ( l_mag_nl .and. nR>n_r_LCR ) then
             call spat_to_sphertor(this%gsa%LFt2, this%gsa%LFp2, this%nl_lm%LFt2LM, &
@@ -705,7 +703,6 @@ contains
          end if
       end if
       
-      call shtns_load_cfg(0)
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------

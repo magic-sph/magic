@@ -31,7 +31,7 @@ module init_fields
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
    use useful, only: random, abortRun
-   use sht, only: spat_to_SH
+   use sht, only: scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -178,7 +178,7 @@ contains
                end do
             end do
                !------------ Transform to spherical hamonic space for each radius
-            call spat_to_SH(ome, omeLM, l_max)
+            call scal_to_SH(ome, omeLM, l_max)
 
             !------- ome now in spherical harmonic space,
             !        apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -232,7 +232,7 @@ contains
                end do
                !------------ Transform to spherical hamonic space for each theta block
             end do ! End of loop over theta blocks
-            call spat_to_SH(ome, omeLM, l_max)
+            call scal_to_SH(ome, omeLM, l_max)
 
             !--- ome now in spherical harmonic space,
             !    apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -601,7 +601,7 @@ contains
             end do
          end do
          !------ Transform to spherical hamonic space for each theta block
-         call spat_to_SH(sCMB, sLMP_loc, l_max)
+         call scal_to_SH(sCMB, sLMP_loc, l_max)
 
          !--- sFac describes the linear dependence of the (l=0,m=0) mode
          !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
@@ -673,7 +673,7 @@ contains
          end do
       end do
       !------ Transform to spherical hamonic space for each theta block
-      call spat_to_SH(sCMB, sLMP_loc, l_max)
+      call scal_to_SH(sCMB, sLMP_loc, l_max)
 
       !@> TODO: is there another way than gathering here?
       call gather_FLMP(sLMP_loc, sLMP)
@@ -895,7 +895,7 @@ contains
                end if
             end do
          end do
-         call spat_to_SH(xiCMB, xiLM_loc, l_max)
+         call scal_to_SH(xiCMB, xiLM_loc, l_max)
 
          !--- xiFac describes the linear dependence of the (l=0,m=0) mode
          !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
@@ -966,7 +966,7 @@ contains
             end do
          end do
       end do
-      call spat_to_SH(xiCMB, xiLM_loc, l_max)
+      call scal_to_SH(xiCMB, xiLM_loc, l_max)
 
       !@> TODO: is there another way than gathering here?
       call gather_FLMP(xiLM_loc, xiLM)
