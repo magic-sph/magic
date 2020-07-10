@@ -1385,7 +1385,7 @@ contains
 
       real(cp) :: O_r              ! 1/r
       real(cp) :: O_sint           ! 1/sin(theta)
-      real(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
 
       !-- Calculate radial dependencies:
