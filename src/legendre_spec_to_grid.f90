@@ -6,7 +6,7 @@ module legendre_spec_to_grid
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
        &                      Plm_loc, dPlm_loc
    use constants, only: zero, half, one, ci
-   use fft, only: fft_phi_loc
+   use fft, only: ifft_many
 
    implicit none
  
@@ -259,9 +259,9 @@ contains
       end if
 
       if ( .not. l_axi ) then
-         call fft_phi_loc(brc,tmpr,-1)
-         call fft_phi_loc(btc,tmpt,-1)
-         call fft_phi_loc(bpc,tmpp,-1)
+         call ifft_many(tmpr,brc)
+         call ifft_many(tmpt,btc)
+         call ifft_many(tmpp,bpc)
       end if
     
    end subroutine qst_to_spat
@@ -369,8 +369,8 @@ contains
       end if
 
       if ( .not. l_axi ) then
-         call fft_phi_loc(btc,tmpt,-1)
-         call fft_phi_loc(bpc,tmpp,-1)
+         call ifft_many(tmpt,btc)
+         call ifft_many(tmpp,bpc)
       end if
     
    end subroutine sphtor_to_spat
@@ -416,7 +416,7 @@ contains
          end do  ! loop over nThetaN (theta)
       end if
 
-      if ( .not. l_axi ) call fft_phi_loc(sc,tmp,-1)
+      if ( .not. l_axi ) call ifft_many(tmp,sc)
 
    end subroutine sh_to_spat
 !------------------------------------------------------------------------------
@@ -474,8 +474,8 @@ contains
       end if
 
       if ( .not. l_axi ) then
-         call fft_phi_loc(gradtc,tmpt,-1)
-         call fft_phi_loc(gradpc,tmpp,-1)
+         call ifft_many(tmpt,gradtc)
+         call ifft_many(tmpp,gradpc)
       end if
 
    end subroutine sh_to_grad_spat

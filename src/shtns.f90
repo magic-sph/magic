@@ -10,7 +10,6 @@ module sht
        &                 nThetaStart, nThetaStop, coord_m, dist_theta
    use horizontal_data, only: dLh_loc, dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
-   use fft, only: fft_phi_loc
    use LMmapping, only: map_dist_st, map_glbl_st
    use mpi_thetap_mod
 

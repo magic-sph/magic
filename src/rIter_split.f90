@@ -11,7 +11,7 @@ module rIter_split
        &                 nThetaStop
    use nonlinear_3D_lm_mod, only: nonlinear_3D_lm_t
    use hybrid_space_mod, only: hybrid_3D_arrays_t
-   use grid_space_arrays_3d_mod, only: grid_3D_arrays_t
+   use grid_space_arrays_mod, only: grid_space_arrays_t
    use dtB_arrays_mod, only: dtB_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
@@ -36,7 +36,7 @@ module rIter_split
    use graphOut_mod, only: graphOut_header, graphOut
 #endif
    use parallel_mod, only: n_ranks_r, coord_r, get_openmp_blocks
-   use fft, only: ifft_phi, fft_phi
+   use fft, only: ifft_many, fft_many
    use rIteration, only: rIter_t
 
    implicit none
@@ -44,7 +44,7 @@ module rIter_split
    private
 
    type, public, extends(rIter_t)  :: rIter_split_t
-      type(grid_3D_arrays_t) :: gsa
+      type(grid_space_arrays_t) :: gsa
       type(hybrid_3D_arrays_t) :: hsa
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
@@ -216,10 +216,6 @@ contains
       call this%hsa%transp_Mloc_to_Thloc(lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, &
            &                             lPowerCalc, lFluxProfCalc, lPerpParCalc,    &
            &                             lHelCalc, l_frame)
-
-      !-- FFT's
-      call this%fft_hyb_to_grid(lViscBcCalc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &
-           &                    lFluxProfCalc,lPerpParCalc,lHelCalc,l_frame)
       call lm2phy_counter%stop_count()
 
       !-- Physical space loop
@@ -236,9 +232,6 @@ contains
       nl_counter%n_counts = nl_counter%n_counts+1
 
       call phy2lm_counter%start_count()
-      !-- FFT's
-      call this%fft_grid_to_hyb(lRmsCalc)
-
       !-- Transposes
       call this%hsa%transp_Thloc_to_Mloc(lRmsCalc)
 
@@ -388,19 +381,20 @@ contains
          lorentz_torque_ma = 0.0_cp
          lorentz_torque_ic = 0.0_cp
 
+         !-- iFFT: hybrid to grid space
+         call this%fft_hyb_to_grid(nR,lVisc,lRmsCalc,lPressCalc,lTOCalc,  &
+              &                    lPowerCalc,lFluxProfCalc,lPerpParCalc, &
+              &                    lHelCalc,l_frame)
+
          if ( nBc == 2 ) then
             if ( nR == n_r_cmb ) then
-               call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc(:,:,nR),    &
-                    &                this%gsa%vtc(:,:,nR), this%gsa%vpc(:,:,nR),    &
-                    &                this%gsa%cvrc(:,:,nR), this%gsa%dvrdtc(:,:,nR),&
-                    &                this%gsa%dvrdpc(:,:,nR),                       &
-                    &                this%gsa%dvtdpc(:,:,nR), this%gsa%dvpdpc(:,:,nR))
+               call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc, this%gsa%vtc, &
+                    &                this%gsa%vpc,this%gsa%cvrc, this%gsa%dvrdtc,      &
+                    &                this%gsa%dvrdpc, this%gsa%dvtdpc, this%gsa%dvpdpc)
             else if ( nR == n_r_icb ) then
-               call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc(:,:,nR),    &
-                    &                this%gsa%vtc(:,:,nR), this%gsa%vpc(:,:,nR),    &
-                    &                this%gsa%cvrc(:,:,nR), this%gsa%dvrdtc(:,:,nR),&
-                    &                this%gsa%dvrdpc(:,:,nR),                       &
-                    &                this%gsa%dvtdpc(:,:,nR), this%gsa%dvpdpc(:,:,nR))
+               call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc, this%gsa%vtc, &
+                    &                this%gsa%vpc, this%gsa%cvrc, this%gsa%dvrdtc,     &
+                    &                this%gsa%dvrdpc, this%gsa%dvtdpc, this%gsa%dvpdpc)
             end if
          end if
 
@@ -412,83 +406,68 @@ contains
 
          if ( (.not. l_bound .or. lRmsCalc ) .and. (l_conv_nl .or. l_mag_LF) ) then
 
-            !$omp parallel default(shared) private(nThStart,nThStop,nTheta,nPhi)
+            !$omp parallel default(shared) private(nThStart,nThStop,nTheta)
             nThStart=nThetaStart; nThStop=nThetaStop
             call get_openmp_blocks(nThStart,nThStop)
 
-            if ( l_conv_nl .and. l_mag_LF ) then
-               if ( nR>n_r_LCR ) then
-                  do nTheta=nThStart,nThStop
-                     do nPhi=1,n_phi_max
-                        this%gsa%Advr(nPhi,nTheta,nR)=this%gsa%Advr(nPhi,nTheta,nR)+&
-                        &                             this%gsa%LFr(nPhi,nTheta,nR)
-                        this%gsa%Advt(nPhi,nTheta,nR)=this%gsa%Advt(nPhi,nTheta,nR)+&
-                        &                             this%gsa%LFt(nPhi,nTheta,nR)
-                        this%gsa%Advp(nPhi,nTheta,nR)=this%gsa%Advp(nPhi,nTheta,nR)+&
-                        &                             this%gsa%LFp(nPhi,nTheta,nR)
-                     end do
-                  end do
+            do nTheta=nThStart,nThStop
+               if ( l_conv_nl .and. l_mag_LF ) then
+                  if ( nR>n_r_LCR ) then
+                     this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+&
+                     &                          this%gsa%LFr(:,nTheta)
+                     this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+&
+                     &                          this%gsa%LFt(:,nTheta)
+                     this%gsa%Advp(:,nTheta)=this%gsa%Advp(:,nTheta)+&
+                     &                          this%gsa%LFp(:,nTheta)
+                  end if
+               else if ( l_mag_LF ) then
+                  if ( nR > n_r_LCR ) then
+                     this%gsa%Advr(:,nTheta)=this%gsa%LFr(:,nTheta)
+                     this%gsa%Advt(:,nTheta)=this%gsa%LFt(:,nTheta)
+                     this%gsa%Advp(:,nTheta)=this%gsa%LFp(:,nTheta)
+                  else
+                     this%gsa%Advr(:,nTheta)=0.0_cp
+                     this%gsa%Advt(:,nTheta)=0.0_cp
+                     this%gsa%Advp(:,nTheta)=0.0_cp
+                  end if
                end if
-            else if ( l_mag_LF ) then
-               if ( nR > n_r_LCR ) then
-                  do nTheta=nThStart,nThStop
-                     do nPhi=1,n_phi_max
-                        this%gsa%Advr(nPhi,nTheta,nR)=this%gsa%LFr(nPhi,nTheta,nR)
-                        this%gsa%Advt(nPhi,nTheta,nR)=this%gsa%LFt(nPhi,nTheta,nR)
-                        this%gsa%Advp(nPhi,nTheta,nR)=this%gsa%LFp(nPhi,nTheta,nR)
-                     end do
-                  end do
-               else
-                  do nTheta=nThStart,nThStop
-                     do nPhi=1,n_phi_max
-                        this%gsa%Advr(nPhi,nTheta,nR)=0.0_cp
-                        this%gsa%Advt(nPhi,nTheta,nR)=0.0_cp
-                        this%gsa%Advp(nPhi,nTheta,nR)=0.0_cp
-                     end do
-                  end do
+
+               if ( l_precession ) then
+                  this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+&
+                  &                             this%gsa%PCr(:,nTheta)
+                  this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+&
+                  &                             this%gsa%PCt(:,nTheta)
+                  this%gsa%Advp(:,nTheta)=this%gsa%Advp(:,nTheta)+&
+                  &                             this%gsa%PCp(:,nTheta)
                end if
-            end if
 
-            if ( l_precession ) then
-               do nTheta=nThStart,nThStop
-                  do nPhi=1,n_phi_max
-                     this%gsa%Advr(nPhi,nTheta,nR)=this%gsa%Advr(nPhi,nTheta,nR)+&
-                     &                             this%gsa%PCr(nPhi,nTheta,nR)
-                     this%gsa%Advt(nPhi,nTheta,nR)=this%gsa%Advt(nPhi,nTheta,nR)+&
-                     &                             this%gsa%PCt(nPhi,nTheta,nR)
-                     this%gsa%Advp(nPhi,nTheta,nR)=this%gsa%Advp(nPhi,nTheta,nR)+&
-                     &                             this%gsa%PCp(nPhi,nTheta,nR)
-                  end do
-               end do
-            end if
-
-            if ( l_centrifuge ) then
-               do nTheta=nThStart,nThStop
-                  do nPhi=1,n_phi_max
-                     this%gsa%Advr(nPhi,nTheta,nR)=this%gsa%Advr(nPhi,nTheta,nR)+&
-                     &                             this%gsa%CAr(nPhi,nTheta,nR)
-                     this%gsa%Advt(nPhi,nTheta,nR)=this%gsa%Advt(nPhi,nTheta,nR)+&
-                     &                             this%gsa%CAt(nPhi,nTheta,nR)
-                  end do
-               end do
-            end if
-
+               if ( l_centrifuge ) then
+                     this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+&
+                     &                       this%gsa%CAr(:,nTheta)
+                     this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+&
+                     &                       this%gsa%CAt(:,nTheta)
+               end if
+            end do
             !$omp end parallel
 
          end if
 
+         !-- FFT: grid to hybrid
+         call this%fft_grid_to_hyb(nR,lRmsCalc)
+
+
          if ( nR == n_r_cmb .and. l_b_nl_cmb ) then
             br_vt_lm_cmb(:)=zero
             br_vp_lm_cmb(:)=zero
-            call get_br_v_bcs(this%gsa%brc(:,:,nR), this%gsa%vtc(:,:,nR),        &
-                 &            this%gsa%vpc(:,:,nR), omega_ma, or2(nR),orho1(nR), &
+            call get_br_v_bcs(this%gsa%brc, this%gsa%vtc, this%gsa%vpc, &
+                 &            omega_ma, or2(nR),orho1(nR),              &
                  &            br_vt_lm_cmb, br_vp_lm_cmb)
 
          else if ( nR == n_r_icb .and. l_b_nl_icb ) then
             br_vt_lm_icb(:)=zero
             br_vp_lm_icb(:)=zero
-            call get_br_v_bcs(this%gsa%brc(:,:,nR), this%gsa%vtc(:,:,nR),         &
-                 &            this%gsa%vpc(:,:,nR), omega_ic, or2(nR), orho1(nR), &
+            call get_br_v_bcs(this%gsa%brc, this%gsa%vtc,                 &
+                 &            this%gsa%vpc, omega_ic, or2(nR), orho1(nR), &
                  &            br_vt_lm_icb, br_vp_lm_icb)
          end if
 
@@ -496,41 +475,36 @@ contains
          !   each call adds the contribution of the theta-block to
          !   lorentz_torque_ic
          if ( nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
-            call get_lorentz_torque(lorentz_torque_ic, this%gsa%brc(:,:,nR), &
-                 &                  this%gsa%bpc(:,:,nR), nR)
+            call get_lorentz_torque(lorentz_torque_ic, this%gsa%brc, &
+                 &                  this%gsa%bpc, nR)
          end if
 
          !-- Calculate Lorentz torque on mantle:
          !   note: this calculates a torque of a wrong sign.
          !   sign is reversed at the end of the theta blocking.
          if ( nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-            call get_lorentz_torque(lorentz_torque_ma,this%gsa%brc(:,:,nR), &
-                 &                  this%gsa%bpc(:,:,nR), nR)
+            call get_lorentz_torque(lorentz_torque_ma,this%gsa%brc, &
+                 &                  this%gsa%bpc, nR)
          end if
 
          !-- Calculate courant condition parameters:
          if ( .not. l_full_sphere .or. nR /= n_r_icb ) then
-            call courant(nR,dtrkc(nR),dthkc(nR),this%gsa%vrc(:,:,nR),      &
-                 &       this%gsa%vtc(:,:,nR),this%gsa%vpc(:,:,nR),        &
-                 &       this%gsa%brc(:,:,nR),this%gsa%btc(:,:,nR),        &
-                 &       this%gsa%bpc(:,:,nR), tscheme%courfac, tscheme%alffac)
+            call courant(nR, dtrkc(nR), dthkc(nR), this%gsa%vrc, this%gsa%vtc,  &
+                 &       this%gsa%vpc,this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
+                 &       tscheme%courfac, tscheme%alffac)
          end if
 
          !-- Since the fields are given at gridpoints here, this is a good
          !   point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi(time,nR,this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),   &
-                 &            this%gsa%vpc(:,:,nR),this%gsa%brc(:,:,nR),           &
-                 &            this%gsa%btc(:,:,nR),this%gsa%bpc(:,:,nR),           &
-                 &            this%gsa%sc(:,:,nR),this%gsa%pc(:,:,nR),             &
-                 &            this%gsa%xic(:,:,nR),lGraphHeader)
+            call graphOut_mpi(time,nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc, &
+                 &            this%gsa%pc,this%gsa%xic,lGraphHeader)
 #else
-            call graphOut(time,nR,this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),       &
-                 &        this%gsa%vpc(:,:,nR),this%gsa%brc(:,:,nR),               &
-                 &        this%gsa%btc(:,:,nR),this%gsa%bpc(:,:,nR),               &
-                 &        this%gsa%sc(:,:,nR),this%gsa%pc(:,:,nR),                 &
-                 &        this%gsa%xic(:,:,nR),lGraphHeader)
+            call graphOut(time,nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+                 &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc, &
+                 &        this%gsa%pc,this%gsa%xic,lGraphHeader)
 #endif
          end if
 
@@ -542,97 +516,81 @@ contains
 
          !--------- Helicity output:
          if ( lHelCalc ) then
-            call get_helicity(this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),        &
-                 &            this%gsa%vpc(:,:,nR),this%gsa%cvrc(:,:,nR),       &
-                 &            this%gsa%dvrdtc(:,:,nR),this%gsa%dvrdpc(:,:,nR),  &
-                 &            this%gsa%dvtdrc(:,:,nR),this%gsa%dvpdrc(:,:,nR),  &
-                 &            HelAS(:,nR),Hel2AS(:,nR),HelnaAS(:,nR),           &
-                 &            Helna2AS(:,nR), HelEAAs(nR),nR)
+            call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         & 
+                 &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
+                 &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelAS(:,nR),    &
+                 &            Hel2AS(:,nR),HelnaAS(:,nR),Helna2AS(:,nR),      &
+                 &            HelEAAs(nR),nR)
          end if
 
          !-- Viscous heating:
          if ( lPowerCalc ) then
-            call get_visc_heat(this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),        &
-                 &             this%gsa%vpc(:,:,nR),this%gsa%cvrc(:,:,nR),       &
-                 &             this%gsa%dvrdrc(:,:,nR),this%gsa%dvrdtc(:,:,nR),  &
-                 &             this%gsa%dvrdpc(:,:,nR),this%gsa%dvtdrc(:,:,nR),  &
-                 &             this%gsa%dvtdpc(:,:,nR),this%gsa%dvpdrc(:,:,nR),  &
-                 &             this%gsa%dvpdpc(:,:,nR),viscAS(nR),nR)
+            call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+                 &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,  &
+                 &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc,&
+                 &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscAS(nR),nR)
          end if
 
          !-- horizontal velocity :
          if ( lVisc ) then
-            call get_nlBLayers(this%gsa%vtc(:,:,nR),this%gsa%vpc(:,:,nR),        &
-                 &             this%gsa%dvtdrc(:,:,nR),this%gsa%dvpdrc(:,:,nR),  &
-                 &             this%gsa%drSc(:,:,nR),this%gsa%dsdtc(:,:,nR),     &
-                 &             this%gsa%dsdpc(:,:,nR),uhAS(nR),duhAS(nR),        &
-                 &             gradsAS(nR),nR)
+            call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,      &
+                 &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc,   &
+                 &             this%gsa%dsdpc,uhAS(nR),duhAS(nR),gradsAS(nR),nR)
          end if
 
          !-- Radial flux profiles
          if ( lFluxProfCalc ) then
-            call get_fluxes(this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),         &
-                 &          this%gsa%vpc(:,:,nR),this%gsa%dvrdrc(:,:,nR),      &
-                 &          this%gsa%dvtdrc(:,:,nR),this%gsa%dvpdrc(:,:,nR),   &
-                 &          this%gsa%dvrdtc(:,:,nR),this%gsa%dvrdpc(:,:,nR),   &
-                 &          this%gsa%sc(:,:,nR),this%gsa%pc(:,:,nR),           &
-                 &          this%gsa%brc(:,:,nR),this%gsa%btc(:,:,nR),         &
-                 &          this%gsa%bpc(:,:,nR),this%gsa%cbtc(:,:,nR),        &
-                 &          this%gsa%cbpc(:,:,nR),fconvAS(nR),fkinAS(nR),      &
+            call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+                 &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
+                 &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
+                 &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
+                 &          this%gsa%cbtc,this%gsa%cbpc,fconvAS(nR),fkinAS(nR),&
                  &          fviscAS(nR),fpoynAS(nR),fresAS(nR),nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis
          if ( lPerpParCalc ) then
-            call get_perpPar(this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),     &
-                 &           this%gsa%vpc(:,:,nR),EperpAS(nR),EparAS(nR),   &
-                 &           EperpaxiAS(nR),EparaxiAS(nR),nR )
+            call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpAS(nR),&
+                 &           EparAS(nR),EperpaxiAS(nR),EparaxiAS(nR),nR )
          end if
 
          !--------- Movie output:
          if ( l_frame .and. l_movie_oc .and. l_store_frame ) then
-            call store_movie_frame(nR,this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),   &
-                 &                 this%gsa%vpc(:,:,nR),this%gsa%brc(:,:,nR),      &
-                 &                 this%gsa%btc(:,:,nR),this%gsa%bpc(:,:,nR),      &
-                 &                 this%gsa%sc(:,:,nR),this%gsa%drSc(:,:,nR),      &
-                 &                 this%gsa%dvrdpc(:,:,nR),this%gsa%dvpdrc(:,:,nR),&
-                 &                 this%gsa%dvtdrc(:,:,nR),this%gsa%dvrdtc(:,:,nR),&
-                 &                 this%gsa%cvrc(:,:,nR),this%gsa%cbrc(:,:,nR),    &
-                 &                 this%gsa%cbtc(:,:,nR),1,n_theta_max)
+            call store_movie_frame(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,      &
+                 &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
+                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
+                 &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,      &
+                 &                 1,n_theta_max)
          end if
 
          !--------- Stuff for special output:
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
-            call get_dtBLM(nR,this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),         &
-                 &         this%gsa%vpc(:,:,nR),this%gsa%brc(:,:,nR),            &
-                 &         this%gsa%btc(:,:,nR),this%gsa%bpc(:,:,nR),            &
-                 &         this%dtB_arrays%BtVrLM,                               &
-                 &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
-                 &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
-                 &         this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,        &
-                 &         this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM,     &
-                 &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,  &
-                 &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,  &
-                 &         this%dtB_arrays%BtVZsn2LM)
+            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,               &
+                 &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,        &
+                 &         this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,        &
+                 &         this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,        &
+                 &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,        &
+                 &         this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,  &
+                 &         this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM,  &
+                 &         this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
          end if
 
          !--------- Torsional oscillation terms:
          if ( ( lTONext .or. lTONext2 ) .and. l_mag ) then
-            call getTOnext(this%gsa%brc(:,:,nR), this%gsa%btc(:,:,nR), &
-                 &         this%gsa%bpc(:,:,nR), lTONext, lTONext2,    &
-                 &         tscheme%dt(1), dtLast, nR)
+            call getTOnext(this%gsa%brc, this%gsa%btc, this%gsa%bpc, lTONext, &
+                 &         lTONext2, tscheme%dt(1), dtLast, nR)
          end if
 
          if ( lTOCalc ) then
-            call getTO(this%gsa%vrc(:,:,nR),this%gsa%vtc(:,:,nR),          &  
-                 &     this%gsa%vpc(:,:,nR),this%gsa%cvrc(:,:,nR),         &
-                 &     this%gsa%dvpdrc(:,:,nR),this%gsa%brc(:,:,nR),       &
-                 &     this%gsa%btc(:,:,nR),this%gsa%bpc(:,:,nR),          &
-                 &     this%gsa%cbrc(:,:,nR),this%gsa%cbtc(:,:,nR),        &
-                 &     this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,    &
-                 &     this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM,dtLast,nR)
+            call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
+                 &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
+                 &     this%gsa%cbrc,this%gsa%cbtc,this%TO_arrays%dzRstrLM,    &
+                 &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
+                 &     this%TO_arrays%dzLFLM,dtLast,nR)
 
             !-- Finish calculation of TO variables:
             call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,              &
@@ -655,86 +613,135 @@ contains
 
    end subroutine phys_loop
 !-----------------------------------------------------------------------------------
-   subroutine fft_hyb_to_grid(this,lVisc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &
+   subroutine fft_hyb_to_grid(this,nR,lVisc,lRmsCalc,lPressCalc,lTOCalc,lPowerCalc, &
               &               lFluxProfCalc,lPerpParCalc,lHelCalc,l_frame)
 
       class(rIter_split_t) :: this
+      integer, intent(in) :: nR
       logical, intent(in) :: lVisc, lRmsCalc, lPressCalc, lPowerCalc
       logical, intent(in) :: lTOCalc, lFluxProfCalc, l_frame, lPerpParCalc
       logical, intent(in) :: lHelCalc
 
       if ( l_heat ) then
-         call ifft_phi(this%hsa%s_pThloc, this%gsa%sc, 1)
+         call ifft_many(this%hsa%s_pThloc(:,:,nR),this%gsa%sc)
          if ( lVisc ) then
-            call ifft_phi(this%hsa%grads_pThloc,this%gsa%grads,3)
+            call ifft_many(this%hsa%dsdt_pThloc(:,:,nR),this%gsa%dsdtc)
+            call ifft_many(this%hsa%dsdp_pThloc(:,:,nR),this%gsa%dsdpc)
+            call ifft_many(this%hsa%dsdr_pThloc(:,:,nR),this%gsa%drsc)
          else if ( (.not. lVisc) .and. l_HT ) then
-            call ifft_phi(this%hsa%grads_pThloc,this%gsa%grads,1)
+            call ifft_many(this%hsa%dsdr_pThloc(:,:,nR),this%gsa%drsc)
          end if
       end if
 
-      if ( lPressCalc ) call ifft_phi(this%hsa%p_pThloc,this%gsa%pc,1)
+      if ( lPressCalc ) call ifft_many(this%hsa%p_pThloc(:,:,nR),this%gsa%pc)
 
       if ( lRmsCalc) then
-         call ifft_phi(this%hsa%gradp_pThloc,this%gsa%gradp, 2)
+         call ifft_many(this%hsa%dpdt_pThloc(:,:,nR),this%gsa%dpdtc)
+         call ifft_many(this%hsa%dpdp_pThloc(:,:,nR),this%gsa%dpdpc)
       end if
 
-      if ( l_chemical_conv ) call ifft_phi(this%hsa%xi_pThloc, this%gsa%xic, 1)
+      if ( l_chemical_conv ) call ifft_many(this%hsa%xi_pThloc(:,:,nR),this%gsa%xic)
 
+      call ifft_many(this%hsa%vr_pThloc(:,:,nR),this%gsa%vrc)
+      call ifft_many(this%hsa%vt_pThloc(:,:,nR),this%gsa%vtc)
+      call ifft_many(this%hsa%vp_pThloc(:,:,nR),this%gsa%vpc)
+      call ifft_many(this%hsa%cvr_pThloc(:,:,nR),this%gsa%cvrc)
       if ( l_adv_curl ) then
-         call ifft_phi(this%hsa%vel_pThloc, this%gsa%vel, 6)
+         call ifft_many(this%hsa%cvt_pThloc(:,:,nR),this%gsa%cvtc)
+         call ifft_many(this%hsa%cvp_pThloc(:,:,nR),this%gsa%cvpc)
+
          if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc .or.  &
          &    lTOCalc .or. lHelCalc .or. lPerpParCalc .or. ( l_frame .and. &
          &    l_movie_oc .and. l_store_frame) ) then
-            call ifft_phi(this%hsa%gradvel_pThloc, this%gsa%gradvel, 7)
+            call ifft_many(this%hsa%dvrdr_pThloc(:,:,nR),this%gsa%dvrdrc)
+            call ifft_many(this%hsa%dvtdr_pThloc(:,:,nR),this%gsa%dvtdrc)
+            call ifft_many(this%hsa%dvpdr_pThloc(:,:,nR),this%gsa%dvpdrc)
+            call ifft_many(this%hsa%dvrdp_pThloc(:,:,nR),this%gsa%dvrdpc)
+            call ifft_many(this%hsa%dvtdp_pThloc(:,:,nR),this%gsa%dvtdpc)
+            call ifft_many(this%hsa%dvpdp_pThloc(:,:,nR),this%gsa%dvpdpc)
+            call ifft_many(this%hsa%dvrdt_pThloc(:,:,nR),this%gsa%dvrdtc)
          end if
       else
-         call ifft_phi(this%hsa%vel_pThloc, this%gsa%vel, 4)
-         call ifft_phi(this%hsa%gradvel_pThloc, this%gsa%gradvel, 7)
+         call ifft_many(this%hsa%dvrdr_pThloc(:,:,nR),this%gsa%dvrdrc)
+         call ifft_many(this%hsa%dvtdr_pThloc(:,:,nR),this%gsa%dvtdrc)
+         call ifft_many(this%hsa%dvpdr_pThloc(:,:,nR),this%gsa%dvpdrc)
+         call ifft_many(this%hsa%dvrdp_pThloc(:,:,nR),this%gsa%dvrdpc)
+         call ifft_many(this%hsa%dvtdp_pThloc(:,:,nR),this%gsa%dvtdpc)
+         call ifft_many(this%hsa%dvpdp_pThloc(:,:,nR),this%gsa%dvpdpc)
+         call ifft_many(this%hsa%dvrdt_pThloc(:,:,nR),this%gsa%dvrdtc)
       end if
 
-      if ( l_mag .or. l_mag_LF ) call ifft_phi(this%hsa%mag_pThloc, this%gsa%mag, 6)
+      if ( l_mag .or. l_mag_LF ) then
+         call ifft_many(this%hsa%br_pThloc(:,:,nR),this%gsa%brc)
+         call ifft_many(this%hsa%bt_pThloc(:,:,nR),this%gsa%btc)
+         call ifft_many(this%hsa%bp_pThloc(:,:,nR),this%gsa%bpc)
+         call ifft_many(this%hsa%cbr_pThloc(:,:,nR),this%gsa%cbrc)
+         call ifft_many(this%hsa%cbt_pThloc(:,:,nR),this%gsa%cbtc)
+         call ifft_many(this%hsa%cbp_pThloc(:,:,nR),this%gsa%cbpc)
+      end if
 
    end subroutine fft_hyb_to_grid
 !-----------------------------------------------------------------------------------
-   subroutine fft_grid_to_hyb(this, lRmsCalc)
+   subroutine fft_grid_to_hyb(this, nR, lRmsCalc)
 
       class(rIter_split_t) :: this
+      integer, intent(in) :: nR
       logical, intent(in) :: lRmsCalc
 
       if ( l_conv_nl .or. l_mag_LF ) then
-         call fft_phi(this%gsa%NSadv, this%hsa%NSAdv_pThloc, 3)
+         call fft_many(this%gsa%Advr, this%hsa%Advr_pThloc(:,:,nR))
+         call fft_many(this%gsa%Advt, this%hsa%Advt_pThloc(:,:,nR))
+         call fft_many(this%gsa%Advp, this%hsa%Advp_pThloc(:,:,nR))
       end if
 
       if ( l_heat ) then
-         call fft_phi(this%gsa%heatadv, this%hsa%heatadv_pThloc, 3)
+         call fft_many(this%gsa%VSr, this%hsa%VSr_pThloc(:,:,nR))
+         call fft_many(this%gsa%VSt, this%hsa%VSt_pThloc(:,:,nR))
+         call fft_many(this%gsa%VSp, this%hsa%VSp_pThloc(:,:,nR))
          if ( l_anel ) then
-            if ( l_mag_nl ) then
-               call fft_phi(this%gsa%anel, this%hsa%anel_pThloc, 2)
-            else
-               call fft_phi(this%gsa%anel, this%hsa%anel_pThloc, 1)
+            call fft_many(this%gsa%ViscHeat, this%hsa%ViscHeat_pThloc(:,:,nR))
+            if ( l_mag_nl .and. nR>n_r_LCR ) then
+               call fft_many(this%gsa%OhmLoss, this%hsa%OhmLoss_pThloc(:,:,nR))
             end if
          end if
       end if
 
       if ( l_chemical_conv ) then
-         call fft_phi(this%gsa%compadv, this%hsa%compadv_pThloc, 3)
+         call fft_many(this%gsa%VXir, this%hsa%VXir_pThloc(:,:,nR))
+         call fft_many(this%gsa%VXit, this%hsa%VXit_pThloc(:,:,nR))
+         call fft_many(this%gsa%VXip, this%hsa%VXip_pThloc(:,:,nR))
       end if
 
       if ( l_mag_nl ) then
-         call fft_phi(this%gsa%emf, this%hsa%emf_pThloc, 3)
+         if ( nR > n_r_LCR ) then
+            call fft_many(this%gsa%VxBr, this%hsa%VxBr_pThloc(:,:,nR))
+            call fft_many(this%gsa%VxBt, this%hsa%VxBt_pThloc(:,:,nR))
+            call fft_many(this%gsa%VxBp, this%hsa%VxBp_pThloc(:,:,nR))
+         end if
       end if
 
       if ( lRmsCalc ) then
-         call fft_phi(this%gsa%gradp, this%hsa%PF2_pThloc, 2)
-         call fft_phi(this%gsa%dtV, this%hsa%dtV_pThloc, 3)
-         if ( l_adv_curl ) then
-            call fft_phi(this%gsa%RMS, this%hsa%RMS_pThloc, 5)
-         else
-            call fft_phi(this%gsa%RMS, this%hsa%RMS_pThloc, 4)
+         call fft_many(this%gsa%dpdtc, this%hsa%PFt2_pThloc(:,:,nR))
+         call fft_many(this%gsa%dpdpc, this%hsa%PFp2_pThloc(:,:,nR))
+         call fft_many(this%gsa%CFt2, this%hsa%CFt2_pThloc(:,:,nR))
+         call fft_many(this%gsa%CFp2, this%hsa%CFp2_pThloc(:,:,nR))
+         call fft_many(this%gsa%dtVr, this%hsa%dtVr_pThloc(:,:,nR))
+         call fft_many(this%gsa%dtVt, this%hsa%dtVt_pThloc(:,:,nR))
+         call fft_many(this%gsa%dtVp, this%hsa%dtVp_pThloc(:,:,nR))
+         if ( l_conv_nl ) then
+            call fft_many(this%gsa%Advt2, this%hsa%Advt2_pThloc(:,:,nR))
+            call fft_many(this%gsa%Advt2, this%hsa%Advp2_pThloc(:,:,nR))
          end if
-         if ( l_mag_nl .or. l_mag_LF ) then
-            call fft_phi(this%gsa%LF, this%hsa%LF_pThloc, 3)
-            call fft_phi(this%gsa%LF2, this%hsa%LF2_pThloc, 2)
+
+         if ( l_adv_curl ) then
+            call fft_many(this%gsa%dpkindrc, this%hsa%dpkindr_pThloc(:,:,nR))
+         end if
+         if ( l_mag_nl .and. nR>n_r_LCR ) then
+            call fft_many(this%gsa%LFr, this%hsa%LFr_pThloc(:,:,nR))
+            call fft_many(this%gsa%LFt, this%hsa%LFt_pThloc(:,:,nR))
+            call fft_many(this%gsa%LFp, this%hsa%LFp_pThloc(:,:,nR))
+            call fft_many(this%gsa%LFt2, this%hsa%LFt2_pThloc(:,:,nR))
+            call fft_many(this%gsa%LFp2, this%hsa%LFp2_pThloc(:,:,nR))
          end if
       end if
 

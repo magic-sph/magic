@@ -133,8 +133,6 @@ program magic
    use probe_mod, only: initialize_probes, finalize_probes
    use time_schemes, only: type_tscheme
    use LMmapping, only: initialize_mapping, finalize_mapping
-   use fft, only: initialize_fft_phi, finalize_fft_phi, initialize_fft_phi_many, &
-       &          finalize_fft_phi_many
 
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -285,10 +283,6 @@ program magic
    call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('radial/horizontal', local_bytes_used)
-   call initialize_fft_phi()
-   if ( index(rIter_type, 'SPLIT') /= 0 ) then
-      call initialize_fft_phi_many()
-   end if
 
    !-- Initialize time scheme
    call tscheme%initialize(time_scheme, courfac, intfac, alffac)
@@ -491,10 +485,6 @@ program magic
    call finalize_radial_functions()
    call finalize_blocking()
    call finalize_mapping()
-   if ( index(rIter_type, 'SPLIT') /= 0 ) then
-      call finalize_fft_phi_many()
-   end if
-   call finalize_fft_phi()
    call finalize_radial_data()
 
    call tscheme%finalize()

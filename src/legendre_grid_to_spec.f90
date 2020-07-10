@@ -5,9 +5,10 @@ module legendre_grid_to_spec
    use truncation, only: l_max, m_max
    use LMmapping, only: map_glbl_st
    use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP, wdPlm, D_mc2m, O_sin_theta_E2
+   use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP, wdPlm, D_mc2m, &
+       &                      O_sin_theta_E2
    use constants, only: ci, zero
-   use fft, only: fft_phi_loc
+   use fft, only: fft_many
 
    implicit none
 
@@ -47,7 +48,7 @@ contains
       complex(cp) :: f1ES(n_m_max,n_theta_max/2),f1ES1,f1ES2
       complex(cp) :: f1EA(n_m_max,n_theta_max/2),f1EA1,f1EA2
 
-      if ( .not. l_axi ) call fft_phi_loc(scal,f1TM,1)
+      if ( .not. l_axi ) call fft_many(scal,f1TM)
 
       f1LM(:)=zero
 
@@ -118,8 +119,8 @@ contains
       real(cp) :: dm
 
       if ( .not. l_axi ) then
-         call fft_phi_loc(vt,f2TM,1)
-         call fft_phi_loc(vp,f1TM,1)
+         call fft_many(vt,f2TM)
+         call fft_many(vp,f1TM)
       end if
 
       do nThetaN=1,n_theta_max

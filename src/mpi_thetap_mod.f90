@@ -12,7 +12,7 @@ module mpi_thetap_mod
    use truncation
    use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp, only: type_mpitransp
-   use fft
+   use fft, only: fft_many, ifft_many
    use LMmapping
 
    implicit none
@@ -309,7 +309,7 @@ contains
       Ff = 0.0
       Ff(1:n_m_max,1:n_theta_loc) = lF
       
-      call fft_phi_loc(f, Ff, -1)
+      call ifft_many(Ff, f)
 
    end subroutine transform_m2phi
 !----------------------------------------------------------------------------------
@@ -336,9 +336,10 @@ contains
       complex(cp) :: lF(n_m_max,n_theta_loc)
       complex(cp) :: Ff(n_phi_max/2+1,n_theta_loc)
    
-      call fft_phi_loc(f, Ff, 1)
+      call fft_many(f, Ff)
       lF(1:n_m_max,1:n_theta_loc) = Ff(1:n_m_max,1:n_theta_loc)
       call transpose_m_theta(lF, fL)
+
    end subroutine transform_phi2m
 !----------------------------------------------------------------------------------
    
