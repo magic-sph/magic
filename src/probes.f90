@@ -14,10 +14,10 @@ module probe_mod
 
    use parallel_mod, only: coord_r, l_master_rank
    use precision_mod
-   use truncation, only: n_r_max, n_phi_max, nrp, nRstart,nRstop
+   use truncation, only: n_r_max, n_phi_max, nRstart, nRstop, nThetaStart, &
+       &                 nThetaStop, n_theta_max
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb
    use num_param, only: vScale
-   use blocking, only: nThetaBs, sizeThetaB, nfs
    use horizontal_data, only: O_sin_theta, theta 
    use output_data, only: tag
    use constants, only: pi, one
@@ -66,7 +66,7 @@ contains
       n_theta_usr = minloc(abs(theta_probe*deg2rad - theta),1)
 
    end subroutine initialize_probes
-
+!-------------------------------------------------------------------------------
    subroutine finalize_probes
 
       if ( coord_r==rad_rank .and. (.not. l_save_out) ) then
@@ -76,19 +76,17 @@ contains
       end if
 
    end subroutine finalize_probes
-
-
-   subroutine probe_out(time,n_r,vp,br,bt,n_theta_start,n_theta_block_size)
+!-------------------------------------------------------------------------------
+   subroutine probe_out(time,n_r,vp,br,bt)
       
       real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                    ! radial grod point no.
-      integer,  intent(in) :: n_theta_start          ! start theta no.
-      integer,  intent(in) :: n_theta_block_size     ! size of theta block
-      real(cp), intent(in) :: vp(nrp,*), br(nrp,*), bt(nrp,*)
+      real(cp), intent(in) :: vp(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: bt(nThetaStart:nThetaStop,n_phi_max)
 
       !-- Local variables:
       integer  :: n_theta       ! counter for colatitude
-      integer  :: n_theta_cal   ! position of block colat in all colats
       integer  :: probe_phi_step
       integer  :: n_theta_probe
       logical  :: theta_found
@@ -100,9 +98,8 @@ contains
 
       theta_found = .false.
 
-      do n_theta=1,n_theta_block_size,2
-         n_theta_cal=n_theta_start+n_theta-1
-         if( n_theta_cal == n_theta_usr) then
+      do n_theta=1,n_theta_max,2
+         if( n_theta == n_theta_usr) then
             theta_found = .true.
             n_theta_probe = n_theta
             exit
@@ -113,43 +110,38 @@ contains
       
       probe_phi_step = n_phi_max/n_phi_probes
       
-      
       write(fmtstr,'(i3)') 2*n_phi_probes       ! 2*n_phi_probes columns for data
 
       if ( coord_r == rad_rank ) then
          if ( l_save_out ) then
             open(newunit=n_probeVp,file=probe_fileVp,status='unknown', &
-                 position='append')
+            &    position='append')
             open(newunit=n_probeBr,file=probe_fileBr,status='unknown', &
-                 position='append')
+            &    position='append')
             open(newunit=n_probeBt,file=probe_fileBt,status='unknown', &
-                 position='append')
+            &    position='append')
          end if
 
-         ! Vp
-         
+         !-- Vp
          fac_r=or1(n_r)*vScale*orho1(n_r)
-         fac=fac_r*O_sin_theta(n_theta_cal)
+         fac=fac_r*O_sin_theta(n_theta)
 
-         write(n_probeVp,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
-         & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
-         &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
+         write(n_probeVp,'(ES20.12,'//trim(fmtstr)//'ES16.8)')     &
+         & time,fac*vp(n_theta_probe,1:n_phi_max:probe_phi_step),  &
+         &      fac*vp(n_theta_probe+1,1:n_phi_max:probe_phi_step)
 
-         ! Br
-
+         !-- Br
          fac=or2(n_r)
+         write(n_probeBr,'(ES20.12,'//trim(fmtstr)//'ES16.8)')     &
+         & time,fac*br(n_theta_probe,1:n_phi_max:probe_phi_step),  &
+         &      fac*br(n_theta_probe+1,1:n_phi_max:probe_phi_step)
 
-         write(n_probeBr,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
-         & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
-         &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
-
-         fac=or1(n_r)*O_sin_theta(n_theta_cal)
          
-         ! Btheta
-
-         write(n_probeBt,'(ES20.12,'//trim(fmtstr)//'ES16.8)')  &
-         & time,fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe),  &
-         &      fac*vp(1:n_phi_max:probe_phi_step,n_theta_probe+1)
+         !-- Btheta
+         fac=or1(n_r)*O_sin_theta(n_theta)
+         write(n_probeBt,'(ES20.12,'//trim(fmtstr)//'ES16.8)')     &
+         & time,fac*bt(n_theta_probe,1:n_phi_max:probe_phi_step),  &
+         &      fac*bt(n_theta_probe+1,1:n_phi_max:probe_phi_step)
 
          if ( l_save_out ) then
             close(n_probeVp)
@@ -157,6 +149,7 @@ contains
             close(n_probeBt)
          end if
       end if
-   end subroutine probe_out
 
+   end subroutine probe_out
+!-------------------------------------------------------------------------------
 end module probe_mod

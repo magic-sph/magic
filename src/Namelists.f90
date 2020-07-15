@@ -18,7 +18,6 @@ module Namelists
    use special
    use movie_data, only: movie,n_movies, n_movies_max
    use charmanip, only: length_to_blank,capitalize
-   use blocking, only: cacheblock_size_in_B
    use probe_mod
    use useful, only: abortRun
    use dirk_schemes, only: type_dirk
@@ -55,7 +54,7 @@ contains
       integer :: length
       integer :: argument_count
       integer :: res,n_cour_step
-      integer :: inputHandle
+      integer :: inputHandle, cacheblock_size_in_B
       character(len=100) :: input_filename, errmess
       character(len=1024) :: sbuffer         ! for parallel namelist
       character(:), allocatable :: cmd_args  ! for parallel namelist
@@ -1291,8 +1290,6 @@ contains
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
       time_scheme   ="CNAB2"   
-
-      cacheblock_size_in_B=4096
 
       l_update_v    =.true.
       l_update_b    =.true.

@@ -3,7 +3,7 @@ module nonlinear_bcs
    use iso_fortran_env, only: output_unit
    use precision_mod
    use LMmapping, only: map_dist_st
-   use truncation, only: nrp, n_phi_max, l_axi, l_max, n_r_cmb, n_r_icb, &
+   use truncation, only: n_phi_max, l_axi, l_max, n_r_cmb, n_r_icb, &
        &                 nThetaStart, nThetaStop, n_lmP_loc, n_lm_loc
    use radial_functions, only: r_cmb, r_icb, rho0
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
@@ -12,6 +12,7 @@ module nonlinear_bcs
    use constants, only: two
    use sht, only: scal_to_SH
    use useful, only: abortRun
+   use sht, only: scal_to_SH
 
    implicit none
 
@@ -40,9 +41,9 @@ contains
       !
 
       !-- input:
-      real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)      ! r**2 * B_r
-      real(cp), intent(in) :: vt(nrp,nThetaStart:nThetaStop)      ! r*sin(theta) U_theta
-      real(cp), intent(in) :: vp(nrp,nThetaStart:nThetaStop)      ! r*sin(theta) U_phi
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max) ! r**2 * B_r
+      real(cp), intent(in) :: vt(nThetaStart:nThetaStop,n_phi_max) ! r*sin(theta) U_theta
+      real(cp), intent(in) :: vp(nThetaStart:nThetaStop,n_phi_max) ! r*sin(theta) U_phi
       real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
       real(cp), intent(in) :: O_r_E_2        ! 1/r**2
       real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
@@ -54,24 +55,21 @@ contains
       !-- Local variables:
       integer :: n_theta      ! number of theta position
       integer :: n_phi        ! number of longitude
-      real(cp) :: br_vt(nrp,nThetaStart:nThetaStop)
-      real(cp) :: br_vp(nrp,nThetaStart:nThetaStop)
+      real(cp) :: br_vt(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: br_vp(nThetaStart:nThetaStop,n_phi_max)
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
 
       !$omp parallel do default(shared) private(n_phi,fac,n_theta)
-      do n_theta=nThetaStart,nThetaStop
-         fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
-
-         do n_phi=1,n_phi_max
-            br_vt(n_phi,n_theta)= fac*br(n_phi,n_theta)*vt(n_phi,n_theta)
-
-            br_vp(n_phi,n_theta)= br(n_phi,n_theta) * &
-            &                        ( fac*vp(n_phi,n_theta) - omega )
+      do n_phi=1,n_phi_max
+         do n_theta=nThetaStart,nThetaStop
+            fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
+            br_vt(n_theta,n_phi)= fac*br(n_theta,n_phi)*vt(n_theta,n_phi)
+            br_vp(n_theta,n_phi)= br(n_theta,n_phi) * &
+            &                        ( fac*vp(n_theta,n_phi) - omega )
          end do
       end do
       !$omp end parallel do
 
-      !-- Fourier transform phi 2 m (real 2 complex!)
       call scal_to_SH(br_vt, br_vt_lm, l_max)
       call scal_to_SH(br_vp, br_vp_lm, l_max)
 
@@ -181,14 +179,14 @@ contains
       real(cp), intent(in) :: omega
 
       !-- output:
-      real(cp), intent(out) :: vrr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: vpr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: vtr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: cvrr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: dvrdtr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: dvrdpr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: dvtdpr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(out) :: dvpdpr(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(out) :: vrr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: vpr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: vtr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: cvrr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: dvrdtr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: dvrdpr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: dvtdpr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(out) :: dvpdpr(nThetaStart:nThetaStop,n_phi_max)
 
       !-- Local variables:
       real(cp) :: r2
@@ -207,18 +205,18 @@ contains
       end if
 
       !$omp parallel do default(shared) private(nTheta,nThetaNHS,nPhi)
-      do nTheta=nThetaStart,nThetaStop
-         nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
-         do nPhi=1,n_phi_max
-            vrr(nPhi,nTheta)=0.0_cp
-            vtr(nPhi,nTheta)=0.0_cp
-            vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
+      do nPhi=1,n_phi_max
+         do nTheta=nThetaStart,nThetaStop
+            nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
+            vrr(nTheta,nPhi)=0.0_cp
+            vtr(nTheta,nPhi)=0.0_cp
+            vpr(nTheta,nPhi)=r2*rho0(nR)*sn2(nThetaNHS)*omega
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
-               dvrdtr(nPhi,nTheta)=0.0_cp
-               dvrdpr(nPhi,nTheta)=0.0_cp
-               dvtdpr(nPhi,nTheta)=0.0_cp
-               dvpdpr(nPhi,nTheta)=0.0_cp
+               cvrr(nTheta,nPhi)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
+               dvrdtr(nTheta,nPhi)=0.0_cp
+               dvrdpr(nTheta,nPhi)=0.0_cp
+               dvtdpr(nTheta,nPhi)=0.0_cp
+               dvpdpr(nTheta,nPhi)=0.0_cp
             end if
          end do
       end do

@@ -9,7 +9,7 @@ module dtB_mod
    use mem_alloc, only: bytes_allocated
    use LMmapping, only: map_dist_st, map_mlo
    use fields, only: work_LMdist
-   use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
+   use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB,      &
        &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
        &                 n_r_ic_max, n_phi_max, l_axi, n_mloMag_loc,          &
        &                 nRstart, nRstop, nThetaStart, nThetaStop, n_lm_loc,  &
@@ -205,12 +205,12 @@ contains
 
       !-- Input variables:
       integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(in) :: vt(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(in) :: vp(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(in) :: bt(nrp,nThetaStart:nThetaStop)
-      real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)
+      real(cp), intent(in) :: vr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: vt(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: vp(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: bt(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), intent(in) :: bp(nThetaStart:nThetaStop,n_phi_max)
 
       !-- Output variables:
       complex(cp), intent(out) :: BtVrLM(:),BpVrLM(:)
@@ -223,60 +223,67 @@ contains
 
       !-- Local variables:
       integer :: n_theta,n_phi,n_theta_nhs
-      real(cp) :: fac,facCot,vpAS
-      real(cp) :: BtVr(nrp,nThetaStart:nThetaStop),BpVr(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BrVt(nrp,nThetaStart:nThetaStop),BrVp(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BtVp(nrp,nThetaStart:nThetaStop),BpVt(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BrVZ(nrp,nThetaStart:nThetaStop),BtVZ(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BpVtCot(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BtVpCot(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BpVtSn2(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BtVpSn2(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BtVZcot(nrp,nThetaStart:nThetaStop)
-      real(cp) :: BtVZsn2(nrp,nThetaStart:nThetaStop)
+      real(cp) :: fac,facCot
+      real(cp) :: BtVr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BpVr(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BrVt(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BrVp(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BtVp(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BpVt(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BrVZ(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BtVZ(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BpVtCot(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BtVpCot(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BpVtSn2(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BtVpSn2(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BtVZcot(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: BtVZsn2(nThetaStart:nThetaStop,n_phi_max)
+      real(cp) :: vpAS(nThetaStart:nThetaStop)
 
+      vpAS(:)=0.0_cp
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs)
-      do n_theta=nThetaStart,nThetaStop
-         n_theta_nhs=(n_theta+1)/2
-         fac=osn2(n_theta_nhs)
-         facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
-         if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
+      !$omp& private(n_theta, n_phi)    &
+      !$omp& private(fac, facCot, n_theta_nhs)
+      do n_phi=1,n_phi_max
+         do n_theta=nThetaStart,nThetaStop ! loop over ic-points, alternating north/south
+            n_theta_nhs=(n_theta+1)/2
+            fac=osn2(n_theta_nhs)
+            facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
+            if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
 
-         do n_phi=1,n_phi_max
-            BtVr(n_phi,n_theta)= fac*orho1(nR)*bt(n_phi,n_theta)*vr(n_phi,n_theta)
-            BpVr(n_phi,n_theta)= fac*orho1(nR)*bp(n_phi,n_theta)*vr(n_phi,n_theta)
+            BtVr(n_theta,n_phi)= fac*orho1(nR)*bt(n_theta,n_phi)*vr(n_theta,n_phi)
+            BpVr(n_theta,n_phi)= fac*orho1(nR)*bp(n_theta,n_phi)*vr(n_theta,n_phi)
+
+            BrVt(n_theta,n_phi)= fac*orho1(nR)*vt(n_theta,n_phi)*br(n_theta,n_phi)
+            BrVp(n_theta,n_phi)= fac*orho1(nR)*vp(n_theta,n_phi)*br(n_theta,n_phi)
+
+            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
+            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
+
+            BpVtCot(n_theta,n_phi)=facCot*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
+            BtVpCot(n_theta,n_phi)=facCot*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
+            BpVtSn2(n_theta,n_phi)=fac*fac*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
+            BtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
+            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(n_theta,n_phi)
          end do
+      end do
+      !$omp end parallel do
+      vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
 
-         do n_phi=1,n_phi_max
-            BrVt(n_phi,n_theta)= fac*orho1(nR)*vt(n_phi,n_theta)*br(n_phi,n_theta)
-            BrVp(n_phi,n_theta)= fac*orho1(nR)*vp(n_phi,n_theta)*br(n_phi,n_theta)
+      !---- For omega effect:
+      !$omp parallel do default(shared) &
+      !$omp private(n_phi,n_theta,n_theta_nhs,fac,facCot)
+      do n_phi=1,n_phi_max
+         do n_theta=nThetaStart,nThetaStop ! loop over ic-points, alternating north/south
+            n_theta_nhs=(n_theta+1)/2
+            fac=osn2(n_theta_nhs)
+            facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
+            if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
+            BrVZ(n_theta,n_phi)=fac*br(n_theta,n_phi)*vpAS(n_theta)
+            BtVZ(n_theta,n_phi)=fac*bt(n_theta,n_phi)*vpAS(n_theta)
+            BtVZcot(n_theta,n_phi)=facCot*bt(n_theta,n_phi)*vpAS(n_theta)
+            BtVZsn2(n_theta,n_phi)=fac*fac*bt(n_theta,n_phi)*vpAS(n_theta)
          end do
-
-         vpAS=0.0_cp
-         do n_phi=1,n_phi_max
-            BtVp(n_phi,n_theta)= fac*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
-            BpVt(n_phi,n_theta)= fac*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
-            vpAS=vpAS+orho1(nR)*vp(n_phi,n_theta)
-         end do
-         vpAS=vpAS/real(n_phi_max,kind=cp)
-
-         !---- For toroidal terms that cancel:
-         do n_phi=1,n_phi_max
-            BpVtCot(n_phi,n_theta)=facCot*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
-            BtVpCot(n_phi,n_theta)=facCot*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
-            BpVtSn2(n_phi,n_theta)=fac*fac*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
-            BtVpSn2(n_phi,n_theta)=fac*fac*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
-         end do
-
-         !---- For omega effect:
-         do n_phi=1,n_phi_max
-            BrVZ(n_phi,n_theta)=fac*br(n_phi,n_theta)*vpAS
-            BtVZ(n_phi,n_theta)=fac*bt(n_phi,n_theta)*vpAS
-            BtVZcot(n_phi,n_theta)=facCot*bt(n_phi,n_theta)*vpAS
-            BtVZsn2(n_phi,n_theta)=fac*fac*bt(n_phi,n_theta)*vpAS
-         end do
-
       end do
       !$omp end parallel do
 

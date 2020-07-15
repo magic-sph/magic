@@ -7,7 +7,7 @@ module init_fields
    use iso_fortran_env, only: output_unit
    use parallel_mod
    use communications, only: gather_FLMP, r2lo_initv, lo2r_initv
-   use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
+   use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max,      &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
        &                 minc,n_cheb_ic_max,lm_max, n_r_icb,          &
        &                 n_r_cmb, nRstart, nRstop, nThetaStart,       &
@@ -150,7 +150,7 @@ contains
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
-      real(cp) :: ss,ome(nrp,nThetaStart:nThetaStop)
+      real(cp) :: ss,ome(nThetaStart:nThetaStop,n_phi_max)
       complex(cp) :: omeLM(n_lmP_loc)
 
       !-- Initialize rotation according to
@@ -166,18 +166,16 @@ contains
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
 
-            do n_th=nThetaStart,nThetaStop
-               ss=r(nR)*sinTheta(n_th)
-               !------------ start with constructing rotation rate ome:
-               do n_phi=1,n_phi_max
+            do n_phi=1,n_phi_max
+               do n_th=nThetaStart,nThetaStop
+                  ss=r(nR)*sinTheta(n_th)
                   if ( ss <= r_icb ) then
-                     ome(n_phi,n_th)=omega_ma1+half*omega_ic1
+                     ome(n_th,n_phi)=omega_ma1+half*omega_ic1
                   else
-                     ome(n_phi,n_th)=omega_ma1
+                     ome(n_th,n_phi)=omega_ma1
                   end if
                end do
-            end do
-               !------------ Transform to spherical hamonic space for each radius
+            end do 
             call scal_to_SH(ome, omeLM, l_max)
 
             !------- ome now in spherical harmonic space,
@@ -222,13 +220,13 @@ contains
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
 
-            do n_th=nThetaStart,nThetaStop
-               ss=r(nR)*sinTheta(n_th)
-               !------------ start with constructing rotation rate ome:
-               do n_phi=1,n_phi_max
+            do n_phi=1,n_phi_max
+               do n_th=nThetaStart,nThetaStop
+                  ss=r(nR)*sinTheta(n_th)
+                  !------------ start with constructing rotation rate ome:
                   !ome(n_phi,n_th)=amp_v1*(one-(r(nR)-r(n_r_max))**2/r(nR)**3)
                   !ome(n_phi,n_th)=amp_v1*r_icb/r(nR)
-                  ome(n_phi,n_th)=amp_v1/sqrt(one+ss**4)
+                  ome(n_th,n_phi)=amp_v1/sqrt(one+ss**4)
                end do
                !------------ Transform to spherical hamonic space for each theta block
             end do ! End of loop over theta blocks
@@ -420,7 +418,7 @@ contains
       integer :: pivot(n_impS_max)
       real(cp) :: xS(n_impS_max),yS(n_impS_max)
       real(cp) :: zS(n_impS_max),sFac(n_impS_max)
-      real(cp) :: sCMB(nrp,nThetaStart:nThetaStop)
+      real(cp) :: sCMB(nThetaStart:nThetaStop,n_phi_max)
       complex(cp) :: sLMP_loc(n_lmP_loc), sLMP(lmP_max)
       integer :: info,i,j,l1,m1,filehandle, lm_00_map_dist_st
       logical :: rank_has_l0m0
@@ -585,8 +583,8 @@ contains
          yS(nS)=sin(thetaS(nS))*sin(phiS(nS))
          zS(nS)=cos(thetaS(nS))
 
-         do n_th=nThetaStart,nThetaStop
-            do n_phi=1,n_phi_max
+         do n_phi=1,n_phi_max
+            do n_th=nThetaStart,nThetaStop
                xL=sinTheta(n_th)*cos(phi(n_phi))
                yL=sinTheta(n_th)*sin(phi(n_phi))
                zL=cosTheta(n_th)
@@ -594,9 +592,9 @@ contains
                !------ Opening angleL with peak value vector:
                angleL=two*abs(asin(rH/2))
                if ( angleL <= widthS(nS) ) then
-                  sCMB(n_phi,n_th) = (cos(angleL/widthS(nS)*pi)+1)/2
+                  sCMB(n_th,n_phi) = (cos(angleL/widthS(nS)*pi)+1)/2
                else
-                  sCMB(n_phi,n_th)=0.0_cp
+                  sCMB(n_th,n_phi)=0.0_cp
                end if
             end do
          end do
@@ -656,23 +654,23 @@ contains
       !--- Now get the total thing so that the mean (l=0,m=0) due
       !    to the peaks is zero. The (l=0,m=0) contribution is
       !    determined (prescribed) by other means.
-      do n_th=nThetaStart,nThetaStop
-         do n_phi=1,n_phi_max
+      do n_phi=1,n_phi_max
+         do n_th=nThetaStart,nThetaStop
             xL=sinTheta(n_th)*cos(phi(n_phi))
             yL=sinTheta(n_th)*sin(phi(n_phi))
             zL=cosTheta(n_th)
-            sCMB(n_phi,n_th)=-s00
+            sCMB(n_th,n_phi)=-s00
             do nS=1,n_impS
                rH=sqrt((xS(nS)-xL)**2 + (yS(nS)-yL)**2+(zS(nS)-zL)**2)
                !------ Opening angle with peak value vector:
                angleL=two*abs(asin(rH/2))
-               if ( angleL <= widthS(nS) )            &
-               &  sCMB(n_phi,n_th)=sCMB(n_phi,n_th) + &
-               &                   amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
+               if ( angleL <= widthS(nS) )              &
+               &  sCMB(n_th,n_phi)=sCMB(n_th,n_phi) + &
+               &                    amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
             end do
          end do
       end do
-      !------ Transform to spherical hamonic space for each theta block
+
       call scal_to_SH(sCMB, sLMP_loc, l_max)
 
       !@> TODO: is there another way than gathering here?
@@ -735,7 +733,7 @@ contains
       integer :: pivot(n_impXi_max)
       real(cp) :: xXi(n_impXi_max),yXi(n_impXi_max)
       real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
-      real(cp) :: xiCMB(nrp,nThetaStart:nThetaStop)
+      real(cp) :: xiCMB(nThetaStart:nThetaStop,n_phi_max)
       complex(cp) :: xiLM_loc(n_lmP_loc)
       complex(cp) :: xiLM(lmP_max)
       integer :: info,i,j,l1,m1,fileHandle,lm_00_map_dist_st
@@ -880,8 +878,8 @@ contains
          yXi(nXi)=sin(thetaXi(nXi))*sin(phiXi(nXi))
          zXi(nXi)=cos(thetaXi(nXi))
 
-         do n_th=nThetaStart,nThetaStop
-            do n_phi=1,n_phi_max
+         do n_phi=1,n_phi_max
+            do n_th=nThetaStart,nThetaStop
                xL=sinTheta(n_th)*cos(phi(n_phi))
                yL=sinTheta(n_th)*sin(phi(n_phi))
                zL=cosTheta(n_th)
@@ -889,9 +887,9 @@ contains
                !------ Opening angleL with peak value vector:
                angleL=two*abs(asin(rH/2))
                if ( angleL <= widthXi(nXi) ) then
-                  xiCMB(n_phi,n_th)=half*(cos(angleL/widthXi(nXi)*pi)+1)
+                  xiCMB(n_th,n_phi)=half*(cos(angleL/widthXi(nXi)*pi)+1)
                else
-                  xiCMB(n_phi,n_th)=0.0_cp
+                  xiCMB(n_th,n_phi)=0.0_cp
                end if
             end do
          end do
@@ -950,27 +948,27 @@ contains
       !--- Now get the total thing so that the mean (l=0,m=0) due
       !    to the peaks is zero. The (l=0,m=0) contribution is
       !    determined (prescribed) by other means.
-      do n_th=nThetaStart,nThetaStop
-         do n_phi=1,n_phi_max
+      do n_phi=1,n_phi_max
+         do n_th=nThetaStart,nThetaStop
             xL=sinTheta(n_th)*cos(phi(n_phi))
             yL=sinTheta(n_th)*sin(phi(n_phi))
             zL=cosTheta(n_th)
-            xiCMB(n_phi,n_th)=-xi00
+            xiCMB(n_th,n_phi)=-xi00
             do nXi=1,n_impXi
                rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
                !------ Opening angle with peak value vector:
                angleL=two*abs(asin(rH/2))
                if ( angleL <= widthXi(nXi) )            &
-                  xiCMB(n_phi,n_th)=xiCMB(n_phi,n_th) + &
-                                    amp(nXi)*half*(cos(angleL/widthXi(nXi)*pi)+1)
+                  xiCMB(n_th,n_phi)=xiCMB(n_th,n_phi) + &
+                                     amp(nXi)*half*(cos(angleL/widthXi(nXi)*pi)+1)
             end do
          end do
       end do
-      call scal_to_SH(xiCMB, xiLM_loc, l_max)
+
+      call scal_to_SH(xiCMB, xiLM, l_max)
 
       !@> TODO: is there another way than gathering here?
       call gather_FLMP(xiLM_loc, xiLM)
-      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
       !--- Finally store the boundary condition and care for
       !    the fact that peakS provides the relative amplitudes

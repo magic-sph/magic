@@ -148,7 +148,7 @@ contains
       real(cp), intent(out):: RmR(n_r_max)
 
       !-- Local variables
-      integer :: nR
+      integer :: nR, fileHandle
       real(cp) :: ReR(n_r_max), RoR(n_r_max), RolR(n_r_max)
       character(len=76) :: filename
       complex(cp) :: s00(n_r_max), ds00(n_r_max), p00(n_r_max), dp00(n_r_max)
@@ -158,10 +158,7 @@ contains
       real(cp) :: fconvR_global(n_r_max), fviscR_global(n_r_max)
       real(cp) :: fresR_global(n_r_maxMag), fpoynR_global(n_r_maxMag)
 
-      integer :: fileHandle
-
       n_calls = n_calls+1
-
 
       if ( l_viscBcCalc ) then
          call send_lm_pair_to_master(s, 0, 0, s00)
@@ -174,7 +171,6 @@ contains
          call gather_from_RLoc(duhASr, duhR_global, 0)
          call gather_from_RLoc(uhASr, uhR_global, 0)
          call gather_from_RLoc(gradT2ASr, gradT2R_global, 0)
-
       end if
 
       if ( l_fluxProfs ) then
@@ -214,7 +210,6 @@ contains
             call gather_from_Rloc(fresASr, fresR_global, 0)
             call gather_from_Rloc(fpoynASr, fpoynR_global, 0)
          end if
-
       end if
 
       if ( l_master_rank ) then
@@ -372,7 +367,7 @@ contains
       real(cp), intent(inout) :: EperpaxiASr(nRstart:nRstop)
 
       !--- Local variables
-      integer :: nR, fileHandle
+      integer :: nR,fileHandle
       character(len=76) :: filename
 
       real(cp) :: EperpR_global(n_r_max), EparR_global(n_r_max)

@@ -3,7 +3,7 @@ module outRot
    use parallel_mod
    use precision_mod
    use LMmapping, only: map_mlo
-   use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max, &
+   use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max,      &
        &                 n_r_CMB, n_r_ICB, nThetaStart, nThetaStop, &
        &                 n_mlo_loc, n_mloMag_loc
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
@@ -426,46 +426,48 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)      ! array containing
-      real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)      ! array containing
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max)      ! array containing
+      real(cp), intent(in) :: bp(nThetaStart:nThetaStop,n_phi_max)      ! array containing
       integer,  intent(in) :: nR
 
       real(cp), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
 
 
       !-- local variables:
-      integer :: nTheta,nPhi,nThetaNHS, IERR
+      integer :: nTheta,nPhi,nThetaNHS
       real(cp) :: fac,b0r
 
+      ! to avoid rounding errors for different theta blocking, we do not
+      ! calculate sub sums with lorentz_torque_local, but keep on adding
+      ! the contributions to the total lorentz_torque given as argument.
+
       lorentz_torque=0.0_cp
+
       fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
-      !$OMP PARALLEL DO default(none) &
-      !$OMP& private(nTheta, nPhi, nThetaNHS, b0r) &
-      !$OMP& shared(n_phi_max, r_icb, r, nR) &
-      !$OMP& shared(lGrenoble, nThetaStart, nThetaStop, BIC, cosTheta, r_cmb) &
-      !$OMP& shared(fac, gauss, br, bp) &
-      !$OMP& reduction(+: lorentz_torque)
-      do nTheta=nThetaStart,nThetaStop
-         nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
-         if ( lGrenoble ) then
-            if ( r(nR) == r_icb ) then
-               b0r=two*BIC*r_icb**2*cosTheta(nTheta)
-            else if ( r(nR) == r_cmb ) then
-               b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+      !$omp parallel do default(shared) &
+      !$omp& private(nTheta, nPhi, nThetaNHS, b0r) &
+      !$omp& reduction(+: lorentz_torque)
+      do nPhi=1,n_phi_max
+         do nTheta=nThetaStart,nThetaStop
+            nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
+            if ( lGrenoble ) then
+               if ( r(nR) == r_icb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)
+               else if ( r(nR) == r_cmb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+               end if
+            else
+               b0r=0.0_cp
             end if
-         else
-            b0r=0.0_cp
-         end if
 
-         do nPhi=1,n_phi_max
             lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
-            &              (br(nPhi,nTheta)-b0r)*bp(nPhi,nTheta)
+            &              (br(nTheta,nPhi)-b0r)*bp(nTheta,nPhi)
          end do
       end do
-      !$OMP END PARALLEL DO
+      !$omp end parallel do
 
-      if ( n_ranks_theta>1 ) then
+      if ( n_ranks_theta > 1 ) then
          call MPI_AllReduce(MPI_IN_PLACE, lorentz_torque, 1, MPI_DEF_REAL, &
               &             MPI_SUM, comm_theta, ierr)
       end if

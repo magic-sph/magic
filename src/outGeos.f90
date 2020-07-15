@@ -6,7 +6,7 @@ module geos_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrp,  &
+   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max,       &
        &                 minc, l_max, m_max, l_axi, getBlocks, load,&
        &                 n_mlo_loc
    use LMmapping, only: map_mlo, map_glbl_st
@@ -55,7 +55,7 @@ contains
       !
       logical, intent(in) :: l_geos
 
-      nrp_geos=nrp
+      nrp_geos=n_phi_max
 
       ! Number of grid point in s:
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))

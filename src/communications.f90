@@ -119,7 +119,7 @@ contains
          !   l_packed_transp=.false.
          !end if
          if (n_ranks_theta==1) then
-            idx = 2
+            idx = 6
          else
             idx = 6
          end if
@@ -128,7 +128,7 @@ contains
          !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
          !call find_faster_comm(idx, minTime, 1)
          if (n_ranks_theta==1) then
-            idx = 2
+            idx = 6
          else
             idx = 6
          end if
@@ -141,7 +141,7 @@ contains
          !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
          !call find_faster_comm(idx, minTime, 5)
          if (n_ranks_theta==1) then
-            idx = 2
+            idx = 6
          else
             idx = 6
          end if
@@ -155,7 +155,7 @@ contains
          if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
          &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
             if (n_ranks_theta==1) then
-               idx = 1
+               idx = 4
             else
                idx = 4
             end if
@@ -164,7 +164,7 @@ contains
          &         index(mpi_transp, 'ALL2ALLV') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLV') /= 0 ) then
             if (n_ranks_theta==1) then
-               idx = 2
+               idx = 6
             else
                idx = 6
             end if
@@ -1674,25 +1674,27 @@ contains
    !----------------------------------------------------------------------------
    subroutine gather_f(f_local, f_global)
       !
-      !   Author: Rafael Lago (MPCDF) August 2017
+      !  This routine gather the theta-distributed arrays
       !
-      real(cp),  intent(in) :: f_local( n_phi_max, nThetaStart:nThetaStop)
-      real(cp),  intent(out) :: f_global(n_phi_max, n_theta_max)
+
+      !-- Input variable
+      real(cp), intent(in) :: f_local(nThetaStart:nThetaStop,n_phi_max )
+
+      !-- Output variable
+      real(cp), intent(out) :: f_global(n_theta_max,n_phi_max)
       
-      integer :: i, ierr
-      integer :: Rq(n_ranks_theta) 
+      !-- Local variable
+      integer :: i
       
       !-- Copies local content to f_global
-      f_global = 0.0
-      f_global(:,nThetaStart:nThetaStop) = f_local(:,nThetaStart:nThetaStop)
+      f_global(:,:) = 0.0_cp
+      f_global(nThetaStart:nThetaStop,:) = f_local(nThetaStart:nThetaStop,:)
       
       do i=0,n_ranks_theta-1
-         CALL MPI_IBCAST(f_global(:,dist_theta(i,1):dist_theta(i,2)),   &
-                         n_phi_max*dist_theta(i,0), MPI_DEF_REAL, i,    &
-                         comm_theta, Rq(i+1), ierr)
+         CALL MPI_Bcast(f_global(dist_theta(i,1):dist_theta(i,2),:),    &
+              &          n_phi_max*dist_theta(i,0), MPI_DEF_REAL, i,    &
+              &          comm_theta, ierr)
       end do
-      
-      CALL MPI_WAITALL(n_ranks_theta, Rq, MPI_STATUSES_IGNORE, ierr)
       
    end subroutine gather_f
    

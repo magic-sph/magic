@@ -57,6 +57,7 @@ module truncation
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points
    integer :: n_theta_max ! number of theta grid-points
+   integer :: nlat_padded ! number of theta grid-points with padding included
    integer :: n_theta_axi ! number of theta grid-points (axisymmetric models)
    integer :: l_max       ! max degree of Plms
    integer :: m_max       ! max order of Plms
@@ -64,7 +65,6 @@ module truncation
    integer :: lm_max      ! number of l/m combinations
    integer :: lmP_max     ! number of l/m combination if l runs to l_max+1
    integer :: lm_max_real ! number of l/m combination for real representation (cos/sin)
-   integer :: nrp         ! dimension of phi points in for real/complex arrays
    integer :: n_r_tot     ! total number of radial grid points
  
    !--- Now quantities for magnetic fields:
@@ -223,6 +223,9 @@ contains
          m_max      =0
       end if
 
+      ! this will be possibly overwritten when SHTns is used
+      nlat_padded=n_theta_max
+
       ! max number of ms (different oders)
       n_m_max=m_max/minc+1
 
@@ -234,12 +237,6 @@ contains
       ! number of l/m combination 
       ! for real representation (cos/sin)
       lm_max_real=2*lm_max
-
-#if WITH_SHTNS
-      nrp=n_phi_max
-#else
-      nrp=n_phi_max+2
-#endif
 
       ! total number of radial grid points
       n_r_tot = n_r_max

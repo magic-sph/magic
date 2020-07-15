@@ -4,6 +4,7 @@ module fft
    !
 
    use iso_c_binding
+   use omp_lib
    use precision_mod
    use constants, only: zero
    use truncation, only: n_phi_max, n_theta_loc
@@ -24,33 +25,36 @@ contains
       ! Set-up FFTW plans for Complex -> Real and Real -> Complex transforms
       !
 
-      !-- Input variables
+      !-- Input variable
       integer, intent(in) :: n_points
 
       !-- Local variables
-      complex(cp) :: dat_in(n_points/2+1, n_theta_loc)
-      real(cp) :: dat_out(n_points, n_theta_loc)
+      complex(cp) :: dat_in(n_theta_loc, n_points/2+1)
+      real(cp) :: dat_out(n_theta_loc, n_points)
       integer :: inembed(1), onembed(1), istride, ostride, odist, idist, n(1)
       integer :: howmany
+#ifdef WITHOMP
+      integer :: n_threads, ier
 
+      ier =  fftw_init_threads()
+      n_threads = omp_get_num_threads()
+      call fftw_plan_with_nthreads(n_threads)
+#endif
+      n = [n_points]
       howmany = n_theta_loc
-      inembed(1) = 0
-      onembed(1) = 0
-      istride = 1
-      ostride = 1
-      odist = n_points ! or 2*(n_points/2+1) if in-place
-      idist = n_points/2+1
-      n(1)=n_points
-
+      inembed = n_points/2+1
+      onembed = n_points
+      istride = n_theta_loc
+      ostride = n_theta_loc
+      idist = 1
+      odist = 1
       plan_bwd = fftw_plan_many_dft_c2r(1, n, howmany, dat_in,              &
                  &                      inembed, istride, idist, dat_out,   &
                  &                      onembed, ostride, odist, fftw_plan_flag)
 
-      idist = n_points
-      odist = n_points/2+1
-      plan_fwd = fftw_plan_many_dft_r2c(1, n, howmany, dat_out,              &
-                 &                      inembed, istride, idist, dat_in,     &
-                 &                      onembed, ostride, odist, fftw_plan_flag)
+      plan_fwd = fftw_plan_many_dft_r2c(1, n, howmany, dat_out,               &
+                 &                      onembed, istride, idist, dat_in,      &
+                 &                      inembed, ostride, odist, fftw_plan_flag)
 
    end subroutine init_fft
 !-----------------------------------------------------------------------------------
@@ -110,9 +114,9 @@ contains
       !-- Input variable:
       real(cp),    intent(inout)  :: f(:,:)
 
-      !-- Out variable
-      complex(cp), intent(out)  :: g(n_phi_max/2+1,n_theta_loc)
-
+      !-- Output variable:
+      complex(cp), intent(out) :: g(n_theta_loc,(n_phi_max/2+1))
+      
       call fftw_execute_dft_r2c(plan_fwd, f, g)
       g(:,:)=g(:,:)/n_phi_max
 
@@ -127,8 +131,8 @@ contains
       complex(cp), intent(inout)  :: g(:,:)
 
       !-- Output variable:
-      real(cp),    intent(out) :: f(n_phi_max,n_theta_loc)
-
+      real(cp),    intent(out) :: f(n_theta_loc,n_phi_max)
+      
       call fftw_execute_dft_c2r(plan_bwd, g, f)
 
    end subroutine ifft_many

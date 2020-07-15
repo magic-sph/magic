@@ -4,7 +4,7 @@ module TO_helpers
    !
 
    use precision_mod
-   use truncation, only: l_max, n_theta_max
+   use truncation, only: l_max, n_theta_max, nlat_padded
    use blocking, only: lm2
    use horizontal_data, only: osn1
    use constants, only: one, two, half
@@ -112,7 +112,7 @@ contains
 
    end subroutine getPAStr
 !---------------------------------------------------------------------------
-   subroutine get_PAS(Tlm,Bp,rT,nThetaStart,sizeThetaBlock)
+   subroutine get_PAS(Tlm,Bp,rT)
       !
       !  Purpose of this subroutine is to calculate the axisymmetric      
       !  phi component Bp of an axisymmetric toroidal field Tlm           
@@ -120,8 +120,6 @@ contains
       !
 
       !-- Input variables
-      integer,  intent(in) :: nThetaStart    ! first theta to be treated
-      integer,  intent(in) :: sizeThetaBlock ! size of theta block
       real(cp), intent(in) :: rT             ! radius
       real(cp), intent(in) :: Tlm(:)         ! field in (l,m)-space for rT
 
@@ -133,7 +131,7 @@ contains
       integer :: nTheta,nThetaN
       real(cp) :: fac
       complex(cp) :: Tl_AX(1:l_max+1)
-      real(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
+      real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
 
       do l=0,l_max
          lm=lm2(l,0)
@@ -142,8 +140,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
-         nThetaN=(nThetaStart+nTheta)/2
+      do nTheta=1,n_theta_max,2 ! loop over thetas in Northern HS
+         nThetaN=(nTheta+1)/2
          fac=osn1(nThetaN)/rT
          Bp(nTheta)  =fac*tmpp(nTheta)
          Bp(nTheta+1)=fac*tmpp(nTheta+1)

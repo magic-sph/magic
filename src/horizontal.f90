@@ -39,12 +39,6 @@ module horizontal_data
    real(cp), public, allocatable :: phi(:)
 
    !-- Legendres:
-   real(cp), public, allocatable :: Plm(:,:)
-   real(cp), public, allocatable :: Plm_loc(:,:)
-   real(cp), public, allocatable :: dPlm_loc(:,:)
-   real(cp), public, allocatable :: wPlm(:,:)
-   real(cp), public, allocatable :: wdPlm(:,:)
-   real(cp), public, allocatable :: dPlm(:,:)
    real(cp), public, allocatable :: gauss(:)
    real(cp), public, allocatable :: dPl0Eq(:)
 
@@ -52,7 +46,6 @@ module horizontal_data
    complex(cp), public, allocatable :: dPhi(:)
    real(cp), public, allocatable :: dLh(:)
    real(cp), public, allocatable :: dTheta1S(:),dTheta1A(:)
-   real(cp), public, allocatable :: D_mc2m(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
 
    complex(cp), public, allocatable :: dPhi_loc(:)
@@ -62,11 +55,6 @@ module horizontal_data
    real(cp), public, allocatable :: dTheta3S_loc(:),dTheta3A_loc(:)
    real(cp), public, allocatable :: dTheta4S_loc(:),dTheta4A_loc(:)
    
-   !-- Limiting l for a given m, used in legtf
-   integer, public, allocatable :: lStart(:),lStop(:)
-   integer, public, allocatable :: lStartP(:),lStopP(:)
-   logical, public, allocatable :: lmOdd(:),lmOddP(:)
-
    public :: initialize_horizontal_data, horizontal, finalize_horizontal_data
 
 contains
@@ -80,13 +68,18 @@ contains
       allocate( osn2(n_theta_max/2) )
       allocate( cosn2(n_theta_max/2) )
       allocate( osn1(n_theta_max/2) )
-      allocate( O_sin_theta(n_theta_max) )
-      allocate( O_sin_theta_E2(n_theta_max) )
-      allocate( sinTheta(n_theta_max) )
-      allocate( cosn_theta_E2(n_theta_max) )
-      allocate( cosTheta(n_theta_max) )
+      allocate( O_sin_theta(nlat_padded) )
+      allocate( O_sin_theta_E2(nlat_padded) )
+      allocate( sinTheta(nlat_padded) )
+      allocate( cosn_theta_E2(nlat_padded) )
+      allocate( cosTheta(nlat_padded) )
       bytes_allocated = bytes_allocated+n_theta_max*SIZEOF_INTEGER+&
-      &                 9*n_theta_max*SIZEOF_DEF_REAL
+      &                 (4*n_theta_max+5*nlat_padded)*SIZEOF_DEF_REAL
+      O_sin_theta(:)   =0.0_cp
+      O_sin_theta_E2(:)=0.0_cp
+      sinTheta(:)      =0.0_cp
+      cosn_theta_E2(:) =0.0_cp
+      cosTheta(:)      =0.0_cp
 
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
@@ -97,29 +90,12 @@ contains
       allocate( dPl0Eq(l_max+1) )
       bytes_allocated = bytes_allocated+(n_theta_max+l_max+1)*SIZEOF_DEF_REAL
 
-#ifndef WITH_SHTNS
-      allocate( Plm(lm_max,n_theta_max/2) )
-      allocate( Plm_loc(n_lm_loc,n_theta_max/2) )
-      allocate( dPlm_loc(n_lm_loc,n_theta_max/2) )
-      allocate( wPlm(lmP_max,n_theta_max/2) )
-      allocate( dPlm(lm_max,n_theta_max/2) )
-      bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
-      &                 lmP_max*n_theta_max/2)*SIZEOF_DEF_REAL
-
-      if ( l_RMS ) then
-         allocate( wdPlm(lmP_max,n_theta_max/2) )
-         bytes_allocated = bytes_allocated*lmP_max*n_theta_max/2*SIZEOF_DEF_REAL
-      end if
-#endif
-
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max), dLh(lm_max) )
       allocate( dTheta1S(lm_max),dTheta1A(lm_max) )
-      allocate( D_mc2m(n_m_max) )
       allocate( hdif_B(0:l_max),hdif_V(0:l_max),hdif_S(0:l_max) )
       allocate( hdif_Xi(0:l_max) )
-      bytes_allocated = bytes_allocated+(4*lm_max+n_m_max+4*(l_max+1))* &
-      &                 SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(4*lm_max+4*(l_max+1))*SIZEOF_DEF_REAL
       
       !-- Distributed arrays depending on l and m:)
       !>@ TODO : decide which one we keep 
@@ -130,12 +106,6 @@ contains
       allocate( dTheta4S_loc(n_lm_loc),dTheta4A_loc(n_lm_loc) )
       bytes_allocated = bytes_allocated+10*n_lm_loc*SIZEOF_DEF_REAL
 
-      !-- Limiting l for a given m, used in legtf
-      allocate( lStart(n_m_max),lStop(n_m_max) )
-      allocate( lStartP(n_m_max),lStopP(n_m_max) )
-      allocate( lmOdd(n_m_max),lmOddP(n_m_max) )
-      bytes_allocated = bytes_allocated+6*n_m_max*SIZEOF_INTEGER
-
    end subroutine initialize_horizontal_data
 !------------------------------------------------------------------------------
    subroutine finalize_horizontal_data
@@ -143,13 +113,8 @@ contains
       deallocate( cosn_theta_E2, sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
       deallocate( gauss, dPl0Eq )
-#ifndef WITH_SHTNS
-      deallocate( Plm, Plm_loc, dPlm_loc, wPlm, dPlm )
-      if ( l_RMS ) deallocate( wdPlm )
-#endif
       deallocate( dPhi, dLh, dTheta1S, dTheta1A )
-      deallocate( D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
-      deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
+      deallocate( hdif_B, hdif_V, hdif_S, hdif_Xi )
 
       ! Deallocate the distributed fields 
       deallocate( dLh_loc, dPhi_loc, dTheta1S_loc, dTheta1A_loc )
@@ -169,14 +134,9 @@ contains
 
       !-- Local variables:
       integer :: norm,n_theta,n_phi
-      integer :: l,m,lm,mc
+      integer :: l,m,lm
       real(cp) :: ampnu!,q0
       real(cp) :: clm(0:l_max+1,0:l_max+1)
-#ifndef WITH_SHTNS
-      integer :: lmP
-      real(cp) :: plma(lmP_max)
-      real(cp) :: dtheta_plma(lmP_max)
-#endif
       real(cp) :: colat
       real(cp) :: fac
       real(cp) :: Pl0Eq(l_max+1)
@@ -196,27 +156,6 @@ contains
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
 
          colat=theta_ord(n_theta)
-
-#ifndef WITH_SHTNS
-         !----- plmtheta calculates plms and their derivatives
-         !      up to degree and order l_max+1 and m_max at
-         !      the points cos(theta_ord(n_theta)):
-         call plm_theta(colat,l_max+1,m_max,minc, &
-              &         plma,dtheta_plma,lmP_max,norm)
-         do lmP=1,lmP_max
-            l=map_glbl_st%lmP2l(lmP)
-            if ( l <= l_max ) then
-               lm=map_glbl_st%lmP2lm(lmP)
-               Plm(lm,n_theta) =plma(lmP)
-               dPlm(lm,n_theta)=dtheta_plma(lmP)
-            end if
-            wPlm(lmP,n_theta) =two*pi*gauss(n_theta)*plma(lmP)
-            if ( l_RMS ) wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
-         end do
-
-         call slice_Flm_real(Plm(:,n_theta), Plm_loc(:,n_theta))
-         call slice_Flm_real(dPlm(:,n_theta), dPlm_loc(:,n_theta))
-#endif
 
          ! Get dP for all degrees and order m=0 at the equator only
          ! Usefull to estimate the flow velocity at the equator
@@ -365,37 +304,6 @@ contains
 
          end if
 
-      end do
-
-      !-- Build auxiliary index arrays for Legendre transform:
-      !   lStartP, lStopP give start and end positions in lmP-block.
-      !   lStart, lStop give start and end positions in lm-block.
-      lStartP(1)=1
-      lStopP(1) =l_max+2
-      lStart(1) =1
-      lStop(1)  =l_max+1
-      D_mc2m(1)=0
-      if ( mod(l_max,2) == 0 ) then
-         lmOdd(1) =.true.
-         lmOddP(1)=.false.
-      else
-         lmOdd(1) =.false.
-         lmOddP(1)=.true.
-      end if
-      do mc=2,n_m_max
-         m=(mc-1)*minc
-         D_mc2m(mc) =real(m,cp)
-         lStartP(mc)=lStopP(mc-1)+1
-         lStopP(mc) =lStartP(mc) +l_max-m+1
-         lStart(mc) =lStop(mc-1) +1
-         lStop(mc)  =lStart(mc)  +l_max-m
-         if ( mod(lStop(mc)-lStart(mc),2) == 0 ) then
-            lmOdd(mc) =.true.
-            lmOddP(mc)=.false.
-         else
-            lmOdd(mc) =.false.
-            lmOddP(mc)=.true.
-         end if
       end do
 
    end subroutine horizontal

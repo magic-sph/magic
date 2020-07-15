@@ -3,11 +3,10 @@ module courant_mod
 
    use parallel_mod
    use precision_mod
-   use truncation, only: nrp, n_phi_max, nRstart, nRstop, nThetaStart, nThetaStop
+   use truncation, only: n_phi_max, nRstart, nRstop, nThetaStart, nThetaStop
    use radial_functions, only: orho1, orho2, or4, or2
    use physical_parameters, only: LFfac, opm
    use num_param, only: delxr2, delxh2
-   use blocking, only: nfs
    use horizontal_data, only: osn2
    use logic, only: l_mag, l_mag_LF, l_mag_kin, l_cour_alf_damp
    use useful, only: logWrite
@@ -67,12 +66,12 @@ contains
 
       !-- Input variable:
       integer,  intent(in) :: n_r           ! radial level
-      real(cp), intent(in) :: vr(nrp,nThetaStart:nThetaStop)   ! radial velocity
-      real(cp), intent(in) :: vt(nrp,nThetaStart:nThetaStop)   ! longitudinal velocity
-      real(cp), intent(in) :: vp(nrp,nThetaStart:nThetaStop)   ! azimuthal velocity
-      real(cp), intent(in) :: br(nrp,nThetaStart:nThetaStop)   ! radial magnetic field
-      real(cp), intent(in) :: bt(nrp,nThetaStart:nThetaStop)   ! longitudinal magnetic field
-      real(cp), intent(in) :: bp(nrp,nThetaStart:nThetaStop)   ! azimuthal magnetic field
+      real(cp), intent(in) :: vr(nThetaStart:nThetaStop,n_phi_max)   ! radial velocity
+      real(cp), intent(in) :: vt(nThetaStart:nThetaStop,n_phi_max)   ! longitudinal velocity
+      real(cp), intent(in) :: vp(nThetaStart:nThetaStop,n_phi_max)   ! azimuthal velocity
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max)   ! radial magnetic field
+      real(cp), intent(in) :: bt(nThetaStart:nThetaStop,n_phi_max)   ! longitudinal magnetic field
+      real(cp), intent(in) :: bp(nThetaStart:nThetaStop,n_phi_max)   ! azimuthal magnetic field
       real(cp), intent(in) :: courfac
       real(cp), intent(in) :: alffac
 
@@ -112,34 +111,28 @@ contains
          !$omp private(n_theta,n_theta_nhs,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vflr2max,valr2max,vflh2max,valh2max)
-         do n_theta=nThetaStart,nThetaStop
+         do n_phi=1,n_phi_max
+            do n_theta=nThetaStart,nThetaStop
+               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
 
-            n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-
-            do n_phi=1,n_phi_max
-
-               vflr2=orho2(n_r)*vr(n_phi,n_theta)*vr(n_phi,n_theta)
-               valr =br(n_phi,n_theta)*br(n_phi,n_theta) * &
+               vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
+               valr =br(n_theta,n_phi)*br(n_theta,n_phi) * &
                &     LFfac*orho1(n_r)
                valr2=valr*valr/(valr+valri2)
                vflr2max=max(vflr2max,O_r_e_4*cf2*vflr2)
                valr2max=max(valr2max,O_r_e_4*af2*valr2)
 
-
-               vflh2= ( vt(n_phi,n_theta)*vt(n_phi,n_theta) +  &
-               &        vp(n_phi,n_theta)*vp(n_phi,n_theta) )* &
+               vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
+               &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
                &        osn2(n_theta_nhs)*orho2(n_r)
-               valh2= ( bt(n_phi,n_theta)*bt(n_phi,n_theta) +  &
-               &        bp(n_phi,n_theta)*bp(n_phi,n_theta) )* &
+               valh2= ( bt(n_theta,n_phi)*bt(n_theta,n_phi) +  &
+               &        bp(n_theta,n_phi)*bp(n_theta,n_phi) )* &
                &        LFfac*osn2(n_theta_nhs)*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
                vflh2max=max(vflh2max,O_r_E_2*cf2*vflh2)
                valh2max=max(valh2max,O_r_E_2*af2*valh2)
-
             end do
-
          end do
-         
          !$omp end parallel do
 
 #ifdef WITH_MPI
@@ -182,29 +175,23 @@ contains
             dthkc_new = dthkc
          end if
 
-
       else   ! Magnetic field ?
 
          !$omp parallel do default(shared) &
-         !$omp private(n_theta,n_theta_nhs,n_phi) &
-         !$omp private(vflr2,vflh2) &
+         !$omp private(n_theta,n_theta_nhs,n_phi,vflr2,vflh2) &
          !$omp reduction(max:vflr2max,vflh2max)
-         do n_theta=nThetaStart, nThetaStop
+         do n_phi=1,n_phi_max
+            do n_theta=nThetaStar,nThetaStop
+               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
 
-            n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-
-            do n_phi=1,n_phi_max
-
-               vflr2=orho2(n_r)*vr(n_phi,n_theta)*vr(n_phi,n_theta)
+               vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
                vflr2max=max(vflr2max,cf2*O_r_E_4*vflr2)
 
-               vflh2= ( vt(n_phi,n_theta)*vt(n_phi,n_theta) +  &
-               &        vp(n_phi,n_theta)*vp(n_phi,n_theta) )* &
+               vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
+               &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
                &        osn2(n_theta_nhs)*orho2(n_r)
                vflh2max=max(vflh2max,cf2*O_r_E_2*vflh2)
-
             end do
-
          end do
          !$omp end parallel do
 
@@ -259,28 +246,25 @@ contains
          !$omp private(n_theta,n_theta_nhs,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vr2max,vh2max)
-         do n_theta=nThetaStart, nThetaStop
-            n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
+         do n_phi=1,n_phi_max
+            do n_theta=nThetaStart,nThetaStop
+               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
 
-            do n_phi=1,n_phi_max
-
-               vflr2=orho2(n_r)*vr(n_phi,n_theta)*vr(n_phi,n_theta)
-               valr =br(n_phi,n_theta)*br(n_phi,n_theta) * &
-               &     LFfac*orho1(n_r)
+               vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
+               valr =br(n_theta,n_phi)*br(n_theta,n_phi)*LFfac*orho1(n_r)
                valr2=valr*valr/(valr+valri2)
                vr2max=max(vr2max,O_r_e_4*(cf2*vflr2+af2*valr2))
 
-               vflh2= ( vt(n_phi,n_theta)*vt(n_phi,n_theta) +  &
-               &        vp(n_phi,n_theta)*vp(n_phi,n_theta) )* &
+               vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
+               &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
                &        osn2(n_theta_nhs)*orho2(n_r)
-               valh2= ( bt(n_phi,n_theta)*bt(n_phi,n_theta) +  &
-               &        bp(n_phi,n_theta)*bp(n_phi,n_theta) )* &
+               valh2= ( bt(n_theta,n_phi)*bt(n_theta,n_phi) +  &
+               &        bp(n_theta,n_phi)*bp(n_theta,n_phi) )* &
                &        LFfac*osn2(n_theta_nhs)*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
                vh2max=max(vh2max,O_r_E_2*(cf2*vflh2+af2*valh2m))
 
             end do
-
          end do
          !$omp end parallel do
 
@@ -296,19 +280,17 @@ contains
       else   ! Magnetic field ?
 
          !$omp parallel do default(shared) &
-         !$omp private(n_theta,n_theta_nhs,n_phi) &
-         !$omp private(vflr2,vflh2) &
+         !$omp private(n_theta,n_theta_nhs,n_phi,vflr2,vflh2) &
          !$omp reduction(max:vr2max,vh2max)
-         do n_theta=nThetaStart, nThetaStop
-            n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
+         do n_phi=1,n_phi_max
+            do n_theta=nThetaStart,nThetaStop
+               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
 
-            do n_phi=1,n_phi_max
-
-               vflr2=orho2(n_r)*vr(n_phi,n_theta)*vr(n_phi,n_theta)
+               vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
                vr2max=max(vr2max,cf2*O_r_E_4*vflr2)
 
-               vflh2= ( vt(n_phi,n_theta)*vt(n_phi,n_theta) +  &
-               &        vp(n_phi,n_theta)*vp(n_phi,n_theta) )* &
+               vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
+               &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
                &        osn2(n_theta_nhs)*orho2(n_r)
                vh2max=max(vh2max,cf2*O_r_E_2*vflh2)
 
@@ -382,15 +364,12 @@ contains
       dt_2 =min(half*(one/dt_fac+one)*dt_rh,dtMax)
 
       if ( dt > dtMax ) then
-
          l_new_dt=.true.
          dt_new=dtMax
          write(message,'(1P," ! COURANT: dt=dtMax =",ES12.4,A)') dtMax,&
          &     " ! Think about changing dtMax !"
          call logWrite(message)
-
       else if ( dt > dt_rh ) then
-
          l_new_dt=.true.
          dt_new  =dt_2
          write(message,'(1P," ! COURANT: dt=",ES11.4," > dt_r=",ES12.4, &
@@ -399,9 +378,7 @@ contains
          if ( l_master_rank ) then
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
          end if
-
       else if ( dt_fac*dt < dt_rh .and. dt < dtMax ) then
-
          l_new_dt=.true.
          dt_new=dt_2
          write(message,'(" ! COURANT: ",F4.1,1P,"*dt=",ES11.4, &
@@ -411,12 +388,9 @@ contains
          if ( l_master_rank ) then
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
          end if
-
       else
-
          l_new_dt = .false.
          dt_new = dt
-
       end if
 
    end subroutine dt_courant

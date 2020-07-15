@@ -7,8 +7,7 @@ module rIter_split
        &                td_counter
    use truncation, only: n_lmP_loc, nRstart, nRstop, nRstartMag, nRstopMag,   &
        &                 n_lm_loc, n_lmMag_loc, n_r_cmb, n_r_icb, n_theta_max,&
-       &                 n_phi_max, n_theta_loc, n_m_max, nThetaStart,        &
-       &                 nThetaStop
+       &                 n_phi_max, n_theta_loc, n_m_max 
    use nonlinear_3D_lm_mod, only: nonlinear_3D_lm_t
    use hybrid_space_mod, only: hybrid_3D_arrays_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
@@ -160,12 +159,11 @@ contains
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
       !-- Local variables:
-      logical :: lGraphHeader, lMagNlBc
+      logical :: lMagNlBc
 
-      lGraphHeader=l_graph
-      if ( lGraphHeader ) then
+      if ( l_graph ) then
 #ifdef WITH_MPI
-         call graphOut_mpi_header(time,1,n_theta_max)
+         call graphOut_mpi_header(time)
 #else
          call graphOut_header(time)
 #endif
@@ -347,9 +345,8 @@ contains
 
 
       !--Local variables
-      integer :: nR, nBc, nPhi, nTheta, nThStart, nThStop
+      integer :: nR, nBc, nPhi, nPhStart, nPhStop
       logical :: lDeriv, l_Bound
-      logical :: lGraphHeader=.false.
 
       call this%nl_lm%set_zero()
 
@@ -406,46 +403,41 @@ contains
 
          if ( (.not. l_bound .or. lRmsCalc ) .and. (l_conv_nl .or. l_mag_LF) ) then
 
-            !$omp parallel default(shared) private(nThStart,nThStop,nTheta)
-            nThStart=nThetaStart; nThStop=nThetaStop
-            call get_openmp_blocks(nThStart,nThStop)
+            !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
+            nPhStart=1; nPhStop=n_phi_max
+            call get_openmp_blocks(nPhStart,nPhStop)
 
-            do nTheta=nThStart,nThStop
+            do nPhi=nPhStart,nPhStop
                if ( l_conv_nl .and. l_mag_LF ) then
                   if ( nR>n_r_LCR ) then
-                     this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+&
-                     &                          this%gsa%LFr(:,nTheta)
-                     this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+&
-                     &                          this%gsa%LFt(:,nTheta)
-                     this%gsa%Advp(:,nTheta)=this%gsa%Advp(:,nTheta)+&
-                     &                          this%gsa%LFp(:,nTheta)
+                     this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi)+&
+                     &                          this%gsa%LFr(:,nPhi)
+                     this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi)+&
+                     &                          this%gsa%LFt(:,nPhi)
+                     this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi)+&
+                     &                          this%gsa%LFp(:,nPhi)
                   end if
                else if ( l_mag_LF ) then
                   if ( nR > n_r_LCR ) then
-                     this%gsa%Advr(:,nTheta)=this%gsa%LFr(:,nTheta)
-                     this%gsa%Advt(:,nTheta)=this%gsa%LFt(:,nTheta)
-                     this%gsa%Advp(:,nTheta)=this%gsa%LFp(:,nTheta)
+                     this%gsa%Advr(:,nPhi)=this%gsa%LFr(:,nPhi)
+                     this%gsa%Advt(:,nPhi)=this%gsa%LFt(:,nPhi)
+                     this%gsa%Advp(:,nPhi)=this%gsa%LFp(:,nPhi)
                   else
-                     this%gsa%Advr(:,nTheta)=0.0_cp
-                     this%gsa%Advt(:,nTheta)=0.0_cp
-                     this%gsa%Advp(:,nTheta)=0.0_cp
+                     this%gsa%Advr(:,nPhi)=0.0_cp
+                     this%gsa%Advt(:,nPhi)=0.0_cp
+                     this%gsa%Advp(:,nPhi)=0.0_cp
                   end if
                end if
 
                if ( l_precession ) then
-                  this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+&
-                  &                             this%gsa%PCr(:,nTheta)
-                  this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+&
-                  &                             this%gsa%PCt(:,nTheta)
-                  this%gsa%Advp(:,nTheta)=this%gsa%Advp(:,nTheta)+&
-                  &                             this%gsa%PCp(:,nTheta)
+                  this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi)+this%gsa%PCr(:,nPhi)
+                  this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi)+this%gsa%PCt(:,nPhi)
+                  this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi)+this%gsa%PCp(:,nPhi)
                end if
 
                if ( l_centrifuge ) then
-                     this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+&
-                     &                       this%gsa%CAr(:,nTheta)
-                     this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+&
-                     &                       this%gsa%CAt(:,nTheta)
+                     this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi)+this%gsa%CAr(:,nPhi)
+                     this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi)+this%gsa%CAt(:,nPhi)
                end if
             end do
             !$omp end parallel
@@ -498,13 +490,13 @@ contains
          !   point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi(time,nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
                  &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc, &
-                 &            this%gsa%pc,this%gsa%xic,lGraphHeader)
+                 &            this%gsa%pc,this%gsa%xic)
 #else
-            call graphOut(time,nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+            call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
                  &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc, &
-                 &        this%gsa%pc,this%gsa%xic,lGraphHeader)
+                 &        this%gsa%pc,this%gsa%xic)
 #endif
          end if
 
@@ -560,8 +552,7 @@ contains
                  &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,      &
-                 &                 1,n_theta_max)
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
          end if
 
          !--------- Stuff for special output:

@@ -19,7 +19,7 @@ module fields_average_mod
    use communications, only: gather_from_mlo_to_master
    use out_coeff, only: write_Bcmb, write_Pot
    use spectra, only: spectrum, spectrum_temp
-   use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file
+   use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file, graphOut_header
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt_dist, dpdt_dist, dzdt_dist, dsdt_dist, dxidt_dist, &
@@ -162,10 +162,11 @@ contains
       complex(cp) :: dj_ic_ave(n_mloMag_loc,n_r_ic_max)
 
       !----- Fields in grid space:
-      real(cp) :: Br(nrp,n_theta_max),Bt(nrp,n_theta_max),Bp(nrp,n_theta_max) ! B field comp.
-      real(cp) :: Vr(nrp,n_theta_max),Vt(nrp,n_theta_max),Vp(nrp,n_theta_max) ! B field comp.
-      real(cp) :: Sr(nrp,n_theta_max),Prer(nrp,n_theta_max)           ! entropy,pressure
-      real(cp) :: Xir(nrp,n_theta_max)                        ! chemical composition
+      real(cp) :: Br(nlat_padded,n_phi_max),Bt(nlat_padded,n_phi_max)
+      real(cp) :: Bp(nlat_padded,n_phi_max),Vr(nlat_padded,n_phi_max)
+      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max) 
+      real(cp) :: Sr(nlat_padded,n_phi_max),Prer(nlat_padded,n_phi_max)
+      real(cp) :: Xir(nlat_padded,n_phi_max)
 
       !----- Energies of time average field:
       real(cp) :: e_kin_p_ave,e_kin_t_ave,e_kin_p_as_ave,e_kin_t_as_ave
@@ -178,9 +179,6 @@ contains
 
       character(len=72) :: graph_file
       character(len=80) :: outFile
-
-      logical :: lGraphHeader
-
 
       !-- Initialise average for first time step:
 
@@ -358,12 +356,10 @@ contains
          if ( l_master_rank ) then
             graph_file='G_ave.'//tag
             open(newunit=n_graph_file, file=graph_file, status='unknown', &
-            &    form='unformatted')
+            &    form='unformatted', access='stream')
 
             !----- Write header into graphic file:
-            lGraphHeader=.true.
-            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,Xir, &
-                 &        0,n_theta_max,lGraphHeader)
+            call graphOut_header(time)
          end if
 
          !-- This will be needed for the inner core
@@ -401,9 +397,7 @@ contains
                if ( l_chemical_conv ) then
                   call scal_to_spat_loc(xi_ave_global, Xir, l_R(nR))
                end if
-               if (l_master_rank) &
-                  call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
-                  &             Xir, 1, n_theta_max, lGraphHeader)
+               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir)
             end if
          end do
 
@@ -419,8 +413,7 @@ contains
 
             if ( l_master_rank ) then
                call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
-                    &           ddb_ic_ave_global,aj_ic_ave_global, &
-                    &           dj_ic_ave_global,bICB,l_avg=.true.)
+                    &           aj_ic_ave_global,bICB,l_avg=.true.)
             end if
          end if
 

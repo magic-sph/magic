@@ -7,7 +7,7 @@ module blocking
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: nThreads, coord_r, n_ranks_r, coord_r, l_master_rank
-   use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
+   use truncation, only: lmP_max, lm_max, l_max, n_theta_max, &
        &                 minc, n_r_max, m_max, l_axi, rank_with_l1m0, load, getBlocks
    use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
@@ -88,16 +88,7 @@ module blocking
    !        nfs=sizeThetaBI/(n_phi_max+nBSave)+1)*nBDown
    !
 
-   integer, public :: nfs
-   integer, public :: cacheblock_size_in_B=4096
-
-   integer, public :: nThetaBs, sizeThetaB
-
-   interface get_theta_blocking
-      module procedure get_theta_blocking_cache,get_theta_blocking_OpenMP
-   end interface get_theta_blocking
-
-   public :: initialize_blocking, finalize_blocking, get_theta_blocking
+   public :: initialize_blocking, finalize_blocking
 
 contains
 
@@ -120,7 +111,10 @@ contains
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
          end if
-         write(n_log_file,'(A,I5)') ' ! Number of MPI ranks:', n_ranks_r
+         !write(n_log_file,'(A,I5)') ' ! Number of MPI ranks  :', n_procs
+         !write(output_unit,'(A,I5)') ' ! Number of MPI ranks  :', n_procs
+         write(n_log_file,'(A,I5)') ' ! Number of OMP threads:', nThreads
+         write(output_unit,'(A,I5)') ' ! Number of OMP threads:', nThreads
          if ( l_save_out ) close(n_log_file)
       end if
 
@@ -214,59 +208,6 @@ contains
       lm22lm(1:,1:,1:) => st_sub_map%lm22lm
       lm22l(1:,1:,1:) => st_sub_map%lm22l
       lm22m(1:,1:,1:) => st_sub_map%lm22m
-
-      !-- Calculate blocking parameters for blocking loops over theta:
-
-#ifdef WITH_SHTNS
-      sizeThetaB = n_theta_max
-      nfs = sizeThetaB
-      nThetaBs = 1
-#else
-      if (nThreads == 1) then
-         call get_theta_blocking_cache(n_theta_max,nrp,cacheblock_size_in_B, &
-              &                        nThetaBs,sizeThetaB)
-         nfs=sizeThetaB
-      else
-         call get_theta_blocking_OpenMP(n_theta_max,nThreads, nThetaBs,sizeThetaB)
-         nfs=sizeThetaB
-      end if
-
-#endif
-      ! sizeThetaB = n_theta_max
-      ! nfs = sizeThetaB
-      ! nThetaBs = 1
-
-      ! sizeThetaB = 4
-      ! nfs = sizeThetaB
-      ! nThetaBs = n_theta_max/nfs
-
-      if ( l_master_rank ) then
-         if ( l_save_out ) then
-            open(newunit=n_log_file, file=log_file, status='unknown', &
-            &    position='append')
-         end if
-
-         write(output_unit,*) '!-- Blocking information:'
-         write(output_unit,*)
-         !write(output_unit,*) '!    Number of LM-blocks:',nLMBs
-         !write(output_unit,*) '!    Size   of LM-blocks:',sizeLMB
-         write(output_unit,*) '!               nThreads:',nThreads
-         write(output_unit,*)
-         write(output_unit,*) '! Number of theta blocks:',nThetaBs
-         write(output_unit,*) '!   size of theta blocks:',sizeThetaB
-         write(output_unit,*) '!       ideal size (nfs):',nfs
-         write(n_log_file,*) '!-- Blocking information:'
-         write(n_log_file,*)
-         !write(n_log_file,*) '!    Number of LM-blocks:',nLMBs
-         !write(n_log_file,*) '!    Size   of LM-blocks:',sizeLMB
-         write(n_log_file,*) '!               nThreads:',nThreads
-         write(n_log_file,*)
-         write(n_log_file,*) '! Number of theta blocks:',nThetaBs
-         write(n_log_file,*) '!   size of theta blocks:',sizeThetaB
-         write(n_log_file,*) '!       ideal size (nfs):',nfs
-
-         if ( l_save_out ) close(n_log_file)
-      end if
 
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
@@ -843,78 +784,5 @@ contains
       end do
 
    end subroutine get_snake_lm_blocking
-!------------------------------------------------------------------------
-   subroutine get_theta_blocking_cache(n_theta_max,nrp,      &
-                                       cacheblock_size_in_B, &
-                                       nThetaBs, sizeThetaB)
-
-      integer, intent(in) :: n_theta_max,nrp,cacheblock_size_in_B
-      integer, intent(out) :: nThetaBs, sizeThetaB
-
-      integer :: best_s,s,memory_size,min_s
-
-      best_s=0
-      min_s = 0
-      ! The size of the theta blocks must be dividable by 4
-      ! due to the algorithms in the legTF routines.
-      do s=4,n_theta_max,4
-         if ( modulo(n_theta_max,s)==0 ) then
-            ! candidate found
-            if (min_s == 0) min_s=s
-            nThetaBs=n_theta_max/s
-            memory_size=s*nrp*8
-            if ( cacheblock_size_in_b/real(memory_size)  >= one ) then
-               best_s=s
-            else if ( cacheblock_size_in_B/memory_size  ==  0 ) then
-               exit
-            end if
-         end if
-      end do
-      if ( best_s /= 0 ) then
-         sizeThetaB=best_s
-      else
-         sizeThetaB=min_s
-      end if
-      nThetaBs=n_theta_max/sizeThetaB
-
-   end subroutine get_theta_blocking_cache
-!------------------------------------------------------------------------
-   subroutine get_theta_blocking_OpenMP(n_theta_max, nThreads, nThetaBs, sizeThetaB)
-      !
-      !  This routine determines the number of theta blocks and the
-      !  blocksize with respect to the number of threads.
-      !
-      integer, intent(in) :: n_theta_max,nThreads
-      integer, intent(out) :: nThetaBs, sizeThetaB
-
-      integer :: best_s,s,min_s
-
-      best_s=0
-      min_s = 0
-      ! The size of the theta blocks must be dividable by 4
-      ! due to the algorithms in the legTF routines.
-      do s=4,n_theta_max,4
-         if ( modulo(n_theta_max,s)==0 ) then
-            ! candidate found
-            if (min_s == 0) min_s=s
-            nThetaBs=n_theta_max/s
-            !write(output_unit,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", &
-            !     &              nThetaBs = ",nThetaBs
-
-            if ( modulo(nThetaBs,nThreads) == 0 ) then
-               best_s=s
-            elseif (nThetaBs/nThreads  ==  0) then
-               exit
-            end if
-         end if
-      end do
-      if (best_s /= 0) then
-         sizeThetaB=best_s
-      else
-         sizeThetaB=min_s
-      end if
-      nThetaBs=n_theta_max/sizeThetaB
-
-   end subroutine get_theta_blocking_OpenMP
 !------------------------------------------------------------------------
 end module blocking

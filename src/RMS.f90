@@ -881,7 +881,6 @@ contains
       call reduce_radial(dtBTAs, dtBTAs_global, 0)
 
       if ( l_master_rank ) then
-
          dtBPolRms  =rInt_R(dtBP_global,r,rscheme_oc)
          dtBPolAsRms=rInt_R(dtBPAs_global,r,rscheme_oc)
          dtBTorRms  =rInt_R(dtBT_global,r,rscheme_oc)
@@ -891,7 +890,6 @@ contains
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)
          dtBTorAsRms=sqrt(dtBTorAsRms/vol_oc)
-
       end if
 
       !-- Get dipole dynamo contribution:

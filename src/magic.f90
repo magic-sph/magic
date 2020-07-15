@@ -138,9 +138,8 @@ program magic
 #  include "likwid_f90.h"
 #endif
 
-#ifdef WITH_SHTNS
-   use sht
-#endif
+   use sht, only: initialize_sht, finalize_sht
+
    implicit none
 
    !-- Local variables:
@@ -227,12 +226,12 @@ program magic
    if ( l_master_rank ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____ ___        '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/ _ \       '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| (_) |      '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\__, |      '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | / /       '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_/        '
+      write(n_log_file,*) '!      __  __             _____ _____   _____ __  ___    '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/_ |/ _ \   '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| | | | | |  '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\| | | | |  '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) || | |_| |  '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_|\___/   '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -269,14 +268,15 @@ program magic
       if ( l_save_out ) close(n_log_file)
    end if
 
-   call initialize_mpi_map
-   call initialize_distributed_geometry
+   call initialize_mpi_map()
+   call initialize_distributed_geometry()
    
    call initialize_memory_counter()
 
    !-- Blocking/radial/horizontal
    call initialize_mapping()
    call initialize_blocking()
+   call initialize_sht()
    local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
    call initialize_radial_functions()
@@ -317,13 +317,6 @@ program magic
    if ( l_power ) call initialize_output_power()
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
-
-
-
-#ifdef WITH_SHTNS
-   call init_shtns()
-! ! ! ! ! ! ! ! ! ! ! ! !    call test_shtns()
-#endif
 
    if ( l_master_rank ) then
       call tscheme%print_info(n_log_file)
@@ -479,6 +472,7 @@ program magic
    call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
+   call finalize_sht()
    call finalize_der_arrays()
 
    call finalize_horizontal_data()

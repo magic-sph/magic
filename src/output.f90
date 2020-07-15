@@ -834,17 +834,17 @@ contains
               &                 omega_ma)
       end if
 
+      !----- Plot out inner core magnetic field, outer core
+      !      field has been written in radialLoop !
+      if ( l_graph .and. l_mag .and. n_r_ic_max > 0 ) then
+         call graphOut_IC(b_ic,db_ic,aj_ic,bICB)
+      end if
+
       ! =======================================================================
       ! ======= compute output on master
       ! =======================================================================
       if ( l_master_rank ) then
          PERFON('out_out')
-
-         !----- Plot out inner core magnetic field, outer core
-         !      field has been written in radialLoop !
-         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 ) then
-            call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
-         end if
 
          if ( l_log ) then
             !--- Energies and rotation info and a lot of other stuff

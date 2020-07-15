@@ -15,15 +15,14 @@ module grid_space_arrays_mod
    use general_arrays_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: nrp, n_phi_max, n_theta_max, n_theta_loc, nRstart, &
+   use truncation, only: n_phi_max, n_theta_max, n_theta_loc, nRstart, &
        &                 nRstop, nThetaStart, nThetaStop, n_r_loc
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1, alpha0, temp0, opressure0
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
        &                          ThExpNb, ViscHeatFac, oek, po, DissNb, &
        &                          dilution_fac, ra, opr, polind, strat, radratio
-   use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi, &
+   use horizontal_data, only: sinTheta, cosTheta, phi, &
        &                      O_sin_theta_E2, cosn_theta_E2, O_sin_theta
    use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third
@@ -84,101 +83,101 @@ contains
 
       class(grid_space_arrays_t) :: this
 
-      allocate( this%Advr(nrp,nThetaStart:nThetaStop),     &
-      &         this%Advt(nrp,nThetaStart:nThetaStop),     &
-      &         this%Advp(nrp,nThetaStart:nThetaStop) )
-      allocate( this%LFr(nrp,nThetaStart:nThetaStop),      &
-      &         this%LFt(nrp,nThetaStart:nThetaStop),      &
-      &         this%LFp(nrp,nThetaStart:nThetaStop) )
-      allocate( this%VxBr(nrp,nThetaStart:nThetaStop),     &
-      &         this%VxBt(nrp,nThetaStart:nThetaStop),     &
-      &         this%VxBp(nrp,nThetaStart:nThetaStop) )
-      allocate( this%VSr(nrp,nThetaStart:nThetaStop),      &
-      &         this%VSt(nrp,nThetaStart:nThetaStop),      &
-      &         this%VSp(nrp,nThetaStart:nThetaStop) )
-      allocate( this%ViscHeat(nrp,nThetaStart:nThetaStop), &
-      &          this%OhmLoss(nrp,nThetaStart:nThetaStop) )
-      bytes_allocated=bytes_allocated + 14*nrp*n_theta_loc*SIZEOF_DEF_REAL
+      allocate( this%Advr(nThetaStart:nThetaStop,n_phi_max),     &
+      &         this%Advt(nThetaStart:nThetaStop,n_phi_max),     &
+      &         this%Advp(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%LFr(nThetaStart:nThetaStop,n_phi_max),      &
+      &         this%LFt(nThetaStart:nThetaStop,n_phi_max),      &
+      &         this%LFp(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%VxBr(nThetaStart:nThetaStop,n_phi_max),     &
+      &         this%VxBt(nThetaStart:nThetaStop,n_phi_max),     &
+      &         this%VxBp(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%VSr(nThetaStart:nThetaStop,n_phi_max),      &
+      &         this%VSt(nThetaStart:nThetaStop,n_phi_max),      &
+      &         this%VSp(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%ViscHeat(nThetaStart:nThetaStop,n_phi_max), &
+      &          this%OhmLoss(nThetaStart:nThetaStop,n_phi_max) )
+      bytes_allocated=bytes_allocated + 14*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
 
       if ( l_precession ) then
-         allocate( this%PCr(nrp,nThetaStart:nThetaStop), &
-         &         this%PCt(nrp,nThetaStart:nThetaStop), &
-         &         this%PCp(nrp,nThetaStart:nThetaStop) )
-         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*SIZEOF_DEF_REAL
+         allocate( this%PCr(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%PCt(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%PCp(nThetaStart:nThetaStop,n_phi_max) )
+         bytes_allocated=bytes_allocated + 3*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_centrifuge ) then
-         allocate( this%CAr(nrp,nThetaStart:nThetaStop), &
-         &         this%CAt(nrp,nThetaStart:nThetaStop) )
-         bytes_allocated=bytes_allocated + 2*nrp*n_theta_loc*SIZEOF_DEF_REAL
+         allocate( this%CAr(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%CAt(nThetaStart:nThetaStop,n_phi_max) )
+         bytes_allocated=bytes_allocated + 2*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%VXir(nrp,nThetaStart:nThetaStop), &
-         &         this%VXit(nrp,nThetaStart:nThetaStop), &
-         &         this%VXip(nrp,nThetaStart:nThetaStop) )
-         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*SIZEOF_DEF_REAL
+         allocate( this%VXir(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%VXit(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%VXip(nThetaStart:nThetaStop,n_phi_max) )
+         bytes_allocated=bytes_allocated + 3*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       !----- Fields calculated from these help arrays by legtf:
-      allocate( this%vrc(nrp,nThetaStart:nThetaStop), &
-      &         this%vtc(nrp,nThetaStart:nThetaStop), &
-      &         this%vpc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%dvrdrc(nrp,nThetaStart:nThetaStop), &
-      &         this%dvtdrc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%dvpdrc(nrp,nThetaStart:nThetaStop), &
-      &         this%cvrc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%dvrdtc(nrp,nThetaStart:nThetaStop), &
-      &         this%dvrdpc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%dvtdpc(nrp,nThetaStart:nThetaStop), &
-      &         this%dvpdpc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%brc(nrp,nThetaStart:nThetaStop),    &
-      &         this%btc(nrp,nThetaStart:nThetaStop),    &
-      &         this%bpc(nrp,nThetaStart:nThetaStop) )
+      allocate( this%vrc(nThetaStart:nThetaStop,n_phi_max), &
+      &         this%vtc(nThetaStart:nThetaStop,n_phi_max), &
+      &         this%vpc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%dvrdrc(nThetaStart:nThetaStop,n_phi_max), &
+      &         this%dvtdrc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%dvpdrc(nThetaStart:nThetaStop,n_phi_max), &
+      &         this%cvrc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%dvrdtc(nThetaStart:nThetaStop,n_phi_max), &
+      &         this%dvrdpc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%dvtdpc(nThetaStart:nThetaStop,n_phi_max), &
+      &         this%dvpdpc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%brc(nThetaStart:nThetaStop,n_phi_max),    &
+      &         this%btc(nThetaStart:nThetaStop,n_phi_max),    &
+      &         this%bpc(nThetaStart:nThetaStop,n_phi_max) )
       this%btc=1.0e50_cp
       this%bpc=1.0e50_cp
-      allocate( this%cbrc(nrp,nThetaStart:nThetaStop),   &
-      &         this%cbtc(nrp,nThetaStart:nThetaStop),   &
-      &         this%cbpc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%sc(nrp,nThetaStart:nThetaStop),     &
-      &         this%drSc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%pc(nrp,nThetaStart:nThetaStop) )
-      allocate( this%dsdtc(nrp,nThetaStart:nThetaStop),  &
-      &         this%dsdpc(nrp,nThetaStart:nThetaStop) )
-      bytes_allocated=bytes_allocated + 22*nrp*n_theta_loc*SIZEOF_DEF_REAL
+      allocate( this%cbrc(nThetaStart:nThetaStop,n_phi_max),   &
+      &         this%cbtc(nThetaStart:nThetaStop,n_phi_max),   &
+      &         this%cbpc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%sc(nThetaStart:nThetaStop,n_phi_max),     &
+      &         this%drSc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%pc(nThetaStart:nThetaStop,n_phi_max) )
+      allocate( this%dsdtc(nThetaStart:nThetaStop,n_phi_max),  &
+      &         this%dsdpc(nThetaStart:nThetaStop,n_phi_max) )
+      bytes_allocated=bytes_allocated + 22*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
 
       if ( l_chemical_conv ) then
-         allocate( this%xic(nrp,nThetaStart:nThetaStop) )
-         bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
+         allocate( this%xic(nThetaStart:nThetaStop,n_phi_max) )
+         bytes_allocated=bytes_allocated + n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
       else
          allocate( this%xic(1,1) )
       end if
 
       if ( l_adv_curl ) then
-         allocate( this%cvtc(nrp,nThetaStart:nThetaStop), &
-         &         this%cvpc(nrp,nThetaStart:nThetaStop) )
-         bytes_allocated=bytes_allocated+2*nrp*n_theta_loc*SIZEOF_DEF_REAL
+         allocate( this%cvtc(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%cvpc(nThetaStart:nThetaStop,n_phi_max) )
+         bytes_allocated=bytes_allocated+2*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
       end if
 
       !-- RMS Calculations
       if ( l_RMS ) then
-         allocate ( this%Advt2(nrp,nThetaStart:nThetaStop), &
-         &         this%Advp2(nrp,nThetaStart:nThetaStop) )
-         allocate ( this%dtVr(nrp,nThetaStart:nThetaStop),  &
-         &         this%dtVt(nrp,nThetaStart:nThetaStop),   &
-         &         this%dtVp(nrp,nThetaStart:nThetaStop) )
-         allocate ( this%LFt2(nrp,nThetaStart:nThetaStop),  &
-         &         this%LFp2(nrp,nThetaStart:nThetaStop) )
-         allocate ( this%CFt2(nrp,nThetaStart:nThetaStop),  &
-         &         this%CFp2(nrp,nThetaStart:nThetaStop) )
-         allocate ( this%dpdtc(nrp,nThetaStart:nThetaStop), &
-         &         this%dpdpc(nrp,nThetaStart:nThetaStop) )
-         bytes_allocated=bytes_allocated + 11*nrp*n_theta_loc*SIZEOF_DEF_REAL
+         allocate ( this%Advt2(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%Advp2(nThetaStart:nThetaStop,n_phi_max) )
+         allocate ( this%dtVr(nThetaStart:nThetaStop,n_phi_max),  &
+         &         this%dtVt(nThetaStart:nThetaStop,n_phi_max),   &
+         &         this%dtVp(nThetaStart:nThetaStop,n_phi_max) )
+         allocate ( this%LFt2(nThetaStart:nThetaStop,n_phi_max),  &
+         &         this%LFp2(nThetaStart:nThetaStop,n_phi_max) )
+         allocate ( this%CFt2(nThetaStart:nThetaStop,n_phi_max),  &
+         &         this%CFp2(nThetaStart:nThetaStop,n_phi_max) )
+         allocate ( this%dpdtc(nThetaStart:nThetaStop,n_phi_max), &
+         &         this%dpdpc(nThetaStart:nThetaStop,n_phi_max) )
+         bytes_allocated=bytes_allocated + 11*n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
 
-         allocate( vr_old(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( vp_old(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         allocate( vt_old(nrp,nThetaStart:nThetaStop,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + 3*nrp*n_theta_loc*n_r_loc*&
+         allocate( vr_old(nThetaStart:nThetaStop,n_phi_max,nRstart:nRstop) )
+         allocate( vp_old(nThetaStart:nThetaStop,n_phi_max,nRstart:nRstop) )
+         allocate( vt_old(nThetaStart:nThetaStop,n_phi_max,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated + 3*n_phi_max*n_theta_loc*n_r_loc*&
          &               SIZEOF_DEF_REAL
 
          this%dtVr(:,:)=0.0_cp
@@ -189,13 +188,12 @@ contains
          vp_old(:,:,:) =0.0_cp
 
          if ( l_adv_curl ) then
-            allocate ( this%dpkindrc(nrp, nThetaStart:nThetaStop) )
-            bytes_allocated=bytes_allocated + nrp*n_theta_loc*SIZEOF_DEF_REAL
+            allocate ( this%dpkindrc(nThetaStart:nThetaStop,n_phi_max) )
+            bytes_allocated=bytes_allocated + n_phi_max*n_theta_loc*SIZEOF_DEF_REAL
          end if
       end if
 
    end subroutine initialize
-   
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 
@@ -272,130 +270,127 @@ contains
       integer,             intent(in) :: nBc
 
       !-- Local variables:
-      integer :: n_th, nThStart, nThStop
-      real(cp) :: cnt, rsnt, snt, posnalp, O_dt
+      integer :: nPhi, nPhStart, nPhStop
+      real(cp) :: posnalp, O_dt
 
-      !$omp parallel default(shared) private(nThStart,nThStop) &
-      !$omp private(n_th,cnt,snt,rsnt,posnalp)
-      nThStart=nThetaStart; nThStop=nThetaStop
-      call get_openmp_blocks(nThStart,nThStop)
+      if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
 
-      do n_th=nThStart,nThStop
+      !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
+      nPhStart=1; nPhStop=n_phi_max
+      call get_openmp_blocks(nPhStart,nPhStop)
+
+      do nPhi=nPhStart,nPhStop
 
          if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
             !------ Get the Lorentz force:
             !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
-            this%LFr(:,n_th)=  LFfac*O_sin_theta_E2(n_th) * (   &
-            &        this%cbtc(:,n_th)*this%bpc(:,n_th) -       &
-            &        this%cbpc(:,n_th)*this%btc(:,n_th) )
+            this%LFr(:,nPhi)=  LFfac*O_sin_theta_E2(nThetaStart:nThetaStop) * (   &
+            &        this%cbtc(:,nPhi)*this%bpc(:,nPhi) -       &
+            &        this%cbpc(:,nPhi)*this%btc(:,nPhi) )
 
             !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
-            this%LFt(:,n_th)=  LFfac*or4(nR)*O_sin_theta_E2(n_th) * ( &
-            &        this%cbpc(:,n_th)*this%brc(:,n_th) -             &
-            &        this%cbrc(:,n_th)*this%bpc(:,n_th) )
+            this%LFt(:,nPhi)=  LFfac*or4(nR)*O_sin_theta_E2(nThetaStart:nThetaStop) * ( &
+            &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -             &
+            &        this%cbrc(:,nPhi)*this%bpc(:,nPhi) )
 
             !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
-            this%LFp(:,n_th)=  LFfac*or4(nR)*O_sin_theta_E2(n_th) * ( &
-            &        this%cbrc(:,n_th)*this%btc(:,n_th) -             &
-            &        this%cbtc(:,n_th)*this%brc(:,n_th) )
+            this%LFp(:,nPhi)=  LFfac*or4(nR)*O_sin_theta_E2(nThetaStart:nThetaStop) * ( &
+            &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -             &
+            &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )
          end if      ! Lorentz force required ?
 
          if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 
             if ( l_adv_curl ) then ! Advection is \curl{u} \times u
-               this%Advr(:,n_th)=  - O_sin_theta_E2(n_th) * (    &
-               &        this%cvtc(:,n_th)*this%vpc(:,n_th) -     &
-               &        this%cvpc(:,n_th)*this%vtc(:,n_th) )
+               this%Advr(:,nPhi)=  - O_sin_theta_E2(nThetaStart:nThetaStop) * (    &
+               &        this%cvtc(:,nPhi)*this%vpc(:,nPhi) -     &
+               &        this%cvpc(:,nPhi)*this%vtc(:,nPhi) )
 
-               this%Advt(:,n_th)= -or4(nR)*O_sin_theta_E2(n_th) * ( &
-               &        this%cvpc(:,n_th)*this%vrc(:,n_th) -        &
-               &        this%cvrc(:,n_th)*this%vpc(:,n_th) )
+               this%Advt(:,nPhi)= -or4(nR)*O_sin_theta_E2(nThetaStart:nThetaStop) * ( &
+               &        this%cvpc(:,nPhi)*this%vrc(:,nPhi) -        &
+               &        this%cvrc(:,nPhi)*this%vpc(:,nPhi) )
 
-               this%Advp(:,n_th)= -or4(nR)*O_sin_theta_E2(n_th) * ( &
-               &        this%cvrc(:,n_th)*this%vtc(:,n_th) -        &
-               &        this%cvtc(:,n_th)*this%vrc(:,n_th) )
+               this%Advp(:,nPhi)= -or4(nR)*O_sin_theta_E2(nThetaStart:nThetaStop) * ( &
+               &        this%cvrc(:,nPhi)*this%vtc(:,nPhi) -        &
+               &        this%cvtc(:,nPhi)*this%vrc(:,nPhi) )
             else ! Advection is u\grad u
                !------ Get Advection:
-               this%Advr(:,n_th)=          -or2(nR)*orho1(nR) * (  &
-               &                                this%vrc(:,n_th) * &
-               &                     (       this%dvrdrc(:,n_th) - &
-               &    ( two*or1(nR)+beta(nR) )*this%vrc(:,n_th) ) +  &
-               &                      O_sin_theta_E2(n_th) * (     &
-               &                                this%vtc(:,n_th) * &
-               &                     (       this%dvrdtc(:,n_th) - &
-               &                  r(nR)*      this%vtc(:,n_th) ) + &
-               &                                this%vpc(:,n_th) * &
-               &                     (       this%dvrdpc(:,n_th) - &
-               &                    r(nR)*      this%vpc(:,n_th) ) ) )
+               this%Advr(:,nPhi)=          -or2(nR)*orho1(nR) * (  &
+               &                                this%vrc(:,nPhi) * &
+               &                     (       this%dvrdrc(:,nPhi) - &
+               &    ( two*or1(nR)+beta(nR) )*this%vrc(:,nPhi) ) +  &
+               &                      O_sin_theta_E2(nThetaStart:nThetaStop) * (     &
+               &                                this%vtc(:,nPhi) * &
+               &                     (       this%dvrdtc(:,nPhi) - &
+               &                  r(nR)*      this%vtc(:,nPhi) ) + &
+               &                                this%vpc(:,nPhi) * &
+               &                     (       this%dvrdpc(:,nPhi) - &
+               &                    r(nR)*      this%vpc(:,nPhi) ) ) )
 
-               this%Advt(:,n_th)=or4(nR)*O_sin_theta_E2(n_th)*orho1(nR) * (  &
-               &                                         -this%vrc(:,n_th) * &
-               &                                   (   this%dvtdrc(:,n_th) - &
-               &                             beta(nR)*this%vtc(:,n_th) )   + &
-               &                                          this%vtc(:,n_th) * &
-               &                    ( cosn_theta_E2(n_th)*this%vtc(:,n_th) + &
-               &                                       this%dvpdpc(:,n_th) + &
-               &                                   this%dvrdrc(:,n_th) )   + &
-               &                                          this%vpc(:,n_th) * &
-               &                    ( cosn_theta_E2(n_th)*this%vpc(:,n_th) - &
-               &                                       this%dvtdpc(:,n_th) )  )
+               this%Advt(:,nPhi)=or4(nR)*O_sin_theta_E2(nThetaStart:nThetaStop)*orho1(nR) * (  &
+               &                                         -this%vrc(:,nPhi) * &
+               &                                   (   this%dvtdrc(:,nPhi) - &
+               &                             beta(nR)*this%vtc(:,nPhi) )   + &
+               &                                          this%vtc(:,nPhi) * &
+               &                    ( cosn_theta_E2(nThetaStart:nThetaStop)*this%vtc(:,nPhi) + &
+               &                                       this%dvpdpc(:,nPhi) + &
+               &                                   this%dvrdrc(:,nPhi) )   + &
+               &                                          this%vpc(:,nPhi) * &
+               &                    ( cosn_theta_E2(nThetaStart:nThetaStop)*this%vpc(:,nPhi) - &
+               &                                       this%dvtdpc(:,nPhi) )  )
 
-               this%Advp(:,n_th)= or4(nR)*O_sin_theta_E2(n_th)*orho1(nR) * (  &
-               &                                          -this%vrc(:,n_th) * &
-               &                                      ( this%dvpdrc(:,n_th) - &
-               &                              beta(nR)*this%vpc(:,n_th) )   - &
-               &                                           this%vtc(:,n_th) * &
-               &                                      ( this%dvtdpc(:,n_th) + &
-               &                                      this%cvrc(:,n_th) )   - &
-               &                     this%vpc(:,n_th) * this%dvpdpc(:,n_th) )
+               this%Advp(:,nPhi)= or4(nR)*O_sin_theta_E2(nThetaStart:nThetaStop)*orho1(nR) * (  &
+               &                                          -this%vrc(:,nPhi) * &
+               &                                      ( this%dvpdrc(:,nPhi) - &
+               &                              beta(nR)*this%vpc(:,nPhi) )   - &
+               &                                           this%vtc(:,nPhi) * &
+               &                                      ( this%dvtdpc(:,nPhi) + &
+               &                                      this%cvrc(:,nPhi) )   - &
+               &                     this%vpc(:,nPhi) * this%dvpdpc(:,nPhi) )
             end if
 
          end if  ! Navier-Stokes nonlinear advection term ?
 
          if ( l_heat_nl .and. nBc == 0 ) then
             !------ Get V S, the divergence of it is entropy advection:
-            this%VSr(:,n_th)=this%vrc(:,n_th)*this%sc(:,n_th)
-            this%VSt(:,n_th)=or2(nR)*this%vtc(:,n_th)*this%sc(:,n_th)
-            this%VSp(:,n_th)=or2(nR)*this%vpc(:,n_th)*this%sc(:,n_th)
+            this%VSr(:,nPhi)=this%vrc(:,nPhi)*this%sc(:,nPhi)
+            this%VSt(:,nPhi)=or2(nR)*this%vtc(:,nPhi)*this%sc(:,nPhi)
+            this%VSp(:,nPhi)=or2(nR)*this%vpc(:,nPhi)*this%sc(:,nPhi)
          end if     ! heat equation required ?
 
          if ( l_chemical_conv .and. nBc == 0 ) then
-            this%VXir(:,n_th)=this%vrc(:,n_th)*this%xic(:,n_th)
-            this%VXit(:,n_th)=or2(nR)*this%vtc(:,n_th)*this%xic(:,n_th)
-            this%VXip(:,n_th)=or2(nR)*this%vpc(:,n_th)*this%xic(:,n_th)
+            this%VXir(:,nPhi)=this%vrc(:,nPhi)*this%xic(:,nPhi)
+            this%VXit(:,nPhi)=or2(nR)*this%vtc(:,nPhi)*this%xic(:,nPhi)
+            this%VXip(:,nPhi)=or2(nR)*this%vpc(:,nPhi)*this%xic(:,nPhi)
          end if     ! chemical composition equation required ?
 
          if ( l_precession .and. nBc == 0 ) then
-            posnalp=-two*oek*po*sin(prec_angle)*O_sin_theta(n_th)
-            cnt=cosTheta(n_th)
-            this%PCr(:,n_th)=posnalp*r(nR)*(cos(oek*time+phi(:))*      &
-            &                this%vpc(:,n_th)*cnt+sin(oek*time+phi(:))*&
-            &                this%vtc(:,n_th))
-            this%PCt(:,n_th)=   -posnalp*or2(nR)*(                    &
-            &               cos(oek*time+phi(:))*this%vpc(:,n_th)     &
-            &      +sin(oek*time+phi(:))*or1(nR)*this%vrc(:,n_th) )
-            this%PCp(:,n_th)= posnalp*cos(oek*time+phi(:))*or2(nR)*(   &
-            &                 this%vtc(:,n_th)-or1(nR)*this%vrc(:,n_th)*cnt)
+            this%PCr(:,nPhi)=posnalp*O_sin_theta(nThetaStart:nThetaStop)*r(nR)*(                       &
+            &                cos(oek*time+phi(nPhi))*this%vpc(:,nPhi)*cosTheta(nThetaStart:nThetaStop)+&
+            &                sin(oek*time+phi(nPhi))*this%vtc(:,nPhi) )
+            this%PCt(:,nPhi)=   -posnalp*O_sin_theta(nThetaStart:nThetaStop)*or2(nR)*(            &
+            &               cos(oek*time+phi(nPhi))*this%vpc(:,nPhi)       + &
+            &               sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(:,nPhi) )
+            this%PCp(:,nPhi)= posnalp*O_sin_theta(nThetaStart:nThetaStop)*cos(oek*time+phi(nPhi))*&
+            &                 or2(nR)*(this%vtc(:,nPhi)-or1(nR)*             &
+            &                 this%vrc(:,nPhi)*cosTheta(nThetaStart:nThetaStop))
          end if ! precession term required ?
 
          if ( l_centrifuge .and. nBc ==0 ) then
-            snt=sinTheta(n_th)
-            cnt=cosTheta(n_th)
-            rsnt=r(nR)*snt
             !if ( l_anel ) then
-            !   this%CAr(:,n_th) = dilution_fac*rsnt*snt* &
-            !   &       ( -ra*opr*this%sc(:,n_th) )
+            !   this%CAr(:,nPhi) = dilution_fac*r(nR)*sinTheta(nThetaStart:nThetaStop)*sinTheta(nThetaStart:nThetaStop)* &
+            !   &       ( -ra*opr*this%sc(:,nPhi) )
             !   !-- neglect pressure contribution
-            !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,n_th) )
-            !   this%CAt(:,n_th) = dilution_fac*rsnt*cnt* &
-            !   &       ( -ra*opr*this%sc(:,n_th) )
+            !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nPhi) )
+            !   this%CAt(:,nPhi) = dilution_fac*r(nR)*sinTheta(nThetaStart:nThetaStop)*cosTheta(nThetaStart:nThetaStop)* &
+            !   &       ( -ra*opr*this%sc(:,nPhi) )
             !   !-- neglect pressure contribution
-            !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,n_th) )
+            !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nPhi) )
             !else
-            this%CAr(:,n_th) = -dilution_fac*rsnt*snt*ra*opr* &
-            &                       this%sc(:,n_th)
-            this%CAt(:,n_th) = -dilution_fac*rsnt*cnt*ra*opr* &
-            &                       this%sc(:,n_th)
+            this%CAr(:,nPhi) = -dilution_fac*r(nR)*sinTheta(nThetaStart:nThetaStop)*sinTheta(nThetaStart:nThetaStop)*ra*opr* &
+            &                       this%sc(:,nPhi)
+            this%CAt(:,nPhi) = -dilution_fac*r(nR)*sinTheta(nThetaStart:nThetaStop)*cosTheta(nThetaStart:nThetaStop)*ra*opr* &
+            &                       this%sc(:,nPhi)
             !end if
          end if ! centrifuge
 
@@ -403,130 +398,128 @@ contains
 
             if ( nBc == 0 .and. nR>n_r_LCR ) then
                !------ Get (V x B) , the curl of this is the dynamo term:
-               this%VxBr(:,n_th)=  orho1(nR)*O_sin_theta_E2(n_th) * (  &
-               &              this%vtc(:,n_th)*this%bpc(:,n_th) -      &
-               &              this%vpc(:,n_th)*this%btc(:,n_th) )
+               this%VxBr(:,nPhi)=  orho1(nR)*O_sin_theta_E2(nThetaStart:nThetaStop) * (  &
+               &              this%vtc(:,nPhi)*this%bpc(:,nPhi) -      &
+               &              this%vpc(:,nPhi)*this%btc(:,nPhi) )
 
-               this%VxBt(:,n_th)=  orho1(nR)*or4(nR) * (   &
-               &       this%vpc(:,n_th)*this%brc(:,n_th) - &
-               &       this%vrc(:,n_th)*this%bpc(:,n_th) )
+               this%VxBt(:,nPhi)=  orho1(nR)*or4(nR) * (   &
+               &       this%vpc(:,nPhi)*this%brc(:,nPhi) - &
+               &       this%vrc(:,nPhi)*this%bpc(:,nPhi) )
 
-               this%VxBp(:,n_th)=   orho1(nR)*or4(nR) * (   &
-               &        this%vrc(:,n_th)*this%btc(:,n_th) - &
-               &        this%vtc(:,n_th)*this%brc(:,n_th) )
+               this%VxBp(:,nPhi)=   orho1(nR)*or4(nR) * (   &
+               &        this%vrc(:,nPhi)*this%btc(:,nPhi) - &
+               &        this%vtc(:,nPhi)*this%brc(:,nPhi) )
             else if ( nBc == 1 .or. nR<=n_r_LCR ) then ! stress free boundary
-               this%VxBt(:,n_th)= or4(nR)*orho1(nR)*this%vpc(:,n_th)*this%brc(:,n_th)
-               this%VxBp(:,n_th)=-or4(nR)*orho1(nR)*this%vtc(:,n_th)*this%brc(:,n_th)
+               this%VxBt(:,nPhi)= or4(nR)*orho1(nR)*this%vpc(:,nPhi)*this%brc(:,nPhi)
+               this%VxBp(:,nPhi)=-or4(nR)*orho1(nR)*this%vtc(:,nPhi)*this%brc(:,nPhi)
             else if ( nBc == 2 ) then  ! rigid boundary :
                !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
-               this%VxBt(:,n_th)=or4(nR)*orho1(nR)*this%vpc(:,n_th)*this%brc(:,n_th)
-               this%VxBp(:,n_th)= 0.0_cp
+               this%VxBt(:,nPhi)=or4(nR)*orho1(nR)*this%vpc(:,nPhi)*this%brc(:,nPhi)
+               this%VxBp(:,nPhi)= 0.0_cp
             end if  ! boundary ?
 
          end if ! l_mag_nl ?
 
          if ( l_anel .and. nBc == 0 ) then
             !------ Get viscous heating
-            this%ViscHeat(:,n_th)=      or4(nR)*                  &
+            this%ViscHeat(:,nPhi)=      or4(nR)*                  &
             &                     orho1(nR)*otemp1(nR)*visc(nR)*( &
-            &     two*(                     this%dvrdrc(:,n_th) - & ! (1)
-            &     (two*or1(nR)+beta(nR))*this%vrc(:,n_th) )**2  + &
-            &     two*( cosn_theta_E2(n_th)*   this%vtc(:,n_th) + &
-            &                               this%dvpdpc(:,n_th) + &
-            &                               this%dvrdrc(:,n_th) - & ! (2)
-            &     or1(nR)*               this%vrc(:,n_th) )**2  + &
-            &     two*(                     this%dvpdpc(:,n_th) + &
-            &           cosn_theta_E2(n_th)*   this%vtc(:,n_th) + & ! (3)
-            &     or1(nR)*               this%vrc(:,n_th) )**2  + &
-            &          ( two*               this%dvtdpc(:,n_th) + &
-            &                                 this%cvrc(:,n_th) - & ! (6)
-            &    two*cosn_theta_E2(n_th)*this%vpc(:,n_th) )**2  + &
-            &                        O_sin_theta_E2(n_th) * (     &
-            &         ( r(nR)*              this%dvtdrc(:,n_th) - &
-            &           (two+beta(nR)*r(nR))*  this%vtc(:,n_th) + & ! (4)
-            &     or1(nR)*            this%dvrdtc(:,n_th) )**2  + &
-            &         ( r(nR)*              this%dvpdrc(:,n_th) - &
-            &           (two+beta(nR)*r(nR))*  this%vpc(:,n_th) + & ! (5)
-            &     or1(nR)*            this%dvrdpc(:,n_th) )**2 )- &
-            &    two*third*(  beta(nR)*        this%vrc(:,n_th) )**2 )
+            &     two*(                     this%dvrdrc(:,nPhi) - & ! (1)
+            &     (two*or1(nR)+beta(nR))*this%vrc(:,nPhi) )**2  + &
+            &     two*( cosn_theta_E2(nThetaStart:nThetaStop)*   this%vtc(:,nPhi) + &
+            &                               this%dvpdpc(:,nPhi) + &
+            &                               this%dvrdrc(:,nPhi) - & ! (2)
+            &     or1(nR)*               this%vrc(:,nPhi) )**2  + &
+            &     two*(                     this%dvpdpc(:,nPhi) + &
+            &           cosn_theta_E2(nThetaStart:nThetaStop)*   this%vtc(:,nPhi) + & ! (3)
+            &     or1(nR)*               this%vrc(:,nPhi) )**2  + &
+            &          ( two*               this%dvtdpc(:,nPhi) + &
+            &                                 this%cvrc(:,nPhi) - & ! (6)
+            &    two*cosn_theta_E2(nThetaStart:nThetaStop)*this%vpc(:,nPhi) )**2  + &
+            &                        O_sin_theta_E2(nThetaStart:nThetaStop) * (     &
+            &         ( r(nR)*              this%dvtdrc(:,nPhi) - &
+            &           (two+beta(nR)*r(nR))*  this%vtc(:,nPhi) + & ! (4)
+            &     or1(nR)*            this%dvrdtc(:,nPhi) )**2  + &
+            &         ( r(nR)*              this%dvpdrc(:,nPhi) - &
+            &           (two+beta(nR)*r(nR))*  this%vpc(:,nPhi) + & ! (5)
+            &     or1(nR)*            this%dvrdpc(:,nPhi) )**2 )- &
+            &    two*third*(  beta(nR)*        this%vrc(:,nPhi) )**2 )
 
             if ( l_mag_nl .and. nR>n_r_LCR ) then
                !------ Get ohmic losses
-               this%OhmLoss(:,n_th)= or2(nR)*otemp1(nR)*lambda(nR)*  &
-               &    ( or2(nR)*                this%cbrc(:,n_th)**2 + &
-               &      O_sin_theta_E2(n_th)*   this%cbtc(:,n_th)**2 + &
-               &      O_sin_theta_E2(n_th)*   this%cbpc(:,n_th)**2  )
+               this%OhmLoss(:,nPhi)= or2(nR)*otemp1(nR)*lambda(nR)*  &
+               &    ( or2(nR)*                this%cbrc(:,nPhi)**2 + &
+               &      O_sin_theta_E2(nThetaStart:nThetaStop)*   this%cbtc(:,nPhi)**2 + &
+               &      O_sin_theta_E2(nThetaStart:nThetaStop)*   this%cbpc(:,nPhi)**2  )
             end if ! if l_mag_nl ?
 
          end if  ! Viscous heating and Ohmic losses ?
 
          if ( lRmsCalc ) then
-            snt=sinTheta(n_th)
-            cnt=cosTheta(n_th)
-            rsnt=r(nR)*snt
-            this%dpdtc(:,n_th)=this%dpdtc(:,n_th)*or1(nR)
-            this%dpdpc(:,n_th)=this%dpdpc(:,n_th)*or1(nR)
-            this%CFt2(:,n_th)=-two*CorFac*cnt*this%vpc(:,n_th)*or1(nR)
-            this%CFp2(:,n_th)= two*CorFac*snt* (cnt*this%vtc(:,n_th)/rsnt +   &
-            &                     or2(nR)*snt*this%vrc(:,n_th) )
+            this%dpdtc(:,nPhi)=this%dpdtc(:,nPhi)*or1(nR)
+            this%dpdpc(:,nPhi)=this%dpdpc(:,nPhi)*or1(nR)
+            this%CFt2(:,nPhi)=-two*CorFac*cosTheta(nThetaStart:nThetaStop)*this%vpc(:,nPhi)*or1(nR)
+            this%CFp2(:,nPhi)= two*CorFac*sinTheta(nThetaStart:nThetaStop)* (or1(nR)*cosTheta(nThetaStart:nThetaStop)*&
+            &                             O_sin_theta(nThetaStart:nThetaStop)*this%vtc(:,nPhi) + &
+            &                        or2(nR)*sinTheta(nThetaStart:nThetaStop)*this%vrc(:,nPhi) )
             if ( l_conv_nl ) then
-               this%Advt2(:,n_th)=rsnt*snt*this%Advt(:,n_th)
-               this%Advp2(:,n_th)=rsnt*snt*this%Advp(:,n_th)
+               this%Advt2(:,nPhi)=r(nR)*sinTheta(nThetaStart:nThetaStop)*sinTheta(nThetaStart:nThetaStop)*this%Advt(:,nPhi)
+               this%Advp2(:,nPhi)=r(nR)*sinTheta(nThetaStart:nThetaStop)*sinTheta(nThetaStart:nThetaStop)*this%Advp(:,nPhi)
             end if
             if ( l_mag_LF .and. nR > n_r_LCR ) then
-               this%LFt2(:,n_th)=rsnt*snt*this%LFt(:,n_th)
-               this%LFp2(:,n_th)=rsnt*snt*this%LFp(:,n_th)
+               this%LFt2(:,nPhi)=r(nR)*sinTheta(nThetaStart:nThetaStop)*sinTheta(nThetaStart:nThetaStop)*this%LFt(:,nPhi)
+               this%LFp2(:,nPhi)=r(nR)*sinTheta(nThetaStart:nThetaStop)*sinTheta(nThetaStart:nThetaStop)*this%LFp(:,nPhi)
             end if
 
             if ( l_adv_curl ) then
-               this%dpdtc(:,n_th)=this%dpdtc(:,n_th)-or3(nR)*( or2(nR)*   &
-               &            this%vrc(:,n_th)*this%dvrdtc(:,n_th) -        &
-               &            this%vtc(:,n_th)*(this%dvrdrc(:,n_th)+        &
-               &            this%dvpdpc(:,n_th)+cosn_theta_E2(n_th) *     &
-               &            this%vtc(:,n_th))+ this%vpc(:,n_th)*(         &
-               &            this%cvrc(:,n_th)+this%dvtdpc(:,n_th)-        &
-               &            cosn_theta_E2(n_th)*this%vpc(:,n_th)) )
-               this%dpdpc(:,n_th)=this%dpdpc(:,n_th)- or3(nR)*( or2(nR)*  &
-               &            this%vrc(:,n_th)*this%dvrdpc(:,n_th) +        &
-               &            this%vtc(:,n_th)*this%dvtdpc(:,n_th) +        &
-               &            this%vpc(:,n_th)*this%dvpdpc(:,n_th) )
+               this%dpdtc(:,nPhi)=this%dpdtc(:,nPhi)-or3(nR)*( or2(nR)*   &
+               &            this%vrc(:,nPhi)*this%dvrdtc(:,nPhi) -        &
+               &            this%vtc(:,nPhi)*(this%dvrdrc(:,nPhi)+        &
+               &            this%dvpdpc(:,nPhi)+cosn_theta_E2(nThetaStart:nThetaStop) *     &
+               &            this%vtc(:,nPhi))+ this%vpc(:,nPhi)*(         &
+               &            this%cvrc(:,nPhi)+this%dvtdpc(:,nPhi)-        &
+               &            cosn_theta_E2(nThetaStart:nThetaStop)*this%vpc(:,nPhi)) )
+               this%dpdpc(:,nPhi)=this%dpdpc(:,nPhi)- or3(nR)*( or2(nR)*  &
+               &            this%vrc(:,nPhi)*this%dvrdpc(:,nPhi) +        &
+               &            this%vtc(:,nPhi)*this%dvtdpc(:,nPhi) +        &
+               &            this%vpc(:,nPhi)*this%dvpdpc(:,nPhi) )
                if ( l_conv_nl ) then
-                  this%Advt2(:,n_th)=this%Advt2(:,n_th)-or3(nR)*( or2(nR)*&
-                  &            this%vrc(:,n_th)*this%dvrdtc(:,n_th) -     &
-                  &            this%vtc(:,n_th)*(this%dvrdrc(:,n_th)+     &
-                  &            this%dvpdpc(:,n_th)+cosn_theta_E2(n_th) *  &
-                  &            this%vtc(:,n_th))+ this%vpc(:,n_th)*(      &
-                  &            this%cvrc(:,n_th)+this%dvtdpc(:,n_th)-     &
-                  &            cosn_theta_E2(n_th)*this%vpc(:,n_th)) )
-                  this%Advp2(:,n_th)=this%Advp2(:,n_th)-or3(nR)*( or2(nR)*&
-                  &            this%vrc(:,n_th)*this%dvrdpc(:,n_th) +     &
-                  &            this%vtc(:,n_th)*this%dvtdpc(:,n_th) +     &
-                  &            this%vpc(:,n_th)*this%dvpdpc(:,n_th) )
+                  this%Advt2(:,nPhi)=this%Advt2(:,nPhi)-or3(nR)*( or2(nR)*&
+                  &            this%vrc(:,nPhi)*this%dvrdtc(:,nPhi) -     &
+                  &            this%vtc(:,nPhi)*(this%dvrdrc(:,nPhi)+     &
+                  &            this%dvpdpc(:,nPhi)+cosn_theta_E2(nThetaStart:nThetaStop) *  &
+                  &            this%vtc(:,nPhi))+ this%vpc(:,nPhi)*(      &
+                  &            this%cvrc(:,nPhi)+this%dvtdpc(:,nPhi)-     &
+                  &            cosn_theta_E2(nThetaStart:nThetaStop)*this%vpc(:,nPhi)) )
+                  this%Advp2(:,nPhi)=this%Advp2(:,nPhi)-or3(nR)*( or2(nR)*&
+                  &            this%vrc(:,nPhi)*this%dvrdpc(:,nPhi) +     &
+                  &            this%vtc(:,nPhi)*this%dvtdpc(:,nPhi) +     &
+                  &            this%vpc(:,nPhi)*this%dvpdpc(:,nPhi) )
                end if
 
                !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
-               this%dpkindrc(:,n_th)=or4(nR)*this%vrc(:,n_th)*(         &
-               &                         this%dvrdrc(:,n_th)-           &
-               &                         two*or1(nR)*this%vrc(:,n_th)) +&
-               &                         or2(nR)*O_sin_theta_E2(n_th)*( &
-               &                                 this%vtc(:,n_th)*(     &
-               &                         this%dvtdrc(:,n_th)-           &
-               &                         or1(nR)*this%vtc(:,n_th) ) +   &
-               &                                 this%vpc(:,n_th)*(     &
-               &                         this%dvpdrc(:,n_th)-           &
-               &                         or1(nR)*this%vpc(:,n_th) ) )
+               this%dpkindrc(:,nPhi)=or4(nR)*this%vrc(:,nPhi)*(         &
+               &                         this%dvrdrc(:,nPhi)-           &
+               &                         two*or1(nR)*this%vrc(:,nPhi)) +&
+               &                         or2(nR)*O_sin_theta_E2(nThetaStart:nThetaStop)*( &
+               &                                 this%vtc(:,nPhi)*(     &
+               &                         this%dvtdrc(:,nPhi)-           &
+               &                         or1(nR)*this%vtc(:,nPhi) ) +   &
+               &                                 this%vpc(:,nPhi)*(     &
+               &                         this%dvpdrc(:,nPhi)-           &
+               &                         or1(nR)*this%vpc(:,nPhi) ) )
             end if
          end if
 
          if ( l_RMS .and. tscheme%istage == 1 ) then
             O_dt = 1.0_cp/tscheme%dt(1)
-            this%dtVr(:,n_th)=O_dt*or2(nR)*(this%vrc(:,n_th)-vr_old(:,n_th,nR))
-            this%dtVt(:,n_th)=O_dt*or1(nR)*(this%vtc(:,n_th)-vt_old(:,n_th,nR))
-            this%dtVp(:,n_th)=O_dt*or1(nR)*(this%vpc(:,n_th)-vp_old(:,n_th,nR))
+            this%dtVr(:,nPhi)=O_dt*or2(nR)*(this%vrc(:,nPhi)-vr_old(:,nPhi,nR))
+            this%dtVt(:,nPhi)=O_dt*or1(nR)*(this%vtc(:,nPhi)-vt_old(:,nPhi,nR))
+            this%dtVp(:,nPhi)=O_dt*or1(nR)*(this%vpc(:,nPhi)-vp_old(:,nPhi,nR))
 
-            vr_old(:,n_th,nR)=this%vrc(:,n_th)
-            vt_old(:,n_th,nR)=this%vtc(:,n_th)
-            vp_old(:,n_th,nR)=this%vpc(:,n_th)
+            vr_old(:,nPhi,nR)=this%vrc(:,nPhi)
+            vt_old(:,nPhi,nR)=this%vtc(:,nPhi)
+            vp_old(:,nPhi,nR)=this%vpc(:,nPhi)
          end if
 
       end do

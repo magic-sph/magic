@@ -39,7 +39,7 @@ module mpi_thetap_mod
 
 contains
 
-   subroutine transpose_m_theta(f_m_theta, f_theta_m)
+   subroutine transpose_m_theta(f_thetaloc, f_mloc)
       !-- Transposition from (m_loc,θ_glb) to (θ_loc,m_glb).
       !   
       !   
@@ -49,17 +49,17 @@ contains
       !--      improves
       !
       !-- Input variable
-      complex(cp), intent(in) :: f_m_theta(n_m_max, n_theta_loc)
+      complex(cp), intent(in) :: f_thetaloc(n_theta_loc, n_m_max)
 
       !-- Output variable
-      complex(cp), intent(out) :: f_theta_m(n_theta_max, n_m_loc)
+      complex(cp), intent(out) :: f_mloc(n_theta_max, n_m_loc)
       
       !-- Local variables
       complex(cp) :: sendbuf(n_m_max * n_theta_loc)
-      complex(cp) :: recvbuf(n_m_loc, n_theta_max)
+      complex(cp) :: recvbuf(n_theta_max*n_m_loc)
       integer :: sendcount(0:n_ranks_m-1),recvcount(0:n_ranks_m-1)
       integer :: senddispl(0:n_ranks_m-1),recvdispl(0:n_ranks_m-1)
-      integer :: irank, j, itheta, m, pos
+      integer :: irank, j, itheta, m, pos, l_t, u_t, n_t, n_m
       
       pos = 1
       do irank=0,n_ranks_m-1
@@ -69,10 +69,10 @@ contains
          !@>TODO check performance of this; implementing this with mpi_type
          !  striding the data could be faster
          senddispl(irank) = pos-1
-         do itheta=1,n_theta_loc
-            do j=1,dist_m(irank,0)
-               m = dist_m(irank,j)/minc
-               sendbuf(pos) = f_m_theta(m+1,itheta)
+         do j=1,dist_m(irank,0)
+            m = dist_m(irank,j)/minc
+            do itheta=1,n_theta_loc
+               sendbuf(pos) = f_thetaloc(itheta,m+1)
                pos = pos + 1
             end do
          end do
@@ -83,16 +83,25 @@ contains
       end do
       
 #ifdef WITH_MPI
-      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX,   &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_m, ierr)
 #endif
 
-      f_theta_m = transpose(recvbuf)
+      do irank=0,n_ranks_theta-1
+         pos = recvdispl(irank)+1
+         l_t=dist_theta(irank,1)
+         u_t=dist_theta(irank,2)
+         n_t=dist_theta(irank,0)
+         do n_m=1,n_m_loc
+            f_mloc(l_t:u_t,n_m)=recvbuf(pos:pos+n_t-1)
+            pos = pos+n_t
+         end do
+      end do
       
    end subroutine transpose_m_theta
 !----------------------------------------------------------------------------------
-   subroutine transpose_theta_m(f_theta_m, f_m_theta)
+   subroutine transpose_theta_m(f_mloc, f_thetaloc)
       !-- Transposition from (θ_loc,m_glb) to (m_loc,θ_glb)
       !   
       !   Author: Rafael Lago (MPCDF) August 2017
@@ -100,18 +109,17 @@ contains
       !-- TODO this with mpi_type to stride the data
       !
       !-- Input variable
-      complex(cp), intent(in) :: f_theta_m(n_theta_max, n_m_loc)
+      complex(cp), intent(in) :: f_mloc(n_theta_max, n_m_loc)
 
       !-- Output variable
-      complex(cp), intent(out) :: f_m_theta(n_m_max, n_theta_loc)
+      complex(cp), intent(out) :: f_thetaloc(n_theta_loc, n_m_max)
       
       !-- Local variables
-      complex(cp) :: sendbuf(n_m_loc * n_theta_max)
-      complex(cp) :: recvbuf(n_theta_loc,  n_m_max)
+      complex(cp) :: sendbuf(n_m_loc*n_theta_max)
+      complex(cp) :: recvbuf(n_theta_loc*n_m_max)
       integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
-      integer :: irank, j, pos, n_t, l_t, u_t
-      integer :: m_arr(n_ranks_theta*n_m_array) 
+      integer :: irank, j, pos, n_t, l_t, u_t, m_idx, n_m
       
       recvcount = 0
       pos = 1
@@ -124,7 +132,7 @@ contains
          l_t = dist_theta(irank,1)
          u_t = dist_theta(irank,2)
          do j=1, n_m_loc
-            sendbuf(pos:pos + n_t - 1) = f_theta_m(l_t:u_t,j)
+            sendbuf(pos:pos + n_t - 1) = f_mloc(l_t:u_t,j)
             pos = pos + n_t
          end do
          
@@ -146,13 +154,13 @@ contains
       !   coord_r 3: 3, 7, 11, 15
       !   then the columns of recvbuf are ordered as 0,4,8,12,16,1,5,9,13(...)
       !   and so forth. m_arr will contain this ordering (+1):
-      m_arr = reshape(transpose(dist_m(:,1:)), &
-                      (/n_ranks_m*n_m_array/))/minc + 1
-      j = 1
-      do pos = 1, n_ranks_theta*n_m_array
-         if (m_arr(pos) < 1) cycle
-         f_m_theta(m_arr(pos),:) = recvbuf(:,j)
-         j = j + 1
+      do irank=0,n_ranks_theta-1
+         pos = recvdispl(irank)+1
+         do n_m=1,dist_m(irank,0)
+            m_idx = dist_m(irank,n_m)/minc+1
+            f_thetaloc(:,m_idx)=recvbuf(pos:pos+n_theta_loc-1)
+            pos = pos+n_theta_loc
+         end do
       end do
 
    end subroutine transpose_theta_m
@@ -164,7 +172,7 @@ contains
       complex(cp), intent(in) :: f_mloc(n_theta_max,n_m_loc,*)
 
       !-- Output variable:
-      complex(cp), intent(inout) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,*)
+      complex(cp), intent(inout) :: f_thloc(nThetaStart:nThetaStop,n_phi_max/2+1,*)
       
       !-- Local variables:
       complex(cp) :: sendbuf(n_m_loc*n_theta_max*n_fields)
@@ -209,7 +217,7 @@ contains
          do n_f=1,n_fields
             do n_m=1,dist_m(irank,0)
                m_idx = dist_m(irank,n_m)/minc+1
-               f_thloc(m_idx,:,n_f)=recvbuf(pos:pos+n_theta_loc-1)
+               f_thloc(:,m_idx,n_f)=recvbuf(pos:pos+n_theta_loc-1)
                pos = pos+n_theta_loc
             end do
          end do
@@ -223,14 +231,14 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: n_fields
-      complex(cp), intent(in) :: f_thloc(n_phi_max/2+1,nThetaStart:nThetaStop,n_fields)
+      complex(cp), intent(in) :: f_thloc(nThetaStart:nThetaStop,n_phi_max/2+1,*)
 
       !-- Output variable:
-      complex(cp), intent(out) :: f_mloc(n_theta_max,n_m_loc,n_fields)
+      complex(cp), intent(out) :: f_mloc(n_theta_max,n_m_loc,*)
       
       !-- Local variables:
-      complex(cp) :: recvbuf(n_m_loc*n_theta_max*n_r_loc*n_fields)
-      complex(cp) :: sendbuf(n_theta_loc*n_m_max*n_r_loc*n_fields)
+      complex(cp) :: recvbuf(n_m_loc*n_theta_max*n_fields)
+      complex(cp) :: sendbuf(n_theta_loc*n_m_max*n_fields)
       integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
       integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
@@ -252,7 +260,7 @@ contains
          do n_f=1,n_fields
             do n_m=1,dist_m(irank,0)
                m_idx = dist_m(irank,n_m)/minc+1
-               sendbuf(pos:pos+n_theta_loc-1)=f_thloc(m_idx,:,n_f)
+               sendbuf(pos:pos+n_theta_loc-1)=f_thloc(:,m_idx,n_f)
                pos = pos+n_theta_loc
             end do
          end do
@@ -296,18 +304,18 @@ contains
       complex(cp), intent(inout) :: fL(n_theta_max,n_m_loc)
       
       !-- Output variables
-      real(cp),    intent(out)   :: f(n_phi_max, n_theta_loc)
+      real(cp),    intent(out)   :: f(n_theta_loc,n_phi_max)
       
       !-- Local variables
-      complex(cp) :: lF(n_m_max,n_theta_loc)
-      complex(cp) :: Ff(n_phi_max/2+1,n_theta_loc)
+      complex(cp) :: lF(n_theta_loc,n_m_max)
+      complex(cp) :: Ff(n_theta_loc,n_phi_max/2+1)
    
       call transpose_theta_m(fL, lF)
       !-- TODO: The FFT must be performed for an array with the dimensions of 
       !   F_loc which may end up paded with zeroes.
       !   Is there any way to tell MKL to perform a "truncated" FFT?
-      Ff = 0.0
-      Ff(1:n_m_max,1:n_theta_loc) = lF
+      Ff = zero
+      Ff(1:n_theta_loc,1:n_m_max) = lF
       
       call ifft_many(Ff, f)
 
@@ -327,17 +335,17 @@ contains
       !
       
       !-- Input variables
-      real(cp),    intent(inout) :: f(n_phi_max, n_theta_loc)
+      real(cp),    intent(inout) :: f(n_theta_loc,n_phi_max)
       
       !-- Output variables
       complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
       
       !-- Local variables
-      complex(cp) :: lF(n_m_max,n_theta_loc)
-      complex(cp) :: Ff(n_phi_max/2+1,n_theta_loc)
+      complex(cp) :: lF(n_theta_loc,n_m_max)
+      complex(cp) :: Ff(n_theta_loc,n_phi_max/2+1)
    
       call fft_many(f, Ff)
-      lF(1:n_m_max,1:n_theta_loc) = Ff(1:n_m_max,1:n_theta_loc)
+      lF(1:n_theta_loc,1:n_m_max) = Ff(1:n_theta_loc,1:n_m_max)
       call transpose_m_theta(lF, fL)
 
    end subroutine transform_phi2m

@@ -6,7 +6,7 @@ module rIter_single
    use parallel_mod, only: get_openmp_blocks, coord_r, n_ranks_r
    use truncation, only: n_lm_loc, nRstart, nRstop, n_lmMag_loc, nRstartMag, &
        &                 nRstopMag, n_theta_max, n_lmP_loc, n_r_cmb, n_r_icb,&
-       &                 nThetaStart, nThetaStop
+       &                 n_phi_max
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_HT, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -159,17 +159,15 @@ contains
 
       !-- Local variables:
       integer :: nR, nBc
-      logical :: lGraphHeader, lMagNlBc, l_bound, lDeriv
+      logical :: lMagNlBc, l_bound, lDeriv
 
-      lGraphHeader=l_graph
-      if ( lGraphHeader ) then
+      if ( l_graph ) then
 #ifdef WITH_MPI
-         call graphOut_mpi_header(time,1,n_theta_max)
+         call graphOut_mpi_header(time)
 #else
          call graphOut_header(time)
 #endif
       end if
-      lGraphHeader=.false.
 
       if ( coord_r == 0 ) then
          dtrkc(n_r_cmb)=1.e10_cp
@@ -304,15 +302,13 @@ contains
          !     point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi(time,nR,this%gsa%vrc,this%gsa%vtc,                &
+            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,                     &
                  &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
-                 &            lGraphHeader)
+                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic)
 #else
-            call graphOut(time,nR,this%gsa%vrc,this%gsa%vtc,                &
+            call graphOut(nR,this%gsa%vrc,this%gsa%vtc,                     &
                  &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,           &
-                 &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic,&
-                 &        lGraphHeader)
+                 &        this%gsa%bpc,this%gsa%sc,this%gsa%pc,this%gsa%xic)
 #endif
          end if
       
@@ -370,8 +366,7 @@ contains
                  &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc,1,    &
-                 &                 n_theta_max)
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
          end if
 
 
@@ -589,51 +584,51 @@ contains
       logical, intent(in) :: lRmsCalc
 
       !-- Local variables
-      integer :: nTheta, nThStart, nThStop
+      integer :: nPhi, nPhStart, nPhStop
 
       if ( ( l_conv_nl .or. l_mag_LF ) ) then
 
-         !$omp parallel default(shared) private(nThStart,nThStop,nTheta)
-         nThStart=nThetaStart; nThStop=nThetaStop
-         call get_openmp_blocks(nThStart,nThStop)
+         !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
+         nPhStart=1; nPhStop=n_phi_max
+         call get_openmp_blocks(nPhStart,nPhStop)
 
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( nR>n_r_LCR ) then
-               do nTheta=nThStart,nThStop
-                  this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+this%gsa%LFr(:,nTheta)
-                  this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+this%gsa%LFt(:,nTheta)
-                  this%gsa%Advp(:,nTheta)=this%gsa%Advp(:,nTheta)+this%gsa%LFp(:,nTheta)
+               do nPhi=nPhStart,nPhStop
+                  this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi)+this%gsa%LFr(:,nPhi)
+                  this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi)+this%gsa%LFt(:,nPhi)
+                  this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi)+this%gsa%LFp(:,nPhi)
                end do
             end if
          else if ( l_mag_LF ) then
             if ( nR > n_r_LCR ) then
-               do nTheta=nThStart,nThStop
-                  this%gsa%Advr(:,nTheta)=this%gsa%LFr(:,nTheta)
-                  this%gsa%Advt(:,nTheta)=this%gsa%LFt(:,nTheta)
-                  this%gsa%Advp(:,nTheta)=this%gsa%LFp(:,nTheta)
+               do nPhi=nPhStart,nPhStop
+                  this%gsa%Advr(:,nPhi)=this%gsa%LFr(:,nPhi)
+                  this%gsa%Advt(:,nPhi)=this%gsa%LFt(:,nPhi)
+                  this%gsa%Advp(:,nPhi)=this%gsa%LFp(:,nPhi)
                end do
             else
-               do nTheta=nThStart,nThStop
-                  this%gsa%Advr(:,nTheta)=0.0_cp
-                  this%gsa%Advt(:,nTheta)=0.0_cp
-                  this%gsa%Advp(:,nTheta)=0.0_cp
+               do nPhi=nPhStart,nPhStop
+                  this%gsa%Advr(:,nPhi)=0.0_cp
+                  this%gsa%Advt(:,nPhi)=0.0_cp
+                  this%gsa%Advp(:,nPhi)=0.0_cp
                end do
             end if
          end if
 
          if ( l_precession ) then
-            do nTheta=nThStart,nThStop
-               this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+this%gsa%PCr(:,nTheta)
-               this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+this%gsa%PCt(:,nTheta)
-               this%gsa%Advp(:,nTheta)=this%gsa%Advp(:,nTheta)+this%gsa%PCp(:,nTheta)
+            do nPhi=nPhStart,nPhStop
+               this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi)+this%gsa%PCr(:,nPhi)
+               this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi)+this%gsa%PCt(:,nPhi)
+               this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi)+this%gsa%PCp(:,nPhi)
             end do
          end if
 
          if ( l_centrifuge ) then
-            do nTheta=nThStart,nThStop
-               this%gsa%Advr(:,nTheta)=this%gsa%Advr(:,nTheta)+this%gsa%CAr(:,nTheta)
-               this%gsa%Advt(:,nTheta)=this%gsa%Advt(:,nTheta)+this%gsa%CAt(:,nTheta)
+            do nPhi=nPhStart,nPhStop
+               this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi)+this%gsa%CAr(:,nPhi)
+               this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi)+this%gsa%CAt(:,nPhi)
             end do
          end if
          !$omp end parallel
