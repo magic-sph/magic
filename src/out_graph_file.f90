@@ -27,14 +27,11 @@ module graphOut_mod
    private
 
    integer :: n_graph = 0
+   integer :: info
    integer, public :: n_graph_file
 #ifdef WITH_MPI
    integer :: graph_mpi_fh
-   integer(kind=MPI_OFFSET_kind) :: size_of_header, n_fields
-#endif
-
-#ifdef WITH_MPI
-   integer :: info
+   integer(kind=MPI_OFFSET_KIND) :: size_of_header, n_fields
    public :: graphOut, graphOut_mpi, graphOut_IC, graphOut_mpi_header, &
    &         open_graph_file, close_graph_file, graphOut_header
 #else
