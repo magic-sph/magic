@@ -127,7 +127,9 @@ module truncation
    !-- Distributed Grid Space 
    integer, allocatable, protected :: dist_theta(:,:)
    integer, allocatable, protected :: dist_r(:,:)
-   integer, protected :: n_theta_loc, nThetaStart, nThetaStop
+   !@TODO> I have to remove the protected argument otherwise it cannot be
+   !overwritten in shtns.f90 when padding is requested
+   integer :: n_theta_loc, nThetaStart, nThetaStop
    integer, protected :: n_r_loc, nRstart, nRstop
    integer, protected :: nR_per_rank ! kinda misleading name, should be deleted later; use n_r_loc instead; kept only to ease merge
    
