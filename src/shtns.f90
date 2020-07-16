@@ -197,8 +197,6 @@ contains
       nlat_padded = n_theta_max
 #endif
 
-      call c_f_pointer(cptr=sht_l, fptr=sht_info)
-
       if ( l_master_rank ) then
          call shtns_verbose(0)
          write(output_unit,*) ''
