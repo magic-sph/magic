@@ -160,4 +160,41 @@ contains
   
    end subroutine dble2str
 !------------------------------------------------------------------------
+   subroutine write_long_string(prefix, long_string, out_unit)
+      !
+      ! This subroutine is used to split a long string (with len(str)>85) into
+      ! a multi-lines string for a cleaner printout.
+      !
+
+      !-- Input variables
+      character(len=*), intent(in) :: prefix
+      character(len=*), intent(in) :: long_string
+      integer,          intent(in) :: out_unit
+
+      !-- Local variables
+      integer :: len_long_str, len_prefix, istart, iend, len_per_line
+      integer, parameter :: line_width=85
+      character(len=8) :: fmtstr
+
+      len_long_str = len(long_string)
+      len_prefix = len(prefix)
+      len_per_line = line_width-len_prefix
+      write(fmtstr,'(A,i2)') 'A', len_prefix-2
+
+      if ( len_prefix+len_long_str <= 85 ) then
+         write(out_unit, '(A,A)') prefix, long_string
+      else
+         istart = 1; iend = len_per_line
+         write(out_unit, '(A,A)') prefix, long_string(istart:iend)
+         istart = iend+1
+         do while (iend <= len_long_str-len_per_line)
+            iend = istart+len_per_line
+            write(out_unit, '(A,'//trim(fmtstr)//',A)') ' !','',long_string(istart:iend)
+            istart = iend+1
+         end do
+         write(out_unit, '(A,'//trim(fmtstr)//',A)') ' !','',long_string(istart:)
+      end if
+
+   end subroutine write_long_string
+!------------------------------------------------------------------------
 end module charmanip

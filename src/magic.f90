@@ -86,10 +86,11 @@ program magic
 !      if imagcon  <  0, imposed poloidal field via inner bc on B(l=1,m=0)
 !
 
+   use iso_fortran_env
+   use charmanip, only: write_long_string
    use truncation
    use precision_mod
    use physical_parameters
-   use iso_fortran_env, only: output_unit
    use courant_mod, only: initialize_courant, finalize_courant
    use radial_der, only: initialize_der_arrays, finalize_der_arrays
    use radial_functions, only: initialize_radial_functions, &
@@ -153,15 +154,22 @@ program magic
    real(cp) :: time
    class(type_tscheme), pointer :: tscheme
    type(timer_type) :: run_time, run_time_start
-
    integer :: n_stop_signal=0     ! signal returned from step_time
+#ifdef COMP_OPT
+   character(len=:), allocatable :: long_str
+#endif
 
 
    ! MPI specific variables
+#ifdef WITH_MPI
+   integer :: mpi_ver, mpi_subver
+   character(len=14) :: str
+   character(len=MPI_MAX_LIBRARY_VERSION_STRING) :: lib_mpi
 #ifdef WITHOMP
    integer :: required_level,provided_level
    character(len=100) :: message
-   character(len=14) :: str, str_1
+   character(len=14) :: str_1
+#endif
 #endif
 
 #ifdef WITH_MPI
@@ -208,6 +216,20 @@ program magic
 #else
       write(output_unit, '(A)') ' !  Build date: unknown'
 #endif
+#ifdef COMP_OPT
+      long_str = trim(compiler_version())
+      call write_long_string(' !  Compiler version: ', long_str, output_unit)
+      long_str = trim(compiler_options())
+      call write_long_string(' !  Compiler options: ', long_str, output_unit)
+#endif
+#ifdef WITH_MPI
+      call MPI_Get_version(mpi_ver, mpi_subver, ierr)
+      write(str,'(I0,A1,I0)') mpi_ver,'.', mpi_subver
+      call write_long_string(' !  MPI version:        ', trim(str), output_unit)
+
+      call MPI_Get_Library_version(lib_mpi, mpi_ver, ierr)
+      call write_long_string(' !  MPI implementation: ', trim(lib_mpi), output_unit)
+#endif
       write(date, '(i4,''/'',i0.2,''/'',i0.2,'' '', i0.2,'':'',i0.2,'':'',i0.2)') &
       &     values(1), values(2), values(3), values(5), values(6), values(7)
       write(output_unit, '(A,A)') ' !  Start date:  ', date
@@ -228,8 +250,8 @@ program magic
 
       write(n_log_file,*) '!      __  __             _____ _____   _____ __  ___    '
       write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/_ |/ _ \   '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| | | | | |  '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\| | | | |  '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__  | | | | |  '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \ | | | | |  '
       write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) || | |_| |  '
       write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_|\___/   '
       write(n_log_file,*) '!                    __/ |                               '
@@ -262,6 +284,20 @@ program magic
       write(n_log_file, '(A,A)') ' ! Build date:  ', BUILD_DATE
 #else
       write(n_log_file, '(A)') ' ! Build date: unknown'
+#endif
+#ifdef COMP_OPT
+      long_str = trim(compiler_version())
+      call write_long_string(' ! Compiler version: ', long_str, n_log_file)
+      long_str = trim(compiler_options())
+      call write_long_string(' ! Compiler options: ', long_str, n_log_file)
+#endif
+#ifdef WITH_MPI
+      call MPI_Get_version(mpi_ver, mpi_subver, ierr)
+      write(str,'(I0,A1,I0)') mpi_ver,'.', mpi_subver
+      call write_long_string(' ! MPI version:        ', trim(str), n_log_file)
+
+      call MPI_Get_Library_version(lib_mpi, mpi_ver, ierr)
+      call write_long_string(' ! MPI implementation: ', trim(lib_mpi), n_log_file)
 #endif
       write(n_log_file, '(A,A)') ' ! Start date:  ', date
 

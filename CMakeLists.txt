@@ -108,6 +108,26 @@ set(_MPI_XL_Fortran_COMPILER_NAMES         "mpxlf|mpixlf")
 string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
 string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
 
+# Check whether compiler_options() is available
+file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCompOpt.f90"
+"
+program TestCompOpt
+use iso_fortran_env
+print*, compiler_options()
+print*, compiler_version()
+end program TestCompOpt
+")
+try_compile(COMP_OPT_AV ${CMAKE_BINARY_DIR}
+   ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCompOpt.f90
+   COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+   OUTPUT_VARIABLE OUTPUT)
+if(COMP_OPT_AV)
+   add_definitions(-DCOMP_OPT)
+   message(STATUS "Fortran 2008 compiler_options(), compiler_version() available")
+else()
+   message(STATUS "Fortran 2008 compiler_options(), compiler_version() not available")
+endif()
+
 # Look for MPI and add the required flags if found
 if(USE_MPI MATCHES yes)
    if("${MPICC_COMPILER}" STREQUAL "" AND "${MPIFORTRAN_COMPILER}" STREQUAL "")
