@@ -310,7 +310,7 @@ contains
       complex(cp) :: lF(n_theta_loc,n_m_max)
       complex(cp) :: Ff(n_theta_loc,n_phi_max/2+1)
    
-      call transpose_theta_m(fL, lF)
+      call transpose_theta_m_many(fL, lF, 1)
       !-- TODO: The FFT must be performed for an array with the dimensions of 
       !   F_loc which may end up paded with zeroes.
       !   Is there any way to tell MKL to perform a "truncated" FFT?
@@ -346,7 +346,7 @@ contains
    
       call fft_many(f, Ff)
       lF(1:n_theta_loc,1:n_m_max) = Ff(1:n_theta_loc,1:n_m_max)
-      call transpose_m_theta(lF, fL)
+      call transpose_m_theta_many(lF, fL, 1)
 
    end subroutine transform_phi2m
 !----------------------------------------------------------------------------------
