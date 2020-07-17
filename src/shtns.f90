@@ -82,7 +82,8 @@ module sht
       
       subroutine torpol_to_spat_if(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
          import
-         complex(cp), intent(in) :: Wlm(n_lm_loc), dWlm(n_lm_loc), Zlm(n_lm_loc)
+         complex(cp), intent(in) :: Wlm(n_lm_loc)
+         complex(cp), intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
          integer,     intent(in) :: lcut
          real(cp), intent(out) :: vrc(n_theta_loc,n_phi_max)
          real(cp), intent(out) :: vtc(n_theta_loc,n_phi_max)
@@ -93,7 +94,8 @@ module sht
               &                        cvpc, lcut)
          import
          complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
-         complex(cp), intent(in) :: Jlm(n_lm_loc), dJlm(n_lm_loc)
+         complex(cp), intent(in) :: Jlm(n_lm_loc)
+         complex(cp), intent(inout) :: dJlm(n_lm_loc)
          real(cp),    intent(in) :: or2
          integer,     intent(in) :: lcut
          real(cp), intent(out) :: cvrc(n_theta_loc,n_phi_max)
