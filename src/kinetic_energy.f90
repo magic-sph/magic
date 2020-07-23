@@ -67,13 +67,10 @@ contains
               &         w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
 
       !
-      !  calculates kinetic energy  = 1/2 Integral (v^2 dV)
-      !  integration in theta,phi by summation of spherical harmonics
-      !  integration in r by using Chebycheff integrals
-      !
-      !  Output:
-      !  e_p: Total poloidal        e_t: Total toroidal
-      !  e_p_as: Axisym. poloidal   e_t_as: Axisym. toroidal
+      !  Calculates kinetic energy  = 1/2 Integral (v^2 dV).
+      !  Integration in theta,phi is handled by summation of spherical harmonics
+      !  Integration in r by using Chebyshev integrals or Simpson rules if
+      !  FD are used.
       !
 
       !-- Input variables:
@@ -285,11 +282,8 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_u_square(time,w,dw,z,RolR)
       !
-      !  calculates square velocity  = 1/2 Integral (v^2 dV)
-      !  integration in theta,phi by summation of spherical harmonics
-      !  integration in r by using Chebychef integrals
-      !
-      !  Write the different contributions in u_square.TAG file
+      !  Calculates square velocity  = 1/2 Integral (v^2 dV)
+      !  Writes the different contributions in u_square.TAG file
       !
 
       !-- Input of scalar fields:

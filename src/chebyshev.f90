@@ -185,6 +185,7 @@ contains
       ! atop*df/dr+btop*f = rhs_top;  abot*df/dr+bbot*f = rhs_bot
       !
       ! The method follows Canuto, SIAM, 1986 (p. 818)
+      !
 
       class(type_cheb_odd) :: this
 

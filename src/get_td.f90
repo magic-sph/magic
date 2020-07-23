@@ -197,8 +197,7 @@ contains
       !  Purpose of this to calculate time derivatives
       !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
       !  and auxiliary arrays dVSrLM, dVXirLM and dVxBhLM, dVxVhLM
-      !  from non-linear terms in spectral form,
-      !  contained in flmw1-3,flms1-3, flmb1-3 (input)
+      !  from non-linear terms in spectral form
       !
 
       !-- Input of variables:

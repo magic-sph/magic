@@ -98,17 +98,8 @@ contains
 !--------------------------------------------------------------------------------
    subroutine graphOut(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
       !
-      !
-      !  Output of components of velocity, magnetic field vector and
-      !  entropy for graphics.
-      !
-      !  * n_r: (input) for n_r = 0 a header is written.
-      !    for n_r > 0 values at radial level n_r are written
-      !
-      !  * vr...sr: (input) arrays with grid-point values
-      !
-      !  * n_theta_start : (input) values are written for theta-points :
-      !    ``n_theta_start <= n_theta <= n_theta_start-1+n_theta_block``
+      !  Output of components of velocity, magnetic field vector, entropy
+      !  and composition for graphic outputs.
       !
 
       !-- Input variables
@@ -381,7 +372,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine graphOut_mpi_header(time)
       !
-      ! Writes the header (MPI version)
+      ! Writes the header of the G file (MPI version)
       !
 
       !-- Input variables:

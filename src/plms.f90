@@ -18,6 +18,7 @@ contains
       !  This produces the :math:`P_{\ell}^m` for all degrees :math:`\ell` and 
       !  orders :math:`m` for a given colatitude. :math:`\theta`, as well as 
       !  :math:`\sin \theta d P_{\ell}^m /d\theta`.  The order is as follows:  
+      !
       !     .. code-block:: fortran
       !
       !         plma(1)=plm(l=0,m=0),
@@ -28,7 +29,9 @@ contains
       !         plma(max_degree+2)=plm(l=1,m=m0),
       !         plma(max_degree+3)=plm(l=2,m=m0),
       !     ..
+      !
       !  Several normalisation are supported:
+      !
       !     * n=0 -- surface normalised,
       !     * n=1 -- Schmidt normalised,
       !     * n=2 -- fully normalised.

@@ -1,7 +1,7 @@
 module out_coeff
    !
-   ! This module contains the subroutines that calculate the Bcmb files
-   ! , the [B|V|T]_coeff_r files and the [B|V|T]_lmr files
+   ! This module contains the subroutines that calculate the Bcmb files,
+   ! the [B|V|T]_coeff_r files and the [B|V|T]_lmr files
    !
   
    use precision_mod
@@ -395,6 +395,7 @@ contains
       !
       ! This routine stores the fields in (lm,r) space using MPI-IO
       !
+
       !-- Input of variables:
       real(cp),         intent(in) :: time ! Time
       complex(cp),      intent(in) :: b(lm_max,nRstart:nRstop) ! Poloidal potential

@@ -261,47 +261,27 @@ contains
       !     is given by cooley, lewis and welch (j. sound vib., vol. 12
       !     (1970), 315-337)
       !
-      !     a is the array containing input and output data
-      !     work is an area of size (n+1)*lot
-      !     trigs is a previously prepared list of trig function values
-      !     ifax is a previously prepared list of factors of n/2
-      !     inc is the increment within each data 'vector'
-      !         (e.g. inc=1 for consecutively stored data)
-      !     jump is the increment between the start of each data vector
-      !     n is the length of the data vectors
-      !     lot is the number of data vectors
-      !     isign = +1 for transform from spectral to gridpoint
-      !           = -1 for transform from gridpoint to spectral
-      !
-      !     ordering of coefficients:
-      !         a(0),b(0),a(1),b(1),a(2),b(2),...,a(n/2),b(n/2)
-      !         where b(0)=b(n/2)=0; (n+2) locations required
-      !
-      !     ordering of data:
-      !         x(0),x(1),x(2),...,x(n-1)
-      !
-      !     vectorization is achieved on cray by doing the transforms in
-      !     parallel
-      !
-      !     *** n.b. n is assumed to be an even number
-      !
-      !     definition of transforms:
-      !     -------------------------
+      !     Definition of transforms:
       !
       !     isign=+1: x(j)=sum(k=0,...,n-1)(c(k)*exp(2*i*j*k*pi/n))
-      !         where c(k)=a(k)+i*b(k) and c(n-k)=a(k)-i*b(k)
+      !     where c(k)=a(k)+i*b(k) and c(n-k)=a(k)-i*b(k)
       !
       !     isign=-1: a(k)=(1/n)*sum(j=0,...,n-1)(x(j)*cos(2*j*k*pi/n))
-      !               b(k)=-(1/n)*sum(j=0,...,n-1)(x(j)*sin(2*j*k*pi/n))
+      !     b(k)=-(1/n)*sum(j=0,...,n-1)(x(j)*sin(2*j*k*pi/n))
       !
 
       !-- Input variables
-      integer,  intent(in)    :: inc,jump,n,lot,isign
-      integer,  intent(inout) :: ifax(:)
-      real(cp), intent(in)    :: trigs(:)
+      integer,  intent(in)    :: inc      ! increment within each data 'vector'
+      integer,  intent(in)    :: jump     ! increment between the start of each data vector
+      integer,  intent(in)    :: n        ! length of the data vectors
+      integer,  intent(in)    :: lot      ! number of data vectors
+      integer,  intent(in)    :: isign    ! sign of the FFT
+      integer,  intent(inout) :: ifax(:)  ! previously prepared list of factors of n/2
+      real(cp), intent(in)    :: trigs(:) ! previously prepared list of trig function values
 
       !-- Output variables
-      real(cp), intent(inout) :: a(*),work((n+1)*lot)
+      real(cp), intent(inout) :: a(*) ! array containing input and output data
+      real(cp), intent(inout) :: work((n+1)*lot) ! array of size (n+1)*lot
 
       !-- Local variables
       integer :: nfax, nx, nh, ink, igo, ibase, jbase

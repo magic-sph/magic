@@ -78,6 +78,9 @@ module grid_space_arrays_mod
 contains
 
    subroutine initialize(this)
+      !
+      ! Memory allocation of arrays in grid space
+      !
 
       class(grid_space_arrays_t) :: this
 
@@ -168,6 +171,9 @@ contains
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
+      !
+      ! Memory deallocation of arrays in grid space
+      !
 
       class(grid_space_arrays_t) :: this
 
@@ -219,23 +225,18 @@ contains
    subroutine get_nl(this, time, tscheme, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
-      !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
+      !  level nR and returns them in arrays
       !
       !  if nBc >0 velocities are zero only the (vxB)
-      !  contributions to bnlr2-3 need to be calculated
-      !
-      !  vr...sr: (input) velocity, magnetic field comp. and derivs, entropy
-      !                   on grid points
-      !  nR: (input) radial level
-      !  i1: (input) range of points in theta for which calculation is done
+      !  contributions need to be calculated
       !
 
       class(grid_space_arrays_t) :: this
 
       !-- Input of variables:
-      real(cp),            intent(in) :: time
+      real(cp),            intent(in) :: time ! instant in time
       class(type_tscheme), intent(in) :: tscheme
-      integer,             intent(in) :: nR
+      integer,             intent(in) :: nR ! radial level
       logical,             intent(in) :: lRmsCalc
       integer,             intent(in) :: nBc
 

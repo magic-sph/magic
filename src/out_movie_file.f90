@@ -68,7 +68,7 @@ contains
       logical :: lThetaFound
       complex(cp) :: bCMB(lm_max)
 
-      if ( rank==0 .and. l_mag ) bCMB = b_Rloc(:,n_r_cmb)
+      if ( n_r==n_r_cmb .and. l_mag ) bCMB = b_Rloc(:,n_r_cmb)
 
       do n_movie=1,n_movies
 
@@ -1412,9 +1412,9 @@ contains
       !
       !  Return field fl whose contourlines are the fields lines
       !  of the axisymmetric poloidal mangetic field.
-      !    fl(r,theta)=d_theta b(r,theta,m=0)/r
+      !  fl(r,theta)=d_theta b(r,theta,m=0)/r
       !
-
+      !
       !  This routine is called for l_ic=.true. only from rank 0 with full
       !  field b_ic in standard lm ordering available.
       !  The case l_ic=.false. is called from all ranks and uses b_Rloc.
@@ -1482,7 +1482,7 @@ contains
       !  latitude are returned in br/bt/bp.
       !  Note that this routine given the real components of the magnetic
       !  fields while other transforms in the code provide only:
-      !   r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp
+      !  r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp
       !
 
       !-- Input of variables:

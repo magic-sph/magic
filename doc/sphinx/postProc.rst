@@ -200,23 +200,25 @@ API of the available classes, as well as some practical examples:
 
      5. To read and analyse the **G_#.TAG** files, see :ref:`here <secPythonGraphFile>`.
 
-     6. To read and analyse movie files **_mov.TAG**, see :ref:`here <secPythonMovieFiles>`.
+     6. To read and analyse the **checkpoint_#.TAG** files, see :ref:`here <secPythonCheckpointFile>`.
 
-     7. To read and analyse coeff files **[V|B|T]_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
+     7. To read and analyse movie files **_mov.TAG**, see :ref:`here <secPythonMovieFiles>`.
 
-     8. To read and analyse potential files **[V|B|T]_lmr_#.TAG**, see :ref:`here <secPythonPot>`.
+     8. To read and analyse coeff files **[V|B|T]_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
 
-     9. To read and analyse radial spectra **B[r|p]Spec.TAG**, see :ref:`here <secPythonRSpec>`.
+     9. To read and analyse potential files **[V|B|T]_lmr_#.TAG**, see :ref:`here <secPythonPot>`.
 
-     10. To read and analyse TO outputs, see :ref:`here <secPythonTO>`.
+     10. To read and analyse radial spectra **B[r|p]Spec.TAG**, see :ref:`here <secPythonRSpec>`.
 
-     11. To compare several runs simultaneously, see :ref:`here <secPythonComp>`.
+     11. To read and analyse TO outputs, see :ref:`here <secPythonTO>`.
 
-     12. To transform the graphic files **G_#.TAG** to a file format readable by `paraview <http://www.paraview.org/>`_, `VisIt <https://visit.llnl.gov/>`_ or `mayavi <http://code.enthought.com/projects/mayavi/>`_ and do some fancy 3-D visualisation, see :ref:`here <secPythonParaview>`.
+     12. To compare several runs simultaneously, see :ref:`here <secPythonComp>`.
 
-     13. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
+     13. To transform the graphic files **G_#.TAG** to a file format readable by `paraview <http://www.paraview.org/>`_, `VisIt <https://visit.llnl.gov/>`_ or `mayavi <http://code.enthought.com/projects/mayavi/>`_ and do some fancy 3-D visualisation, see :ref:`here <secPythonParaview>`.
 
-     14. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
+     14. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
+
+     15. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
 
 
 .. toctree::

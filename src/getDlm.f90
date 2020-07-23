@@ -26,13 +26,7 @@ contains
 
    subroutine getDlm(w,dw,z,dl,dlR,dm,dlc,dlPolPeak,dlRc,dlPolPeakR,switch)
       !
-      !  calculates energy  = 1/2 Integral(B^2 dV)
-      !  integration in theta,phi by summation over harmonic coeffs.
-      !  integration in r by Chebycheff integrals
-      !
-      !  Output:
-      !  enbp: Total poloidal        enbt: Total toroidal
-      !  apome: Axisym. poloidal     atome: Axisym. toroidal
+      ! This routine is used to compute integral lengthscale using spectra
       !
 
       !-- Input variables:

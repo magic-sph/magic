@@ -219,20 +219,15 @@ contains
       !
       !     sub sgefa must be called once first to initialize a and ip
       !
-      !     a: (input)  nxn real matrix
-      !     n: (input)  size of a and b
-      !     ip: (input) pivot pointer array of length n
-      !     b: (in/output) rhs-vector on input, solution on output
-      !
 
       !-- Input variables:
       integer,  intent(in) :: n      ! dim of problem
       integer,  intent(in) :: ia     ! first dim of a
       integer,  intent(in) :: ip(*)  ! pivot information
-      real(cp), intent(in) :: a(ia,*)
+      real(cp), intent(in) :: a(ia,*)! n*n real matrix
 
       !-- Output: solution stored in b(n)
-      real(cp), intent(inout) :: b(*)
+      real(cp), intent(inout) :: b(*)! rhs-vector on input, solution on output
 
       !-- Local variables:
       integer :: nm1,i
@@ -293,12 +288,13 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: ia,n
-      real(cp), intent(inout) :: a(ia,*)
+      integer,  intent(in) :: ia ! first dimension of a (must be >= n)
+      integer,  intent(in) :: n  ! 2nd dimension and rank of a
+      real(cp), intent(inout) :: a(ia,*) ! real nxn matrix on input, lu-decomposed matrix on output
 
       !-- Output variables:
-      integer, intent(out) :: ip(*)   ! pivoting information
-      integer, intent(out) :: info
+      integer, intent(out) :: ip(*)   ! pivot pointer array
+      integer, intent(out) :: info    ! error message when  /= 0
 
       !-- Local variables:
       integer :: nm1,k,kp1,l,i,j

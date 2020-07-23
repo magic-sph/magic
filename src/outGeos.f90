@@ -859,12 +859,9 @@ contains
       !  PlmS=Plm(theta), dPlmS=sin(theta)*dTheta Plm(theta), and sinT=sin(theta).
       !  Also calculated are the axisymmetric flow contributions VpAS,VtAS,VpAS
       !  and the z-vorticity VorS (z-component of curl V).
-      !  NOTE: For kindCalc=2 the cylindrical flow contributions are returned:
-      !  VrS=VsS,VtS=VzS,VrAS=VsAS,VtAS=VzAS.
       !  Also calculated is dpEk, the  phi average of 
-      !    (d Vr/d phi)**2 + (d Vtheta/ d phi)**2 + (d Vphi/ d phi)**2
+      !  (d Vr/d phi)**2 + (d Vtheta/ d phi)**2 + (d Vphi/ d phi)**2
       !  used to calculate the phi length scale.
-      !  .. note:: on input wS=w/r^2, dwS=dw/r, ddwS=ddw/r, zS=z/r
       !
 
       !--- Input variables:

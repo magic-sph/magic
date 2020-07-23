@@ -30,7 +30,7 @@ contains
       !
       !  .. code-block:: fortran
       !
-      !     n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
+      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
       !
       !  On input br, vt and vp are given on all phi points and
       !  thetas in the specific block.
@@ -85,7 +85,7 @@ contains
       !
       !  .. code-block:: fortran
       !
-      !      n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
+      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
       !
 
       !-- Input variables:

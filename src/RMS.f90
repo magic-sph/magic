@@ -387,7 +387,6 @@ contains
    subroutine get_force(Force2hInt,ForceRms,ForceRmsL,ForceRmsLnR,      &
               &         volC,nRMS_sets,timePassed,timeNorm,l_stop_time, &
               &         ForcePol2hInt,ForceTor2hInt)
-
       !
       ! This subroutine is used to compute the contributions of the
       ! forces in the Navier-Stokes equation

@@ -107,7 +107,7 @@ contains
             end do
          end do
     
-         if ( la == m ) RETURN
+         if ( la == m ) return
     
          la1=la+1
          do k=la1,m,la
@@ -172,7 +172,7 @@ contains
             end do
          end do
     
-         if ( la == m ) RETURN
+         if ( la == m ) return
     
          la1=la+1
          do k=la1,m,la
@@ -457,7 +457,7 @@ contains
             end do
          end do
     
-         if ( la == m ) RETURN
+         if ( la == m ) return
     
          la1=la+1
          do k=la1,m,la
@@ -522,7 +522,7 @@ contains
             end do
          end do
     
-         if ( la == m ) RETURN
+         if ( la == m ) return
     
          la1=la+1
          do k=la1,m,la
