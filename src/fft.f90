@@ -14,21 +14,21 @@ module fft
    use constants, only: pi, sin36, sin60, sin72, cos36, cos72, one, two, half
    use truncation, only: n_phi_max, nlat_padded
    use parallel_mod
- 
+
    implicit none
- 
+
    private
- 
+
    !-- For Fourier transform (calculated in init_fft)
    integer, parameter :: ni=100
    integer :: nd
    integer :: i_fft_init(ni)
    real(cp), allocatable ::  d_fft_init(:)
- 
+
    public :: init_fft, fft_to_real, finalize_fft, fft_many, ifft_many
 
 contains
-  
+
    subroutine init_fft(n)
       !
       ! Purpose of this subroutine is to calculate and store several
@@ -135,7 +135,9 @@ contains
    end subroutine init_fft
 !------------------------------------------------------------------------------
    subroutine finalize_fft
+      !
       ! Memory deallocation of FFT help arrays
+      !
 
       deallocate(d_fft_init)
 
@@ -154,14 +156,14 @@ contains
 
       tmp(:ld_f,:)=f(:,:)
       !-- FFT along the first axis
-      call fft991(tmp,work,d_fft_init,i_fft_init,1,ld_f+2,ld_f,nrep,1) 
+      call fft991(tmp,work,d_fft_init,i_fft_init,1,ld_f+2,ld_f,nrep,1)
       f(:,:)=tmp(:ld_f,:)
 
    end subroutine fft_to_real
 !------------------------------------------------------------------------------
    subroutine fft_many(g,f)
       !
-      ! Fourier transform:  f(nlat,nlon) -> fhat(nlat,nlon/2+1)
+      ! Fourier transform:  ``f(nlat,nlon) -> fhat(nlat,nlon/2+1)``
       !
 
       !-- Input variable
@@ -192,9 +194,9 @@ contains
       end do
 
       !-- Phi first
-      !call fft991(tmp,work,d_fft_init,i_fft_init,1,n_phi_max+2,n_phi_max,nlat_padded,-1) 
+      !call fft991(tmp,work,d_fft_init,i_fft_init,1,n_phi_max+2,n_phi_max,nlat_padded,-1)
       !-- Theta first
-      call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nThLoc,-1) 
+      call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nThLoc,-1)
 
       !-- Real to complex
       do np=1,n_phi_max/2+1
@@ -208,7 +210,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine ifft_many(f,g)
       !
-      ! Inverse Fourier transform: fhat(nlat, nlon/2+1) -> f(nlat,nlon)
+      ! Inverse Fourier transform: ``fhat(nlat, nlon/2+1) -> f(nlat,nlon)``
       !
 
       !-- Input variable
@@ -235,7 +237,7 @@ contains
       end do
 
       !-- Phi-first
-      !call fft991(tmp,work,d_fft_init,i_fft_init,1,n_phi_max+2,n_phi_max,nlat_padded,1) 
+      !call fft991(tmp,work,d_fft_init,i_fft_init,1,n_phi_max+2,n_phi_max,nlat_padded,1)
       !-- Theta first
       call fft991(tmp,work,d_fft_init,i_fft_init,nlat_padded,1,n_phi_max,nThloc,1)
 
@@ -251,27 +253,23 @@ contains
 !------------------------------------------------------------------------------
    subroutine fft991(a,work,trigs,ifax,inc,jump,n,lot,isign)
       !
-      !     subroutine "fft991" - multiple real/half-complex periodic
-      !     fast fourier transform
+      !     Multiple real/half-complex periodic Fast Fourier Transform
       !
-      !     same as fft99 except that ordering of data corresponds to
-      !     that in mrfft2
-      !
-      !     procedure used to convert to half-length complex transform
-      !     is given by cooley, lewis and welch (j. sound vib., vol. 12
+      !     Procedure used to convert to half-length complex transform
+      !     is given by Cooley, Lewis and Welch (j. sound vib., vol. 12
       !     (1970), 315-337)
       !
       !     Definition of transforms:
       !
-      !     isign=+1: x(j)=sum(k=0,...,n-1)(c(k)*exp(2*i*j*k*pi/n))
-      !     where c(k)=a(k)+i*b(k) and c(n-k)=a(k)-i*b(k)
+      !     ``isign=+1: x(j)=sum(k=0,...,n-1)(c(k)*exp(2*i*j*k*pi/n))``
+      !     where ``c(k)=a(k)+i*b(k)`` and ``c(n-k)=a(k)-i*b(k)``
       !
-      !     isign=-1: a(k)=(1/n)*sum(j=0,...,n-1)(x(j)*cos(2*j*k*pi/n))
-      !     b(k)=-(1/n)*sum(j=0,...,n-1)(x(j)*sin(2*j*k*pi/n))
+      !     ``isign=-1: a(k)=(1/n)*sum(j=0,...,n-1)(x(j)*cos(2*j*k*pi/n))``
+      !     ``b(k)=-(1/n)*sum(j=0,...,n-1)(x(j)*sin(2*j*k*pi/n))``
       !
 
       !-- Input variables
-      integer,  intent(in)    :: inc      ! increment within each data 'vector'
+      integer,  intent(in)    :: inc      ! increment within each data vector
       integer,  intent(in)    :: jump     ! increment between the start of each data vector
       integer,  intent(in)    :: n        ! length of the data vectors
       integer,  intent(in)    :: lot      ! number of data vectors
@@ -308,7 +306,7 @@ contains
                ibase=ibase+jump
                jbase=jbase+nx
             end do
-       
+
             igo=60
          end if
       else
@@ -400,7 +398,7 @@ contains
          ja=ja+nx
          jb=jb+nx
       end do
-    
+
       !-- Remaining wavenumbers
       iabase=2*inc+1
       ibbase=(n-2)*inc+1

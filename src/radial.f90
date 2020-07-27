@@ -193,6 +193,9 @@ contains
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
    subroutine finalize_radial_functions
+      !
+      ! Memory deallocation of radial functions
+      !
 
       deallocate( l_R )
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
@@ -1160,7 +1163,7 @@ contains
          dLvisc(:)=slopeVisc*(half*ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2&
          &         +one)/(half*ampVisc+(half*ampVisc-half)*tanh(slopeVisc*(r(:)-   &
          &         rStrat))+half)
-         
+
          ddLvisc(:)=-slopeVisc**2*(half*ampVisc-half)**2*(-tanh(slopeVisc*(r(:)- &
          &          rStrat))**2+one)**2/(half*ampVisc+(half*ampVisc-half)*       &
          &          tanh(slopeVisc*(r(:)-rStrat))+half)**2-2*slopeVisc**2*(half* &

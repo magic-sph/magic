@@ -49,15 +49,13 @@ contains
 
    subroutine preCalc(tscheme)
       !
-      !  Purpose of this subroutine is to initialize the calc values,     
-      !  arrays, constants that are used all over the code.               
-      !  The stuff is stored in the common blocks.                        
-      !  MPI: This is called by every processors.                         
+      !  Purpose of this subroutine is to initialize the calc values,
+      !  arrays, constants that are used all over the code.
       !
 
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
-    
+
       !---- Local variables:
       real(cp) :: help,facIH
       real(cp) :: delmin,sr_top,si_top,sr_bot,si_bot
@@ -68,7 +66,7 @@ contains
       character(len=76) :: fileName
       character(len=80) :: message
       real(cp) :: mom(n_r_max)
-       
+
       !-- Determine scales depending on n_tScale,n_lScale :
       if ( n_tScale == 0 ) then
          !----- Viscous time scale:
@@ -93,16 +91,16 @@ contains
          !----- Total Core:
          lScale=(one-radratio)
       end if
-    
+
       !---- Scale according to scdIFf:
       vScale  =lScale/tScale
       pScale  =tScale**2/lScale**2
       eScale  =vScale*vScale/enscale
       raScaled=ra/lScale**3
       ekScaled=ek*lScale**2
-    
+
       if ( l_cond_ic ) O_sr=one/sigma_ratio
-    
+
       opr=one/pr
       if ( l_mag ) then
          opm=one/prmag
@@ -134,7 +132,7 @@ contains
       !       and L=ro-ri is the chosen length scale. Then LFfac=1.
       !       Note that for kinematic dynamos the magnetic field strength
       !       is arbitrary. We nevertheless still use the same LFfac.
-    
+
       if ( l_non_rot ) then
          CorFac=0.0_cp
          if ( l_mag .or. l_mag_LF ) then
@@ -154,7 +152,7 @@ contains
       oek = CorFac
 
       if ( l_precession ) CorFac = CorFac*(one+po*cos(prec_angle))
-    
+
       ! Note: BuoFac is the factor used in front of the buoyancy force.
       !       In the scaling used here its
       !          BuoFac=Ra/Pr
@@ -173,11 +171,11 @@ contains
       else
          ChemFac=0.0_cp
       end if
-    
+
       dtMax  =dtMax/tScale
       if ( .not. l_non_rot ) dtMax=min(dtMax,tscheme%intfac*ekScaled)
       dtMin  =dtMax/1.0e6_cp
-    
+
       !-- Calculate radial functions for all threads (chebs,r,.....):
 
       call radial()
@@ -193,7 +191,7 @@ contains
          end do
          close(fileHandle)
       end if
-    
+
       call transportProperties
 
       if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
@@ -211,7 +209,7 @@ contains
          end do
          close(fileHandle)
       end if
-    
+
       !-- Write radial profiles
       if ( l_mag .and. nVarCond > 0 ) then
          fileName='varCond.'//tag
@@ -223,7 +221,7 @@ contains
          end do
          close(fileHandle)
       end if
-    
+
       if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. ( rank == 0 ) ) then
          fileName='varDiff.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
@@ -236,7 +234,7 @@ contains
          end do
          close(fileHandle)
       end if
-    
+
       if ( ( nVarVisc > 0 ) .and. (rank == 0) ) then
          fileName='varVisc.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
@@ -261,7 +259,7 @@ contains
          end if
          close(fileHandle)
       end if
-    
+
       l_LCR=.false.
       n_r_LCR=0
       do n_r=1,n_r_max
@@ -274,16 +272,16 @@ contains
          l_LCR=.false.
          n_r_LCR=0
       end if
-    
+
       !-- Compute some constants:
       vol_ic=four*third*pi*r_icb**3             ! Inner core volume
       vol_oc=four*third*pi*(r_cmb**3-r_icb**3)  ! Outer core volume
       surf_cmb=four*pi*r_cmb**2                ! Surface of CMB
-    
+
       !-- Initialize everything that has to do with the horizontal representation
       !   on all threads:
       call horizontal
-    
+
       !-- Computation of the average density (useful to compute Re and Rm)
       if ( l_anel ) then
          mom(:)=r(:)**2 * rho0(:)
@@ -291,7 +289,7 @@ contains
       else
          mass=one
       end if
-    
+
       !-- Calculate auxiliary arrays containing effective Courant grid intervals:
       delxh2(1)      =r_cmb**2/real(l_R(1)*(l_R(1)+1),kind=cp)
       delxh2(n_r_max)=r_icb**2/real(l_R(n_r_max)*(l_R(n_r_max)+1),kind=cp)
@@ -306,46 +304,46 @@ contains
       !-- Constants used for rotating core or mantle:
       y10_norm=half*sqrt(three/pi)  ! y10=y10_norm * cos(theta)
       y11_norm=half*sqrt(1.5_cp/pi) ! y11=y11_norm * sin(theta)
-    
+
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and inner core rotation rate:
       c_z10_omega_ic=y10_norm*or2(n_r_max)/rho0(n_r_max)
-    
+
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and mantle rotation rate:
       c_z10_omega_ma=y10_norm*or2(1)/rho0(1)
-    
+
       !----- Inner-core normalized moment of inertia:
       c_moi_ic=8.0_cp*pi/15.0_cp*r_icb**5*rho_ratio_ic*rho0(n_r_max)
-    
+
       !----- Outer-core normalized moment of inertia:
       ! _moi_oc=8.0_cp*pi/15.0_cp*(r_cmb**5-r_icb**5) ! rho=cst
       do n_r=1,n_r_max
          mom(n_r)=r(n_r)**4 * rho0(n_r)
       end do
       c_moi_oc=8.0_cp*third*pi*rInt_R(mom,r,rscheme_oc)
-    
+
       !----- Mantle normalized moment of inertia:
       c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma
-    
+
       !----- IC normalised moment of inertia / r_icb**4 * 3/(8 pi)
       c_dt_z10_ic=0.2_cp*r_icb*rho_ratio_ic*rho0(n_r_max)
-    
+
       !----- Mantle normalised moment of inertia / r_cmb**4 * 3/(8 pi)
       c_dt_z10_ma=0.2_cp*r_cmb*rho_ratio_ma * ( (r_surface/r_cmb)**5 - one )
-    
+
       !----- Proportionality factor for ic lorentz_torque as used in
       !      ic torque-equation (z10):
       c_lorentz_ic=0.25_cp*sqrt(three/pi)*or2(n_r_max)
-    
+
       !----- Proportionality factor for mantle lorentz_torque as used in
       !      mantle torque-equation (z10):
       c_lorentz_ma=0.25_cp*sqrt(three/pi)*or2(1)
-    
+
       !-- Set thermal boundary conditions for fixed temp. on both boundaries:
       !----- Extract tops and bots
       if ( l_heat ) then
-    
+
          !-- Renormalisation of heat flow coeffs and heat source.
          !      This has been copied from the Christensen and
          !      means the we use a different normalisation of
@@ -358,7 +356,7 @@ contains
          !      i.e. the integral of Y*Y(c.c.) over a spherical surface
          !      of radius 1 is unity
          epsc=epsc0*sq4pi
-    
+
          do m=0,m_max,minc
             do l=m,l_max
                bots(l,m)=zero
@@ -387,7 +385,7 @@ contains
                end do
             end do
          end do
-    
+
          if ( nVarEps==0 ) then
             facIH=vol_oc
          else if ( nVarEps==1 ) then
@@ -407,9 +405,9 @@ contains
             topconduc = rho0(1)*kappa(1)*temp0(1)
             botconduc = rho0(n_r_max)*kappa(n_r_max)*temp0(n_r_max)
          end if
-    
+
          if ( ktops == 1 .and. kbots == 1 ) then ! Fixed entropy
-    
+
             tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
 
@@ -417,9 +415,9 @@ contains
 
             tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
-    
+
          else if ( (ktops==2 .and. kbots==2) .or. (ktops == 4 .and. kbots==4) ) then
-    
+
             if ( real(bots(0,0)) > 0.0_cp ) then
                write(output_unit,*)
                write(output_unit,*) '! NOTE: you have supplied'
@@ -430,15 +428,15 @@ contains
                write(output_unit,*) '! Use s_bot(l=0,m=0)<0 !'
                call abortRun('Stop run in preCalc')
             end if
-    
+
             !--- |epsc0|=1 signifies that the heat production rate is used as
             !    temperature scale! I make sure here that the heat flux through
             !    inner and outer boundary, bots and tops, balance the sources.
             if ( abs(epsc0) == one ) then
-    
+
                !--- Make sure that all the heat comes out at CMB
                if ( tops(0,0) == 0.0_cp ) then
-    
+
                   !--- Compensate by flux from ICB:
                   !    all over the core :
                   if ( epsc0 >= 0 ) then
@@ -452,9 +450,9 @@ contains
                   bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * botconduc )
                   call logWrite( &
                        '! CMB heat flux set to balance volume sources!')
-    
+
                else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) == 0.0_cp ) then
-    
+
                   !--- Correct tops to balance inner sources/sinks:
                   if ( epsc0 <= 0 .and. bots(0,0) == 0.0_cp  ) then
                      write(output_unit,*) '! NOTE: when the flux through the '
@@ -469,9 +467,9 @@ contains
                             radratio**2*botconduc*bots(0,0)
                   if ( tops(0,0) /= help ) call logWrite( &
                        '!!!! WARNING: CMB heat flux corrected !!!!')
-    
+
                else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) /= 0.0_cp ) then
-    
+
                   !--- Correct tops to balance inner sources/sinks:
                   if ( epsc0 <= 0 .and. bots(0,0) == 0.0_cp  ) then
                      write(output_unit,*) '! NOTE: when the flux through the '
@@ -489,9 +487,9 @@ contains
                      write(output_unit,*) '! have to balance the total flux.'
                      call abortRun('Stop run in preCalc')
                   end if
-    
+
                end if
-    
+
             else if ( epsc0 == 0.0_cp .and. ( tops(0,0) /= 0.0_cp .or. &
                                             bots(0,0) /= 0.0_cp ) ) then
                !--- Correct epsc0 to balance the difference between
@@ -515,9 +513,9 @@ contains
                   call abortRun('Stop run in preCalc')
                end if
             end if
-    
+
          end if
-    
+
          if ( l_non_adia ) then
             bots(0,0)=0.0_cp
             tops(0,0)=0.0_cp
@@ -561,13 +559,13 @@ contains
          help=facIH*pr*epsc/sq4pi
          write(message,'(''! Total vol. buoy. source ='',ES16.6)') help
          call logWrite(message)
-    
+
       end if
 
       !-- Set  boundary conditions for chemical composition
       if ( l_chemical_conv ) then
          epscxi=epscxi0*sq4pi
-    
+
          do m=0,m_max,minc
             do l=m,l_max
                botxi(l,m)=zero
@@ -596,18 +594,18 @@ contains
                end do
             end do
          end do
-    
+
          facIH=vol_oc
          topconduc = rho0(1)
          botconduc = rho0(n_r_max)
-    
+
          if ( ktopxi == 1 .and. kbotxi == 1 ) then ! Fixed chemical comp
-    
+
             topxi(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             botxi(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
 
          else if ( (ktopxi==2 .and. kbotxi==2) ) then
-    
+
             if ( real(botxi(0,0)) > 0.0_cp ) then
                write(output_unit,*)
                write(output_unit,*) '! NOTE: you have supplied'
@@ -618,11 +616,11 @@ contains
                write(output_unit,*) '! Use xi_bot(l=0,m=0)<0 !'
                call abortRun('Stop run in preCalc')
             end if
-    
+
             if ( abs(epscxi0) == one ) then
-    
+
                if ( topxi(0,0) == 0.0_cp ) then
-    
+
                   !--- Compensate by flux from ICB:
                   !    all over the core :
                   if ( epscxi0 >= 0 ) then
@@ -636,9 +634,9 @@ contains
                   botxi(0,0)=epscxi*sc*facIH/(four*pi*r_icb**2*botconduc)
                   call logWrite( &
                        '! CMB heat flux set to balance volume sources!')
-    
+
                else if ( topxi(0,0) /= 0.0_cp .and. botxi(0,0) == 0.0_cp ) then
-    
+
                   !--- Correct topxi to balance inner sources/sinks:
                   if ( epscxi0 <= 0 .and. botxi(0,0) == 0.0_cp  ) then
                      write(output_unit,*) '! NOTE: when the flux through the '
@@ -653,9 +651,9 @@ contains
                        radratio**2*botxi(0,0)*botconduc
                   if ( topxi(0,0) /= help ) call logWrite( &
                        '!!!! WARNING: CMB composition flux corrected !!!!')
-    
+
                else if ( topxi(0,0) /= 0.0_cp .and. botxi(0,0) /= 0.0_cp ) then
-    
+
                   !--- Correct tops to balance inner sources/sinks:
                   if ( epscxi0 <= 0 .and. botxi(0,0) == 0.0_cp  ) then
                      write(output_unit,*) '! NOTE: when the flux through the '
@@ -673,9 +671,9 @@ contains
                      write(output_unit,*) '! have to balance the total flux.'
                      call abortRun('Stop run in preCalc')
                   end if
-    
+
                end if
-    
+
             else if ( epscxi0 == 0.0_cp .and. ( topxi(0,0) /= 0.0_cp .or. &
                                             botxi(0,0) /= 0.0_cp ) ) then
                !--- Correct epscxi0 to balance the difference between
@@ -699,9 +697,9 @@ contains
                   call abortRun('Stop run in preCalc')
                end if
             end if
-    
+
          end if
-    
+
          if ( ktopxi == 1 ) then
             write(message,'(''! Constant comp. at CMB T ='',ES16.6)') &
                   real(topxi(0,0))/sq4pi
@@ -722,7 +720,7 @@ contains
          help=facIH*sc*epscxi/sq4pi
          write(message,'(''! Total vol. comp. source ='',ES16.6)') help
          call logWrite(message)
-    
+
       end if
 
 
@@ -731,9 +729,9 @@ contains
       if ( l_curr ) then
 
          allocate(fac_loop(l_max))
-              
+
          do l=1,l_max
-               
+
             fac_loop(l)=0.0_cp
 
             if (mod(l,2)/=0) then
@@ -744,7 +742,7 @@ contains
                   &            real(l-1,kind=cp)
                end if
             end if
-               
+
          end do
 
          if (l_non_rot) then
@@ -754,13 +752,13 @@ contains
          end if
 
       end if
-       
+
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------
    subroutine preCalcTimes(time,n_time_step)
       !
-      !  Precalc. after time, time and dthas been read from startfile.
+      !  Precalc. after time, time and dt has been read from startfile.
       !
 
       !-- Output variables
@@ -813,7 +811,7 @@ contains
          call get_hit_times(t_cmb,n_time_hits,n_t_cmb,l_time, &
                                t_cmb_start,t_cmb_stop,dt_cmb, &
                          n_cmbs,n_cmb_step,'cmb',time,tScale)
-         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true. 
+         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true.
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
@@ -822,7 +820,7 @@ contains
          call get_hit_times(t_r_field,n_time_hits,n_t_r_field,l_time, &
                            t_r_field_start,t_r_field_stop,dt_r_field, &
                           n_r_fields,n_r_field_step,'r_field',time,tScale)
-         if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true. 
+         if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true.
       end iF
 
       if ( l_movie ) then
@@ -851,18 +849,18 @@ contains
    end subroutine preCalcTimes
 !-------------------------------------------------------------------------------
    subroutine get_hit_times(t,n_t_max,n_t,l_t,t_start,t_stop,dt, &
-              &              n_tot,n_step,string,time,tScale)
+              &             n_tot,n_step,string,time,tScale)
       !
       ! This subroutine checks whether any specific times t(*) are given
-      ! on input. If so, it returns their number n_r and sets l_t        
-      ! to true. If not, t(*) may also be defined by giving a time step  
-      ! dt or a number n_tot of desired output times and t_stop>t_start. 
+      ! on input. If so, it returns their number n_r and sets l_t to true.
+      ! If not, t(*) may also be defined by giving a time step dt or a
+      ! number n_tot of desired output times and ``t_stop>t_start``.
       !
 
       !-- Input variables:
       integer,          intent(in) :: n_t_max    ! Dimension of t(*)
       real(cp),         intent(in) :: time       ! Time of start file
-      real(cp),         intent(in) :: tScale
+      real(cp),         intent(in) :: tScale     ! Scale unit for time
       character(len=*), intent(in) :: string
       integer,  intent(inout) :: n_tot       ! No. of output (times) if no times defined
       integer,  intent(inout) :: n_step      ! Ouput step in no. of time steps
@@ -950,18 +948,18 @@ contains
          t_stop =t(n_t)
          dt     =t(2)-t(1)
       end if
-            
+
    end subroutine get_hit_times
 !------------------------------------------------------------------------------
    subroutine writeInfo(n_out)
       !
-      !  Purpose of this subroutine is to write the namelist to           
-      !  file unit n_out. This file has to be open before calling this    
-      !  routine.                                                         
+      !  Purpose of this subroutine is to write the namelist to
+      !  file unit n_out. This file has to be open before calling this
+      !  routine.
       !
 
       !-- Input variable:
-      integer, intent(in) :: n_out
+      integer, intent(in) :: n_out ! Output unit
 
       if ( rank == 0 ) then
 

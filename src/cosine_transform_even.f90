@@ -24,9 +24,9 @@ contains
 
    subroutine initialize(this, n, ni, nd)
       !
-      !  Purpose of this subroutine is to calculate several things        
-      !  needed for the cheb transform.                                   
-      !  Prepares costf2 for even number of grid points.                  
+      !  Purpose of this subroutine is to calculate several things
+      !  needed for the Chebyshev transform.
+      !  Prepares ``costf2`` for even number of grid points.
       !
 
       class(costf_even_t) :: this
@@ -202,12 +202,12 @@ contains
 !------------------------------------------------------------------------------
    subroutine costf2(this,f,n_f_max,n_f_start,n_f_stop,f2,isign)
       !
-      !  Purpose of this subroutine is to perform a multiple              
-      !  cosine transforms for n+1 datapoints                             
-      !  on the columns numbered n_f_start to n_f_stop in the array       
-      !  y(n_f_max,n+1)                                                  
-      !  Depending whether the input y contains data or coeff arrays      
-      !  coeffs or data are returned in y.                                
+      !  Purpose of this subroutine is to perform a multiple
+      !  cosine transforms for n+1 datapoints
+      !  on the columns numbered n_f_start to n_f_stop in the array
+      !  ``y(n_f_max,n+1)``
+      !  Depending whether the input y contains data or coeff arrays
+      !  coeffs or data are returned in y.
       !
 
       class(costf_even_t) :: this
@@ -274,7 +274,7 @@ contains
             j3=this%i_costf_init(i+1)   ! second step
             j4=this%i_costf_init(n_P2-i)
             wi_i=this%d_costf_init(2*n+i)
-             
+
             do n_f=n_f_start,n_f_stop
                f_h1=f(n_f,j)+f(n_f,n_P1-j)
                f_h2=wi_j*(f(n_f,j)-f(n_f,n_P1-j))
@@ -311,7 +311,7 @@ contains
             end if
             fac_tot=fac_tot*fac
          end do
-           
+
          if ( l_f2_data ) then
             !----- Copy data on f:
             do j1=1,n,4       ! Step size 4: Loop unrolling
@@ -525,7 +525,7 @@ contains
          end do
 
       end if
-        
+
    end subroutine costf2
 !------------------------------------------------------------------------------
 end module cosine_transform_even

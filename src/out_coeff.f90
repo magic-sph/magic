@@ -3,7 +3,7 @@ module out_coeff
    ! This module contains the subroutines that calculate the Bcmb files,
    ! the [B|V|T]_coeff_r files and the [B|V|T]_lmr files
    !
-  
+
    use precision_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
@@ -55,19 +55,12 @@ contains
    subroutine write_Bcmb(time,b_LMloc,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
       !
       ! Each call of this subroutine writes time and the poloidal magnetic
-      ! potential coefficients b at the CMB up to degree and order        
-      ! l_max_cmb at the end of output file $cmb_file.                    
-      ! The parameters l_max_cmb, minc and the number of stored coeffs.  
-      ! are written into the first line of $cmb_file.                     
-      ! Each further set contains:                                        
-      !    
-      !     .. code-block:: fortran
+      ! potential coefficients b at the CMB up to degree and order l_max_cmb
+      ! at the end of output file cmb_file. The parameters l_max_cmb, minc and
+      ! the number of stored coeffs are written into the header of cmb_file.
+      ! Each further set contains:
       !
-      !                    time,
-      !                    real(b(l=0,m=0)),imag(b(l=0,m=0)),                  
-      !                    real(b(l=1,m=0)),imag(b(l=1,m=0)),    
-      !                                                                   
-      ! Real and imaginary part of b(*) for all orders m<=l are written   
+      ! Real and imaginary part of b(*) for all orders m<=l are written
       ! for a specific degree l, then for the degrees l+1, l+2, l_max_cmb.
       !
 
@@ -162,33 +155,18 @@ contains
    subroutine write_coeff_r(time,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,r,  &
               &             l_max_r,n_sets,file,n_file,nVBS)
       !
-      ! Each call of this subroutine writes time and the poloidal and     
-      ! toroidal coeffitients w,dw,z at a specific radius up to degree    
-      ! and order l_max_r at the end of output file $file.                
-      ! If the input is magnetic field (nVBS=2) ddw is stored as well.    
-      ! If the input is entropy field (nVBS=3) only ddw=s is stored.      
-      ! The parameters l_max_r, minc, the number of stored coeffs and     
+      ! Each call of this subroutine writes time and the poloidal and
+      ! toroidal coeffitients w,dw,z at a specific radius up to degree
+      ! and order l_max_r at the end of output file $file.
+      ! If the input is magnetic field (nVBS=2) ddw is stored as well.
+      ! If the input is entropy field (nVBS=3) only ddw=s is stored.
+      ! The parameters l_max_r, minc, the number of stored coeffs and
       ! radius in the outer core are written into the first line of $file.
-      ! Each further set contains:                                        
+      ! Each further set contains:
       !
-      !     .. code-block :: fortran
+      ! Real and imaginary part of w(*) for all orders m<=l are written
+      ! for a specific degree l, then for the degrees l+1, l+2, l_max_r.
       !
-      !               time,
-      !               real(w(l=0,m=0)),imag(w(l=0,m=0)),                  
-      !               real(w(l=1,m=0)),imag(w(l=1,m=0)),                  
-      !               ...
-      !               real(dw(l=0,m=0)),imag(dw(l=0,m=0)),                
-      !               real(dw(l=1,m=0)),imag(dw(l=1,m=0)),                
-      !               ...
-      !               real(z(l=0,m=0)),imag(z(l=0,m=0)),                  
-      !               real(z(l=1,m=0)),imag(z(l=1,m=0)),                  
-      !               ...
-      !               real(ddw(l=0,m=0)),imag(ddw(l=0,m=0)),              
-      !               real(ddw(l=1,m=0)),imag(ddw(l=1,m=0)),              
-      !                                                                   
-      ! Real and imaginary part of w(*) for all orders m<=l are written   
-      ! for a specific degree l, then for the degrees l+1, l+2, l_max_r.  
-      !                                                                   
 
       !-- Input variables:
       real(cp),         intent(in) :: r                 ! radius of coeffs
@@ -359,7 +337,7 @@ contains
                   end if
                end do
             end do
-         end if 
+         end if
       end if
 
       if ( rank == 0 ) then
@@ -498,7 +476,7 @@ contains
            &                        datatype, ierr)
       call MPI_Type_Commit(datatype, ierr)
 
-      !-- Copy into a single precision  
+      !-- Copy into a single precision
       tmp(:,:) = cmplx(b(:,:), kind=outp)
 
 
@@ -541,7 +519,7 @@ contains
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
 
          if ( rank == 0 ) then
-            allocate ( work(lm_max, n_r_ic_max), tmp(lm_max, n_r_ic_max) ) 
+            allocate ( work(lm_max, n_r_ic_max), tmp(lm_max, n_r_ic_max) )
          else
             allocate ( work(1,1), tmp(1,1) )
          end if
@@ -576,19 +554,19 @@ contains
       !
 
       !-- Input of variables:
-      real(cp),         intent(in) :: time
+      real(cp),         intent(in) :: time ! Output time
       complex(cp),      intent(in) :: b(llm:ulm,n_r_max)
       complex(cp),      intent(in) :: aj(llm:ulm,n_r_max)
       complex(cp),      intent(in) :: b_ic(llm:ulm,n_r_ic_max)
       complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
-      character(len=*), intent(in) :: root
+      character(len=*), intent(in) :: root ! File prefix
       real(cp),         intent(in) :: omega_ma,omega_ic
       integer,          intent(in) :: nPotSets
-    
+
       !-- Work arrays:
       complex(cp), allocatable :: workA_global(:,:)
       complex(cp), allocatable :: workB_global(:,:)
-    
+
       !-- File outputs:
       character(80) :: string
       character(:), allocatable :: head
@@ -597,12 +575,12 @@ contains
       logical :: lVB
 
       version = 1
-    
+
       head = trim(adjustl(root))
       lVB=.false.
       if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
-    
+
       ! now gather the fields on rank 0 and write them to file
       ! it would be nicer to write the fields with MPI IO in parallel
       ! but then presumably the file format will change

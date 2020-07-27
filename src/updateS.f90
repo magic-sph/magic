@@ -1,5 +1,10 @@
 #include "perflib_preproc.cpp"
 module updateS_mod
+   !
+   ! This module handles the time advance of the entropy s.
+   ! It contains the computation of the implicit terms and the linear
+   ! solves.
+   !
 
    use omp_lib
    use precision_mod
@@ -128,18 +133,17 @@ contains
 !------------------------------------------------------------------------------
    subroutine updateS(s, ds, dsdt, tscheme)
       !
-      !  updates the entropy field s and its radial derivatives
-      !  adds explicit part to time derivatives of s
+      !  Updates the entropy field s and its radial derivative.
       !
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
-      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp),       intent(inout) :: s(llm:ulm,n_r_max) ! Entropy
       type(type_tarray), intent(inout) :: dsdt
       !-- Output: ds
-      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max)
+      complex(cp),       intent(out) :: ds(llm:ulm,n_r_max) ! Radial derivative of entropy
 
       !-- Local variables:
       integer :: l1,m1              ! degree and order

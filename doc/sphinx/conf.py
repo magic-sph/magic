@@ -228,8 +228,8 @@ for macro in f.readlines():
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  (master_doc, 'magic_manual.tex', 'MAGIC Documentation',
-   'The MAGIC dev team', 'manual'),
+  (master_doc, 'magic_manual.tex', 'Documentation of MagIC',
+   'The MagIC dev team', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

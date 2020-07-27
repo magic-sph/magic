@@ -53,7 +53,7 @@ module radial_scheme
 
    end type type_rscheme
 
-   interface 
+   interface
 
       subroutine empty_if(this)
          import

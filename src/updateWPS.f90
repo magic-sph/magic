@@ -1,5 +1,11 @@
 #include "perflib_preproc.cpp"
 module updateWPS_mod
+   !
+   ! This module handles the time advance of the poloidal potential w,
+   ! the pressure p and the entropy s in one single matrix per degree.
+   ! It contains the computation of the implicit terms and the linear
+   ! solves.
+   !
 
    use omp_lib
    use precision_mod
@@ -108,7 +114,7 @@ contains
    subroutine updateWPS(w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p, the entropy
-      !  and their derivatives.
+      !  and their radial derivatives.
       !
 
       !-- Input variables:
@@ -714,7 +720,7 @@ contains
       complex(cp),       intent(out) :: dw(llm:ulm,n_r_max)
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
-      !-- Local variables 
+      !-- Local variables
       logical :: l_in_cheb
       real(cp) :: dL
       integer :: n_r_top, n_r_bot, l1
@@ -803,7 +809,7 @@ contains
                   &               +two*(dLvisc(n_r)+beta(n_r))*or1(n_r) ) *      &
                   &                                                  dw(lm,n_r)  &
                   &           - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)   &
-                  &                      +dLvisc(n_r) )   *           w(lm,n_r) ) 
+                  &                      +dLvisc(n_r) )   *           w(lm,n_r) )
                   dsdt%impl(lm,n_r,istage)=opr*hdif_S(lm)* kappa(n_r)*(          &
                   &                                               workB(lm,n_r)  &
                   &          + ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+        &
@@ -882,7 +888,7 @@ contains
       !
 
       !-- Input variables:
-      class(type_tscheme), intent(in) :: tscheme    
+      class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: hdif_vel
       real(cp),            intent(in) :: hdif_s
       integer,             intent(in) :: l
@@ -1221,7 +1227,7 @@ contains
    subroutine get_ps0Mat(tscheme,psMat,psPivot,psMat_fac)
 
       !-- Input variable:
-      class(type_tscheme), intent(in) :: tscheme  
+      class(type_tscheme), intent(in) :: tscheme
 
       !-- Output variables:
       real(cp), intent(out) :: psMat(2*n_r_max,2*n_r_max)

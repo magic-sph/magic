@@ -1,8 +1,9 @@
-#ifdef WITH_LIKWID
-#include "likwid_f90.h"
-#endif
-
 module nonlinear_lm_mod
+   !
+   ! This module is used to finish the assembly of the nonlinear terms in
+   ! :math:`(\ell,m)` space. Derivatives along :math:`\theta` and :math:`\phi`
+   ! are handled using recurrence relations.
+   !
 
    use, intrinsic :: iso_c_binding
    use precision_mod
@@ -52,7 +53,6 @@ module nonlinear_lm_mod
 
       procedure :: initialize
       procedure :: finalize
-      procedure :: output
       procedure :: set_zero
       procedure :: get_td
 
@@ -61,6 +61,9 @@ module nonlinear_lm_mod
 contains
 
    subroutine initialize(this,lmP_max)
+      !
+      ! Memory allocation of ``get_td`` arrays
+      !
 
       class(nonlinear_lm_t) :: this
       integer, intent(in) :: lmP_max
@@ -105,6 +108,9 @@ contains
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
+      !
+      ! Memory deallocation
+      !
 
       class(nonlinear_lm_t) :: this
 
@@ -129,6 +135,9 @@ contains
    end subroutine finalize
 !----------------------------------------------------------------------------
    subroutine set_zero(this)
+      !
+      ! Set all the arrays to zero
+      !
 
       class(nonlinear_lm_t) :: this
 
@@ -181,29 +190,19 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine output(this)
-
-      class(nonlinear_lm_t) :: this
-
-      write(*,"(A,6ES20.12)") "AdvrLM,AdvtLM,AdvpLM = ",&
-           & sum(this%AdvrLM), sum(this%AdvtLM),        &
-           & sum(this%AdvpLM)
-
-   end subroutine output
-!----------------------------------------------------------------------------
    subroutine get_td(this,nR,nBc,lRmsCalc,lPressNext,dVSrLM,dVXirLM,    &
               &      dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
-      !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
-      !  and auxiliary arrays dVSrLM, dVXirLM and dVxBhLM, dVxVhLM
+      !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
+      !  and auxiliary arrays ``dVSrLM``, ``dVXirLM`` and ``dVxBhLM``, ``dVxVhLM``
       !  from non-linear terms in spectral form
       !
 
       !-- Input of variables:
       class(nonlinear_lm_t) :: this
 
-      integer, intent(in) :: nR
+      integer, intent(in) :: nR  ! Radial level
       integer, intent(in) :: nBc ! signifies boundary conditions
       logical, intent(in) :: lRmsCalc
       logical, intent(in) :: lPressNext

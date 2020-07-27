@@ -11,6 +11,10 @@ module general_arrays_mod
 end module general_arrays_mod
 !----------------------------------------------------------------------------
 module grid_space_arrays_mod
+   !
+   ! This module is used to compute the nonlinear products in physical space
+   ! :math:`(\theta,\phi)`.
+   !
 
    use general_arrays_mod
    use precision_mod
@@ -67,8 +71,6 @@ module grid_space_arrays_mod
 
       procedure :: initialize
       procedure :: finalize
-      procedure :: output
-      procedure :: output_nl_input
       procedure :: get_nl
 
    end type grid_space_arrays_t
@@ -204,39 +206,21 @@ contains
 
    end subroutine finalize
 !----------------------------------------------------------------------------
-   subroutine output(this)
-
-      class(grid_space_arrays_t) :: this
-
-      write(*,"(A,3ES20.12)") "Advr,Advt,Advp = ",sum(this%Advr), &
-                                   sum(this%Advt),sum(this%Advp)
-
-   end subroutine output
-!----------------------------------------------------------------------------
-   subroutine output_nl_input(this)
-
-      class(grid_space_arrays_t) :: this
-
-      write(*,"(A,6ES20.12)") "vr,vt,vp = ",sum(this%vrc),sum(this%vtc), &
-                                            sum(this%vpc)
-
-   end subroutine output_nl_input
-!----------------------------------------------------------------------------
    subroutine get_nl(this, time, tscheme, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
-      !  level nR and returns them in arrays
+      !  level ``nR`` and returns them in arrays
       !
-      !  if nBc >0 velocities are zero only the (vxB)
+      !  if ``nBc>0`` velocities are zero only the :math:`(\vec{u}\times\vec{B})`
       !  contributions need to be calculated
       !
 
       class(grid_space_arrays_t) :: this
 
       !-- Input of variables:
-      real(cp),            intent(in) :: time ! instant in time
-      class(type_tscheme), intent(in) :: tscheme
-      integer,             intent(in) :: nR ! radial level
+      real(cp),            intent(in) :: time    ! instant in time
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+      integer,             intent(in) :: nR      ! radial level
       logical,             intent(in) :: lRmsCalc
       integer,             intent(in) :: nBc
 

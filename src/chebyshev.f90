@@ -37,18 +37,18 @@ contains
 
    subroutine initialize(this, n_r_max, order, order_boundary)
       !
-      !  Purpose of this subroutine is to calculate and store several     
-      !  values that will be needed for a fast cosine transform of the    
-      !  first kind. The actual transform is performed by the             
-      !  subroutine costf1.                                               
+      !  Purpose of this subroutine is to calculate and store several
+      !  values that will be needed for a fast cosine transform of the
+      !  first kind. The actual transform is performed by the
+      !  subroutine ``costf1``.
       !
 
       class(type_cheb_odd) :: this
-      
+
       integer, intent(in) :: n_r_max
       integer, intent(in) :: order ! This is going to be n_cheb_max
       integer, intent(in) :: order_boundary ! this is used to determine whether mappings are used
-            
+
       !-- Local variables:
       integer :: ni,nd
 
@@ -182,7 +182,9 @@ contains
       ! This subroutine is used to determine the two boundary points of a field
       ! f subject to two Robin boundary conditions of the form:
       !
-      ! atop*df/dr+btop*f = rhs_top;  abot*df/dr+bbot*f = rhs_bot
+      ! .. code-block:: fortran
+      !
+      !                 atop*df/dr+btop*f = rhs_top;  abot*df/dr+bbot*f = rhs_bot
       !
       ! The method follows Canuto, SIAM, 1986 (p. 818)
       !
@@ -241,10 +243,10 @@ contains
       !
       !  Construct Chebychev polynomials and their first, second,
       !  and third derivative up to degree n_r at n_r points x
-      !  in the interval [a,b]. Since the Chebs are only defined
-      !  in [-1,1] we have to use a map, mapping the points x
-      !  points y in the interval [-1,1]. This map is executed
-      !  by the subroutine cheb_grid and has to be done
+      !  in the interval :math:`[a,b]`. Since the polynoms are only defined
+      !  in :math:`[-1,1]` we have to use a map, mapping the points x to the
+      !  points y in the interval :math:`[-1,1]`. This map is executed
+      !  by the subroutine ``cheb_grid`` and has to be done
       !  before calling this program.
       !
 
@@ -307,7 +309,7 @@ contains
       !-- on the boundary point
       this%dr_top(1,1)=(two*(n_r_max-1)*(n_r_max-1)+one)/6.0_cp
       do k=2,n_r_max
-         diff = two*sin( half*(k-1)*pi/(n_r_max-1) ) * sin( half*(k-1)*pi/(n_r_max-1) ) 
+         diff = two*sin( half*(k-1)*pi/(n_r_max-1) ) * sin( half*(k-1)*pi/(n_r_max-1) )
          if ( mod(k,2) == 0 ) then
             coeff=-one
          else
@@ -316,7 +318,7 @@ contains
          this%dr_top(k,1)=two * coeff/diff
       end do
       !-- Factor half for the last one
-      this%dr_top(n_r_max,1) = half*this%dr_top(n_r_max,1) 
+      this%dr_top(n_r_max,1) = half*this%dr_top(n_r_max,1)
 
       !-- dr bot is the reverted vector with a -1 multiplication
       !-- The "flipping-trick" is used to minimize the round-off error
@@ -336,7 +338,7 @@ contains
       !  Purpose of this subroutine is to perform a multiple
       !  cosine transforms for n+1 datapoints
       !  on the columns numbered n_f_start to n_f_stop in the array
-      !  f(n_f_max,n+1)
+      !  ``f(n_f_max,n+1)``
       !  Depending whether the input f contains data or coeff arrays
       !  coeffs or data are returned in f.
       !
@@ -345,14 +347,13 @@ contains
       !-- Input variables:
       integer,  intent(in) :: n_f_max            ! number of columns in f,f2
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-    
+
       !-- Output variables:
       complex(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
       complex(cp), optional, target, intent(inout) :: work_array(n_f_max,this%nRmax)
-    
+
       !-- Local variables:
       complex(cp), pointer :: work(:,:)
-
 
       if ( present(work_array) ) then
          work(1:,1:) => work_array(1:n_f_max,1:this%nRmax)
@@ -361,19 +362,19 @@ contains
       end if
 
       call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,work(:,1:this%nRmax))
-    
+
    end subroutine costf1_complex
 !------------------------------------------------------------------------------
    subroutine costf1_complex_1d(this,f)
-    
+
       class(type_cheb_odd) :: this
 
       !-- Output variables:
       complex(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
-    
+
       !-- Local variables:
       complex(cp) :: work1d(this%nRmax)
-    
+
       call this%chebt_oc%costf1(f, work1d)
 
    end subroutine costf1_complex_1d
@@ -381,25 +382,26 @@ contains
    subroutine costf1_real(this,f,n_f_max,n_f_start,n_f_stop,f2)
 
       class(type_cheb_odd) :: this
-    
+
       !-- Input variables:
       integer,  intent(in) :: n_f_max            ! number of columns in f,f2
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-    
+
       !-- Output variables:
       real(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
       real(cp), intent(out) :: f2(n_f_max,this%nRmax)  ! work array of the same size as f
+
       call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,f2)
 
    end subroutine costf1_real
 !------------------------------------------------------------------------------
    subroutine costf1_real_1d(this,f)
-    
+
       class(type_cheb_odd) :: this
 
       !-- Output variables:
       real(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
-    
+
       !-- Local variables:
       real(cp) :: work1d_real(this%nrMax)
 

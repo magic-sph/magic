@@ -691,7 +691,7 @@ contains
          !--- Field for axisymmetric poloidal field lines:
          call get_fl(fl,n_r,.false.)
          do n_theta_cal=1,n_theta_max,2
-            
+
             n_theta    =n_theta_cal2ord(n_theta_cal)
             n_theta2   =n_theta_cal2ord(n_theta_cal+1)
             !call get_fl(fl,n_r,n_theta_cal,1,.false.)
@@ -716,7 +716,7 @@ contains
          !--- Field for axisymmetric velocity stream lines:
          call get_sl(fl,n_r)
          do n_theta_cal=1,n_theta_max,2
-            
+
             n_theta =n_theta_cal2ord(n_theta_cal)
             n_theta2=n_theta_cal2ord(n_theta_cal+1)
             frames(n_0+n_theta) =fl(n_theta_cal)
@@ -1369,7 +1369,9 @@ contains
       !
       !  Return field sl whose contourlines are the stream lines
       !  of the axisymmetric poloidal velocity field.
-      !  sl(r,theta)=d_theta v(r,theta,m=0)/r
+      !
+      !  .. math::
+      !     s(r,\theta) = \dfrac{1}{r}\dfrac{\partial}{\partial \theta} u(r,\theta,m=0)
       !
 
       !-- Input variables:
@@ -1412,8 +1414,9 @@ contains
       !
       !  Return field fl whose contourlines are the fields lines
       !  of the axisymmetric poloidal mangetic field.
-      !  fl(r,theta)=d_theta b(r,theta,m=0)/r
       !
+      !  .. math::
+      !     f(r,\theta) = \dfrac{1}{r}\dfrac{\partial}{\partial \theta} b(r,\theta,m=0)
       !
       !  This routine is called for l_ic=.true. only from rank 0 with full
       !  field b_ic in standard lm ordering available.
@@ -1482,14 +1485,15 @@ contains
       !  latitude are returned in br/bt/bp.
       !  Note that this routine given the real components of the magnetic
       !  fields while other transforms in the code provide only:
-      !  r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp
+      !  :math:`r^2 B_r`, :math:`r^2 \sin\theta B_\theta`,
+      !  :math:`r^2 \sin\theta B_\phi`
       !
 
       !-- Input of variables:
       complex(cp), intent(in) :: bCMB(:)
 
       !-- Output:
-      real(cp), intent(out) :: b_r(:,:) !Radial magnetic field in (phi,theta)-space
+      real(cp), intent(out) :: b_r(:,:) !Radial magnetic field in (theta,phi)-space
       real(cp), intent(out) :: b_t(:,:) !Latitudinal magnetic field
       real(cp), intent(out) :: b_p(:,:) !Azimuthal magnetic field.
 

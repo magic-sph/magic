@@ -74,9 +74,9 @@ module real_matrices
 
    end interface
 
-contains 
+contains
 
-   function mat_add(this, B) 
+   function mat_add(this, B)
       class(type_realmat), intent(in) :: this
       class(type_realmat), intent(in) :: B
 
@@ -102,7 +102,7 @@ module dense_matrices
    implicit none
 
    type, public, extends(type_realmat) :: type_densemat
-   contains 
+   contains
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
@@ -112,7 +112,7 @@ module dense_matrices
       procedure :: set_data
    end type type_densemat
 
-contains 
+contains
 
    subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
@@ -207,7 +207,7 @@ module band_matrices
       real(cp), allocatable :: du2(:)
       integer :: kl
       integer :: ku
-   contains 
+   contains
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
@@ -219,7 +219,7 @@ module band_matrices
 !      generic :: operator(+) => mat_add
    end type type_bandmat
 
-contains 
+contains
 
    subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
@@ -336,7 +336,7 @@ contains
       class(type_bandmat) :: this
       real(cp), intent(in) :: dat(:,:)
 
-      !-- Local variables 
+      !-- Local variables
       integer :: i, j
 
       if ( this%nrow == 3 ) then
@@ -355,7 +355,7 @@ contains
 
    end subroutine set_data
 !------------------------------------------------------------------------------
-!   function mat_add(this, B) 
+!   function mat_add(this, B)
 !      class(type_bandmat), intent(in) :: this
 !      class(type_bandmat), intent(in) :: B
 !
@@ -390,7 +390,7 @@ module bordered_matrices
       integer :: kl
       integer :: ku
       integer :: nfull
-   contains 
+   contains
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
@@ -402,7 +402,7 @@ module bordered_matrices
 !      generic :: operator(+) => mat_add
    end type type_bordmat
 
-contains 
+contains
 
    subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
@@ -450,7 +450,7 @@ contains
       class(type_bordmat) :: this
 
       deallocate( this%A1, this%A2, this%A3, this%A4 )
-      if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 ) 
+      if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 )
 
    end subroutine finalize
 !------------------------------------------------------------------------------

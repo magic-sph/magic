@@ -13,18 +13,17 @@ contains
 
    subroutine fft_fac_real(a,b,c,d,trigs,nv,l1,l2,n,ifac,la)
       !
-      !     main part of Fourier / Chebychev transform
-      !     called in costf1, costf2
+      ! Main part of Fourier / Chebyshev transform  called in ``costf1``, ``costf2``
       !
-    
+
       !-- Input variables:
       integer,  intent(in) :: nv,l1,l2,n,ifac,la
       real(cp), intent(in) :: a(*),b(*)
       real(cp), intent(in) :: trigs(2*n)
-    
+
       !-- Output variables
       real(cp), intent(out) :: c(*),d(*)
-    
+
       !-- Local variables:
       integer :: i,ia,ib,ic,id,ie
       integer :: j,ja,jb,jc,jd,je
@@ -33,10 +32,10 @@ contains
       integer :: k,kb,kc,kd,ke
       integer :: nv2
       integer :: l,m,lm1,lm2,ll,la1
-    
+
       real(cp) :: c1,c2,c3,c4
       real(cp) :: s1,s2,s3,s4
-    
+
       m    =n/ifac
       iink =m*2*nv
       jink =la*2*nv
@@ -44,9 +43,9 @@ contains
       nv2  =2*nv
       lm1  =l1-1
       lm2  =l2-l1
-    
+
       if ( ifac == 2 ) then
-    
+
          ia  =1
          ja  =1
          ib  =ia+iink
@@ -62,9 +61,9 @@ contains
                d(jb+i)=b(ia+i)-b(ib+i)
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -84,9 +83,9 @@ contains
                end do
             end do
          end do
-    
+
       else if ( ifac == 3 ) then
-    
+
          ia  =1
          ja  =1
          ib  =ia+iink
@@ -106,9 +105,9 @@ contains
                d(jc+i)=(b(ia+i)-half*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -145,9 +144,9 @@ contains
                end do
             end do
          end do
-    
+
       else if ( ifac == 4 ) then
-    
+
          ia  =1
          ja  =1
          ib  =ia+iink
@@ -171,9 +170,9 @@ contains
                d(jd+i)=(b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i))
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -209,9 +208,9 @@ contains
                end do
             end do
          end do
-    
+
       else if ( ifac == 5 ) then
-    
+
          ia=1
          ja=1
          ib=ia+iink
@@ -241,7 +240,7 @@ contains
                &               -cos36*(b(ic+i)+b(id+i)) ) &
                &             +( sin72*(a(ib+i)-a(ie+i)) + &
                &                sin36*(a(ic+i)-a(id+i)) )
-               d(je+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   & 
+               d(je+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   &
                &               -cos36*(b(ic+i)+b(id+i)) ) &
                &             -( sin72*(a(ib+i)-a(ie+i)) + &
                &                sin36*(a(ic+i)-a(id+i)) )
@@ -263,9 +262,9 @@ contains
                &                sin72*(a(ic+i)-a(id+i)) )
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -356,25 +355,24 @@ contains
                end do
             end do
          end do
-    
+
       end if
 
    end subroutine fft_fac_real
 !-----------------------------------------------------------------------------------
    subroutine fft_fac_complex(a,b,c,d,trigs,nv,l1,l2,n,ifac,la)
       !
-      !     main part of Fourier / Chebychev transform
-      !     called in costf1, costf2
+      ! Main part of Fourier / Chebyshev transform  called in ``costf1``, ``costf2``
       !
-    
+
       !-- Input variables:
       integer,     intent(in) :: nv,l1,l2,n,ifac,la
       complex(cp), intent(in) :: a(*),b(*)
       real(cp),    intent(in) :: trigs(2*n)
-    
+
       !-- Output variables
       complex(cp), intent(out) :: c(*),d(*)
-    
+
       !-- Local variables:
       integer :: i,ia,ib,ic,id,ie
       integer :: j,ja,jb,jc,jd,je
@@ -383,10 +381,10 @@ contains
       integer :: k,kb,kc,kd,ke
       integer :: nv2
       integer :: l,m,lm1,lm2,ll,la1
-    
+
       real(cp) :: c1,c2,c3,c4
       real(cp) :: s1,s2,s3,s4
-    
+
       m    =n/ifac
       iink =m*2*nv
       jink =la*2*nv
@@ -394,9 +392,9 @@ contains
       nv2  =2*nv
       lm1  =l1-1
       lm2  =l2-l1
-    
+
       if ( ifac == 2 ) then
-    
+
          ia  =1
          ja  =1
          ib  =ia+iink
@@ -412,9 +410,9 @@ contains
                d(jb+i)=b(ia+i)-b(ib+i)
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -434,9 +432,9 @@ contains
                end do
             end do
          end do
-    
+
       else if ( ifac == 3 ) then
-    
+
          ia  =1
          ja  =1
          ib  =ia+iink
@@ -456,9 +454,9 @@ contains
                d(jc+i)=(b(ia+i)-half*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -495,9 +493,9 @@ contains
                end do
             end do
          end do
-    
+
       else if ( ifac == 4 ) then
-    
+
          ia  =1
          ja  =1
          ib  =ia+iink
@@ -521,9 +519,9 @@ contains
                d(jd+i)=(b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i))
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -559,9 +557,9 @@ contains
                end do
             end do
          end do
-    
+
       else if ( ifac == 5 ) then
-    
+
          ia=1
          ja=1
          ib=ia+iink
@@ -591,7 +589,7 @@ contains
                &               -cos36*(b(ic+i)+b(id+i)) ) &
                &             +( sin72*(a(ib+i)-a(ie+i)) + &
                &                sin36*(a(ic+i)-a(id+i)) )
-               d(je+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   & 
+               d(je+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   &
                &               -cos36*(b(ic+i)+b(id+i)) ) &
                &             -( sin72*(a(ib+i)-a(ie+i)) + &
                &                sin36*(a(ic+i)-a(id+i)) )
@@ -613,9 +611,9 @@ contains
                &                sin72*(a(ic+i)-a(id+i)) )
             end do
          end do
-    
+
          if ( la == m ) return
-    
+
          la1=la+1
          do k=la1,m,la
             jadd=jadd+jump
@@ -706,7 +704,7 @@ contains
                end do
             end do
          end do
-    
+
       end if
 
    end subroutine fft_fac_complex
