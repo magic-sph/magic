@@ -280,7 +280,7 @@ contains
 
       !-- Initialize everything that has to do with the horizontal representation
       !   on all threads:
-      call horizontal
+      call horizontal()
 
       !-- Computation of the average density (useful to compute Re and Rm)
       if ( l_anel ) then

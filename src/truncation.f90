@@ -33,7 +33,6 @@ module truncation
    integer :: n_m_max     ! max number of ms (different oders)
    integer :: lm_max      ! number of l/m combinations
    integer :: lmP_max     ! number of l/m combination if l runs to l_max+1
-   integer :: lm_max_real ! number of l/m combination for real representation (cos/sin)
    integer :: n_r_tot     ! total number of radial grid points
  
    !--- Now quantities for magnetic fields:
@@ -97,14 +96,9 @@ contains
       ! number of l/m combination if l runs to l_max+1
       lmP_max=lm_max+n_m_max
 
-      ! number of l/m combination 
-      ! for real representation (cos/sin)
-      lm_max_real=2*lm_max
-
       ! total number of radial grid points
       n_r_tot = n_r_max
       if ( l_cond_ic ) n_r_tot=n_r_max+n_r_ic_max
-
 
       !--- Now quantities for magnetic fields:
       !    Set lMag=0 if you want to save this memory (see c_fields)!
@@ -158,13 +152,6 @@ contains
       end if
       if ( n_phi_max/2 <= 2 .and. (.not. l_axi) ) then
          call abortRun('! Number of longitude grid points n_phi_tot must be larger than 2*minc')
-      end if
-
-      !-- Checking radial grid:
-      if ( .not. l_finite_diff ) then
-         if ( mod(n_r_max-1,4) /= 0 ) then
-            call abortRun('! Number n_r_max-1 should be a multiple of 4')
-         end if
       end if
 
       if ( n_theta_max <= 2 ) then

@@ -21,8 +21,9 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 * `USE_MPI` Set to `yes` to use MPI
 * `USE_OMP`  Set to `yes` to use openmp (cannot work without MPI)
 * `USE_PRECOND` Set to `yes` to perform some pre-conditioning  of the matrices
-* `USE_FFTLIB` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to `JW` or `MKL`. `JW` refers to the inbuilt library by **J**ohannes **W**icht, while `MKL` refers to the [Intel **M**ath **K**ernel **L**ibrary](https://software.intel.com/en-us/intel-mkl). Use `JW` if you don't have Intel MKL installed.
-* `USE_LAPACKLIB` This option allows you to select the library you want to use for LU factorisation. This can be set to `JW`, `MKL` or `LAPACK`.
+* `USE_FFTLIB` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to `JW`, `FFTW` or `MKL`. `JW` refers to the inbuilt library by **J**ohannes **W**icht, while `MKL` refers to the [Intel **M**ath **K**ernel **L**ibrary](https://software.intel.com/en-us/intel-mkl). Use `JW` if you don't have Intel MKL installed.
+* `USE_DCTLIB` This option lets you select the library you want to use for Discrete Cosine Transforms. This can be set to `JW`, `FFTW` or `MKL`.
+* `USE_LAPACKLIB` This option allows you to select the library you want to use for LU factorisation. This can be set to `JW`, `MKL`, `LIBFLAME` or `LAPACK`.
 * `USE_SHTNS` Set to `yes` to use SHTns library for spherical harmonics transforms. The helper script `install-shtns.sh` is available in the `bin` directory to help installing SHTns.
 
 ### 3. MPI_INCPATH
