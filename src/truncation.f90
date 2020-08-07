@@ -382,7 +382,7 @@ contains
       call print_mlo_distribution_summary
       
 !       if (l_verb_paral) call print_mlo_distribution
-      call print_mlo_distribution
+!       call print_mlo_distribution
 !       stop
    end subroutine initialize_distributed_geometry
    

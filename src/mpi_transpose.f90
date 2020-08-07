@@ -648,7 +648,7 @@ contains
       integer :: send_pe,recv_pe,irank
       integer :: transfer_tag=1111
 
-      !PERFON('lm2r_st')
+      !
 
       if ( coord_r < n_ranks_r-1 ) then
          ! all the ranks from [0,n_ranks_r-2]
@@ -662,21 +662,21 @@ contains
             send_pe = modulo(coord_r+irank,n_ranks_r)
             recv_pe = modulo(coord_r-irank+n_ranks_r,n_ranks_r)
             if (coord_r == send_pe) then
-               !PERFON('loc_copy')
+               !
                ! just copy
                do i=1,this%n_fields
                   arr_Rloc(llm:ulm,nRstart:nRstop,i)= &
                   &    arr_LMloc(llm:ulm,nRstart:nRstop,i)
                end do
-               !PERFOFF
+               !
             else
-               !PERFON('irecv')
+               !
                call MPI_Irecv(arr_Rloc(lm_balance(recv_pe)%nStart,nRstart,1),      &
                     &         1,this%s_transfer_type_cont(recv_pe+1,this%n_fields),&
                     &         recv_pe,transfer_tag,comm_r,                 &
                     &         this%r_request(irank),ierr)
-               !PERFOFF
-               !PERFON('isend')
+               !
+               !
                if (send_pe == n_ranks_r-1) then
                   call MPI_Isend(arr_LMloc(llm,radial_balance(send_pe)%nStart,1),   &
                        &         1,this%r_transfer_type_nr_end_cont(coord_r+1,         &
@@ -688,7 +688,7 @@ contains
                        &         send_pe,transfer_tag,comm_r,               &
                        &         this%s_request(irank),ierr)
                end if
-               !PERFOFF
+               !
             end if
          end do
 
@@ -708,26 +708,26 @@ contains
             send_pe = modulo(coord_r+irank,n_ranks_r)
             recv_pe = modulo(coord_r-irank+n_ranks_r,n_ranks_r)
             if (coord_r == send_pe) then
-               !PERFON('loc_copy')
+               !
                ! just copy
                do i=1,this%n_fields
                   arr_Rloc(llm:ulm,nRstart:nRstop,i)= &
                   &     arr_LMloc(llm:ulm,nRstart:nRstop,i)
                end do
-               !PERFOFF
+               !
             else
-               !PERFON('irecv')
+               !
                call MPI_Irecv(arr_Rloc(lm_balance(recv_pe)%nStart,nRstart,1),1,  &
                     &         this%s_transfer_type_nr_end_cont(recv_pe+1,        &
                     &         this%n_fields),recv_pe,transfer_tag,comm_r,&
                     &         this%r_request(irank),ierr)
-               !PERFOFF
-               !PERFON('isend')
+               !
+               !
                call MPI_Isend(arr_LMloc(llm,radial_balance(send_pe)%nStart,1),   &
                     &         1,this%r_transfer_type_cont(coord_r+1,this%n_fields), &
                     &         send_pe,transfer_tag,comm_r,               &
                     &         this%s_request(irank),ierr)
-               !PERFOFF
+               !
             end if
          end do
          i=1
@@ -737,7 +737,7 @@ contains
             i = i + 2
          end do
       end if
-      !PERFOFF
+      !
 
 #else
       do i=1,this%n_fields
@@ -778,7 +778,7 @@ contains
       ! Local variables
       integer :: nR, l, m, lm, i, start_lm, stop_lm
 
-      !PERFON("lo2r_wt")
+      !
       call lm2r_redist_wait(this)
 
       !$omp parallel default(shared) private(start_lm,stop_lm,nR,i,lm,l,m)
@@ -807,7 +807,7 @@ contains
       end if
       !$omp end parallel
 
-      !PERFOFF
+      !
 
    end subroutine lo2r_redist_wait
 !-------------------------------------------------------------------------------
@@ -825,7 +825,7 @@ contains
       call get_openmp_blocks(start_lm,stop_lm)
 
       ! Just copy the array with permutation
-      !PERFON('r2lo_dst')
+      !
       if ( .not. l_axi ) then
          do i=1,this%n_fields
             do nR=nRstart,nRstop
@@ -848,7 +848,7 @@ contains
       !$omp end parallel
 
       call r2lm_redist_start(this,this%temp_Rloc,arr_lo)
-      !PERFOFF
+      !
 
    end subroutine r2lo_redist_start
 !-------------------------------------------------------------------------------
@@ -860,9 +860,9 @@ contains
       integer :: ierr
       integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_ranks_r)
 
-      !PERFON('lm2r_wt')
+      !
       call MPI_Waitall(2*(n_ranks_r-1),this%final_wait_array,array_of_statuses,ierr)
-      !PERFOFF
+      !
 #endif
 
    end subroutine r2lo_redist_wait
@@ -880,7 +880,7 @@ contains
       integer :: transfer_tag=1111
 
       !write(*,"(A)") "----------- start r2lm_redist -------------"
-      !PERFON('r2lm_dst')
+      !
       if (coord_r < n_ranks_r-1) then
          ! all the ranks from [0,n_ranks_r-2]
          do irank=0,n_ranks_r-1
@@ -956,7 +956,7 @@ contains
             i = i + 2
          end do
       end if
-      !PERFOFF
+      !
 #else
       do i=1,this%n_fields
          arr_LMLoc(llm:ulm,nRstart:nRstop,i)=arr_Rloc(llm:ulm,nRstart:nRstop,i)

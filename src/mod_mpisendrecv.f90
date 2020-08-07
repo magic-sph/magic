@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module mod_mpisendrecv
 
    use precision_mod
@@ -61,8 +62,6 @@ contains
       !-- Local variables
       integer :: i, j, l, m, icoord_m, irank, icoord_r, in_r, lm, ierr
       integer :: col_type, ext_type, mtx_type
-      integer :: send_displacements(n_mlo_array, 0:n_ranks_mlo-1)
-      integer :: recv_displacements(n_lm_loc, 0:n_ranks_mlo-1)
       integer :: send_counter_i(0:n_ranks_mlo-1), recv_counter_i(0:n_ranks_mlo-1), inblocks
       integer :: blocklenghts(max(n_mlo_array, n_lm_loc))
       
@@ -73,8 +72,6 @@ contains
       
       call MPI_Type_Get_Extent(MPI_DEF_COMPLEX, lb, bytesCMPLX, ierr) 
       
-      send_displacements = -1
-      recv_displacements = -1
       send_counter_i     = 0
       recv_counter_i     = 0
       blocklenghts       = 1 ! This is actually fixed to 1!
@@ -97,7 +94,6 @@ contains
             irank = mpi_map%lmr2rnk(icoord_m, icoord_r)
             inblocks = send_counter_i(irank) + 1
             send_counter_i(irank) = inblocks
-            send_displacements(inblocks,irank) = i-1
          end do
       end do
       
@@ -131,9 +127,8 @@ contains
             lm2r_dests(j) = irank
             icoord_r = mpi_map%rnk2lmr(irank,2)
             in_r = dist_r(icoord_r,0)
-            
             call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks),    &
-                 &                send_displacements(1:inblocks,irank), &
+                 &                get_send_displacement(inblocks, irank), &
                  &                MPI_DEF_COMPLEX, col_type, ierr)
                
             extend = int(n_mlo_loc*bytesCMPLX,kind=mpi_address_kind)
@@ -159,7 +154,6 @@ contains
          
          inblocks = recv_counter_i(irank) + 1
          recv_counter_i(irank) = inblocks
-         recv_displacements(inblocks,irank) = i-1
       end do
       
       !-- Counts how many ranks will send to me (similar to nsends)
@@ -178,8 +172,9 @@ contains
          if (inblocks>0 .and. irank /= rank) then
             j = j + 1
             lm2r_sources(j) = irank
+            
             call MPI_Type_indexed(inblocks,blocklenghts(1:inblocks),    &
-                 &                recv_displacements(1:inblocks,irank), &
+                 &                get_recv_displacement(inblocks, irank), &
                  &                MPI_DEF_COMPLEX, col_type, ierr)
             
             extend = int(n_lm_loc*bytesCMPLX,kind=mpi_address_kind)
@@ -201,10 +196,58 @@ contains
       inblocks = send_counter_i(rank)
       allocate(lm2r_loc_dspl(inblocks,2))
       bytes_allocated=bytes_allocated+2*inblocks*SIZEOF_INTEGER
-      lm2r_loc_dspl(:,1) = send_displacements(1:inblocks,rank) + 1
-      lm2r_loc_dspl(:,2) = recv_displacements(1:inblocks,rank) + 1
+      lm2r_loc_dspl(:,1) = get_send_displacement(inblocks, rank) + 1
+      lm2r_loc_dspl(:,2) = get_recv_displacement(inblocks, rank) + 1
       
       mlo_sendrecv_initialized = .true.
+
+      contains
+      
+      !----------------------------------------------------------------------------
+      function get_recv_displacement(inblocks,rank) result(out)
+         integer, intent(in) :: rank
+         integer, intent(in) :: inblocks
+         integer :: out(inblocks)
+         integer :: irank, j, m, l
+         
+         out = -1
+         j = 0
+         do i=1,n_lm_loc
+            m  = map_dist_st%lm2m(i)
+            l  = map_dist_st%lm2l(i)
+            irank = map_mlo%ml2rnk(m,l)
+            
+            if (irank==rank) then
+               j = j + 1
+               out(j) = i-1
+            end if
+         end do
+      end function
+      
+      !----------------------------------------------------------------------------
+      function get_send_displacement(inblocks,rank) result(out)
+         integer, intent(in) :: rank
+         integer, intent(in) :: inblocks
+         integer :: out(inblocks)
+         integer :: irank, i, j, m, l, icoord_m, icoord_r
+         
+         out = -1
+         j = 0
+         do lm=1,lm_max
+            l = map_glbl_st%lm2l(lm)
+            m = map_glbl_st%lm2m(lm)
+            i = map_mlo%ml2i(m,l)
+            if (i<1) cycle
+            
+            icoord_m = m_tsid(m)
+            if (icoord_m==coord_m) then
+               j = j + 1
+               out(j) = i-1
+            end if
+         end do
+      end function
+      
+      
    end subroutine initialize_mlo_sendrecv
 !----------------------------------------------------------------------------
    subroutine finalize_mlo_sendrecv
@@ -294,6 +337,7 @@ contains
       integer :: i, j, k, irank, icoord_r, il_r, ierr
       
       !-- Starts the sends
+      PERFON('lm2rS')
       do j=1,size(lm2r_dests)
          irank = lm2r_dests(j)
          icoord_r = mpi_map%rnk2lmr(irank,2)
@@ -316,6 +360,7 @@ contains
          arr_Rloc(j,nRstart:nRstop,1:this%n_fields) = &
          &                  arr_LMloc(k,nRstart:nRstop,1:this%n_fields)
       end do
+      PERFOFF
       
    end subroutine transp_lm2r_sendrecv_start
 !----------------------------------------------------------------------------
@@ -324,8 +369,9 @@ contains
       !   Author: Rafael Lago (MPCDF) January 2018
       !   
       class(type_mpisendrecv) :: this
-
+      PERFON('lm2rW')
       call MPI_Waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
+      PERFOFF
 
    end subroutine transp_lm2r_sendrecv_wait
 !----------------------------------------------------------------------------
@@ -353,6 +399,7 @@ contains
       
       integer :: i, j, k, irank, icoord_r, il_r, ierr
       
+      PERFON('r2lmS')
       !-- Starts the receives
       do j=1,size(lm2r_sources)
          irank = lm2r_sources(j)
@@ -376,6 +423,8 @@ contains
          arr_LMloc(k,nRstart:nRstop,1:this%n_fields) = &
          &                    arr_Rloc(j,nRstart:nRstop,1:this%n_fields)
       end do
+      PERFOFF
+      
    end subroutine transp_r2lm_sendrecv_start
 !----------------------------------------------------------------------------
    subroutine transp_r2lm_sendrecv_wait(this)
@@ -384,7 +433,9 @@ contains
       !   
       class(type_mpisendrecv) :: this
 
+      PERFON('r2lmW')
       call MPI_Waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
+      PERFOFF
 
    end subroutine transp_r2lm_sendrecv_wait
 !----------------------------------------------------------------------------

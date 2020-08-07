@@ -709,7 +709,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !PERFON('upWP_ex')
+         !
          !-- Calculate explicit time step part:
          if ( l_double_curl ) then
 

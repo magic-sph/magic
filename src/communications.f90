@@ -1452,7 +1452,7 @@ contains
       integer :: sendtype, new_sendtype
       integer(kind=MPI_ADDRESS_KIND) :: lb,extent,extent_dcmplx
 
-      PERFON('mk_dt')
+      
       ! definition of the datatype (will later be pulled out of here)
       ! we assume dim1=lm_max and dim2=n_r_max
       call MPI_Type_get_extent(MPI_DEF_COMPLEX,lb,extent_dcmplx,ierr)
@@ -1469,12 +1469,12 @@ contains
       do irank=0,n_ranks_r-1
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
-      PERFOFF
-      PERFON('comm')
+      
+      
       call MPI_AllGatherV(MPI_IN_PLACE,sendcount,new_sendtype,&
            &              arr,recvcounts,displs,new_sendtype, &
            &              comm_r,ierr)
-      PERFOFF
+      
 
    end subroutine myAllGather
 !------------------------------------------------------------------------------

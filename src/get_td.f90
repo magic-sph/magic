@@ -315,7 +315,7 @@ contains
                end if ! lRmsCalc
             end if
 
-            !PERFON('td_cv1')
+            !
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(lmPS,lmPA,AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
             do lm=lm_maybe_skip_first,n_lm_loc
@@ -551,7 +551,7 @@ contains
 
             end do
             !$omp end parallel do
-            !PERFOFF
+            !
 
             if ( lRmsCalc ) then
 
@@ -702,7 +702,7 @@ contains
             ! In case double curl is calculated dpdt is useless
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
-               !PERFON('td_cv2')
+               !
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(lmPS,AdvPol_loc,CorPol_loc)
                !LIKWID_ON('td_cv2')
@@ -717,7 +717,7 @@ contains
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
-                     !PERFON('td_cv2c')
+                     !
                      if ( l < l_max .and. l > m ) then
                         CorPol_loc=            two*CorFac*or2(nR) *      &
                         &           ( -dPhi_loc(lm)  * ( dw_Rdist(lm,nR) &
@@ -738,12 +738,12 @@ contains
                         &              )
 
                      end if
-                     !PERFOFF
+                     !
                   else
                      CorPol_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     !PERFON('td_cv2nl')
+                     !
                      if ( l > m ) then
                         AdvPol_loc= dTheta1S_loc(lm)*this%AdvtLM(lmPS) - &
                         &           dTheta1A_loc(lm)*this%AdvtLM(lmPA) + &
@@ -752,7 +752,7 @@ contains
                         AdvPol_loc=-dTheta1A_loc(lm)*this%AdvtLM(lmPA) + &
                         &               dPhi_loc(lm)*this%AdvpLM(lmP)
                      end if
-                     !PERFOFF
+                     !
                   else
                      AdvPol_loc=zero
                   end if
@@ -761,7 +761,7 @@ contains
                end do ! lm loop
                !LIKWID_OFF('td_cv2')
                !$omp end parallel do
-               !PERFOFF
+               !
             end if
 
          else
@@ -851,7 +851,7 @@ contains
          end if
 
          if ( l_mag_nl .or. l_mag_kin  ) then
-            !PERFON('td_magnl')
+            !
 
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=lm_maybe_skip_first,n_lm_loc
@@ -861,7 +861,7 @@ contains
                djdt(lm)   = dLh_loc(lm)*or4(nR)*this%VxBrLM(lmP)
             end do
             !$omp end parallel do
-            !PERFOFF
+            !
          else
             if ( l_mag ) then
                do lm=1,n_lm_loc
@@ -873,7 +873,7 @@ contains
          end if
 
       else   ! boundary !
-         !PERFON('td_bnd')
+         !
          if ( l_mag_nl .or. l_mag_kin ) then
 
             lm = lm2(0,0)
@@ -1221,7 +1221,7 @@ contains
                end if ! lRmsCalc
             end if
 
-            !PERFON('td_cv1')
+            !
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(lmPS,lmPA,AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
             do lm=lm_maybe_skip_first,n_lm_loc
@@ -1457,7 +1457,7 @@ contains
 
             end do
             !$omp end parallel do
-            !PERFOFF
+            !
 
             if ( lRmsCalc ) then
 
@@ -1608,7 +1608,7 @@ contains
             ! In case double curl is calculated dpdt is useless
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
-               !PERFON('td_cv2')
+               !
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(lmPS,AdvPol_loc,CorPol_loc)
                !LIKWID_ON('td_cv2')
@@ -1623,7 +1623,7 @@ contains
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
-                     !PERFON('td_cv2c')
+                     !
                      if ( l < l_max .and. l > m ) then
                         CorPol_loc=            two*CorFac*or2(nR) *      &
                         &           ( -dPhi_loc(lm)  * ( dw_Rdist(lm,nR) &
@@ -1644,12 +1644,12 @@ contains
                         &              )
 
                      end if
-                     !PERFOFF
+                     !
                   else
                      CorPol_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     !PERFON('td_cv2nl')
+                     !
                      if ( l > m ) then
                         AdvPol_loc= dTheta1S_loc(lm)*this%AdvtLM(lmPS,nR) - &
                         &           dTheta1A_loc(lm)*this%AdvtLM(lmPA,nR) + &
@@ -1658,7 +1658,7 @@ contains
                         AdvPol_loc=-dTheta1A_loc(lm)*this%AdvtLM(lmPA,nR) + &
                         &               dPhi_loc(lm)*this%AdvpLM(lmP,nR)
                      end if
-                     !PERFOFF
+                     !
                   else
                      AdvPol_loc=zero
                   end if
@@ -1667,7 +1667,7 @@ contains
                end do ! lm loop
                !LIKWID_OFF('td_cv2')
                !$omp end parallel do
-               !PERFOFF
+               !
             end if
 
          else
@@ -1757,7 +1757,7 @@ contains
          end if
 
          if ( l_mag_nl .or. l_mag_kin  ) then
-            !PERFON('td_magnl')
+            !
 
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=lm_maybe_skip_first,n_lm_loc
@@ -1767,7 +1767,7 @@ contains
                djdt(lm)   = dLh_loc(lm)*or4(nR)*this%VxBrLM(lmP,nR)
             end do
             !$omp end parallel do
-            !PERFOFF
+            !
          else
             if ( l_mag ) then
                do lm=1,n_lm_loc
@@ -1779,7 +1779,7 @@ contains
          end if
 
       else   ! boundary !
-         !PERFON('td_bnd')
+         !
          if ( l_mag_nl .or. l_mag_kin ) then
 
             lm = lm2(0,0)

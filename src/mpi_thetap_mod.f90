@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 !----------------------------------------------------------------------------------
    !
 module mpi_thetap_mod
@@ -180,6 +181,8 @@ contains
       integer :: sendcount(0:n_ranks_theta-1),recvcount(0:n_ranks_theta-1)
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
       integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
+      
+      PERFON('th2m')
 
       do irank=0,n_ranks_theta-1
          recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_fields
@@ -207,9 +210,11 @@ contains
       end do
       
 #ifdef WITH_MPI
+      PERFON('th2mComm')
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
+      PERFOFF
 #endif
       
       do irank=0,n_ranks_theta-1
@@ -222,6 +227,7 @@ contains
             end do
          end do
       end do
+      PERFOFF
 
       !f_thloc(n_m_max+1:,:,*)=zero
 
@@ -243,6 +249,7 @@ contains
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
       integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
 
+      PERFON('m2th')
       do irank=0,n_ranks_theta-1
          sendcount(irank)=dist_m(irank,0) * n_theta_loc * n_fields
          recvcount(irank)=dist_theta(irank,0) * n_m_loc * n_fields
@@ -267,9 +274,11 @@ contains
       end do
 
 #ifdef WITH_MPI
+      PERFON('m2thComm')
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
+      PERFOFF
 #endif
 
       do irank=0,n_ranks_theta-1
@@ -284,6 +293,7 @@ contains
             end do
          end do
       end do
+      PERFOFF
 
    end subroutine transpose_m_theta_many
 !----------------------------------------------------------------------------------

@@ -276,7 +276,7 @@ contains
          &                 SIZEOF_DEF_COMPLEX
          ! end of allocation
 
-         !PERFON('mD_rd')
+         !
          if ( lreadXi ) then
             allocate(xio(lm_max_old,n_r_max_old))
             bytes_allocated = bytes_allocated + lm_max_old*n_r_max_old* &
@@ -294,7 +294,7 @@ contains
                read(n_start_file) wo, zo, po
             end if
          end if
-         !PERFOFF
+         !
 
       end if ! l_master_rank
 
@@ -380,7 +380,7 @@ contains
                read(n_start_file) wo,zo,po
             end if
          end if
-         !PERFOFF
+         !
 
          call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
               &             lm_max_old,n_r_maxL,.true.,.true.,.true.,  &
@@ -2659,7 +2659,7 @@ contains
          bytes_allocated = bytes_allocated + n_r_maxL*SIZEOF_DEF_COMPLEX
       end if
 
-      !PERFON('mD_map')
+      !
       do n_proc=0,n_ranks_r-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
@@ -2725,7 +2725,7 @@ contains
             end if
          end do
       end do
-      !PERFOFF
+      !
       deallocate(woR,zoR,poR)
       bytes_allocated = bytes_allocated - 3*n_r_maxL*SIZEOF_DEF_COMPLEX
       if ( lreadS .and. l_heat ) then
@@ -2765,7 +2765,7 @@ contains
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 
-      !PERFON('mD_map')
+      !
       do n_proc=0,n_ranks_r-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
@@ -2803,7 +2803,7 @@ contains
             end if
          end do
       end do
-      !PERFOFF
+      !
       deallocate(woR,zoR,poR,soR)
       bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 

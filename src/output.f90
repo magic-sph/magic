@@ -417,14 +417,14 @@ contains
          timeNormLog=timeNormLog+timePassedLog
 
          !----- Write torques and rotation rates:
-         PERFON('out_rot')
+         
          call write_rot( time,tscheme%dt(1),eKinIC,eKinMA,w_LMdist,z_LMdist, &
               &          dz_LMdist,b_LMdist,omega_ic,omega_ma,               &
               &          lorentz_torque_ic,lorentz_torque_ma)
-         PERFOFF
+         
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on coord_r ",coord_r
 
-         PERFON('out_ekin')
+         
          n_e_sets=n_e_sets+1
          call get_e_kin(time,.true.,l_stop_time,n_e_sets,w_LMdist,     &
               &         dw_LMdist,z_LMdist,e_kin_p,e_kin_t,e_kin_p_as, &
@@ -441,7 +441,7 @@ contains
               &         e_mag_os,e_mag_as_os,e_mag_cmb,Dip,DipCMB,elsAnel )
          e_mag   =e_mag_p+e_mag_t
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
-         PERFOFF
+         
          if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on coord_r ",coord_r
 
          !----- Calculate distribution of energies on all m's
@@ -490,7 +490,7 @@ contains
 
          if ( l_power ) then
 
-            PERFON('out_pwr')
+            
             if ( l_master_rank ) then
                if ( nLogs > 1 ) then
                   if ( l_save_out ) then
@@ -517,7 +517,7 @@ contains
                  &          b_LMdist,ddb_LMdist,aj_LMdist,dj_LMdist,db_ic_LMdist,&
                  &          ddb_ic_LMdist,aj_ic_LMdist,dj_ic_LMdist,viscASr,     &
                  &          visDiss,ohmDiss)
-            PERFOFF
+            
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on coord_r ",coord_r
          end if
 
@@ -658,7 +658,7 @@ contains
 
       !--- Store poloidal magnetic coeffs at cmb
       if ( l_cmb ) then
-         PERFON('out_cmb')
+         
          call write_Bcmb(timeScaled,b_LMdist(:,n_r_cmb),l_max_cmb,n_cmb_sets,   &
               &          cmb_file,n_cmb_file)
 
@@ -677,7 +677,7 @@ contains
             call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &
                  &          dt_cmb_file,n_dt_cmb_file)
          end if
-         PERFOFF
+         
       end if
 
       if ( l_frame .and. l_cmb_field ) then
@@ -687,7 +687,7 @@ contains
 
       !--- Store potential coeffs for velocity fields and magnetic fields
       if ( l_r ) then
-         PERFON('out_r')
+         
          do n=1,n_coeff_r_max
             nR=n_coeff_r(n)
             call write_coeff_r(timeScaled,w_LMdist(:,nR),dw_LMdist(:,nR),  &
@@ -705,7 +705,7 @@ contains
                     &             l_max_r,n_T_r_sets(n),T_r_file(n),         &
                     &             n_t_r_file(n),3)
          end do
-         PERFOFF
+         
       end if
 
       if ( l_pot ) then
@@ -783,7 +783,7 @@ contains
       ! We have all fields in LMdist space. Thus we gather the whole fields on coord_r 0.
 
       if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
-         PERFON('out_comm')
+         
 
          if ( l_mag ) call gather_from_mlo_to_master(b_LMdist(:,n_r_icb),bICB)
 
@@ -799,7 +799,7 @@ contains
 
          ! for writing a restart file, we also need the d?dtLast arrays,
          ! which first have to be gathered on coord_r 0
-         PERFOFF
+         
 
       end if
 
@@ -844,7 +844,7 @@ contains
       ! ======= compute output on master
       ! =======================================================================
       if ( l_master_rank ) then
-         PERFON('out_out')
+         
 
          if ( l_log ) then
             !--- Energies and rotation info and a lot of other stuff
@@ -1095,7 +1095,7 @@ contains
 
 
 
-         PERFOFF
+         
       end if
 
       if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMdist,omega_ic)

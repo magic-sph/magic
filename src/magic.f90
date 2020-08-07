@@ -191,7 +191,7 @@ program magic
 #endif
 
    PERFINIT
-   PERFON('main')
+   
    LIKWID_INIT
    !LIKWID_ON('main')
    call initialize_parallel()
@@ -522,11 +522,7 @@ program magic
 
    if ( l_master_rank .and. .not. l_save_out )  close(n_log_file)
 
-   PERFOFF
-   PERFOUT('main')
-   !LIKWID_OFF('main')
-   LIKWID_CLOSE
-!-- EVERYTHING DONE ! THE END !
+   
 #ifdef WITH_MPI
 
 #ifdef WITHPERF

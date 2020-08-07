@@ -249,8 +249,9 @@ contains
       call MPI_Barrier(comm_r,ierr)
 #endif
 
-      PERFON('tloop')
+      
       !LIKWID_ON('tloop')
+      PERFON('tloop')
       outer: do n_time_step=1,n_time_steps_go
 
          if ( lVerbose ) then
@@ -489,6 +490,7 @@ contains
                !- Radial loop
                !---------------
                call rLoop_counter%start_count()
+               PERFON('rloop')
                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
                     &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
@@ -505,7 +507,9 @@ contains
                     &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,          &
                     &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,       &
                     &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+               PERFOFF
                call rLoop_counter%stop_count()
+               
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
@@ -546,7 +550,7 @@ contains
 
                !------ Nonlinear magnetic boundary conditions:
                !       For stress-free conducting boundaries
-               PERFON('nl_m_bnd')
+               
                if ( l_b_nl_cmb .and. (nRStart <= n_r_cmb) ) then
                   call get_b_nl_bcs('CMB', br_vt_lm_cmb_dist,br_vp_lm_cmb_dist,   &
                        &            b_nl_cmb_dist,aj_nl_cmb_dist)
@@ -575,12 +579,13 @@ contains
                        &         comm_r,ierr)
 #endif
                end if
-               PERFOFF
+               
 
                !---------------
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
+               PERFON('lmloop')
                if ( .not. l_finish_exp_early ) then
                   call finish_explicit_assembly(omega_ic,w_LMdist,b_ic_LMdist,        &
                        &                        aj_ic_LMdist,                         &
@@ -595,6 +600,7 @@ contains
                        &                        domega_ic_dt, lorentz_torque_ma_dt,   &
                        &                        lorentz_torque_ic_dt, tscheme)
                end if
+               PERFOFF
                call lmLoop_counter%stop_count(l_increment=.false.)
             end if
 
@@ -676,12 +682,13 @@ contains
             if ( (.not. tscheme%l_assembly) .or. (tscheme%istage/=tscheme%nstages) ) then
                if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
                call lmLoop_counter%start_count()
+               PERFON('lmloop')
                call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,       &
                     &      dsdt_dist,dwdt_dist,dzdt_dist,dpdt_dist,dxidt_dist,    &
                     &      dbdt_dist,djdt_dist,dbdt_ic_dist,djdt_ic_dist,         & 
                     &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
                     &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
-
+               PERFOFF
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
                !-- Timer counters
@@ -747,9 +754,10 @@ contains
          end if
 
       end do outer ! end of time stepping !
+      PERFOFF
 
       !LIKWID_OFF('tloop')
-      PERFOFF
+      
 
       if ( l_movie ) then
          if ( l_master_rank ) then

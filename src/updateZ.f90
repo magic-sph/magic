@@ -318,7 +318,7 @@ contains
                rhs1(:,2*mi-1,1)=zMat_fac(:,lj)*rhs1(:,2*mi-1,1)
                rhs1(:,2*mi,1)  =zMat_fac(:,lj)*rhs1(:,2*mi,1)
 #endif
-                  !PERFOFF
+                  !
             end if
          end do
 

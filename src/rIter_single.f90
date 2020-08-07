@@ -592,7 +592,7 @@ contains
          nPhStart=1; nPhStop=n_phi_max
          call get_openmp_blocks(nPhStart,nPhStop)
 
-         !PERFON('inner1')
+         !
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( nR>n_r_LCR ) then
                do nPhi=nPhStart,nPhStop
@@ -656,7 +656,7 @@ contains
                call scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
             end if
          end if
-         !PERFOFF
+         !
       end if
       
       if ( l_chemical_conv ) then
@@ -665,7 +665,7 @@ contains
               &           this%nl_lm%VXipLM, l_R(nR))
       end if
       if ( l_mag_nl ) then
-         !PERFON('mag_nl')
+         !
          if ( nR>n_r_LCR ) then
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &
                  &           this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,        &
@@ -674,7 +674,7 @@ contains
             call spat_to_sphertor(this%gsa%VxBt, this%gsa%VxBp, this%nl_lm%VxBtLM, &
                  &                this%nl_lm%VxBpLM, l_R(nR))
          end if
-         !PERFOFF
+         !
       end if
 
       if ( lRmsCalc ) then
