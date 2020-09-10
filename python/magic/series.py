@@ -123,17 +123,21 @@ class MagicTs(MagicSetup):
             for k, file in enumerate(files):
                 filename = file
                 data = fast_read(filename, binary=binary)
-                if k == 0:
-                    tslut = TsLookUpTable(data, self.field)
-                else:
-                    tslut += TsLookUpTable(data, self.field)
+                if len(data) > 0: # File is not empty
+                    if k == 0:
+                        tslut = TsLookUpTable(data, self.field)
+                    else:
+                        tslut += TsLookUpTable(data, self.field)
 
-        # Copy look-up table arguments into MagicRadial object
-        for attr in tslut.__dict__:
-            setattr(self, attr, tslut.__dict__[attr])
+        try:
+            # Copy look-up table arguments into MagicRadial object
+            for attr in tslut.__dict__:
+                setattr(self, attr, tslut.__dict__[attr])
 
-        if iplot:
-            self.plot()
+            if iplot:
+                self.plot()
+        except NameError: # In case tslut in not Defined
+            print('No file correponding to field "{}" has been found'.format(self.field))
 
     def plot(self):
         """
@@ -829,6 +833,8 @@ class TsLookUpTable:
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
             self.coeffs = data[:, 1:]
+        else:
+            print('The field "{}" is not know'.format(self.field))
 
     def __add__(self, new):
         """
