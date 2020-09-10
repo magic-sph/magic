@@ -100,10 +100,10 @@ if buildSo:
         t1 = t2
     if len(sos) < 1  or t2 > t1:
         print("Please wait: building greader_single...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
+        sp.call(['{}'.format(f2pycmd),
+                 '--fcompiler={}'.format(fcompiler),
+                 '--compiler={}'.format(ccompiler),
+                 '--opt={}'.format(f90options),
                  '-c', '-m',
                  'greader_single',
                  'fortranLib/readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
@@ -116,10 +116,10 @@ if buildSo:
         t1 = t2
     if len(sos) < 1 or t2 > t1:
         print("Please wait: building greader_double...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
+        sp.call(['{}'.format(f2pycmd),
+                 '--fcompiler={}'.format(fcompiler),
+                 '--compiler={}'.format(ccompiler),
+                 '--opt={}'.format(f90options),
                  '-c', '-m',
                  'greader_double',
                  'fortranLib/readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
@@ -133,10 +133,10 @@ if buildSo:
         t1 = t2
     if len(sos) < 1 or t2 > t1:
         print("Please wait: building lmrreader_single...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
+        sp.call(['{}'.format(f2pycmd),
+                 '--fcompiler={}'.format(fcompiler),
+                 '--compiler={}'.format(ccompiler),
+                 '--opt={}'.format(f90options),
                  '-c', '-m',
                  'lmrreader_single',
                  'fortranLib/readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
@@ -150,10 +150,10 @@ if buildSo:
         t1 = t2
     if len(sos) < 1 or t2 > t1:
         print("Please wait: building Legendre transforms...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
+        sp.call(['{}'.format(f2pycmd),
+                 '--fcompiler={}'.format(fcompiler),
+                 '--compiler={}'.format(ccompiler),
+                 '--opt={}'.format(f90options),
                  '-c', '-m',
                  'legendre',
                  'fortranLib/legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
@@ -167,10 +167,10 @@ if buildSo:
         t1 = t2
     if len(sos) < 1 or t2 > t1:
         print("Please wait: building vtklib...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
+        sp.call(['{}'.format(f2pycmd),
+                 '--fcompiler={}'.format(fcompiler),
+                 '--compiler={}'.format(ccompiler),
+                 '--opt={}'.format(f90options),
                  '-c', '-m',
                  'vtklib',
                  'fortranLib/vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
@@ -184,10 +184,10 @@ if buildSo:
         t1 = t2
     if len(sos) < 1 or t2 > t1:
         print("Please wait: building cylavg...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
+        sp.call(['{}'.format(f2pycmd),
+                 '--fcompiler={}'.format(fcompiler),
+                 '--compiler={}'.format(ccompiler),
+                 '--opt={}'.format(f90options),
                  omp_options, '-c', '-m', 
                  'cylavg', omp_link,
                  'fortranLib/cyl.f90'], stderr=sp.PIPE, stdout=sp.PIPE)

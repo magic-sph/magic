@@ -127,35 +127,35 @@ class MagicCoeffCmb(MagicSetup):
             self.name = 'B_coeff_cmb'
 
         if tag is not None:
-            pattern = os.path.join(datadir,  '%s.%s' % (self.name, tag))
+            pattern = os.path.join(datadir,  '{}.{}'.format(self.name, tag))
             files = scanDir(pattern)
 
             # Either the log.tag directly exists and the setup is easy to obtain
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
             # Or the tag is a bit more complicated and we need to find 
             # the corresponding log file
             else:
-                pattern = os.path.join(datadir, '%s' % self.name)
-                mask = re.compile(r'%s\.(.*)' % pattern)
+                pattern = os.path.join(datadir, '{}'.format(self.name))
+                mask = re.compile(r'{}\.(.*)'.format(pattern))
                 if mask.match(files[-1]):
                     ending = mask.search(files[-1]).groups(0)[0]
-                    pattern = os.path.join(datadir, 'log.%s' % ending)
+                    pattern = os.path.join(datadir, 'log.{}'.format(ending))
                     if logFiles.__contains__(pattern):
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.%s' % ending)
+                                            nml='log.{}'.format(ending))
         else:
-            pattern = os.path.join(datadir, '%s.*' % self.name)
+            pattern = os.path.join(datadir, '{}.*'.format(self.name))
             files = scanDir(pattern)
             filename = files[-1]
             # Determine the setup
-            mask = re.compile(r'%s\.(.*)' % self.name)
+            mask = re.compile(r'{}\.(.*)'.format(self.name))
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists('log.%s' % ending):
+            if os.path.exists('log.{}'.format(ending)):
                 try:
                     MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
                 except AttributeError:
                     pass
 
@@ -165,7 +165,7 @@ class MagicCoeffCmb(MagicSetup):
         # Read the B_coeff files (by stacking the different tags)
         data = []
         for k, file in enumerate(files):
-            if not quiet: print('Reading %s' % file)
+            if not quiet: print('Reading {}'.format(file))
             f = npfile(file, endian='B')
             self.l_max_cmb, self.minc, n_data = f.fort_read('i')
             self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
@@ -577,7 +577,7 @@ class MagicCoeffCmb(MagicSetup):
                                colors=['k', 'k'], linewidths=[0.7, 0.7])
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
-                #ax.text(0.12, 0.9, 't=%.6f' % self.time[0], fontsize=16,
+                #ax.text(0.12, 0.9, 't={:.6f}'.format(self.time[0]), fontsize=16,
                         #horizontalalignment='right',
                         #verticalalignment='center', transform = ax.transAxes)
 
@@ -611,7 +611,7 @@ class MagicCoeffCmb(MagicSetup):
                                linestyles=['-', '-'], linewidths=[0.7, 0.7])
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
-                #ax.text(0.12, 0.9, 't=%.6f' % self.time[k], fontsize=16,
+                #ax.text(0.12, 0.9, 't={:.6f}'.format(self.time[k]), fontsize=16,
                         #horizontalalignment='right',
                         #verticalalignment='center', transform = ax.transAxes)
 
@@ -626,9 +626,9 @@ class MagicCoeffCmb(MagicSetup):
                 ax.axis('off')
                 man.canvas.draw()
             if png:
-                filename = 'movie/img%05d.png' % k
-                print('write %s' % filename)
-                #st = 'echo %i' % ivar + ' > movie/imgmax'
+                filename = 'movie/img{:05d}.png'.format(k)
+                print('write {}'.format(filename))
+                #st = 'echo {}'.format(ivar) + ' > movie/imgmax'
                 if bgcolor is not None:
                     fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
                 else:
@@ -683,12 +683,12 @@ class MagicCoeffR(MagicSetup):
         self.rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
 
-        files = scanDir('%s_coeff_r%i.%s' % (field,r,tag))
+        files = scanDir('{}_coeff_r{}.{}'.format(field,r,tag))
 
         # Read the B_coeff files (by stacking the different tags)
         data = []
         for k, file in enumerate(files):
-            if not quiet: print('Reading %s' % file)
+            if not quiet: print('Reading {}'.format(file))
             f = npfile(file, endian='B')
             if precision == np.float32:
                 out = f.fort_read('3i4,f4')[0]
@@ -1006,9 +1006,9 @@ class MagicCoeffR(MagicSetup):
                 man.canvas.draw()
 
                 if png:
-                    filename = 'movie/img%05d.png' % k
-                    print('write %s' % filename)
-                    #st = 'echo %i' % ivar + ' > movie/imgmax'
+                    filename = 'movie/img{:05d}.png'.format(k)
+                    print('write {}'.format(filename))
+                    #st = 'echo {}'.format(ivar) + ' > movie/imgmax'
                     if bgcolor is not None:
                         fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
                     else:
@@ -1045,9 +1045,9 @@ class MagicCoeffR(MagicSetup):
                 ax.axis('off')
                 man.canvas.draw()
                 if png:
-                    filename = 'movie/img%05d.png' % k
-                    print('write %s' % filename)
-                    #st = 'echo %i' % ivar + ' > movie/imgmax'
+                    filename = 'movie/img{:05d}.png'.format(k)
+                    print('write {}'.format(filename))
+                    #st = 'echo {}'.format(ivar) + ' > movie/imgmax'
                     if bgcolor is not None:
                         fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
                     else:

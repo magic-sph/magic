@@ -111,16 +111,16 @@ class MagicPotential(MagicSetup):
             self.rcheb = True
 
         if ave:
-            self.name = '%s_lmr_ave' % field
+            self.name = '{}_lmr_ave'.format(field)
         else:
-            self.name = '%s_lmr_' % field
+            self.name = '{}_lmr_'.format(field)
 
         if tag is not None:
             if ipot is not None:
-                file = '%s%i.%s' % (self.name, ipot, tag)
+                file = '{}{}.{}'.format(self.name, ipot, tag)
                 filename = os.path.join(datadir, file)
             else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '{}*{}'.format(self.name, tag))
                 files = scanDir(pattern)
                 if len(files) != 0:
                     filename = files[-1]
@@ -128,24 +128,24 @@ class MagicPotential(MagicSetup):
                     print('No such tag... try again')
                     return
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
         else:
             if ipot is not None:
-                pattern = os.path.join(datadir, '%s%i*' % (self.name, ipot))
+                pattern = os.path.join(datadir, '{}{}*'.format(self.name, ipot))
                 files = scanDir(pattern)
                 filename = files[-1]
             else:
-                pattern = os.path.join(datadir, '%s*' % self.name)
+                pattern = os.path.join(datadir, '{}*'.format(self.name))
                 files = scanDir(pattern)
                 filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
 
         # Determine file endianness
         endian, record_marker = getPotEndianness(filename)
@@ -158,7 +158,7 @@ class MagicPotential(MagicSetup):
         self.read(filename, field, endian, record_marker, ic, precision=precision)
         t2 = time.time()
         if verbose:
-            print('Time to read %s: %.2e' % (filename, t2-t1))
+            print('Time to read {}: {:.2e}'.format(filename, t2-t1))
 
         self.n_theta_max = int(3*self.l_max/2)
         if self.n_theta_max % 2:  # odd number
@@ -171,7 +171,7 @@ class MagicPotential(MagicSetup):
                                      verbose=verbose)
         t2 = time.time()
         if verbose:
-            print('Time to set up the spectral transforms: %.2e' % (t2-t1))
+            print('Time to set up the spectral transforms: {:.2e}'.format(t2-t1))
         self.colat = self.sh.colat
 
         self.idx = self.sh.idx
@@ -248,32 +248,32 @@ class MagicPotential(MagicSetup):
                 else:
                     prefix = '<'
 
-                dt = np.dtype('%si4' % prefix)
+                dt = np.dtype('{}i4'.format(prefix))
                 self.version = np.fromfile(f, dtype=dt, count=1)[0]
-                dt = np.dtype('%s9f4' % prefix)
+                dt = np.dtype('{}9f4'.format(prefix))
                 self.time, self.ra, self.pr, self.raxi, self.sc, self.prmag, \
                     self.ekman, self.radratio, self.sigma_ratio = \
                     np.fromfile(f, dtype=dt, count=1)[0]
-                dt = np.dtype('%s5i4' % prefix)
+                dt = np.dtype('{}5i4'.format(prefix))
                 self.n_r_max, self.n_r_ic_max, self.l_max, self.minc, \
                     self.lm_max = np.fromfile(f, dtype=dt, count=1)[0]
-                dt = np.dtype('%s2f4' % prefix)
+                dt = np.dtype('{}2f4'.format(prefix))
                 self.omega_ic, self.omega_ma = \
                     np.fromfile(f, dtype=dt, count=1)[0]
-                dt = np.dtype("%s%if4" % (prefix, self.n_r_max))
+                dt = np.dtype("{}{}f4".format(prefix, self.n_r_max))
                 self.radius = np.fromfile(f, dtype=dt, count=1)[0]
                 self.rho0 = np.fromfile(f, dtype=dt, count=1)[0]
 
-                dt = np.dtype("%s(%i,%i)c8" % (prefix, self.n_r_max,
-                                               self.lm_max))
+                dt = np.dtype("{}({},{})c8".format(prefix, self.n_r_max,
+                                                   self.lm_max))
                 self.pol = np.fromfile(f, dtype=dt, count=1)[0]
                 self.pol = self.pol.T
                 if (field != 'T' and field != 'Xi'):
                     self.tor = np.fromfile(f, dtype=dt, count=1)[0]
                     self.tor = self.tor.T
 
-                dt = np.dtype("%s(%i,%i)c8" % (prefix, self.n_r_max,
-                                               self.lm_max))
+                dt = np.dtype("{}({},{})c8".format(prefix, self.n_r_max,
+                                                   self.lm_max))
                 self.pol = np.fromfile(f, dtype=dt, count=1)[0]
                 self.pol = self.pol.T
                 if (field != 'T' and field != 'Xi'):
@@ -281,8 +281,8 @@ class MagicPotential(MagicSetup):
                     self.tor = self.tor.T
 
                 if ic:
-                    dt = np.dtype("%s(%i,%i)c8" % (prefix, self.n_r_ic_max,
-                                                   self.lm_max))
+                    dt = np.dtype("{}({},{})c8".format(prefix, self.n_r_ic_max,
+                                                       self.lm_max))
                     self.pol_ic = np.fromfile(f, dtype=dt, count=1)[0]
                     self.pol_ic = self.pol_ic.T
                     self.tor_ic = np.fromfile(f, dtype=dt, count=1)[0]
@@ -433,7 +433,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Bphi'
         t2 = time.time()
-        print('Transform time (avg): %.2f' % (t2-t1))
+        print('Transform time (avg): {:.2f}'.format(t2-t1))
 
         if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
@@ -537,7 +537,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Bphi'
         t2 = time.time()
-        print('Transform time (equat): %.2f' % (t2-t1))
+        print('Transform time (equat): {:.2f}'.format(t2-t1))
 
         equator = symmetrize(equator, self.minc)
 
@@ -667,7 +667,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Bphi'
         t2 = time.time()
-        print('Transform time (surf): %.2f' % (t2-t1))
+        print('Transform time (surf): {:.2f}'.format(t2-t1))
 
         rprof = symmetrize(rprof, self.minc)
 

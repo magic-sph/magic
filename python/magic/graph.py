@@ -14,7 +14,7 @@ if buildSo:
         readingMode = 'f2py'
     except ImportError:
         readingMode = 'python'
-    # print('read with %s' % readingMode)
+    # print('read with {}'.format(readingMode))
 else:
     readingMode = 'python'
 
@@ -106,36 +106,39 @@ class MagicGraph(MagicSetup):
 
         if tag is not None:
             if ivar is not None:
-                file = '%s%i.%s' % (self.name, ivar, tag)
+                file = '{}{}.{}'.format(self.name, ivar, tag)
                 filename = os.path.join(datadir, file)
             else:
-                files = scanDir('%s*%s' % (self.name, tag))
+                files = scanDir('{}*{}'.format(self.name, tag))
                 if len(files) != 0:
                     filename = os.path.join(datadir, files[-1])
                 else:
                     print('No such tag... try again')
                     return
 
-            if os.path.exists('log.%s' % tag):
+            if os.path.exists('log.{}'.format(tag)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
         else:
             if ivar is not None:
-                files = scanDir('%s%i*' % (self.name, ivar))
+                files = scanDir('{}{}*'.format(self.name, ivar))
                 filename = os.path.join(datadir, files[-1])
             else:
-                files = scanDir('%s*' % self.name)
+                files = scanDir('{}*'.format(self.name))
                 filename = os.path.join(datadir, files[-1])
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists('log.%s' % ending):
+            if os.path.exists('log.{}'.format(ending)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
 
         if not os.path.exists(filename):
             print('No such file')
             return
+
+        if not quiet:
+            print('Reading {}'.format(filename))
 
         # Get file endianness
         endian, access = getGraphEndianness(filename)
@@ -212,22 +215,22 @@ class MagicGraph(MagicSetup):
         f = open(filename, 'rb')
 
         # Header
-        fmt = '%si%i' % (prefix, suffix)
+        fmt = '{}i{}'.format(prefix, suffix)
         version = np.fromfile(f, fmt, count=1)[0]
-        fmt = '%sS64' % prefix
+        fmt = '{}S64'.format(prefix)
         runID = np.fromfile(f, fmt, count=1)[0]
-        fmt = '%sf%i' % (prefix, suffix)
+        fmt = '{}f{}'.format(prefix, suffix)
         self.time = np.fromfile(f, fmt, count=1)[0]
         self.ra, self.pr, self.raxi, self.sc, self.ek, self.prmag, self.radratio, \
             self.sigma = np.fromfile(f, fmt, count=8)
-        fmt = '%si%i' % (prefix, suffix)
+        fmt = '{}i{}'.format(prefix, suffix)
         self.nr, self.ntheta, self.npI, self.minc, self.n_r_ic_max = \
             np.fromfile(f, fmt, count=5)
         if self.npI == self.ntheta*2:
             self.npI = int(self.npI/self.minc)
         self.nphi = self.npI*self.minc+1
         l_heat, l_chem, l_mag, l_press, l_cond_ic = np.fromfile(f, fmt, count=5)
-        fmt = '%sf%i' % (prefix, suffix)
+        fmt = '{}f{}'.format(prefix, suffix)
         self.colatitude = np.fromfile(f, fmt, count=self.ntheta)
         self.radius = np.fromfile(f, fmt, count=self.nr)
         if ( l_mag > 0 and self.n_r_ic_max > 1 ):
@@ -320,10 +323,11 @@ class MagicGraph(MagicSetup):
         nThetaBs = int(nThetaBs)
 
         if not quiet:
-            print('Rayleigh = %.1e, Ekman = %.1e, Prandtl = %.1e' %
-                  (self.ra, self.ek, self.pr))
-            print('nr = %i, nth = %i, nphi = %i' %
-                  (self.nr, self.ntheta, self.npI))
+            st = 'Rayleigh = {:.1e}, Ekman = {:.1e}, Prandtl = {:.1e}'.format(
+                self.ra, self.ek, self.pr)
+            print(st)
+            print('nr = {}, nth = {}, nphi = {}'.format(
+                  self.nr, self.ntheta, self.npI))
 
         self.colatitude = inline.fort_read(self.precision)
         self.radius = np.zeros((self.nr), self.precision)

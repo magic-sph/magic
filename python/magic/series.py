@@ -71,24 +71,24 @@ class MagicTs(MagicSetup):
             binary = False
 
         if tag is not None:
-            pattern = os.path.join(datadir, '%s.%s' % (self.field, tag))
+            pattern = os.path.join(datadir, '{}.{}'.format(self.field, tag))
             files = scanDir(pattern)
 
             # Either the log.tag directly exists and the setup is easy to obtain
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
             # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
-                st = os.path.join(datadir, '%s\.(.*)' % self.field)
+                st = os.path.join(datadir, '{}\.(.*)'.format(self.field))
                 mask = re.compile(st)
                 if mask.match(files[-1]):
                     ending = mask.search(files[-1]).groups(0)[0]
-                    pattern = os.path.join(datadir, 'log.%s' % ending)
+                    pattern = os.path.join(datadir, 'log.{}'.format(ending))
                     if logFiles.__contains__(pattern):
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.%s' % ending)
+                                            nml='log.{}'.format(ending))
 
             # Concatenate the files that correspond to the tag
             for k, file in enumerate(files):
@@ -103,11 +103,11 @@ class MagicTs(MagicSetup):
         elif not all:
             if len(logFiles) != 0:
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
-                name = '%s.%s' % (self.field, self.tag)
+                name = '{}.{}'.format(self.field, self.tag)
                 filename = os.path.join(datadir, name)
                 data = fast_read(filename, binary=binary)
             else:
-                mot = '%s.*' % (self.field)
+                mot = '{}.*'.format(self.field)
                 dat = [(os.stat(i).st_mtime, i) for i in glob.glob(mot)]
                 dat.sort()
                 filename = dat[-1][1]
@@ -118,7 +118,7 @@ class MagicTs(MagicSetup):
         else:
             if len(logFiles) != 0:
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
-            pattern = os.path.join(datadir, '%s.*' % (self.field))
+            pattern = os.path.join(datadir, '{}.*'.format(self.field))
             files = scanDir(pattern)
             for k, file in enumerate(files):
                 filename = file
@@ -510,7 +510,7 @@ class MagicTs(MagicSetup):
             ax = fig.add_subplot(111)
             print(self.coeffs.shape)
             for k in range(self.coeffs.shape[1]):
-                ax.semilogy(self.time, self.coeffs[:, k], label='m=%i'%k)
+                ax.semilogy(self.time, self.coeffs[:, k], label='m={}'.format(k))
             ax.set_xlabel('Time')
             if self.coeffs.shape[1] < 20:
                 ax.legend(loc='best', frameon=False)
@@ -898,7 +898,7 @@ class AvgField:
             file.close()
         elif tstart is not None:
             file = open('tInitAvg', 'w')
-            file.write('%f' % tstart)
+            file.write('{}'.format(tstart))
             file.close()
         self.std = std
         self.dipExtra = dipExtra
@@ -1271,54 +1271,54 @@ class AvgField:
         else:
             ek = self.ek
         if self.mode == 0 or self.mode == 8:
-            st = '%.3e%9.2e%9.2e%9.2e%5.2f%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
-              (self.ra, ek, self.pr, self.prmag, self.strat, self.ekin_pol_avg, \
+            st = '{:.3e}{:9.2e}{:9.2e}{:9.2e}{:5.2f}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(\
+               self.ra, ek, self.pr, self.prmag, self.strat, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg, \
                self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora, \
                self.emag_pol_avg, self.emag_tor_avg,  self.emag_pola_avg, \
                self.emag_tora_avg, self.emag_es_avg)
 
             if self.std:
-                st_std = '%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
-                  (self.ekin_pol_std, \
+                st_std = '{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(\
+                   self.ekin_pol_std, \
                    self.ekin_tor_std, self.ekin_pola_std, self.ekin_tora_std, \
                    self.u2_pol_std, self.u2_tor_std, self.u2_pola_std, \
                    self.u2_tora_std, self.emag_pol_std, self.emag_tor_std, \
                    self.emag_pola_std, self.emag_tora_std, self.emag_es_std)
 
-            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
-                (self.reynolds, self.ureynolds, self.rol, self.urol, \
+            st +='{:8.2f}{:8.2f}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:7.3f}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}'.format(\
+                 self.reynolds, self.ureynolds, self.rol, self.urol, \
                  self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
                  self.dlV, self.dmV, self.udlV, self.dlVc, self.dlB, self.dmB)
 
             if self.std:
-                st_std +='%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
-                    (self.reynolds_std, self.ureynolds_std, self.rol_std, \
+                st_std +='{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:7.3f}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}'.format(\
+                     self.reynolds_std, self.ureynolds_std, self.rol_std, \
                      self.urol_std, self.dip_std, self.dipCMB_std, self.els_std, \
                      self.elsCMB_std, self.nuss_std, self.dlV_std, self.dmV_std, \
                      self.udlV_std, self.dlVc_std, self.dlB_std, self.dmB_std)
 
             if self.dipExtra:
-                st +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot, self.dipl11, \
+                st +='{:9.2e}{:9.2e}{:9.2e}{:9.2e}'.format(self.dipTot, self.dipl11, \
                                                self.dipTotl11, self.dip3)
 
                 if self.std:
-                    st_std +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot_std, \
+                    st_std +='{:9.2e}{:9.2e}{:9.2e}{:9.2e}'.format(self.dipTot_std, \
                              self.dipl11_std, self.dipTotl11_std, self.dip3_std)
 
-            st += '%12.5e%12.5e%12.5e%9.2e' % (self.buoPower, self.ohmDiss,\
+            st += '{:12.5e}{:12.5e}{:12.5e}{:9.2e}'.format(self.buoPower, self.ohmDiss,\
                                                self.viscDiss, self.fohm)
 
             if self.std:
-                st_std += '%12.5e%12.5e%12.5e%9.2e' % (self.buoPower_std, \
+                st_std += '{:12.5e}{:12.5e}{:12.5e}{:9.2e}'.format(self.buoPower_std, \
                           self.ohmDiss_std, self.viscDiss_std, self.fohm_std)
 
         else:
-            st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \
-              (self.ra, ek, self.strat, self.pr, self.ekin_pol_avg, \
+            st = '{:.3e}{:12.5e}{:5.2f}{:6.2f}{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(\
+               self.ra, ek, self.strat, self.pr, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg)
             if self.std:
-                st_std = '%12.5e%12.5e%12.5e%12.5e' % (self.ekin_pol_std, \
+                st_std = '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(self.ekin_pol_std, \
                    self.ekin_tor_std, self.ekin_pola_std, self.ekin_tora_std)
 
             if self.strat == 0:
@@ -1337,32 +1337,32 @@ class AvgField:
                     self.urol_std = self.rol_std
                     self.ureynolds_std = self.reynolds_std
 
-            st += '%12.5e%12.5e%12.5e%12.5e' % \
-                  (self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
+            st += '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(\
+                  self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
             if self.std:
-                st_std += '%12.5e%12.5e%12.5e%12.5e' % \
-                      (self.u2_pol_std, self.u2_tor_std, self.u2_pola_std, \
+                st_std += '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(\
+                      self.u2_pol_std, self.u2_tor_std, self.u2_pola_std, \
                        self.u2_tora_std)
-            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e%9.2e' % \
-              (self.reynolds, self.ureynolds, self.rol, self.urol, \
+            st +='{:8.2f}{:8.2f}{:9.2e}{:9.2e}{:12.5e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}'.format(\
+               self.reynolds, self.ureynolds, self.rol, self.urol, \
                self.nuss, self.dlV, self.dmV, self.udlV, self.dlVc)
             if self.std:
-                st_std +='%9.2e%9.2e%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e%9.2e' % \
-                  (self.reynolds_std, self.ureynolds_std, self.rol_std, \
+                st_std +='{:9.2e}{:9.2e}{:9.2e}{:9.2e}{:12.5e}{:9.2e}{:9.2e}{:9.2e}{:9.2e}'.format(\
+                   self.reynolds_std, self.ureynolds_std, self.rol_std, \
                    self.urol_std, self.nuss_std, self.dlV_std, self.dmV_std, \
                    self.udlV_std, self.dlVc_std)
 
-            #st += '%12.5e%12.5e' % (self.buoPower, self.viscDiss)
+            #st += '{:12.5e}{:12.5e}'.format(self.buoPower, self.viscDiss)
 
             #if self.std:
-            #    st_std += '%12.5e%12.5e' % (self.buoPower_std, self.viscDiss_std)
+            #    st_std += '{:12.5e}{:12.5e}'.format(self.buoPower_std, self.viscDiss_std)
 
         if self.perpPar:
-            st += '%12.5e%12.5e%12.5e%12.5e' % (self.eperp, self.epar, \
+            st += '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(self.eperp, self.epar, \
                                                 self.eperp_axi, self.epar_axi)
 
             if self.std:
-                st_std += '%12.5e%12.5e%12.5e%12.5e' % (self.eperp_std, \
+                st_std += '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(self.eperp_std, \
                           self.epar_std, self.eperp_axi_std, self.epar_axi_std)
         st += st_std
         st += '\n'

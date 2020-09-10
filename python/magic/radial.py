@@ -82,32 +82,32 @@ class MagicRadial(MagicSetup):
 
         if tags is None:
             if tag is not None:
-                pattern = os.path.join(datadir, '%s.%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '{}.{}'.format(self.name, tag))
                 files = scanDir(pattern)
                 # Either the log.tag directly exists and the setup is easy to
                 # obtain
-                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                        nml='log.%s' % tag)
+                                        nml='log.{}'.format(tag))
                 # Or the tag is a bit more complicated and we need to find
                 # the corresponding log file
                 else:
-                    mask = re.compile(r'%s\/%s\.(.*)' % (datadir, self.name))
+                    mask = re.compile(r'{}\/{}\.(.*)'.format(datadir, self.name))
                     if mask.match(files[-1]):
                         ending = mask.search(files[-1]).groups(0)[0]
-                        pattern = os.path.join(datadir, 'log.%s' % ending)
+                        pattern = os.path.join(datadir, 'log.{}'.format(ending))
                         if os.path.exists(pattern):
                             MagicSetup.__init__(self, datadir=datadir,
-                                                quiet=True, nml='log.%s' % ending)
+                                                quiet=True, nml='log.{}'.format(ending))
 
                 # Sum the files that correspond to the tag
-                mask = re.compile(r'%s\.(.*)' % self.name)
+                mask = re.compile(r'{}\.(.*)'.format(self.name))
                 for k, file in enumerate(files):
                     if not quiet:
-                        print('reading %s' % file)
+                        print('reading {}'.format(file))
 
                     tag = mask.search(file).groups(0)[0]
-                    nml = MagicSetup(nml='log.%s' % tag, datadir=datadir,
+                    nml = MagicSetup(nml='log.{}'.format(tag), datadir=datadir,
                                      quiet=True)
                     filename = file
                     if self.name == 'varCond' or self.name == 'varVisc' or \
@@ -123,18 +123,18 @@ class MagicRadial(MagicSetup):
                         radlut += RadLookUpTable(data, self.name, nml.start_time,
                                                  nml.stop_time)
             else: # Tag is None: take the most recent one
-                pattern = os.path.join(datadir, '%s.*' % self.name)
+                pattern = os.path.join(datadir, '{}.*'.format(self.name))
                 files = scanDir(pattern)
                 filename = files[-1]
                 if not quiet:
-                    print('reading %s' % filename)
+                    print('reading {}'.format(filename))
                 # Determine the setup
-                mask = re.compile(r'%s\.(.*)' % self.name)
+                mask = re.compile(r'{}\.(.*)'.format(self.name))
                 ending = mask.search(files[-1]).groups(0)[0]
-                if os.path.exists('log.%s' % ending):
+                if os.path.exists('log.{}'.format(ending)):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.%s' % ending)
+                                            nml='log.{}'.format(ending))
                     except AttributeError:
                         self.start_time = None
                         self.stop_time = None
@@ -149,19 +149,19 @@ class MagicRadial(MagicSetup):
                 radlut = RadLookUpTable(data, self.name, self.start_time,
                                         self.stop_time)
         else:
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tags[-1])):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tags[-1]))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tags[-1])
+                                    nml='log.{}'.format(tags[-1]))
             else:
                 self.start_time = None
                 self.stop_time = None
             for k, tagg in enumerate(tags):
-                nml = MagicSetup(nml='log.%s' % tagg, datadir=datadir,
+                nml = MagicSetup(nml='log.{}'.format(tagg), datadir=datadir,
                                  quiet=True)
-                file = '%s.%s' % (self.name, tagg)
+                file = '{}.{}'.format(self.name, tagg)
                 filename = os.path.join(datadir, file)
                 if not quiet:
-                    print('reading %s' % filename)
+                    print('reading {}'.format(filename))
                 if self.name == 'varCond' or self.name == 'varVisc' or \
                    self.name == 'varDiff' or self.name == 'anel':
                     data = fast_read(filename, skiplines=1)

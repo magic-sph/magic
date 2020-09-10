@@ -52,12 +52,12 @@ class Movie3D:
             dat = glob.glob('*_mov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
-                str1 += ' %i) %s\n' % (k+1, movie)
+                str1 += ' {}) {}\n'.format(k+1, movie)
             index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print('Non valid index: %s has been chosen instead' % dat[0])
+                print('Non valid index: {} has been chosen instead'.format(dat[0]))
                 filename = dat[0]
 
         else:
@@ -66,7 +66,7 @@ class Movie3D:
         end = mot.findall(filename)[0]
 
         # DETERMINE THE NUMBER OF LINES BY READING THE LOG FILE
-        logfile = open('log.%s' % end, 'r')
+        logfile = open('log.{}'.format(end), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         for line in logfile.readlines():
             if mot.match(line):
@@ -185,7 +185,7 @@ class Movie3D:
                     tmp = infile.fort_read(precision, shape=shape)
                     vecp[0:n_r_mov_tot+2, :, :, 0] = \
                         symmetrize(tmp, minc, reversed=True)
-                filename = 'B3D_%05d' % k
+                filename = 'B3D_{:05d}'.format(k)
                 vecr = vecr[::-1, ...]
                 vect = vect[::-1, ...]
                 vecp = vecp[::-1, ...]
@@ -202,7 +202,7 @@ class Movie3D:
                 else:
                     radii = self.radius
                 vts(filename, radii, br, bt, bp, scals, scalNames, vecNames, 1)
-                print('write %s.vts' % filename)
+                print('write {}.vts'.format(filename))
             else:  # Otherwise we read
                 vecr = infile.fort_read(precision, shape=shape)
                 vect = infile.fort_read(precision, shape=shape)

@@ -53,11 +53,11 @@ class ThetaHeat(MagicSetup):
             for lg in logFiles:
                 nml = MagicSetup(quiet=True, nml=lg)
                 if nml.start_time >  tstart:
-                    if os.path.exists('bLayersR.%s' % nml.tag):
+                    if os.path.exists('bLayersR.{}'.format(nml.tag)):
                         tags.append(nml.tag)
             if len(tags) == 0:
                 tags = [nml.tag]
-                print('Only 1 tag: %s' % tags)
+                print('Only 1 tag: {}'.format(tags))
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
             a = AvgField()
@@ -71,7 +71,7 @@ class ThetaHeat(MagicSetup):
             # reading ATmov
             k = 0
             for tag in tags:
-                f = 'ATmov.%s' % tag
+                f = 'ATmov.{}'.format(tag)
                 if os.path.exists(f):
                     if k == 0:
                         m = Movie(file=f, iplot=False)
@@ -84,7 +84,7 @@ class ThetaHeat(MagicSetup):
             # reading AHF_mov
             kk = 0
             for tag in tags:
-                f = 'AHF_mov.%s' % tag
+                f = 'AHF_mov.{}'.format(tag)
                 if os.path.exists(f):
                     if kk == 0:
                         m1 = Movie(file=f, iplot=False)
@@ -278,16 +278,19 @@ class ThetaHeat(MagicSetup):
         else:
             ek = self.ek
         if self.mode == 0:
-            st ='%9.3e%9.2e%9.2e%9.2e%5.2f' % (self.ra, ek, self.pr, self.prmag,
-                                               self.strat)
+            st ='{:9.3e}{:9.2e}{:9.2e}{:9.2e}{:5.2f}'.format(self.ra, ek,
+                self.pr, self.prmag, self.strat)
         else:
-            st = '%.3e%12.5e%5.2f%6.2f%6.2f' % (self.ra, ek, self.strat, self.pr,
-                                                self.radratio)
+            st = '{:.3e}{:12.5e}{:5.2f}{:6.2f}{:6.2f}'.format(self.ra, ek,
+                self.strat, self.pr, self.radratio)
 
-        st += '%12.5e' % (self.nuss)
-        st += '%12.5e%12.5e%12.5e' % (self.nussBotEq, self.nussBot45, self.nussBotPo)
-        st += '%12.5e%12.5e%12.5e' % (self.nussTopEq, self.nussTop45, self.nussTopPo)
-        st += ' %12.5e %12.5e %12.5e' % (self.betaEq, self.beta45, self.betaPol)
+        st += '{:12.5e}'.format(self.nuss)
+        st += '{:12.5e}{:12.5e}{:12.5e}'.format(self.nussBotEq, self.nussBot45,
+                                                self.nussBotPo)
+        st += '{:12.5e}{:12.5e}{:12.5e}'.format(self.nussTopEq, self.nussTop45,
+                                                self.nussTopPo)
+        st += ' {:12.5e} {:12.5e} {:12.5e}'.format(self.betaEq, self.beta45,
+                                                   self.betaPol)
 
         return st
 

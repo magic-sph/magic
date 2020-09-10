@@ -51,12 +51,12 @@ class Movie2Vtk:
             dat = glob.glob('*[Mm]ov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
-                str1 += ' %i) %s\n' % (k+1, movie)
+                str1 += ' {}) {}\n'.format(k+1, movie)
             index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print('Non valid index: %s has been chosen instead' % dat[0])
+                print('Non valid index: {} has been chosen instead'.format(dat[0]))
                 filename = dat[0]
 
         else:
@@ -93,7 +93,7 @@ class Movie2Vtk:
         self.n_fields = int(n_fields)
         if self.n_fields > 1:
             print('!!! Warning: several fields in the movie file !!!')
-            print('!!! %i fields !!!' % self.n_fields)
+            print('!!! {} fields !!!'.format(self.n_fields))
             print('!!! The one displayed is controlled by the    !!!')
             print('!!! input parameter ifield (=0 by default)    !!!')
         self.movtype = int(movtype[ifield])
@@ -128,7 +128,7 @@ class Movie2Vtk:
         self.phi = infile.fort_read(precision)
 
         # Determine the number of lines by reading the log.TAG file
-        logfile = open('log.%s' % end, 'r')
+        logfile = open('log.{}'.format(end), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         nlines = 0
@@ -207,7 +207,7 @@ class Movie2Vtk:
                 dat = infile.fort_read(precision)
                 if n_surface == 0:
                     dat = dat.reshape(shape)
-                    fname = '%s%s%s_3D_%05d' % (dir, os.sep, fieldName, k+1)
+                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName, k+1)
                     if self.movtype in [1, 2, 3]:
                         # datic = dat[self.n_r_max:, ...].T
                         dat = dat[:self.n_r_max, ...].T
@@ -215,7 +215,7 @@ class Movie2Vtk:
                     else:
                         self.scal3D2vtk(fname, dat.T, fieldName)
                 elif n_surface == 2:
-                    fname = '%s%s%s_eq_%05d' % (dir, os.sep, fieldName, k+1)
+                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName, k+1)
                     dat = dat.reshape(shape)
                     if self.movtype in [1, 2, 3, 14]:
                         # datic = dat[self.n_r_max:, :].T
@@ -233,14 +233,14 @@ class Movie2Vtk:
                                                                self.n_theta_max)
                         datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
                                                                self.n_theta_max)
-                        fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
-                                                        str(self.phiCut), k+1)
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
+                                                              str(self.phiCut), k+1)
                         self.mer2vtk(fname, datoc0.T, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
-                        fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
-                                                        name, k+1)
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
+                                                              name, k+1)
                         self.mer2vtk(fname, datoc1.T, self.phiCut+np.pi,
                                      fieldName)
                         # datic0 = datic[:len(datic)/2].reshape(self.n_r_ic_max+2,
@@ -250,19 +250,19 @@ class Movie2Vtk:
                     elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
                         dat0 = dat[:len(dat)//2].reshape(shape)
                         dat1 = dat[len(dat)//2:].reshape(shape)
-                        fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
-                                                        str(self.phiCut), k+1)
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
+                                                              str(self.phiCut), k+1)
                         self.mer2vtk(fname, dat0.T, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi/2)
                         if len(name) > 8:
                             name = name[:8]
-                        fname = '%s%s%s_pcut%s_%05d' % (dir, os.sep, fieldName,
-                                                        name, k+1)
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
+                                                              name, k+1)
                         self.mer2vtk(fname, dat1.T, self.phiCut+np.pi,
                                      fieldName)
                 else:
-                    fname = '%s%s%s_rcut%s_%05d' % (dir, os.sep, fieldName,
-                                                    str(self.rCut), k+1)
+                    fname = '{}{}{}_rcut{}_{:05d}'.format(dir, os.sep, fieldName,
+                                                          str(self.rCut), k+1)
                     dat = dat.reshape(shape)
                     self.rcut2vtk(fname, dat.T, self.rCut, fieldName)
 
@@ -296,7 +296,7 @@ class Movie2Vtk:
         point_data[name] = data
 
         gridToVTK(fname, X, Y, Z, pointData=point_data)
-        print('Store %s.vts' % fname)
+        print('Store {}.vts'.format(fname))
 
     def rcut2vtk(self, fname, data, r, name):
         """
@@ -328,7 +328,7 @@ class Movie2Vtk:
         point_data[name] = dat
 
         gridToVTK(fname, X, Y, Z, pointData=point_data)
-        print('Store %s.vts' % fname)
+        print('Store {}.vts'.format(fname))
 
     def mer2vtk(self, fname, data, phi0, name):
         """
@@ -360,7 +360,7 @@ class Movie2Vtk:
         point_data[name] = dat
 
         gridToVTK(fname, X, Y, Z, pointData=point_data)
-        print('Store %s.vts' % fname)
+        print('Store {}.vts'.format(fname))
 
     def equat2vtk(self, fname, data, name):
         """
@@ -390,4 +390,4 @@ class Movie2Vtk:
         point_data[name] = dat
 
         gridToVTK(fname, X, Y, Z, pointData=point_data)
-        print('Store %s.vts' % fname)
+        print('Store {}.vts'.format(fname))

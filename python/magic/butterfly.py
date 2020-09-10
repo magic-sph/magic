@@ -61,12 +61,12 @@ class Butterfly:
             dat = glob.glob('*_mov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
-                str1 += ' %i) %s\n' % (k+1, movie)
+                str1 += ' {}) {}\n'.format(k+1, movie)
             index = input(str1)
             try:
                 filename = dat[int(index)-1]
             except IndexError:
-                print('Non valid index: %s has been chosen instead' % dat[0])
+                print('Non valid index: {} has been chosen instead'.format(dat[0]))
                 filename = dat[0]
 
         else:
@@ -75,7 +75,7 @@ class Butterfly:
         end = mot.findall(filename)[0]
 
         # DETERMINE THE NUMBER OF LINES BY READING THE LOG FILE
-        logfile = open('log.%s' % end, 'r')
+        logfile = open('log.{}'.format(end), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         for line in logfile.readlines():
             if mot.match(line):
@@ -233,9 +233,9 @@ class Butterfly:
         ax.set_ylabel('Latitude')
         if self.surftype == 'phi_constant':
             if labTex:
-                txt = r'$r = %.1f\ r_o$' % self.rad
+                txt = r'$r = {:.1f}\ r_o$'.format(self.rad)
             else:
-                txt = r'r = %.1f ro' % self.rad
+                txt = r'r = {:.1f} ro'.format(self.rad)
             ax.text(0.8, 0.07, txt, transform =ax.transAxes)
             #ax.text(0.05, 0.9, 'a)', transform =ax.transAxes)
         ax.set_yticks([-90,-45,0,45,90])
@@ -295,7 +295,7 @@ class Butterfly:
         ax.set_xlabel('Frequency')
         ax.set_ylabel('Spectrum')
         ax.set_xlim(self.omega.min(), self.omega.max())
-        print('Fourier frequency:%.2f' % (self.omega[self.amp1D==self.amp1D.max()]))
+        print('Fourier frequency:{:.2f}'.format(self.omega[self.amp1D==self.amp1D.max()]))
 
 
 if __name__ == '__main__':

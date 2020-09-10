@@ -72,32 +72,32 @@ class MagicSpectrum(MagicSetup):
         if self.ave: # Time-averaged spectra
 
             if tag is not None:
-                pattern = os.path.join(datadir, '%s.%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '{}.{}'.format(self.name, tag))
                 files = scanDir(pattern)
                 # Either the log.tag directly exists and the setup is easy to
                 # obtain
-                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                        nml='log.%s' % tag)
+                                        nml='log.{}'.format(tag))
                 # Or the tag is a bit more complicated and we need to find
                 # the corresponding log file
                 else:
-                    mask = re.compile(r'%s\/%s\.(.*)' % (datadir, self.name))
+                    mask = re.compile(r'{}\/{}\.(.*)'.format(datadir, self.name))
                     if mask.match(files[-1]):
                         ending = mask.search(files[-1]).groups(0)[0]
-                        pattern = os.path.join(datadir, 'log.%s' % ending)
+                        pattern = os.path.join(datadir, 'log.{}'.format(ending))
                         if os.path.exists(pattern):
                             MagicSetup.__init__(self, datadir=datadir,
-                                                quiet=True, nml='log.%s' % ending)
+                                                quiet=True, nml='log.{}'.format(ending))
 
                 # Sum the files that correspond to the tag
-                mask = re.compile(r'%s\.(.*)' % self.name)
+                mask = re.compile(r'{}\.(.*)'.format(self.name))
                 for k, file in enumerate(files):
                     if not quiet:
-                        print('reading %s' % file)
+                        print('reading {}'.format(file))
 
                     tag = mask.search(file).groups(0)[0]
-                    nml = MagicSetup(nml='log.%s' % tag, datadir=datadir,
+                    nml = MagicSetup(nml='log.{}'.format(tag), datadir=datadir,
                                      quiet=True)
                     filename = file
                     data = fast_read(filename)
@@ -110,18 +110,18 @@ class MagicSpectrum(MagicSetup):
                                                     nml.stop_time)
 
             else: # Tag is None: take the most recent one
-                pattern = os.path.join(datadir, '%s.*' % self.name)
+                pattern = os.path.join(datadir, '{}.*'.format(self.name))
                 files = scanDir(pattern)
                 filename = files[-1]
                 if not quiet:
-                    print('reading %s' % filename)
+                    print('reading {}'.format(filename))
                 # Determine the setup
-                mask = re.compile(r'%s\.(.*)' % self.name)
+                mask = re.compile(r'{}\.(.*)'.format(self.name))
                 ending = mask.search(files[-1]).groups(0)[0]
-                if os.path.exists('log.%s' % ending):
+                if os.path.exists('log.{}'.format(ending)):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.%s' % ending)
+                                            nml='log.{}'.format(ending))
                     except AttributeError:
                         self.start_time = None
                         self.stop_time = None
@@ -137,10 +137,10 @@ class MagicSpectrum(MagicSetup):
 
             if tag is not None:
                 if ispec is not None:
-                    file = '%s%i.%s' % (self.name, ispec, tag)
+                    file = '{}{}.{}'.format(self.name, ispec, tag)
                     filename = os.path.join(datadir, file)
                 else:
-                    pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                    pattern = os.path.join(datadir, '{}*{}'.format(self.name, tag))
                     files = scanDir(pattern)
                     if len(files) != 0:
                         filename = files[-1]
@@ -148,37 +148,37 @@ class MagicSpectrum(MagicSetup):
                         print('No such tag... try again')
                         return
 
-                if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.%s' % tag)
+                                            nml='log.{}'.format(tag))
                     except AttributeError:
                         self.start_time = None
                         self.stop_time = None
             else:
                 if ispec is not None:
-                    pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
+                    pattern = os.path.join(datadir, '{}{}*'.format(self.name, ispec))
                     files = scanDir(pattern)
                     filename = files[-1]
                 else:
-                    pattern = os.path.join(datadir, '%s*' % self.name)
+                    pattern = os.path.join(datadir, '{}*'.format(self.name))
                     files = scanDir(pattern)
                     filename = files[-1]
 
                 # Determine the setup
                 mask = re.compile(r'.*\.(.*)')
                 ending = mask.search(files[-1]).groups(0)[0]
-                if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.%s' % ending)
+                                            nml='log.{}'.format(ending))
                     except AttributeError:
                         self.start_time = None
                         self.stop_time = None
                         pass
 
             if not quiet:
-                print('reading %s' % filename)
+                print('reading {}'.format(filename))
             if not hasattr(self, 'stop_time'):
                 self.stop_time = None
             data = fast_read(filename, skiplines=1)
@@ -734,10 +734,10 @@ class MagicSpectrum2D(MagicSetup):
 
         if tag is not None:
             if ispec is not None:
-                file = '%s%i.%s' % (self.name, ispec, tag)
+                file = '{}{}.{}'.format(self.name, ispec, tag)
                 filename = os.path.join(datadir, file)
             else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '{}*{}'.format(self.name, tag))
                 files = scanDir(pattern)
                 if len(files) != 0:
                     filename = files[-1]
@@ -745,24 +745,24 @@ class MagicSpectrum2D(MagicSetup):
                     print('No such tag... try again')
                     return
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
         else:
             if ispec is not None:
-                pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
+                pattern = os.path.join(datadir, '{}{}*'.format(self.name, ispec))
                 files = scanDir(pattern)
                 filename = files[-1]
             else:
-                pattern = os.path.join(datadir, '%s*' % self.name)
+                pattern = os.path.join(datadir, '{}*'.format(self.name))
                 files = scanDir(pattern)
                 filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
 
         if not os.path.exists(filename):
             print('No such file')

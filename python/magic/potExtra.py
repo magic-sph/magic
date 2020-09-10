@@ -16,7 +16,8 @@ class ExtraPot:
     the magnetic field at the CMB.
     """
 
-    def __init__(self, rcmb, brcmb, minc, ratio_out=2., nrout=32, cutCMB=False, deminc=True):
+    def __init__(self, rcmb, brcmb, minc, ratio_out=2., nrout=32, cutCMB=False,
+                 deminc=True):
         """
         :param bcmb: the surface radial field, array of dimension [np, nt]
         :type bcmb: numpy.ndarary

@@ -214,7 +214,7 @@ class BLayers(MagicSetup):
             for lg in logFiles:
                 nml = MagicSetup(quiet=True, nml=lg)
                 if nml.start_time >  tstart:
-                    if os.path.exists('bLayersR.%s' % nml.tag):
+                    if os.path.exists('bLayersR.{}'.format(nml.tag)):
                         tags.append(nml.tag)
             if len(tags) > 0:
                 print(tags)
@@ -245,7 +245,7 @@ class BLayers(MagicSetup):
             for lg in logFiles:
                 nml = MagicSetup(quiet=True, nml=lg)
                 if nml.start_time >  tstart:
-                    if os.path.exists('bLayersR.%s' % nml.tag):
+                    if os.path.exists('bLayersR.{}'.format(nml.tag)):
                         tagsFix.append(nml.tag)
             if len(tagsFix) > 0:
                 print('Fix temp. tags', tagsFix)
@@ -306,7 +306,7 @@ class BLayers(MagicSetup):
                    /(self.ro**3-self.ri**3)
         dsdr = np.dot(d1, self.ss)
         self.beta = dsdr[len(dsdr)/2]
-        print('beta=%.2f' % self.beta)
+        print('beta={:.2f}'.format(self.beta))
         self.slopeTop = dsdr[2]*(self.rad-self.ro)+self.ss[0]
         self.slopeBot = dsdr[-1]*(self.rad-self.ri)+self.ss[-1]
 
@@ -493,7 +493,7 @@ class BLayers(MagicSetup):
             for lg in logFiles:
                 nml = MagicSetup(quiet=True, nml=lg)
                 if nml.start_time >  tstart:
-                    if os.path.exists('perpParR.%s' % nml.tag):
+                    if os.path.exists('perpParR.{}'.format(nml.tag)):
                         tags.append(nml.tag)
             perpPar = MagicRadial(field='perpParR', iplot=False, tags=tags)
             eperpNas = perpPar.Eperp-perpPar.Eperp_axi
@@ -620,41 +620,43 @@ class BLayers(MagicSetup):
         else:
             ek = self.ek
         if self.mode == 0:
-            st ='%9.3e%9.2e%9.2e%9.2e%5.2f' % (self.ra, ek, self.pr, self.prmag,
-                                             self.strat)
+            st ='{:9.3e}{:9.2e:}{:9.2e}{:9.2e}{:5.2f}'.format(self.ra, ek, self.pr,
+                                                              self.prmag, self.strat)
         else:
-            st = '%.3e%12.5e%5.2f%6.2f%6.2f' % (self.ra, ek, self.strat, self.pr, self.radratio)
+            st = '{:.3e}{:12.5e}{:5.2f}{:6.2f}{:6.2f}'.format(self.ra, ek, self.strat,
+                                                              self.pr, self.radratio)
 
-        st += '%12.5e%12.5e%12.5e' % (self.nuss, self.reynolds, self.rey_fluct)
-        st += '%12.5e' % self.epsT
-        st += '%12.5e%12.5e%5.2f%5.2f' % (self.bcBotSlope, self.bcTopSlope,
+        st += '{:12.5e}{:12.5e}{:12.5e}'.format(self.nuss, self.reynolds, self.rey_fluct)
+        st += '{:12.5e}'.format(self.epsT)
+        st += '{:12.5e}{:12.5e}{:5.2f}{:5.2f}'.format(self.bcBotSlope, self.bcTopSlope,
                           self.slopeEpsTbl/self.epsT, self.slopeEpsTbulk/self.epsT)
-        st += '%12.5e%12.5e%5.2f%5.2f' % (self.bcBotVarS, self.bcTopVarS,
+        st += '{:12.5e}{:12.5e}{:5.2f}{:5.2f}'.format(self.bcBotVarS, self.bcTopVarS,
                             self.varSEpsTbl/self.epsT, self.varSEpsTbulk/self.epsT)
-        st += '%12.5e%12.5e%5.2f%5.2f' % (self.dissBotS, self.dissTopS,
+        st += '{:12.5e}{:12.5e}{:5.2f}{:5.2f}'.format(self.dissBotS, self.dissTopS,
                             self.dissEpsTbl/self.epsT, self.dissEpsTbulk/self.epsT)
 
-        st += '%12.5e' % self.epsV
-        st += '%12.5e%12.5e%5.2f%5.2f' % (self.bcBotduh, self.bcTopduh,
+        st += '{:12.5e}'.format(self.epsV)
+        st += '{:12.5e}{:12.5e}{:5.2f}{:5.2f}'.format(self.bcBotduh, self.bcTopduh,
                             self.uhEpsVbl/self.epsV, self.uhEpsVbulk/self.epsV)
-        st += '%12.5e%12.5e%5.2f%5.2f' % (self.uhBotSlope, self.uhTopSlope,
+        st += '{:12.5e}{:12.5e}{:5.2f}{:5.2f}'.format(self.uhBotSlope, self.uhTopSlope,
                           self.slopeEpsUbl/self.epsV, self.slopeEpsUbulk/self.epsV)
-        st += '%12.5e%12.5e%5.2f%5.2f' % (self.dissBotV, self.dissTopV,
+        st += '{:12.5e}{:12.5e}{:5.2f}{:5.2f}'.format(self.dissBotV, self.dissTopV,
                             self.dissEpsVbl/self.epsV, self.dissEpsVbulk/self.epsV)
-        st += ' %12.5e' % self.beta
-        st += '%12.5e%12.5e' % (abs(self.rolbl), abs(self.rolbulk))
-        st += '%12.5e%12.5e' % (self.rebl, self.rebulk)
-        st += '%12.5e%12.5e' % (self.rehbl, self.rehbulk)
-        st += '%12.5e%12.5e' % (self.lengthbl, self.lengthbulk)
-        st += '%12.5e%12.5e' % (self.ss[len(self.ss)/2]-self.ss[0], self.ttm-self.ss[0])
-        st += '%12.5e%12.5e' % (self.dti, self.dto)
-        st += '%12.5e%12.5e%12.5e' % (self.reh, self.uhBot, self.uhTop)
-        st += '%12.5e%12.5e' % (self.lBot, self.lTop)
+        st += ' {:12.5e}'.format(self.beta)
+        st += '{:12.5e}{:12.5e}'.format(abs(self.rolbl), abs(self.rolbulk))
+        st += '{:12.5e}{:12.5e}'.format(self.rebl, self.rebulk)
+        st += '{:12.5e}{:12.5e}'.format(self.rehbl, self.rehbulk)
+        st += '{:12.5e}{:12.5e}'.format(self.lengthbl, self.lengthbulk)
+        st += '{:12.5e}{:12.5e}'.format(self.ss[len(self.ss)/2]-self.ss[0],
+                                        self.ttm-self.ss[0])
+        st += '{:12.5e}{:12.5e}'.format(self.dti, self.dto)
+        st += '{:12.5e}{:12.5e}{:12.5e}'.format(self.reh, self.uhBot, self.uhTop)
+        st += '{:12.5e}{:12.5e}'.format(self.lBot, self.lTop)
 
-        st  += '%12.5e%12.5e%12.5e%12.5e' % (self.reperpbl, self.reperpbulk,
-                                             self.reparbl, self.reparbulk)
-        st  += '%12.5e%12.5e%12.5e%12.5e' % (self.reperpnasbl, self.reperpnasbulk,
-                                             self.reparnasbl, self.reparnasbulk)
+        st  += '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(self.reperpbl, self.reperpbulk,
+            self.reparbl, self.reparbulk)
+        st  += '{:12.5e}{:12.5e}{:12.5e}{:12.5e}'.format(self.reperpnasbl,
+            self.reperpnasbulk, self.reparnasbl, self.reparnasbulk)
 
         return st
 
