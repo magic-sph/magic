@@ -319,13 +319,21 @@ class MagicCheckpoint:
         file.write(tscheme)
         par = np.array([1, 1, 1], np.int32)
         par.tofile(file)
-        dt = np.array([1.0e-6], np.float64)
+        if hasattr(self, 'dt'):
+            dt = np.array([self.dt], np.float64)
+        else:
+            dt = np.array([1.0e-6], np.float64)
         dt.tofile(file)
         par = np.array([1], np.int32)
         par.tofile(file)
 
-        x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, self.radratio, 1.0],
-                     np.float64)
+        # Control parameters
+        if hasattr(self, 'ra') and hasattr(self, 'sc') and hasattr(self, 'prmag'):
+            x = np.array([self.ra, self.pr, self.raxi, self.sc, self.prmag,
+                          self.ek, self.radratio, self.sigma_ratio], np.float64)
+        else:
+            x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, self.radratio, 1.0],
+                         np.float64)
         x.tofile(file)
 
         # Truncation
