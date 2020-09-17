@@ -638,7 +638,6 @@ contains
          end do
          !$omp end do
       end if
-
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
@@ -648,7 +647,6 @@ contains
          call tscheme%rotate_imex(dbdt_ic, llmMag, ulmMag, n_r_ic_max)
          call tscheme%rotate_imex(djdt_ic, llmMag, ulmMag, n_r_ic_max)
       end if
-
 
       !-- Get implicit terms
       if ( tscheme%istage == tscheme%nstages ) then

@@ -16,7 +16,7 @@ module step_time_mod
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
-       &                phy2lm_counter, nl_counter
+       &                phy2lm_counter, nl_counter, f_exp_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
    use radial_der, only: get_dr_Rloc, get_ddr_Rloc
@@ -572,6 +572,7 @@ contains
                !---------------
                call lmLoop_counter%start_count()
                if ( .not. l_finish_exp_early ) then
+                  call f_exp_counter%start_count()
                   call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
                        &                        aj_ic_LMloc,                         &
                        &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
@@ -583,6 +584,7 @@ contains
                        &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
                        &                        lorentz_torque_ma_dt,                &
                        &                        lorentz_torque_ic_dt, tscheme)
+                  call f_exp_counter%stop_count()
                end if
                call lmLoop_counter%stop_count(l_increment=.false.)
             end if
@@ -801,6 +803,8 @@ contains
            &                       n_log_file)
       call lmLoop_counter%finalize('! Mean wall time for LM Loop                :',&
            &                       n_log_file)
+      call f_exp_counter%finalize('!     - Time taken to compute r-der of adv. :', &
+           &                      n_log_file)
       call dct_counter%finalize('!     - Time taken for DCTs and r-der       :',   &
            &                    n_log_file)
       call solve_counter%finalize('!     - Time taken for linear solves        :', &
