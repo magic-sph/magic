@@ -22,13 +22,13 @@ class TOMovie:
     >>> t = TOMovie(file='TO_mov.N0m2', avg=True, levels=65, cm='seismic')
     """
 
-    def __init__(self, file=None, iplot=True, cm='RdYlBu_r',
-                 cut=0.8, levels=16, avg=True, precision=np.float32):
+    def __init__(self, file=None, iplot=True, cm='seismic',
+                 cut=0.5, levels=33, avg=True, precision=np.float32):
         """
         :param file: the filename of the TO_mov file
         :type file: str
-        :param cmap: the name of the color map
-        :type cmap: str
+        :param cm: the name of the color map
+        :type cm: str
         :param levels: the number of contour levels
         :type levels: int
         :param cut: adjust the contour extrema to max(abs(data))*cut
