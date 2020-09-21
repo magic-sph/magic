@@ -67,6 +67,7 @@ module num_param
 
    type(timer_type), public :: dct_counter ! Time counter for discrete cosine transforms
    type(timer_type), public :: solve_counter ! Time counter for linear solves
+   type(timer_type), public :: f_exp_counter ! Time counter for r-der of adv. terms
 
    type(timer_type), public :: lm2phy_counter
    type(timer_type), public :: phy2lm_counter
@@ -84,6 +85,7 @@ contains
       allocate( delxr2(n_r_max),delxh2(n_r_max) )
       bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
       call solve_counter%initialize()
+      call f_exp_counter%initialize()
       call dct_counter%initialize()
       call lm2phy_counter%initialize()
       call phy2lm_counter%initialize()
