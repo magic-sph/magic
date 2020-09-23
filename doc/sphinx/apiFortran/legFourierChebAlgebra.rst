@@ -1,5 +1,23 @@
 .. _secFortranLibs:
 
+Radial scheme
+=============
+
+``radial_scheme.f90``
+----------------------
+
+.. f:automodule:: radial_scheme
+
+``chebyshev.f90``
+-----------------
+
+.. f:automodule:: chebyshev
+
+``finite_differences.f90``
+--------------------------
+
+.. f:automodule:: finite_differences
+
 Chebyshev polynomials and cosine transforms
 ===========================================
 

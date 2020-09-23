@@ -23,7 +23,8 @@ if [ ! -d "$dir" ]; then
     $cppCommand $filepath $targetFile
   done
 
-  rm $dir/*_mkl.f90
+  rm $dir/shtns.f90
+  rm $dir/*_fftw.f90
   rm $dir/*_lapack.f90
 
 fi

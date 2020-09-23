@@ -113,3 +113,13 @@ needed for the time-stepping schemes.
     omega_ma1, omegaOsz_ma1, tOmega_ma1,          !and the time step-size
     omega_ma2, omegaOsz_ma2, tOmega_ma2,
     dtNew
+
+The checkpoint files can be read using the python class :py:class:`MagicCheckpoint <magic.MagicCheckpoint>`.
+
+    >>> chk = MagicCheckpoint(filename='checkpoint_end.test')
+    >>> # print size of poloidal and l_max
+    >>> print(chk.wpol.shape, chk.l_max)
+    >>> # convert from cheb to FD using 96 grid points
+    >>> chk.cheb2fd(96)
+    >>> write new file
+    >>> chk.write('checkpoint_fd.test')

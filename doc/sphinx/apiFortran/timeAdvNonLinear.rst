@@ -11,7 +11,7 @@ Non-linear part of the time stepping (radial loop)
 ``rIteration.f90``
 ------------------
 
-.. f:automodule:: riteration_mod
+.. f:automodule:: riteration
 
 ``rIter.f90``
 --------------------------

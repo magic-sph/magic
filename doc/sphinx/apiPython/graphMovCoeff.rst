@@ -14,8 +14,15 @@ Support for ``G_#.TAG`` files
    :private-members:
    :special-members:
 
-.. automodule:: magic.graph2rst
+.. _secPythonCheckpointFile:
+
+Support for ``checkpoint_#.TAG`` files
+---------------------------------------
+
+.. automodule:: magic.checkpoint
    :members:
+   :private-members:
+   :special-members:
 
 .. _secPythonMovieFiles:
 

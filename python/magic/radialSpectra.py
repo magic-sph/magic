@@ -57,13 +57,13 @@ class MagicRSpec(MagicSetup):
         self.radius[:self.n_r_max] = outerCoreGrid
         self.radius[self.n_r_max-1:] = innerCoreGrid[:self.n_r_ic_max]
 
-        pattern = 'r%s' % field +'Spec'
-        files = scanDir('%s.%s' % (pattern, tag))
+        pattern = 'r{}'.format(field) +'Spec'
+        files = scanDir('{}.{}'.format(pattern, tag))
 
         # Read the rB[rp]Spec.TAG files (stack them)
         data = []
         for k, file in enumerate(files):
-            print('Reading %s' % file)
+            print('Reading {}'.format(file))
             f = npfile(file, endian='B')
 
             while 1:

@@ -319,13 +319,21 @@ class MagicCheckpoint:
         file.write(tscheme)
         par = np.array([1, 1, 1], np.int32)
         par.tofile(file)
-        dt = np.array([1.0e-6], np.float64)
+        if hasattr(self, 'dt'):
+            dt = np.array([self.dt], np.float64)
+        else:
+            dt = np.array([1.0e-6], np.float64)
         dt.tofile(file)
         par = np.array([1], np.int32)
         par.tofile(file)
 
-        x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, self.radratio, 1.0],
-                     np.float64)
+        # Control parameters
+        if hasattr(self, 'ra') and hasattr(self, 'sc') and hasattr(self, 'prmag'):
+            x = np.array([self.ra, self.pr, self.raxi, self.sc, self.prmag,
+                          self.ek, self.radratio, self.sigma_ratio], np.float64)
+        else:
+            x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, self.radratio, 1.0],
+                         np.float64)
         x.tofile(file)
 
         # Truncation
@@ -390,7 +398,7 @@ class MagicCheckpoint:
         """
         self.fd_ratio = 0.1
         self.fd_stretch = 0.3
-        self.rscheme_version = 'fd'+'%70s' % ''
+        self.rscheme_version = 'fd'+'{:>70s}'.format('')
         self.fd_stretch = fd_stretch
         self.fd_ratio = fd_ratio
         rnew = fd_grid(n_r_max, self.radius[0], self.radius[-1],
@@ -428,7 +436,7 @@ class MagicCheckpoint:
         self.alph1 = 1
         self.alph2 = 0
 
-        self.rscheme_version = 'cheb'+'%68s' % ''
+        self.rscheme_version = 'cheb'+'{:>68s}'.format('')
         rnew = chebgrid(n_r_max-1, self.radius[0], self.radius[-1])
 
         tmp = interp_one_field(self.wpol, self.radius, rnew)
@@ -478,10 +486,10 @@ class MagicCheckpoint:
         import pyxshells as pyx
 
         # xshells grid
-        f = pyx.load_field('fieldU.%s' % xsh_trailing)
-        if os.path.exists('fieldT.%s' % xsh_trailing):
+        f = pyx.load_field('fieldU.{}'.format(xsh_trailing))
+        if os.path.exists('fieldT.{}'.format(xsh_trailing)):
             self.l_heat = True
-        if os.path.exists('fieldB.%s' % xsh_trailing):
+        if os.path.exists('fieldB.{}'.format(xsh_trailing)):
             self.l_mag = True
         self.l_press = False
         self.l_chem = False
@@ -501,12 +509,12 @@ class MagicCheckpoint:
             self.map = 0
             self.alph1 = 1.
             self.alph2 = 0.
-            self.rscheme_version = 'cheb'+'%68s' % ''
+            self.rscheme_version = 'cheb'+'{:>68s}'.format('')
         else:
             self.radius = fd_grid(n_r_max, ro, ri)
             self.fd_stretch = 0.3
             self.fd_ratio = 0.1
-            self.rscheme_version = 'fd'+'%70s' % ''
+            self.rscheme_version = 'fd'+'{:>70s}'.format('')
 
         self.l_max = f.lmax
         self.m_max = f.mmax
@@ -530,7 +538,7 @@ class MagicCheckpoint:
                                      rfac=rr_xsh)
 
         if self.l_heat:
-            f = pyx.load_field('fieldT.%s' % xsh_trailing)
+            f = pyx.load_field('fieldT.{}'.format(xsh_trailing))
             field_xsh = np.zeros((nr_xsh, self.lm_max), np.complex128)
             field_xsh = f.data[1:-1, 0, :]
             self.entropy = interp_one_field(field_xsh, rr_xsh, self.radius)
@@ -549,7 +557,7 @@ class MagicCheckpoint:
             self.entropy[:, 0] += np.sqrt(4.*np.pi) * tcond
 
         if self.l_mag:
-            f = pyx.load_field('fieldB.%s' % xsh_trailing)
+            f = pyx.load_field('fieldB.{}'.format(xsh_trailing))
             field_xsh = scale_b * f.pol_full()
             self.bpol = interp_one_field(field_xsh, rr_xsh, self.radius,
                                          rfac=rr_xsh)
@@ -573,7 +581,7 @@ class MagicCheckpoint:
         if hasattr(gr, 'tag'):
             tag = gr.tag
 
-            if os.path.exists('anel.%s' % tag):
+            if os.path.exists('anel.{}'.format(tag)):
                 r = MagicRadial(field='anel', iplot=False)
                 rho0 = r.rho0
             else:
@@ -599,7 +607,7 @@ class MagicCheckpoint:
         ro = self.radius[0]
         self.radratio = ri/ro
         if gr.radial_scheme == 'CHEB':
-            self.rscheme_version = 'cheb'+'%68s' % ''
+            self.rscheme_version = 'cheb'+'{:>68s}'.format('')
             self.n_cheb_max = self.n_r_max-2
             if gr.l_newmap == 'F':
                 self.map = 0
@@ -608,7 +616,7 @@ class MagicCheckpoint:
             self.alph1 = gr.alph1
             self.alph2 = gr.alph2
         else:
-            self.rscheme_version = 'fd'+'%70s' % ''
+            self.rscheme_version = 'fd'+'{:>70s}'.format('')
             self.fd_stretch = gr.fd_stretch
             self.fd_ratio = gr.fd_ratio
 

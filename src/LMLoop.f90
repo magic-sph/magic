@@ -251,8 +251,8 @@ contains
               &                        lorentz_torque_ic_dt,tscheme)
       !
       ! This subroutine is used to finish the computation of the explicit terms.
-      ! This is only possible in a LM-distributed space since it mainly involves
-      ! computation of radial derivatives.
+      ! This is the version that handles R-distributed arrays used when FD are
+      ! employed.
       !
 
       !-- Input variables
@@ -312,7 +312,7 @@ contains
       !
       ! This routine is used to call the different assembly stage of the different
       ! equations. This is only used for a special subset of IMEX-RK schemes that
-      ! have tscheme%l_assembly=.true.
+      ! have ``tscheme%l_assembly=.true.``
       !
 
       !-- Input variables

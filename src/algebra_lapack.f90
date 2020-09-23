@@ -38,10 +38,10 @@ contains
 
    subroutine solve_mat_complex_rhs(a,len_a,n,pivot,rhs)
       !
-      !  This routine does the backward substitution into a lu-decomposed real 
-      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side  
-      !  vector. On return x is stored in bc1.                            
-      !                                                                     
+      !  This routine does the backward substitution into a LU-decomposed real
+      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side
+      !  vector. On return x is stored in bc1.
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n          ! dimension of problem
@@ -77,7 +77,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs_multi(a,len_a,n,pivot,rhs,nRHSs)
       !
-      !  This routine does the backward substitution into a lu-decomposed real
+      !  This routine does the backward substitution into a LU-decomposed real
       !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
       !  vectors bc. On return the results are stored in the bc.
       !
@@ -104,11 +104,8 @@ contains
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs(a,len_a,n,pivot,rhs)
       !
-      !     like the linpack routine
-      !     backward substitution of vector b into lu-decomposed matrix a
-      !     to solve  a * x = b for a single real vector b
-      !
-      !     sub sgefa must be called once first to initialize a and pivot
+      !  Backward substitution of vector b into lu-decomposed matrix a
+      !  to solve  a * x = b for a single real vector b
       !
 
       !-- Input variables:
@@ -131,9 +128,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine prepare_mat(a,len_a,n,pivot,info)
       !
-      !     like the linpack routine
-      !
-      !     lu decomposes the real matrix a(n,n) via gaussian elimination
+      ! LU decomposition of the real matrix a(n,n) via gaussian elimination
       !
 
       !-- Input variables:
@@ -333,7 +328,7 @@ contains
    end subroutine solve_band_complex_rhs
 !-----------------------------------------------------------------------------
    subroutine solve_band_real_rhs_multi(A, lenA, kl, ku, pivotA, rhs, nRHSs)
-   
+
       !-- Input variables
       integer,  intent(in) :: kl
       integer,  intent(in) :: ku

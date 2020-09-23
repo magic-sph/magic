@@ -8,7 +8,7 @@ module horizontal_data
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
-   use logic, only: l_non_rot, l_RMS
+   use logic, only: l_non_rot
    use plms_theta, only: plm_theta
    use fft
    use constants, only: pi, zero, one, two, half
@@ -23,17 +23,17 @@ module horizontal_data
 
    !-- Arrays depending on theta (colatitude):
    integer, public, allocatable :: n_theta_cal2ord(:)
-   real(cp), public, allocatable :: theta(:)
-   real(cp), public, allocatable :: theta_ord(:)
+   real(cp), public, allocatable :: theta(:)           ! Gauss points (scrambled)
+   real(cp), public, allocatable :: theta_ord(:)       ! Gauss points (unscrambled)
    real(cp), public, allocatable :: sn2(:)
    real(cp), public, allocatable :: osn2(:)
    real(cp), public, allocatable :: cosn2(:)
    real(cp), public, allocatable :: osn1(:)
-   real(cp), public, allocatable :: O_sin_theta(:)
-   real(cp), public, allocatable :: O_sin_theta_E2(:)
-   real(cp), public, allocatable :: cosn_theta_E2(:)
-   real(cp), public, allocatable :: sinTheta(:)
-   real(cp), public, allocatable :: cosTheta(:)
+   real(cp), public, allocatable :: O_sin_theta(:)     ! :math:`1/\sin\theta`
+   real(cp), public, allocatable :: O_sin_theta_E2(:)  ! :math:`1/\sin^2\theta`
+   real(cp), public, allocatable :: cosn_theta_E2(:)   ! :math:`\cos\theta/\sin^2\theta`
+   real(cp), public, allocatable :: sinTheta(:)        ! :math:`\sin\theta`
+   real(cp), public, allocatable :: cosTheta(:)        ! :math:`\cos\theta`
 
    !-- Phi (longitude)
    real(cp), public, allocatable :: phi(:)
@@ -43,8 +43,8 @@ module horizontal_data
    real(cp), public, allocatable :: dPl0Eq(:)
 
    !-- Arrays depending on l and m:
-   complex(cp), public, allocatable :: dPhi(:)
-   real(cp), public, allocatable :: dLh(:)
+   complex(cp), public, allocatable :: dPhi(:) ! :math:`\mathrm{i} m`
+   real(cp), public, allocatable :: dLh(:)     ! :math:`\ell(\ell+1)`
    real(cp), public, allocatable :: dTheta1S(:),dTheta1A(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
 
@@ -60,6 +60,9 @@ module horizontal_data
 contains
 
    subroutine initialize_horizontal_data
+      !
+      ! Memory allocation of horizontal functions
+      !
 
       allocate( n_theta_cal2ord(n_theta_max) )
       allocate( theta(n_theta_max) )
@@ -109,6 +112,9 @@ contains
    end subroutine initialize_horizontal_data
 !------------------------------------------------------------------------------
    subroutine finalize_horizontal_data
+      !
+      ! Memory deallocation of horizontal functions
+      !
 
       deallocate( cosn_theta_E2, sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
@@ -127,9 +133,9 @@ contains
 !------------------------------------------------------------------------------
    subroutine horizontal
       !
-      !  Calculates functions of theta and phi, for exmample the
-      !  Legendre functions, and functions of degree l and order m
-      !  of the legendres.
+      !  Calculates functions of :math:`\theta` and :math:`\phi`, for example
+      !  the Legendre functions,  and functions of degree :math:`\ell` and
+      !  order :math:`m` of the legendres.
       !
 
       !-- Local variables:

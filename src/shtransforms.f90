@@ -534,7 +534,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine native_sph_to_grad_spat(slm, gradtc, gradpc, lcut)
       !
-      ! Transform s(l) into dsdt(theta) and dsdp(theta)
+      ! Transform ``s(l)`` into ``dsdt(theta)`` and ``dsdp(theta)``
       !
 
       !-- Input variable
@@ -620,11 +620,6 @@ contains
    subroutine native_spat_to_sph(scal,f1LM,lcut)
       !
       !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
-      !  [grid to spectral] for 2 arrays
-      !  f1TM (input) to f1LM (output)
-      !  One call to this routine does part of the transform
-      !  by summation over theta points in one theta block:
-      !  nThetaStart,..,nThetaStart+n_theta_block-1
       !
 
       !-- Input variables:
@@ -708,8 +703,8 @@ contains
    subroutine native_spat_to_sph_tor(vt,vp,f1LM,f2LM,lcut)
       !
       !  Vector Legendre transform
-      !  vt(n_r,n_theta,m), vp(n_r,n_theta,m) to Spheroidal(n_r,l,m)
-      !  and Toroidal(n_r,l,m)
+      !  ``vt(n_r,n_theta,m)``, ``vp(n_r,n_theta,m)`` to ``Spheroidal(n_r,l,m)``
+      !  and ``Toroidal(n_r,l,m)``
 
       !-- Input variables:
       real(cp), intent(inout) :: vt(:,:)
@@ -850,12 +845,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine native_spat_to_SH_axi(ft1,flm1,lmMax)
       !
-      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)
-      !  [grid to spectral] for 2 arrays
-      !  ancl1/2 (input) to flm1/2 (output)
-      !  One call to this routine does part of the transform
-      !  by summation over theta points in on theta block:
-      !  n_theta_min,..,n_theta_min+n_theta_block-1
+      !  Legendre transform for an axisymmetric field
       !
 
       !-- Input variables:

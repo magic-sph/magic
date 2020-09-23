@@ -181,13 +181,7 @@ contains
    subroutine spectrum(n_spec,time,l_avg,n_time_ave,l_stop_time,time_passed, &
               &        time_norm,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
       !
-      !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
-      !  integration in theta,phi by summation over harmonic coeffs.
-      !  integration in r by Chebycheff integrals
-      !
-      !  Output:
-      !  enbp: Total poloidal        enbt: Total toroidal
-      !  apome: Axisym. poloidal     atome: Axisym. toroidal
+      !  Calculates magnetic or kinetic energy spectra
       !
     
       !-- Input of variables:
@@ -792,6 +786,9 @@ contains
 !----------------------------------------------------------------------------
    subroutine spectrum_temp(n_spec,time,l_avg,n_time_ave,l_stop_time,   &
               &             time_passed,time_norm,s,ds)
+      !
+      ! Computes temperature spectra
+      !
 
       !-- Direct input:
       real(cp),     intent(in) :: time

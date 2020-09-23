@@ -83,10 +83,10 @@ class MagicSetup:
                 print(err)
 
     #def __repr__(self):
-        #st = 'Welcome in the run %s\n' % self.tag
+        #st = 'Welcome in the run {}\n'.format(self.tag)
         #st += ' ---- Params ---- \n'
-        #st += 'Rayleigh = %.2e\n' % self.ra
-        #st += 'Ekman = %.2e\n' % self.ek
-        #st += 'Prandtl = %.2e\n' % self.pr
-        #st += 'Magnetic Prandtl = %.2e' % self.prmag
+        #st += 'Rayleigh = {:.2e}\n'.format(self.ra)
+        #st += 'Ekman = {:.2e}\n'.format(self.ek)
+        #st += 'Prandtl = {:.2e}\n'.format(self.pr)
+        #st += 'Magnetic Prandtl = {:.2e}'.format(self.prmag)
         #return st

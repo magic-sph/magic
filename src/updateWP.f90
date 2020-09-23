@@ -1,5 +1,9 @@
 #include "perflib_preproc.cpp"
 module updateWP_mod
+   !
+   ! This module handles the time advance of the poloidal potential w and the pressure p.
+   ! It contains the computation of the implicit terms and the linear solves.
+   !
 
    use omp_lib
    use precision_mod
@@ -195,9 +199,8 @@ contains
    subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
               &        lRmsNext, lPressNext)
       !
-      !  updates the poloidal velocity potential w, the pressure p,  and
-      !  their derivatives
-      !  adds explicit part to time derivatives of w and p
+      !  updates the poloidal velocity potential w, the pressure p, and
+      !  their radial derivatives.
       !
 
       !-- Input/output of scalar fields:
@@ -473,7 +476,7 @@ contains
    subroutine get_pol(w, work)
       !
       !  Get the poloidal potential from the solve of an elliptic equation.
-      !  Careful: the output is in Cheb space!
+      !  Careful: the output is in Chebyshev space!
       !
 
       !-- Input field
@@ -633,7 +636,7 @@ contains
       complex(cp),       intent(out) :: dw(n_mlo_loc,n_r_max)
       complex(cp),       intent(out) :: ddw(n_mlo_loc,n_r_max)
 
-      !-- Local variables 
+      !-- Local variables
       logical :: l_in_cheb
       integer :: n_r_top, n_r_bot, l
       integer :: n_r, lm, start_lm, stop_lm
@@ -685,7 +688,7 @@ contains
             end do
             !$omp end do
          else
-            !$omp do private(n_r,lm,l,dL) 
+            !$omp do private(n_r,lm,l,dL)
             do n_r=2,n_r_max-1
                do lm=1,n_mlo_loc
                   l = map_mlo%i2l(lm)
@@ -1159,13 +1162,13 @@ contains
    subroutine get_wpMat(tscheme,l,hdif,wpMat,wpMat_fac)
       !
       !  Purpose of this subroutine is to contruct the time step matrix
-      !  wpmat  for the NS equation.
+      !  ``wpMat`` for the Navier-Stokes equation.
       !
 
       !-- Input variables:
-      class(type_tscheme), intent(in) :: tscheme        ! time step
-      real(cp),            intent(in) :: hdif
-      integer,             intent(in) :: l
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+      real(cp),            intent(in) :: hdif    ! hyperdiffusion
+      integer,             intent(in) :: l       ! degree :math:`\ell`
 
       !-- Output variables:
       class(type_realmat), intent(inout) :: wpMat
@@ -1359,7 +1362,7 @@ contains
       !
 
       !-- Input variables:
-      integer, intent(in) :: l       ! degree
+      integer, intent(in) :: l       ! degree :math:`\ell`
 
       !-- Output variables:
       class(type_realmat), intent(inout) :: ellMat
@@ -1421,9 +1424,9 @@ contains
       !
 
       !-- Input variables:
-      class(type_tscheme), intent(in) :: tscheme        ! time step
-      real(cp),            intent(in) :: hdif
-      integer,             intent(in) :: l
+      class(type_tscheme), intent(in) :: tscheme  ! time scheme
+      real(cp),            intent(in) :: hdif     ! hyperdiffusion
+      integer,             intent(in) :: l        ! degree :math:`\ell`
 
       !-- Output variables:
       class(type_realmat), intent(inout) :: wMat
@@ -1539,9 +1542,13 @@ contains
    end subroutine get_wMat
 !-----------------------------------------------------------------------------
    subroutine get_p0Mat(pMat)
+      !
+      ! This subroutine solves the linear problem of the spherically-symmetric
+      ! pressure
+      !
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: pMat
+      class(type_realmat), intent(inout) :: pMat ! matrix
 
       !-- Local variables:
       real(cp) :: dat(n_r_max,n_r_max), delr

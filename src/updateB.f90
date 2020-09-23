@@ -1,9 +1,11 @@
 #include "perflib_preproc.cpp"
 module updateB_mod
-
-#ifdef WITH_LIKWID
-#include "likwid_f90.h"
-#endif
+   !
+   ! This module handles the time advance of the magnetic field potentials
+   ! b and aj as well as the inner core counterparts b_ic and aj_ic.
+   ! It contains the computation of the implicit terms and the linear
+   ! solves.
+   !
 
    use omp_lib
    use precision_mod
@@ -179,29 +181,7 @@ contains
               &       dj_ic,ddj_ic,dbdt_ic,djdt_ic,b_nl_cmb,aj_nl_cmb,       &
               &       aj_nl_icb,time,tscheme,lRmsNext)
       !
-      !
-      !  Calculated update of magnetic field potential and the time
-      !  stepping arrays dbdtLast, ...
-      !
-      !
-      !  updates the magnetic field potentials b, aj and
-      !  their derivatives,
-      !  adds explicit part to time derivatives of b and j
-
-      !  input:  w1 - weight for dbdt-contribution from current time step
-      !               (w2=1-w1: weight for contrib. from previous step)
-      !          coex - factor depending on weighting alpha of
-      !                 implicit contribution
-      !          mc_min,mc_max
-      !               - range of mca-indices in which field is updated
-      !                 (harmonic order m=(mca-1)*minc)
-      !          b_nl_cmb = RHS of nonlinear BC for poloidal magnetic field
-      !                      potential in the case of stress free CMB
-      !          aj_nl_cmb = RHS of nonlinear BC for toroidal magnetic field
-      !                      potential in the case of stress free CMB
-      !          aj_nl_icb = RHS of nonlinear BC for radial derivative of
-      !                      toroidal magnetic field
-      !                      potential in the case of stress free ICB
+      !  Calculates update of magnetic field potentials.
       !
 
       !-- Input variables:
@@ -585,7 +565,6 @@ contains
          call tscheme%rotate_imex(dbdt_ic, 1, n_mloMag_loc, n_r_ic_max)
          call tscheme%rotate_imex(djdt_ic, 1, n_mloMag_loc, n_r_ic_max)
       end if
-
 
       !-- Get implicit terms
       if ( tscheme%istage == tscheme%nstages ) then
@@ -1171,7 +1150,7 @@ contains
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
-      !  bmat(i,j) and ajmat for the dynamo equations.
+      !  ``bmat(i,j)`` and ``ajmat`` for the dynamo equations.
       !
 
       !-- Input variables:

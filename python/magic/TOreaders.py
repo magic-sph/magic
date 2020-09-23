@@ -22,13 +22,13 @@ class TOMovie:
     >>> t = TOMovie(file='TO_mov.N0m2', avg=True, levels=65, cm='seismic')
     """
 
-    def __init__(self, file=None, iplot=True, cm='RdYlBu_r',
-                 cut=0.8, levels=16, avg=True, precision=np.float32):
+    def __init__(self, file=None, iplot=True, cm='seismic',
+                 cut=0.5, levels=33, avg=True, precision=np.float32):
         """
         :param file: the filename of the TO_mov file
         :type file: str
-        :param cmap: the name of the color map
-        :type cmap: str
+        :param cm: the name of the color map
+        :type cm: str
         :param levels: the number of contour levels
         :type levels: int
         :param cut: adjust the contour extrema to max(abs(data))*cut
@@ -47,12 +47,12 @@ class TOMovie:
             dat = glob.glob('TO_mov.*')
             str1 = 'Which TO movie do you want ?\n'
             for k, movie in enumerate(dat):
-                str1 += ' %i) %s\n' % (k+1, movie)
+                str1 += ' {}) {}\n'.format(k+1, movie)
             index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print('Non valid index: %s has been chosen instead' % dat[0])
+                print('Non valid index: {} has been chosen instead'.format(dat[0]))
                 filename = dat[0]
 
         else:
@@ -62,7 +62,7 @@ class TOMovie:
         end = mot.findall(filename)[0]
 
         # DETERMINE THE NUMBER OF LINES BY READING THE LOG FILE
-        logfile = open('log.%s' % end, 'r')
+        logfile = open('log.{}'.format(end), 'r')
         mot = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         for line in logfile.readlines():
             if mot.match(line):
@@ -418,10 +418,10 @@ class MagicTOZ(MagicSetup):
 
         if tag is not None:
             if itoz is not None:
-                file = '%s%i.%s' % (self.name, itoz, tag)
+                file = '{}{}.{}'.format(self.name, itoz, tag)
                 filename = os.path.join(datadir, file)
             else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '{}*{}'.format(self.name, tag))
                 files = scanDir(pattern)
                 if len(files) != 0:
                     filename = files[-1]
@@ -429,24 +429,24 @@ class MagicTOZ(MagicSetup):
                     print('No such tag... try again')
                     return
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
         else:
             if itoz is not None:
-                pattern = os.path.join(datadir, '%s%i*' % (self.name, itoz))
+                pattern = os.path.join(datadir, '{}{}*'.format(self.name, itoz))
                 files = scanDir(pattern)
                 filename = files[-1]
             else:
-                pattern = os.path.join(datadir, '%s*' % self.name)
+                pattern = os.path.join(datadir, '{}*'.format(self.name))
                 files = scanDir(pattern)
                 filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
 
 
         infile = npfile(filename, endian='B')
@@ -520,7 +520,7 @@ class MagicTOHemi(MagicSetup):
         """
 
         if tag is not None:
-            pattern = os.path.join(datadir, 'TO%shs.%s' % (hemi, tag))
+            pattern = os.path.join(datadir, 'TO{}hs.{}'.format(hemi, tag))
             files = scanDir(pattern)
             if len(files) != 0:
                 filename = files[-1]
@@ -528,19 +528,19 @@ class MagicTOHemi(MagicSetup):
                 print('No such tag... try again')
                 return
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
         else:
-            pattern = os.path.join(datadir, 'TO%shs.*' % hemi)
+            pattern = os.path.join(datadir, 'TO{}hs.*'.format(hemi))
             files = scanDir(pattern)
             filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
 
         if not os.path.exists(filename):
             print('No such file')
@@ -642,7 +642,7 @@ class MagicTaySphere(MagicSetup):
         """
 
         if tag is not None:
-            pattern = os.path.join(datadir, 'TaySphere.%s' % tag)
+            pattern = os.path.join(datadir, 'TaySphere.{}'.format(tag))
             files = scanDir(pattern)
             if len(files) != 0:
                 filename = files[-1]
@@ -650,9 +650,9 @@ class MagicTaySphere(MagicSetup):
                 print('No such tag... try again')
                 return
 
-            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % tag)
+                                    nml='log.{}'.format(tag))
         else:
             pattern = os.path.join(datadir, 'TaySphere.*')
             files = scanDir(pattern)
@@ -660,9 +660,9 @@ class MagicTaySphere(MagicSetup):
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+            if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml='log.%s' % ending)
+                                    nml='log.{}'.format(ending))
 
         if not os.path.exists(filename):
             print('No such file')

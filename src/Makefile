@@ -13,8 +13,10 @@ USE_OMP=yes
 DEBUG=no
 # Pre-conditioning of the matrices: yes/no
 USE_PRECOND=yes
-# USE_FFTLIB can be MKL or JW
+# USE_FFTLIB can be MKL, FFTW or JW
 USE_FFTLIB=MKL
+#USE_DCTLIB can be MKL, FFTW or JW
+USE_DCTLIB=JW
 #USE_LAPACKLIB can be MKL, LAPACK or JW
 USE_LAPACKLIB=MKL
 #Use shtns for Legendre/Fourier transforms
@@ -209,7 +211,7 @@ FFLAGS += $(FFLAG_STD)
 FFLAGS += -g $(FFLAG_TRACEBACK)
 ifeq ($(PRODRUN),yes)
 	DEBUG=no
-	OPT += -O3 $(FFLAG_ARCH_OPT)
+	OPT += -O2 $(FFLAG_ARCH_OPT)
 else
 	OPT += -O 
 endif
@@ -245,7 +247,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% algebra% sht% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% sht% dct_fftw% cosine_transform_odd% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -271,6 +273,17 @@ else ifeq ($(USE_LAPACKLIB),LIBFLAME)
 else ifeq ($(USE_LAPACKLIB),JW)
 	RED_SOURCES += algebra.f90
 	LAPACK_OBJS += algebra.o
+endif
+
+ifeq ($(USE_DCTLIB),MKL)
+	RED_SOURCES += dct_fftw.f90
+	DCT_OBJS += dct_fftw.o
+else ifeq ($(USE_DCTLIB),FFTW)
+	RED_SOURCES += dct_fftw.f90
+	DCT_OBJS += dct_fftw.o
+else ifeq ($(USE_DCTLIB),JW)
+	RED_SOURCES += cosine_transform_odd.f90
+	DCT_OBJS += cosine_transform_odd.o
 endif
 
 ifeq ($(USE_SHTNS),yes)
@@ -323,7 +336,7 @@ magnetic_energy.o     : truncation.o blocking.o horizontal.o\
 finite_differences.o  : truncation.o useful.o constants.o parallel.o\
                         radial_scheme.o mem_alloc.o
 chebyshev.o           : mem_alloc.o constants.o blocking.o radial_scheme.o\
-                        chebyshev_polynoms.o cosine_transform_odd.o useful.o
+                        chebyshev_polynoms.o $(DCT_OBJS) useful.o
 radial_scheme.o       : precision_mod.o
 useful.o              : logic.o output_data.o parallel.o precision_mod.o\
                         constants.o
@@ -332,7 +345,7 @@ mem_alloc.o           : parallel.o precision_mod.o output_data.o
 out_TO.o              : truncation.o horizontal.o num_param.o\
                         phys_param.o radial.o logic.o blocking.o\
                         constants.o output_data.o TO.o $(SHT_OBJS)\
-                        cosine_transform_odd.o chebInt.o plms.o TO_helpers.o\
+                        $(DCT_OBJS) chebInt.o plms.o TO_helpers.o\
                         char_manip.o integration.o useful.o mem_alloc.o\
                         communications.o
 TO_helpers.o          : truncation.o blocking.o horizontal.o precision_mod.o\
@@ -366,18 +379,16 @@ storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
 updateS.o             : truncation.o blocking.o horizontal.o time_array.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mem_alloc.o time_schemes.o\
-                        matrices.o cosine_transform_odd.o\
-                        radial_derivatives.o matrices.o
+                        matrices.o $(DCT_OBJS) radial_derivatives.o matrices.o
 updateXI.o            : truncation.o blocking.o horizontal.o time_array.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mem_alloc.o time_schemes.o\
-                        matrices.o cosine_transform_odd.o\
-                        radial_derivatives.o
+                        matrices.o $(DCT_OBJS) radial_derivatives.o
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         output_data.o outRot.o integration.o useful.o\
                         mem_alloc.o mean_sd.o
-integration.o         : cosine_transform_odd.o precision_mod.o constants.o
+integration.o         : $(DCT_OBJS) precision_mod.o constants.o
 out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         truncation.o communications.o\
                         mem_alloc.o radial.o output_data.o phys_param.o
@@ -418,7 +429,7 @@ mpi_transpose.o       : precision_mod.o truncation.o radial_data.o\
                         mem_alloc.o parallel.o blocking.o
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
-radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
+radial_derivatives.o  : $(DCT_OBJS) constants.o precision_mod.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
@@ -446,15 +457,14 @@ RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
                         finite_differences.o radial_scheme.o chebyshev.o
 updateWP.o            : truncation.o blocking.o num_param.o integration.o\
                         phys_param.o radial.o horizontal.o logic.o\
-                        RMS.o cosine_transform_odd.o radial_derivatives.o\
+                        RMS.o $(DCT_OBJS) radial_derivatives.o\
                         RMS_helpers.o mem_alloc.o fields.o matrices.o\
                         time_array.o time_schemes.o
 updateWPS.o           : truncation.o blocking.o num_param.o time_array.o\
                         phys_param.o radial.o horizontal.o logic.o\
-                        cosine_transform_odd.o radial_derivatives.o\
+                        $(DCT_OBJS) radial_derivatives.o\
                         mem_alloc.o init_fields.o RMS.o time_schemes.o
-chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
-                        radial_derivatives.o
+chebInt.o             : chebyshev_polynoms.o $(DCT_OBJS) radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         RMS.o RMS_helpers.o fields.o\
@@ -468,23 +478,21 @@ radial_spectra.o      : truncation.o blocking.o horizontal.o radial.o\
 nl_special_calc.o     : truncation.o blocking.o horizontal.o\
                         radial.o radial_data.o phys_param.o constants.o
 outOmega.o            : truncation.o blocking.o logic.o\
-                        output_data.o radial.o cosine_transform_odd.o plms.o
+                        output_data.o radial.o $(DCT_OBJS) plms.o
 fft_fac.o             : constants.o precision_mod.o
 cosine_transform_even.o: truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o
-cosine_transform_odd.o : truncation.o fft_fac.o constants.o useful.o\
-                        mem_alloc.o
 readCheckPoints.o     : truncation.o blocking.o phys_param.o time_array.o\
                         init_fields.o constants.o radial.o time_schemes.o\
-                        logic.o cosine_transform_odd.o finite_differences.o\
+                        logic.o $(DCT_OBJS) finite_differences.o\
                         chebyshev.o radial_scheme.o num_param.o updateB.o\
 			updateWP.o updateS.o updateZ.o updateXI.o updateWPS.o
-radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
+radial_derivatives_even.o : $(DCT_OBJS) precision_mod.o constants.o\
                         cosine_transform_even.o
 updateZ.o             : truncation.o blocking.o phys_param.o time_array.o\
                         num_param.o constants.o radial.o horizontal.o\
                         logic.o init_fields.o RMS.o TO.o time_schemes.o\
-                        matrices.o cosine_transform_odd.o\
+                        matrices.o $(DCT_OBJS)\
                         radial_derivatives.o outRot.o RMS_helpers.o \
                         communications.o mem_alloc.o special.o
 out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
@@ -506,11 +514,11 @@ updateB.o             : truncation.o blocking.o horizontal.o fields.o\
                         phys_param.o num_param.o init_fields.o time_array.o\
                         logic.o radial.o special.o constants.o time_schemes.o\
                         RMS.o matrices.o radial_derivatives.o\
-                        cosine_transform_odd.o radial_derivatives_even.o\
+                        $(DCT_OBJS) radial_derivatives_even.o\
                         RMS_helpers.o mem_alloc.o
 outGeos.o             : truncation.o phys_param.o num_param.o\
                         horizontal.o radial.o blocking.o constants.o\
-                        output_data.o logic.o cosine_transform_odd.o chebInt.o\
+                        output_data.o logic.o $(DCT_OBJS) chebInt.o\
                         plms.o $(FFT_OBJS) communications.o\
                         mem_alloc.o TO_helpers.o
 preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
@@ -533,7 +541,7 @@ blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
 num_param.o           : truncation.o precision_mod.o mem_alloc.o timing.o
 radial.o              : truncation.o radial_data.o $(LAPACK_OBJS)\
                         phys_param.o logic.o precision_mod.o finite_differences.o\
-                        output_data.o cosine_transform_odd.o\
+                        output_data.o $(DCT_OBJS)\
                         chebyshev_polynoms.o radial_derivatives.o\
 			cosine_transform_even.o mem_alloc.o useful.o radial_scheme.o\
                         chebyshev.o finite_differences.o
@@ -545,7 +553,7 @@ RMS.o	              : truncation.o blocking.o mem_alloc.o
 init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) $(SHT_OBJS)\
                         useful.o phys_param.o mpi_transpose.o\
-                        cosine_transform_odd.o mem_alloc.o parallel.o 
+                        $(DCT_OBJS) mem_alloc.o parallel.o 
 mean_sd.o             : precision_mod.o mem_alloc.o matrices.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
@@ -575,14 +583,14 @@ special.o             : precision_mod.o mem_alloc.o truncation.o
 probes.o              : parallel.o precision_mod.o truncation.o radial.o num_param.o\
                         blocking.o horizontal.o output_data.o constants.o
 radial_data.o         : truncation.o parallel.o logic.o
-matrices.o            : precision_mod.o mem_alloc.o ${LAPACK_OBJS}
+matrices.o            : precision_mod.o mem_alloc.o $(LAPACK_OBJS)
 plms.o                : constants.o precision_mod.o useful.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
                         init_fields.o output_data.o parallel.o movie.o\
                         TO.o special.o radial.o char_manip.o probes.o\
                         time_schemes.o dirk_schemes.o multistep_schemes.o
-
+$(DCT_OBJS)           : precision_mod.o fft_fac.o constants.o useful.o mem_alloc.o
 
 ifeq ($(USE_SHTNS),yes)
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
@@ -602,6 +610,12 @@ ifeq ($(USE_LAPACKLIB),MKL)
 $(LAPACK_OBJS)        : lapack95.mod
 lapack95.mod          : $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<
+endif
+
+ifeq ($(USE_DCTLIB),MKL)
+$(DCT_OBJS)           :blocking.o
+else ifeq ($(USE_DCTLIB),FFTW)
+$(DCT_OBJS)           :blocking.o
 endif
 
 

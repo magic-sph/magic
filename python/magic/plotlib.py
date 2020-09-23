@@ -385,7 +385,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 else:
                     fig = plt.figure(figsize=(8,4.5))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.87])
-                ax.set_title('%s: r/ro = %.3f' % (label, rad),
+                ax.set_title('{}: r/ro = {:.3f}'.format(label, rad),
                              fontsize=24)
             else:
                 if cbar:
@@ -394,7 +394,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 else:
                     fig = plt.figure(figsize=(8,4))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-                #tit1 = r'%.2f Ro' % rad
+                #tit1 = r'{:.2f} Ro'.format(rad)
                 #ax.text(0.12, 0.9, tit1, fontsize=16,
                       #horizontalalignment='right',
                       #verticalalignment='center',
@@ -407,7 +407,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 else:
                     fig = plt.figure(figsize=(5,5.5))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
-                ax.set_title('%s: r/ro = %.3f' % (label, rad),
+                ax.set_title('{}: r/ro = {:.3f}'.format(label, rad),
                              fontsize=24)
             else:
                 if cbar:
@@ -416,7 +416,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 else:
                     fig = plt.figure(figsize=(5,5))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-                tit1 = r'%.2f Ro' % rad
+                tit1 = r'{:.2f} Ro'.format(rad)
                 ax.text(0.12, 0.9, tit1, fontsize=16,
                       horizontalalignment='right',
                       verticalalignment='center',

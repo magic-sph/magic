@@ -1,9 +1,9 @@
 module out_coeff
    !
-   ! This module contains the subroutines that calculate the Bcmb files
-   ! , the [B|V|T]_coeff_r files and the [B|V|T]_lmr files
+   ! This module contains the subroutines that calculate the Bcmb files,
+   ! the [B|V|T]_coeff_r files and the [B|V|T]_lmr files
    !
-  
+
    use precision_mod
    use parallel_mod
    use LMmapping, only: map_glbl_st
@@ -37,19 +37,12 @@ contains
    subroutine write_Bcmb(time,b,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
       !
       ! Each call of this subroutine writes time and the poloidal magnetic
-      ! potential coefficients b at the CMB up to degree and order        
-      ! l_max_cmb at the end of output file $cmb_file.                    
-      ! The parameters l_max_cmb, minc and the number of stored coeffs.  
-      ! are written into the first line of $cmb_file.                     
-      ! Each further set contains:                                        
-      !    
-      !     .. code-block:: fortran
+      ! potential coefficients b at the CMB up to degree and order l_max_cmb
+      ! at the end of output file cmb_file. The parameters l_max_cmb, minc and
+      ! the number of stored coeffs are written into the header of cmb_file.
+      ! Each further set contains:
       !
-      !                    time,
-      !                    real(b(l=0,m=0)),imag(b(l=0,m=0)),                  
-      !                    real(b(l=1,m=0)),imag(b(l=1,m=0)),    
-      !                                                                   
-      ! Real and imaginary part of b(*) for all orders m<=l are written   
+      ! Real and imaginary part of b(*) for all orders m<=l are written
       ! for a specific degree l, then for the degrees l+1, l+2, l_max_cmb.
       !
 
@@ -144,33 +137,18 @@ contains
 !----------------------------------------------------------------------
    subroutine write_coeff_r(time,w,dw,ddw,z,r,l_max_r,n_sets,file,n_file,nVBS)
       !
-      ! Each call of this subroutine writes time and the poloidal and     
-      ! toroidal coeffitients w,dw,z at a specific radius up to degree    
-      ! and order l_max_r at the end of output file $file.                
-      ! If the input is magnetic field (nVBS=2) ddw is stored as well.    
-      ! If the input is entropy field (nVBS=3) only ddw=s is stored.      
-      ! The parameters l_max_r, minc, the number of stored coeffs and     
+      ! Each call of this subroutine writes time and the poloidal and
+      ! toroidal coeffitients w,dw,z at a specific radius up to degree
+      ! and order l_max_r at the end of output file $file.
+      ! If the input is magnetic field (nVBS=2) ddw is stored as well.
+      ! If the input is entropy field (nVBS=3) only ddw=s is stored.
+      ! The parameters l_max_r, minc, the number of stored coeffs and
       ! radius in the outer core are written into the first line of $file.
-      ! Each further set contains:                                        
+      ! Each further set contains:
       !
-      !     .. code-block :: fortran
+      ! Real and imaginary part of w(*) for all orders m<=l are written
+      ! for a specific degree l, then for the degrees l+1, l+2, l_max_r.
       !
-      !               time,
-      !               real(w(l=0,m=0)),imag(w(l=0,m=0)),                  
-      !               real(w(l=1,m=0)),imag(w(l=1,m=0)),                  
-      !               ...
-      !               real(dw(l=0,m=0)),imag(dw(l=0,m=0)),                
-      !               real(dw(l=1,m=0)),imag(dw(l=1,m=0)),                
-      !               ...
-      !               real(z(l=0,m=0)),imag(z(l=0,m=0)),                  
-      !               real(z(l=1,m=0)),imag(z(l=1,m=0)),                  
-      !               ...
-      !               real(ddw(l=0,m=0)),imag(ddw(l=0,m=0)),              
-      !               real(ddw(l=1,m=0)),imag(ddw(l=1,m=0)),              
-      !                                                                   
-      ! Real and imaginary part of w(*) for all orders m<=l are written   
-      ! for a specific degree l, then for the degrees l+1, l+2, l_max_r.  
-      !                                                                   
 
       !-- Input variables:
       real(cp),         intent(in) :: r              ! radius of coeffs
@@ -342,7 +320,7 @@ contains
                   end if
                end do
             end do
-         end if 
+         end if
       end if
 
       if ( l_master_rank ) then
@@ -377,6 +355,7 @@ contains
       !
       ! This routine stores the fields in (lm,r) space using MPI-IO
       !
+
       !-- Input of variables:
       real(cp),         intent(in) :: time ! Time
       complex(cp),      intent(in) :: b(n_lm_loc,nRstart:nRstop) ! Poloidal potential
@@ -563,19 +542,19 @@ contains
       !
 
       !-- Input of variables:
-      real(cp),         intent(in) :: time
+      real(cp),         intent(in) :: time ! Output time
       complex(cp),      intent(in) :: b(n_mlo_loc,n_r_max)
       complex(cp),      intent(in) :: aj(n_mlo_loc,n_r_max)
       complex(cp),      intent(in) :: b_ic(n_mlo_loc,n_r_ic_max)
       complex(cp),      intent(in) :: aj_ic(n_mlo_loc,n_r_ic_max)
-      character(len=*), intent(in) :: root
+      character(len=*), intent(in) :: root ! File prefix
       real(cp),         intent(in) :: omega_ma,omega_ic
       integer,          intent(in) :: nPotSets
-    
+
       !-- Work arrays:
       complex(cp), allocatable :: workA_global(:,:)
       complex(cp), allocatable :: workB_global(:,:)
-    
+
       !-- File outputs:
       character(80) :: string
       character(:), allocatable :: head
@@ -584,12 +563,11 @@ contains
       logical :: lVB
 
       version = 1
-    
+
       head = trim(adjustl(root))
       lVB=.false.
       if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
-    
       ! now gather the fields on coord_r 0 and write them to file
       ! it would be nicer to write the fields with MPI IO in parallel
       ! but then presumably the file format will change

@@ -15,27 +15,20 @@ contains
    subroutine plm_theta(theta,max_degree,max_order,m0, &
               &          plma,dtheta_plma,ndim_plma,norm)
       !
-      !  This produces the :math:`P_{\ell}^m` for all degrees :math:`\ell` and 
-      !  orders :math:`m` for a given colatitude. :math:`\theta`, as well as 
-      !  :math:`\sin \theta d P_{\ell}^m /d\theta`.  The order is as follows:  
-      !     .. code-block:: fortran
+      !  This produces the :math:`P_{\ell}^m` for all degrees :math:`\ell` and
+      !  orders :math:`m` for a given colatitude. :math:`\theta`, as well as
+      !  :math:`\sin \theta d P_{\ell}^m /d\theta`. The :math:`P_{\ell}^m` are
+      !  stored with a single lm index stored with m first.
       !
-      !         plma(1)=plm(l=0,m=0),
-      !         plma(2)=plm(l=1,m=0),
-      !         plma(3)=plm(l=2,m=0),
-      !         ...
-      !         plma(max_degree+1)=plm(l=max_degree,m=0),
-      !         plma(max_degree+2)=plm(l=1,m=m0),
-      !         plma(max_degree+3)=plm(l=2,m=m0),
-      !     ..
       !  Several normalisation are supported:
+      !
       !     * n=0 -- surface normalised,
       !     * n=1 -- Schmidt normalised,
       !     * n=2 -- fully normalised.
       !
-        
+
       !-- Input variables:
-      real(cp), intent(in) :: theta ! angle in degrees
+      real(cp), intent(in) :: theta      ! angle in radians
       integer,  intent(in) :: max_degree ! required max degree of plm
       integer,  intent(in) :: max_order  ! required max order of plm
       integer,  intent(in) :: m0         ! basic wave number
@@ -50,7 +43,7 @@ contains
       !-- Local variables:
       real(cp) :: sq2,dnorm,fac,plm,plm1,plm2
       integer :: l,m,j,pos
-       
+
       dnorm=one
       if ( norm == 2 ) dnorm=osq4pi
       sq2=sqrt(two)
@@ -59,7 +52,7 @@ contains
       !   the known plm(l=m):
       pos=0
       do m=0,max_order,m0
-           
+
          fac=one
          do j=3,2*m+1,2
             fac=fac*real(j,cp)/real(j-1,cp)
@@ -71,7 +64,7 @@ contains
          else if( m /= 0 ) then
             plm=0.0_cp
          end if
-           
+
          !-- plm for l=m:
          l=m
          if ( norm == 1 ) then
@@ -82,9 +75,9 @@ contains
          !-- Now store it:
          pos=pos+1
          plma(pos) = dnorm*plm
-           
+
          plm1=0.0_cp
-           
+
          !-- plm for l>m:
          do l=m+1,max_degree
             plm2=plm1
@@ -97,14 +90,14 @@ contains
                dnorm=one/sqrt(real(2*l+1,cp))
                if ( m /= 0 ) dnorm=sq2*dnorm
             end if
-               
+
             !----- Now store it:
             pos=pos+1
             if ( pos > ndim_plma ) then
                call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
             end if
             plma(pos) = dnorm*plm
-               
+
          end do
 
          !-- additional plm(max_degree+1) necessary to calculate
@@ -122,12 +115,12 @@ contains
             if ( m /= 0 ) dnorm=sq2*dnorm
          end if
          dtheta_plma(pos)=dnorm*plm
-           
+
       end do    ! loop over order !
-       
+
       !--  evaluate sin(theta) * theta derivative with recurrence relation
       !    using an l+1 and an l-1 plm:
-       
+
       pos=0
 
       do m=0,max_order,m0
@@ -151,7 +144,7 @@ contains
                dtheta_plma(pos)= l/sqrt(real(2*l+1,cp)) * dtheta_plma(pos)
             end if
          end if
-               
+
          !-------- l>m contribution:
          do l=m+1,max_degree-1
 
@@ -175,7 +168,7 @@ contains
                &               ) * plma(pos-1)
                dtheta_plma(pos)=dtheta_plma(pos)/real(2*l+1,cp)
             end if
-                      
+
          end do ! loop over degree
 
          !-------- l=max_degree contribution, note
@@ -187,7 +180,7 @@ contains
                call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
             end if
             if( norm == 0 .OR. norm == 2 ) then
-               dtheta_plma(pos)=                      & 
+               dtheta_plma(pos)=                      &
                &  l*sqrt( real((l+m+1)*(l-m+1),cp) /  &
                &             real((2*l+1)*(2*l+3),cp) &
                &           ) * dtheta_plma(pos)  -    &
@@ -205,7 +198,7 @@ contains
          end if
 
       end do ! loop over order
-     
+
    end subroutine plm_theta
 !------------------------------------------------------------------------
 end module plms_theta

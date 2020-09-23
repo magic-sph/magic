@@ -100,6 +100,11 @@ contains
          end if
       end if
 
+#ifdef WITH_MPI
+      call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+#endif
+
       if ( l_master_rank ) then
          open(newunit=n_rst_file, file=rst_file, status='unknown', &
          &    form='unformatted', access='stream')
@@ -406,6 +411,11 @@ contains
             rst_file='checkpoint_t='//trim(string)//'.'//tag
          end if
       end if
+
+#ifdef WITH_MPI
+      call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
+#endif
 
       !-- MPI-IO setup
       call mpiio_setup(info)

@@ -1,7 +1,7 @@
 module omega
    !
    ! This module allows to compute the axisymmetric zonal flow versus the cylindrical
-   ! radius s. By 
+   ! radius s.
    !
 
    use precision_mod

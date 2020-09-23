@@ -1,5 +1,10 @@
 #include "perflib_preproc.cpp"
 module updateXi_mod
+   !
+   ! This module handles the time advance of the chemical composition xi.
+   ! It contains the computation of the implicit terms and the linear
+   ! solves.
+   !
 
    use omp_lib
    use precision_mod
@@ -117,18 +122,17 @@ contains
 !------------------------------------------------------------------------------
    subroutine updateXi(xi, dxi, dxidt, tscheme)
       !
-      !  updates the entropy field s and its radial derivatives
-      !  adds explicit part to time derivatives of s
+      !  Updates the chemical composition field s and its radial derivative.
       !
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
-      complex(cp),       intent(inout) :: xi(n_mlo_loc,n_r_max)
+      complex(cp),       intent(inout) :: xi(n_mlo_loc,n_r_max) ! Chemical composition
       type(type_tarray), intent(inout) :: dxidt
       !-- Output: dxi
-      complex(cp),       intent(out) :: dxi(n_mlo_loc,n_r_max)
+      complex(cp),       intent(out) :: dxi(n_mlo_loc,n_r_max) ! Radial derivative of xi
 
       !-- Local variables:
       integer :: l, m             ! degree and order

@@ -357,7 +357,7 @@ class Cyl(MagicSetup):
 
         self.datadir = datadir
 
-        filename = '%sG_%i.%s' % ('cyl', ivar, self.tag)
+        filename = '{}G_{}.{}'.format('cyl', ivar, self.tag)
         if not os.path.exists(filename):
             print("sph2cyl...")
             gr = MagicGraph(ivar=ivar, datadir=self.datadir)
@@ -468,11 +468,11 @@ class Cyl(MagicSetup):
         if labTex:
             ax.set_xlabel(r'$\phi$', fontsize=18)
             ax.set_ylabel(r'$z$', fontsize=18)
-            ax.set_title('%s: $r/r_o$ = %.3f' % (label, rad), fontsize=24)
+            ax.set_title('{}: $r/r_o$ = {:.3f}'.format(label, rad), fontsize=24)
         else:
             ax.set_xlabel('phi', fontsize=18)
             ax.set_ylabel('z', fontsize=18)
-            ax.set_title('%s: r/ro = %.3f' % (label, rad), fontsize=24)
+            ax.set_title('{}: r/ro = {:.3f}'.format(label, rad), fontsize=24)
         cbar = plt.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
@@ -953,7 +953,7 @@ class Cyl(MagicSetup):
                 ax.plot([0., 0], [self.ri, self.ro], 'k-')
                 ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
                 ax.axis('off')
-                ax.set_title(label+r' $%i^\circ$' % lon)
+                ax.set_title(label+r' ${}^\circ$'.format(lon))
                 #fig.colorbar(im, orientation='horizontal')
 
         else:

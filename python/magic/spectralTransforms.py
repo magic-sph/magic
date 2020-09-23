@@ -42,10 +42,10 @@ class SpectralTransforms(object):
 
         if verbose:
             print('Spectral transform setup:')
-            print('l_max, m_max, minc, lm_max: %i, %i, %i, %i' % \
-                (self.l_max, self.m_max, self.minc, self.lm_max))
-            print('n_phi_max, n_theta_max: %i, %i' % \
-                (self.n_phi_max, self.n_theta_max))
+            print('l_max, m_max, minc, lm_max: {}, {}, {}, {}'.format(
+                self.l_max, self.m_max, self.minc, self.lm_max))
+            print('n_phi_max, n_theta_max: {}, {}'.format(
+                self.n_phi_max, self.n_theta_max))
 
         self.colat = self._legF90.sinth
 

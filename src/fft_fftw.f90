@@ -34,9 +34,8 @@ contains
       integer :: inembed(1), onembed(1), istride, ostride, odist, idist, n(1)
       integer :: howmany
 #ifdef WITHOMP
-      integer :: n_threads, ier
+      integer :: n_threads
 
-      ier =  fftw_init_threads()
       n_threads = omp_get_num_threads()
       call fftw_plan_with_nthreads(n_threads)
 #endif

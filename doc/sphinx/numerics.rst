@@ -77,9 +77,9 @@ are given by
 
 .. math::
    \tilde{\rho}\vec{u} = -(\Delta_H W)\,\vec{e_r} + \left( \dfrac{1}{r}
-   \dfrac{\partial W}{\partial \theta} + 
+   \dfrac{\partial^2 W}{\partial r \partial \theta} + 
    \dfrac{1}{r\sin\theta}\dfrac{\partial Z}{\partial \phi}\right)\,\vec{e_\theta} 
-   +\left(\dfrac{1}{r\sin\theta}\dfrac{\partial W}{\partial \phi}-
+   +\left(\dfrac{1}{r\sin\theta}\dfrac{\partial^2 W}{\partial r\partial \phi}-
    \dfrac{1}{r}\dfrac{\partial Z}{\partial\theta} \right)\,\vec{e_\phi},
    :label: eqToroPolo1
 

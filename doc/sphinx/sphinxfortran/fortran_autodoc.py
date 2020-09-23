@@ -344,10 +344,11 @@ class F90toRst(object):
                     for line in modsrc:
                         if line.strip().startswith('!'):
                             continue
-                        m = block['vardescsearch'](line)
-                        if m:
-                            block['vars'][m.group('varname').lower()]['desc'] = m.group(
-                                'vardesc')
+                        if 'vardescsearch' in block.keys():
+                            m = block['vardescsearch'](line)
+                            if m:
+                                block['vars'][m.group('varname').lower()]['desc'] = m.group(
+                                    'vardesc')
                 for bvar in list(block['vars'].values()):
                     bvar.setdefault('desc', '')
 

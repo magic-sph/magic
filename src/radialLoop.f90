@@ -21,7 +21,6 @@ contains
 
    subroutine initialize_radialLoop
 
-      character(len=100) :: this_type
       integer(lip) :: local_bytes_used
 
       local_bytes_used = bytes_allocated

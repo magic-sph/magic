@@ -118,9 +118,8 @@ contains
 
    end subroutine finalize_outRot
 !-----------------------------------------------------------------------
-   subroutine write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b,     &
-              &         omega_ic,omega_ma,lorentz_torque_ic,&
-              &         lorentz_torque_ma)
+   subroutine write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b,omega_ic,omega_ma, &
+              &         lorentz_torque_ic,lorentz_torque_ma)
 
       !-- Input of variables:
       real(cp),    intent(in) :: omega_ic,omega_ma
@@ -387,9 +386,10 @@ contains
       !  Purpose of this subroutine is to calculate the viscous torque
       !  on mantle or inner core respectively.
       !
-      !  .. math:`\Gamma_\nu=4\sqrt{\pi/3}\nu r\left[ z_{10}'-
-      !           (\frac{2}{r}+\beta)z_{10}\right]
-      !
+      !  .. math::
+      !     \Gamma_\nu=4\sqrt{\pi/3}\nu r\left[ \frac{\partial z_{10}}{\partial r}
+      !     -(\frac{2}{r}+\beta)z_{10} \right]
+      !  ..
       !
 
       !-- Input:
@@ -408,32 +408,32 @@ contains
 !-----------------------------------------------------------------------
    subroutine get_lorentz_torque(lorentz_torque,br,bp,nR)
       !
-      !  Purpose of this subroutine is to calculate the lorentz torque
+      !  Purpose of this subroutine is to calculate the Lorentz torque
       !  on mantle or inner core respectively.
       !
-      !  .. note:: Lorentz_torque must be set to zero before loop over
+      !  .. note:: ``lorentz_torque`` must be set to zero before loop over
       !            theta blocks is started.
       !
-      !  .. warning:: subroutine returns -lorentz_torque if used at CMB
+      !  .. warning:: subroutine returns ``-lorentz_torque`` if used at CMB
       !               to calculate torque on mantle because if the inward
       !               surface normal vector.
       !
       !  The Prandtl number is always the Prandtl number of the outer
       !  core. This comes in via scaling of the magnetic field.
       !  Theta alternates between northern and southern hemisphere in
-      !  br and bp but not in gauss. This has to be cared for, and we
-      !  use: gauss(latitude)=gauss(-latitude) here.
+      !  ``br`` and ``bp`` but not in gauss. This has to be cared for, and we
+      !  use: ``gauss(latitude)=gauss(-latitude)`` here.
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max)      ! array containing
-      real(cp), intent(in) :: bp(nThetaStart:nThetaStop,n_phi_max)      ! array containing
-      integer,  intent(in) :: nR
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max) ! array containing :math:`r^2 B_r`
+      real(cp), intent(in) :: bp(nThetaStart:nThetaStop,n_phi_max) ! array containing :math:`r\sin\theta B_\phi`
+      integer,  intent(in) :: nR ! radial level
 
-      real(cp), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
+      real(cp), intent(inout) :: lorentz_torque ! Lorentz torque
 
 
-      !-- local variables:
+      !-- Local variables:
       integer :: nTheta,nPhi,nThetaNHS
       real(cp) :: fac,b0r
 
@@ -478,7 +478,7 @@ contains
               &                  angular_moment_ic,angular_moment_ma)
       !
       !    Calculates angular momentum of outer core, inner core and
-      !    mantle. For outer core we need z(l=1|m=0,1|r), for
+      !    mantle. For outer core we need ``z(l=1|m=0,1|r)``, for
       !    inner core and mantle the respective rotation rates are needed.
       !
 

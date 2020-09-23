@@ -406,7 +406,12 @@ contains
       !
       ! This routine is used to derive the values of f at both boundaries
       ! when f is subject to Robin boundary conditions on both sides:
-      ! atop * df/dr + btop * f = rhs_top;  abot * df/dr + bbot * f = rhs_bot
+      !
+      ! .. code-block: fortran
+      !
+      !      atop * df/dr + btop * f = rhs_top;  abot * df/dr + bbot * f = rhs_bot
+      !
+      !
       ! With finite differences, this yields two uncoupled equations that
       ! can be solved sequentially.
       !
@@ -501,31 +506,18 @@ contains
 !----------------------------------------------------------------------------
    subroutine populate_fd_weights(z, x, nd, m, c)
       !
-      !  Input Parameters
-      !    z            -  location where approximations are to be
-      !                    accurate
-      !    x(0:nd)      -  grid point locations, found in x(0:n)
-      !    nd           -  dimension of x- and c-arrays in calling
-      !                    program x(0:nd) and c(0:nd, 0:m), respectively
-      !    m            -  highest derivative for which weights are
-      !                    sought
+      ! Generation of Finite Difference Formulas on Arbitrarily
+      ! Spaced Grids, Bengt Fornberg, Mathematics of compuation, 51, 184, 1988, 699-706
       !
-      !  Output Parameter
-      !    c(0:nd,0:m)  -  weights at grid locations x(0:n) for
-      !                    derivatives of order 0:m, found in c(0:nd, 0:m)
-      !
-      !  Reference:
-      !      Generation of Finite Difference Formulas on Arbitrarily
-      !          Spaced Grids, Bengt Fornberg,
-      !          Mathematics of compuation, 51, 184, 1988, 699-706
 
       !-- Input quantities:
-      real(cp), intent(in) :: z
-      integer,  intent(in) :: nd, m
-      real(cp), intent(in) :: x(0:nd)
+      real(cp), intent(in) :: z ! grid points where approximations are to be accurate
+      integer,  intent(in) :: nd ! dimension of ``x`` and ``c``
+      integer,  intent(in) :: m  ! highest deriative for which weights are sought
+      real(cp), intent(in) :: x(0:nd) ! hrid point locations
 
       !-- Output:
-      real(cp), intent(out) :: c(0:nd, 0:m)
+      real(cp), intent(out) :: c(0:nd, 0:m) ! weights at grid locations x(0:n) for derivatives of order 0:m
 
       !-- Local variables
       real(cp) :: c1, c2, c3, c4, c5

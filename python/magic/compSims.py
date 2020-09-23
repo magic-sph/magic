@@ -160,7 +160,7 @@ class CompSims:
                 tick.label1.set_fontsize(10)
             for tick in ax.yaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
-            ax.set_title('Ra = %.1e' % ts.ra, fontsize=10)
+            ax.set_title('Ra = {:.1e}'.format(ts.ra), fontsize=10)
             ax.set_xlim((ts.time.min(), ts.time.max()))
             iplot += 1
         os.chdir(self.workdir)
@@ -189,7 +189,7 @@ class CompSims:
                 tick.label1.set_fontsize(10)
             for tick in ax.yaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
-            ax.set_title('Ra = %.1e, Pm= %.1f' % (ts.ra, ts.prmag), fontsize=10)
+            ax.set_title('Ra = {:.1e}, Pm= {:.1f}'.format(ts.ra, ts.prmag), fontsize=10)
             ax.set_xlim((ts.time.min(), ts.time.max()))
             iplot += 1
         os.chdir(self.workdir)
@@ -212,7 +212,7 @@ class CompSims:
                 tick.label1.set_fontsize(10)
             for tick in ax.yaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
-            ax.set_title('Ra = %.1e' % ts.ra, fontsize=10)
+            ax.set_title('Ra = {:.1e}'.format(ts.ra), fontsize=10)
             ax.set_xlim((ts.time.min(), ts.time.max()))
             iplot += 1
         os.chdir(self.workdir)
@@ -235,12 +235,12 @@ class CompSims:
             ax.plot(vpm[:, 1], theta)
 
             roequat = vpm[gr.ntheta/2, 0]*gr.ek*(1.-gr.radratio)
-            print('%7.3e %7.3e' % (gr.ra, roequat))
+            print('{:7.3e} {:7.3e}'.format(gr.ra, roequat))
             for tick in ax.xaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
             for tick in ax.yaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
-            ax.set_title('Ra = %.1e' % gr.ra, fontsize=10)
+            ax.set_title('Ra = {:.1e}'.format(gr.ra), fontsize=10)
             ax.set_xlim(1.1*vpm[:,0].min(), 1.1*vpm[:,0].max())
             ax.set_ylim(theta.min(), theta.max())
             ax.axvline(0., color='k', linestyle='--')
@@ -314,7 +314,7 @@ class CompSims:
                 im = ax.contourf(xx, yy, data[..., indPlot], cs,
                                   cmap=cmap, aa=True)
             rad = gr.radius[indPlot] * (1. - gr.radratio)
-            ax.set_title('%s, r/ro=%.3f, Ra=%.1e' % (label, rad, gr.ra),
+            ax.set_title('{}, r/ro={:.3f}, Ra={:.1e}'.format(label, rad, gr.ra),
                     fontsize=10)
             ax.axis('off')
 
@@ -375,7 +375,7 @@ class CompSims:
                 continue
 
 
-            label += ' Ra = %.1e' % gr.ra
+            label += ' Ra = {:.1e}'.format(gr.ra)
 
             if self.field not in ('vortz'):
                 equator = data[:, gr.ntheta/2,:]
@@ -413,9 +413,9 @@ class CompSims:
                     ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--')
 
             #if hasattr(gr, 'cmbHflux'):
-                #tit1 = r"${\cal Q}_{cmb} = %.1f$" % gr.cmbHflux
+                #tit1 = r"${\cal Q}_{cmb} = {:.1f}$".format(gr.cmbHflux)
                 #if gr.strat >= 1:
-                    #tit1 = r"$N_\rho = %.0f$"  % gr.strat
+                    #tit1 = r"$N_\rho = {:.0f}$".format(gr.strat)
                 #else:
                     #tit1 = r"$N_\rho = 10^{-2}$"
             tit1 = datadir
@@ -486,8 +486,8 @@ class CompSims:
             except AttributeError:
                 continue
 
-            #label += ' Ra = %.1e' % gr.ra
-            label = 'Ra = %.1e' % gr.ra
+            #label += ' Ra = {:.1e}'.format(gr.ra)
+            label = 'Ra = {:.1e}'.format(gr.ra)
 
             if self.field not in ('Cr', 'cr', 'ra', 'ratio', 'Cz', 'cz'):
                 phiavg = data.mean(axis=0)
@@ -576,7 +576,7 @@ class CompSims:
 
             """
             if gr.strat >= 1:
-                tit1 = r"$N_\rho = %.0f$"  % gr.strat
+                tit1 = r"$N_\rho = {:.0f}$".format(gr.strat)
             else:
                 tit1 = r"$N_\rho = 10^{-2}$"
             """
@@ -584,14 +584,14 @@ class CompSims:
 
             """
             if int(titmin) == 0:
-                tit1 = r'$+%i$' % titmax +'\n'+r'$%.1f$' % titmin
+                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${:.1f}$'.format(titmin)
             else:
-                tit1 = r'$+%i$' % titmax +'\n'+r'$%i$' % titmin
+                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${}$'.format(titmin)
             ax.text(0., 0.5, tit1, fontsize=12,
                               horizontalalignment='left',
                               verticalalignment='center',
                               transform = ax.transAxes)
-            tit2 = r'$+%.1e/-%.1e$' % (titmax, titmin)
+            tit2 = r'$+{:.1e}/-{:.1e}$'.format(titmax, titmin)
             """
             #ax.text(0.9, 0.05, tit2, fontsize=12,
                               #horizontalalignment='left',
@@ -639,8 +639,8 @@ class CompSims:
             except AttributeError:
                 continue
 
-            #label += ' Ra = %.1e' % gr.ra
-            label = 'Ra = %.1e' % gr.ra
+            #label += ' Ra = {:.1e}'.format(gr.ra)
+            label = 'Ra = {:.1e}'.format(gr.ra)
 
             phiavg = data[0, ...]
 
@@ -695,15 +695,15 @@ class CompSims:
             #fig.colorbar(im)
 
             if gr.strat >= 1:
-                tit1 = r"$N_\rho = %.0f$"  % gr.strat
+                tit1 = r"$N_\rho = {:.0f}$".format(gr.strat)
             else:
                 tit1 = r"$N_\rho = 10^{-2}$"
             #plt.title(tit1, fontsize=12)
 
             if int(titmin) == 0:
-                tit1 = r'$+%i$' % titmax +'\n'+r'$%.1f$' % titmin
+                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${:.1f}$'.format(titmin)
             else:
-                tit1 = r'$+%i$' % titmax +'\n'+r'$%i$' % titmin
+                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${}$'.format(titmin)
             ax.text(0., 0.5, tit1, fontsize=12,
                               horizontalalignment='left',
                               verticalalignment='center',

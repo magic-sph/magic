@@ -1,5 +1,10 @@
 #include "perflib_preproc.cpp"
 module updateZ_mod
+   !
+   ! This module handles the time advance of the toroidal potential z
+   ! It contains the computation of the implicit terms and the linear
+   ! solves.
+   !
 
    use init_fields
    use omp_lib
@@ -150,13 +155,12 @@ contains
               &       domega_ic_dt,lorentz_torque_ma_dt, lorentz_torque_ic_dt, &
               &       tscheme,lRmsNext)
       !
-      !  updates the toroidal potential z and its radial derivatives
-      !  adds explicit part to time derivatives of z
+      !  Updates the toroidal potential z and its radial derivative dz
       !
 
       !-- Input/output of scalar fields:
       class(type_tscheme), intent(in) :: tscheme
-      complex(cp), intent(inout) :: z(n_mlo_loc,n_r_max)   ! Toroidal velocity potential z
+      complex(cp), intent(inout) :: z(n_mlo_loc,n_r_max)  ! Toroidal velocity potential z
       type(type_tarray),  intent(inout) :: dzdt
       type(type_tscalar), intent(inout) :: domega_ic_dt
       type(type_tscalar), intent(inout) :: domega_ma_dt
@@ -904,16 +908,16 @@ contains
 #endif
       !
       !  Purpose of this subroutine is to construct and LU-decompose the
-      !  inversion matrix z10mat for the implicit time step of the
-      !  toroidal velocity potential z of degree l=1 and order m=0.
+      !  inversion matrix ``z10mat`` for the implicit time step of the
+      !  toroidal velocity potential z of degree :math:`\ell=1` and order :math:`m=0`.
       !  This differs from the the normal zmat only if either the ICB or
       !  CMB have no-slip boundary condition and inner core or mantle are
-      !  chosen to rotate freely (either kbotv=1 and/or ktopv=1).
+      !  chosen to rotate freely (either ``kbotv=1`` and/or ``ktopv=1``).
       !
 
       class(type_tscheme), intent(in) :: tscheme ! Time step internal
       real(cp),            intent(in) :: hdif    ! Value of hyperdiffusivity in zMat terms
-      integer,             intent(in) :: l       ! Variable to loop over l's
+      integer,             intent(in) :: l       ! Variable to loop over degrees
 
       !-- Output: z10Mat and pivot_z10
       class(type_realmat), intent(inout) :: zMat
@@ -1029,7 +1033,7 @@ contains
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
-      !  zmat(i,j) for the NS equation.
+      !  ``zmat(i,j)`` for the Navier-Stokes equation.
       !
 
       !-- Input variables:
@@ -1055,7 +1059,7 @@ contains
 
       !----- Boundary conditions, see above:
       if ( ktopv == 1 ) then  ! free slip !
-         dat(1,:)=rscheme_oc%rnorm *             (      & 
+         dat(1,:)=rscheme_oc%rnorm *             (      &
          &                     rscheme_oc%drMat(1,:) -  &
          & (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) )
       else                    ! no slip, note exception for l=1,m=0

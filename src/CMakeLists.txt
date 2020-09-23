@@ -2,6 +2,8 @@ file(GLOB srcfiles "*.f90")
 #set(red_sources ${srcfiles})
 list(REMOVE_ITEM srcfiles "${SRC}/algebra_lapack.f90")
 list(REMOVE_ITEM srcfiles "${SRC}/algebra.f90")
+list(REMOVE_ITEM srcfiles "${SRC}/cosine_transform_odd.f90")
+list(REMOVE_ITEM srcfiles "${SRC}/dct_fftw.f90")
 #set(red_sources ${srcfiles})
 list(REMOVE_ITEM srcfiles "${SRC}/fft_fftw.f90")
 list(REMOVE_ITEM srcfiles "${SRC}/fft.f90")
@@ -18,6 +20,13 @@ if(USE_LAPACKLIB MATCHES JW)
    set(lapack algebra.f90)
 elseif(USE_LAPACKLIB MATCHES LAPACK OR USE_LAPACKLIB MATCHES MKL OR USE_LAPACKLIB MATCHES LIBFLAME)
    set(lapack algebra_lapack.f90)
+endif()
+
+#DCT
+if(USE_DCTLIB MATCHES JW)
+   set(dct cosine_transform_odd.f90)
+else()
+   set(dct dct_fftw.f90)
 endif()
 
 # FFT
@@ -38,7 +47,7 @@ else()
    set(whichsht sht_native.f90)
 endif()
 
-add_executable(magic.exe magic.f90 ${srcfiles} ${fft} ${lapack} ${wichsht} c_utils.c)
+add_executable(magic.exe magic.f90 ${srcfiles} ${fft} ${dct} ${lapack} ${wichsht} c_utils.c)
 set_property(TARGET ${EXEC} PROPERTY LINKER_LANGUAGE Fortran)
 
 ########

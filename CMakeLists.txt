@@ -22,6 +22,7 @@ set(PRECISION   "dble" CACHE STRING "Precision of the calculations")
 set(ARCH        "64"   CACHE STRING "Architecture of the platform: 32/64")
 set(OUT_PREC    "sngl" CACHE STRING "Precision of the binary outputs")
 set(USE_FFTLIB  "MKL"  CACHE STRING "Library for the FFTs")
+set(USE_DCTLIB  "JW"  CACHE STRING "Library for the DCTs")
 set(USE_MPI     "yes"  CACHE STRING "Use MPI parallelization")
 set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack calls")
@@ -234,6 +235,7 @@ find_library(FFTW3 NAME fftw3
           $ENV{HOME}/local/lib64
           /usr/local/fftw/3.3.4_openmp/lib
           $ENV{FFTW_ROOT}/lib
+          $ENV{FFTW3_ROOT}/lib
           $ENV{FFTW_HOME}/lib                 #Hydra
           $ENV{FFTWDIR})                      #GWDG
 
@@ -243,6 +245,7 @@ if(USE_OMP)
              $ENV{HOME}/local/lib64
              /usr/local/fftw/3.3.4_openmp/lib
              $ENV{FFTW_ROOT}/lib
+             $ENV{FFTW3_ROOT}/lib
              $ENV{FFTW_HOME}/lib              #Hydra
              $ENV{FFTWDIR})                   #GWDG
    message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
@@ -260,6 +263,7 @@ if( USE_FFTLIB MATCHES FFTW )
 endif()
 
 message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
+message(STATUS "Use '${USE_DCTLIB}' for the DCTs")
 message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 
 # Detect SHTNS

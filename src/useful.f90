@@ -31,8 +31,7 @@ contains
       ! In both cases l_correct_step=true for n=n_max.
       !
       ! The argument controls whether in addition n should be
-      !       even: n_eo=2
-      !    or  odd: n_eo=1
+      ! even (n_eo=2) or odd (n_eo=1)
       !
 
       !-- Input variables:
@@ -94,18 +93,12 @@ contains
 !----------------------------------------------------------------------------
    real(cp) function random(r)
       !
-      !     random number generator
+      ! Random number generator:
       !
-      !     if ( r == 0 ) then
-      !        random(r) = next random number (between 0. and 1.)
-      !     if ( r < 0 ) then
-      !        random(r) = previous random number
-      !     if ( r > 0 ) then
-      !        random(r) = a new sequence of random numbers is started
-      !                  with seed r mod 1
-      !                  note: r must be a non-integer to get a different seq
-      !
-      !     called in sinit
+      !    * if ( r == 0 ) random(r) = next random number (between 0. and 1.)
+      !    * if ( r < 0 ) random(r) = previous random number
+      !    * if ( r > 0 ) random(r) = a new sequence of random numbers is started
+      !      with seed r mod 1
       !
 
       !-- Input variables:

@@ -31,22 +31,22 @@ contains
       !
       !  .. code-block:: fortran
       !
-      !     n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
+      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
       !
-      !  On input br, vt and vp are given on all phi points and
+      !  On input ``br``, ``vt`` and ``vp`` are given on all phi points and
       !  thetas in the specific block.
       !  On output the contribution of these grid points to all
-      !  degree and orders is stored in br_vt_lm and br_vp_lm.
-      !  Output is [r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]
+      !  degree and orders is stored in ``br_vt_lm`` and ``br_vp_lm``.
+      !  Output is ``[r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]``
       !
 
       !-- input:
-      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max) ! r**2 * B_r
-      real(cp), intent(in) :: vt(nThetaStart:nThetaStop,n_phi_max) ! r*sin(theta) U_theta
-      real(cp), intent(in) :: vp(nThetaStart:nThetaStop,n_phi_max) ! r*sin(theta) U_phi
+      real(cp), intent(in) :: br(nThetaStart:nThetaStop,n_phi_max) ! :math:`r^2 B_r`
+      real(cp), intent(in) :: vt(nThetaStart:nThetaStop,n_phi_max) ! :math:`r \sin\theta u_\theta`
+      real(cp), intent(in) :: vp(nThetaStart:nThetaStop,n_phi_max) ! :math:`r \sin\theta u_\phi`
       real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
-      real(cp), intent(in) :: O_r_E_2        ! 1/r**2
-      real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
+      real(cp), intent(in) :: O_r_E_2        ! :math:`1/r^2`
+      real(cp), intent(in) :: O_rho          ! :math:`1/\tilde{\rho}` (anelastic)
 
       !-- Output variables:
       complex(cp), intent(inout) :: br_vt_lm(n_lmP_loc) ! br*vt/(sin(theta)**2*r**2)
@@ -79,19 +79,19 @@ contains
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
       !  of the magnetic boundary condition for a conducting mantle in
-      !  physical space (phi,theta), assuming that the conductance
+      !  physical space (theta,phi), assuming that the conductance
       !  of the mantle is much smaller than that of the core.
       !  Calculation is performed for the theta block:
       !
       !  .. code-block:: fortran
       !
-      !      n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
+      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
       !
 
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
-      complex(cp),      intent(in) :: br_vt_lm(n_lmP_loc)  ! [br*vt/(r**2*sin(theta)**2)]
-      complex(cp),      intent(in) :: br_vp_lm(n_lmP_loc)  ! [br*vp/(r**2*sin(theta)**2)
+      complex(cp),      intent(in) :: br_vt_lm(n_lmP_loc) ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vp_lm(n_lmP_loc) ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
 
       !-- Output variables:
       complex(cp), intent(out) :: b_nl_bc(n_lm_loc)  ! nonlinear bc for b
@@ -165,10 +165,9 @@ contains
       !
       !  Purpose of this subroutine is to set the velocities and their
       !  derivatives at a fixed boundary.
-      !  While vt is zero, since we only allow for rotation about the
-      !  z-axis, vp= r sin(theta) v_phi = r**2 sin(theta)**2 omega
-      !  cvr= r**2 * radial component of (\curl v) =
-      !  r**2  2 cos(theta) omega
+      !  While ``vt`` is zero, since we only allow for rotation about the
+      !  :math:`z`-axis, ``vp= r \sin(theta) v_phi = r**2 sin(theta)**2 omega``
+      !  and ``cvr= r**2 * radial component of (\curl v) = r**2  2 cos(theta) omega``
       !
 
       !-- Input of variables:
@@ -176,7 +175,7 @@ contains
       logical,  intent(in) :: lDeriv        ! derivatives required ?
 
       !-- Input of boundary rotation rate
-      real(cp), intent(in) :: omega
+      real(cp), intent(in) :: omega         ! boundary rotation rate
 
       !-- output:
       real(cp), intent(out) :: vrr(nThetaStart:nThetaStop,n_phi_max)

@@ -51,9 +51,9 @@ def MagicCheck(tstart=None):
             (buoPower_avg+buoPower_chem_avg) 
 
     print(bcolors.BOLD + bcolors.UNDERLINE + 'Power balance:' + bcolors.ENDC)
-    print('Power injected   : %.5e' % (buoPower_avg+buoPower_chem_avg))
-    print('Power dissipated : %.5e' % (-ohmDiss_avg-viscDiss_avg))
-    st = 'Power mis-balance: %.3f %%' % ratio
+    print('Power injected   : {:.5e}'.format(buoPower_avg+buoPower_chem_avg))
+    print('Power dissipated : {:.5e}'.format(-ohmDiss_avg-viscDiss_avg))
+    st = 'Power mis-balance: {:.3f} %%'.format(ratio)
     if ratio <= 0.5:
         print(bcolors.OKGREEN + st + bcolors.ENDC)
     elif ratio > 0.5 and ratio <= 1.:
@@ -76,9 +76,9 @@ def MagicCheck(tstart=None):
         ttot_spikes = np.trapz(ones, ts.time[mask])
         ttot = ts.time[-1]-ts.time[0]
         ratio = ttot_spikes/ttot
-        print('    -Time fraction with spikes: %.3f %%' % (100.*ratio))
+        print('    -Time fraction with spikes: {:.3f} %%'.format(100.*ratio))
         largest = abs(field).max()/absdEdt_avg
-        st = '    -Largest event            : %.2f <|dE/dt|>' % largest
+        st = '    -Largest event            : {:.2f} <|dE/dt|>'.format(largest)
         if largest > 10:
             print(bcolors.WARNING + st + bcolors.ENDC)
         else:
@@ -94,10 +94,10 @@ def MagicCheck(tstart=None):
         ddt = np.diff(ts.time[mask])
         ddt_neq_zero = (ddt != 0.)
         ddt = ddt[ddt_neq_zero]
-        print('\nNumber of time step changes   : %i' % len(ddt))
-        print('Number of iterations          : %i' % n_steps)
+        print('\nNumber of time step changes   : {}'.format(len(ddt)))
+        print('Number of iterations          : {}'.format(n_steps))
         freq = int( float(n_steps) / float(len(ddt)) )
-        print('Average number of iterations with fixed time step size: %i' % freq)
+        print('Average number of iterations with fixed time step size: {}'.format(freq))
         time = ts.time[mask][1:][ddt_neq_zero]
         dt = ts.dt[mask][1:][ddt_neq_zero]
         dtMean = avgField(time, dt)
@@ -106,8 +106,8 @@ def MagicCheck(tstart=None):
         ones[~mask_changes] = 0.
         ttot_changes = np.sum(ones*ddt)
         fast_change_ratio = 100*ttot_changes/(time[-1]-time[0])
-        st = 'Fraction of time with frequent timestep changes (< 50 steps): %.2f %%' % \
-             fast_change_ratio
+        st = 'Fraction of time with frequent timestep changes (< 50 steps): {:.2f} %%'.format(
+             fast_change_ratio)
         if fast_change_ratio < 2:
             print(bcolors.OKGREEN + st + bcolors.ENDC)
         elif fast_change_ratio >= 2 and fast_change_ratio <= 10:
@@ -129,9 +129,9 @@ def MagicCheck(tstart=None):
     lTrunc = dmean*np.pi/ts.l_max
 
     print('\n' + bcolors.BOLD + bcolors.UNDERLINE + 'Angular resolution:' + bcolors.ENDC)
-    print('Viscous dissipation scale: %.3e' % lvDiss_avg)
-    print('Ohmic dissipation scale  : %.3e' % lbDiss_avg)
-    st = 'Angular truncation       : %.3e' % lTrunc
+    print('Viscous dissipation scale: {:.3e}'.format(lvDiss_avg))
+    print('Ohmic dissipation scale  : {:.3e}'.format(lbDiss_avg))
+    st = 'Angular truncation       : {:.3e}'.format(lTrunc)
     lMin = min(lvDiss_avg, lbDiss_avg)
     ellMin = int(np.pi*dmean / lMin)
     nphi = int(3. * ellMin)
@@ -139,11 +139,11 @@ def MagicCheck(tstart=None):
         print(bcolors.OKGREEN + st + bcolors.ENDC)
     elif lTrunc >= lMin and lTrunc < 1.5*lMin:
         print(bcolors.MODERATE + st + bcolors.WARNING)
-        st = 'You might need l_max=%i, N_phi=%i' % ( ellMin, nphi)
+        st = 'You might need l_max={}, N_phi={}'.format(ellMin, nphi)
         print(bcolors.MODERATE + st + bcolors.WARNING)
     else:
         print(bcolors.WARNING + st + bcolors.WARNING)
-        st = 'You might need l_max=%i, N_phi=%i' % ( ellMin, nphi)
+        st = 'You might need l_max={}, N_phi={}'.format(ellMin, nphi)
         print(bcolors.WARNING + st + bcolors.WARNING)
 
     # Spectra
@@ -160,9 +160,9 @@ def MagicCheck(tstart=None):
     ratio_mag = emag_l[2:].max()/emag_l[-2]
     ratio_cmb = sp.emagcmb_l[2:].max()/sp.emagcmb_l[-2]
 
-    st = 'Vol. kin. energy spectra (largest/smallest): %.2e' % ratio
-    st_mag = 'Vol. mag. energy spectra (largest/smallest): %.2e' % ratio_mag
-    st_cmb = 'CMB mag. energy spectra (largest/smallest) : %.2e' % ratio_cmb
+    st = 'Vol. kin. energy spectra (largest/smallest): {:.2e}'.format(ratio)
+    st_mag = 'Vol. mag. energy spectra (largest/smallest): {:.2e}'.format(ratio_mag)
+    st_cmb = 'CMB mag. energy spectra (largest/smallest) : {:.2e}'.format(ratio_cmb)
 
     if ratio > 100:
         print(bcolors.OKGREEN + st + bcolors.ENDC)
@@ -188,7 +188,7 @@ def MagicCheck(tstart=None):
     tags = []
     for lg in logs:
         stp = MagicSetup(nml=lg, quiet=True)
-        if stp.start_time >= tstart and os.path.exists('eKinR.%s' % stp.tag):
+        if stp.start_time >= tstart and os.path.exists('eKinR.{}'.format(stp.tag)):
             tags.append(stp.tag)
 
     if len(tags) > 0:
@@ -206,8 +206,8 @@ def MagicCheck(tstart=None):
     ntop = ind[0]+1
     nbot = len(eKR)-ind[-1]
     nmin = min(nbot, ntop)
-    st_bot = 'Number of points in bottom viscous B.L.: %i' % nbot
-    st_top = 'Number of points in top viscous B.L.   : %i' % ntop
+    st_bot = 'Number of points in bottom viscous B.L.: {}'.format(nbot)
+    st_top = 'Number of points in top viscous B.L.   : {}'.format(ntop)
 
     if nbot >= 10:
         print(bcolors.OKGREEN + st_bot + bcolors.ENDC)
@@ -230,7 +230,7 @@ def MagicCheck(tstart=None):
     if rad.ktops == 1:
         ind = argrelextrema(rad.entropy_SD, np.greater)[0]
         ntop = ind[0]+1
-        st_top = 'Number of points in top thermal B.L.   : %i' % ntop
+        st_top = 'Number of points in top thermal B.L.   : {}'.format(ntop)
         if ntop >= 10:
             print(bcolors.OKGREEN + st_top + bcolors.ENDC)
         elif ntop >=5 and ntop < 10:
@@ -241,7 +241,7 @@ def MagicCheck(tstart=None):
     if rad.kbots == 1:
         ind = argrelextrema(rad.entropy_SD, np.greater)[0]
         nbot = len(rad.radius)-ind[-1]
-        st_bot = 'Number of points in bottom thermal B.L.: %i' % nbot
+        st_bot = 'Number of points in bottom thermal B.L.: {}'.format(nbot)
         if nbot >= 10:
             print(bcolors.OKGREEN + st_bot + bcolors.ENDC)
         elif nbot >=5 and nbot < 10:

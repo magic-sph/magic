@@ -151,6 +151,9 @@ contains
    end subroutine initialize_dtB_mod
 !----------------------------------------------------------------------------
    subroutine finalize_dtB_mod
+      !
+      ! Memory deallocation
+      !
 
       if ( l_dtBmovie ) then
          deallocate( PstrLM, PadvLM, TstrLM, TadvLM, TomeLM )
@@ -192,15 +195,7 @@ contains
 
       !
       !  This subroutine calculates non-linear products in grid-space for radial
-      !  level n_r and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
-      !
-      !  if lvelo >0 velocities are zero only the (vxB)
-      !  contributions to bnlr2-3 need to be calculated
-      !
-      !  vr...sr: (input) velocity, magnetic field comp. and derivs, entropy
-      !                   on grid points
-      !  i1: (input) range of points in theta for which calculation is done
-      !
+      !  level nR.
       !
 
       !-- Input variables:

@@ -119,12 +119,12 @@ class Movie:
             dat = glob.glob('*[Mm]ov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
-                str1 += ' %i) %s\n' % (k+1, movie)
+                str1 += ' {}) {}\n'.format(k+1, movie)
             index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print('Non valid index: %s has been chosen instead' % dat[0])
+                print('Non valid index: {} has been chosen instead'.format(dat[0]))
                 filename = dat[0]
 
         else:
@@ -141,7 +141,7 @@ class Movie:
         self.n_fields = int(n_fields)
         if self.n_fields > 1:
             print('!!! Warning: several fields in the movie file !!!')
-            print('!!! %i fields !!!' % self.n_fields)
+            print('!!! {} fields !!!'.format(self.n_fields))
             print('!!! The one displayed is controlled by the    !!!')
             print('!!! input parameter ifield (=0 by default)    !!!')
         self.movtype = int(movtype[ifield])
@@ -176,7 +176,7 @@ class Movie:
         self.phi = infile.fort_read(precision)
 
         # Determine the number of lines by reading the log.TAG file
-        logfile = open('log.%s' % end, 'r')
+        logfile = open('log.{}'.format(end), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         nlines = 0
@@ -638,9 +638,9 @@ class Movie:
                 ax.axis('off')
                 man.canvas.draw()
             if png:
-                filename = 'movie/img%05d.png' % k
-                print('write %s' % filename)
-                # st = 'echo %i' % ivar + ' > movie/imgmax'
+                filename = 'movie/img{:05d}.png'.format(k)
+                print('write {}'.format(filename))
+                # st = 'echo {}'.format(ivar) + ' > movie/imgmax'
                 if bgcolor is not None:
                     fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
                 else:

@@ -128,8 +128,8 @@ contains
                               nTheta=n_theta_cal2ord(nThetaR)
                               n_o=n_o_r+(nTheta-1)*n_phi_max
                               frames(nPhi+n_o)= help*O_sin_theta(nThetaR) * &
-                              &    ( cBrB(nPhi,nThetaR)*BtB(nThetaR,nPhi) - &
-                              &      cBtB(nPhi,nThetaR)*BrB(nThetaR,nPhi) )
+                              &    ( cBrB(nThetaR,nPhi)*BtB(nThetaR,nPhi) - &
+                              &      cBtB(nThetaR,nPhi)*BrB(nThetaR,nPhi) )
                            end do
                         end do
                      end if
@@ -239,7 +239,7 @@ contains
                      else if ( n_field_type == 13 ) then
                         help=-O_r_ic(nR)*O_sin_theta(nTheta)
                         do nPhi=1,n_phi_max
-                           frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                           frames(nPhi+n_o)=help*BtB(nThetaR,nPhi)
                         end do
                      else if ( n_field_type == 14 ) then !-- jtheta
                         help=-O_r_ic(nR)*O_sin_theta(nTheta)
@@ -334,7 +334,7 @@ contains
                            n_o=n_o_r+nTheta
                            help=0.0_cp
                            do nPhi=1,n_phi_max
-                              help=help+BpB(nPhi,nThetaR)
+                              help=help+BpB(nThetaR,nPhi)
                            end do
                            frames(n_o)=phi_norm*help*O_r_ic(nR)* &
                            &           O_sin_theta(nThetaR)

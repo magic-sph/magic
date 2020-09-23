@@ -1517,7 +1517,7 @@ class Surf:
 
                 ax.axis('off')
 
-                tit1 = r'$%i^\circ$' % lon
+                tit1 = r'${}^\circ$'.format(lon)
                 ax.text(0.9, 0.9, tit1, fontsize=18,
                       horizontalalignment='right',
                       verticalalignment='center',
@@ -1667,8 +1667,8 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
 
     s = Surf(ivar=nvar)
 
-    st = "Ek = %.2e, Ra = %.2e, Pr = %.1f, $N_{\\rho}$=%.2f, $\eta$=%.1f" % \
-            (s.gr.ek, s.gr.ra, s.gr.pr, s.gr.strat, s.gr.radratio)
+    st = "Ek = {:.2e}, Ra = {:.2e}, Pr = {:.1f}, $N_{\\rho}$={:.2f}, $\eta$={.1f}".format(
+            s.gr.ek, s.gr.ra, s.gr.pr, s.gr.strat, s.gr.radratio)
     file.write("\\begin{center}\\begin{large}\n")
     file.write(" "+st+"\n")
     file.write("\\end{large}\\end{center}\n")
