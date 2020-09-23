@@ -9,7 +9,7 @@ module cosine_transform_odd
    !
 
    use iso_c_binding
-   use blocking, only: llm, ulm
+   use truncation, only: n_mlo_loc
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use constants, only: half, pi, one, two
@@ -66,8 +66,8 @@ contains
       integer :: onembed(1), ostride, odist, isize, howmany
       integer(C_INT) :: plan_type(1)
 #ifdef WITH_MANYDCT
-      real(cp) :: array_in(2*(ulm-llm+1), n_r_max)
-      real(cp) :: array_out(2*(ulm-llm+1), n_r_max)
+      real(cp) :: array_in(2*n_mlo_loc, n_r_max)
+      real(cp) :: array_out(2*n_mlo_loc, n_r_max)
 #endif
       real(cp) :: array_in_1d(n_r_max), array_out_1d(n_r_max)
 
@@ -82,12 +82,12 @@ contains
 
 #ifdef WITH_MANYDCT
       plan_size = [n_r_max]
-      howmany = 2*(ulm-llm+1)
+      howmany = 2*n_mlo_loc
       inembed(1) = 0
       onembed(1) = 0
-      istride = 2*(ulm-llm+1)
-      ostride = 2*(ulm-llm+1)
-      isize   = 2*(ulm-llm+1)
+      istride = 2*n_mlo_loc
+      ostride = 2*n_mlo_loc
+      isize   = 2*n_mlo_loc
       idist = 1
       odist = 1
 
@@ -96,11 +96,10 @@ contains
                   &                  onembed, ostride, odist,               &
                   &                  plan_type, fftw_plan_flag)
 
-      allocate( this%work(1:ulm-llm+1,n_r_max) )
+      allocate( this%work(n_mlo_loc,n_r_max) )
       call c_f_pointer(c_loc(this%work), this%work_r, [isize, n_r_max])
 
-      bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max* &
-      &                 SIZEOF_DEF_COMPLEX
+      bytes_allocated = bytes_allocated+n_mlo_loc*n_r_max*SIZEOF_DEF_COMPLEX
 #endif
       
       plan_size(1) = n_r_max

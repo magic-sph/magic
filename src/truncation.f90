@@ -903,9 +903,6 @@ contains
       if ( n_cheb_max < 1 ) then
          call abortRun('! n_cheb_max should be > 1!')
       end if
-      if ( (n_phi_max+1)*n_theta_max > lm_max_real*(n_r_max+2) ) then
-         call abortRun('! (n_phi_max+1)*n_theta_max > lm_max_real*(n_r_max+2) !')
-      end if
 
    end subroutine check_geometry
    !----------------------------------------------------------------------------   

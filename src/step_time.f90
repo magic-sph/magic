@@ -270,8 +270,6 @@ contains
          ! Broadcast omega_ic and omega_ma
          call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
          call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,map_mlo%ml2rnk(0,1),MPI_COMM_WORLD,ierr)
 #endif
 
          !----------------
