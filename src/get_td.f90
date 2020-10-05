@@ -463,7 +463,7 @@ contains
                      !-- Recalculate the pressure gradient based on the poloidal
                      !-- equation equilibrium
                      dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+         &
-                     &        dLh(lm)*or2(nR)*hdif_V(lm)*visc(nR)* (            &
+                     &        dLh(lm)*or2(nR)*hdif_V(lo_map%lm2(l,m))*visc(nR)*(&
                      &                                        ddw_Rloc(lm,nR)+  &
                      &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm,nR)-  &
                      &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
