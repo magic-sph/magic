@@ -265,6 +265,10 @@ message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
 message(STATUS "Use '${USE_DCTLIB}' for the DCTs")
 message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 
+if(APPLE)
+    include_directories(/usr/local/include)
+endif()
+
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)
    if(USE_OMP)
