@@ -22,7 +22,7 @@ class Movie2Vtk:
 
     def __init__(self, file=None, step=1, lastvar=None, nvar='all',
                  fluct=False, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0, dir='movie2vts'):
+                 deminc=True, ifield=0, dir='movie2vts', store_idx=0):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -45,6 +45,8 @@ class Movie2Vtk:
         :param ifield: in case of a multiple-field movie file, you can change
                        the default field displayed using the parameter ifield
         :type ifield: int
+        :param store_idx: starting index for storage
+        :type store_idx: int
         """
 
         if file is None:
@@ -207,7 +209,7 @@ class Movie2Vtk:
                 dat = infile.fort_read(precision)
                 if n_surface == 0:
                     dat = dat.reshape(shape)
-                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName, k+1)
+                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName, k+1+store_idx)
                     if self.movtype in [1, 2, 3]:
                         # datic = dat[self.n_r_max:, ...].T
                         dat = dat[:self.n_r_max, ...].T
@@ -215,7 +217,7 @@ class Movie2Vtk:
                     else:
                         self.scal3D2vtk(fname, dat.T, fieldName)
                 elif n_surface == 2:
-                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName, k+1)
+                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName, k+1+store_idx)
                     dat = dat.reshape(shape)
                     if self.movtype in [1, 2, 3, 14]:
                         # datic = dat[self.n_r_max:, :].T
@@ -234,13 +236,13 @@ class Movie2Vtk:
                         datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
                                                                self.n_theta_max)
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              str(self.phiCut), k+1)
+                                                              str(self.phiCut), k+1+store_idx)
                         self.mer2vtk(fname, datoc0.T, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              name, k+1)
+                                                              name, k+1, k+1+store_idx)
                         self.mer2vtk(fname, datoc1.T, self.phiCut+np.pi,
                                      fieldName)
                         # datic0 = datic[:len(datic)/2].reshape(self.n_r_ic_max+2,
@@ -251,18 +253,18 @@ class Movie2Vtk:
                         dat0 = dat[:len(dat)//2].reshape(shape)
                         dat1 = dat[len(dat)//2:].reshape(shape)
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              str(self.phiCut), k+1)
+                                                              str(self.phiCut), k+1+store_idx)
                         self.mer2vtk(fname, dat0.T, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi/2)
                         if len(name) > 8:
                             name = name[:8]
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              name, k+1)
+                                                              name, k+1+store_idx)
                         self.mer2vtk(fname, dat1.T, self.phiCut+np.pi,
                                      fieldName)
                 else:
                     fname = '{}{}{}_rcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                          str(self.rCut), k+1)
+                                                          str(self.rCut), k+1+store_idx)
                     dat = dat.reshape(shape)
                     self.rcut2vtk(fname, dat.T, self.rCut, fieldName)
 
