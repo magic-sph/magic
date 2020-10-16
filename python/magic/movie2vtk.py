@@ -4,9 +4,11 @@ import os
 import re
 import numpy as np
 from .npfile import *
-from evtk.hl import gridToVTK
+import evtk
 from magic.movie import getNlines
 from magic.libmagic import symmetrize
+
+gridToVTK = evtk.hl.gridToVTK
 
 
 class Movie2Vtk:
