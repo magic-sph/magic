@@ -952,8 +952,8 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
+                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*       dw(lm,n_r)   &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
                   &                                                   w(lm,n_r)  )
@@ -1047,7 +1047,7 @@ contains
       if ( l_double_curl) then
 
          !$omp single
-            call dct_counter%start_count()
+         call dct_counter%start_count()
          !$omp end single
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
