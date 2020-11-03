@@ -1619,6 +1619,7 @@ contains
       &    (index(scheme_name, 'ARS443') /= 0) .or. &
       &    (index(scheme_name, 'KC343') /= 0) .or.  &
       &    (index(scheme_name, 'KC564') /= 0) .or.  &
+      &    (index(scheme_name, 'KC674') /= 0) .or.  &
       &    (index(scheme_name, 'BHR553') /= 0) .or. &
       &    (index(scheme_name, 'BPR353') /= 0) .or. &
       &    (index(scheme_name, 'DBM453') /= 0) .or. &
