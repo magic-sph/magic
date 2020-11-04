@@ -214,7 +214,7 @@ class Movie:
             self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                     self.n_theta_max, self.n_r_ic_max+2),
                                     precision)
-        elif n_surface == 1:
+        elif n_surface == 1 or n_surface == -1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
