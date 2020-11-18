@@ -30,6 +30,7 @@ contains
       else
          allocate( rIter_split_t :: rIter )
       end if
+      
       call rIter%initialize()
 
       local_bytes_used = bytes_allocated-local_bytes_used

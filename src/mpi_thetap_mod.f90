@@ -365,8 +365,8 @@ contains
 !  /!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\/!\
 !
 !  From here on, are only temporary functions. They are not optimized
-!  (actually they are pretty terrible). They 
-!  should be deleted once the transition is over
+!  (actually they are pretty terrible). They should be deleted once the transition 
+!  is over
 !  
 !  LM Loop transposes and Gathers and Etc
 !

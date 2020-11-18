@@ -1,7 +1,7 @@
 &grid
  n_r_max     =33,
  n_cheb_max  =33,
- n_phi_tot   =48,
+ n_phi_tot   =96,
  n_r_ic_max  =17,
 n_cheb_ic_max=17,
  nalias      =20,

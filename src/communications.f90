@@ -17,14 +17,15 @@ module communications
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
    use charmanip, only: capitalize
-   use num_param, only: mpi_transp, mpi_packing
+   use num_param, only: mpi_transp, mpi_packing, mpi_transp_theta
    use mpi_transp, only: type_mpitransp
    use truncation
    use LMmapping
-   use mpi_thetap_mod
    use mod_mpiatoap
    use mod_mpiatoav_new
    use mod_mpisendrecv
+   use mpi_thetap_mod  !@>DEPRECATED
+   use mpi_transpose_theta !@>TODO replaces mpi_thetap_mod
 
    implicit none
 
@@ -65,7 +66,13 @@ module communications
    public :: reduce_radial, reduce_scalar
    public :: send_lm_pair_to_master
 
-   ! declaration of the types for the redistribution
+   type(gather_type), public :: gt_OC,gt_IC,gt_cheb
+
+   complex(cp), allocatable :: temp_gather_lo(:)
+   
+   !
+   ! -- lm <-> r transposers
+   !
    class(type_mpitransp), public, pointer :: lo2r_s, r2lo_s, lo2r_press
    class(type_mpitransp), public, pointer :: lo2r_flow, r2lo_flow, r2lo_one
    class(type_mpitransp), public, pointer :: lo2r_field, r2lo_field
@@ -77,9 +84,10 @@ module communications
    class(type_mpitransp), public, pointer :: lo2r_initv
    class(type_mpitransp), public, pointer :: lo2r_store
    
-   type(gather_type), public :: gt_OC,gt_IC,gt_cheb
-
-   complex(cp), allocatable :: temp_gather_lo(:)
+   !
+   ! -- theta <-> m transposers
+   !
+   class(type_mpitransp_theta), public, pointer :: theta_transp
    
    !@>DEPRECATED these functions are just to aid the merging... they should be 
    !  deleted afterwards
@@ -106,6 +114,10 @@ contains
       
       call capitalize(mpi_transp)
       call capitalize(mpi_packing)
+      
+      !
+      ! -- Create the lm <-> r transposer
+      !
       if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'AUTO') /= 0 ) then
          !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
          !call find_faster_comm(idx5, minTime5, 5)
@@ -374,6 +386,19 @@ contains
       else
          allocate(temp_gather_lo(1))
       end if
+      
+      
+      !
+      ! -- Create the theta <-> m transposer (only if necessary)
+      !
+      if (n_ranks_theta>1) then
+         call capitalize(mpi_transp_theta)
+         if (index(mpi_transp_theta, 'A2AV') /= 0)  then
+            allocate( type_mpitransp_theta_a2av :: theta_transp)
+         end if
+      end if
+      
+      call theta_transp%create(1)
 
       local_bytes_used = bytes_allocated - local_bytes_used
       call memWrite('communications.f90', local_bytes_used)
@@ -384,7 +409,10 @@ contains
 
       call destroy_gather_type(gt_OC)
       call destroy_gather_type(gt_IC)
-
+      
+      !
+      ! -- deallocate the lm <-> r transposer (only if necessary)
+      !
       if ( l_packed_transp ) then
          call lo2r_one%destroy_comm()
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -416,6 +444,15 @@ contains
       end if
       
       deallocate( temp_gather_lo )
+      
+      !
+      ! -- deallocate the theta <-> m transposer (only if necessary)
+      !
+      if (n_ranks_theta>1) then
+         call theta_transp%destroy()
+         nullify(theta_transp)
+      end if
+      
 
    end subroutine finalize_communications
 !-------------------------------------------------------------------------------
