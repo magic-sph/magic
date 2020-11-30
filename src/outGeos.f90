@@ -14,7 +14,7 @@ module geos_mod
    use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map, llm, ulm
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out, l_SRIC
-   use output_data, only: sDens, zDens, tag, runid
+   use output_data, only: sDens, tag, runid
    use constants, only: pi, zero, ci, one, two, three, four,  half
    use communications, only: gather_all_from_lo_to_rank0, gt_OC
    use plms_theta, only: plm_theta
@@ -374,21 +374,23 @@ contains
          s2=sZ(nS)+half*dsZ
          threehalf=three*half
          if ( lTC ) then
-            wZ=one/three*( (r_ICB**2-s2**2)**threehalf - &
-            &              (r_ICB**2-s1**2)**threehalf - &
-            &              (r_CMB**2-s2**2)**threehalf + &
-            &              (r_CMB**2-s1**2)**threehalf )
+            !-- abs is needed in case round-off yields 0- values
+            wZ=one/three*( abs(r_ICB**2-s2**2)**threehalf - &
+            &              abs(r_ICB**2-s1**2)**threehalf - &
+            &              abs(r_CMB**2-s2**2)**threehalf + &
+            &              abs(r_CMB**2-s1**2)**threehalf )
          else
-            wZ=two/three*( (r_CMB**2-s1**2)**threehalf - &
-            &              (r_CMB**2-s2**2)**threehalf ) 
+            !-- abs is needed in case round-off yields 0- values
+            wZ=two/three*( abs(r_CMB**2-s1**2)**threehalf - &
+            &              abs(r_CMB**2-s2**2)**threehalf )
          end if
          wZP=wZ*phiNorm
 
          !--------- Get the flow components for all northern and
          !          southern thetas and all phis:
          call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
-              &        r_ICB,r_CMB,rZ,nZmaxV,nZmaxA,PlmS(:,:,nS),       &
-              &        dPlmS(:,:,nS),sinT,cosT,kindCalc,VrS,VtS,VpS,VozS,  &
+              &        r_ICB,r_CMB,rZ,nZmaxV,nZmaxA,PlmS(:,:,nS),             &
+              &        dPlmS(:,:,nS),sinT,cosT,kindCalc,VrS,VtS,VpS,VozS,     &
               &        VrAS,VtAS,VpAS,dpEkInt)
 
          !------- Perform z-integrals for axisymmetric stuff:
@@ -428,7 +430,6 @@ contains
          end do
 
          !------- Perform z-integral(s) for all phis:
-
          do nPhi=1,n_phi_max
 
             do nInt=1,nInts
