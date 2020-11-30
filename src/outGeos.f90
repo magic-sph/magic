@@ -491,14 +491,14 @@ contains
                end if
 
                !-------- Note: chebIntD above returns the z derivative 
-               dzEkInt(:)=Vr(:)**2+Vt(:)**2+Vp(:)**2
+               dzEkInt(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2+Vp(1:nZmaxI)**2
                dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
                dzEk_s=dzEk_s+dzEkIntS
 
             end do ! Loop over north/south integral
 
 
-            ! --- Here I calculate the Peason correlation coeff between
+            ! --- Here I calculate the Pearson correlation coeff between
             !     z-integrated stuff in northern and southern HS.
             !     Considered are Vz,z-vorticity Vor, and axial helicity Vz*Vor.
             !     The correlation is averaged over the shell.
