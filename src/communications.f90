@@ -387,19 +387,22 @@ contains
          allocate(temp_gather_lo(1))
       end if
       
-      
       !
       ! -- Create the theta <-> m transposer (only if necessary)
       !
       if (n_ranks_theta>1) then
+         if (rank == 0) print *, " *  Using mpi_transp_theta=", trim(mpi_transp_theta)
          call capitalize(mpi_transp_theta)
+         
          if (index(mpi_transp_theta, 'A2AV') /= 0)  then
             allocate( type_mpitransp_theta_a2av :: theta_transp)
+            call theta_transp%create(1)
+         else if (index(mpi_transp_theta, 'A2AB') /= 0)  then 
+            allocate( type_mpitransp_theta_a2ab :: theta_transp)
+            call theta_transp%create(3)
          end if
       end if
       
-      call theta_transp%create(1)
-
       local_bytes_used = bytes_allocated - local_bytes_used
       call memWrite('communications.f90', local_bytes_used)
 

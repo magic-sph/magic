@@ -654,10 +654,10 @@ contains
 
       !-- Local variables
       complex(cp) :: fL_loc(n_theta_max,n_m_loc)
-
+      
       call scal_to_hyb(fLM_loc, fL_loc, lcut)
-!       call transform_m2phi(fL_loc, fieldc_loc)
-      call transform_m2phi_new(theta_transp, fL_loc, fieldc_loc) 
+      call theta_transp%m2phi(fL_loc, fieldc_loc)
+      call theta_transp%waitall()
       
    end subroutine scal_to_spat_dist
 !------------------------------------------------------------------------------
@@ -682,8 +682,9 @@ contains
       complex(cp) :: gL(n_theta_max,n_m_loc)
       
       call scal_to_grad_hyb(Slm, fL, gL, lcut)
-      call transform_m2phi(fL, gradtc)
-      call transform_m2phi(gL, gradpc)
+      call theta_transp%m2phi(fL, gradtc)
+      call theta_transp%m2phi(gL, gradpc)
+      call theta_transp%waitall()
 
    end subroutine scal_to_grad_spat_dist
 !------------------------------------------------------------------------------
@@ -705,9 +706,10 @@ contains
       complex(cp) :: hL(n_theta_max,n_m_loc)
       
       call torpol_to_hyb(Wlm, dWlm, Zlm, fL, gL, hL, lcut)
-      call transform_m2phi(fL, vrc)
-      call transform_m2phi(gL, vtc)
-      call transform_m2phi(hL, vpc)
+      call theta_transp%m2phi(fL, vrc)
+      call theta_transp%m2phi(gL, vtc)
+      call theta_transp%m2phi(hL, vpc)
+      call theta_transp%waitall()
 
    end subroutine torpol_to_spat_dist
 !------------------------------------------------------------------------------
@@ -733,10 +735,11 @@ contains
       integer :: i, l_lm, u_lm, m
       
       call torpol_to_curl_hyb(or2, Blm, ddBlm, Jlm, dJlm, fL, gL, hL, lcut)
-      call transform_m2phi(fL, cvrc)
-      call transform_m2phi(gL, cvtc)
-      call transform_m2phi(hL, cvpc)
-
+      call theta_transp%m2phi(fL, cvrc)
+      call theta_transp%m2phi(gL, cvtc)
+      call theta_transp%m2phi(hL, cvpc)
+      call theta_transp%waitall()
+      
    end subroutine torpol_to_curl_spat_dist
 !------------------------------------------------------------------------------
    subroutine pol_to_grad_spat_dist(Slm, gradtc, gradpc, lcut)
@@ -754,8 +757,9 @@ contains
       complex(cp) :: gL(n_theta_max,n_m_loc)
       
       call pol_to_grad_hyb(Slm, fL, gL, lcut)
-      call transform_m2phi(fL, gradtc)
-      call transform_m2phi(gL, gradpc)
+      call theta_transp%m2phi(fL, gradtc)
+      call theta_transp%m2phi(gL, gradpc)
+      call theta_transp%waitall()
 
    end subroutine pol_to_grad_spat_dist
 !------------------------------------------------------------------------------
@@ -777,8 +781,9 @@ contains
       complex(cp) :: gL(n_theta_max,n_m_loc)
       
       call torpol_to_dphhyb(dWlm, Zlm, fL, gL, lcut)      
-      call transform_m2phi(fL, dvtdp)
-      call transform_m2phi(gL, dvpdp)
+      call theta_transp%m2phi(fL, dvtdp)
+      call theta_transp%m2phi(gL, dvpdp)
+      call theta_transp%waitall()
       
    end subroutine torpol_to_dphspat_dist
 !------------------------------------------------------------------------------
@@ -794,12 +799,12 @@ contains
       !-- Local variables
       complex(cp) :: fL(n_theta_max,n_m_loc)
       
-      call pol_to_curlr_hyb(Qlm, fL, lcut)      
-      call transform_m2phi(fL, cvrc)
-
+      call pol_to_curlr_hyb(Qlm, fL, lcut)
+      call theta_transp%m2phi(fL, cvrc)
+      call theta_transp%waitall()
+      
    end subroutine pol_to_curlr_spat_dist
-   
-   
+
    
 !------------------------------------------------------------------------------
 !   
@@ -821,10 +826,9 @@ contains
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
       integer :: m, l_lm, u_lm, i
       
-!       call transform_phi2m_new(theta_transp, f_loc, fL_loc)
-      call transform_phi2m(f_loc, fL_loc)
+      call theta_transp%phi2m(f_loc, fL_loc)
+      call theta_transp%waitall()
       call hyb_to_SH(fL_loc, fLMP_loc, lcut)
-      
    end subroutine spat_to_SH_dist
 !------------------------------------------------------------------------------
    subroutine spat_to_qst_dist(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
@@ -847,9 +851,10 @@ contains
       integer :: i, l_lm, u_lm, m
 
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
-      call transform_phi2m(f_loc, fL_loc)
-      call transform_phi2m(g_loc, gL_loc)
-      call transform_phi2m(h_loc, hL_loc)
+      call theta_transp%phi2m(f_loc, fL_loc)
+      call theta_transp%phi2m(g_loc, gL_loc)
+      call theta_transp%phi2m(h_loc, hL_loc)
+      call theta_transp%waitall()
       call hyb_to_qst(fL_loc, gL_loc, hL_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
 
    end subroutine spat_to_qst_dist
@@ -870,9 +875,9 @@ contains
       complex(cp) ::  gL_loc(n_theta_max,n_m_loc)
       integer :: i, l_lm, u_lm, m
 
-      !>@TODO Vectorial FFT and transpose (f,g,h at once)
-      call transform_phi2m(f_loc, fL_loc)
-      call transform_phi2m(g_loc, gL_loc)
+      call theta_transp%phi2m(f_loc, fL_loc)
+      call theta_transp%phi2m(g_loc, gL_loc)
+      call theta_transp%waitall()
       call hyb_to_sphertor(fL_loc, gL_loc, fLMP_loc, gLMP_loc, lcut)
 
    end subroutine spat_to_sphertor_dist
