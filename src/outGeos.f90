@@ -736,6 +736,9 @@ contains
       end do sLoop
       !$omp end parallel do
 
+      !-- Equatorial point
+      v(1)=0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
+
    end subroutine cylmean_otc
 !------------------------------------------------------------------------------------
    subroutine cylmean_itc(a,vn,vs,n_s_max,n_s_otc,n_r_max,n_theta_max,r,s,theta)
@@ -765,7 +768,6 @@ contains
       real(cp) :: tt0, tt1, tt2, tt3, t10, t20, t30, t21, t31, t32
       real(cp) :: a01, a12, a23, a012, a123, tot1, tot2
       real(cp) :: ac(0:n_s_max,n_s_max,2), ait(0:3)
-      real(cp), parameter :: pi=acos(-1.0_cp)
 
       eps=10.0_cp*epsilon(1.0_cp)
       r_cmb=r(1)
