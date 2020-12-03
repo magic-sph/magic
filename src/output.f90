@@ -39,7 +39,7 @@ module output_mod
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
-   use geos_mod, only: getEgeos
+   use geos, only: outGeos
    use outRot, only: write_rot
    use omega, only: outOmega
    use integration, only: rInt_R
@@ -80,8 +80,7 @@ module output_mod
    real(cp) :: dlBMean,dmBMean
    real(cp) :: lvDissMean,lbDissMean
    real(cp) :: RmMean,ElMean,ElCmbMean,RolMean
-   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean
-   real(cp) :: GeosNAMean,GeosNAPMean
+   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean,GeosNAPMean
    real(cp) :: RelA,RelZ,RelM,RelNA
    real(cp) :: DipMean,DipCMBMean
    real(cp) :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
@@ -177,7 +176,6 @@ contains
       GeosAMean    =0.0_cp
       GeosZMean    =0.0_cp
       GeosMMean    =0.0_cp
-      GeosNAMean   =0.0_cp
       GeosNAPMean  =0.0_cp
       RelA         =0.0_cp
       RelM         =0.0_cp
@@ -398,11 +396,10 @@ contains
 
       !--- Property parameters:
       complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
-      real(cp) :: volume,EC
       real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
       real(cp) :: RolRu2(n_r_max),RmR(n_r_max),dlPolPeakR(n_r_max)
-      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,GeosNAP
-      real(cp) :: Dip,DipCMB
+      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNAP
+      real(cp) :: Dip,DipCMB,EC
       real(cp) :: ReConv,RoConv,e_kin_nas,RolC
       real(cp) :: elsAnel,dlVPolPeak,dlBPolPeak
       real(cp) :: dlB,dlBc,dmB
@@ -567,19 +564,15 @@ contains
          end if
 
          if ( l_par ) then
-            call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
-                 &        z_LMloc,dz_LMloc,Geos,GeosA,GeosZ,GeosM,GeosNA, & 
-                 &        GeosNAP,dpV,dzV,volume,EC)
+            call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)
          else
             Geos   =0.0_cp
             GeosA  =0.0_cp
             GeosZ  =0.0_cp
             GeosM  =0.0_cp
-            GeosNA =0.0_cp
             GeosNAP=0.0_cp
             dpV    =0.0_cp
             dzV    =0.0_cp
-            volume =0.0_cp ! test volume
             EC     =0.0_cp ! test kinetic energy
          end if
 
@@ -959,7 +952,6 @@ contains
             GeosAMean  =GeosAMean  +timePassedLog*GeosA
             GeosZMean  =GeosZMean  +timePassedLog*GeosZ
             GeosMMean  =GeosMMean  +timePassedLog*GeosM
-            GeosNAMean =GeosNAMean +timePassedLog*GeosNA
             GeosNAPMean=GeosNAPMean+timePassedLog*GeosNAP
             if ( e_kin > 0.0_cp ) then
                ! Relative axisymmetric kinetic energy:
@@ -993,18 +985,17 @@ contains
                ElMean     =ElMean/timeNormLog
                ElCmbMean  =ElCmbMean/timeNormLog
                RolMean    =RolMean/timeNormLog
-               GeosMean   =GeosMean/timeNormLog 
-               GeosAMean  =GeosAMean/timeNormLog 
-               GeosZMean  =GeosZMean/timeNormLog 
-               GeosMMean  =GeosMMean/timeNormLog 
-               GeosNAMean =GeosNAMean/timeNormLog 
-               GeosNAPMean=GeosNAPMean/timeNormLog 
+               GeosMean   =GeosMean/timeNormLog
+               GeosAMean  =GeosAMean/timeNormLog
+               GeosZMean  =GeosZMean/timeNormLog
+               GeosMMean  =GeosMMean/timeNormLog
+               GeosNAPMean=GeosNAPMean/timeNormLog
                RelA       =RelA/timeNormLog
                RelZ       =RelZ/timeNormLog
                RelM       =RelM/timeNormLog
                RelNA      =RelNA/timeNormLog
-               DipMean    =DipMean/timeNormLog  
-               DipCMBMean =DipCMBMean/timeNormLog  
+               DipMean    =DipMean/timeNormLog
+               DipCMBMean =DipCMBMean/timeNormLog
 
                e_kin_pMean=e_kin_pMean/timeNormLog
                e_kin_tMean=e_kin_tMean/timeNormLog
@@ -1068,15 +1059,15 @@ contains
                & " !  OC mag. energies:",e_mag_pMean+e_mag_tMean,e_mag_pMean,  &
                &                         e_mag_tMean,(e_mag_pMean+e_mag_tMean)/&
                &                         vol_oc
-  
+
                write(n_log_file,                                                &
-               & '(1p,/,A,16(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
+               & '(1p,/,A,15(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
                & " ! Time averaged property parameters :",                      &
                & " !  Rm (Re)          :",RmMean,                               &
                & " !  Elsass           :",ElMean,                               &
                & " !  Elsass at CMB    :",ElCmbMean,                            &
                & " !  Rol              :",RolMean,                              &
-               & " !  rel AS  Ekin     :",RelA,                                 & 
+               & " !  rel AS  Ekin     :",RelA,                                 &
                & " !  rel Zon Ekin     :",RelZ,                                 &
                & " !  rel Mer Ekin     :",RelM,                                 &
                & " !  rel NA  Ekin     :",RelNA,                                &
@@ -1084,16 +1075,14 @@ contains
                & " !  rel geos AS Ekin :",GeosAMean,                            &
                & " !  rel geos Zon Ekin:",GeosZMean,                            &
                & " !  rel geos Mer Ekin:",GeosMMean,                            &
-               & " !  rel geos NA Ekin :",GeosNAMean,                           &
                & " !  rel geos NAP Ekin:",GeosNAPMean,                          &
                & " !  Dip              :",DipMean,                              &
                & " !  DipCMB           :",DipCMBMean,                           &
                & " !  l,m,p,z V scales :",dlVMean,dmVMean,dpVMean,dzVmean,      &
                & " !  l,m, B scales    :",dlBMean,dmBMean,                      &
                & " !  vis, Ohm scale   :",lvDissMean,lbDissMean
-               if ( l_par ) then 
+               if ( l_par ) then
                   write(n_log_file,*) !' Calculating geostrophic contributions with outEgeos.f90'
-                  write(n_log_file,*) '! precision of z-integration (geos):',abs(volume/vol_oc-1)
                   write(n_log_file,*) '! precision of cyl. transf.  (geos):',abs(EC/e_kin-1)
                end if
 

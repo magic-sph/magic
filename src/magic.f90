@@ -117,7 +117,7 @@ program magic
    use kinetic_energy
    use magnetic_energy
    use fields_average_mod
-   use geos_mod, only: initialize_geos_mod, finalize_geos_mod
+   use geos, only: initialize_geos, finalize_geos
    use spectra, only: initialize_spectra, finalize_spectra
    use output_data, only: tag, log_file, n_log_file
    use output_mod, only: initialize_output, finalize_output
@@ -360,7 +360,7 @@ program magic
    !--- Do pre-calculations:
    call preCalc(tscheme)
 
-   if ( l_par ) call initialize_geos_mod(l_par) ! Needs to be called after preCalc, r_icb needed
+   if ( l_par ) call initialize_geos() ! Needs to be called after preCalc, r_icb needed
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
    if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
    if ( ldtBmem == 1 ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
@@ -483,7 +483,7 @@ program magic
    if ( l_RMS ) call finalize_RMS
    if ( l_TO ) call finalize_outTO_mod
    if ( l_TO ) call finalize_TO
-   if ( l_par ) call finalize_geos_mod(l_par)
+   if ( l_par ) call finalize_geos()
    if ( ldtBmem == 1 ) call finalize_dtB_mod
    call finalize_fields_average_mod()
    call finalize_coeffs()

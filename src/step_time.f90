@@ -23,7 +23,7 @@ module step_time_mod
    use radial_functions, only: rscheme_oc
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
-       &            l_DTrMagSpec, lVerbose, l_b_nl_icb,                &
+       &            l_DTrMagSpec, lVerbose, l_b_nl_icb, l_par,         &
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
        &            l_HT, l_dtB, l_dtBmovie, l_heat, l_conv, l_movie,  &
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
@@ -111,7 +111,8 @@ contains
       logical :: lPowerCalc       ! Calculate viscous heating in the physical space
       logical :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
       logical :: lFluxProfCalc    ! Calculate radial flux components
-      logical :: lperpParCalc     ! Calculate perpendicular and parallel Ekin
+      logical :: lPerpParCalc     ! Calculate perpendicular and parallel Ekin
+      logical :: lGeosCalc        ! Calculate geos.TAG outputs
       logical :: lTOCalc          ! Calculate TO stuff
       logical :: lTONext,lTONext2 ! TO stuff for next steps
       logical :: lTOframeNext,lTOframeNext2
@@ -140,10 +141,10 @@ contains
       !-- Saves values for time step
       real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop)
 
-      !--- Explicit part of time stepping, calculated in s_radialLoopG.f and
+      !--- Explicit part of time stepping partly calculated in radialLoopG and
       !    passed to LMLoop where the time step is preformed.
       !    Note that the respective arrays for the changes in inner-core
-      !    magnetic field are calculated in s_updateB.f and are only
+      !    magnetic field are calculated in updateB and are only
       !    needed there.
 
       !--- Lorentz torques:
@@ -426,17 +427,14 @@ contains
             if ( n_specs > 0 ) l_spectrum=.true.
          end if
 
-         lHelCalc=l_hel.and.l_log
+         lHelCalc     =l_hel        .and. l_log
+         lPowerCalc   =l_power      .and. l_log
+         lPerpParCalc =l_perpPar    .and. l_log
+         lGeosCalc    =l_par        .and. l_log
+         lFluxProfCalc=l_FluxProfs  .and. l_log
+         lViscBcCalc  =l_ViscBcCalc .and. l_log
 
-         lPowerCalc=l_power.and.l_log
-
-         lperpParCalc=l_perpPar.and.l_log
-
-         lFluxProfCalc =l_FluxProfs.and.l_log
-
-         lViscBcCalc =l_ViscBcCalc.and.l_log
          l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc
-
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
          &            .or. lFluxProfCalc
          lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
@@ -469,7 +467,8 @@ contains
             lPressCalc    = lPressCalc    .and. (tscheme%istage==1)
             lViscBcCalc   = lViscBcCalc   .and. (tscheme%istage==1)
             lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1)
-            lperpParCalc  = lperpParCalc  .and. (tscheme%istage==1)
+            lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1)
+            lGeosCalc     = lGeosCalc     .and. (tscheme%istage==1)
             l_probe_out   = l_probe_out   .and. (tscheme%istage==1)
 
             if ( tscheme%l_exp_calc(n_stage) ) then
@@ -484,20 +483,20 @@ contains
                !- Radial loop
                !---------------
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
-                    &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
-                    &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
-                    &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
-                    &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
-                    &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,     &
-                    &           dVSrLM_Rloc,dVXirLM_Rloc,                          &
-                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
-                    &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc,&
-                    &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,         &
-                    &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc, &
-                    &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,          &
-                    &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,          &
-                    &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,       &
+               call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
+                    &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
+                    &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
+                    &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
+                    &           l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,&
+                    &           dxidt_Rloc,dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,        &
+                    &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
+                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
+                    &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc, &
+                    &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,          &
+                    &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,  &
+                    &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
+                    &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
+                    &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
                     &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
                call rLoop_counter%stop_count()
 

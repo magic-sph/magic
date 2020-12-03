@@ -12,7 +12,7 @@ module integration
 
    private
 
-   public :: rIntIC, rInt_R
+   public :: rIntIC, rInt_R, simps
 
 contains
 
@@ -61,21 +61,18 @@ contains
       real(cp),            intent(in) :: f(:)    ! Input function
       real(cp),            intent(in) :: r(:)    ! Radius
       class(type_rscheme), intent(in) :: r_scheme! Radial scheme (FD or Cheb)
-              
+
       !-- Local variables
       real(cp), allocatable :: f2(:)
-      real(cp) :: h1, h2
-      integer :: nR, nCheb, nRmax
-                 
-      nRmax=size(f)
+      integer :: nCheb, nRmax
+
 
       !--- Integrals:
       if ( r_scheme%version == 'cheb' ) then
 
+         nRmax=size(f)
          allocate( f2(nRmax) )
-         do nR=1,nRmax
-            f2(nR)=f(nR)/r_scheme%drx(nR)
-         end do
+         f2(:)=f(:)/r_scheme%drx(:)
 
          !-- Transform to cheb space:
          call r_scheme%costf1(f2)
@@ -96,43 +93,62 @@ contains
 
       else
 
-         if ( mod(nRmax,2)==1 ) then ! Odd number (Simpson ok)
-
-            rInt = 0.0_cp
-            do nR=2,nRmax-1,2
-               h2=r(nR+1)-r(nR)
-               h1=r(nR)-r(nR-1)
-               rInt=rInt+(h1+h2)/6.0_cp*( f(nR-1)*(two*h1-h2)/h1     +&
-               &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
-               &                      f(nR+1)*(two*h2-h1)/h2 )
-            end do
-
-            rInt = -rInt
-
-         else ! Even number (twice simpson + trapz on the first and last points)
-
-            rInt = half*(r(2)-r(1))*(f(2)+f(1))
-            do nR=3,nRmax,2
-               h2=r(nR+1)-r(nR)
-               h1=r(nR)-r(nR-1)
-               rInt=rInt+(h1+h2)/6.0_cp*( f(nR-1)*(two*h1-h2)/h1     +&
-               &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
-               &                      f(nR+1)*(two*h2-h1)/h2 )
-            end do
-            rInt = rInt+half*(r(nRmax)-r(nRmax-1))*(f(nRmax)+f(nRmax-1))
-            do nR=2,nRmax-1,2
-               h2=r(nR+1)-r(nR)
-               h1=r(nR)-r(nR-1)
-               rInt=rInt+(h1+h2)/6.0_cp*( f(nR-1)*(two*h1-h2)/h1     +&
-               &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
-               &                      f(nR+1)*(two*h2-h1)/h2 )
-            end do
-            rInt = -half*rInt
-
-         end if
+         rInt=simps(f,r)
 
       end if
 
    end function rInt_R
+!------------------------------------------------------------------------------
+   real(cp) function simps(f,r) result(rInt)
+      !
+      ! Simpson's method to integrate a function
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: f(:)    ! Input function
+      real(cp), intent(in) :: r(:)    ! Radius
+
+      !-- Local variables
+      real(cp) :: h1, h2
+      integer :: n_r, n_r_max
+
+      n_r_max=size(f)
+
+      if ( mod(n_r_max,2)==1 ) then ! Odd number (Simpson ok)
+
+         rInt = 0.0_cp
+         do n_r=2,n_r_max-1,2
+            h2=r(n_r+1)-r(n_r)
+            h1=r(n_r)-r(n_r-1)
+            rInt=rInt+(h1+h2)/6.0_cp*( f(n_r-1)*(two*h1-h2)/h1     +&
+            &                      f(n_r)  *(h1+h2)*(h1+h2)/(h1*h2)+&
+            &                      f(n_r+1)*(two*h2-h1)/h2 )
+         end do
+
+         rInt = -rInt
+
+      else ! Even number (twice simpson + trapz on the first and last points)
+
+         rInt = half*(r(2)-r(1))*(f(2)+f(1))
+         do n_r=3,n_r_max,2
+            h2=r(n_r+1)-r(n_r)
+            h1=r(n_r)-r(n_r-1)
+            rInt=rInt+(h1+h2)/6.0_cp*( f(n_r-1)*(two*h1-h2)/h1     +&
+            &                      f(n_r)  *(h1+h2)*(h1+h2)/(h1*h2)+&
+            &                      f(n_r+1)*(two*h2-h1)/h2 )
+         end do
+         rInt = rInt+half*(r(n_r_max)-r(n_r_max-1))*(f(n_r_max)+f(n_r_max-1))
+         do n_r=2,n_r_max-1,2
+            h2=r(n_r+1)-r(n_r)
+            h1=r(n_r)-r(n_r-1)
+            rInt=rInt+(h1+h2)/6.0_cp*( f(n_r-1)*(two*h1-h2)/h1     +&
+            &                      f(n_r)  *(h1+h2)*(h1+h2)/(h1*h2)+&
+            &                      f(n_r+1)*(two*h2-h1)/h2 )
+         end do
+         rInt = -half*rInt
+
+      end if
+
+   end function simps
 !------------------------------------------------------------------------------
 end module integration

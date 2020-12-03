@@ -12,7 +12,7 @@ module chebInt_mod
 
    private
 
-   public :: chebIntInit, chebInt, chebIntD
+   public :: chebIntInit, chebInt
 
 contains 
 
@@ -154,56 +154,5 @@ contains
       chebInt=chebNorm*chebInt/(zMax-zMin)
 
    end function chebInt
-!------------------------------------------------------------------------------
-   real(cp) function chebIntD(f,lDeriv,zMin,zMax,nGridPoints,nGridPointsMax,chebt)
-
-      !-- Input variables:
-      integer,           intent(in) :: nGridPointsMax       ! No of max grid points
-      real(cp),          intent(inout) :: f(nGridPointsMax) ! function on grid points
-      logical,           intent(in) :: lDeriv            
-      real(cp),          intent(in) :: zMin,zMax            ! integration boundaries
-      integer,           intent(in) :: nGridPoints          ! No of grid points
-      type(costf_odd_t), intent(in) :: chebt
-
-      !-- Local variables:
-      real(cp) :: work1(nGridPointsMax) ! work array
-      real(cp) :: work2(nGridPointsMax) ! work array
-      real(cp) :: chebNorm
-      real(cp) :: drFac             ! transform fac from cheb space
-      integer :: nCheb              ! counter for chebs
-
-      chebNorm=sqrt(two/real(nGridPoints-1,cp))
-
-      !----- Copy:
-      work1(:)=f(:)
-
-      !-- Transform to cheb space:
-      call chebt%costf1(work1,work2)
-
-      !-- Integration:
-      chebIntD=0.0_cp
-      do nCheb=1,nGridPoints,2  ! only even chebs contribute
-         if ( nCheb.eq.1 .or. nCheb.eq.nGridPoints ) then
-            chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*half*work1(nCheb)
-         else
-            chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*work1(nCheb)
-         end if
-      end do
-      !-- Normalize with interval:
-      chebIntD=chebNorm*chebIntD/(zMax-zMin)
-
-      !-- Get derivatives:
-      if ( lDeriv ) then
-         drFac=one/(zMax-zMin) ! get_cheb seems to have been changed
-                               ! so that now one instead of two is needed here.
-         call get_dcheb(work1,work2,nGridPointsMax,nGridPoints,drFac)
-         !-- Transform back to grid space:
-         call chebt%costf1(work2,work1)
-         do nCheb=1,nGridPoints
-            f(nCheb)=work2(nCheb)
-         end do
-      end if
-
-   end function chebIntD
 !------------------------------------------------------------------------------
 end module chebInt_mod

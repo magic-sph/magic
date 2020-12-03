@@ -1,1169 +1,907 @@
-module geos_mod
+module geos
    !
-   ! This module is used to calculate the outputs when either l_par = .true.
+   ! This module is used to compute z-integrated diagnostics such as the degree
+   ! of geostrophy or the separation of energies between inside and outside the
+   ! tangent cylinder. This makes use of a local Simpson's method.
    !
 
    use precision_mod
    use parallel_mod
+   use constants, only: half, two, pi, one, four, third
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, &
-       &                 minc, l_max, m_max, l_axi, n_phi_tot
-   use radial_functions, only: r_ICB, r_CMB, rscheme_oc, orho1
-   use physical_parameters, only: ra, ek, pr, prmag, radratio
-   use num_param, only: tScale
-   use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh, phi, dPhi
-   use logic, only: lVerbose, l_corrMov, l_anel, l_save_out, l_SRIC
-   use output_data, only: sDens, tag, runid
-   use constants, only: pi, zero, ci, one, two, three, four,  half
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC
-   use plms_theta, only: plm_theta
-   use fft, only: fft_to_real
-   use cosine_transform_odd, only: costf_odd_t
-   use chebInt_mod
+   use radial_data, only: radial_balance, nRstart, nRstop
+   use radial_functions, only: or1, or2, r_ICB, r_CMB, r, orho1, orho2, beta
+   use output_data, only: sDens, tag
+   use horizontal_data, only: n_theta_cal2ord, O_sin_theta_E2, theta_ord, &
+       &                      O_sin_theta, cosTheta, sinTheta
+   use truncation, only: n_phi_max, n_theta_max, n_r_max
+   use integration, only: simps
+   use logic, only: l_save_out
 
    implicit none
 
    private
 
-   real(cp), allocatable :: PlmS(:,:,:)
-   real(cp), allocatable :: dPlmS(:,:,:)
-   real(cp), allocatable :: sinTS(:,:)
+   real(cp), allocatable :: cyl(:) ! Cylindrical grid
+   real(cp), allocatable :: h(:)   ! h(s)
+   real(cp), allocatable :: us_Rloc(:,:,:), up_Rloc(:,:,:), uz_Rloc(:,:,:)
+   real(cp), allocatable :: us_Ploc(:,:,:), up_Ploc(:,:,:), uz_Ploc(:,:,:)
+   real(cp), allocatable :: wz_Rloc(:,:,:), wz_Ploc(:,:,:)
+   real(cp) :: vol_otc ! volume outside tangent cylinder
 
-   complex(cp), allocatable :: wS_global(:,:), dwS_global(:,:), ddwS_global(:,:)
-   complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
+   integer :: nPstart ! Starting nPhi index when MPI distributed
+   integer :: nPstop  ! Stoping nPhi index when MPI distributed
+   type(load), allocatable :: phi_balance(:) ! phi-distributed balance
+   integer :: n_geos_file ! file unit for geos.TAG
+   integer :: n_s_max ! Number of cylindrical points
+   integer :: n_s_otc ! Index for last point outside TC
+   character(len=72) :: geos_file ! file name
 
-   type(costf_odd_t), allocatable :: chebt_Z(:)
-   integer, allocatable :: nZmaxS(:)
-   real(cp), allocatable :: zZ(:,:), rZS(:,:)
-   real(cp), parameter :: eps = 10.0_cp*epsilon(one)
-
-   integer :: n_geos_file, nrp_geos
-   integer :: nSmax, nZmaxA, nZmaxAH, nZnorm, nSstart, nSstop
-   real(cp) :: zNorm
-   type(load), allocatable :: cyl_balance(:)
-   character(len=72) :: geos_file
-
-   public :: initialize_geos_mod, getEgeos, finalize_geos_mod
+   public :: initialize_geos, finalize_geos, calcGeos, outGeos
 
 contains
 
-   subroutine initialize_geos_mod(l_geos)
+   subroutine initialize_geos()
       !
-      ! Memory allocation in Egeos
+      ! Memory allocation and definition of the cylindrical grid
       !
-      logical, intent(in) :: l_geos
 
-      nrp_geos=n_phi_max
+      integer :: n_s
+      real(cp) :: smin, smax, ds
 
-      ! Number of grid point in s:
-      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
-      nSmax=int(sDens*nSmax) ! scale up with sDens
-      ! Reference number of grid point in z covering 
-      ! one hemisphere at s=r_ICB.
-      ! Maximum number used in z
-      zNorm=two*sqrt(1-radratio**2)*r_CMB
-      nZnorm=2*int(real(nSmax,cp)*zNorm/r_CMB)
-      nZmaxA=nZnorm+51 ! Add safety margin
-      nZmaxAH=nZnorm+25
+      !-- Volume outside tangent cylinder
+      vol_otc = four*third*pi*(r_CMB**2-r_ICB**2)**(1.5_cp)
+
+      !-- R-distributed arrays
+      allocate( us_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+      allocate( up_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+      allocate( uz_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+      allocate( wz_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+      bytes_allocated=bytes_allocated+4*n_phi_max*n_theta_max*(nRstop-nRstart+1)*&
+      &               SIZEOF_DEF_REAL
 
       !-- Distribute over the ranks
-      allocate(cyl_balance(0:n_procs-1))
-      call getBlocks(cyl_balance, nSmax, n_procs)
-      nSstart = cyl_balance(rank)%nStart
-      nSstop = cyl_balance(rank)%nStop
+      allocate(phi_balance(0:n_procs-1))
+      call getBlocks(phi_balance, n_phi_max, n_procs)
+      nPstart = phi_balance(rank)%nStart
+      nPstop = phi_balance(rank)%nStop
 
-      !-- The following global arrays are required in getDVptr
-      allocate( wS_global(lm_max,n_r_max), dwS_global(lm_max,n_r_max) )
-      allocate( ddwS_global(lm_max,n_r_max), zS_global(lm_max,n_r_max) )
-      allocate( dzS_global(lm_max,n_r_max) )
-      bytes_allocated = bytes_allocated+ 5*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+      !-- Phi-distributed arrays
+      allocate( us_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+      allocate( up_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+      allocate( uz_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+      allocate( wz_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+      bytes_allocated=bytes_allocated+4*n_r_max*n_theta_max*(nPstop-nPstart+1)*&
+      &               SIZEOF_DEF_REAL
 
-      if ( l_geos ) then
-         allocate( sinTS(nZmaxAH,nSstart:nSstop) )
-         allocate( PlmS(lm_max,nZmaxAH,nSstart:nSstop) )
-         allocate( dPlmS(lm_max,nZmaxAH,nSstart:nSstop) )
-         allocate( zZ(nZmaxA,nSstart:nSstop) )
-         allocate( rZS(nZmaxA,nSstart:nSstop) )
-         bytes_allocated = bytes_allocated+ (nZmaxAH*(nSstop-nSstart+1)* &
-         &                (1+2*lm_max))*SIZEOF_DEF_REAL + &
-         &                2*nZmaxA*(nSstop-nSstart+1)*SIZEOF_DEF_REAL
+      !-- Cylindrical radius
+      n_s_max = n_r_max+int(r_ICB*n_r_max)
+      n_s_max = int(sDens*n_s_max)
+      allocate( cyl(n_s_max) )
+      bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 
-         allocate( nZmaxS(nSstart:nSstop) )
-         allocate( chebt_Z(nSstart:nSstop) )
-         bytes_allocated = bytes_allocated+(nSstop-nSstart+1)*SIZEOF_INTEGER
+      ! Minimum and maximum cylindrical radii
+      smin = r_CMB*sin(theta_ord(1))
+      smax = r_CMB
 
+      !-- Grid spacing
+      ds = (smax-smin)/(n_s_max-1)
+
+      !-- Cylindrical grid
+      do n_s=1,n_s_max
+         cyl(n_s)=r_cmb-(n_s-1)*ds
+      end do
+
+      !-- Height
+      allocate( h(n_s_max) )
+      do n_s=1,n_s_max
+         if ( cyl(n_s) >= r_ICB ) then
+            h(n_s)=two*sqrt(r_CMB**2-cyl(n_s)**2)
+            n_s_otc=n_s ! Last index outside TC
+         else
+            h(n_s)=sqrt(r_CMB**2-cyl(n_s)**2)-sqrt(r_ICB**2-cyl(n_s)**2)
+         end if
+      end do
+
+      !-- Open geos.TAG file
+      if ( rank == 0 ) then
          geos_file='geos.'//tag
-         if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( (.not. l_save_out) ) then
             open(newunit=n_geos_file, file=geos_file, status='new')
          end if
       end if
 
-   end subroutine initialize_geos_mod
-
-!----------------------------------------------------------------------------
-
-   subroutine finalize_geos_mod(l_geos)
+   end subroutine initialize_geos
+!------------------------------------------------------------------------------------
+   subroutine finalize_geos()
       !
       ! Memory deallocation
       !
-      logical, intent(in) :: l_geos
 
-      deallocate( wS_global, dwS_global, ddwS_global, zS_global, dzS_global)
+      if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
+      deallocate( us_Ploc, up_Ploc, uz_Ploc )
+      deallocate( us_Rloc, up_Rloc, uz_Rloc )
+      deallocate( cyl, h )
 
-      if ( l_geos ) then
-         deallocate( sinTS, PlmS, dPlmS, zZ, rZS )
-         deallocate( chebt_Z, nZmaxS )
-         if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
-      end if
-
-      deallocate( cyl_balance )
-
-   end subroutine finalize_geos_mod
- 
-!----------------------------------------------------------------------------
-
-   subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,Geos,GeosA,GeosZ,GeosM,GeosNA, &
-   &                   GeosNAP,dpFlow,dzFlow,volume,Ekin)
+   end subroutine finalize_geos
+!------------------------------------------------------------------------------------
+   subroutine calcGeos(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
       !
-      !   Output of axisymmetric zonal flow, its relative strength,
-      !   its time variation, and all forces acting on it.
-      !   The slowest part in the TO process is the repitions calculation
-      !   of Plms by subroutine plm_theta. They are needed in getDVptr
-      !   when I transform on the cylindrical grid.
-      !   The necessary plms could simply be calculated one and then
-      !   be stored for later use! See s_outTOnew.f.
+      ! This routine computes the term needed for geos.TAG outputs in physical
+      ! space.
       !
 
-      !-- Input of variables:
-      real(cp),    intent(in) :: time
-      integer,     intent(in) :: nGeosSets
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      !-- Input variables
+      integer,  intent(in) :: nR ! Radial grid point
+      real(cp), intent(in) :: vr(:,:), vt(:,:), vp(:,:)
+      real(cp), intent(in) :: cvr(:,:), dvrdp(:,:), dvpdr(:,:)
 
-      !-- Output variables:
-      real(cp), intent(out) :: Geos    ! ratio of geostrophic to total energy
-      real(cp), intent(out) :: GeosA   ! ratio of geostr. axisymm. energy
-      real(cp), intent(out) :: GeosZ   ! ratio of geostr. zonal energy
-      real(cp), intent(out) :: GeosM   ! ratio of geostr. meridional energy
-      real(cp), intent(out) :: GeosNA  ! ration of geostr. non-axisymmetric energy
-      real(cp), intent(out) :: GeosNAP ! ration of geostr. non-axisymmetric perp energy
-      real(cp), intent(out) :: dpFlow  ! RMS lengths scale
-      real(cp), intent(out) :: dzFlow ! RMS lengths scale
-      real(cp), intent(out) :: Ekin
+      !-- Local variables
+      integer :: nPhi, nTheta, nTheta1
 
-      real(cp), intent(out) :: volume
-      real(cp) :: volume_s,volumeOTC_s,volumeOTC
+      !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nTheta1=n_theta_cal2ord(nTheta)
+            !- us=ur*sin(theta)+ut*cos(theta)
+            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nTheta,nPhi) &
+            &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*               &
+            &                        O_sin_theta(nTheta)*vt(nTheta,nPhi)
 
-      !-- Local variables:
-      real(cp) :: Egeos,EkNTC,EkSTC
-      real(cp) :: EgeosA,EgeosZ,EgeosM,EgeosNA,EgeosNAP
-      real(cp) :: CVzOTC,CVorOTC,CHelOTC
-      integer :: nS,nS_ICB,kindCalc
-      real(cp) :: zMinN,zMaxN,zMin,zMax ! integration boundarie, help variable
-      real(cp) :: sZ(nSmax),dsZ,s1,s2 ! cylindrical radius s and s-step
-      integer :: nPhi,nI
+            !- uz=ur*cos(theta)-ut*sin(theta)
+            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi) &
+            &                        -or1(nR)*orho1(nR)*vt(nTheta,nPhi)
+
+            !- uphi
+            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)* &
+            &                        vp(nTheta,nPhi)
+
+            !-- z-vorticity
+            wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(                 &
+            &                cosTheta(nTheta)*or1(nR)*cvr(nTheta,nPhi) - &
+            &            or2(nR)*dvrdp(nTheta,nPhi)+dvpdr(nTheta,nPhi) - &
+            &                       beta(nR)*vp(nTheta,nPhi)   )
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine calcGeos
+!------------------------------------------------------------------------------------
+   subroutine outGeos(time,Geos,GeosA,GeosZ,GeosM,GeosNAP,Ekin)
+      !
+      ! This routine handles the output of geos.TAG
+      !
+
+      !-- Input variable
+      real(cp), intent(in) :: time
+
+      !-- Output variables
+      real(cp), intent(out) :: Geos, GeosA, GeosZ, GeosM, GeosNAP, Ekin
+
+      !-- Local variables
       real(cp) :: phiNorm
-      logical :: lTC
+      real(cp) :: tmp(n_theta_max,n_r_max)
+      real(cp) :: us_axi(n_theta_max,n_r_max),us_axi_dist(n_theta_max,n_r_max)
+      real(cp) :: up_axi(n_theta_max,n_r_max),up_axi_dist(n_theta_max,n_r_max)
+      real(cp) :: uz_axi(n_theta_max,n_r_max),uz_axi_dist(n_theta_max,n_r_max)
+      real(cp) :: CVZ_dist(n_s_max), CVZ_full(n_s_max), CVZ
+      real(cp) :: CVor_dist(n_s_max), CVor_full(n_s_max), CVor
+      real(cp) :: CHel_dist(n_s_max), CHel_full(n_s_max), CHel
+      real(cp) :: Ekin_dist(n_s_max), Ekin_full(n_s_max)
+      real(cp) :: Ek_nAP_dist(n_s_max), Ek_nAP_full(n_s_max), Ek_nAP
+      real(cp) :: Ek_NTC_dist(n_s_max), Ek_NTC_full(n_s_max), EkNTC
+      real(cp) :: Ek_STC_dist(n_s_max), Ek_STC_full(n_s_max), EkSTC
+      real(cp) :: Egeos_dist(n_s_max), Egeos_full(n_s_max), Egeos
+      real(cp) :: Eg_nAP_dist(n_s_max), Eg_nAP_full(n_s_max), Eg_nAP
+      real(cp) :: uzSN_OTC(n_s_max), uzNN_OTC(n_s_max), wzNN_OTC(n_s_max)
+      real(cp) :: Ek_ITC_N(n_s_max), Ek_ITC_S(n_s_max), Ek_OTC(n_s_max)
+      real(cp) :: us_ITC_N(n_s_max), us_ITC_S(n_s_max), us_OTC(n_s_max)
+      real(cp) :: up_ITC_N(n_s_max), up_ITC_S(n_s_max), up_OTC(n_s_max)
+      real(cp) :: uz_ITC_N(n_s_max), uz_ITC_S(n_s_max), uz_OTC(n_s_max)
+      real(cp) :: EkS, EkN, EA, EM, EZ, EgeosA, EgeosM, EgeosZ
+      integer :: n_p, n_s, n_t
 
+      phiNorm = one/n_phi_max
 
-      !-- Representation in (phi,z):
-      real(cp) :: VrS(nrp_geos,nZmaxA),Vr(nZmaxA),VrIntS
-      real(cp) :: VtS(nrp_geos,nZmaxA),Vt(nZmaxA),VtIntS
-      real(cp) :: VpS(nrp_geos,nZmaxA),Vp(nZmaxA),VpIntS
-      real(cp) :: VozS(nrp_geos,nZmaxA),V2(nZmaxA)
-      real(cp) :: VrAS(nZmaxA),VrAIntS
-      real(cp) :: VtAS(nZmaxA),VtAIntS
-      real(cp) :: VpAS(nZmaxA),VpAIntS
-      real(cp) :: VrNA(nZmaxA),VrNAIntS
-      real(cp) :: VtNA(nZmaxA),VtNAIntS
-      real(cp) :: VpNA(nZmaxA),VpNAIntS
-      real(cp) :: VsNA(nZmaxA),VsNAIntS
-      real(cp) :: VzNA(nZmaxA),VA2(nZmaxA),VZ2(nZmaxA),VM2(nZmaxA)
-      real(cp) :: VNA2(nZmaxA),VNAP2(nZmaxA)
-      real(cp) :: rZ(nZmaxA),sinT(nZmaxA),cosT(nZmaxA)
-      integer :: nInt,nInts   ! index for NHS and SHS integral
-      integer :: nZ,nZmaxH,nZmaxI,nZmaxV,nZS,nZN
-      real(cp) :: EA_s,EAIntS,EA,EZ_s,EZIntS,EZ,EM_s,EMIntS,EM
-      real(cp) :: ENA_s,ENAIntS,ENA,EkSTC_s,EkNTC_s
-      real(cp) :: ENAP_s,ENAPIntS,ENAP
-      real(cp) :: Egeos_s,EkOTC_s,EgeosA_s,EgeosZ_s,EgeosM_s
-      real(cp) :: EgeosNA_s,EgeosNAP_s,EkOTC,EkIntS
-      real(cp) :: dpEkInt(nZmaxA),dpEkIntS,dzEkInt(nZmaxA),dzEkIntS
-      real(cp) :: dpEk_s,dzEk_s,thetaZ,wZ,wZP,threehalf
-      real(cp) :: dpEk,dzEk
+      !-- MPI transpositions for  us, uz and up
+      call transp_R2Phi(us_Rloc, us_Ploc)
+      call transp_R2Phi(uz_Rloc, uz_Ploc)
+      call transp_R2Phi(up_Rloc, up_Ploc)
+      call transp_R2Phi(wz_Rloc, wz_Ploc)
 
-      !-- Correlation (new Oct. 4 2007)
-      logical :: lCorrel
-      real(cp) :: VzS,VzN,VorS,VorN,delz
-      real(cp) :: VzSN,VzSS,VzNN,VorSN,VorSS,VorNN,HelZZ,VZZ,VorZZ
-      real(cp) :: CVz_I,CVor_I,CHel_I
-      real(cp) :: CVz_s,CVor_s,CHel_s
-
-      !-- Movie output
-      integer :: nOutFile,n
-      character(len=66) :: movFile
-      character(len=64) :: version
-      integer :: nFields,nFieldSize
-      real(cp) :: dumm(40)
-      real(outp) :: CVz(nrp_geos,nSmax)
-      real(outp) :: CVor(nrp_geos,nSmax)
-      real(outp) :: CHel(nrp_geos,nSmax)
-      real(outp) :: CVz_Sloc(nrp_geos,nSstart:nSstop)
-      real(outp) :: CVor_Sloc(nrp_geos,nSstart:nSstop)
-      real(outp) :: CHel_Sloc(nrp_geos,nSstart:nSstop)
-
-#ifdef WITH_MPI
-      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
-#endif
-
-      if ( lVerbose ) write(*,*) '! Starting outGeos!'
-
-      call costf_arrays(w,dw,ddw,z,dz)
-
-      lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
-      phiNorm=two*pi/n_phi_max
-      ! if lDeriv=true chebIntD returns the z-derivative ...
-      kindCalc=1
-
-      !---- Get resolution in s, z resolution is defined above
-      dsZ  =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
-
-      !-- Construct new cylindrical grid so that first s=dsz/2 and
-      !   last s is r_CMB-dsZ/2 
-      !   The z grid points are calculated in chebIntInit
-      do nS=1,nSmax
-         sZ(nS)=(real(nS,cp)-half)*dsZ
+      !-- Get axisymmetric flows for partial geos business
+      us_axi_dist(:,:)=0.0_cp
+      up_axi_dist(:,:)=0.0_cp
+      uz_axi_dist(:,:)=0.0_cp
+      do n_p=nPstart,nPstop
+         us_axi_dist(:,:)=us_axi_dist(:,:)+phiNorm*us_Ploc(:,:,n_p)
+         up_axi_dist(:,:)=up_axi_dist(:,:)+phiNorm*up_Ploc(:,:,n_p)
+         uz_axi_dist(:,:)=uz_axi_dist(:,:)+phiNorm*uz_Ploc(:,:,n_p)
       end do
 
-      EkSTC    =0.0_cp
-      EkNTC    =0.0_cp
-      EkOTC    =0.0_cp
-      Egeos    =0.0_cp
-      EgeosA   =0.0_cp
-      EgeosZ   =0.0_cp
-      EgeosM   =0.0_cp
-      EgeosNA  =0.0_cp
-      EgeosNAP =0.0_cp
-      EA       =0.0_cp
-      EZ       =0.0_cp
-      EM       =0.0_cp
-      ENA      =0.0_cp
-      ENAP     =0.0_cp
-      CVzOTC   =0.0_cp
-      CVorOTC  =0.0_cp
-      CHelOTC  =0.0_cp
-      volume   =0.0_cp
-      volumeOTC=0.0_cp
-      dpEk     =0.0_cp
-      dzEk     =0.0_cp
-
-
-      !---- Contributions are now in fully spectral space!
-      !---- Do the z-integral:
-      nI=0
-
-      !--- Start the big loop over s grid points. This loop is 
-      !    parallized in MPI.
-      do nS=nSstart,nSstop 
-
-         if ( sZ(nS) < r_ICB ) then
-            lTC=.true.
-         else
-            lTC=.false.
-         end if
-         if ( nS > nSstart ) then
-            if ( sZ(nS-1) < r_ICB .and. sZ(nS) >= r_ICB ) nS_ICB=nS
-         end if
-
-
-         !-- zero contributions for this s:
-         volume_s   =0.0_cp
-         volumeOTC_s=0.0_cp
-         EkSTC_s    =0.0_cp
-         EkNTC_s    =0.0_cp
-         EkOTC_s    =0.0_cp
-         EA_s       =0.0_cp
-         EZ_s       =0.0_cp
-         EM_s       =0.0_cp
-         ENA_s      =0.0_cp
-         ENAP_s     =0.0_cp
-         Egeos_s    =0.0_cp
-         EgeosA_s   =0.0_cp
-         EgeosZ_s   =0.0_cp
-         EgeosM_s   =0.0_cp
-         EgeosNA_s  =0.0_cp
-         EgeosNAP_s =0.0_cp
-         dpEk_s     =0.0_cp
-         dzEk_s     =0.0_cp
-         CVz_s      =0.0_cp
-         CVor_s     =0.0_cp
-         CHel_s     =0.0_cp
-
-
-         !--- Get lower integral boundary for this s:
-         zMinN=-sqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
-         if ( lTC ) then
-            zMaxN=-sqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
-         else
-            zMaxN=-zMinN
-         end if
-
-         !--- Get the z-grid for the integral, only done once
-         if ( nGeosSets==1 ) then
-            !--- Prepare z-integration
-            !---  Inside TC this covers only one hemiphere. 
-            !     Output of chebIntInit is the z-grid zZ and the 
-            !     number of points nZmaxS. 
-            call chebIntInit(zMinN,zMaxN,zNorm,nZnorm,                   &
-                 &           nZmaxA,zZ(:,nS),nZmaxS(nS),chebt_Z(nS))
-         endif
-
-         ! Number of z points:
-         !    nZmaxH = points in one hemisphere (plus equator outside TC)
-         !    nZmaxV = all points for one s, used in getDPV ...
-         !    nZmaxI = points used for one intergal
-         if ( lTC ) then
-            nInts=2
-            nZmaxH=nZmaxS(nS)
-            nZmaxV=2*nZmaxH
-            nZmaxI=nZmaxH
-         else
-            nInts=1
-            nZmaxH=(nZmaxS(nS)-1)/2+1 ! Hemisphere plus equator
-            nZmaxV=nZmaxS(nS)
-            nZmaxI=nZmaxV
-         end if
-
-         !--- Calculate the Plm, sin(theta) for the southern hermisphere
-         !    Only done once. 
-         !    Each processor only calculates the plms for his s!
-         if ( nGeosSets==1 ) then
-            do nZ=1,nZmaxH ! This is only for one HS
-               rZS(nZ,nS)   =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
-               thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
-               sinTS(nZ,nS)=sin(thetaZ)
-               call plm_theta(thetaZ,l_max,m_max,minc,                &
-               &              PlmS(:,nZ,nS),dPlmS(:,nZ,nS),lm_max,2)
-            end do
-         end if 
-
-         !--- Get sin,cos for the whole sphere (nZmaxV points
-         sinT(1:nZmaxH)=sinTS(1:nZmaxH,nS)
-         cosT(1:nZmaxH)=sqrt(one-sinT(1:nZmaxH))
-         rZ(1:nZmaxH)=rZS(1:nZmaxH,nS)
-         if ( lTC ) then 
-            ! Northern HS
-            sinT(nZmaxH+1:nZmaxV)= sinT(nZmaxH:1:-1)
-            cosT(nZmaxH+1:nZmaxV)=-cosT(nZmaxH:1:-1)
-            rZ(nZmaxH+1:nZmaxV)  =rZ(nZmaxH:1:-1)
-         else
-            ! Nothern HS, mind the equator !
-            nZ=nZmaxH-1
-            sinT(nZmaxH+1:nZmaxV)=sinT(nZ:1:-1)
-            cosT(nZmaxH+1:nZmaxV)=-cosT(nZ:1:-1)
-            rZ(nZmaxH+1:nZmaxV)  =rZ(nZ:1:-1)
-         end if
-
-         ! Weight for individual z-integral contribution,
-         ! NOTE: another two pi is multiplied later
-         s1=sZ(nS)-half*dsZ
-         s2=sZ(nS)+half*dsZ
-         threehalf=three*half
-         if ( lTC ) then
-            !-- abs is needed in case round-off yields 0- values
-            wZ=one/three*( abs(r_ICB**2-s2**2)**threehalf - &
-            &              abs(r_ICB**2-s1**2)**threehalf - &
-            &              abs(r_CMB**2-s2**2)**threehalf + &
-            &              abs(r_CMB**2-s1**2)**threehalf )
-         else
-            !-- abs is needed in case round-off yields 0- values
-            wZ=two/three*( abs(r_CMB**2-s1**2)**threehalf - &
-            &              abs(r_CMB**2-s2**2)**threehalf )
-         end if
-         wZP=wZ*phiNorm
-
-         !--------- Get the flow components for all northern and
-         !          southern thetas and all phis:
-         call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
-              &        r_ICB,r_CMB,rZ,nZmaxV,nZmaxA,PlmS(:,:,nS),             &
-              &        dPlmS(:,:,nS),sinT,cosT,kindCalc,VrS,VtS,VpS,VozS,     &
-              &        VrAS,VtAS,VpAS,dpEkInt)
-
-         !------- Perform z-integrals for axisymmetric stuff:
-         do nInt=1,nInts
-            VZ2(:)=0.0_cp
-            if ( nInt == 1 ) then
-               zMax=zMaxN
-               zMin=zMinN
-               Vr(1:nZmaxI)=VrAS(1:nZmaxI)
-               Vt(1:nZmaxI)=VtAS(1:nZmaxI)
-               Vp(1:nZmaxI)=VpAS(1:nZmaxI)
-            else if ( nInt == 2 ) then ! second integral inside TC
-               zMax=-zMinN
-               zMin=-zMaxN
-               Vr(1:nZmaxI)=VrAS(nZmaxI+1:nZmaxV)
-               Vt(1:nZmaxI)=VtAS(nZmaxI+1:nZmaxV)
-               Vp(1:nZmaxI)=VpAS(nZmaxI+1:nZmaxV)
-            end if
-            VA2(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2+Vp(1:nZmaxI)**2
-            VZ2(1:nZmaxI)=Vp(1:nZmaxI)**2
-            VM2(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2
-            !--- Perform z-integral:
-            VrAIntS=chebIntD(Vr,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            VtAIntS=chebIntD(Vt,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            VpAIntS=chebIntD(Vp,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            EAIntS=chebIntD(VA2,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            EZIntS=chebIntD(VZ2,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            EMIntS=chebIntD(VM2,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            ! Note: the factor is 2*pi*wZ(V^2/2) = pi*wZ*v^2
-            EgeosA_s=EgeosA_s+pi*wZ*(VrAIntS**2+VtAIntS**2+VpAIntS**2)
-            EgeosZ_s=EgeosZ_s+pi*wZ*VpAIntS**2
-            EgeosM_s=EgeosM_s+pi*wZ*(VrAIntS**2+VtAIntS**2)
-            EA_s=EA_s+pi*wZ*EAIntS
-            EZ_s=EZ_s+pi*wZ*EZIntS
-            EM_s=EM_s+pi*wZ*EMIntS
-            volume_s=volume_s+two*pi*wZ
-         end do
-
-         !------- Perform z-integral(s) for all phis:
-         do nPhi=1,n_phi_max
-
-            do nInt=1,nInts
-               if ( nInt == 1 ) then
-                  zMax=zMaxN
-                  zMin=zMinN
-                  Vr(1:nZmaxI)=VrS(nPhi,1:nZmaxI)
-                  Vt(1:nZmaxI)=VtS(nPhi,1:nZmaxI)
-                  Vp(1:nZmaxI)=VpS(nPhi,1:nZmaxI)
-                  VrNA(1:nZmaxI)=Vr(1:nZmaxI)-VrAS(1:nZmaxI)
-                  VtNA(1:nZmaxI)=Vt(1:nZmaxI)-VtAS(1:nZmaxI)
-                  VpNA(1:nZmaxI)=Vp(1:nZmaxI)-VpAS(1:nZmaxI)
-               else if ( nInt == 2 ) then
-                  zMax=-zMinN
-                  zMin=-zMaxN
-                  Vr(1:nZmaxI)  =VrS(nPhi,nZmaxI+1:2*nZmaxI)
-                  Vt(1:nZmaxI)  =VtS(nPhi,nZmaxI+1:2*nZmaxI)
-                  Vp(1:nZmaxI)  =VpS(nPhi,nZmaxI+1:2*nZmaxI)
-                  VrNA(1:nZmaxI)=Vr(1:nZmaxI)-VrAS(nZmaxI+1:2*nZmaxI)
-                  VtNA(1:nZmaxI)=Vt(1:nZmaxI)-VtAS(nZmaxI+1:2*nZmaxI)
-                  VpNA(1:nZmaxI)=Vp(1:nZmaxI)-VpAS(nZmaxI+1:2*nZmaxI)
-               end if
-               VsNA(1:nZmaxI)=sinT(1:nZmaxI)*VrNA(1:nZmaxI) + &
-               &              cosT(1:nZmaxI)*VtNA(1:nZmaxI)
-               VzNA(1:nZmaxI)=cosT(1:nZmaxI)*VrNA(1:nZmaxI) - & 
-               &              sinT(1:nZmaxI)*VtNA(1:nZmaxI)
-               V2(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2+Vp(1:nZmaxI)**2
-               VNA2(1:nZmaxI)=VrNA(1:nZmaxI)**2+VtNA(1:nZmaxI)**2+VpNA(1:nZmaxI)**2 
-               VNA2(1:nZmaxI)=VrNA(1:nZmaxI)**2+VtNA(1:nZmaxI)**2+VpNA(1:nZmaxI)**2 
-               VNAP2(1:nZmaxI)=VsNA(1:nZmaxI)**2+VpNA(1:nZmaxI)**2 
-
-               !--- Perform z-integral:
-               !-------- NOTE: chebIntD replaces VrInt with z-derivative
-               !               for lDeriv=.true. (second parameter)
-               VrIntS=chebIntD(Vr,.true.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               VtIntS=chebIntD(Vt,.true.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               VpIntS=chebIntD(Vp,.true.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               EkIntS=chebIntD(V2,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               VrNAIntS=chebIntD(VrNA,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               VtNAIntS=chebIntD(VtNA,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               VpNAIntS=chebIntD(VpNA,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               VsNAIntS=chebIntD(VsNA,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               ENAIntS=chebIntD(VNA2,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               ENAPIntS=chebIntD(VNAP2,.false.,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-
-               !-------- Get volume integral of geostrophic energies:
-               Egeos_s=Egeos_s+(VrIntS**2+VtIntS**2+VpIntS**2)
-               EgeosNA_s =EgeosNA_s +(VrNAIntS**2+VtNAIntS**2+VpNAIntS**2) 
-               EgeosNAP_s=EgeosNAP_s+(VsNAIntS**2+VpNAIntS**2) 
-               ENA_s=ENA_s+ENAIntS
-               ENAP_s=ENAP_s+ENAPIntS
-               if ( lTC ) then
-                  if ( nInt == 1 ) then
-                     EkSTC_s=EkSTC_s+EkIntS
-                  else if ( nInt == 2 ) then
-                     EkNTC_s=EkNTC_s+EkIntS
-                  end if
-               else
-                  EkOTC_s=EkOTC_s+EkIntS
-               end if
-
-               !-------- Note: chebIntD above returns the z derivative 
-               dzEkInt(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2+Vp(1:nZmaxI)**2
-               dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-               dzEk_s=dzEk_s+dzEkIntS
-
-            end do ! Loop over north/south integral
-
-
-            ! --- Here I calculate the Pearson correlation coeff between
-            !     z-integrated stuff in northern and southern HS.
-            !     Considered are Vz,z-vorticity Vor, and axial helicity Vz*Vor.
-            !     The correlation is averaged over the shell.
-            ! --- All the stuff for North/South correlation only outside TC
-            !     and only 0.1 away from boundaries:
-            !     Here only integrals over one hemisphere are required. I thus
-            !     copy the southern points to the northern hermisphere.
-            if ( lCorrel .and. .not.lTC ) then
-
-               VzSN =0.0_cp
-               VzSS =0.0_cp
-               VzNN =0.0_cp
-               VorSN=0.0_cp
-               VorSS=0.0_cp
-               VorNN=0.0_cp
-               HelZZ=0.0_cp
-               VZZ  =0.0_cp
-               VorZZ=0.0_cp
-               do nZN=1,nZmaxH 
-                  nZS  =nZmaxI-nZN+1
-                  delz =zZ(nZN,nS)-zZ(nZN+1,nS)
-                  VzN  = cosT(nZN)*VrS(nPhi,nZN)-sinT(nZN)*VtS(nPhi,nZN)
-                  VzS  =-cosT(nZN)*VrS(nPhi,nZS)-sinT(nZN)*VtS(nPhi,nZS)
-                  VorN =VozS(nPhi,nZN)
-                  VorS =VozS(nPhi,nZS)
-                  VzSN =VzSN+delz*VzS*VzN
-                  VzNN =VzNN+delz*VzN*VzN
-                  VzSS =VzSS+delz*VzS*VzS
-                  VorSN=VorSN+delz*VorS*VorN
-                  VorNN=VorNN+delz*VorN*VorN
-                  VorSS=VorSS+delz*VorS*VorS
-                  HelZZ=HelZZ+delz*(VorN*VzN-VorS*VzS)
-                  VZZ  =VZZ  +delz*(VzN*VzN+VzS*VzS)
-                  VorZZ=VorZZ+delz*(VorN*VorN+VorS*VorS)
-               end do
-
-               if ( VzSS /= 0.0_cp .and. VzNN /= 0.0_cp ) then
-                  CVz_I = VzSN/sqrt(VzSS*VzNN)
-               else
-                  CVz_I = 0.0_cp
-               end if
-               if ( VorSS /= 0.0_cp .and. VorNN /= 0.0_cp ) then
-                  CVor_I=VorSN/sqrt(VorSS*VorNN)
-               else
-                  CVor_I=0.0_cp
-               end if
-               if ( ( VZZ /= 0.0_cp .and. VorZZ /= 0.0_cp ) .and. HelZZ > eps ) then
-                  CHel_I=HelZZ/sqrt(VZZ*VorZZ)
-               else
-                  CHel_I=0.0_cp
-               end if
-               CVz_Sloc(nPhi,nS) =real(CVz_I,kind=outp)
-               CVor_Sloc(nPhi,nS)=real(CVor_I,kind=outp)
-               CHel_Sloc(nPhi,nS)=real(CHel_I,kind=outp)
-
-               CVz_s =CVz_s +CVz_I
-               CVor_s=CVor_s+CVor_I
-               CHel_s=CHel_s+CHel_I
-
-            end if ! lCorrel ?
-
-         end do  ! Loop over phi
-
-         ! Note: the extral factor half is needed to convert v^2 to energy
-         ! Factor wZP is the weight for the specific s.
-         Egeos_s   =wZP*half*Egeos_s
-         EgeosNA_s =wZP*half*EgeosNA_s
-         EgeosNAP_s=wZP*half*EgeosNAP_s
-         ENA_s     =wZP*half*ENA_s
-         ENAP_s    =wZP*half*ENAP_s
-         if ( lTC ) then
-            EkSTC_s=wZP*half*EkSTC_s
-            EkNTC_s=wZP*half*EkNTC_s
-         else
-            EkOTC_s=wZP*half*EkOTC_s
-         end if
-         dzEk_s=wZP*half*dzEk_s
-
-         if ( lCorrel .and. .not.lTC ) then
-            CVz_s =wZP*CVz_s
-            CVor_s=wZP*CVor_s
-            CHel_s=wZP*CHel_s
-            volumeOTC_s=volumeOTC_s+two*pi*wZ
-         end if 
-
-         !--------- dpEkInt treated differently cause phi integral has
-         !          already been performed by getDVptr
-         do nInt=1,nInts
-            if ( nInt == 1 ) then
-               zMax=-zMaxN
-               zMin=-zMinN
-            elseif ( nInt == 2 ) then
-               zMax=-zMinN
-               zMin=-zMaxN
-               do nZ=1,nZmaxI
-                  dpEkInt(nZ)=dpEkInt(nZ+nZmaxI)
-               end do
-            end if
-            ! Perform the z-integral with cheb integration:
-            dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
-            ! Multiply with weight wZ for s and also apply 1/2*1/(2*pi*s)**2
-            ! to convert into energy and azimuthal instead of phi derivative
-            ! NOTE: the factor 1/2 is contained in wZ
-            dpEk_s=dpEk_s+wZ*dpEkIntS/((two*pi*sZ(nS))**2) 
-         end do
-
-
-         !-- Collect, integrate in s:
-         Egeos   =Egeos   +Egeos_s
-         EgeosA  =EgeosA  +EgeosA_s
-         EgeosZ  =EgeosZ  +EgeosZ_s
-         EgeosM  =EgeosM  +EgeosM_s
-         EgeosNA =EgeosNA +EgeosNA_s
-         EgeosNAP=EgeosNAP+EgeosNAP_s
-         EA      =EA      +EA_s
-         EZ      =EZ      +EZ_s
-         EM      =EM      +EM_s
-         ENA     =ENA     +ENA_s
-         ENAP    =ENAP    +ENA_s
-         dpEk    =dpEk    +dpEk_s
-         dzEk    =dzEk    +dzEk_s
-         volume  =volume  +volume_s
-         if ( lTC ) then
-            EkSTC=EkSTC+EkSTC_s
-            EkNTC=EkNTC+EkNTC_s
-         else
-            EkOTC=EkOTC+EkOTC_s
-            if ( lCorrel ) then
-               CVzOTC =CVzOTC +CVz_s
-               CVorOTC=CVorOTC+CVor_s
-               CHelOTC=CHelOTC+CHel_s
-               volumeOTC=volumeOTC+volumeOTC_s
-            end if
-         end if
-
-      end do ! big loop over s
-
 #ifdef WITH_MPI
-      call MPI_Allreduce(MPI_IN_PLACE, volume, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EkSTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EkNTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EkOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, Egeos, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EgeosA, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EgeosZ, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EgeosM, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EgeosNA,1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EgeosNAP,1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EA, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EZ, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, EM, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, ENA, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, ENAP, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, dpEk, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, dzEk, 1, MPI_DEF_REAL, MPI_SUM,  &
-           &             MPI_COMM_WORLD, ierr)
-      if ( lCorrel ) then
-         call MPI_Allreduce(MPI_IN_PLACE, volumeOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
-              &             MPI_COMM_WORLD, ierr)
-         call MPI_Allreduce(MPI_IN_PLACE, CVzOTC, 1, MPI_DEF_REAL, MPI_SUM, &
-              &             MPI_COMM_WORLD, ierr)
-         call MPI_Allreduce(MPI_IN_PLACE, CVorOTC, 1, MPI_DEF_REAL, MPI_SUM,&
-              &             MPI_COMM_WORLD, ierr)
-         call MPI_Allreduce(MPI_IN_PLACE, CHelOTC, 1, MPI_DEF_REAL, MPI_SUM,&
-              &             MPI_COMM_WORLD, ierr)
-      end if
-#endif
-
-      if ( lCorrel ) then
-         CVzOTC =CVzOTC/volumeOTC
-         CVorOTC=CVorOTC/volumeOTC
-         CHelOTC=CHelOTC/volumeOTC
-      end if
- 
-      ! Calculate total energy, can be used for testing:
-      Ekin=EkSTC+EkNTC+EkOTC 
-
-      ! Calculate flow length scales based on kinetic energy:
-      if ( dpEk/= 0.0_cp ) then
-         dpFlow = sqrt(Ekin/dpEk)
-      else
-         dpFlow = 0.0_cp
-      end if
-      if ( dzEk /= 0.0_cp ) then
-         dzFlow = sqrt(Ekin/dzEk)
-      else
-         dzFlow = 0.0_cp
-      end if
-
-      Geos   = 0.0_cp
-      GeosA  = 0.0_cp
-      GeosZ  = 0.0_cp
-      GeosM  = 0.0_cp
-      GeosNA = 0.0_cp
-      GeosNAP= 0.0_cp
-      if ( Ekin>0.0_cp ) Geos   =Egeos/Ekin     ! rel. geostrophic kinetic energy
-      if ( EA>0.0_cp )   GeosA  =EgeosA/EA      ! rel. geostr. axisymmtric kinetic energy
-      if ( EZ>0.0_cp )   GeosZ  = EgeosZ/EZ     ! rel. geostr. zonal kinetic energy
-      if ( EM>0.0_cp )   GeosM  = EgeosM/EM     ! rel. geostr. meridional kinetic energy
-      if ( ENA>0.0_cp )  GeosNA = EgeosNA/ENA   ! rel. geostr. non-axisymmetric kinetic energy
-      if ( ENAP>0.0_cp ) GeosNAP= EgeosNAP/ENAP ! rel. geostr. non-axisymmetric kinetic energy
-                                                ! in flow perpendicular to rotation axis
-
-      if ( l_corrMov ) then
-
-         !--- Determine s used for correl
-         n=0
-         do nS=nSstart,nSstop
-            if ( sZ(nS) >= r_ICB+0.1_cp .and. sZ(nS) <= r_CMB-0.1_cp ) then
-               n=n+1
-            else
-               do nPhi=1,n_phi_max
-                  CVz_Sloc(nPhi,nS) =0.0_cp
-                  CVor_Sloc(nPhi,nS)=0.0_cp
-                  CHel_Sloc(nPhi,nS)=0.0_cp
-               end do
-            end if
-         end do
-
-#ifdef WITH_MPI
-         sendcount  = (nSstop-nSstart+1)*nrp_geos
-         do i=0,n_procs-1
-            recvcounts(i)=cyl_balance(i)%n_per_rank
-         end do
-         displs(0)=0
-         do i=1,n_procs-1
-            displs(i) = displs(i-1)+recvcounts(i-1)
-         end do
-
-         call MPI_GatherV(CVZ_Sloc,sendcount,MPI_OUT_REAL,     &
-              &           CVZ,recvcounts,displs,MPI_OUT_REAL,  &
-              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(CVor_Sloc,sendcount,MPI_OUT_REAL,    &
-              &           CVor,recvcounts,displs,MPI_OUT_REAL, &
-              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(CHel_Sloc,sendcount,MPI_OUT_REAL,    &
-              &           CHel,recvcounts,displs,MPI_OUT_REAL, &
-              &           0,MPI_COMM_WORLD,ierr)
+      call MPI_AllReduce(us_axi_dist,us_axi,n_r_max*n_theta_max,MPI_DEF_REAL,MPI_SUM, &
+           &             MPI_COMM_WORLD,ierr)
+      call MPI_AllReduce(up_axi_dist,up_axi,n_r_max*n_theta_max,MPI_DEF_REAL,MPI_SUM, &
+           &             MPI_COMM_WORLD,ierr)
+      call MPI_AllReduce(uz_axi_dist,uz_axi,n_r_max*n_theta_max,MPI_DEF_REAL,MPI_SUM, &
+           &             MPI_COMM_WORLD,ierr)
 #else
-         CVz(:,:) =CVz_Sloc(:,:)
-         CVor(:,:)=CVor_Sloc(:,:)
-         CHel(:,:)=CHel_Sloc(:,:)
+      us_axi(:,:)=us_axi_dist(:,:)
+      up_axi(:,:)=up_axi_dist(:,:)
+      uz_axi(:,:)=uz_axi_dist(:,:)
 #endif
-
-      end if
 
       if ( rank == 0 ) then
+         !-- Axisymmetric kinetic energy
+         tmp(:,:) = half*(us_axi(:,:)**2+up_axi(:,:)**2+uz_axi(:,:)**2)
+         call cylmean(tmp,Ek_OTC,Ek_ITC_N,Ek_ITC_S)
+         Ekin_full(:)=Ek_ITC_N(:)+Ek_ITC_S(:)+Ek_OTC(:)
+         EA=two*pi*simps(Ekin_full*cyl*h,cyl)
+
+         !-- Meridional kinetic energy
+         tmp(:,:) = half*(us_axi(:,:)**2+uz_axi(:,:)**2)
+         call cylmean(tmp,Ek_OTC,Ek_ITC_N,Ek_ITC_S)
+         Ekin_full(:)=Ek_ITC_N(:)+Ek_ITC_S(:)+Ek_OTC(:)
+         EM=two*pi*simps(Ekin_full*cyl*h,cyl)
+
+         !-- Zonal kinetic energy
+         tmp(:,:) = half*up_axi(:,:)**2
+         call cylmean(tmp,Ek_OTC,Ek_ITC_N,Ek_ITC_S)
+         Ekin_full(:)=Ek_ITC_N(:)+Ek_ITC_S(:)+Ek_OTC(:)
+         EZ=two*pi*simps(Ekin_full*cyl*h,cyl)
+
+         !-- Axisymmetric geostrophic energy
+         call cylmean(us_axi,us_OTC,us_ITC_N,us_ITC_S)
+         call cylmean(up_axi,up_OTC,up_ITC_N,up_ITC_S)
+         call cylmean(uz_axi,uz_OTC,uz_ITC_N,uz_ITC_S)
+         Egeos_full(:)= half*(us_ITC_N(:)**2+us_ITC_S(:)**2+us_OTC(:)**2+ &
+         &                    up_ITC_N(:)**2+up_ITC_S(:)**2+up_OTC(:)**2+ &
+         &                    uz_ITC_N(:)**2+uz_ITC_S(:)**2+uz_OTC(:)**2)
+         EgeosA=two*pi*simps(Egeos_full*cyl*h,cyl)
+
+         !-- Meridional geostrophic energy
+         Egeos_full(:)=half*(us_ITC_N(:)**2+us_ITC_S(:)**2+us_OTC(:)**2+ &
+         &                   uz_ITC_N(:)**2+uz_ITC_S(:)**2+uz_OTC(:)**2)
+         EgeosM=two*pi*simps(Egeos_full*cyl*h,cyl)
+
+         !-- Zonal geostrophic energy
+         Egeos_full(:)=half*(up_ITC_N(:)**2+up_ITC_S(:)**2+up_OTC(:)**2)
+         EgeosZ=two*pi*simps(Egeos_full*cyl*h,cyl)
+      end if
+
+      !-- Loop over phi points
+      Egeos_dist(:) =0.0_cp
+      Eg_nAP_dist(:)=0.0_cp
+      Ekin_dist(:)  =0.0_cp
+      Ek_nAP_dist(:)=0.0_cp
+      Ek_NTC_dist(:)=0.0_cp
+      Ek_STC_dist(:)=0.0_cp
+      CVZ_dist(:)   =0.0_cp
+      CVor_dist(:)  =0.0_cp
+      CHel_dist(:)  =0.0_cp
+      do n_p=nPstart,nPstop
+
+         !-- Total kinetic energy
+         tmp(:,:) = half*(us_Ploc(:,:,n_p)**2+up_Ploc(:,:,n_p)**2+uz_Ploc(:,:,n_p)**2)
+         call cylmean(tmp,Ek_OTC,Ek_ITC_N,Ek_ITC_S)
+         Ekin_dist(:)=Ekin_dist(:)+Ek_ITC_N(:)+Ek_ITC_S(:)+Ek_OTC(:)
+         Ek_NTC_dist(:)=Ek_NTC_dist(:)+Ek_ITC_N(:)
+         Ek_STC_dist(:)=Ek_STC_dist(:)+Ek_ITC_S(:)
+
+         !-- Non-axisymmetric kinetic energy and perpendicular to rotation axis
+         tmp(:,:) = half*((us_Ploc(:,:,n_p)-us_axi(:,:))**2+ &
+         &                (up_Ploc(:,:,n_p)-up_axi(:,:))**2)
+         call cylmean(tmp,Ek_OTC,Ek_ITC_N,Ek_ITC_S)
+         Ek_nAP_dist(:)=Ek_nAP_dist(:)+Ek_ITC_N(:)+Ek_ITC_S(:)+Ek_OTC(:)
+
+         !-- Geostrophic energy
+         call cylmean(us_Ploc(:,:,n_p),us_OTC,us_ITC_N,us_ITC_S)
+         call cylmean(up_Ploc(:,:,n_p),up_OTC,up_ITC_N,up_ITC_S)
+         call cylmean(uz_Ploc(:,:,n_p),uz_OTC,uz_ITC_N,uz_ITC_S)
+
+         Egeos_dist(:)=Egeos_dist(:)+                                        &
+         &                 half*(us_ITC_N(:)**2+us_ITC_S(:)**2+us_OTC(:)**2+ &
+         &                       up_ITC_N(:)**2+up_ITC_S(:)**2+up_OTC(:)**2+ &
+         &                       uz_ITC_N(:)**2+uz_ITC_S(:)**2+uz_OTC(:)**2)
+
+         !-- Geostrophic non-axisymmetric energy
+         call cylmean(us_Ploc(:,:,n_p)-us_axi,us_OTC,us_ITC_N,us_ITC_S)
+         call cylmean(up_Ploc(:,:,n_p)-up_axi,up_OTC,up_ITC_N,up_ITC_S)
+         Eg_nAP_dist(:)=Eg_nAP_dist(:)+                                      &
+         &                 half*(us_ITC_N(:)**2+us_ITC_S(:)**2+us_OTC(:)**2+ &
+         &                       up_ITC_N(:)**2+up_ITC_S(:)**2+up_OTC(:)**2)
+
+         !-- Correlations
+         ! Calculate the Pearson correlation coeff between
+         ! z-integrated stuff in northern and southern HS.
+         ! Considered are Vz,z-vorticity Vor, and axial helicity Vz*Vor.
+         ! The correlation is averaged over the shell.
+         !-- Reuse tmp as a work array
+
+         !-- Uz North-South correlation
+         do n_t=1,n_theta_max
+            tmp(n_t,:)=uz_Ploc(n_t,:,n_p)*uz_Ploc(n_theta_max+1-n_t,:,n_p)
+         end do
+         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
+              &           cyl,theta_ord)
+         tmp(:,:)=uz_Ploc(:,:,n_p)*uz_Ploc(:,:,n_p)
+         call cylmean_otc(tmp,uzNN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
+              &           cyl,theta_ord)
+
+         do n_s=1,n_s_otc
+            if ( uzNN_OTC(n_s) > 0.0_cp ) then
+               CVZ_dist(n_s)=CVZ_dist(n_s)+uzSN_OTC(n_s)/uzNN_OTC(n_s)
+            else
+               CVZ_dist(n_s)=CVZ_dist(n_s)+one
+            end if
+         end do
+
+         !-- z-vorticity
+         do n_t=1,n_theta_max
+            tmp(n_t,:)=wz_Ploc(n_t,:,n_p)*wz_Ploc(n_theta_max+1-n_t,:,n_p)
+         end do
+         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
+              &           cyl,theta_ord)
+         tmp(:,:)=wz_Ploc(:,:,n_p)*wz_Ploc(:,:,n_p)
+         call cylmean_otc(tmp,wzNN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
+              &           cyl,theta_ord)
+
+         do n_s=1,n_s_otc
+            if ( wzNN_OTC(n_s) > 0.0_cp ) then
+               CVor_dist(n_s)=CVor_dist(n_s)+uzSN_OTC(n_s)/wzNN_OTC(n_s)
+            else
+               CVor_dist(n_s)=CVor_dist(n_s)+one
+            end if
+         end do
+
+         !-- Helicity z: u_z*w_z
+         do n_t=1,n_theta_max/2
+            tmp(n_t,:)=uz_Ploc(n_t,:,n_p)*wz_Ploc(n_t,:,n_p)- &
+            &          uz_Ploc(n_theta_max+1-n_t,:,n_p)*wz_Ploc(n_theta_max+1-n_t,:,n_p)
+         end do
+         do n_t=n_theta_max/2+1,n_theta_max
+            tmp(n_t,:)=-uz_Ploc(n_t,:,n_p)*wz_Ploc(n_t,:,n_p)+ &
+            &          uz_Ploc(n_theta_max+1-n_t,:,n_p)*wz_Ploc(n_theta_max+1-n_t,:,n_p)
+         end do
+         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
+              &           cyl,theta_ord)
+
+         do n_s=1,n_s_max
+            if ( uzNN_OTC(n_s) > 0.0_cp .and. wzNN_OTC(n_s) > 0.0_cp ) then
+               CHel_dist(n_s)=CHel_dist(n_s)+uzSN_OTC(n_s)/sqrt(uzNN_OTC(n_s))/ &
+               &              sqrt(wzNN_OTC(n_s))
+            else
+               CHel_dist(n_s)=CHel_dist(n_s)+one
+            end if
+         end do
+
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Reduce(Egeos_dist,Egeos_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Ekin_dist,Ekin_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Ek_nAP_dist,Ek_nAP_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Eg_nAP_dist,Eg_nAP_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Ek_NTC_dist,Ek_NTC_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Ek_STC_dist,Ek_STC_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(CVZ_dist,CVZ_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(CVor_dist,CVor_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(CHel_dist,CHel_full,n_s_max,MPI_DEF_REAL,MPI_SUM,0, &
+           &          MPI_COMM_WORLD,ierr)
+#else
+      Egeos_full(:) =Egeos_dist(:)
+      Eg_nAP_full(:)=Eg_nAP_dist(:)
+      Ekin_full(:)  =Ekin_dist(:)
+      Ek_nAP_full(:)=Ek_nAP_dist(:)
+      Ek_NTC_full(:)=Ek_NTC_dist(:)
+      Ek_STC_full(:)=Ek_STC_dist(:)
+      CVZ_full(:)   =CVZ_dist(:)
+      CVor_full(:)  =CVor_dist(:)
+      CHel_full(:)  =CHel_dist(:)
+#endif
+
+      if ( rank == 0 ) then
+
+         phiNorm=two*pi/n_phi_max
+
+         !-- Cylindrical integration using Simpson's rule
+         Egeos =phiNorm*simps(Egeos_full*cyl*h,cyl)
+         Eg_nAP=phiNorm*simps(Eg_nAP_full*cyl*h,cyl)
+         Ekin  =phiNorm*simps(Ekin_full*cyl*h,cyl)
+         Ek_nAP=phiNorm*simps(Ek_nAP_full*cyl*h,cyl)
+
+         EkNTC =phiNorm*simps(Ek_NTC_full*cyl*h,cyl)
+         EkSTC =phiNorm*simps(Ek_STC_full*cyl*h,cyl)
+
+         !-- Correlations outside tangent cylinder
+         CVZ=phiNorm*simps(CVZ_full(1:n_s_otc)*cyl(1:n_s_otc)*h(1:n_s_otc),cyl(1:n_s_otc))
+         CVZ=abs(CVZ)/vol_otc
+         CVor=phiNorm*simps(CVor_full(1:n_s_otc)*cyl(1:n_s_otc)*h(1:n_s_otc), &
+         &                  cyl(1:n_s_otc))
+         CVor=abs(CVor)/vol_otc
+         CHel=phiNorm*simps(CHel_full(1:n_s_otc)*cyl(1:n_s_otc)*h(1:n_s_otc), &
+         &                  cyl(1:n_s_otc))
+         CHel=abs(CHel)/vol_otc
+
+         !-- Relative geostrophic energy
+         if ( Ekin>0.0_cp ) then
+            Geos = Egeos/Ekin
+            EkN  = EkNTC/Ekin
+            EkS  = EkSTC/Ekin
+         else
+            Geos = 0.0_cp
+            EkN  = 0.0_cp
+            EkS  = 0.0_cp
+         end if
+
+         !-- Relative geostrophic energy for non-axisymmetric flows perpendicular to
+         !-- rotation axis
+         if ( Ek_nAP>0.0_cp ) then
+            GeosNAP = Eg_nAP/Ek_nAP
+         else
+            GeosNAP = 0.0_cp
+         end if
+
+         !-- Relative axisymmetric geostrophic energy
+         if ( EA > 0.0_cp ) then
+            GeosA = EgeosA/EA
+         else
+            GeosA = 0.0_cp
+         end if
+
+         !-- Relative meridional geostrophic energy
+         if ( EM > 0.0_cp ) then
+            GeosM = EgeosM/EM
+         else
+            GeosM = 0.0_cp
+         end if
+
+         !-- Relative zonal geostrophic energy
+         if ( EZ > 0.0_cp ) then
+            GeosZ = EgeosZ/EZ
+         else
+            GeosZ = 0.0_cp
+         end if
 
          if ( l_save_out ) then
             open(newunit=n_geos_file, file=geos_file, status='unknown', &
             &    position='append')
          end if
 
-         ! JW28April2020: GeosNA replaced with GeosNAP (non-axi flow perp. to
-         ! rotation axis (Vs,Vp)., GeosNA could be added to output...
-         write(n_geos_file,'(1P,ES20.12,11ES16.8)') time, Geos, EkNTC/Ekin, &
-         &     EkSTC/Ekin, Ekin, CVzOTC, CVorOTC, CHelOTC, GeosA, GeosZ,    &
-         &     GeosM, GeosNAP
-
+         write(n_geos_file,'(1P,ES20.12,11ES16.8)') time, Geos, EkN, EkS, Ekin, CVZ, &
+         &                                          CVor, CHel, GeosA, GeosZ, GeosM, &
+         &                                          GeosNAP
          if ( l_save_out ) close(n_geos_file)
-         !--- NOTE: Ekin can be compared with energy in e_kin.TAG to
-         !    get an idea of the precision of cylindrical integration in getEgeos.
-
-         !        write(99,*) 'E:',EkSTC,EkNTC,EkOTC
-         !        write(99,*) 'Ekin:',Ekin
-         !        write(99,*) 'Egeos:',Egeos
-
-         !--- Write correlation movie:
-         if ( l_corrMov ) then
-
-            movFile ='CVorz_mov.'//tag
-            open(newunit=nOutFile, file=movFile, status='unknown',   &
-            &    form='unformatted', position='append')
-
-            !--- Write header into output file:
-            if ( nGeosSets == 1 ) then
-
-               nFields=3
-               nFieldSize=(nSmax-nS_ICB+1)*n_phi_max
-               version='JW_Movie_Version_2'
-               write(nOutFile) version
-               dumm(1)=111           ! type of input
-               dumm(2)=2             ! marker for constant theta plane
-               dumm(3)=90.0_cp       ! surface constant
-               dumm(4)=nFields       ! no of fields
-               write(nOutFile) (real(dumm(n),kind=outp),n=1,4)
-
-               dumm(1)=92.0          ! Field marker for AS vPhi
-               dumm(2)=93.0          ! Field marker for Reynolds Force
-               dumm(3)=94.0          ! Field marker for Reynolds Force
-               write(nOutFile) (real(dumm(n),kind=outp),n=1,nFields)
-
-               !------ Now other info about grid and parameters:
-               write(nOutFile) runid     ! run identifier
-               dumm( 1)=nSmax            ! total number of radial points
-               dumm( 2)=nSmax            ! no of radial point in outer core
-               dumm( 3)=1                ! no. of theta points
-               dumm( 4)=n_phi_max        ! no. of phi points
-               dumm( 5)=minc             ! imposed symmetry
-               dumm( 6)=ra               ! control parameters
-               dumm( 7)=ek               ! (for information only)
-               dumm( 8)=pr               !      -"-
-               dumm( 9)=prmag            !      -"-
-               dumm(10)=radratio         ! ratio of inner / outer core
-               dumm(11)=tScale           ! timescale
-               write(nOutFile) (real(dumm(n),kind=outp),   n=1,11)
-               write(nOutFile) (real(sZ(nSmax-n+1)/r_CMB,kind=outp),n=1,nSmax)
-               write(nOutFile)  90.0_outp
-               write(nOutFile) (real(phi(n),kind=outp), n=1,n_phi_max)
-
-            end if ! Write Header ?
-
-            dumm(1)=nGeosSets          ! time frame number for movie
-            dumm(2)=time              ! time
-            dumm(3)=0.0_cp
-            dumm(4)=0.0_cp
-            dumm(5)=0.0_cp
-            dumm(6)=0.0_cp
-            dumm(7)=0.0_cp
-            dumm(8)=0.0_cp
-            write(nOutFile) (real(dumm(n),kind=outp),n=1,8)
-
-            write(nOutFile) ((CVz(nPhi,nS) ,nPhi=1,n_phi_max), nS=nSmax,1,-1)
-            write(nOutFile) ((CVor(nPhi,nS),nPhi=1,n_phi_max), nS=nSmax,1,-1)
-            write(nOutFile) ((CHel(nPhi,nS),nPhi=1,n_phi_max), nS=nSmax,1,-1)
-
-            close(nOutFile)
-
-         end if ! l_corrMov
-
-      end if ! rank == 0
-
-      if ( lVerbose ) write(*,*) '! End of getGeos!'
-
-   end subroutine getEgeos
-!---------------------------------------------------------------------------------
-   subroutine getDVptr(w,dw,ddw,z,dz,rMin,rMax,rS,nZmax,nZmaxA,PlmS,dPlmS, &
-              &        sinT,cosT,kindCalc,VrS,VtS,VpS,VorS,VrAS,VtAS,VpAS,dpEk)
-      !
-      !  This subroutine calculates the three flow components VrS,VtS,VpS at
-      !  r=rS, all phis, and a list of nZmax theta values defined by
-      !  PlmS=Plm(theta), dPlmS=sin(theta)*dTheta Plm(theta), and sinT=sin(theta).
-      !  Also calculated are the axisymmetric flow contributions VpAS,VtAS,VpAS
-      !  and the z-vorticity VorS (z-component of curl V).
-      !  Also calculated is dpEk, the  phi average of 
-      !  (d Vr/d phi)**2 + (d Vtheta/ d phi)**2 + (d Vphi/ d phi)**2
-      !  used to calculate the phi length scale.
-      !
-
-      !--- Input variables:
-      complex(cp), intent(in) :: w(lm_max,n_r_max)
-      complex(cp), intent(in) :: dw(lm_max,n_r_max)
-      complex(cp), intent(in) :: ddw(lm_max,n_r_max)
-      complex(cp), intent(in) :: z(lm_max,n_r_max)
-      complex(cp), intent(in) :: dz(lm_max,n_r_max)
-      real(cp),    intent(in) :: rMin,rMax  ! radial bounds
-      integer,     intent(in) :: nZmax,nZmaxA ! number of (r,theta) points
-      real(cp),    intent(in) :: rS(nZmaxA)
-      real(cp),    intent(in) :: PlmS(lm_max,nZmaxAH)
-      real(cp),    intent(in) :: dPlmS(lm_max,nZmaxAH)
-      real(cp),    intent(in) :: sinT(nZmaxA)
-      real(cp),    intent(in) :: cosT(nZmaxA)
-      integer,     intent(in) :: kindCalc
-
-      !--- Output: function on azimuthal grid points defined by FT!
-      real(cp), intent(out) :: VrS(nrp_geos,nZmaxA)
-      real(cp), intent(out) :: VtS(nrp_geos,nZmaxA)
-      real(cp), intent(out) :: VpS(nrp_geos,nZmaxA)
-      real(cp), intent(out) :: VrAS(nZmaxA)
-      real(cp), intent(out) :: VtAS(nZmaxA)
-      real(cp), intent(out) :: VpAS(nZmaxA)
-      real(cp), intent(out) :: VorS(nrp_geos,nZmaxA)
-      real(cp), optional, intent(out) :: dpEk(nZmaxA)
-
-      !--- Local variables:
-      real(cp) :: chebS(n_r_max)
-      integer :: nS,nN,mc,lm,l,m,nCheb,nPhi,n
-      integer :: nZmaxH,nEquator
-      real(cp) :: x,phiNorm,mapFac,OS,Or_e1,Or_e2
-      complex(cp) :: Vr,Vt1,Vt2,Vp1,Vp2,Vor,Vot1,Vot2
-      real(cp) :: VotS(nrp_geos,nZmaxA)
-      complex(cp) :: wSr,dwSr,ddwSr,zSr,dzSr
-      real(cp) :: phi_norm
-
-      real(cp) :: dV(nrp_geos,nZmaxA)
-      complex(cp) :: dp
-
-
-      mapFac=two/(rMax-rMin)
-      phiNorm=two*pi/n_phi_max
-
-      VrS(:,:) =zero   
-      VtS(:,:) =zero   
-      VpS(:,:) =zero   
-      VorS(:,:)=zero   
-      VotS(:,:)=zero   
-      if ( mod(nZmax,2)==0 ) then
-         nZmaxH=nZmax/2
-         nEquator=0
-      else
-         nZmaxH=(nZmax-1)/2+1 ! Number of points including equator
-         nEquator=nZmaxH 
       end if
 
-      do nN=1,nZmaxH    ! Loop over all (r,theta) points in NHS
-         nS=nZmax-nN+1   ! Southern counterpart !
+   end subroutine outGeos
+!------------------------------------------------------------------------------------
+   subroutine transp_R2Phi(arr_Rloc, arr_Ploc)
+      !
+      ! This subroutine is used to compute a MPI transpose between a R-distributed
+      ! array and a Phi-distributed array
+      !
 
-         !------ Calculate Chebs:
-         !------ Map r to cheb interval [-1,1]:
-         !       and calculate the cheb polynomial:
-         !       Note: the factor cheb_norm is needed
-         !       for renormalisation. Its not needed if one used
-         !       costf1 for the back transform.
-         x=two*(rS(nN)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1) =one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
-         chebS(2) =x*rscheme_oc%rnorm
-         do nCheb=3,n_r_max
-            chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
-         end do
-         chebS(1)      =half*chebS(1)
-         chebS(n_r_max)=half*chebS(n_r_max)
-         Or_e2=one/rS(nN)**2
+      !-- Input array
+      real(cp), intent(in) :: arr_Rloc(n_theta_max,n_phi_max,nRstart:nRstop)
 
-         do lm=1,lm_max     ! Sum over lms
-            l =lm2l(lm)
-            m =lm2m(lm)
-            mc=lm2mc(lm)
-            wSr  =zero
-            dwSr =zero
-            ddwSr=zero
-            zSr  =zero
-            dzSr =zero
-            do nCheb=1,n_r_max
-               wSr  =  wSr+  w(lm,nCheb)*chebS(nCheb)
-               dwSr = dwSr+ dw(lm,nCheb)*chebS(nCheb)
-               ddwSr=ddwSr+ddw(lm,nCheb)*chebS(nCheb)
-               zSr  =  zSr+  z(lm,nCheb)*chebS(nCheb)
-               dzSr = dzSr+ dz(lm,nCheb)*chebS(nCheb)
-            end do
-            Vr  =  wSr* PlmS(lm,nN)
-            Vt1 = dwSr*dPlmS(lm,nN)
-            Vt2 =  zSr* PlmS(lm,nN)*dPhi(lm)
-            Vp1 = dwSr* PlmS(lm,nN)*dPhi(lm)
-            Vp2 = -zSr*dPlmS(lm,nN)
-            Vor =  zSr* PlmS(lm,nN)*dLh(lm)
-            Vot1= dzSr*dPlmS(lm,nN)
-            Vot2= (wSr*Or_e2-ddwSr) * PlmS(lm,nN)*dPhi(lm)
-            VrS(2*mc-1,nN) =VrS(2*mc-1,nN) + real(Vr)
-            VrS(2*mc  ,nN) =VrS(2*mc  ,nN) +aimag(Vr)
-            VtS(2*mc-1,nN) =VtS(2*mc-1,nN) + real(Vt1+Vt2)
-            VtS(2*mc  ,nN) =VtS(2*mc  ,nN) +aimag(Vt1+Vt2)
-            VpS(2*mc-1,nN) =VpS(2*mc-1,nN) + real(Vp1+Vp2)
-            VpS(2*mc  ,nN) =VpS(2*mc  ,nN) +aimag(Vp1+Vp2)
-            VorS(2*mc-1,nN)=VorS(2*mc-1,nN)+ real(Vor)
-            VorS(2*mc  ,nN)=VorS(2*mc  ,nN)+aimag(Vor)
-            VotS(2*mc-1,nN)=VotS(2*mc-1,nN)+ real(Vot1+Vot2)
-            VotS(2*mc  ,nN)=VotS(2*mc  ,nN)+aimag(Vot1+Vot2)
+      !-- Output array
+      real(cp), intent(out) :: arr_Ploc(n_theta_max,n_r_max,nPstart:nPstop)
 
-            if ( nN /= nEquator ) then  ! The other hemisphere 
-               if ( mod(l+m,2) == 0 ) then
-                  VrS(2*mc-1,nS) =VrS(2*mc-1,nS) + real(Vr)
-                  VrS(2*mc  ,nS) =VrS(2*mc  ,nS) +aimag(Vr)
-                  VtS(2*mc-1,nS) =VtS(2*mc-1,nS) + real(Vt2-Vt1)
-                  VtS(2*mc  ,nS) =VtS(2*mc  ,nS) +aimag(Vt2-Vt1)
-                  VpS(2*mc-1,nS) =VpS(2*mc-1,nS) + real(Vp1-Vp2)
-                  VpS(2*mc  ,nS) =VpS(2*mc  ,nS) +aimag(Vp1-Vp2)
-                  VorS(2*mc-1,nS)=VorS(2*mc-1,nS)+ real(Vor)
-                  VorS(2*mc  ,nS)=VorS(2*mc  ,nS)+aimag(Vor)
-                  VotS(2*mc-1,nS)=VotS(2*mc-1,nS)+ real(Vot2-Vot1)
-                  VotS(2*mc  ,nS)=VotS(2*mc  ,nS)+aimag(Vot2-Vot1)
-               else
-                  VrS(2*mc-1,nS) =VrS(2*mc-1,nS) - real(Vr)
-                  VrS(2*mc  ,nS) =VrS(2*mc  ,nS) -aimag(Vr)
-                  VtS(2*mc-1,nS) =VtS(2*mc-1,nS) + real(Vt1-Vt2)
-                  VtS(2*mc  ,nS) =VtS(2*mc  ,nS) +aimag(Vt1-Vt2)
-                  VpS(2*mc-1,nS) =VpS(2*mc-1,nS) + real(Vp2-Vp1)
-                  VpS(2*mc  ,nS) =VpS(2*mc  ,nS) +aimag(Vp2-Vp1)
-                  VorS(2*mc-1,nS)=VorS(2*mc-1,nS)- real(Vor)
-                  VorS(2*mc  ,nS)=VorS(2*mc  ,nS)-aimag(Vor)
-                  VotS(2*mc-1,nS)=VotS(2*mc-1,nS)+ real(Vot1-Vot2)
-                  VotS(2*mc  ,nS)=VotS(2*mc  ,nS)+aimag(Vot1-Vot2)
-               end if
-            end if
+      !-- Local variables
+      integer :: n_r, n_t, n_p
+#ifdef WITH_MPI
+      integer, allocatable :: rcounts(:), scounts(:), rdisp(:), sdisp(:)
+      real(cp), allocatable :: sbuff(:), rbuff(:)
+      integer :: p, ii, my_phi_counts
 
-         end do
-
+      !-- Set displacements vectors and buffer sizes
+      allocate( rcounts(0:n_procs-1), scounts(0:n_procs-1) )
+      allocate( rdisp(0:n_procs-1), sdisp(0:n_procs-1) )
+      do p=0,n_procs-1
+         my_phi_counts=phi_balance(p)%n_per_rank
+         scounts(p)=nR_per_rank*my_phi_counts*n_theta_max
+         rcounts(p)=radial_balance(p)%n_per_rank*(nPStop-nPStart+1)*n_theta_max
       end do
 
-      !--- Extra factors, contructing z-vorticity:
-      do nS=1,nZmax 
-         OS   =one/sinT(nS)
-         Or_e1=one/rS(nS)
-         Or_e2=Or_e1*Or_e1
-         do mc=1,n_m_max
-            if ( kindCalc == 1 ) then
-               VrS(2*mc-1,nS) =Or_e2*VrS(2*mc-1,nS)
-               VrS(2*mc  ,nS) =Or_e2*VrS(2*mc  ,nS)
-               VtS(2*mc-1,nS) =Or_e1*OS*VtS(2*mc-1,nS)
-               VtS(2*mc  ,nS) =Or_e1*OS*VtS(2*mc  ,nS)
-            else if ( kindCalc == 2 ) then
-               !-- This is now Vs
-               VrS(2*mc-1,nS)=sinT(nS)*Or_e2*VrS(2*mc-1,nS)+cosT(nS)*Or_e1*OS*VtS(2*mc-1,nS)
-               VrS(2*mc  ,nS)=sinT(nS)*Or_e2*VrS(2*mc  ,nS)+cosT(nS)*Or_e1*OS*VtS(2*mc  ,nS)
-               !-- This is now Vz
-               VtS(2*mc-1,nS)=cosT(nS)*Or_e2*VrS(2*mc-1,nS)-sinT(nS)*Or_e1*OS*VtS(2*mc-1,nS)
-               VtS(2*mc  ,nS)=cosT(nS)*Or_e2*VrS(2*mc  ,nS)-sinT(nS)*Or_e1*OS*VtS(2*mc  ,nS)
-            end if
-            VpS(2*mc-1,nS) =Or_e1*OS*VpS(2*mc-1,nS)
-            VpS(2*mc  ,nS) =Or_e1*OS*VpS(2*mc  ,nS)
-            VorS(2*mc-1,nS)=cosT(nS)*Or_e2*VorS(2*mc-1,nS) - Or_e1*VotS(2*mc-1,nS)
-            VorS(2*mc  ,nS)=cosT(nS)*Or_e2*VorS(2*mc  ,nS) - Or_e1*VotS(2*mc  ,nS)
+      rdisp(0)=0
+      sdisp(0)=0
+      do p=1,n_procs-1
+         sdisp(p)=sdisp(p-1)+scounts(p-1)
+         rdisp(p)=rdisp(p-1)+rcounts(p-1)
+      end do
+      allocate( sbuff(sum(scounts)), rbuff(sum(rcounts)) )
+
+      !-- Prepare buffer
+      do p=0,n_procs-1
+         ii=sdisp(p)+1
+         do n_r=nRstart,nRstop
+            do n_p=phi_balance(p)%nStart,phi_balance(p)%nStop
+               do n_t=1,n_theta_max
+                  sbuff(ii)=arr_Rloc(n_t,n_p,n_r)
+                  ii=ii+1
+               end do
+            end do
          end do
       end do
 
-      if ( present(dpEk) ) then
+      !-- All to all
+      call MPI_Alltoallv(sbuff, scounts, sdisp, MPI_DEF_REAL, &
+           &             rbuff, rcounts, rdisp, MPI_DEF_REAL, &
+           &             MPI_COMM_WORLD, ierr)
 
-         !--- Calculate phi derivative in lm-space:
-         dpEk(:)=0.0_cp
-         do n=1,3
-            do nS=1,nZmax
-               if ( n == 1 ) then
-                  do mc=1,n_m_max
-                     dp=ci*real((mc-1)*minc,cp) ! - i m
-                     dV(2*mc-1,nS)= real(dp)*VrS(2*mc-1,nS)-aimag(dp)*VrS(2*mc,nS)
-                     dV(2*mc  ,nS)=aimag(dp)*VrS(2*mc-1,nS)+ real(dp)*VrS(2*mc,nS)
-                  end do
-               else if ( n == 2 ) then
-                  do mc=1,n_m_max
-                     dp=ci*real((mc-1)*minc,cp) ! - i m
-                     dV(2*mc-1,nS)= real(dp)*VtS(2*mc-1,nS)-aimag(dp)*VtS(2*mc,nS)
-                     dV(2*mc  ,nS)=aimag(dp)*VtS(2*mc-1,nS)+ real(dp)*VtS(2*mc,nS)
-                  end do
-               else if ( n == 3 ) then
-                  do mc=1,n_m_max
-                     dp=ci*real((mc-1)*minc,cp) ! - i m
-                     dV(2*mc-1,nS)= real(dp)*VpS(2*mc-1,nS)-aimag(dp)*VpS(2*mc,nS)
-                     dV(2*mc  ,nS)=aimag(dp)*VpS(2*mc-1,nS)+ real(dp)*VpS(2*mc,nS)
-                  end do
-               end if
-               do mc=2*n_m_max+1,nrp_geos
-                  dV(mc,nS)=0.0_cp
+      !-- Reassemble array
+      do p=0,n_procs-1
+         ii=rdisp(p)+1
+         do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+            do n_p=nPstart,nPstop
+               do n_t=1,n_theta_max
+                  arr_Ploc(n_t,n_r,n_p)=rbuff(ii)
+                  ii=ii+1
                end do
-            end do
-
-            !--- Transform m 2 phi for phi-derivative
-            if ( .not. l_axi ) call fft_to_real(dV,nrp_geos,nZmax)
-
-            !--- Phi average
-            do nS=1,nZmax
-               do nPhi=1,n_phi_max
-                  if ( mod(nPhi,2) == 1 ) then
-                     mc=(nPhi+1)/2
-                     dpEk(nS)=dpEk(nS)+dV(2*mc-1,nS)**2 ! Real part
-                  else
-                     mc=nPhi/2
-                     dpEk(nS)=dpEk(nS)+dV(2*mc,nS)**2 ! Imaginary part
-                  end if
-               end do
-            end do
-
-         end do ! Loop over components
-         dpEk(:)=phiNorm*dpEk(:) ! Now this is the phi integrated (d V/d phi)**2 
-                                 ! for one s and all z.
-
-      end if
-
-      !----- Transform m 2 phi for flow field:
-      if ( .not. l_axi ) then
-         call fft_to_real(VrS,nrp_geos,nZmax)
-         call fft_to_real(VtS,nrp_geos,nZmax)
-         call fft_to_real(VpS,nrp_geos,nZmax)
-         call fft_to_real(VorS,nrp_geos,nZmax)
-         VrAS(:)=zero  
-         VtAS(:)=zero  
-         VpAS(:)=zero  
-         do nS=1,nZmax
-            do nPhi=1,n_phi_max
-                VrAS(nS)=VrAS(nS)+VrS(nPhi,nS) 
-                VtAS(nS)=VtAS(nS)+VtS(nPhi,nS) 
-                VpAS(nS)=VpAS(nS)+VpS(nPhi,nS) 
             end do
          end do
-         phi_norm=one/n_phi_max
-         VrAS(:)=phi_norm*VrAS(:)
-         VtAS(:)=phi_norm*VtAS(:)
-         VpAS(:)=phi_norm*VpAS(:)
-      end if
+      end do
 
-   end subroutine getDVptr
-!----------------------------------------------------------------------------
-   subroutine costf_arrays(w,dw,ddw,z,dz)
+      !-- Clear memory from temporary arrays
+      deallocate( rcounts, scounts, rdisp, sdisp, rbuff, sbuff )
+#else
+      do n_r=1,n_r_max
+         do n_p=1,n_phi_max
+            do n_t=1,n_theta_max
+               arr_Ploc(n_t,n_r,n_p)=arr_Rloc(n_t,n_p,n_r)
+            end do
+         end do
+      end do
+#endif
+
+   end subroutine transp_R2Phi
+!------------------------------------------------------------------------------------
+   subroutine cylmean(dat, dat_OTC, dat_ITC_N, dat_ITC_S)
       !
-      ! This subroutine performs local copy of LM-distributed arrays, do
-      ! a cosine transform and then allgather them
+      ! This routine computes the z-average inside and outside TC
       !
 
       !-- Input variables
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      real(cp), intent(in) :: dat(n_theta_max,n_r_max) ! input data
+
+      !-- Output variables
+      real(cp), intent(out) :: dat_OTC(n_s_max)   ! z-average outside T.C.
+      real(cp), intent(out) :: dat_ITC_N(n_s_max) ! z-average inside T.C. N.H.
+      real(cp), intent(out) :: dat_ITC_S(n_s_max) ! z-average inside T.C. S.H.
+
+      call cylmean_otc(dat,dat_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r,cyl,theta_ord)
+      call cylmean_itc(dat,dat_ITC_N,dat_ITC_S,n_s_max,n_s_otc,n_r_max, &
+           &           n_theta_max,r,cyl,theta_ord)
+
+   end subroutine cylmean
+!------------------------------------------------------------------------------------
+   subroutine cylmean_otc(a,v,n_s_max,n_s_otc,n_r_max,n_theta_max,r,s,theta)
+      !
+      ! This routine computes a z-averaging using Simpsons's rule outside T.C.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: n_r_max
+      integer,  intent(in) :: n_theta_max
+      integer,  intent(in) :: n_s_max
+      integer,  intent(in) :: n_s_otc
+      real(cp), intent(in) :: r(n_r_max)         ! Spherical radius
+      real(cp), intent(in) :: s(n_s_max)         ! Cylindrical radius
+      real(cp), intent(in) :: theta(n_theta_max) ! Colatitude
+      real(cp), intent(in) :: a(n_theta_max, n_r_max)
+
+      !-- Output variable
+      real(cp), intent(out) :: v(n_s_max)
 
       !-- Local variables
-      complex(cp) :: wS(llm:ulm,n_r_max)
-      complex(cp) :: dwS(llm:ulm,n_r_max)
-      complex(cp) :: ddwS(llm:ulm,n_r_max)
-      complex(cp) :: zS(llm:ulm,n_r_max)
-      complex(cp) :: dzS(llm:ulm,n_r_max)
+      integer :: n_z, nz, n_s, n_th, n_r, itr
+      integer :: n_r0, n_r1, n_r2, n_r3, n_th0, n_th1, n_th2, n_th3
+      real(cp) :: zmin, zmax, dz, z, eps, r_cmb, rc, thet, r_icb
+      real(cp) :: rr0, rr1, rr2, rr3, r10, r20, r30, r21, r31, r32
+      real(cp) :: tt0, tt1, tt2, tt3, t10, t20, t30, t21, t31, t32
+      real(cp) :: a01, a12, a23, a012, a123, tot
+      real(cp) :: ac(-n_s_max:n_s_max,n_s_max), ait(0:3)
+      real(cp), parameter :: pi=acos(-1.0_cp)
 
-      integer :: nR, lm, l, m
+      eps=10.0_cp*epsilon(1.0_cp)
+      r_cmb=r(1)
+      r_icb=r(n_r_max)
 
-      do nR=1,n_r_max
-         do lm=llm,ulm
-            l = lo_map%lm2l(lm)
-            m = lo_map%lm2m(lm)
-            wS(lm,nR)  =orho1(nR)*w(lm,nR)*dLh(st_map%lm2(l,m))
-            dwS(lm,nR) =orho1(nR)*dw(lm,nR)
-            ddwS(lm,nR)=orho1(nR)*ddw(lm,nR)
-            zS(lm,nR)  =orho1(nR)*z(lm,nR)
-            dzS(lm,nR) =orho1(nR)*dz(lm,nR)
+      v(:) =0.0_cp
+
+      !-- Loop over axial cylinders starts here
+      !$omp parallel do default(shared) &
+      !$omp private(n_s,zmax,zmin,nz,dz,n_z,z,rc,thet,n_r2,n_r,n_r3,n_r1,n_r0) &
+      !$omp private(n_th,n_th1,n_th2,n_th3,n_th0,rr0,rr1,rr2,rr3,r10,r20,r30)  &
+      !$omp private(r21,r31,r32,tt0,tt1,tt2,tt3,t10,t20,t30,t21,t31,t32,itr)   &
+      !$omp private(a01,a12,a23,a012,a123,tot,ait)
+      sLoop: do n_s=1,n_s_otc
+
+         !if ( s(n_s) < r_icb ) exit sLoop
+
+         zmax = sqrt(r_cmb*r_cmb-s(n_s)*s(n_s)) ! zmax
+         zmin = 0.0_cp
+         nz = 2*int(n_s_max*(zmax-zmin)/(2.0_cp*r_cmb)) ! Number of z points (one HS)
+         nz = max(nz, 4)  ! Minimum to 4 for Simpson integration
+         dz = (zmax-zmin)/real(nz,cp)
+
+         !-- Loop over z starts
+         do n_z=-nz,nz
+            z=zmin+dz*n_z
+            rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
+            if (rc >= r_cmb) rc=r_cmb-eps
+            thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+            ac(n_z,n_s)=0.0_cp
+            !
+            !  **** Interpolate values from (theta,r)-grid onto equidistant
+            !  **** (z,rax)-grid using a fourth-order Lagrangian scheme
+            !
+            !--  Find indices of radial grid levels that bracket rc
+            n_r2=n_r_max-1
+            rbracket: do n_r=n_r_max-1,1,-1
+               if ( r(n_r) >= rc ) then
+                  n_r2 = n_r
+                  exit rbracket
+               end if
+            end do rbracket
+            if(n_r2 == n_r_max-1) n_r2=n_r_max-2
+            if(n_r2 == 1 ) n_r2=2
+            n_r3=n_r2-1
+            n_r1=n_r2+1
+            n_r0=n_r2+2
+
+            !-- Find indices of angular grid levels that bracket thet
+            n_th1=n_theta_max
+            tbracket: do n_th=n_theta_max,1,-1
+               if( theta(n_th) <= thet) then
+                  n_th1=n_th
+                  exit tbracket
+               end if
+            end do tbracket
+            if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
+            if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
+            if ( n_th1 == 1 ) n_th1=2
+            n_th2=n_th1+1
+            n_th3=n_th1+2
+            n_th0=n_th1-1
+
+            !--  Calculate differences in r for 4th-order interpolation
+            rr0=rc-r(n_r0)
+            rr1=rc-r(n_r1)
+            rr2=rc-r(n_r2)
+            rr3=rc-r(n_r3)
+            r10= 1.0_cp/(r(n_r1)-r(n_r0))
+            r20= 1.0_cp/(r(n_r2)-r(n_r0))
+            r30= 1.0_cp/(r(n_r3)-r(n_r0))
+            r21= 1.0_cp/(r(n_r2)-r(n_r1))
+            r31= 1.0_cp/(r(n_r3)-r(n_r1))
+            r32= 1.0_cp/(r(n_r3)-r(n_r2))
+
+            !--  Calculate differences in theta for 4th-order interpolation
+            tt0=thet-theta(n_th0)
+            tt1=thet-theta(n_th1)
+            tt2=thet-theta(n_th2)
+            tt3=thet-theta(n_th3)
+            t10=1.0_cp/(theta(n_th1)-theta(n_th0))
+            t20=1.0_cp/(theta(n_th2)-theta(n_th0))
+            t30=1.0_cp/(theta(n_th3)-theta(n_th0))
+            t21=1.0_cp/(theta(n_th2)-theta(n_th1))
+            t31=1.0_cp/(theta(n_th3)-theta(n_th1))
+            t32=1.0_cp/(theta(n_th3)-theta(n_th2))
+
+            !-- Loop over 4 neighboring grid angles
+            do itr=0,3
+               n_th=n_th0+itr
+
+               !-- Interpolation in r-direction
+               a01=(rr0*a(n_th,n_r1)-rr1*a(n_th,n_r0))*r10
+               a12=(rr1*a(n_th,n_r2)-rr2*a(n_th,n_r1))*r21
+               a23=(rr2*a(n_th,n_r3)-rr3*a(n_th,n_r2))*r32
+
+               a012=(rr0*a12-rr2*a01)*r20
+               a123=(rr1*a23-rr3*a12)*r31
+
+               ait(itr)=(rr0*a123-rr3*a012)*r30
+            end do
+
+            !-- Interpolation in theta-direction
+            a01=(tt0*ait(1)-tt1*ait(0))*t10
+            a12=(tt1*ait(2)-tt2*ait(1))*t21
+            a23=(tt2*ait(3)-tt3*ait(2))*t32
+
+            a012=(tt0*a12-tt2*a01)*t20
+            a123=(tt1*a23-tt3*a12)*t31
+            ac(n_z,n_s)=ac(n_z,n_s)+(tt0*a123-tt3*a012)*t30
          end do
-      end do
 
-      call rscheme_oc%costf1(wS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dwS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(ddwS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(zS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dzS,ulm-llm+1,1,ulm-llm+1)
+         !-- Simpson integration
+         tot=ac(-nz,n_s)+ac(nz,n_s)
+         do n_z=-nz+1,nz-1,2
+            tot=tot+4.0_cp*ac(n_z,n_s)
+         enddo
+         do n_z=-nz+2,nz-2,2
+            tot=tot+2.0_cp*ac(n_z,n_s)
+         enddo
+         v(n_s)=tot/(6.0_cp*nz)
+      end do sLoop
+      !$omp end parallel do
 
-      !-- Unfortunately they need to be broadcasted...
-      call gather_all_from_lo_to_rank0(gt_OC,wS,wS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dwS,dwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,ddwS,ddwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,zS,zS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
-#ifdef WITH_MPI
-      call MPI_Bcast(wS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(dwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(ddwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,&
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(zS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(dzS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         MPI_COMM_WORLD, ierr)
-#endif
-   end subroutine costf_arrays
-!------------------------------------------------------------------------------
-end module geos_mod
+   end subroutine cylmean_otc
+!------------------------------------------------------------------------------------
+   subroutine cylmean_itc(a,vn,vs,n_s_max,n_s_otc,n_r_max,n_theta_max,r,s,theta)
+      !
+      ! This routine computes a z-averaging using Simpsons's rule inside T.C.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: n_r_max
+      integer,  intent(in) :: n_theta_max
+      integer,  intent(in) :: n_s_max
+      integer,  intent(in) :: n_s_otc
+      real(cp), intent(in) :: r(n_r_max)         ! Spherical radius
+      real(cp), intent(in) :: s(n_s_max)         ! Cylindrical radius
+      real(cp), intent(in) :: theta(n_theta_max) ! Colatitude
+      real(cp), intent(in) :: a(n_theta_max, n_r_max)
+
+      !-- Output variable
+      real(cp), intent(out) :: vn(n_s_max)
+      real(cp), intent(out) :: vs(n_s_max)
+
+      !-- Local variables
+      integer :: n_z, nz, n_s, n_th, n_r, itr, n_hs
+      integer :: n_r0, n_r1, n_r2, n_r3, n_th0, n_th1, n_th2, n_th3
+      real(cp) :: zmin, zmax, dz, z, eps, r_cmb, r_icb, rc, thet
+      real(cp) :: rr0, rr1, rr2, rr3, r10, r20, r30, r21, r31, r32
+      real(cp) :: tt0, tt1, tt2, tt3, t10, t20, t30, t21, t31, t32
+      real(cp) :: a01, a12, a23, a012, a123, tot1, tot2
+      real(cp) :: ac(0:n_s_max,n_s_max,2), ait(0:3)
+      real(cp), parameter :: pi=acos(-1.0_cp)
+
+      eps=10.0_cp*epsilon(1.0_cp)
+      r_cmb=r(1)
+      r_icb=r(n_r_max)
+
+      vn(:)=0.0_cp
+      vs(:)=0.0_cp
+
+      !-- Loop over axial cylinders starts here
+      !$omp parallel do default(shared) &
+      !$omp private(n_s,zmax,zmin,nz,dz,n_z,z,rc,thet,n_r2,n_r,n_r3,n_r1,n_r0) &
+      !$omp private(n_th,n_th1,n_th2,n_th3,n_th0,rr0,rr1,rr2,rr3,r10,r20,r30)  &
+      !$omp private(r21,r31,r32,tt0,tt1,tt2,tt3,t10,t20,t30,t21,t31,t32,itr)   &
+      !$omp private(a01,a12,a23,a012,a123,tot1,tot2,n_hs,ait)
+      sLoop: do n_s=n_s_otc+1,n_s_max
+
+         zmax = sqrt(r_cmb*r_cmb-s(n_s)*s(n_s)) ! zmax
+         zmin = sqrt(r_icb*r_icb-s(n_s)*s(n_s))
+         nz = 2*int(n_s_max*(zmax-zmin)/(2.0_cp*r_cmb)) ! Number of z points (one HS)
+         nz = max(nz, 4)  ! Minimum to 4 for Simpson integration
+         dz = (zmax-zmin)/real(nz,cp)
+
+         !-- Loop over z starts
+         do n_z=0,nz
+            z=zmin+dz*n_z
+            rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
+            if (rc >= r_cmb) rc=r_cmb-eps
+            if (rc <= r_icb) rc=r_icb+eps
+            thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+            ac(n_z,n_s,1)=0.0_cp
+            ac(n_z,n_s,2)=0.0_cp
+            !
+            !  **** Interpolate values from (theta,r)-grid onto equidistant
+            !  **** (z,rax)-grid using a fourth-order Lagrangian scheme
+            !
+            !--  Find indices of radial grid levels that bracket rc
+            n_r2=n_r_max-1
+            rbracket: do n_r=n_r_max-1,1,-1
+               if ( r(n_r) >= rc ) then
+                  n_r2 = n_r
+                  exit rbracket
+               end if
+            end do rbracket
+            if(n_r2 == n_r_max-1) n_r2=n_r_max-2
+            if(n_r2 == 1) n_r2=2
+            n_r3=n_r2-1
+            n_r1=n_r2+1
+            n_r0=n_r2+2
+
+            !-- Find indices of angular grid levels that bracket thet
+            n_th1=n_theta_max
+            tbracket: do n_th=n_theta_max,1,-1
+               if( theta(n_th) <= thet) then
+                  n_th1=n_th
+                  exit tbracket
+               end if
+            end do tbracket
+            if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
+            if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
+            if ( n_th1 == 1 ) n_th1=2
+            n_th2=n_th1+1
+            n_th3=n_th1+2
+            n_th0=n_th1-1
+
+            !--  Calculate differences in r for 4th-order interpolation
+            rr0=rc-r(n_r0)
+            rr1=rc-r(n_r1)
+            rr2=rc-r(n_r2)
+            rr3=rc-r(n_r3)
+            r10= 1.0_cp/(r(n_r1)-r(n_r0))
+            r20= 1.0_cp/(r(n_r2)-r(n_r0))
+            r30= 1.0_cp/(r(n_r3)-r(n_r0))
+            r21= 1.0_cp/(r(n_r2)-r(n_r1))
+            r31= 1.0_cp/(r(n_r3)-r(n_r1))
+            r32= 1.0_cp/(r(n_r3)-r(n_r2))
+
+            !--  Calculate differences in theta for 4th-order interpolation
+            tt0=thet-theta(n_th0)
+            tt1=thet-theta(n_th1)
+            tt2=thet-theta(n_th2)
+            tt3=thet-theta(n_th3)
+            t10=1.0_cp/(theta(n_th1)-theta(n_th0))
+            t20=1.0_cp/(theta(n_th2)-theta(n_th0))
+            t30=1.0_cp/(theta(n_th3)-theta(n_th0))
+            t21=1.0_cp/(theta(n_th2)-theta(n_th1))
+            t31=1.0_cp/(theta(n_th3)-theta(n_th1))
+            t32=1.0_cp/(theta(n_th3)-theta(n_th2))
+
+            !-- Loop over North/Sooth
+            do n_hs=1,2
+
+               !-- Loop over 4 neighboring grid angles
+               do itr=0,3
+                  n_th=n_th0+itr
+
+                  if ( n_hs == 2 ) n_th = n_theta_max+1-n_th ! Southern hemisphere
+
+                  !-- Interpolation in r-direction
+                  a01=(rr0*a(n_th,n_r1)-rr1*a(n_th,n_r0))*r10
+                  a12=(rr1*a(n_th,n_r2)-rr2*a(n_th,n_r1))*r21
+                  a23=(rr2*a(n_th,n_r3)-rr3*a(n_th,n_r2))*r32
+
+                  a012=(rr0*a12-rr2*a01)*r20
+                  a123=(rr1*a23-rr3*a12)*r31
+
+                  ait(itr)=(rr0*a123-rr3*a012)*r30
+               end do
+
+               !-- Interpolation in theta-direction
+               a01=(tt0*ait(1)-tt1*ait(0))*t10
+               a12=(tt1*ait(2)-tt2*ait(1))*t21
+               a23=(tt2*ait(3)-tt3*ait(2))*t32
+
+               a012=(tt0*a12-tt2*a01)*t20
+               a123=(tt1*a23-tt3*a12)*t31
+               ac(n_z,n_s,n_hs)=ac(n_z,n_s,n_hs)+(tt0*a123-tt3*a012)*t30
+            end do
+
+         end do
+
+         !-- Simpson integration
+         tot1=ac(0,n_s,1)+ac(nz,n_s,1)
+         tot2=ac(0,n_s,2)+ac(nz,n_s,2)
+         do n_z=1,nz-1,2
+            tot1=tot1+4.0_cp*ac(n_z,n_s,1)
+            tot2=tot2+4.0_cp*ac(n_z,n_s,2)
+         enddo
+         do n_z=2,nz-2,2
+            tot1=tot1+2.0_cp*ac(n_z,n_s,1)
+            tot2=tot2+2.0_cp*ac(n_z,n_s,2)
+         enddo
+         vn(n_s)=tot1/(3.0_cp*nz)
+         vs(n_s)=tot2/(3.0_cp*nz)
+      end do sLoop
+      !$omp end parallel do
+
+   end subroutine cylmean_itc
+!------------------------------------------------------------------------------------
+end module geos
