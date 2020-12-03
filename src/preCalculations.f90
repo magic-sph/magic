@@ -1025,7 +1025,11 @@ contains
          end if
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
          write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
-         write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max
+         if ( lm_max < 1000000 ) then
+            write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max
+         else
+            write(n_out,'(''  lm_max       ='',i8, '' = no of l/m combinations'')') lm_max
+         end if
          write(n_out,'(''  minc         ='',i6, '' = longitude symmetry wave no'')') minc
          write(n_out,'(''  nalias       ='',i6, &
               &   '' = spher. harm. deal. factor '')') nalias

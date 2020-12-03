@@ -8,7 +8,7 @@ module storeCheckPoints
    use precision_mod
    use parallel_mod
    use communications, only: gather_all_from_mlo_to_master, gather_Flm,        &
-       &                     lo2r_store
+       &                     lo2r_store, gather_from_mlo_to_master
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
        &                 lm_max, n_r_maxMag,n_r_ic_maxMag, n_mlo_loc,          &
        &                 fd_stretch, fd_ratio, nRstart, nRstop, nRstartMag,    &
@@ -362,7 +362,7 @@ contains
       complex(cp), allocatable :: work(:,:)
 
       logical :: l_press_store
-      integer :: version, info, fh, datatype
+      integer :: version, info, fh, datatype, n_r
       character(len=72) :: string, rst_file
       integer :: istat(MPI_STATUS_SIZE)
       integer :: arr_size(2), arr_loc_size(2), arr_start(2), n_o
@@ -630,28 +630,36 @@ contains
             allocate ( work(1,1) )
          end if
 
-         call gather_all_from_mlo_to_master(b_ic,work,n_r_ic_max)
+         do n_r=1,n_r_ic_max
+            call gather_from_mlo_to_master(b_ic(:,n_r), work(:,n_r))
+         end do
          if ( l_master_rank ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_mlo_to_master(dbdt_ic%expl(:,:,n_o),work,n_r_ic_max)
+               do n_r=1,n_r_ic_max
+                  call gather_from_mlo_to_master(dbdt_ic%expl(:,n_r,n_o), work(:,n_r))
+               end do
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_mlo_to_master(dbdt_ic%impl(:,:,n_o),work,n_r_ic_max)
+               do n_r=1,n_r_ic_max
+                  call gather_from_mlo_to_master(dbdt_ic%impl(:,n_r,n_o), work(:,n_r))
+               end do
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_mlo_to_master(dbdt_ic%old(:,:,n_o),work,n_r_ic_max)
+               do n_r=1,n_r_ic_max
+                  call gather_from_mlo_to_master(dbdt_ic%old(:,n_r,n_o), work(:,n_r))
+               end do
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
@@ -659,28 +667,36 @@ contains
             end do
          end if
 
-         call gather_all_from_mlo_to_master(aj_ic,work,n_r_ic_max)
+         do n_r=1,n_r_ic_max
+            call gather_from_mlo_to_master(aj_ic(:,n_r), work(:,n_r))
+         end do
          if ( l_master_rank ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_mlo_to_master(djdt_ic%expl(:,:,n_o),work,n_r_ic_max)
+               do n_r=1,n_r_ic_max
+                  call gather_from_mlo_to_master(djdt_ic%expl(:,n_r,n_o), work(:,n_r))
+               end do
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_mlo_to_master(djdt_ic%impl(:,:,n_o),work,n_r_ic_max)
+               do n_r=1,n_r_ic_max
+                  call gather_from_mlo_to_master(djdt_ic%impl(:,n_r,n_o), work(:,n_r))
+               end do
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_mlo_to_master(djdt_ic%old(:,:,n_o),work,n_r_ic_max)
+               do n_r=1,n_r_ic_max
+                  call gather_from_mlo_to_master(djdt_ic%old(:,n_r,n_o), work(:,n_r))
+               end do
                if ( l_master_rank ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
