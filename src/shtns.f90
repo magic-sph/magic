@@ -612,7 +612,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine spat_to_SH_axi_loc(f, fLM)
 
-      real(cp), intent(in) :: f(:)
+      real(cp), intent(in) :: f(nlat_padded)
       real(cp), intent(out) :: fLM(:)
 
       !-- Local arrays

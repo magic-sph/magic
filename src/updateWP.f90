@@ -883,7 +883,7 @@ contains
       if ( l_double_curl) then
 
          !$omp single
-            call dct_counter%start_count()
+         call dct_counter%start_count()
          !$omp end single
          call get_ddr( w, dw, ddw, n_mlo_loc, start_lm, stop_lm, n_r_max, &
               &        rscheme_oc, l_dct_in=.false. )

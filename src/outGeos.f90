@@ -15,7 +15,7 @@ module geos_mod
    use num_param, only: tScale
    use horizontal_data, only: phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out, l_SRIC
-   use output_data, only: sDens, zDens, tag, runid
+   use output_data, only: sDens, tag, runid
    use constants, only: pi, zero, ci, one, two, three, four,  half
    use communications, only: gather_all_from_mlo_to_master
    use plms_theta, only: plm_theta
@@ -371,13 +371,15 @@ contains
          s2=sZ(nS)+half*dsZ
          threehalf=three*half
          if ( lTC ) then
-            wZ=one/three*( (r_ICB**2-s2**2)**threehalf - &
-            &              (r_ICB**2-s1**2)**threehalf - &
-            &              (r_CMB**2-s2**2)**threehalf + &
-            &              (r_CMB**2-s1**2)**threehalf )
+            !-- abs is needed in case round-off yields 0- values
+            wZ=one/three*( abs(r_ICB**2-s2**2)**threehalf - &
+            &              abs(r_ICB**2-s1**2)**threehalf - &
+            &              abs(r_CMB**2-s2**2)**threehalf + &
+            &              abs(r_CMB**2-s1**2)**threehalf )
          else
-            wZ=two/three*( (r_CMB**2-s1**2)**threehalf - &
-            &              (r_CMB**2-s2**2)**threehalf ) 
+            !-- abs is needed in case round-off yields 0- values
+            wZ=two/three*( abs(r_CMB**2-s1**2)**threehalf - &
+            &              abs(r_CMB**2-s2**2)**threehalf )
          end if
          wZP=wZ*phiNorm
 
@@ -425,7 +427,6 @@ contains
          end do
 
          !------- Perform z-integral(s) for all phis:
-
          do nPhi=1,n_phi_max
 
             do nInt=1,nInts
@@ -488,14 +489,14 @@ contains
                end if
 
                !-------- Note: chebIntD above returns the z derivative 
-               dzEkInt(:)=Vr(:)**2+Vt(:)**2+Vp(:)**2
+               dzEkInt(1:nZmaxI)=Vr(1:nZmaxI)**2+Vt(1:nZmaxI)**2+Vp(1:nZmaxI)**2
                dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmaxI,nZmaxA,chebt_Z(nS))
                dzEk_s=dzEk_s+dzEkIntS
 
             end do ! Loop over north/south integral
 
 
-            ! --- Here I calculate the Peason correlation coeff between
+            ! --- Here I calculate the Pearson correlation coeff between
             !     z-integrated stuff in northern and southern HS.
             !     Considered are Vz,z-vorticity Vor, and axial helicity Vz*Vor.
             !     The correlation is averaged over the shell.

@@ -211,7 +211,7 @@ FFLAGS += $(FFLAG_STD)
 FFLAGS += -g $(FFLAG_TRACEBACK)
 ifeq ($(PRODRUN),yes)
 	DEBUG=no
-	OPT += -O2 $(FFLAG_ARCH_OPT)
+	OPT += -O3 $(FFLAG_ARCH_OPT)
 else
 	OPT += -O 
 endif

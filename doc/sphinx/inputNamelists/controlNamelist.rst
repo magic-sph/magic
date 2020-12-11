@@ -152,6 +152,10 @@ where :math:`u_{F,r}` is the radial component of the fluid velocity and :math:`u
   +-----------------------+-------------------------------------------------------+
   | time_scheme='KC564'   | Semi-implicit S-DIRK of 4th order                     |
   +-----------------------+-------------------------------------------------------+
+  | time_scheme='KC674'   | Semi-implicit S-DIRK of 4th order                     |
+  +-----------------------+-------------------------------------------------------+
+  | time_scheme='KC785'   | Semi-implicit S-DIRK of 5th order                     |
+  +-----------------------+-------------------------------------------------------+
 
 
 Run time
