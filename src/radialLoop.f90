@@ -8,6 +8,7 @@ module radialLoop
    use rIteration, only: rIter_t
    use rIter_split, only: rIter_split_t
    use rIter_single, only: rIter_single_t
+   use rIter_buff, only: rIter_buff_t
 
    implicit none
 
@@ -27,6 +28,8 @@ contains
 
       if ( index(rIter_type, 'SINGLE') /= 0 ) then
          allocate( rIter_single_t :: rIter )
+      else if ( index(rIter_type, 'BUFF') /= 0 ) then
+         allocate( rIter_buff_t :: rIter )
       else
          allocate( rIter_split_t :: rIter )
       end if

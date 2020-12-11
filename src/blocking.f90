@@ -105,7 +105,7 @@ contains
       call allocate_mappings(st_map,l_max,lm_max,lmP_max)
       call allocate_mappings(lo_map,l_max,lm_max,lmP_max)
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
-
+      
       if ( l_master_rank ) then
          if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &

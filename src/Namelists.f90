@@ -60,7 +60,7 @@ contains
       character(:), allocatable :: cmd_args  ! for parallel namelist
       
       namelist/parallel/n_ranks_r,n_ranks_theta,mlo_dist_method, &
-      &     mpi_transp, mpi_transp_theta, &
+      &     mpi_transp, theta_transp_buffer_size, &
       &     mpi_packing, rIter_type  !@>DEPRECATED replaced by mpi_transp_theta
 
       !-- Name lists:
@@ -856,8 +856,8 @@ contains
       write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
       length=length_to_blank(mpi_packing)
       write(n_out,*) " mpi_packing     = """,mpi_packing(1:length),""","
-      length=length_to_blank(mpi_transp_theta)
-      write(n_out,*) " mpi_transp_theta = """,mpi_transp_theta(1:length),""","
+!       length=length_to_blank(mpi_transp_theta)
+      write(n_out,*) " theta_transp_buffer_size= """,theta_transp_buffer_size,""","
 
 
       !-- Output of name lists:
@@ -1240,7 +1240,7 @@ contains
       n_ranks_mo       = 0
       mlo_dist_method  = "lfirst"
       mpi_transp       = "AUTO"
-      mpi_transp_theta = "A2AV" !@>TODO implement "auto"
+      theta_transp_buffer_size = 3
       mpi_packing      = "PACKED" ! MPI packing ('SINGLE','PACKED')
       rIter_type       = "single"
 

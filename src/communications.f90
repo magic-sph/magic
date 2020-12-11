@@ -17,7 +17,7 @@ module communications
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
    use charmanip, only: capitalize
-   use num_param, only: mpi_transp, mpi_packing, mpi_transp_theta
+   use num_param, only: mpi_transp, mpi_packing, theta_transp_buffer_size
    use mpi_transp, only: type_mpitransp
    use truncation
    use LMmapping
@@ -391,17 +391,16 @@ contains
       ! -- Create the theta <-> m transposer (only if necessary)
       !
       if (n_ranks_theta>1) then
-         if (rank == 0) print *, " *  Using mpi_transp_theta=", trim(mpi_transp_theta)
-         call capitalize(mpi_transp_theta)
+         if (rank == 0) print *, " *  Using theta_transp_buffer_size=", theta_transp_buffer_size
+!          call capitalize(mpi_transp_theta)
          
-         if (index(mpi_transp_theta, 'A2AV') /= 0)  then
+         if (theta_transp_buffer_size==1)  then
             allocate( type_mpitransp_theta_a2av :: theta_transp)
-            call theta_transp%create(1)
-         else if (index(mpi_transp_theta, 'A2AB') /= 0)  then 
+         else 
             allocate( type_mpitransp_theta_a2ab :: theta_transp)
-            call theta_transp%create(3)
          end if
       end if
+      call theta_transp%create(theta_transp_buffer_size)
       
       local_bytes_used = bytes_allocated - local_bytes_used
       call memWrite('communications.f90', local_bytes_used)

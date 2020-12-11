@@ -7,8 +7,9 @@ module LMmapping
        &                 n_mlo_array
    use mem_alloc, only: bytes_allocated, memWrite
    use parallel_mod, only: n_ranks_mo, n_ranks_lo, coord_mo, coord_lo, coord_m,&
-       &                   coord_r, n_ranks_m, mpi_map
+       &                   coord_r, n_ranks_m, mpi_map, mpiio_setup
    use useful, only: abortRun
+   use output_data, only: tag
 
    implicit none
  
@@ -464,12 +465,14 @@ contains
 !----------------------------------------------------------------------------
    subroutine print_mapping(map,name)
       !  
-      !   Author: Rafael Lago, MPCDF, June 2018
+      !   Author: Rafael Lago, MPCDF, December 2020
       !  
       use mpi
       type(mappings), intent(in) :: map
       character(*), intent(in) :: name
-      integer :: irank, ierr, count_l, count_m, i
+      integer :: count_l, count_m
+      integer :: ioinfo, fh, i, istat, ierr
+      character(len=120) :: nextline
       
       count_m = 0
       count_l = 0
@@ -480,19 +483,26 @@ contains
          if (any(map%lm2(:,i) >= 0)) count_l = count_l + 1
       end do
       
+      call mpiio_setup(ioinfo)
+      call mpi_file_open(mpi_comm_world, 'mapping_'//name//'_info.'//tag, ior(mpi_mode_wronly, mpi_mode_create), ioinfo, fh, ierr)
       
       if (coord_m == 0 .and. coord_r == 0) then
-         print "(' ! ',A,' mapping in coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')", name, &
-            0, count_m, count_l, map%n_lm
+         write(nextline,"(' ! ',A,' mapping in coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')") &
+            name, 0, count_m, count_l, map%n_lm
+         call MPI_File_write_shared(fh, trim(adjustl(nextline))//NEW_LINE("A"), len(trim(adjustl(nextline)))+1, mpi_character, istat, ierr)
       end if
       call mpi_barrier(mpi_comm_world,ierr)
-      do irank=1,n_ranks_m-1
-         if (coord_m == irank .and. coord_r == 0) then
-            print "(' !                coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')", &
-               irank, count_m, count_l, map%n_lm
+      do i=1,n_ranks_m-1
+         if (coord_m == i .and. coord_r == 0) then
+            write(nextline,"(' !                coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')") &
+            i, count_m, count_l, map%n_lm
+            call MPI_File_write_shared(fh, trim(adjustl(nextline))//NEW_LINE("A"), len(trim(adjustl(nextline)))+1, mpi_character, istat, ierr)
          end if
          call mpi_barrier(mpi_comm_world,ierr)
-      end do 
+      end do
+      
+      call MPI_Info_free(ioinfo, ierr)
+      call MPI_File_close(fh, ierr)
    end subroutine print_mapping
 !----------------------------------------------------------------------------
 end module LMmapping

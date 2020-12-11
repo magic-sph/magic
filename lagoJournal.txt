@@ -1,3 +1,22 @@
+2020-12-11
+-------------------------------------------------------------------------------
+- mpi_transpose_theta: benchmarks completed indicating a small advantage for 
+  queue length=13. 
+- [TODO] mpi_transpose_theta: copy data into the buffer during _start call
+  instead of during the _finish call. This might avoid some of the 
+  repagination (though the benefit might be minuscule)
+- [TODO] rIter_buff: get rid of the _hyb variables
+- [TODO] rIter_split: use the new buffered transposers to reduce memory 
+  footprint.
+
+
+2020-11-30
+-------------------------------------------------------------------------------
+- floating point invalid operation on
+      call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
+  of initialize_sht (shtns.f90) if compiled with debug flags!
+
+
 MERGING NOTES
 ============================================
 

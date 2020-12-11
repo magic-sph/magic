@@ -7,6 +7,7 @@ module truncation
    use precision_mod, only: cp
    use logic
    use useful, only: abortRun
+   use output_data, only: tag
 
    
    implicit none
@@ -196,6 +197,8 @@ module truncation
    end type load
    
    type(load), public, allocatable :: radial_balance(:)
+   integer :: n_geometry_file
+   character(len=72) :: geometry_file
    
 contains
 
@@ -269,7 +272,7 @@ contains
       n_r_maxStr    =max(n_r_maxSL,1)
       n_theta_maxStr=max(n_theta_maxSL,1)
       n_phi_maxStr  =max(n_phi_maxSL,1)
-
+      
    end subroutine initialize_truncation
    
    subroutine initialize_radial_data(n_r_max)
@@ -310,7 +313,6 @@ contains
       deallocate( radial_balance )
 
    end subroutine finalize_radial_data
-   
    
 !--------------------------------------------------------------------------------
    subroutine checkTruncation
@@ -353,6 +355,12 @@ contains
    subroutine initialize_distributed_geometry
       !   
       !   Author: Rafael Lago, MPCDF, June 2018
+      
+      if ( l_master_rank ) then
+         geometry_file = 'dist_geometry.'//tag
+         open(newunit=n_geometry_file, file=geometry_file, &
+         &    status='unknown', position='append')
+      end if
       !   
       
       call distribute_gs
@@ -361,17 +369,15 @@ contains
       
       call distribute_lm
       call print_discontiguous_distribution(dist_m, n_m_array, n_ranks_m, 'm')
-      
+
       call distribute_mlo
       call print_mlo_distribution_summary
       
-!       if (l_verb_paral) call print_mlo_distribution
-!       call print_mlo_distribution
-!       stop
+      if (l_verb_paral) call print_mlo_distribution
    end subroutine initialize_distributed_geometry
    
    !----------------------------------------------------------------------------
-   subroutine finalize_geometry
+   subroutine finalize_distributed_geometry
       !   
       !   Author: Rafael Lago, MPCDF, June 2018
       !   
@@ -390,7 +396,11 @@ contains
       deallocate(dist_mlo)
       deallocate(dist_n_mlo)
       
-   end subroutine finalize_geometry
+      if ( l_master_rank ) then
+         close(n_geometry_file)
+      end if
+      
+   end subroutine finalize_distributed_geometry
 
    !----------------------------------------------------------------------------
    subroutine distribute_gs
@@ -1034,11 +1044,11 @@ contains
       
       if (.not. l_master_rank) return
       
-      print "(' !  Partition in rank_',A,' ', I0, ': ', I0,'-',I0, '  (', I0, ' pts)')", name, &
+      write(n_geometry_file,"(' !  Partition in rank_',A,' ', I0, ': ', I0,'-',I0, '  (', I0, ' pts)')") name, &
             0, dist(0,1), dist(0,2), dist(0,0)
             
       do i=1, p-1
-         print "(' !               rank_',A,' ', I0, ': ', I0,'-',I0, '  (', I0, ' pts)')", name, &
+         write(n_geometry_file,"(' !               rank_',A,' ', I0, ': ', I0,'-',I0, '  (', I0, ' pts)')") name, &
                i, dist(i,1), dist(i,2), dist(i,0)
       end do
    end subroutine print_contiguous_distribution
@@ -1056,20 +1066,20 @@ contains
       
       if (.not. l_master_rank) return
       
-      write (*,'(A,I0,A,I0)', ADVANCE='NO') ' !  Partition in rank_'//name//' ', 0, ' :', dist(0,1)
+      write (n_geometry_file,'(A,I0,A,I0)', ADVANCE='NO') ' !  Partition in rank_'//name//' ', 0, ' :', dist(0,1)
       counter = 1
       do j=2, dist(0,0)
-         write (*, '(A,I0)', ADVANCE='NO') ',', dist(0,j)
+         write (n_geometry_file, '(A,I0)', ADVANCE='NO') ',', dist(0,j)
       end do
-      write (*, '(A,I0,A)') "  (",dist(0,0)," pts)"
+      write (n_geometry_file, '(A,I0,A)') "  (",dist(0,0)," pts)"
       
       do i=1, n_ranks_theta-1
-         write (*,'(A,I0,A,I0)', ADVANCE='NO') ' !               rank_'//name//' ', i, ' :', dist(i,1)
+         write (n_geometry_file,'(A,I0,A,I0)', ADVANCE='NO') ' !               rank_'//name//' ', i, ' :', dist(i,1)
          counter = 1
          do j=2, dist(i,0)
-            write (*, '(A,I0)', ADVANCE='NO') ',', dist(i,j)
+            write (n_geometry_file, '(A,I0)', ADVANCE='NO') ',', dist(i,j)
          end do
-         write (*, '(A,I0,A)') "  (",dist(i,0)," pts)"
+         write (n_geometry_file, '(A,I0,A)') "  (",dist(i,0)," pts)"
       end do
    end subroutine print_discontiguous_distribution
    
@@ -1088,28 +1098,28 @@ contains
       if (.not. l_master_rank) return
       
       do icoord_lo=0,n_ranks_lo-1
-         write (*,'(A,I0)') ' !   # points in rank_lo ',icoord_lo
+         write (n_geometry_file,'(A,I0)') ' !   # points in rank_lo ',icoord_lo
          do icoord_mo=0,n_ranks_mo-1
-            write (*,'(A,I0,A)', ADVANCE='NO') ' !               rank_mo ',icoord_mo, ' :'
+            write (n_geometry_file,'(A,I0,A)', ADVANCE='NO') ' !               rank_mo ',icoord_mo, ' :'
             lfirst = .true.
             do l=0,m_max
                if (.not. any(dist_mlo(icoord_mo,icoord_lo,:,2)==l)) cycle
-               if (.not. lfirst) write (*,'(A,I0,A)', ADVANCE='NO') &
+               if (.not. lfirst) write (n_geometry_file,'(A,I0,A)', ADVANCE='NO') &
                &    ' !                          '
                lfirst = .false.
-               write (*,'(A,I0,A)', ADVANCE='NO') ' l=',l,', m=['
+               write (n_geometry_file,'(A,I0,A)', ADVANCE='NO') ' l=',l,', m=['
                mfirst = .true.
                do i=1,dist_n_mlo(icoord_mo,icoord_lo)
                   if (dist_mlo(icoord_mo,icoord_lo,i,2)/=l) cycle
                   m = dist_mlo(icoord_mo,icoord_lo,i,1)
                   if (mfirst) then
-                     write (*,'(I0)', ADVANCE='NO') m
+                     write (n_geometry_file,'(I0)', ADVANCE='NO') m
                      mfirst = .false.
                   else
-                     write (*,'(A,I0)', ADVANCE='NO') ',',m
+                     write (n_geometry_file,'(A,I0)', ADVANCE='NO') ',',m
                   end if
                end do
-               write (*,'(A)', ADVANCE='NO') "]"//NEW_LINE("a")
+               write (n_geometry_file,'(A)', ADVANCE='NO') "]"//NEW_LINE("a")
             end do
          end do
       end do
@@ -1128,11 +1138,11 @@ contains
       
       if (.not. l_master_rank) return
       
-      write (*,'(A,A)') ' !   mlo_dist_method: ', mlo_dist_method
+      write (n_geometry_file,'(A,A)') ' !   mlo_dist_method: ', mlo_dist_method
       do icoord_lo=0,n_ranks_lo-1
-         write (*,'(A,I0)') ' !   # points in rank_lo ',icoord_lo
+         write (n_geometry_file,'(A,I0)') ' !   # points in rank_lo ',icoord_lo
          do icoord_mo=0,n_ranks_mo-1
-            write (*,'(A,I0,A)', ADVANCE='NO') ' !               rank_mo ',icoord_mo, ' :'
+            write (n_geometry_file,'(A,I0,A)', ADVANCE='NO') ' !               rank_mo ',icoord_mo, ' :'
             
             !-- Count how many different l's
             l_count = 0
@@ -1146,7 +1156,7 @@ contains
                if (any(dist_mlo(icoord_mo,icoord_lo,:,1)==m)) m_count = m_count + 1
             end do
             
-            write (*,'(I0,A,I0,A,I0,A)') m_count, " m, ", l_count, " l (", dist_n_mlo(icoord_mo,icoord_lo), " total)"
+            write (n_geometry_file,'(I0,A,I0,A,I0,A)') m_count, " m, ", l_count, " l (", dist_n_mlo(icoord_mo,icoord_lo), " total)"
          end do
       end do
       

@@ -94,10 +94,10 @@ module mpi_transpose_theta
    !   Workarounds the lack of array of pointers in fortran
    ! --------------------------------------------------------------------------------------
    type cmplx_pointer_wrapper
-      complex(cp), pointer :: p(:,:)
+      complex(cp), contiguous, pointer :: p(:,:)
    end type cmplx_pointer_wrapper
    type real_pointer_wrapper
-      real(cp), pointer :: p(:,:)
+      real(cp), contiguous, pointer :: p(:,:)
    end type real_pointer_wrapper
    
    ! --------------------------------------------------------------------------------------
@@ -107,10 +107,6 @@ module mpi_transpose_theta
       !   
       !   Author: Rafael Lago (MPCDF) November 2020
       !
-      complex(cp), allocatable  :: m_loc_buffer(:)
-      complex(cp), allocatable  :: th_loc_buffer(:)
-      complex(cp), allocatable  :: fft_buffer(:,:)
-      
       integer :: fftlen
       
       integer, allocatable :: m2th_sendcount(:),m2th_recvcount(:)
@@ -133,16 +129,9 @@ module mpi_transpose_theta
       !   
       !   Author: Rafael Lago (MPCDF) December 2020
       !
-      complex(cp), allocatable  :: m_loc_buffer(:)
-      complex(cp), allocatable  :: th_loc_buffer(:)
-      complex(cp), allocatable  :: fft_buffer(:,:)
-      
       type(cmplx_pointer_wrapper), allocatable :: m_loc_ptr(:)
       type(cmplx_pointer_wrapper), allocatable :: th_loc_ptr(:)
       type(real_pointer_wrapper),  allocatable :: phi_ptr(:)
-      
-      logical, allocatable :: m_loc_status(:)
-      logical, allocatable :: th_loc_status(:)
       
       integer :: n_buffered, direction, fftlen
       
@@ -166,7 +155,7 @@ module mpi_transpose_theta
    integer, parameter :: DIRECTION_M2PHI = -2
    integer, parameter :: DIRECTION_PHI2M =  2
    
-   public :: transform_m2phi_new, transform_phi2m_new, type_mpitransp_theta_a2av, type_mpitransp_theta_a2ab
+   public :: type_mpitransp_theta_a2av, type_mpitransp_theta_a2ab
 
 contains
 
@@ -198,11 +187,7 @@ contains
       end if
       this%n_fields = 1
       
-      allocate(this%m_loc_buffer(n_m_loc*n_theta_max))
-      allocate(this%th_loc_buffer(n_theta_loc*n_m_max))
-      
       this%fftlen = max(n_m_max, n_phi_max/2+1)
-      allocate(this%fft_buffer(n_theta_loc, this%fftlen))
       
       allocate(this%m2th_sendcount(0:n_ranks_theta-1))
       allocate(this%m2th_recvcount(0:n_ranks_theta-1))
@@ -252,10 +237,6 @@ contains
    subroutine destroy_a2av(this)
       class(type_mpitransp_theta_a2av) :: this
       
-      deallocate(this%m_loc_buffer)
-      deallocate(this%th_loc_buffer)
-      deallocate(this%fft_buffer)
-      
       deallocate(this%m2th_sendcount)
       deallocate(this%m2th_recvcount)
       deallocate(this%m2th_senddispl)
@@ -286,6 +267,8 @@ contains
       complex(cp), target, intent(out) :: f_thetaloc(n_theta_loc, n_m_max)
       
       integer :: irank, j, pos, n_t, l_t, u_t, m_idx, n_m
+      complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max)
+      complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max)
       
       PERFON('m2thS')
       pos = 1
@@ -297,16 +280,17 @@ contains
          l_t = dist_theta(irank,1)
          u_t = dist_theta(irank,2)
          do j=1, n_m_loc
-            this%m_loc_buffer(pos:pos + n_t - 1) = f_mloc(l_t:u_t,j)
+            m_loc_buffer(pos:pos + n_t - 1) = f_mloc(l_t:u_t,j)
             pos = pos + n_t
          end do
       end do
       PERFOFF
       
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('m2thW')
-      call MPI_Alltoallv(this%m_loc_buffer, this%m2th_sendcount, this%m2th_senddispl, MPI_DEF_COMPLEX, &
-           &             this%th_loc_buffer, this%m2th_recvcount, this%m2th_recvdispl, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(m_loc_buffer, this%m2th_sendcount, this%m2th_senddispl, MPI_DEF_COMPLEX, &
+           &             th_loc_buffer, this%m2th_recvcount, this%m2th_recvdispl, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
       PERFOFF
 #endif
@@ -323,7 +307,7 @@ contains
          pos = this%m2th_recvdispl(irank)+1
          do n_m=1,dist_m(irank,0)
             m_idx = dist_m(irank,n_m)/minc+1
-            f_thetaloc(:,m_idx)=this%th_loc_buffer(pos:pos+n_theta_loc-1)
+            f_thetaloc(:,m_idx)=th_loc_buffer(pos:pos+n_theta_loc-1)
             pos = pos+n_theta_loc
          end do
       end do
@@ -348,6 +332,8 @@ contains
       
       !-- Local variables
       integer :: irank, j, itheta, m, pos, l_t, u_t, n_t, n_m
+      complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max)
+      complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max)
       
       PERFON('th2mS')
       pos = 1
@@ -359,19 +345,18 @@ contains
          !  striding the data could be faster
          do j=1,dist_m(irank,0)
             m = dist_m(irank,j)/minc
-            do itheta=1,n_theta_loc
-               this%th_loc_buffer(pos) = f_thetaloc(itheta,m+1)
-               pos = pos + 1
-            end do
+            th_loc_buffer(pos:pos+n_theta_loc-1) = f_thetaloc(1:n_theta_loc,m+1)
+            pos = pos + n_theta_loc
          end do
       end do
       
       PERFOFF
       
+!       call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('th2mW')
-      call MPI_Alltoallv(this%th_loc_buffer, this%th2m_sendcount, this%th2m_senddispl, MPI_DEF_COMPLEX,   &
-           &             this%m_loc_buffer, this%th2m_recvcount, this%th2m_recvdispl, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(th_loc_buffer, this%th2m_sendcount, this%th2m_senddispl, MPI_DEF_COMPLEX,   &
+           &             m_loc_buffer, this%th2m_recvcount, this%th2m_recvdispl, MPI_DEF_COMPLEX, &
            &             comm_m, ierr)
       PERFOFF
 #endif
@@ -383,7 +368,7 @@ contains
          u_t=dist_theta(irank,2)
          n_t=dist_theta(irank,0)
          do n_m=1,n_m_loc
-            f_mloc(l_t:u_t,n_m)=this%m_loc_buffer(pos:pos+n_t-1)
+            f_mloc(l_t:u_t,n_m)=m_loc_buffer(pos:pos+n_t-1)
             pos = pos+n_t
          end do
       end do
@@ -403,12 +388,13 @@ contains
       
       !-- Output variables
       real(cp),    target, intent(out)   :: f_phi(n_theta_loc,n_phi_max)
+      complex(cp), allocatable :: fft_buffer(:,:)
       
-      call this%m2th(f_m, this%fft_buffer)
-      if (n_m_max<this%fftlen) then
-         this%fft_buffer(:,n_m_max+1:) = zero
-      end if
-      call ifft_many(this%fft_buffer, f_phi)
+      allocate(fft_buffer(n_theta_loc, this%fftlen))
+      call this%m2th(f_m, fft_buffer)
+      fft_buffer(:,n_m_max+1:) = zero
+      call ifft_many(fft_buffer, f_phi)
+      deallocate(fft_buffer)
 
    end subroutine m2phi_a2av
    
@@ -424,9 +410,12 @@ contains
       
       !-- Output variables
       complex(cp), target, intent(out)   :: f_m(n_theta_max,n_m_loc)
+      complex(cp), allocatable :: fft_buffer(:,:)
 
-      call fft_many(f_phi, this%fft_buffer)
-      call this%th2m(this%fft_buffer(1:n_theta_loc,1:n_m_max), f_m)
+      allocate(fft_buffer(n_theta_loc, this%fftlen))
+      call fft_many(f_phi, fft_buffer)
+      call this%th2m(fft_buffer(1:n_theta_loc,1:n_m_max), f_m)
+      deallocate(fft_buffer)
 
    end subroutine phi2m_a2av
    
@@ -451,15 +440,7 @@ contains
       allocate(this%th_loc_ptr(n_fields))
       allocate(this%phi_ptr(n_fields))
       
-      allocate(this%m_loc_status(n_fields))
-      allocate(this%th_loc_status(n_fields))
-      
-      allocate(this%m_loc_buffer(n_m_loc*n_theta_max*n_fields))
-      allocate(this%th_loc_buffer(n_theta_loc*n_m_max*n_fields))
-      
       this%fftlen = max(n_m_max, n_phi_max/2+1)
-      allocate(this%fft_buffer(n_theta_loc, this%fftlen))
-      
       this%n_buffered = 0
       
       allocate(this%m2th_sendcount(0:n_ranks_theta-1))
@@ -510,7 +491,7 @@ contains
          stop
       end if
       
-      this%name = "bufflex"
+      this%name = "a2ab"
       this%direction = DIRECTION_NONE
       this%isnonblocking = .FALSE.
       
@@ -519,17 +500,16 @@ contains
    !----------------------------------------------------------------------------------
    subroutine destroy_a2ab(this)
       class(type_mpitransp_theta_a2ab) :: this
+      integer :: i
       
+      do i=1, this%n_fields
+         if (associated(this%m_loc_ptr(i)%p)) nullify(this%m_loc_ptr(i)%p)
+         if (associated(this%th_loc_ptr(i)%p)) nullify(this%th_loc_ptr(i)%p)
+         if (associated(this%phi_ptr(i)%p)) nullify(this%phi_ptr(i)%p)
+      end do
       deallocate(this%m_loc_ptr)
       deallocate(this%th_loc_ptr)
       deallocate(this%phi_ptr)
-      
-      deallocate(this%m_loc_status)
-      deallocate(this%th_loc_status)
-      
-      deallocate(this%m_loc_buffer)
-      deallocate(this%th_loc_buffer)
-      deallocate(this%fft_buffer)
       
       deallocate(this%m2th_sendcount)
       deallocate(this%m2th_recvcount)
@@ -557,15 +537,10 @@ contains
       !-- Output variable
       complex(cp), target, intent(out) :: f_thetaloc(n_theta_loc, n_m_max)
       
-      this%n_buffered = this%n_buffered + 1
       
-      if (this%n_buffered > this%n_fields) then
-         print *, "Error in type_mpitransp_theta_a2ab%m2th: number of fields &
-          &exceeded the initially allocated resources. Please, call waitall &
-          &before m2th or initialize type_mpitransp_theta_a2ab with a larger&
-          & buffer size"
-         stop
-      else if (this%n_buffered == 1) then
+      if (this%n_buffered == this%n_fields) then
+         call this%waitall()
+      else if (this%n_buffered == 0) then
          this%direction = DIRECTION_M2TH
       else if (this%direction /= DIRECTION_M2TH) then 
          print *, "Error in type_mpitransp_theta_a2ab%m2th: wrong direction;&
@@ -573,6 +548,7 @@ contains
          stop
       end if
       
+      this%n_buffered = this%n_buffered + 1
       this%m_loc_ptr(this%n_buffered)%p  => f_mloc
       this%th_loc_ptr(this%n_buffered)%p => f_thetaloc
       
@@ -592,15 +568,10 @@ contains
       !-- Output variable
       complex(cp), target, intent(out) :: f_mloc(n_theta_max, n_m_loc)
       
-      this%n_buffered = this%n_buffered + 1
       
-      if (this%n_buffered > this%n_fields) then
-         print *, "Error in type_mpitransp_theta_a2ab%th2m: number of fields&
-            &exceeded the initially allocated resources. Please, call waitall &
-            &before th2m or initialize type_mpitransp_theta_a2ab with a larger&
-            & buffer size"
-         stop
-      else if (this%n_buffered == 1) then
+      if (this%n_buffered == this%n_fields) then
+         call this%waitall()
+      else if (this%n_buffered == 0) then
          this%direction = DIRECTION_TH2M
       else if (this%direction /= DIRECTION_TH2M) then 
          print *, "Error in type_mpitransp_theta_a2ab%th2m: wrong direction;&
@@ -608,6 +579,7 @@ contains
          stop
       end if
       
+      this%n_buffered = this%n_buffered + 1
       this%m_loc_ptr(this%n_buffered)%p  => f_mloc
       this%th_loc_ptr(this%n_buffered)%p => f_thetaloc
       
@@ -629,11 +601,6 @@ contains
       
       if (this%n_buffered == this%n_fields) then
          call this%waitall()
-!          print *, "Error in type_mpitransp_theta_a2ab%m2phi: number of fields &
-!           &exceeded the initially allocated resources. Please, call waitall &
-!           &before m2phi or initialize type_mpitransp_theta_a2ab with a larger&
-!           & buffer size"
-!          stop
       end if
       
       if (this%n_buffered == 0) then
@@ -665,11 +632,6 @@ contains
       
       if (this%n_buffered == this%n_fields) then
          call this%waitall()
-!          print *, "Error in type_mpitransp_theta_a2ab%phi2m: number of fields&
-!             &exceeded the initially allocated resources. Please, call waitall &
-!             &before phi2m or initialize type_mpitransp_theta_a2ab with a larger&
-!             & buffer size"
-!          stop
       end if
       
       if (this%n_buffered == 0) then
@@ -687,7 +649,7 @@ contains
    end subroutine phi2m_start_a2ab
       
    !----------------------------------------------------------------------------------
-   subroutine m2th_finish_a2ab(this)
+   subroutine m2th_finish_a2ab(this, n_b)
       !   
       !   Author: Rafael Lago (MPCDF) December 2020
       !
@@ -695,24 +657,25 @@ contains
       !--      improves
       !
       class(type_mpitransp_theta_a2ab) :: this
+      integer, intent(in) :: n_b
       
       !-- Local variables
-      integer :: irank, pos, n_t, l_t, u_t, m_idx, n_m, n_f, n_b
-      integer, allocatable :: m2th_senddispl(:), m2th_recvdispl(:)
+      integer :: irank, pos, n_t, l_t, u_t, m_idx, n_m, n_f
+      complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max*n_b)
+      complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max*n_b)
       
       PERFON('m2thS')
-      n_b = this%n_buffered
       pos = 1
       do irank=0,n_ranks_theta-1
          !-- Copy each theta chunk so that the send buffer is contiguous
-         !-- TODO check performance of this; implementing this with mpi_type
-         !   striding the data will probably be faster
+         !@>TODO check performance of this; implementing this with mpi_type striding the data could be faster
+         !@>TODO copy this data over during the _start call; it may prevent cache repagination
          n_t = dist_theta(irank,0)
          l_t = dist_theta(irank,1)
          u_t = dist_theta(irank,2)
          do n_f = 1, n_b 
             do n_m=1, n_m_loc
-               this%m_loc_buffer(pos:pos + n_t - 1) = this%m_loc_ptr(n_f)%p(l_t:u_t,n_m)
+               m_loc_buffer(pos:pos + n_t - 1) = this%m_loc_ptr(n_f)%p(l_t:u_t,n_m)
                pos = pos + n_t
             end do
          end do
@@ -720,10 +683,11 @@ contains
       PERFOFF
       
       
+!       call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('m2thW')
-      call MPI_Alltoallv(this%m_loc_buffer, this%m2th_sendcount*n_b, this%m2th_senddispl*n_b, MPI_DEF_COMPLEX, &
-           &             this%th_loc_buffer, this%m2th_recvcount*n_b, this%m2th_recvdispl*n_b, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(m_loc_buffer, this%m2th_sendcount*n_b, this%m2th_senddispl*n_b, MPI_DEF_COMPLEX, &
+           &             th_loc_buffer, this%m2th_recvcount*n_b, this%m2th_recvdispl*n_b, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
       PERFOFF
 #endif
@@ -735,7 +699,7 @@ contains
          do n_f=1,n_b
             do n_m=1,dist_m(irank,0)
                m_idx = dist_m(irank,n_m)/minc+1
-               this%th_loc_ptr(n_f)%p(1:n_theta_loc,m_idx)=this%th_loc_buffer(pos:pos+n_theta_loc-1)
+               this%th_loc_ptr(n_f)%p(1:n_theta_loc,m_idx)=th_loc_buffer(pos:pos+n_theta_loc-1)
                pos = pos+n_theta_loc
             end do
          end do
@@ -745,43 +709,43 @@ contains
    end subroutine m2th_finish_a2ab
 
    !----------------------------------------------------------------------------------
-   subroutine th2m_finish_a2ab(this)
+   subroutine th2m_finish_a2ab(this, n_b)
       !   
       !   Author: Rafael Lago (MPCDF) December 2020
       !
       !-- TODO this with mpi_type to stride the data
       !
       class(type_mpitransp_theta_a2ab) :: this
+      integer, intent(in) :: n_b
       
       !-- Local variables
-      integer :: irank, itheta, m, pos, l_t, u_t, n_t, n_m, n_f, n_b
+      integer :: irank, itheta, m, pos, l_t, u_t, n_t, n_m, n_f
+      complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max*n_b)
+      complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max*n_b)
       
       PERFON('th2mS')
-      n_b = this%n_buffered
       pos = 1
       do irank=0,n_ranks_m-1
          !-- Copy each m which belongs to the irank-th coord_r into the send buffer
          !   column-wise. That will simplify a lot things later
          !
-         !@>TODO check performance of this; implementing this with mpi_type
-         !  striding the data could be faster
+         !@>TODO check performance of this; implementing this with mpi_type striding the data could be faster
+         !@>TODO copy this data over during the _start call; it may prevent cache repagination
          do n_f=1, n_b
             do n_m=1,dist_m(irank,0)
                m = dist_m(irank,n_m)/minc
-               do itheta=1,n_theta_loc
-                  this%th_loc_buffer(pos) = this%th_loc_ptr(n_f)%p(itheta,m+1)
-                  pos = pos + 1
-               end do
+               th_loc_buffer(pos:pos+n_theta_loc-1) = this%th_loc_ptr(n_f)%p(1:n_theta_loc,m+1)
+               pos = pos + n_theta_loc
             end do
          end do
       end do
       PERFOFF
-      
-      
+
+!       call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('th2mW')
-      call MPI_Alltoallv(this%th_loc_buffer, this%th2m_sendcount*n_b, this%th2m_senddispl*n_b, MPI_DEF_COMPLEX,   &
-           &             this%m_loc_buffer, this%th2m_recvcount*n_b, this%th2m_recvdispl*n_b, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(th_loc_buffer, this%th2m_sendcount*n_b, this%th2m_senddispl*n_b, MPI_DEF_COMPLEX,   &
+           &             m_loc_buffer, this%th2m_recvcount*n_b, this%th2m_recvdispl*n_b, MPI_DEF_COMPLEX, &
            &             comm_m, ierr)
       PERFOFF
 #endif
@@ -794,7 +758,7 @@ contains
          n_t=dist_theta(irank,0)
          do n_f=1, n_b
             do n_m=1,n_m_loc
-               this%m_loc_ptr(n_f)%p(l_t:u_t,n_m)=this%m_loc_buffer(pos:pos+n_t-1)
+               this%m_loc_ptr(n_f)%p(l_t:u_t,n_m)=m_loc_buffer(pos:pos+n_t-1)
                pos = pos + n_t
             end do
          end do
@@ -813,7 +777,7 @@ contains
       if (this%n_buffered == 0) return
       
       if (this%direction == DIRECTION_M2TH) then
-         call m2th_finish_a2ab(this)
+         call m2th_finish_a2ab(this, this%n_buffered)
          
       else if (this%direction == DIRECTION_M2PHI) then
          allocate(theta_buffer(n_theta_loc,this%fftlen,this%n_buffered))
@@ -821,7 +785,7 @@ contains
             this%th_loc_ptr(n_f)%p => theta_buffer(:,:,n_f)
          end do
          
-         call m2th_finish_a2ab(this)
+         call m2th_finish_a2ab(this, this%n_buffered)
          
          !@>TODO have a flexible fft interface which can handle from 1 to n_buffered transforms
          do n_f=1, this%n_buffered
@@ -833,7 +797,7 @@ contains
          deallocate(theta_buffer)
          
       else if (this%direction == DIRECTION_TH2M) then
-         call th2m_finish_a2ab(this)
+         call th2m_finish_a2ab(this, this%n_buffered)
       
       else if (this%direction == DIRECTION_PHI2M) then
          allocate(theta_buffer(n_theta_loc,this%fftlen,this%n_buffered))
@@ -843,7 +807,7 @@ contains
             this%th_loc_ptr(n_f)%p => theta_buffer(:,:,n_f)
          end do
          
-         call th2m_finish_a2ab(this)
+         call th2m_finish_a2ab(this, this%n_buffered)
          do n_f=1, this%n_buffered
             nullify( this%th_loc_ptr(n_f)%p )
          end do
@@ -857,80 +821,5 @@ contains
       this%n_buffered = 0
       this%direction = DIRECTION_NONE
    end subroutine
-
-   !
-   !   Auxiliary functions
-   !  
-   !   Author: Rafael Lago (MPCDF)
-   !
-   !==================================================================================
-   subroutine transform_m2phi_new(transposer, fL, f)
-      !-- Transforms from (θ,m) space into (φ,θ) space including transpositions 
-      !   and FFT. 
-      !   
-      !   Author: Rafael Lago (MPCDF) April 2020
-      !   TODO: some functions might requires this transformation for multiple
-      !      fields at once (e.g. vector transform). In that case, a non-blocking 
-      !      transpose_theta_m would make more sense. This would make this 
-      !      function obsolete.
-      !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
-      !     use just one intermediate buffer, vector transform, etc)
-      !
-      
-      !-- Input variables
-      class(type_mpitransp_theta), intent(inout) :: transposer
-      complex(cp), intent(inout) :: fL(n_theta_max,n_m_loc)
-      
-      !-- Output variables
-      real(cp),    intent(out)   :: f(n_theta_loc,n_phi_max)
-      
-      !-- Local variables
-      complex(cp) :: lF(n_theta_loc,n_m_max)
-      complex(cp) :: Ff(n_theta_loc,n_phi_max/2+1)
-      
-      call transposer%m2th(fL, lF)
-!       -- TODO: The FFT must be performed for an array with the dimensions of 
-!         F_loc which may end up paded with zeroes.
-!         Is there any way to tell MKL to perform a "truncated" FFT?
-      call transposer%waitall()
-      
-      Ff = zero
-      Ff(1:n_theta_loc,1:n_m_max) = lF
-      
-      call ifft_many(Ff, f)
-
-   end subroutine transform_m2phi_new
-!----------------------------------------------------------------------------------
-   subroutine transform_phi2m_new(transposer, f, fL)
-      !-- Transforms from (φ,θ) space into (θ,m) space including transpositions 
-      !   and FFT. 
-      !   
-      !   Author: Rafael Lago (MPCDF) April 2020
-      !   TODO: some functions might requires this transformation for multiple
-      !      fields at once (e.g. vector transform). In that case, a non-blocking 
-      !      transpose_theta_m would make more sense. This would make this 
-      !      function obsolete.
-      !   TODO: there is a lot of room for immprovement here (e.g. in-place, 
-      !     use just one intermediate buffer, vector transform, etc)
-      !
-      
-      !-- Input variables
-      class(type_mpitransp_theta), intent(inout) :: transposer
-      real(cp),    intent(inout) :: f(n_theta_loc,n_phi_max)
-      
-      !-- Output variables
-      complex(cp), intent(out) :: fL(n_theta_max,n_m_loc)
-      
-      !-- Local variables
-      complex(cp) :: lF(n_theta_loc,n_m_max)
-      complex(cp) :: Ff(n_theta_loc,n_phi_max/2+1)
-
-      call fft_many(f, Ff)
-      lF(1:n_theta_loc,1:n_m_max) = Ff(1:n_theta_loc,1:n_m_max)
-      call transposer%th2m(lF, fL)
-      call transposer%waitall()
-
-   end subroutine transform_phi2m_new
-   
    
 end module mpi_transpose_theta

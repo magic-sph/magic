@@ -63,6 +63,7 @@ contains
       integer :: irank, j, itheta, m, pos, l_t, u_t, n_t, n_m
       
       pos = 1
+      PERFON('th2mS')
       do irank=0,n_ranks_m-1
          !-- Copy each m which belongs to the irank-th coord_r into the send buffer
          !   column-wise. That will simplify a lot things later
@@ -82,13 +83,18 @@ contains
          recvdispl(irank) = irank*n_m_loc*dist_theta(irank,0)
          recvcount(irank) =   n_m_loc*dist_theta(irank,0)
       end do
+      PERFOFF
       
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
+      PERFON('th2mW')
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX,   &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_m, ierr)
 #endif
+      PERFOFF
 
+      PERFON('th2mS')
       do irank=0,n_ranks_theta-1
          pos = recvdispl(irank)+1
          l_t=dist_theta(irank,1)
@@ -99,6 +105,7 @@ contains
             pos = pos+n_t
          end do
       end do
+      PERFOFF
       
    end subroutine transpose_m_theta
 !----------------------------------------------------------------------------------
@@ -124,6 +131,7 @@ contains
       
       recvcount = 0
       pos = 1
+      PERFON('m2thS')
       do irank=0,n_ranks_theta-1
          !-- Copy each theta chunk so that the send buffer is contiguous
          !-- TODO check performance of this; implementing this with mpi_type
@@ -141,12 +149,17 @@ contains
          recvdispl(irank) = sum(recvcount)
          recvcount(irank) = dist_m(irank,0) * n_theta_loc
       end do
-      
+      PERFOFF
+
+      call mpi_barrier(comm_theta, ierr)
+
 #ifdef WITH_MPI
+      PERFON('m2thW')
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
 #endif
+      PERFOFF
       
       !-- Now we reorder the receiver buffer. If the m distribution looks like:
       !   coord_r 0: 0, 4,  8, 12, 16
@@ -155,6 +168,7 @@ contains
       !   coord_r 3: 3, 7, 11, 15
       !   then the columns of recvbuf are ordered as 0,4,8,12,16,1,5,9,13(...)
       !   and so forth. m_arr will contain this ordering (+1):
+      PERFON('m2thS')
       do irank=0,n_ranks_theta-1
          pos = recvdispl(irank)+1
          do n_m=1,dist_m(irank,0)
@@ -163,6 +177,7 @@ contains
             pos = pos+n_theta_loc
          end do
       end do
+      PERFOFF
 
    end subroutine transpose_theta_m
 !----------------------------------------------------------------------------------
@@ -182,8 +197,7 @@ contains
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
       integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
       
-      PERFON('th2m')
-
+      PERFON('m2thS')
       do irank=0,n_ranks_theta-1
          recvcount(irank)=dist_m(irank,0) * n_theta_loc * n_fields
          sendcount(irank)=dist_theta(irank,0) * n_m_loc * n_fields
@@ -195,6 +209,7 @@ contains
          senddispl(irank)=senddispl(irank-1)+sendcount(irank-1)
          recvdispl(irank)=recvdispl(irank-1)+recvcount(irank-1)
       end do
+      PERFOFF
 
       do irank=0,n_ranks_theta-1
          l_t=dist_theta(irank,1)
@@ -209,14 +224,16 @@ contains
          end do
       end do
       
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
-      PERFON('th2mComm')
+      PERFON('m2thW')
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
       PERFOFF
 #endif
       
+      PERFON('m2thS')
       do irank=0,n_ranks_theta-1
          pos = recvdispl(irank)+1
          do n_f=1,n_fields
@@ -249,7 +266,7 @@ contains
       integer :: senddispl(0:n_ranks_theta-1),recvdispl(0:n_ranks_theta-1)
       integer :: irank, pos, n_m, n_f, m_idx, n_t, l_t, u_t
 
-      PERFON('m2th')
+      PERFON('th2mS')
       do irank=0,n_ranks_theta-1
          sendcount(irank)=dist_m(irank,0) * n_theta_loc * n_fields
          recvcount(irank)=dist_theta(irank,0) * n_m_loc * n_fields
@@ -272,15 +289,18 @@ contains
             end do
          end do
       end do
+      PERFOFF
 
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
-      PERFON('m2thComm')
+      PERFON('th2mW')
       call MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_DEF_COMPLEX, &
            &             recvbuf, recvcount, recvdispl, MPI_DEF_COMPLEX, &
            &             comm_theta, ierr)
       PERFOFF
 #endif
-
+      
+      PERFON('th2mS')
       do irank=0,n_ranks_theta-1
          pos = recvdispl(irank)+1
          l_t=dist_theta(irank,1)

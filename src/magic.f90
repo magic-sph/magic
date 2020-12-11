@@ -372,7 +372,7 @@ program magic
    !local_bytes_used=bytes_allocated-local_bytes_used
    call memWrite('Total I/O', local_bytes_used)
 
-   if (coord_r == 0) print*, '-----> coord_r 0 has', bytes_allocated, ' B allocated'
+   if (rank == 0) print*, '-----> rank 0 has', bytes_allocated, ' B allocated'
 
 
    call finalize_memory_counter()
@@ -382,7 +382,7 @@ program magic
          open(newunit=n_log_file, file=log_file, status='unknown', &
          &    position='append')
       end if
-      call writeNamelists(output_unit)
+!       call writeNamelists(output_unit)
       call writeNamelists(n_log_file)
       if ( l_save_out ) close(n_log_file)
    end if

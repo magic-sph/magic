@@ -208,3 +208,31 @@ MagIC has been tested and validated against several international dynamo benchma
 * [Christensen et al. (2001, PEPI, 128, 25-34)](http://dx.doi.org/10.1016/S0031-9201(01)00275-8)
 * [Breuer et al. (2010, GJI, 183, 150-162)](http://dx.doi.org/10.1111/j.1365-246X.2010.04722.x)
 * [Jones et al. (2011, Icarus, 216, 120-135)](http://dx.doi.org/10.1016/j.icarus.2011.08.014)
+
+
+### 9) 2D-MPI branch usage:
+
+Several new options are available in this branch, via the "parallel" namelist. Additionally, any variable belonging to the "parallel" namelist can be passed as commandline argument, e.g. 
+
+`srun -n 16 magic.exe n_ranks_r=8 n_ranks_theta=2`
+
+<!--n_ranks_r,n_ranks_theta,mlo_dist_method, &
+      &     mpi_transp, mpi_transp_theta, &
+      &     mpi_packing, rIter_type-->
+* n_ranks_r: specify the number of MPI threads in the radial direction. It has the best scalability and performance.
+* n_ranks_theta: specify the number of MPI ranks in the theta direction. Incurs in extra communication, but allows the use of more computational resources. If this variable is set to 1, the code falls back to 1D MPI version. IMPORTANT: n_ranks_r*n_ranks_theta must be equal to n_ranks.
+* mlo_dist_method: chooses the method for distributing points in the radial loop. This option is ignored if n_ranks_theta=1. Currently implemented (all case insensitive):
+   * lfirst: distributes the l points fairly amongst processes first, and only after distributes the m points. This is the default setting.
+   * mfirst: distributes the m points fairly amongst processes, but has poor l-points distribution
+   * lexicographic: assigns points to ranks in lexicographic order. This option has the poorest performance.
+* mpi_transp: algorithm for performing the transposition from (l,m,r) to (r,m,l) before and after the radial loop respectively. Currently implemented (all case insensitive):
+   * auto: tests all possible settings and chooses the fastest. Recommended for 1D-MPI, disabled in the 2D-MPI branch.
+   * ptop: uses non-blocking point-to-point communication
+   * a2aw: uses mpi_types and alltoallw collective
+   * a2av: copies data into a buffer and then calls the alltoallv collective
+   * a2ap: pads the data with zeros until they all have the same size; then uses alltoall collective
+* mpi_transp_theta: algorithm for performing the transposition from (φ,θ,r) to (l,m,r) and vice versa during the SHT. Ignored if n_ranks_theta=1. Currently implemented (all case insensitive):
+   * a2av: reorders data in a buffer and uses alltoallv collective for each field
+   * a2ab: similar to a2av, but is able to buffer data and send multiple fields with a single call to alltoallv
+ 
+
