@@ -147,8 +147,8 @@ subroutine cylmean_otc(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
       v(n_s)=tot/(6.0_cp*nz)
    end do sLoop
 
-   !--  special case s=rmax
-   !v(0) = 0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
+   !--  special case s=r_cmb
+   v(1)=0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
 
 end subroutine cylmean_otc
 
@@ -496,5 +496,8 @@ subroutine cylmean(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
 
    end do sLoop
    !$omp end parallel do
+
+   !--  special case s=r_cmb
+   v(1)=0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
 
 end subroutine cylmean

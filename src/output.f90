@@ -558,6 +558,8 @@ contains
 
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)
+            dpV=0.0_cp ! To be handled later
+            dzV=0.0_cp
          else
             Geos   =0.0_cp
             GeosA  =0.0_cp

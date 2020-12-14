@@ -312,6 +312,28 @@ class MagicTs(MagicSetup):
                 ax.set_ylabel('Dipolarity')
                 ax.set_ylim(0, 1)
                 fig.tight_layout()
+        elif self.field == 'geos':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.geos, label='Total')
+            ax.plot(self.time, self.geosM, label='Meridional')
+            ax.plot(self.time, self.geosZ, label='Zonal')
+            ax.plot(self.time, self.geosNAP, label='Non-axi perp')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Geostrophy')
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.corr_vz_otc, label='uz')
+            ax.plot(self.time, self.corr_vortz_otc, label='z vorticity')
+            ax.plot(self.time, self.corr_hel_otc, label='Helicity')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('z correlations')
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
         elif self.field == 'earth_like':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -665,18 +687,18 @@ class TsLookUpTable:
             self.ekin_stc_rel = data[:, 3]
             self.ekin = data[:, 4]
             self.corr_vz_otc = data[:, 5]
-            self.corr_vort_otc = data[:, 6]
+            self.corr_vortz_otc = data[:, 6]
             self.corr_hel_otc = data[:, 7]
             if data.shape[-1] == 8:
-                self.GeosA= np.zeros_like(self.time)
-                self.GeosZ= np.zeros_like(self.time)
-                self.GeosM= np.zeros_like(self.time)
-                self.GeosNA= np.zeros_like(self.time)
+                self.geosA= np.zeros_like(self.time)
+                self.geosZ= np.zeros_like(self.time)
+                self.geosM= np.zeros_like(self.time)
+                self.geosNAP = np.zeros_like(self.time)
             elif data.shape[-1] == 12:
-                self.GeosA = data[:, 8]
-                self.GeosZ = data[:, 9]
-                self.GeosM = data[:, 10]
-                self.GeosNA = data[:, 11]
+                self.geosA = data[:, 8]
+                self.geosZ = data[:, 9]
+                self.geosM = data[:, 10]
+                self.geosNAP = data[:, 11]
         elif self.field == 'heat':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
