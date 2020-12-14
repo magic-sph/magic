@@ -1,5 +1,6 @@
 module outTO_mod
 
+   use iso_fortran_env, only: output_unit
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
@@ -362,7 +363,7 @@ contains
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 #endif
 
-      if ( lVerbose ) write(*,*) '! Starting outTO!'
+      if ( lVerbose ) write(output_unit,*) '! Starting outTO!'
 
       nTOsets=nTOsets+1
 
@@ -456,7 +457,7 @@ contains
       end do
 
 #ifdef WITH_MPI
-      call mpi_barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
 
       lStopRun=.false.
@@ -487,8 +488,8 @@ contains
             if ( lTC ) then
                nZmax=nZmaxS_Sloc(nS)  ! nZmax point in each polar region
                if ( 2*nZmax > nZmaxA ) then
-                  write(*,*) '! nZmaxA too small in outTO!'
-                  write(*,*) '! Should be at least:',2*nZmax
+                  write(output_unit,*) '! nZmaxA too small in outTO!'
+                  write(output_unit,*) '! Should be at least:',2*nZmax
                   lStopRun=.true.
                end if
             else
@@ -496,8 +497,8 @@ contains
                ! all together nZmaxS_Sloc(nS) from
                ! south to north including equator
                if ( nZmaxS_Sloc(nS) > nZmaxA ) then
-                  write(*,*) '! nZmaxA too small in outTO!'
-                  write(*,*) '! Should be at least:',nZmaxS_Sloc(nS)
+                  write(output_unit,*) '! nZmaxA too small in outTO!'
+                  write(output_unit,*) '! Should be at least:',nZmaxS_Sloc(nS)
                   lStopRun=.true.
                end if
             end if
@@ -606,7 +607,7 @@ contains
          StrIntN_Sloc(nS) =chebInt(StrS_Sloc(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
          V2IntN(nS)       =chebInt(V2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
          Bs2IntN_Sloc(nS) =chebInt(Bs2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-         BspIntN(nS) =chebInt(BspS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+         BspIntN(nS)      =chebInt(BspS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
          BspdIntN_Sloc(nS)=chebInt(BspdS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
          BpsdIntN_Sloc(nS)=chebInt(BpsdS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
 
@@ -1496,7 +1497,7 @@ contains
 
       lTOZwrite=.false.
 
-      if ( lVerbose ) write(*,*) '! End of outTO!'
+      if ( lVerbose ) write(output_unit,*) '! End of outTO!'
 
    end subroutine outTO
 !----------------------------------------------------------------------------

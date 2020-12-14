@@ -1434,6 +1434,7 @@ contains
 
       !-- Local variables
       integer :: n_cheb,n_r,info,n_r_real,n_r_out, l
+      real(cp) :: dL
       complex(cp) :: rhs(n_r_tot)
       complex(cp) :: work_l_ic(n_r_ic_max)
       real(cp), allocatable :: jMat(:,:)
@@ -1443,6 +1444,7 @@ contains
       allocate( jPivot(n_r_tot) )
 
       l = lo_map%lm2l(lm0)
+      dL = real(l*(l+1),cp)
 
       n_r_real = n_r_max
       if ( l_cond_ic ) n_r_real = n_r_real+n_r_ic_max
@@ -1451,10 +1453,10 @@ contains
       do n_r_out=1,rscheme_oc%n_max
          do n_r=2,n_r_max-1
             jMat(n_r,n_r_out)= rscheme_oc%rnorm *                   &
-              &    hdif_B(lm0)*dLh(lm0)*opm*lambda(n_r)*or2(n_r) *  &
+              &            hdif_B(l)*dL*opm*lambda(n_r)*or2(n_r) *  &
               &       (            rscheme_oc%d2rMat(n_r,n_r_out) + &
               &       dLlambda(n_r)*rscheme_oc%drMat(n_r,n_r_out) - &
-              &    dLh(lm0)*or2(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
+              &          dL*or2(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
          end do
       end do
 
@@ -1502,7 +1504,7 @@ contains
          do n_cheb=1,n_r_ic_max ! counts even IC cheb modes
             do n_r=2,n_r_ic_max ! counts IC radial grid point
                jMat(n_r_max+n_r,n_r_max+n_cheb) =                 &
-               &  cheb_norm_ic*dLh(lm0)*or3(n_r_max)*opm*O_sr * ( &
+               &        cheb_norm_ic*dL*or3(n_r_max)*opm*O_sr * ( &
                &                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
                &            two*real(l+1,cp)*dcheb_ic(n_cheb,n_r) )
             end do

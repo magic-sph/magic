@@ -301,11 +301,9 @@ contains
             if ( .not. lWPmat(l1) ) then
                !PERFON('upWP_mat')
                if ( l_double_curl ) then
-                  call get_wMat(tscheme,l1,hdif_V(lm2(l1,0)),    &
-                       &        wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
+                  call get_wMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                else
-                  call get_wpMat(tscheme,l1,hdif_V(lm2(l1,0)),   &
-                       &         wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
+                  call get_wpMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
                !PERFOFF
@@ -884,7 +882,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(lm)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  Dif(lm)=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
                   &                                                  ddddw(lm,n_r)  &
                   &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
@@ -916,7 +914,7 @@ contains
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
                      &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &              hdif_V(l1)*visc(n_r)* ( work_LMloc(lm,n_r)     &
                      &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                      &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                      &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
@@ -929,7 +927,7 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                      &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
                      &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
                      &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
@@ -952,7 +950,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
+                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*       dw(lm,n_r)   &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
@@ -964,7 +962,7 @@ contains
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)+Buo(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r) &
-                  &            + hdif_V(lm)*visc(n_r)*dL*or2(n_r)               &
+                  &            + hdif_V(l1)*visc(n_r)*dL*or2(n_r)               &
                   &                                     * ( -work_LMloc(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
@@ -1087,7 +1085,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(lm)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  Dif(lm)=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
                   &                                                  ddddw(lm,n_r)  &
                   &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
@@ -1118,7 +1116,7 @@ contains
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
                      &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &              hdif_V(l1)*visc(n_r)* ( work_LMloc(lm,n_r)     &
                      &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                      &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                      &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
@@ -1131,7 +1129,7 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                      &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
                      &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
                      &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
@@ -1280,7 +1278,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
+                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
@@ -1290,7 +1288,7 @@ contains
                   if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)* &
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
-                  dpdt%impl(lm,n_r,1)=hdif_V(lm)*visc(n_r)*dL*or2(n_r)*         &
+                  dpdt%impl(lm,n_r,1)=hdif_V(l1)*visc(n_r)*dL*or2(n_r)*         &
                   &                                       ( -work_LMloc(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &

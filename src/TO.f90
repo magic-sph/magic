@@ -425,8 +425,7 @@ contains
          lS=(l-1)+1
          lA=(l+1)+1
          lm=lm2(l,0)
-         dzStrLMr_Rloc(l+1,nR)= hdif_V(lo_map%lm2(1,0)) * (     &
-         &                                     ddzASL(l+1,nR) - &
+         dzStrLMr_Rloc(l+1,nR)= hdif_V(l) * (  ddzASL(l+1,nR) - &
          &                               beta(nR)* dzASL(l+1) - &
          &  (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*   &
          &                                          zASL(l+1) )

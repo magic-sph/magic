@@ -194,8 +194,7 @@ contains
             end if
          else
             if ( .not. lWPSmat(l1) ) then
-               call get_wpsMat(tscheme, l1, hdif_V(lm2(l1,0)),       &
-                    &          hdif_S(lm2(l1,0)), wpsMat(:,:,nLMB2), &
+               call get_wpsMat(tscheme, l1, hdif_V(l1), hdif_S(l1), wpsMat(:,:,nLMB2), &
                     &          wpsPivot(:,nLMB2), wpsMat_fac(:,:,nLMB2))
                lWPSmat(l1)=.true.
             end if
@@ -662,14 +661,14 @@ contains
                l1=lm2l(lm)
                dL = real(l1*(l1+1),cp)
 
-               Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+               Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
                &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
                &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
                &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
                &                                                    w(lm,n_r) )
                Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
                dwdt%impl(lm,n_r,1)=Buo(lm)+Dif(lm)
-               dpdt%impl(lm,n_r,1)=       hdif_V(lm)* visc(n_r)*dL*or2(n_r) &
+               dpdt%impl(lm,n_r,1)=       hdif_V(l1)* visc(n_r)*dL*or2(n_r) &
                &                                   * ( -work_LMloc(lm,n_r)  &
                &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
                &        + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+ dbeta(n_r)   &
@@ -677,7 +676,7 @@ contains
                &                                            ) * dw(lm,n_r)  &
                &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
                &                      +dLvisc(n_r) )   *         w(lm,n_r) )
-               dsdt%impl(lm,n_r,1)=               opr*hdif_S(lm)*kappa(n_r)*&
+               dsdt%impl(lm,n_r,1)=               opr*hdif_S(l1)*kappa(n_r)*&
                &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
                &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
                &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
@@ -793,7 +792,7 @@ contains
                   l1=lm2l(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
                   &        -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
@@ -802,7 +801,7 @@ contains
                   Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)  &
-                  &           + hdif_V(lm)*visc(n_r)*dL*or2(n_r)                 &
+                  &           + hdif_V(l1)*visc(n_r)*dL*or2(n_r)                 &
                   &                                     * ( -work_LMloc(lm,n_r)  &
                   &                   + (beta(n_r)-dLvisc(n_r))    *ddw(lm,n_r)  &
                   &           + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r)   &
@@ -810,7 +809,7 @@ contains
                   &                                                  dw(lm,n_r)  &
                   &           - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)   &
                   &                      +dLvisc(n_r) )   *           w(lm,n_r) )
-                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(lm)* kappa(n_r)*(          &
+                  dsdt%impl(lm,n_r,istage)=opr*hdif_S(l1)* kappa(n_r)*(          &
                   &                                               workB(lm,n_r)  &
                   &          + ( beta(n_r)+two*dLtemp0(n_r)+two*or1(n_r)+        &
                   &              dLkappa(n_r) )                    * ds(lm,n_r)  &
@@ -842,7 +841,7 @@ contains
                   l1=lm2l(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
                   &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
@@ -851,7 +850,7 @@ contains
                   Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)&
-                  &                        + hdif_V(lm)* visc(n_r)*dL*or2(n_r) &
+                  &                        + hdif_V(l1)* visc(n_r)*dL*or2(n_r) &
                   &                                   * ( -work_LMloc(lm,n_r)  &
                   &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
                   &        + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+ dbeta(n_r)   &
@@ -859,7 +858,7 @@ contains
                   &                                            ) * dw(lm,n_r)  &
                   &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
                   &                      +dLvisc(n_r) )   *         w(lm,n_r) )
-                  dsdt%impl(lm,n_r,istage)=          opr*hdif_S(lm)*kappa(n_r)*&
+                  dsdt%impl(lm,n_r,istage)=          opr*hdif_S(l1)*kappa(n_r)*&
                   &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
                   &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
                   &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &

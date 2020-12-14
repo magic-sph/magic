@@ -207,10 +207,9 @@ contains
          else
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)), &
-                    &        sMat(nLMB2),sMat_fac(:,nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)),sMat(nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
 #endif
                lSmat(l1)=.true.
             end if
@@ -500,7 +499,7 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)* kappa(n_r) *  (    &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l1)* kappa(n_r) *  (    &
                   &                                          work_LMloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                     - dL*or2(n_r)*s(lm,n_r) )
@@ -513,7 +512,7 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)*kappa(n_r) *   (       &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l1)*kappa(n_r) *   (       &
                   &                                        work_LMloc(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &

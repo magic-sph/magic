@@ -12,7 +12,7 @@ module output_mod
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
-   use horizontal_data, only: dLh,hdif_B,dPl0Eq
+   use horizontal_data, only: hdif_B, dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_SRIC,           &
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
@@ -378,18 +378,13 @@ contains
       !--- Local stuff:
       !--- Energies:
       real(cp) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(cp) :: e_mag,e_mag_ic,e_mag_cmb
-      real(cp) :: e_mag_p,e_mag_t
-      real(cp) :: e_mag_p_as,e_mag_t_as
-      real(cp) :: e_mag_p_ic,e_mag_t_ic
-      real(cp) :: e_mag_p_as_ic,e_mag_t_as_ic
-      real(cp) :: e_mag_os,e_mag_as_os
-      real(cp) :: e_kin,e_kin_p,e_kin_t
-      real(cp) :: e_kin_p_as,e_kin_t_as
-      real(cp) :: eKinIC,eKinMA
-      real(cp) :: dtE
+      real(cp) :: e_mag,e_mag_ic,e_mag_cmb,e_mag_p,e_mag_t
+      real(cp) :: e_mag_p_as,e_mag_t_as,e_mag_p_ic,e_mag_t_ic
+      real(cp) :: e_mag_p_as_ic,e_mag_t_as_ic,e_mag_os,e_mag_as_os
+      real(cp) :: e_kin,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as
+      real(cp) :: eKinIC,eKinMA,dtE
 
-      integer :: nR,lm,n,m
+      integer :: nR,lm,n,m,l
 
       !--- For TO:
       logical :: lTOrms
@@ -405,9 +400,7 @@ contains
       real(cp) :: dlB,dlBc,dmB
       real(cp) :: dlV,dlVc,dmV,dpV,dzV
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
-      integer :: l
-      real(cp) :: ReEquat
-      real(cp) :: timeScaled
+      real(cp) :: ReEquat,timeScaled,dL
       character(len=96) :: message
       logical :: DEBUG_OUTPUT=.false.
 
@@ -671,12 +664,12 @@ contains
             !nR=8! at CMB dbdt=induction=0, only diffusion !
             !do lm=max(2,llm),ulm
             do lm=max(2,llm),ulm
-               l=lo_map%lm2l(lm)
-               m=lo_map%lm2m(lm)
-               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                    &
-               &         (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
-               &         + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
-               &           dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
+               l  =lo_map%lm2l(lm)
+               m  =lo_map%lm2m(lm)
+               dL =real(l*l+1,cp)
+               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                        &
+               &         (dL*or2(n_r_cmb)) + opm*hdif_B(l) * ( ddb_LMloc(lm,n_r_cmb) - &
+               &          dL*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
             end do
 
             call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &

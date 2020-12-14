@@ -20,7 +20,7 @@ module nonlinear_lm_mod
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ChemFac, ThExpNb
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
-       &               lm2lmS, st_map, lo_map
+       &               lm2lmS, st_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
        &                      dTheta3A, dTheta4A, dTheta2S,  hdif_B,   &
        &                      dTheta3S, dTheta4S, hdif_V
@@ -463,7 +463,7 @@ contains
                      !-- Recalculate the pressure gradient based on the poloidal
                      !-- equation equilibrium
                      dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+         &
-                     &        dLh(lm)*or2(nR)*hdif_V(lo_map%lm2(l,m))*visc(nR)*(&
+                     &        dLh(lm)*or2(nR)*hdif_V(l)*visc(nR)*(              &
                      &                                        ddw_Rloc(lm,nR)+  &
                      &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm,nR)-  &
                      &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
@@ -785,18 +785,16 @@ contains
                dsdt_loc = dLh(lm)*this%VStLM(lmP)
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m))* &
-                     &          temp0(nR)*this%ViscHeatLM(lmP)
-                     if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m)) * &
-                        &          temp0(nR)*this%OhmLossLM(lmP)
-                     end if
-                  else
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(lo_map%lm2(l,m)) * &
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)*temp0(nR)* &
                      &          this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(lo_map%lm2(l,m)) * &
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l)*temp0(nR)* &
                         &          this%OhmLossLM(lmP)
+                     end if
+                  else
+                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)*this%ViscHeatLM(lmP)
+                     if ( l_mag_nl ) then
+                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l)*this%OhmLossLM(lmP)
                      end if
                   end if
                end if

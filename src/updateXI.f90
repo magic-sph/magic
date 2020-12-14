@@ -205,10 +205,9 @@ contains
          else
             if ( .not. lXimat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_xiMat(tscheme,l1,hdif_Xi(lm2(l1,0)), &
-                    &         xiMat(nLMB2),xiMat_fac(:,nLMB2))
+               call get_xiMat(tscheme,l1,hdif_Xi(l1),xiMat(nLMB2),xiMat_fac(:,nLMB2))
 #else
-               call get_xiMat(tscheme,l1,hdif_Xi(lm2(l1,0)),xiMat(nLMB2))
+               call get_xiMat(tscheme,l1,hdif_Xi(l1),xiMat(nLMB2))
 #endif
                 lXimat(l1)=.true.
             end if
@@ -439,7 +438,7 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                dL = real(l1*(l1+1),cp)
-               dxidt%impl(lm,n_r,istage)=                    osc*hdif_Xi(lm) *   &
+               dxidt%impl(lm,n_r,istage)=                    osc*hdif_Xi(l1) *   &
                &     ( work_LMloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) * dxi(lm,n_r) &
                &                                       - dL*or2(n_r)* xi(lm,n_r) )
             end do
