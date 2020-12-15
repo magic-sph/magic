@@ -323,11 +323,9 @@ contains
          do n_t=1,n_theta_max
             tmp(n_t,:)=uz_Ploc(n_t,:,n_p)*uz_Ploc(n_theta_max+1-n_t,:,n_p)
          end do
-         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
-              &           cyl,theta_ord)
+         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord)
          tmp(:,:)=uz_Ploc(:,:,n_p)*uz_Ploc(:,:,n_p)
-         call cylmean_otc(tmp,uzNN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
-              &           cyl,theta_ord)
+         call cylmean_otc(tmp,uzNN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord)
 
          do n_s=1,n_s_otc
             if ( uzNN_OTC(n_s) > 0.0_cp ) then
@@ -341,11 +339,9 @@ contains
          do n_t=1,n_theta_max
             tmp(n_t,:)=wz_Ploc(n_t,:,n_p)*wz_Ploc(n_theta_max+1-n_t,:,n_p)
          end do
-         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
-              &           cyl,theta_ord)
+         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord)
          tmp(:,:)=wz_Ploc(:,:,n_p)*wz_Ploc(:,:,n_p)
-         call cylmean_otc(tmp,wzNN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
-              &           cyl,theta_ord)
+         call cylmean_otc(tmp,wzNN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord)
 
          do n_s=1,n_s_otc
             if ( wzNN_OTC(n_s) > 0.0_cp ) then
@@ -364,8 +360,7 @@ contains
             tmp(n_t,:)=-uz_Ploc(n_t,:,n_p)*wz_Ploc(n_t,:,n_p)+ &
             &          uz_Ploc(n_theta_max+1-n_t,:,n_p)*wz_Ploc(n_theta_max+1-n_t,:,n_p)
          end do
-         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r, &
-              &           cyl,theta_ord)
+         call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord)
 
          do n_s=1,n_s_max
             if ( uzNN_OTC(n_s) > 0.0_cp .and. wzNN_OTC(n_s) > 0.0_cp ) then
@@ -579,26 +574,23 @@ contains
       real(cp), intent(out) :: dat_ITC_N(n_s_max) ! z-average inside T.C. N.H.
       real(cp), intent(out) :: dat_ITC_S(n_s_max) ! z-average inside T.C. S.H.
 
-      call cylmean_otc(dat,dat_OTC,n_s_max,n_s_otc,n_r_max,n_theta_max,r,cyl,theta_ord)
-      call cylmean_itc(dat,dat_ITC_N,dat_ITC_S,n_s_max,n_s_otc,n_r_max, &
-           &           n_theta_max,r,cyl,theta_ord)
+      call cylmean_otc(dat,dat_OTC,n_s_max,n_s_otc,r,cyl,theta_ord)
+      call cylmean_itc(dat,dat_ITC_N,dat_ITC_S,n_s_max,n_s_otc,r,cyl,theta_ord)
 
    end subroutine cylmean
 !------------------------------------------------------------------------------------
-   subroutine cylmean_otc(a,v,n_s_max,n_s_otc,n_r_max,n_theta_max,r,s,theta)
+   subroutine cylmean_otc(a,v,n_s_max,n_s_otc,r,s,theta)
       !
       ! This routine computes a z-averaging using Simpsons's rule outside T.C.
       !
 
       !-- Input variables
-      integer,  intent(in) :: n_r_max
-      integer,  intent(in) :: n_theta_max
       integer,  intent(in) :: n_s_max
       integer,  intent(in) :: n_s_otc
-      real(cp), intent(in) :: r(n_r_max)         ! Spherical radius
-      real(cp), intent(in) :: s(n_s_max)         ! Cylindrical radius
-      real(cp), intent(in) :: theta(n_theta_max) ! Colatitude
-      real(cp), intent(in) :: a(n_theta_max, n_r_max)
+      real(cp), intent(in) :: r(:)         ! Spherical radius
+      real(cp), intent(in) :: s(n_s_max)   ! Cylindrical radius
+      real(cp), intent(in) :: theta(:)     ! Colatitude
+      real(cp), intent(in) :: a(:,:)
 
       !-- Output variable
       real(cp), intent(out) :: v(n_s_max)
@@ -606,17 +598,14 @@ contains
       !-- Local variables
       integer :: n_z, nz, n_s, n_th, n_r, itr
       integer :: n_r0, n_r1, n_r2, n_r3, n_th0, n_th1, n_th2, n_th3
-      real(cp) :: zmin, zmax, dz, z, eps, r_cmb, rc, thet, r_icb
+      real(cp) :: zmin, zmax, dz, z, eps, r_cmb, rc, thet
       real(cp) :: rr0, rr1, rr2, rr3, r10, r20, r30, r21, r31, r32
       real(cp) :: tt0, tt1, tt2, tt3, t10, t20, t30, t21, t31, t32
       real(cp) :: a01, a12, a23, a012, a123, tot
       real(cp) :: ac(-n_s_max:n_s_max,n_s_max), ait(0:3)
-      real(cp), parameter :: pi=acos(-1.0_cp)
 
       eps=10.0_cp*epsilon(1.0_cp)
       r_cmb=r(1)
-      r_icb=r(n_r_max)
-
       v(:) =0.0_cp
 
       !-- Loop over axial cylinders starts here
@@ -626,8 +615,6 @@ contains
       !$omp private(r21,r31,r32,tt0,tt1,tt2,tt3,t10,t20,t30,t21,t31,t32,itr)   &
       !$omp private(a01,a12,a23,a012,a123,tot,ait)
       sLoop: do n_s=1,n_s_otc
-
-         !if ( s(n_s) < r_icb ) exit sLoop
 
          zmax = sqrt(r_cmb*r_cmb-s(n_s)*s(n_s)) ! zmax
          zmin = 0.0_cp
@@ -741,19 +728,17 @@ contains
 
    end subroutine cylmean_otc
 !------------------------------------------------------------------------------------
-   subroutine cylmean_itc(a,vn,vs,n_s_max,n_s_otc,n_r_max,n_theta_max,r,s,theta)
+   subroutine cylmean_itc(a,vn,vs,n_s_max,n_s_otc,r,s,theta)
       !
       ! This routine computes a z-averaging using Simpsons's rule inside T.C.
       !
 
       !-- Input variables
-      integer,  intent(in) :: n_r_max
-      integer,  intent(in) :: n_theta_max
       integer,  intent(in) :: n_s_max
       integer,  intent(in) :: n_s_otc
-      real(cp), intent(in) :: r(n_r_max)         ! Spherical radius
+      real(cp), intent(in) :: r(:)         ! Spherical radius
       real(cp), intent(in) :: s(n_s_max)         ! Cylindrical radius
-      real(cp), intent(in) :: theta(n_theta_max) ! Colatitude
+      real(cp), intent(in) :: theta(:) ! Colatitude
       real(cp), intent(in) :: a(n_theta_max, n_r_max)
 
       !-- Output variable
@@ -771,7 +756,7 @@ contains
 
       eps=10.0_cp*epsilon(1.0_cp)
       r_cmb=r(1)
-      r_icb=r(n_r_max)
+      r_icb=r(size(r))
 
       vn(:)=0.0_cp
       vs(:)=0.0_cp
@@ -905,5 +890,79 @@ contains
       !$omp end parallel do
 
    end subroutine cylmean_itc
+!------------------------------------------------------------------------------------
+   subroutine interp_theta(a,ac,rr,cyl,theta)
+      !
+      ! This routine computes the interpolation of a value at the surface of a
+      ! spherical shell onto the cylindrical grid. This is only a theta interpolation
+      ! using the cylindrical theta's.
+      !
+
+      !-- Input variables
+      real(cp), intent(in) :: rr       ! Radius at which we compute the extrapolation (can be ri or ro)
+      real(cp), intent(in) :: cyl      ! Cylindrical radius
+      real(cp), intent(in) :: theta(:) ! Colatitude
+      real(cp), intent(in) :: a(:)     ! Field at the outer radius
+
+      !-- Output variable
+      real(cp), intent(out) :: ac(2)   ! Surface values for NH and SH as a function of s
+
+      !-- Local variables
+      integer :: n_hs, n_th
+      integer :: n_th0, n_th1, n_th2, n_th3
+      real(cp) :: eps, thet, tt0, tt1, tt2, tt3, t10, t20, t30, t21, t31, t32
+      real(cp) :: a01, a12, a23, a012, a123
+
+      eps=10.0_cp*epsilon(1.0_cp)
+      ac(:)=0.0_cp
+
+      !-- Loop over hemispheres
+      do n_hs=1,2
+
+         !-- Get the polar angle in cylindrical coordinates
+         if (n_hs == 1) then ! Northern Hemisphere
+            thet=asin(cyl/rr) ! theta_c(NH) = arcsin(s/rr)
+         else ! Southern Hemisphere
+            thet=pi-asin(cyl/rr) ! theta_c(SH)=pi-arcsin(s/rr)
+         end if
+
+         !-- Find indices of angular grid levels that bracket thet
+         n_th1=n_theta_max
+         tbracket: do n_th=n_theta_max,1,-1
+            if( theta(n_th) <= thet) then
+               n_th1=n_th
+               exit tbracket
+            end if
+         end do tbracket
+         if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
+         if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
+         if ( n_th1 == 1 ) n_th1=2
+         n_th2=n_th1+1
+         n_th3=n_th1+2
+         n_th0=n_th1-1
+
+         !--  Calculate differences in theta for 4th-order interpolation
+         tt0=thet-theta(n_th0)
+         tt1=thet-theta(n_th1)
+         tt2=thet-theta(n_th2)
+         tt3=thet-theta(n_th3)
+         t10=1.0_cp/(theta(n_th1)-theta(n_th0))
+         t20=1.0_cp/(theta(n_th2)-theta(n_th0))
+         t30=1.0_cp/(theta(n_th3)-theta(n_th0))
+         t21=1.0_cp/(theta(n_th2)-theta(n_th1))
+         t31=1.0_cp/(theta(n_th3)-theta(n_th1))
+         t32=1.0_cp/(theta(n_th3)-theta(n_th2))
+
+         !-- Interpolation in theta-direction
+         a01=(tt0*a(n_th1)-tt1*a(n_th0))*t10
+         a12=(tt1*a(n_th2)-tt2*a(n_th1))*t21
+         a23=(tt2*a(n_th3)-tt3*a(n_th2))*t32
+
+         a012=(tt0*a12-tt2*a01)*t20
+         a123=(tt1*a23-tt3*a12)*t31
+         ac(n_hs)=ac(n_hs)+(tt0*a123-tt3*a012)*t30
+      end do
+
+   end subroutine interp_theta
 !------------------------------------------------------------------------------------
 end module geos
