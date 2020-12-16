@@ -12,7 +12,6 @@ module nonlinear_bcs
    use constants, only: two
    use sht, only: scal_to_SH
    use useful, only: abortRun
-   use sht, only: scal_to_SH
 
    implicit none
 

@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module fft
    !
    ! This is the FFTW version of the fft module
@@ -116,8 +117,10 @@ contains
       !-- Output variable:
       complex(cp), intent(out) :: g(n_theta_loc,(n_phi_max/2+1))
       
+      PERFON("fft_fwd")
       call fftw_execute_dft_r2c(plan_fwd, f, g)
       g(:,:)=g(:,:)/n_phi_max
+      PERFOFF
 
    end subroutine fft_many
 !-----------------------------------------------------------------------------------
@@ -132,7 +135,9 @@ contains
       !-- Output variable:
       real(cp),    intent(out) :: f(n_theta_loc,n_phi_max)
       
+      PERFON("fft_bwd")
       call fftw_execute_dft_c2r(plan_bwd, g, f)
+      PERFOFF
 
    end subroutine ifft_many
 !-----------------------------------------------------------------------------------

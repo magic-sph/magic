@@ -51,9 +51,10 @@ module num_param
    character(len=72), public :: anelastic_flavour ! version of the anelastic approximation
    character(len=72), public :: polo_flow_eq ! form of the poloidal flow equation: Pressure or Double Curl
 
-   character(len=72), public :: mpi_transp               ! Form of the MPI transpose (point to point or alltoall)
-   character(len=72), public :: mpi_packing ! packing the alltoall
-   integer, public :: theta_transp_buffer_size ! Buffer size for theta transposition
+   character(len=72), public :: mpi_transp     ! Form of the MPI transpose (point to point or alltoall)
+   character(len=72), public :: mpi_packing    ! packing the alltoall
+   integer, public :: theta_transp_buffer_size ! Buffer size for theta transposition ! DEPRECATED; use the one bellow
+   integer, public :: sht_buffer_size          ! Buffer size for SHT 
 
    !-- Stop signal:
    integer, public :: istop            ! Variable used in FFT soubroutine

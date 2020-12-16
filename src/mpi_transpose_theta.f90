@@ -33,7 +33,7 @@ module mpi_transpose_theta
       !
       character(:), ALLOCATABLE :: name
       logical :: isnonblocking
-      integer :: n_fields
+      integer :: max_buff
    contains
       procedure(create_if), deferred :: create
       procedure(destroy_if), deferred :: destroy
@@ -46,10 +46,10 @@ module mpi_transpose_theta
    
    interface 
 
-      subroutine create_if(this, n_fields)
+      subroutine create_if(this, max_buff)
          import
          class(type_mpitransp_theta) :: this
-         integer, intent(in) :: n_fields
+         integer, intent(in) :: max_buff
       end subroutine create_if
 
       subroutine destroy_if(this)
@@ -175,17 +175,17 @@ contains
    !   Author: Rafael Lago (MPCDF) December 2020
    !
    !==================================================================================
-   subroutine create_a2av(this, n_fields)
+   subroutine create_a2av(this, max_buff)
       class(type_mpitransp_theta_a2av) :: this
-      integer, intent(in) :: n_fields
+      integer, intent(in) :: max_buff
       integer :: irank, pos
       
-      if (n_fields>1) then
+      if (max_buff>1) then
          print *, "type_mpitransp_theta_a2av error: this class is only suitable for &
-           & n_fields=1. Aborting..."
+           & max_buff=1. Aborting..."
           stop
       end if
-      this%n_fields = 1
+      this%max_buff = 1
       
       this%fftlen = max(n_m_max, n_phi_max/2+1)
       
@@ -419,26 +419,25 @@ contains
 
    end subroutine phi2m_a2av
    
-   
    !
    !  TYPE_MPITRANSP_THETA_BUFFFLEX
    !  
-   !  Buffered flexible implementation. Uses A2AV for at most n_fields, but handles 
+   !  Buffered flexible implementation. Uses A2AV for at most max_buff, but handles 
    !  fewer fields as well
    !   
    !   Author: Rafael Lago (MPCDF) December 2020
    !
    !==================================================================================
-   subroutine create_a2ab(this, n_fields)
+   subroutine create_a2ab(this, max_buff)
       class(type_mpitransp_theta_a2ab) :: this
-      integer, intent(in) :: n_fields
+      integer, intent(in) :: max_buff
       integer :: irank, pos
       
-      this%n_fields = n_fields
+      this%max_buff = max_buff
       
-      allocate(this%m_loc_ptr(n_fields))
-      allocate(this%th_loc_ptr(n_fields))
-      allocate(this%phi_ptr(n_fields))
+      allocate(this%m_loc_ptr(max_buff))
+      allocate(this%th_loc_ptr(max_buff))
+      allocate(this%phi_ptr(max_buff))
       
       this%fftlen = max(n_m_max, n_phi_max/2+1)
       this%n_buffered = 0
@@ -502,7 +501,7 @@ contains
       class(type_mpitransp_theta_a2ab) :: this
       integer :: i
       
-      do i=1, this%n_fields
+      do i=1, this%max_buff
          if (associated(this%m_loc_ptr(i)%p)) nullify(this%m_loc_ptr(i)%p)
          if (associated(this%th_loc_ptr(i)%p)) nullify(this%th_loc_ptr(i)%p)
          if (associated(this%phi_ptr(i)%p)) nullify(this%phi_ptr(i)%p)
@@ -538,13 +537,18 @@ contains
       complex(cp), target, intent(out) :: f_thetaloc(n_theta_loc, n_m_max)
       
       
-      if (this%n_buffered == this%n_fields) then
+      if (this%n_buffered == this%max_buff) then
          call this%waitall()
-      else if (this%n_buffered == 0) then
+      end if
+      
+      if (this%n_buffered == 0) then
          this%direction = DIRECTION_M2TH
       else if (this%direction /= DIRECTION_M2TH) then 
-         print *, "Error in type_mpitransp_theta_a2ab%m2th: wrong direction;&
-            & do not switch directions before calling waitall"
+         print *, "Error in type_mpitransp_theta_a2ab%m2th: do not switch directions before calling waitall! "//&
+         & " Wrong direction: ", this%direction
+         ! Try to force a segfault, to get a traceback...
+         deallocate(this%m_loc_ptr(1)%p)
+         this%m_loc_ptr(1)%p(-4, -1) = -5
          stop
       end if
       
@@ -569,13 +573,18 @@ contains
       complex(cp), target, intent(out) :: f_mloc(n_theta_max, n_m_loc)
       
       
-      if (this%n_buffered == this%n_fields) then
+      if (this%n_buffered == this%max_buff) then
          call this%waitall()
-      else if (this%n_buffered == 0) then
+      end if
+      
+      if (this%n_buffered == 0) then
          this%direction = DIRECTION_TH2M
       else if (this%direction /= DIRECTION_TH2M) then 
-         print *, "Error in type_mpitransp_theta_a2ab%th2m: wrong direction;&
-            & do not switch directions before calling waitall"
+         print *, "Error in type_mpitransp_theta_a2ab%th2m: do not switch directions before calling waitall! "//&
+         & " Wrong direction: ", this%direction
+         ! Try to force a segfault, to get a traceback...
+         deallocate(this%m_loc_ptr(1)%p)
+         this%m_loc_ptr(1)%p(-4, -1) = -5
          stop
       end if
       
@@ -599,15 +608,18 @@ contains
       !-- Output variables
       real(cp), target, intent(out)   :: f_phi(n_theta_loc,n_phi_max)
       
-      if (this%n_buffered == this%n_fields) then
+      if (this%n_buffered == this%max_buff) then
          call this%waitall()
       end if
       
       if (this%n_buffered == 0) then
          this%direction = DIRECTION_M2PHI
       else if (this%direction /= DIRECTION_M2PHI) then 
-         print *, "Error in type_mpitransp_theta_a2ab%m2phi: wrong direction;&
-            & do not switch directions before calling waitall"
+         print *, "Error in type_mpitransp_theta_a2ab%m2phi: do not switch directions before calling waitall! "//&
+         & " Wrong direction: ", this%direction
+         ! Try to force a segfault, to get a traceback...
+         deallocate(this%m_loc_ptr(1)%p)
+         this%m_loc_ptr(1)%p(-4, -1) = -5
          stop
       end if
       
@@ -630,15 +642,19 @@ contains
       !-- Output variables
       complex(cp), target, intent(out) :: f_m(n_theta_max,n_m_loc)
       
-      if (this%n_buffered == this%n_fields) then
+      if (this%n_buffered == this%max_buff) then
          call this%waitall()
       end if
       
       if (this%n_buffered == 0) then
          this%direction = DIRECTION_PHI2M
       else if (this%direction /= DIRECTION_PHI2M) then 
-         print *, "Error in type_mpitransp_theta_a2ab%phi2m: wrong direction;&
-            & do not switch directions before calling waitall"
+         print *, "Error in type_mpitransp_theta_a2ab%phi2m: do not switch directions before calling waitall! "//&
+         & " Wrong direction: ", this%direction
+         
+         ! Try to force a segfault, to get a traceback...
+         deallocate(this%m_loc_ptr(1)%p)
+         this%m_loc_ptr(1)%p(-4, -1) = -5
          stop
       end if
       
