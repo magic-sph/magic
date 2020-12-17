@@ -47,8 +47,7 @@ module step_time_mod
        &                  n_log_step, n_logs, n_t_log, t_log, n_cmb_step,  &
        &                  n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
        &                  n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
-       &                  n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
-       &                  n_t_TOZ, t_TOZ, n_probe_step, n_probe_out,       &
+       &                  n_TOs, n_t_TO, t_TO, n_probe_step, n_probe_out,  &
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
@@ -116,7 +115,6 @@ contains
       logical :: lTOCalc          ! Calculate TO stuff
       logical :: lTONext,lTONext2 ! TO stuff for next steps
       logical :: lTOframeNext,lTOframeNext2
-      logical :: lTOZhelp,lTOZwrite
       logical :: l_logNext, l_pot
       logical :: lRmsCalc,lRmsNext, l_pure, l_mat_time
       logical :: lPressCalc,lPressNext
@@ -392,14 +390,6 @@ contains
             &                       n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
          end if
          lTONext2=lTOnext2.or.lTOframeNext2
-         lTOZhelp= n_time_step > 2 .and. l_TO .and.                         &
-         &                     l_correct_step(n_time_step-1,time,timeLast,  &
-         &                 n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
-         if ( lTOZhelp ) then
-            lTOZwrite=.true.
-         else
-            lTOZwrite=.false.
-         end if
 
          lRmsCalc=(l_RMS .and. l_log .and. (n_time_step > 1)) .or. &
          &        (l_RMS .and. l_stop_time)
@@ -602,7 +592,7 @@ contains
                call io_counter%start_count()
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,      &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
-                    &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                 &
+                    &      l_spectrum,lTOCalc,lTOframe,                           &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                  &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,    &
                     &      HelASr_Rloc,Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc, &

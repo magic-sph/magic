@@ -480,9 +480,9 @@ program magic
 
    !--- Closing the movie files (if any)
    call finalize_movie_data
-   if ( l_RMS ) call finalize_RMS
-   if ( l_TO ) call finalize_outTO_mod
-   if ( l_TO ) call finalize_TO
+   if ( l_RMS ) call finalize_RMS()
+   if ( l_TO ) call finalize_outTO_mod()
+   if ( l_TO ) call finalize_TO()
    if ( l_par ) call finalize_geos()
    if ( ldtBmem == 1 ) call finalize_dtB_mod
    call finalize_fields_average_mod()

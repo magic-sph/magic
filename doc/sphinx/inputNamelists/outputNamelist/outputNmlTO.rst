@@ -38,19 +38,6 @@ Standard inputs
 
 * **t_TO_stop** (default :f:var:`t_TO_stop=0.0 <t_to_stop>`) is a real, which defines the time to stop writing ``TO`` outputs.
 
-
-* **n_TOZ_step** (default :f:var:`n_TOZ_step=0 <n_toz_step>`) is an integer. This is the number of timesteps between two ``TO`` outputs.
-
-* **n_TOZs** (default :f:var:`n_TOZs=1 <n_tozs>`) is an integer. This is the number of ``TO`` outputs to be written.
-
-* **t_TOZ**  (default  :f:var:`t_TOZ=-1.0 -1.0 ... <t_toz>`) is real array, which contains the times when ``TO`` outputs are requested.
-
-* **dt_TOZ** (default :f:var:`dt_TOZ=0.0 <dt_toz>`) is a real, which defines the time interval between ``TO`` outputs.
-
-* **t_TOZ_start** (default :f:var:`t_TOZ_start=0.0 <t_toz_start>`) is a real, which defines the time to start writing ``TO`` outputs.
-
-* **t_TOZ_stop** (default :f:var:`t_TOZ_stop=0.0 <t_toz_stop>`) is a real, which defines the time to stop writing ``TO`` outputs.
-
 * **n_TOmovie_step** (default :f:var:`n_TOmovie_step=0 <n_tomovie_step>`) is an integer. This is the number of timesteps between two ``TO_mov`` outputs.
 
 * **n_TOmovie_frames** (default :f:var:`n_TOmovies=1 <n_tomovie_frames>`) is an integer. This is the number of ``TO_mov`` outputs to be written.

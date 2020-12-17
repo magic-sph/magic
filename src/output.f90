@@ -1,6 +1,7 @@
 #include "perflib_preproc.cpp"
 module output_mod
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
@@ -71,7 +72,6 @@ module output_mod
    integer :: nPotSets, n_spec
    integer :: n_dt_cmb_sets, n_cmb_setsMov
    integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
-   integer :: nTOsets,nTOmovSets,nTOrmsSets
 
    !--- For averaging:
    real(cp) :: timePassedLog, timeNormLog
@@ -158,9 +158,6 @@ contains
       n_spec       =0
       n_cmb_setsMov=0
       n_dt_cmb_sets=0
-      nTOsets      =0
-      nTOmovSets   =0
-      nTOrmsSets   =0
       nPotSets     =1
       n_e_sets     =0
       nLogs        =0
@@ -301,13 +298,12 @@ contains
 !----------------------------------------------------------------------------
    subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
-              &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
-              &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
-              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
-              &      HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr,viscASr,  &
-              &      uhASr,duhASr,gradsASr,fconvASr,fkinASr,fviscASr,     &
-              &      fpoynASr,fresASr,EperpASr,EparASr,EperpaxiASr,       &
-              &      EparaxiASr)
+              &      l_spectrum,lTOCalc,lTOframe,l_frame,n_frame,l_cmb,   &
+              &      n_cmb_sets,l_r,lorentz_torque_ic,lorentz_torque_ma,  &
+              &      dbdt_CMB_LMloc,HelASr,Hel2ASr,HelnaASr,Helna2ASr,    &
+              &      HelEAASr,viscASr,uhASr,duhASr,gradsASr,fconvASr,     &
+              &      fkinASr,fviscASr,fpoynASr,fresASr,EperpASr,EparASr,  &
+              &      EperpaxiASr,EparaxiASr)
       !
       !  This subroutine controls most of the output.
       !
@@ -322,7 +318,6 @@ contains
       logical,             intent(in) :: l_new_rst_file, l_spectrum
       logical,             intent(in) :: lTOCalc,lTOframe
       logical,             intent(in) :: l_frame, l_cmb, l_r
-      logical,             intent(inout) :: lTOZwrite
       integer,             intent(inout) :: n_frame
       integer,             intent(inout) :: n_cmb_sets
 
@@ -386,9 +381,6 @@ contains
 
       integer :: nR,lm,n,m,l
 
-      !--- For TO:
-      logical :: lTOrms
-
       !--- Property parameters:
       complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
       real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
@@ -420,7 +412,7 @@ contains
               &          dz_LMloc,b_LMloc,omega_ic,omega_ma,               &
               &          lorentz_torque_ic,lorentz_torque_ma)
          PERFOFF
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on rank ",rank
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  write_rot  on rank ",rank
 
          PERFON('out_ekin')
          n_e_sets=n_e_sets+1
@@ -429,7 +421,7 @@ contains
               &         e_kin_t_as,ekinR)
          e_kin=e_kin_p+e_kin_t
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
-         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
+         if ( DEBUG_OUTPUT ) write(output_unit,"(A,I6)") "Written  e_kin  on rank ",rank
 
          call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMloc,db_LMloc, &
               &         aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc,       &
@@ -439,7 +431,7 @@ contains
          e_mag   =e_mag_p+e_mag_t
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
          PERFOFF
-         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on rank ",rank
+         if ( DEBUG_OUTPUT ) write(output_unit,"(A,I6)") "Written  e_mag  on rank ",rank
 
          !----- Calculate distribution of energies on all m's
          if ( l_energy_modes ) then
@@ -448,7 +440,7 @@ contains
                  &             db_LMloc,aj_LMloc)
             PERFOFF
             if ( DEBUG_OUTPUT ) &
-               & write(*,"(A,I6)") "Written  amplitude  on rank ",rank
+               & write(output_unit,"(A,I6)") "Written  amplitude  on rank ",rank
          endif
 
          !---- Surface zonal velocity at the equator
@@ -486,7 +478,7 @@ contains
                  &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
                  &              b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on rank ",rank
+            if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  averages  on rank ",rank
          end if
 
          if ( l_power ) then
@@ -519,7 +511,7 @@ contains
                  &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscASr,    &
                  &          visDiss,ohmDiss)
             PERFOFF
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
+            if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  power  on rank ",rank
          end if
 
          !----- If anelastic additional u**2 outputs
@@ -544,7 +536,7 @@ contains
                  &          EperpASr,EparASr,EperpaxiASr,EparaxiASr)
          end if
 
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  outPar  on rank ",rank
 
          if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
@@ -591,9 +583,9 @@ contains
                  &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
          end if
          if ( rank == 0 ) then
-            write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
-            &    " ! Storing spectra:",                  &
-            &    "             at time=",timeScaled,     &
+            write(output_unit,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
+            &    " ! Storing spectra:",                            &
+            &    "             at time=",timeScaled,               &
             &    "            step no.=",n_time_step
 
             if ( l_save_out ) then
@@ -606,26 +598,22 @@ contains
             &    "            step no.=",n_time_step
             if ( l_save_out ) close(n_log_file)
          end if
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on rank ",rank
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  spectrum  on rank ",rank
       end if
 
       if ( lTOCalc ) then
          !------ Output for every log time step:
-         if ( lVerbose ) write(*,*) '! Calling outTO !'
-         lTOrms   =.true.
+         if ( lVerbose ) write(output_unit,*) '! Calling outTO !'
          if ( .not. l_log ) then
             call get_e_kin(time,.false.,l_stop_time,0,w_LMloc,dw_LMloc,  &
                  &         z_LMloc,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
                  &         ekinR)
             e_kin=e_kin_p+e_kin_t
          end if
-         call outTO(time,n_time_step,e_kin,e_kin_t_as,nTOsets,nTOmovSets, &
-         &          nTOrmsSets,lTOframe,lTOrms,lTOZwrite,z_LMloc,omega_ic,&
-         &          omega_ma)
-         !------ Note: time averaging, time differencing done by IDL routine!
+         call outTO(time,n_time_step,e_kin,e_kin_t_as,lTOframe)
 
-         if ( lVerbose ) write(*,*) '! outTO finished !'
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  TO  on rank ",rank
+         if ( lVerbose ) write(output_unit,*) '! outTO finished !'
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  TO  on rank ",rank
       end if
 
       !--- Get radial derivatives and add dt dtB terms:
@@ -646,13 +634,13 @@ contains
          end if
          timePassedRMS=timePassedRMS+tscheme%dt(1)
          if ( lRmsCalc ) then
-            if ( lVerbose ) write(*,*) '! Writing RMS output !'
+            if ( lVerbose ) write(output_unit,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
             call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS,l_stop_time)
             if ( l_mag ) call dtBrms(time)
             timePassedRMS=0.0_cp
          end if
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  dtV/Brms  on rank ",rank
       end if
 
       !--- Store poloidal magnetic coeffs at cmb
@@ -872,7 +860,7 @@ contains
             else
                RolC=RoConv
             end if
-            !write(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
+            !write(output_unit,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
 
             if ( prmag /= 0 .and. nVarCond > 0 ) then
                Rm=0.0_cp
@@ -1014,7 +1002,7 @@ contains
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
                if ( l_full_sphere ) then
-                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')              &
+                  write(output_unit,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')    &
                   & " ! Energies at end of time integration:",                 &
                   & " !  (total,poloidal,toroidal,total density)",             &
                   & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
@@ -1027,7 +1015,7 @@ contains
                   &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
 
                else
-                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
+                  write(output_unit,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
                   & " ! Energies at end of time integration:",                 &
                   & " !  (total,poloidal,toroidal,total density)",             &
                   & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&

@@ -22,6 +22,7 @@ class MagicTs(MagicSetup):
        * Rotation: :ref:`rot.TAG <secRotFile>`
        * Diagnostic parameters: :ref:`par.TAG <secParFile>`
        * Geostrophy: :ref:`geos.TAG <secGeosFile>`
+       * Taylorization measures: :ref:`Tay.TAG <secTayFile>`
        * Heat transfer: :ref:`heat.TAG <secHeatFile>`
        * Helicity: :ref:`helicity.TAG <secHelicityFile>`
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
@@ -644,6 +645,14 @@ class TsLookUpTable:
             self.omega_ma = data[:, 4]
             self.lorentz_torque_ma = data[:, 5]
             self.viscous_torque_ma = data[:, 6]
+        elif self.field == 'Tay':
+            self.time = data[:, 0]
+            self.ekin_tora_rel = data[:, 1]
+            self.egeos_rel = data[:, 2]
+            self.tay = data[:, 3]
+            self.tayR = data[:, 4]
+            self.tayV = data[:, 5]
+            self.ekin = data[:, 6]
         elif self.field == 'par':
             self.time = data[:, 0]
             self.rm = data[:, 1]

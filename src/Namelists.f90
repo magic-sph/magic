@@ -114,8 +114,7 @@ contains
       &    dt_pot,runid,movie,n_movie_step,                   &
       &    n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
       &    dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
-      &    dt_TO,n_TOZ_step,n_TOZs,t_TOZ,t_TOZ_start,         &
-      &    t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
+      &    dt_TO,n_TOmovie_step,n_TOmovie_frames,             &
       &    t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
       &    dt_TOmovie,l_movie,l_average,l_save_out,           &
       &    l_cmb_field,l_rMagSpec,l_DTrMagSpec,               &
@@ -1134,6 +1133,8 @@ contains
       write(n_out,'(''  l_TOmovie       ='',l3,'','')') l_TOmovie
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
+      write(n_out,'(''  sDens           ='',ES14.6,'','')') sDens
+      write(n_out,'(''  zDens           ='',ES14.6,'','')') zDens
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
       write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
       write(n_out,'(''  rDea            ='',ES14.6,'','')') rDea
@@ -1497,13 +1498,6 @@ contains
       t_pot_stop    =0.0_cp
       dt_pot        =0.0_cp
 
-      !----- Output TOZ:
-      n_TOZ_step    =0
-      n_TOZs        =0
-      t_TOZ_start   =0.0_cp
-      t_TOZ_stop    =0.0_cp
-      dt_TOZ        =0.0_cp
-
       !----- Output TO:
       n_TO_step     =0
       n_TOs         =0
@@ -1529,7 +1523,6 @@ contains
          t_movie(n)  =-one
          t_pot(n)    =-one
          t_TO(n)     =-one
-         t_TOZ(n)    =-one
          t_TOmovie(n)=-one
          t_probe     =-one
       end do
@@ -1543,7 +1536,7 @@ contains
       l_TO          =.false. ! TO output in TOnhs.TAG, TOshs.TAG
       l_TOmovie     =.false. ! TO movies
       sDens         =one     ! relative s-grid point density
-      zDens         =one     ! relative z-grid point density
+      zDens         =one     ! relative s-grid point density
 
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
