@@ -454,14 +454,14 @@ contains
          VgRMS = VgRMS+simps(VpIntS(n_s_otc+1:n_s_max)*VpIntS(n_s_otc+1:n_s_max)* &
          &                   cyl(n_s_otc+1:n_s_max)*h(n_s_otc+1:n_s_max),         &
          &                   cyl(n_s_otc+1:n_s_max))
-         TayRMS = simps(TayIntN*cyl*h, cyl)
-         TayRMS = TayRMS+simps(TayIntS(n_s_otc+1:n_s_max)*cyl(n_s_otc+1:n_s_max)* &
+         TayRMS = simps(abs(TayIntN)*cyl*h, cyl)
+         TayRMS = TayRMS+simps(abs(TayIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)* &
          &                     h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
-         TayRRMS = simps(TayRIntN*cyl*h, cyl)
-         TayRRMS = TayRRMS+simps(TayRIntS(n_s_otc+1:n_s_max)*cyl(n_s_otc+1:n_s_max)* &
+         TayRRMS = simps(abs(TayRIntN)*cyl*h, cyl)
+         TayRRMS = TayRRMS+simps(abs(TayRIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)*&
          &                       h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
-         TayVRMS = simps(TayVIntN*cyl*h, cyl)
-         TayVRMS = TayVRMS+simps(TayVIntS(n_s_otc+1:n_s_max)*cyl(n_s_otc+1:n_s_max)* &
+         TayVRMS = simps(abs(TayVIntN)*cyl*h, cyl)
+         TayVRMS = TayVRMS+simps(abs(TayVIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)*&
          &                       h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
 
          !-- Normalisation factors
