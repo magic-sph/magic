@@ -31,7 +31,7 @@ module rIter_new
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
    use nl_special_calc
-   use sht
+   use sht, only: type_shtns_buff
    !use horizontal_data
    use fields, only: s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
        &             b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist,dj_Rdist, &
@@ -465,7 +465,7 @@ contains
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call scal_to_spat(s_Rdist(:,nR), this%gsa%sc, l_R(nR))
+            call this%sht%scal_to_spat(s_Rdist(:,nR), this%gsa%sc, l_R(nR))
             if ( lViscBcCalc ) then
                call this%sht%scal_to_grad_spat(s_Rdist(:,nR), this%gsa%dsdtc, this%gsa%dsdpc, &
                     &                      l_R(nR))

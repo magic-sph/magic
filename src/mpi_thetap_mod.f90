@@ -20,25 +20,82 @@ module mpi_thetap_mod
 
    private
 
-   !
-   ! These are the same for all objects of the type type_mpisendrecv
-   ! They were written for lm2r direction, but are also used for 
-   ! r2lm direction, except that flipped (the position of 
-   ! sendrecv_dests and sendrecv_sources and etc are inverted)
-   !@>TODO maybe add a pointer within the object to these entities?
-   integer, private, allocatable :: lm2r_s_type(:), lm2r_r_type(:)
-   integer, private, allocatable :: lm2r_dests(:),  lm2r_sources(:)
-   integer, private, allocatable :: lm2r_loc_dspl(:,:)
-   logical, private :: mlo_sendrecv_initialized = .false.
-   integer, private :: n_sendrecv_obj = 0
-   
-
-
-  public :: transpose_m_theta, transpose_theta_m, transform_m2phi,            &
-  &         transform_phi2m, transform_new2old, transform_old2new, test_field,&
-  &         transpose_theta_m_many, transpose_m_theta_many
+   integer, allocatable :: m2th_sendcount(:),m2th_recvcount(:)
+   integer, allocatable :: m2th_senddispl(:),m2th_recvdispl(:)
+   integer, allocatable :: th2m_sendcount(:),th2m_recvcount(:)
+   integer, allocatable :: th2m_senddispl(:),th2m_recvdispl(:)
+  
+   public :: transpose_m_theta, transpose_theta_m, transform_m2phi, transform_phi2m, &
+   &         transpose_theta_m_many, transpose_m_theta_many, transpose_m2th, transpose_th2m, &
+   &         initialize_mpi_thetap, finalize_mpi_thetap
+   public :: transform_new2old, transform_old2new, test_field !TODO: remove!
 
 contains
+
+   subroutine initialize_mpi_thetap
+      !-- Creates displacement and count vectors
+      !   
+      !   
+      !   Author: Rafael Lago (MPCDF) December 2020
+      !
+      integer :: pos, irank
+      allocate(m2th_sendcount(0:n_ranks_theta-1))
+      allocate(m2th_recvcount(0:n_ranks_theta-1))
+      allocate(m2th_senddispl(0:n_ranks_theta-1))
+      allocate(m2th_recvdispl(0:n_ranks_theta-1))
+      
+      m2th_sendcount = 0
+      m2th_recvcount = 0
+      m2th_senddispl = 0
+      m2th_recvdispl = 0
+      
+      pos = 1
+      do irank=0,n_ranks_theta-1
+         m2th_senddispl(irank) = pos-1
+         pos = pos + dist_theta(irank,0) * n_m_loc
+         
+         m2th_sendcount(irank) = pos - m2th_senddispl(irank) - 1
+         m2th_recvdispl(irank) = sum(m2th_recvcount)
+         m2th_recvcount(irank) = dist_m(irank,0) * n_theta_loc
+      end do
+      
+      allocate(th2m_sendcount(0:n_ranks_m-1))
+      allocate(th2m_recvcount(0:n_ranks_m-1))
+      allocate(th2m_senddispl(0:n_ranks_m-1))
+      allocate(th2m_recvdispl(0:n_ranks_m-1))
+      
+      th2m_sendcount = 0
+      th2m_recvcount = 0
+      th2m_senddispl = 0
+      th2m_recvdispl = 0
+      
+      pos = 1
+      do irank=0,n_ranks_m-1
+         th2m_senddispl(irank) = pos-1
+         pos = pos + n_theta_loc*dist_m(irank,0)
+         
+         th2m_sendcount(irank) = pos - th2m_senddispl(irank) - 1
+         th2m_recvdispl(irank) = irank*n_m_loc*dist_theta(irank,0)
+         th2m_recvcount(irank) = n_m_loc*dist_theta(irank,0)
+      end do
+   
+   end subroutine
+   
+   subroutine finalize_mpi_thetap
+      !   
+      !   Author: Rafael Lago (MPCDF) December 2020
+      !
+      deallocate(m2th_sendcount)
+      deallocate(m2th_recvcount)
+      deallocate(m2th_senddispl)
+      deallocate(m2th_recvdispl)
+      
+      deallocate(th2m_sendcount)
+      deallocate(th2m_recvcount)
+      deallocate(th2m_senddispl)
+      deallocate(th2m_recvdispl)
+   
+   end subroutine finalize_mpi_thetap
 
    subroutine transpose_m_theta(f_thetaloc, f_mloc)
       !-- Transposition from (m_loc,θ_glb) to (θ_loc,m_glb).
@@ -180,6 +237,129 @@ contains
       PERFOFF
 
    end subroutine transpose_theta_m
+   
+   !----------------------------------------------------------------------------------
+   subroutine transpose_m2th(f_mloc, f_thetaloc, n_fields)
+      !   
+      !   Author: Rafael Lago (MPCDF) December 2020
+      !
+      !-- Input variable
+      integer, intent(in) :: n_fields
+      complex(cp), intent(in) :: f_mloc(n_theta_max, n_m_loc, *)
+
+      !-- Output variable
+      complex(cp), intent(out) :: f_thetaloc(n_theta_loc, n_phi_max/2+1, *)
+      
+      
+      !-- Local variables
+      complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max*n_fields)
+      complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max*n_fields)
+      integer :: irank, pos, n_t, l_t, u_t, m_idx, n_m, n_f, ierr
+      
+      PERFON('m2thS')
+      pos = 1
+      do irank=0,n_ranks_theta-1
+         !-- Copy each theta chunk so that the send buffer is contiguous
+         !@>TODO check performance of this; implementing this with mpi_type striding the data could be faster
+         n_t = dist_theta(irank,0)
+         l_t = dist_theta(irank,1)
+         u_t = dist_theta(irank,2)
+         do n_f = 1, n_fields 
+            do n_m=1, n_m_loc
+               m_loc_buffer(pos:pos + n_t - 1) = f_mloc(l_t:u_t,n_m,n_f)
+               pos = pos + n_t
+            end do
+         end do
+      end do
+      PERFOFF
+      
+      
+      call mpi_barrier(comm_theta, ierr)
+#ifdef WITH_MPI
+      PERFON('m2thW')
+      call MPI_Alltoallv(m_loc_buffer, m2th_sendcount*n_fields, m2th_senddispl*n_fields, MPI_DEF_COMPLEX, &
+           &             th_loc_buffer, m2th_recvcount*n_fields, m2th_recvdispl*n_fields, MPI_DEF_COMPLEX, &
+           &             comm_theta, ierr)
+      PERFOFF
+#endif
+      
+      !-- Now we reorder the receiver buffer
+      PERFON('m2thS')
+      do irank=0,n_ranks_theta-1
+         pos = m2th_recvdispl(irank)*n_fields+1
+         do n_f=1,n_fields
+            do n_m=1,dist_m(irank,0)
+               m_idx = dist_m(irank,n_m)/minc+1
+               f_thetaloc(1:n_theta_loc,m_idx,n_f)=th_loc_buffer(pos:pos+n_theta_loc-1)
+               pos = pos+n_theta_loc
+            end do
+         end do
+      end do
+      PERFOFF
+      
+   end subroutine transpose_m2th
+
+   !----------------------------------------------------------------------------------
+   subroutine transpose_th2m(f_thetaloc, f_mloc, n_fields)
+      !   
+      !   Author: Rafael Lago (MPCDF) December 2020
+      !
+      !-- Input variable
+      integer, intent(in) :: n_fields
+      complex(cp), intent(in) :: f_thetaloc(n_theta_loc, n_phi_max/2+1, *)
+
+      !-- Output variable
+      complex(cp), intent(out) :: f_mloc(n_theta_max, n_m_loc, *)
+      
+      !-- Local variables
+      complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max*n_fields)
+      complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max*n_fields)
+      integer :: irank, itheta, m, pos, l_t, u_t, n_t, n_m, n_f, ierr
+      
+      PERFON('th2mS')
+      pos = 1
+      do irank=0,n_ranks_m-1
+         !-- Copy each m which belongs to the irank-th coord_r into the send buffer
+         !   column-wise. That will simplify a lot things later
+         !
+         !@>TODO check performance of this; implementing this with mpi_type striding the data could be faster
+         do n_f=1, n_fields
+            do n_m=1,dist_m(irank,0)
+               m = dist_m(irank,n_m)/minc
+               th_loc_buffer(pos:pos+n_theta_loc-1) = f_thetaloc(1:n_theta_loc,m+1,n_f)
+               pos = pos + n_theta_loc
+            end do
+         end do
+      end do
+      PERFOFF
+
+      call mpi_barrier(comm_theta, ierr)
+#ifdef WITH_MPI
+      PERFON('th2mW')
+      call MPI_Alltoallv(th_loc_buffer, th2m_sendcount*n_fields, th2m_senddispl*n_fields, MPI_DEF_COMPLEX,   &
+           &             m_loc_buffer, th2m_recvcount*n_fields, th2m_recvdispl*n_fields, MPI_DEF_COMPLEX, &
+           &             comm_theta, ierr)
+      PERFOFF
+#endif
+
+      PERFON('th2mS')
+      do irank=0,n_ranks_theta-1
+         pos = th2m_recvdispl(irank)*n_fields+1
+         l_t=dist_theta(irank,1)
+         u_t=dist_theta(irank,2)
+         n_t=dist_theta(irank,0)
+         do n_f=1, n_fields
+            do n_m=1,n_m_loc
+               f_mloc(l_t:u_t,n_m,n_f)=m_loc_buffer(pos:pos+n_t-1)
+               pos = pos + n_t
+            end do
+         end do
+      end do
+      PERFOFF
+      
+   end subroutine transpose_th2m
+   
+   
 !----------------------------------------------------------------------------------
    subroutine transpose_theta_m_many(f_mloc, f_thloc, n_fields)
 
@@ -249,6 +429,7 @@ contains
       !f_thloc(n_m_max+1:,:,*)=zero
 
    end subroutine transpose_theta_m_many
+   
 !----------------------------------------------------------------------------------
    subroutine transpose_m_theta_many(f_thloc, f_mloc, n_fields)
 

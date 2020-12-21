@@ -349,10 +349,9 @@ contains
             pos = pos + n_theta_loc
          end do
       end do
-      
       PERFOFF
       
-!       call mpi_barrier(comm_theta, ierr)
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('th2mW')
       call MPI_Alltoallv(th_loc_buffer, this%th2m_sendcount, this%th2m_senddispl, MPI_DEF_COMPLEX,   &
@@ -558,8 +557,6 @@ contains
       
    end subroutine m2th_start_a2ab
    
-   
-
    !----------------------------------------------------------------------------------
    subroutine th2m_start_a2ab(this, f_thetaloc, f_mloc)
       !   
@@ -676,7 +673,7 @@ contains
       integer, intent(in) :: n_b
       
       !-- Local variables
-      integer :: irank, pos, n_t, l_t, u_t, m_idx, n_m, n_f
+      integer :: irank, pos, n_t, l_t, u_t, m_idx, n_m, n_f, ierr
       complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max*n_b)
       complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max*n_b)
       
@@ -699,7 +696,7 @@ contains
       PERFOFF
       
       
-!       call mpi_barrier(comm_theta, ierr)
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('m2thW')
       call MPI_Alltoallv(m_loc_buffer, this%m2th_sendcount*n_b, this%m2th_senddispl*n_b, MPI_DEF_COMPLEX, &
@@ -735,7 +732,7 @@ contains
       integer, intent(in) :: n_b
       
       !-- Local variables
-      integer :: irank, itheta, m, pos, l_t, u_t, n_t, n_m, n_f
+      integer :: irank, itheta, m, pos, l_t, u_t, n_t, n_m, n_f, ierr
       complex(cp)  :: m_loc_buffer(n_m_loc*n_theta_max*n_b)
       complex(cp)  :: th_loc_buffer(n_theta_loc*n_m_max*n_b)
       
@@ -757,7 +754,7 @@ contains
       end do
       PERFOFF
 
-!       call mpi_barrier(comm_theta, ierr)
+      call mpi_barrier(comm_theta, ierr)
 #ifdef WITH_MPI
       PERFON('th2mW')
       call MPI_Alltoallv(th_loc_buffer, this%th2m_sendcount*n_b, this%th2m_senddispl*n_b, MPI_DEF_COMPLEX,   &

@@ -300,6 +300,8 @@ contains
       call shtns_destroy(sht_l)
       call shtns_unset_grid(sht_lP)
       call shtns_destroy(sht_lP)
+      
+      call finalize_mpi_thetap
 
    end subroutine finalize_sht
 !------------------------------------------------------------------------------
@@ -1698,7 +1700,7 @@ contains
    subroutine commit_backward_buff(this)
       class(type_shtns_buff) :: this
       complex(cp), allocatable :: hyb_buffer(:,:,:), fft_buffer(:,:,:)
-      integer :: ic, ir, fftlen
+      integer :: ic, ir, fftlen, ierr
       
       PERFON("sht_bwd")
       
@@ -1708,7 +1710,6 @@ contains
       !-- Only allocates what is needed
       allocate(hyb_buffer(n_theta_max, n_m_loc, this%n_spat))
       allocate(fft_buffer(n_theta_loc, fftlen, this%n_spat))
-!       if (rank == 0) print *, "Backward: ", this%n_spat, this%n_sh
       
       !-- Legendre transform
       ir = 1
@@ -1772,10 +1773,7 @@ contains
       
       !-- Transpose from m_loc to th_loc
       !   TODO this inplace!
-      do ir=1,this%n_spat
-         call theta_transp%m2th(hyb_buffer(:,:,ir),  fft_buffer(:,:,ir))
-      end do
-      call theta_transp%waitall()
+      call transpose_theta_m_many(hyb_buffer, fft_buffer, this%n_spat)
       
       !-- FFT from hyb to phi
       do ir=1,this%n_spat
@@ -1816,14 +1814,12 @@ contains
       PERFON("sht_fwd")
       
       fftlen = max(n_m_max, n_phi_max/2+1)
+!       fftlen = n_phi_max/2+1
       if (this%n_sh==0) return
       
       !-- Only allocates what is needed
       allocate(hyb_buffer(n_theta_max, n_m_loc, this%n_sh))
       allocate(fft_buffer(n_theta_loc, fftlen, this%n_sh))
-      
-!       if (rank == 0) print *, "Forward: ", this%n_spat
-      
       
       !-- FFT from phi to hyb
       do i=1,this%n_sh
@@ -1831,12 +1827,8 @@ contains
          call fft_many(this%spat_ptr(i)%p, fft_buffer(:,:,i))
       end do
       
-      !-- Transpose from m_loc to th_loc
-      !   TODO this inplace!
-      do i=1,this%n_sh
-         call theta_transp%th2m(fft_buffer(:,:,i),  hyb_buffer(:,:,i))
-      end do
-      call theta_transp%waitall()
+      !-- Transpose from th_loc to m_loc
+      call transpose_m_theta_many(fft_buffer, hyb_buffer, this%n_sh)
       
       !-- Legendre transform
       i = 1
