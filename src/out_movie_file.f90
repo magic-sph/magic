@@ -25,7 +25,7 @@ module out_movie
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      osn1, phi, theta_ord
    use fields, only: b_ic, bICB, w_Rdist, b_Rdist
-   use sht, only: torpol_to_spat_loc, toraxi_to_spat
+   use sht, only: SHloc, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
@@ -1563,7 +1563,7 @@ contains
       end do
 
       zerosc(:)=zero
-      call torpol_to_spat_loc(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
+      call SHloc%torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
 
    end subroutine get_B_surface
 !----------------------------------------------------------------------------

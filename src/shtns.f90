@@ -17,9 +17,7 @@ module sht
    use parallel_mod
    use LMmapping, only: map_dist_st, map_glbl_st
    use mpi_thetap_mod
-   
-   use communications, only: theta_transp
-   use mpi_transpose_theta !@>TODO replaces mpi_thetap_mod
+   use num_param, only: sht_buffer_size
    use fft, only: fft_many, ifft_many
 
    implicit none
@@ -40,19 +38,40 @@ module sht
    &         pol_to_grad_hyb, torpol_to_dphhyb, pol_to_curlr_hyb, hyb_to_SH,   &
    &         hyb_to_qst, hyb_to_sphertor
    
-   public :: scal_to_spat, scal_to_grad_spat, scal_to_SH, spat_to_qst, &
-   & spat_to_sphertor, torpol_to_spat, torpol_to_curl_spat, pol_to_curlr_spat, &
-   & pol_to_grad_spat, torpol_to_dphspat, spat_to_SH_axi
+   
+!    public :: scal_to_spat, scal_to_grad_spat, scal_to_SH, spat_to_qst, &
+!    & spat_to_sphertor, torpol_to_spat, torpol_to_curl_spat, pol_to_curlr_spat, &
+!    & pol_to_grad_spat, torpol_to_dphspat, spat_to_SH_axi
 
    type(c_ptr) :: sht_l, sht_lP
-   
+   integer, allocatable :: test_ptr(:)
    
    ! --------------------------------------------------------------------------------------
-   type, public :: type_shtns_buff
+   type, abstract, public :: type_shtns_if
       !
       !   Author: Rafael Lago (MPCDF) December 2020
       ! 
-      character(:), allocatable :: name
+   contains
+      procedure :: commit_backward => commit_dummy
+      procedure :: commit_forward  => commit_dummy
+      procedure(scal_to_spat_if), deferred        :: scal_to_spat      
+      procedure(scal_to_grad_spat_if), deferred   :: scal_to_grad_spat 
+      procedure(torpol_to_spat_if), deferred      :: torpol_to_spat    
+      procedure(torpol_to_curl_spat_if), deferred :: torpol_to_curl_spat
+      procedure(pol_to_grad_spat_if), deferred    :: pol_to_grad_spat  
+      procedure(pol_to_curlr_spat_if), deferred   :: pol_to_curlr_spat 
+      procedure(torpol_to_dphspat_if), deferred   :: torpol_to_dphspat 
+      procedure(scal_to_SH_if), deferred          :: scal_to_SH        
+      procedure(spat_to_qst_if), deferred         :: spat_to_qst       
+      procedure(spat_to_sphertor_if), deferred    :: spat_to_sphertor
+      procedure(spat_to_SH_axi_if), deferred      :: spat_to_SH_axi
+   end type type_shtns_if
+   
+   ! --------------------------------------------------------------------------------------
+   type, extends(type_shtns_if) :: type_shtns_buff
+      !
+      !   Author: Rafael Lago (MPCDF) December 2020
+      ! 
       type(real_pointer_wrapper),  allocatable :: spat_ptr(:)
       type(cmplx_pointer_wrapper), allocatable :: sh_ptr(:)
       integer, allocatable :: operations(:), lcut(:)
@@ -60,9 +79,8 @@ module sht
       integer :: max_buff, n_sh, n_spat
    contains
       procedure :: initialize  => initialize_buff
-      procedure :: finalize => finalize_buff
       procedure :: commit_backward  => commit_backward_buff
-      procedure :: commit_forward  => commit_forward_buff
+      procedure :: commit_forward   => commit_forward_buff
       procedure :: scal_to_spat        => scal_to_spat_buff
       procedure :: scal_to_grad_spat   => scal_to_grad_spat_buff
       procedure :: torpol_to_spat      => torpol_to_spat_buff
@@ -73,9 +91,47 @@ module sht
       procedure :: scal_to_SH          => scal_to_SH_buff
       procedure :: spat_to_qst         => spat_to_qst_buff
       procedure :: spat_to_sphertor    => spat_to_sphertor_buff
-!       procedure :: spat_to_SH_axi      => spat_to_SH_axi_buff
+      procedure :: spat_to_SH_axi      => spat_to_SH_axi_buff
+      final :: finalize_buff
    end type type_shtns_buff
    
+   ! --------------------------------------------------------------------------------------
+   type, extends(type_shtns_if) :: type_shtns_loc
+      !
+      !   Author: Rafael Lago (MPCDF) December 2020
+      ! 
+   contains
+      procedure :: scal_to_spat        => scal_to_spat_loc
+      procedure :: scal_to_grad_spat   => scal_to_grad_spat_loc
+      procedure :: torpol_to_spat      => torpol_to_spat_loc
+      procedure :: torpol_to_curl_spat => torpol_to_curl_spat_loc
+      procedure :: pol_to_grad_spat    => pol_to_grad_spat_loc
+      procedure :: pol_to_curlr_spat   => pol_to_curlr_spat_loc
+      procedure :: torpol_to_dphspat   => torpol_to_dphspat_loc
+      procedure :: scal_to_SH          => scal_to_SH_loc
+      procedure :: spat_to_qst         => spat_to_qst_loc
+      procedure :: spat_to_sphertor    => spat_to_sphertor_loc
+      procedure :: spat_to_SH_axi      => spat_to_SH_axi_loc
+   end type type_shtns_loc
+   
+   ! --------------------------------------------------------------------------------------
+   type, extends(type_shtns_if) :: type_shtns_dist
+      !
+      !   Author: Rafael Lago (MPCDF) December 2020
+      ! 
+   contains
+      procedure :: scal_to_spat        => scal_to_spat_dist
+      procedure :: scal_to_grad_spat   => scal_to_grad_spat_dist
+      procedure :: torpol_to_spat      => torpol_to_spat_dist
+      procedure :: torpol_to_curl_spat => torpol_to_curl_spat_dist
+      procedure :: pol_to_grad_spat    => pol_to_grad_spat_dist
+      procedure :: pol_to_curlr_spat   => pol_to_curlr_spat_dist
+      procedure :: torpol_to_dphspat   => torpol_to_dphspat_dist
+      procedure :: scal_to_SH          => scal_to_SH_dist
+      procedure :: spat_to_qst         => spat_to_qst_dist
+      procedure :: spat_to_sphertor    => spat_to_sphertor_dist
+      procedure :: spat_to_SH_axi      => spat_to_SH_axi_dist
+   end type type_shtns_dist
    
    !   Workarounds the lack of array of pointers in fortran
    ! --------------------------------------------------------------------------------------
@@ -100,113 +156,126 @@ module sht
    integer, parameter :: OP_TORPOL2DPHSPAT   = -7
    
    interface
-      subroutine scal_to_spat_if(Slm, fieldc, lcut)
+      subroutine scal_to_spat_if(this, Slm, fieldc, lcut)
          import
-         complex(cp), intent(inout) :: Slm(n_lm_loc)
-         integer,     intent(in) :: lcut
-         real(cp),   intent(out) :: fieldc(n_theta_loc,n_phi_max)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(inout) :: Slm(n_lm_loc)
+         real(cp),    target, intent(out) :: fieldc(n_theta_loc,n_phi_max)
+         integer,             intent(in) :: lcut
       end subroutine
       
-      subroutine scal_to_grad_spat_if(Slm, gradtc, gradpc, lcut)
+      subroutine scal_to_grad_spat_if(this, Slm, gradtc, gradpc, lcut)
          import
-         complex(cp), intent(inout) :: Slm(n_lm_loc)
-         integer,     intent(in) :: lcut
-         real(cp),   intent(out) :: gradtc(n_theta_loc,n_phi_max)
-         real(cp),   intent(out) :: gradpc(n_theta_loc,n_phi_max)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(inout) :: Slm(n_lm_loc)
+         real(cp),   target, intent(out) :: gradtc(n_theta_loc,n_phi_max)
+         real(cp),   target, intent(out) :: gradpc(n_theta_loc,n_phi_max)
+         integer,            intent(in) :: lcut
       end subroutine
       
-      subroutine spat_to_SH_if(f_loc, fLMP_loc, lcut)
+      subroutine scal_to_SH_if(this, f, fLMP, lcut)
          import
-         real(cp),    intent(inout) :: f_loc(n_theta_loc,n_phi_max)
+         class(type_shtns_if), intent(inout) :: this
+         real(cp),    target, intent(inout) :: f(n_theta_loc,n_phi_max)
+         complex(cp), target, intent(out)   :: fLMP(n_lmP_loc)
          integer,     intent(in)    :: lcut
-         complex(cp), intent(out)   :: fLMP_loc(n_lmP_loc)
       end subroutine
       
-      subroutine spat_to_qst_if(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
+      subroutine spat_to_qst_if(this, f, g, h, qLMP, sLMP, tLMP, lcut)
          import
-         real(cp), intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-         real(cp), intent(inout) :: g_loc(n_theta_loc,n_phi_max)
-         real(cp), intent(inout) :: h_loc(n_theta_loc,n_phi_max)
+         class(type_shtns_if), intent(inout) :: this
+         real(cp), target, intent(inout) :: f(n_theta_loc,n_phi_max)
+         real(cp), target, intent(inout) :: g(n_theta_loc,n_phi_max)
+         real(cp), target, intent(inout) :: h(n_theta_loc,n_phi_max)
          integer,  intent(in)    :: lcut
-         complex(cp), intent(out) :: qLMP_loc(n_lmP_loc)
-         complex(cp), intent(out) :: sLMP_loc(n_lmP_loc)
-         complex(cp), intent(out) :: tLMP_loc(n_lmP_loc)
+         complex(cp), target, intent(out) :: qLMP(n_lmP_loc)
+         complex(cp), target, intent(out) :: sLMP(n_lmP_loc)
+         complex(cp), target, intent(out) :: tLMP(n_lmP_loc)
       end subroutine
       
-      subroutine spat_to_sphertor_if(f_loc, g_loc, fLMP_loc, gLMP_loc, lcut)
+      subroutine spat_to_sphertor_if(this, f, g, fLMP, gLMP, lcut)
          import
-         real(cp), intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-         real(cp), intent(inout) :: g_loc(n_theta_loc,n_phi_max)
+         class(type_shtns_if), intent(inout) :: this
+         real(cp), target, intent(inout) :: f(n_theta_loc,n_phi_max)
+         real(cp), target, intent(inout) :: g(n_theta_loc,n_phi_max)
          integer,  intent(in)    :: lcut
-         complex(cp), intent(out) :: fLMP_loc(n_lmP_loc)
-         complex(cp), intent(out) :: gLMP_loc(n_lmP_loc)
+         complex(cp), target, intent(out) :: fLMP(n_lmP_loc)
+         complex(cp), target, intent(out) :: gLMP(n_lmP_loc)
       end subroutine
       
-      subroutine torpol_to_spat_if(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+      subroutine torpol_to_spat_if(this, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
          import
-         complex(cp), intent(in) :: Wlm(n_lm_loc)
-         complex(cp), intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(in) :: Wlm(n_lm_loc)
+         complex(cp), target, intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
          integer,     intent(in) :: lcut
-         real(cp), intent(out) :: vrc(n_theta_loc,n_phi_max)
-         real(cp), intent(out) :: vtc(n_theta_loc,n_phi_max)
-         real(cp), intent(out) :: vpc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: vrc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: vtc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: vpc(n_theta_loc,n_phi_max)
       end subroutine
       
-      subroutine torpol_to_curl_spat_if(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, &
+      subroutine torpol_to_curl_spat_if(this, or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, &
               &                        cvpc, lcut)
          import
-         complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
-         complex(cp), intent(in) :: Jlm(n_lm_loc)
-         complex(cp), intent(inout) :: dJlm(n_lm_loc)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc)
+         complex(cp), target, intent(in) :: Jlm(n_lm_loc)
+         complex(cp), target, intent(inout) :: dJlm(n_lm_loc)
          real(cp),    intent(in) :: or2
          integer,     intent(in) :: lcut
-         real(cp), intent(out) :: cvrc(n_theta_loc,n_phi_max)
-         real(cp), intent(out) :: cvtc(n_theta_loc,n_phi_max)
-         real(cp), intent(out) :: cvpc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: cvrc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: cvtc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: cvpc(n_theta_loc,n_phi_max)
       end subroutine
       
-      subroutine pol_to_curlr_spat_if(Qlm, cvrc, lcut)
+      subroutine pol_to_curlr_spat_if(this, Qlm, cvrc, lcut)
          import
-         complex(cp), intent(in) :: Qlm(n_lm_loc)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(in) :: Qlm(n_lm_loc)
          integer,     intent(in) :: lcut
-         real(cp),    intent(out) :: cvrc(n_theta_loc,n_phi_max)
+         real(cp),    target, intent(out) :: cvrc(n_theta_loc,n_phi_max)
       end subroutine
       
-      subroutine pol_to_grad_spat_if(Slm, gradtc, gradpc, lcut)
+      subroutine pol_to_grad_spat_if(this, Slm, gradtc, gradpc, lcut)
          import
-         complex(cp), intent(in) :: Slm(n_lm_loc)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(in) :: Slm(n_lm_loc)
          integer,     intent(in) :: lcut
-         real(cp), intent(out) :: gradtc(n_theta_loc,n_phi_max)
-         real(cp), intent(out) :: gradpc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: gradtc(n_theta_loc,n_phi_max)
+         real(cp), target, intent(out) :: gradpc(n_theta_loc,n_phi_max)
       end subroutine
       
-      subroutine torpol_to_dphspat_if(dWlm, Zlm, dvtdp, dvpdp, lcut)
+      subroutine torpol_to_dphspat_if(this, dWlm, Zlm, dvtdp, dvpdp, lcut)
          import
-         complex(cp), intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+         class(type_shtns_if), intent(inout) :: this
+         complex(cp), target, intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
          integer,     intent(in) :: lcut
-         real(cp), intent(out) :: dvtdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
-         real(cp), intent(out) :: dvpdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
+         real(cp), target, intent(out) :: dvtdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
+         real(cp), target, intent(out) :: dvpdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
       end subroutine
       
-      subroutine spat_to_SH_axi_if(f, fLM)
+      subroutine spat_to_SH_axi_if(this, f, fLM)
          import
+         class(type_shtns_if), intent(inout) :: this
          real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
          real(cp), intent(out) :: fLM(:)
       end subroutine 
       
    end interface
    
-   procedure (scal_to_spat_if), pointer :: scal_to_spat => null ()
-   procedure (scal_to_grad_spat_if), pointer :: scal_to_grad_spat => null ()
-   procedure (spat_to_SH_if), pointer :: scal_to_SH => null ()
-   procedure (spat_to_qst_if), pointer :: spat_to_qst => null ()
-   procedure (spat_to_sphertor_if), pointer :: spat_to_sphertor => null ()
-   procedure (torpol_to_spat_if), pointer :: torpol_to_spat => null ()
-   procedure (torpol_to_curl_spat_if), pointer :: torpol_to_curl_spat => null ()
-   procedure (pol_to_curlr_spat_if), pointer :: pol_to_curlr_spat => null ()
-   procedure (pol_to_grad_spat_if), pointer :: pol_to_grad_spat => null ()
-   procedure (torpol_to_dphspat_if), pointer :: torpol_to_dphspat => null ()
-   procedure (spat_to_SH_axi_if), pointer :: spat_to_SH_axi => null ()
+!    procedure (scal_to_spat_if), pointer :: scal_to_spat => null ()
+!    procedure (scal_to_grad_spat_if), pointer :: scal_to_grad_spat => null ()
+!    procedure (spat_to_qst_if), pointer :: spat_to_qst => null ()
+!    procedure (spat_to_sphertor_if), pointer :: spat_to_sphertor => null ()
+!    procedure (torpol_to_spat_if), pointer :: torpol_to_spat => null ()
+!    procedure (torpol_to_curl_spat_if), pointer :: torpol_to_curl_spat => null ()
+!    procedure (pol_to_curlr_spat_if), pointer :: pol_to_curlr_spat => null ()
+!    procedure (pol_to_grad_spat_if), pointer :: pol_to_grad_spat => null ()
+!    procedure (torpol_to_dphspat_if), pointer :: torpol_to_dphspat => null ()
+!    procedure (scal_to_SH_if), pointer :: scal_to_SH => null ()
+!    procedure (spat_to_SH_axi_if), pointer :: spat_to_SH_axi => null ()
+   class(type_shtns_if), allocatable, public :: SHtransf
+   type(type_shtns_loc), public :: SHloc  ! used for outputs, for instance
    
 contains
 
@@ -265,31 +334,20 @@ contains
       sht_lP = shtns_create(l_max+1, m_max/minc, minc, norm)
       call shtns_set_grid(sht_lP, layout, eps_polar, n_theta_max, n_phi_max)
       
-      ! Assigns all pointers to the correct functions
-      if ( n_ranks_theta>1 ) then
-         scal_to_spat => scal_to_spat_dist
-         scal_to_grad_spat => scal_to_grad_spat_dist
-         scal_to_SH => scal_to_SH_dist
-         spat_to_qst => spat_to_qst_dist
-         spat_to_sphertor => spat_to_sphertor_dist
-         torpol_to_spat => torpol_to_spat_dist
-         torpol_to_curl_spat => torpol_to_curl_spat_dist
-         pol_to_curlr_spat => pol_to_curlr_spat_dist
-         pol_to_grad_spat => pol_to_grad_spat_dist
-         torpol_to_dphspat => torpol_to_dphspat_dist
-         spat_to_SH_axi => spat_to_SH_axi_dist
+      if (n_ranks_theta==1) then
+         allocate(type_shtns_loc :: SHtransf)
+         if (rank==0) print *, '! SHT buffer size = None (local version)' 
+      else if (sht_buffer_size==1) then
+         allocate(type_shtns_dist :: SHtransf)
+         if (rank==0) print *, '! SHT buffer size = 1 (distributed version)' 
       else
-         scal_to_spat => scal_to_spat_loc
-         scal_to_grad_spat => scal_to_grad_spat_loc
-         scal_to_SH => scal_to_SH_loc
-         spat_to_qst => spat_to_qst_loc
-         spat_to_sphertor => spat_to_sphertor_loc
-         torpol_to_spat => torpol_to_spat_loc
-         torpol_to_curl_spat => torpol_to_curl_spat_loc
-         pol_to_curlr_spat => pol_to_curlr_spat_loc
-         pol_to_grad_spat => pol_to_grad_spat_loc
-         torpol_to_dphspat => torpol_to_dphspat_loc
-         spat_to_SH_axi => spat_to_SH_axi_loc
+         allocate(type_shtns_buff :: SHtransf)
+         if (rank==0) print *, '! SHT buffer size =',sht_buffer_size, &
+         &    ' (buffered distributed version)' 
+         select type(SHtransf)
+            class is (type_shtns_buff)
+               call SHtransf%initialize(sht_buffer_size)
+         end select
       end if
 
    end subroutine initialize_sht
@@ -301,19 +359,20 @@ contains
       call shtns_unset_grid(sht_lP)
       call shtns_destroy(sht_lP)
       
-      call finalize_mpi_thetap
+      if (allocated(SHtransf)) deallocate(SHtransf)
 
    end subroutine finalize_sht
 !------------------------------------------------------------------------------
-   subroutine scal_to_spat_loc(Slm, fieldc, lcut)
+   subroutine scal_to_spat_loc(this, Slm, fieldc, lcut)
       ! transform a spherical harmonic field into grid space
 
       !-- Input variables
-      complex(cp), intent(inout) :: Slm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(inout) :: Slm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variable
-      real(cp), intent(out) :: fieldc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: fieldc(nlat_padded,n_phi_max)
 
       PERFON("sht_bwd")
       call SH_to_spat_l(sht_l, Slm, fieldc, lcut)
@@ -321,17 +380,18 @@ contains
 
    end subroutine scal_to_spat_loc
 !------------------------------------------------------------------------------
-   subroutine scal_to_grad_spat_loc(Slm, gradtc, gradpc, lcut)
+   subroutine scal_to_grad_spat_loc(this, Slm, gradtc, gradpc, lcut)
       ! transform a scalar spherical harmonic field into it's gradient
       ! on the grid
 
       !-- Input variables
-      complex(cp), intent(inout) :: Slm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(inout) :: Slm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: gradpc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: gradtc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: gradpc(nlat_padded,n_phi_max)
 
       PERFON("sht_bwd")
       call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
@@ -339,15 +399,16 @@ contains
 
    end subroutine scal_to_grad_spat_loc
 !------------------------------------------------------------------------------
-   subroutine pol_to_grad_spat_loc(Slm, gradtc, gradpc, lcut)
+   subroutine pol_to_grad_spat_loc(this, Slm, gradtc, gradpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Slm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(in) :: Slm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: gradpc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: gradtc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: gradpc(nlat_padded,n_phi_max)
 
       !-- Local variables
       complex(cp) :: Qlm(lm_max)
@@ -370,17 +431,18 @@ contains
 
    end subroutine pol_to_grad_spat_loc
 !------------------------------------------------------------------------------
-   subroutine torpol_to_spat_loc(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+   subroutine torpol_to_spat_loc(this, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Wlm(lm_max)
-      complex(cp), intent(inout) :: dWlm(lm_max), Zlm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(in) :: Wlm(lm_max)
+      complex(cp), target, intent(inout) :: dWlm(lm_max), Zlm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: vrc(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: vtc(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: vpc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: vrc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: vtc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: vpc(nlat_padded,n_phi_max)
 
       !-- Local variables
       complex(cp) :: Qlm(lm_max)
@@ -511,18 +573,19 @@ contains
 
    end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
-   subroutine torpol_to_dphspat_loc(dWlm, Zlm, dvtdp, dvpdp, lcut)
+   subroutine torpol_to_dphspat_loc(this, dWlm, Zlm, dvtdp, dvpdp, lcut)
       !
       ! Computes horizontal phi derivative of a toroidal/poloidal field
       !
 
       !-- Input variables
-      complex(cp), intent(in) :: dWlm(lm_max), Zlm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(in) :: dWlm(lm_max), Zlm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: dvtdp(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: dvpdp(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: dvtdp(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: dvpdp(nlat_padded,n_phi_max)
 
       !-- Local variables
       complex(cp) :: Slm(lm_max), Tlm(lm_max)
@@ -556,14 +619,15 @@ contains
 
    end subroutine torpol_to_dphspat_loc
 !------------------------------------------------------------------------------
-   subroutine pol_to_curlr_spat_loc(Qlm, cvrc, lcut)
+   subroutine pol_to_curlr_spat_loc(this, Qlm, cvrc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Qlm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(in) :: Qlm(lm_max)
       integer,     intent(in) :: lcut
 
       !-- Output variable
-      real(cp), intent(out) :: cvrc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: cvrc(nlat_padded,n_phi_max)
 
       !-- Local variables
       complex(cp) :: dQlm(lm_max)
@@ -586,19 +650,20 @@ contains
 
    end subroutine pol_to_curlr_spat_loc
 !------------------------------------------------------------------------------
-   subroutine torpol_to_curl_spat_loc(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, cvpc, &
+   subroutine torpol_to_curl_spat_loc(this, or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, cvpc, &
               &                   lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Blm(lm_max), ddBlm(lm_max), Jlm(lm_max)
-      complex(cp), intent(inout) :: dJlm(lm_max)
+      class(type_shtns_loc), intent(inout) :: this
+      complex(cp), target, intent(in) :: Blm(lm_max), ddBlm(lm_max), Jlm(lm_max)
+      complex(cp), target, intent(inout) :: dJlm(lm_max)
       real(cp),    intent(in) :: or2
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: cvrc(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: cvtc(nlat_padded,n_phi_max)
-      real(cp), intent(out) :: cvpc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: cvrc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: cvtc(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: cvpc(nlat_padded,n_phi_max)
 
       !-- Local variables
       complex(cp) :: Qlm(lm_max), Tlm(lm_max)
@@ -624,53 +689,56 @@ contains
 
    end subroutine torpol_to_curl_spat_loc
 !------------------------------------------------------------------------------
-   subroutine scal_to_SH_loc(f, fLM, lcut)
+   subroutine scal_to_SH_loc(this, f, fLMP, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f(nlat_padded,n_phi_max)
+      class(type_shtns_loc), intent(inout) :: this
+      real(cp), target, intent(inout) :: f(nlat_padded,n_phi_max)
       integer,  intent(in) :: lcut
 
       !-- Output variable
-      complex(cp), intent(out) :: fLM(lmP_max)
+      complex(cp), target, intent(out) :: fLMP(lmP_max)
 
       PERFON("sht_fwd")
-      call spat_to_SH_l(sht_lP, f, fLM, lcut+1)
+      call spat_to_SH_l(sht_lP, f, fLMP, lcut+1)
       PERFOFF
 
    end subroutine scal_to_SH_loc
 !------------------------------------------------------------------------------
-   subroutine spat_to_qst_loc(f, g, h, qLM, sLM, tLM, lcut)
+   subroutine spat_to_qst_loc(this, f, g, h, qLMP, sLMP, tLMP, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f(nlat_padded,n_phi_max)
-      real(cp), intent(inout) :: g(nlat_padded,n_phi_max)
-      real(cp), intent(inout) :: h(nlat_padded,n_phi_max)
+      class(type_shtns_loc), intent(inout) :: this
+      real(cp), target, intent(inout) :: f(nlat_padded,n_phi_max)
+      real(cp), target, intent(inout) :: g(nlat_padded,n_phi_max)
+      real(cp), target, intent(inout) :: h(nlat_padded,n_phi_max)
       integer,  intent(in) :: lcut
 
       !-- Output variables
-      complex(cp), intent(out) :: qLM(lmP_max)
-      complex(cp), intent(out) :: sLM(lmP_max)
-      complex(cp), intent(out) :: tLM(lmP_max)
+      complex(cp), target, intent(out) :: qLMP(lmP_max)
+      complex(cp), target, intent(out) :: sLMP(lmP_max)
+      complex(cp), target, intent(out) :: tLMP(lmP_max)
 
       PERFON("sht_fwd")
-      call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
+      call spat_to_SHqst_l(sht_lP, f, g, h, qLMP, sLMP, tLMP, lcut+1)
       PERFOFF
 
    end subroutine spat_to_qst_loc
 !------------------------------------------------------------------------------
-   subroutine spat_to_sphertor_loc(f, g, fLM, gLM, lcut)
+   subroutine spat_to_sphertor_loc(this, f, g, fLMP, gLMP, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f(nlat_padded,n_phi_max)
-      real(cp), intent(inout) :: g(nlat_padded,n_phi_max)
+      class(type_shtns_loc), intent(inout) :: this
+      real(cp), target, intent(inout) :: f(nlat_padded,n_phi_max)
+      real(cp), target, intent(inout) :: g(nlat_padded,n_phi_max)
       integer,  intent(in) :: lcut
 
       !-- Output variables
-      complex(cp), intent(out) :: fLM(lmP_max)
-      complex(cp), intent(out) :: gLM(lmP_max)
+      complex(cp), target, intent(out) :: fLMP(lmP_max)
+      complex(cp), target, intent(out) :: gLMP(lmP_max)
 
       PERFON("sht_fwd")
-      call spat_to_SHsphtor_l(sht_lP, f, g, fLM, gLM, lcut+1)
+      call spat_to_SHsphtor_l(sht_lP, f, g, fLMP, gLMP, lcut+1)
       PERFOFF
 
    end subroutine spat_to_sphertor_loc
@@ -695,8 +763,9 @@ contains
 
    end subroutine toraxi_to_spat
 !------------------------------------------------------------------------------
-   subroutine spat_to_SH_axi_loc(f, fLM)
+   subroutine spat_to_SH_axi_loc(this, f, fLM)
 
+      class(type_shtns_loc), intent(inout) :: this
       real(cp), intent(in) :: f(nlat_padded)
       real(cp), intent(out) :: fLM(:)
 
@@ -724,7 +793,7 @@ contains
 !   
 !------------------------------------------------------------------------------
 
-   subroutine scal_to_spat_dist(fLM_loc, fieldc_loc, lcut)
+   subroutine scal_to_spat_dist(this, Slm, fieldc, lcut)
       !   
       !   Transform the spherical harmonic coefficients Qlm into its spatial 
       !   representation Vr
@@ -733,24 +802,24 @@ contains
       !
       
       !-- Input variables
-      complex(cp),  intent(inout) :: fLM_loc(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp),  target, intent(inout) :: Slm(n_lm_loc)
       
       !-- Output variables
-      real(cp),     intent(out)   :: fieldc_loc(n_theta_loc,n_phi_max)
+      real(cp),     target, intent(out)   :: fieldc(n_theta_loc,n_phi_max)
       integer,      intent(in)    :: lcut
 
       !-- Local variables
       complex(cp) :: fL_loc(n_theta_max,n_m_loc)
       
       PERFON("sht_bwd")
-      call scal_to_hyb(fLM_loc, fL_loc, lcut)
-      call theta_transp%m2phi(fL_loc, fieldc_loc)
-      call theta_transp%waitall()
+      call scal_to_hyb(Slm, fL_loc, lcut)
+      call transform_m2phi(fL_loc, fieldc)
       PERFOFF
       
    end subroutine scal_to_spat_dist
 !------------------------------------------------------------------------------
-   subroutine scal_to_grad_spat_dist(Slm, gradtc, gradpc, lcut)
+   subroutine scal_to_grad_spat_dist(this, Slm, gradtc, gradpc, lcut)
       !
       !   Transform a scalar spherical harmonic field into it's gradient
       !   on the grid
@@ -759,12 +828,13 @@ contains
       !
 
       !-- Input variables
-      complex(cp), intent(inout) :: Slm(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp), target, intent(inout) :: Slm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(n_theta_loc,n_phi_max)
-      real(cp), intent(out) :: gradpc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: gradtc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: gradpc(n_theta_loc,n_phi_max)
       
       !-- Local variables
       complex(cp) :: fL(n_theta_max,n_m_loc)
@@ -772,24 +842,24 @@ contains
       
       PERFON("sht_bwd")
       call scal_to_grad_hyb(Slm, fL, gL, lcut)
-      call theta_transp%m2phi(fL, gradtc)
-      call theta_transp%m2phi(gL, gradpc)
-      call theta_transp%waitall()
+      call transform_m2phi(fL, gradtc)
+      call transform_m2phi(gL, gradpc)
       PERFOFF
 
    end subroutine scal_to_grad_spat_dist
 !------------------------------------------------------------------------------
-   subroutine torpol_to_spat_dist(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+   subroutine torpol_to_spat_dist(this, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Wlm(n_lm_loc)
-      complex(cp), intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp), target, intent(in) :: Wlm(n_lm_loc)
+      complex(cp), target, intent(inout) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: vrc(n_theta_loc,n_phi_max)
-      real(cp), intent(out) :: vtc(n_theta_loc,n_phi_max)
-      real(cp), intent(out) :: vpc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: vrc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: vtc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: vpc(n_theta_loc,n_phi_max)
 
       !-- Local variables
       complex(cp) :: fL(n_theta_max,n_m_loc)
@@ -798,27 +868,27 @@ contains
       
       PERFON("sht_bwd")
       call torpol_to_hyb(Wlm, dWlm, Zlm, fL, gL, hL, lcut)
-      call theta_transp%m2phi(fL, vrc)
-      call theta_transp%m2phi(gL, vtc)
-      call theta_transp%m2phi(hL, vpc)
-      call theta_transp%waitall()
+      call transform_m2phi(fL, vrc)
+      call transform_m2phi(gL, vtc)
+      call transform_m2phi(hL, vpc)
       PERFOFF
 
    end subroutine torpol_to_spat_dist
 !------------------------------------------------------------------------------
-   subroutine torpol_to_curl_spat_dist(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, &
+   subroutine torpol_to_curl_spat_dist(this, or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, &
               &                        cvpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc), Jlm(n_lm_loc)
-      complex(cp), intent(inout) :: dJlm(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp), target, intent(in) :: Blm(n_lm_loc), ddBlm(n_lm_loc), Jlm(n_lm_loc)
+      complex(cp), target, intent(inout) :: dJlm(n_lm_loc)
       real(cp),    intent(in) :: or2
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: cvrc(n_theta_loc,n_phi_max)
-      real(cp), intent(out) :: cvtc(n_theta_loc,n_phi_max)
-      real(cp), intent(out) :: cvpc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: cvrc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: cvtc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: cvpc(n_theta_loc,n_phi_max)
 
       !-- Local variables
       complex(cp) :: Qlm(0:l_max), Tlm(0:l_max)
@@ -829,23 +899,23 @@ contains
       
       PERFON("sht_bwd")
       call torpol_to_curl_hyb(or2, Blm, ddBlm, Jlm, dJlm, fL, gL, hL, lcut)
-      call theta_transp%m2phi(fL, cvrc)
-      call theta_transp%m2phi(gL, cvtc)
-      call theta_transp%m2phi(hL, cvpc)
-      call theta_transp%waitall()
+      call transform_m2phi(fL, cvrc)
+      call transform_m2phi(gL, cvtc)
+      call transform_m2phi(hL, cvpc)
       PERFOFF
       
    end subroutine torpol_to_curl_spat_dist
 !------------------------------------------------------------------------------
-   subroutine pol_to_grad_spat_dist(Slm, gradtc, gradpc, lcut)
+   subroutine pol_to_grad_spat_dist(this, Slm, gradtc, gradpc, lcut)
 
        !-- Input variables
-      complex(cp), intent(in) :: Slm(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp), target, intent(in) :: Slm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(n_theta_loc,n_phi_max)
-      real(cp), intent(out) :: gradpc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: gradtc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: gradpc(n_theta_loc,n_phi_max)
 
       !-- Local variables
       complex(cp) :: fL(n_theta_max,n_m_loc)
@@ -853,25 +923,25 @@ contains
       
       PERFON("sht_bwd")
       call pol_to_grad_hyb(Slm, fL, gL, lcut)
-      call theta_transp%m2phi(fL, gradtc)
-      call theta_transp%m2phi(gL, gradpc)
-      call theta_transp%waitall()
+      call transform_m2phi(fL, gradtc)
+      call transform_m2phi(gL, gradpc)
       PERFOFF
 
    end subroutine pol_to_grad_spat_dist
 !------------------------------------------------------------------------------
-   subroutine torpol_to_dphspat_dist(dWlm, Zlm, dvtdp, dvpdp, lcut)
+   subroutine torpol_to_dphspat_dist(this, dWlm, Zlm, dvtdp, dvpdp, lcut)
       !
       ! Computes horizontal phi derivative of a toroidal/poloidal field
       !
 
       !-- Input variables
-      complex(cp), intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp), target, intent(in) :: dWlm(n_lm_loc), Zlm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: dvtdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
-      real(cp), intent(out) :: dvpdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
+      real(cp), target, intent(out) :: dvtdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
+      real(cp), target, intent(out) :: dvpdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
 
       !-- Local variables
       complex(cp) :: fL(n_theta_max,n_m_loc)
@@ -879,29 +949,28 @@ contains
       
       PERFON("sht_bwd")
       call torpol_to_dphhyb(dWlm, Zlm, fL, gL, lcut)      
-      call theta_transp%m2phi(fL, dvtdp)
-      call theta_transp%m2phi(gL, dvpdp)
-      call theta_transp%waitall()
+      call transform_m2phi(fL, dvtdp)
+      call transform_m2phi(gL, dvpdp)
       PERFOFF
       
    end subroutine torpol_to_dphspat_dist
 !------------------------------------------------------------------------------
-   subroutine pol_to_curlr_spat_dist(Qlm, cvrc, lcut)
+   subroutine pol_to_curlr_spat_dist(this, Qlm, cvrc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Qlm(n_lm_loc)
+      class(type_shtns_dist), intent(inout) :: this
+      complex(cp), target, intent(in) :: Qlm(n_lm_loc)
       integer,     intent(in) :: lcut
 
       !-- Output variable
-      real(cp), intent(out) :: cvrc(n_theta_loc,n_phi_max)
+      real(cp), target, intent(out) :: cvrc(n_theta_loc,n_phi_max)
 
       !-- Local variables
       complex(cp) :: fL(n_theta_max,n_m_loc)
       
       PERFON("sht_bwd")
       call pol_to_curlr_hyb(Qlm, fL, lcut)
-      call theta_transp%m2phi(fL, cvrc)
-      call theta_transp%waitall()
+      call transform_m2phi(fL, cvrc)
       PERFOFF
       
    end subroutine pol_to_curlr_spat_dist
@@ -914,39 +983,40 @@ contains
 !------------------------------------------------------------------------------
   
 !----------------------------------------------------------------------------
-   subroutine scal_to_SH_dist(f_loc, fLMP_loc, lcut)
+   subroutine scal_to_SH_dist(this, f, fLMP, lcut)
 
       !-- Input variables
-      real(cp),    intent(inout) :: f_loc(n_theta_loc,n_phi_max)
+      class(type_shtns_dist), intent(inout) :: this
+      real(cp),    target, intent(inout) :: f(n_theta_loc,n_phi_max)
       integer,     intent(in)    :: lcut
 
       !-- Output variable
-      complex(cp), intent(out)   :: fLMP_loc(n_lmP_loc)
+      complex(cp), target, intent(out)   :: fLMP(n_lmP_loc)
       
       !-- Local variables
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
       integer :: m, l_lm, u_lm, i
       
       PERFON("sht_fwd")
-      call theta_transp%phi2m(f_loc, fL_loc)
-      call theta_transp%waitall()
-      call hyb_to_SH(fL_loc, fLMP_loc, lcut)
+      call transform_phi2m(f, fL_loc)
+      call hyb_to_SH(fL_loc, fLMP, lcut)
       PERFOFF
       
    end subroutine scal_to_SH_dist
 !------------------------------------------------------------------------------
-   subroutine spat_to_qst_dist(f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
+   subroutine spat_to_qst_dist(this, f, g, h, qLMP, sLMP, tLMP, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-      real(cp), intent(inout) :: g_loc(n_theta_loc,n_phi_max)
-      real(cp), intent(inout) :: h_loc(n_theta_loc,n_phi_max)
+      class(type_shtns_dist), intent(inout) :: this
+      real(cp), target, intent(inout) :: f(n_theta_loc,n_phi_max)
+      real(cp), target, intent(inout) :: g(n_theta_loc,n_phi_max)
+      real(cp), target, intent(inout) :: h(n_theta_loc,n_phi_max)
       integer,  intent(in)    :: lcut
 
       !-- Output variables
-      complex(cp), intent(out) :: qLMP_loc(n_lmP_loc)
-      complex(cp), intent(out) :: sLMP_loc(n_lmP_loc)
-      complex(cp), intent(out) :: tLMP_loc(n_lmP_loc)
+      complex(cp), target, intent(out) :: qLMP(n_lmP_loc)
+      complex(cp), target, intent(out) :: sLMP(n_lmP_loc)
+      complex(cp), target, intent(out) :: tLMP(n_lmP_loc)
       
       !-- Local variables
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
@@ -956,25 +1026,25 @@ contains
 
       PERFON("sht_fwd")
       !>@TODO Vectorial FFT and transpose (f,g,h at once)
-      call theta_transp%phi2m(f_loc, fL_loc)
-      call theta_transp%phi2m(g_loc, gL_loc)
-      call theta_transp%phi2m(h_loc, hL_loc)
-      call theta_transp%waitall()
-      call hyb_to_qst(fL_loc, gL_loc, hL_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
+      call transform_phi2m(f, fL_loc)
+      call transform_phi2m(g, gL_loc)
+      call transform_phi2m(h, hL_loc)
+      call hyb_to_qst(fL_loc, gL_loc, hL_loc, qLMP, sLMP, tLMP, lcut)
       PERFOFF
 
    end subroutine spat_to_qst_dist
 !------------------------------------------------------------------------------
-   subroutine spat_to_sphertor_dist(f_loc, g_loc, fLMP_loc, gLMP_loc, lcut)
+   subroutine spat_to_sphertor_dist(this, f, g, fLMP, gLMP, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-      real(cp), intent(inout) :: g_loc(n_theta_loc,n_phi_max)
+      class(type_shtns_dist), intent(inout) :: this
+      real(cp), target, intent(inout) :: f(n_theta_loc,n_phi_max)
+      real(cp), target, intent(inout) :: g(n_theta_loc,n_phi_max)
       integer,  intent(in)    :: lcut
 
       !-- Output variables
-      complex(cp), intent(out) :: fLMP_loc(n_lmP_loc)
-      complex(cp), intent(out) :: gLMP_loc(n_lmP_loc)
+      complex(cp), target, intent(out) :: fLMP(n_lmP_loc)
+      complex(cp), target, intent(out) :: gLMP(n_lmP_loc)
       
       !-- Local variables
       complex(cp) ::  fL_loc(n_theta_max,n_m_loc)
@@ -982,16 +1052,16 @@ contains
       integer :: i, l_lm, u_lm, m
       
       PERFON("sht_fwd")
-      call theta_transp%phi2m(f_loc, fL_loc)
-      call theta_transp%phi2m(g_loc, gL_loc)
-      call theta_transp%waitall()
-      call hyb_to_sphertor(fL_loc, gL_loc, fLMP_loc, gLMP_loc, lcut)
+      call transform_phi2m(f, fL_loc)
+      call transform_phi2m(g, gL_loc)
+      call hyb_to_sphertor(fL_loc, gL_loc, fLMP, gLMP, lcut)
       PERFOFF
 
    end subroutine spat_to_sphertor_dist
 !------------------------------------------------------------------------------
-   subroutine spat_to_SH_axi_dist(f, fLM)
-
+   subroutine spat_to_SH_axi_dist(this, f, fLM)
+      
+      class(type_shtns_dist), intent(inout) :: this
       real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
       real(cp), intent(out) :: fLM(:)
 
@@ -1419,13 +1489,11 @@ contains
       
       this%operations = OP_NONE
       
-      this%name = "SHTNs Buffered"
-   
    end subroutine initialize_buff
 
 !------------------------------------------------------------------------------   
    subroutine finalize_buff(this)
-      class(type_shtns_buff) :: this
+      type(type_shtns_buff) :: this
       integer :: i
       
       do i=1, size(this%spat_ptr)
@@ -1442,14 +1510,13 @@ contains
       this%n_sh = 0
       this%n_spat = 0
       
-      this%name = "[destroyed]"
-   
    end subroutine finalize_buff
 
 !------------------------------------------------------------------------------   
 #define __CHECK_BUFFERSIZE(__X, __NEEDED)\
    if (this%operations(1)>0) then;\
-      print *, "Error in #__X; commit transform before changing direction!";\
+      print *, "Error in "//__X//"; commit transform before changing direction!";\
+      test_ptr(5) = 5;\
       stop;\
    end if;\
    if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this);\
@@ -1461,7 +1528,7 @@ contains
       real(cp),    target, intent(out)   :: fieldc(n_theta_loc,n_phi_max)
       integer,             intent(in)    :: lcut
       
-      __CHECK_BUFFERSIZE(scal_to_spat_buff, 1)
+      __CHECK_BUFFERSIZE("scal_to_spat_buff", 1)
       
       this%sh_ptr(this%n_sh+1)%p     => Slm
       this%spat_ptr(this%n_spat+1)%p => fieldc
@@ -1481,7 +1548,7 @@ contains
       real(cp),    target, intent(out)   :: gradpc(n_theta_loc,n_phi_max)
       integer,             intent(in)    :: lcut
       
-      __CHECK_BUFFERSIZE(scal_to_grad_spat_buff, 2)
+      __CHECK_BUFFERSIZE("scal_to_grad_spat_buff", 2)
       
       this%sh_ptr(this%n_sh+1)%p     => Slm
       this%spat_ptr(this%n_spat+1)%p => gradtc
@@ -1504,7 +1571,7 @@ contains
       real(cp), target, intent(out) :: vpc(n_theta_loc,n_phi_max)
       integer,          intent(in)  :: lcut
       
-      __CHECK_BUFFERSIZE(torpol_to_spat_buff, 3)
+      __CHECK_BUFFERSIZE("torpol_to_spat_buff", 3)
       
       this%sh_ptr(this%n_sh+1)%p     => Wlm
       this%sh_ptr(this%n_sh+2)%p     => dWlm
@@ -1533,7 +1600,7 @@ contains
       real(cp),                intent(in) :: or2
       integer,                 intent(in) :: lcut
       
-      __CHECK_BUFFERSIZE(torpol_to_curl_spat_buff, 3)
+      __CHECK_BUFFERSIZE("torpol_to_curl_spat_buff", 3)
       
       this%sh_ptr(this%n_sh+1)%p     => Blm
       this%sh_ptr(this%n_sh+2)%p     => ddBlm
@@ -1559,7 +1626,7 @@ contains
       real(cp),    target, intent(out) :: gradpc(n_theta_loc,n_phi_max)
       integer,             intent(in)  :: lcut
       
-      __CHECK_BUFFERSIZE(pol_to_grad_spat_buff, 2)
+      __CHECK_BUFFERSIZE("pol_to_grad_spat_buff", 2)
       
       this%sh_ptr(this%n_sh+1)%p     => Slm
       this%spat_ptr(this%n_spat+1)%p => gradtc
@@ -1579,7 +1646,7 @@ contains
       real(cp),    target, intent(out) :: dvpdp(nThetaStart:nThetaStop,n_phi_max) ! Careful with dimensions here!
       integer,     intent(in) :: lcut
       
-      __CHECK_BUFFERSIZE(pol_to_grad_spat_buff, 2)
+      __CHECK_BUFFERSIZE("torpol_to_dphspat_buff", 2)
       
       this%sh_ptr(this%n_sh+1)%p     => dWlm
       this%sh_ptr(this%n_sh+2)%p     => Zlm
@@ -1598,9 +1665,9 @@ contains
       class(type_shtns_buff), intent(inout) :: this
       complex(cp), target, intent(in)  :: Qlm(n_lm_loc)
       real(cp),    target, intent(out) :: cvrc(n_theta_loc,n_phi_max)
-      integer,     target, intent(in)  :: lcut
+      integer,             intent(in)  :: lcut
       
-      __CHECK_BUFFERSIZE(pol_to_curlr_spat_buff, 1)
+      __CHECK_BUFFERSIZE("pol_to_curlr_spat_buff", 1)
       
       this%sh_ptr(this%n_sh+1)%p     => Qlm
       this%spat_ptr(this%n_spat+1)%p => cvrc
@@ -1616,22 +1683,23 @@ contains
 !------------------------------------------------------------------------------   
 #define __CHECK_BUFFERSIZE(__X, __NEEDED)\
    if (this%operations(1)<0) then;\
-      print *, "Error in #__X; commit transform before changing direction!";\
+      print *, "Error in "//__X//"; commit transform before changing direction!";\
+      test_ptr(5) = 5;\
       stop;\
    end if;\
    if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this);\
 
    
 !------------------------------------------------------------------------------   
-   subroutine scal_to_SH_buff(this, f_loc, fLMP_loc, lcut)
+   subroutine scal_to_SH_buff(this, f, fLMP, lcut)
       class(type_shtns_buff), intent(inout) :: this
-      real(cp),    target, intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-      complex(cp), target, intent(out)   :: fLMP_loc(n_lmP_loc)
+      real(cp),    target, intent(inout) :: f(n_theta_loc,n_phi_max)
+      complex(cp), target, intent(out)   :: fLMP(n_lmP_loc)
       integer,             intent(in)    :: lcut
       
-      __CHECK_BUFFERSIZE(scal_to_SH_buff, 1)
-      this%spat_ptr(this%n_spat+1)%p => f_loc
-      this%sh_ptr(this%n_sh+1)%p     => fLMP_loc
+      __CHECK_BUFFERSIZE("scal_to_SH_buff", 1)
+      this%spat_ptr(this%n_spat+1)%p => f
+      this%sh_ptr(this%n_sh+1)%p     => fLMP
       this%operations(this%n_sh+1)   =  OP_SPAT2SH
       this%lcut(this%n_sh+1)         =  lcut
       
@@ -1641,23 +1709,23 @@ contains
    end subroutine
 
 !------------------------------------------------------------------------------   
-   subroutine spat_to_qst_buff(this, f_loc, g_loc, h_loc, qLMP_loc, sLMP_loc, tLMP_loc, lcut)
+   subroutine spat_to_qst_buff(this, f, g, h, qLMP, sLMP, tLMP, lcut)
       class(type_shtns_buff), intent(inout) :: this
-      real(cp),    target, intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-      real(cp),    target, intent(inout) :: g_loc(n_theta_loc,n_phi_max)
-      real(cp),    target, intent(inout) :: h_loc(n_theta_loc,n_phi_max)
-      complex(cp), target, intent(out)   :: qLMP_loc(n_lmP_loc)
-      complex(cp), target, intent(out)   :: sLMP_loc(n_lmP_loc)
-      complex(cp), target, intent(out)   :: tLMP_loc(n_lmP_loc)
+      real(cp),    target, intent(inout) :: f(n_theta_loc,n_phi_max)
+      real(cp),    target, intent(inout) :: g(n_theta_loc,n_phi_max)
+      real(cp),    target, intent(inout) :: h(n_theta_loc,n_phi_max)
+      complex(cp), target, intent(out)   :: qLMP(n_lmP_loc)
+      complex(cp), target, intent(out)   :: sLMP(n_lmP_loc)
+      complex(cp), target, intent(out)   :: tLMP(n_lmP_loc)
       integer,  intent(in)    :: lcut
       
-      __CHECK_BUFFERSIZE(scal_to_SH_buff, 3)
-      this%spat_ptr(this%n_spat+1)%p => f_loc
-      this%spat_ptr(this%n_spat+2)%p => g_loc
-      this%spat_ptr(this%n_spat+3)%p => h_loc
-      this%sh_ptr(this%n_sh+1)%p     => qLMP_loc
-      this%sh_ptr(this%n_sh+2)%p     => sLMP_loc
-      this%sh_ptr(this%n_sh+3)%p     => tLMP_loc
+      __CHECK_BUFFERSIZE("scal_to_SH_buff", 3)
+      this%spat_ptr(this%n_spat+1)%p => f
+      this%spat_ptr(this%n_spat+2)%p => g
+      this%spat_ptr(this%n_spat+3)%p => h
+      this%sh_ptr(this%n_sh+1)%p     => qLMP
+      this%sh_ptr(this%n_sh+2)%p     => sLMP
+      this%sh_ptr(this%n_sh+3)%p     => tLMP
       this%operations(this%n_sh+1)   =  OP_SPAT2QST
       this%lcut(this%n_sh+1)         =  lcut
       
@@ -1666,34 +1734,63 @@ contains
    end subroutine
    
 !------------------------------------------------------------------------------   
-   subroutine spat_to_sphertor_buff(this, f_loc, g_loc, fLMP_loc, gLMP_loc, lcut)
+   subroutine spat_to_sphertor_buff(this, f, g, fLMP, gLMP, lcut)
       class(type_shtns_buff), intent(inout) :: this
-      real(cp),    target, intent(inout) :: f_loc(n_theta_loc,n_phi_max)
-      real(cp),    target, intent(inout) :: g_loc(n_theta_loc,n_phi_max)
-      complex(cp), target, intent(out)   :: fLMP_loc(n_lmP_loc)
-      complex(cp), target, intent(out)   :: gLMP_loc(n_lmP_loc)
+      real(cp),    target, intent(inout) :: f(n_theta_loc,n_phi_max)
+      real(cp),    target, intent(inout) :: g(n_theta_loc,n_phi_max)
+      complex(cp), target, intent(out)   :: fLMP(n_lmP_loc)
+      complex(cp), target, intent(out)   :: gLMP(n_lmP_loc)
       integer,  intent(in)    :: lcut
       
-      __CHECK_BUFFERSIZE(scal_to_SH_buff, 2)
-      this%spat_ptr(this%n_spat+1)%p => f_loc
-      this%spat_ptr(this%n_spat+2)%p => g_loc
-      this%sh_ptr(this%n_sh+1)%p     => fLMP_loc
-      this%sh_ptr(this%n_sh+2)%p     => gLMP_loc
+      __CHECK_BUFFERSIZE("scal_to_SH_buff", 2)
+      this%spat_ptr(this%n_spat+1)%p => f
+      this%spat_ptr(this%n_spat+2)%p => g
+      this%sh_ptr(this%n_sh+1)%p     => fLMP
+      this%sh_ptr(this%n_sh+2)%p     => gLMP
       this%operations(this%n_sh+1)   =  OP_SPAT2QST
       this%lcut(this%n_sh+1)         =  lcut
       
       this%n_spat  = this%n_spat + 2
       this%n_sh = this%n_sh + 2
    end subroutine
-!    
+   
+!------------------------------------------------------------------------------
+   subroutine spat_to_SH_axi_buff(this, f, fLM)
+      
+      class(type_shtns_buff), intent(inout) :: this
+      real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
+      real(cp), intent(out) :: fLM(:)
 
-! !------------------------------------------------------------------------------   
-!    subroutine spat_to_SH_axi_buff(f, fLM)
-!       import
-!       real(cp), intent(in)  :: f(nThetaStart:nThetaStop)
-!       real(cp), intent(out) :: fLM(:)
-!    end subroutine 
+      !-- Local arrays
+      complex(cp) :: tmp_c(n_theta_max)
+      real(cp)    :: tmp_r(n_theta_max)
+      complex(cp) :: tmpLM(size(fLM))
+      integer     :: ierr
 
+      PERFON("sht_fwd")
+      tmp_r(nThetaStart:nThetaStop)=f(nThetaStart:nThetaStop)
+
+#ifdef WITH_MPI
+      !@TODO I think that this needs to be done only for coord_theta=0; if so, this is a gatherv 
+      !      instead of an allgatherv
+      !@TODO it may be determined beforehand if the number of theta points is the same in every 
+      !      rank. If yes, then this would be a gather instead of a gatherall
+      if ( n_ranks_theta>1 ) then
+         call MPI_ALLGATHERV(MPI_IN_PLACE, 0, 0, tmp_r, dist_theta(:,0), &
+              &              dist_theta(:,1)-1, MPI_DEF_REAL, comm_theta, ierr)
+      end if
+#endif
+      tmp_c = cmplx(tmp_r, 0.0, kind=cp)
+      if ( size(fLM) == l_max+2 ) then
+         call spat_to_SH_ml(sht_lP, 0, tmp_c, tmpLM, size(fLM)-1)
+      else if ( size(fLM) == l_max+1 ) then
+         call spat_to_SH_ml(sht_l, 0, tmp_c, tmpLM, size(fLM)-1)
+      end if
+       
+      fLM(:)=real(tmpLM(:))
+      PERFOFF
+
+   end subroutine spat_to_SH_axi_buff
 #undef __CHECK_BUFFERSIZE
 
 !------------------------------------------------------------------------------   
@@ -1773,7 +1870,7 @@ contains
       
       !-- Transpose from m_loc to th_loc
       !   TODO this inplace!
-      call transpose_theta_m_many(hyb_buffer, fft_buffer, this%n_spat)
+      call transpose_m2th(hyb_buffer, fft_buffer, this%n_spat)
       
       !-- FFT from hyb to phi
       do ir=1,this%n_spat
@@ -1814,7 +1911,6 @@ contains
       PERFON("sht_fwd")
       
       fftlen = max(n_m_max, n_phi_max/2+1)
-!       fftlen = n_phi_max/2+1
       if (this%n_sh==0) return
       
       !-- Only allocates what is needed
@@ -1828,7 +1924,7 @@ contains
       end do
       
       !-- Transpose from th_loc to m_loc
-      call transpose_m_theta_many(fft_buffer, hyb_buffer, this%n_sh)
+      call transpose_th2m(fft_buffer, hyb_buffer, this%n_sh)
       
       !-- Legendre transform
       i = 1
@@ -1877,5 +1973,16 @@ contains
       PERFOFF
       
    end subroutine commit_forward_buff
+   
+   !------------------------------------------------------------------------------   
+   subroutine commit_dummy(this)
+      !   
+      !   Does nothing
+      !
+      !   Author: Rafael Lago (MPCDF) December 2020
+      !
+      class(type_shtns_if) :: this
+      return
+   end subroutine commit_dummy
 
 end module sht

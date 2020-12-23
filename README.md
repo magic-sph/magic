@@ -231,8 +231,6 @@ Several new options are available in this branch, via the "parallel" namelist. A
    * a2aw: uses mpi_types and alltoallw collective
    * a2av: copies data into a buffer and then calls the alltoallv collective
    * a2ap: pads the data with zeros until they all have the same size; then uses alltoall collective
-* mpi_transp_theta: algorithm for performing the transposition from (φ,θ,r) to (l,m,r) and vice versa during the SHT. Ignored if n_ranks_theta=1. Currently implemented (all case insensitive):
-   * a2av: reorders data in a buffer and uses alltoallv collective for each field
-   * a2ab: similar to a2av, but is able to buffer data and send multiple fields with a single call to alltoallv
+* sht_buffer_size: how many operations to queue during SHT. The more operations queued, the larger are the memory sizes during the transposition. Larger queues require more memory.
  
 

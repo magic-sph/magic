@@ -1,12 +1,12 @@
-module rIter_buff
+module rIter_std
 
    use precision_mod
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter,  &
-       &                td_counter
+       &                td_counter, sht_buffer_size
    use parallel_mod, only: get_openmp_blocks, coord_r, n_ranks_r
    use truncation, only: n_lm_loc, nRstart, nRstop, n_lmMag_loc, nRstartMag, &
        &                 nRstopMag, n_theta_max, n_lmP_loc, n_r_cmb, n_r_icb,&
-       &                 n_phi_max, n_m_loc
+       &                 n_phi_max
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_HT, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -31,7 +31,7 @@ module rIter_buff
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
    use nl_special_calc
-   use sht
+   use sht, only: SHtransf
    !use horizontal_data
    use fields, only: s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
        &             b_Rdist, db_Rdist, ddb_Rdist, aj_Rdist,dj_Rdist, &
@@ -40,14 +40,13 @@ module rIter_buff
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv, n_r_LCR
    use probe_mod
-   use communications, only: theta_transp
    use rIteration, only: rIter_t
    
    implicit none
 
    private
 
-   type, public, extends(rIter_t) :: rIter_buff_t
+   type, public, extends(rIter_t) :: rIter_std_t
       type(grid_space_arrays_t) :: gsa
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
@@ -58,30 +57,30 @@ module rIter_buff
       procedure :: radialLoop
       procedure, private :: transform_to_grid_space
       procedure, private :: transform_to_lm_space
-   end type rIter_buff_t
+   end type rIter_std_t
 
 contains
 
    subroutine initialize(this)
 
-      class(rIter_buff_t) :: this
+      class(rIter_std_t) :: this
 
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize(n_lmP_loc)
       call this%nl_lm%initialize(n_lmP_loc)
-
+      
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
 
-      class(rIter_buff_t) :: this
+      class(rIter_std_t) :: this
 
       call this%gsa%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
-
+      
    end subroutine finalize
 !-----------------------------------------------------------------------------------
    subroutine radialLoop(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
@@ -98,7 +97,7 @@ contains
               &          EperpaxiAS,EparaxiAS,dtrkc,dthkc)
 
 
-      class(rIter_buff_t) :: this
+      class(rIter_std_t) :: this
 
       !--- Input of variables:
       logical,             intent(in) :: l_graph,l_frame
@@ -161,7 +160,7 @@ contains
       !-- Local variables:
       integer :: nR, nBc
       logical :: lMagNlBc, l_bound, lDeriv
-      
+
       if ( l_graph ) then
 #ifdef WITH_MPI
          call graphOut_mpi_header(time)
@@ -450,178 +449,111 @@ contains
               &                       l_frame, lDeriv)
 
 
-      class(rIter_buff_t) :: this
+      class(rIter_std_t) :: this
 
       !--Input variables
       integer, intent(in) :: nR, nBc
       logical, intent(in) :: lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, lPowerCalc
       logical, intent(in) :: lFluxProfCalc, lPerpParCalc, lHelCalc, l_frame
       logical, intent(in) :: lDeriv
-      
-      !--Local hybrid variables
-      ! TODO: cleanup these variables, e.g. by using the hsa instead
-      complex(cp), dimension(n_theta_max,n_m_loc) :: sc_hyb, dsdtc_hyb, dsdpc_hyb, &
-        dpdtc_hyb, dpdpc_hyb, pc_hyb, xic_hyb, drsc_hyb, vrc_hyb, vtc_hyb, vpc_hyb,&
-        cvrc_hyb, cvtc_hyb, cvpc_hyb, dvrdrc_hyb, dvtdrc_hyb, dvpdrc_hyb, &
-        dvrdtc_hyb, dvrdpc_hyb, dvtdpc_hyb, dvpdpc_hyb, brc_hyb, btc_hyb, bpc_hyb, &
-        cbrc_hyb, cbtc_hyb, cbpc_hyb
-      
+
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call scal_to_hyb(s_Rdist(:,nR), sc_hyb, l_R(nR))
-            call theta_transp%m2phi(sc_hyb, this%gsa%sc)
+            call SHtransf%scal_to_spat(s_Rdist(:,nR), this%gsa%sc, l_R(nR))
             if ( lViscBcCalc ) then
-               call scal_to_grad_hyb(s_Rdist(:,nR), dsdtc_hyb, dsdpc_hyb, l_R(nR))
-               call theta_transp%m2phi(dsdtc_hyb, this%gsa%dsdtc)
-               call theta_transp%m2phi(dsdpc_hyb, this%gsa%dsdpc)
+               call SHtransf%scal_to_grad_spat(s_Rdist(:,nR), this%gsa%dsdtc, this%gsa%dsdpc, &
+                    &                      l_R(nR))
+                    
             end if
          end if
 
-         if ( lRmsCalc ) then
-            call scal_to_grad_hyb(p_Rdist(:,nR), dpdtc_hyb, &
-                                   &             dpdpc_hyb, l_R(nR))
-            call theta_transp%m2phi(dpdtc_hyb, this%gsa%dpdtc)
-            call theta_transp%m2phi(dpdpc_hyb, this%gsa%dpdpc)
-         end if
+         if ( lRmsCalc ) call SHtransf%scal_to_grad_spat(p_Rdist(:,nR), this%gsa%dpdtc, &
+                                   &                 this%gsa%dpdpc, l_R(nR))
 
          !-- Pressure
-         if ( lPressCalc ) then
-            call scal_to_hyb(p_Rdist(:,nR), pc_hyb, l_R(nR))
-            call theta_transp%m2phi(pc_hyb, this%gsa%pc)
-         end if
+         if ( lPressCalc ) call SHtransf%scal_to_spat(p_Rdist(:,nR), this%gsa%pc, l_R(nR))
 
          !-- Composition
-         if ( l_chemical_conv ) then
-            call scal_to_hyb(xi_Rdist(:,nR), xic_hyb, l_R(nR))
-            call theta_transp%m2phi(xic_hyb, this%gsa%xic)
-         end if
+         if ( l_chemical_conv ) call SHtransf%scal_to_spat(xi_Rdist(:,nR), this%gsa%xic,l_R(nR))
 
          if ( l_HT .or. lViscBcCalc ) then
-            call scal_to_hyb(ds_Rdist(:,nR), drsc_hyb, l_R(nR))
-            call theta_transp%m2phi(drsc_hyb, this%gsa%drsc)
+            call SHtransf%scal_to_spat(ds_Rdist(:,nR), this%gsa%drsc, l_R(nR))
          endif
          
          if ( nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
-            call torpol_to_hyb(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
-                 &              vrc_hyb, vtc_hyb, vpc_hyb, l_R(nR))
-            call theta_transp%m2phi(vrc_hyb, this%gsa%vrc)
-            call theta_transp%m2phi(vtc_hyb, this%gsa%vtc)
-            call theta_transp%m2phi(vpc_hyb, this%gsa%vpc)
+            call SHtransf%torpol_to_spat(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                 &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
 
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
-               call torpol_to_curl_hyb(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR),    & 
+               call SHtransf%torpol_to_curl_spat(or2(nR), w_Rdist(:,nR), ddw_Rdist(:,nR),    & 
                     &                   z_Rdist(:,nR), dz_Rdist(:,nR),              &
-                    &                   cvrc_hyb, cvtc_hyb, cvpc_hyb,&
+                    &                   this%gsa%cvrc, this%gsa%cvtc, this%gsa%cvpc,&
                     &                   l_R(nR))
-               call theta_transp%m2phi(cvrc_hyb, this%gsa%cvrc)
-               call theta_transp%m2phi(cvtc_hyb, this%gsa%cvtc)
-               call theta_transp%m2phi(cvpc_hyb, this%gsa%cvpc)
 
                !-- For some outputs one still need the other terms
                if ( lViscBcCalc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
                &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc  .or.           &
                &    ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
 
-                  call torpol_to_hyb(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
-                       &              dz_Rdist(:,nR), dvrdrc_hyb,        &
-                       &              dvtdrc_hyb, dvpdrc_hyb, l_R(nR))
-                  call theta_transp%m2phi(dvrdrc_hyb, this%gsa%dvrdrc)
-                  call theta_transp%m2phi(dvtdrc_hyb, this%gsa%dvtdrc)
-                  call theta_transp%m2phi(dvpdrc_hyb, this%gsa%dvpdrc)
-                  
-                  call pol_to_grad_hyb(w_Rdist(:,nR),dvrdtc_hyb,  &
-                       &              dvrdpc_hyb, l_R(nR))
-                  call theta_transp%m2phi(dvrdtc_hyb, this%gsa%dvrdtc)
-                  call theta_transp%m2phi(dvrdpc_hyb, this%gsa%dvrdpc)
-                  
-                  call torpol_to_dphhyb(dw_Rdist(:,nR),  z_Rdist(:,nR), &
-                       &                 dvtdpc_hyb, dvpdpc_hyb, l_R(nR))
-                  call theta_transp%m2phi(dvtdpc_hyb, this%gsa%dvtdpc)
-                  call theta_transp%m2phi(dvpdpc_hyb, this%gsa%dvpdpc)
-                  
-                  
+                  call SHtransf%torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
+                       &              dz_Rdist(:,nR), this%gsa%dvrdrc,        &
+                       &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
+                  call SHtransf%pol_to_grad_spat(w_Rdist(:,nR),this%gsa%dvrdtc,  &
+                       &              this%gsa%dvrdpc, l_R(nR))
+                  call SHtransf%torpol_to_dphspat(dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                       &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
                end if
 
             else ! Advection is treated as u\grad u
 
-               call torpol_to_hyb(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
-                       &              dz_Rdist(:,nR), dvrdrc_hyb,        &
-                       &              dvtdrc_hyb, dvpdrc_hyb, l_R(nR))
-               call theta_transp%m2phi(dvrdrc_hyb, this%gsa%dvrdrc)
-               call theta_transp%m2phi(dvtdrc_hyb, this%gsa%dvtdrc)
-               call theta_transp%m2phi(dvpdrc_hyb, this%gsa%dvpdrc)
-                  
-               call pol_to_curlr_hyb(z_Rdist(:,nR), cvrc_hyb, l_R(nR))
-               call theta_transp%m2phi(cvrc_hyb, this%gsa%cvrc)
-               
-               call pol_to_grad_hyb(w_Rdist(:,nR), dvrdtc_hyb, &
-                    &                dvrdpc_hyb, l_R(nR))
-               call theta_transp%m2phi(dvrdtc_hyb, this%gsa%dvrdtc)
-               call theta_transp%m2phi(dvrdpc_hyb, this%gsa%dvrdpc)
-               
-               call torpol_to_dphhyb(dw_Rdist(:,nR),  z_Rdist(:,nR), &
-                     &                 dvtdpc_hyb, dvpdpc_hyb, l_R(nR))
-               call theta_transp%m2phi(dvtdpc_hyb, this%gsa%dvtdpc)
-               call theta_transp%m2phi(dvpdpc_hyb, this%gsa%dvpdpc)
+               call SHtransf%torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
+                    &              dz_Rdist(:,nR), this%gsa%dvrdrc,        &
+                    &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
+               call SHtransf%pol_to_curlr_spat(z_Rdist(:,nR), this%gsa%cvrc, l_R(nR))
+               call SHtransf%pol_to_grad_spat(w_Rdist(:,nR), this%gsa%dvrdtc, &
+                    &                this%gsa%dvrdpc, l_R(nR))
+               call SHtransf%torpol_to_dphspat(dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                    &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
             end if
 
          else if ( nBc == 1 ) then ! Stress free
-            call torpol_to_hyb(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
-                 &              vrc_hyb, vtc_hyb, vpc_hyb, l_R(nR))
-            call theta_transp%m2phi(vrc_hyb, this%gsa%vrc)
-            call theta_transp%m2phi(vtc_hyb, this%gsa%vtc)
-            call theta_transp%m2phi(vpc_hyb, this%gsa%vpc)
-            
+             ! TODO don't compute vrc as it is set to 0 afterward
+            call SHtransf%torpol_to_spat(w_Rdist(:,nR), dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                 &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+                 
             if ( lDeriv ) then
-               call torpol_to_hyb(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
-                       &              dz_Rdist(:,nR), dvrdrc_hyb,        &
-                       &              dvtdrc_hyb, dvpdrc_hyb, l_R(nR))
-               call theta_transp%m2phi(dvrdrc_hyb, this%gsa%dvrdrc)
-               call theta_transp%m2phi(dvtdrc_hyb, this%gsa%dvtdrc)
-               call theta_transp%m2phi(dvpdrc_hyb, this%gsa%dvpdrc)
-               
-               call pol_to_curlr_hyb(z_Rdist(:,nR), cvrc_hyb, l_R(nR))
-               call theta_transp%m2phi(cvrc_hyb, this%gsa%cvrc)
-               
-               call torpol_to_dphhyb(dw_Rdist(:,nR),  z_Rdist(:,nR), &
-                     &                 dvtdpc_hyb, dvpdpc_hyb, l_R(nR))
-               call theta_transp%m2phi(dvtdpc_hyb, this%gsa%dvtdpc)
-               call theta_transp%m2phi(dvpdpc_hyb, this%gsa%dvpdpc)
+               call SHtransf%torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR),  &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc, this%gsa%dvpdrc,&
+                    &              l_R(nR))
+               call SHtransf%pol_to_curlr_spat(z_Rdist(:,nR), this%gsa%cvrc, l_R(nR))
+               call SHtransf%torpol_to_dphspat(dw_Rdist(:,nR),  z_Rdist(:,nR), &
+                    &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
             end if
          else if ( nBc == 2 ) then
-            if ( lDeriv ) then
-               call torpol_to_hyb(dw_Rdist(:,nR), ddw_Rdist(:,nR),       &
-                       &              dz_Rdist(:,nR), dvrdrc_hyb,        &
-                       &              dvtdrc_hyb, dvpdrc_hyb, l_R(nR))
-               call theta_transp%m2phi(dvrdrc_hyb, this%gsa%dvrdrc)
-               call theta_transp%m2phi(dvtdrc_hyb, this%gsa%dvtdrc)
-               call theta_transp%m2phi(dvpdrc_hyb, this%gsa%dvpdrc)
+             if ( lDeriv ) then
+               call SHtransf%torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR), dz_Rdist(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,                &
+                    &              this%gsa%dvpdrc, l_R(nR))
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_hyb(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR), &
-              &              brc_hyb, btc_hyb, bpc_hyb, l_R(nR))
-         call theta_transp%m2phi(brc_hyb, this%gsa%brc)
-         call theta_transp%m2phi(btc_hyb, this%gsa%btc)
-         call theta_transp%m2phi(bpc_hyb, this%gsa%bpc)
-         
+         call SHtransf%torpol_to_spat(b_Rdist(:,nR), db_Rdist(:,nR),  aj_Rdist(:,nR), &
+              &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(nR))
          if ( lDeriv ) then
-            call torpol_to_curl_hyb(or2(nR), b_Rdist(:,nR), ddb_Rdist(:,nR), &
-                 &                   aj_Rdist(:,nR), dj_Rdist(:,nR),         &
-                 &                   cbrc_hyb, cbtc_hyb, cbpc_hyb, l_R(nR))
-            call theta_transp%m2phi(cbrc_hyb, this%gsa%cbrc)
-            call theta_transp%m2phi(cbtc_hyb, this%gsa%cbtc)
-            call theta_transp%m2phi(cbpc_hyb, this%gsa%cbpc)
+            call SHtransf%torpol_to_curl_spat(or2(nR), b_Rdist(:,nR), ddb_Rdist(:,nR), &
+                 &                   aj_Rdist(:,nR), dj_Rdist(:,nR),          &
+                 &                   this%gsa%cbrc, this%gsa%cbtc,            &
+                 &                   this%gsa%cbpc, l_R(nR))
          end if
       end if
       
       !--------------------------------------------------------------------------------
-      call theta_transp%waitall()
+      call SHtransf%commit_backward()
       !--------------------------------------------------------------------------------
       
       if ( l_conv .or. l_mag_kin ) then
@@ -663,7 +595,7 @@ contains
 !-------------------------------------------------------------------------------
    subroutine transform_to_lm_space(this, nR, lRmsCalc)
 
-      class(rIter_buff_t) :: this
+      class(rIter_std_t) :: this
 
       !-- Input variables
       integer, intent(in) :: nR
@@ -671,14 +603,6 @@ contains
 
       !-- Local variables
       integer :: nPhi, nPhStart, nPhStop
-      
-      ! TODO: cleanup these variables, e.g. by using the hsa instead
-      complex(cp), dimension(n_theta_max,n_m_loc) :: AdvrLM_hyb, AdvtLM_hyb, &
-        AdvpLM_hyb, LFrLM_hyb, LFtLM_hyb, LFpLM_hyb, VSrLM_hyb, VStLM_hyb, &
-        VSpLM_hyb, ViscHeatLM_hyb, OhmLossLM_hyb, VXirLM_hyb, VXitLM_hyb, &
-        VXipLM_hyb, VxBrLM_hyb, VxBtLM_hyb, VxBpLM_hyb, PFT2LM_HYB, PFP2LM_HYB, &
-        CFT2LM_HYB, CFP2LM_HYB, DTVRLM_HYB, DTVTLM_HYB, DTVPLM_HYB, ADVT2LM_HYB, &
-        ADVP2LM_HYB, DPKINDRLM_HYB, LFT2LM_HYB, LFP2LM_HYB
 
       if ( ( l_conv_nl .or. l_mag_LF ) ) then
 
@@ -727,146 +651,76 @@ contains
          end if
          !$omp end parallel
          
-         call theta_transp%phi2m(this%gsa%Advr, AdvrLM_hyb)
-         call theta_transp%phi2m(this%gsa%Advt, AdvtLM_hyb)
-         call theta_transp%phi2m(this%gsa%Advp, AdvpLM_hyb)
-         
-         if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
-            ! LF treated extra:
-            call theta_transp%phi2m(this%gsa%LFr, LFrLM_hyb)
-            call theta_transp%phi2m(this%gsa%LFt, LFtLM_hyb)
-            call theta_transp%phi2m(this%gsa%LFp, LFpLM_hyb)
-         end if
-      end if
-      if ( l_heat ) then
-         call theta_transp%phi2m(this%gsa%VSr, VSrLM_hyb)
-         call theta_transp%phi2m(this%gsa%VSt, VStLM_hyb)
-         call theta_transp%phi2m(this%gsa%VSp, VSpLM_hyb)
-         
-         if ( l_anel ) then ! anelastic stuff
-            if ( l_mag_nl .and. nR>n_r_LCR ) then
-               call theta_transp%phi2m(this%gsa%ViscHeat, ViscHeatLM_hyb)
-               call theta_transp%phi2m(this%gsa%OhmLoss, OhmLossLM_hyb)
-            else
-               call theta_transp%phi2m(this%gsa%ViscHeat, ViscHeatLM_hyb)
-            end if
-         end if
-         !
-      end if
-      
-      if ( l_chemical_conv ) then
-         call theta_transp%phi2m(this%gsa%VXir, VXirLM_hyb)
-         call theta_transp%phi2m(this%gsa%VXit, VXitLM_hyb)
-         call theta_transp%phi2m(this%gsa%VXip, VXipLM_hyb)
-      end if
-      if ( l_mag_nl ) then
-         !
-         if ( nR>n_r_LCR ) then
-            call theta_transp%phi2m(this%gsa%VxBr, VxBrLM_hyb)
-            call theta_transp%phi2m(this%gsa%VxBt, VxBtLM_hyb)
-            call theta_transp%phi2m(this%gsa%VxBp, VxBpLM_hyb)
-         else
-            call theta_transp%phi2m(this%gsa%VxBt, VxBtLM_hyb)
-            call theta_transp%phi2m(this%gsa%VxBp, VxBpLM_hyb)
-         end if
-         !
-      end if
-
-      if ( lRmsCalc ) then
-         call theta_transp%phi2m(this%gsa%dpdtc, PFt2LM_hyb)
-         call theta_transp%phi2m(this%gsa%dpdpc, PFp2LM_hyb)
-         
-         call theta_transp%phi2m(this%gsa%CFt2, CFt2LM_hyb)
-         call theta_transp%phi2m(this%gsa%CFp2, CFp2LM_hyb)
-         
-         call theta_transp%phi2m(this%gsa%dtVr, dtVrLM_hyb)
-         call theta_transp%phi2m(this%gsa%dtVt, dtVtLM_hyb)
-         call theta_transp%phi2m(this%gsa%dtVp, dtVpLM_hyb)
-         if ( l_conv_nl ) then
-            call theta_transp%phi2m(this%gsa%Advt2, Advt2LM_hyb)
-            call theta_transp%phi2m(this%gsa%Advp2, Advp2LM_hyb)
-         end if
-         if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call theta_transp%phi2m(this%gsa%dpkindrc, dpkindrLM_hyb)
-         end if
-         if ( l_mag_nl .and. nR>n_r_LCR ) then
-            call theta_transp%phi2m(this%gsa%LFt2, LFt2LM_hyb)
-            call theta_transp%phi2m(this%gsa%LFp2, LFp2LM_hyb)
-         end if
-      end if
-      
-      !--------------------------------------------------------------------------------
-      call theta_transp%waitall()
-      !--------------------------------------------------------------------------------
-      
-      if ( ( l_conv_nl .or. l_mag_LF ) ) then
-
-         call hyb_to_SH(AdvrLM_hyb, this%nl_lm%AdvrLM, l_R(nR))
-         call hyb_to_SH(AdvtLM_hyb, this%nl_lm%AdvtLM, l_R(nR))
-         call hyb_to_SH(AdvpLM_hyb, this%nl_lm%AdvpLM, l_R(nR))
+         call SHtransf%scal_to_SH(this%gsa%Advr, this%nl_lm%AdvrLM, l_R(nR))
+         call SHtransf%scal_to_SH(this%gsa%Advt, this%nl_lm%AdvtLM, l_R(nR))
+         call SHtransf%scal_to_SH(this%gsa%Advp, this%nl_lm%AdvpLM, l_R(nR))
 
          if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
             ! LF treated extra:
-            call hyb_to_SH(LFrLM_hyb, this%nl_lm%LFrLM, l_R(nR))
-            call hyb_to_SH(LFtLM_hyb, this%nl_lm%LFtLM, l_R(nR))
-            call hyb_to_SH(LFpLM_hyb, this%nl_lm%LFpLM, l_R(nR))
+            call SHtransf%scal_to_SH(this%gsa%LFr, this%nl_lm%LFrLM, l_R(nR))
+            call SHtransf%scal_to_SH(this%gsa%LFt, this%nl_lm%LFtLM, l_R(nR))
+            call SHtransf%scal_to_SH(this%gsa%LFp, this%nl_lm%LFpLM, l_R(nR))
          end if
       end if
       if ( l_heat ) then
-         call hyb_to_qst(VSrLM_hyb, VStLM_hyb, VSpLM_hyb, this%nl_lm%VSrLM,&
+         call SHtransf%spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, this%nl_lm%VSrLM,&
               &           this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(nR))
          
          if ( l_anel ) then ! anelastic stuff
             if ( l_mag_nl .and. nR>n_r_LCR ) then
-               call hyb_to_SH(ViscHeatLM_hyb, this%nl_lm%ViscHeatLM, l_R(nR))
-               call hyb_to_SH(OhmLossLM_hyb,  this%nl_lm%OhmLossLM, l_R(nR))
+               call SHtransf%scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
+               call SHtransf%scal_to_SH(this%gsa%OhmLoss,  this%nl_lm%OhmLossLM, l_R(nR))
             else
-               call hyb_to_SH(ViscHeatLM_hyb, this%nl_lm%ViscHeatLM, l_R(nR))
+               call SHtransf%scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
             end if
          end if
          !
       end if
       
       if ( l_chemical_conv ) then
-         call hyb_to_qst(VXirLM_hyb, VXitLM_hyb, VXipLM_hyb, &
+         call SHtransf%spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
               &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
               &           this%nl_lm%VXipLM, l_R(nR))
       end if
       if ( l_mag_nl ) then
          !
          if ( nR>n_r_LCR ) then
-            call hyb_to_qst(VxBrLM_hyb, VxBtLM_hyb, VxBpLM_hyb, &
+            call SHtransf%spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &
                  &           this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,        &
                  &           this%nl_lm%VxBpLM, l_R(nR))
          else
-            call hyb_to_sphertor(VxBtLM_hyb, VxBpLM_hyb, this%nl_lm%VxBtLM, &
+            call SHtransf%spat_to_sphertor(this%gsa%VxBt, this%gsa%VxBp, this%nl_lm%VxBtLM, &
                  &                this%nl_lm%VxBpLM, l_R(nR))
          end if
          !
       end if
 
       if ( lRmsCalc ) then
-         call hyb_to_sphertor(PFt2LM_hyb, PFp2LM_hyb, this%nl_lm%PFt2LM, &
+         call SHtransf%spat_to_sphertor(this%gsa%dpdtc, this%gsa%dpdpc, this%nl_lm%PFt2LM, &
               &                this%nl_lm%PFp2LM, l_R(nR))
-         call hyb_to_sphertor(CFt2LM_hyb, CFp2LM_hyb, this%nl_lm%CFt2LM, &
+         call SHtransf%spat_to_sphertor(this%gsa%CFt2, this%gsa%CFp2, this%nl_lm%CFt2LM, &
               &                this%nl_lm%CFp2LM, l_R(nR))
-         call hyb_to_qst(dtVrLM_hyb, dtVtLM_hyb, dtVpLM_hyb, &
+         call SHtransf%spat_to_qst(this%gsa%dtVr, this%gsa%dtVt, this%gsa%dtVp, &
               &           this%nl_lm%dtVrLM, this%nl_lm%dtVtLM,        &
               &           this%nl_lm%dtVpLM, l_R(nR))
          if ( l_conv_nl ) then
-            call hyb_to_sphertor(Advt2LM_hyb, Advp2LM_hyb, this%nl_lm%Advt2LM,&
+            call SHtransf%spat_to_sphertor(this%gsa%Advt2, this%gsa%Advp2, this%nl_lm%Advt2LM,&
                  &                this%nl_lm%Advp2LM, l_R(nR))
          end if
          if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call hyb_to_SH(dpkindrLM_hyb, this%nl_lm%dpkindrLM, l_R(nR))
+            call SHtransf%scal_to_SH(this%gsa%dpkindrc, this%nl_lm%dpkindrLM, l_R(nR))
          end if
          if ( l_mag_nl .and. nR>n_r_LCR ) then
-            call hyb_to_sphertor(LFt2LM_hyb, LFp2LM_hyb, this%nl_lm%LFt2LM, &
+            call SHtransf%spat_to_sphertor(this%gsa%LFt2, this%gsa%LFp2, this%nl_lm%LFt2LM, &
                  &                this%nl_lm%LFp2LM, l_R(nR))
          end if
       end if
       
+      !--------------------------------------------------------------------------------
+      call SHtransf%commit_forward()
+      !--------------------------------------------------------------------------------
+      
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------
-end module rIter_buff
+end module rIter_std

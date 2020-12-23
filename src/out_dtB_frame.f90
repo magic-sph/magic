@@ -16,7 +16,7 @@ module out_dtB_frame
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_dr
-   use sht, only: torpol_to_spat_loc, sphtor_to_spat, scal_to_spat_loc, toraxi_to_spat
+   use sht, only: SHloc, sphtor_to_spat, toraxi_to_spat
 
    implicit none
 
@@ -609,7 +609,7 @@ contains
          zeros(lm)=zero
       end do
 
-      call torpol_to_spat_loc(cs1, cs2, zeros, Br, Bt, Bp, l_max)
+      call SHloc%torpol_to_spat(cs1, cs2, zeros, Br, Bt, Bp, l_max)
             
    end subroutine get_Bpol
 !-------------------------------------------------------------------------------------
@@ -705,7 +705,7 @@ contains
          if ( lIC )    cs1(lm)=rRatio**real(l+1,cp)*cs1(lm)
       end do
 
-      call scal_to_spat_loc(cs1, aij, l_max)
+      call SHloc%scal_to_spat(cs1, aij, l_max)
 
    end subroutine lm2pt
 !---------------------------------------------------------------------------------

@@ -17,15 +17,14 @@ module communications
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
    use charmanip, only: capitalize
-   use num_param, only: mpi_transp, mpi_packing, theta_transp_buffer_size
+   use num_param, only: mpi_transp, mpi_packing
    use mpi_transp, only: type_mpitransp
    use truncation
    use LMmapping
    use mod_mpiatoap
    use mod_mpiatoav_new
    use mod_mpisendrecv
-   use mpi_thetap_mod  !@>DEPRECATED
-   use mpi_transpose_theta !@>TODO replaces mpi_thetap_mod
+   use mpi_thetap_mod
 
    implicit none
 
@@ -83,11 +82,6 @@ module communications
    class(type_mpitransp), public, pointer :: r2lo_initv
    class(type_mpitransp), public, pointer :: lo2r_initv
    class(type_mpitransp), public, pointer :: lo2r_store
-   
-   !
-   ! -- theta <-> m transposers
-   !
-   class(type_mpitransp_theta), public, pointer :: theta_transp
    
    !@>DEPRECATED these functions are just to aid the merging... they should be 
    !  deleted afterwards
@@ -387,21 +381,6 @@ contains
          allocate(temp_gather_lo(1))
       end if
       
-      !
-      ! -- Create the theta <-> m transposer (only if necessary)
-      !
-      if (n_ranks_theta>1) then
-         if (rank == 0) print *, " *  Using theta_transp_buffer_size=", theta_transp_buffer_size
-!          call capitalize(mpi_transp_theta)
-         
-         if (theta_transp_buffer_size==1)  then
-            allocate( type_mpitransp_theta_a2av :: theta_transp)
-         else 
-            allocate( type_mpitransp_theta_a2ab :: theta_transp)
-         end if
-      end if
-      call theta_transp%create(theta_transp_buffer_size)
-      
       local_bytes_used = bytes_allocated - local_bytes_used
       call memWrite('communications.f90', local_bytes_used)
 
@@ -446,15 +425,6 @@ contains
       end if
       
       deallocate( temp_gather_lo )
-      
-      !
-      ! -- deallocate the theta <-> m transposer (only if necessary)
-      !
-      if (n_ranks_theta>1) then
-         call theta_transp%destroy()
-         nullify(theta_transp)
-      end if
-      
 
    end subroutine finalize_communications
 !-------------------------------------------------------------------------------

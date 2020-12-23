@@ -15,7 +15,7 @@ module hybrid_space_mod
    use sht, only: scal_to_hyb, scal_to_grad_hyb, torpol_to_hyb,          &
        &            torpol_to_curl_hyb, pol_to_grad_hyb, torpol_to_dphhyb, &
        &            pol_to_curlr_hyb, hyb_to_SH, hyb_to_qst, hyb_to_sphertor
-   use mpi_thetap_mod, only: transpose_theta_m_many, transpose_m_theta_many
+   use mpi_thetap_mod, only: transpose_th2m, transpose_m2th
 
    implicit none
 
@@ -777,39 +777,39 @@ contains
       if ( l_conv .or. l_mag_kin ) then
        
          if ( l_heat ) then
-            call transpose_theta_m_many(s_Mloc, this%s_pThloc, n_r_loc)
+            call transpose_m2th(s_Mloc, this%s_pThloc, n_r_loc)
             if ( lVisc ) then
-               call transpose_theta_m_many(grads_Mloc, grads_pThloc, 3*n_r_loc)
+               call transpose_m2th(grads_Mloc, grads_pThloc, 3*n_r_loc)
             end if
             if ( l_HT .and. (.not. lVisc) ) then
-               call transpose_theta_m_many(grads_Mloc, grads_pThloc, n_r_loc)
+               call transpose_m2th(grads_Mloc, grads_pThloc, n_r_loc)
             endif
          end if
 
          !-- dp/dtheta and dp/dphi
-         if ( lRmsCalc ) call transpose_theta_m_many(gradp_Mloc, gradp_pThloc, 2*n_r_loc)
+         if ( lRmsCalc ) call transpose_m2th(gradp_Mloc, gradp_pThloc, 2*n_r_loc)
 
          !-- Pressure
-         if ( lPressCalc ) call transpose_theta_m_many(p_Mloc,this%p_pThloc,n_r_loc)
+         if ( lPressCalc ) call transpose_m2th(p_Mloc,this%p_pThloc,n_r_loc)
 
          !-- Composition
-         if ( l_chemical_conv ) call transpose_theta_m_many(xi_Mloc, &
+         if ( l_chemical_conv ) call transpose_m2th(xi_Mloc, &
                                      &                 this%xi_pThloc, n_r_loc)
          if ( l_adv_curl ) then
-            call transpose_theta_m_many(vel_Mloc, vel_pThloc, 6*n_r_loc)
+            call transpose_m2th(vel_Mloc, vel_pThloc, 6*n_r_loc)
             if ( lVisc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
             &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or.      &
             &    ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-               call transpose_theta_m_many(gradvel_Mloc,gradvel_pThloc,7*n_r_loc)
+               call transpose_m2th(gradvel_Mloc,gradvel_pThloc,7*n_r_loc)
             end if
          else
-            call transpose_theta_m_many(vel_Mloc, vel_pThloc, 4*n_r_loc)
-            call transpose_theta_m_many(gradvel_Mloc, gradvel_pThloc, 7*n_r_loc)
+            call transpose_m2th(vel_Mloc, vel_pThloc, 4*n_r_loc)
+            call transpose_m2th(gradvel_Mloc, gradvel_pThloc, 7*n_r_loc)
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call transpose_theta_m_many(mag_Mloc, mag_pThloc, 6*n_r_loc)
+         call transpose_m2th(mag_Mloc, mag_pThloc, 6*n_r_loc)
       end if
 
    end subroutine transp_Mloc_to_Thloc
@@ -907,39 +907,39 @@ contains
       class(hybrid_3D_arrays_t) :: this
       logical, intent(in) :: lRmsCalc
 
-      call transpose_m_theta_many(NSadv_pThloc, NSadv_Mloc, 3*n_r_loc)
+      call transpose_th2m(NSadv_pThloc, NSadv_Mloc, 3*n_r_loc)
 
       if ( l_heat ) then
-         call transpose_m_theta_many(heatadv_pThloc, heatadv_Mloc, 3*n_r_loc)
+         call transpose_th2m(heatadv_pThloc, heatadv_Mloc, 3*n_r_loc)
       end if
 
       if ( l_chemical_conv ) then
-         call transpose_m_theta_many(compadv_pThloc, compadv_Mloc, 3*n_r_loc)
+         call transpose_th2m(compadv_pThloc, compadv_Mloc, 3*n_r_loc)
       end if
 
       if ( l_anel ) then
          if ( l_mag ) then
-            call transpose_m_theta_many(anel_pThloc, anel_Mloc, 2*n_r_loc)
+            call transpose_th2m(anel_pThloc, anel_Mloc, 2*n_r_loc)
          else
-            call transpose_m_theta_many(anel_pThloc, anel_Mloc, n_r_loc)
+            call transpose_th2m(anel_pThloc, anel_Mloc, n_r_loc)
          end if
       end if
 
       if ( l_mag_nl ) then
-         call transpose_m_theta_many(emf_pThloc, emf_Mloc, 3*n_r_loc)
+         call transpose_th2m(emf_pThloc, emf_Mloc, 3*n_r_loc)
       end if
 
       if ( lRmsCalc ) then
-         call transpose_m_theta_many(dtV_pThloc, dtV_Mloc, 3*n_r_loc)
-         call transpose_m_theta_many(PF2_pThloc, PF2_Mloc, 2*n_r_loc)
+         call transpose_th2m(dtV_pThloc, dtV_Mloc, 3*n_r_loc)
+         call transpose_th2m(PF2_pThloc, PF2_Mloc, 2*n_r_loc)
          if ( l_adv_curl ) then
-            call transpose_m_theta_many(RMS_pThloc, RMS_Mloc, 5*n_r_loc)
+            call transpose_th2m(RMS_pThloc, RMS_Mloc, 5*n_r_loc)
          else
-            call transpose_m_theta_many(RMS_pThloc, RMS_Mloc, 4*n_r_loc)
+            call transpose_th2m(RMS_pThloc, RMS_Mloc, 4*n_r_loc)
          end if
          if ( l_mag_LF ) then
-            call transpose_m_theta_many(LF_pThloc, LF_Mloc, 3*n_r_loc)
-            call transpose_m_theta_many(LF2_pThloc, LF2_Mloc, 2*n_r_loc)
+            call transpose_th2m(LF_pThloc, LF_Mloc, 3*n_r_loc)
+            call transpose_th2m(LF2_pThloc, LF2_Mloc, 2*n_r_loc)
          end if
       end if
 

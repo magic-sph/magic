@@ -53,7 +53,6 @@ module num_param
 
    character(len=72), public :: mpi_transp     ! Form of the MPI transpose (point to point or alltoall)
    character(len=72), public :: mpi_packing    ! packing the alltoall
-   integer, public :: theta_transp_buffer_size ! Buffer size for theta transposition ! DEPRECATED; use the one bellow
    integer, public :: sht_buffer_size          ! Buffer size for SHT 
 
    !-- Stop signal:

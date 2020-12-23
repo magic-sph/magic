@@ -134,7 +134,6 @@ program magic
    use probe_mod, only: initialize_probes, finalize_probes
    use time_schemes, only: type_tscheme
    use LMmapping, only: initialize_mapping, finalize_mapping
-   use mpi_thetap_mod, only: initialize_mpi_thetap
 
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -340,7 +339,6 @@ program magic
 
    call initialize_step_time()
    call initialize_communications()
-   call initialize_mpi_thetap
 
    call initialize_der_arrays(n_r_max,n_mlo_loc)
 

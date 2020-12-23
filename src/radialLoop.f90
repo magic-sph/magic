@@ -7,9 +7,11 @@ module radialLoop
    use time_schemes, only: type_tscheme
    use rIteration, only: rIter_t
    use rIter_split, only: rIter_split_t
-   use rIter_single, only: rIter_single_t
-   use rIter_buff, only: rIter_buff_t
-   use rIter_new, only: rIter_new_t
+   use rIter_std, only: rIter_std_t
+!    use rIter_single, only: rIter_single_t
+!    use rIter_buff, only: rIter_buff_t
+!    use rIter_new, only: rIter_new_t
+!    use rIter_nsplt, only: rIter_nsplt_t
 
    implicit none
 
@@ -27,12 +29,8 @@ contains
 
       local_bytes_used = bytes_allocated
 
-      if ( index(rIter_type, 'SINGLE') /= 0 ) then
-         allocate( rIter_single_t :: rIter )
-      else if ( index(rIter_type, 'BUFF') /= 0 ) then
-         allocate( rIter_buff_t :: rIter )
-      else if ( index(rIter_type, 'NEW') /= 0 ) then
-         allocate( rIter_new_t :: rIter )
+      if ( index(rIter_type, 'STD') /= 0 ) then
+         allocate( rIter_std_t :: rIter )
       else
          allocate( rIter_split_t :: rIter )
       end if

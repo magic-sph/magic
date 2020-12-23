@@ -28,7 +28,7 @@ module outTO_mod
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
    use useful, only: logWrite, abortRun
-   use sht, only: spat_to_SH_axi
+   use sht, only: SHtransf
    use chebInt_mod, only: chebInt, chebIntInit
    use cosine_transform_odd
 
@@ -386,17 +386,17 @@ contains
       !--- Transform to lm-space for all radial grid points:
 
       do nR=nRstart,nRstop
-         call spat_to_SH_axi(V2AS_Rloc(:,nR),V2LMr_Rloc(:,nR))
-         call spat_to_SH_axi(Bs2AS_Rloc(:,nR),Bs2LMr_Rloc(:,nR))
-         call spat_to_SH_axi(BszAS_Rloc(:,nR),BszLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BspAS_Rloc(:,nR),BspLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BpzAS_Rloc(:,nR),BpzLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BspdAS_Rloc(:,nR),BspdLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BpsdAS_Rloc(:,nR),BpsdLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BzpdAS_Rloc(:,nR),BzpdLMr_Rloc(:,nR))
-         call spat_to_SH_axi(BpzdAS_Rloc(:,nR),BpzdLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(V2AS_Rloc(:,nR),V2LMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(Bs2AS_Rloc(:,nR),Bs2LMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BszAS_Rloc(:,nR),BszLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BspAS_Rloc(:,nR),BspLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BpzAS_Rloc(:,nR),BpzLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BspdAS_Rloc(:,nR),BspdLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BpsdAS_Rloc(:,nR),BpsdLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BzpdAS_Rloc(:,nR),BzpdLMr_Rloc(:,nR))
+         call SHtransf%spat_to_SH_axi(BpzdAS_Rloc(:,nR),BpzdLMr_Rloc(:,nR))
       end do ! Loop over radial grid points
-
+!       call SHtransf%commit_forward() !TODO uncomment this if a buffered version of spat_to_sh_axi is ever implemented
 
       !-- All gather everything at this stage
       call outTO_allgather_Rloc()

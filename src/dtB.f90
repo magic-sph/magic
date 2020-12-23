@@ -23,7 +23,7 @@ module dtB_mod
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use constants, only: ci, two
    use radial_spectra ! rBrSpec, rBpSpec
-   use sht, only: scal_to_SH
+   use sht, only: SHtransf
    use radial_der, only: get_dr
 
    implicit none
@@ -282,24 +282,26 @@ contains
       end do
       !$omp end parallel do
 
-      call scal_to_SH(BtVr, BtVrLM, l_R(nR))
-      call scal_to_SH(BpVr, BpVrLM, l_R(nR))
-      call scal_to_SH(BrVt, BrVtLM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVr, BtVrLM, l_R(nR))
+      call SHtransf%scal_to_SH(BpVr, BpVrLM, l_R(nR))
+      call SHtransf%scal_to_SH(BrVt, BrVtLM, l_R(nR))
 
-      call scal_to_SH(BrVp, BrVpLM, l_R(nR))
-      call scal_to_SH(BtVp, BtVpLM, l_R(nR))
-      call scal_to_SH(BpVt, BpVtLM, l_R(nR))
+      call SHtransf%scal_to_SH(BrVp, BrVpLM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVp, BtVpLM, l_R(nR))
+      call SHtransf%scal_to_SH(BpVt, BpVtLM, l_R(nR))
 
-      call scal_to_SH(BtVpCot, BtVpCotLM, l_R(nR))
-      call scal_to_SH(BpVtCot, BpVtCotLM, l_R(nR))
-      call scal_to_SH(BtVZCot, BtVZCotLM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVpCot, BtVpCotLM, l_R(nR))
+      call SHtransf%scal_to_SH(BpVtCot, BpVtCotLM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVZCot, BtVZCotLM, l_R(nR))
 
-      call scal_to_SH(BrVZ, BrVZLM, l_R(nR))
-      call scal_to_SH(BtVZ, BtVZLM, l_R(nR))
-      call scal_to_SH(BtVZsn2, BtVZsn2LM, l_R(nR))
+      call SHtransf%scal_to_SH(BrVZ, BrVZLM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVZ, BtVZLM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVZsn2, BtVZsn2LM, l_R(nR))
 
-      call scal_to_SH(BtVpSn2, BtVpSn2LM, l_R(nR))
-      call scal_to_SH(BpVtsn2, BpVtsn2LM, l_R(nR))
+      call SHtransf%scal_to_SH(BtVpSn2, BtVpSn2LM, l_R(nR))
+      call SHtransf%scal_to_SH(BpVtsn2, BpVtsn2LM, l_R(nR))
+      
+      call SHtransf%commit_forward()
 
    end subroutine get_dtBLM
 !-----------------------------------------------------------------------

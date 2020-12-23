@@ -16,7 +16,7 @@ module torsional_oscillations
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
-   use sht, only: spat_to_SH_axi
+   use sht, only: SHtransf
 
    implicit none
 
@@ -342,10 +342,11 @@ contains
       !--- Transform and Add to LM-Space:
       !------ Add contribution from thetas in block:
       !       note legtfAS2 returns modes l=0 -- l=l_max+1
-      call spat_to_SH_axi(Rmean,dzRstrLM)
-      call spat_to_SH_axi(Amean,dzAstrLM)
-      call spat_to_SH_axi(dzCorMean,dzCorLM)
-      call spat_to_SH_axi(dZLFmean,dzLFLM)
+      call SHtransf%spat_to_SH_axi(Rmean,dzRstrLM)
+      call SHtransf%spat_to_SH_axi(Amean,dzAstrLM)
+      call SHtransf%spat_to_SH_axi(dzCorMean,dzCorLM)
+      call SHtransf%spat_to_SH_axi(dZLFmean,dzLFLM)
+!       call SHtransf%commit_forward() !TODO uncomment this if a buffered version of spat_to_sh_axi is ever implemented
 
       if ( lVerbose ) write(output_unit,*) '! End of getTO!'
 

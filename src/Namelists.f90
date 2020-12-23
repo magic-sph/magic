@@ -61,12 +61,7 @@ contains
       
       namelist/parallel/n_ranks_r,n_ranks_theta,             &
       &     mlo_dist_method, mpi_transp, sht_buffer_size,    &
-      &     theta_transp_buffer_size, rIter_type,            &
-      &     mpi_packing
-      !@>DEPRECATED mpi_packing: replaced by mpi_transp_theta
-      !@>DEPRECATED theta_transp_buffer_size: replaced by sht_buffer_size
-      !@>DEPRECATED rIter_type: to be unified as a combination of 
-      !  sht_buffer_size and some other parameter...
+      &     rIter_type, mpi_packing
 
       !-- Name lists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
@@ -862,7 +857,6 @@ contains
       length=length_to_blank(mpi_packing)
       write(n_out,*) " mpi_packing     = """,mpi_packing(1:length),""","
 !       length=length_to_blank(mpi_transp_theta)
-      write(n_out,*) " theta_transp_buffer_size= """,theta_transp_buffer_size,""","
       write(n_out,*) " sht_buffer_size= """,sht_buffer_size,""","
 
 
@@ -1246,7 +1240,7 @@ contains
       n_ranks_mo       = 0
       mlo_dist_method  = "lfirst"
       mpi_transp       = "AUTO"
-      theta_transp_buffer_size = 3
+      sht_buffer_size  = 3
       mpi_packing      = "PACKED" ! MPI packing ('SINGLE','PACKED')
       rIter_type       = "single"
 
