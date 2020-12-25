@@ -36,6 +36,7 @@ the following options:
     >>> # To load 'TOshs.test' and plot the time-averaged forces:
     >>> tos = MagicTOHemi(tag='test', hemi='s', iplot=True)
 
+.. _secTO_movieFile:
 
 ``TO_mov.TAG`` files
 --------------------

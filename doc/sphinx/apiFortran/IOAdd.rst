@@ -53,7 +53,7 @@ IO: RMS force balance, torsional oscillations, misc
 ``outGeos.f90``
 ---------------
 
-.. f:automodule:: geos_mod
+.. f:automodule:: geos
 
 
 ``outOmega.f90``
