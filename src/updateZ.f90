@@ -423,9 +423,11 @@ contains
             !PERFOFF
             !$omp end task
          end do
+         !$omp taskwait
          !$omp end task
       end do       ! end of loop over lm blocks
       !$omp end single
+      !$omp taskwait
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
