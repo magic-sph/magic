@@ -355,7 +355,8 @@ contains
          if ( l_frame .and. l_movie_oc .and. l_store_frame ) then
             call store_movie_frame(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,      &
                  &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
-                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
+                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
+                 &                 this%gsa%dvrdpc,                                &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
                  &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
          end if
