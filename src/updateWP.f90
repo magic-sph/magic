@@ -276,14 +276,14 @@ contains
       call solve_counter%start_count()
       !$omp end single
       !PERFON('upWP_ssol')
-      !$OMP SINGLE
+      !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
 
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(dwold,nLMB,nLMBs2,rhs1)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
+         !$omp shared(dwold,nLMB,nLMBs2,rhs1)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -301,11 +301,9 @@ contains
             if ( .not. lWPmat(l1) ) then
                !PERFON('upWP_mat')
                if ( l_double_curl ) then
-                  call get_wMat(tscheme,l1,hdif_V(lm2(l1,0)),    &
-                       &        wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
+                  call get_wMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                else
-                  call get_wpMat(tscheme,l1,hdif_V(lm2(l1,0)),   &
-                       &         wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
+                  call get_wpMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
                !PERFOFF
@@ -313,10 +311,10 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(threadid)
+            !$omp task if (nChunks>1) default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(threadid)
 
             !PERFON('upWP_set')
 #ifdef WITHOMP
@@ -519,11 +517,13 @@ contains
                end if
             end do
             !PERFOFF
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp taskwait
+         !$omp end task
       end do   ! end of loop over l1 subblocks
-      !$OMP END SINGLE
+      !$omp end single
+      !$omp taskwait
       !PERFOFF
       !$omp single
       call solve_counter%stop_count()
@@ -884,7 +884,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(lm)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  Dif(lm)=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
                   &                                                  ddddw(lm,n_r)  &
                   &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
@@ -916,7 +916,7 @@ contains
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
                      &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &              hdif_V(l1)*visc(n_r)* ( work_LMloc(lm,n_r)     &
                      &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                      &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                      &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
@@ -929,7 +929,7 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                      &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
                      &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
                      &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
@@ -952,8 +952,8 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
+                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*       dw(lm,n_r)   &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
                   &                                                   w(lm,n_r)  )
@@ -964,7 +964,7 @@ contains
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)+Buo(lm)
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r) &
-                  &            + hdif_V(lm)*visc(n_r)*dL*or2(n_r)               &
+                  &            + hdif_V(l1)*visc(n_r)*dL*or2(n_r)               &
                   &                                     * ( -work_LMloc(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
@@ -1047,7 +1047,7 @@ contains
       if ( l_double_curl) then
 
          !$omp single
-            call dct_counter%start_count()
+         call dct_counter%start_count()
          !$omp end single
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
@@ -1087,7 +1087,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(lm)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  Dif(lm)=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
                   &                                                  ddddw(lm,n_r)  &
                   &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
@@ -1118,7 +1118,7 @@ contains
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
                      &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                     &              hdif_V(lm)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &              hdif_V(l1)*visc(n_r)* ( work_LMloc(lm,n_r)     &
                      &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                      &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                      &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
@@ -1131,7 +1131,7 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                      &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
                      &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
                      &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
@@ -1280,7 +1280,7 @@ contains
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(lm)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
+                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
                   &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
                   &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
@@ -1290,7 +1290,7 @@ contains
                   if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)* &
                   &                                rgrav(n_r)*xi(lm,n_r)
                   dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
-                  dpdt%impl(lm,n_r,1)=hdif_V(lm)*visc(n_r)*dL*or2(n_r)*         &
+                  dpdt%impl(lm,n_r,1)=hdif_V(l1)*visc(n_r)*dL*or2(n_r)*         &
                   &                                       ( -work_LMloc(lm,n_r) &
                   &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &

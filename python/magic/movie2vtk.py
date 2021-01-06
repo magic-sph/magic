@@ -4,9 +4,11 @@ import os
 import re
 import numpy as np
 from .npfile import *
-from evtk.hl import gridToVTK
+import evtk
 from magic.movie import getNlines
 from magic.libmagic import symmetrize
+
+gridToVTK = evtk.hl.gridToVTK
 
 
 class Movie2Vtk:
@@ -22,7 +24,8 @@ class Movie2Vtk:
 
     def __init__(self, file=None, step=1, lastvar=None, nvar='all',
                  fluct=False, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0, dir='movie2vts'):
+                 deminc=True, ifield=0, dir='movie2vts', store_idx=0,
+                 rmin=-1., rmax=-1.):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -45,7 +48,16 @@ class Movie2Vtk:
         :param ifield: in case of a multiple-field movie file, you can change
                        the default field displayed using the parameter ifield
         :type ifield: int
+        :param store_idx: starting index for storage
+        :type store_idx: int
+        :param rmin: minimum radial level
+        :type rmin: float
+        :param rmax: maximum radial level
+        :type rmax: float
         """
+
+        self.rmin = rmin
+        self.rmax = rmax
 
         if file is None:
             dat = glob.glob('*[Mm]ov.*')
@@ -58,7 +70,6 @@ class Movie2Vtk:
             except IndexError:
                 print('Non valid index: {} has been chosen instead'.format(dat[0]))
                 filename = dat[0]
-
         else:
             filename = file
         mot = re.compile(r'.*[Mm]ov\.(.*)')
@@ -207,7 +218,7 @@ class Movie2Vtk:
                 dat = infile.fort_read(precision)
                 if n_surface == 0:
                     dat = dat.reshape(shape)
-                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName, k+1)
+                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName, k+1+store_idx)
                     if self.movtype in [1, 2, 3]:
                         # datic = dat[self.n_r_max:, ...].T
                         dat = dat[:self.n_r_max, ...].T
@@ -215,7 +226,7 @@ class Movie2Vtk:
                     else:
                         self.scal3D2vtk(fname, dat.T, fieldName)
                 elif n_surface == 2:
-                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName, k+1)
+                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName, k+1+store_idx)
                     dat = dat.reshape(shape)
                     if self.movtype in [1, 2, 3, 14]:
                         # datic = dat[self.n_r_max:, :].T
@@ -234,13 +245,13 @@ class Movie2Vtk:
                         datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
                                                                self.n_theta_max)
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              str(self.phiCut), k+1)
+                                                              str(self.phiCut), k+1+store_idx)
                         self.mer2vtk(fname, datoc0.T, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              name, k+1)
+                                                              name, k+1, k+1+store_idx)
                         self.mer2vtk(fname, datoc1.T, self.phiCut+np.pi,
                                      fieldName)
                         # datic0 = datic[:len(datic)/2].reshape(self.n_r_ic_max+2,
@@ -251,18 +262,18 @@ class Movie2Vtk:
                         dat0 = dat[:len(dat)//2].reshape(shape)
                         dat1 = dat[len(dat)//2:].reshape(shape)
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              str(self.phiCut), k+1)
+                                                              str(self.phiCut), k+1+store_idx)
                         self.mer2vtk(fname, dat0.T, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi/2)
                         if len(name) > 8:
                             name = name[:8]
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              name, k+1)
+                                                              name, k+1+store_idx)
                         self.mer2vtk(fname, dat1.T, self.phiCut+np.pi,
                                      fieldName)
                 else:
                     fname = '{}{}{}_rcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                          str(self.rCut), k+1)
+                                                          str(self.rCut), k+1+store_idx)
                     dat = dat.reshape(shape)
                     self.rcut2vtk(fname, dat.T, self.rCut, fieldName)
 
@@ -282,18 +293,29 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
+        if self.rmin > 0 and self.rmax > 0:
+            mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
+            idx2 = np.nonzero(mask)[0][0]
+            mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
+            idx1 = np.nonzero(mask)[0][0]
+            nr = idx2-idx1+1
+        else:
+            nr = data.shape[1]
+            idx1 = 0
+            idx2 = data.shape[1]
+
         data = symmetrize(data, self.minc)
         phi = np.linspace(0., 2.*np.pi, data.shape[0])
         X = np.zeros(data.shape, dtype=np.float32)
         Y = np.zeros_like(X)
         Z = np.zeros_like(X)
-        ttheta, pphi, rr = np.meshgrid(self.theta, phi, self.radius)
+        ttheta, pphi, rr = np.meshgrid(self.theta, phi, self.radius[idx1:idx2+1])
         X = rr*np.sin(ttheta)*np.cos(pphi)
         Y = rr*np.sin(ttheta)*np.sin(pphi)
         Z = rr*np.cos(ttheta)*np.ones_like(pphi)
 
         point_data = {}
-        point_data[name] = data
+        point_data[name] = data[..., idx1:idx2]
 
         gridToVTK(fname, X, Y, Z, pointData=point_data)
         print('Store {}.vts'.format(fname))
@@ -344,17 +366,28 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        X = np.zeros((1, data.shape[0], data.shape[1]), dtype=np.float32)
+        if self.rmin > 0 and self.rmax > 0:
+            mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
+            idx2 = np.nonzero(mask)[0][0]
+            mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
+            idx1 = np.nonzero(mask)[0][0]
+            nr = idx2-idx1+1
+        else:
+            nr = data.shape[1]
+            idx1 = 0
+            idx2 = data.shape[1]
+
+        X = np.zeros((1, data.shape[0], nr), dtype=np.float32)
         Y = np.zeros_like(X)
         Z = np.zeros_like(X)
-        rr, ttheta = np.meshgrid(self.radius, self.theta)
+        rr, ttheta = np.meshgrid(self.radius[idx1:idx2+1], self.theta)
 
         X[0, :, :] = rr*np.sin(ttheta)*np.cos(phi0)
         Y[0, :, :] = rr*np.sin(ttheta)*np.sin(phi0)
         Z[0, :, :] = rr*np.cos(ttheta)
 
         dat = np.zeros_like(X)
-        dat[0, ...] = data
+        dat[0, ...] = data[:, idx1:idx2+1]
 
         point_data = {}
         point_data[name] = dat
@@ -374,17 +407,27 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
+        if self.rmin > 0 and self.rmax > 0:
+            mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
+            idx2 = np.nonzero(mask)[0][0]
+            mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
+            idx1 = np.nonzero(mask)[0][0]
+            nr = idx2-idx1+1
+        else:
+            nr = data.shape[1]
+            idx1 = 0
+            idx2 = data.shape[1]
         data = symmetrize(data, self.minc)
         phi = np.linspace(0., 2.*np.pi, data.shape[0])
-        X = np.zeros((1, data.shape[0], data.shape[1]), dtype=np.float32)
+        X = np.zeros((1, data.shape[0], nr), dtype=np.float32)
         Y = np.zeros_like(X)
         Z = np.zeros_like(X)
-        rr, pphi = np.meshgrid(self.radius, phi)
+        rr, pphi = np.meshgrid(self.radius[idx1:idx2+1], phi)
         X[0, :, :] = rr*np.cos(pphi)
         Y[0, :, :] = rr*np.sin(pphi)
 
         dat = np.zeros_like(X)
-        dat[0, ...] = data
+        dat[0, ...] = data[:, idx1:idx2+1]
 
         point_data = {}
         point_data[name] = dat

@@ -240,17 +240,17 @@ contains
             !------ Get the Lorentz force:
             !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
             this%LFr(:,nPhi)=  LFfac*O_sin_theta_E2(:) * (   &
-            &        this%cbtc(:,nPhi)*this%bpc(:,nPhi) -       &
+            &        this%cbtc(:,nPhi)*this%bpc(:,nPhi) -    &
             &        this%cbpc(:,nPhi)*this%btc(:,nPhi) )
 
             !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
             this%LFt(:,nPhi)=  LFfac*or4(nR)*O_sin_theta_E2(:) * ( &
-            &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -             &
+            &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -          &
             &        this%cbrc(:,nPhi)*this%bpc(:,nPhi) )
 
             !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
             this%LFp(:,nPhi)=  LFfac*or4(nR)*O_sin_theta_E2(:) * ( &
-            &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -             &
+            &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -          &
             &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )
          end if      ! Lorentz force required ?
 
@@ -258,15 +258,15 @@ contains
 
             if ( l_adv_curl ) then ! Advection is \curl{u} \times u
                this%Advr(:,nPhi)=  - O_sin_theta_E2(:) * (    &
-               &        this%cvtc(:,nPhi)*this%vpc(:,nPhi) -     &
+               &        this%cvtc(:,nPhi)*this%vpc(:,nPhi) -  &
                &        this%cvpc(:,nPhi)*this%vtc(:,nPhi) )
 
                this%Advt(:,nPhi)= -or4(nR)*O_sin_theta_E2(:) * ( &
-               &        this%cvpc(:,nPhi)*this%vrc(:,nPhi) -        &
+               &        this%cvpc(:,nPhi)*this%vrc(:,nPhi) -     &
                &        this%cvrc(:,nPhi)*this%vpc(:,nPhi) )
 
                this%Advp(:,nPhi)= -or4(nR)*O_sin_theta_E2(:) * ( &
-               &        this%cvrc(:,nPhi)*this%vtc(:,nPhi) -        &
+               &        this%cvrc(:,nPhi)*this%vtc(:,nPhi) -     &
                &        this%cvtc(:,nPhi)*this%vrc(:,nPhi) )
             else ! Advection is u\grad u
                !------ Get Advection:
@@ -274,7 +274,7 @@ contains
                &                                this%vrc(:,nPhi) * &
                &                     (       this%dvrdrc(:,nPhi) - &
                &    ( two*or1(nR)+beta(nR) )*this%vrc(:,nPhi) ) +  &
-               &                      O_sin_theta_E2(:) * (     &
+               &                      O_sin_theta_E2(:) * (        &
                &                                this%vtc(:,nPhi) * &
                &                     (       this%dvrdtc(:,nPhi) - &
                &                  r(nR)*      this%vtc(:,nPhi) ) + &
@@ -282,19 +282,19 @@ contains
                &                     (       this%dvrdpc(:,nPhi) - &
                &                    r(nR)*      this%vpc(:,nPhi) ) ) )
 
-               this%Advt(:,nPhi)=or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (  &
+               this%Advt(:,nPhi)=or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
                &                                         -this%vrc(:,nPhi) * &
                &                                   (   this%dvtdrc(:,nPhi) - &
                &                             beta(nR)*this%vtc(:,nPhi) )   + &
                &                                          this%vtc(:,nPhi) * &
-               &                    ( cosn_theta_E2(:)*this%vtc(:,nPhi) + &
+               &                    ( cosn_theta_E2(:)*this%vtc(:,nPhi) +    &
                &                                       this%dvpdpc(:,nPhi) + &
                &                                   this%dvrdrc(:,nPhi) )   + &
                &                                          this%vpc(:,nPhi) * &
-               &                    ( cosn_theta_E2(:)*this%vpc(:,nPhi) - &
+               &                    ( cosn_theta_E2(:)*this%vpc(:,nPhi) -    &
                &                                       this%dvtdpc(:,nPhi) )  )
 
-               this%Advp(:,nPhi)= or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (  &
+               this%Advp(:,nPhi)= or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
                &                                          -this%vrc(:,nPhi) * &
                &                                      ( this%dvpdrc(:,nPhi) - &
                &                              beta(nR)*this%vpc(:,nPhi) )   - &
@@ -354,7 +354,7 @@ contains
             if ( nBc == 0 .and. nR>n_r_LCR ) then
                !------ Get (V x B) , the curl of this is the dynamo term:
                this%VxBr(:,nPhi)=  orho1(nR)*O_sin_theta_E2(:) * (  &
-               &              this%vtc(:,nPhi)*this%bpc(:,nPhi) -      &
+               &              this%vtc(:,nPhi)*this%bpc(:,nPhi) -   &
                &              this%vpc(:,nPhi)*this%btc(:,nPhi) )
 
                this%VxBt(:,nPhi)=  orho1(nR)*or4(nR) * (   &
@@ -381,17 +381,17 @@ contains
             &                     orho1(nR)*otemp1(nR)*visc(nR)*( &
             &     two*(                     this%dvrdrc(:,nPhi) - & ! (1)
             &     (two*or1(nR)+beta(nR))*this%vrc(:,nPhi) )**2  + &
-            &     two*( cosn_theta_E2(:)*   this%vtc(:,nPhi) + &
+            &     two*( cosn_theta_E2(:)*   this%vtc(:,nPhi) +    &
             &                               this%dvpdpc(:,nPhi) + &
             &                               this%dvrdrc(:,nPhi) - & ! (2)
             &     or1(nR)*               this%vrc(:,nPhi) )**2  + &
             &     two*(                     this%dvpdpc(:,nPhi) + &
-            &           cosn_theta_E2(:)*   this%vtc(:,nPhi) + & ! (3)
+            &           cosn_theta_E2(:)*   this%vtc(:,nPhi) +    & ! (3)
             &     or1(nR)*               this%vrc(:,nPhi) )**2  + &
             &          ( two*               this%dvtdpc(:,nPhi) + &
             &                                 this%cvrc(:,nPhi) - & ! (6)
-            &    two*cosn_theta_E2(:)*this%vpc(:,nPhi) )**2  + &
-            &                        O_sin_theta_E2(:) * (     &
+            &    two*cosn_theta_E2(:)*this%vpc(:,nPhi) )**2  +    &
+            &                        O_sin_theta_E2(:) * (        &
             &         ( r(nR)*              this%dvtdrc(:,nPhi) - &
             &           (two+beta(nR)*r(nR))*  this%vtc(:,nPhi) + & ! (4)
             &     or1(nR)*            this%dvrdtc(:,nPhi) )**2  + &
@@ -403,8 +403,8 @@ contains
             if ( l_mag_nl .and. nR>n_r_LCR ) then
                !------ Get ohmic losses
                this%OhmLoss(:,nPhi)= or2(nR)*otemp1(nR)*lambda(nR)*  &
-               &    ( or2(nR)*                this%cbrc(:,nPhi)**2 + &
-               &      O_sin_theta_E2(:)*   this%cbtc(:,nPhi)**2 + &
+               &    ( or2(nR)*             this%cbrc(:,nPhi)**2 +    &
+               &      O_sin_theta_E2(:)*   this%cbtc(:,nPhi)**2 +    &
                &      O_sin_theta_E2(:)*   this%cbpc(:,nPhi)**2  )
             end if ! if l_mag_nl ?
 
@@ -430,7 +430,7 @@ contains
                this%dpdtc(:,nPhi)=this%dpdtc(:,nPhi)-or3(nR)*( or2(nR)*   &
                &            this%vrc(:,nPhi)*this%dvrdtc(:,nPhi) -        &
                &            this%vtc(:,nPhi)*(this%dvrdrc(:,nPhi)+        &
-               &            this%dvpdpc(:,nPhi)+cosn_theta_E2(:) *     &
+               &            this%dvpdpc(:,nPhi)+cosn_theta_E2(:) *        &
                &            this%vtc(:,nPhi))+ this%vpc(:,nPhi)*(         &
                &            this%cvrc(:,nPhi)+this%dvtdpc(:,nPhi)-        &
                &            cosn_theta_E2(:)*this%vpc(:,nPhi)) )
@@ -442,7 +442,7 @@ contains
                   this%Advt2(:,nPhi)=this%Advt2(:,nPhi)-or3(nR)*( or2(nR)*&
                   &            this%vrc(:,nPhi)*this%dvrdtc(:,nPhi) -     &
                   &            this%vtc(:,nPhi)*(this%dvrdrc(:,nPhi)+     &
-                  &            this%dvpdpc(:,nPhi)+cosn_theta_E2(:) *  &
+                  &            this%dvpdpc(:,nPhi)+cosn_theta_E2(:) *     &
                   &            this%vtc(:,nPhi))+ this%vpc(:,nPhi)*(      &
                   &            this%cvrc(:,nPhi)+this%dvtdpc(:,nPhi)-     &
                   &            cosn_theta_E2(:)*this%vpc(:,nPhi)) )
@@ -456,7 +456,7 @@ contains
                this%dpkindrc(:,nPhi)=or4(nR)*this%vrc(:,nPhi)*(         &
                &                         this%dvrdrc(:,nPhi)-           &
                &                         two*or1(nR)*this%vrc(:,nPhi)) +&
-               &                         or2(nR)*O_sin_theta_E2(:)*( &
+               &                         or2(nR)*O_sin_theta_E2(:)*(    &
                &                                 this%vtc(:,nPhi)*(     &
                &                         this%dvtdrc(:,nPhi)-           &
                &                         or1(nR)*this%vtc(:,nPhi) ) +   &

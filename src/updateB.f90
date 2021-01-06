@@ -283,12 +283,12 @@ contains
       !$omp end single
       ! This is a loop over all l values which should be treated on
       ! the actual MPI rank
-      !$OMP SINGLE
+      !$omp single
       do nLMB2=1,nLMBs2(nLMB)
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-         !$OMP private(bpeaktop,ff,cimp,aimp,threadid)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
+         !$omp private(bpeaktop,ff,cimp,aimp,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -300,20 +300,20 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(tscheme,l1,hdif_B(lm2(l1,0)),bMat(nLMB2), &
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2), &
                     &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
 #else
-               call get_bMat(tscheme,l1,hdif_B(lm2(l1,0)),bMat(nLMB2),jMat(nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2),jMat(nLMB2))
 #endif
                lBmat(l1)=.true.
             end if
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$OMP private(bpeaktop,ff,threadid)
+            !$omp task if (nChunks>1) default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR) &
+            !$omp private(bpeaktop,ff,threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -608,11 +608,13 @@ contains
 
                end if
             end do
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp taskwait
+         !$omp end task
       end do      ! end of do loop over lm1
-      !$OMP END SINGLE
+      !$omp end single
+      !$omp taskwait
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
@@ -1222,9 +1224,9 @@ contains
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
                dL=real(l1*(l1+1),cp)
-               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(lm)*     &
+               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
                &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
-               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(lm)*           &
+               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
                &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
                &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
                if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then

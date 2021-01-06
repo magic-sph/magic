@@ -199,6 +199,8 @@ contains
             allocate( dpdt%expl(llm:ulm,n_r_max,nexp) )
             bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
+         else
+            allocate( dpdt%expl(1,1,1) ) ! To avoid debug
          end if
       else
          if ( l_double_curl ) then

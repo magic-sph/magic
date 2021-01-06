@@ -777,7 +777,6 @@ contains
       tmagcon=tmagcon+time
 
       !-- Get output times:
-
       call get_hit_times(t_graph,n_time_hits,n_t_graph,l_time, &
            &             t_graph_start,t_graph_stop,dt_graph,  &
            &             n_graphs,n_graph_step,'graph',time,tScale)
@@ -808,42 +807,36 @@ contains
 
       if ( l_cmb_field ) then
          l_cmb_field=.false.
-         call get_hit_times(t_cmb,n_time_hits,n_t_cmb,l_time, &
-                               t_cmb_start,t_cmb_stop,dt_cmb, &
-                         n_cmbs,n_cmb_step,'cmb',time,tScale)
+         call get_hit_times(t_cmb,n_time_hits,n_t_cmb,l_time,t_cmb_start, &
+              &             t_cmb_stop,dt_cmb,n_cmbs,n_cmb_step,'cmb',time,tScale)
          if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true.
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
       if ( l_r_field ) then
          l_r_field=.false.
-         call get_hit_times(t_r_field,n_time_hits,n_t_r_field,l_time, &
-                           t_r_field_start,t_r_field_stop,dt_r_field, &
-                          n_r_fields,n_r_field_step,'r_field',time,tScale)
+         call get_hit_times(t_r_field,n_time_hits,n_t_r_field,l_time,    &
+              &             t_r_field_start,t_r_field_stop,dt_r_field,   &
+              &             n_r_fields,n_r_field_step,'r_field',time,tScale)
          if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true.
       end iF
 
       if ( l_movie ) then
-         call get_hit_times(t_movie,n_time_hits,n_t_movie,l_time, &
-                            t_movie_start,t_movie_stop,dt_movie,  &
-                  n_movie_frames,n_movie_step,'movie',time,tScale)
+         call get_hit_times(t_movie,n_time_hits,n_t_movie,l_time,t_movie_start, &
+              &             t_movie_stop,dt_movie,n_movie_frames,n_movie_step,  &
+              &             'movie',time,tScale)
       end if
 
       if ( l_TO ) then
          if ( n_TOs == 0 .and. n_t_TO == 0 ) n_TO_step=max(3,n_TO_step)
-         call get_hit_times(t_TO,n_time_hits,n_t_TO,l_time, &
-                                t_TO_start,t_TO_stop,dt_TO, &
-                          n_TOs,n_TO_step,'TO',time,tScale)
-         if ( n_TOZs == 0 .and. n_t_TOZ == 0 ) n_TOZs=3
-         call get_hit_times(t_TOZ,n_time_hits,n_t_TOZ,l_time, &
-                               t_TOZ_start,t_TOZ_stop,dt_TOZ, &
-                         n_TOZs,n_TOZ_step,'TOZ',time,tScale)
+         call get_hit_times(t_TO,n_time_hits,n_t_TO,l_time,t_TO_start,t_TO_stop, &
+              &             dt_TO,n_TOs,n_TO_step,'TO',time,tScale)
       end if
 
       if ( l_TOmovie ) then
-         call get_hit_times(t_TOmovie,n_time_hits,n_t_TOmovie,l_time, &
-                           t_TOmovie_start,t_TOmovie_stop,dt_TOmovie, &
-               n_TOmovie_frames,n_TOmovie_step,'TOmovie',time,tScale)
+         call get_hit_times(t_TOmovie,n_time_hits,n_t_TOmovie,l_time,t_TOmovie_start, &
+              &             t_TOmovie_stop,dt_TOmovie,n_TOmovie_frames,n_TOmovie_step,&
+              &             'TOmovie',time,tScale)
       end if
 
    end subroutine preCalcTimes
@@ -1025,7 +1018,11 @@ contains
          end if
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
          write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
-         write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max
+         if ( lm_max < 1000000 ) then
+            write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max
+         else
+            write(n_out,'(''  lm_max       ='',i8, '' = no of l/m combinations'')') lm_max
+         end if
          write(n_out,'(''  minc         ='',i6, '' = longitude symmetry wave no'')') minc
          write(n_out,'(''  nalias       ='',i6, &
               &   '' = spher. harm. deal. factor '')') nalias

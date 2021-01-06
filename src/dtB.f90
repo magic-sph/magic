@@ -230,8 +230,8 @@ contains
 
       vpAS(:)=0.0_cp
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta, n_phi)    &
-      !$omp& private(fac, facCot, n_theta_nhs)
+      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs) &
+      !$omp& reduction(+:vpAS)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
             n_theta_nhs=(n_theta+1)/2
@@ -273,6 +273,7 @@ contains
             BtVZsn2(n_theta,n_phi)=fac*fac*bt(n_theta,n_phi)*vpAS(n_theta)
          end do
       end do
+      !$omp end parallel do
 
       call scal_to_SH(BtVr, BtVrLM, l_max)
       call scal_to_SH(BpVr, BpVrLM, l_max)
@@ -336,8 +337,11 @@ contains
       integer :: l,m,lm,lmP,lmPS,lmPA
       real(cp) :: fac
 
+      !$omp parallel default(shared) private(lm,l,m,lmP,lmPS,lmPA,fac)
+
       PstrLM_Rloc(1,nR)=0.0_cp
       PadvLM_Rloc(1,nR)=0.0_cp
+      !$omp do
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -358,11 +362,13 @@ contains
             &    - dTheta1A(lm)*BrVtLM(lmPA) + dPhi(lm)*BrVpLM(lmP) )
          end if
       end do
+      !$omp end do
 
       !--- Poloidal advection and stretching term finished for radial level nR !
 
       TstrLM_Rloc(1,nR) =0.0_cp
       TstrRLM_Rloc(1,nR)=0.0_cp
+      !$omp do
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -400,9 +406,11 @@ contains
             &                            dPhi(lm)*BrVtLM(lmP)  )
          end if
       end do
+      !$omp end do
 
       TadvLM_Rloc(1,nR) =0.0_cp
       TadvRLM_Rloc(1,nR)=0.0_cp
+      !$omp do
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -440,11 +448,13 @@ contains
             &               dPhi(lm)*BtVrLM(lmP)   )
          end if
       end do
+      !$omp end do
 
       !--- TomeLM same as TstrLM but where ever Vp appeared
       !    it is replaced by its axisymmetric contribution VZ:
       TomeLM_Rloc(1,nR) =0.0_cp
       TomeRLM_Rloc(1,nR)=0.0_cp
+      !$omp do
       do lm=2,lm_max
          l  =lm2l(lm)
          m  =lm2m(lm)
@@ -466,6 +476,8 @@ contains
             TomeRLM_Rloc(lm,nR)=-fac*dTheta1A(lm)*BrVZLM(lmPA)
          end if
       end do
+      !$omp end do
+      !$omp end parallel
 
    end subroutine get_dH_dtBLM
 !------------------------------------------------------------------------------
@@ -492,7 +504,7 @@ contains
 
       !-- Local variables:
       integer :: nR
-      real(cp) :: dLh
+      real(cp) :: dL
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max)
       integer :: l,m,lm
 
@@ -519,11 +531,11 @@ contains
          do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-            dLh = real(l*(l+1),cp)
-            PdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(lo_map%lm2(l,m)) * &
-            &                   (ddb(lm,nR)-dLh*or2(nR)*b(lm,nR))
-            TdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(lo_map%lm2(l,m)) * &
-            &    ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - dLh*or2(nR)*aj(lm,nR) )
+            dL = real(l*(l+1),cp)
+            PdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(l) * &
+            &                   (ddb(lm,nR)-dL*or2(nR)*b(lm,nR))
+            TdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(l) * &
+            &    ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - dL*or2(nR)*aj(lm,nR) )
          end do
       end do
 

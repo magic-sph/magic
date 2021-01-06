@@ -185,10 +185,10 @@ contains
       do nLMB2=1,nLMBs2(nLMB)
          ! this inner loop is in principle over the m values which belong to the
          ! l value
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,threadid) &
-         !$OMP private(nChunks,size_of_last_chunk,iChunk)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lm,lm1,l1,m1,lmB,threadid) &
+         !$omp private(nChunks,size_of_last_chunk,iChunk)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -207,20 +207,19 @@ contains
          else
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)), &
-                    &        sMat(nLMB2),sMat_fac(:,nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(tscheme,l1,hdif_S(lm2(l1,0)),sMat(nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
 #endif
                lSmat(l1)=.true.
             end if
           end if
 
          do iChunk=1,nChunks
-            !$OMP TASK default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(threadid)
+            !$omp task default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -302,11 +301,13 @@ contains
                end if
             end do
             !PERFOFF
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp taskwait
+         !$omp end task
       end do     ! loop over lm blocks
-      !$OMP END SINGLE
+      !$omp end single
+      !$omp taskwait
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
@@ -500,7 +501,7 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)* kappa(n_r) *  (    &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l1)* kappa(n_r) *  (    &
                   &                                          work_LMloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                     - dL*or2(n_r)*s(lm,n_r) )
@@ -513,7 +514,7 @@ contains
                do lm=llm,ulm
                   l1 = lm2l(lm)
                   dL = real(l1*(l1+1),cp)
-                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(lm)*kappa(n_r) *   (       &
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l1)*kappa(n_r) *   (       &
                   &                                        work_LMloc(lm,n_r)      &
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &

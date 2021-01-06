@@ -7,3 +7,6 @@ magic.exe
 perf.*.xml
 TAGS
 *~
+.build
+.DS_Store
+.fortranCleanSrc

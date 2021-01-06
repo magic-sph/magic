@@ -257,7 +257,7 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: n_r                      ! radial grod point no.
+      integer,  intent(in) :: n_r                      ! radial grid point no.
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
       real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:)
