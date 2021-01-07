@@ -276,14 +276,14 @@ contains
       call solve_counter%start_count()
       !$omp end single
       !PERFON('upWP_ssol')
-      !$OMP SINGLE
+      !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
 
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(dwold,nLMB,nLMBs2,rhs1)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
+         !$omp shared(dwold,nLMB,nLMBs2,rhs1)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -311,10 +311,10 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(threadid)
+            !$omp task if (nChunks>1) default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(threadid)
 
             !PERFON('upWP_set')
 #ifdef WITHOMP
@@ -517,11 +517,13 @@ contains
                end if
             end do
             !PERFOFF
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp taskwait
+         !$omp end task
       end do   ! end of loop over l1 subblocks
-      !$OMP END SINGLE
+      !$omp end single
+      !$omp taskwait
       !PERFOFF
       !$omp single
       call solve_counter%stop_count()

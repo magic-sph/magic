@@ -283,12 +283,12 @@ contains
       !$omp end single
       ! This is a loop over all l values which should be treated on
       ! the actual MPI rank
-      !$OMP SINGLE
+      !$omp single
       do nLMB2=1,nLMBs2(nLMB)
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-         !$OMP private(bpeaktop,ff,cimp,aimp,threadid)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
+         !$omp private(bpeaktop,ff,cimp,aimp,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -310,10 +310,10 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$OMP private(bpeaktop,ff,threadid)
+            !$omp task if (nChunks>1) default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR) &
+            !$omp private(bpeaktop,ff,threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -608,11 +608,13 @@ contains
 
                end if
             end do
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp taskwait
+         !$omp end task
       end do      ! end of do loop over lm1
-      !$OMP END SINGLE
+      !$omp end single
+      !$omp taskwait
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single

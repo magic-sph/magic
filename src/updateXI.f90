@@ -179,14 +179,14 @@ contains
       call solve_counter%start_count()
       !$omp end single
       ! one subblock is linked to one l value and needs therefore once the matrix
-      !$OMP SINGLE
+      !$omp single
       do nLMB2=1,nLMBs2(nLMB)
          ! this inner loop is in principle over the m values which belong to the
          ! l value
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,threadid) &
-         !$OMP private(nChunks,size_of_last_chunk,iChunk)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lm,lm1,l1,m1,lmB,threadid) &
+         !$omp private(nChunks,size_of_last_chunk,iChunk)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -214,10 +214,10 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(threadid)
+            !$omp task default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -291,11 +291,13 @@ contains
                   end if
                end if
             end do
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp taskwait
+         !$omp end task
       end do     ! loop over lm blocks
-      !$OMP END SINGLE
+      !$omp end single
+      !$omp taskwait
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
