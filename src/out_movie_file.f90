@@ -21,7 +21,7 @@ module out_movie
    use blocking, only: lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
-       &                      dLh, osn1, phi, theta_ord
+       &                      osn1, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
    use sht, only: torpol_to_spat, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag
