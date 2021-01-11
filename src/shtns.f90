@@ -1514,13 +1514,16 @@ contains
    end subroutine finalize_buff
 
 !------------------------------------------------------------------------------   
-#define __CHECK_BUFFERSIZE(__X, __NEEDED)\
-   if (this%operations(1)>0) then;\
-      print *, "Error in "//__X//"; commit transform before changing direction!";\
-      test_ptr(5) = 5;\
-      stop;\
-   end if;\
-   if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this);\
+! #define __CHECK_BUFFERSIZE(__X, __NEEDED)\
+!    if (this%operations(1)>0) then;\
+!       print *, "Error in "//__X//"; commit transform before changing direction!";\
+!       test_ptr(5) = 5;\
+!       stop;\
+!    end if;\
+!    if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this);\
+
+!------------------------------------------------------------------------------   
+#define __CHECK_BUFFERSIZE(__X, __NEEDED) if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this)
 
 !------------------------------------------------------------------------------      
    subroutine scal_to_spat_buff(this, Slm, fieldc, lcut)
@@ -1681,14 +1684,16 @@ contains
    end subroutine
 #undef __CHECK_BUFFERSIZE
 
+! !------------------------------------------------------------------------------   
+! #define __CHECK_BUFFERSIZE(__X, __NEEDED)\
+!    if (this%operations(1)<0) then;\
+!       print *, "Error in "//__X//"; commit transform before changing direction!";\
+!       test_ptr(5) = 5;\
+!       stop;\
+!    end if;\
+!    if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this);\
 !------------------------------------------------------------------------------   
-#define __CHECK_BUFFERSIZE(__X, __NEEDED)\
-   if (this%operations(1)<0) then;\
-      print *, "Error in "//__X//"; commit transform before changing direction!";\
-      test_ptr(5) = 5;\
-      stop;\
-   end if;\
-   if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this);\
+#define __CHECK_BUFFERSIZE(__X, __NEEDED) if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this)
 
    
 !------------------------------------------------------------------------------   
