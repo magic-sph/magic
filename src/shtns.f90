@@ -66,6 +66,13 @@ module sht
       procedure(spat_to_sphertor_if), deferred    :: spat_to_sphertor
       procedure(spat_to_SH_axi_if), deferred      :: spat_to_SH_axi
    end type type_shtns_if
+
+   type cmplx_pointer_wrapper
+      complex(cp), contiguous, pointer :: p(:)
+   end type cmplx_pointer_wrapper
+   type real_pointer_wrapper
+      real(cp), contiguous, pointer :: p(:,:)
+   end type real_pointer_wrapper
    
    ! --------------------------------------------------------------------------------------
    type, extends(type_shtns_if) :: type_shtns_buff
@@ -135,12 +142,6 @@ module sht
    
    !   Workarounds the lack of array of pointers in fortran
    ! --------------------------------------------------------------------------------------
-   type cmplx_pointer_wrapper
-      complex(cp), contiguous, pointer :: p(:)
-   end type cmplx_pointer_wrapper
-   type real_pointer_wrapper
-      real(cp), contiguous, pointer :: p(:,:)
-   end type real_pointer_wrapper
 
    integer, parameter :: OP_NONE             = 0
    integer, parameter :: OP_SPAT2SH          = 1

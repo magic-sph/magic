@@ -471,7 +471,7 @@ contains
       type(mappings), intent(in) :: map
       character(*), intent(in) :: name
       integer :: count_l, count_m
-      integer :: ioinfo, fh, i, istat, ierr
+      integer :: ioinfo, fh, i, istat(MPI_STATUS_SIZE), ierr
       character(len=120) :: nextline
       
       count_m = 0
@@ -489,14 +489,18 @@ contains
       if (coord_m == 0 .and. coord_r == 0) then
          write(nextline,"(' ! ',A,' mapping in coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')") &
             name, 0, count_m, count_l, map%n_lm
-         call MPI_File_write_shared(fh, trim(adjustl(nextline))//NEW_LINE("A"), len(trim(adjustl(nextline)))+1, mpi_character, istat, ierr)
+         call MPI_File_write_shared(fh, trim(adjustl(nextline))//NEW_LINE("A"),    &
+              &                     len(trim(adjustl(nextline)))+1, mpi_character, &
+              &                     istat, ierr)
       end if
       call mpi_barrier(mpi_comm_world,ierr)
       do i=1,n_ranks_m-1
          if (coord_m == i .and. coord_r == 0) then
             write(nextline,"(' !                coord_r ', I0, ': ', I0,' l-pts and ',I0,' m-pts (', I0, ' pts)')") &
             i, count_m, count_l, map%n_lm
-            call MPI_File_write_shared(fh, trim(adjustl(nextline))//NEW_LINE("A"), len(trim(adjustl(nextline)))+1, mpi_character, istat, ierr)
+            call MPI_File_write_shared(fh, trim(adjustl(nextline))//NEW_LINE("A"),    &
+                 &                     len(trim(adjustl(nextline)))+1, mpi_character, &
+                 &                     istat, ierr)
          end if
          call mpi_barrier(mpi_comm_world,ierr)
       end do
