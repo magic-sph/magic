@@ -120,8 +120,8 @@ contains
       !
 
       if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
-      deallocate( us_Ploc, up_Ploc, uz_Ploc )
-      deallocate( us_Rloc, up_Rloc, uz_Rloc )
+      deallocate( us_Ploc, up_Ploc, uz_Ploc, wz_Ploc )
+      deallocate( us_Rloc, up_Rloc, uz_Rloc, wz_Rloc )
       deallocate( cyl, h )
 
    end subroutine finalize_geos
