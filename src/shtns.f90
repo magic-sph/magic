@@ -66,6 +66,13 @@ module sht
       procedure(spat_to_sphertor_if), deferred    :: spat_to_sphertor
       procedure(spat_to_SH_axi_if), deferred      :: spat_to_SH_axi
    end type type_shtns_if
+
+   type cmplx_pointer_wrapper
+      complex(cp), contiguous, pointer :: p(:)
+   end type cmplx_pointer_wrapper
+   type real_pointer_wrapper
+      real(cp), contiguous, pointer :: p(:,:)
+   end type real_pointer_wrapper
    
    ! --------------------------------------------------------------------------------------
    type, extends(type_shtns_if) :: type_shtns_buff
@@ -135,12 +142,6 @@ module sht
    
    !   Workarounds the lack of array of pointers in fortran
    ! --------------------------------------------------------------------------------------
-   type cmplx_pointer_wrapper
-      complex(cp), contiguous, pointer :: p(:)
-   end type cmplx_pointer_wrapper
-   type real_pointer_wrapper
-      real(cp), contiguous, pointer :: p(:,:)
-   end type real_pointer_wrapper
 
    integer, parameter :: OP_NONE             = 0
    integer, parameter :: OP_SPAT2SH          = 1
@@ -1513,13 +1514,16 @@ contains
    end subroutine finalize_buff
 
 !------------------------------------------------------------------------------   
-#define __CHECK_BUFFERSIZE(__X, __NEEDED)\
-   if (this%operations(1)>0) then;\
-      print *, "Error in "//__X//"; commit transform before changing direction!";\
-      test_ptr(5) = 5;\
-      stop;\
-   end if;\
-   if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this);\
+! #define __CHECK_BUFFERSIZE(__X, __NEEDED)\
+!    if (this%operations(1)>0) then;\
+!       print *, "Error in "//__X//"; commit transform before changing direction!";\
+!       test_ptr(5) = 5;\
+!       stop;\
+!    end if;\
+!    if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this);\
+
+!------------------------------------------------------------------------------   
+#define __CHECK_BUFFERSIZE(__X, __NEEDED) if ((this%n_spat+__NEEDED)>this%max_buff) call commit_backward_buff(this)
 
 !------------------------------------------------------------------------------      
    subroutine scal_to_spat_buff(this, Slm, fieldc, lcut)
@@ -1680,14 +1684,16 @@ contains
    end subroutine
 #undef __CHECK_BUFFERSIZE
 
+! !------------------------------------------------------------------------------   
+! #define __CHECK_BUFFERSIZE(__X, __NEEDED)\
+!    if (this%operations(1)<0) then;\
+!       print *, "Error in "//__X//"; commit transform before changing direction!";\
+!       test_ptr(5) = 5;\
+!       stop;\
+!    end if;\
+!    if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this);\
 !------------------------------------------------------------------------------   
-#define __CHECK_BUFFERSIZE(__X, __NEEDED)\
-   if (this%operations(1)<0) then;\
-      print *, "Error in "//__X//"; commit transform before changing direction!";\
-      test_ptr(5) = 5;\
-      stop;\
-   end if;\
-   if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this);\
+#define __CHECK_BUFFERSIZE(__X, __NEEDED) if ((this%n_sh+__NEEDED)>this%max_buff) call commit_forward_buff(this)
 
    
 !------------------------------------------------------------------------------   

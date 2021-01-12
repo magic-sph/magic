@@ -45,7 +45,6 @@ module parallel_mod
 
    use logic, only: l_save_out, lVerbose
    use output_data, only: tag
-   use ifport, only: hostnm
 #ifdef WITH_MPI
    use MPI
 #endif
@@ -319,7 +318,7 @@ contains
 
 !------------------------------------------------------------------------------
    subroutine print_mpi_info()
-      integer :: ioinfo, fh, i, istat, ierr
+      integer :: ioinfo, fh, i, istat(MPI_STATUS_SIZE), ierr
       character(len=41) :: nextline
       character(len=16) :: myname
 
@@ -327,7 +326,8 @@ contains
       call mpiio_setup(ioinfo)
       call mpi_file_open(mpi_comm_world, 'parallel_info.'//tag, ior(mpi_mode_wronly, mpi_mode_create), ioinfo, fh, ierr)
       
-      istat = hostnm(myname)
+      !call hostnm(myname)
+      call get_environment_variable("HOSTNAME", myname)
       
       if ( l_master_rank ) then
          nextline = " *  Hostname, rank, rank_r, rank_theta"//NEW_LINE("A")
