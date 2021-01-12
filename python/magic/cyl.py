@@ -159,7 +159,7 @@ if zavgMode == 'f2py':
                 for k,out in enumerate(output):
                     pickle.dump(out, file) # cylindrical average
                     ntheta, nr = input[k].shape
-                    pickle.dump(input[k][ntheta/2, :], file) # equatorial cut
+                    pickle.dump(input[k][ntheta//2, :], file) # equatorial cut
                 file.close()
 
             return height, cylRad, output

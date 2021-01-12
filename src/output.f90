@@ -1,6 +1,7 @@
 #include "perflib_preproc.cpp"
 module output_mod
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
@@ -40,7 +41,7 @@ module output_mod
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
-   use geos_mod, only: getEgeos
+   use geos, only: outGeos
    use outRot, only: write_rot
    use omega, only: outOmega
    use integration, only: rInt_R
@@ -71,7 +72,6 @@ module output_mod
    integer :: nPotSets, n_spec
    integer :: n_dt_cmb_sets, n_cmb_setsMov
    integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
-   integer :: nTOsets,nTOmovSets,nTOrmsSets
 
    !--- For averaging:
    real(cp) :: timePassedLog, timeNormLog
@@ -80,8 +80,7 @@ module output_mod
    real(cp) :: dlBMean,dmBMean
    real(cp) :: lvDissMean,lbDissMean
    real(cp) :: RmMean,ElMean,ElCmbMean,RolMean
-   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean
-   real(cp) :: GeosNAMean,GeosNAPMean
+   real(cp) :: GeosMean,GeosAMean,GeosZMean,GeosMMean,GeosNAPMean
    real(cp) :: RelA,RelZ,RelM,RelNA
    real(cp) :: DipMean,DipCMBMean
    real(cp) :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
@@ -159,9 +158,6 @@ contains
       n_spec       =0
       n_cmb_setsMov=0
       n_dt_cmb_sets=0
-      nTOsets      =0
-      nTOmovSets   =0
-      nTOrmsSets   =0
       nPotSets     =1
       n_e_sets     =0
       nLogs        =0
@@ -177,7 +173,6 @@ contains
       GeosAMean    =0.0_cp
       GeosZMean    =0.0_cp
       GeosMMean    =0.0_cp
-      GeosNAMean   =0.0_cp
       GeosNAPMean  =0.0_cp
       RelA         =0.0_cp
       RelM         =0.0_cp
@@ -303,12 +298,12 @@ contains
 !----------------------------------------------------------------------------
    subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
-              &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
-              &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
-              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMdist, &
-              &      HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr,viscASr,  &
-              &      uhASr,duhASr,gradsASr,fconvASr,fkinASr,fviscASr,     &
-              &      fpoynASr,fresASr,EperpASr,EparASr,EperpaxiASr,EparaxiASr)
+              &      l_spectrum,lTOCalc,lTOframe,l_frame,n_frame,l_cmb,   &
+              &      n_cmb_sets,l_r,lorentz_torque_ic,lorentz_torque_ma,  &
+              &      dbdt_CMB_LMdist,HelASr,Hel2ASr,HelnaASr,Helna2ASr,   &
+              &      HelEAASr,viscASr,uhASr,duhASr,gradsASr,fconvASr,     &
+              &      fkinASr,fviscASr,fpoynASr,fresASr,EperpASr,EparASr,  &
+              &      EperpaxiASr,EparaxiASr)
       !
       !  This subroutine controls most of the output.
       !
@@ -323,7 +318,6 @@ contains
       logical,             intent(in) :: l_new_rst_file, l_spectrum
       logical,             intent(in) :: lTOCalc,lTOframe
       logical,             intent(in) :: l_frame, l_cmb, l_r
-      logical,             intent(inout) :: lTOZwrite
       integer,             intent(inout) :: n_frame
       integer,             intent(inout) :: n_cmb_sets
 
@@ -385,24 +379,19 @@ contains
       real(cp) :: e_kin,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as
       real(cp) :: eKinIC,eKinMA,dtE
 
-      integer :: nR,lm,n,m
-
-      !--- For TO:
-      logical :: lTOrms
+      integer :: nR,lm,n,m,l
 
       !--- Property parameters:
       complex(cp) :: dbdtCMB(n_mloMag_loc)        ! SV at CMB !
-      real(cp) :: volume,EC
       real(cp) :: dlVR(n_r_max),dlVRc(n_r_max)
       real(cp) :: RolRu2(n_r_max),RmR(n_r_max),dlPolPeakR(n_r_max)
-      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNA,GeosNAP
-      real(cp) :: Dip,DipCMB,ReConv,RoConv,e_kin_nas,RolC
+      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,GeosA,GeosZ,GeosM,GeosNAP
+      real(cp) :: Dip,DipCMB,EC
+      real(cp) :: ReConv,RoConv,e_kin_nas,RolC
       real(cp) :: elsAnel,dlVPolPeak,dlBPolPeak
       real(cp) :: dlB,dlBc,dmB,dLh,dlV,dlVc,dmV,dpV,dzV
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
-      integer :: l
-      real(cp) :: ReEquat
-      real(cp) :: timeScaled
+      real(cp) :: ReEquat,timeScaled,dL
       character(len=96) :: message
       logical :: DEBUG_OUTPUT=.false.
       
@@ -422,7 +411,7 @@ contains
               &          dz_LMdist,b_LMdist,omega_ic,omega_ma,               &
               &          lorentz_torque_ic,lorentz_torque_ma)
          
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  write_rot  on coord_r ",coord_r
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  write_rot  on coord_r ",coord_r
 
          
          n_e_sets=n_e_sets+1
@@ -431,8 +420,7 @@ contains
               &         e_kin_t_as,ekinR)
          e_kin=e_kin_p+e_kin_t
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
-         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on coord_r ",coord_r
-
+         if ( DEBUG_OUTPUT ) write(output_unit,"(A,I6)") "Written  e_kin  on coord_r ",coord_r
 
          call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMdist,db_LMdist, &
               &         aj_LMdist,b_ic_LMdist,db_ic_LMdist,aj_ic_LMdist,     &
@@ -442,14 +430,14 @@ contains
          e_mag   =e_mag_p+e_mag_t
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
          
-         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on coord_r ",coord_r
+         if ( DEBUG_OUTPUT ) write(output_unit,"(A,I6)") "Written  e_mag  on coord_r ",coord_r
 
          !----- Calculate distribution of energies on all m's
          if ( l_energy_modes ) then
             call get_amplitude(time,w_LMdist,dw_LMdist,z_LMdist,b_LMdist,&
                  &             db_LMdist,aj_LMdist)
             if ( DEBUG_OUTPUT ) &
-               & write(*,"(A,I6)") "Written  amplitude  on coord_r ",coord_r
+               & write(output_unit,"(A,I6)") "Written  amplitude  on coord_r ",coord_r
          endif
 
          !---- Surface zonal velocity at the equator
@@ -485,7 +473,7 @@ contains
                  &              timeNormLog,omega_ic,omega_ma,w_LMdist,z_LMdist, &
                  &              p_LMdist,s_LMdist,xi_LMdist,b_LMdist,aj_LMdist,  &
                  &              b_ic_LMdist,aj_ic_LMdist)
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on coord_r ",coord_r
+            if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  averages  on coord_r ",coord_r
          end if
 
          if ( l_power ) then
@@ -518,7 +506,7 @@ contains
                  &          ddb_ic_LMdist,aj_ic_LMdist,dj_ic_LMdist,viscASr,     &
                  &          visDiss,ohmDiss)
             
-            if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on coord_r ",coord_r
+            if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  power  on coord_r ",coord_r
          end if
 
          !----- If anelastic additional u**2 outputs
@@ -544,7 +532,7 @@ contains
                  &          EperpASr,EparASr,EperpaxiASr,EparaxiASr)
          end if
 
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on coord_r ",coord_r
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  outPar  on coord_r ",coord_r
 
          if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
@@ -557,19 +545,17 @@ contains
          end if
          
          if ( l_par ) then
-            call getEgeos(timeScaled,nLogs,w_LMdist,dw_LMdist,ddw_LMdist,   &
-                 &        z_LMdist,dz_LMdist,Geos,GeosA,GeosZ,GeosM,GeosNA, & 
-                 &        GeosNAP,dpV,dzV,volume,EC)
+            call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)
+            dpV=0.0_cp ! To be handled later
+            dzV=0.0_cp
          else
             Geos   =0.0_cp
             GeosA  =0.0_cp
             GeosZ  =0.0_cp
             GeosM  =0.0_cp
-            GeosNA =0.0_cp
             GeosNAP=0.0_cp
             dpV    =0.0_cp
             dzV    =0.0_cp
-            volume =0.0_cp ! test volume
             EC     =0.0_cp ! test kinetic energy
          end if
 
@@ -593,9 +579,9 @@ contains
                  &             timePassedLog,timeNormLog,s_LMdist,ds_LMdist)
          end if
          if ( l_master_rank ) then
-            write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
-            &    " ! Storing spectra:",                  &
-            &    "             at time=",timeScaled,     &
+            write(output_unit,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
+            &    " ! Storing spectra:",                            &
+            &    "             at time=",timeScaled,               &
             &    "            step no.=",n_time_step
 
             if ( l_save_out ) then
@@ -608,26 +594,22 @@ contains
             &    "            step no.=",n_time_step
             if ( l_save_out ) close(n_log_file)
          end if
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on coord_r ",coord_r
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  spectrum  on coord_r ",coord_r
       end if
 
       if ( lTOCalc ) then
          !------ Output for every log time step:
-         if ( lVerbose ) write(*,*) '! Calling outTO !'
-         lTOrms   =.true.
+         if ( lVerbose ) write(output_unit,*) '! Calling outTO !'
          if ( .not. l_log ) then
             call get_e_kin(time,.false.,l_stop_time,0,w_LMdist,dw_LMdist, &
                  &         z_LMdist,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
                  &         ekinR)
             e_kin=e_kin_p+e_kin_t
          end if
-         call outTO(time,n_time_step,e_kin,e_kin_t_as,nTOsets,nTOmovSets, &
-         &          nTOrmsSets,lTOframe,lTOrms,lTOZwrite,z_LMdist,omega_ic,&
-         &          omega_ma)
-         !------ Note: time averaging, time differencing done by IDL routine!
+         call outTO(time,n_time_step,e_kin,e_kin_t_as,lTOframe)
 
-         if ( lVerbose ) write(*,*) '! outTO finished !'
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  TO  on coord_r ",coord_r
+         if ( lVerbose ) write(output_unit,*) '! outTO finished !'
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  TO  on coord_r ",coord_r
       end if
 
       !--- Get radial derivatives and add dt dtB terms:
@@ -647,13 +629,13 @@ contains
          end if
          timePassedRMS=timePassedRMS+tscheme%dt(1)
          if ( lRmsCalc ) then
-            if ( lVerbose ) write(*,*) '! Writing RMS output !'
+            if ( lVerbose ) write(output_unit,*) '! Writing RMS output !'
             timeNormRMS=timeNormRMS+timePassedRMS
             call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS,l_stop_time)
             if ( l_mag ) call dtBrms(time)
             timePassedRMS=0.0_cp
          end if
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on coord_r ",coord_r
+         if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  dtV/Brms  on coord_r ",coord_r
       end if
 
       !--- Store poloidal magnetic coeffs at cmb
@@ -874,7 +856,7 @@ contains
             else
                RolC=RoConv
             end if
-            !write(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
+            !write(output_unit,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
 
             if ( prmag /= 0 .and. nVarCond > 0 ) then
                Rm=0.0_cp
@@ -949,7 +931,6 @@ contains
             GeosAMean  =GeosAMean  +timePassedLog*GeosA
             GeosZMean  =GeosZMean  +timePassedLog*GeosZ
             GeosMMean  =GeosMMean  +timePassedLog*GeosM
-            GeosNAMean =GeosNAMean +timePassedLog*GeosNA
             GeosNAPMean=GeosNAPMean+timePassedLog*GeosNAP
             if ( e_kin > 0.0_cp ) then
                ! Relative axisymmetric kinetic energy:
@@ -983,18 +964,17 @@ contains
                ElMean     =ElMean/timeNormLog
                ElCmbMean  =ElCmbMean/timeNormLog
                RolMean    =RolMean/timeNormLog
-               GeosMean   =GeosMean/timeNormLog 
-               GeosAMean  =GeosAMean/timeNormLog 
-               GeosZMean  =GeosZMean/timeNormLog 
-               GeosMMean  =GeosMMean/timeNormLog 
-               GeosNAMean =GeosNAMean/timeNormLog 
-               GeosNAPMean=GeosNAPMean/timeNormLog 
+               GeosMean   =GeosMean/timeNormLog
+               GeosAMean  =GeosAMean/timeNormLog
+               GeosZMean  =GeosZMean/timeNormLog
+               GeosMMean  =GeosMMean/timeNormLog
+               GeosNAPMean=GeosNAPMean/timeNormLog
                RelA       =RelA/timeNormLog
                RelZ       =RelZ/timeNormLog
                RelM       =RelM/timeNormLog
                RelNA      =RelNA/timeNormLog
-               DipMean    =DipMean/timeNormLog  
-               DipCMBMean =DipCMBMean/timeNormLog  
+               DipMean    =DipMean/timeNormLog
+               DipCMBMean =DipCMBMean/timeNormLog
 
                e_kin_pMean=e_kin_pMean/timeNormLog
                e_kin_tMean=e_kin_tMean/timeNormLog
@@ -1018,7 +998,7 @@ contains
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
                if ( l_full_sphere ) then
-                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')              &
+                  write(output_unit,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')    &
                   & " ! Energies at end of time integration:",                 &
                   & " !  (total,poloidal,toroidal,total density)",             &
                   & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
@@ -1031,7 +1011,7 @@ contains
                   &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc
 
                else
-                  write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
+                  write(output_unit,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
                   & " ! Energies at end of time integration:",                 &
                   & " !  (total,poloidal,toroidal,total density)",             &
                   & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
@@ -1058,15 +1038,15 @@ contains
                & " !  OC mag. energies:",e_mag_pMean+e_mag_tMean,e_mag_pMean,  &
                &                         e_mag_tMean,(e_mag_pMean+e_mag_tMean)/&
                &                         vol_oc
-  
+
                write(n_log_file,                                                &
-               & '(1p,/,A,16(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
+               & '(1p,/,A,15(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
                & " ! Time averaged property parameters :",                      &
                & " !  Rm (Re)          :",RmMean,                               &
                & " !  Elsass           :",ElMean,                               &
                & " !  Elsass at CMB    :",ElCmbMean,                            &
                & " !  Rol              :",RolMean,                              &
-               & " !  rel AS  Ekin     :",RelA,                                 & 
+               & " !  rel AS  Ekin     :",RelA,                                 &
                & " !  rel Zon Ekin     :",RelZ,                                 &
                & " !  rel Mer Ekin     :",RelM,                                 &
                & " !  rel NA  Ekin     :",RelNA,                                &
@@ -1074,16 +1054,14 @@ contains
                & " !  rel geos AS Ekin :",GeosAMean,                            &
                & " !  rel geos Zon Ekin:",GeosZMean,                            &
                & " !  rel geos Mer Ekin:",GeosMMean,                            &
-               & " !  rel geos NA Ekin :",GeosNAMean,                           &
                & " !  rel geos NAP Ekin:",GeosNAPMean,                          &
                & " !  Dip              :",DipMean,                              &
                & " !  DipCMB           :",DipCMBMean,                           &
                & " !  l,m,p,z V scales :",dlVMean,dmVMean,dpVMean,dzVmean,      &
                & " !  l,m, B scales    :",dlBMean,dmBMean,                      &
                & " !  vis, Ohm scale   :",lvDissMean,lbDissMean
-               if ( l_par ) then 
+               if ( l_par ) then
                   write(n_log_file,*) !' Calculating geostrophic contributions with outEgeos.f90'
-                  write(n_log_file,*) '! precision of z-integration (geos):',abs(volume/vol_oc-1)
                   write(n_log_file,*) '! precision of cyl. transf.  (geos):',abs(EC/e_kin-1)
                end if
 

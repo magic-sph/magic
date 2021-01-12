@@ -10,3 +10,6 @@ TAGS
 samples/**/stdout.out
 samples/tmp
 samples/make.out
+.build
+.DS_Store
+.fortranCleanSrc

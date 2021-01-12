@@ -434,7 +434,7 @@ contains
                      end do
                   end if
                end if
-               
+
             end if
             
          end do
@@ -728,7 +728,7 @@ contains
                   if ( l==0 ) cycle ! skips mode (0,0) if it is local
                   dL=real(l*(l+1),cp)
 
-                  Dif(lm)=     -hdif_V(l)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (  &
+                  Dif(lm)=-hdif_V(l)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (       &
                   &                                                  ddddw(lm,n_r)  &
                   &           +two*( dLvisc(n_r)-beta(n_r) ) * work_LMdist(lm,n_r)  &
                   &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &

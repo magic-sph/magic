@@ -34,11 +34,6 @@ IO: RMS force balance, torsional oscillations, misc
 
 .. f:automodule:: torsional_oscillations
 
-``TO_helpers.f90``
-------------------
-
-.. f:automodule:: to_helpers
-
 ``TO_arrays.f90``
 -----------------
 
@@ -58,13 +53,8 @@ IO: RMS force balance, torsional oscillations, misc
 ``outGeos.f90``
 ---------------
 
-.. f:automodule:: geos_mod
+.. f:automodule:: geos
 
-
-``chebInt.f90``
----------------
-
-.. f:automodule:: chebint_mod
 
 ``outOmega.f90``
 ----------------

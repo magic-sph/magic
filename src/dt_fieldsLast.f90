@@ -194,6 +194,8 @@ contains
          if ( (.not. l_double_curl) .or. l_RMS ) then
             allocate( dpdt_dist%expl(n_mlo_loc,n_r_max,nexp) )
             bytes_allocated = bytes_allocated+n_mlo_loc*n_r_max*nexp*SIZEOF_DEF_COMPLEX
+         else
+            allocate( dpdt_dist%expl(1,1,1) ) ! To avoid debug
          end if
       else
          if ( l_double_curl ) then

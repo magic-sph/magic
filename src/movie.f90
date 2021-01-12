@@ -159,6 +159,9 @@ contains
       !         - AX[ISYMMETRIC] T
       !           or AT          : axisymmetric T field for phi=constant
       !         - Heat t[ransport]: radial derivative of T
+      !         - C[omposition]  : sic
+      !         - AX[ISYMMETRIC] C
+      !           or AC          : axisymmetric C field for phi=constant
       !         - FL Pro         : axisymmetric field line stretching
       !         - FL Adv         : axisymmetric field line advection
       !         - FL Dif         : axisymmetric field line diffusion
@@ -283,8 +286,10 @@ contains
       !                   - =110  : radial heat flow
       !                   - =111  : Vz and Vorz north/south correlation
       !                   - =112  : axisymm dtB tersm for Br and Bp
-      !                   - =113  : axisymm dSdr
       !                   - =114  : Cylindrically radial magnetic field
+      !                   - =115  : Composition field
+      !                   - =117  : axisymmetric Composition field
+      !                     for phi=const.
       !
       !     * n_movie_surface(n_movie) = defines surface
       !     * n_movie_surface =  1  : r=constant:
@@ -372,6 +377,8 @@ contains
       !                      - =106: AS toroidal Bp omega effect
       !                      - =107: AS toroidal Bp diffusion
       !                      - =108: Bs
+      !                      - =109: composition field
+      !                      - =110: axisymm. composition
       !
       !     * n_movie_field_start(n_field,n_movie) = defines where first
       !       element of a field is stored in ``frames(*)``
@@ -893,6 +900,13 @@ contains
             file_name='AT'
             n_fields=1
             n_field_type(1)=12
+         else if ( index(string,'AX' ) /= 0 .and. &
+         &    ( index(string,'COMP') /= 0 .or. index(string,'XI') /= 0 ) ) then
+            n_type=117
+            typeStr=' axisymmetric comp. '
+            file_name='AC'
+            n_fields=1
+            n_field_type(1)=110
          else if ( index(string,'ENTROPY') /= 0 .or. index(string,'TEM') /= 0 ) then
             ns=index(string,'S')
             if ( ns > 0 ) then
@@ -905,6 +919,18 @@ contains
             file_name='T_'
             n_fields=1
             n_field_type(1)=7
+         else if ( index(string,'COMP') /= 0 .or. index(string,'XI') /= 0 ) then
+            ns=index(string,'S')
+            if ( ns > 0 ) then
+               if ( string(ns:ns+2) == 'SUR' ) then
+                  call abortRun('! No surface C field available !')
+               end if
+            end if
+            n_type=115
+            typeStr=' Composition field '
+            file_name='XI_'
+            n_fields=1
+            n_field_type(1)=109
          else if ( ( index(string,'CONV' ) /= 0 .and.  &
          &    index(string,'HEAT' ) /= 0 ) .or. index(string,'HEATT') /= 0 ) then
             ns=index(string,'S')
@@ -1474,7 +1500,8 @@ contains
                &    n_field_type == 94 .or. n_field_type == 95 .or. &
                &    n_field_type == 96 .or. n_field_type == 97 .or. &
                &    n_field_type == 98 .or. n_field_type == 99 .or. &
-               &    n_field_type == 19 .or. n_field_type == 8 ) then
+               &    n_field_type == 19 .or. n_field_type == 8  .or. &
+               &    n_field_type == 110) then
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,comm_r,ierr)
