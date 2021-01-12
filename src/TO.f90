@@ -10,11 +10,11 @@ module torsional_oscillations
    use LMmapping, only: map_glbl_st, map_dist_st
    use truncation, only: n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr,   &
        &                 n_r_cmb, nRstart, nRstop, nThetaStart, nThetaStop, &
-       &                 n_lm_loc, m_tsid, n_phi_max, n_theta_loc
+       &                 n_lm_loc, m_tsid, n_phi_max, n_theta_loc, nlat_padded
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, &
-       &                      O_sin_theta
+       &                      O_sin_theta, n_theta_cal2ord
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
    use sht, only: SHtransf, toraxi_to_spat
@@ -27,10 +27,10 @@ module torsional_oscillations
    real(cp), public, allocatable :: ddzASL(:,:)
    real(cp), allocatable :: dzddVpLMr(:,:), dzdVpLMr(:,:)
 
-   real(cp), public, allocatable :: dzStrAS_Rdist(:,:),dzRstrAS_Rdist(:,:)
-   real(cp), public, allocatable :: dzAStrAS_Rdist(:,:),dzCorAS_Rdist(:,:)
-   real(cp), public, allocatable :: dzLFAS_Rdist(:,:),dzdVpAS_Rdist(:,:)
-   real(cp), public, allocatable :: dzddVpAS_Rdist(:,:), VAS_Rdist(:,:)
+   real(cp), public, allocatable :: dzStrAS_Rloc(:,:),dzRstrAS_Rloc(:,:)
+   real(cp), public, allocatable :: dzAStrAS_Rloc(:,:),dzCorAS_Rloc(:,:)
+   real(cp), public, allocatable :: dzLFAS_Rloc(:,:),dzdVpAS_Rloc(:,:)
+   real(cp), public, allocatable :: dzddVpAS_Rloc(:,:), VAS_Rdist(:,:)
    real(cp), public, allocatable :: V2AS_Rdist(:,:),Bs2AS_Rdist(:,:)
    real(cp), public, allocatable :: BszAS_Rdist(:,:),BspAS_Rdist(:,:)
    real(cp), public, allocatable :: BpzAS_Rdist(:,:),BspdAS_Rdist(:,:)
@@ -47,14 +47,14 @@ contains
       !
       ! Allocate the memory needed
       !
-      allocate( dzStrAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( dzRstrAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( dzAStrAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( dzCorAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( dzLFAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( dzdVpAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      allocate( dzddVpAS_Rdist(nThetaStart:nThetaStop,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+7*(nRstop-nRstart+1)*n_theta_loc* &
+      allocate( dzStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( dzRstrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( dzAStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( dzCorAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( dzLFAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( dzdVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( dzddVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+7*(nRstop-nRstart+1)*n_theta_maxStr* &
       &                 SIZEOF_DEF_REAL
       allocate( dzdVpLMr(l_max+1,nRstart:nRstop), dzddVpLMr(l_max+1,nRstart:nRstop) )
       dzdVpLMr(:,:) =0.0_cp
@@ -97,8 +97,8 @@ contains
 
       deallocate( ddzASL, BpzdAS_Rdist, BzpdAS_Rdist, BpsdAS_Rdist, BspdAS_Rdist )
       deallocate( BpzAS_Rdist, BspAS_Rdist, BszAS_Rdist, Bs2AS_Rdist, V2AS_Rdist )
-      deallocate( dzddVpAS_Rdist, dzdVpAS_Rdist, dzLFAS_Rdist, dzCorAS_Rdist )
-      deallocate( dzAStrAS_Rdist, dzRstrAS_Rdist, dzStrAS_Rdist )
+      deallocate( dzddVpAS_Rloc, dzdVpAS_Rloc, dzLFAS_Rloc, dzCorAS_Rloc )
+      deallocate( dzAStrAS_Rloc, dzRstrAS_Rloc, dzStrAS_Rloc )
       deallocate( zASL, dzASL, BsLast, BpLast, BzLast, VAS_Rdist )
       deallocate( dzddVpLMr, dzdVpLMr )
 
@@ -450,13 +450,13 @@ contains
       end do
 
       !-- Bring back quantity to physical-space
-      call get_PAS(dzStrLMr(:), dzStrAS_Rdist(:,nR), r(nR))
-      call get_PAS(dzRstrLMr(:), dzRstrAS_Rdist(:,nR), r(nR))
-      call get_PAS(dzAstrLMr(:), dzAstrAS_Rdist(:,nR), r(nR))
-      call get_PAS(dzCorLMr(:), dzCorAS_Rdist(:,nR), r(nR))
-      call get_PAS(dzLFLMr(:), dzLFAS_Rdist(:,nR), r(nR))
-      call get_PAS(dzdVpLMr(:,nR), dzdVpAS_Rdist(:,nR), r(nR))
-      call get_PAS(dzddVpLMr(:,nR), dzddVpAS_Rdist(:,nR), r(nR))
+      call get_PAS(dzStrLMr(:), dzStrAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzRstrLMr(:), dzRstrAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzAstrLMr(:), dzAstrAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzCorLMr(:), dzCorAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzLFLMr(:), dzLFAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzdVpLMr(:,nR), dzdVpAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzddVpLMr(:,nR), dzddVpAS_Rloc(:,nR), r(nR))
 
    end subroutine getTOfinish
 !-----------------------------------------------------------------------------
@@ -476,9 +476,9 @@ contains
 
       !-- Local variables:
       integer :: lm,l
-      integer :: nTheta
+      integer :: nTheta,nTheta1
       complex(cp) :: Tl_AX(1:l_max+1)
-      real(cp) :: tmpt(nThetaStart:nThetaStop), tmpp(nThetaStart:nThetaStop)
+      real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
 
       do l=0,l_max
          lm=map_glbl_st%lm2(l,0)
@@ -488,8 +488,9 @@ contains
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
       !-- Unscramble theta
-      do nTheta=nThetaStart,nThetaStop
-         Bp(nTheta)=O_sin_theta(nTheta)*tmpp(nTheta)/rT
+      do nTheta=1,n_theta_maxStr
+         nTheta1=n_theta_cal2ord(nTheta)
+         Bp(nTheta1)=O_sin_theta(nTheta)*tmpp(nTheta)/rT
       end do
 
    end subroutine get_PAS

@@ -62,8 +62,8 @@ contains
       !-- Distribute over the ranks
       allocate(phi_balance(0:n_ranks_r-1))
       call getBlocks(phi_balance, n_phi_max, n_ranks_r)
-      nPstart = phi_balance(rank)%nStart
-      nPstop = phi_balance(rank)%nStop
+      nPstart = phi_balance(coord_r)%nStart
+      nPstop = phi_balance(coord_r)%nStop
 
       !-- Phi-distributed arrays
       allocate( us_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
@@ -223,7 +223,7 @@ contains
 
       phiNorm = one/n_phi_max
 
-      if ( coord_r == 0 ) then
+      if ( coord_theta == 0 ) then
 
          !-- Reshuffle theta  @> TODO: this is really ugly could be better done
          do n_r=nRstart,nRstop

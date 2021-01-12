@@ -8,10 +8,10 @@ module outTO_mod
    !
    use precision_mod
    use parallel_mod
-   use communications, only: gather_f !@> TODO remove
    use constants, only: one, two, pi, vol_oc
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, nRstart, nRstop, &
-       &                 radial_balance, nThetaStart, nThetaStop, nR_per_rank
+       &                 radial_balance, nThetaStart, nThetaStop, nR_per_rank,   &
+       &                 dist_theta
    use mem_alloc, only: bytes_allocated
    use num_param, only: tScale
    use output_data, only: sDens, zDens, tag, runid, log_file, n_log_file
@@ -19,11 +19,11 @@ module outTO_mod
    use horizontal_data, only: theta_ord, phi, n_theta_cal2ord
    use logic, only: l_save_out, l_TOmovie
    use physical_parameters, only: ra, ek, pr,prmag, radratio, LFfac
-   use torsional_oscillations, only: dzCorAS_Rdist, dzdVpAS_Rdist, dzddVpAS_Rdist,  &
-       &                             dzRstrAS_Rdist, dzAstrAS_Rdist, dzStrAS_Rdist, &
-       &                             dzLFAS_Rdist, V2AS_Rdist, Bs2AS_Rdist,         &
-       &                             BspdAS_Rdist, BpsdAS_Rdist, BzpdAS_Rdist,      &
-       &                             BpzdAS_Rdist, BpzAS_Rdist, BspAS_Rdist,        &
+   use torsional_oscillations, only: dzCorAS_Rloc, dzdVpAS_Rloc, dzddVpAS_Rloc,  &
+       &                             dzRstrAS_Rloc, dzAstrAS_Rloc, dzStrAS_Rloc, &
+       &                             dzLFAS_Rloc, V2AS_Rdist, Bs2AS_Rdist,       &
+       &                             BspdAS_Rdist, BpsdAS_Rdist, BzpdAS_Rdist,   &
+       &                             BpzdAS_Rdist, BpzAS_Rdist, BspAS_Rdist,     &
        &                             BszAS_Rdist, VAS_Rdist
    use useful, only: logWrite
    use integration, only: cylmean_otc, cylmean_itc, simps
@@ -244,13 +244,13 @@ contains
       real(cp) :: Bs2B(2),BszB(2),BpzB(2),BzpdB(2),BpzdB(2)
 
       !-- Gather R-distributed arrays on rank == 0
-      call gather_from_Rdist_to_rank0(dzCorAS_Rdist, dzCorAS)
-      call gather_from_Rdist_to_rank0(dzdVpAS_Rdist, dzdVpAS)
-      call gather_from_Rdist_to_rank0(dzddVpAS_Rdist, dzddVpAS)
-      call gather_from_Rdist_to_rank0(dzRstrAS_Rdist, dzRstrAS)
-      call gather_from_Rdist_to_rank0(dzAstrAS_Rdist, dzAstrAS)
-      call gather_from_Rdist_to_rank0(dzStrAS_Rdist, dzStrAS)
-      call gather_from_Rdist_to_rank0(dzLFAS_Rdist, dzLFAS)
+      call gather_from_Rloc_to_rank0(dzCorAS_Rloc, dzCorAS)
+      call gather_from_Rloc_to_rank0(dzdVpAS_Rloc, dzdVpAS)
+      call gather_from_Rloc_to_rank0(dzddVpAS_Rloc, dzddVpAS)
+      call gather_from_Rloc_to_rank0(dzRstrAS_Rloc, dzRstrAS)
+      call gather_from_Rloc_to_rank0(dzAstrAS_Rloc, dzAstrAS)
+      call gather_from_Rloc_to_rank0(dzStrAS_Rloc, dzStrAS)
+      call gather_from_Rloc_to_rank0(dzLFAS_Rloc, dzLFAS)
 
       call gather_from_Rdist_to_rank0(VAS_Rdist, VAS)
       call gather_from_Rdist_to_rank0(V2AS_Rdist, V2AS)
@@ -728,37 +728,48 @@ contains
       real(cp), intent(out) :: arr(n_theta_max,n_r_max)
 
       !-- Local variables:
-      real(cp) :: tmp(n_theta_max, n_phi_max)
-      integer :: n_p, n_t, n_t1
+      real(cp) :: tmp(n_theta_max,nRstart:nRstop)
+      integer :: n_r, n_t, n_t1
 #ifdef WITH_MPI
       real(cp) :: arr_Rloc(n_theta_max, nRstart:nRstop)
-      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
       integer :: p
 
-      call gather_f(arr_Rdist, arr_Rloc) !@> TODO again Rdist might work longer
+      !@> TODO again Rdist might work longer
+      !-- Copies local content to f_global
 
-      if ( coord_r == 0 ) then
+      !-- From Rdist to Rloc
+      arr_Rloc(:,:) = 0.0_cp
+      arr_Rloc(nThetaStart:nThetaStop,:) = arr_Rdist(nThetaStart:nThetaStop,:)
+      
+      do p=0,n_ranks_theta-1
+         call MPI_Bcast(arr_Rloc(dist_theta(p,1):dist_theta(p,2),:),    &
+              &         nR_per_rank*dist_theta(p,0), MPI_DEF_REAL, p,   &
+              &         comm_theta, ierr)
+      end do
+
+      if ( coord_theta == 0 ) then
 
          !-- Unscramble theta
-         do n_p=1,n_phi_max
+         do n_r=nRstart,nRstop
             do n_t=1,n_theta_max
                n_t1=n_theta_cal2ord(n_t)
-               tmp(n_t1,n_p)=arr_Rloc(n_t,n_p)
+               tmp(n_t1,n_r)=arr_Rloc(n_t,n_r)
             end do
          end do
          arr_Rloc(:,:)=tmp(:,:)
 
          sendcount  = nR_per_rank*n_theta_max
-         do p=0,n_procs-1
+         do p=0,n_ranks_r-1
             recvcounts(p)=radial_balance(p)%n_per_rank*n_theta_max
          end do
          displs(0)=0
-         do p=1,n_procs-1
+         do p=1,n_ranks_r-1
             displs(p)=displs(p-1)+recvcounts(p-1)
          end do
 
          call MPI_GatherV(arr_Rloc, sendcount, MPI_DEF_REAL, arr, recvcounts, &
-              &           displs, MPI_DEF_REAL, 0, coord_r,ierr)
+              &           displs, MPI_DEF_REAL, 0, comm_r,ierr)
       end if
 
 #else
@@ -772,5 +783,38 @@ contains
 #endif
 
    end subroutine gather_from_Rdist_to_rank0
+!------------------------------------------------------------------------------------
+   subroutine gather_from_Rloc_to_rank0(arr_Rloc, arr)
+      !
+      ! This subroutine gathers the r-distributed array
+      !
+      
+      !-- Input variable
+      real(cp), intent(in) :: arr_Rloc(n_theta_max,nRstart:nRstop)
+
+      !-- Output variable
+      real(cp), intent(out) :: arr(n_theta_max,n_r_max)
+
+      !-- Local variables:
+#ifdef WITH_MPI
+      integer :: sendcount,recvcounts(0:n_ranks_r-1),displs(0:n_ranks_r-1)
+      integer :: p
+
+      sendcount  = nR_per_rank*n_theta_max
+      do p=0,n_ranks_r-1
+         recvcounts(p)=radial_balance(p)%n_per_rank*n_theta_max
+      end do
+      displs(0)=0
+      do p=1,n_ranks_r-1
+         displs(p)=displs(p-1)+recvcounts(p-1)
+      end do
+
+      call MPI_GatherV(arr_Rloc, sendcount, MPI_DEF_REAL, arr, recvcounts, &
+           &           displs, MPI_DEF_REAL, 0, comm_r,ierr)
+#else
+      arr(:,:)=arr_Rloc(:,:)
+#endif
+
+   end subroutine gather_from_Rloc_to_rank0
 !------------------------------------------------------------------------------
 end module outTO_mod
