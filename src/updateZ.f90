@@ -240,7 +240,7 @@ contains
       end if
 
       !-- Now assemble the right hand side and store it in work_LMloc
-      call tscheme%set_imex_rhs(work_LMloc, dzdt, llm, ulm, n_r_max)
+      call tscheme%set_imex_rhs(work_LMloc, dzdt)
 
       !$omp parallel default(shared)
 
@@ -443,7 +443,7 @@ contains
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dzdt, llm, ulm, n_r_max)
+      call tscheme%rotate_imex(dzdt)
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
@@ -781,7 +781,7 @@ contains
       end if
 
       !-- Store the assembled quantity in work_LMloc
-      call tscheme%assemble_imex(work_LMloc, dzdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(work_LMloc, dzdt)
 
       !-- Now get the toroidal potential from the assembly
       !$omp parallel default(shared)

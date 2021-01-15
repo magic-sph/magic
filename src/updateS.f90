@@ -173,7 +173,7 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-      call tscheme%set_imex_rhs(work_LMloc, dsdt, llm, ulm, n_r_max)
+      call tscheme%set_imex_rhs(work_LMloc, dsdt)
 
       !$omp parallel default(shared)
 
@@ -323,7 +323,7 @@ contains
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dsdt, llm, ulm, n_r_max)
+      call tscheme%rotate_imex(dsdt)
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -551,7 +551,7 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-      call tscheme%assemble_imex(work_LMloc, dsdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(work_LMloc, dsdt)
 
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,m1)

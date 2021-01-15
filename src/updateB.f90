@@ -261,15 +261,13 @@ contains
       lmStart_00=max(2,llmMag)
 
       !-- Now assemble the right hand side and store it in work_LMloc
-      call tscheme%set_imex_rhs(work_LMloc, dbdt, llmMag, ulmMag, n_r_maxMag)
-      call tscheme%set_imex_rhs(ddb, djdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%set_imex_rhs(work_LMloc, dbdt)
+      call tscheme%set_imex_rhs(ddb, djdt)
 
       if ( l_cond_ic ) then
          !-- Now assemble the right hand side and store it in work_LMloc
-         call tscheme%set_imex_rhs(ddb_ic, dbdt_ic, llmMag, ulmMag, &
-              &                    n_r_ic_max)
-         call tscheme%set_imex_rhs(ddj_ic, djdt_ic, llmMag, ulmMag, &
-              &                    n_r_ic_max)
+         call tscheme%set_imex_rhs(ddb_ic, dbdt_ic)
+         call tscheme%set_imex_rhs(ddj_ic, djdt_ic)
       end if
 
       if ( (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7) .and. ( l_imp /= 1 ) ) then
@@ -643,11 +641,11 @@ contains
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dbdt, llmMag, ulmMag, n_r_maxMag)
-      call tscheme%rotate_imex(djdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%rotate_imex(dbdt)
+      call tscheme%rotate_imex(djdt)
       if ( l_cond_ic ) then
-         call tscheme%rotate_imex(dbdt_ic, llmMag, ulmMag, n_r_ic_max)
-         call tscheme%rotate_imex(djdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%rotate_imex(dbdt_ic)
+         call tscheme%rotate_imex(djdt_ic)
       end if
 
       !-- Get implicit terms
@@ -931,11 +929,11 @@ contains
       end if
 
       !-- Assemble IMEX using ddb and ddj as a work array
-      call tscheme%assemble_imex(ddb, dbdt, llmMag, ulmMag, n_r_maxMag)
-      call tscheme%assemble_imex(ddj, djdt, llmMag, ulmMag, n_r_maxMag)
+      call tscheme%assemble_imex(ddb, dbdt)
+      call tscheme%assemble_imex(ddj, djdt)
       if ( l_cond_ic ) then
-         call tscheme%assemble_imex(ddb_ic, dbdt_ic, llmMag, ulmMag, n_r_ic_max)
-         call tscheme%assemble_imex(ddj_ic, djdt_ic, llmMag, ulmMag, n_r_ic_max)
+         call tscheme%assemble_imex(ddb_ic, dbdt_ic)
+         call tscheme%assemble_imex(ddj_ic, djdt_ic)
       end if
 
       !-- Now get the toroidal potential from the assembly

@@ -162,9 +162,9 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
-      call tscheme%set_imex_rhs(work_LMloc, dwdt, llm, ulm, n_r_max)
-      call tscheme%set_imex_rhs(dp, dpdt, llm, ulm, n_r_max)
-      call tscheme%set_imex_rhs(ds, dsdt, llm, ulm, n_r_max)
+      call tscheme%set_imex_rhs(work_LMloc, dwdt)
+      call tscheme%set_imex_rhs(dp, dpdt)
+      call tscheme%set_imex_rhs(ds, dsdt)
 
       !$omp parallel default(shared)
 
@@ -346,9 +346,9 @@ contains
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dwdt, llm, ulm, n_r_max)
-      call tscheme%rotate_imex(dpdt, llm, ulm, n_r_max)
-      call tscheme%rotate_imex(dsdt, llm, ulm, n_r_max)
+      call tscheme%rotate_imex(dwdt)
+      call tscheme%rotate_imex(dpdt)
+      call tscheme%rotate_imex(dsdt)
 
       if ( tscheme%istage == tscheme%nstages ) then
          call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
@@ -450,9 +450,9 @@ contains
       end if
 
       !-- First assemble and store in temporary arrays
-      call tscheme%assemble_imex(ddw, dwdt, llm, ulm, n_r_max)
-      call tscheme%assemble_imex(work_LMloc, dpdt, llm, ulm, n_r_max)
-      call tscheme%assemble_imex(ds, dsdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(ddw, dwdt)
+      call tscheme%assemble_imex(work_LMloc, dpdt)
+      call tscheme%assemble_imex(ds, dsdt)
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm

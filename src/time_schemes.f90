@@ -86,24 +86,18 @@ module time_schemes
          logical,  intent(in) :: l_new_dtNext
       end subroutine set_dt_array_if
 
-      subroutine set_imex_rhs_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+      subroutine set_imex_rhs_if(this, rhs, dfdt)
          import
          class(type_tscheme) :: this
-         integer,     intent(in) :: lmStart
-         integer,     intent(in) :: lmStop
-         integer,     intent(in) :: len_rhs
          type(type_tarray), intent(in) :: dfdt
-         complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine set_imex_rhs_if
 
-      subroutine assemble_imex_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+      subroutine assemble_imex_if(this, rhs, dfdt)
          import
          class(type_tscheme) :: this
-         integer,     intent(in) :: lmStart
-         integer,     intent(in) :: lmStop
-         integer,     intent(in) :: len_rhs
          type(type_tarray), intent(in) :: dfdt
-         complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine assemble_imex_if
 
       subroutine assemble_imex_scalar_if(this, rhs, dfdt)
@@ -120,12 +114,9 @@ module time_schemes
          real(cp), intent(out) :: rhs
       end subroutine set_imex_rhs_scalar_if
 
-      subroutine rotate_imex_if(this, dfdt, lmStart, lmStop, n_r_max)
+      subroutine rotate_imex_if(this, dfdt)
          import
          class(type_tscheme) :: this
-         integer,     intent(in) :: lmStart
-         integer,     intent(in) :: lmStop
-         integer,     intent(in) :: n_r_max
          type(type_tarray), intent(inout) :: dfdt
       end subroutine rotate_imex_if
 
