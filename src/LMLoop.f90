@@ -107,7 +107,6 @@ contains
       if ( l_chemical_conv ) lXimat(:)=.false.
 
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
-      call MPI_Barrier(MPI_COMM_WORLD,ierr)
       call dum_scal%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
       call dummy%initialize(1, lm_max, nRstart, nRstop, tscheme%nold, tscheme%nexp,&
            &                tscheme%nimp, l_allocate_exp=.true.)
