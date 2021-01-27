@@ -81,6 +81,8 @@ contains
          if ( (.not. l_double_curl) .or. l_RMS ) then
             call dpdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
                  &               l_allocate_exp=.true.)
+         else
+            allocate( dpdt%expl(1,1,nexp) ) ! For debug
          end if
          if ( l_chemical_conv ) call dxidt%initialize(1, lm_max, nRstart,nRstop, nold, &
                                      &                nexp, nimp, l_allocate_exp=.true.)
