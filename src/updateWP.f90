@@ -225,7 +225,7 @@ contains
          end do
          call p0Mat%finalize()
 
-         deallocate( wpMat_fac,lWPmat, rhs1, work )
+         deallocate( wpMat_fac, rhs1, work )
          deallocate( Dif, Pre, Buo )
          if ( l_double_curl ) then
             deallocate( ddddw )
