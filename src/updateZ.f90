@@ -1202,7 +1202,7 @@ contains
                end if
             end do
             if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               call hInt2Tor(Dif,1,lm_max,n_r,2,lm_max,DifTor2hInt(:,n_r),st_map)
+               call hInt2Tor(Dif,1,lm_max,n_r,start_lm,stop_lm,DifTor2hInt(:,n_r),st_map)
             end if
          end do
 

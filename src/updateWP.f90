@@ -1292,7 +1292,7 @@ contains
          end do
       end if
 
-      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+      if ( l_calc_lin ) then
 
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -1300,7 +1300,8 @@ contains
                if ( l == 0 ) cycle
                dL=real(l*(l+1),cp)
 
-               Dif(lm)=-hdif_V(l)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (       &
+               dwdt%impl(lm,n_r,istage)=-hdif_V(l)*dL*or2(n_r)*visc(n_r)         &
+               &                                                   *orho1(n_r)*( &
                &                                              work_Rloc(lm,n_r)  &
                &             +two*( dLvisc(n_r)-beta(n_r) ) * dddw_Rloc(lm,n_r)  &
                &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
@@ -1318,15 +1319,31 @@ contains
                &          dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
                &          dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
                &          beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   wg(lm,n_r) )
+            end do
+         end do
+      end if
+      !$omp end parallel
 
-               dwdt%impl(lm,n_r,istage)=Dif(lm)
+      if ( tscheme%istage==tscheme%nstages .and. lRmsNext) then
+         !-- Recompute third derivative to have the boundary point right
+         call get_dr_Rloc(ddw, dddw_Rloc, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
 
-               if ( l /= 0 .and. lPressNext .and. tscheme%istage==tscheme%nstages) then
+         !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
+         start_lm=1; stop_lm=lm_max
+         call get_openmp_blocks(start_lm,stop_lm)
+
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               l=st_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               dL=real(l*(l+1),cp)
+
+               if ( l /= 0 .and. lPressNext ) then
                   ! In the double curl formulation, we can estimate the pressure
                   ! if required.
                   p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
                   &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                  &              hdif_V(l)*visc(n_r)* (   work_Rloc(lm,n_r)     &
+                  &              hdif_V(l)*visc(n_r)* (   dddw_Rloc(lm,n_r)     &
                   &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                   &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
                   &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
@@ -1335,9 +1352,9 @@ contains
                   &                     +dLvisc(n_r) )  *           wg(lm,n_r) )
                end if
 
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+               if ( lRmsNext ) then
                   !-- In case RMS force balance is required, one needs to also
-                  !-- compute the classical diffusivity that is used in the non
+                  !-- compute the classical diffusion that is used in the non
                   !-- double-curl version
                   Dif(lm) =  hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
                   &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
@@ -1347,13 +1364,13 @@ contains
                end if
             end do
             if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               call hInt2Pol(Dif,1,lm_max,n_r,2,lm_max,DifPolLMr(:,n_r),  &
+               call hInt2Pol(Dif,1,lm_max,n_r,start_lm,stop_lm,DifPolLMr(:,n_r),  &
                     &        DifPol2hInt(:,n_r),st_map)
             end if
          end do
 
+         !$omp end parallel
       end if
-      !$omp end parallel
 
       ! In case pressure is needed in the double curl formulation
       ! we also have to compute the radial derivative of p

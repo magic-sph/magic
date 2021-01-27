@@ -1621,9 +1621,10 @@ contains
                end if
             end do
             if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-               call hInt2PolLM(dtP,1,lm_max,n_r,2,lm_max, dtBPolLMr(:,n_r),    &
+               call hInt2PolLM(dtP,1,lm_max,n_r,start_lm,stop_lm, dtBPolLMr(:,n_r),  &
                     &          dtBPol2hInt(:,n_r),st_map)
-               call hInt2TorLM(dtT,1,lm_max,n_r,2,lm_max,dtBTor2hInt(:,n_r),st_map)
+               call hInt2TorLM(dtT,1,lm_max,n_r,start_lm,stop_lm,dtBTor2hInt(:,n_r), &
+                    &          st_map)
             end if
          end do
 
