@@ -17,7 +17,6 @@ module finite_differences
    private
 
    type, public, extends(type_rscheme) :: type_fd
-      real(cp), allocatable :: ddddr(:,:)
       real(cp), allocatable :: ddddr_top(:,:)
       real(cp), allocatable :: ddddr_bot(:,:)
    contains
@@ -126,7 +125,6 @@ contains
 
       else  ! irregular grid
 
-
          n_boundary_points = int( real(n_r_max-1,cp)/(two*(one+ratio1)) )
          ratio1 = real(n_r_max-1, cp)/real(two*n_boundary_points)-one
 
@@ -214,20 +212,40 @@ contains
       allocate( dr_spacing(this%order+1) )
       allocate( taylor_exp(0:this%order,0:this%order) )
 
+      if ( this%order == 2 ) then
+         do n_r=1,this%n_max
+            do od=0,2
+               if ( n_r== 1 .and. od == 0 ) then
+                  dr_spacing(od+1)=r(1)-r(2) ! r[0] = r[1]-Delta
+               else if ( n_r == this%n_max .and. od==2 ) then
+                  dr_spacing(od+1)=r(this%n_max)-r(this%n_max-1)
+               else
+                  dr_spacing(od+1)=r(n_r-1+od)-r(n_r)
+               end if
+            end do
 
-      do n_r=1+this%order/2,this%n_max-this%order/2
-         do od=0,this%order
-            dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
+            call populate_fd_weights(0.0_cp,dr_spacing,2,2,taylor_exp)
+
+            do od=0,2
+               this%dr(n_r,od) =taylor_exp(od,1)
+               this%ddr(n_r,od)=taylor_exp(od,2)
+            end do
          end do
+      else
+         do n_r=1+this%order/2,this%n_max-this%order/2
+            do od=0,this%order
+               dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
+            end do
 
-         call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
-              &                   this%order,taylor_exp)
+            call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
+                 &                   this%order,taylor_exp)
 
-         do od=0,this%order
-            this%dr(n_r,od) =taylor_exp(od,1)
-            this%ddr(n_r,od)=taylor_exp(od,2)
+            do od=0,this%order
+               this%dr(n_r,od) =taylor_exp(od,1)
+               this%ddr(n_r,od)=taylor_exp(od,2)
+            end do
          end do
-      end do
+      end if
 
       deallocate( dr_spacing, taylor_exp )
 
@@ -311,18 +329,38 @@ contains
       allocate( dr_spacing(this%order+3) )
       allocate( taylor_exp(0:this%order+2,0:this%order+2) )
 
-      do n_r=2+this%order/2,this%n_max-this%order/2-1
-         do od=0,this%order+2
-            dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
-         end do
+      if ( this%order == 2 ) then
+         do n_r=2,this%n_max-1
+            do od=0,4
+               if ( n_r==2 .and. od==0 ) then
+                  dr_spacing(od+1)=two*(r(1)-r(2)) ! Symmetric ghost zone
+               else if ( n_r==this%n_max-1 .and. od==4 ) then
+                  dr_spacing(od+1)=two*(r(this%n_max)-r(this%n_max-1))
+               else
+                  dr_spacing(od+1)=r(n_r-2+od)-r(n_r)
+               end if
+            end do
 
-         call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &
-              &                   taylor_exp)
-         do od=0,this%order+2
-            this%dddr(n_r,od) =taylor_exp(od,3)
-            this%ddddr(n_r,od)=taylor_exp(od,4)
+            call populate_fd_weights(0.0_cp,dr_spacing,4,4,taylor_exp)
+            do od=0,4
+               this%dddr(n_r,od) =taylor_exp(od,3)
+               this%ddddr(n_r,od)=taylor_exp(od,4)
+            end do
          end do
-      end do
+      else
+         do n_r=2+this%order/2,this%n_max-this%order/2-1
+            do od=0,this%order+2
+               dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
+            end do
+
+            call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &
+                 &                   taylor_exp)
+            do od=0,this%order+2
+               this%dddr(n_r,od) =taylor_exp(od,3)
+               this%ddddr(n_r,od)=taylor_exp(od,4)
+            end do
+         end do
+      end if
 
       deallocate( dr_spacing, taylor_exp )
 

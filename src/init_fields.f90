@@ -104,17 +104,19 @@ contains
       ! Memory allocation
       !
 
-      allocate( tops(0:l_max,0:m_max) )
-      allocate( bots(0:l_max,0:m_max) )
+      allocate( tops(0:l_max,0:m_max), bots(0:l_max,0:m_max) )
       tops(:,:)=zero
       bots(:,:)=zero
+      bots(0,0)=one
+      tops(0,0)=0.0_cp
       bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
-         allocate( topxi(0:l_max,0:m_max) )
-         allocate( botxi(0:l_max,0:m_max) )
+         allocate( topxi(0:l_max,0:m_max), botxi(0:l_max,0:m_max) )
          topxi(:,:)=zero
          botxi(:,:)=zero
+         botxi(0,0)=one
+         topxi(0,0)=0.0_cp
          bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
       end if
 
@@ -124,7 +126,6 @@ contains
       !
       ! Memory deallocation
       !
-
       deallocate (tops, bots )
       if ( l_chemical_conv ) deallocate( topxi, botxi )
 
@@ -333,7 +334,6 @@ contains
 
             write(output_unit,*) '! NO STARTFILE READ, SETTING Z10!'
 
-
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
                &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) 
@@ -342,7 +342,7 @@ contains
                write(output_unit,*) '! omega_ic=',omega_ic
                z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,kind=cp)
             else if ( l_rot_ic .and. omega_ic1 == 0.0_cp ) then
-               omega_ic=c_z10_omega_ic*real(z(lo_map%lm2(1,0),n_r_icb))
+               omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
             else
                omega_ic=0.0_cp
             end if
@@ -355,7 +355,7 @@ contains
                write(output_unit,*) '! omega_ma=',omega_ma
                z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,kind=cp)
             else if ( l_rot_ma .and. omega_ma1 == 0.0_cp ) then
-               omega_ma=c_z10_omega_ma*real(z(lo_map%lm2(1,0),n_r_cmb))
+               omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
             else
                omega_ma=0.0_cp
             end if
@@ -365,11 +365,9 @@ contains
          call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
          call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
 #endif
-
       else
          if ( nRotIc == 2 ) omega_ic=omega_ic1 
          if ( nRotMa == 2 ) omega_ma=omega_ma1 
-
       end if
 
    end subroutine initV

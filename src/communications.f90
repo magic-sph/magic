@@ -36,7 +36,7 @@ module communications
       integer :: dim2
    end type gather_type
 
-   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, &
+   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, allgather_from_Rloc, &
    &         gather_all_from_lo_to_rank0, gather_from_Rloc
    public :: get_global_sum, finalize_communications, initialize_communications
 
@@ -684,6 +684,39 @@ contains
 #endif
 
    end subroutine gather_from_Rloc
+!-------------------------------------------------------------------------------
+   subroutine allgather_from_Rloc(arr_Rloc, arr_glob)
+      !
+      ! This subroutine gather a r-distributed array
+      !
+
+      !-- Input variable
+      real(cp), intent(in) :: arr_Rloc(nRstart:nRstop)
+
+      !-- Output variable
+      real(cp), intent(out) :: arr_glob(1:n_r_max)
+
+#ifdef WITH_MPI
+      !-- Local variables:
+      integer :: p
+      integer :: scount, rcounts(0:n_procs-1), rdisp(0:n_procs-1)
+
+      scount = nRstop-nRstart+1
+      do p=0,n_procs-1
+         rcounts(p)=radial_balance(p)%n_per_rank
+      end do
+      rdisp(0)=0
+      do p=1,n_procs-1
+         rdisp(p)=rdisp(p-1)+rcounts(p-1)
+      end do
+
+      call MPI_AllGatherV(arr_Rloc, scount, MPI_DEF_REAL, arr_glob, rcounts, &
+           &              rdisp, MPI_DEF_REAL, MPI_COMM_WORLD, ierr)
+#else
+      arr_glob(:)=arr_Rloc(:)
+#endif
+
+   end subroutine allgather_from_Rloc
 !-------------------------------------------------------------------------------
    subroutine reduce_radial_2D(arr_dist, arr_glob, irank)
 

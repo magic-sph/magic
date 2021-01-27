@@ -1,12 +1,17 @@
 #include "perflib_preproc.cpp"
 module start_fields
+   !
+   ! This module is used to set-up the initial starting fields. They can be obtained
+   ! by reading a starting checkpoint file or by setting some starting conditions. 
+   !
 
 #ifdef WITH_MPI
    use mpimod
 #endif
    use truncation
    use precision_mod
-   use radial_data, only: n_r_cmb, n_r_icb
+   use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
+   use communications, only: lo2r_one
    use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &
        &                       otemp1, ogrun
@@ -20,7 +25,8 @@ module start_fields
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
-       &            l_chemical_conv, l_anelastic_liquid, l_save_out
+       &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
+       &            l_parallel_solve, l_mag_par_solve
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
@@ -32,18 +38,23 @@ module start_fields
        &            one, two
    use useful, only: cc2real, logWrite
    use parallel_mod, only: rank, n_procs
-   use radial_der, only: get_dr
+   use radial_der, only: get_dr, exch_ghosts, bulk_to_ghost
    use readCheckPoints, only: readStartFields_old, readStartFields
    use time_schemes, only: type_tscheme
 #ifdef WITH_MPI
    use readCheckPoints, only: readStartFields_mpi
 #endif
    use updateWPS_mod, only: get_single_rhs_imp
-   use updateWP_mod, only: get_pol_rhs_imp
-   use updateS_mod, only: get_entropy_rhs_imp
-   use updateXI_mod, only: get_comp_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
-   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
+   use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
+       &                   fill_ghosts_W
+   use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
+       &                  fill_ghosts_S
+   use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
+       &                   fill_ghosts_Xi
+   use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, get_rot_rates, &
+       &                  z_ghost, fill_ghosts_Z
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
+       &                  get_mag_rhs_imp_ghost, fill_ghosts_B
 
 
    implicit none
@@ -193,6 +204,7 @@ contains
          deltaxicond=0.0_cp
       end if
 
+
       !-- Start with setting fields to zero:
       !   Touching the fields with the appropriate processor
       !   for the LM-distribute parallel region (LMLoop) makes
@@ -292,18 +304,34 @@ contains
       end if
 
       !----- Initialize/add entropy:
-      if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
-         call initS(s_LMloc,p_LMloc)
-      end if
+      if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) call initS(s_LMloc,p_LMloc)
 
       !----- Initialize/add chemical convection:
-      if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
-         call initXi(xi_LMloc)
+      if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) call initXi(xi_LMloc)
+
+      !---- For now fiels initialized in R-distributed arrays: now transpose them if needed
+      if ( l_parallel_solve ) then
+         call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
+         call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
+         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
+         if ( l_heat ) call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+         call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+         if ( l_mag_par_solve ) then
+            call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
+            call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+         end if
       end if
 
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then
-         call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
+         if ( l_parallel_solve ) then
+            call bulk_to_ghost(xi_Rloc, xi_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+            call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
+            call fill_ghosts_Xi(xi_ghost)
+            call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, .true.)
+         else
+            call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
+         end if
       end if
 
       if ( l_single_matrix ) then
@@ -312,22 +340,58 @@ contains
               &                  dpdt, tscheme, 1, .true., .false.)
       else
          if ( l_heat ) then
-            call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+            if ( l_parallel_solve ) then
+               call bulk_to_ghost(s_Rloc, s_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+               call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
+               call fill_ghosts_S(s_ghost)
+               call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, 1, .true.)
+            else
+               call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+            end if
          end if
-         call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
-              &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
-              &               .false., .false., work_LMloc)
+         if ( l_parallel_solve ) then
+            call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
+            call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
+            call fill_ghosts_W(w_ghost)
+            call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc,  &
+                 &                     dwdt, tscheme, 1, .true., .false., .false.,   &
+                 &                     dwdt%expl(:,:,1)) ! Work array
+         else
+            call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
+                 &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
+                 &               .false., .false., work_LMloc)
+         end if
       end if
       call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
       call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
-      call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
-           &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
-           &               omega_ma1, tscheme, 1, .true., .false.)
+      if ( l_parallel_solve ) then
+         call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+         call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
+         call fill_ghosts_Z(z_ghost)
+         call get_tor_rhs_imp_ghost(time, z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
+              &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
+              &                     omega_ma1, tscheme, 1, .true., .false.)
+      else
+         call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
+              &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
+              &               omega_ma1, tscheme, 1, .true., .false.)
+      end if
 
       if ( l_mag .or. l_mag_kin  ) then
-         call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,     &
-              &               dj_LMloc, ddj_LMloc, dbdt, djdt, tscheme, 1,&
-              &               .true., .false.)
+         if ( l_mag_par_solve ) then
+            call bulk_to_ghost(b_Rloc, b_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+            call bulk_to_ghost(aj_Rloc, aj_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+            call exch_ghosts(aj_ghost, lm_max, nRstart, nRstop, 1)
+            call exch_ghosts(b_ghost, lm_max, nRstart, nRstop, 1)
+            call fill_ghosts_B(b_ghost, aj_ghost)
+            call get_mag_rhs_imp_ghost(b_ghost, db_Rloc, ddb_Rloc, aj_ghost,     &
+                 &                     dj_Rloc, ddj_Rloc, dbdt, djdt, tscheme, 1,&
+                 &                     .true., .false.)
+         else
+            call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,     &
+                 &               dj_LMloc, ddj_LMloc, dbdt, djdt, tscheme, 1,&
+                 &               .true., .false.)
+         end if
       end if
       if ( l_cond_ic ) then
          call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &

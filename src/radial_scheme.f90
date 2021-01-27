@@ -25,6 +25,7 @@ module radial_scheme
       real(cp), allocatable :: dr(:,:)
       real(cp), allocatable :: ddr(:,:)
       real(cp), allocatable :: dddr(:,:)
+      real(cp), allocatable :: ddddr(:,:)
       real(cp), allocatable :: dr_top(:,:)
       real(cp), allocatable :: dr_bot(:,:)
       real(cp), allocatable :: ddr_top(:,:)

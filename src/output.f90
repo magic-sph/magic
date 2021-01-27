@@ -630,7 +630,7 @@ contains
             nRMS_sets    =0
             timeNormRMS  =0.0_cp
             timePassedRMS=0.0_cp
-            call zeroRms
+            call zeroRms()
          end if
          timePassedRMS=timePassedRMS+tscheme%dt(1)
          if ( lRmsCalc ) then

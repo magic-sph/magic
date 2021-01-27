@@ -31,6 +31,7 @@ module multistep_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_ghost
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -459,6 +460,53 @@ contains
       !$omp end parallel
 
    end subroutine set_imex_rhs
+!------------------------------------------------------------------------------
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme in case
+      ! this is distributed over r
+      !
+
+      class(type_multistep) :: this
+
+      !-- Input variables:
+      type(type_tarray), intent(in) :: dfdt
+      integer,           intent(in) :: start_lm ! Starting lm index
+      integer,           intent(in) :: stop_lm  ! Stopping lm index
+      integer,           intent(in) :: ng       ! Number of ghosts zones
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+
+      !-- Local variables
+      integer :: n_o, n_r
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_o=2,this%nold
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nimp
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nexp
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+   end subroutine set_imex_rhs_ghost
 !------------------------------------------------------------------------------
    subroutine set_imex_rhs_scalar(this, rhs, dfdt)
       !

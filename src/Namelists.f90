@@ -792,6 +792,19 @@ contains
       !-- time averaging of spectra
       if ( l_average ) l_spec_avg= .true.
 
+      if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 .and. &
+      &    (.not. l_single_matrix) ) then
+         l_parallel_solve = .true.
+      else
+         l_parallel_solve = .false.
+      end if
+
+      !-- Disable for now
+      l_parallel_solve = .false.
+
+      l_mag_par_solve = .false.
+      if ( l_mag .and. (.not. l_cond_ic) .and. l_parallel_solve ) l_mag_par_solve=.true.
+
    end subroutine readNamelists
 !------------------------------------------------------------------------------
    subroutine writeNamelists(n_out)

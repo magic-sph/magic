@@ -7,16 +7,17 @@ module readCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use communications, only: scatter_from_rank0_to_lo
+   use communications, only: scatter_from_rank0_to_lo, lo2r_one
    use fields, only: dw_LMloc, ddw_LMloc, ds_LMloc, dp_LMloc, dz_LMloc,   &
        &             dxi_LMloc, db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc, &
        &             db_ic_LMloc, ddb_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem,fd_stretch,fd_ratio
-   use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
-       &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,        &
-       &            l_double_curl, l_z10Mat, l_single_matrix
+   use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag,    &
+       &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,           &
+       &            l_double_curl, l_z10Mat, l_single_matrix, l_parallel_solve,&
+       &            l_mag_par_solve
    use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
        &               ulmMag, st_map
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
@@ -114,6 +115,8 @@ contains
       complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
       complex(cp), allocatable :: workD(:,:),workE(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
+
+      if ( l_parallel_solve ) call abortRun('! In readStartFields_old with l_parallel_solve=.true.???')
 
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
@@ -814,6 +817,8 @@ contains
 
       complex(cp), allocatable :: workOld(:,:), work(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
+
+      if ( l_parallel_solve ) call abortRun('! In readStartFields with l_parallel_solve=.true.???')
 
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
@@ -1583,7 +1588,7 @@ contains
       integer :: nR_per_rank_old, datatype, l1m0
       integer :: istat(MPI_STATUS_SIZE)
       integer :: nimp_old, nexp_old, nold_old
-      logical :: l_press_store_old
+      logical :: l_press_store_old, l_transp
       integer(lip) :: disp, offset, size_old
 
       complex(cp), allocatable :: workOld(:,:)
@@ -1852,13 +1857,15 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
+      l_transp = l_parallel_solve ! Do we need to transpose d?dt arrays
       !-- Poloidal potential: w
       call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
            &                      lm_max_old, n_r_max_old, nRstart_old,   &
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      nexp_old, nimp_old, nold_old,           &
-           &                      tscheme_family_old, w, dwdt, disp, .true. )
+           &                      tscheme_family_old, w, dwdt, disp,      &
+           &                      .true., l_transp )
 
       !-- Toroidal potential: z
       call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1866,7 +1873,8 @@ contains
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      nexp_old, nimp_old, nold_old,           &
-           &                      tscheme_family_old, z, dzdt, disp, .true. )
+           &                      tscheme_family_old, z, dzdt, disp,      &
+           &                      .true., l_transp )
 
       !-- Pressure: p
       if ( l_press_store_old ) then
@@ -1876,7 +1884,7 @@ contains
               &                      r_old, n_r_maxL, n_r_max, scale_v,      &
               &                      nexp_old, nimp_old, nold_old,           &
               &                      tscheme_family_old, p, dpdt, disp,      &
-              &                      .not. l_double_curl )
+              &                      .not. l_double_curl, l_transp )
       end if
 
       !-- Entropy: s
@@ -1886,7 +1894,8 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_s,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, s, dsdt, disp, l_heat )
+              &                      tscheme_family_old, s, dsdt, disp,      &
+              &                      l_heat, l_transp )
       end if
 
       !-- Chemical composition: xi
@@ -1897,7 +1906,7 @@ contains
               &                      r_old, n_r_maxL, n_r_max, scale_xi,     &
               &                      nexp_old, nimp_old, nold_old,           &
               &                      tscheme_family_old, xi, dxidt, disp,    &
-              &                      l_chemical_conv )
+              &                      l_chemical_conv, l_transp )
       end if
 
       if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
@@ -1905,13 +1914,15 @@ contains
       if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and. l_mag_old ) then
+         l_transp = l_mag_par_solve ! Do we need to transpose d?dt arrays
          !-- Read poloidal potential: b
          call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
               &                      lm_max_old, n_r_max_old, nRstart_old,   &
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, b, dbdt, disp, .true. )
+              &                      tscheme_family_old, b, dbdt, disp,      &
+              &                      .true., l_transp )
 
          !-- Read toroidal potential: aj
          call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1919,7 +1930,8 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, aj, djdt, disp, .true. )
+              &                      tscheme_family_old, aj, djdt, disp,     &
+              &                      .true., l_transp )
       end if
 
       deallocate(workOld)
@@ -2240,7 +2252,7 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo,   &
               &                      r_old, n_r_maxL, dim1, scale_w, nexp_old, &
               &                      nimp_old, nold_old, tscheme_family_old,   &
-              &                      w, dwdt, disp, l_map )
+              &                      w, dwdt, disp, l_map, l_transp )
 
       !--- Input variables
       logical,             intent(in) :: l_map
@@ -2256,6 +2268,7 @@ contains
       type(load),          intent(in) :: radial_balance_old(0:n_procs-1)
       complex(cp),         intent(in) :: wOld(lm_max_old,nRstart_old:nRstop_old)
       real(cp),            intent(in) :: scale_w
+      logical,             intent(in) :: l_transp ! Do we need to transpose d?dt arrays?
 
       !--- Output variables
       integer(lip),      intent(inout) :: disp
@@ -2263,6 +2276,7 @@ contains
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variables:
+      complex(cp) :: work(llm:ulm, n_r_max)
       integer(lip) :: size_old
       integer :: istat(MPI_STATUS_SIZE)
       integer :: n_o, nR_per_rank_old
@@ -2297,7 +2311,12 @@ contains
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
-                    &                scale_w, dwdt%expl(:,:,n_o) )
+                    &                scale_w, work )
+               if ( l_transp ) then
+                  call lo2r_one%transp_lm2r(work, dwdt%expl(:,:,n_o) )
+               else
+                  dwdt%expl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nimp_old
@@ -2310,7 +2329,12 @@ contains
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
-                    &                scale_v, dwdt%impl(:,:,n_o) )
+                    &                scale_v, work )
+               if ( l_transp ) then
+                  call lo2r_one%transp_lm2r(work, dwdt%impl(:,:,n_o) )
+               else
+                  dwdt%impl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nold_old
@@ -2324,7 +2348,12 @@ contains
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
-                    &                scale_v, dwdt%old(:,:,n_o) )
+                    &                scale_v, work )
+               if ( l_transp ) then
+                  call lo2r_one%transp_lm2r(work, dwdt%old(:,:,n_o) )
+               else
+                  dwdt%old(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
       end if

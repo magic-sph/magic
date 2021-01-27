@@ -19,7 +19,7 @@ module step_time_mod
        &                phy2lm_counter, nl_counter, f_exp_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
-   use radial_der, only: get_dr_Rloc, get_ddr_Rloc
+   use radial_der, only: get_dr_Rloc, get_ddr_Rloc, exch_ghosts, bulk_to_ghost
    use radial_functions, only: rscheme_oc
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
@@ -30,12 +30,12 @@ module step_time_mod
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
-       &            l_packed_transp
+       &            l_packed_transp, l_parallel_solve, l_mag_par_solve
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
-       &                 finish_explicit_assembly_Rdist
+       &                 finish_explicit_assembly_Rdist, LMLoop_Rdist
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -50,12 +50,17 @@ module step_time_mod
        &                  n_TOs, n_t_TO, t_TO, n_probe_step, n_probe_out,  &
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
-   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
-   use updateWP_mod, only: get_pol_rhs_imp
+   use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
+       &                  get_mag_rhs_imp_ghost, fill_ghosts_B
+   use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
+       &                   fill_ghosts_W
    use updateWPS_mod, only: get_single_rhs_imp
-   use updateS_mod, only: get_entropy_rhs_imp
-   use updateXI_mod, only: get_comp_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
+   use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
+       &                  fill_ghosts_S
+   use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
+       &                   fill_ghosts_Xi
+   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates, get_tor_rhs_imp_ghost, &
+       &                  z_ghost, fill_ghosts_Z
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
@@ -261,10 +266,15 @@ contains
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         MPI_COMM_WORLD,ierr)
+         if ( l_parallel_solve ) then
+            call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,n_procs-1, MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0, MPI_COMM_WORLD,ierr)
+         else
+            call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
+                 &         MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
+                 &         MPI_COMM_WORLD,ierr)
+         end if
 #endif
 
          !----------------
@@ -473,21 +483,66 @@ contains
                !- Radial loop
                !---------------
                call rLoop_counter%start_count()
-               call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
-                    &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
-                    &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
-                    &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
-                    &           l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,&
-                    &           dxidt_Rloc,dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,        &
-                    &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
-                    &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
-                    &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc, &
-                    &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,          &
-                    &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,  &
-                    &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
-                    &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
-                    &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
-                    &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+               if ( l_parallel_solve ) then
+                  if ( l_mag_par_solve ) then
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
+                       &           l_probe_out,dsdt%expl(:,:,tscheme%istage),          &
+                       &           dwdt%expl(:,:,tscheme%istage),                      &
+                       &           dzdt%expl(:,:,tscheme%istage),                      &
+                       &           dpdt%expl(:,:,tscheme%istage),                      &
+                       &           dxidt%expl(:,:,tscheme%istage),                     &
+                       &           dbdt%expl(:,:,tscheme%istage),                      &
+                       &           djdt%expl(:,:,tscheme%istage),dVxVhLM_Rloc,         &
+                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc, &
+                       &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,          &
+                       &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,  &
+                       &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
+                       &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
+                       &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
+                       &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+                  else
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
+                       &           l_probe_out,dsdt%expl(:,:,tscheme%istage),          &
+                       &           dwdt%expl(:,:,tscheme%istage),                      &
+                       &           dzdt%expl(:,:,tscheme%istage),                      &
+                       &           dpdt%expl(:,:,tscheme%istage),                      &
+                       &           dxidt%expl(:,:,tscheme%istage),                     &
+                       &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,                   &
+                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc, &
+                       &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,          &
+                       &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,  &
+                       &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
+                       &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
+                       &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
+                       &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+                  end if
+               else
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
+                       &           l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,&
+                       &           dxidt_Rloc,dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,        &
+                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc, &
+                       &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,          &
+                       &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,  &
+                       &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
+                       &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
+                       &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
+                       &           EparaxiASr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+               end if
                call rLoop_counter%stop_count()
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
@@ -507,15 +562,46 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                if ( l_finish_exp_early ) then
-                  call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
-                       &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
-                       &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
-                       &                      lorentz_torque_ma,lorentz_torque_ic,  &
-                       &                      dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,     &
-                       &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
-                       &                      domega_ma_dt, domega_ic_dt,           &
-                       &                      lorentz_torque_ma_dt,                 &
-                       &                      lorentz_torque_ic_dt, tscheme)
+                  call f_exp_counter%start_count()
+                  if ( l_parallel_solve ) then
+                     if ( l_mag_par_solve ) then
+                     call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
+                          &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
+                          &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
+                          &                      lorentz_torque_ma,lorentz_torque_ic,  &
+                          &                      dsdt%expl(:,:,tscheme%istage),        &
+                          &                      dxidt%expl(:,:,tscheme%istage),       &
+                          &                      dwdt%expl(:,:,tscheme%istage),        &
+                          &                      djdt%expl(:,:,tscheme%istage),        &
+                          &                      dbdt_ic, djdt_ic,                     &
+                          &                      domega_ma_dt, domega_ic_dt,           &
+                          &                      lorentz_torque_ma_dt,                 &
+                          &                      lorentz_torque_ic_dt, tscheme)
+                     else
+                     call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
+                          &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
+                          &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
+                          &                      lorentz_torque_ma,lorentz_torque_ic,  &
+                          &                      dsdt%expl(:,:,tscheme%istage),        &
+                          &                      dxidt%expl(:,:,tscheme%istage),       &
+                          &                      dwdt%expl(:,:,tscheme%istage),        &
+                          &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
+                          &                      domega_ma_dt, domega_ic_dt,           &
+                          &                      lorentz_torque_ma_dt,                 &
+                          &                      lorentz_torque_ic_dt, tscheme)
+                     end if
+                  else
+                     call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
+                          &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
+                          &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
+                          &                      lorentz_torque_ma,lorentz_torque_ic,  &
+                          &                      dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,     &
+                          &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
+                          &                      domega_ma_dt, domega_ic_dt,           &
+                          &                      lorentz_torque_ma_dt,                 &
+                          &                      lorentz_torque_ic_dt, tscheme)
+                  end if
+                  call f_exp_counter%stop_count()
                end if
 
                !----------------
@@ -523,7 +609,6 @@ contains
                !----------------
                call transp_Rloc_to_LMloc(comm_counter,tscheme%istage, &
                     &                    l_finish_exp_early, lPressNext)
-
 
                !------ Nonlinear magnetic boundary conditions:
                !       For stress-free conducting boundaries
@@ -590,6 +675,10 @@ contains
 
                if ( lVerbose ) write(output_unit,*) "! start real output"
                call io_counter%start_count()
+               if ( l_parallel_solve .and. (l_log .or. l_spectrum .or. lTOCalc .or. &
+               &    l_dtB .or. l_cmb .or. l_r .or. l_pot .or. l_store .or. l_frame) ) then
+                  call transp_Rloc_to_LMloc_IO()
+               end if
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,      &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
                     &      l_spectrum,lTOCalc,lTOframe,                           &
@@ -656,10 +745,17 @@ contains
             if ( (.not. tscheme%l_assembly) .or. (tscheme%istage/=tscheme%nstages) ) then
                if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
                call lmLoop_counter%start_count()
-               call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
-                    &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
-                    &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
-                    &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+               if ( l_parallel_solve ) then
+                  call LMLoop_Rdist(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,&
+                       &            dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,      &
+                       &            domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,      &
+                       &            lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+               else
+                  call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
+                       &      dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,        &
+                       &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
+                       &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+               end if
 
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
 
@@ -840,25 +936,76 @@ contains
                  &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
                  &                  dpdt, tscheme, 1, .true., .false.)
          else
-            call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
-                 &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1,        &
-                 &               .true., .false., .false., work_LMloc)
-            if ( l_heat ) call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+            if ( l_parallel_solve ) then
+               call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
+               call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
+               call fill_ghosts_W(w_ghost)
+               call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc, &
+                    &                     dwdt, tscheme, 1, .true., .false., .false.,  &
+                    &                     dwdt%expl(:,:,1)) ! Work array
+            else
+               call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
+                    &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1,        &
+                    &               .true., .false., .false., work_LMloc)
+            end if
+            if ( l_heat ) then
+               if ( l_parallel_solve ) then
+                  call bulk_to_ghost(s_Rloc, s_ghost, 1, nRstart, nRstop, lm_max, 1, &
+                       &             lm_max)
+                  call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
+                  call fill_ghosts_S(s_ghost)
+                  call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, 1, .true.)
+               else
+                  call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+               end if
+            end if
          end if
 
          call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
          call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
-         call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
-              &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
-              &               omega_ma1, tscheme, 1, .true., .false.)
 
-         if ( l_chemical_conv ) call get_comp_rhs_imp(xi_LMloc, dxi_LMloc,  &
-                                     &                dxidt, 1, .true.)
+         if ( l_parallel_solve ) then
+            call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+            call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
+            call fill_ghosts_Z(z_ghost)
+            call get_tor_rhs_imp_ghost(time, z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
+                 &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
+                 &                     omega_ma1, tscheme, 1, .true., .false.)
+         else
+            call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
+                 &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
+                 &               omega_ma1, tscheme, 1, .true., .false.)
+         end if
 
-         if ( l_mag ) call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc,       &
-                           &               aj_LMLoc, dj_LMloc, ddj_LMloc,      &
-                           &               dbdt, djdt, tscheme, 1, .true.,     &
-                           &               .false.)
+         if ( l_chemical_conv ) then
+            if ( l_parallel_solve ) then
+                  call bulk_to_ghost(xi_Rloc, xi_ghost, 1, nRstart, nRstop, lm_max, &
+                       &             1, lm_max)
+                  call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
+                  call fill_ghosts_Xi(xi_ghost)
+                  call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, .true.)
+            else
+               call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
+            end if
+         end if
+
+         if ( l_mag ) then
+            if ( l_mag_par_solve ) then
+               call bulk_to_ghost(b_Rloc, b_ghost, 1, nRstart, nRstop, lm_max, 1, &
+                    &             lm_max)
+               call bulk_to_ghost(aj_Rloc, aj_ghost, 1, nRstart, nRstop, lm_max, 1, &
+                    &             lm_max)
+               call exch_ghosts(aj_ghost, lm_max, nRstart, nRstop, 1)
+               call exch_ghosts(b_ghost, lm_max, nRstart, nRstop, 1)
+               call fill_ghosts_B(b_ghost, aj_ghost)
+               call get_mag_rhs_imp_ghost(b_ghost, db_Rloc, ddb_RLoc, aj_ghost,    &
+                    &                     dj_Rloc, ddj_Rloc,  dbdt, djdt, tscheme, &
+                    &                     1, .true., .false.)
+            else
+               call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc, aj_LMLoc, dj_LMloc, &
+                    &               ddj_LMloc, dbdt, djdt, tscheme, 1, .true., .false.)
+            end if
+         end if
 
          if ( l_cond_ic ) call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
                                &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
@@ -890,24 +1037,28 @@ contains
       call comm_counter%start_count()
       if ( l_packed_transp ) then
          if ( l_Rloc ) then
-            call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
-            if ( l_heat .and. lHTCalc ) then
+            if ( .not. l_parallel_solve ) then
+               call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
+            end if
+            if ( l_heat .and. lHTCalc .and. (.not. l_parallel_solve) ) then
                call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
-            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-            if ( l_conv .or. l_mag_kin ) then
+            if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
+               call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+            end if
+            if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
                call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
-            if ( lPressCalc ) then
+            if ( lPressCalc .and. ( .not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
                call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
-            if ( l_mag ) then
+            if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
                call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
@@ -915,6 +1066,7 @@ contains
             end if
          else
             if ( l_heat ) then
+               !if ( .not. l_parallel_solve ) then
                call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
                if ( lHTCalc ) call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
             end if
@@ -931,15 +1083,17 @@ contains
          end if
       else
          if ( l_Rloc ) then
-            if ( l_heat ) then
+            if ( l_heat .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
                if ( lHTCalc ) then
                   call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                        &           rscheme_oc)
                end if
             end if
-            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-            if ( l_conv .or. l_mag_kin ) then
+            if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
+               call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
+            end if
+            if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
@@ -947,12 +1101,12 @@ contains
                call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
-            if ( lPressCalc ) then
+            if ( lPressCalc .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
                call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
-            if ( l_mag ) then
+            if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
                call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
@@ -1008,14 +1162,16 @@ contains
       call comm_counter%start_count()
       if ( l_packed_transp ) then
          if ( lRloc ) then
-            call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
-                 &                     dflowdt_LMloc_container(:,:,:,istage))
-            if ( l_conv .or. l_mag_kin ) then
+            if ( .not. l_parallel_solve ) then
+               call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
+                    &                     dflowdt_LMloc_container(:,:,:,istage))
+            end if
+            if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                if ( .not. l_double_curl .or. lPressNext ) then
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
                end if
             end if
-            if ( l_chemical_conv ) then
+            if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
             end if
          else
@@ -1023,7 +1179,8 @@ contains
                call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
                     &                     dflowdt_LMloc_container(:,:,:,istage))
             end if
-            if ( l_heat ) then
+            !if ( l_heat .and. (.not. l_parallel_solve) ) then
+            if ( l_heat  ) then
                call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
                     &                  dsdt_LMloc_container(:,:,:,istage))
             end if
@@ -1038,18 +1195,23 @@ contains
          end if
       else
          if ( lRloc ) then
-            if ( l_conv .or. l_mag_kin ) then
+            if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
-               call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
-               if ( .not. l_double_curl .or. lPressNext ) then
+               if ( .not. l_parallel_solve ) then
+                  call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
+               end if
+               if ( (.not. l_double_curl .or. lPressNext) .and. &
+               &    (.not.  l_parallel_solve) ) then
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
                end if
             end if
-            if ( l_heat ) call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
-            if ( l_chemical_conv ) then
+            if ( l_heat .and. (.not. l_parallel_solve) ) then
+               call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
+            end if
+            if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
             end if
-            if ( l_mag ) then
+            if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
                call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
             end if
@@ -1062,7 +1224,7 @@ contains
                   call r2lo_one%transp_r2lm(dVxVhLM_Rloc,dVxVhLM_LMloc(:,:,istage))
                end if
             end if
-            if ( l_heat ) then
+            if ( l_heat .and. (.not. l_parallel_solve) ) then
                call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVSrLM_Rloc,dVSrLM_LMloc(:,:,istage))
             end if
@@ -1082,5 +1244,34 @@ contains
       if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"
 
    end subroutine transp_Rloc_to_LMloc
+!--------------------------------------------------------------------------------
+   subroutine transp_Rloc_to_LMloc_IO()
+      !
+      ! For now, most of the outputs use LM-distributed arrays as input. To handle
+      ! that one has to transpose the missing fields.
+      !
+
+      if ( l_heat ) then
+         call r2lo_one%transp_r2lm(s_Rloc,s_LMloc)
+         call r2lo_one%transp_r2lm(ds_Rloc,ds_LMloc)
+      end if
+      if ( l_chemical_conv ) call r2lo_one%transp_r2lm(xi_Rloc,xi_LMloc)
+
+      call r2lo_one%transp_r2lm(z_Rloc,z_LMloc)
+      call r2lo_one%transp_r2lm(dz_Rloc,dz_LMloc)
+      call r2lo_one%transp_r2lm(w_Rloc,w_LMloc)
+      call r2lo_one%transp_r2lm(dw_Rloc,dw_LMloc)
+      call r2lo_one%transp_r2lm(ddw_Rloc,ddw_LMloc)
+
+      if ( l_mag .and. l_mag_par_solve ) then
+         call r2lo_one%transp_r2lm(b_Rloc,b_LMloc)
+         call r2lo_one%transp_r2lm(db_Rloc,db_LMloc)
+         call r2lo_one%transp_r2lm(ddb_Rloc,ddb_LMloc)
+         call r2lo_one%transp_r2lm(aj_Rloc,aj_LMloc)
+         call r2lo_one%transp_r2lm(dj_Rloc,dj_LMloc)
+         call r2lo_one%transp_r2lm(ddj_Rloc,ddj_LMloc)
+      end if
+
+   end subroutine transp_Rloc_to_LMloc_IO
 !--------------------------------------------------------------------------------
 end module step_time_mod

@@ -19,9 +19,10 @@ module updateS_mod
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_S
    use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
-       &            l_full_sphere
-   use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
-   use radial_der, only: get_ddr, get_dr, get_dr_Rloc
+       &            l_full_sphere, l_parallel_solve
+   use parallel_mod
+   use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, &
+       &                 exch_ghosts, bulk_to_ghost
    use fields, only:  work_LMloc
    use constants, only: zero, one, two
    use useful, only: abortRun
@@ -30,6 +31,7 @@ module updateS_mod
    use dense_matrices
    use real_matrices
    use band_matrices
+   use parallel_solvers, only: type_tri_par
 
    implicit none
 
@@ -37,6 +39,7 @@ module updateS_mod
 
    !-- Local variables
    real(cp), allocatable :: rhs1(:,:,:)
+   complex(cp), allocatable, public :: s_ghost(:,:)
    class(type_realmat), pointer :: sMat(:), s0Mat
 #ifdef WITH_PRECOND_S
    real(cp), allocatable :: sMat_fac(:,:)
@@ -46,10 +49,14 @@ module updateS_mod
 #endif
    logical, public, allocatable :: lSmat(:)
 
+   type(type_tri_par), public :: sMat_FD
+   real(cp), allocatable :: fd_fac_top(:), fd_fac_bot(:)
+
    integer :: maxThreads
 
-   public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy, &
-   &         finish_exp_entropy, get_entropy_rhs_imp, finish_exp_entropy_Rdist
+   public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy,  &
+   &         finish_exp_entropy, get_entropy_rhs_imp, finish_exp_entropy_Rdist,&
+   &         prepareS_FD, updateS_FD, get_entropy_rhs_imp_ghost, fill_ghosts_S
 
 contains
 
@@ -58,53 +65,122 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
 
+      if ( .not. l_parallel_solve ) then
+
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      if ( l_finite_diff ) then
-         allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
-         allocate( type_bandmat :: s0Mat )
+         if ( l_finite_diff ) then
+            allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
+            allocate( type_bandmat :: s0Mat )
 
-         if ( ktops == 1 .and. kbots == 1 .and. rscheme_oc%order == 2 &
-          &   .and. rscheme_oc%order_boundary <= 2 ) then ! Fixed entropy at both boundaries
-            n_bands = rscheme_oc%order+1
+            if ( ktops == 1 .and. kbots == 1 .and. rscheme_oc%order == 2 &
+             &   .and. rscheme_oc%order_boundary <= 2 ) then ! Fixed entropy at both boundaries
+               n_bands = rscheme_oc%order+1
+            else
+               n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+            end if
+
+            !print*, 'S', n_bands
+            call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+            do ll=1,nLMBs2(1+rank)
+               call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+            end do
          else
-            n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+            allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
+            allocate( type_densemat :: s0Mat )
+
+            call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+            do ll=1,nLMBs2(1+rank)
+               call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
+            end do
          end if
 
-         !print*, 'S', n_bands
-         call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
-            call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
-         end do
-      else
-         allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
-         allocate( type_densemat :: s0Mat )
-
-         call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
-         do ll=1,nLMBs2(1+rank)
-            call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
-         end do
-      end if
-
 #ifdef WITH_PRECOND_S
-      allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
-      bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+         allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
+         bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S0
-      allocate(s0Mat_fac(n_r_max))
-      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+         allocate(s0Mat_fac(n_r_max))
+         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
+
+#ifdef WITHOMP
+         maxThreads=omp_get_max_threads()
+#else
+         maxThreads=1
+#endif
+         allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
+         &                 maxThreads*SIZEOF_DEF_COMPLEX
+      else
+
+         !-- Create matrix
+         call sMat_FD%initialize(1,n_r_max,0,l_max)
+
+         !-- Allocate an array with ghost zones
+         allocate( s_ghost(lm_max, nRstart-1:nRstop+1) )
+         bytes_allocated=bytes_allocated + lm_max*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
+         s_ghost(:,:)=zero
+
+         allocate( fd_fac_top(0:l_max), fd_fac_bot(0:l_max) )
+         bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_DEF_REAL
+         fd_fac_top(:)=0.0_cp
+         fd_fac_bot(:)=0.0_cp
+      end if
+
       allocate( lSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-#ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
-#else
-      maxThreads=1
+#ifdef TOTO
+      block
+      use parallel_mod
+      use radial_data, only: n_r_cmb, n_r_icb
+      integer :: start_lm, stop_lm, tag, req, nR
+      complex(cp) :: rhs(lm_max, nRstart-1:nRstop+1)
+      complex(cp) :: x(lm_max, nRstart-1:nRstop+1)
+
+
+      call sMat_FD%initialize(1,n_r_max,0,l_max)
+      sMat_FD%low(1,:) =-1.0_cp
+      sMat_FD%diag(1,:)=2.0_cp
+      sMat_FD%up(1,:)  =-1.0_cp
+      rhs(:,:)=1.0_cp
+      !if ( nRstart == n_r_cmb ) then
+      !   rhs(:,nRstart-1)=0.0_cp
+      !end if
+      !if ( nRstop == n_r_icb ) then
+      !   rhs(:,nRstop+1)=0.0_cp
+      !end if
+
+      call sMat_FD%prepare_mat()
+
+      tag = 0
+
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
+
+      call sMat_FD%solver_up(rhs, start_lm, stop_lm, nRstart, nRstop, tag, req)
+      tag = tag+1
+
+      call sMat_FD%solver_dn(rhs, start_lm, stop_lm, nRstart, nRstop, tag, req)
+      tag = tag+1
+
+      call sMat_FD%solver_finish(rhs, start_lm, stop_lm, nRstart, nRstop, tag, req)
+      tag = tag+1
+      !$omp end parallel
+
+      !call MPI_WaitAll(1, req, MPI_STATUSES_IGNORE, ierr)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+
+      !do nR=nRstart,nRstop
+      !   print*, nR, real(rhs(2,nR))
+      !end do
+      !print*, real(rhs(2,:))
+
+      end block
 #endif
-      allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-      bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
-      &                 maxThreads*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateS
 !------------------------------------------------------------------------------
@@ -113,21 +189,26 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      deallocate( lSmat)
+      if ( .not. l_parallel_solve ) then
+         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      do ll=1,nLMBs2(1+rank)
-         call sMat(ll)%finalize()
-      end do
-      call s0Mat%finalize()
+         do ll=1,nLMBs2(1+rank)
+            call sMat(ll)%finalize()
+         end do
+         call s0Mat%finalize()
+         deallocate(rhs1)
 
-      deallocate( lSmat )
 #ifdef WITH_PRECOND_S
-      deallocate( sMat_fac )
+         deallocate( sMat_fac )
 #endif
 #ifdef WITH_PRECOND_S0
-      deallocate( s0Mat_fac )
+         deallocate( s0Mat_fac )
 #endif
-      deallocate( rhs1 )
+      else
+         deallocate( s_ghost, fd_fac_top, fd_fac_bot )
+         call sMat_FD%finalize()
+      end if
 
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
@@ -337,6 +418,191 @@ contains
 
    end subroutine updateS
 !------------------------------------------------------------------------------
+   subroutine prepareS_FD(tscheme, dsdt)
+      !
+      ! This subroutine is used to assemble the r.h.s. of the entropy equation
+      ! when parallel F.D solvers are used. Boundary values are set here.
+      !
+
+      !-- Input of variables:
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Input/output of scalar fields:
+      type(type_tarray), intent(inout) :: dsdt
+
+      !-- Local variables
+      integer :: nR, lm_start, lm_stop, lm, l, m
+
+      if ( .not. l_update_s ) return
+
+      !-- LU factorisation of the matrix if needed
+      if ( .not. lSmat(0) ) then
+         call get_sMat_Rdist(tscheme,hdif_S,sMat_FD)
+         lSmat(:)=.true.
+      end if
+
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
+      !$omp barrier
+
+      !-- Now assemble the right hand side
+      call tscheme%set_imex_rhs_ghost(s_ghost, dsdt, lm_start, lm_stop, 1)
+
+      !-- Set boundary conditions
+      if ( nRstart == n_r_cmb ) then
+         nR=n_r_cmb
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            if ( ktops == 1 ) then ! Fixed temperature
+               s_ghost(lm,nR)=tops(l,m)
+            else ! Fixed flux
+               !TBD
+               s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_top(l)*tops(l,m)
+               !s_ghost(lm,nR)=tops(l,m)
+            end if
+            s_ghost(lm,nR-1)=zero ! Set ghost zone to zero
+         end do
+      end if
+
+      if ( nRstop == n_r_icb ) then
+         nR=n_r_icb
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+
+            if ( l_full_sphere ) then 
+               if ( l == 1 ) then
+                  s_ghost(lm,nR)=bots(l,m)
+               else
+                  ! TBD
+                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
+               end if
+            else
+               if ( kbots == 1 ) then ! Fixed temperature
+                  s_ghost(lm,nR)=bots(l,m)
+               else
+                  ! TBD
+                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
+               end if
+            end if
+            s_ghost(lm,nR+1)=zero ! Set ghost zone to zero
+         end do
+      end if
+      !$omp end parallel
+
+   end subroutine prepareS_FD
+!------------------------------------------------------------------------------
+   subroutine fill_ghosts_S(sg)
+      !
+      ! This subroutine is used to fill the ghosts zones that are located at
+      ! nR=n_r_cmb-1 and nR=n_r_icb+1. This is used to properly set the Neuman
+      ! boundary conditions. In case Dirichlet BCs are used, a simple first order
+      ! extrapolation is employed. This is anyway only used for outputs (like Nusselt
+      ! numbers).
+      !
+      complex(cp), intent(inout) :: sg(lm_max,nRstart-1:nRstop+1)
+
+      !-- Local variables
+      integer :: lm, l, m, lm_start, lm_stop
+      real(cp) :: dr
+
+      if ( .not. l_update_s ) return
+
+      !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
+      !$omp barrier
+
+      !-- Handle upper boundary
+      dr = r(2)-r(1)
+      if ( nRstart == n_r_cmb ) then
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            if ( ktops == 1 ) then
+               sg(lm,nRstart-1)=two*sg(lm,nRstart)-sg(lm,nRstart+1)
+            else
+               sg(lm,nRstart-1)=sg(lm,nRstart+1)-two*dr*tops(l,m)
+            end if
+         end do
+      end if
+
+      !-- Handle Lower boundary
+      dr = r(n_r_max)-r(n_r_max-1)
+      if ( nRstop == n_r_icb ) then
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            if ( l_full_sphere ) then
+               if (l == 1 ) then
+                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
+               else
+                  sg(lm,nRstop+1)=sg(lm,nRstop-1)+two*dr*bots(l,m)
+               end if
+            else ! Not a full sphere
+               if (kbots == 1) then ! Fixed temperature at bottom
+                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
+               else
+                  sg(lm,nRstop+1)=sg(lm,nRstop-1)+two*dr*bots(l,m)
+               end if
+            end if
+         end do
+      end if
+      !$omp end parallel
+
+   end subroutine fill_ghosts_S
+!------------------------------------------------------------------------------
+   subroutine updateS_FD(s, ds, dsdt, tscheme)
+      ! 
+      ! This subroutine is called after the linear solves have been completed.
+      ! This is then assembling the linear terms that will be used in the r.h.s. 
+      ! for the next iteration.
+      !
+
+      !-- Input of variables:
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Input/output of scalar fields:
+      type(type_tarray), intent(inout) :: dsdt
+      complex(cp),       intent(inout) :: s(lm_max,nRstart:nRstop) ! Entropy
+      !-- Output: ds
+      complex(cp),       intent(out) :: ds(lm_max,nRstart:nRstop) ! Radial derivative of entropy
+
+      !-- Local variables
+      integer :: nR, lm_start, lm_stop, lm
+
+      if ( .not. l_update_s ) return
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dsdt)
+
+      !-- Calculation of the implicit part
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1))
+      else
+         call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, tscheme%istage+1,       &
+              &                         tscheme%l_imp_calc_rhs(tscheme%istage+1))
+      end if
+
+      !!$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
+      !lm_start=1; lm_stop=lm_max
+      !call get_openmp_blocks(lm_start,lm_stop)
+      !!$omp barrier
+
+      !-- Array copy from s_ghost to s
+      !$omp parallel do simd collapse(2) schedule(simd:static)
+      do nR=nRstart,nRstop
+         do lm=1,lm_max
+            s(lm,nR)=s_ghost(lm,nR)
+         end do
+      end do
+      !$omp end parallel do simd
+      !!$omp end parallel
+
+   end subroutine updateS_FD
+!------------------------------------------------------------------------------
    subroutine finish_exp_entropy(w, dVSrLM, ds_exp_last)
 
       !-- Input variables
@@ -525,10 +791,141 @@ contains
          end if
 
       end if
-
       !$omp end parallel
 
    end subroutine get_entropy_rhs_imp
+!-----------------------------------------------------------------------------
+   subroutine get_entropy_rhs_imp_ghost(sg, ds, dsdt, istage, l_calc_lin)
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      logical,             intent(in) :: l_calc_lin
+
+      !-- Output variable
+      complex(cp),       intent(in) :: sg(lm_max,nRstart-1:nRstop+1)
+      complex(cp),       intent(out) :: ds(lm_max,nRstart:nRstop)
+      type(type_tarray), intent(inout) :: dsdt
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      integer :: n_r, lm, start_lm, stop_lm, l
+      integer, pointer :: lm2l(:)
+      real(cp) :: dL
+
+      lm2l(1:lm_max) => st_map%lm2l
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr_ghost(sg, ds, work_Rloc, lm_max,start_lm, stop_lm,  nRstart, nRstop, &
+           &             rscheme_oc)
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
+      !$omp barrier
+
+      if ( istage == 1 ) then
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               dsdt%old(lm,n_r,istage)=sg(lm,n_r)
+            end do
+         end do
+      end if
+
+      !-- Calculate explicit time step part:
+      if ( l_calc_lin ) then
+         if ( l_anelastic_liquid ) then
+            do n_r=nRstart,nRstop
+               do lm=start_lm,stop_lm
+                  l = lm2l(lm)
+                  dL = real(l*(l+1),cp)
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)* kappa(n_r) *  (     &
+                  &                                           work_Rloc(lm,n_r) &
+                  &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
+                  &                                    - dL*or2(n_r)*sg(lm,n_r) )
+               end do
+            end do
+         else
+            do n_r=nRstart,nRstop
+               do lm=start_lm,stop_lm
+                  l = lm2l(lm)
+                  dL = real(l*(l+1),cp)
+                  dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)*kappa(n_r) *   (        &
+                  &                                         work_Rloc(lm,n_r)      &
+                  &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
+                  &                                              * ds(lm,n_r)      &
+                  &        - dL*or2(n_r)                        *  sg(lm,n_r) )
+               end do
+            end do
+         end if
+      end if
+      !$omp end parallel
+
+   end subroutine get_entropy_rhs_imp_ghost
+!-----------------------------------------------------------------------------
+   subroutine assemble_entropy_Rloc(s, ds, dsdt, tscheme)
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),       intent(inout) :: s(lm_max,nRstart:nRstop)
+      complex(cp),       intent(out) :: ds(lm_max,nRstart:nRstop)
+      type(type_tarray), intent(inout) :: dsdt
+
+      !-- Local variables
+      integer :: lm, l, m, n_r, start_lm, stop_lm
+      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+
+      call tscheme%assemble_imex(work_Rloc, dsdt)
+
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
+
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            m = st_map%lm2m(lm)
+            if ( m == 0 ) then
+               s(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+            else
+               s(lm,n_r)=work_LMloc(lm,n_r)
+            end if
+         end do
+      end do
+
+      if ( ktops == 1 .and. nRstart==n_r_cmb ) then
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            s(lm,nRstart)=tops(l,m)
+         end do
+      end if
+
+      if ( kbots == 1 .and. nRstop==n_r_icb ) then
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            s(lm,nRstop)=bots(l,m)
+         end do
+      end if
+
+      call bulk_to_ghost(s, s_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
+      !$omp end parallel
+
+      call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
+      call fill_ghosts_S(s_ghost)
+
+      !-- Finally call the construction of the implicit terms for the first stage
+      !-- of next iteration
+      call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, 1, tscheme%l_imp_calc_rhs(1))
+
+   end subroutine assemble_entropy_Rloc
 !-----------------------------------------------------------------------------
    subroutine assemble_entropy(s, ds, dsdt, tscheme)
       !
@@ -895,5 +1292,98 @@ contains
       if ( info /= 0 ) call abortRun('Singular matrix sMat!')
 
    end subroutine get_Smat
+!-----------------------------------------------------------------------------
+   subroutine get_sMat_Rdist(tscheme,hdif,sMat)
+      !
+      !  This subroutine is used to construct the matrices when the parallel
+      !  solver for F.D. is employed.
+      !
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme        ! time step
+      real(cp),            intent(in) :: hdif(0:l_max)
+
+      !-- Output variables
+      type(type_tri_par), intent(inout) :: sMat
+
+      !-- Local variables:
+      real(cp) :: dLh
+      integer :: nR, l
+
+      !-- Bulk points: we fill all the points: this is then easier to handle
+      !-- Neumann boundary conditions
+      do nR=1,n_r_max
+         do l=0,l_max
+            dLh = real(l*(l+1),cp)
+            if ( l_anelastic_liquid ) then
+               sMat%diag(l,nR)=  one -     tscheme%wimp_lin(1)*opr*hdif(l)*&
+               &                kappa(nR)*(         rscheme_oc%ddr(nR,1) + &
+               &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,1) - &
+               &                dLh*or2(nR)    ) 
+               sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*         &
+               &                kappa(nR)*(         rscheme_oc%ddr(nR,0) + &
+               &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,0) )
+               sMat%up(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*          &
+               &                kappa(nR)*(         rscheme_oc%ddr(nR,2) + &
+               &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,2) )
+
+            else
+               sMat%diag(l,nR)=one-tscheme%wimp_lin(1)*opr*hdif(l)* &
+               &                kappa(nR)*(  rscheme_oc%ddr(nR,1) + &
+               & ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) )*  &
+               &                              rscheme_oc%dr(nR,1) - &
+               &                                        dLh*or2(nR) )
+               sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*  &
+               &                kappa(nR)*(  rscheme_oc%ddr(nR,0) + &
+               & ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) )*  &
+               &                              rscheme_oc%dr(nR,0) )
+               sMat%up(l,nR) =   -tscheme%wimp_lin(1)*opr*hdif(l)*  &
+               &                kappa(nR)*(  rscheme_oc%ddr(nR,2) + &
+               & ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) )*  &
+               &                              rscheme_oc%dr(nR,2) )
+            end if
+         end do
+      end do
+
+
+      !----- Boundary conditions:
+      do l=0,l_max
+         if ( ktops == 1 ) then
+            sMat%diag(l,1)=one
+            sMat%up(l,1)  =0.0_cp
+            sMat%low(l,1) =0.0_cp
+         else
+            sMat%up(l,1)=sMat%up(l,1)+sMat%low(l,1)
+            fd_fac_top(l)=two*(r(2)-r(1))*sMat%low(l,1)
+            !dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+         end if
+
+         if ( l_full_sphere ) then
+            if ( l == 1 ) then
+               sMat%diag(l,n_r_max)=one
+               sMat%up(l,n_r_max)  =0.0_cp
+               sMat%low(l,n_r_max) =0.0_cp
+            else
+               !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+               sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
+               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
+            end if
+         else
+            if ( kbots == 1 ) then
+               sMat%diag(l,n_r_max)=one
+               sMat%up(l,n_r_max)  =0.0_cp
+               sMat%low(l,n_r_max) =0.0_cp
+            else
+               !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+               sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
+               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
+            end if
+         end if
+      end do
+
+      !-- LU decomposition:
+      call sMat%prepare_mat()
+
+   end subroutine get_Smat_Rdist
 !-----------------------------------------------------------------------------
 end module updateS_mod

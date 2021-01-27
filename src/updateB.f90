@@ -25,7 +25,7 @@ module updateB_mod
    use horizontal_data, only: hdif_B
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
        &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff,     &
-       &            l_full_sphere
+       &            l_full_sphere, l_mag_par_solve
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
@@ -33,7 +33,7 @@ module updateB_mod
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
-   use radial_der, only: get_dr, get_ddr, get_dr_Rloc
+   use radial_der, only: get_dr, get_ddr, get_dr_Rloc, get_ddr_ghost
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -41,6 +41,7 @@ module updateB_mod
    use band_matrices
    use bordered_matrices
    use real_matrices
+   use parallel_solvers, only: type_tri_par
 
    implicit none
 
@@ -57,10 +58,13 @@ module updateB_mod
    real(cp), allocatable :: jMat_fac(:,:)
 #endif
    logical, public, allocatable :: lBmat(:)
+   type(type_tri_par), public :: bMat_FD, jMat_FD
+   complex(cp), allocatable, public :: b_ghost(:,:), aj_ghost(:,:)
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
-   &         assemble_mag, finish_exp_mag_Rdist
+   &         assemble_mag, finish_exp_mag_Rdist, get_mag_rhs_imp_ghost,     &
+   &         prepareB_FD, fill_ghosts_B, updateB_FD
 
 contains
 
@@ -76,88 +80,114 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: maxThreads, ll, n_bandsJ, n_bandsB
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      if ( .not. l_mag_par_solve ) then
+         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
-      if ( l_finite_diff ) then
-         if ( l_cond_ic ) then
-            allocate( type_bordmat :: jMat(nLMBs2(1+rank)) )
-            allocate( type_bordmat :: bMat(nLMBs2(1+rank)) )
+         if ( l_finite_diff ) then
+            if ( l_cond_ic ) then
+               allocate( type_bordmat :: jMat(nLMBs2(1+rank)) )
+               allocate( type_bordmat :: bMat(nLMBs2(1+rank)) )
+            else
+               allocate( type_bandmat :: jMat(nLMBs2(1+rank)) )
+               allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
+            end if
+
+            if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
+            &    rscheme_oc%order  > 2 .or. rscheme_oc%order_boundary > 2 ) then
+               !-- Perfect conductor or conducting mantle
+               n_bandsJ = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+            else
+               n_bandsJ = rscheme_oc%order+1
+            end if
+
+            if ( conductance_ma /= 0 ) then
+               !-- Second derivative on the boundary
+               n_bandsB = max(2*rscheme_oc%order_boundary+3,rscheme_oc%order+1)
+            else
+               n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+            end if
+
+            if ( l_cond_ic ) then
+               do ll=1,nLMBs2(1+rank)
+                  call bMat(ll)%initialize(n_bandsB,n_r_max,.true.,n_r_ic_max)
+                  call jMat(ll)%initialize(n_bandsJ,n_r_max,.true.,n_r_ic_max)
+               end do
+            else
+               do ll=1,nLMBs2(1+rank)
+                  call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
+                  call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
+               end do
+            end if
          else
-            allocate( type_bandmat :: jMat(nLMBs2(1+rank)) )
-            allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
-         end if
+            allocate( type_densemat :: jMat(nLMBs2(1+rank)) )
+            allocate( type_densemat :: bMat(nLMBs2(1+rank)) )
 
-         if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
-         &    rscheme_oc%order  > 2 .or. rscheme_oc%order_boundary > 2 ) then
-            !-- Perfect conductor or conducting mantle
-            n_bandsJ = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
-         else
-            n_bandsJ = rscheme_oc%order+1
-         end if
-
-         if ( conductance_ma /= 0 ) then
-            !-- Second derivative on the boundary
-            n_bandsB = max(2*rscheme_oc%order_boundary+3,rscheme_oc%order+1)
-         else
-            n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
-         end if
-
-         if ( l_cond_ic ) then
             do ll=1,nLMBs2(1+rank)
-               call bMat(ll)%initialize(n_bandsB,n_r_max,.true.,n_r_ic_max)
-               call jMat(ll)%initialize(n_bandsJ,n_r_max,.true.,n_r_ic_max)
-            end do
-         else
-            do ll=1,nLMBs2(1+rank)
-               call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
-               call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
+               call bMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
+               call jMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
             end do
          end if
-      else
-         allocate( type_densemat :: jMat(nLMBs2(1+rank)) )
-         allocate( type_densemat :: bMat(nLMBs2(1+rank)) )
-
-         do ll=1,nLMBs2(1+rank)
-            call bMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
-            call jMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
-         end do
-      end if
 
 #ifdef WITH_PRECOND_BJ
-      allocate(bMat_fac(n_r_tot,nLMBs2(1+rank)))
-      allocate(jMat_fac(n_r_tot,nLMBs2(1+rank)))
-      bytes_allocated = bytes_allocated+2*n_r_tot*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+         allocate(bMat_fac(n_r_tot,nLMBs2(1+rank)))
+         allocate(jMat_fac(n_r_tot,nLMBs2(1+rank)))
+         bytes_allocated = bytes_allocated+2*n_r_tot*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
-      allocate( lBmat(0:l_maxMag) )
-      bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
-      if ( l_RMS ) then
-         allocate( workA(llmMag:ulmMag,n_r_max) )
-         allocate( workB(llmMag:ulmMag,n_r_max) )
-         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* &
-         &                 SIZEOF_DEF_COMPLEX
-      end if
+         if ( l_RMS ) then
+            allocate( workA(llmMag:ulmMag,n_r_max) )
+            allocate( workB(llmMag:ulmMag,n_r_max) )
+            bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* &
+            &                 SIZEOF_DEF_COMPLEX
+         end if
 
-      if ( l_cond_ic ) then
-         allocate( work_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
-         bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_ic_max* &
-         &                 SIZEOF_DEF_COMPLEX
-      end if
+         if ( l_cond_ic ) then
+            allocate( work_ic_LMloc(llmMag:ulmMag,n_r_ic_max) )
+            bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_ic_max* &
+            &                 SIZEOF_DEF_COMPLEX
+         end if
 
-      allocate( dtT(llmMag:ulmMag) )
-      allocate( dtP(llmMag:ulmMag) )
-      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+         allocate( dtT(llmMag:ulmMag) )
+         allocate( dtP(llmMag:ulmMag) )
+         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
+         maxThreads=omp_get_max_threads()
 #else
-      maxThreads=1
+         maxThreads=1
 #endif
 
-      allocate(rhs1(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
-      allocate(rhs2(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
-      bytes_allocated=bytes_allocated+2*n_r_tot*maxThreads* &
-      &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+         allocate(rhs1(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
+         allocate(rhs2(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
+         bytes_allocated=bytes_allocated+2*n_r_tot*maxThreads* &
+         &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+
+      else ! Parallel solve
+
+         !-- Create matrices
+         call bMat_FD%initialize(1,n_r_maxMag,0,l_maxMag)
+         call jMat_FD%initialize(1,n_r_maxMag,0,l_maxMag)
+
+         !-- Allocate array with ghost zones
+         allocate( b_ghost(lm_max, nRstartMag-1:nRstopMag+1) )
+         allocate( aj_ghost(lm_max, nRstartMag-1:nRstopMag+1) )
+         bytes_allocated=bytes_allocated + 2*lm_max*(nRstopMag-nRstartMag+3)* &
+         &               SIZEOF_DEF_COMPLEX
+         b_ghost(:,:) =zero
+         aj_ghost(:,:)=zero
+
+         !-- Arrays needed for R.M.S outputs
+         if ( l_RMS ) then
+            allocate( workA(lm_max,nRstartMag:nRstopmag) )
+            allocate( workB(lm_max,nRstartMag:nRstopmag) )
+            bytes_allocated = bytes_allocated+2*lm_max*(nRstopMag-nRstartMag+1)* &
+            &                 SIZEOF_DEF_COMPLEX
+         end if
+
+      end if
+
+      allocate( lBmat(0:l_maxMag) )
+      bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
    end subroutine initialize_updateB
 !-----------------------------------------------------------------------------
@@ -171,21 +201,27 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-
-      do ll=1,nLMBs2(1+rank)
-         call jMat(ll)%finalize()
-         call bMat(ll)%finalize()
-      end do
-
-      if ( l_cond_ic ) deallocate ( work_ic_LMloc )
       deallocate( lBmat )
+      if ( l_RMS ) deallocate( workA, workB )
+      if ( .not. l_mag_par_solve ) then
+         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+
+         do ll=1,nLMBs2(1+rank)
+            call jMat(ll)%finalize()
+            call bMat(ll)%finalize()
+         end do
+
+         if ( l_cond_ic ) deallocate ( work_ic_LMloc )
 
 #ifdef WITH_PRECOND_BJ
-      deallocate(bMat_fac,jMat_fac)
+         deallocate(bMat_fac,jMat_fac)
 #endif
-      deallocate( dtT, dtP, rhs1, rhs2 )
-      if ( l_RMS ) deallocate( workA, workB )
+         deallocate( dtT, dtP, rhs1, rhs2 )
+      else
+         call bMat_FD%finalize()
+         call jMat_FD%finalize()
+         deallocate( b_ghost, aj_ghost )
+      end if
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
@@ -676,6 +712,253 @@ contains
       end if
 
    end subroutine updateB
+!-----------------------------------------------------------------------------
+   subroutine prepareB_FD(time, tscheme, dbdt, djdt)
+      !
+      ! This subroutine assembles the r.h.s. when finite difference parallel
+      ! solver is employed
+      !
+
+      !-- Input of variables:
+      real(cp),            intent(in) :: time
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Input/output of scalar fields:
+      type(type_tarray), intent(inout) :: dbdt
+      type(type_tarray), intent(inout) :: djdt
+
+      !-- Local variables
+      integer :: nR, lm_start, lm_stop, lm, l, m
+
+      if ( .not. l_update_b ) return
+
+      if ( .not. lBmat(1) ) then
+         call get_bMat_Rdist(tscheme, hdif_B, bMat_FD, jMat_FD)
+         lBmat(:)=.true.
+      end if
+
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
+      !$omp barrier
+
+      !-- Now assemble the right hand side
+      call tscheme%set_imex_rhs_ghost(b_ghost, dbdt, lm_start, lm_stop, 1)
+      call tscheme%set_imex_rhs_ghost(aj_ghost, djdt, lm_start, lm_stop, 1)
+
+      !-- Set boundary values
+      if ( nRstartMag == n_r_cmb ) then
+         nR=n_r_cmb
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            m = st_map%lm2m(lm)
+
+            aj_ghost(lm,nR)=zero
+            if (imagcon /= 0 .and. tmagcon <= time ) then
+               if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
+               if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                  aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+               else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
+                  aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+               else if ( m == 0 .and. l==1 .and. imagcon == -2 ) then
+                  b_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+               else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
+                  aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+               end if
+            end if
+
+            if ( l_curr .and. mod(l,2) /= 0 ) then ! Current-carrying loop
+               call abortRun('in updateB: not implemented yet in this configuration')
+            end if
+            
+            if ( n_imp > 1 ) then ! Imposed field
+               call abortRun('in updateB: not implemented yet in this configuration')
+            endif
+
+            !-- Fill ghost zones
+            aj_ghost(lm,nR-1)=zero
+            b_ghost(lm,nR-1) =zero
+         end do
+      end if
+
+      if ( nRstopMag == n_r_icb ) then
+         nR=n_r_icb
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            m = st_map%lm2m(lm)
+            aj_ghost(lm,nR)=zero
+            if (imagcon /= 0 .and. tmagcon <= time ) then
+               if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
+               if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                  aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+               else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
+                  aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+               else if ( m == 0 .and. l==1 .and. imagcon == -1 ) then
+                  b_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+               else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
+                  aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+               end if
+            end if
+
+            !-- Fill ghost zones
+            aj_ghost(lm,nR+1)=zero
+            b_ghost(lm,nR+1) =zero
+         end do
+      end if
+      !$omp end parallel
+
+   end subroutine prepareB_FD
+!-----------------------------------------------------------------------------
+   subroutine fill_ghosts_B(bg, ajg)
+      !
+      ! This subroutine is used to fill the ghosts zones that are located at
+      ! nR=n_r_cmb-1 and nR=n_r_icb+1. This is used to properly set the Neuman
+      ! boundary conditions. In case Dirichlet BCs are used, a simple first order
+      ! extrapolation is employed. This is anyway only used for outputs.
+      !
+      complex(cp), intent(inout) :: bg(lm_max,nRstartMag-1:nRstopMag+1) ! Poloidal potential
+      complex(cp), intent(inout) :: ajg(lm_max,nRstartMag-1:nRstopMag+1)! Toroidal potential
+
+      !-- Local variables
+      integer :: nR, lm, lm_start, lm_stop, l
+      real(cp) :: dr
+
+      if ( .not. l_update_b ) return
+
+      !$omp parallel default(shared) private(lm_start, lm_stop, lm, l)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
+
+      !-- Upper boundary
+      dr = r(2)-r(1)
+      if ( nRstartMag == n_r_cmb ) then
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            if ( ktopb == 1 ) then
+               bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)+two*dr*real(l,cp)*or1(1)* &
+               &                    bg(lm,nRstartMag)
+               ajg(lm,nRstartMag-1)=two*ajg(lm,nRstartMag)-ajg(lm,nRstartMag+1)
+            else if ( ktopb == 2 ) then
+               bg(lm,nRstartMag-1) =-bg(lm,nRstartMag+1)
+               ajg(lm,nRstartMag-1)=ajg(lm,nRstartMag+1)
+            else if ( ktopb == 3 ) then
+               call abortRun('! ktopb=3 is not implemented in this setup!')
+            else if ( ktopb == 4 ) then
+               bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)
+               ajg(lm,nRstartMag-1)=two*ajg(lm,nRstartMag)-ajg(lm,nRstartMag+1)
+            end if
+         end do
+      end if
+
+      !-- Lower boundary
+      dr = r(n_r_max)-r(n_r_max-1)
+      if ( nRstopMag == n_r_icb ) then
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            if ( l_full_sphere ) then
+               ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+               bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
+            else
+               if ( kbotb == 1 ) then
+                  bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)+two*dr*real(l+1,cp)* &
+                  &                   or1(n_r_max)*bg(lm,nRstopMag)
+                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+               else if ( kbotb == 2 ) then
+                  bg(lm,nRstopMag+1) =-bg(lm,nRstopMag-1)
+                  ajg(lm,nRstopMag+1)=ajg(lm,nRstopMag-1)
+               else if ( kbotb == 3 ) then
+                  call abortRun('! kbotb=3 is not implemented yet in this setup!')
+               else if ( kbotb == 4 ) then
+                  bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)
+                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+               end if
+
+               if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
+                  bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
+               else if ( l == 3 .and. imagcon == -10 ) then
+                  bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
+                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+               else if ( n_imp == 1 ) then
+                  call abortRun('! nimp=1 is not implemented yet in this setup!')
+               end if
+            end if
+         end do
+      end if
+      !$omp end parallel
+
+   end subroutine fill_ghosts_B
+!-----------------------------------------------------------------------------
+   subroutine updateB_FD(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, lRmsNext)
+      !
+      ! This subroutine handles the IMEX postprocs once the solve has been 
+      ! completed
+      !
+
+      !-- Input of variables:
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+
+      !-- Input/output of scalar fields:
+      type(type_tarray), intent(inout) :: dbdt, djdt
+      complex(cp),       intent(inout) :: b(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(inout) :: aj(lm_max,nRstartMag:nRstopMag)
+      !-- Output: ds
+      complex(cp),       intent(out) :: db(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: ddb(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: dj(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: ddj(lm_max,nRstartMag:nRstopMag)
+
+      !-- Local variables
+      integer :: nR, lm_start, lm_stop, lm
+
+      if ( .not. l_update_b ) return
+
+      if ( lRmsNext .and. tscheme%istage == 1) then
+         !$omp parallel do collapse(2)
+         do nR=nRstartMag,nRstopMag
+            do lm=1,lm_max
+               workA(lm,nR)= b(lm,nR)
+               workB(lm,nR)=aj(lm,nR)
+            end do
+         end do
+         !$omp end parallel do
+      end if
+
+      !-- Roll the arrays before filling again the first block
+      call tscheme%rotate_imex(dbdt)
+      call tscheme%rotate_imex(djdt)
+
+      !-- Calculation of the implicit part
+      if ( tscheme%istage == tscheme%nstages ) then
+         call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
+              &                     tscheme, 1, tscheme%l_imp_calc_rhs(1), lRmsNext)
+      else
+         call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
+              &                     tscheme, tscheme%istage+1,                       &
+              &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
+      end if
+
+      !!$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
+      !lm_start=1; lm_stop=lm_max
+      !call get_openmp_blocks(lm_start,lm_stop)
+      !!$omp barrier
+
+      !-- Array copy from b_ghost to b and aj_ghost to aj
+      !$omp parallel do simd collapse(2) schedule(simd:static)
+      do nR=nRstartMag,nRstopMag
+         do lm=1,lm_max
+            b(lm,nR) = b_ghost(lm,nR)
+            aj(lm,nR)=aj_ghost(lm,nR)
+         end do
+      end do
+      !$omp end parallel do simd
+      !!$omp end parallel
+
+   end subroutine updateB_FD
 !-----------------------------------------------------------------------------
    subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
 
@@ -1247,6 +1530,108 @@ contains
 
    end subroutine get_mag_rhs_imp
 !-----------------------------------------------------------------------------
+   subroutine get_mag_rhs_imp_ghost(bg, db, ddb, ajg, dj, ddj, dbdt, djdt, tscheme, &
+              &                     istage, l_calc_lin, lRmsNext)
+
+      !-- Input variables
+      integer,             intent(in) :: istage
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+      logical,             intent(in) :: l_calc_lin
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dbdt
+      type(type_tarray), intent(inout) :: djdt
+      complex(cp),       intent(inout) :: bg(lm_max,nRstartMag-1:nRstopMag+1)
+      complex(cp),       intent(inout) :: ajg(lm_max,nRstartMag-1:nRstopMag+1)
+      complex(cp),       intent(out) :: db(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: dj(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: ddb(lm_max,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: ddj(lm_max,nRstartMag:nRstopMag)
+
+      !-- Local variables
+      real(cp) :: dL
+      integer :: l, lm, start_lm, stop_lm, n_r
+      integer, pointer :: lm2l(:),lm2m(:)
+
+      lm2l(1:lm_max) => st_map%lm2l
+      lm2m(1:lm_max) => st_map%lm2m
+
+      !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      !$omp single
+      call dct_counter%start_count()
+      !$omp end single
+      call get_ddr_ghost(bg, db, ddb, lm_max, start_lm, stop_lm,  nRstartMag, nRstopMag, &
+           &             rscheme_oc)
+      call get_ddr_ghost(ajg, dj, ddj, lm_max, start_lm, stop_lm,  nRstartMag, nRstopMag,&
+           &             rscheme_oc)
+      !$omp single
+      call dct_counter%stop_count(l_increment=.false.)
+      !$omp end single
+
+      if ( l_LCR ) then
+         do n_r=nRstartMag,nRstopMag
+            if ( n_r<=n_r_LCR ) then
+               do lm=start_lm,stop_lm
+                  l=lm2l(lm)
+                  if ( l == 0 ) cycle
+
+                  bg(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)*bg(lm,n_r_LCR)
+                  db(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/  &
+                  &          (r(n_r))**(real(l,cp)+1)*bg(lm,n_r_LCR)
+                  ddb(lm,n_r)=real(l,cp)*real(l+1,cp)*(r(n_r_LCR))**real(l,cp)/ &
+                  &           (r(n_r))**(real(l,cp)+2)*bg(lm,n_r_LCR)
+                  ajg(lm,n_r)=zero
+                  dj(lm,n_r) =zero
+                  ddj(lm,n_r)=zero
+               end do
+            end if
+         end do
+      end if
+
+      if ( istage == 1 ) then
+         do n_r=nRstartMag,nRstopMag
+            do lm=start_lm,stop_lm
+               l = lm2l(lm)
+               dL = real(l*(l+1),cp)
+               dbdt%old(lm,n_r,istage)=dL*or2(n_r)* bg(lm,n_r)
+               djdt%old(lm,n_r,istage)=dL*or2(n_r)*ajg(lm,n_r)
+            end do
+         end do
+      end if
+
+      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+
+         do n_r=nRstartMag,nRstopMag
+            do lm=start_lm,stop_lm
+               l=lm2l(lm)
+               if ( l == 0 ) cycle
+               dL=real(l*(l+1),cp)
+               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l)*            &
+               &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*bg(lm,n_r) )
+               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l)*            &
+               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
+               &                    dj(lm,n_r)-dL*or2(n_r)*ajg(lm,n_r) )
+               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+                  dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  bg(lm,n_r)-workA(lm,n_r) )
+                  dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( ajg(lm,n_r)-workB(lm,n_r) )
+               end if
+            end do
+            if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+               call hInt2PolLM(dtP,1,lm_max,n_r,2,lm_max, dtBPolLMr(:,n_r),    &
+                    &          dtBPol2hInt(:,n_r),st_map)
+               call hInt2TorLM(dtT,1,lm_max,n_r,2,lm_max,dtBTor2hInt(:,n_r),st_map)
+            end if
+         end do
+
+      end if
+      !$omp end parallel
+
+   end subroutine get_mag_rhs_imp_ghost
+!-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_BJ
    subroutine get_bMat(tscheme,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
 #else
@@ -1628,5 +2013,164 @@ contains
       if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
 
    end subroutine get_bMat
+!-----------------------------------------------------------------------------
+   subroutine get_bmat_Rdist(tscheme,hdif,bMat,jMat)
+      !
+      !  Purpose of this subroutine is to contruct the time step matrices
+      !  ``bmat(i,j)`` and ``ajmat`` for the dynamo equations when the parallel
+      !  F.D. solver is used
+      !
+
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme        ! time step
+      real(cp),            intent(in) :: hdif(0:l_maxMag)
+
+      !-- Output variables:
+      type(type_tri_par), intent(inout) :: bMat
+      type(type_tri_par), intent(inout) :: jMat
+
+      !-- local variables:
+      integer :: nR,l
+      real(cp) :: dLh, dr
+
+      do nR=1,n_r_max
+         do l=1,l_maxMag
+            dLh=real(l*(l+1),kind=cp)
+
+            bMat%diag(l,nR)=dLh*or2(nR) - tscheme%wimp_lin(1)*opm*lambda(nR)* &
+            &               hdif(l)*dLh*or2(nR) * (    rscheme_oc%ddr(nR,1) - &
+            &                      dLh*or2(nR) )
+            bMat%low(l,nR)=-tscheme%wimp_lin(1)*opm*lambda(nR)*hdif(l)*dLh*   &
+            &              or2(nR)*rscheme_oc%ddr(nR,0)
+            bMat%up(l,nR) =-tscheme%wimp_lin(1)*opm*lambda(nR)*hdif(l)*dLh*   &
+            &              or2(nR)*rscheme_oc%ddr(nR,2)
+
+            jMat%diag(l,nR)=dLh*or2(nR) - tscheme%wimp_lin(1)*opm*lambda(nR)* &
+            &               hdif(l)*dLh*or2(nR) * ( rscheme_oc%ddr(nR,1) +    &
+            &               dLlambda(nR)*rscheme_oc%dr(nR,1) - dLh*or2(nR) )
+            jMat%low(l,nR)=-tscheme%wimp_lin(1)*opm*lambda(nR)*hdif(l)*dLh*   &
+            &      or2(nR)*(rscheme_oc%ddr(nR,0)+dLlambda(nR)*rscheme_oc%dr(nR,0))
+            jMat%up(l,nR) =-tscheme%wimp_lin(1)*opm*lambda(nR)*hdif(l)*dLh*   &
+            &      or2(nR)*(rscheme_oc%ddr(nR,2)+dLlambda(nR)*rscheme_oc%dr(nR,2))
+         end do
+      end do
+
+      if  ( l_LCR ) then
+         do nR=2,n_r_max-1
+            if ( nR<=n_r_LCR ) then
+               do l=1,l_maxMag
+                  bMat%diag(l,nR)=rscheme_oc%dr(nR,1)+real(l,kind=cp)*or1(nR)
+                  bMat%low(l,nR) =rscheme_oc%dr(nR,0)
+                  bMat%up(l,nR)  =rscheme_oc%dr(nR,2)
+
+                  jMat%diag(l,nR)=one
+                  jMat%low(l,nR) =0.0_cp
+                  jMat%up(l,nR)  =0.0_cp
+               end do
+            end if
+         end do
+      end if
+
+      !----- boundary conditions for outer core field:
+      dr = r(2)-r(1)
+      do l=1,l_maxMag ! Don't fill the matrix for l=0 
+         if ( ktopb == 1 ) then
+            !-------- at CMB (nR=1):
+            !         the internal poloidal field should fit a potential
+            !         field (matrix bmat) and the toroidal field has to
+            !         vanish (matrix ajmat).
+            bMat%up(l,1)  =bMat%up(l,1)+bMat%low(l,1)
+            bMat%diag(l,1)=bMat%diag(l,1)+two*dr*real(l,cp)*or1(1)*bMat%low(l,1)
+
+            jMat%diag(l,1)=one
+            jMat%low(l,1) =0.0_cp
+            jMat%up(l,1)  =0.0_cp
+         else if ( ktopb == 2 ) then
+            !----- perfect conductor
+            !      see Glatzmaier, JCP 55, 461-484 (1984)
+            ! the (extra) condition Br=0 on Bpol is imposed just
+            ! below the boundary
+            bMat%up(l,1)=bMat%up(l,1)-bMat%low(l,1)
+            jMat%up(l,1)=jMat%up(l,1)+jMat%low(l,1)
+         else if ( ktopb == 3 ) then
+            call abortRun('getBmat_FD: not implemented!')
+         else if ( ktopb == 4 ) then
+            !----- pseudo vacuum condition, field has only
+            !      a radial component, horizontal components
+            !      vanish when aj and db are zero:
+            bMat%up(l,1)  =bMat%up(l,1)+bMat%low(l,1)
+            jMat%diag(l,1)=one
+            jMat%low(l,1) =0.0_cp
+            jMat%up(l,1)  =0.0_cp
+         end if
+
+         !-------- at IC (nR=n_r_max):
+         dr = r(n_r_max)-r(n_r_max-1)
+         if ( l_full_sphere ) then
+            bMat%diag(l,n_r_max)=one
+            bMat%low(l,n_r_max) =0.0_cp
+            bMat%up(l,n_r_max)  =0.0_cp
+            jMat%diag(l,n_r_max)=one
+            jMat%low(l,n_r_max) =0.0_cp
+            jMat%up(l,n_r_max)  =0.0_cp
+         else
+            if ( kbotb == 1 ) then
+               !----------- insulating IC, field has to fit a potential field:
+               jMat%diag(l,n_r_max)=one
+               jMat%low(l,n_r_max) =0.0_cp
+               jMat%up(l,n_r_max)  =0.0_cp
+
+               bMat%low(l,n_r_max)=bMat%low(l,n_r_max)+bMat%up(l,n_r_max)
+               bMat%diag(l,n_r_max)=bMat%diag(l,n_r_max)+two*dr*real(l+1,cp)* &
+               &                    or1(n_r_max)*bMat%up(l,n_r_max)
+            else if ( kbotb == 2 ) then
+               !----------- perfect conducting IC
+               bMat%low(l,n_r_max)=bMat%low(l,n_r_max)-bMat%up(l,n_r_max)
+               jMat%low(l,n_r_max)=jMat%low(l,n_r_max)+jMat%up(l,n_r_max)
+            else if ( kbotb == 3 ) then
+               bMat%diag(l,n_r_max)=one
+               bMat%low(l,n_r_max) =0.0_cp
+               bMat%up(l,n_r_max)  =0.0_cp
+               jMat%diag(l,n_r_max)=one
+               jMat%low(l,n_r_max) =0.0_cp
+               jMat%up(l,n_r_max)  =0.0_cp
+               call abortRun('Inner core would be coded here!')
+            else if ( kbotb == 4 ) then
+               !----- Pseudovacuum conduction at lower boundary:
+               jMat%diag(l,n_r_max)=one
+               jMat%low(l,n_r_max) =0.0_cp
+               jMat%up(l,n_r_max)  =0.0_cp
+               bMat%low(l,n_r_max)=bMat%low(l,n_r_max)+bMat%up(l,n_r_max)
+            end if
+         end if
+
+         !-------- Imposed fields: (overwrites above IC boundary cond.)
+         if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
+            bMat%diag(l,n_r_max)=one
+            bMat%low(l,n_r_max) =0.0_cp
+            bMat%up(l,n_r_max)  =0.0_cp
+         else if ( l == 3 .and. imagcon == -10 ) then
+            if ( l_LCR ) then
+               call abortRun('Imposed field not compatible with weak conducting region!')
+            end if
+            jMat%diag(l,n_r_max)=one
+            jMat%low(l,n_r_max) =0.0_cp
+            jMat%up(l,n_r_max)  =0.0_cp
+            jMat%diag(l,1)=one
+            jMat%low(l,1) =0.0_cp
+            jMat%up(l,1)  =0.0_cp
+         else if ( n_imp == 1 ) then
+            if ( l_LCR ) then
+               call abortRun('Imposed field not compatible with weak conducting region!')
+            end if
+            call abortRun('In getBMat_FD: not implemented yet!')
+         end if
+      end do
+
+      !----- LU decomposition:
+      call bMat%prepare_mat()
+      call jMat%prepare_mat()
+
+   end subroutine get_bmat_Rdist
 !-----------------------------------------------------------------------------
 end module updateB_mod

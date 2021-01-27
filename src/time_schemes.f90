@@ -41,6 +41,7 @@ module time_schemes
       procedure(assemble_imex_if),  deferred :: assemble_imex
       procedure(assemble_imex_scalar_if),  deferred :: assemble_imex_scalar
       procedure(set_imex_rhs_if),  deferred :: set_imex_rhs
+      procedure(set_imex_rhs_ghost_if),  deferred :: set_imex_rhs_ghost
       procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
       procedure(rotate_imex_scalar_if), deferred :: rotate_imex_scalar
@@ -92,6 +93,16 @@ module time_schemes
          type(type_tarray), intent(in) :: dfdt
          complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine set_imex_rhs_if
+
+      subroutine set_imex_rhs_ghost_if(this, rhs, dfdt, start_lm, stop_lm, ng)
+         import
+         class(type_tscheme) :: this
+         type(type_tarray), intent(in) :: dfdt
+         integer,           intent(in) :: start_lm ! Starting index
+         integer,           intent(in) :: stop_lm  ! Stopping index
+         integer,           intent(in) :: ng       ! Number of ghosts zones
+         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+      end subroutine set_imex_rhs_ghost_if
 
       subroutine assemble_imex_if(this, rhs, dfdt)
          import

@@ -93,5 +93,7 @@ module logic
    logical :: l_var_l ! When set to .true., degree varies with radius
    logical :: l_bridge_step ! Used to bridge missing steps when changing the time integrator
    logical :: l_packed_transp ! Pack or don't pack MPI transposes
+   logical :: l_parallel_solve ! Use R-distributed parallel solver (work only for F.D.)
+   logical :: l_mag_par_solve ! Can be remove once inner core has also been ported
 
 end module logic

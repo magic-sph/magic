@@ -10,7 +10,7 @@ module fieldsLast
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use blocking, only: llm, ulm, llmMag, ulmMag
    use logic, only: l_chemical_conv, l_heat, l_mag, l_cond_ic, l_double_curl, &
-       &            l_RMS, l_finite_diff
+       &            l_RMS, l_finite_diff, l_parallel_solve, l_mag_par_solve
    use constants, only: zero
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use mem_alloc, only: bytes_allocated
@@ -70,13 +70,38 @@ contains
       call lorentz_torque_ic_dt%initialize(nold, nexp, nimp)
       call lorentz_torque_ma_dt%initialize(nold, nexp, nimp)
 
-      if ( l_heat ) call dsdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
-      if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, 1, n_r_max, nold, &
-                                  &                nexp, nimp)
-
-      if ( l_mag ) then
-         call dbdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
-         call djdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
+      if ( l_parallel_solve ) then
+         if ( l_heat ) call dsdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, &
+                            &               nimp, l_allocate_exp=.true.)
+         call dzdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
+              &               l_allocate_exp=.true.)
+         call dwdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
+              &               l_allocate_exp=.true.)
+         if ( (.not. l_double_curl) .or. l_RMS ) then
+            call dpdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
+                 &               l_allocate_exp=.true.)
+         end if
+         if ( l_mag .and. l_mag_par_solve ) then
+            call dbdt%initialize(1, lm_maxMag, nRstartMag, nRstopMag, nold, nexp, nimp, &
+                 &               l_allocate_exp=.true.)
+            call djdt%initialize(1, lm_maxMag, nRstartMag, nRstopMag, nold, nexp, nimp, &
+                 &               l_allocate_exp=.true.)
+         end if
+         if ( l_chemical_conv ) call dxidt%initialize(1, lm_max, nRstart,nRstop, nold, &
+                                     &                nexp, nimp, l_allocate_exp=.true.)
+      else
+         if ( l_heat ) call dsdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+         call dzdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+         call dwdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+         if ( (.not. l_double_curl) .or. l_RMS ) then
+            call dpdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+         end if
+         if ( l_mag ) then
+            call dbdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
+            call djdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
+         end if
+         if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, 1, n_r_max, nold, &
+                                     &                nexp, nimp)
       end if
 
       if ( l_cond_ic ) then
@@ -86,24 +111,20 @@ contains
               &                  nexp, nimp, l_allocate_exp=.true.)
       end if
 
-      call dwdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
-      if ( (.not. l_double_curl) .or. l_RMS ) then
-         call dpdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
-      end if
-      call dzdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
-
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          n_fields=3
          if ( l_mag ) n_fields=n_fields+2
          allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:n_fields) )
-         dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
-         dzdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
-         dsdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
-         if ( l_mag ) then
+         if ( .not. l_parallel_solve ) then
+            dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
+            dzdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
+            dsdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
+         end if
+         if ( l_mag .and. (.not. l_mag_par_solve) ) then
             dbdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,4)
             djdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,5)
          end if
-         allocate(dpdt_Rloc(lm_max,nRstart:nRstop))
+         if ( .not. l_parallel_solve ) allocate(dpdt_Rloc(lm_max,nRstart:nRstop))
          allocate(dVxVhLM_Rloc(lm_max,nRstart:nRstop))
          allocate(dVSrLM_Rloc(lm_max,nRstart:nRstop))
          allocate(dVxBhLM_Rloc(lm_maxMag,nRstartMag:nRstopMag))
@@ -167,10 +188,12 @@ contains
          djdt_Rloc(:,:)   =zero
          dVxBhLM_Rloc(:,:)=zero
       end if
-      dwdt_Rloc(:,:)=zero
-      dzdt_Rloc(:,:)=zero
-      dsdt_Rloc(:,:)=zero
-      dpdt_Rloc(:,:)=zero
+      if ( .not. l_parallel_solve ) then
+         dwdt_Rloc(:,:)=zero
+         dzdt_Rloc(:,:)=zero
+         dsdt_Rloc(:,:)=zero
+         dpdt_Rloc(:,:)=zero
+      end if
       dVSrLM_Rloc(:,:)=zero
       if ( l_double_curl ) dVxVhLM_Rloc(:,:)=zero
       if ( l_chemical_conv ) then
@@ -183,19 +206,22 @@ contains
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          n_fields=3
          if ( l_mag ) n_fields=n_fields+2
+         !--@> TODO: clean this ugly stuff:
          allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:n_fields,1:nexp))
-         dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
-         dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
-         dsdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
-         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
-         &                 SIZEOF_DEF_COMPLEX
-         if ( l_mag ) then
+         if ( .not. l_parallel_solve ) then
+            dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+            dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+            dsdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
+            bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
+            &                 SIZEOF_DEF_COMPLEX
+         end if
+         if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
             dbdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:nexp)
             djdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,5,1:nexp)
             bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
          end if
-         if ( (.not. l_double_curl) .or. l_RMS ) then
+         if ( ((.not. l_double_curl) .or. l_RMS) .and. ( .not. l_parallel_solve) ) then
             allocate( dpdt%expl(llm:ulm,n_r_max,nexp) )
             bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
@@ -222,7 +248,9 @@ contains
          end if
 
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
-         dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+         if ( .not. l_parallel_solve ) then
+            dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+         end if
          dVSrLM_LMloc(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
@@ -237,11 +265,13 @@ contains
       end if
 
       if ( l_chemical_conv ) then
-         allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
-         dxidt%expl(llm:,1:,1:)   => dxidt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
-         dVXirLM_LMloc(llm:,1:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
-         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
-         &                 SIZEOF_DEF_COMPLEX
+         if ( .not. l_parallel_solve ) then
+            allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
+            dxidt%expl(llm:,1:,1:)   => dxidt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+            dVXirLM_LMloc(llm:,1:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+            bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
+            &                 SIZEOF_DEF_COMPLEX
+         end if
       else
          allocate(dxidt_LMloc_container(1,1,1:2,1))
          dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:)
@@ -262,7 +292,8 @@ contains
 
       deallocate( dflowdt_Rloc_container, dflowdt_LMloc_container )
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
-         deallocate( dpdt_Rloc, dVxVhLM_Rloc, dVxBhLM_Rloc, dVSrLM_Rloc)
+         deallocate( dVxVhLM_Rloc, dVxBhLM_Rloc, dVSrLM_Rloc)
+         if (.not. l_parallel_solve ) deallocate( dpdt_Rloc )
       else
          deallocate( dbdt_Rloc_container, dbdt_LMloc_container )
          deallocate( dsdt_Rloc_container, dsdt_LMloc_container )

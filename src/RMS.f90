@@ -15,15 +15,16 @@ module RMS
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
        &                 lm_max_dtB, fd_ratio, fd_stretch
    use physical_parameters, only: ra, ek, pr, prmag, radratio
-   use radial_data, only: nRstop, nRstart, radial_balance
+   use radial_data, only: nRstop, nRstart, radial_balance, nRstartMag, nRstopMag
    use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
    use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF, &
-       &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS
+       &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS, &
+       &            l_parallel_solve, l_mag_par_solve
    use num_param, only: tScale, alph1, alph2
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
    use integration, only: rInt_R
-   use radial_der, only: get_dr
+   use radial_der, only: get_dr, get_dr_Rloc
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM
@@ -85,16 +86,28 @@ contains
       ! Memory allocation
       !
 
-      allocate( dtBPol2hInt(llmMag:ulmMag,n_r_maxMag) )
-      allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag) )
-      allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
-      bytes_allocated = bytes_allocated+                               &
-      &                 2*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_REAL+&
-      &                 (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      if ( l_mag_par_solve ) then
+         allocate( dtBPol2hInt(lm_maxMag,nRstartMag:nRstopMag) )
+         allocate( dtBTor2hInt(lm_maxMag,nRstartMag:nRstopMag) )
+         allocate( dtBPolLMr(lm_maxMag,nRstartMag:nRstopMag) )
+         bytes_allocated = bytes_allocated+2*lm_maxMag*(nRstopMag-nRstartMag+1)*&
+         &                 SIZEOF_DEF_REAL+lm_maxMag*(nRstopMag-nRstartMag+1)*  &
+         &                 SIZEOF_DEF_COMPLEX
+      else
+         allocate( dtBPol2hInt(llmMag:ulmMag,n_r_maxMag) )
+         allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag) )
+         allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
+         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_maxMag*   &
+         &                 SIZEOF_DEF_REAL+(llmMag-ulmMag+1)*n_r_maxMag*     &
+         &                 SIZEOF_DEF_COMPLEX
+      end if
 
-      allocate( DifPol2hInt(0:l_max,n_r_max) )
-      allocate( DifTor2hInt(0:l_max,n_r_max) )
-      allocate( DifPolLMr(llm:ulm,n_r_max) )
+      allocate( DifPol2hInt(0:l_max,n_r_max), DifTor2hInt(0:l_max,n_r_max) )
+      if ( l_parallel_solve ) then
+         allocate( DifPolLMr(lm_max,nRstart:nRstop) )
+      else
+         allocate( DifPolLMr(llm:ulm,n_r_max) )
+      end if
       bytes_allocated = bytes_allocated+                      &
       &                 2*(l_max+1)*n_r_max*SIZEOF_DEF_REAL+  &
       &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -482,7 +495,7 @@ contains
       real(cp) :: volC
       real(cp) :: Dif2hInt(n_r_max)
 
-      complex(cp) :: workA(llm:ulm,n_r_max)
+      complex(cp) :: workA(llm:ulm,n_r_max), work_Rloc(lm_max,nRstart:nRstop)
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
       integer :: irank,sendcount
@@ -496,25 +509,26 @@ contains
          call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
               &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
       else
-         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc)
+         if ( l_parallel_solve ) then
+            call get_dr_Rloc(DifPolLMr,work_Rloc,lm_max,nRstart,nRstop,n_r_max,&
+                 &           rscheme_oc)
+         else
+            call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
+                 &      ulm-llm+1,n_r_max,rscheme_oc)
+         end if
       end if
 
-      do nR=1,n_r_max
-         call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR), &
-              &         lo_map)
-      end do
-#ifdef WITH_MPI
-      call MPI_Reduce(DifPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPol2hInt(:,:)=global_sum
-#endif
+      if ( l_parallel_solve ) then
+         do nR=nRstart,nRstop
+            call hInt2dPol(work_Rloc(:,nR),1,lm_max,DifPol2hInt(:,nR),st_map)
+         end do
+      else
+         do nR=1,n_r_max
+            call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR),lo_map)
+         end do
+      end if
 
-      ! First gather all needed arrays on rank 0
-      ! some more arrays to gather for the dtVrms routine
-      ! we need some more fields for the dtBrms routine
 #ifdef WITH_MPI
-
       ! The following fields are only 1D and R distributed.
       sendcount = nR_per_rank*(l_max+1)
       do irank=0,n_procs-1
@@ -524,6 +538,24 @@ contains
       do irank=1,n_procs-1
          displs(irank) = displs(irank-1)+recvcounts(irank-1)
       end do
+#endif
+
+#ifdef WITH_MPI
+      if ( l_parallel_solve ) then
+         call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,         &
+              &              DifPol2hInt,recvcounts,displs,MPI_DEF_REAL,  &
+              &              MPI_COMM_WORLD,ierr)
+      else
+         call MPI_Reduce(DifPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
+              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         if ( rank == 0 ) DifPol2hInt(:,:)=global_sum
+      end if
+#endif
+
+      ! First gather all needed arrays on rank 0
+      ! some more arrays to gather for the dtVrms routine
+      ! we need some more fields for the dtBrms routine
+#ifdef WITH_MPI
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Cor2hInt,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
@@ -573,13 +605,15 @@ contains
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              PLF2hInt,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
-
-      ! The following fields are LM distributed and have to be gathered:
-      ! dtVPolLMr, DifPolLMr
-
-      call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifTor2hInt(:,:)=global_sum
+      if ( l_parallel_solve ) then
+         call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,         &
+              &              DifTor2hInt,recvcounts,displs,MPI_DEF_REAL,  &
+              &              MPI_COMM_WORLD,ierr)
+      else
+         call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
+              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         if ( rank == 0 ) DifTor2hInt(:,:)=global_sum
+      end if
 #endif
 
       if ( rank == 0 ) then
@@ -762,6 +796,7 @@ contains
       complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: TdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max_dtB)
+      complex(cp) :: work_Rloc(lm_maxMag,nRstartMag:nRstopMag)
 
       real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)
       real(cp) :: dtBT(n_r_max),dtBTAs(n_r_max)
@@ -819,27 +854,48 @@ contains
            &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
 
       !--- B changes:
-      call get_dr(dtBPolLMr(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
-           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,   &
-           &      nocopy=.true.)
-
-      do nR=1,n_r_max
-         call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
-              &           dtBPol2hInt(llm:ulm,nR),lo_map)
-         dtBP(nR)  =0.0_cp
-         dtBT(nR)  =0.0_cp
-         dtBPAs(nR)=0.0_cp
-         dtBTAs(nR)=0.0_cp
-         do lm=llm,ulm
-            m=lo_map%lm2m(lm)
-            dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
-            dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
-            if ( m == 0 ) then
-               dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR)
-               dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR)
-            end if
+      if ( l_mag_par_solve ) then
+         call get_dr_Rloc(dtBPolLMr,work_Rloc,lm_maxMag,nRstartMag,nRstopMag, &
+              &           n_r_max,rscheme_oc)
+         do nR=nRstartMag,nRstopMag
+            call hInt2dPolLM(work_Rloc(:,nR),1,lm_max,dtBPol2hInt(:,nR),st_map)
+            dtBP(nR)  =0.0_cp
+            dtBT(nR)  =0.0_cp
+            dtBPAs(nR)=0.0_cp
+            dtBTAs(nR)=0.0_cp
+            do lm=1,lm_maxMag
+               m=st_map%lm2m(lm)
+               dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
+               dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
+               if ( m == 0 ) then
+                  dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR)
+                  dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR)
+               end if
+            end do
          end do
-      end do
+      else
+         call get_dr(dtBPolLMr(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+              &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,   &
+              &      nocopy=.true.)
+
+         do nR=1,n_r_max
+            call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
+                 &           dtBPol2hInt(llm:ulm,nR),lo_map)
+            dtBP(nR)  =0.0_cp
+            dtBT(nR)  =0.0_cp
+            dtBPAs(nR)=0.0_cp
+            dtBTAs(nR)=0.0_cp
+            do lm=llm,ulm
+               m=lo_map%lm2m(lm)
+               dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
+               dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
+               if ( m == 0 ) then
+                  dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR)
+                  dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR)
+               end if
+            end do
+         end do
+      end if
 
 #ifdef WITH_MPI
       call MPI_Reduce(dtBP, dtBP_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
