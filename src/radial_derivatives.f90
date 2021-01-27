@@ -424,23 +424,19 @@ contains
          end do
 
          !-- Bulk points for 1st derivative
-         do od=0,r_scheme%order
-            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order
                   df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
                end do
             end do
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order_boundary
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -527,9 +523,9 @@ contains
          end do
 
          !-- Bulk points for 1st and 2nd derivatives
-         do od=0,r_scheme%order
-            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order
                   df(n_f,n_r)  = df(n_f,n_r) + r_scheme%dr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                end do
@@ -537,14 +533,10 @@ contains
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order_boundary
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -552,14 +544,10 @@ contains
          end do
 
          !-- Boundary points for 2nd derivative
-         do od=0,r_scheme%order_boundary+1
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary+1
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%ddr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -654,9 +642,9 @@ contains
          end do
 
          !-- Bulk points for 1st and 2nd derivatives
-         do od=0,r_scheme%order
-            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order
                   df(n_f,n_r)  = df(n_f,n_r) + r_scheme%dr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                end do
@@ -664,23 +652,19 @@ contains
          end do
 
          !-- Bulk points for 3rd derivative
-         do od=0,r_scheme%order+2
-            do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
-               do n_f=n_f_start,n_f_stop
+         do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order+2
                   dddf(n_f,n_r)=dddf(n_f,n_r)+r_scheme%dddr(n_r,od)*f(n_f,n_r-r_scheme%order/2-1+od)
                end do
             end do
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order_boundary
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -688,14 +672,10 @@ contains
          end do
 
          !-- Boundary points for 2nd derivative
-         do od=0,r_scheme%order_boundary+1
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary+1
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%ddr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -703,14 +683,10 @@ contains
          end do
 
          !-- Boundary points for 3rd derivative
-         do od=0,r_scheme%order_boundary+2
-            do n_r=1,r_scheme%order/2+1
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2+1
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary+2
                   dddf(n_f,n_r) = dddf(n_f,n_r)+r_scheme%dddr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2+1
-               do n_f=n_f_start,n_f_stop
                   dddf(n_f,n_r_max-n_r+1) = dddf(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dddr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -740,14 +716,14 @@ contains
       complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
       complex(cp) :: ftop(lm_max,r_scheme%order_boundary+1)
       complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary:n_r_max)
-      integer :: n_r, od, start_lm, stop_lm
+      integer :: n_r, od, start_lm, stop_lm, lm
 
       if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
-       &   (nRstop-nRstart+1)<r_scheme%order ) then
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
-      !$omp parallel default(shared) private(start_lm,stop_lm)
+      !$omp parallel default(shared) private(start_lm,stop_lm,lm)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
@@ -772,17 +748,12 @@ contains
       !$omp end master
       !$omp barrier
 
-      !-- Initialize to zero:
-      do n_r=nRstart,nRstop
-         df_Rloc(start_lm:stop_lm,n_r) =zero
-      end do
-
       !-- Bulk points for 1st derivative
-      do od=0,r_scheme%order
-         do n_r=nRstart,nRstop
-            df_Rloc(start_lm:stop_lm,n_r)=df_Rloc(start_lm:stop_lm,n_r) + &
-            &                             r_scheme%dr(n_r,od)*            &
-            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*work_ghost(lm,n_r-1)+ &
+            &               r_scheme%dr(n_r,1)*work_ghost(lm,n_r)+   &
+            &               r_scheme%dr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
 
@@ -796,18 +767,21 @@ contains
 
       !-- Boundary points for 1st derivative
       if ( rank == 0 ) then
-         df_Rloc(start_lm:stop_lm,1)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,1)=df_Rloc(start_lm:stop_lm,1) + &
-            &            r_scheme%dr_top(1,od)*ftop(start_lm:stop_lm,od+1)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,1)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,1)=df_Rloc(lm,1) + r_scheme%dr_top(1,od)*ftop(lm,od+1)
+            end do
          end do
       end if
 
       if ( rank == n_procs -1 ) then
-         df_Rloc(start_lm:stop_lm,n_r_max)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,n_r_max)=df_Rloc(start_lm:stop_lm,n_r_max)+  &
-            &           r_scheme%dr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r_max)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,n_r_max)=df_Rloc(lm,n_r_max)+r_scheme%dr_bot(1,od)* &
+               &                   fbot(lm,n_r_max-od)
+            end do
          end do
       end if
 
@@ -836,10 +810,10 @@ contains
       complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
       complex(cp) :: ftop(lm_max,r_scheme%order_boundary+2)
       complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary-1:n_r_max)
-      integer :: n_r, od, start_lm, stop_lm
+      integer :: n_r, od, start_lm, stop_lm, lm
 
       if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
-       &   (nRstop-nRstart+1)<r_scheme%order ) then
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
@@ -868,21 +842,15 @@ contains
       !$omp end master
       !$omp barrier
 
-      !-- Initialize to zero:
-      do n_r=nRstart,nRstop
-         df_Rloc(start_lm:stop_lm,n_r) =zero
-         ddf_Rloc(start_lm:stop_lm,n_r)=zero
-      end do
-
       !-- Bulk points for 1st and 2nd derivatives
-      do od=0,r_scheme%order
-         do n_r=nRstart,nRstop
-            df_Rloc(start_lm:stop_lm,n_r)=df_Rloc(start_lm:stop_lm,n_r)+   &
-            &                             r_scheme%dr(n_r,od)*             &
-            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
-            ddf_Rloc(start_lm:stop_lm,n_r)=ddf_Rloc(start_lm:stop_lm,n_r)+ &
-            &                            r_scheme%ddr(n_r,od)*             &
-            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*work_ghost(lm,n_r-1)+ &
+            &               r_scheme%dr(n_r,1)*work_ghost(lm,n_r)+   &
+            &               r_scheme%dr(n_r,2)*work_ghost(lm,n_r+1)
+            ddf_Rloc(lm,n_r)=r_scheme%ddr(n_r,0)*work_ghost(lm,n_r-1)+ &
+            &                r_scheme%ddr(n_r,1)*work_ghost(lm,n_r)+   &
+            &                r_scheme%ddr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
 
@@ -896,28 +864,30 @@ contains
 
       !-- Boundary points
       if ( rank == 0 ) then
-         df_Rloc(start_lm:stop_lm,1) =zero
-         ddf_Rloc(start_lm:stop_lm,1)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,1)=df_Rloc(start_lm:stop_lm,1) + &
-            &                 r_scheme%dr_top(1,od)*ftop(start_lm:stop_lm,od+1)
-         end do
-         do od=0,r_scheme%order_boundary+1
-            ddf_Rloc(start_lm:stop_lm,1) = ddf_Rloc(start_lm:stop_lm,1) + &
-            &                 r_scheme%ddr_top(1,od)*ftop(start_lm:stop_lm,od+1)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,1) =zero
+            ddf_Rloc(lm,1)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,1)=df_Rloc(lm,1) + r_scheme%dr_top(1,od)*ftop(lm,od+1)
+            end do
+            do od=0,r_scheme%order_boundary+1
+               ddf_Rloc(lm,1) = ddf_Rloc(lm,1) + r_scheme%ddr_top(1,od)*ftop(lm,od+1)
+            end do
          end do
       end if
 
       if ( rank == n_procs-1 ) then
-         df_Rloc(start_lm:stop_lm,n_r_max) =zero
-         ddf_Rloc(start_lm:stop_lm,n_r_max)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,n_r_max)=df_Rloc(start_lm:stop_lm,n_r_max)+  &
-            &             r_scheme%dr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
-         end do
-         do od=0,r_scheme%order_boundary+1
-            ddf_Rloc(start_lm:stop_lm,n_r_max)=ddf_Rloc(start_lm:stop_lm,n_r_max)+  &
-            &             r_scheme%ddr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r_max) =zero
+            ddf_Rloc(lm,n_r_max)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,n_r_max)=df_Rloc(lm,n_r_max)+  &
+               &             r_scheme%dr_bot(1,od)*fbot(lm,n_r_max-od)
+            end do
+            do od=0,r_scheme%order_boundary+1
+               ddf_Rloc(lm,n_r_max)=ddf_Rloc(lm,n_r_max)+  &
+               &             r_scheme%ddr_bot(1,od)*fbot(lm,n_r_max-od)
+            end do
          end do
       end if
 
