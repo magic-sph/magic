@@ -1244,7 +1244,7 @@ contains
 
          !-- This is quite ugly here: 
          do l=0,l_max
-            call allgather_from_rloc(ddzASL_loc(l,n_r),ddzASL(l+1,n_r))
+            call allgather_from_rloc(ddzASL_loc(l,:),ddzASL(l+1,:))
          end do
       end if
 

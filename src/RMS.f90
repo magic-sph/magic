@@ -538,9 +538,7 @@ contains
       do irank=1,n_procs-1
          displs(irank) = displs(irank-1)+recvcounts(irank-1)
       end do
-#endif
 
-#ifdef WITH_MPI
       if ( l_parallel_solve ) then
          call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,         &
               &              DifPol2hInt,recvcounts,displs,MPI_DEF_REAL,  &

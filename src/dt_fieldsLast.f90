@@ -199,8 +199,8 @@ contains
       !-- Set the initial values to zero
       if ( l_mag ) then
          if ( .not. l_mag_par_solve ) then
-            dbdt_Rloc(:,:)   =zero
-            djdt_Rloc(:,:)   =zero
+            dbdt_Rloc(:,:)=zero
+            djdt_Rloc(:,:)=zero
          end if
          dVxBhLM_Rloc(:,:)=zero
       end if
@@ -227,7 +227,6 @@ contains
                bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
             end if
-            allocate( dpdt%expl(1,1,1) ) ! To avoid debug
          else
             n_fields=3
             if ( l_mag ) n_fields=n_fields+2
