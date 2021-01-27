@@ -316,7 +316,7 @@ contains
          if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
          if ( l_heat ) call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
          call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
-         if ( l_mag_par_solve ) then
+         if ( l_mag .and. l_mag_par_solve ) then
             call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
             call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
          end if

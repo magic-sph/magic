@@ -1,5 +1,7 @@
-#include "perflib_preproc.cpp"
 module communications
+   !
+   ! This module contains the different MPI communicators used in MagIC.
+   !
 
 #ifdef WITH_MPI
    use mpimod
@@ -12,7 +14,8 @@ module communications
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_double_curl, l_save_out, l_packed_transp
+       &            l_mag_kin, l_double_curl, l_save_out, l_packed_transp, &
+       &            l_parallel_solve, l_mag_par_solve
    use useful, only: abortRun
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
@@ -187,12 +190,19 @@ contains
          call lo2r_one%create_comm(1)
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
             call r2lo_one%create_comm(1)
-            if ( l_mag ) then
-               call lo2r_flow%create_comm(5)
-               call r2lo_flow%create_comm(5)
+            if ( l_parallel_solve ) then
+               if ( l_mag .and. (.not. l_mag_par_solve) ) then
+                  call lo2r_flow%create_comm(2)
+                  call r2lo_flow%create_comm(2)
+               end if
             else
-               call lo2r_flow%create_comm(3)
-               call r2lo_flow%create_comm(3)
+               if ( l_mag ) then
+                  call lo2r_flow%create_comm(5)
+                  call r2lo_flow%create_comm(5)
+               else
+                  call lo2r_flow%create_comm(3)
+                  call r2lo_flow%create_comm(3)
+               end if
             end if
          else
             if ( l_heat ) then
@@ -244,8 +254,10 @@ contains
          call lo2r_one%destroy_comm()
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
             call r2lo_one%destroy_comm()
-            call lo2r_flow%destroy_comm()
-            call r2lo_flow%destroy_comm()
+            if ( (.not. l_parallel_solve) .and. (.not. l_mag_par_solve) ) then
+               call lo2r_flow%destroy_comm()
+               call r2lo_flow%destroy_comm()
+            end if
          else
             if ( l_heat ) then
                call lo2r_s%destroy_comm()
@@ -1107,7 +1119,6 @@ contains
       integer :: sendtype, new_sendtype
       integer(kind=MPI_ADDRESS_KIND) :: lb,extent,extent_dcmplx
 
-      PERFON('mk_dt')
       ! definition of the datatype (will later be pulled out of here)
       ! we assume dim1=lm_max and dim2=n_r_max
       call MPI_Type_get_extent(MPI_DEF_COMPLEX,lb,extent_dcmplx,ierr)
@@ -1124,12 +1135,9 @@ contains
       do irank=0,n_procs-1
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
-      PERFOFF
-      PERFON('comm')
       call MPI_AllGatherV(MPI_IN_PLACE,sendcount,new_sendtype,&
            &              arr,recvcounts,displs,new_sendtype, &
            &              MPI_COMM_WORLD,ierr)
-      PERFOFF
 
    end subroutine myAllGather
 !------------------------------------------------------------------------------

@@ -378,7 +378,6 @@ contains
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lXimat(0) ) then
-         print*, rank, 'Do I rebuild or not???'
          call get_xiMat_Rdist(tscheme,hdif_Xi,xiMat_FD)
          lXimat(:)=.true.
       end if
