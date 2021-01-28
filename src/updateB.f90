@@ -12,7 +12,7 @@ module updateB_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max,             &
        &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
-       &                 n_r_totMag, lm_max, l_maxMag
+       &                 n_r_totMag, lm_max, l_maxMag, lm_maxMag
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
        &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
@@ -176,6 +176,9 @@ contains
          b_ghost(:,:) =zero
          aj_ghost(:,:)=zero
 
+         allocate( dtT(lm_maxMag), dtP(lm_maxMag) )
+         bytes_allocated = bytes_allocated+2*lm_maxMag*SIZEOF_DEF_COMPLEX
+
          !-- Arrays needed for R.M.S outputs
          if ( l_RMS ) then
             allocate( workA(lm_max,nRstartMag:nRstopmag) )
@@ -201,7 +204,7 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      deallocate( lBmat )
+      deallocate( lBmat, dtT, dtP )
       if ( l_RMS ) deallocate( workA, workB )
       if ( .not. l_mag_par_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -216,7 +219,7 @@ contains
 #ifdef WITH_PRECOND_BJ
          deallocate(bMat_fac,jMat_fac)
 #endif
-         deallocate( dtT, dtP, rhs1, rhs2 )
+         deallocate( rhs1, rhs2 )
       else
          call bMat_FD%finalize()
          call jMat_FD%finalize()
@@ -942,21 +945,21 @@ contains
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
 
-      !!$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
-      !lm_start=1; lm_stop=lm_max
-      !call get_openmp_blocks(lm_start,lm_stop)
+      !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
       !!$omp barrier
 
       !-- Array copy from b_ghost to b and aj_ghost to aj
-      !$omp parallel do simd collapse(2) schedule(simd:static)
+      !!$omp parallel do simd collapse(2) schedule(simd:static)
       do nR=nRstartMag,nRstopMag
-         do lm=1,lm_max
+         do lm=lm_start,lm_stop
             b(lm,nR) = b_ghost(lm,nR)
             aj(lm,nR)=aj_ghost(lm,nR)
          end do
       end do
-      !$omp end parallel do simd
-      !!$omp end parallel
+      !!$omp end parallel do simd
+      !$omp end parallel
 
    end subroutine updateB_FD
 !-----------------------------------------------------------------------------

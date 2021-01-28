@@ -521,14 +521,19 @@ contains
               &                      tscheme%l_imp_calc_rhs(tscheme%istage+1))
       end if
 
+      !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
+
       !-- Array copy from xi_ghost to xi
-      !$omp parallel do simd collapse(2) schedule(simd:static)
+      !!$omp parallel do simd collapse(2) schedule(simd:static)
       do nR=nRstart,nRstop
-         do lm=1,lm_max
+         do lm=lm_start,lm_stop
             xi(lm,nR)=xi_ghost(lm,nR)
          end do
       end do
-      !$omp end parallel do simd
+      !!$omp end parallel do simd
+      !$omp end parallel
 
    end subroutine updateXi_FD
 !------------------------------------------------------------------------------

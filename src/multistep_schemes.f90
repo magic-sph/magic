@@ -553,30 +553,30 @@ contains
       type(type_tarray), intent(inout) :: dfdt
 
       !-- Local variables:
-      integer :: n_o, n_r, startR, stopR
+            !-- Local variables:
+      integer :: n_o, n_r, lm_start, lm_stop
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=dfdt%nRstart; stopR=dfdt%nRstop
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(lm_start,lm_stop)
+      lm_start=dfdt%llm; lm_stop=dfdt%ulm
+      call get_openmp_blocks(lm_start,lm_stop)
 
       do n_o=this%nexp,2,-1
-         do n_r=startR,stopR
-            dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_o)=dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%expl(lm_start:lm_stop,n_r,n_o)=dfdt%expl(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nold,2,-1
-         do n_r=startR,stopR
-            dfdt%old(dfdt%llm:dfdt%ulm,n_r,n_o)=dfdt%old(dfdt%llm:dfdt%ulm,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%old(lm_start:lm_stop,n_r,n_o)=dfdt%old(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nimp,2,-1
-         do n_r=startR,stopR
-            dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_o)=dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%impl(lm_start:lm_stop,n_r,n_o)=dfdt%impl(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
-
       !$omp end parallel
 
    end subroutine rotate_imex
