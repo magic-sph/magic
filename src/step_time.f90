@@ -1037,7 +1037,7 @@ contains
       call comm_counter%start_count()
       if ( l_packed_transp ) then
          if ( l_Rloc ) then
-            if ( (.not. l_parallel_solve) .or. (.not. l_mag_par_solve) ) then
+            if ( (.not. l_parallel_solve) .or. (l_mag .and. .not. l_mag_par_solve) ) then
                call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
             end if
             if ( l_heat .and. lHTCalc .and. (.not. l_parallel_solve) ) then
@@ -1162,7 +1162,7 @@ contains
       call comm_counter%start_count()
       if ( l_packed_transp ) then
          if ( lRloc ) then
-            if ( (.not. l_parallel_solve) .or. ( .not. l_mag_par_solve) ) then
+            if ( (.not. l_parallel_solve) .or. ( l_mag .and. .not. l_mag_par_solve) ) then
                call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
                     &                     dflowdt_LMloc_container(:,:,:,istage))
             end if

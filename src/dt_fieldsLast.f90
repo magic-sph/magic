@@ -298,7 +298,7 @@ contains
             &                 SIZEOF_DEF_COMPLEX
          else
             allocate(dxidt_LMloc_container(1,1,1:2,1))
-            dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:)
+            !dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:)
             dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:)
          end if
       else
