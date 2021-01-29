@@ -123,6 +123,8 @@ contains
                allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
                dbdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
                djdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
+            else
+               allocate( dbdt_Rloc(1,1), djdt_Rloc(1,1) )
             end if
          else
             n_fields=3

@@ -395,12 +395,12 @@ contains
       integer, intent(in) :: tag
 
       !-- Output variables
-      integer, intent(inout) :: array_req(:)
+      integer,     intent(inout) :: array_req(:)
       complex(cp), intent(inout) :: x(1:lm_max, nRstart-2:nRstop+2)
-      integer, intent(inout) :: req
+      integer,     intent(inout) :: req
 
       !-- Local variables
-      integer :: nR, nR0, lm, l, recv(2), lb, lu, lmb, lmu
+      integer :: nR, lm, l, recv(2), lb, lu, lmb, lmu
 
       lmb = lms_block
       lmu = lmb+nlm_block-1

@@ -71,6 +71,10 @@ module updateZ_mod
 contains
 
    subroutine initialize_updateZ
+      !
+      ! This subroutine handles the memory allocation of the arrays involved
+      ! in the time advance of the toroidal potential.
+      !
 
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
@@ -157,6 +161,9 @@ contains
    end subroutine initialize_updateZ
 !-------------------------------------------------------------------------------
    subroutine finalize_updateZ
+      !
+      ! Memory deallocation of arrays associated with time advance of Z
+      !
 
       integer, pointer :: nLMBs2(:)
       integer :: ll
@@ -661,7 +668,7 @@ contains
       complex(cp), intent(inout) :: zg(lm_max,nRstart-1:nRstop+1)
 
       !-- Local variables
-      integer :: nR, lm, lm_start, lm_stop
+      integer :: lm, lm_start, lm_stop
       real(cp) :: dr
 
       if ( .not. l_update_v ) return
@@ -1487,7 +1494,7 @@ contains
       real(cp),           intent(out) :: omega_ic, omega_ic1
 
       !-- Local variables
-      integer :: l1m0, lmStart_00
+      integer :: l1m0
 
       l1m0=st_map%lm2(1,0)
 

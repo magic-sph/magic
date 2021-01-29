@@ -61,6 +61,10 @@ module updateS_mod
 contains
 
    subroutine initialize_updateS
+      !
+      ! This subroutine allocates the arrays involved in the time-advance of the
+      ! entropy/temperature equation.
+      ! 
 
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
@@ -131,60 +135,12 @@ contains
       allocate( lSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-#ifdef TOTO
-      block
-      use parallel_mod
-      use radial_data, only: n_r_cmb, n_r_icb
-      integer :: start_lm, stop_lm, tag, req, nR
-      complex(cp) :: rhs(lm_max, nRstart-1:nRstop+1)
-      complex(cp) :: x(lm_max, nRstart-1:nRstop+1)
-
-
-      call sMat_FD%initialize(1,n_r_max,0,l_max)
-      sMat_FD%low(1,:) =-1.0_cp
-      sMat_FD%diag(1,:)=2.0_cp
-      sMat_FD%up(1,:)  =-1.0_cp
-      rhs(:,:)=1.0_cp
-      !if ( nRstart == n_r_cmb ) then
-      !   rhs(:,nRstart-1)=0.0_cp
-      !end if
-      !if ( nRstop == n_r_icb ) then
-      !   rhs(:,nRstop+1)=0.0_cp
-      !end if
-
-      call sMat_FD%prepare_mat()
-
-      tag = 0
-
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=1; stop_lm=lm_max
-      call get_openmp_blocks(start_lm,stop_lm)
-      !$omp barrier
-
-      call sMat_FD%solver_up(rhs, start_lm, stop_lm, nRstart, nRstop, tag, req)
-      tag = tag+1
-
-      call sMat_FD%solver_dn(rhs, start_lm, stop_lm, nRstart, nRstop, tag, req)
-      tag = tag+1
-
-      call sMat_FD%solver_finish(rhs, start_lm, stop_lm, nRstart, nRstop, tag, req)
-      tag = tag+1
-      !$omp end parallel
-
-      !call MPI_WaitAll(1, req, MPI_STATUSES_IGNORE, ierr)
-      call MPI_Barrier(MPI_COMM_WORLD, ierr)
-
-      !do nR=nRstart,nRstop
-      !   print*, nR, real(rhs(2,nR))
-      !end do
-      !print*, real(rhs(2,:))
-
-      end block
-#endif
-
    end subroutine initialize_updateS
 !------------------------------------------------------------------------------
    subroutine finalize_updateS
+      !
+      ! Memory deallocation of updateS module
+      !
 
       integer, pointer :: nLMBs2(:)
       integer :: ll

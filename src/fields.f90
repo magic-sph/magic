@@ -124,6 +124,8 @@ contains
                   b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
                   aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
                end if
+            else
+               allocate ( b_LMloc(1,1), aj_LMloc(1,1) )
             end if
          else
             n_fields = 3
@@ -155,6 +157,8 @@ contains
                   b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
                   aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
                end if
+            else
+               allocate ( b_Rloc(1,1), aj_Rloc(1,1) )
             end if
          else
             allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:n_fields) )

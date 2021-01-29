@@ -197,7 +197,7 @@ contains
    subroutine finalize_updateB()
       !
       ! This subroutine deallocates the matrices involved in the time
-      ! advance of the magnetic field
+      ! advance of the magnetic field.
       !
 
       !-- Local variables
@@ -825,7 +825,7 @@ contains
       complex(cp), intent(inout) :: ajg(lm_max,nRstartMag-1:nRstopMag+1)! Toroidal potential
 
       !-- Local variables
-      integer :: nR, lm, lm_start, lm_stop, l
+      integer :: lm, lm_start, lm_stop, l
       real(cp) :: dr
 
       if ( .not. l_update_b ) return
