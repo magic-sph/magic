@@ -1744,25 +1744,29 @@ contains
       !-- First assemble IMEX to get an r.h.s. stored in work_Rloc
       call tscheme%assemble_imex(work_Rloc, dwdt)
 
+      array_of_requests(:)=MPI_REQUEST_NULL
+
+      !-- Now solve to finally get w
+      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+
       !-- Non-penetration boundary condition
       if ( nRstart==n_r_cmb ) then
-         do lm=1,lm_max
+         do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_cmb)=zero
          end do
       end if
       if ( nRstop==n_r_icb ) then
-         do lm=1,lm_max
+         do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_icb)=zero
          end do
       end if
 
       !-- Now copy into an array with proper ghost zones
-      call bulk_to_ghost(work_Rloc, work_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+      call bulk_to_ghost(work_Rloc, work_ghost, 1, nRstart, nRstop, lm_max, start_lm, &
+           &             stop_lm)
 
-      array_of_requests(:)=MPI_REQUEST_NULL
-
-      !-- Now solve to finally get w
-      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
       tag = 0
       req=1
 
@@ -1807,14 +1811,15 @@ contains
       !$omp end master
       !$omp barrier
 
-      do n_r=nRstart,nRstop
+      do n_r=nRstart-1,nRstop+1
          do lm=start_lm,stop_lm
             w_ghost(lm,n_r)=work_ghost(lm,n_r)
          end do
       end do
       !$omp end parallel
 
-      call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
+      ! nRstart-1 and nRstop+1 are already known, only the next one is not known
+      call exch_ghosts(w_ghost, lm_max, nRstart-1, nRstop+1, 1)
       call fill_ghosts_W(w_ghost)
       call get_pol_rhs_imp_ghost(w_ghost, dw, ddw, p, dp, dwdt, tscheme, 1, &
            &                     tscheme%l_imp_calc_rhs(1), lPressNext,     &

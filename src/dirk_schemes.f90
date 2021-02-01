@@ -954,7 +954,7 @@ contains
       !-- Local variables
       integer :: n_stage, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r)
       start_lm=dfdt%llm; stop_lm=dfdt%ulm
       call get_openmp_blocks(start_lm,stop_lm)
 
