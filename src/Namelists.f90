@@ -800,7 +800,7 @@ contains
       end if
 
       !-- Disable for now
-      l_parallel_solve = .false.
+      !l_parallel_solve = .false.
 
       l_mag_par_solve = .false.
       if ( l_mag .and. (.not. l_cond_ic) .and. l_parallel_solve ) l_mag_par_solve=.true.
