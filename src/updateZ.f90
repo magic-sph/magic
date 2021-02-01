@@ -918,7 +918,7 @@ contains
       !--- Update of inner core and mantle rotation:
       !$omp single
       !if ( l1m0 > 0 .and. lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
-      if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
+      if ( llm <= l1m0 .and. ulm >= l1m0 )then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
                call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(istage))

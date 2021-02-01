@@ -415,11 +415,9 @@ contains
       !--  MPI-IO setup
       call mpiio_setup(info)
 
-
       !-- Open file
       call MPI_File_Open(MPI_COMM_WORLD, fileName, ior(MPI_MODE_WRONLY, &
            &             MPI_MODE_CREATE), info, fh, ierr)
-
 
       !-- Set the first view
       disp = 0
@@ -476,9 +474,8 @@ contains
            &                        datatype, ierr)
       call MPI_Type_Commit(datatype, ierr)
 
-      !-- Copy into a single precision
+      !-- Copy into a single precision array
       tmp(:,:) = cmplx(b(:,:), kind=outp)
-
 
       !-- Set the view after the header
       call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
