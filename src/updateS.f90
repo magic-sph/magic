@@ -1283,6 +1283,8 @@ contains
 
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
+      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp do
       do nR=1,n_r_max
          do l=0,l_max
             dLh = real(l*(l+1),cp)
@@ -1315,9 +1317,10 @@ contains
             end if
          end do
       end do
-
+      !$omp end do
 
       !----- Boundary conditions:
+      !$omp do
       do l=0,l_max
          if ( ktops == 1 ) then
             sMat%diag(l,1)=one
@@ -1351,6 +1354,8 @@ contains
             end if
          end if
       end do
+      !$omp end do
+      !$omp end parallel
 
       !-- LU decomposition:
       call sMat%prepare_mat()

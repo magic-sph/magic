@@ -2288,6 +2288,8 @@ contains
       real(cp) :: dLh, dr, fac
 
       !----- Bulk points (first and last lines always set for non-penetration condition)
+      !$omp parallel default(shared) private(nR,l,dLh,dr,fac)
+      !$omp do
       do nR=2,n_r_max-1
          do l=1,l_max
             dLh=real(l*(l+1),cp)
@@ -2353,6 +2355,7 @@ contains
       end do
 
       !----- Boundary conditions:
+      !$omp do
       do l=1,l_max
          !-- Non-penetration condition at both boundaries
          wMat%diag(l,1)=one
@@ -2393,6 +2396,8 @@ contains
             end if
          end if
       end do ! Loop over \ell
+      !$omp end do
+      !$omp end parallel
 
       call wMat%prepare_mat()
 

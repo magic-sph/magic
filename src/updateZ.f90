@@ -2103,6 +2103,8 @@ contains
 
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
+      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp do
       do nR=1,n_r_max
          do l=1,l_max
             dLh=real(l*(l+1),kind=cp)
@@ -2118,8 +2120,10 @@ contains
             &      rscheme_oc%ddr(nR,2)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,2) )
          end do
       end do
+      !$omp end do
 
       !----- Boundary conditions, see above:
+      !$omp do
       do l=1,l_max
          if ( ktopv == 1 ) then  ! free slip !
             zMat%up(l,1)  =zMat%up(l,1)+zMat%low(l,1)
@@ -2147,6 +2151,8 @@ contains
             end if
          end if
       end do
+      !$omp end do
+      !$omp end parallel
 
       !-- LU decomposition:
       call zMat%prepare_mat()

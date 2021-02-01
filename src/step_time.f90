@@ -25,7 +25,7 @@ module step_time_mod
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
        &            l_DTrMagSpec, lVerbose, l_b_nl_icb, l_par,         &
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
-       &            l_HT, l_dtB, l_dtBmovie, l_heat, l_conv, l_movie,  &
+       &            l_HT, l_dtBmovie, l_heat, l_conv, l_movie,         &
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
@@ -332,8 +332,7 @@ contains
          &             n_movie_step,n_movie_frames,n_t_movie,t_movie,0) .or.     &
          &                   n_time_steps_go == 1 )
          if ( l_mag .or. l_mag_LF ) then
-            l_dtB=( l_frame .and. l_dtBmovie ) .or.         &
-            &                   ( l_log .and. l_DTrMagSpec )
+            l_dtB=( l_frame .and. l_dtBmovie ) .or. ( l_log .and. l_DTrMagSpec )
          end if
 
          lTOframe=l_TOmovie .and.                                                &

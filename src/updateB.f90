@@ -2164,6 +2164,8 @@ contains
       integer :: nR,l
       real(cp) :: dLh, dr
 
+      !$omp parallel default(shared) private(nR,l,dLh,dr)
+      !$omp do
       do nR=1,n_r_max
          do l=1,l_maxMag
             dLh=real(l*(l+1),kind=cp)
@@ -2185,8 +2187,10 @@ contains
             &      or2(nR)*(rscheme_oc%ddr(nR,2)+dLlambda(nR)*rscheme_oc%dr(nR,2))
          end do
       end do
+      !$omp end do
 
       if  ( l_LCR ) then
+         !$omp do
          do nR=2,n_r_max-1
             if ( nR<=n_r_LCR ) then
                do l=1,l_maxMag
@@ -2200,11 +2204,13 @@ contains
                end do
             end if
          end do
+         !$omp end do
       end if
 
       !----- boundary conditions for outer core field:
-      dr = r(2)-r(1)
+      !$omp do
       do l=1,l_maxMag ! Don't fill the matrix for l=0
+         dr = r(2)-r(1)
          if ( ktopb == 1 ) then
             !-------- at CMB (nR=1):
             !         the internal poloidal field should fit a potential
@@ -2297,6 +2303,8 @@ contains
             call abortRun('In getBMat_FD: not implemented yet!')
          end if
       end do
+      !$omp end do
+      !$omp end parallel
 
       !----- LU decomposition:
       call bMat%prepare_mat()

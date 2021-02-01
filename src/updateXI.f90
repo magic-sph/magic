@@ -1117,6 +1117,8 @@ contains
       real(cp) :: dLh
 
       !----- Bulk points
+      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp do
       do nR=1,n_r_max
          do l=0,l_max
             dLh=real(l*(l+1),kind=cp)
@@ -1132,8 +1134,10 @@ contains
             &           ( beta(nR)+two*or1(nR) )*    rscheme_oc%dr(nR,2) )
          end do
       end do
+      !$omp end do
 
       !----- Boundary coditions:
+      !$omp do
       do l=0,l_max
          if ( ktopxi == 1 ) then
             xiMat%diag(l,1)=one
@@ -1165,6 +1169,8 @@ contains
             end if
          end if
       end do
+      !$omp end do
+      !$omp end parallel
 
       !----- LU decomposition:
       call xiMat%prepare_mat()
