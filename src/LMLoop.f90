@@ -36,7 +36,7 @@ module LMLoop_mod
 
    public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly, &
    &         assemble_stage, finish_explicit_assembly_Rdist, LMLoop_Rdist,         &
-   &         test_LMLoop
+   &         test_LMLoop, assemble_stage_Rdist
 
 contains
 
@@ -464,9 +464,7 @@ contains
 
    end subroutine finish_explicit_assembly_Rdist
 !--------------------------------------------------------------------------------
-   subroutine assemble_stage(time, w, dw, ddw, p, dp, z, dz, s, ds, xi, dxi, b, db, &
-              &              ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, dj_ic,   &
-              &              ddj_ic, omega_ic, omega_ic1, omega_ma, omega_ma1,      &
+   subroutine assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,        &
               &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic,    &
               &              djdt_ic, domega_ic_dt, domega_ma_dt,                   &
               &              lorentz_torque_ic_dt, lorentz_torque_ma_dt, lPressNext,&
@@ -484,30 +482,6 @@ contains
       real(cp),            intent(in) :: time
 
       !-- Output variables
-      complex(cp),         intent(inout) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: dw(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: ddw(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: z(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: dz(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: p(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: dp(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: s(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: ds(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(out) :: dxi(llm:ulm,n_r_max)
-      complex(cp),         intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_max)
-      complex(cp),         intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_max)
-
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
@@ -515,25 +489,76 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
-      if ( l_chemical_conv )  call assemble_comp(xi, dxi, dxidt, tscheme)
+      if ( l_chemical_conv )  call assemble_comp(xi_LMloc, dxi_LMloc, dxidt, tscheme)
 
       if ( l_single_matrix ) then
-         call assemble_single(s, ds, w, dw, ddw, dsdt, dwdt, dpdt, tscheme,lRmsNext)
+         call assemble_single(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
+              &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
       else
-         if ( l_heat )  call assemble_entropy(s, ds, dsdt, tscheme)
-         call assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dpdt%expl(:,:,1), &
-              &            tscheme, lPressNext, lRmsNext)
+         if ( l_heat )  call assemble_entropy(s_LMloc, ds_LMloc, dsdt, tscheme)
+         call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
+              &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
+              &            lPressNext, lRmsNext)
       end if
 
-      call assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,        &
-           &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
+      call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
+           &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,      &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
-      if ( l_mag ) call assemble_mag(b, db, ddb, aj, dj, ddj, b_ic, db_ic,     &
-                        &            ddb_ic, aj_ic, dj_ic, ddj_ic, dbdt, djdt, &
+      if ( l_mag ) call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,  &
+                        &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,  &
+                        &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt,&
                         &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
 
    end subroutine assemble_stage
+!--------------------------------------------------------------------------------
+   subroutine assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,  &
+              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic,    &
+              &              djdt_ic, domega_ic_dt, domega_ma_dt,                   &
+              &              lorentz_torque_ic_dt, lorentz_torque_ma_dt, lPressNext,&
+              &              lRmsNext, tscheme)
+      !
+      ! This routine is used to call the different assembly stage of the different
+      ! equations. This is only used for a special subset of IMEX-RK schemes that
+      ! have ``tscheme%l_assembly=.true.``
+      !
+
+      !-- Input variables
+      logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lRmsNext
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time
+
+      !-- Output variables
+      type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
+      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
+      real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dsdt, dxidt, dpdt
+      type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
+
+      if ( l_chemical_conv )  call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
+      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, tscheme)
+      call assemble_pol_Rloc(block_sze, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc, &
+           &                 dwdt, dpdt%expl(:,:,1), tscheme, lPressNext, lRmsNext)
+
+      call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
+           &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
+           &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+
+      if ( l_mag ) then
+         if ( l_mag_par_solve ) then
+            call assemble_mag_Rloc(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc,   &
+                 &                 ddj_Rloc, dbdt, djdt, lRmsNext, tscheme)
+         else
+            call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,   &
+                 &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,   &
+                 &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt, &
+                 &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
+         end if
+      end if
+
+   end subroutine assemble_stage_Rdist
 !--------------------------------------------------------------------------------
    subroutine parallel_solve(block_sze)
 
@@ -563,7 +588,7 @@ contains
                  &                 array_of_requests, req, lms_block, nlm_block)
             tag = tag+1
          end if
-         
+
          if ( l_chemical_conv ) then
             call xiMat_FD%solver_up(xi_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
                  &                  array_of_requests, req, lms_block, nlm_block)
@@ -702,7 +727,7 @@ contains
 
    end function set_block_number
 !--------------------------------------------------------------------------------
-   subroutine find_faster_block 
+   subroutine find_faster_block
       !
       ! This routine is used to find the best lm-block size for MPI communication.
       ! This is adapted from xshells.
@@ -801,7 +826,7 @@ contains
 
          !-- Refined block determination
          do while( (t(2)>min(t(1),tt)*1.02) .and. (t(0)>min(t(1),tt)*1.02) &
-         &          .and. (abs(b(2)-b(0))>1) ) 
+         &          .and. (abs(b(2)-b(0))>1) )
             if ( tt < t(1) ) then ! This is better than before
                t(0)=t(1); b(0)=b(1);
                t(1)=tt; b(1)=bb

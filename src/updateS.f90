@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateS_mod
    !
    ! This module handles the time advance of the entropy s.
@@ -56,7 +55,8 @@ module updateS_mod
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy,  &
    &         finish_exp_entropy, get_entropy_rhs_imp, finish_exp_entropy_Rdist,&
-   &         prepareS_FD, updateS_FD, get_entropy_rhs_imp_ghost, fill_ghosts_S
+   &         prepareS_FD, updateS_FD, get_entropy_rhs_imp_ghost, fill_ghosts_S,&
+   &         assemble_entropy_Rloc
 
 contains
 
@@ -64,7 +64,7 @@ contains
       !
       ! This subroutine allocates the arrays involved in the time-advance of the
       ! entropy/temperature equation.
-      ! 
+      !
 
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
@@ -304,17 +304,13 @@ contains
 #endif
                end if
             end do
-            !PERFOFF
 
-            !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
                call sMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
                     &                 2*(lmB-lmB0))
             end if
-            !PERFOFF
 
             lmB=lmB0
-            !PERFON('upS_af')
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
@@ -337,7 +333,6 @@ contains
                   end if
                end if
             end do
-            !PERFOFF
             !$omp end task
          end do
          !$omp taskwait
@@ -428,7 +423,7 @@ contains
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
 
-            if ( l_full_sphere ) then 
+            if ( l_full_sphere ) then
                if ( l == 1 ) then
                   s_ghost(lm,nR)=bots(l,m)
                else
@@ -511,9 +506,9 @@ contains
    end subroutine fill_ghosts_S
 !------------------------------------------------------------------------------
    subroutine updateS_FD(s, ds, dsdt, tscheme)
-      ! 
+      !
       ! This subroutine is called after the linear solves have been completed.
-      ! This is then assembling the linear terms that will be used in the r.h.s. 
+      ! This is then assembling the linear terms that will be used in the r.h.s.
       ! for the next iteration.
       !
 
@@ -560,6 +555,10 @@ contains
    end subroutine updateS_FD
 !------------------------------------------------------------------------------
    subroutine finish_exp_entropy(w, dVSrLM, ds_exp_last)
+      !
+      ! This subroutine completes the computation of the advection term by
+      ! computing the radial derivative (LM-distributed variant).
+      !
 
       !-- Input variables
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
@@ -615,6 +614,10 @@ contains
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
    subroutine finish_exp_entropy_Rdist(w, dVSrLM, ds_exp_last)
+      !
+      ! This subroutine completes the computation of the advection term by
+      ! computing the radial derivative (R-distributed variant).
+      !
 
       !-- Input variables
       complex(cp), intent(in) :: w(lm_max,nRstart:nRstop)
@@ -664,6 +667,10 @@ contains
    end subroutine finish_exp_entropy_Rdist
 !-----------------------------------------------------------------------------
    subroutine get_entropy_rhs_imp(s, ds, dsdt, istage, l_calc_lin, l_in_cheb_space)
+      !
+      ! This subroutine computes the linear terms that enters the r.h.s.. This is
+      ! used with LM-distributed
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -752,6 +759,10 @@ contains
    end subroutine get_entropy_rhs_imp
 !-----------------------------------------------------------------------------
    subroutine get_entropy_rhs_imp_ghost(sg, ds, dsdt, istage, l_calc_lin)
+      !
+      ! This subroutine computes the linear terms that enters the r.h.s.. This is
+      ! used with R-distributed
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -824,6 +835,10 @@ contains
    end subroutine get_entropy_rhs_imp_ghost
 !-----------------------------------------------------------------------------
    subroutine assemble_entropy_Rloc(s, ds, dsdt, tscheme)
+      !
+      ! This subroutine is used when an IMEX Runge-Kutta time scheme with an assembly
+      ! stage is used. This is used when R is distributed.
+      !
 
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
@@ -848,9 +863,9 @@ contains
          do lm=start_lm,stop_lm
             m = st_map%lm2m(lm)
             if ( m == 0 ) then
-               s(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+               s(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)
             else
-               s(lm,n_r)=work_LMloc(lm,n_r)
+               s(lm,n_r)=work_Rloc(lm,n_r)
             end if
          end do
       end do
@@ -886,7 +901,7 @@ contains
    subroutine assemble_entropy(s, ds, dsdt, tscheme)
       !
       ! This subroutine is used to assemble the entropy/temperature at assembly
-      ! stages of IMEX-RK time schemes
+      ! stages of IMEX-RK time schemes. This is used when LM is distributed.
       !
 
       !-- Input variable
@@ -1275,7 +1290,7 @@ contains
                sMat%diag(l,nR)=  one -     tscheme%wimp_lin(1)*opr*hdif(l)*&
                &                kappa(nR)*(         rscheme_oc%ddr(nR,1) + &
                &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,1) - &
-               &                dLh*or2(nR)    ) 
+               &                dLh*or2(nR)    )
                sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*         &
                &                kappa(nR)*(         rscheme_oc%ddr(nR,0) + &
                &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,0) )

@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateWP_mod
    !
    ! This module handles the time advance of the poloidal potential w and the pressure p.
@@ -25,7 +24,8 @@ module updateWP_mod
    use communications, only: get_global_sum
    use parallel_mod
    use RMS_helpers, only:  hInt2Pol
-   use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc, get_ddddr_ghost
+   use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc, get_ddddr_ghost, &
+       &                 bulk_to_ghost, exch_ghosts
    use integration, only: rInt_R
    use fields, only: work_LMloc, s_Rloc, xi_Rloc !TODO> pass directly
    use constants, only: zero, one, two, three, four, third, half
@@ -53,12 +53,13 @@ module updateWP_mod
    logical, public, allocatable :: lWPmat(:)
    logical, allocatable :: l_ellMat(:)
    type(type_penta_par), public :: wMat_FD
+   type(type_tri_par), public :: ellMat_FD
    complex(cp), public, allocatable :: w_ghost(:,:)
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol,       &
    &         finish_exp_pol, get_pol_rhs_imp, finish_exp_pol_Rdist, fill_ghosts_W, &
-   &         prepareW_FD, updateW_FD, get_pol_rhs_imp_ghost
+   &         prepareW_FD, updateW_FD, get_pol_rhs_imp_ghost, assemble_pol_Rloc
 
 contains
 
@@ -165,12 +166,10 @@ contains
             do ll=1,nLMBs2(1+rank)
                call ellMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
-            allocate( l_ellMat(0:l_max) )
-            l_ellMat(:) = .false.
             allocate( rhs0(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
             rhs0(:,:,:)=zero
-            bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL+&
-            &                 n_r_max*maxThreads*2*lo_sub_map%sizeLMB2max*SIZEOF_DEF_REAL
+            bytes_allocated = bytes_allocated+n_r_max*maxThreads*2* &
+            &                 lo_sub_map%sizeLMB2max*SIZEOF_DEF_REAL
          end if
 
       else ! Parallel solver
@@ -190,6 +189,15 @@ contains
             bytes_allocated = bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
             dwold(:,:)=zero
          end if
+         if ( tscheme%l_assembly .and. l_double_curl ) then
+            call ellMat_FD%initialize(1,n_r_max,0,l_max)
+         end if
+      end if
+
+      if ( tscheme%l_assembly .and. l_double_curl ) then
+         allocate( l_ellMat(0:l_max) )
+         l_ellMat(:) = .false.
+         bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
       end if
 
       allocate( lWPmat(0:l_max) )
@@ -217,7 +225,7 @@ contains
             do ll=1,nLMBs2(1+rank)
                call ellMat(ll)%finalize()
             end do
-            deallocate( l_ellMat, rhs0 )
+            deallocate( rhs0 )
          end if
 
          do ll=1,nLMBs2(1+rank)
@@ -235,7 +243,9 @@ contains
          call wMat_FD%finalize()
          deallocate( w_ghost, Dif )
          if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
+         if ( tscheme%l_assembly .and. l_double_curl ) call ellMat_FD%finalize()
       end if
+      if ( tscheme%l_assembly .and. l_double_curl ) deallocate(l_ellMat)
       deallocate( lWPmat )
 
    end subroutine finalize_updateWP
@@ -304,7 +314,6 @@ contains
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-      !PERFON('upWP_ssol')
       !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
@@ -328,14 +337,12 @@ contains
             end if
          else
             if ( .not. lWPmat(l1) ) then
-               !PERFON('upWP_mat')
                if ( l_double_curl ) then
                   call get_wMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                else
                   call get_wpMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
-               !PERFOFF
             end if
          end if
 
@@ -345,7 +352,6 @@ contains
             !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
             !$omp private(threadid)
 
-            !PERFON('upWP_set')
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -463,9 +469,7 @@ contains
                   end if
                end if
             end do
-            !PERFOFF
 
-            !PERFON('upWP_sol')
             if ( lmB > 0 ) then
 
                ! use the mat_fac(:,1) to scale the rhs
@@ -489,7 +493,6 @@ contains
                   end do
                end do
             end if
-            !PERFOFF
 
             if ( l_double_curl .and. lPressNext .and. tscheme%istage == 1) then
                ! Store old dw
@@ -501,7 +504,6 @@ contains
                end do
             end if
 
-            !PERFON('upWP_aft')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
@@ -545,7 +547,6 @@ contains
                   end if
                end if
             end do
-            !PERFOFF
             !$omp end task
          end do
          !$omp taskwait
@@ -553,7 +554,6 @@ contains
       end do   ! end of loop over l1 subblocks
       !$omp end single
       !$omp taskwait
-      !PERFOFF
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
@@ -814,15 +814,14 @@ contains
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-      !PERFON('upWP_ssol')
-      !$OMP SINGLE
+      !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
 
-         !$OMP TASK default(shared) &
-         !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(dwold,nLMB,nLMBs2,rhs0)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
+         !$omp shared(dwold,nLMB,nLMBs2,rhs0)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -834,10 +833,10 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
-            !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$OMP private(threadid)
+            !$omp task if (nChunks>1) default(shared) &
+            !$omp firstprivate(iChunk) &
+            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(threadid)
 
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -890,11 +889,11 @@ contains
                   end if
                end if
             end do
-            !$OMP END TASK
+            !$omp end task
          end do
-         !$OMP END TASK
+         !$omp end task
       end do   ! end of loop over l1 subblocks
-      !$OMP END SINGLE
+      !$omp end single
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
@@ -1102,7 +1101,6 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !PERFON('upWP_ex')
          !-- Calculate explicit time step part:
          if ( l_double_curl ) then
 
@@ -1704,6 +1702,142 @@ contains
 
    end subroutine assemble_pol
 !------------------------------------------------------------------------------
+   subroutine assemble_pol_Rloc(block_sze, w, dw, ddw, p, dp, dwdt, dp_expl, &
+              &                 tscheme, lPressNext, lRmsNext)
+      !
+      ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
+      ! which necessitate an assembly stage are employed. Robin-type boundary
+      ! conditions are enforced using Canuto (1986) approach.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: block_sze
+      complex(cp),         intent(in) :: dp_expl(lm_max,nRstart:nRstop)
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dwdt
+      complex(cp),       intent(inout) :: w(lm_max,nRstart:nRstop)
+      complex(cp),       intent(out) :: dw(lm_max,nRstart:nRstop)
+      complex(cp),       intent(out) :: ddw(lm_max,nRstart:nRstop)
+      complex(cp),       intent(inout) :: p(lm_max,nRstart:nRstop)
+      complex(cp),       intent(inout) :: dp(lm_max,nRstart:nRstop)
+
+      !-- Local variables
+      integer :: nlm_block, start_lm, stop_lm, req, tag, nblocks, lms_block
+      integer :: n_r, lm, l
+      complex(cp) :: work_Rloc(lm_max, nRstart:nRstop)
+      complex(cp) :: work_ghost(lm_max, nRstart-1:nRstop+1)
+      integer, allocatable :: array_of_requests(:)
+
+      nblocks = (lm_max+block_sze-1)/block_sze
+      allocate( array_of_requests(4*nblocks) )
+
+      !-- LU factorisation of the matrix if needed
+      if ( .not. l_ellMat(1) ) then
+         call get_elliptic_mat_Rdist(ellMat_FD)
+         l_ellMat(:)=.true.
+      end if
+
+      !-- First assemble IMEX to get an r.h.s. stored in work_Rloc
+      call tscheme%assemble_imex(work_Rloc, dwdt)
+
+      !-- Non-penetration boundary condition
+      if ( nRstart==n_r_cmb ) then
+         do lm=1,lm_max
+            work_Rloc(lm,n_r_cmb)=zero
+         end do
+      end if
+      if ( nRstop==n_r_icb ) then
+         do lm=1,lm_max
+            work_Rloc(lm,n_r_icb)=zero
+         end do
+      end if
+
+      !-- Now copy into an array with proper ghost zones
+      call bulk_to_ghost(work_Rloc, work_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+
+      array_of_requests(:)=MPI_REQUEST_NULL
+
+      !-- Now solve to finally get w
+      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
+      tag = 0
+      req=1
+
+      do lms_block=1,lm_max,block_sze
+         nlm_block = lm_max-lms_block+1
+         if ( nlm_block > block_sze ) nlm_block=block_sze
+         start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+         call get_openmp_blocks(start_lm,stop_lm)
+         !$omp barrier
+
+         call ellMat_FD%solver_up(work_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
+              &                   array_of_requests, req, lms_block, nlm_block)
+         tag = tag+1
+      end do
+
+      do lms_block=1,lm_max,block_sze
+         nlm_block = lm_max-lms_block+1
+         if ( nlm_block > block_sze ) nlm_block=block_sze
+         start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+         call get_openmp_blocks(start_lm,stop_lm)
+         !$omp barrier
+
+         call ellMat_FD%solver_dn(work_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
+              &                   array_of_requests, req, lms_block, nlm_block)
+         tag = tag+1
+      end do
+
+      !$omp master
+      do lms_block=1,lm_max,block_sze
+         nlm_block = lm_max-lms_block+1
+         if ( nlm_block > block_sze ) nlm_block=block_sze
+
+         call ellMat_FD%solver_finish(work_ghost, lms_block, nlm_block, nRstart, nRstop, &
+                 &                    tag, array_of_requests, req)
+         tag = tag+1
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Waitall(req-1, array_of_requests(1:req-1), MPI_STATUSES_IGNORE, ierr)
+      if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
+#endif
+      !$omp end master
+      !$omp barrier
+
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            w_ghost(lm,n_r)=work_ghost(lm,n_r)
+         end do
+      end do
+      !$omp end parallel
+
+      call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
+      call fill_ghosts_W(w_ghost)
+      call get_pol_rhs_imp_ghost(w_ghost, dw, ddw, p, dp, dwdt, tscheme, 1, &
+           &                     tscheme%l_imp_calc_rhs(1), lPressNext,     &
+           &                     lRmsNext, dp_expl)
+
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
+
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            w(lm,n_r)=w_ghost(lm,n_r)
+         end do
+      end do
+      !$omp end parallel
+
+      deallocate(array_of_requests)
+
+   end subroutine assemble_pol_Rloc
+!------------------------------------------------------------------------------
    subroutine get_wpMat(tscheme,l,hdif,wpMat,wpMat_fac)
       !
       !  Purpose of this subroutine is to contruct the time step matrix
@@ -2086,6 +2220,49 @@ contains
 
    end subroutine get_wMat
 !-----------------------------------------------------------------------------
+   subroutine get_elliptic_mat_Rdist(ellMat)
+      !
+      !  Purpose of this subroutine is to contruct the matrix needed
+      !  for the derivation of w for the time advance of the poloidal equation
+      !  if the double curl form is used. This is the R-dist version.
+      !
+
+      !-- Output variables:
+      type(type_tri_par), intent(inout) :: ellMat
+
+      !-- local variables:
+      integer :: nR, l
+      real(cp) :: dLh
+
+      !----- Bulk points:
+      do nR=2,n_r_max-1
+         do l=1,l_max
+            dLh =real(l*(l+1),kind=cp)
+            ellMat%diag(l,nR)=-dLh*orho1(nR)*or2(nR)* ( rscheme_oc%ddr(nR,1) - &
+            &                                   beta(nR)*rscheme_oc%dr(nR,1) - &
+            &                                           dLh*or2(nR) )
+            ellMat%up(l,nR)  =-dLh*orho1(nR)*or2(nR)* ( rscheme_oc%ddr(nR,2) - &
+            &                                   beta(nR)*rscheme_oc%dr(nR,2) )
+            ellMat%low(l,nR) =-dLh*orho1(nR)*or2(nR)* ( rscheme_oc%ddr(nR,0) - &
+            &                                   beta(nR)*rscheme_oc%dr(nR,0) )
+         end do
+      end do
+
+      !-- Non penetrative boundary condition
+      do l=1,l_max
+         ellMat%diag(l,1)      =one
+         ellMat%up(l,1)        =0.0_cp
+         ellMat%low(l,1)       =0.0_cp
+         ellMat%diag(l,n_r_max)=one
+         ellMat%up(l,n_r_max)  =0.0_cp
+         ellMat%low(l,n_r_max) =0.0_cp
+      end do
+
+      !-- Lu factorisation
+      call ellMat%prepare_mat()
+
+   end subroutine get_elliptic_mat_Rdist
+!-----------------------------------------------------------------------------
    subroutine get_wMat_Rdist(tscheme,hdif,wMat)
       !
       !  Purpose of this subroutine is to contruct the time step matrix
@@ -2128,7 +2305,7 @@ contains
             &    + dLh*or2(nR)*( two*dbeta(nR)+ddLvisc(nR)+dLvisc(nR)*      &
             &      dLvisc(nR)-two*third*beta(nR)*beta(nR)+dLvisc(nR)*       &
             &      beta(nR)+two*or1(nR)*(two*dLvisc(nR)-beta(nR)-three*     &
-            &      or1(nR) ) + dLh*or2(nR) ) ) 
+            &      or1(nR) ) + dLh*or2(nR) ) )
             wMat%low1(l,nR)=-dLh*or2(nR)*orho1(nR)*( rscheme_oc%ddr(nR,0)   &
             &                             -beta(nR)*rscheme_oc%dr(nR,0) )   &
             &  +tscheme%wimp_lin(1)*orho1(nR)*hdif(l)*visc(nR)*dLh*or2(nR)*(&

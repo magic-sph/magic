@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateXi_mod
    !
    ! This module handles the time advance of the chemical composition xi.
@@ -18,7 +17,8 @@ module updateXi_mod
    use horizontal_data, only: hdif_Xi
    use logic, only: l_update_xi, l_finite_diff, l_full_sphere, l_parallel_solve
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
-   use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost
+   use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, exch_ghosts,&
+       &                 bulk_to_ghost
    use constants, only: zero, one, two
    use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
@@ -49,9 +49,10 @@ module updateXi_mod
    complex(cp), allocatable :: fd_fac_top(:), fd_fac_bot(:)
    complex(cp), public, allocatable :: xi_ghost(:,:)
 
-   public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp, &
-   &         finish_exp_comp, get_comp_rhs_imp, finish_exp_comp_Rdist,        &
-   &         get_comp_rhs_imp_ghost, updateXi_FD, prepareXi_FD, fill_ghosts_Xi
+   public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp,  &
+   &         finish_exp_comp, get_comp_rhs_imp, finish_exp_comp_Rdist,         &
+   &         get_comp_rhs_imp_ghost, updateXi_FD, prepareXi_FD, fill_ghosts_Xi,&
+   &         assemble_comp_Rloc
 
 contains
 
@@ -153,7 +154,7 @@ contains
          deallocate(xi0Mat_fac)
 #endif
          deallocate( rhs1 )
-      else 
+      else
          call xiMat_FD%finalize()
          deallocate( fd_fac_top, fd_fac_bot, xi_ghost )
       end if
@@ -349,7 +350,7 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1),  & 
+         call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1),  &
               &                l_in_cheb_space=.true.)
       else
          call get_comp_rhs_imp(xi, dxi, dxidt, tscheme%istage+1,          &
@@ -492,9 +493,9 @@ contains
    end subroutine fill_ghosts_Xi
 !------------------------------------------------------------------------------
    subroutine updateXi_FD(xi, dxidt, tscheme)
-      ! 
+      !
       ! This subroutine is called after the linear solves have been completed.
-      ! This is then assembling the linear terms that will be used in the r.h.s. 
+      ! This is then assembling the linear terms that will be used in the r.h.s.
       ! for the next iteration.
       !
 
@@ -538,6 +539,11 @@ contains
    end subroutine updateXi_FD
 !------------------------------------------------------------------------------
    subroutine finish_exp_comp(dVXirLM, dxi_exp_last)
+      !
+      ! This subroutine completes the computation of the advection term which
+      ! enters the composition equation by taking the radial derivative. This is
+      ! the LM-distributed version.
+      !
 
       !-- Input variables
       complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)
@@ -566,6 +572,11 @@ contains
    end subroutine finish_exp_comp
 !------------------------------------------------------------------------------
    subroutine finish_exp_comp_Rdist(dVXirLM, dxi_exp_last)
+      !
+      ! This subroutine completes the computation of the advection term which
+      ! enters the composition equation by taking the radial derivative. This is
+      ! the R-distributed version.
+      !
 
       !-- Input variables
       complex(cp), intent(inout) :: dVXirLM(lm_max,nRstart:nRstop)
@@ -592,6 +603,10 @@ contains
    end subroutine finish_exp_comp_Rdist
 !------------------------------------------------------------------------------
    subroutine get_comp_rhs_imp(xi, dxi, dxidt, istage, l_calc_lin, l_in_cheb_space)
+      !
+      ! This subroutine computes the linear terms which enter the r.h.s. of the
+      ! equation for composition. This is the LM-distributed version.
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -663,6 +678,10 @@ contains
    end subroutine get_comp_rhs_imp
 !------------------------------------------------------------------------------
    subroutine get_comp_rhs_imp_ghost(xig, dxidt, istage, l_calc_lin)
+      !
+      ! This subroutine computes the linear terms which enter the r.h.s. of the
+      ! equation for composition. This is the R-distributed version.
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -722,7 +741,8 @@ contains
       !
       ! This subroutine is used to assemble the chemical composition when an
       ! IMEX-RK with an assembly stage is employed. Non-Dirichlet boundary
-      ! conditions are handled using Canuto (1986) approach.
+      ! conditions are handled using Canuto (1986) approach. This is the LM
+      ! distributed version.
       !
 
       !-- Input variables
@@ -834,6 +854,69 @@ contains
       call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
 
    end subroutine assemble_comp
+!------------------------------------------------------------------------------
+   subroutine assemble_comp_Rloc(xi, dxidt, tscheme)
+      !
+      ! This subroutine is used when an IMEX Runge-Kutta time scheme with an assembly
+      ! stage is used. This is used when R is distributed.
+      !
+
+      !-- Input variable
+      class(type_tscheme), intent(in) :: tscheme
+
+      !-- Output variables
+      complex(cp),       intent(inout) :: xi(lm_max,nRstart:nRstop)
+      type(type_tarray), intent(inout) :: dxidt
+
+      !-- Local variables
+      integer :: lm, l, m, n_r, start_lm, stop_lm
+      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+
+      call tscheme%assemble_imex(work_Rloc, dxidt)
+
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
+
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            m = st_map%lm2m(lm)
+            if ( m == 0 ) then
+               xi(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)
+            else
+               xi(lm,n_r)=work_Rloc(lm,n_r)
+            end if
+         end do
+      end do
+
+      if ( ktopxi == 1 .and. nRstart==n_r_cmb ) then
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            xi(lm,nRstart)=topxi(l,m)
+         end do
+      end if
+
+      if ( kbotxi == 1 .and. nRstop==n_r_icb ) then
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            m = st_map%lm2m(lm)
+            xi(lm,nRstop)=botxi(l,m)
+         end do
+      end if
+
+      call bulk_to_ghost(xi, xi_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
+      !$omp end parallel
+
+      call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
+      call fill_ghosts_Xi(xi_ghost)
+
+      !-- Finally call the construction of the implicit terms for the first stage
+      !-- of next iteration
+      call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, tscheme%l_imp_calc_rhs(1))
+
+   end subroutine assemble_comp_Rloc
 !------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S0
    subroutine get_xi0Mat(tscheme,xiMat,xiMat_fac)

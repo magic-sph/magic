@@ -35,7 +35,8 @@ module step_time_mod
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
-       &                 finish_explicit_assembly_Rdist, LMLoop_Rdist
+       &                 finish_explicit_assembly_Rdist, LMLoop_Rdist,     &
+       &                 assemble_stage_Rdist
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
@@ -549,7 +550,7 @@ contains
 
 #ifdef WITH_MPI
                ! ------------------
-               ! also exchange the lorentz_torques which are only 
+               ! also exchange the lorentz_torques which are only
                ! set at the boundary points  but are needed on all processes.
                ! ------------------
                call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
@@ -735,7 +736,7 @@ contains
             end if
             lMatNext = .false.
 
-            !-- If the scheme is a multi-step scheme that is not Crank-Nicolson 
+            !-- If the scheme is a multi-step scheme that is not Crank-Nicolson
             !-- we have to use a different starting scheme
             call start_from_another_scheme(timeLast, l_bridge_step, n_time_step, tscheme)
 
@@ -774,16 +775,19 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
-            call assemble_stage(time, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,        &
-                 &              dp_LMloc, z_LMloc, dz_LMloc, s_LMloc, ds_LMloc,     &
-                 &              xi_LMloc, dxi_LMloc, b_LMloc, db_LMloc, ddb_LMloc,  &
-                 &              aj_LMloc, dj_LMloc, ddj_LMloc, b_ic_LMloc,          &
-                 &              db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc, dj_ic_LMloc,&
-                 &              ddj_ic_LMloc, omega_ic, omega_ic1, omega_ma,        &
-                 &              omega_ma1, dwdt, dzdt, dpdt, dsdt, dxidt, dbdt,     &
-                 &              djdt, dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt, &
-                 &              lorentz_torque_ic_dt, lorentz_torque_ma_dt,         &
-                 &              lPressNext, lRmsNext, tscheme)
+            if ( l_parallel_solve ) then
+               call assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,&
+                    &                    dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt,     &
+                    &                    dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,  &
+                    &                    lorentz_torque_ic_dt, lorentz_torque_ma_dt,    &
+                    &                    lPressNext, lRmsNext, tscheme)
+            else
+               call assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,     &
+                    &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
+                    &              djdt_ic, domega_ic_dt, domega_ma_dt,                &
+                    &              lorentz_torque_ic_dt, lorentz_torque_ma_dt,         &
+                    &              lPressNext, lRmsNext, tscheme)
+            end if
          end if
 
          !-- Update counters
@@ -925,7 +929,7 @@ contains
       !-- Output variable
       class(type_tscheme), intent(inout) :: tscheme
 
-      !-- If the scheme is a multi-step scheme that is not Crank-Nicolson 
+      !-- If the scheme is a multi-step scheme that is not Crank-Nicolson
       !-- we have to use a different starting scheme
       if ( l_bridge_step .and. tscheme%time_scheme /= 'CNAB2' .and.  &
            n_time_step <= tscheme%nold-1 .and.                       &
@@ -1025,7 +1029,7 @@ contains
 !--------------------------------------------------------------------------------
    subroutine transp_LMloc_to_Rloc(comm_counter, l_Rloc, lPressCalc, lHTCalc)
       ! Here now comes the block where the LM distributed fields
-      ! are redistributed to Rloc distribution which is needed for 
+      ! are redistributed to Rloc distribution which is needed for
       ! the radialLoop.
 
       !-- Input variables

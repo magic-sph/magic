@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateB_mod
    !
    ! This module handles the time advance of the magnetic field potentials
@@ -33,7 +32,8 @@ module updateB_mod
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
-   use radial_der, only: get_dr, get_ddr, get_dr_Rloc, get_ddr_ghost
+   use radial_der, only: get_dr, get_ddr, get_dr_Rloc, get_ddr_ghost, exch_ghosts, &
+       &                 bulk_to_ghost
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -64,7 +64,7 @@ module updateB_mod
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
    &         get_mag_rhs_imp, get_mag_ic_rhs_imp, finish_exp_mag_ic,        &
    &         assemble_mag, finish_exp_mag_Rdist, get_mag_rhs_imp_ghost,     &
-   &         prepareB_FD, fill_ghosts_B, updateB_FD
+   &         prepareB_FD, fill_ghosts_B, updateB_FD, assemble_mag_Rloc
 
 contains
 
@@ -600,7 +600,6 @@ contains
             end if
 
             !----- Update magnetic field in cheb space:
-            !PERFON('upB_set')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
@@ -774,7 +773,7 @@ contains
             if ( l_curr .and. mod(l,2) /= 0 ) then ! Current-carrying loop
                call abortRun('in updateB: not implemented yet in this configuration')
             end if
-            
+
             if ( n_imp > 1 ) then ! Imposed field
                call abortRun('in updateB: not implemented yet in this configuration')
             endif
@@ -897,7 +896,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine updateB_FD(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, lRmsNext)
       !
-      ! This subroutine handles the IMEX postprocs once the solve has been 
+      ! This subroutine handles the IMEX postprocs once the solve has been
       ! completed
       !
 
@@ -964,6 +963,10 @@ contains
    end subroutine updateB_FD
 !-----------------------------------------------------------------------------
    subroutine finish_exp_mag_ic(b_ic, aj_ic, omega_ic, db_exp_last, dj_exp_last)
+      !
+      ! This subroutine computes the nonlinear term at the inner core boundary
+      ! when there is a conducting inner core and stress-free boundary conditions.
+      !
 
       !-- Input variables
       real(cp),    intent(in) :: omega_ic
@@ -1010,7 +1013,10 @@ contains
    end subroutine finish_exp_mag_ic
 !-----------------------------------------------------------------------------
    subroutine finish_exp_mag(dVxBhLM, dj_exp_last)
-
+      !
+      ! This subroutine finishes the computation of the nonlinear induction term
+      ! by taking the missing radial derivative (LM-distributed version).
+      !
 
       !-- Input variables
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
@@ -1043,7 +1049,10 @@ contains
    end subroutine finish_exp_mag
 !-----------------------------------------------------------------------------
    subroutine finish_exp_mag_Rdist(dVxBhLM, dj_exp_last)
-
+      !
+      ! This subroutine finishes the computation of the nonlinear induction term
+      ! by taking the missing radial derivative (R-distributed version).
+      !
 
       !-- Input variables
       complex(cp), intent(inout) :: dVxBhLM(lm_max,nRstartMag:nRstopMag)
@@ -1071,6 +1080,10 @@ contains
    subroutine get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
               &                  dbdt_ic, djdt_ic, istage, l_calc_lin,       &
               &                  l_in_cheb_space)
+      !
+      ! This subroutine computes the linear terms that enter the r.h.s. of the
+      ! inner core equations.
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -1179,6 +1192,10 @@ contains
    subroutine assemble_mag(b, db, ddb, aj, dj, ddj, b_ic, db_ic, ddb_ic, aj_ic, &
               &            dj_ic, ddj_ic, dbdt, djdt, dbdt_ic, djdt_ic,         &
               &            lRmsNext, tscheme)
+      !
+      ! This subroutine is used when an IMEX Runge Kutta with an assembly stage
+      ! is employed. This is the LM-distributed version
+      !
 
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme
@@ -1401,8 +1418,114 @@ contains
 
    end subroutine assemble_mag
 !-----------------------------------------------------------------------------
+   subroutine assemble_mag_Rloc(b, db, ddb, aj, dj, ddj, dbdt, djdt, lRmsNext, tscheme)
+      !
+      ! This subroutine is used when an IMEX Runge Kutta with an assembly stage
+      ! is employed. This is the R-distributed version.
+      !
+
+      !-- Input variables:
+      class(type_tscheme), intent(in) :: tscheme
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      type(type_tarray), intent(inout) :: dbdt, djdt
+      complex(cp),       intent(inout) :: b(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp),       intent(inout) :: aj(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: db(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: dj(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: ddj(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp),       intent(out) :: ddb(lm_maxMag,nRstartMag:nRstopMag)
+
+      !-- Local variables
+      integer :: n_r, l, lm, start_lm, stop_lm, m
+      real(cp) :: dL, r2
+
+      if ( l_b_nl_cmb .or. l_b_nl_icb ) then
+         call abortRun('Non linear magnetic BCs not implemented at assembly stage!')
+      end if
+      if ( imagcon /= 0 ) call abortRun('imagcon/=0 not implemented with assembly stage!')
+      if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
+
+      !-- Assemble IMEX using ddb and ddj as a work array
+      call tscheme%assemble_imex(ddb, dbdt)
+      call tscheme%assemble_imex(ddj, djdt)
+
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dL)
+      start_lm=1; stop_lm=lm_maxMag
+      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
+
+      !-- Now get the poloidal and toroidal potentials from the assembly
+      do n_r=nRstartMag,nRstopMag
+         r2 = r(n_r)*r(n_r)
+         do lm=start_lm, stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            m = st_map%lm2m(lm)
+            dL = real(l*(l+1),cp)
+            if ( m == 0 ) then
+               b(lm,n_r) =r2/dL*cmplx(real(ddb(lm,n_r)),0.0_cp,cp)
+               aj(lm,n_r)=r2/dL*cmplx(real(ddj(lm,n_r)),0.0_cp,cp)
+            else
+               b(lm,n_r) =r2/dL*ddb(lm,n_r)
+               aj(lm,n_r)=r2/dL*ddj(lm,n_r)
+            end if
+         end do
+      end do
+
+      !-- Boundary points if needed
+      if ( nRstartMag == n_r_cmb) then
+         n_r = n_r_cmb
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            if ( ktopb == 1 .or. ktopb == 4) then
+               aj(lm,n_r)=zero
+            else if ( ktopb == 2 ) then ! Perfect conductor, poloidal vanishes
+               b(lm,n_r) =zero
+            end if
+         end do
+      end if
+
+      if ( nRstopMag == n_r_icb) then
+         n_r = n_r_icb
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            if ( l_full_sphere ) then
+               aj(lm,n_r)=zero
+               b(lm,n_r) =zero
+            else
+               if ( kbotb==1 .or. kbotb==4 ) then
+                  aj(lm,n_r)=zero
+               else if ( kbotb == 2 ) then ! Perfect conductor, poloidal vanishes
+                  b(lm,n_r)=zero
+               end if
+            end if
+         end do
+      end if
+
+      call bulk_to_ghost(b, b_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm)
+      call bulk_to_ghost(aj, aj_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm)
+      !$omp end parallel
+
+      call exch_ghosts(b_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
+      call exch_ghosts(aj_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
+      call fill_ghosts_B(b_ghost, aj_ghost)
+
+      !-- Now finally compute the linear terms
+      call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
+           &                     tscheme, 1, tscheme%l_imp_calc_rhs(1), lRmsNext)
+
+   end subroutine assemble_mag_Rloc
+!-----------------------------------------------------------------------------
    subroutine get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
               &               istage, l_calc_lin, lRmsNext, l_in_cheb_space)
+      !
+      ! This subroutine handles the computation of the linear terms which enter
+      ! the r.h.s. of the induction equation (LM-distributed version).
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -1535,6 +1658,10 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_mag_rhs_imp_ghost(bg, db, ddb, ajg, dj, ddj, dbdt, djdt, tscheme, &
               &                     istage, l_calc_lin, lRmsNext)
+      !
+      ! This subroutine handles the computation of the linear terms which enter
+      ! the r.h.s. of the induction equation (R-distributed version).
+      !
 
       !-- Input variables
       integer,             intent(in) :: istage
@@ -2077,7 +2204,7 @@ contains
 
       !----- boundary conditions for outer core field:
       dr = r(2)-r(1)
-      do l=1,l_maxMag ! Don't fill the matrix for l=0 
+      do l=1,l_maxMag ! Don't fill the matrix for l=0
          if ( ktopb == 1 ) then
             !-------- at CMB (nR=1):
             !         the internal poloidal field should fit a potential

@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateZ_mod
    !
    ! This module handles the time advance of the toroidal potential z
@@ -31,7 +30,7 @@ module updateZ_mod
    use parallel_mod
    use outRot, only: get_angular_moment, get_angular_moment_Rloc
    use RMS_helpers, only: hInt2Tor
-   use radial_der, only: get_ddr, get_ddr_ghost
+   use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
    use fields, only: work_LMloc
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
@@ -64,9 +63,9 @@ module updateZ_mod
 
    integer :: maxThreads
 
-   public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp, &
-   &         assemble_tor, finish_exp_tor, get_rot_rates, updateZ_FD,        &
-   &         get_tor_rhs_imp_ghost, prepareZ_FD, fill_ghosts_Z
+   public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,    &
+   &         assemble_tor, finish_exp_tor, get_rot_rates, updateZ_FD,           &
+   &         get_tor_rhs_imp_ghost, prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc
 
 contains
 
@@ -328,7 +327,6 @@ contains
                if ( lm1 == l1m0 ) l10= .true.
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
-                  !PERFON('upZ_z10')
                   !----- Special treatment of z10 component if ic or mantle
                   !      are allowed to rotate about z-axis (l_z10mat=.true.) and
                   !      we use no slip boundary condition (ktopv=2,kbotv=2):
@@ -380,7 +378,6 @@ contains
                   call z10Mat%solve(rhs)
 
                else if ( l1 /= 0 ) then
-                  !PERFON('upZ_ln0')
                   lmB=lmB+1
 
                   rhs1(1,2*lmB-1,threadid)      =0.0_cp
@@ -421,15 +418,12 @@ contains
                   rhs1(:,2*lmB-1,threadid)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
                   rhs1(:,2*lmB,threadid)  =zMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
 #endif
-                  !PERFOFF
                end if
             end do
 
-            !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
                call zMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0))
             end if
-            !PERFOFF
 
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -455,7 +449,6 @@ contains
                   end if
                end if
             end do
-            !PERFOFF
             !$omp end task
          end do
          !$omp taskwait
@@ -529,7 +522,7 @@ contains
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
       else
          prec_fac=0.0_cp
-      end if         
+      end if
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lZmat(1) ) then
@@ -1249,7 +1242,7 @@ contains
          end do
          !$omp end parallel do
 
-         !-- This is quite ugly here: 
+         !-- This is quite ugly here:
          do l=0,l_max
             call allgather_from_rloc(ddzASL_loc(l,:),ddzASL(l+1,:))
          end do
@@ -1262,7 +1255,7 @@ contains
               &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
       !
       ! This subroutine is used to assemble the toroidal flow potential when an IMEX
-      ! RK time scheme with an assembly stage is employed.
+      ! RK time scheme with an assembly stage is employed (LM-distributed version).
       !
 
       !-- Input variable
@@ -1429,6 +1422,150 @@ contains
            &                omega_ma1, omega_ic, omega_ic1, 1)
 
    end subroutine assemble_tor
+!------------------------------------------------------------------------------
+   subroutine assemble_tor_Rloc(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,        &
+              &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
+              &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+      !
+      ! This subroutine is used when a IMEX Runge-Kutta scheme with an assembly
+      ! stage is employed (R-distributed version)
+      !
+
+      !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time
+      logical,             intent(in) :: lRmsNext
+
+      !-- Output variables
+      complex(cp),        intent(inout) :: z(lm_max,nRstart:nRstop)
+      complex(cp),        intent(out)   :: dz(lm_max,nRstart:nRstop)
+      type(type_tarray),  intent(inout) :: dzdt
+      type(type_tscalar), intent(inout) :: domega_ic_dt
+      type(type_tscalar), intent(inout) :: domega_ma_dt
+      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
+      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
+      real(cp),           intent(inout) :: omega_ic
+      real(cp),           intent(inout) :: omega_ma
+      real(cp),           intent(inout) :: omega_ic1
+      real(cp),           intent(inout) :: omega_ma1
+
+      !-- Local variables
+      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      integer :: start_lm, stop_lm, lm, n_r, l, m
+      real(cp) :: dLh, lo_ic, lo_ma, dom_ma, dom_ic, r2
+
+      call tscheme%assemble_imex(work_Rloc, dzdt)
+      if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
+         call abortRun('Not implemented yet in assembly stage of z')
+      end if
+
+      if ( l_rot_ma  .and. (.not. l_SRMA) ) then
+         if ( ktopv == 1 ) then
+            call tscheme%assemble_imex_scalar(lo_ma, lorentz_torque_ma_dt)
+         else
+            call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
+         end if
+      end if
+
+      if ( l_rot_ic .and. (.not. l_SRIC) ) then
+         if ( kbotv == 1 ) then
+            call tscheme%assemble_imex_scalar(lo_ic, lorentz_torque_ic_dt)
+         else
+            call tscheme%assemble_imex_scalar(dom_ic, domega_ic_dt)
+         end if
+      end if
+
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
+
+      do n_r=nRstart,nRstop
+         r2=r(n_r)*r(n_r)
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            m = st_map%lm2m(lm)
+            dLh=real(l*(l+1),cp)
+            if ( m == 0 ) then
+               z(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)*r2/dLh
+            else
+               z(lm,n_r)=work_Rloc(lm,n_r)*r2/dLh
+            end if
+         end do
+      end do
+
+      !-- Boundary points
+      if ( nRstart == n_r_cmb ) then
+         n_r=n_r_cmb
+         do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            m=st_map%lm2m(lm)
+            if ( l == 1 .and. m == 0 ) then
+               if ( l_SRMA ) then
+                  tOmega_ma1=time+tShift_ma1
+                  tOmega_ma2=time+tShift_ma2
+                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                  z(lm,n_r)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+               else if ( ktopv == 2 .and. l_rot_ma ) then
+                  z(lm,n_r)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
+               else
+                  if ( ktopv == 2 ) z(lm,n_r)=zero
+               end if
+            else
+               if ( ktopv == 2 ) z(lm,n_r)=zero
+            end if
+         end do
+      end if
+
+      if ( nRstop == n_r_icb ) then
+         n_r=n_r_icb
+         do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            m=st_map%lm2m(lm)
+            if ( l_full_sphere ) then
+               z(lm,n_r)=zero
+            else
+               if ( l == 1 .and. m == 0 ) then
+                  if ( l_SRIC ) then
+                     tOmega_ic1=time+tShift_ic1
+                     tOmega_ic2=time+tShift_ic2
+                     omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                     z(lm,n_r)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+                  else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+                     z(lm,n_r)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
+                  else
+                     if ( kbotv == 2 ) z(lm,n_r)=zero
+                  end if
+               else
+                  if ( kbotv == 2 ) z(lm,n_r)=zero
+               end if
+            end if
+         end do
+      end if
+
+      call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
+      !$omp end parallel
+
+      call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
+      call fill_ghosts_Z(z_ghost)
+
+      !-- Finally call the construction of the implicit terms for the first stage
+      !-- of next iteration
+      call get_tor_rhs_imp_ghost(time, z_ghost, dz, dzdt, domega_ma_dt,           &
+           &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
+           &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
+           &                     lRmsNext)
+
+      call update_rot_rates_Rloc(z_ghost, lo_ma, lo_ic, lorentz_torque_ma_dt,   &
+           &                     lorentz_torque_ic_dt, omega_ma,                &
+           &                     omega_ma1, omega_ic, omega_ic1, 1)
+
+   end subroutine assemble_tor_Rloc
 !------------------------------------------------------------------------------
    subroutine update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,       &
               &                lorentz_torque_ic_dt, omega_ma, omega_ma1,   &
@@ -1877,7 +2014,7 @@ contains
          zMat%up(l,nR) =-tscheme%wimp_lin(1)*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
          &      rscheme_oc%ddr(nR,2)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,2) )
       end do
-      
+
       !-- Boundary conditions:
       !----- CMB condition:
       !        Note opposite sign of viscous torques (-dz+(2/r+beta) z )*visc
