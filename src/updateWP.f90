@@ -265,9 +265,9 @@ contains
       lmStart_00 =max(2,llm)
 
       !-- Now assemble the right hand side and store it in work_LMloc
-      call tscheme%set_imex_rhs(work_LMloc, dwdt, llm, ulm, n_r_max)
+      call tscheme%set_imex_rhs(work_LMloc, dwdt)
       if ( .not. l_double_curl ) then
-         call tscheme%set_imex_rhs(ddw, dpdt, llm, ulm, n_r_max)
+         call tscheme%set_imex_rhs(ddw, dpdt)
       end if
 
       !$omp parallel default(shared)
@@ -542,8 +542,8 @@ contains
       !$omp end parallel
 
       !-- Roll the arrays before filling again the first block
-      call tscheme%rotate_imex(dwdt, llm, ulm, n_r_max)
-      if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt, llm, ulm, n_r_max)
+      call tscheme%rotate_imex(dwdt)
+      if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt)
 
       if ( tscheme%istage == tscheme%nstages ) then
          call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
@@ -1033,11 +1033,11 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llm)
 
-      call tscheme%assemble_imex(work_LMloc, dwdt, llm, ulm, n_r_max)
+      call tscheme%assemble_imex(work_LMloc, dwdt)
       if ( l_double_curl) then
          call get_pol(w, work_LMloc)
       else
-         call tscheme%assemble_imex(ddw, dpdt, llm, ulm, n_r_max) ! Use ddw as a work array
+         call tscheme%assemble_imex(ddw, dpdt) ! Use ddw as a work array
       end if
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)

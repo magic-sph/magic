@@ -70,27 +70,27 @@ contains
       call lorentz_torque_ic_dt%initialize(nold, nexp, nimp)
       call lorentz_torque_ma_dt%initialize(nold, nexp, nimp)
 
-      if ( l_heat ) call dsdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
-      if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, n_r_max, nold, &
+      if ( l_heat ) call dsdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+      if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, 1, n_r_max, nold, &
                                   &                nexp, nimp)
 
       if ( l_mag ) then
-         call dbdt%initialize(llmMag, ulmMag, n_r_maxMag, nold, nexp, nimp)
-         call djdt%initialize(llmMag, ulmMag, n_r_maxMag, nold, nexp, nimp)
+         call dbdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
+         call djdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
       end if
 
       if ( l_cond_ic ) then
-         call dbdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, nold, &
+         call dbdt_ic%initialize(llmMag, ulmMag, 1, n_r_ic_maxMag, nold, &
               &                  nexp, nimp, l_allocate_exp=.true.)
-         call djdt_ic%initialize(llmMag, ulmMag, n_r_ic_maxMag, nold, &
+         call djdt_ic%initialize(llmMag, ulmMag, 1, n_r_ic_maxMag, nold, &
               &                  nexp, nimp, l_allocate_exp=.true.)
       end if
 
-      call dwdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+      call dwdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
       if ( (.not. l_double_curl) .or. l_RMS ) then
-         call dpdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+         call dpdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
       end if
-      call dzdt%initialize(llm, ulm, n_r_max, nold, nexp, nimp)
+      call dzdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          n_fields=3
