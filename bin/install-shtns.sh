@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ver="3.4.2"
+ver="3.4.5"
 
 if test ! -d $HOME/local; then
     mkdir $HOME/local
