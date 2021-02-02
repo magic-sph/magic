@@ -1253,12 +1253,18 @@ contains
       ! For now, most of the outputs use LM-distributed arrays as input. To handle
       ! that one has to transpose the missing fields.
       !
+      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
       if ( l_heat ) then
          call r2lo_one%transp_r2lm(s_Rloc,s_LMloc)
          call r2lo_one%transp_r2lm(ds_Rloc,ds_LMloc)
       end if
-      if ( l_chemical_conv ) call r2lo_one%transp_r2lm(xi_Rloc,xi_LMloc)
+      if ( l_chemical_conv ) then
+         call r2lo_one%transp_r2lm(xi_Rloc,xi_LMloc)
+         call get_dr_Rloc(xi_Rloc, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
+              &           rscheme_oc)
+         call r2lo_one%transp_r2lm(work_Rloc,dxi_LMloc)
+      end if
 
       call r2lo_one%transp_r2lm(z_Rloc,z_LMloc)
       call r2lo_one%transp_r2lm(dz_Rloc,dz_LMloc)
