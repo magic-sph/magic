@@ -8,7 +8,7 @@ n_cheb_ic_max=15,
 /
 &control
  mode        =1,
- tag         ="test",
+ tag         ="test_cheb",
  n_time_steps=50,
  courfac     =2.5D0,
  alffac      =1.0D0,

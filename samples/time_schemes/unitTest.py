@@ -106,7 +106,10 @@ class TimeSchemes(unittest.TestCase):
         cmd = '%s %s/input_KC564_FD.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
-        cmd = 'cat e_kin.sbdf3 e_kin.ars222 e_kin.ars443 e_kin.cnab2 e_kin.sbdf4 e_kin.pc2 e_kin.sbdf2 e_kin.bpr353 e_kin.modcnab e_kin.cnlf e_kin.lz232 e_kin.kc564 e_kin.ars343 e_kin.cb3 e_kin.kc564_fd > e_kin.test'
+        cmd = '%s %s/input_KC785_FD.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+
+        cmd = 'cat e_kin.sbdf3 e_kin.ars222 e_kin.ars443 e_kin.cnab2 e_kin.sbdf4 e_kin.pc2 e_kin.sbdf2 e_kin.bpr353 e_kin.modcnab e_kin.cnlf e_kin.lz232 e_kin.kc564 e_kin.ars343 e_kin.cb3 e_kin.kc564_fd e_kin.kc785_fd > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):
@@ -142,6 +145,8 @@ class TimeSchemes(unittest.TestCase):
         for f in glob.glob('%s/*.cb3' % self.dir):
             os.remove(f)
         for f in glob.glob('%s/*.kc564_fd' % self.dir):
+            os.remove(f)
+        for f in glob.glob('%s/*.kc785_fd' % self.dir):
             os.remove(f)
 
         t = time.time()-self.startTime

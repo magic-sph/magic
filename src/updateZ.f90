@@ -1637,26 +1637,24 @@ contains
 
       !--- Update of inner core and mantle rotation:
       !$omp single
-      if ( l_z10mat ) then
-         if ( l_rot_ma .and. .not. l_SRMA .and. (nRstart==n_r_cmb) ) then
-            if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-               call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(istage))
-               omega_ma=lo_ma
-            else if ( ktopv == 2 ) then ! no slip, omega given by z10
-               omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
-            end if
-            omega_ma1=omega_ma
+      if ( l_rot_ma .and. .not. l_SRMA .and. (nRstart==n_r_cmb) ) then
+         if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
+            call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(istage))
+            omega_ma=lo_ma
+         else if ( ktopv == 2 ) then ! no slip, omega given by z10
+            omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
          end if
-         if ( l_rot_ic .and. .not. l_SRIC .and. (nRstop==n_r_icb) ) then
-            if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-               call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(istage))
-               omega_ic=lo_ic
-            else if ( kbotv == 2 ) then ! no slip, omega given by z10
-               omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
-            end if
-            omega_ic1=omega_ic
+         omega_ma1=omega_ma
+      end if
+      if ( l_rot_ic .and. .not. l_SRIC .and. (nRstop==n_r_icb) ) then
+         if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
+            call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(istage))
+            omega_ic=lo_ic
+         else if ( kbotv == 2 ) then ! no slip, omega given by z10
+            omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
          end if
-      end if  ! l=1,m=0 contained in block ?
+         omega_ic1=omega_ic
+      end if
       !$omp end single
 
    end subroutine update_rot_rates_Rloc

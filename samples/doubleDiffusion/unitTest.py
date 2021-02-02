@@ -18,7 +18,7 @@ def cleanDir(dir):
         os.remove('%s/run_magic_mpi.sh' % dir)
     for f in glob.glob('%s/*_BIS' % dir):
         os.remove(f)
-    for f in glob.glob('%s/*.test' % dir):
+    for f in glob.glob('%s/*.test*' % dir):
         os.remove(f)
     if os.path.exists('%s/stdout.out' % dir):
         os.remove('%s/stdout.out' % dir)
@@ -57,6 +57,13 @@ class DoubleDiffusion(unittest.TestCase):
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
+
+        cmd = '%s %s/input_FD.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
+
+        cmd = 'cat e_kin.test_cheb e_kin.test_FD > e_kin.test'
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):
         # Cleaning when leaving
