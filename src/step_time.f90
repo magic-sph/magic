@@ -55,7 +55,7 @@ module step_time_mod
    use updateWPS_mod, only: get_single_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates
+   use updateZ_mod, only: get_tor_rhs_imp
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
@@ -846,8 +846,8 @@ contains
             if ( l_heat ) call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
          end if
 
-         call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
-         call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
+         lorentz_torque_ma_dt%old(1)=omega_ma
+         lorentz_torque_ic_dt%old(1)=omega_ic
          call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
               &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
               &               omega_ma1, tscheme, 1, .true., .false.)

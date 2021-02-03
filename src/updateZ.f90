@@ -60,7 +60,7 @@ module updateZ_mod
    integer :: maxThreads
 
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp, &
-   &         assemble_tor, finish_exp_tor, get_rot_rates
+   &         assemble_tor, finish_exp_tor
 
 contains
 
@@ -917,12 +917,11 @@ contains
 
       !--- Update of inner core and mantle rotation:
       !$omp single
-      !if ( l1m0 > 0 .and. lmStart_00 <= l1m0 .and. ulm >= l1m0 ) then
       if ( llm <= l1m0 .and. ulm >= l1m0 )then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-               call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(istage))
                omega_ma=lo_ma
+               if ( istage == 1 ) lorentz_torque_ma_dt%old(istage)=omega_ma
             else if ( ktopv == 2 ) then ! no slip, omega given by z10
                omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
             end if
@@ -930,8 +929,8 @@ contains
          end if
          if ( l_rot_ic .and. .not. l_SRIC ) then
             if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-               call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(istage))
                omega_ic=lo_ic
+               if ( istage == 1 ) lorentz_torque_ic_dt%old(istage)=omega_ic
             else if ( kbotv == 2 ) then ! no slip, omega given by z10
                omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
             end if
@@ -941,18 +940,6 @@ contains
       !$omp end single
 
    end subroutine update_rot_rates
-!------------------------------------------------------------------------------
-   subroutine get_rot_rates(omega, domega_old)
-
-      !-- Input variables
-      real(cp), intent(in) :: omega ! Rotation rate
-
-      !-- Output variable
-      real(cp), intent(out) :: domega_old ! Old value of the rotation rate
-
-      domega_old = omega
-
-   end subroutine get_rot_rates
 !------------------------------------------------------------------------------
    subroutine finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic, domega_ma_dt_exp, &
               &              domega_ic_dt_exp, lorentz_ma_exp, lorentz_ic_exp)
