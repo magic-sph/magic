@@ -14,8 +14,10 @@ n_cheb_ic_max=15,
  alffac      =1.0D0,
  dtmax       =1.0D-4,
  alpha       =0.6D0,
- runHours    =12,
- runMinutes  =00,
+ runHours    =00,
+ runMinutes  =10,
+l_correct_AMz=.true.,
+l_correct_AMe=.true.,
 /
 &phys_param
  ra          =1.1D5,
@@ -43,8 +45,9 @@ n_cheb_ic_max=15,
  n_rsts      =1,
  n_stores    =0,
  runid       ="Benchmark 2",
- l_movie     =.FALSE.,
- l_RMS       =.FALSE.,
+ l_movie     =.false.,
+ l_RMS       =.false.,
+ l_AM        =.true.,
 /
 &mantle 
  nRotMa      =0

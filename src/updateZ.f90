@@ -451,21 +451,24 @@ contains
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
+         !-- First update rot rates for possible AM correction in a second step
+         call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
+              &                lorentz_torque_ic_dt, omega_ma,           &
+              &                omega_ma1, omega_ic, omega_ic1, 1,        &
+              &                l_in_cheb_space=.true.)
          call get_tor_rhs_imp(timeNext, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               1, tscheme%l_imp_calc_rhs(1), lRmsNext,            &
               &               l_in_cheb_space=.true.)
-         call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
-              &                lorentz_torque_ic_dt, omega_ma,           &
-              &                omega_ma1, omega_ic, omega_ic1, 1)
       else
+         call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,            &
+              &                lorentz_torque_ic_dt, omega_ma,                   &
+              &                omega_ma1, omega_ic, omega_ic1, tscheme%istage+1, &
+              &                l_in_cheb_space=.true.)
          call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
               &               tscheme%istage+1), lRmsNext, l_in_cheb_space=.true.)
-         call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
-              &                lorentz_torque_ic_dt, omega_ma,           &
-              &                omega_ma1, omega_ic, omega_ic1, tscheme%istage+1)
       end if
 
    end subroutine updateZ
@@ -884,24 +887,28 @@ contains
       end if
       !$omp end parallel
 
+      call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
+           &                lorentz_torque_ic_dt, omega_ma,           &
+           &                omega_ma1, omega_ic, omega_ic1, 1)
       call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
            &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
            &               lRmsNext, .false.)
-      call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
-           &                lorentz_torque_ic_dt, omega_ma,           &
-           &                omega_ma1, omega_ic, omega_ic1, 1)
 
    end subroutine assemble_tor
 !------------------------------------------------------------------------------
    subroutine update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,       &
               &                lorentz_torque_ic_dt, omega_ma, omega_ma1,   &
-              &                omega_ic, omega_ic1, istage)
+              &                omega_ic, omega_ic1, istage, l_in_cheb_space)
+      !
+      ! This subroutine updates the rotation rate of inner core and mantle.
+      !
 
       !-- Input variables
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
-      real(cp),    intent(in) :: lo_ma, lo_ic   ! RHS when stress-free BCs are used
-      integer,     intent(in) :: istage
+      complex(cp),       intent(in) :: z(llm:ulm,n_r_max)
+      real(cp),          intent(in) :: lo_ma, lo_ic   ! RHS when stress-free BCs are used
+      integer,           intent(in) :: istage
+      logical, optional, intent(in) :: l_in_cheb_space ! Is z in Cheb space or not?
 
       !-- Output variables
       type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
@@ -910,10 +917,17 @@ contains
       real(cp),           intent(out) :: omega_ic, omega_ic1
 
       !-- Local variables
+      real(cp) :: z10(n_r_max)
+      logical :: l_in_loc
       integer :: l1m0, lmStart_00
 
       lmStart_00 =max(2,llm)
       l1m0=lo_map%lm2(1,0)
+      if ( present(l_in_cheb_space) ) then
+         l_in_loc=l_in_cheb_space
+      else
+         l_in_loc=.false.
+      end if
 
       !--- Update of inner core and mantle rotation:
       !$omp single
@@ -923,7 +937,9 @@ contains
                omega_ma=lo_ma
                if ( istage == 1 ) lorentz_torque_ma_dt%old(istage)=omega_ma
             else if ( ktopv == 2 ) then ! no slip, omega given by z10
-               omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
+               z10(:)=real(z(l1m0,:))
+               if ( l_in_loc ) call rscheme_oc%costf1(z10)
+               omega_ma=c_z10_omega_ma*z10(n_r_cmb)
             end if
             omega_ma1=omega_ma
          end if
@@ -932,7 +948,9 @@ contains
                omega_ic=lo_ic
                if ( istage == 1 ) lorentz_torque_ic_dt%old(istage)=omega_ic
             else if ( kbotv == 2 ) then ! no slip, omega given by z10
-               omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
+               z10(:)=real(z(l1m0,:))
+               if ( l_in_loc ) call rscheme_oc%costf1(z10)
+               omega_ic=c_z10_omega_ic*z10(n_r_icb)
             end if
             omega_ic1=omega_ic
          end if
