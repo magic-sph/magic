@@ -574,7 +574,7 @@ contains
          else
             nomi=c_moi_oc*y10_norm
          end if
-         corr_l1m0=cmplx(angular_moment(3)-AMstart,-1.0_cp,kind=cp)/nomi
+         corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
