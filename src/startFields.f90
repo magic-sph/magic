@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module start_fields
    !
    ! This module is used to set-up the initial starting fields. They can be obtained
@@ -51,8 +50,8 @@ module start_fields
        &                  fill_ghosts_S
    use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
        &                   fill_ghosts_Xi
-   use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, get_rot_rates, &
-       &                  z_ghost, fill_ghosts_Z
+   use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, z_ghost, &
+       &                  fill_ghosts_Z
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
 
@@ -362,8 +361,8 @@ contains
                  &               .false., .false., work_LMloc)
          end if
       end if
-      call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
-      call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
+      lorentz_torque_ma_dt%old(1)=omega_ma
+      lorentz_torque_ic_dt%old(1)=omega_ic
       if ( l_parallel_solve ) then
          call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
          call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)

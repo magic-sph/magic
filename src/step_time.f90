@@ -60,8 +60,8 @@ module step_time_mod
        &                  fill_ghosts_S
    use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
        &                   fill_ghosts_Xi
-   use updateZ_mod, only: get_tor_rhs_imp, get_rot_rates, get_tor_rhs_imp_ghost, &
-       &                  z_ghost, fill_ghosts_Z
+   use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, z_ghost, &
+       &                  fill_ghosts_Z
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
@@ -964,8 +964,8 @@ contains
             end if
          end if
 
-         call get_rot_rates(omega_ma, lorentz_torque_ma_dt%old(1))
-         call get_rot_rates(omega_ic, lorentz_torque_ic_dt%old(1))
+         lorentz_torque_ma_dt%old(1)=omega_ma
+         lorentz_torque_ic_dt%old(1)=omega_ic
 
          if ( l_parallel_solve ) then
             call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
