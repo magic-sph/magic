@@ -45,7 +45,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
    set(FFLAG_ARCH      "-m${ARCH}")
-   set(FFLAG_STD       "-std=f2008")
+   set(FFLAG_STD       "-std=f2008 -fallow-argument-mismatch")
    set(FFLAG_NO_STD    "-std=gnu")
    set(FFLAG_TRACEBACK "-fbacktrace")
    set(FFLAG_CONVERT   "-fconvert=big-endian")
@@ -231,6 +231,7 @@ endif()
 
 find_library(FFTW3 NAME fftw3
     PATHS $ENV{HOME}/local/lib
+          $ENV{HOME}/.local/lib
           $ENV{HOME}/local/lib64
           /usr/local/fftw/3.3.4_openmp/lib
           $ENV{FFTW_ROOT}/lib
