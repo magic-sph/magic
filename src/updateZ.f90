@@ -887,7 +887,7 @@ contains
          else
             nomi=c_moi_oc*y10_norm
          end if
-         corr_l1m0=cmplx(angular_moment(3)-AMstart,-1.0_cp,kind=cp)/nomi
+         corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
@@ -1095,6 +1095,14 @@ contains
       l1m0=st_map%lm2(1,0)
       l1m1=st_map%lm2(1,1)
 
+#ifdef WITH_MPI
+      if ( l_correct_AMz .or. l_correct_AMe ) then
+         !-- We will need omega_ic and omega_ma to update the angular momentum
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,n_procs-1, MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0, MPI_COMM_WORLD,ierr)
+      end if
+#endif
+
       !--- We correct so that the angular moment about axis in the equatorial plane
       !    vanish and the angular moment about the (planetary) rotation axis
       !    is kept constant.
@@ -1119,7 +1127,7 @@ contains
          else
             nomi=c_moi_oc*y10_norm
          end if
-         corr_l1m0=cmplx(angular_moment(3)-AMstart,-1.0_cp,kind=cp)/nomi
+         corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
