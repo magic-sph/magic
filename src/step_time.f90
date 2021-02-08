@@ -30,7 +30,7 @@ module step_time_mod
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
-       &            l_packed_transp
+       &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma
    use init_fields, only: omega_ic1, omega_ma1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
@@ -135,7 +135,7 @@ contains
       character(len=255) :: message
 
       !--- Courant criteria/diagnosis:
-      real(cp) :: dtr, dth, tTot
+      real(cp) :: tTot
       !-- Saves values for time step
       real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop)
 
@@ -261,10 +261,10 @@ contains
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-              &         MPI_COMM_WORLD,ierr)
+         if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
+                              &         MPI_COMM_WORLD,ierr)
+         if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
+                              &         MPI_COMM_WORLD,ierr)
 #endif
 
          !----------------
@@ -497,10 +497,14 @@ contains
                ! also exchange the lorentz_torques which are only 
                ! set at the boundary points  but are needed on all processes.
                ! ------------------
-               call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
-                    &         n_procs-1,MPI_COMM_WORLD,ierr)
-               call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
-                    &         0,MPI_COMM_WORLD,ierr)
+               if ( l_rot_ic .and. l_cond_ic ) then
+                  call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
+                       &         n_procs-1,MPI_COMM_WORLD,ierr)
+               end if
+               if ( l_rot_ma .and. l_cond_ma ) then
+                  call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
+                       &         0,MPI_COMM_WORLD,ierr)
+               end if
 #endif
 
                !---------------
@@ -613,8 +617,8 @@ contains
                !---------------------
                !-- Checking Courant criteria, l_new_dt and dt_new are output
                !---------------------
-               call dt_courant(dtr,dth,l_new_dt,tscheme%dt(1),dt_new,dtMax, &
-                    &          dtrkc_Rloc,dthkc_Rloc,time)
+               call dt_courant(l_new_dt,tscheme%dt(1),dt_new,dtMax,dtrkc_Rloc, &
+                    &          dthkc_Rloc,time)
 
                !--------------------
                !-- Set weight arrays

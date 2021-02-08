@@ -1,5 +1,9 @@
 #define XSH_COURANT 0
 module courant_mod
+   !
+   ! This module handles the computation of Courant factors on grid space.
+   ! It then checks whether the timestep size needs to be modified.
+   !
 
    use parallel_mod
    use precision_mod
@@ -283,11 +287,11 @@ contains
 
    end subroutine courant
 !------------------------------------------------------------------------------
-   subroutine dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new,dtMax,dtrkc,dthkc,time)
+   subroutine dt_courant(l_new_dt,dt,dt_new,dtMax,dtrkc,dthkc,time)
       !
-      !     Check if Courant criterion based on combined
-      !     fluid and Alfven velocity is satisfied
-      !     Returns new value of time step dtnew
+      !  This subroutine checks if the Courant criterion based on combined
+      !  fluid and Alfven velocity is satisfied. It returns a new value for
+      !  the time step size.
       !
 
       !-- Input variables:
@@ -300,32 +304,25 @@ contains
       !-- Output variables:
       logical,  intent(out) :: l_new_dt ! flag indicating that time step is changed (=1) or not (=0)
       real(cp), intent(out) :: dt_new ! new time step size
-      real(cp), intent(out) :: dt_r ! radial Courant time step
-      real(cp), intent(out) :: dt_h ! horizontal Courtant time step
 
-      !-- Local:
+      !-- Local variables:
       integer :: n_r
-      real(cp) :: dt_rh,dt_2
-      real(cp) :: dt_fac
-
+      real(cp) :: dtMin, dt_2, dt_fac, dt_rh(2)
       character(len=200) :: message
 
       dt_fac=two
-      dt_r  =1000.0_cp*dtMax
-      dt_h  =dt_r
+      dt_rh(:)  =1000.0_cp*dtMax
       do n_r=nRstart,nRstop
-         dt_r=min(dtrkc(n_r),dt_r)
-         dt_h=min(dthkc(n_r),dt_h)
+         dt_rh(1)=min(dtrkc(n_r),dt_rh(1))
+         dt_rh(2)=min(dthkc(n_r),dt_rh(2))
       end do
 #ifdef WITH_MPI
-      call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL,MPI_MIN, &
-           &             MPI_COMM_WORLD,ierr)
-      call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DEF_REAL,MPI_MIN, &
+      call MPI_Allreduce(MPI_IN_PLACE,dt_rh,2,MPI_DEF_REAL,MPI_MIN, &
            &             MPI_COMM_WORLD,ierr)
 #endif
 
-      dt_rh=min(dt_r,dt_h)
-      dt_2 =min(half*(one/dt_fac+one)*dt_rh,dtMax)
+      dtMin=min(dt_rh(1),dt_rh(2))
+      dt_2 =min(half*(one/dt_fac+one)*dtMin,dtMax)
 
       if ( dt > dtMax ) then
          l_new_dt=.true.
@@ -333,21 +330,21 @@ contains
          write(message,'(1P," ! COURANT: dt=dtMax =",ES12.4,A)') dtMax,&
          &     " ! Think about changing dtMax !"
          call logWrite(message)
-      else if ( dt > dt_rh ) then
+      else if ( dt > dtMin ) then
          l_new_dt=.true.
          dt_new  =dt_2
          write(message,'(1P," ! COURANT: dt=",ES11.4," > dt_r=",ES12.4, &
-         &            " and dt_h=",ES12.4)') dt,dt_r,dt_h
+         &            " and dt_h=",ES12.4)') dt,dt_rh(1),dt_rh(2)
          call logWrite(message)
          if ( rank == 0 ) then
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
          end if
-      else if ( dt_fac*dt < dt_rh .and. dt < dtMax ) then
+      else if ( dt_fac*dt < dtMin .and. dt < dtMax ) then
          l_new_dt=.true.
          dt_new=dt_2
          write(message,'(" ! COURANT: ",F4.1,1P,"*dt=",ES11.4, &
          &          " < dt_r=",ES12.4," and dt_h=",ES12.4)')   &
-         &          dt_fac,dt_fac*dt,dt_r,dt_h
+         &          dt_fac,dt_fac*dt,dt_rh(1),dt_rh(2)
          call logWrite(message)
          if ( rank == 0 ) then
             write(file_handle, '(1p, es20.12, es16.8)')  time, dt_new
