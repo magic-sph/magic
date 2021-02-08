@@ -6,7 +6,7 @@ module finite_differences
 
    use precision_mod
    use parallel_mod, only: rank
-   use constants, only: zero, one, two
+   use constants, only: zero, one, two, half
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
@@ -204,6 +204,7 @@ contains
       !-- Local quantities:
       real(cp), allocatable :: dr_spacing(:)
       real(cp), allocatable :: taylor_exp(:,:)
+      real(cp) :: drl
       integer :: n_r, od
 
       !
@@ -230,6 +231,23 @@ contains
                this%dr(n_r,od) =taylor_exp(od,1)
                this%ddr(n_r,od)=taylor_exp(od,2)
             end do
+            if ( n_r == 1) then
+               drl = r(2)-r(1)
+               this%dr(n_r,0)=-half/drl
+               this%dr(n_r,1)=0.0_cp
+               this%dr(n_r,2)=half/drl
+               this%ddr(n_r,0)=one/drl/drl
+               this%ddr(n_r,1)=-two/drl/drl
+               this%ddr(n_r,2)=one/drl/drl
+            else if ( n_r == this%n_max ) then
+               drl=r(this%n_max)-r(this%n_max-1)
+               this%dr(n_r,0)=-half/drl
+               this%dr(n_r,1)=0.0_cp
+               this%dr(n_r,2)=half/drl
+               this%ddr(n_r,0)=one/drl/drl
+               this%ddr(n_r,1)=-two/drl/drl
+               this%ddr(n_r,2)=one/drl/drl
+            end if
          end do
       else
          do n_r=1+this%order/2,this%n_max-this%order/2

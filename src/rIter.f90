@@ -214,7 +214,11 @@ contains
             &       lPowerCalc .or. lGeosCalc
          end if
 
-         if ( l_parallel_solve ) lDeriv=.true.
+         if ( l_parallel_solve ) then
+            lDeriv=.true.
+            nBc=0
+            l_Bound=.false.
+         end if
 
          dtrkc(nR)=1e10_cp
          dthkc(nR)=1e10_cp

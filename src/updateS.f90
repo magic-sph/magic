@@ -776,10 +776,7 @@ contains
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
       integer :: n_r, lm, start_lm, stop_lm, l
-      integer, pointer :: lm2l(:)
       real(cp) :: dL
-
-      lm2l(1:lm_max) => st_map%lm2l
 
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
       start_lm=1; stop_lm=lm_max
@@ -808,7 +805,7 @@ contains
          if ( l_anelastic_liquid ) then
             do n_r=nRstart,nRstop
                do lm=start_lm,stop_lm
-                  l = lm2l(lm)
+                  l = st_map%lm2l(lm)
                   dL = real(l*(l+1),cp)
                   dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)* kappa(n_r) *  (     &
                   &                                           work_Rloc(lm,n_r) &
@@ -819,7 +816,7 @@ contains
          else
             do n_r=nRstart,nRstop
                do lm=start_lm,stop_lm
-                  l = lm2l(lm)
+                  l = st_map%lm2l(lm)
                   dL = real(l*(l+1),cp)
                   dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)*kappa(n_r) *   (        &
                   &                                         work_Rloc(lm,n_r)      &

@@ -617,6 +617,11 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs_ghost(w_ghost, dwdt, lm_start, lm_stop, 2)
 
+      !-- Ensure that l=m=0 is zero
+      do nR=nRstart,nRstop
+         w_ghost(1,nR)=zero
+      end do
+
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
          nR=n_r_cmb
@@ -723,7 +728,7 @@ contains
       complex(cp),       intent(out) :: dp(lm_max,nRstart:nRstop) ! Radial derivative of p
 
       !-- Local variables
-      integer :: nR, lm_start, lm_stop, lm
+      integer :: nR, lm_start, lm_stop, lm, l
 
       if ( .not. l_update_v ) return
 
@@ -753,7 +758,7 @@ contains
               &                     lPressNext, lRmsNext, dpdt%expl(:,:,1))
       end if
 
-      !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm,l)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
@@ -761,6 +766,8 @@ contains
       !-- Array copy from w_ghost to w
       do nR=nRstart,nRstop
          do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
             w(lm,nR)=w_ghost(lm,nR)
          end do
       end do
@@ -961,6 +968,8 @@ contains
 
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
             dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
          end do
       end do
@@ -969,6 +978,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l == 0 ) cycle
                dLh = real(l*(l+1),cp)
                dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+dLh*or2(n_r)*BuoFac* &
                &                   rgrav(n_r)*s_Rloc(lm,n_r)
@@ -980,6 +990,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l == 0 ) cycle
                dLh = real(l*(l+1),cp)
                dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+dLh*or2(n_r)*ChemFac* &
                &                   rgrav(n_r)*xi_Rloc(lm,n_r)
@@ -2375,6 +2386,8 @@ contains
             dr=r(2)-r(1)
             fac=(one-half*(two*or1(1)+beta(1))*dr)/(one+half*(two*or1(1)+beta(1))*dr)
             wMat%diag(l,2)=wMat%diag(l,2)-fac*wMat%low2(l,2)
+            wMat%low1(l,2)=wMat%low1(l,2)+two/(one+half*(two*or1(1)+beta(1))*dr)*&
+            &              wMat%low2(l,2)
          else ! No slip
             wMat%diag(l,2)=wMat%diag(l,2)+wMat%low2(l,2)
          end if
@@ -2391,6 +2404,8 @@ contains
                fac=(one+half*(two*or1(n_r_max)+beta(n_r_max))*dr)/ &
                &   (one-half*(two*or1(n_r_max)+beta(n_r_max))*dr)
                wMat%diag(l,n_r_max-1)=wMat%diag(l,n_r_max-1)-fac*wMat%up2(l,n_r_max-1)
+               wMat%up1(l,n_r_max-1)=wMat%up1(l,n_r_max-1)+two*wMat%up2(l,n_r_max-1) &
+               &                     /(one-half*(two*or1(n_r_max)+beta(n_r_max))*dr)
             else ! no slip
                wMat%diag(l,n_r_max-1)=wMat%diag(l,n_r_max-1)+wMat%up2(l,n_r_max-1)
             end if
