@@ -1010,8 +1010,6 @@ contains
 
       !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
-      !    Parallization note: Very likely, all axisymmetric modes m=0 are
-      !    located on the first processor #0.
       if ( l_TO ) then
          !$omp parallel do default(shared) private(n_r,lm,l1,m1)
          do n_r=1,n_r_max
@@ -1068,7 +1066,6 @@ contains
       real(cp) :: r_E_2, nomi, dL, prec_fac
       integer :: n_r, lm, start_lm, stop_lm, i
       integer :: l, m, l1m0, l1m1
-      real(cp) :: ddzASL_loc(0:l_max,n_r_max)
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
       if ( l_precession ) then
@@ -1168,8 +1165,8 @@ contains
          !         derivatives:
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
-            zg(l1m1,n_r)=zg(l1m1,n_r)  -  rho0(n_r)*r_E_2*corr_l1m1
-            dz(l1m1,n_r)=dz(l1m1,n_r) -  rho0(n_r)*(            &
+            zg(l1m1,n_r)=zg(l1m1,n_r) - rho0(n_r)*r_E_2*corr_l1m1
+            dz(l1m1,n_r)=dz(l1m1,n_r) - rho0(n_r)*(            &
             &            two*r(n_r)+r_E_2*beta(n_r))*corr_l1m1
             work_Rloc(l1m1,n_r)=work_Rloc(l1m1,n_r)-rho0(n_r)*(      &
             &              two+four*beta(n_r)*r(n_r) +               &
@@ -1201,7 +1198,7 @@ contains
                m = st_map%lm2m(lm)
                dL = real(l*(l+1),cp)
                Dif(lm)=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
-               &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
+               &         (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
                &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
                &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
                &                                                   zg(lm,n_r) )
@@ -1237,25 +1234,13 @@ contains
          end if
       end if
 
-      !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
+      !--- Note: from ddz=work_Rloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
-      !    Parallization note: Very likely, all axisymmetric modes m=0 are
-      !    located on the first processor #0.
       if ( l_TO ) then
-         !$omp parallel do default(shared) private(n_r,lm,l,m)
          do n_r=nRstart,nRstop
-            ddzASL_loc(:,n_r)=0.0_cp
-            do lm=1,lm_max
-               l=st_map%lm2l(lm)
-               m=st_map%lm2m(lm)
-               if ( m == 0 ) ddzASL_loc(l,n_r)=real(work_Rloc(lm,n_r))
+            do l=0,l_max
+               ddzASL(l+1,n_r)=real(work_Rloc(l+1,n_r))
             end do
-         end do
-         !$omp end parallel do
-
-         !-- This is quite ugly here:
-         do l=0,l_max
-            call allgather_from_rloc(ddzASL_loc(l,:),ddzASL(l+1,:))
          end do
       end if
 
@@ -1574,7 +1559,6 @@ contains
            &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
            &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
            &                     lRmsNext)
-
 
    end subroutine assemble_tor_Rloc
 !------------------------------------------------------------------------------
