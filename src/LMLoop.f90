@@ -561,8 +561,12 @@ contains
    end subroutine assemble_stage_Rdist
 !--------------------------------------------------------------------------------
    subroutine parallel_solve(block_sze)
+      !
+      ! This subroutine handles the parallel solve of the time-advance matrices.
+      ! This works with R-distributed arrays (finite differences).
+      !
 
-      integer, intent(in) :: block_sze
+      integer, intent(in) :: block_sze ! Size ot the LM blocks
 
       !-- Local variables
       integer :: req
@@ -692,6 +696,7 @@ contains
 #ifdef WITH_MPI
       call MPI_Waitall(req-1, array_of_requests(1:req-1), MPI_STATUSES_IGNORE, ierr)
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
+      !call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
       !$omp end master
       !$omp barrier
@@ -760,9 +765,9 @@ contains
       t(1) = time_LM_loop(b(1), nloops) ! Starting value
       tt=t(1)+one
       do while( abs(t(1)-tt) > 0.02*abs(t(1)) ) ! 2% difference
+         nloops = 2*nloops
          tt = t(1)
          t(1) = time_LM_loop(b(1), nloops)
-         nloops = 2*nloops
          if ( t(1)*(nloops/2) > 10 ) exit ! Longer than 10sec
       end do
       nloops=nloops/2
@@ -806,15 +811,16 @@ contains
             end if
             if ( (b(2)==bmin) .or. (b(2)==bmax) .or. (t(2)>t(1)*1.02 ) ) exit
          end do
-         write(str,'(A,I5,A,I5)') '! I am braketing the block number between', b(0), ' and', b(1)
+         write(str,'(A,1x,I0,A,1x,I0)') '! I am braketing the block number between', &
+         &                              b(0), ' and', b(2)
          call logWrite(str)
 
          !-- At this stage, the minimum wall time has been stored in t(1) and is bracketed
          !-- between in t(0) and t(2)
-         !print*, 'b', 't', b, t
+         !if ( rank == 0 ) print*, 'b', 't', b, t
 
          !-- Determine the largest interval
-         if ( abs(log(real(b(2)))-log(real(b(1)))) > abs(log(real(b(0)))-log(real(b(1)))) ) then
+         if ( abs(log(real(b(2)))-log(real(b(0)))) > abs(log(real(b(0)))-log(real(b(1)))) ) then
             nb=int(b(1)**alpha*b(2)**beta)
             bb=set_block_number(nb)
             tt=time_LM_loop(bb, nloops)
@@ -825,6 +831,7 @@ contains
          end if
 
          !-- Refined block determination
+         if ( rank == 0 ) write(output_unit,*) ''
          do while( (t(2)>min(t(1),tt)*1.02) .and. (t(0)>min(t(1),tt)*1.02) &
          &          .and. (abs(b(2)-b(0))>1) )
             if ( tt < t(1) ) then ! This is better than before
@@ -840,7 +847,11 @@ contains
                b(1)=set_block_number(nb)
                t(1)=time_LM_loop(b(1), nloops)
             end if
+            if ( rank==0 ) write(output_unit, '(A,I0,1x,I0,1x,I0,1x,I0,A,4ES9.2,A)')  &
+            &              'Searching for number of blocks b=(',b(0), b(1), bb, b(2), &
+            &              '), t=(',t(0), t(1), tt, t(2),')'
          end do
+         if ( rank == 0 ) write(output_unit,*) ''
 
          if ( tt < t(1) ) t(1)=tt; b(1)=bb
 #ifdef WITH_MPI
@@ -854,11 +865,11 @@ contains
 
       !print*, 'b,t=', b, t
       if ( nblk == 1 ) then
-         write(str,'(A,I5,A,I5,A,ES11.3)') '! Found', nblk, ' block of size',  &
+         write(str,'(A,1x,I0,A,ES9.2)') '! Found 1 block of size',  &
          &                                 block_sze, ', timing was:', t(1)
       else
-         write(str,'(A,I5,A,I5,A,ES11.3)') '! Found', nblk, ' blocks of size',  &
-         &                                 block_sze, ', timing was:', t(1)
+         write(str,'(A,1x,I0,A,1x,I0,A,ES9.2)') '! Found', nblk, ' blocks of size',  &
+         &                                      block_sze, ', timing was:', t(1)
       end if
       call logWrite(str)
 
