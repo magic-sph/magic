@@ -955,6 +955,7 @@ contains
            &           rscheme_oc)
 
       !$omp parallel default(shared) private(n_r, lm, l, dLh, start_lm, stop_lm)
+      !$omp parallel default(shared) private(n_r, lm, l, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier

@@ -231,6 +231,7 @@ endif()
 
 find_library(FFTW3 NAME fftw3
     PATHS $ENV{HOME}/local/lib
+          $ENV{HOME}/.local/lib
           $ENV{HOME}/local/lib64
           /usr/local/fftw/3.3.4_openmp/lib
           $ENV{FFTW_ROOT}/lib

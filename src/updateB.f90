@@ -1062,17 +1062,20 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstartMag:nRstopMag)
-      integer :: n_r
+      integer :: n_r, lm, start_lm, stop_lm
 
       call get_dr_Rloc(dVxBhLM, work_Rloc, lm_max, nRstartMag, nRstopMag, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel
-      !$omp do private(n_r)
+      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      start_lm=1; stop_lm=lm_maxMag
+      call get_openmp_blocks(start_lm, stop_lm)
+      !$omp barrier
       do n_r=nRstartMag,nRstopMag
-         dj_exp_last(:,n_r)=dj_exp_last(:,n_r)+or2(n_r)*work_Rloc(:,n_r)
+         do lm=start_lm,stop_lm
+            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
+         end do
       end do
-      !$omp end do
       !$omp end parallel
 
    end subroutine finish_exp_mag_Rdist

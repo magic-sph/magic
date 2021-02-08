@@ -867,29 +867,29 @@ contains
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
-      integer :: n_stage, n_r, startR, stopR
+      integer :: n_stage, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=dfdt%nRstart; stopR=dfdt%nRstop
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      call get_openmp_blocks(start_lm,stop_lm)
 
-      do n_r=startR,stopR
-         rhs(dfdt%llm:dfdt%ulm,n_r)=dfdt%old(dfdt%llm:dfdt%ulm,n_r,1)
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
       end do
 
       do n_stage=1,this%istage
-         do n_r=startR,stopR
-            rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r) +          &
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
             &                       this%butcher_exp(this%istage+1,n_stage)* &
-            &                       dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_stage)
+            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
 
       do n_stage=1,this%istage
-         do n_r=startR,stopR
-            rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r) +          &
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
             &                       this%butcher_imp(this%istage+1,n_stage)* &
-            &                       dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_stage)
+            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
       !$omp end parallel
