@@ -12,7 +12,7 @@ module updateB_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max,             &
        &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
-       &                 n_r_totMag, lm_max, l_maxMag
+       &                 n_r_totMag, lm_max, l_maxMag, lm_maxMag
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
        &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
@@ -757,7 +757,10 @@ contains
    end subroutine finish_exp_mag
 !-----------------------------------------------------------------------------
    subroutine finish_exp_mag_Rdist(dVxBhLM, dj_exp_last)
-
+      !
+      ! This subroutine finishes the computation of the nonlinear induction term
+      ! by taking the missing radial derivative (R-distributed version).
+      !
 
       !-- Input variables
       complex(cp), intent(inout) :: dVxBhLM(lm_max,nRstartMag:nRstopMag)
@@ -767,17 +770,20 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstartMag:nRstopMag)
-      integer :: n_r
+      integer :: n_r, lm, start_lm, stop_lm
 
       call get_dr_Rloc(dVxBhLM, work_Rloc, lm_max, nRstartMag, nRstopMag, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel
-      !$omp do private(n_r)
+      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      start_lm=1; stop_lm=lm_maxMag
+      call get_openmp_blocks(start_lm, stop_lm)
+      !$omp barrier
       do n_r=nRstartMag,nRstopMag
-         dj_exp_last(:,n_r)=dj_exp_last(:,n_r)+or2(n_r)*work_Rloc(:,n_r)
+         do lm=start_lm,stop_lm
+            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
+         end do
       end do
-      !$omp end do
       !$omp end parallel
 
    end subroutine finish_exp_mag_Rdist

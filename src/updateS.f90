@@ -393,6 +393,10 @@ contains
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
    subroutine finish_exp_entropy_Rdist(w, dVSrLM, ds_exp_last)
+      !
+      ! This subroutine completes the computation of the advection term by
+      ! computing the radial derivative (R-distributed variant).
+      !
 
       !-- Input variables
       complex(cp), intent(in) :: w(lm_max,nRstart:nRstop)
@@ -404,18 +408,21 @@ contains
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
       real(cp) :: dL
-      integer :: n_r, lm, l1
+      integer :: n_r, lm, l, start_lm, stop_lm
 
       call get_dr_Rloc(dVSrLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel default(shared)
+      !$omp parallel default(shared) private(n_r, lm, l, dL, start_lm, stop_lm)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm, stop_lm)
+      !$omp barrier
+
       if ( l_anelastic_liquid ) then
-         !$omp do private(n_r,l1,lm,dL)
          do n_r=nRstart,nRstop
-            do lm=1,lm_max
-               l1 = st_map%lm2l(lm)
-               dL = real(l1*(l1+1),cp)
+            do lm=start_lm,stop_lm
+               l = st_map%lm2l(lm)
+               dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
                &         or2(n_r)*orho1(n_r)*        work_Rloc(lm,n_r) + &
                &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
@@ -423,19 +430,16 @@ contains
                &                                             w(lm,n_r)
             end do
          end do
-         !$omp end do
       else
-         !$omp do private(n_r,l1,dL,lm)
          do n_r=nRstart,nRstop
-            do lm=1,lm_max
-               l1 = st_map%lm2l(lm)
-               dL = real(l1*(l1+1),cp)
+            do lm=start_lm,stop_lm
+               l = st_map%lm2l(lm)
+               dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
                &                              or2(n_r)*work_Rloc(lm,n_r)- &
                &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
             end do
          end do
-         !$omp end do
       end if
       !$omp end parallel
 

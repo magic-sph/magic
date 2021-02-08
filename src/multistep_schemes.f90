@@ -422,40 +422,37 @@ contains
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
-      integer :: n_o, n_r, startR, stopR
+      integer :: n_o, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR, stopR,n_r)
-      startR=dfdt%nRstart; stopR=dfdt%nRstop
-      call get_openmp_blocks(startR,stopR)
-      
-      do n_o=1,this%nold
-         if ( n_o == 1 ) then
-            do n_r=startR,stopR
-               rhs(dfdt%llm:dfdt%ulm,n_r)=this%wimp(n_o)* &
-               &                          dfdt%old(dfdt%llm:dfdt%ulm,n_r,n_o)
-            end do
-         else
-            do n_r=startR,stopR
-               rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r)+&
-               &       this%wimp(n_o)*dfdt%old(dfdt%llm:dfdt%ulm,n_r,n_o)
-            end do
-         end if
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=this%wimp(1)* &
+         &                          dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_o=2,this%nold
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+         end do
       end do
 
       do n_o=1,this%nimp
-         do n_r=startR,stopR
-            rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r)+  &
-            &               this%wimp_lin(n_o+1)*dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_o)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
          end do
       end do
 
       do n_o=1,this%nexp
-         do n_r=startR,stopR
-            rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r)+   &
-            &               this%wexp(n_o)*dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_o)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
          end do
       end do
-
       !$omp end parallel
 
    end subroutine set_imex_rhs

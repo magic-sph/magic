@@ -16,7 +16,7 @@ module updateWP_mod
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: dct_counter, solve_counter
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat
@@ -743,17 +743,23 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
-      integer :: n_r
+      integer :: n_r, start_lm, stop_lm, l, lm
 
       call get_dr_Rloc(dVxVhLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel default(shared)
-      !$omp do
+      !$omp parallel default(shared) private(n_r, lm, l, start_lm, stop_lm)
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm, stop_lm)
+      !$omp barrier
+
       do n_r=nRstart,nRstop
-         dw_exp_last(:,n_r)= dw_exp_last(:,n_r)+or2(n_r)*work_Rloc(:,n_r)
+         do lm=start_lm,stop_lm
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
+         end do
       end do
-      !$omp end do
       !$omp end parallel
 
    end subroutine finish_exp_pol_Rdist
