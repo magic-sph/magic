@@ -25,7 +25,7 @@ module init_fields
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
-       &                       rscheme_oc, or1
+       &                       rscheme_oc, or1, O_r_ic
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
@@ -178,7 +178,7 @@ contains
                      ome(nTheta,nPhi)=omega_ma1
                   end if
                end do
-            end do 
+            end do
             call scal_to_SH(ome, omeLM, l_max)
 
             !------- ome now in spherical harmonic space,
@@ -336,7 +336,7 @@ contains
 
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
-               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) 
+               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2)
                write(output_unit,*)
                write(output_unit,*) '! I use prescribed inner core rotation rate:'
                write(output_unit,*) '! omega_ic=',omega_ic
@@ -367,8 +367,8 @@ contains
 #endif
 
       else
-         if ( nRotIc == 2 ) omega_ic=omega_ic1 
-         if ( nRotMa == 2 ) omega_ma=omega_ma1 
+         if ( nRotIc == 2 ) omega_ic=omega_ic1
+         if ( nRotMa == 2 ) omega_ma=omega_ma1
 
       end if
 
@@ -1471,7 +1471,6 @@ contains
 
       !----- ICB:
       if ( l_cond_ic ) then  ! matching condition at inner core:
-
          do n_r_out=1,rscheme_oc%n_max
             jMat(n_r_max,n_r_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,n_r_out)
             jMat(n_r_max+1,n_r_out)=rscheme_oc%rnorm*sigma_ratio* &
@@ -1481,16 +1480,13 @@ contains
             jMat(n_r_max,n_r_out)  =0.0_cp
             jMat(n_r_max+1,n_r_out)=0.0_cp
          end do
-
       else
-
          do n_r_out=1,rscheme_oc%n_max
             jMat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)*rscheme_oc%rnorm
          end do
          do n_r_out=rscheme_oc%n_max+1,n_r_max
             jMat(n_r_max,n_r_out)=0.0_cp
          end do
-
       end if
 
       do n_r=1,n_r_max
@@ -1500,21 +1496,24 @@ contains
 
       !----- Inner core:
       if ( l_cond_ic ) then
-
          do n_cheb=1,n_r_ic_max ! counts even IC cheb modes
-            do n_r=2,n_r_ic_max ! counts IC radial grid point
+            do n_r=2,n_r_ic_max-1 ! counts IC radial grid point
                jMat(n_r_max+n_r,n_r_max+n_cheb) =                 &
-               &        cheb_norm_ic*dL*or3(n_r_max)*opm*O_sr * ( &
-               &                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
-               &            two*real(l+1,cp)*dcheb_ic(n_cheb,n_r) )
+               &        cheb_norm_ic*dL*or2(n_r_max)*opm*O_sr * ( &
+               &        d2cheb_ic(n_cheb,n_r) + two*real(l+1,cp)* &
+               &        O_r_ic(n_r)*dcheb_ic(n_cheb,n_r) )
             end do
+            ! r=0: central point
+            n_r=n_r_ic_max
+            jMat(n_r_max+n_r,n_r_max+n_cheb) = cheb_norm_ic*dL*or2(n_r_max)* &
+            &              opm*O_sr*(one+two*real(l+1,cp))*d2cheb_ic(n_cheb,n_r)
          end do
 
          !-------- boundary conditions:
          do n_cheb=1,n_cheb_ic_max
             jMat(n_r_max,n_r_max+n_cheb)=-cheb_norm_ic*cheb_ic(n_cheb,1)
-            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      & 
-            &                                 dcheb_ic(n_cheb,1) + &
+            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      &
+            &                                dcheb_ic(n_cheb,1)  + &
             &         real(l+1,cp)*or1(n_r_max)*cheb_ic(n_cheb,1) )
          end do
          do n_cheb=n_r_max+n_cheb_ic_max+1,n_r_tot
@@ -1523,8 +1522,9 @@ contains
          end do
 
          !-------- normalization for lowest Cheb mode:
-         do n_r=n_r_max+1,n_r_tot
+         do n_r=n_r_max,n_r_tot
             jMat(n_r,n_r_max+1)=half*jMat(n_r,n_r_max+1)
+            jMat(n_r,n_r_tot)  =half*jMat(n_r,n_r_tot)
          end do
 
          !-------- fill matrix up with zeros:
@@ -1569,7 +1569,6 @@ contains
       call rscheme_oc%costf1(aj0)
 
       if ( l_cond_ic ) then
-
          !----- copy result for IC:
          do n_cheb=1,n_cheb_ic_max
             aj0_ic(n_cheb)=rhs(n_r_max+n_cheb)
@@ -1581,7 +1580,6 @@ contains
          !----- transform to radial space:
          !  Note: this is assuming that aj0_ic is an even function !
          call chebt_ic%costf1(aj0_ic,work_l_ic)
-
       end if
 
       deallocate( jMat )
@@ -1848,7 +1846,7 @@ contains
             &     otemp1(n_r_max)*rscheme_oc%dr_bot(1,:)
             pt0Mat(n_r_max,n_r_max+1:)=-ViscHeatFac*ThExpNb*alpha0(n_r_max)*  &
             &              orho1(n_r_max)*(dLalpha0(n_r_max)-beta(n_r_max))*  &
-            &              rscheme_oc%rMat(n_r_max,1:n_r_max) 
+            &              rscheme_oc%rMat(n_r_max,1:n_r_max)
             pt0Mat(n_r_max,2*n_r_max:2*n_r_max-rscheme_oc%order_boundary:-1)=  &
             & pt0Mat(n_r_max,2*n_r_max:2*n_r_max-rscheme_oc%order_boundary:-1)-&
             &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*         &
