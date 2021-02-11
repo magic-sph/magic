@@ -737,7 +737,7 @@ contains
       ! This routine is used to find the best lm-block size for MPI communication.
       ! This is adapted from xshells.
       !
-      real(cp), parameter :: alpha=0.61803
+      real(cp), parameter :: alpha=0.61803_cp
       real(cp), parameter :: beta=one-alpha
       integer :: bmin, bmax, nb, nblk, b(0:2), nloops, bb
       real(cp) :: t(0:2), mul, tt
