@@ -25,7 +25,7 @@ module init_fields
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
-       &                       rscheme_oc, or1
+       &                       rscheme_oc, or1, O_r_ic
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
@@ -179,7 +179,7 @@ contains
                      ome(nTheta,nPhi)=omega_ma1
                   end if
                end do
-            end do 
+            end do
             call scal_to_SH(ome, omeLM, l_max)
 
             !------- ome now in spherical harmonic space,
@@ -336,7 +336,7 @@ contains
 
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
-               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) 
+               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2)
                write(output_unit,*)
                write(output_unit,*) '! I use prescribed inner core rotation rate:'
                write(output_unit,*) '! omega_ic=',omega_ic
@@ -1002,42 +1002,42 @@ contains
 
       if ( imagcon == -1 ) then
 
-      !----- impose l=1,m=0 poloidal field at ICB:
+         !----- impose l=1,m=0 poloidal field at ICB:
          lm0 = l1m0
          bpeakbot = -sqrt(third*pi)*r_icb**2*amp_b1
          bpeaktop = 0.0_cp
 
       else if ( imagcon == -2 ) then
 
-      !----- impose l=1,m=0 poloidal field at CMB:
+         !----- impose l=1,m=0 poloidal field at CMB:
          lm0 = l1m0
          bpeakbot = 0.0_cp
          bpeaktop = -sqrt(third*pi)*r_cmb**2*amp_b1
 
       else if ( imagcon == 1 ) then
 
-      !----- impose l=2,m=0 toroidal field at ICB:
+         !----- impose l=2,m=0 toroidal field at ICB:
          lm0 = l2m0
          bpeakbot = four*third*sqrt(pi/5.0_cp)*r_icb*amp_b1
          bpeaktop = 0.0_cp
 
       else if ( imagcon == 10 ) then
 
-      !----- impose l=2,m=0 toroidal field at ICB and CMB:
+         !----- impose l=2,m=0 toroidal field at ICB and CMB:
          lm0 = l2m0
          bpeakbot = four*third*sqrt(pi/5.0_cp)*r_icb*amp_b1
          bpeaktop = four*third*sqrt(pi/5.0_cp)*r_cmb*amp_b1
 
       else if ( imagcon == 11 ) then
 
-      !----- same as imagcon == 10 but opposite sign at CMB:
+         !----- same as imagcon == 10 but opposite sign at CMB:
          lm0 = l2m0
          bpeakbot = four*third*sqrt(pi/5.0_cp)*r_icb*amp_b1
          bpeaktop = -four*third*sqrt(pi/5.0_cp)*r_cmb*amp_b1
 
       else if ( imagcon == 12 ) then
 
-      !----- impose l=1,m=0 toroidal field at ICB and CMB:
+         !----- impose l=1,m=0 toroidal field at ICB and CMB:
          lm0 = l1m0
          bpeakbot = two*sqrt(third*pi)*r_icb*amp_b1
          bpeaktop = two*sqrt(third*pi)*r_cmb*amp_b1
@@ -1050,18 +1050,18 @@ contains
 
       else if ( imagcon == -10 ) then
 
-      !----- Test of variable conductivity case with analytical solution:
-      !      Assume the magnetic diffusivity is lambda=r**5, that the aspect ratio
-      !      is 0.5, and that there is no flow.
-      !      The analytical stationary solution for the (l=3,m=0) toroidal field
-      !      with bounday condition aj(r=r_ICB)=1, aj(r=r_CMB)=0 is then
-      !      given by jVarCon(r)!
-      !      A disturbed solution is used to initialize aj,
-      !      the disturbance should decay with time.
-      !      The solution is stored in file testVarCond.TAG at the end of the run,
-      !      where the first column denotes radius, the second is aj(l=3,m=0,r) and
-      !      the third is jVarCon(r). Second and third should be identical when
-      !      the stationary solution has been reached.
+         !----- Test of variable conductivity case with analytical solution:
+         !      Assume the magnetic diffusivity is lambda=r**5, that the aspect ratio
+         !      is 0.5, and that there is no flow.
+         !      The analytical stationary solution for the (l=3,m=0) toroidal field
+         !      with bounday condition aj(r=r_ICB)=1, aj(r=r_CMB)=0 is then
+         !      given by jVarCon(r)!
+         !      A disturbed solution is used to initialize aj,
+         !      the disturbance should decay with time.
+         !      The solution is stored in file testVarCond.TAG at the end of the run,
+         !      where the first column denotes radius, the second is aj(l=3,m=0,r) and
+         !      the third is jVarCon(r). Second and third should be identical when
+         !      the stationary solution has been reached.
          lm0=l3m0  ! This is l=3,m=0
          bpeakbot=one
          bpeaktop=0.0_cp
@@ -1077,10 +1077,10 @@ contains
       end if
 
       if ( init_b1 == 1 .or. imagcon > 0 ) then
-      !----- Conductive solution for toroidal field,
-      !      diffusion equation solved in j_cond, amplitude defined
-      !      by bpeaktop and bpeakbot respectively.
-      !      bpeakbot is only used for insulating inner core !
+         !----- Conductive solution for toroidal field,
+         !      diffusion equation solved in j_cond, amplitude defined
+         !      by bpeaktop and bpeakbot respectively.
+         !      bpeakbot is only used for insulating inner core !
          if ( llm <= lm0 .and. ulm >= lm0 ) then ! select processor
             call j_cond(lm0,aj0,aj0_ic)
             do n_r=1,n_r_max             ! Diffusive toroidal field
@@ -1094,10 +1094,10 @@ contains
          end if
 
       else if ( init_b1 == 2 ) then  ! l=1,m=0 analytical toroidal field
-      ! with a maximum of amp_b1 at mid-radius
-      ! between r_icb and r_cmb for an insulating
-      ! inner core and at r_cmb/2 for a conducting
-      ! inner core
+         ! with a maximum of amp_b1 at mid-radius
+         ! between r_icb and r_cmb for an insulating
+         ! inner core and at r_cmb/2 for a conducting
+         ! inner core
 
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_tor=-two*amp_b1*sqrt(third*pi)  ! minus sign makes phi comp. > 0
@@ -1178,45 +1178,45 @@ contains
          end if
 
       else if ( init_b1 == 4 .or. imagcon == -1 ) then  ! l=1,m0 poloidal field
-      ! with max field amplitude amp_b1 at r_icb
-       if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
-          b_pol=-amp_b1*r_icb**3*sqrt(third*pi)
-          do n_r=1,n_r_max
-             b(l1m0,n_r)=b(l1m0,n_r)+b_pol*or1(n_r)
-          end do
-          if ( l_cond_ic ) then
-             do n_r=1,n_r_ic_max
-                b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol/r_icb* &
-                               ( -three*half + half*(r_ic(n_r)/r_icb)**2 )
-             end do
-          end if
-       end if
+         ! with max field amplitude amp_b1 at r_icb
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
+            b_pol=-amp_b1*r_icb**3*sqrt(third*pi)
+            do n_r=1,n_r_max
+               b(l1m0,n_r)=b(l1m0,n_r)+b_pol*or1(n_r)
+            end do
+            if ( l_cond_ic ) then
+               do n_r=1,n_r_ic_max
+                  b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol/r_icb* &
+                                 ( -three*half + half*(r_ic(n_r)/r_icb)**2 )
+               end do
+            end if
+         end if
 
       else if ( init_b1 == 5 ) then  ! l=1,m0 poloidal field
-      ! constant j density, defined max field value amp_v1 at r_cmb
-       if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
-          if ( l_cond_ic ) then
-             b_pol=amp_b1*sqrt(three*pi)/r_cmb
-             do n_r=1,n_r_max
-                b(l1m0,n_r)=b(l1m0,n_r)+b_pol* (   r(n_r)**3 - &
-                            four*third*r_cmb * r(n_r)**2 )
-             end do
-             do n_r=1,n_r_ic_max
-                b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol*r_icb**2 * &
-                   (-5.0_cp/6.0_cp*r_icb-four*third+half*r_ic(n_r)**2/r_icb)
-             end do
-          else
-             b_pol=amp_b1*sqrt(three*pi)/(r_cmb*(one-radratio**4))
-             do n_r=1,n_r_max
-                b(l1m0,n_r)=b(l1m0,n_r)+b_pol* (   r(n_r)**3 - &
-                                 four*third*r_cmb * r(n_r)**2 + &
-                                 third*r_icb**4 / r(n_r)    )
-             end do
-          end if
-       end if
+         ! constant j density, defined max field value amp_v1 at r_cmb
+         if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
+            if ( l_cond_ic ) then
+               b_pol=amp_b1*sqrt(three*pi)/r_cmb
+               do n_r=1,n_r_max
+                  b(l1m0,n_r)=b(l1m0,n_r)+b_pol* (   r(n_r)**3 - &
+                              four*third*r_cmb * r(n_r)**2 )
+               end do
+               do n_r=1,n_r_ic_max
+                  b_ic(l1m0,n_r)=b_ic(l1m0,n_r)+b_pol*r_icb**2 * &
+                     (-5.0_cp/6.0_cp*r_icb-four*third+half*r_ic(n_r)**2/r_icb)
+               end do
+            else
+               b_pol=amp_b1*sqrt(three*pi)/(r_cmb*(one-radratio**4))
+               do n_r=1,n_r_max
+                  b(l1m0,n_r)=b(l1m0,n_r)+b_pol* (   r(n_r)**3 - &
+                                   four*third*r_cmb * r(n_r)**2 + &
+                                   third*r_icb**4 / r(n_r)    )
+               end do
+            end if
+         end if
 
       else if ( init_b1 == 6 ) then  ! l=1,m=0 poloidal field , constant in r !
-      ! no potential at r_cmb but simple
+         ! no potential at r_cmb but simple
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1
             do n_r=1,n_r_max
@@ -1230,7 +1230,7 @@ contains
          end if
 
       else if ( init_b1 == 7 .or. imagcon == -2 ) then  ! l=1,m0 poloidal field
-      ! which is potential field at r_cmb
+         ! which is potential field at r_cmb
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
@@ -1246,7 +1246,7 @@ contains
          end if
 
       else if ( init_b1 == 8 ) then  ! l=1,m0 pol. field, l=2,m=0 toroidal field
-      ! which is potential field at r_cmb
+         ! which is potential field at r_cmb
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
@@ -1276,7 +1276,7 @@ contains
          end if
 
       else if ( init_b1 == 9 ) then  ! l=2,m0 poloidal field
-      ! which is potential field at r_cmb
+         ! which is potential field at r_cmb
          if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             b_pol=amp_b1*7.0_cp/6.0_cp*sqrt(pi/5.0_cp)*r_icb**2*radratio
             do n_r=1,n_r_max
@@ -1293,23 +1293,23 @@ contains
 
       else if ( init_b1 == 10 ) then  ! only equatorial dipole
 
-       if ( l1m1 <= 0 ) then
-          call abortRun('! Can not initialize l=1,m=1 !')
-       end if
+         if ( l1m1 <= 0 ) then
+            call abortRun('! Can not initialize l=1,m=1 !')
+         end if
 
-       if ( llm <= l1m1 .and. ulm >= l1m1 ) then ! select processor
-          b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
-          do n_r=1,n_r_max
-             b(l1m1,n_r)=b(l1m1,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
-                          ( one - three/5.0_cp*(r(n_r)/r_cmb)**2 )
-          end do
-          if ( l_cond_ic ) then
-             do n_r=1,n_r_ic_max
-                b_ic(l1m1,n_r)=b_ic(l1m1,n_r)+b_pol * &
-                               ( one - three/5.0_cp*(r_ic(n_r)/r_cmb)**2 )
-             end do
-          end if
-       end if
+         if ( llm <= l1m1 .and. ulm >= l1m1 ) then ! select processor
+            b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
+            do n_r=1,n_r_max
+               b(l1m1,n_r)=b(l1m1,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
+                            ( one - three/5.0_cp*(r(n_r)/r_cmb)**2 )
+            end do
+            if ( l_cond_ic ) then
+               do n_r=1,n_r_ic_max
+                  b_ic(l1m1,n_r)=b_ic(l1m1,n_r)+b_pol * &
+                                 ( one - three/5.0_cp*(r_ic(n_r)/r_cmb)**2 )
+               end do
+            end if
+         end if
 
       else if ( init_b1 < 0 ) then  ! l,m mixture, random init
 
@@ -1323,7 +1323,7 @@ contains
             end do
          end if
 
-     !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
+         !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
          rr=random(one)
          do lm=llm,ulm
             l1=lo_map%lm2l(lm)
@@ -1382,7 +1382,7 @@ contains
          end if
 
       else if ( init_b1 == 21 ) then ! toroidal field created by inner core rotation
-      ! equatorialy symmetric
+         ! equatorialy symmetric
          if ( llm <= l1m0 .and. ulm >= l1m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
@@ -1398,7 +1398,7 @@ contains
          end if
 
       else if ( init_b1 == 22 ) then ! toroidal field created by inner core rotation
-      ! equatorialy asymmetric
+         ! equatorialy asymmetric
          if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb*or1(n_r))**6
@@ -1469,7 +1469,6 @@ contains
 
       !----- ICB:
       if ( l_cond_ic ) then  ! matching condition at inner core:
-
          do n_r_out=1,rscheme_oc%n_max
             jMat(n_r_max,n_r_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,n_r_out)
             jMat(n_r_max+1,n_r_out)=rscheme_oc%rnorm*sigma_ratio* &
@@ -1479,16 +1478,13 @@ contains
             jMat(n_r_max,n_r_out)  =0.0_cp
             jMat(n_r_max+1,n_r_out)=0.0_cp
          end do
-
       else
-
          do n_r_out=1,rscheme_oc%n_max
             jMat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)*rscheme_oc%rnorm
          end do
          do n_r_out=rscheme_oc%n_max+1,n_r_max
             jMat(n_r_max,n_r_out)=0.0_cp
          end do
-
       end if
 
       do n_r=1,n_r_max
@@ -1498,21 +1494,24 @@ contains
 
       !----- Inner core:
       if ( l_cond_ic ) then
-
          do n_cheb=1,n_r_ic_max ! counts even IC cheb modes
-            do n_r=2,n_r_ic_max ! counts IC radial grid point
+            do n_r=2,n_r_ic_max-1 ! counts IC radial grid point
                jMat(n_r_max+n_r,n_r_max+n_cheb) =                 &
-               &        cheb_norm_ic*dL*or3(n_r_max)*opm*O_sr * ( &
-               &                r_ic(n_r)*d2cheb_ic(n_cheb,n_r) + &
-               &            two*real(l+1,cp)*dcheb_ic(n_cheb,n_r) )
+               &        cheb_norm_ic*dL*or2(n_r_max)*opm*O_sr * ( &
+               &        d2cheb_ic(n_cheb,n_r) + two*real(l+1,cp)* &
+               &        O_r_ic(n_r)*dcheb_ic(n_cheb,n_r) )
             end do
+            ! r=0: central point
+            n_r=n_r_ic_max
+            jMat(n_r_max+n_r,n_r_max+n_cheb) = cheb_norm_ic*dL*or2(n_r_max)* &
+            &              opm*O_sr*(one+two*real(l+1,cp))*d2cheb_ic(n_cheb,n_r)
          end do
 
          !-------- boundary conditions:
          do n_cheb=1,n_cheb_ic_max
             jMat(n_r_max,n_r_max+n_cheb)=-cheb_norm_ic*cheb_ic(n_cheb,1)
-            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      & 
-            &                                 dcheb_ic(n_cheb,1) + &
+            jMat(n_r_max+1,n_r_max+n_cheb)= -cheb_norm_ic * (      &
+            &                                dcheb_ic(n_cheb,1)  + &
             &         real(l+1,cp)*or1(n_r_max)*cheb_ic(n_cheb,1) )
          end do
          do n_cheb=n_r_max+n_cheb_ic_max+1,n_r_tot
@@ -1521,8 +1520,9 @@ contains
          end do
 
          !-------- normalization for lowest Cheb mode:
-         do n_r=n_r_max+1,n_r_tot
+         do n_r=n_r_max,n_r_tot
             jMat(n_r,n_r_max+1)=half*jMat(n_r,n_r_max+1)
+            jMat(n_r,n_r_tot)  =half*jMat(n_r,n_r_tot)
          end do
 
          !-------- fill matrix up with zeros:
@@ -1567,7 +1567,6 @@ contains
       call rscheme_oc%costf1(aj0)
 
       if ( l_cond_ic ) then
-
          !----- copy result for IC:
          do n_cheb=1,n_cheb_ic_max
             aj0_ic(n_cheb)=rhs(n_r_max+n_cheb)
@@ -1579,7 +1578,6 @@ contains
          !----- transform to radial space:
          !  Note: this is assuming that aj0_ic is an even function !
          call chebt_ic%costf1(aj0_ic,work_l_ic)
-
       end if
 
       deallocate( jMat )
@@ -1846,7 +1844,7 @@ contains
             &     otemp1(n_r_max)*rscheme_oc%dr_bot(1,:)
             pt0Mat(n_r_max,n_r_max+1:)=-ViscHeatFac*ThExpNb*alpha0(n_r_max)*  &
             &              orho1(n_r_max)*(dLalpha0(n_r_max)-beta(n_r_max))*  &
-            &              rscheme_oc%rMat(n_r_max,1:n_r_max) 
+            &              rscheme_oc%rMat(n_r_max,1:n_r_max)
             pt0Mat(n_r_max,2*n_r_max:2*n_r_max-rscheme_oc%order_boundary:-1)=  &
             & pt0Mat(n_r_max,2*n_r_max:2*n_r_max-rscheme_oc%order_boundary:-1)-&
             &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*         &
