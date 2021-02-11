@@ -7,7 +7,6 @@ module storeCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use useful, only: abortRun
    use communications, only: gt_OC, gt_IC, gather_from_lo_to_rank0, &
        &                     gather_all_from_lo_to_rank0, lo2r_one
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
@@ -85,8 +84,6 @@ contains
 
       integer :: n_rst_file, version, n_o
       character(len=72) :: string,rst_file
-
-      if ( l_parallel_solve ) call abortRun('! In store with l_parallel_solve=.true.???')
 
       version = 2
       l_press_store = ( .not. l_double_curl ) 

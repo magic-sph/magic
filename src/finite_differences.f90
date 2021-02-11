@@ -215,22 +215,6 @@ contains
 
       if ( this%order == 2 ) then
          do n_r=1,this%n_max
-            do od=0,2
-               if ( n_r== 1 .and. od == 0 ) then
-                  dr_spacing(od+1)=r(1)-r(2) ! r[0] = r[1]-Delta
-               else if ( n_r == this%n_max .and. od==2 ) then
-                  dr_spacing(od+1)=r(this%n_max)-r(this%n_max-1)
-               else
-                  dr_spacing(od+1)=r(n_r-1+od)-r(n_r)
-               end if
-            end do
-
-            call populate_fd_weights(0.0_cp,dr_spacing,2,2,taylor_exp)
-
-            do od=0,2
-               this%dr(n_r,od) =taylor_exp(od,1)
-               this%ddr(n_r,od)=taylor_exp(od,2)
-            end do
             if ( n_r == 1) then
                drl = r(2)-r(1)
                this%dr(n_r,0)=-half/drl
@@ -247,6 +231,15 @@ contains
                this%ddr(n_r,0)=one/drl/drl
                this%ddr(n_r,1)=-two/drl/drl
                this%ddr(n_r,2)=one/drl/drl
+            else
+               do od=0,2
+                  dr_spacing(od+1)=r(n_r-1+od)-r(n_r)
+               end do
+               call populate_fd_weights(0.0_cp,dr_spacing,2,2,taylor_exp)
+               do od=0,2
+                  this%dr(n_r,od) =taylor_exp(od,1)
+                  this%ddr(n_r,od)=taylor_exp(od,2)
+               end do
             end if
          end do
       else

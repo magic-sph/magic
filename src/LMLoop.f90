@@ -696,7 +696,7 @@ contains
 #ifdef WITH_MPI
       call MPI_Waitall(req-1, array_of_requests(1:req-1), MPI_STATUSES_IGNORE, ierr)
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
-      !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
       !$omp end master
       !$omp barrier
