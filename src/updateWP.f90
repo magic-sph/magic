@@ -1713,7 +1713,7 @@ contains
 
    end subroutine assemble_pol
 !------------------------------------------------------------------------------
-   subroutine assemble_pol_Rloc(block_sze, w, dw, ddw, p, dp, dwdt, dp_expl, &
+   subroutine assemble_pol_Rloc(block_sze, nblocks, w, dw, ddw, p, dp, dwdt, dp_expl, &
               &                 tscheme, lPressNext, lRmsNext)
       !
       ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
@@ -1722,7 +1722,7 @@ contains
       !
 
       !-- Input variables
-      integer,             intent(in) :: block_sze
+      integer,             intent(in) :: block_sze, nblocks
       complex(cp),         intent(in) :: dp_expl(lm_max,nRstart:nRstop)
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lPressNext
@@ -1737,14 +1737,11 @@ contains
       complex(cp),       intent(inout) :: dp(lm_max,nRstart:nRstop)
 
       !-- Local variables
-      integer :: nlm_block, start_lm, stop_lm, req, tag, nblocks, lms_block
+      integer :: nlm_block, start_lm, stop_lm, req, tag, lms_block
       integer :: n_r, lm, l
       complex(cp) :: work_Rloc(lm_max, nRstart:nRstop)
       complex(cp) :: work_ghost(lm_max, nRstart-1:nRstop+1)
-      integer, allocatable :: array_of_requests(:)
-
-      nblocks = (lm_max+block_sze-1)/block_sze
-      allocate( array_of_requests(4*nblocks) )
+      integer :: array_of_requests(4*nblocks)
 
       !-- LU factorisation of the matrix if needed
       if ( .not. l_ellMat(1) ) then
@@ -1817,11 +1814,14 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Waitall(req-1, array_of_requests(1:req-1), MPI_STATUSES_IGNORE, ierr)
-      if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
+      if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in assemble_pol_Rloc')
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
       !$omp end master
       !$omp barrier
 
+      start_lm=1; stop_lm=lm_max
+      call get_openmp_blocks(start_lm,stop_lm)
       do n_r=nRstart-1,nRstop+1
          do lm=start_lm,stop_lm
             w_ghost(lm,n_r)=work_ghost(lm,n_r)
@@ -1830,7 +1830,9 @@ contains
       !$omp end parallel
 
       ! nRstart-1 and nRstop+1 are already known, only the next one is not known
-      call exch_ghosts(w_ghost, lm_max, nRstart-1, nRstop+1, 1)
+      !call exch_ghosts(w_ghost, lm_max, nRstart-1, nRstop+1, 1)
+      ! Apparently it yields some problems, not sure why yet
+      call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
       call fill_ghosts_W(w_ghost)
       call get_pol_rhs_imp_ghost(w_ghost, dw, ddw, p, dp, dwdt, tscheme, 1, &
            &                     tscheme%l_imp_calc_rhs(1), lPressNext,     &
@@ -1849,8 +1851,6 @@ contains
          end do
       end do
       !$omp end parallel
-
-      deallocate(array_of_requests)
 
    end subroutine assemble_pol_Rloc
 !------------------------------------------------------------------------------
