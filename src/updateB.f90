@@ -756,7 +756,7 @@ contains
             if ( l == 0 ) cycle
             m = st_map%lm2m(lm)
 
-            aj_ghost(lm,nR)=zero
+            if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
             if (imagcon /= 0 .and. tmagcon <= time ) then
                if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
                if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
@@ -790,17 +790,22 @@ contains
             l = st_map%lm2l(lm)
             if ( l == 0 ) cycle
             m = st_map%lm2m(lm)
-            aj_ghost(lm,nR)=zero
-            if (imagcon /= 0 .and. tmagcon <= time ) then
-               if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
-               if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                  aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-               else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
-                  aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-               else if ( m == 0 .and. l==1 .and. imagcon == -1 ) then
-                  b_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-               else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
-                  aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+            if ( l_full_sphere ) then
+               b_ghost(lm,nR) =zero
+               aj_ghost(lm,nR)=zero
+            else
+               if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
+               if (imagcon /= 0 .and. tmagcon <= time ) then
+                  if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
+                  if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                     aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                  else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
+                     aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                  else if ( m == 0 .and. l==1 .and. imagcon == -1 ) then
+                     b_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                  else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
+                     aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                  end if
                end if
             end if
 
@@ -834,8 +839,8 @@ contains
       call get_openmp_blocks(lm_start,lm_stop)
 
       !-- Upper boundary
-      dr = r(2)-r(1)
       if ( nRstartMag == n_r_cmb ) then
+         dr = r(2)-r(1)
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l == 0 ) cycle
@@ -856,12 +861,12 @@ contains
       end if
 
       !-- Lower boundary
-      dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstopMag == n_r_icb ) then
+         dr = r(n_r_max)-r(n_r_max-1)
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l == 0 ) cycle
-            if ( l_full_sphere ) then
+            if ( l_full_sphere ) then ! blm=ajlm=0 at the center
                ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
                bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
             else
@@ -915,7 +920,7 @@ contains
       complex(cp),       intent(out) :: ddj(lm_max,nRstartMag:nRstopMag)
 
       !-- Local variables
-      integer :: nR, lm_start, lm_stop, lm
+      integer :: nR, lm_start, lm_stop, lm, l
 
       if ( .not. l_update_b ) return
 
@@ -944,7 +949,7 @@ contains
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
 
-      !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm,l)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !!$omp barrier
@@ -953,6 +958,8 @@ contains
       !!$omp parallel do simd collapse(2) schedule(simd:static)
       do nR=nRstartMag,nRstopMag
          do lm=lm_start,lm_stop
+            l=st_map%lm2l(lm)
+            if ( l == 0 ) cycle
             b(lm,nR) = b_ghost(lm,nR)
             aj(lm,nR)=aj_ghost(lm,nR)
          end do
@@ -2148,7 +2155,7 @@ contains
 
    end subroutine get_bMat
 !-----------------------------------------------------------------------------
-   subroutine get_bmat_Rdist(tscheme,hdif,bMat,jMat)
+   subroutine get_bMat_Rdist(tscheme,hdif,bMat,jMat)
       !
       !  Purpose of this subroutine is to contruct the time step matrices
       !  ``bmat(i,j)`` and ``ajmat`` for the dynamo equations when the parallel
@@ -2282,28 +2289,29 @@ contains
                jMat%up(l,n_r_max)  =0.0_cp
                bMat%low(l,n_r_max)=bMat%low(l,n_r_max)+bMat%up(l,n_r_max)
             end if
-         end if
 
-         !-------- Imposed fields: (overwrites above IC boundary cond.)
-         if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-            bMat%diag(l,n_r_max)=one
-            bMat%low(l,n_r_max) =0.0_cp
-            bMat%up(l,n_r_max)  =0.0_cp
-         else if ( l == 3 .and. imagcon == -10 ) then
-            if ( l_LCR ) then
-               call abortRun('Imposed field not compatible with weak conducting region!')
+            !-------- Imposed fields: (overwrites above IC boundary cond.)
+            if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
+               bMat%diag(l,n_r_max)=one
+               bMat%low(l,n_r_max) =0.0_cp
+               bMat%up(l,n_r_max)  =0.0_cp
+            else if ( l == 3 .and. imagcon == -10 ) then
+               if ( l_LCR ) then
+                  call abortRun('Imposed field not compatible with weak conducting region!')
+               end if
+               jMat%diag(l,n_r_max)=one
+               jMat%low(l,n_r_max) =0.0_cp
+               jMat%up(l,n_r_max)  =0.0_cp
+               jMat%diag(l,1)=one
+               jMat%low(l,1) =0.0_cp
+               jMat%up(l,1)  =0.0_cp
+            else if ( n_imp == 1 ) then
+               if ( l_LCR ) then
+                  call abortRun('Imposed field not compatible with weak conducting region!')
+               end if
+               call abortRun('In getBMat_FD: not implemented yet!')
             end if
-            jMat%diag(l,n_r_max)=one
-            jMat%low(l,n_r_max) =0.0_cp
-            jMat%up(l,n_r_max)  =0.0_cp
-            jMat%diag(l,1)=one
-            jMat%low(l,1) =0.0_cp
-            jMat%up(l,1)  =0.0_cp
-         else if ( n_imp == 1 ) then
-            if ( l_LCR ) then
-               call abortRun('Imposed field not compatible with weak conducting region!')
-            end if
-            call abortRun('In getBMat_FD: not implemented yet!')
+
          end if
       end do
       !$omp end do
@@ -2313,6 +2321,6 @@ contains
       call bMat%prepare_mat()
       call jMat%prepare_mat()
 
-   end subroutine get_bmat_Rdist
+   end subroutine get_bMat_Rdist
 !-----------------------------------------------------------------------------
 end module updateB_mod
