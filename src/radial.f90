@@ -411,6 +411,7 @@ contains
 
          ! rho is negative beyond r_cut_model=0.9965
          ! radratio should be 0.7 (size of the Sun's CZ)
+         ! This is Model S by JCD (e.g.: JCD+ Science 1996)
 
          allocate( coeffDens(6), coeffTemp(4) )
          coeffDens = [-24.83750402_cp, 231.79029994_cp, -681.72774358_cp, &
