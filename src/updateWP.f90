@@ -53,8 +53,8 @@ module updateWP_mod
    logical, public, allocatable :: lWPmat(:)
    logical, allocatable :: l_ellMat(:)
    type(type_penta_par), public :: wMat_FD
-   type(type_tri_par), public :: ellMat_FD
-   complex(cp), public, allocatable :: w_ghost(:,:)
+   type(type_tri_par), public :: ellMat_FD, p0Mat_FD
+   complex(cp), public, allocatable :: w_ghost(:,:), p0_ghost(:)
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol,       &
@@ -174,12 +174,15 @@ contains
 
       else ! Parallel solver
 
+         call p0Mat_FD%initialize(1,n_r_max,1,1)
          call wMat_FD%initialize(1,n_r_max,0,l_max)
 
          !-- Allocate an array with ghost zones
-         allocate( w_ghost(lm_max,nRstart-2:nRstop+2) )
-         bytes_allocated=bytes_allocated+lm_max*(nRstop-nRstart+5)*SIZEOF_DEF_COMPLEX
+         allocate( w_ghost(lm_max,nRstart-2:nRstop+2), p0_ghost(nRstart-1:nRstop+1) )
+         bytes_allocated=bytes_allocated+lm_max*(nRstop-nRstart+5)*SIZEOF_DEF_COMPLEX &
+         &               +(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          w_ghost(:,:)=zero
+         p0_ghost(:) =zero
 
          allocate( Dif(lm_max) )
          bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
@@ -240,8 +243,9 @@ contains
             if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
          end if
       else ! Parallel solver
+         call p0Mat_FD%finalize()
          call wMat_FD%finalize()
-         deallocate( w_ghost, Dif )
+         deallocate( w_ghost, Dif, p0_ghost )
          if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
          if ( tscheme%l_assembly .and. l_double_curl ) call ellMat_FD%finalize()
       end if
@@ -590,23 +594,39 @@ contains
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
-   subroutine prepareW_FD(tscheme, dwdt)
+   subroutine prepareW_FD(tscheme, dwdt, lPressNext)
 
       !-- Input of variable
+      logical,             intent(in) :: lPressNext
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variables
-      integer :: nR, lm_start, lm_stop, lm, l
+      integer :: nR, lm_start, lm_stop, lm, l, lm00
 
       if ( .not. l_update_v ) return
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lWPmat(1) ) then
          call get_wMat_Rdist(tscheme, hdif_V, wMat_FD)
+         call get_p0Mat_Rdist(p0Mat_FD)
          lWPmat(:)=.true.
+      end if
+
+      if ( lPressNext ) then
+         lm00=st_map%lm2(0,0)
+         do nR=nRstart,nRstop
+            p0_ghost(nR)=dwdt%expl(lm00,nR,tscheme%istage)
+            if ( l_heat ) then
+               p0_ghost(nR)=p0_ghost(nR)+rho0(nR)*BuoFac*rgrav(nR)*s_Rloc(lm00,nR)
+            end if
+            if ( l_chemical_conv ) then
+               p0_ghost(nR)=p0_ghost(nR)+rho0(nR)*ChemFac*rgrav(nR)*xi_Rloc(lm00,nR)
+            end if
+         end do
+         if ( nRstart == n_r_cmb ) p0_ghost(nRstart)=zero
       end if
 
       !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, lm)
@@ -648,11 +668,13 @@ contains
 
    end subroutine prepareW_FD
 !------------------------------------------------------------------------------
-   subroutine fill_ghosts_W(wg)
+   subroutine fill_ghosts_W(wg,p0g,lPressNext)
       !
       ! This subroutine is used to fill the ghost zones.
       !
 
+      logical,     intent(in)    :: lPressNext
+      complex(cp), intent(inout) :: p0g(nRstart-1:nRstop+1)
       complex(cp), intent(inout) :: wg(lm_max, nRstart-2:nRstop+2)
 
       !-- Local variables
@@ -660,6 +682,15 @@ contains
       real(cp) :: dr
 
       if ( .not. l_update_v ) return
+
+      if ( lPressNext ) then
+         if ( nRstart == n_r_cmb ) then
+            p0g(nRstart-1)=two*p0g(nRstart)-p0g(nRstart+1)
+         end if
+         if ( nRstop == n_r_icb ) then
+            p0g(nRstop+1)=two*p0g(nRstop)-p0g(nRstop-1)
+         end if
+      end if
 
       !$omp parallel default(shared) private(lm_start, lm_stop, l, lm)
       lm_start=1; lm_stop=lm_max
@@ -1344,7 +1375,10 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l=st_map%lm2l(lm)
-               if ( l == 0 ) cycle
+               if ( l == 0 ) then
+                  if ( lPressNext ) p(lm,n_r)=p0_ghost(n_r)
+                  cycle
+               end if
                dL=real(l*(l+1),cp)
 
                if ( l /= 0 .and. lPressNext ) then
@@ -1833,7 +1867,7 @@ contains
       !call exch_ghosts(w_ghost, lm_max, nRstart-1, nRstop+1, 1)
       ! Apparently it yields some problems, not sure why yet
       call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
-      call fill_ghosts_W(w_ghost)
+      call fill_ghosts_W(w_ghost, p0_ghost, .false.)
       call get_pol_rhs_imp_ghost(w_ghost, dw, ddw, p, dp, dwdt, tscheme, 1, &
            &                     tscheme%l_imp_calc_rhs(1), lPressNext,     &
            &                     lRmsNext, dp_expl)
@@ -2513,5 +2547,43 @@ contains
       if ( info /= 0 ) call abortRun('! Singular matrix p0Mat!')
 
    end subroutine get_p0Mat
+!-----------------------------------------------------------------------------
+   subroutine get_p0Mat_Rdist(pMat)
+      !
+      ! This subroutine solves the linear problem of the spherically-symmetric
+      ! pressure. This is the R-distributed variant of the function used when
+      ! parallel F.D. solvers are employed
+      !
+
+      !-- Output variables:
+      type(type_tri_par), intent(inout) :: pMat ! matrix
+
+      !-- Local variables:
+      real(cp) :: dr
+      integer :: l, nR
+
+      l=1
+      !-- Bulk points
+      do nR=2,n_r_max-1
+         pMat%diag(l,nR)=rscheme_oc%dr(nR,1)-beta(nR)
+         pMat%low(l,nR) =rscheme_oc%dr(nR,0)
+         pMat%up(l,nR)  =rscheme_oc%dr(nR,2)
+      end do
+
+      !-- Boundary conditions for spherically-symmetric pressure
+      pMat%diag(l,1)=one
+      pMat%low(l,1) =0.0_cp
+      pMat%up(l,1)  =0.0_cp
+
+      !-- First order on the last point (no way around)
+      dr = r(n_r_max)-r(n_r_max-1)
+      pMat%diag(l,n_r_max)=one/dr-beta(n_r_max)
+      pMat%low(l,n_r_max) =-one/dr
+      pMat%up(l,n_r_max)  =0.0_cp
+
+      !---- LU decomposition:
+      call pMat%prepare_mat()
+
+   end subroutine get_p0Mat_Rdist
 !-----------------------------------------------------------------------------
 end module updateWP_mod

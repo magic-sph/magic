@@ -116,7 +116,7 @@ contains
       if ( l_conv ) then
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
               &           dum_scal)
-         call prepareW_FD(tscheme, dummy)
+         call prepareW_FD(tscheme, dummy, .false.)
       end if
       if ( l_mag_par_solve ) call prepareB_FD(0.0_cp, tscheme, dummy, dummy)
 
@@ -291,7 +291,8 @@ contains
          call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
               &           domega_ic_dt)
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
-         call prepareW_FD(tscheme, dwdt)
+         call prepareW_FD(tscheme, dwdt, lPressNext)
+         if ( lPressNext ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
       if ( l_mag_par_solve ) call prepareB_FD(time, tscheme, dbdt, djdt)
 
@@ -311,7 +312,7 @@ contains
       if ( l_chemical_conv ) call fill_ghosts_Xi(xi_ghost)
       if ( l_conv ) then
          call fill_ghosts_Z(z_ghost)
-         call fill_ghosts_W(w_ghost)
+         call fill_ghosts_W(w_ghost, p0_ghost, lPressNext)
       end if
       if ( l_mag_par_solve ) call fill_ghosts_B(b_ghost, aj_ghost)
 
@@ -834,7 +835,7 @@ contains
          !-- Refined block determination
          if ( rank == 0 ) write(output_unit,*) ''
          do while( (t(2)>min(t(1),tt)*1.02) .and. (t(0)>min(t(1),tt)*1.02) &
-         &          .and. (abs(b(2)-b(0))>1) )
+         &          .and. (abs(b(2)-b(0))>1) .and. (maxval(b) < 4) )
             if ( tt < t(1) ) then ! This is better than before
                t(0)=t(1); b(0)=b(1);
                t(1)=tt; b(1)=bb

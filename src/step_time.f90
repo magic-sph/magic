@@ -55,7 +55,7 @@ module step_time_mod
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
    use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
-       &                   fill_ghosts_W
+       &                   fill_ghosts_W, p0_ghost
    use updateWPS_mod, only: get_single_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
        &                  fill_ghosts_S
@@ -683,7 +683,7 @@ contains
                call io_counter%start_count()
                if ( l_parallel_solve .and. (l_log .or. l_spectrum .or. lTOCalc .or. &
                &    l_dtB .or. l_cmb .or. l_r .or. l_pot .or. l_store .or. l_frame) ) then
-                  call transp_Rloc_to_LMloc_IO()
+                  call transp_Rloc_to_LMloc_IO(lPressCalc)
                end if
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,      &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
@@ -947,8 +947,9 @@ contains
          else
             if ( l_parallel_solve ) then
                call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
+               call bulk_to_ghost(p_Rloc(1,:), p0_ghost, 2, nRstart, nRstop, 1, 1, 1)
                call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
-               call fill_ghosts_W(w_ghost)
+               call fill_ghosts_W(w_ghost, p0_ghost, .true.)
                call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc, &
                     &                     dwdt, tscheme, 1, .true., .false., .false.,  &
                     &                     dwdt%expl(:,:,1)) ! Work array
@@ -1254,11 +1255,13 @@ contains
 
    end subroutine transp_Rloc_to_LMloc
 !--------------------------------------------------------------------------------
-   subroutine transp_Rloc_to_LMloc_IO()
+   subroutine transp_Rloc_to_LMloc_IO(lPressCalc)
       !
       ! For now, most of the outputs use LM-distributed arrays as input. To handle
       ! that one has to transpose the missing fields.
       !
+      logical, intent(in) :: lPressCalc
+
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
       if ( l_heat ) then
@@ -1272,6 +1275,7 @@ contains
          call r2lo_one%transp_r2lm(work_Rloc,dxi_LMloc)
       end if
 
+      if ( lPressCalc ) call r2lo_one%transp_r2lm(p_Rloc,p_LMloc)
       call r2lo_one%transp_r2lm(z_Rloc,z_LMloc)
       call r2lo_one%transp_r2lm(dz_Rloc,dz_LMloc)
       call r2lo_one%transp_r2lm(w_Rloc,w_LMloc)

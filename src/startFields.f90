@@ -45,7 +45,7 @@ module start_fields
 #endif
    use updateWPS_mod, only: get_single_rhs_imp
    use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
-       &                   fill_ghosts_W
+       &                   fill_ghosts_W, p0_ghost
    use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
        &                  fill_ghosts_S
    use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
@@ -350,8 +350,9 @@ contains
          end if
          if ( l_parallel_solve ) then
             call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
+            call bulk_to_ghost(p_Rloc(1,:), p0_ghost, 1, nRstart, nRstop, 1, 1, 1)
             call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
-            call fill_ghosts_W(w_ghost)
+            call fill_ghosts_W(w_ghost, p0_ghost, .true.)
             call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc,  &
                  &                     dwdt, tscheme, 1, .true., .false., .false.,   &
                  &                     dwdt%expl(:,:,1)) ! Work array
