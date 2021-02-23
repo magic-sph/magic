@@ -480,16 +480,18 @@ class MagicRadial(MagicSetup):
                 ax.fill_between(x_axis, self.entropy-self.entropy_SD,
                                 self.entropy+self.entropy_SD,
                                 color='C0', alpha=0.3)
-            ax.plot(x_axis, self.temperature, label='T', color='C1')
-            if hasattr(self, 'temperature_SD'):
-                ax.fill_between(x_axis, self.temperature-self.temperature_SD,
-                                self.temperature+self.temperature_SD,
-                                color='C1', alpha=0.3)
-            ax.plot(x_axis, self.xi, label='xi', color='C2')
-            if hasattr(self, 'xi_SD'):
-                ax.fill_between(x_axis, self.xi-self.xi_SD,
-                                self.xi+self.xi_SD,
-                                color='C2', alpha=0.3)
+            if self.DissNb > 0:
+                ax.plot(x_axis, self.temperature, label='T', color='C1')
+                if hasattr(self, 'temperature_SD'):
+                    ax.fill_between(x_axis, self.temperature-self.temperature_SD,
+                                    self.temperature+self.temperature_SD,
+                                    color='C1', alpha=0.3)
+            if self.xi.max() > 1e-10:
+                ax.plot(x_axis, self.xi, label='xi', color='C2')
+                if hasattr(self, 'xi_SD'):
+                    ax.fill_between(x_axis, self.xi-self.xi_SD,
+                                    self.xi+self.xi_SD,
+                                    color='C2', alpha=0.3)
             ax.set_xlabel('Radius')
             ax.set_ylabel('Temperature, Entropy, Composition')
             ax.legend(loc='best', frameon=False)
