@@ -130,9 +130,13 @@ def MagicCheck(tstart=None):
 
     print('\n' + bcolors.BOLD + bcolors.UNDERLINE + 'Angular resolution:' + bcolors.ENDC)
     print('Viscous dissipation scale: {:.3e}'.format(lvDiss_avg))
-    print('Ohmic dissipation scale  : {:.3e}'.format(lbDiss_avg))
+    if lbDiss_avg > 0:
+        print('Ohmic dissipation scale  : {:.3e}'.format(lbDiss_avg))
     st = 'Angular truncation       : {:.3e}'.format(lTrunc)
-    lMin = min(lvDiss_avg, lbDiss_avg)
+    if lbDiss_avg > 0:
+        lMin = min(lvDiss_avg, lbDiss_avg)
+    else:
+        lMin = lvDiss_avg
     ellMin = int(np.pi*dmean / lMin)
     nphi = int(3. * ellMin)
     if lTrunc < lMin:
@@ -155,14 +159,15 @@ def MagicCheck(tstart=None):
     sp = MagicSpectrum(field='kin', iplot=False, ave=ave, quiet=True)
     ekin_l = sp.ekin_poll+sp.ekin_torl
     ratio = ekin_l.max()/ekin_l[-2]
-    sp = MagicSpectrum(field='mag', iplot=False, ave=ave, quiet=True)
-    emag_l = sp.emag_poll+sp.emag_torl
-    ratio_mag = emag_l[2:].max()/emag_l[-2]
-    ratio_cmb = sp.emagcmb_l[2:].max()/sp.emagcmb_l[-2]
-
     st = 'Vol. kin. energy spectra (largest/smallest): {:.2e}'.format(ratio)
-    st_mag = 'Vol. mag. energy spectra (largest/smallest): {:.2e}'.format(ratio_mag)
-    st_cmb = 'CMB mag. energy spectra (largest/smallest) : {:.2e}'.format(ratio_cmb)
+    if ts.mode != 1:
+        sp = MagicSpectrum(field='mag', iplot=False, ave=ave, quiet=True)
+        emag_l = sp.emag_poll+sp.emag_torl
+        ratio_mag = emag_l[2:].max()/emag_l[-2]
+        ratio_cmb = sp.emagcmb_l[2:].max()/sp.emagcmb_l[-2]
+
+        st_mag = 'Vol. mag. energy spectra (largest/smallest): {:.2e}'.format(ratio_mag)
+        st_cmb = 'CMB mag. energy spectra (largest/smallest) : {:.2e}'.format(ratio_cmb)
 
     if ratio > 100:
         print(bcolors.OKGREEN + st + bcolors.ENDC)
@@ -170,18 +175,19 @@ def MagicCheck(tstart=None):
         print(bcolors.MODERATE + st + bcolors.ENDC)
     else:
         print(bcolors.WARNING + st + bcolors.ENDC)
-    if ratio_mag > 100:
-        print(bcolors.OKGREEN + st_mag + bcolors.ENDC)
-    elif ratio_mag <= 100 and ratio_mag > 50:
-        print(bcolors.MODERATE + st_mag + bcolors.ENDC)
-    else:
-        print(bcolors.WARNING + st_mag + bcolors.ENDC)
-    if ratio_cmb > 100:
-        print(bcolors.OKGREEN + st_cmb + bcolors.ENDC)
-    elif ratio_cmb <= 100 and ratio_cmb > 50:
-        print(bcolors.MODERATE + st_cmb + bcolors.ENDC)
-    else:
-        print(bcolors.WARNING + st_cmb + bcolors.ENDC)
+    if ts.mode != 1:
+        if ratio_mag > 100:
+            print(bcolors.OKGREEN + st_mag + bcolors.ENDC)
+        elif ratio_mag <= 100 and ratio_mag > 50:
+            print(bcolors.MODERATE + st_mag + bcolors.ENDC)
+        else:
+            print(bcolors.WARNING + st_mag + bcolors.ENDC)
+        if ratio_cmb > 100:
+            print(bcolors.OKGREEN + st_cmb + bcolors.ENDC)
+        elif ratio_cmb <= 100 and ratio_cmb > 50:
+            print(bcolors.MODERATE + st_cmb + bcolors.ENDC)
+        else:
+            print(bcolors.WARNING + st_cmb + bcolors.ENDC)
 
     # determine the relevant tags
     logs = scanDir('log.*')
