@@ -4,11 +4,17 @@ import os
 import re
 import numpy as np
 from .npfile import *
-import evtk
 from magic.movie import getNlines
 from magic.libmagic import symmetrize
 
-gridToVTK = evtk.hl.gridToVTK
+try: # Version 2 changed naming convention of functions
+    #import evtk
+    from evtk.hl import structuredToVTK
+    #gridToVTK = evtk.hl.structuredToVTK
+    gridToVTK = structuredToVTK
+except:
+    import evtk
+    gridToVTK = evtk.hl.gridToVTK
 
 
 class Movie2Vtk:
@@ -264,7 +270,7 @@ class Movie2Vtk:
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
                                                               str(self.phiCut), k+1+store_idx)
                         self.mer2vtk(fname, dat0.T, self.phiCut, fieldName)
-                        name = str(self.phiCut+np.pi/2)
+                        name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
