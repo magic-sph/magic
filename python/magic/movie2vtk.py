@@ -7,15 +7,18 @@ from .npfile import *
 from magic.movie import getNlines
 from magic.libmagic import symmetrize
 
-try: # Version 2 changed naming convention of functions
-    #import evtk
-    from evtk.hl import structuredToVTK
-    #gridToVTK = evtk.hl.structuredToVTK
-    gridToVTK = structuredToVTK
+try:
+    try: # Version 2 changed naming convention of functions
+        #import evtk
+        from evtk.hl import structuredToVTK
+        #gridToVTK = evtk.hl.structuredToVTK
+        gridToVTK = structuredToVTK
+    except:
+        import evtk
+        gridToVTK = evtk.hl.gridToVTK
 except:
-    import evtk
-    gridToVTK = evtk.hl.gridToVTK
-
+    print("movie2vtk requires the use of evtk library!")
+    print("You can get it from https://github.com/paulo-herrera/PyEVTK")
 
 class Movie2Vtk:
     """
