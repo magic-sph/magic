@@ -42,6 +42,8 @@ module grid_space_arrays_mod
    type, public, extends(general_arrays_t) :: grid_space_arrays_t
       !----- Nonlinear terms in phi/theta space:
       real(cp), allocatable :: Advr(:,:), Advt(:,:), Advp(:,:)
+      real(cp), allocatable :: AdUvr(:,:), AdUvt(:,:), AdUvp(:,:)
+      real(cp), allocatable :: AdvUr(:,:), AdvUt(:,:), AdvUp(:,:)
       real(cp), allocatable :: LFr(:,:), LFt(:,:), LFp(:,:)
       real(cp), allocatable :: PCr(:,:), PCt(:,:), PCp(:,:)
       real(cp), allocatable :: CAr(:,:), CAt(:,:)
@@ -58,10 +60,14 @@ module grid_space_arrays_mod
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
+      real(cp), allocatable :: Urc(:,:), Utc(:,:), Upc(:,:), cUrc(:,:)
       real(cp), allocatable :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
+      real(cp), allocatable :: dUrdrc(:,:), dUtdrc(:,:), dUpdrc(:,:)
       real(cp), allocatable :: cvrc(:,:), sc(:,:), drSc(:,:)
       real(cp), allocatable :: dvrdtc(:,:), dvrdpc(:,:)
+      real(cp), allocatable :: dUrdtc(:,:), dUrdpc(:,:)
       real(cp), allocatable :: dvtdpc(:,:), dvpdpc(:,:)
+      real(cp), allocatable :: dUtdpc(:,:), dUpdpc(:,:)
       real(cp), allocatable :: brc(:,:), btc(:,:), bpc(:,:)
       real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
       real(cp), allocatable :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
@@ -87,7 +93,10 @@ contains
       class(grid_space_arrays_t) :: this
 
       allocate( this%Advr(nlat_padded,n_phi_max), this%Advt(nlat_padded,n_phi_max) )
+      allocate( this%AdUvr(nlat_padded,n_phi_max), this%AdUvt(nlat_padded,n_phi_max) )
+      allocate( this%AdvUr(nlat_padded,n_phi_max), this%AdvUt(nlat_padded,n_phi_max) )
       allocate( this%Advp(nlat_padded,n_phi_max), this%LFr(nlat_padded,n_phi_max) )
+      allocate( this%AdUvp(nlat_padded,n_phi_max), this%AdvUp(nlat_padded,n_phi_max) )
       allocate( this%LFt(nlat_padded,n_phi_max), this%LFp(nlat_padded,n_phi_max) )
       allocate( this%VxBr(nlat_padded,n_phi_max), this%VxBt(nlat_padded,n_phi_max) )
       allocate( this%VxBp(nlat_padded,n_phi_max), this%VSr(nlat_padded,n_phi_max) )
@@ -116,9 +125,15 @@ contains
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nlat_padded,n_phi_max),this%vtc(nlat_padded,n_phi_max) )
       allocate( this%vpc(nlat_padded,n_phi_max), this%dvrdrc(nlat_padded,n_phi_max) )
+      allocate( this%Urc(nlat_padded,n_phi_max),this%Utc(nlat_padded,n_phi_max) )
+      allocate( this%Upc(nlat_padded,n_phi_max),this%cUrc(nlat_padded,n_phi_max) )
+      allocate( this%dUrdrc(nlat_padded,n_phi_max) )
       allocate(this%dvtdrc(nlat_padded,n_phi_max), this%dvpdrc(nlat_padded,n_phi_max))
+      allocate(this%dUtdrc(nlat_padded,n_phi_max), this%dUpdrc(nlat_padded,n_phi_max))
       allocate( this%cvrc(nlat_padded,n_phi_max), this%dvrdtc(nlat_padded,n_phi_max) )
+      allocate( this%dUrdtc(nlat_padded,n_phi_max),this%dUpdpc(nlat_padded,n_phi_max) )
       allocate( this%dvrdpc(nlat_padded,n_phi_max), this%dvtdpc(nlat_padded,n_phi_max) )
+      allocate( this%dUrdpc(nlat_padded,n_phi_max), this%dUtdpc(nlat_padded,n_phi_max) )
       allocate( this%dvpdpc(nlat_padded,n_phi_max), this%brc(nlat_padded,n_phi_max) )
       allocate( this%btc(nlat_padded,n_phi_max),this%bpc(nlat_padded,n_phi_max) )
       this%btc=1.0e50_cp
@@ -195,6 +210,11 @@ contains
       deallocate( this%sc,this%drSc, this%pc, this%xic )
       deallocate( this%dsdtc, this%dsdpc )
 
+      deallocate(this%AdvUr, this%AdvUt, this%AdvUp)
+      deallocate(this%AdUvr, this%AdUvt, this%AdUvp)
+      deallocate(this%dUrdrc,this%dUrdtc,this%dUrdpc)
+      deallocate(this%dUpdrc, this%dUpdpc, this%dUtdrc, this%dUtdpc)
+      
       !-- RMS Calculations
       if ( l_RMS ) then
          deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
@@ -303,6 +323,89 @@ contains
                &                                      this%cvrc(:,nPhi) )   - &
                &                     this%vpc(:,nPhi) * this%dvpdpc(:,nPhi) )
             end if
+
+
+            this%Urc = 0.0_cp
+            this%Utc = 0.0_cp
+            this%Upc(:,nPhi)  = oek * (r_cmb - r(nR)) * sinTheta
+            this%cUrc(:,nPhi) = 2.0_cp * oek * (r_cmb/r(nR) - 1.0_cp) * cosTheta
+!!!!!!!!!!!!!!!
+!  U.grad v
+!!!!!!!!!!!!!!!
+
+            this%AdUvr(:,nPhi)=          -or2(nR)*orho1(nR) * (  &
+            &                                this%Urc(:,nPhi) * &
+            &                     (       this%dvrdrc(:,nPhi) - &
+            &    ( two*or1(nR)+beta(nR) )*this%vrc(:,nPhi) ) +  &
+            &                      O_sin_theta_E2(:) * (        &
+            &                                this%Utc(:,nPhi) * &
+            &                     (       this%dvrdtc(:,nPhi) - &
+            &                  r(nR)*      this%vtc(:,nPhi) ) + &
+            &                                this%Upc(:,nPhi) * &
+            &                     (       this%dvrdpc(:,nPhi) - &
+            &                    r(nR)*      this%vpc(:,nPhi) ) ) )
+
+            this%AdUvt(:,nPhi)=or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
+            &                                         -this%Urc(:,nPhi) * &
+            &                                   (   this%dvtdrc(:,nPhi) - &
+            &                             beta(nR)*this%vtc(:,nPhi) )   + &
+            &                                          this%Utc(:,nPhi) * &
+            &                    ( cosn_theta_E2(:)*this%vtc(:,nPhi) +    &
+            &                                       this%dvpdpc(:,nPhi) + &
+            &                                   this%dvrdrc(:,nPhi) )   + &
+            &                                          this%Upc(:,nPhi) * &
+            &                    ( cosn_theta_E2(:)*this%vpc(:,nPhi) -    &
+            &                                       this%dvtdpc(:,nPhi) )  )
+
+            this%AdUvp(:,nPhi)= or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
+            &                                          -this%Urc(:,nPhi) * &
+            &                                      ( this%dvpdrc(:,nPhi) - &
+            &                              beta(nR)*this%vpc(:,nPhi) )   - &
+            &                                           this%Utc(:,nPhi) * &
+            &                                      ( this%dvtdpc(:,nPhi) + &
+            &                                      this%cvrc(:,nPhi) )   - &
+            &                     this%Upc(:,nPhi) * this%dvpdpc(:,nPhi) )
+
+!!!!!!!!!!!!!!!
+!  v.grad U
+!!!!!!!!!!!!!!!
+
+            this%AdvUr(:,nPhi)=          -or2(nR)*orho1(nR) * (  &
+            &                                this%vrc(:,nPhi) * &
+            &                     (       this%dUrdrc(:,nPhi) - &
+            &    ( two*or1(nR)+beta(nR) )*this%Urc(:,nPhi) ) +  &
+            &                      O_sin_theta_E2(:) * (        &
+            &                                this%vtc(:,nPhi) * &
+            &                     (       this%dUrdtc(:,nPhi) - &
+            &                  r(nR)*      this%Utc(:,nPhi) ) + &
+            &                                this%vpc(:,nPhi) * &
+            &                     (       this%dUrdpc(:,nPhi) - &
+            &                    r(nR)*      this%Upc(:,nPhi) ) ) )
+
+            this%AdvUt(:,nPhi)=or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
+            &                                         -this%vrc(:,nPhi) * &
+            &                                   (   this%dUtdrc(:,nPhi) - &
+            &                             beta(nR)*this%Utc(:,nPhi) )   + &
+            &                                          this%vtc(:,nPhi) * &
+            &                    ( cosn_theta_E2(:)*this%Utc(:,nPhi) +    &
+            &                                       this%dUpdpc(:,nPhi) + &
+            &                                   this%dUrdrc(:,nPhi) )   + &
+            &                                          this%vpc(:,nPhi) * &
+            &                    ( cosn_theta_E2(:)*this%Upc(:,nPhi) -    &
+            &                                       this%dUtdpc(:,nPhi) )  )
+
+            this%AdvUp(:,nPhi)= or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
+            &                                          -this%vrc(:,nPhi) * &
+            &                                      ( this%dUpdrc(:,nPhi) - &
+            &                              beta(nR)*this%Upc(:,nPhi) )   - &
+            &                                           this%vtc(:,nPhi) * &
+            &                                      ( this%dUtdpc(:,nPhi) + &
+            &                                      this%cUrc(:,nPhi) )   - &
+            &                     this%vpc(:,nPhi) * this%dUpdpc(:,nPhi) )
+
+            this%Advr = this%Advr + this%AdUvr + this%AdvUr
+            this%Advt = this%Advt + this%AdUvt + this%AdvUt
+            this%Advp = this%Advp + this%AdUvp + this%AdvUp
 
          end if  ! Navier-Stokes nonlinear advection term ?
 
