@@ -22,7 +22,7 @@ module grid_space_arrays_mod
    use truncation, only: n_phi_max, n_theta_max, nlat_padded
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
-       &                       lambda, or4, or1, alpha0, temp0, opressure0
+       &                       lambda, or4, or1, alpha0, temp0, opressure0,r_cmb
    use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
         &                         ThExpNb, ViscHeatFac, oek, po, DissNb, &
         &                         dilution_fac, ra, opr, polind, strat, radratio
@@ -325,10 +325,18 @@ contains
             end if
 
 
-            this%Urc = 0.0_cp
-            this%Utc = 0.0_cp
-            this%Upc(:,nPhi)  = oek * (r_cmb - r(nR)) * sinTheta
-            this%cUrc(:,nPhi) = 2.0_cp * oek * (r_cmb/r(nR) - 1.0_cp) * cosTheta
+            this%Urc(:,nPhi)    = 0.0_cp
+            this%Utc(:,nPhi)    = 0.0_cp
+            this%Upc(:,nPhi)    = oek * (r_cmb - r(nR)) * sinTheta
+            this%cUrc(:,nPhi)   = 2.0_cp * oek * (r_cmb/r(nR) - 1.0_cp) * cosTheta
+            this%dUpdrc(:,nPhi) = -oek * sinTheta
+            this%dUpdpc(:,nPhi) = 0.0_cp
+            this%dUrdrc(:,nPhi) = 0.0_cp
+            this%dUrdtc(:,nPhi) = 0.0_cp
+            this%dUrdpc(:,nPhi) = 0.0_cp
+            this%dUtdrc(:,nPhi) = 0.0_cp
+            this%dUtdpc(:,nPhi) = 0.0_cp
+
 !!!!!!!!!!!!!!!
 !  U.grad v
 !!!!!!!!!!!!!!!
