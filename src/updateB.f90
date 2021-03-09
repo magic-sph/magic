@@ -1934,7 +1934,8 @@ contains
          datBmat(1,1:n_r_max)=rscheme_oc%rnorm * (        &
          &                      rscheme_oc%drMat(1,:) +   &
          &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) -   &
-         &    real(2*l+1,cp)*or1(1)/(1-rRatio) +          &
+         &    real(2*l+1,cp)*or1(1)/(1-rRatio)*           &
+         &                       rscheme_oc%rMat(1,:) +   &
          &                     conductance_ma* (          &
          &                     rscheme_oc%d2rMat(1,:) -   &
          &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
