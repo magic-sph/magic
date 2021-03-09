@@ -770,14 +770,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       real(cp), intent(inout) :: rhs(lenRhs)
 
       !-- Local variables:
-      integer :: nStart
+      integer :: nStart, k
 
       nStart = lenA1+1
 
@@ -785,8 +785,9 @@ contains
       call solve_band_real_rhs(A1, lenA1, kl, ku, pivotA1, rhs(1:lenA1))
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call gemv(n_boundaries, lenA1, -one, A3, n_boundaries, rhs(1:lenA1), &
-           &    one, rhs(nStart:))
+      do k=1,lenA1
+         rhs(nStart)=rhs(nStart)-A3(k)*rhs(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call solve_mat_real_rhs(A4, n_boundaries, n_boundaries, pivotA4, &
@@ -811,14 +812,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       complex(cp), intent(inout) :: rhs(lenRhs)
 
       !-- Local variables:
-      integer :: nStart
+      integer :: nStart, k
       real(cp) :: tmpr(lenRhs), tmpi(lenRhs)
 
       nStart = lenA1+1
@@ -831,10 +832,10 @@ contains
       call solve_band_real_rhs(A1, lenA1, kl, ku, pivotA1, tmpi(1:lenA1))
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call gemv(n_boundaries, lenA1, -one, A3, n_boundaries, tmpr(1:lenA1), &
-           &    one, tmpr(nStart:))
-      call gemv(n_boundaries, lenA1, -one, A3, n_boundaries, tmpi(1:lenA1), &
-           &    one, tmpi(nStart:))
+      do k=1,lenA1
+         tmpr(nStart)=tmpr(nStart)-A3(k)*tmpr(k)
+         tmpi(nStart)=tmpi(nStart)-A3(k)*tmpi(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call solve_mat_real_rhs(A4, n_boundaries, n_boundaries, pivotA4, &
@@ -865,14 +866,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       real(cp), intent(inout) :: rhs(:,:)
 
       !-- Local variables:
-      integer :: nStart
+      integer :: nStart,k
 
       nStart = lenA1+1
 
@@ -881,8 +882,9 @@ contains
            &                         rhs(1:lenA1,:), nRHSs)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call gemm(n_boundaries, nRHSs, lenA1, -one, A3, n_boundaries, &
-           &    rhs(1:lenA1,:), lenA1, one, rhs(nStart:,:), n_boundaries)
+      do k=1,lenA1
+         rhs(nStart,:)=rhs(nStart,:)-A3(k)*rhs(k,:)
+      end do
 
       !-- Solve A4*y = rhs2
       call solve_mat_real_rhs_multi(A4, n_boundaries, n_boundaries, pivotA4, &
@@ -906,11 +908,14 @@ contains
       !-- Output variables
       real(cp), intent(inout) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(inout) :: A2(lenA1,n_boundaries)
-      real(cp), intent(inout) :: A3(n_boundaries,lenA1)
+      real(cp), intent(inout) :: A3(lenA1)
       real(cp), intent(inout) :: A4(n_boundaries,n_boundaries)
       integer,  intent(out)   :: pivotA1(lenA1)
       integer,  intent(out)   :: pivotA4(n_boundaries)
       integer,  intent(out)   :: info
+
+      !-- Local variables
+      integer :: i,j
 
       !-- LU factorisation for the banded block
       call prepare_band(A1, lenA1, kl, ku, pivotA1, info)
@@ -919,8 +924,11 @@ contains
       call solve_band_real_rhs_multi(A1, lenA1, kl, ku, pivotA1, A2, n_boundaries)
 
       !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
-      call gemm(n_boundaries, n_boundaries, lenA1, -one, A3,  &
-           &    n_boundaries, A2, lenA1, one, A4,  n_boundaries)
+      do i=1,n_boundaries
+         do j=1,lenA1
+            A4(1,i)=A4(1,i)-A3(j)*A2(j,i)
+         end do
+      end do
 
       !-- LU factorisation of the Schur complement
       call prepare_mat(A4, n_boundaries, n_boundaries, pivotA4, info)

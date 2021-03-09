@@ -383,7 +383,7 @@ module bordered_matrices
    type, public, extends(type_realmat) :: type_bordmat
       real(cp), allocatable :: A1(:,:)
       real(cp), allocatable :: A2(:,:)
-      real(cp), allocatable :: A3(:,:)
+      real(cp), allocatable :: A3(:)
       real(cp), allocatable :: A4(:,:)
       integer, allocatable :: pivA1(:)
       integer, allocatable :: pivA4(:)
@@ -424,13 +424,13 @@ contains
 
       allocate( this%A1(nx+(nx-1)/2, ny) )
       allocate( this%A2(ny,nfull) )
-      allocate( this%A3(nfull,ny) )
+      allocate( this%A3(ny) )
       allocate( this%A4(nfull,nfull) )
       this%A1(:,:)=0.0_cp
       this%A2(:,:)=0.0_cp
-      this%A3(:,:)=0.0_cp
+      this%A3(:)  =0.0_cp
       this%A4(:,:)=0.0_cp
-      bytes_allocated = bytes_allocated+(nfull*nfull+2*nfull*ny+ &
+      bytes_allocated = bytes_allocated+(nfull*nfull+nfull*ny+ny+ &
       &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
 
       if ( this%l_pivot ) then
@@ -525,9 +525,7 @@ contains
       end do
 
       do j=1,this%ncol
-         do i=1,this%nfull
-            this%A3(i,j)=dat(this%ncol+i,j)
-         end do
+         this%A3(j)=dat(this%ncol+1,j)
       end do
 
       do j=1,this%nfull
