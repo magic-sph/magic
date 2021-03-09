@@ -801,11 +801,6 @@ contains
                dsdt(lm) = dsdt_loc
             end do
             !$omp end parallel do
-         else
-            do lm=2,lm_max
-               dsdt(lm)  =0.0_cp
-               dVSrLM(lm)=0.0_cp
-            end do
          end if
 
          if ( l_chemical_conv ) then

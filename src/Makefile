@@ -574,6 +574,8 @@ fields.o              : truncation.o blocking.o radial_data.o\
 special.o             : precision_mod.o mem_alloc.o truncation.o
 probes.o              : parallel.o precision_mod.o truncation.o radial.o num_param.o\
                         blocking.o horizontal.o output_data.o constants.o
+parallel_solver.o     : precision_mod.o parallel.o radial_data.o mem_alloc.o\
+                        constants.o blocking.o truncation.o
 radial_data.o         : truncation.o parallel.o logic.o
 matrices.o            : precision_mod.o mem_alloc.o $(LAPACK_OBJS)
 plms.o                : constants.o precision_mod.o useful.o

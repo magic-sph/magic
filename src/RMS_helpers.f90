@@ -8,9 +8,7 @@ module RMS_helpers
    use parallel_mod
    use communications, only: reduce_radial
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
-   use blocking, only: lm2, st_map
    use radial_functions, only: or2, rscheme_oc, r
-   use horizontal_data, only: dLh
    use useful, only: cc2real
    use integration, only: rInt_R
    use LMmapping, only: mappings
@@ -58,7 +56,7 @@ contains
       real(cp) :: TorAsRms_r(n_r_max), TorAsRms_r_global(n_r_max)
 
       integer :: n_r,lm,l,m
-      real(cp) :: fac
+      real(cp) :: fac, dLh
 
       do n_r=1,n_r_max
 
@@ -69,11 +67,11 @@ contains
 
          do lm=max(2,llm),ulm
             l=map%lm2l(lm)
+            dLh = real(l*(l+1),cp)
             m=map%lm2m(lm)
-            PolRmsTemp= dLh(st_map%lm2(l,m)) * (                        &
-            &    dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(Pol(lm,n_r),m) + &
-            &    cc2real(drPol(lm,n_r),m) )
-            TorRmsTemp=   dLh(st_map%lm2(l,m))*cc2real(Tor(lm,n_r),m)
+            PolRmsTemp= dLh * ( dLh*or2(n_r)*cc2real(  Pol(lm,n_r),m) + &
+            &                                cc2real(drPol(lm,n_r),m) )
+            TorRmsTemp= dLh * cc2real(Tor(lm,n_r),m)
             if ( m == 0 ) then  ! axisymmetric part
                PolAsRms_r(n_r)=PolAsRms_r(n_r) + PolRmsTemp
                TorAsRms_r(n_r)=TorAsRms_r(n_r) + TorRmsTemp
@@ -117,13 +115,14 @@ contains
       real(cp), intent(inout) :: Pol2hInt(0:l_max)
 
       !-- Local variables:
-      real(cp) :: help
+      real(cp) :: help, dLh
       integer :: lm,l,m
 
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
+         dLh =real(l*(l+1),cp)
          m=map%lm2m(lm)
-         help=dLh(st_map%lm2(l,m))*cc2real(dPol(lm),m)
+         help=dLh*cc2real(dPol(lm),m)
          Pol2hInt(l)=Pol2hInt(l)+help
       end do
 
@@ -140,13 +139,14 @@ contains
       real(cp), intent(inout) :: Pol2hInt(lmStart:lmStop)
 
       !-- Local variables
-      real(cp) :: help
+      real(cp) :: help,dLh
       integer :: lm,l,m
 
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
+         dLh =real(l*(l+1),cp)
          m=map%lm2m(lm)
-         help=dLh(st_map%lm2(l,m))*cc2real(dPol(lm),m)
+         help=dLh*cc2real(dPol(lm),m)
          Pol2hInt(lm)=Pol2hInt(lm)+help
       end do
 
@@ -165,16 +165,18 @@ contains
       real(cp),    intent(inout) :: Pol2hInt(0:l_max)
 
       !-- Local variables:
-      real(cp) :: help,rE2
+      real(cp) :: help,rE2,dLh
       integer :: lm,l,m
 
       rE2=r(nR)*r(nR)
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
+         if ( l==0 ) cycle
+         dLh =real(l*(l+1),cp)
          m=map%lm2m(lm)
          help=rE2*cc2real(Pol(lm),m)
          Pol2hInt(l)=Pol2hInt(l)+help
-         PolLMr(lm)=rE2/dLh(st_map%lm2(l,m))*Pol(lm)
+         PolLMr(lm)=rE2/dLh*Pol(lm)
       end do
 
    end subroutine hInt2Pol
@@ -192,16 +194,18 @@ contains
       real(cp),    intent(inout) :: Pol2hInt(lb:ub)
 
       !-- Local variables:
-      real(cp) :: help,rE2
+      real(cp) :: help,rE2,dLh
       integer :: lm,l,m
 
       rE2=r(nR)*r(nR)
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
+         if ( l==0 ) cycle
+         dLh =real(l*(l+1),cp)
          m=map%lm2m(lm)
          help=rE2*cc2real(Pol(lm),m)
          Pol2hInt(lm)=Pol2hInt(lm)+help
-         PolLMr(lm)=rE2/dLh(st_map%lm2(l,m))*Pol(lm)
+         PolLMr(lm)=rE2/dLh*Pol(lm)
       end do
 
    end subroutine hInt2PolLM
@@ -258,14 +262,16 @@ contains
       real(cp),        intent(inout) :: Tor2hInt(0:l_max)
 
       !-- Local variables:
-      real(cp) :: help,rE4
+      real(cp) :: help,rE4,dLh
       integer :: lm,l,m
 
       rE4=r(nR)**4
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
+         if ( l == 0 ) cycle
+         dLh = real(l*(l+1),cp)
          m=map%lm2m(lm)
-         help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
+         help=rE4/dLh*cc2real(Tor(lm),m)
          Tor2hInt(l)=Tor2hInt(l)+help
       end do
 
@@ -284,14 +290,16 @@ contains
       real(cp),        intent(inout) :: Tor2hInt(lb:ub)
 
       !-- Local variables:
-      real(cp) :: help,rE4
+      real(cp) :: help,rE4,dLh
       integer :: lm,l,m
 
       rE4=r(nR)**4
       do lm=lmStart,lmStop
          l=map%lm2l(lm)
+         if ( l==0 ) cycle
+         dLh =real(l*(l+1),cp)
          m=map%lm2m(lm)
-         help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
+         help=rE4/dLh*cc2real(Tor(lm),m)
          Tor2hInt(lm)=Tor2hInt(lm)+help
       end do
 

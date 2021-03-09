@@ -47,6 +47,7 @@ contains
       !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
       layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
 #else
+      !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
       layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
 #endif
       eps_polar = 1.e-10_cp

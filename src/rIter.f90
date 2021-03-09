@@ -13,7 +13,7 @@ module rIter_mod
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
        &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
        &            l_precession, l_centrifuge, l_adv_curl,          &
-       &            l_double_curl
+       &            l_double_curl, l_parallel_solve
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -212,6 +212,12 @@ contains
             lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
             &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
             &       lPowerCalc .or. lGeosCalc
+         end if
+
+         if ( l_parallel_solve ) then
+            lDeriv=.true.
+            nBc=0
+            !l_Bound=.false.
          end if
 
          dtrkc(nR)=1e10_cp

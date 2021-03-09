@@ -15,7 +15,7 @@ module torsional_oscillations
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh, &
        &                      n_theta_cal2ord, O_sin_theta
    use constants, only: one, two
-   use logic, only: lVerbose, l_mag
+   use logic, only: lVerbose, l_mag, l_parallel_solve
    use sht, only: spat_to_SH_axi, toraxi_to_spat
 
    implicit none
@@ -74,9 +74,15 @@ contains
       bytes_allocated = bytes_allocated+10*(nRstop-nRstart+1)*n_theta_maxStr* &
       &                 SIZEOF_DEF_REAL
 
-      allocate( zASL(l_max+1), dzASL(l_max+1), ddzASL(l_max+1,n_r_maxStr) )
-      bytes_allocated = bytes_allocated+2*(l_max+1)+(l_max+1)*n_r_maxStr*&
-      &                 SIZEOF_DEF_REAL
+      if ( l_parallel_solve ) then
+         allocate( ddzASL(l_max+1,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+(l_max+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+      else
+         allocate( ddzASL(l_max+1,n_r_maxStr) )
+         bytes_allocated = bytes_allocated+(l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
+      end if
+      allocate( zASL(l_max+1), dzASL(l_max+1) )
+      bytes_allocated = bytes_allocated+2*(l_max+1)*SIZEOF_DEF_REAL
       ddzASL(:,:)=0.0_cp
       dzASL(:)   =0.0_cp
       zASL(:)    =0.0_cp

@@ -34,6 +34,7 @@ module dirk_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_ghost
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -895,6 +896,48 @@ contains
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme in case
+      ! an array with ghosts zones is provided
+      !
+
+      class(type_dirk) :: this
+
+      !-- Input variables:
+      type(type_tarray), intent(in) :: dfdt
+      integer,           intent(in) :: start_lm ! Starting lm index
+      integer,           intent(in) :: stop_lm  ! Stopping lm index
+      integer,           intent(in) :: ng       ! Number of ghost zones
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+
+      !-- Local variables
+      integer :: n_stage, n_r
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_stage=1,this%istage
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+            &                       this%butcher_exp(this%istage+1,n_stage)* &
+            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+         end do
+      end do
+
+      do n_stage=1,this%istage
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+            &                       this%butcher_imp(this%istage+1,n_stage)* &
+            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+         end do
+      end do
+
+   end subroutine set_imex_rhs_ghost
+!------------------------------------------------------------------------------
    subroutine assemble_imex(this, rhs, dfdt)
       !
       ! This subroutine performs the assembly stage of an IMEX-RK scheme
@@ -909,29 +952,29 @@ contains
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
-      integer :: n_stage, n_r, startR, stopR
+      integer :: n_stage, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=dfdt%nRstart; stopR=dfdt%nRstop
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r)
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      call get_openmp_blocks(start_lm,stop_lm)
 
-      do n_r=startR,stopR
-         rhs(dfdt%llm:dfdt%ulm,n_r)=dfdt%old(dfdt%llm:dfdt%ulm,n_r,1)
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
       end do
 
       do n_stage=1,this%nstages
-         do n_r=startR,stopR
-            rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r) +        &
-            &                       this%butcher_ass_exp(n_stage)*         &
-            &                       dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_stage)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +        &
+            &                       this%butcher_ass_exp(n_stage)*       &
+            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
 
       do n_stage=1,this%nstages
-         do n_r=startR,stopR
-            rhs(dfdt%llm:dfdt%ulm,n_r)=rhs(dfdt%llm:dfdt%ulm,n_r) +       &
-            &                       this%butcher_ass_imp(n_stage)*        &
-            &                       dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_stage)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +       &
+            &                       this%butcher_ass_imp(n_stage)*      &
+            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
       !$omp end parallel

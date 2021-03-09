@@ -111,7 +111,7 @@ program magic
    use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
    use radial_data, only: initialize_radial_data, finalize_radial_data
    use radialLoop, only: initialize_radialLoop, finalize_radialLoop
-   use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop
+   use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop, test_LMLoop
    use preCalculations
    use start_fields, only: getStartFields
    use kinetic_energy
@@ -250,12 +250,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____ __  ___    '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/_ |/ _ \   '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__  | | | | |  '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \ | | | | |  '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) || | |_| |  '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_|\___/   '
+      write(n_log_file,*) '!      __  __             _____ _____     __   ___       '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____|   / /  / _ \      '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |       / /_ | | | |     '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |  _ \| | | |     '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____  | (_) | |_| |     '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____|  \___(_)___/      '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -373,7 +373,6 @@ program magic
 
    if (rank == 0) print*, '-----> rank 0 has', bytes_allocated, ' B allocated'
 
-
    call finalize_memory_counter()
 
    if ( rank == 0 ) then
@@ -405,6 +404,8 @@ program magic
       call writeInfo(n_log_file)
       if ( l_save_out ) close(n_log_file)
    end if
+
+   if ( l_parallel_solve ) call test_LMLoop(tscheme)
 
    !--- AND NOW FOR THE TIME INTEGRATION:
 

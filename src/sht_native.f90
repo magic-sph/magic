@@ -240,7 +240,7 @@ contains
 
       !-- Local variables
       complex(cp) :: Slm(lm_max), Tlm(lm_max)
-      integer :: lm, it, ip, l
+      integer :: lm, ip, l
       real(cp) :: m
 
       !$omp parallel do default(shared) private(lm, m, l)
@@ -384,21 +384,17 @@ contains
       real(cp), intent(out) :: ft(:)
       real(cp), intent(out) :: fp(:)
 
-      !-- Local arrays
-      complex(cp) :: tmpt(n_theta_max), tmpp(n_theta_max)
-
       call native_toraxi_to_spat(fl_ax, ft, fp)
 
    end subroutine toraxi_to_spat
 !------------------------------------------------------------------------------
    subroutine spat_to_SH_axi(f, fLM)
 
+      !-- Input array
       real(cp), intent(in) :: f(n_theta_max)
-      real(cp), intent(out) :: fLM(:)
 
-      !-- Local arrays
-      complex(cp) :: tmp(n_theta_max)
-      complex(cp) :: tmpLM(size(fLM))
+      !-- Output array
+      real(cp), intent(out) :: fLM(:)
 
       call native_spat_to_SH_axi(f, fLM, l_max+1)
 

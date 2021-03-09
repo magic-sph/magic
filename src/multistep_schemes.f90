@@ -31,6 +31,7 @@ module multistep_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_ghost
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -457,6 +458,53 @@ contains
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme in case
+      ! this is distributed over r
+      !
+
+      class(type_multistep) :: this
+
+      !-- Input variables:
+      type(type_tarray), intent(in) :: dfdt
+      integer,           intent(in) :: start_lm ! Starting lm index
+      integer,           intent(in) :: stop_lm  ! Stopping lm index
+      integer,           intent(in) :: ng       ! Number of ghosts zones
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+
+      !-- Local variables
+      integer :: n_o, n_r
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_o=2,this%nold
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nimp
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nexp
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+   end subroutine set_imex_rhs_ghost
+!------------------------------------------------------------------------------
    subroutine set_imex_rhs_scalar(this, rhs, dfdt)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme
@@ -502,30 +550,30 @@ contains
       type(type_tarray), intent(inout) :: dfdt
 
       !-- Local variables:
-      integer :: n_o, n_r, startR, stopR
+            !-- Local variables:
+      integer :: n_o, n_r, lm_start, lm_stop
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=dfdt%nRstart; stopR=dfdt%nRstop
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(lm_start,lm_stop)
+      lm_start=dfdt%llm; lm_stop=dfdt%ulm
+      call get_openmp_blocks(lm_start,lm_stop)
 
       do n_o=this%nexp,2,-1
-         do n_r=startR,stopR
-            dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_o)=dfdt%expl(dfdt%llm:dfdt%ulm,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%expl(lm_start:lm_stop,n_r,n_o)=dfdt%expl(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nold,2,-1
-         do n_r=startR,stopR
-            dfdt%old(dfdt%llm:dfdt%ulm,n_r,n_o)=dfdt%old(dfdt%llm:dfdt%ulm,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%old(lm_start:lm_stop,n_r,n_o)=dfdt%old(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nimp,2,-1
-         do n_r=startR,stopR
-            dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_o)=dfdt%impl(dfdt%llm:dfdt%ulm,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%impl(lm_start:lm_stop,n_r,n_o)=dfdt%impl(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
-
       !$omp end parallel
 
    end subroutine rotate_imex

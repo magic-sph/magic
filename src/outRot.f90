@@ -2,8 +2,9 @@ module outRot
 
    use parallel_mod
    use precision_mod
+   use communications, only: allgather_from_rloc
    use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max, n_theta_max
-   use radial_data, only: n_r_CMB, n_r_ICB
+   use radial_data, only: n_r_CMB, n_r_ICB, nRstart, nRstop
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: lScale, tScale, vScale
@@ -33,7 +34,7 @@ module outRot
    character(len=72) :: driftVD_file, driftVQ_file
    character(len=72) :: driftBD_file, driftBQ_file
 
-   public :: write_rot, get_viscous_torque, get_angular_moment, &
+   public :: write_rot, get_viscous_torque, get_angular_moment, get_angular_moment_Rloc, &
    &         get_lorentz_torque, initialize_outRot, finalize_outRot
 
 contains
@@ -593,6 +594,61 @@ contains
       angular_moment_ma(3)=c_moi_ma*omega_ma
 
    end subroutine get_angular_moment
+!-----------------------------------------------------------------------
+   subroutine get_angular_moment_Rloc(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
+              &                       angular_moment_ic,angular_moment_ma)
+      !
+      !    Calculates angular momentum of outer core, inner core and
+      !    mantle. For outer core we need ``z(l=1|m=0,1|r)``, for
+      !    inner core and mantle the respective rotation rates are needed.
+      !    This is the version that takes r-distributed arrays as input arrays.
+      !
+
+      !-- Input of scalar fields:
+      complex(cp), intent(in) :: z10(nRstart:nRstop),z11(nRstart:nRstop)
+      real(cp),    intent(in) :: omega_ic,omega_ma
+
+      !-- output:
+      real(cp), intent(out) :: angular_moment_oc(:)
+      real(cp), intent(out) :: angular_moment_ic(:)
+      real(cp), intent(out) :: angular_moment_ma(:)
+
+      !-- local variables:
+      integer :: n_r,n
+      real(cp) :: f_Rloc(nRstart:nRstop,3), f(n_r_max)
+      real(cp) :: r_E_2,fac
+
+      !----- Construct radial function:
+      do n_r=nRstart,nRstop
+         r_E_2=r(n_r)*r(n_r)
+         f_Rloc(n_r,1)=r_E_2* real(z11(n_r))
+         f_Rloc(n_r,2)=r_E_2*aimag(z11(n_r))
+         f_Rloc(n_r,3)=r_E_2*real(z10(n_r))
+      end do
+
+      !----- Perform radial integration: (right now: MPI_Allgather, could be
+      ! made local if needed)
+      do n=1,3
+         call allgather_from_rloc(f_Rloc(:,n), f)
+         angular_moment_oc(n)=rInt_R(f,r,rscheme_oc)
+      end do
+
+      !----- Apply normalisation factors of chebs and other factors
+      !      plus the sign correction for y-component:
+      fac=8.0_cp*third*pi
+      angular_moment_oc(1)= two*fac*y11_norm * angular_moment_oc(1)
+      angular_moment_oc(2)=-two*fac*y11_norm * angular_moment_oc(2)
+      angular_moment_oc(3)=     fac*y10_norm * angular_moment_oc(3)
+
+      !----- Now inner core and mantle:
+      angular_moment_ic(1)=0.0_cp
+      angular_moment_ic(2)=0.0_cp
+      angular_moment_ic(3)=c_moi_ic*omega_ic
+      angular_moment_ma(1)=0.0_cp
+      angular_moment_ma(2)=0.0_cp
+      angular_moment_ma(3)=c_moi_ma*omega_ma
+
+   end subroutine get_angular_moment_Rloc
 !-----------------------------------------------------------------------
    subroutine sendvals_to_rank0(field,n_r,lm_vals,vals_on_rank0)
 

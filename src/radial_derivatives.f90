@@ -26,8 +26,9 @@ module radial_der
       module procedure get_dcheb_complex
    end interface get_dcheb
 
-   public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays, &
-   &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc
+   public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays,   &
+   &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc, get_ddr_ghost, &
+   &         bulk_to_ghost, exch_ghosts, get_ddddr_ghost
 
    complex(cp), allocatable :: work(:,:)
    real(cp), allocatable :: work_1d_real(:)
@@ -895,6 +896,96 @@ contains
 
    end subroutine get_ddr_Rloc
 !------------------------------------------------------------------------------
+   subroutine get_ddr_ghost(f_Rloc, df_Rloc, ddf_Rloc, lm_max, start_lm, stop_lm, &
+              &             nRstart, nRstop, r_scheme)
+      !
+      ! Purpose of this subroutine is to take the first and second
+      ! radial derivatives of an input complex array distributed over radius that
+      ! has the ghost zones properly filled.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: lm_max, nRstart, nRstop, start_lm, stop_lm
+      class(type_rscheme), intent(in) :: r_scheme
+      complex(cp),         intent(in) :: f_Rloc(lm_max,nRstart-1:nRstop+1)
+
+      !-- Output variable
+      complex(cp), intent(out) ::  df_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddf_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: n_r, lm
+
+      if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
+         call abortRun('Distributed r-der not implemented in this case yet!')
+      end if
+
+      !-- Bulk points for 1st and 2nd derivatives
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &               r_scheme%dr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &               r_scheme%dr(n_r,2)*f_Rloc(lm,n_r+1)
+            ddf_Rloc(lm,n_r)=r_scheme%ddr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &                r_scheme%ddr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &                r_scheme%ddr(n_r,2)*f_Rloc(lm,n_r+1)
+         end do
+      end do
+
+   end subroutine get_ddr_ghost
+!------------------------------------------------------------------------------
+   subroutine get_ddddr_ghost(f_Rloc, df_Rloc, ddf_Rloc, dddf_Rloc, ddddf_Rloc, &
+              &               lm_max, start_lm, stop_lm, nRstart, nRstop, r_scheme)
+      !
+      ! Purpose of this subroutine is to take the first and second
+      ! radial derivatives of an input complex array distributed over radius that
+      ! has the ghost zones properly filled.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: lm_max, nRstart, nRstop, start_lm, stop_lm
+      class(type_rscheme), intent(in) :: r_scheme
+      complex(cp),         intent(in) :: f_Rloc(lm_max,nRstart-2:nRstop+2)
+
+      !-- Output variable
+      complex(cp), intent(out) ::  df_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddf_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  dddf_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddddf_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: n_r, lm
+
+      if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
+         call abortRun('Distributed r-der not implemented in this case yet!')
+      end if
+
+      !-- 1st and 2nd derivatives
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &               r_scheme%dr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &               r_scheme%dr(n_r,2)*f_Rloc(lm,n_r+1)
+            ddf_Rloc(lm,n_r)=r_scheme%ddr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &                r_scheme%ddr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &                r_scheme%ddr(n_r,2)*f_Rloc(lm,n_r+1)
+            dddf_Rloc(lm,n_r)=r_scheme%dddr(n_r,0)*f_Rloc(lm,n_r-2) + &
+            &                 r_scheme%dddr(n_r,1)*f_Rloc(lm,n_r-1) + &
+            &                 r_scheme%dddr(n_r,2)*f_Rloc(lm,n_r)   + &
+            &                 r_scheme%dddr(n_r,3)*f_Rloc(lm,n_r+1) + &
+            &                 r_scheme%dddr(n_r,4)*f_Rloc(lm,n_r+2)
+            ddddf_Rloc(lm,n_r)=r_scheme%ddddr(n_r,0)*f_Rloc(lm,n_r-2) + &
+            &                  r_scheme%ddddr(n_r,1)*f_Rloc(lm,n_r-1) + &
+            &                  r_scheme%ddddr(n_r,2)*f_Rloc(lm,n_r)   + &
+            &                  r_scheme%ddddr(n_r,3)*f_Rloc(lm,n_r+1) + &
+            &                  r_scheme%ddddr(n_r,4)*f_Rloc(lm,n_r+2)
+         end do
+      end do
+
+   end subroutine get_ddddr_ghost
+!------------------------------------------------------------------------------
    subroutine exch_ghosts(f, lm_max, nRstart, nRstop, nghosts)
 
       integer, intent(in) :: lm_max, nRstart, nRstop, nghosts
@@ -991,5 +1082,31 @@ contains
 #endif
 
    end subroutine get_bound_vals
+!------------------------------------------------------------------------------
+   subroutine bulk_to_ghost(x, x_g, ng, nRstart, nRstop, lm_max, start_lm, stop_lm)
+      !
+      ! This subroutine is used to copy an array that is defined from nRstart to
+      ! nRstop to an array that is defined from nRstart-1 to nRstop+1
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: start_lm, stop_lm, nRstart, nRstop
+      integer,     intent(in) :: lm_max
+      integer,     intent(in) :: ng ! Number of ghost zones
+      complex(cp), intent(in) :: x(lm_max,nRstart:nRstop)
+
+      !-- Output variable
+      complex(cp), intent(out) :: x_g(lm_max,nRstart-ng:nRstop+ng)
+
+      !-- Local variables
+      integer :: n_r, lm
+
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            x_g(lm,n_r)=x(lm,n_r)
+         end do
+      end do
+
+   end subroutine bulk_to_ghost
 !------------------------------------------------------------------------------
 end module radial_der

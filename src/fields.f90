@@ -1,13 +1,15 @@
 module fields
    !
-   !  This module contains the potential fields and their radial
-   !  derivatives
+   ! This module contains all the fields used in MagIC in the hybrid (LM,r)
+   ! space as well as their radial derivatives. It defines both the
+   ! LM-distributed arrays and the R-distributed arrays.
    !
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
-   use logic, only: l_chemical_conv, l_finite_diff, l_mag
+   use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
+       &            l_mag_par_solve
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use parallel_mod, only: rank
@@ -51,6 +53,7 @@ module fields
    complex(cp), public, pointer :: b_Rloc(:,:), db_Rloc(:,:), ddb_Rloc(:,:)
    complex(cp), public, pointer :: aj_LMloc(:,:), dj_LMloc(:,:), ddj_LMloc(:,:)
    complex(cp), public, pointer :: aj_Rloc(:,:), dj_Rloc(:,:)
+   complex(cp), public, allocatable :: ddj_Rloc(:,:)
 
    !-- Magnetic field potentials in inner core:
    !   NOTE: n_r-dimension may be smaller once CHEBFT is addopted
@@ -78,6 +81,9 @@ module fields
 contains
 
    subroutine initialize_fields
+      !
+      ! This subroutine allocates the different fields used in MagIC
+      !
 
       integer :: n_fields
 
@@ -107,15 +113,31 @@ contains
       end if
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
-         n_fields = 3
-         if ( l_mag ) n_fields = n_fields+2
-         allocate( flow_LMloc_container(llm:ulm,n_r_max,1:n_fields) )
-         w_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
-         z_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
-         s_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,3)
-         if ( l_mag ) then
-            b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,4)
-            aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,5)
+         if ( l_parallel_solve ) then
+            allocate(w_LMloc(llm:ulm,n_r_max), z_LMloc(llm:ulm,n_r_max))
+            allocate(s_LMloc(llm:ulm,n_r_max))
+            if ( l_mag ) then
+               if ( l_mag_par_solve ) then
+                  allocate(aj_LMloc(llm:ulm,n_r_max), b_LMloc(llm:ulm,n_r_max))
+               else
+                  allocate( flow_LMloc_container(llm:ulm,n_r_max,1:2) )
+                  b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
+                  aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
+               end if
+            else
+               allocate ( b_LMloc(1,1), aj_LMloc(1,1) )
+            end if
+         else
+            n_fields = 3
+            if ( l_mag ) n_fields = n_fields+2
+            allocate( flow_LMloc_container(llm:ulm,n_r_max,1:n_fields) )
+            w_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
+            z_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
+            s_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,3)
+            if ( l_mag ) then
+               b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,4)
+               aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,5)
+            end if
          end if
          allocate(dw_LMloc(llm:ulm,n_r_max), ddw_LMloc(llm:ulm,n_r_max))
          allocate(dz_LMloc(llm:ulm,n_r_max), ds_LMloc(llm:ulm,n_r_max))
@@ -124,13 +146,29 @@ contains
          allocate(dj_LMloc(llmMag:ulmMag,n_r_maxMag))
          allocate(ddj_LMloc(llmMag:ulmMag,n_r_maxMag))
 
-         allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:n_fields) )
-         w_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
-         z_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
-         s_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
-         if ( l_mag ) then
-            b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,4)
-            aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
+         if ( l_parallel_solve ) then
+            allocate(w_Rloc(lm_max,nRstart:nRstop), z_Rloc(lm_max,nRstart:nRstop))
+            allocate(s_Rloc(lm_max,nRstart:nRstop))
+            if ( l_mag ) then
+               if( l_mag_par_solve ) then
+                  allocate(b_Rloc(lm_max,nRstart:nRstop), aj_Rloc(lm_max,nRstart:nRstop))
+               else
+                  allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:2) )
+                  b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
+                  aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
+               end if
+            else
+               allocate ( b_Rloc(1,1), aj_Rloc(1,1) )
+            end if
+         else
+            allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:n_fields) )
+            w_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
+            z_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
+            s_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
+            if ( l_mag ) then
+               b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,4)
+               aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
+            end if
          end if
          allocate(dw_Rloc(lm_max,nRstart:nRstop), ddw_Rloc(lm_max,nRstart:nRstop))
          allocate(dz_Rloc(lm_max,nRstart:nRstop), ds_Rloc(lm_max,nRstart:nRstop))
@@ -175,6 +213,12 @@ contains
          ddb_Rloc(1:,nRstart:) => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,3)
          aj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,4)
          dj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,5)
+      end if
+
+      if ( l_mag_par_solve ) then
+         allocate(ddj_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+         bytes_allocated = bytes_allocated+(nRstopMag-nRstartMag+1)*lm_maxMag* &
+         &                 SIZEOF_DEF_COMPLEX
       end if
 
       allocate( press_LMloc_container(llm:ulm,n_r_max,1:2) )
@@ -235,10 +279,24 @@ contains
    end subroutine initialize_fields
 !----------------------------------------------------------------------------
    subroutine finalize_fields
+      !
+      ! This subroutine deallocates the field arrays used in MagIC
+      !
 
       deallocate( bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic )
       deallocate( press_LMloc_container, press_Rloc_container )
-      deallocate( flow_Rloc_container, flow_LMloc_container )
+      if ( l_parallel_solve ) then
+         deallocate( w_LMloc, z_LMloc, s_LMloc, w_RLoc, z_Rloc, s_Rloc )
+         if ( l_mag ) then
+            if ( l_mag_par_solve ) then
+               deallocate( b_LMloc, aj_LMloc, b_RLoc, aj_Rloc )
+            else
+               deallocate( flow_Rloc_container, flow_LMloc_container )
+            end if
+         end if
+      else
+         deallocate( flow_Rloc_container, flow_LMloc_container )
+      end if
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          deallocate( dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc)
          deallocate( db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
@@ -252,6 +310,7 @@ contains
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
       deallocate( xi_LMloc_container, xi_Rloc_container )
       deallocate( work_LMloc )
+      if ( l_mag_par_solve ) deallocate(ddj_Rloc)
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------
