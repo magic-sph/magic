@@ -5,7 +5,7 @@ Poloidal and toroidal potentials at given depths
 
 These are fortran unformatted files which store time series of poloidal and
 toroidal coefficients of different fields (magnetic field, velocity and
-temeperature) at specific depths. 
+temeperature) at specific depths.
 
 In the following, :code:`time(j)`  is the time during the :math:`j^{th}` time
 step, :code:`time(N)` being the last step. :code:`real` and :code:`imag` denote
@@ -23,7 +23,7 @@ decomposition):
     +----------------+-----------+------------+
     | Temperature    |      :f:var:`s`        |
     +----------------+-----------+------------+
-     
+
 
 First and second derivatives are denoted with a differential notation. e.g:
 :f:var:`dw` is the first derivative of :f:var:`w`, while :f:var:`ddb` is the second
@@ -34,7 +34,7 @@ derivative of :f:var:`b`.
 ``B_coeff_cmb.TAG``
 -------------------
 
-.. note:: This file is **only** written when :ref:`l_cmb_field=.true. <varl_cmb_field>` 
+.. note:: This file is **only** written when :ref:`l_cmb_field=.true. <varl_cmb_field>`
 
 This file contains time series of spherical harmonic coefficients for the
 poloidal potential of the magnetic field at the outer boundary (CMB) up to a
@@ -48,9 +48,9 @@ The detailed calculations are done in the subroutine :f:subr:`write_Bcmb
 Thus, on a whole, the structure of the file looks like follows:
 
     .. code-block:: fortran
-   
+
           !------------
-          ! Line 1 
+          ! Line 1
           !------------
 
           l_max_cmb, minc, n_data
@@ -62,23 +62,23 @@ Thus, on a whole, the structure of the file looks like follows:
           ! Line j + 1
           !------------
 
-          time(j), 
-          real(b(l=1,m=0)), imag(b(l=1,m=0)),                  
-          real(b(l=2,m=0)), imag(b(l=2,m=0)),                  
+          time(j),
+          real(b(l=1,m=0)), imag(b(l=1,m=0)),
+          real(b(l=2,m=0)), imag(b(l=2,m=0)),
           ...
           real(b(l=l_max_cmb,m=l_max_cmb)), imag(b(l=l_max_cmb,m=l_max_cmb)),
 
-          ...                  
-   	    
+          ...
+
           !-------------
           ! Line N + 1
           !-------------
 
-          time(N), 
-          real(b(l=1,m=0)), imag(b(l=1,m=0)),                  
-          real(b(l=2,m=0)), imag(b(l=2,m=0)),                  
+          time(N),
+          real(b(l=1,m=0)), imag(b(l=1,m=0)),
+          real(b(l=2,m=0)), imag(b(l=2,m=0)),
           ...
-          real(b(l=l_max_cmb,m=l_max_cmb)), imag(b(l=l_max_cmb,m=l_max_cmb))                  
+          real(b(l=l_max_cmb,m=l_max_cmb)), imag(b(l=l_max_cmb,m=l_max_cmb))
 
 This file can be read using :py:class:`MagicCoeffCmb <magic.coeff.MagicCoeffCmb>` with the following options:
 
@@ -145,23 +145,23 @@ The complete structure of the file looks like follows:
           ! Line j + 1
           !------------
 
-          time(j), 
-          real(b(l=1,m=0)), imag(b(l=1,m=0)),                  
-          real(b(l=2,m=0)), imag(b(l=2,m=0)),                  
+          time(j),
+          real(b(lm=1)), imag(b(lm=1)),
+          real(b(lm=2)), imag(b(lm=2)),
           ...
-          real(b(l=l_max_cmb,m=l_max_cmb)), imag(b(l=l_max_cmb,m=l_max_cmb)),                  
-          real(db(l=1,m=0)), imag(db(l=1,m=0)),                  
-          real(db(l=2,m=0)), imag(db(l=2,m=0)),                  
+          real(b(lm=lm_max)), imag(b(lm=lm_max)),
+          real(db(lm=1)), imag(db(lm=1)),
+          real(db(lm=2)), imag(db(lm=2)),
           ...
-          real(db(l=l_max_cmb,m=l_max_cmb)), imag(db(l=l_max_cmb,m=l_max_cmb)),                  
-          real(aj(l=1,m=0)), imag(aj(l=1,m=0)),                  
-          real(aj(l=2,m=0)), imag(aj(l=2,m=0)),                  
+          real(db(lm=lm_max)), imag(db(lm=lm_max)),
+          real(aj(lm=1)), imag(aj(lm=1)),
+          real(aj(lm=2)), imag(aj(lm=2)),
           ...
-          real(aj(l=l_max_cmb,m=l_max_cmb)), imag(aj(l=l_max_cmb,m=l_max_cmb)),
-          real(ddb(l=1,m=0)), imag(ddb(l=1,m=0)),              
-          real(ddb(l=1,m=0)), imag(ddb(l=1,m=0)),
+          real(aj(lm=lm_max)), imag(aj(lm=lm_max)),
+          real(ddb(lm=1)), imag(ddb(lm=1)),
+          real(ddb(lm=1)), imag(ddb(lm=1)),
           ...
-          real(ddb(l=l_max_cmb,m=l_max_cmb)), imag(ddb(l=l_max_cmb,m=l_max_cmb)),                  
+          real(ddb(lm=lm_max)), imag(ddb(lm=lm_max)),
 
           ...
 
@@ -169,33 +169,33 @@ The complete structure of the file looks like follows:
           ! Line N + 1
           !------------
 
-          time(N), 
-          real(b(l=1,m=0)), imag(b(l=1,m=0)),                  
-          real(b(l=2,m=0)), imag(b(l=2,m=0)),                  
+          time(N),
+          real(b(lm=1)), imag(b(lm=1)),
+          real(b(lm=2)), imag(b(lm=2)),
           ...
-          real(b(l=l_max_cmb,m=l_max_cmb)), imag(b(l=l_max_cmb,m=l_max_cmb)),                  
-          real(db(l=1,m=0)), imag(db(l=1,m=0)),                  
-          real(db(l=2,m=0)), imag(db(l=2,m=0)),                  
+          real(b(lm=lm_max)), imag(b(lm=lm_max)),
+          real(db(lm=1)), imag(db(lm=1)),
+          real(db(lm=2)), imag(db(lm=2)),
           ...
-          real(db(l=l_max_cmb,m=l_max_cmb)), imag(db(l=l_max_cmb,m=l_max_cmb)),                  
-          real(aj(l=1,m=0)), imag(aj(l=1,m=0)),                  
-          real(aj(l=2,m=0)), imag(aj(l=2,m=0)),                  
+          real(db(lm=lm_max)), imag(db(lm=lm_max)),
+          real(aj(lm=1)), imag(aj(lm=1)),
+          real(aj(lm=2)), imag(aj(lm=2)),
           ...
-          real(aj(l=l_max_cmb,m=l_max_cmb)), imag(aj(l=l_max_cmb,m=l_max_cmb)),
-          real(ddb(l=0,m=0)), imag(ddb(l=0,m=0)),              
-          real(ddb(l=1,m=0)), imag(ddb(l=1,m=0)),
+          real(aj(lm=lm_max)), imag(aj(lm=lm_max)),
+          real(ddb(lm=1)), imag(ddb(lm=1)),
+          real(ddb(lm=1)), imag(ddb(lm=1)),
           ...
-          real(ddb(l=l_max_cmb,m=l_max_cmb)), imag(ddb(l=l_max_cmb,m=l_max_cmb))
-	     
+          real(ddb(lm=lm_max)), imag(ddb(lm=lm_max)),
+
 
 This file can be read using :py:class:`MagicCoeffR <magic.coeff.MagicCoeffR>` with the following options:
 
    >>> # To stack the files B_coeff_r3.test* from the working directory
    >>> cr = MagicCoeffR(tag='test*', field='B', r=3)
    >>> # print the time and the poloidal potential for (\ell=3, m=3)
-   >>> print(cr.time, cr.wlm[:, 3, 3])
+   >>> print(cr.time, cr.wlm[:, cr.idx[3, 3])
 
- 
+
 
 .. _secVcoeffrFile:
 
@@ -218,7 +218,7 @@ to degree :ref:`l_max_r <varl_max_cmb>`.
    the coefficients are stored, followed by the real and imaginary parts of:
    the poloidal coefficient :f:var:`w`, it's first derivative :f:var:`dw` and the
    toroidal coefficient :f:var:`z`.
- 
+
 The complete structure of the file looks like follows:
 
     .. code-block:: fortran
@@ -236,19 +236,19 @@ The complete structure of the file looks like follows:
         ! Line j + 1
         !------------
 
-        time(j), 
-        real(w(l=1,m=0)), imag(w(l=1,m=0)),                  
-        real(w(l=2,m=0)), imag(w(l=2,m=0)),                  
+        time(j),
+        real(w(lm=1)), imag(w(lm=1)),
+        real(w(lm=2)), imag(w(lm=2)),
         ...
-        real(w(l=l_max_cmb,m=l_max_cmb)), imag(w(l=l_max_cmb,m=l_max_cmb)),                  
-        real(dw(l=1,m=0)), imag(dw(l=1,m=0)),                  
-        real(dw(l=2,m=0)), imag(dw(l=2,m=0)),                  
+        real(w(lm=lm_max)), imag(w(lm=lm_max)),
+        real(dw(lm=1)), imag(dw(lm=1)),
+        real(dw(lm=2)), imag(dw(lm=2)),
         ...
-        real(dw(l=l_max_cmb,m=l_max_cmb)), imag(dw(l=l_max_cmb,m=l_max_cmb)),                  
-        real(z(l=1,m=0)), imag(z(l=1,m=0)),                  
-        real(z(l=2,m=0)), imag(z(l=2,m=0)),                  
+        real(dw(lm=lm_max)), imag(dw(lm=lm_max)),
+        real(z(lm=1)), imag(z(lm=1)),
+        real(z(lm=2)), imag(z(lm=2)),
         ...
-        real(z(l=l_max_cmb,m=l_max_cmb)), imag(z(l=l_max_cmb,m=l_max_cmb)),                  
+        real(z(lm=lm_max)), imag(z(lm=lm_max)),
 
         ...
 
@@ -256,26 +256,26 @@ The complete structure of the file looks like follows:
         ! Line N + 1
         !--------------
 
-        time(N), 
-        real(w(l=1,m=0)), imag(w(l=1,m=0)),                  
-        real(w(l=2,m=0)), imag(w(l=2,m=0)),                  
+        time(N),
+        real(w(lm=1)), imag(w(lm=1)),
+        real(w(lm=2)), imag(w(lm=2)),
         ...
-        real(w(l=l_max_cmb,m=l_max_cmb)), imag(w(l=l_max_cmb,m=l_max_cmb)),                  
-        real(dw(l=1,m=0)), imag(dw(l=1,m=0)),                  
-        real(dw(l=2,m=0)), imag(dw(l=2,m=0)),                  
+        real(w(lm=lm_max)), imag(w(lm=lm_max)),
+        real(dw(lm=1)), imag(dw(lm=1)),
+        real(dw(lm=2)), imag(dw(lm=2)),
         ...
-        real(dw(l=l_max_cmb,m=l_max_cmb)), imag(dw(l=l_max_cmb,m=l_max_cmb)),                  
-        real(z(l=1,m=0)), imag(z(l=1,m=0)),                  
-        real(z(l=2,m=0)), imag(z(l=2,m=0)),                  
+        real(dw(lm=lm_max)), imag(dw(lm=lm_max)),
+        real(z(lm=1)), imag(z(lm=1)),
+        real(z(lm=2)), imag(z(lm=2)),
         ...
-        real(z(l=l_max_cmb,m=l_max_cmb)), imag(z(l=l_max_cmb,m=l_max_cmb))
+        real(z(lm=lm_max)), imag(z(lm=lm_max))
 
 This file can be read using :py:class:`MagicCoeffR <magic.coeff.MagicCoeffR>` with the following options:
 
    >>> # To stack the files V_coeff_r3.test* from the working directory
    >>> cr = MagicCoeffR(tag='test*', field='V', r=3)
    >>> # print the poloidal and toroidal potentials for (\ell=6, m=0)
-   >>> print(cr.wlm[:, 6, 0], cr.zlm[:, 6, 0])
+   >>> print(cr.wlm[:, cr.idx[6, 0]], cr.zlm[:, cr.idx[6, 0]])
 
 
 .. _secTcoeffrFile:
@@ -296,7 +296,7 @@ of the temperature (or entropy) field. The output is for a specific radius,
  * **Data** Each chunk of data after the header contains the ``time`` at which
    the coefficients are stored, followed by the real and imaginary parts of the
    coefficient :f:var:`s`.
- 
+
 The complete structure of the file looks like follows:
 
     .. code-block:: fortran
@@ -315,20 +315,21 @@ The complete structure of the file looks like follows:
         ! Line j + 1
         !------------
 
-        time(j), 
-        real(s(l=0,m=0)), imag(s(l=0,m=0)),                  
-        real(s(l=1,m=0)), imag(s(l=1,m=0)),                  
-        real(s(l=2,m=0)), imag(s(l=2,m=0)),                  
+        time(j),
+        real(s(lm=0)), imag(s(lm=0)),
+        real(s(lm=1)), imag(s(lm=1)),
+        real(s(lm=2)), imag(s(lm=2)),
         ...
-        real(s(l=l_max_cmb,m=l_max_cmb)), imag(s(l=l_max_cmb,m=l_max_cmb)),                  
+        real(s(lm=lm_max)), imag(s(lm=lm_max)),
 
         !------------
         ! Line N + 1
         !------------
 
-        time(N), 
-        real(s(l=0,m=0)), imag(s(l=0,m=0)),                  
-        real(s(l=1,m=0)), imag(s(l=1,m=0)),                  
-        real(s(l=2,m=0)), imag(s(l=2,m=0)),                  
+        time(N),
+        real(s(lm=0)), imag(s(lm=0)),
+        real(s(lm=1)), imag(s(lm=1)),
+        real(s(lm=2)), imag(s(lm=2)),
         ...
-        real(s(l=l_max_cmb,m=l_max_cmb)), imag(s(l=l_max_cmb,m=l_max_cmb)),                  
+        real(s(lm=lm_max)), imag(s(lm=lm_max)),
+
