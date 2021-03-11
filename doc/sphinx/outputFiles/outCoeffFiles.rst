@@ -5,7 +5,7 @@ Poloidal and toroidal potentials at given depths
 
 These are fortran unformatted files which store time series of poloidal and
 toroidal coefficients of different fields (magnetic field, velocity and
-temeperature) at specific depths.
+temperature) at specific depths.
 
 In the following, :code:`time(j)`  is the time during the :math:`j^{th}` time
 step, :code:`time(N)` being the last step. :code:`real` and :code:`imag` denote
@@ -85,7 +85,7 @@ This file can be read using :py:class:`MagicCoeffCmb <magic.coeff.MagicCoeffCmb>
    >>> # To stack the files B_cmb_coeff.testc to B_cmb_coeff.testf
    >>> cmb = MagicCoeffCmb(tag='test[c-f]')
    >>> # print Gauss coefficient for (\ell=10, m=3)
-   >>> print(cmb.glm[:, 10, 3])
+   >>> print(cmb.glm[:, cmb.idx[10, 3]])
 
 
 
