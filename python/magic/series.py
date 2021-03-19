@@ -265,6 +265,7 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(211)
             ax.plot(self.time, self.am_oc_z, label='Outer core')
+            ax.plot(self.time, self.am_ic, label='Inner core')
             ax.plot(self.time, self.amz, ls='-', c='#31363b', label='Total')
             ax.legend(loc='best', frameon=False)
             ax.set_ylabel('AM')

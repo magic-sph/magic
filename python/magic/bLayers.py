@@ -285,7 +285,8 @@ class BLayers(MagicSetup):
                 self.dissEpsTbl, self.dissEpsTbulk = 0., 0.
 
 
-            print('thDiss bl, bulk',  self.dissEpsTbl/self.epsT, self.dissEpsTbulk/self.epsT)
+            print('thDiss bl, bulk',  self.dissEpsTbl/self.epsT,
+                  self.dissEpsTbulk/self.epsT)
         # First way of defining the thermal boundary layers: with var(S)
         #rThLayer = getMaxima(self.rad, self.varS)
         ind = argrelextrema(self.varS, np.greater)[0]
@@ -305,14 +306,14 @@ class BLayers(MagicSetup):
         self.ttm = 3.*intcheb(self.ss*self.rad**2, len(self.rad)-1, self.ri, self.ro) \
                    /(self.ro**3-self.ri**3)
         dsdr = np.dot(d1, self.ss)
-        self.beta = dsdr[len(dsdr)/2]
+        self.beta = dsdr[len(dsdr)//2]
         print('beta={:.2f}'.format(self.beta))
         self.slopeTop = dsdr[2]*(self.rad-self.ro)+self.ss[0]
         self.slopeBot = dsdr[-1]*(self.rad-self.ri)+self.ss[-1]
 
-        self.dtdrm = dsdr[len(self.ss)/2]
-        tmid = self.ss[len(self.ss)/2]
-        self.slopeMid = self.dtdrm*(self.rad-self.rad[len(self.rad)/2])+tmid
+        self.dtdrm = dsdr[len(self.ss)//2]
+        tmid = self.ss[len(self.ss)//2]
+        self.slopeMid = self.dtdrm*(self.rad-self.rad[len(self.rad)//2])+tmid
 
         self.bcTopSlope = (tmid-self.ss[0])/(self.dtdrm-dsdr[2])
         self.bcBotSlope = -(tmid-self.ss[-1])/(self.dtdrm-dsdr[-1])
@@ -323,8 +324,10 @@ class BLayers(MagicSetup):
         self.slopeBot = bSlope*(self.rad-self.ri)+self.ss[-1]
         self.slopeTop = tSlope*(self.rad-self.ro)+self.ss[0]
         #self.bcTopSlope = -(self.ttm-self.ss[0])/tSlope
-        self.bcTopSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)/2]-self.ss[0]+tSlope*self.ro)/(self.dtdrm-tSlope)
-        self.bcBotSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)/2]-self.ss[-1]+bSlope*self.ri)/(self.dtdrm-bSlope)
+        self.bcTopSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)//2] - self.ss[0] \
+                          + tSlope*self.ro)/(self.dtdrm-tSlope)
+        self.bcBotSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)//2] - self.ss[-1] \
+                          + bSlope*self.ri)/(self.dtdrm-bSlope)
         self.dto = tSlope*(self.bcTopSlope-self.ro)+self.ss[0]
         self.dti = bSlope*(self.bcBotSlope-self.ri)+self.ss[-1]
         self.dto = self.dto-self.ss[0]
@@ -337,12 +340,12 @@ class BLayers(MagicSetup):
             self.slopeEpsTbl, self.slopeEpsTbulk = integBulkBc(self.rad, self.epsTR,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope)
 
-            print('slopes bl, bulk', self.slopeEpsTbl/self.epsT, self.slopeEpsTbulk/self.epsT)
+            print('slopes bl, bulk', self.slopeEpsTbl/self.epsT,
+                  self.slopeEpsTbulk/self.epsT)
 
         pow = MagicRadial(field='powerR', iplot=False, tags=tags)
         self.vi = pow.viscDiss
         self.buo = pow.buoPower
-
 
         self.epsV = -intcheb(self.vi, len(self.rad)-1, self.ro, self.ri)
         ind = getMaxima(-abs(self.vi-self.epsV))
@@ -364,7 +367,8 @@ class BLayers(MagicSetup):
             self.dissEpsVbl = 0.
             self.dissEpsVbulk = 0.
 
-        print('visc Diss bl, bulk', self.dissEpsVbl/self.epsV, self.dissEpsVbulk/self.epsV)
+        print('visc Diss bl, bulk', self.dissEpsVbl/self.epsV,
+              self.dissEpsVbulk/self.epsV)
 
         # First way of defining the viscous boundary layers: with duhdr
         #rViscousLayer = getMaxima(self.rad, self.duh)
@@ -477,7 +481,8 @@ class BLayers(MagicSetup):
         self.rolBot = simps(3.*y*x**2, x)/((self.ri+self.bcBotSlope)**3-self.ri**3)
         print('reynols bc, reynolds bulk', self.rebl, self.rebulk)
         print('reh bc, reh bulk', self.rehbl, self.rehbulk)
-        print('rolbc, rolbulk, roltop, rolbot', self.rolbl, self.rolbulk, self.rolBot, self.rolTop)
+        print('rolbc, rolbulk, roltop, rolbot', self.rolbl, self.rolbulk,
+              self.rolBot, self.rolTop)
 
         par.dlVc[0] = 0.
         par.dlVc[-1] = 0.
@@ -647,7 +652,7 @@ class BLayers(MagicSetup):
         st += '{:12.5e}{:12.5e}'.format(self.rebl, self.rebulk)
         st += '{:12.5e}{:12.5e}'.format(self.rehbl, self.rehbulk)
         st += '{:12.5e}{:12.5e}'.format(self.lengthbl, self.lengthbulk)
-        st += '{:12.5e}{:12.5e}'.format(self.ss[len(self.ss)/2]-self.ss[0],
+        st += '{:12.5e}{:12.5e}'.format(self.ss[len(self.ss)//2]-self.ss[0],
                                         self.ttm-self.ss[0])
         st += '{:12.5e}{:12.5e}'.format(self.dti, self.dto)
         st += '{:12.5e}{:12.5e}{:12.5e}'.format(self.reh, self.uhBot, self.uhTop)
