@@ -459,7 +459,6 @@ class MagicTOZ(MagicSetup):
         self.nSmax = int(self.nSmax)
 
         self.cylRad = infile.fort_read(precision)
-
         self.zall = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
         self.vp = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
         self.dvp = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
@@ -467,13 +466,18 @@ class MagicTOZ(MagicSetup):
         self.Astr = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
         self.LF = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
         self.Cor = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
-        self.str = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.visc = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+
+        self.cylRadall = np.zeros_like(self.zall)
+        for i in range(2*self.nSmax):
+            self.cylRadall[i, :] = self.cylRad[:]
 
         if n_fields == 9:
             self.CL = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
 
         for nS in range(self.nSmax):
             nZmaxNS = int(infile.fort_read(precision))
+            print(nZmaxNS)
             data = infile.fort_read(precision)
             data = data.reshape((n_fields, nZmaxNS))
             self.zall[:nZmaxNS, nS] = data[0, :]
@@ -482,7 +486,7 @@ class MagicTOZ(MagicSetup):
             self.Rstr[:nZmaxNS, nS] = data[3, :]
             self.Astr[:nZmaxNS, nS] = data[4, :]
             self.LF[:nZmaxNS, nS] = data[5, :]
-            self.str[:nZmaxNS, nS] = data[6, :]
+            self.visc[:nZmaxNS, nS] = data[6, :]
             self.Cor[:nZmaxNS, nS] = data[7, :]
             if n_fields == 9:
                 self.CL[:nZmaxNS, nS] = data[8, :]
@@ -550,6 +554,12 @@ class MagicTOHemi(MagicSetup):
 
         self.nSmax = int(infile.fort_read(precision))
         self.cylRad = infile.fort_read(precision)
+        self.height = np.zeros_like(self.cylRad)
+        ro = self.cylRad[0]
+        ri = ro - 1.
+        self.height[self.cylRad>=ri] = 2.*np.sqrt(ro**2-self.cylRad[self.cylRad>=ri]**2)
+        self.height[self.cylRad<ri] = np.sqrt(ro**2-self.cylRad[self.cylRad<ri]**2) - \
+                                      np.sqrt(ri**2-self.cylRad[self.cylRad<ri]**2)
 
         ind = 0
         while 1:
@@ -573,6 +583,15 @@ class MagicTOHemi(MagicSetup):
                     self.LF = data[6, :]
                     self.viscstr = data[7, :]
                     self.tay = data[8, :]
+                    self.Tau = data[9, :]
+                    self.TauB = data[10, :]
+                    self.BspdInt = data[11, :]
+                    self.BpsdInt = data[12, :]
+                    self.dTau = data[13, :]
+                    self.dTTau = data[14, :]
+                    self.dTTauB = data[15, :]
+                    self.Bs2 = data[16, :]
+
                 else:
                     self.vp = np.vstack((self.vp, data[0, :]))
                     self.dvp = np.vstack((self.dvp, data[1, :]))
@@ -583,6 +602,14 @@ class MagicTOHemi(MagicSetup):
                     self.LF = np.vstack((self.LF, data[6, :]))
                     self.viscstr = np.vstack((self.viscstr, data[7, :]))
                     self.tay = np.vstack((self.tay, data[8, :]))
+                    self.Tau = np.vstack((self.Tau, data[9, :]))
+                    self.TauB = np.vstack((self.TauB, data[10, :]))
+                    self.BspdInt = np.vstack((self.BspdInt, data[11, :]))
+                    self.BpsdInt = np.vstack((self.BpsdInt, data[12, :]))
+                    self.dTau = np.vstack((self.dTau, data[13, :]))
+                    self.dTTau = np.vstack((self.dTTau, data[14, :]))
+                    self.dTTauB = np.vstack((self.dTTauB, data[15, :]))
+                    self.Bs2 = np.vstack((self.Bs2, data[16, :]))
 
                 ind += 1
             except TypeError:
@@ -602,7 +629,7 @@ class MagicTOHemi(MagicSetup):
         ax.set_xlabel('Cylindrical radius')
         ax.axhline(linestyle='--', linewidth=1.5, color='k')
         ax.set_ylabel('Vphi')
-        ax.set_xlim(self.cylRad[0], self.cylRad[-1])
+        #ax.set_xlim(self.cylRad[0], self.cylRad[-1])
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -614,7 +641,7 @@ class MagicTOHemi(MagicSetup):
         ax.set_xlabel('Cylindrical radius')
         ax.set_ylabel('Integrated forces')
         ax.legend(loc='upper left', frameon=False)
-        ax.set_xlim(self.cylRad[0], self.cylRad[-1])
+        #ax.set_xlim(self.cylRad[0], self.cylRad[-1])
 
 
 class MagicTaySphere(MagicSetup):

@@ -237,8 +237,8 @@ contains
 
       vpAS(:)=0.0_cp
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta, n_phi)    &
-      !$omp& private(fac, facCot, n_theta_nhs)
+      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs) &
+      !$omp& reduction(+:vpAS)
       do n_phi=1,n_phi_max
          do n_theta=nThetaStart,nThetaStop ! loop over ic-points, alternating north/south
             n_theta_nhs=(n_theta+1)/2
@@ -345,6 +345,8 @@ contains
          PstrLM_Rdist(lm,nR)=0.0_cp
          PadvLM_Rdist(lm,nR)=0.0_cp
       end if
+      !$omp parallel default(shared) private(lm,l,m,lmP,lmPS,lmPA,fac)
+      !$omp do
       do lm=lm_maybe_skip_first,n_lm_loc
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -365,6 +367,7 @@ contains
             &    - dTheta1A_loc(lm)*BrVtLM(lmPA) + dPhi_loc(lm)*BrVpLM(lmP) )
          end if
       end do
+      !$omp end do
 
       !--- Poloidal advection and stretching term finished for radial level nR !
 
@@ -373,6 +376,7 @@ contains
          TstrLM_Rdist(lm,nR) =0.0_cp
          TstrRLM_Rdist(lm,nR)=0.0_cp
       end if
+      !$omp do
       do lm=lm_maybe_skip_first,n_lm_loc
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -408,12 +412,14 @@ contains
             &                            dPhi_loc(lm)*BrVtLM(lmP)  )
          end if
       end do
+      !$omp end do
 
       lm =lm2(0,0)   ! This is l=0,m=0
       if ( lm > 0 ) then
          TadvLM_Rdist(lm,nR) =0.0_cp
          TadvRLM_Rdist(lm,nR)=0.0_cp
       end if
+      !$omp do
       do lm=lm_maybe_skip_first,n_lm_loc
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -449,6 +455,7 @@ contains
             &               dPhi_loc(lm)*BtVrLM(lmP)   )
          end if
       end do
+      !$omp end do
 
       !--- TomeLM same as TstrLM but where ever Vp appeared
       !    it is replaced by its axisymmetric contribution VZ:
@@ -457,6 +464,7 @@ contains
          TomeLM_Rdist(lm,nR) =0.0_cp
          TomeRLM_Rdist(lm,nR)=0.0_cp
       end if
+      !$omp do
       do lm=lm_maybe_skip_first,n_lm_loc
          l  =lm2l(lm)
          m  =lm2m(lm)
@@ -477,6 +485,8 @@ contains
             TomeRLM_Rdist(lm,nR)=-fac*dTheta1A_loc(lm)*BrVZLM(lmPA)
          end if
       end do
+      !$omp end do
+      !$omp end parallel
 
    end subroutine get_dH_dtBLM
 !------------------------------------------------------------------------------
@@ -532,7 +542,7 @@ contains
             &                   (ddb(lm,nR)-dLh*or2(nR)*b(lm,nR))
             TdifLM_LMdist(lm,nR)= opm*lambda(nR)*hdif_B(l) * &
             &    ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - dLh*or2(nR)*aj(lm,nR) )
-         end do
+               end do
       end do
 
       call get_dr(TomeRLM_LMdist, work_LMdist, n_mloMag_loc, 1, n_mloMag_loc, &

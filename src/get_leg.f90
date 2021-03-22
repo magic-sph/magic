@@ -604,7 +604,7 @@ contains
    subroutine leg_spec_to_hyb(this, w, dw, ddw, z, dz, b, db, ddb, aj, dj, s, ds, &
               &               p, xi, lVisc, lRmsCalc, lPressCalc, lTOCalc,        &
               &               lPowerCalc, lFluxProfCalc, lPerpParCalc, lHelCalc,  &
-              &               l_frame)
+              &               lGeosCalc, l_frame)
 
       class(hybrid_3D_arrays_t) :: this
 
@@ -625,7 +625,7 @@ contains
       complex(cp), intent(inout) :: xi(n_lm_loc,nRstart:nRstop)  ! Chemical composition
       logical,     intent(in) :: lVisc, lRmsCalc, lPressCalc, lPowerCalc
       logical,     intent(in) :: lTOCalc, lFluxProfCalc, l_frame, lHelCalc
-      logical,     intent(in) :: lPerpParCalc
+      logical,     intent(in) :: lPerpParCalc, lGeosCalc
 
       !-- Local variables
       logical :: lDeriv
@@ -638,11 +638,13 @@ contains
          if ( nR == n_r_cmb ) then
             nBc = ktopv
             lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc   &
-            &       .or. lVisc .or. lFluxProfCalc .or. lRmsCalc .or. lPowerCalc
+            &       .or. lVisc .or. lFluxProfCalc .or. lRmsCalc .or.       &
+            &       lPowerCalc .or. lGeosCalc
          else if ( nR == n_r_icb ) then
             nBc = kbotv
             lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
-            &       .or. lVisc .or. lFluxProfCalc .or. lRmsCalc .or. lPowerCalc
+            &       .or. lVisc .or. lFluxProfCalc .or. lRmsCalc .or.       &
+            &       lPowerCalc .or. lGeosCalc
          end if
 
          if ( l_conv .or. l_mag_kin ) then

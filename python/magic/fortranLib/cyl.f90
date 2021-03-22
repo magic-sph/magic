@@ -147,8 +147,8 @@ subroutine cylmean_otc(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
       v(n_s)=tot/(6.0_cp*nz)
    end do sLoop
 
-   !--  special case s=rmax
-   !v(0) = 0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
+   !--  special case s=r_cmb
+   v(1)=0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
 
 end subroutine cylmean_otc
 
@@ -354,11 +354,11 @@ subroutine cylmean(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
 
    !-- Loop over axial cylinders starts here
    !$omp parallel do default(shared) &
-   !$omp private(n_s,zmax,zmin,nz,dz,nZstart,nZstop,n_z,z,rc)     &
+   !$omp private(n_s,zmax,zmin,nz,dz,nZstart,nZstop,n_z,z,rc,n_r) &
    !$omp private(thet,n_r0,n_r1,n_r2,n_r3,n_th0,n_th1,n_th2,n_th3)&
    !$omp private(rr0, rr1, rr2, rr3, r10, r20, r30, r21, r31, r32)&
    !$omp private(tt0, tt1, tt2, tt3, t10, t20, t30, t21, t31, t32)&
-   !$omp private(a01, a12, a23, a012, a123)
+   !$omp private(a01, a12, a23, a012, a123, tot, itr, ait, n_th)
    sLoop: do n_s=1,n_s_max
 
       zmax = sqrt(r_cmb*r_cmb-s(n_s)*s(n_s)) ! zmax
@@ -496,5 +496,8 @@ subroutine cylmean(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
 
    end do sLoop
    !$omp end parallel do
+
+   !--  special case s=r_cmb
+   v(1)=0.5_cp*(a(n_theta_max/2,1)+a(n_theta_max/2+1,1))
 
 end subroutine cylmean

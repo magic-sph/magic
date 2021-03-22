@@ -342,14 +342,9 @@ useful.o              : logic.o output_data.o parallel.o precision_mod.o\
                         constants.o
 LMmapping.o           : mem_alloc.o truncation.o
 mem_alloc.o           : parallel.o precision_mod.o output_data.o
-out_TO.o              : truncation.o horizontal.o num_param.o\
-                        phys_param.o radial.o logic.o blocking.o\
-                        constants.o output_data.o TO.o $(SHT_OBJS)\
-                        $(DCT_OBJS) chebInt.o plms.o TO_helpers.o\
-                        char_manip.o integration.o useful.o mem_alloc.o\
-                        communications.o
-TO_helpers.o          : truncation.o blocking.o horizontal.o precision_mod.o\
-                        constants.o $(SHT_OBJS)
+out_TO.o              : truncation.o horizontal.o num_param.o logic.o\
+                        phys_param.o radial.o parallel.o integration.o\
+                        constants.o output_data.o TO.o useful.o mem_alloc.o
 TO_arrays.o           : truncation.o precision_mod.o mem_alloc.o
 dtB_arrays.o          : truncation.o precision_mod.o constants.o\
                         mem_alloc.o
@@ -417,7 +412,7 @@ rIter.o               : precision_mod.o parallel.o truncation.o logic.o radial_d
                         radial.o constants.o get_nl.o get_td.o TO.o dtB.o\
                         out_graph_file.o nl_special_calc.o nonlinear_bcs.o\
                         courant.o outRot.o fields.o time_schemes.o phys_param.o\
-                        ${SHT_OBJS}
+                        ${SHT_OBJS} outGeos.o
 radialLoop.o          : truncation.o time_schemes.o precision_mod.o mem_alloc.o\
                         radial_data.o rIteration.o rIter.o
 LMLoop.o              : truncation.o blocking.o parallel.o time_array.o\
@@ -464,7 +459,6 @@ updateWPS.o           : truncation.o blocking.o num_param.o time_array.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         $(DCT_OBJS) radial_derivatives.o\
                         mem_alloc.o init_fields.o RMS.o time_schemes.o
-chebInt.o             : chebyshev_polynoms.o $(DCT_OBJS) radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         RMS.o RMS_helpers.o fields.o\
@@ -516,11 +510,9 @@ updateB.o             : truncation.o blocking.o horizontal.o fields.o\
                         RMS.o matrices.o radial_derivatives.o\
                         $(DCT_OBJS) radial_derivatives_even.o\
                         RMS_helpers.o mem_alloc.o
-outGeos.o             : truncation.o phys_param.o num_param.o\
-                        horizontal.o radial.o blocking.o constants.o\
-                        output_data.o logic.o $(DCT_OBJS) chebInt.o\
-                        plms.o $(FFT_OBJS) communications.o\
-                        mem_alloc.o TO_helpers.o
+outGeos.o             : truncation.o horizontal.o radial.o constants.o\
+                        output_data.o logic.o radial_data.o parallel.o\
+                        communications.o integration.o mem_alloc.o logic.o
 preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
                         radial.o horizontal.o init_fields.o time_schemes.o\
                         blocking.o logic.o output_data.o\

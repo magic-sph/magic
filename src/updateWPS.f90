@@ -604,7 +604,7 @@ contains
                &                                            ) * dw(lm,n_r)  &
                &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
                &                      +dLvisc(n_r) )   *         w(lm,n_r) )
-               dsdt%impl(lm,n_r,1)=               opr*hdif_S(l)*kappa(n_r)*&
+               dsdt%impl(lm,n_r,1)=               opr*hdif_S(l)*kappa(n_r)* &
                &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
                &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
                &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
@@ -779,7 +779,7 @@ contains
                   &        - dL*or2(n_r)*( two*or1(n_r)+two*third*beta(n_r)    &
                   &                      +dLvisc(n_r) )   *         w(lm,n_r) )
                   dsdt%impl(lm,n_r,istage)=           opr*hdif_S(l)*kappa(n_r)*&
-                  &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+     &
+                  &        ( workB(lm,n_r) + (beta(n_r)+dLtemp0(n_r)+          &
                   &            two*or1(n_r) + dLkappa(n_r) )  * ds(lm,n_r)     &
                   &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
                   &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)

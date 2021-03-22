@@ -41,8 +41,9 @@ module out_movie
 contains
 
    subroutine store_movie_frame(n_r,vr_loc,vt_loc,vp_loc,br_loc,bt_loc,     &
-              &                 bp_loc,sr_loc,drSr_loc,dvrdp_loc,dvpdr_loc, &
-              &                 dvtdr_loc,dvrdt_loc,cvr_loc,cbr_loc,cbt_loc)
+              &                 bp_loc,sr_loc,drSr_loc,xir_loc,dvrdp_loc,   &
+              &                 dvpdr_loc,dvtdr_loc,dvrdt_loc,cvr_loc,      &
+              &                 cbr_loc,cbt_loc)
       !
       !  Controls output of movie frames.
       !  Usually called from radialLoop.
@@ -50,21 +51,22 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: n_r                ! radial grid point no.
-      real(cp),    intent(in) :: vr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: vt_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: vp_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: br_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: bt_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: bp_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: sr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: drSr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: dvrdp_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: dvpdr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: dvtdr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: dvrdt_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: cvr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: cbr_loc(n_phi_max,nThetaStart:nThetaStop)
-      real(cp),    intent(in) :: cbt_loc(n_phi_max,nThetaStart:nThetaStop)
+      real(cp),    intent(in) :: vr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: vt_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: vp_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: br_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: bt_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: bp_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: sr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: drSr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: xir_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: dvrdp_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: dvpdr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: dvtdr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: dvrdt_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: cvr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: cbr_loc(nThetaStart:nThetaStop,n_phi_max)
+      real(cp),    intent(in) :: cbt_loc(nThetaStart:nThetaStop,n_phi_max)
 
       !-- Local variables:
       integer :: n_movie        ! No. of movie
@@ -84,7 +86,7 @@ contains
       real(cp) :: cbr(n_theta_max,n_phi_max), cbt(n_theta_max,n_phi_max)
       real(cp) :: drSr(n_theta_max,n_phi_max), dvrdp(n_theta_max,n_phi_max)
       real(cp) :: dvpdr(n_theta_max,n_phi_max), dvtdr(n_theta_max,n_phi_max)
-      real(cp) :: dvrdt(n_theta_max,n_phi_max)
+      real(cp) :: dvrdt(n_theta_max,n_phi_max), xir(n_theta_max,n_phi_max)
       complex(cp) :: bCMB(lm_max)
 
       !@> TODO remove the gather_f from here at some point
@@ -96,6 +98,7 @@ contains
       call gather_f(bp_loc, bp)
       call gather_f(sr_loc, sr)
       call gather_f(drSr_loc, drSr)
+      call gather_f(xir_loc, xir)
       call gather_f(dvrdp_loc, dvrdp)
       call gather_f(dvpdr_loc, dvpdr)
       call gather_f(dvtdr_loc, dvtdr)
@@ -130,7 +133,7 @@ contains
                n_field_type=n_movie_field_type(n_field,n_movie)
                n_store_last=n_movie_field_start(n_field,n_movie)-1
                if ( n_store_last >= 0 ) then
-                  call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,           &
+                  call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,xir,       &
                        &               dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
                        &               n_r,n_store_last,n_field_type)
                end if
@@ -144,7 +147,7 @@ contains
                n_field_type=n_movie_field_type(n_field,n_movie)
                n_store_last=n_movie_field_start(n_field,n_movie)-1
                if ( n_store_last >= 0 ) then
-                  call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,     &
+                  call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,xir, &
                        &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,   &
                        &              n_r,n_store_last,n_field_type)
                end if
@@ -167,7 +170,7 @@ contains
                n_field_type=n_movie_field_type(n_field,n_movie)
                n_store_last=n_movie_field_start(n_field,n_movie)-1
                if ( n_store_last >= 0 ) then
-                  call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,       &
+                  call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,   &
                        &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt, &
                        &              n_r,n_store_last,n_field_type,   &
                        &              n_theta)
@@ -181,9 +184,9 @@ contains
                n_store_last=n_movie_field_start(n_field,n_movie)-1
                n_field_size=(n_movie_field_stop(n_field,n_movie) - n_store_last)/2
                if ( n_store_last >= 0 ) then
-                  call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,           &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
-                       &              n_r,n_store_last,n_field_type,       &
+                  call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,xir,        &
+                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt,  &
+                       &              n_r,n_store_last,n_field_type,        &
                        &              n_const,n_field_size)
                end if
             end do  ! Do loop over field for one movie
@@ -419,8 +422,8 @@ contains
 
    end subroutine store_fields_sur
 !----------------------------------------------------------------------------
-   subroutine store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,dvrdp,dvpdr,dvtdr,  &
-              &              dvrdt,cvr,n_r,n_store_last,n_field_type)
+   subroutine store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,xir,dvrdp,dvpdr,   &
+              &              dvtdr,dvrdt,cvr,n_r,n_store_last,n_field_type)
       !
       !  Purpose of this subroutine is to store movie frames for
       !  surfaces r=const. into array frame(*,*)
@@ -430,6 +433,7 @@ contains
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
       real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: xir(:,:)
       real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
       real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
       real(cp), intent(in) :: cvr(:,:)
@@ -524,6 +528,16 @@ contains
             end do
          end do
 
+      else if ( n_field_type == 109 ) then
+
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               n_theta=n_theta_cal2ord(n_theta_cal)
+               n_o=n_store_last+(n_theta-1)*n_phi_max
+               frames(n_phi+n_o)=xir(n_theta_cal,n_phi)
+            end do
+         end do
+
       else if ( n_field_type == 16 ) then
 
          fac=or1(n_r)*orho1(n_r)*vScale
@@ -612,8 +626,8 @@ contains
 
    end subroutine store_fields_r
 !----------------------------------------------------------------------------
-   subroutine store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,dvrdp,dvpdr,dvtdr, &
-              &              dvrdt,cvr,cbr,cbt,n_r,n_store_last,          &
+   subroutine store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,xir,dvrdp,              &
+              &              dvpdr,dvtdr, dvrdt,cvr,cbr,cbt,n_r,n_store_last,  &
               &              n_field_type,n_phi_const,n_field_size)
       !
       !  Purpose of this subroutine is to store movie frames for
@@ -624,6 +638,7 @@ contains
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
       real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: xir(:,:)
       real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
       real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
       real(cp), intent(in) :: cvr(:,:)
@@ -722,6 +737,14 @@ contains
             frames(n_180+n_theta)=sr(n_theta_cal,n_phi_180)
          end do
 
+      else if ( n_field_type == 109 ) then
+
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=xir(n_theta_cal,n_phi_0)
+            frames(n_180+n_theta)=xir(n_theta_cal,n_phi_180)
+         end do
+
       else if ( n_field_type == 8 ) then
 
          !--- Field for axisymmetric poloidal field lines:
@@ -777,6 +800,18 @@ contains
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
                fl(1)=fl(1)+sr(n_theta_cal,n_phi)
+            end do
+            frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+
+      else if ( n_field_type == 110 ) then
+
+         !--- Axisymmetric C:
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.0_cp
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+xir(n_theta_cal,n_phi)
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
@@ -1012,9 +1047,9 @@ contains
 
    end subroutine store_fields_p
 !----------------------------------------------------------------------------
-   subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,dvrdp,dvpdr,dvtdr, &
-              &              dvrdt,cvr,cbt,n_r,n_store_last,n_field_type, &
-              &              n_theta)
+   subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,dvrdp,         &
+              &              dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,n_store_last,  &
+              &              n_field_type,n_theta)
       !
       !  Purpose of this subroutine is to store movie frames for
       !  surfaces r=const. into array frame(*,*)
@@ -1024,6 +1059,7 @@ contains
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
       real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: xir(:,:)
       real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
       real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
       real(cp), intent(in) :: cvr(:,:),cbt(:,:)
@@ -1085,6 +1121,12 @@ contains
 
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=sr(n_theta,n_phi)
+         end do
+
+      else if ( n_field_type == 109 ) then
+
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=xir(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 13 ) then
@@ -1155,9 +1197,9 @@ contains
 
    end subroutine store_fields_t
 !----------------------------------------------------------------------------
-   subroutine store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,dvrdp,dvpdr,dvtdr, &
-              &               dvrdt,cvr,cbr,cbt,n_r,n_store_last,          &
-              &               n_field_type)
+   subroutine store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,xir,dvrdp,  &
+              &               dvpdr,dvtdr,dvrdt,cvr,cbr,cbt,n_r,    &
+              &               n_store_last,n_field_type)
       !
       !  Purpose of this subroutine is to store movie frames for
       !  surfaces r=const. into array frame(*,*)
@@ -1167,6 +1209,7 @@ contains
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
       real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: xir(:,:)
       real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
       real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
       real(cp), intent(in) :: cvr(:,:)
@@ -1260,6 +1303,16 @@ contains
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                frames(n_phi+n_o)=sr(n_theta_cal,n_phi)
+            end do
+         end do
+
+      else if ( n_field_type == 109 ) then
+
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               n_theta=n_theta_cal2ord(n_theta_cal)
+               n_o=n_or+(n_theta-1)*n_phi_max
+               frames(n_phi+n_o)=xir(n_theta_cal,n_phi)
             end do
          end do
 

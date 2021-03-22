@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Magic documentation build configuration file, created by
 # sphinx-quickstart2 on Tue Sep  1 16:47:54 2015.
@@ -56,8 +57,8 @@ master_doc = 'contents'
 
 # General information about the project.
 project = 'Magic'
-copyright = '2015, Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
-author = 'Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
+copyright = u'2020, Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
+author = u'Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -293,5 +294,3 @@ os.system('./cleanPreProc.sh')
 fortran_ext = ['f90']
 fortran_src = ['.fortranCleanSrc/*.f90']
 fortran_indent = 3
-
-os.system('cp -r galleria .build/html/')

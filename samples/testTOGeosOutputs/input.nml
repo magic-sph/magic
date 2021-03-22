@@ -30,7 +30,7 @@ n_cheb_ic_max=15,
  kbotb       =3
 /
 &start_field
- l_start_file=.TRUE.,
+ l_start_file=.true.,
  start_file  ="../boussBenchSat/rst_end.start",
  inform      =5
  init_b1     =0,
@@ -44,10 +44,11 @@ n_cheb_ic_max=15,
  n_rsts      =1,
  n_stores    =0,
  runid       ="Benchmark 2",
- l_TO        =.TRUE.,
- l_TOmovie   =.TRUE.,
+ n_TO_step   =10,
+ l_TO        =.true.,
+ l_TOmovie   =.true.,
 n_TOmovie_step=10,
- l_par       =.TRUE.,
+ l_par       =.true.,
 /
 &mantle 
  nRotMa      =0

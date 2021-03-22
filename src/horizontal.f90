@@ -264,45 +264,43 @@ contains
 
             if ( ldif >= 0 .and. l > ldif ) then
 
-            !-- Kuang and Bloxham type:
-            !                 hdif_B(l)=
-            !     *                   one+difeta*real(l+1-ldif,cp)**ldifexp
-            !                 hdif_V(l)=
-            !     *                   one+ difnu*real(l+1-ldif,cp)**ldifexp
-            !                 hdif_S(l)=
-            !     &                   one+difkap*real(l+1-ldif,cp)**ldifexp
+               !-- Kuang and Bloxham type:
+               !                 hdif_B(l) =one+difeta *real(l+1-ldif,cp)**ldifexp
+               !                 hdif_V(l) =one+ difnu *real(l+1-ldif,cp)**ldifexp
+               !                 hdif_S(l) =one+difkap *real(l+1-ldif,cp)**ldifexp
+               !                 hdif_Xi(l)=one+difchem*real(l+1-ldif,cp)**ldifexp
 
-            !-- Old type:
-               hdif_B(l)= one + difeta * ( real(l+1-ldif,cp) / &
-               &                             real(l_max+1-ldif,cp) )**ldifexp
-               hdif_V(l)= one + difnu * ( real(l+1-ldif,cp) / &
-               &                            real(l_max+1-ldif,cp) )**ldifexp
-               hdif_S(l)= one + difkap * ( real(l+1-ldif,cp) / &
-               &                             real(l_max+1-ldif,cp) )**ldifexp
-               hdif_Xi(l)= one + difchem * ( real(l+1-ldif,cp) / &
-               &                             real(l_max+1-ldif,cp) )**ldifexp
+               !-- Old type:
+               hdif_B(l) = one+difeta * ( real(l+1-ldif,cp) / &
+               &                          real(l_max+1-ldif,cp) )**ldifexp
+               hdif_V(l) = one+difnu * ( real(l+1-ldif,cp) / &
+               &                         real(l_max+1-ldif,cp) )**ldifexp
+               hdif_S(l) = one+difkap * ( real(l+1-ldif,cp) / &
+               &                          real(l_max+1-ldif,cp) )**ldifexp
+               hdif_Xi(l)= one+difchem * ( real(l+1-ldif,cp) / &
+               &                           real(l_max+1-ldif,cp) )**ldifexp
 
-             else if ( ldif < 0 ) then
+            else if ( ldif < 0 ) then
 
-             !-- Grote and Busse type:
-                hdif_B(l)= (one+difeta*real(l,cp)**ldifexp ) / &
-                &           (one+difeta*real(-ldif,cp)**ldifexp )
-                hdif_V(l)= (one+difnu*real(l,cp)**ldifexp ) / &
-                &           (one+difnu*real(-ldif,cp)**ldifexp )
-                hdif_S(l)= (one+difkap*real(l,cp)**ldifexp ) / &
-                &           (one+difkap*real(-ldif,cp)**ldifexp )
-                hdif_Xi(l)=(one+difchem*real(l,cp)**ldifexp ) / &
-                &           (one+difchem*real(-ldif,cp)**ldifexp )
+               !-- Grote and Busse type:
+               hdif_B(l) =(one+difeta *real(l,cp)**ldifexp ) / &
+               &          (one+difeta *real(-ldif,cp)**ldifexp )
+               hdif_V(l) =(one+difnu  *real(l,cp)**ldifexp ) / &
+               &          (one+difnu  *real(-ldif,cp)**ldifexp )
+               hdif_S(l) =(one+difkap *real(l,cp)**ldifexp ) / &
+               &          (one+difkap *real(-ldif,cp)**ldifexp )
+               hdif_Xi(l)=(one+difchem*real(l,cp)**ldifexp ) / &
+               &          (one+difchem*real(-ldif,cp)**ldifexp )
 
-             end if
+            end if
 
          else
 
             if ( l == l_max .and. .not. l_non_rot ) then
-            !  Chose ampnu so that the viscous force is at least as
-            !  strong as the viscous force for l=l_max:
-            !  We can turn this argument around and state that
-            !  for example for Ek=1e-4 l_max should be 221.
+               !  Chose ampnu so that the viscous force is at least as
+               !  strong as the viscous force for l=l_max:
+               !  We can turn this argument around and state that
+               !  for example for Ek=1e-4 l_max should be 221.
                ampnu=(r_cmb**2/real(l_max*(l_max+1),cp))*(two/ek)
                ampnu=max(one,ampnu)
                hdif_V(l)=ampnu*hdif_V(l)

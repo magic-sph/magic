@@ -6,9 +6,35 @@
 
 .. note:: These output files are **only** written when :ref:`l_TO=.true. <varl_TO>`
 
+.. _secTayFile:
 
-``TOZ_#.TAG`` and ``TOZM.TAG``
-------------------------------
+``Tay.TAG``
+------------
+
+This file contains the time series of the Taylorisation as well as some measures
+of the relative geostrophic energy.
+
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with
+the following options:
+
+    >>> # To load the most recent 'Tay.TAG' file in a directory
+    >>> ts = MagicTs(tag='Tay')
+
+
+``TOnhs.TAG`` and ``TOshs.TAG``
+--------------------------------
+
+Those files correspond to the z-averaging of the axisymmetric phi component of the
+Navier-Stokes equations. It contains the different cylindrical profiles of the
+forces involved the zonal equation as well as some additional measures of the
+Taylorization of the solution. shs corresponds to Southern Hemisphere (inside the
+tangent cylinder), while nhs corresponds to Nothern Hemisphere).
+
+Those files can be read using :py:class:`MagicTOHemi <magic.MagicTOHemi>` with
+the following options:
+
+    >>> # To load 'TOshs.test' and plot the time-averaged forces:
+    >>> tos = MagicTOHemi(tag='test', hemi='s', iplot=True)
 
 .. _secTO_movieFile:
 

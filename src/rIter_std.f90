@@ -31,6 +31,7 @@ module rIter_std
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
    use nl_special_calc
+   use geos, only: calcGeos
    use sht, only: SHtransf
    !use horizontal_data
    use fields, only: s_Rdist, ds_Rdist, z_Rdist, dz_Rdist, p_Rdist,   &
@@ -86,8 +87,8 @@ contains
    subroutine radialLoop(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
-              &          lFluxProfCalc,lPerpParCalc,l_probe_out,dsdt,        &
-              &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,     &
+              &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,   &
+              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
               &          dVSrLM,dVXirLM,lorentz_torque_ic,                   &
               &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
               &          br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,             &
@@ -104,7 +105,7 @@ contains
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,             intent(in) :: lPowerCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,             intent(in) :: lRmsCalc
+      logical,             intent(in) :: lRmsCalc,lGeosCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
       logical,             intent(in) :: lPressNext
@@ -209,12 +210,12 @@ contains
             nBc = ktopv
             lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc   &
             &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-            &       lPowerCalc
+            &       lPowerCalc .or. lGeosCalc
          else if ( nR == n_r_icb ) then
             nBc = kbotv
             lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
             &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-            &       lPowerCalc
+            &       lPowerCalc .or. lGeosCalc
          end if
 
          dtrkc(nR)=1e10_cp
@@ -235,7 +236,7 @@ contains
          call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
               &                            lPressCalc, lTOCalc, lPowerCalc,      &
               &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
-              &                            l_frame, lDeriv)
+              &                            lGeosCalc, l_frame, lDeriv)
          call lm2phy_counter%stop_count(l_increment=.false.)
 
          !--------- Calculation of nonlinear products in grid space:
@@ -360,13 +361,20 @@ contains
                  &           EparAS(nR),EperpaxiAS(nR),EparaxiAS(nR),nR)
          end if
 
+         !-- Geostrophic/non-geostrophic flow components
+         if ( lGeosCalc ) then
+            call calcGeos(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc, &
+                 &        this%gsa%dvrdpc,this%gsa%dvpdrc,nR)
+         end if
+
          !--------- Movie output:
          if ( l_frame .and. l_movie_oc .and. l_store_frame ) then
             call store_movie_frame(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,      &
                  &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
-                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
-                 &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
+                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
+                 &                 this%gsa%dvrdpc,this%gsa%dvpdrc,this%gsa%dvtdrc,&
+                 &                 this%gsa%dvrdtc,this%gsa%cvrc,this%gsa%cbrc,    &
+                 &                 this%gsa%cbtc)
          end if
 
 
@@ -446,7 +454,7 @@ contains
    subroutine transform_to_grid_space(this, nR, nBc, lViscBcCalc, lRmsCalc,      &
               &                       lPressCalc, lTOCalc, lPowerCalc,           &
               &                       lFluxProfCalc, lPerpParCalc, lHelCalc,     &
-              &                       l_frame, lDeriv)
+              &                       lGeosCalc, l_frame, lDeriv)
 
 
       class(rIter_std_t) :: this
@@ -455,7 +463,7 @@ contains
       integer, intent(in) :: nR, nBc
       logical, intent(in) :: lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, lPowerCalc
       logical, intent(in) :: lFluxProfCalc, lPerpParCalc, lHelCalc, l_frame
-      logical, intent(in) :: lDeriv
+      logical, intent(in) :: lDeriv, lGeosCalc
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
@@ -495,11 +503,11 @@ contains
 
                !-- For some outputs one still need the other terms
                if ( lViscBcCalc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
-               &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc  .or.           &
-               &    ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
+               &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or. lGeosCalc  &
+               &    .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
 
-                  call SHtransf%torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),        &
-                       &              dz_Rdist(:,nR), this%gsa%dvrdrc,        &
+                  call SHtransf%torpol_to_spat(dw_Rdist(:,nR), ddw_Rdist(:,nR),  &
+                       &              dz_Rdist(:,nR), this%gsa%dvrdrc,           &
                        &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
                   call SHtransf%pol_to_grad_spat(w_Rdist(:,nR),this%gsa%dvrdtc,  &
                        &              this%gsa%dvrdpc, l_R(nR))

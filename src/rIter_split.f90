@@ -37,6 +37,7 @@ module rIter_split
    use parallel_mod, only: n_ranks_r, coord_r, get_openmp_blocks
    use fft, only: ifft_many, fft_many
    use rIteration, only: rIter_t
+   use geos, only: calcGeos
 
    implicit none
 
@@ -87,8 +88,8 @@ contains
    subroutine radialLoop(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
-              &          lFluxProfCalc,lPerpParCalc,l_probe_out,dsdt,        &
-              &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,     &
+              &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,   &
+              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
               &          dVSrLM,dVXirLM,lorentz_torque_ic,                   &
               &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
               &          br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,             &
@@ -108,6 +109,7 @@ contains
       logical,             intent(in) :: lRmsCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
+      logical,             intent(in) :: lGeosCalc
       logical,             intent(in) :: lPressNext
       real(cp),            intent(in) :: time,timeStage,dtLast
       class(type_tscheme), intent(in) :: tscheme
@@ -208,7 +210,7 @@ contains
            &                        s_Rdist, ds_Rdist, p_Rdist, xi_Rdist,            &
            &                        lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc,      &
            &                        lPowerCalc, lFluxProfCalc, lPerpParCalc,         &
-           &                        lHelCalc, l_frame)
+           &                        lHelCalc, lGeosCalc, l_frame)
 
       !-- Transposes
       call this%hsa%transp_Mloc_to_Thloc(lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, &
@@ -220,11 +222,11 @@ contains
       call this%phys_loop(l_graph,l_frame,time,timeStage,tscheme,dtLast,    &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,      &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,        &
-              &          lMagNlBc,lFluxProfCalc,lPerpParCalc,l_probe_out,   &
-              &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
-              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelAS,      &
-              &          Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,       &
-              &          duhAS,gradsAS,fconvAS,fkinAS,fviscAS,              &
+              &          lMagNlBc,lFluxProfCalc,lPerpParCalc,lGeosCalc,     &
+              &          l_probe_out,lorentz_torque_ic,lorentz_torque_ma,   &
+              &          br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,            &
+              &          br_vp_lm_icb,HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,&
+              &          viscAS,uhAS,duhAS,gradsAS,fconvAS,fkinAS,fviscAS,  &
               &          fpoynAS,fresAS,EperpAS,EparAS,                     &
               &          EperpaxiAS,EparaxiAS,dtrkc,dthkc)
       nl_counter%n_counts = nl_counter%n_counts+1
@@ -302,7 +304,7 @@ contains
    subroutine phys_loop(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,      &
               &          lRmsCalc,lPressCalc,lPressNext,lVisc,lMagNlBc,     &
-              &          lFluxProfCalc,lPerpParCalc,l_probe_out,            &
+              &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,  &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
               &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelAS,      &
               &          Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,       &
@@ -317,7 +319,7 @@ contains
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,             intent(in) :: lPowerCalc
       logical,             intent(in) :: lVisc,lFluxProfCalc,lPerpParCalc
-      logical,             intent(in) :: lRmsCalc, lMagNlBc
+      logical,             intent(in) :: lRmsCalc, lMagNlBc, lGeosCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
       logical,             intent(in) :: lPressNext
@@ -546,13 +548,20 @@ contains
                  &           EparAS(nR),EperpaxiAS(nR),EparaxiAS(nR),nR )
          end if
 
+        !-- Geostrophic/non-geostrophic flow components
+         if ( lGeosCalc ) then
+            call calcGeos(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc, &
+                 &        this%gsa%dvrdpc,this%gsa%dvpdrc,nR)
+         end if
+
          !--------- Movie output:
          if ( l_frame .and. l_movie_oc .and. l_store_frame ) then
             call store_movie_frame(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,      &
                  &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
-                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,      &
-                 &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
+                 &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
+                 &                 this%gsa%dvrdpc,this%gsa%dvpdrc,this%gsa%dvtdrc,&
+                 &                 this%gsa%dvrdtc,this%gsa%cvrc,this%gsa%cbrc,    &
+                 &                 this%gsa%cbtc)
          end if
 
          !--------- Stuff for special output:

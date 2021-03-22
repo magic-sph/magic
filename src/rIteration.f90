@@ -34,8 +34,8 @@ module rIteration
       subroutine radialLoop_if(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &                lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
               &                lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
-              &                lFluxProfCalc,lPerpParCalc,l_probe_out,dsdt,        &
-              &                dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,     &
+              &                lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,   &
+              &                dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
               &                dVSrLM,dVXirLM,lorentz_torque_ic,                   &
               &                lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
               &                br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,             &
@@ -50,7 +50,7 @@ module rIteration
          logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
          logical,             intent(in) :: lPowerCalc
          logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-         logical,             intent(in) :: lRmsCalc
+         logical,             intent(in) :: lRmsCalc,lGeosCalc
          logical,             intent(in) :: l_probe_out
          logical,             intent(in) :: lPressCalc
          logical,             intent(in) :: lPressNext
