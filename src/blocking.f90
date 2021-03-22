@@ -6,9 +6,10 @@ module blocking
    use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use parallel_mod, only: nThreads, coord_r, n_ranks_r, coord_r, l_master_rank
+   use parallel_mod, only: nThreads, coord_r, n_ranks_r, n_ranks_theta, coord_r, l_master_rank
    use truncation, only: lmP_max, lm_max, l_max, n_theta_max, &
-       &                 minc, n_r_max, m_max, l_axi, rank_with_l1m0, load, getBlocks
+       &                 minc, n_r_max, m_max, l_axi, rank_with_l1m0, load,         &
+       &                 getBlocks, n_lm_loc, n_mlo_loc
    use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
@@ -156,6 +157,12 @@ contains
       else
          llmMag = 1
          ulmMag = 1
+      end if
+      
+      ! Correct the value of n_mlo_loc and n_lm_loc for 1d case...
+      if (n_ranks_theta==1) then
+         n_mlo_loc = ulm-llm+1
+         n_lm_loc  = lm_max
       end if
 
       !--- Get the block (coord_r+1) with the l1m0 mode

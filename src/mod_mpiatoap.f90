@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module mod_mpiatoap
    ! 
    !-- First alltoall implementation, with zero padding.
@@ -272,12 +273,17 @@ contains
       
       !-- Local variables:
       integer :: ierr
-
+   
+      PERFON('lm2rS')
       call reorder_lmloc2buffer(this, arr_LMloc)
+      PERFOFF
+      PERFON('lm2rW')
       call MPI_Alltoall( MPI_IN_PLACE, 1, 1, this%buffer, this%ncount,  &
            &             MPI_DEF_COMPLEX, comm_r, ierr)
+      PERFOFF
+      PERFON('lm2rS')
       call this%reorder_buffer2rloc(arr_Rloc)
-      
+      PERFOFF
    end subroutine transp_lm2r_atoap_dist
    
    !----------------------------------------------------------------------------
@@ -292,10 +298,16 @@ contains
       !-- Local variables:
       integer :: ierr
       
+      PERFON('r2lmS')
       call this%reorder_rloc2buffer(arr_Rloc)
+      PERFOFF
+      PERFON('r2lmW')
       call MPI_Alltoall( MPI_IN_PLACE, 1, 1, this%buffer, this%ncount,  &
            &             MPI_DEF_COMPLEX, comm_r, ierr)
+      PERFOFF
+      PERFON('r2lmS')
       call this%reorder_buffer2lmloc(arr_LMloc)
+      PERFOFF
 
    end subroutine transp_r2lm_atoap_dist
    

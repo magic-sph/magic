@@ -756,7 +756,7 @@ contains
       !-- Local arrays
       complex(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
 
-       PERFON("sht_fwd")
+      PERFON("sht_fwd")
       call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, l_max)
       ft(:)=real(tmpt(:))
       fp(:)=real(tmpp(:))
@@ -1482,6 +1482,11 @@ contains
       this%n_spat = 0
       
       ! TODO: figure out the largest buffer needed...
+!       allocate(this%spat_ptr(2*max_buff))
+!       allocate(this%sh_ptr(2*max_buff))
+!       allocate(this%operations(2*max_buff))
+!       allocate(this%lcut(2*max_buff))
+!       allocate(this%or2(2*max_buff))
       allocate(this%spat_ptr(2*max_buff))
       allocate(this%sh_ptr(2*max_buff))
       allocate(this%operations(2*max_buff))
@@ -1604,7 +1609,7 @@ contains
       real(cp),                intent(in) :: or2
       integer,                 intent(in) :: lcut
       
-      __CHECK_BUFFERSIZE("torpol_to_curl_spat_buff", 3)
+      __CHECK_BUFFERSIZE("torpol_to_curl_spat_buff", 4)
       
       this%sh_ptr(this%n_sh+1)%p     => Blm
       this%sh_ptr(this%n_sh+2)%p     => ddBlm

@@ -112,73 +112,106 @@ contains
       !
       ! -- Create the lm <-> r transposer
       !
-      if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'AUTO') /= 0 ) then
-         !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
-         !call find_faster_comm(idx5, minTime5, 5)
-         !call find_faster_comm(idx1, minTime1, 1)
-         !minTime5 = minTime5/5
-         !if ( minTime5 <= minTime1 ) then
-         !   idx = idx5
-         !   l_packed_transp=.true.
-         !else
-         !   idx = idx1
-         !   l_packed_transp=.false.
-         !end if
-         if (n_ranks_theta==1) then
-            idx = 6
-         else
-            idx = 6
-         end if
-         l_packed_transp=.true.
-      else if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'SINGLE') /= 0 ) then
-         !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
-         !call find_faster_comm(idx, minTime, 1)
-         if (n_ranks_theta==1) then
-            idx = 6
-         else
-            idx = 6
-         end if
-         l_packed_transp=.false.
-
-
-         !call find_faster_comm(idx, minTime, 1)
-         l_packed_transp=.false.
-      else if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'PACKED') /= 0 ) then
-         !>@TODO THIS IS JUST TEMPORAARY! CHANGE THIS!
-         !call find_faster_comm(idx, minTime, 5)
-         if (n_ranks_theta==1) then
-            idx = 6
-         else
-            idx = 6
-         end if
-         l_packed_transp=.true.
-      else
-         if ( index(mpi_packing, 'SINGLE') /= 0 ) then
-            l_packed_transp=.false.
-         else
-            l_packed_transp=.true.
-         end if
-         if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
-         &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
-            if (n_ranks_theta==1) then
-               idx = 4
+      if (n_ranks_theta==1) then
+         
+         call abortRun('Currently this branch only supports 2d MPI!')
+         
+         if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'AUTO') /= 0 ) then
+            call find_faster_comm(idx5, minTime5, 5)
+            call find_faster_comm(idx1, minTime1, 1)
+            minTime5 = minTime5/5
+            if ( minTime5 <= minTime1 ) then
+               idx = idx5
+               l_packed_transp=.true.
             else
-               idx = 4
+               idx = idx1
+               l_packed_transp=.false.
             end if
+         else if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'SINGLE') /= 0 ) then
+            call find_faster_comm(idx, minTime, 1)
+            l_packed_transp=.false.
+         else if ( index(mpi_transp, 'AUTO') /= 0 .and. index(mpi_packing, 'PACKED') /= 0 ) then
+            call find_faster_comm(idx, minTime, 5)
+            l_packed_transp=.true.
+         else
+            if ( index(mpi_packing, 'SINGLE') /= 0 ) then
+               l_packed_transp=.false.
+            else
+               l_packed_transp=.true.
+            end if
+            if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
+            &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
+               idx = 1
+            else if ( index(mpi_transp, 'ATOAV') /= 0 .or. index(mpi_transp, 'A2AV') /=0&
+            &         .or. index(mpi_transp, 'ALLTOALLV') /= 0 .or. &
+            &         index(mpi_transp, 'ALL2ALLV') /= 0 .or. &
+            &         index(mpi_transp, 'ALL-TO-ALLV') /= 0 ) then
+               idx = 2
+            else if ( index(mpi_transp, 'ATOAW') /= 0 .or. index(mpi_transp, 'A2AW') /=0&
+            &         .or. index(mpi_transp, 'ALLTOALLW') /= 0 .or. &
+            &         index(mpi_transp, 'ALL2ALLW') /= 0 .or. &
+            &         index(mpi_transp, 'ALL-TO-ALLW') /= 0 ) then
+               idx = 3
+            else if ( index(mpi_transp, 'ATOAP') /= 0 .or. index(mpi_transp, 'A2AP') /=0&
+            &         .or. index(mpi_transp, 'ALLTOALLP') /= 0 .or. &
+            &         index(mpi_transp, 'ALL2ALLP') /= 0 .or. &
+            &         index(mpi_transp, 'ALL-TO-ALLP') /= 0 ) then
+               call abortRun("Wrong choice for transposition! "//&
+               &        mpi_transp//" is only available for n_ranks_theta>1!")
+            end if
+         end if
+
+         if ( rank == 0 ) then
+            do n=1,2
+               if ( n==1 ) then
+                  n_out = n_log_file
+                  if ( l_save_out ) then
+                     open(newunit=n_log_file, file=log_file, status='unknown', &
+                     &    position='append')
+                  end if
+               else
+                  n_out = output_unit
+               end if
+               if ( l_packed_transp ) then
+                  write(n_out,*) '! -> I pack some fields for the MPI transposes'
+               else
+                  write(n_out,*) '! -> I transpose each field individually'
+               end if
+               if ( idx == 1 ) then
+                  write(n_out,*) '! -> I choose isend/irecv/waitall'
+               else if ( idx == 2 ) then
+                  write(n_out,*) '! -> I choose alltoallv'
+               else if ( idx == 3 ) then
+                  write(n_out,*) '! -> I choose alltoallw'
+               end if
+               write(n_out,*)
+               if ( n==1 .and. l_save_out ) close(n_log_file)
+            end do
+         end if
+         !call find_faster_block(idx)
+      
+      else ! n_ranks_theta > 1
+         l_packed_transp=.false.
+         if ( index(mpi_transp, 'AUTO') /= 0 ) then
+            idx = 6
+
+         else if ( index(mpi_transp, 'P2P') /= 0 .or. index(mpi_transp, 'PTOP') /= 0 &
+            &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
+            idx = 4
+
          else if ( index(mpi_transp, 'ATOAV') /= 0 .or. index(mpi_transp, 'A2AV') /=0&
          &         .or. index(mpi_transp, 'ALLTOALLV') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLV') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLV') /= 0 ) then
-            if (n_ranks_theta==1) then
-               idx = 6
-            else
-               idx = 6
-            end if
+            idx = 6
+
          else if ( index(mpi_transp, 'ATOAW') /= 0 .or. index(mpi_transp, 'A2AW') /=0&
          &         .or. index(mpi_transp, 'ALLTOALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLW') /= 0 ) then
-            idx = 3
+            call abortRun("Wrong choice for transposition! "//&
+            &        mpi_transp//" is only available for n_ranks_theta=1!")
+               
          else if ( index(mpi_transp, 'ATOAP') /= 0 .or. index(mpi_transp, 'A2AP') /=0&
          &         .or. index(mpi_transp, 'ALLTOALLP') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLP') /= 0 .or. &
@@ -186,87 +219,64 @@ contains
             idx = 5
          end if
       end if
-
-      if ( l_master_rank ) then
-         do n=1,2
-            if ( n==1 ) then
-               n_out = n_log_file
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-            else
-               n_out = output_unit
-            end if
-            if ( l_packed_transp ) then
-               write(n_out,*) '! -> I pack some fields for the MPI transposes'
-            else
-               write(n_out,*) '! -> I transpose each field individually'
-            end if
-            if ( idx == 1 ) then
-               write(n_out,*) '! -> I choose isend/irecv/waitall'
-            else if ( idx == 2 ) then
-               write(n_out,*) '! -> I choose alltoallv'
-            else if ( idx == 3 ) then
-               write(n_out,*) '! -> I choose alltoallw'
-            end if
-            write(n_out,*)
-            if ( n==1 .and. l_save_out ) close(n_log_file)
-         end do
-      end if
-
-      !call find_faster_block(idx)
-
-!       if ( idx == 1 ) then
-!          allocate( type_mpiptop :: lo2r_s )
-!          allocate( type_mpiptop :: r2lo_s )
-!          allocate( type_mpiptop :: lo2r_flow )
-!          allocate( type_mpiptop :: r2lo_flow )
-!          allocate( type_mpiptop :: lo2r_field )
-!          allocate( type_mpiptop :: r2lo_field )
-!          allocate( type_mpiptop :: lo2r_xi )
-!          allocate( type_mpiptop :: r2lo_xi )
-!          allocate( type_mpiptop :: lo2r_press )
-!          
-!          ! The following are created/destroyed in other modules
-!          allocate( type_mpiptop :: r2lo_dtB_dist ) ! from dtB_mod
-!          allocate( type_mpiptop :: r2lo_initv ) ! from init_fields
-!          allocate( type_mpiptop :: lo2r_initv ) ! from init_fields
-!          allocate( type_mpiptop :: lo2r_store ) ! from storeCheckpoints
-!       else if ( idx == 2 ) then
-!          allocate( type_mpiatoav :: lo2r_s )
-!          allocate( type_mpiatoav :: r2lo_s )
-!          allocate( type_mpiatoav :: lo2r_flow )
-!          allocate( type_mpiatoav :: r2lo_flow )
-!          allocate( type_mpiatoav :: lo2r_field )
-!          allocate( type_mpiatoav :: r2lo_field )
-!          allocate( type_mpiatoav :: lo2r_xi )
-!          allocate( type_mpiatoav :: r2lo_xi )
-!          allocate( type_mpiatoav :: lo2r_press )
-!          
-!          ! The following are created/destroyed in other modules
-!          allocate( type_mpiatoav :: r2lo_dtB_dist ) ! from dtB_mod
-!          allocate( type_mpiatoav :: r2lo_initv ) ! from init_fields
-!          allocate( type_mpiatoav :: lo2r_initv ) ! from init_fields
-!          allocate( type_mpiatoav :: lo2r_store ) ! from storeCheckpoints
-!       else if ( idx == 3 ) then
-!          allocate( type_mpiatoaw :: lo2r_s )
-!          allocate( type_mpiatoaw :: r2lo_s )
-!          allocate( type_mpiatoaw :: lo2r_flow )
-!          allocate( type_mpiatoaw :: r2lo_flow )
-!          allocate( type_mpiatoaw :: lo2r_field )
-!          allocate( type_mpiatoaw :: r2lo_field )
-!          allocate( type_mpiatoaw :: lo2r_xi )
-!          allocate( type_mpiatoaw :: r2lo_xi )
-!          allocate( type_mpiatoaw :: lo2r_press )
-!          
-!          ! The following are created/destroyed in other modules
-!          allocate( type_mpiatoaw :: r2lo_dtB_dist ) ! from dtB_mod
-!          allocate( type_mpiatoaw :: r2lo_initv ) ! from init_fields
-!          allocate( type_mpiatoaw :: lo2r_initv ) ! from init_fields
-!          allocate( type_mpiatoaw :: lo2r_store ) ! from storeCheckpoints
-!       else 
-      if ( idx == 4 ) then
+      
+      if ( idx == 1 ) then
+         allocate( type_mpiptop :: lo2r_one )
+         allocate( type_mpiptop :: r2lo_one )
+         allocate( type_mpiptop :: lo2r_s )
+         allocate( type_mpiptop :: r2lo_s )
+         allocate( type_mpiptop :: lo2r_flow )
+         allocate( type_mpiptop :: r2lo_flow )
+         allocate( type_mpiptop :: lo2r_field )
+         allocate( type_mpiptop :: r2lo_field )
+         allocate( type_mpiptop :: lo2r_xi )
+         allocate( type_mpiptop :: r2lo_xi )
+         allocate( type_mpiptop :: lo2r_press )
+         
+         ! The following are created/destroyed in other modules
+         allocate( type_mpiptop :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiptop :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiptop :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiptop :: lo2r_store ) ! from storeCheckpoints
+      else if ( idx == 2 ) then
+         allocate( type_mpiatoav :: lo2r_one )
+         allocate( type_mpiatoav :: r2lo_one )
+         allocate( type_mpiatoav :: lo2r_s )
+         allocate( type_mpiatoav :: r2lo_s )
+         allocate( type_mpiatoav :: lo2r_flow )
+         allocate( type_mpiatoav :: r2lo_flow )
+         allocate( type_mpiatoav :: lo2r_field )
+         allocate( type_mpiatoav :: r2lo_field )
+         allocate( type_mpiatoav :: lo2r_xi )
+         allocate( type_mpiatoav :: r2lo_xi )
+         allocate( type_mpiatoav :: lo2r_press )
+         
+         ! The following are created/destroyed in other modules
+         allocate( type_mpiatoav :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiatoav :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiatoav :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiatoav :: lo2r_store ) ! from storeCheckpoints
+      else if ( idx == 3 ) then
+         allocate( type_mpiatoaw :: lo2r_one )
+         allocate( type_mpiatoaw :: r2lo_one )
+         allocate( type_mpiatoaw :: lo2r_s )
+         allocate( type_mpiatoaw :: r2lo_s )
+         allocate( type_mpiatoaw :: lo2r_flow )
+         allocate( type_mpiatoaw :: r2lo_flow )
+         allocate( type_mpiatoaw :: lo2r_field )
+         allocate( type_mpiatoaw :: r2lo_field )
+         allocate( type_mpiatoaw :: lo2r_xi )
+         allocate( type_mpiatoaw :: r2lo_xi )
+         allocate( type_mpiatoaw :: lo2r_press )
+         
+         ! The following are created/destroyed in other modules
+         allocate( type_mpiatoaw :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiatoaw :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiatoaw :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiatoaw :: lo2r_store ) ! from storeCheckpoints
+         
+      else if ( idx == 4 ) then
+         
          ! I don't quite get why we need both directions, since each object
          ! can do both transpositions!
          allocate( type_mpisendrecv :: lo2r_one )
@@ -1141,7 +1151,7 @@ contains
       character(len=80) :: message
 
       block_size = [1, 2, 3, 4, 5, 8]
-
+      
       if ( idx_type == 1 ) then
          allocate( type_mpiptop :: lo2r_test )
       else if ( idx_type == 2 ) then

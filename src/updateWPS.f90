@@ -177,8 +177,10 @@ contains
                do nR=1,2*n_r_max
                   rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
                end do
-
+               
+               PERFON('solve')
                call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+               PERFOFF
 
                do nR=1,2*n_r_max
                   rhs(nR)=rhs(nR)*ps0Mat_fac(nR,2)
@@ -214,9 +216,11 @@ contains
          end do ! Loop over m
 
          if ( l > 0 ) then
+            PERFON('solve')
             call solve_mat(wpsMat(:,:,lj), 3*n_r_max, 3*n_r_max,              &
                  &         wpsPivot(:,lj),rhs1(:,1:2*map_mlo%n_mi(lj),1),&
                  &         2*map_mlo%n_mi(lj))
+            PERFOFF
          end if
 
          ! Loop over m corresponding to current l (again)

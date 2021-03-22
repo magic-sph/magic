@@ -162,11 +162,12 @@ module truncation
    integer, allocatable, protected :: dist_m(:,:), m_tsid(:)
    integer, allocatable, protected :: dist_n_lm(:)
    integer, allocatable, protected :: dist_n_lmP(:)
-   integer, protected :: n_m_loc, n_lm_loc, n_lmP_loc
+   integer, protected :: n_m_loc, n_lmP_loc
    integer, protected :: n_mloMag_loc
    integer, protected :: n_mloChe_loc
    integer, protected :: n_mloDC_loc 
    integer, protected :: n_m_array
+   integer :: n_lm_loc ! corrected in blocking.f90 if n_ranks_theta=1...
    
    !-- Distributed ML-Space
    !   
@@ -187,8 +188,9 @@ module truncation
    !
    integer, allocatable, protected :: dist_mlo(:,:,:,:)
    integer, allocatable, protected :: dist_n_mlo(:,:)
-   integer, protected :: n_mo_loc, n_lo_loc, n_mlo_loc
+   integer, protected :: n_mo_loc, n_lo_loc
    integer, protected :: n_mlo_array, mlo_max
+   integer :: n_mlo_loc ! corrected in blocking.f90 if n_ranks_theta=1...
    
    type, public :: load
       integer :: nStart

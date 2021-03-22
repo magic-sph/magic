@@ -11,9 +11,10 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: lm_max, n_lm_loc, n_mlo_loc, fd_order, n_r_max,   &
-       &                 nRstart, nRstop, nRstartMag, nRstopMag, n_r_icb,  &
-       &                 n_r_cmb, n_lmP_loc, fd_order_bound
+!    use truncation, only: lm_max, n_lm_loc, n_mlo_loc, fd_order, n_r_max,   &
+!        &                 nRstart, nRstop, nRstartMag, nRstopMag, n_r_icb,  &
+!        &                 n_r_cmb, n_lmP_loc, fd_order_bound
+   use truncation  ! DELETEME!!!!!
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -508,7 +509,6 @@ contains
                PERFOFF
                call rLoop_counter%stop_count()
                
-
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
 #ifdef WITH_MPI
@@ -922,6 +922,7 @@ contains
       type(timer_type), intent(inout) :: comm_counter
 
       call comm_counter%start_count()
+      PERFON('lm2r')
       if ( l_packed_transp ) then
          if ( l_Rdist ) then
             call lo2r_flow%transp_lm2r_dist(flow_LMdist_container, flow_Rdist_container)
@@ -1020,6 +1021,7 @@ contains
             end if
          end if
       end if
+      PERFOFF
       call comm_counter%stop_count(l_increment=.false.)
 
    end subroutine transp_LMdist_to_Rdist
@@ -1040,6 +1042,7 @@ contains
       if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
 
       call comm_counter%start_count()
+      PERFON('r2lm')
       if ( l_packed_transp ) then
          if ( lRdist ) then
             call r2lo_flow%transp_r2lm_dist(dflowdt_Rdist_container, &
@@ -1111,6 +1114,7 @@ contains
             end if
          end if
       end if
+      PERFOFF
       call comm_counter%stop_count()
 
       if ( lVerbose ) write(output_unit,*) "! r2lo redistribution finished"

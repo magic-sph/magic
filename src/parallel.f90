@@ -318,34 +318,61 @@ contains
 
 !------------------------------------------------------------------------------
    subroutine print_mpi_info()
-      integer :: ioinfo, fh, i, istat(MPI_STATUS_SIZE), ierr
-      character(len=41) :: nextline
+      integer :: ioinfo, fh, i, istat(MPI_STATUS_SIZE), cpu, ierr
+      character(len=200) :: nextline
       character(len=16) :: myname
+      
+      interface
+         integer(c_int) function sched_getcpu() bind(c)
+            use, intrinsic :: iso_c_binding, only: c_int
+         end function sched_getcpu
+      end interface
 
       
       call mpiio_setup(ioinfo)
       call mpi_file_open(mpi_comm_world, 'parallel_info.'//tag, ior(mpi_mode_wronly, mpi_mode_create), ioinfo, fh, ierr)
       
-      !call hostnm(myname)
-      call get_environment_variable("HOSTNAME", myname)
+      call mpi_get_processor_name(myname, i, ierr) 
+      cpu = sched_getcpu()
       
       if ( l_master_rank ) then
-         nextline = " *  Hostname, rank, rank_r, rank_theta"//NEW_LINE("A")
-         call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+         nextline = " *  Hostname, CPU, rank, rank_r, rank_theta"//NEW_LINE("A")
+         call MPI_File_write_shared(fh, nextline, len(trim(nextline)), mpi_character, istat, ierr)
          nextline = " ---------------------------------------"//NEW_LINE("A")
-         call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+         call MPI_File_write_shared(fh, nextline, len(trim(nextline)), mpi_character, istat, ierr)
       end if
       
       do i = 0, n_ranks -1
          if (i==rank) then
-            write (nextline,'(A,I8,I8,I8,A)')  myname, i, coord_r, coord_theta,NEW_LINE("A")
-            call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+            write (nextline,'(A,I8,I8,I8,I8,A)')  myname, cpu, i, coord_r, coord_theta, NEW_LINE("A")
+            call MPI_File_write_shared(fh, nextline, len(trim(nextline)), mpi_character, istat, ierr)
          end if
          call mpi_barrier(mpi_comm_world, ierr)
       end do
+      
+!       if ( l_master_rank ) then
+!          nextline = " ---------------------------------------"//NEW_LINE("A")
+!          call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+!          nextline = " θ-Communicator Pinning Info:           "//NEW_LINE("A")
+!          call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+!          nextline = " *  Hostname, rank, rank_r, rank_theta"//NEW_LINE("A")
+!          call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+!          nextline = " ---------------------------------------"//NEW_LINE("A")
+!          call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+!       end if
+!       
+!       do i = 0, n_ranks -1
+!          if (i==rank) then
+!             write (nextline,'(A,I8,I8,I8,A)')  myname, i, coord_r, coord_theta,NEW_LINE("A")
+!             call MPI_File_write_shared(fh, nextline, 41, mpi_character, istat, ierr)
+!          end if
+!          call mpi_barrier(mpi_comm_world, ierr)
+!       end do
+      
+      
       call MPI_Info_free(ioinfo, ierr)
       call MPI_File_close(fh, ierr)
-      
+   
    end subroutine print_mpi_info
    
 !------------------------------------------------------------------------------

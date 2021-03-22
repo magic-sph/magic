@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module algebra
 
    use precision_mod, only: cp
@@ -139,6 +140,7 @@ contains
       integer, intent(out) :: pivot(n)   ! pivoting information
       integer, intent(out) :: info
 
+      PERFON('LUdecomp') 
 #ifdef WITH_LIBFLAME
       !$omp critical
 #endif
@@ -150,6 +152,7 @@ contains
 #ifdef WITH_LIBFLAME
       !$omp end critical
 #endif
+      PERFOFF
 
    end subroutine prepare_mat
 !-----------------------------------------------------------------------------

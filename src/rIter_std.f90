@@ -251,7 +251,7 @@ contains
             this%nl_lm%VxBtLM(:)=zero
             this%nl_lm%VxBpLM(:)=zero
          end if
-      
+         
          !---- Calculation of nonlinear products needed for conducting mantle or
          !     conducting inner core if free stress BCs are applied:
          !     input are brc,vtc,vpc in (theta,phi) space (plus omegaMA and ..)

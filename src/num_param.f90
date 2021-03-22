@@ -52,6 +52,7 @@ module num_param
    character(len=72), public :: polo_flow_eq ! form of the poloidal flow equation: Pressure or Double Curl
 
    character(len=72), public :: mpi_transp     ! Form of the MPI transpose (point to point or alltoall)
+   character(len=72), public :: mpi_transp_theta! Form of the MPI transpose (p2p or a2av)
    character(len=72), public :: mpi_packing    ! packing the alltoall
    integer, public :: sht_buffer_size          ! Buffer size for SHT 
 

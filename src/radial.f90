@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module radial_functions
    !
    !  This module initiates all the radial functions (transport properties, density,
@@ -1325,7 +1326,9 @@ contains
       end do
 
       !-- Solve for s0:
+      PERFON('solve')
       call solve_mat(workMat,n_r_max,n_r_max,workPivot,rhs)
+      PERFOFF
 
       !-- Copy result to s0:
       do n_r=1,n_r_max

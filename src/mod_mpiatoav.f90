@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module mod_mpiatoav_new
    ! 
    !-- First alltoallv implementation
@@ -35,8 +36,10 @@ module mod_mpiatoav_new
    contains
       procedure :: create_comm => create_mlo_atoav_new
       procedure :: destroy_comm => destroy_mlo_atoav_new
-      procedure :: transp_lm2r => transp_lm2r_atoav_new_dummy
-      procedure :: transp_r2lm => transp_r2lm_atoav_new_dummy
+!       procedure :: transp_lm2r => transp_lm2r_atoav_new_dummy
+!       procedure :: transp_r2lm => transp_r2lm_atoav_new_dummy
+      procedure :: transp_lm2r => transp_lm2r_atoav_new_dist
+      procedure :: transp_r2lm => transp_r2lm_atoav_new_dist
       procedure :: transp_lm2r_dist => transp_lm2r_atoav_new_dist
       procedure :: transp_r2lm_dist => transp_r2lm_atoav_new_dist
       procedure :: reorder_rloc2buffer
@@ -329,11 +332,17 @@ contains
       !-- Local variables:
       integer :: ierr
 
+      PERFON('lm2rS')
       call reorder_lmloc2buffer(this, arr_LMloc)
+      PERFOFF
+      PERFON('lm2rW')
       call mpi_alltoallv(this%recv_buf, this%recv_count, this%recv_disp, MPI_DEF_COMPLEX, &
                          this%send_buf, this%send_count, this%send_disp, MPI_DEF_COMPLEX, &
                          comm_r, ierr)
+      PERFOFF
+      PERFON('lm2rS')
       call this%reorder_buffer2rloc(arr_Rloc)
+      PERFOFF
       
    end subroutine transp_lm2r_atoav_new_dist
    
@@ -349,11 +358,17 @@ contains
       !-- Local variables:
       integer :: ierr
       
+      PERFON('r2lmS')
       call this%reorder_rloc2buffer(arr_Rloc)
+      PERFOFF
+      PERFON('r2lmW')
       call mpi_alltoallv(this%send_buf, this%send_count, this%send_disp, MPI_DEF_COMPLEX, &
                          this%recv_buf, this%recv_count, this%recv_disp, MPI_DEF_COMPLEX, &
                          comm_r, ierr)
+      PERFOFF
+      PERFON('r2lmS')
       call this%reorder_buffer2lmloc(arr_LMloc)
+      PERFOFF
 
    end subroutine transp_r2lm_atoav_new_dist
    

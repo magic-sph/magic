@@ -326,14 +326,19 @@ contains
 
       code = 32
 
-      write(output_unit,*)
-      write(output_unit,*)
-      write(output_unit,*)
-      write(output_unit,*) '! Something went wrong, MagIC will stop now'
-      write(output_unit,*) '! See below the error message:'
-      write(output_unit,*)
-      write(output_unit,*) message
-      write(output_unit,*)
+      ! For large runs, this does more harm than good; each rank prints 
+      ! an unholy amount of generic error messages and only 1 rank prints
+      ! what ACTUALLY happened!
+!       write(output_unit,*)
+!       write(output_unit,*)
+!       write(output_unit,*)
+!       write(output_unit,*) '! Something went wrong, MagIC will stop now'
+!       write(output_unit,*) '! See below the error message:'
+!       write(output_unit,*)
+!       write(output_unit,*) message
+!       write(output_unit,*)
+      write(output_unit,*) "ABORT: "//message
+
 
 #ifdef WITH_MPI
       call MPI_Abort(comm_r, code, ierr)

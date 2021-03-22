@@ -39,5 +39,5 @@ module constants
    real(cp), parameter :: cos72=cos(72.0_cp*pi/180.0_cp) ! :math:`\cos{72\pi/180}`
 
    character(len=4), parameter :: codeVersion='5.10'
-
+   
 end module constants

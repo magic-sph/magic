@@ -20,8 +20,10 @@ module mod_mpisendrecv
    contains
       procedure :: create_comm => create_mlo_sendrecv
       procedure :: destroy_comm => destroy_mlo_sendrecv
-      procedure :: transp_lm2r => transp_lm2r_sendrecv_dummy
-      procedure :: transp_r2lm => transp_r2lm_sendrecv_dummy
+!       procedure :: transp_lm2r => transp_lm2r_sendrecv_dummy
+!       procedure :: transp_r2lm => transp_r2lm_sendrecv_dummy
+      procedure :: transp_lm2r => transp_lm2r_sendrecv_dist
+      procedure :: transp_r2lm => transp_r2lm_sendrecv_dist
       procedure :: transp_lm2r_dist => transp_lm2r_sendrecv_dist
       procedure :: transp_r2lm_dist => transp_r2lm_sendrecv_dist
       procedure :: lm2r_start => transp_lm2r_sendrecv_start

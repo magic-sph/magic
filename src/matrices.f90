@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module real_matrices
 
    use precision_mod
@@ -159,8 +160,10 @@ contains
 
       class(type_densemat) :: this
       real(cp), intent(inout) :: rhs(:)
-
+      
+      PERFON('solve')
       call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+      PERFOFF
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
@@ -169,7 +172,9 @@ contains
       class(type_densemat) :: this
       complex(cp), intent(inout) :: rhs(:)
 
+      PERFON('solve')
       call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+      PERFOFF
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
@@ -179,7 +184,9 @@ contains
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
 
+      PERFON('solve')
       call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
+      PERFOFF
 
    end subroutine solve_real_multi
 !------------------------------------------------------------------------------
@@ -289,6 +296,7 @@ contains
       class(type_bandmat) :: this
       real(cp), intent(inout) :: rhs(:)
 
+      PERFON('solve')
       if ( this%nrow == 3 ) then
          call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:), &
               &             this%dat(1,2:), this%du2, this%ncol,      &
@@ -296,6 +304,7 @@ contains
       else
          call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, rhs)
       end if
+      PERFOFF
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
@@ -304,6 +313,7 @@ contains
       class(type_bandmat) :: this
       complex(cp), intent(inout) :: rhs(:)
 
+      PERFON('solve')
       if ( this%nrow == 3 ) then
          call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:), &
               &             this%dat(1,2:), this%du2, this%ncol,      &
@@ -311,6 +321,7 @@ contains
       else
          call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, rhs)
       end if
+      PERFOFF
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
@@ -320,6 +331,7 @@ contains
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
 
+      PERFON('solve')
       if ( this%nrow == 3 ) then
          call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),   &
               &             this%dat(1,2:), this%du2, this%ncol,        &
@@ -328,6 +340,7 @@ contains
          call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, &
               &          rhs, nRHS)
       end if
+      PERFOFF
 
    end subroutine solve_real_multi
 !------------------------------------------------------------------------------
@@ -472,9 +485,11 @@ contains
       !-- Local variable :
       integer :: lenRhs
 
+      PERFON('solve')
       lenRhs = this%nfull+this%ncol
       call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
            &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,lenRhs)
+      PERFOFF
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
@@ -486,9 +501,11 @@ contains
       !-- Local variable :
       integer :: lenRhs
 
+      PERFON('solve')
       lenRhs = this%nfull+this%ncol
       call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
            &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,lenRhs)
+      PERFOFF
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
@@ -498,8 +515,10 @@ contains
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
 
+      PERFON('solve')
       call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
            &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,nRHS)
+      PERFOFF
 
    end subroutine solve_real_multi
 !------------------------------------------------------------------------------

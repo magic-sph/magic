@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 #define KNL_BIG 0
 module mpi_transp
    !
@@ -249,6 +250,7 @@ contains
       complex(cp) :: rbuff(1:this%max_recv)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+      PERFON('lm2rS')
       !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
@@ -264,13 +266,17 @@ contains
          end do
       end do
       !$omp end parallel do
+      PERFOFF
 
 #ifdef WITH_MPI
+      PERFON('lm2rW')
       call MPI_Alltoallv(rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             comm_r, ierr)
+      PERFOFF
 #endif
 
+      PERFON('lm2rS')
       !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
@@ -289,6 +295,7 @@ contains
          end do
       end do
       !$omp end parallel do
+      PERFOFF
 
    end subroutine transp_lm2r_alltoallv
 !----------------------------------------------------------------------------------
@@ -302,17 +309,20 @@ contains
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
 
+      
 #ifdef WITH_MPI
+      PERFON('lm2rW')
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
            &             temp_Rloc, this%counts, this%disp, this%stype, &
            &             comm_r, ierr)
+      PERFOFF
 #endif
 
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
-
+      PERFON('lm2rS')
       if ( .not. l_axi ) then
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
@@ -334,6 +344,7 @@ contains
          end do
       end if
       !$omp end parallel
+      PERFOFF
 
    end subroutine transp_lm2r_alltoallw
 !----------------------------------------------------------------------------------
@@ -353,6 +364,7 @@ contains
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: p, ii, n_r, lm, l, m, n_f
 
+      PERFON('r2lmS')
       !$omp barrier
       !$omp parallel default(shared) private(p,ii,n_f,n_r,lm,l,m)
       !$omp do collapse(3)
@@ -381,12 +393,13 @@ contains
       end do
       !$omp end do
       !$omp end parallel
-
+      PERFOFF
 
 
 #elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+      PERFON('r2lmS')
       !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
@@ -405,14 +418,18 @@ contains
          end do
       end do
       !$omp end parallel do
+      PERFOFF
 #endif
 
 #ifdef WITH_MPI
+      PERFON('r2lmW')
       call MPI_Alltoallv(sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             comm_r, ierr)
+      PERFOFF
 #endif
 
+      PERFON('r2lmS')
       !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
@@ -428,6 +445,7 @@ contains
          end do
       end do
       !$omp end parallel do
+      PERFOFF
 
    end subroutine transp_r2lm_alltoallv
 !----------------------------------------------------------------------------------
@@ -445,6 +463,7 @@ contains
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
+      PERFON('r2lmS')
       if ( .not. l_axi ) then
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
@@ -466,11 +485,14 @@ contains
          end do
       end if
       !$omp end parallel
+      PERFOFF
 
 #ifdef WITH_MPI
+      PERFON('r2lmW')
       call MPI_Alltoallw(temp_Rloc, this%counts, this%disp, this%stype, &
            &             arr_LMloc, this%counts, this%disp, this%rtype, &
            &             comm_r, ierr)
+      PERFOFF
 #endif
 
    end subroutine transp_r2lm_alltoallw
@@ -649,7 +671,7 @@ contains
       integer :: transfer_tag=1111
 
       !
-
+      PERFON('lm2rS')
       if ( coord_r < n_ranks_r-1 ) then
          ! all the ranks from [0,n_ranks_r-2]
          do irank=0,n_ranks_r-1
@@ -738,12 +760,15 @@ contains
          end do
       end if
       !
-
+      PERFOFF
 #else
+      PERFON('lm2rS')
       do i=1,this%n_fields
          arr_Rloc(llm:ulm,nRstart:nRstop,i)= arr_LMloc(llm:ulm,nRstart:nRstop,i)
       end do
+      PERFOFF
 #endif
+      
 
    end subroutine lm2r_redist_start
 !----------------------------------------------------------------------------------
@@ -753,8 +778,10 @@ contains
 #ifdef WITH_MPI
       integer :: ierr
       integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_ranks_r)
-
+      
+      PERFON('lm2rW')
       call MPI_Waitall(2*(n_ranks_r-1),this%final_wait_array,array_of_statuses,ierr)
+      PERFOFF
 #endif
 
    end subroutine lm2r_redist_wait
@@ -781,6 +808,7 @@ contains
       !
       call lm2r_redist_wait(this)
 
+      PERFON('lm2rS')
       !$omp parallel default(shared) private(start_lm,stop_lm,nR,i,lm,l,m)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
@@ -806,6 +834,7 @@ contains
          end do
       end if
       !$omp end parallel
+      PERFOFF
 
       !
 
@@ -826,6 +855,7 @@ contains
 
       ! Just copy the array with permutation
       !
+      PERFON('r2lmS')
       if ( .not. l_axi ) then
          do i=1,this%n_fields
             do nR=nRstart,nRstop
@@ -846,6 +876,7 @@ contains
          end do
       end if
       !$omp end parallel
+      PERFOFF
 
       call r2lm_redist_start(this,this%temp_Rloc,arr_lo)
       !
@@ -861,7 +892,9 @@ contains
       integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_ranks_r)
 
       !
+      PERFON('r2lmW')
       call MPI_Waitall(2*(n_ranks_r-1),this%final_wait_array,array_of_statuses,ierr)
+      PERFOFF
       !
 #endif
 
@@ -881,6 +914,7 @@ contains
 
       !write(*,"(A)") "----------- start r2lm_redist -------------"
       !
+      PERFON('r2lmS')
       if (coord_r < n_ranks_r-1) then
          ! all the ranks from [0,n_ranks_r-2]
          do irank=0,n_ranks_r-1
@@ -957,10 +991,13 @@ contains
          end do
       end if
       !
+      PERFOFF
 #else
+      PERFON('r2lmS')
       do i=1,this%n_fields
          arr_LMLoc(llm:ulm,nRstart:nRstop,i)=arr_Rloc(llm:ulm,nRstart:nRstop,i)
       end do
+      PERFOFF
 #endif
 
    end subroutine r2lm_redist_start

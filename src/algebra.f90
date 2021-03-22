@@ -289,6 +289,7 @@ contains
       integer :: nm1,k,kp1,l,i,j
       real(cp) :: help
 
+      PERFON('LUdecomp') 
       if ( n <= 1 ) call abortRun('Stop run in sgefa')
 
       info=0
@@ -338,6 +339,7 @@ contains
       do i=1,n
          a(i,i)=one/a(i,i)
       end do
+      PERFOFF
 
    end subroutine prepare_mat
 !-----------------------------------------------------------------------------

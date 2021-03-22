@@ -477,7 +477,7 @@ contains
                end do
 #endif
             end do    ! loop over m
-
+            
             call bMat(lj)%solve(rhs1(:,1:2*map_mlo%n_mi(lj),1), &
                  &                 2*map_mlo%n_mi(lj))
             call jMat(lj)%solve(rhs2(:,1:2*map_mlo%n_mi(lj),1), &

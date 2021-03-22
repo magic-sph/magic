@@ -134,6 +134,7 @@ program magic
    use probe_mod, only: initialize_probes, finalize_probes
    use time_schemes, only: type_tscheme
    use LMmapping, only: initialize_mapping, finalize_mapping
+   use mpi_thetap_mod, only: initialize_mpi_thetap, finalize_mpi_thetap
 
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -306,6 +307,7 @@ program magic
 
    call initialize_mpi_map()
    call initialize_distributed_geometry()
+   call initialize_mpi_thetap()
    
    call initialize_memory_counter()
 
@@ -508,6 +510,7 @@ program magic
    call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
+   call finalize_mpi_thetap()
    call finalize_sht()
    call finalize_der_arrays()
 
