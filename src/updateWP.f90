@@ -2462,7 +2462,7 @@ contains
       class(type_realmat), intent(inout) :: pMat ! matrix
 
       !-- Local variables:
-      real(cp) :: dat(n_r_max,n_r_max), delr
+      real(cp) :: dat(n_r_max,n_r_max), delr, work(n_r_max)
       integer :: info, nCheb, nR_out, nR, nCheb_in
 
       !-- Bulk points

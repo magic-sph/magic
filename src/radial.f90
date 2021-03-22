@@ -1309,7 +1309,6 @@ contains
          workMat(:,n_r)=workMat(:,n_r)*workMat_fac(n_r,2)
       end do
 
-
       call prepare_mat(workMat,n_r_max,n_r_max,workPivot,info)
 
       if ( info /= 0 ) then
