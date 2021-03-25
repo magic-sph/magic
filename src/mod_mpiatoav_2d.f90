@@ -1,5 +1,5 @@
 #include "perflib_preproc.cpp"
-module mod_mpiatoav_new
+module mod_mpiatoav_2d
    ! 
    !-- First alltoallv implementation
    !>@TODO skip the reordering of the local data into the buffer; we can copy it
@@ -22,41 +22,37 @@ module mod_mpiatoav_new
 
    private
 
-   type, extends(type_mpitransp) :: type_mpiatoav_new
+   type, extends(type_mpitransp) :: type_mpiatoav_2d
       integer :: ncount
-      complex(cp), pointer :: send_buf(:,:,:)
-      complex(cp), pointer :: recv_buf(:)
-      integer, allocatable :: send_count(:)
-      integer, allocatable :: recv_count(:)
-      integer, allocatable :: send_disp(:)
-      integer, allocatable :: recv_disp(:)
-      integer :: send_sum, recv_sum
+!       complex(cp), pointer :: rloc_buf(:,:,:)
+!       complex(cp), pointer :: lmloc_buf(:)
+      integer, allocatable :: rloc_count(:)
+      integer, allocatable :: lmloc_count(:)
+      integer, allocatable :: rloc_disp(:)
+      integer, allocatable :: lmloc_disp(:)
+      integer :: rloc_sum, lmloc_sum
       logical :: initialized = .false.
 
    contains
-      procedure :: create_comm => create_mlo_atoav_new
-      procedure :: destroy_comm => destroy_mlo_atoav_new
-!       procedure :: transp_lm2r => transp_lm2r_atoav_new_dummy
-!       procedure :: transp_r2lm => transp_r2lm_atoav_new_dummy
-      procedure :: transp_lm2r => transp_lm2r_atoav_new_dist
-      procedure :: transp_r2lm => transp_r2lm_atoav_new_dist
-      procedure :: transp_lm2r_dist => transp_lm2r_atoav_new_dist
-      procedure :: transp_r2lm_dist => transp_r2lm_atoav_new_dist
-      procedure :: reorder_rloc2buffer
-      procedure :: reorder_buffer2lmloc
-      procedure :: reorder_buffer2rloc
-      procedure :: reorder_lmloc2buffer
-   end type type_mpiatoav_new
+      procedure :: create_comm => create_mlo_atoav_2d
+      procedure :: destroy_comm => destroy_mlo_atoav_2d
+!       procedure :: transp_lm2r => transp_lm2r_atoav_2d_dummy
+!       procedure :: transp_r2lm => transp_r2lm_atoav_2d_dummy
+      procedure :: transp_lm2r => transp_lm2r_atoav_2d_dist
+      procedure :: transp_r2lm => transp_r2lm_atoav_2d_dist
+      procedure :: transp_lm2r_dist => transp_lm2r_atoav_2d_dist
+      procedure :: transp_r2lm_dist => transp_r2lm_atoav_2d_dist
+   end type type_mpiatoav_2d
    
-   logical, private :: mlo_atoav_new_initialized = .false.
-   integer, private :: n_atoav_new_obj = 0
+   logical, private :: mlo_atoav_2d_initialized = .false.
+   integer, private :: n_atoav_2d_obj = 0
    
    integer, private, allocatable :: lmr2buf(:)
    integer, private, allocatable :: buf2mlo(:)
    integer, private, allocatable :: send_lm_count(:)
    integer, private, allocatable :: recv_mlo_count(:)
    
-   public :: type_mpiatoav_new
+   public :: type_mpiatoav_2d
 
 
 contains
@@ -64,7 +60,7 @@ contains
    !-- Transposition from (n_lm_loc,nRStart) to (n_mlo_loc,n_r_max).
    !   
    !   Author: Rafael Lago (MPCDF) April 2020
-   subroutine initialize_mlo_atoav_new
+   subroutine initialize_mlo_atoav_2d
       !-- Initialize the MPI types for the transposition from ML to Radial
       !   
       !   This transposition assumes that all m's are kept within the comm_r
@@ -80,7 +76,7 @@ contains
       integer :: dest(n_lm_loc) ! holds rank_R which will receive the corresponding lm point
       integer :: counter(0:n_ranks_r-1)
       
-      if (mlo_atoav_new_initialized) return
+      if (mlo_atoav_2d_initialized) return
       
       allocate(send_lm_count(0:n_ranks_lo-1))
       allocate(recv_mlo_count(0:n_ranks_lo-1))
@@ -97,7 +93,7 @@ contains
          send_lm_count(icoord_lo) = send_lm_count(icoord_lo) + 1
       end do
       
-      ! Builds the reordering into the send_buf
+      ! Builds the reordering into the rloc_buf
       counter = 1
       allocate(lmr2buf(n_lm_loc))
       allocate(buf2mlo(n_mlo_loc))
@@ -125,75 +121,76 @@ contains
       ! checks will be invalid!
       if (minval(buf2mlo)/=1)  then
          write (*,'(A,I0,A)') ' * Wrong buf2mlo! min=', minval(buf2mlo), ', should be 1'
-         call abortRun(' * initialize_mlo_atoav_new: failed sanity check test')
+         call abortRun(' * initialize_mlo_atoav_2d: failed sanity check test')
       end if
       if (maxval(buf2mlo)/=n_mlo_loc)  then
          write (*,'(A,I0,A,I0)') ' * Wrong buf2mlo! max=', maxval(buf2mlo), ', should be ',n_mlo_loc
-         call abortRun(' * initialize_mlo_atoav_new: failed sanity check test')
+         call abortRun(' * initialize_mlo_atoav_2d: failed sanity check test')
       end if
       if (minval(lmr2buf)/=1)  then
          write (*,'(A,I0,A)') ' * Wrong lmr2buf! min=', minval(lmr2buf), ', should be 1'
-         call abortRun(' * initialize_mlo_atoav_new: failed sanity check test')
+         call abortRun(' * initialize_mlo_atoav_2d: failed sanity check test')
       end if
       if (maxval(lmr2buf)/=n_lm_loc)  then
          write (*,'(A,I0,A,I0)') ' * Wrong lmr2buf! max=', maxval(lmr2buf), ', should be ',n_lm_loc
-         call abortRun(' * initialize_mlo_atoav_new: failed sanity check test')
+         call abortRun(' * initialize_mlo_atoav_2d: failed sanity check test')
       end if
       if (sum(recv_mlo_count)/=n_r_max)  then
          write (*,'(A,I0,A,I0)') ' * Wrong recv_mlo_count! sum=', sum(recv_mlo_count), ', should be ',n_r_max
-         call abortRun(' * initialize_mlo_atoav_new: failed sanity check test')
+         call abortRun(' * initialize_mlo_atoav_2d: failed sanity check test')
       end if
       if (sum(send_lm_count)/=n_lm_loc)  then
          write (*,'(A,I0,A,I0)') ' * Wrong send_lm_count! sum=', sum(send_lm_count), ', should be ',n_lm_loc
-         call abortRun(' * initialize_mlo_atoav_new: failed sanity check test')
+         call abortRun(' * initialize_mlo_atoav_2d: failed sanity check test')
       end if
       
-      mlo_atoav_new_initialized = .true.
-   end subroutine initialize_mlo_atoav_new
+      mlo_atoav_2d_initialized = .true.
+   end subroutine initialize_mlo_atoav_2d
    
    !----------------------------------------------------------------------------
-   subroutine reorder_rloc2buffer(this, arr_Rloc)
+   subroutine reorder_rloc2buffer(this, arr_Rloc, rloc_buf)
    !-- Reorder input variable into send buffer
    !
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
-      class(type_mpiatoav_new) :: this
+      class(type_mpiatoav_2d)  :: this
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
+      complex(cp), intent(out) :: rloc_buf(:,:,:)
       integer :: i
       
       !>@TODO optimize the order of this loop
       do i=1,n_lm_loc
-         this%send_buf(1:n_r_loc, 1:this%n_fields, lmr2buf(i)) = &
+         rloc_buf(1:n_r_loc, 1:this%n_fields, lmr2buf(i)) = &
             arr_Rloc(i,nRstart:nRstop, 1:this%n_fields)
       end do
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine reorder_buffer2rloc(this, arr_Rloc)
+   subroutine reorder_buffer2rloc(this, arr_Rloc, rloc_buf)
    !-- Reorder receive buffer into output variable
-   !   OBS: in the lm->r transposition, the buffer names are flipped.
-   !     recv_buffer is actually send_buffer and vice versa.
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
-      class(type_mpiatoav_new) :: this
-      complex(cp), intent(out)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
+      class(type_mpiatoav_2d)  :: this
+      complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
+      complex(cp), intent(in)  :: rloc_buf(:,:,:)
       integer :: i
       
       !>@TODO optimize the order of this loop
       do i=1,n_lm_loc
          arr_Rloc(i,nRstart:nRstop, 1:this%n_fields) = &
-         &  this%send_buf(1:n_r_loc, 1:this%n_fields, lmr2buf(i))
+         &  rloc_buf(1:n_r_loc, 1:this%n_fields, lmr2buf(i))
       end do
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine reorder_buffer2lmloc(this, arr_LMloc)
+   subroutine reorder_buffer2lmloc(this, arr_LMloc, lmloc_buf)
    !-- Reorder receive buffer onto output variable
    !
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
-      class(type_mpiatoav_new) :: this
-      complex(cp), intent(out)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
+      class(type_mpiatoav_2d)  :: this
+      complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
+      complex(cp), intent(in)  :: lmloc_buf(:)
       integer :: icoord_lo, lr, ur, lb, ub, i, n
 
       !>@TODO optimize the order of this loop
@@ -201,10 +198,10 @@ contains
          lr = dist_r(icoord_lo,1)
          ur = dist_r(icoord_lo,2)
          n  = dist_r(icoord_lo,0)
-         lb = this%recv_disp(icoord_lo)+1
+         lb = this%lmloc_disp(icoord_lo)+1
          ub = lb + n*this%n_fields-1
          do i=1, n_mlo_loc
-            arr_LMloc(buf2mlo(i), lr:ur, 1:this%n_fields) = reshape(this%recv_buf(lb:ub), (/n, this%n_fields/))
+            arr_LMloc(buf2mlo(i), lr:ur, 1:this%n_fields) = reshape(lmloc_buf(lb:ub), (/n, this%n_fields/))
             lb = ub + 1
             ub = lb + n*this%n_fields-1
          end do
@@ -212,15 +209,14 @@ contains
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine reorder_lmloc2buffer(this, arr_LMloc)
+   subroutine reorder_lmloc2buffer(this, arr_LMloc, lmloc_buf)
    !-- Reorder input variable into send buffer
-   !   OBS: in the lm->r transposition, the buffer names are flipped.
-   !     recv_buffer is actually send_buffer and vice versa.
    !
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
-      class(type_mpiatoav_new) :: this
+      class(type_mpiatoav_2d)  :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
+      complex(cp), intent(out) :: lmloc_buf(:)
       integer :: icoord_lo, lr, ur, lb, ub, i, n
       
       !>@TODO optimize the order of this loop
@@ -228,10 +224,10 @@ contains
          lr = dist_r(icoord_lo,1)
          ur = dist_r(icoord_lo,2)
          n  = dist_r(icoord_lo,0)
-         lb = this%recv_disp(icoord_lo)+1
+         lb = this%lmloc_disp(icoord_lo)+1
          ub = lb + n*this%n_fields-1
          do i=1, n_mlo_loc
-            this%recv_buf(lb:ub) = reshape(arr_LMloc(buf2mlo(i), lr:ur, 1:this%n_fields), (/n*this%n_fields/))
+            lmloc_buf(lb:ub) = reshape(arr_LMloc(buf2mlo(i), lr:ur, 1:this%n_fields), (/n*this%n_fields/))
             lb = ub + 1
             ub = lb + n*this%n_fields-1
          end do
@@ -239,7 +235,7 @@ contains
    end subroutine
    
    !----------------------------------------------------------------------------
-   subroutine finalize_mlo_atoav_new
+   subroutine finalize_mlo_atoav_2d
    !
    !   Author: Rafael Lago (MPCDF) January 2018
    !   
@@ -247,144 +243,144 @@ contains
       
       deallocate(lmr2buf)
       deallocate(buf2mlo)
-      mlo_atoav_new_initialized = .false.
-   end subroutine finalize_mlo_atoav_new
+      mlo_atoav_2d_initialized = .false.
+   end subroutine finalize_mlo_atoav_2d
    
 
    !----------------------------------------------------------------------------
-   subroutine create_mlo_atoav_new(this, n_fields)
+   subroutine create_mlo_atoav_2d(this, n_fields)
    !   
    !   Author: Rafael Lago (MPCDF) April 2020
 
-      class(type_mpiatoav_new) :: this
+      class(type_mpiatoav_2d) :: this
       integer, intent(in) :: n_fields
       integer :: i, buffer_size
       
       if (this%initialized) return 
       
-      if (.not. mlo_atoav_new_initialized) call initialize_mlo_atoav_new
+      if (.not. mlo_atoav_2d_initialized) call initialize_mlo_atoav_2d
       this%n_fields = n_fields
-      allocate(this%send_count(0:n_ranks_lo-1))
-      allocate(this%recv_count(0:n_ranks_lo-1))
-      allocate(this%send_disp(0:n_ranks_lo-1))
-      allocate(this%recv_disp(0:n_ranks_lo-1))
+      allocate(this%rloc_count(0:n_ranks_lo-1))
+      allocate(this%lmloc_count(0:n_ranks_lo-1))
+      allocate(this%rloc_disp(0:n_ranks_lo-1))
+      allocate(this%lmloc_disp(0:n_ranks_lo-1))
       bytes_allocated = bytes_allocated+4*n_ranks_lo*SIZEOF_INTEGER
       
-      this%send_count = send_lm_count*n_r_loc*n_fields
-      this%recv_count = recv_mlo_count*n_mlo_loc*n_fields
+      this%rloc_count = send_lm_count*n_r_loc*n_fields
+      this%lmloc_count = recv_mlo_count*n_mlo_loc*n_fields
       
-      this%send_disp = 0
-      this%recv_disp = 0
+      this%rloc_disp = 0
+      this%lmloc_disp = 0
       do i=1,n_ranks_lo-1
-         this%send_disp(i) = this%send_disp(i-1)+this%send_count(i-1)
-         this%recv_disp(i) = this%recv_disp(i-1)+this%recv_count(i-1)
+         this%rloc_disp(i) = this%rloc_disp(i-1)+this%rloc_count(i-1)
+         this%lmloc_disp(i) = this%lmloc_disp(i-1)+this%lmloc_count(i-1)
       end do
-      this%send_sum = sum(this%send_count)
-      this%recv_sum = sum(this%recv_count)
-      buffer_size = max(this%send_sum, this%recv_sum)
+      this%rloc_sum = sum(this%rloc_count)
+      this%lmloc_sum = sum(this%lmloc_count)
+      buffer_size = max(this%rloc_sum, this%lmloc_sum)
       
-      allocate(this%send_buf(n_r_loc, n_fields, n_lm_loc))
-      allocate(this%recv_buf(n_r_max*n_fields*n_mlo_loc))
-      bytes_allocated = bytes_allocated+(n_r_loc*n_fields*n_lm_loc+n_r_max*n_fields*&
-      &                 n_mlo_loc)*SIZEOF_DEF_COMPLEX
-      this%send_buf = cmplx(-1.0, -1.0)
-      this%recv_buf = cmplx(-1.0, -1.0)
+      n_atoav_2d_obj = n_atoav_2d_obj + 1
       
-      n_atoav_new_obj = n_atoav_new_obj + 1
-      
-   end subroutine create_mlo_atoav_new
+   end subroutine create_mlo_atoav_2d
    
    !----------------------------------------------------------------------------
-   subroutine destroy_mlo_atoav_new(this)
+   subroutine destroy_mlo_atoav_2d(this)
    !   
    !   Author: Rafael Lago (MPCDF) April 2020
    !   
-      class(type_mpiatoav_new) :: this
+      class(type_mpiatoav_2d) :: this
       integer :: i, ierr
       
       if (.not. this%initialized) return
       
-      nullify(this%send_buf)
-      nullify(this%recv_buf)
-!       nullify(this%buffer)
+      deallocate(this%rloc_count)
+      deallocate(this%lmloc_count)
+      deallocate(this%rloc_disp)
+      deallocate(this%lmloc_disp)
       
-      deallocate(this%send_count)
-      deallocate(this%recv_count)
-      deallocate(this%send_disp)
-      deallocate(this%recv_disp)
-      
-      n_atoav_new_obj = n_atoav_new_obj - 1
+      n_atoav_2d_obj = n_atoav_2d_obj - 1
       this%initialized = .false.
       
-      if (n_atoav_new_obj==0) call finalize_mlo_atoav_new
+      if (n_atoav_2d_obj==0) call finalize_mlo_atoav_2d
       
-   end subroutine destroy_mlo_atoav_new
+   end subroutine destroy_mlo_atoav_2d
    
    !----------------------------------------------------------------------------
-   subroutine transp_lm2r_atoav_new_dist(this, arr_LMloc, arr_Rloc)
+   subroutine transp_lm2r_atoav_2d_dist(this, arr_LMloc, arr_Rloc)
    !   
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
-      class(type_mpiatoav_new)     :: this
+      class(type_mpiatoav_2d)     :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
       complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       
       !-- Local variables:
       integer :: ierr
+      complex(cp), allocatable :: rloc_buf(:,:,:), lmloc_buf(:)
+      
 
       PERFON('lm2rS')
-      call reorder_lmloc2buffer(this, arr_LMloc)
+      allocate(rloc_buf(n_r_loc, this%n_fields, n_lm_loc))
+      allocate(lmloc_buf(n_r_max*this%n_fields*n_mlo_loc))
+      call reorder_lmloc2buffer(this, arr_LMloc, lmloc_buf)
       PERFOFF
       PERFON('lm2rW')
-      call mpi_alltoallv(this%recv_buf, this%recv_count, this%recv_disp, MPI_DEF_COMPLEX, &
-                         this%send_buf, this%send_count, this%send_disp, MPI_DEF_COMPLEX, &
+      call mpi_alltoallv(lmloc_buf, this%lmloc_count, this%lmloc_disp, MPI_DEF_COMPLEX, &
+                         rloc_buf, this%rloc_count, this%rloc_disp, MPI_DEF_COMPLEX, &
                          comm_r, ierr)
       PERFOFF
       PERFON('lm2rS')
-      call this%reorder_buffer2rloc(arr_Rloc)
+      call reorder_buffer2rloc(this, arr_Rloc, rloc_buf)
+      deallocate(rloc_buf)
+      deallocate(lmloc_buf)
       PERFOFF
       
-   end subroutine transp_lm2r_atoav_new_dist
+   end subroutine transp_lm2r_atoav_2d_dist
    
    !----------------------------------------------------------------------------
-   subroutine transp_r2lm_atoav_new_dist(this, arr_Rloc, arr_LMloc)
+   subroutine transp_r2lm_atoav_2d_dist(this, arr_Rloc, arr_LMloc)
    !   
    !   Author: Rafael Lago (MPCDF) May 2020
    !   
-      class(type_mpiatoav_new)     :: this
+      class(type_mpiatoav_2d)     :: this
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
       
       !-- Local variables:
       integer :: ierr
+      complex(cp), allocatable :: rloc_buf(:,:,:), lmloc_buf(:)
       
       PERFON('r2lmS')
-      call this%reorder_rloc2buffer(arr_Rloc)
+      allocate(rloc_buf(n_r_loc, this%n_fields, n_lm_loc))
+      allocate(lmloc_buf(n_r_max*this%n_fields*n_mlo_loc))
+      call reorder_rloc2buffer(this, arr_Rloc, rloc_buf)
       PERFOFF
       PERFON('r2lmW')
-      call mpi_alltoallv(this%send_buf, this%send_count, this%send_disp, MPI_DEF_COMPLEX, &
-                         this%recv_buf, this%recv_count, this%recv_disp, MPI_DEF_COMPLEX, &
+      call mpi_alltoallv(rloc_buf, this%rloc_count, this%rloc_disp, MPI_DEF_COMPLEX, &
+                         lmloc_buf, this%lmloc_count, this%lmloc_disp, MPI_DEF_COMPLEX, &
                          comm_r, ierr)
       PERFOFF
       PERFON('r2lmS')
-      call this%reorder_buffer2lmloc(arr_LMloc)
+      call reorder_buffer2lmloc(this, arr_LMloc, lmloc_buf)
+      deallocate(rloc_buf)
+      deallocate(lmloc_buf)
       PERFOFF
 
-   end subroutine transp_r2lm_atoav_new_dist
+   end subroutine transp_r2lm_atoav_2d_dist
    
    !----------------------------------------------------------------------------
-   subroutine transp_lm2r_atoav_new_dummy(this, arr_LMloc, arr_Rloc)
-      class(type_mpiatoav_new) :: this
+   subroutine transp_lm2r_atoav_2d_dummy(this, arr_LMloc, arr_Rloc)
+      class(type_mpiatoav_2d) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      print*, "Dummy transp_lm2r_atoav_new_dummy, not yet implemented!"
-   end subroutine transp_lm2r_atoav_new_dummy
+      print*, "Dummy transp_lm2r_atoav_2d_dummy, not yet implemented!"
+   end subroutine transp_lm2r_atoav_2d_dummy
 
-   subroutine transp_r2lm_atoav_new_dummy(this, arr_Rloc, arr_LMloc)
-      class(type_mpiatoav_new) :: this
+   subroutine transp_r2lm_atoav_2d_dummy(this, arr_Rloc, arr_LMloc)
+      class(type_mpiatoav_2d) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      print*, "Dummy transp_r2lm_atoav_new_dummy, not yet implemented!"
-   end subroutine transp_r2lm_atoav_new_dummy
+      print*, "Dummy transp_r2lm_atoav_2d_dummy, not yet implemented!"
+   end subroutine transp_r2lm_atoav_2d_dummy
    
-end module mod_mpiatoav_new
+end module mod_mpiatoav_2d

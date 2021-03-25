@@ -21,9 +21,10 @@ module communications
    use mpi_transp, only: type_mpitransp
    use truncation
    use LMmapping
-   use mod_mpiatoap
-   use mod_mpiatoav_new
-   use mod_mpisendrecv
+   use mod_mpiatoap_2d
+   use mod_mpiatoav_2d
+   use mod_mpiatoaw_2d
+   use mod_mpiptop_2d
    use mpi_thetap_mod
 
    implicit none
@@ -191,7 +192,11 @@ contains
          !call find_faster_block(idx)
       
       else ! n_ranks_theta > 1
-         l_packed_transp=.false.
+         if ( index(mpi_packing, 'SINGLE') /= 0 ) then
+            l_packed_transp=.false.
+         else
+            l_packed_transp=.true.
+         end if
          if ( index(mpi_transp, 'AUTO') /= 0 ) then
             idx = 6
 
@@ -199,6 +204,12 @@ contains
             &    .or. index(mpi_transp, 'POINTTOPOINT') /= 0  ) then
             idx = 4
 
+         else if ( index(mpi_transp, 'ATOAP') /= 0 .or. index(mpi_transp, 'A2AP') /=0&
+         &         .or. index(mpi_transp, 'ALLTOALLP') /= 0 .or. &
+         &         index(mpi_transp, 'ALL2ALLP') /= 0 .or. &
+         &         index(mpi_transp, 'ALL-TO-ALLP') /= 0 ) then
+            idx = 5
+            
          else if ( index(mpi_transp, 'ATOAV') /= 0 .or. index(mpi_transp, 'A2AV') /=0&
          &         .or. index(mpi_transp, 'ALLTOALLV') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLV') /= 0 .or. &
@@ -209,14 +220,8 @@ contains
          &         .or. index(mpi_transp, 'ALLTOALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL2ALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLW') /= 0 ) then
-            call abortRun("Wrong choice for transposition! "//&
-            &        mpi_transp//" is only available for n_ranks_theta=1!")
+            idx = 7
                
-         else if ( index(mpi_transp, 'ATOAP') /= 0 .or. index(mpi_transp, 'A2AP') /=0&
-         &         .or. index(mpi_transp, 'ALLTOALLP') /= 0 .or. &
-         &         index(mpi_transp, 'ALL2ALLP') /= 0 .or. &
-         &         index(mpi_transp, 'ALL-TO-ALLP') /= 0 ) then
-            idx = 5
          end if
       end if
       
@@ -274,70 +279,85 @@ contains
          allocate( type_mpiatoaw :: r2lo_initv ) ! from init_fields
          allocate( type_mpiatoaw :: lo2r_initv ) ! from init_fields
          allocate( type_mpiatoaw :: lo2r_store ) ! from storeCheckpoints
-         
+      
+      !TODO: the following types are very redundant; you just need a single 
+      ! one of these objects for all transpositions. That would require 
+      ! passing n_fields to transp_lm2r_dist and transp_r2lm_dist...
       else if ( idx == 4 ) then
-         
-         ! I don't quite get why we need both directions, since each object
-         ! can do both transpositions!
-         allocate( type_mpisendrecv :: lo2r_one )
-         allocate( type_mpisendrecv :: r2lo_one )
-         allocate( type_mpisendrecv :: lo2r_s )
-         allocate( type_mpisendrecv :: r2lo_s )
-         allocate( type_mpisendrecv :: lo2r_flow )
-         allocate( type_mpisendrecv :: r2lo_flow )
-         allocate( type_mpisendrecv :: lo2r_field )
-         allocate( type_mpisendrecv :: r2lo_field )
-         allocate( type_mpisendrecv :: lo2r_xi )
-         allocate( type_mpisendrecv :: r2lo_xi )
-         allocate( type_mpisendrecv :: lo2r_press )
+         allocate( type_mpiptop_2d :: lo2r_one )
+         allocate( type_mpiptop_2d :: r2lo_one )
+         allocate( type_mpiptop_2d :: lo2r_s )
+         allocate( type_mpiptop_2d :: r2lo_s )
+         allocate( type_mpiptop_2d :: lo2r_flow )
+         allocate( type_mpiptop_2d :: r2lo_flow )
+         allocate( type_mpiptop_2d :: lo2r_field )
+         allocate( type_mpiptop_2d :: r2lo_field )
+         allocate( type_mpiptop_2d :: lo2r_xi )
+         allocate( type_mpiptop_2d :: r2lo_xi )
+         allocate( type_mpiptop_2d :: lo2r_press )
          
          ! The following are created/destroyed in other modules
-         allocate( type_mpisendrecv :: r2lo_dtB_dist ) ! from dtB_mod
-         allocate( type_mpisendrecv :: r2lo_initv ) ! from init_fields
-         allocate( type_mpisendrecv :: lo2r_initv ) ! from init_fields
-         allocate( type_mpisendrecv :: lo2r_store ) ! from storeCheckpoints
+         allocate( type_mpiptop_2d :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiptop_2d :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiptop_2d :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiptop_2d :: lo2r_store ) ! from storeCheckpoints
          
       else if ( idx == 5 ) then
-         ! I don't quite get why we need both directions, since each object
-         ! can do both transpositions!
-         allocate( type_mpiatoap :: lo2r_one )
-         allocate( type_mpiatoap :: r2lo_one )
-         allocate( type_mpiatoap :: lo2r_s )
-         allocate( type_mpiatoap :: r2lo_s )
-         allocate( type_mpiatoap :: lo2r_flow )
-         allocate( type_mpiatoap :: r2lo_flow )
-         allocate( type_mpiatoap :: lo2r_field )
-         allocate( type_mpiatoap :: r2lo_field )
-         allocate( type_mpiatoap :: lo2r_xi )
-         allocate( type_mpiatoap :: r2lo_xi )
-         allocate( type_mpiatoap :: lo2r_press )
+         allocate( type_mpiatoap_2d :: lo2r_one )
+         allocate( type_mpiatoap_2d :: r2lo_one )
+         allocate( type_mpiatoap_2d :: lo2r_s )
+         allocate( type_mpiatoap_2d :: r2lo_s )
+         allocate( type_mpiatoap_2d :: lo2r_flow )
+         allocate( type_mpiatoap_2d :: r2lo_flow )
+         allocate( type_mpiatoap_2d :: lo2r_field )
+         allocate( type_mpiatoap_2d :: r2lo_field )
+         allocate( type_mpiatoap_2d :: lo2r_xi )
+         allocate( type_mpiatoap_2d :: r2lo_xi )
+         allocate( type_mpiatoap_2d :: lo2r_press )
          
          ! The following are created/destroyed in other modules
-         allocate( type_mpiatoap :: r2lo_dtB_dist ) ! from dtB_mod
-         allocate( type_mpiatoap :: r2lo_initv ) ! from init_fields
-         allocate( type_mpiatoap :: lo2r_initv ) ! from init_fields
-         allocate( type_mpiatoap :: lo2r_store ) ! from storeCheckpoints
+         allocate( type_mpiatoap_2d :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiatoap_2d :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiatoap_2d :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiatoap_2d :: lo2r_store ) ! from storeCheckpoints
       
       else if ( idx == 6 ) then
-         ! I don't quite get why we need both directions, since each object
-         ! can do both transpositions!
-         allocate( type_mpiatoav_new :: lo2r_one )
-         allocate( type_mpiatoav_new :: r2lo_one )
-         allocate( type_mpiatoav_new :: lo2r_s )
-         allocate( type_mpiatoav_new :: r2lo_s )
-         allocate( type_mpiatoav_new :: lo2r_flow )
-         allocate( type_mpiatoav_new :: r2lo_flow )
-         allocate( type_mpiatoav_new :: lo2r_field )
-         allocate( type_mpiatoav_new :: r2lo_field )
-         allocate( type_mpiatoav_new :: lo2r_xi )
-         allocate( type_mpiatoav_new :: r2lo_xi )
-         allocate( type_mpiatoav_new :: lo2r_press )
+         allocate( type_mpiatoav_2d :: lo2r_one )
+         allocate( type_mpiatoav_2d :: r2lo_one )
+         allocate( type_mpiatoav_2d :: lo2r_s )
+         allocate( type_mpiatoav_2d :: r2lo_s )
+         allocate( type_mpiatoav_2d :: lo2r_flow )
+         allocate( type_mpiatoav_2d :: r2lo_flow )
+         allocate( type_mpiatoav_2d :: lo2r_field )
+         allocate( type_mpiatoav_2d :: r2lo_field )
+         allocate( type_mpiatoav_2d :: lo2r_xi )
+         allocate( type_mpiatoav_2d :: r2lo_xi )
+         allocate( type_mpiatoav_2d :: lo2r_press )
          
          ! The following are created/destroyed in other modules
-         allocate( type_mpiatoav_new :: r2lo_dtB_dist ) ! from dtB_mod
-         allocate( type_mpiatoav_new:: r2lo_initv ) ! from init_fields
-         allocate( type_mpiatoav_new :: lo2r_initv ) ! from init_fields
-         allocate( type_mpiatoav_new :: lo2r_store ) ! from storeCheckpoints
+         allocate( type_mpiatoav_2d :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiatoav_2d :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiatoav_2d :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiatoav_2d :: lo2r_store ) ! from storeCheckpoints
+      
+      else if ( idx == 7 ) then
+         allocate( type_mpiatoaw_2d :: lo2r_one )
+         allocate( type_mpiatoaw_2d :: r2lo_one )
+         allocate( type_mpiatoaw_2d :: lo2r_s )
+         allocate( type_mpiatoaw_2d :: r2lo_s )
+         allocate( type_mpiatoaw_2d :: lo2r_flow )
+         allocate( type_mpiatoaw_2d :: r2lo_flow )
+         allocate( type_mpiatoaw_2d :: lo2r_field )
+         allocate( type_mpiatoaw_2d :: r2lo_field )
+         allocate( type_mpiatoaw_2d :: lo2r_xi )
+         allocate( type_mpiatoaw_2d :: r2lo_xi )
+         allocate( type_mpiatoaw_2d :: lo2r_press )
+         
+         ! The following are created/destroyed in other modules
+         allocate( type_mpiatoav_2d :: r2lo_dtB_dist ) ! from dtB_mod
+         allocate( type_mpiatoav_2d :: r2lo_initv ) ! from init_fields
+         allocate( type_mpiatoav_2d :: lo2r_initv ) ! from init_fields
+         allocate( type_mpiatoav_2d :: lo2r_store ) ! from storeCheckpoints
       
       else
          print *, "Invalid idx: ", idx,", mpi_transp: ", trim(adjustl(mpi_transp))

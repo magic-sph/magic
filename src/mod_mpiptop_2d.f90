@@ -1,5 +1,5 @@
 #include "perflib_preproc.cpp"
-module mod_mpisendrecv
+module mod_mpiptop_2d
 
    use precision_mod
    use parallel_mod
@@ -11,46 +11,46 @@ module mod_mpisendrecv
    use LMmapping
 
 
-   type, extends(type_mpitransp) :: type_mpisendrecv
+   type, extends(type_mpitransp) :: type_mpiptop_2d
       integer, pointer :: rq(:)
       integer, pointer :: recvs(:)  ! pointer to rq
       integer, pointer :: sends(:)  ! pointer to rq
       logical :: initialized = .false.
 
    contains
-      procedure :: create_comm => create_mlo_sendrecv
-      procedure :: destroy_comm => destroy_mlo_sendrecv
-!       procedure :: transp_lm2r => transp_lm2r_sendrecv_dummy
-!       procedure :: transp_r2lm => transp_r2lm_sendrecv_dummy
-      procedure :: transp_lm2r => transp_lm2r_sendrecv_dist
-      procedure :: transp_r2lm => transp_r2lm_sendrecv_dist
-      procedure :: transp_lm2r_dist => transp_lm2r_sendrecv_dist
-      procedure :: transp_r2lm_dist => transp_r2lm_sendrecv_dist
-      procedure :: lm2r_start => transp_lm2r_sendrecv_start
-      procedure :: r2lm_start => transp_r2lm_sendrecv_start
-      procedure :: lm2r_wait  => transp_lm2r_sendrecv_wait
-      procedure :: r2lm_wait  => transp_r2lm_sendrecv_wait
-   end type type_mpisendrecv
+      procedure :: create_comm => create_mlo_ptop_2d
+      procedure :: destroy_comm => destroy_mlo_ptop_2d
+!       procedure :: transp_lm2r => transp_lm2r_ptop_2d_dummy
+!       procedure :: transp_r2lm => transp_r2lm_ptop_2d_dummy
+      procedure :: transp_lm2r => transp_lm2r_ptop_2d_dist
+      procedure :: transp_r2lm => transp_r2lm_ptop_2d_dist
+      procedure :: transp_lm2r_dist => transp_lm2r_ptop_2d_dist
+      procedure :: transp_r2lm_dist => transp_r2lm_ptop_2d_dist
+      procedure :: lm2r_start => transp_lm2r_ptop_2d_start
+      procedure :: r2lm_start => transp_r2lm_ptop_2d_start
+      procedure :: lm2r_wait  => transp_lm2r_ptop_2d_wait
+      procedure :: r2lm_wait  => transp_r2lm_ptop_2d_wait
+   end type type_mpiptop_2d
    
    !
-   ! These are the same for all objects of the type type_mpisendrecv
+   ! These are the same for all objects of the type type_mpiptop_2d
    ! They were written for lm2r direction, but are also used for 
    ! r2lm direction, except that flipped (the position of 
-   ! sendrecv_dests and sendrecv_sources and etc are inverted)
+   ! ptop_2d_dests and ptop_2d_sources and etc are inverted)
    !@>TODO maybe add a pointer within the object to these entities?
    integer, private, allocatable :: lm2r_s_type(:), lm2r_r_type(:)
    integer, private, allocatable :: lm2r_dests(:),  lm2r_sources(:)
    integer, private, allocatable :: lm2r_loc_dspl(:,:)
-   logical, private :: mlo_sendrecv_initialized = .false.
-   integer, private :: n_sendrecv_obj = 0
+   logical, private :: mlo_ptop_2d_initialized = .false.
+   integer, private :: n_ptop_2d_obj = 0
    
-   public :: type_mpisendrecv
+   public :: type_mpiptop_2d
    
 contains
    
-   subroutine initialize_mlo_sendrecv
+   subroutine initialize_mlo_ptop_2d
       !-- Initialize the MPI types for the transposition from ML to Radial
-      !   All type_mpisendrecv objects will use the MPI types defined here (hence 
+      !   All type_mpiptop_2d objects will use the MPI types defined here (hence 
       !   why we don't declare them once for each container)
       !   
       !   This is supposed to be a general-purpose transposition. It might be 
@@ -69,8 +69,9 @@ contains
       
       integer (kind=mpi_address_kind) :: lb, extend, bytesCMPLX
       integer :: nsends, nrecvs
+      character(len=72) :: filename
       
-      if (mlo_sendrecv_initialized) return
+      if (mlo_ptop_2d_initialized) return
       
       call MPI_Type_Get_Extent(MPI_DEF_COMPLEX, lb, bytesCMPLX, ierr) 
       
@@ -201,8 +202,8 @@ contains
       lm2r_loc_dspl(:,1) = get_send_displacement(inblocks, rank) + 1
       lm2r_loc_dspl(:,2) = get_recv_displacement(inblocks, rank) + 1
       
-      mlo_sendrecv_initialized = .true.
-
+      mlo_ptop_2d_initialized = .true.
+      
       contains
       
       !----------------------------------------------------------------------------
@@ -250,9 +251,9 @@ contains
       end function
       
       
-   end subroutine initialize_mlo_sendrecv
+   end subroutine initialize_mlo_ptop_2d
 !----------------------------------------------------------------------------
-   subroutine finalize_mlo_sendrecv
+   subroutine finalize_mlo_ptop_2d
       !
       !   Author: Rafael Lago (MPCDF) January 2018
       !   
@@ -270,21 +271,21 @@ contains
       deallocate(lm2r_dests)
       deallocate(lm2r_sources)
       deallocate(lm2r_loc_dspl)
-      mlo_sendrecv_initialized = .false.
-!       print *, "finalize_mlo_sendrecv" 
-   end subroutine finalize_mlo_sendrecv
+      mlo_ptop_2d_initialized = .false.
+!       print *, "finalize_mlo_ptop_2d" 
+   end subroutine finalize_mlo_ptop_2d
 !----------------------------------------------------------------------------
-   subroutine create_mlo_sendrecv(this, n_fields)
+   subroutine create_mlo_ptop_2d(this, n_fields)
       !   
       !   Author: Rafael Lago (MPCDF) April 2020
       !
 
-      class(type_mpisendrecv) :: this
+      class(type_mpiptop_2d) :: this
       integer, intent(in) :: n_fields
       integer :: nsends, nrecvs
       
       if (this%initialized) return
-      if (.not. mlo_sendrecv_initialized) call initialize_mlo_sendrecv
+      if (.not. mlo_ptop_2d_initialized) call initialize_mlo_ptop_2d
       this%n_fields = n_fields
       
       nsends = size(lm2r_dests)
@@ -296,17 +297,17 @@ contains
       
       this%rq = MPI_REQUEST_NULL
       
-      n_sendrecv_obj = n_sendrecv_obj + 1
+      n_ptop_2d_obj = n_ptop_2d_obj + 1
       this%initialized = .true.
       
-   end subroutine create_mlo_sendrecv
+   end subroutine create_mlo_ptop_2d
 !----------------------------------------------------------------------------
-   subroutine destroy_mlo_sendrecv(this)
+   subroutine destroy_mlo_ptop_2d(this)
       !   
       !   Author: Rafael Lago (MPCDF) April 2020
       !
       
-      class(type_mpisendrecv) :: this
+      class(type_mpiptop_2d) :: this
       integer :: i, ierr
       
       if (.not. this%initialized) return
@@ -321,18 +322,18 @@ contains
       nullify(this%recvs)
       deallocate(this%rq)
       
-      n_sendrecv_obj = n_sendrecv_obj - 1
-      if (n_sendrecv_obj==0) call finalize_mlo_sendrecv
+      n_ptop_2d_obj = n_ptop_2d_obj - 1
+      if (n_ptop_2d_obj==0) call finalize_mlo_ptop_2d
       
-   end subroutine destroy_mlo_sendrecv
+   end subroutine destroy_mlo_ptop_2d
 !----------------------------------------------------------------------------
-   subroutine transp_lm2r_sendrecv_start(this, arr_LMloc, arr_Rloc)
+   subroutine transp_lm2r_ptop_2d_start(this, arr_LMloc, arr_Rloc)
       !-- General-purpose transposition. All the customization should happen 
       !   during the creation of the types!
       !
       !   Author: Rafael Lago (MPCDF) January 2018
-      !   transp_lm2r_sendrecv_start
-      class(type_mpisendrecv)     :: this
+      !   transp_lm2r_ptop_2d_start
+      class(type_mpiptop_2d)     :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
       complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       
@@ -364,38 +365,38 @@ contains
       end do
       PERFOFF
       
-   end subroutine transp_lm2r_sendrecv_start
+   end subroutine transp_lm2r_ptop_2d_start
 !----------------------------------------------------------------------------
-   subroutine transp_lm2r_sendrecv_wait(this)
+   subroutine transp_lm2r_ptop_2d_wait(this)
       !
       !   Author: Rafael Lago (MPCDF) January 2018
       !   
-      class(type_mpisendrecv) :: this
+      class(type_mpiptop_2d) :: this
       PERFON('lm2rW')
       call MPI_Waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
       PERFOFF
 
-   end subroutine transp_lm2r_sendrecv_wait
+   end subroutine transp_lm2r_ptop_2d_wait
 !----------------------------------------------------------------------------
-   subroutine transp_lm2r_sendrecv_dist(this, arr_LMloc, arr_Rloc)
+   subroutine transp_lm2r_ptop_2d_dist(this, arr_LMloc, arr_Rloc)
       !   Author: Rafael Lago (MPCDF) May 2020
-      class(type_mpisendrecv)     :: this
+      class(type_mpiptop_2d)     :: this
       complex(cp), intent(in)  :: arr_LMloc(n_mlo_loc, n_r_max, *)
       complex(cp), intent(out) :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       
       call this%lm2r_start(arr_LMloc,arr_Rloc)
       call this%lm2r_wait()
 
-   end subroutine transp_lm2r_sendrecv_dist
+   end subroutine transp_lm2r_ptop_2d_dist
 !----------------------------------------------------------------------------
-   subroutine transp_r2lm_sendrecv_start(this, arr_Rloc, arr_LMloc)
+   subroutine transp_r2lm_ptop_2d_start(this, arr_Rloc, arr_LMloc)
       !-- General-purpose transposition. All the customization should happen 
       !   during the creation of the types!
       !
       !   Author: Rafael Lago (MPCDF) October 2019
       !   
 
-      class(type_mpisendrecv)     :: this
+      class(type_mpiptop_2d)     :: this
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
       
@@ -427,45 +428,45 @@ contains
       end do
       PERFOFF
       
-   end subroutine transp_r2lm_sendrecv_start
+   end subroutine transp_r2lm_ptop_2d_start
 !----------------------------------------------------------------------------
-   subroutine transp_r2lm_sendrecv_wait(this)
+   subroutine transp_r2lm_ptop_2d_wait(this)
       !
       !   Author: Rafael Lago (MPCDF) October 2019
       !   
-      class(type_mpisendrecv) :: this
+      class(type_mpiptop_2d) :: this
 
       PERFON('r2lmW')
       call MPI_Waitall(size(this%rq),this%rq,MPI_STATUSES_IGNORE,ierr)
       PERFOFF
 
-   end subroutine transp_r2lm_sendrecv_wait
+   end subroutine transp_r2lm_ptop_2d_wait
 !----------------------------------------------------------------------------
-   subroutine transp_r2lm_sendrecv_dist(this, arr_Rloc, arr_LMloc)
+   subroutine transp_r2lm_ptop_2d_dist(this, arr_Rloc, arr_LMloc)
       !   
       !   Author: Rafael Lago (MPCDF) May 2020
       !   
-      class(type_mpisendrecv)     :: this
+      class(type_mpiptop_2d)     :: this
       complex(cp), intent(in)  :: arr_Rloc(n_lm_loc, nRstart:nRstop, *)
       complex(cp), intent(out) :: arr_LMloc(n_mlo_loc, n_r_max, *)
       
       call this%r2lm_start(arr_Rloc, arr_LMloc)
       call this%r2lm_wait()
 
-   end subroutine transp_r2lm_sendrecv_dist
+   end subroutine transp_r2lm_ptop_2d_dist
 !----------------------------------------------------------------------------
-   subroutine transp_lm2r_sendrecv_dummy(this, arr_LMloc, arr_Rloc)
-      class(type_mpisendrecv) :: this
+   subroutine transp_lm2r_ptop_2d_dummy(this, arr_LMloc, arr_Rloc)
+      class(type_mpiptop_2d) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      print*, "Dummy transp_lm2r_sendrecv_dummy, not yet implemented!"
-   end subroutine transp_lm2r_sendrecv_dummy
+      print*, "Dummy transp_lm2r_ptop_2d_dummy, not yet implemented!"
+   end subroutine transp_lm2r_ptop_2d_dummy
 !----------------------------------------------------------------------------
-   subroutine transp_r2lm_sendrecv_dummy(this, arr_Rloc, arr_LMloc)
-      class(type_mpisendrecv) :: this
+   subroutine transp_r2lm_ptop_2d_dummy(this, arr_Rloc, arr_LMloc)
+      class(type_mpiptop_2d) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      print*, "Dummy transp_r2lm_sendrecv_dummy, not yet implemented!"
-   end subroutine transp_r2lm_sendrecv_dummy
+      print*, "Dummy transp_r2lm_ptop_2d_dummy, not yet implemented!"
+   end subroutine transp_r2lm_ptop_2d_dummy
 !----------------------------------------------------------------------------
-end module mod_mpisendrecv
+end module mod_mpiptop_2d

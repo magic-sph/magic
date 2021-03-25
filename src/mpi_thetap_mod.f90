@@ -26,8 +26,8 @@ module mpi_thetap_mod
       
    public :: transform_m2phi, transform_phi2m, transpose_m2th, transpose_th2m, initialize_mpi_thetap, &
              finalize_mpi_thetap
-   public :: transpose_m2th_p2p, transpose_th2m_p2p, transpose_th2m_a2av, transpose_m2th_a2av
-   public :: transpose_m2th_a2aw, transpose_th2m_a2aw
+!    public :: transpose_m2th_p2p, transpose_th2m_p2p, transpose_th2m_a2av, transpose_m2th_a2av
+!    public :: transpose_m2th_a2aw, transpose_th2m_a2aw
    public :: transform_new2old, transform_old2new, test_field ! TODO: remove!
    
    procedure(transpose_th2m_if), pointer :: transpose_th2m
@@ -104,7 +104,7 @@ contains
                transpose_th2m => transpose_th2m_a2aw
                transpose_m2th => transpose_m2th_a2aw
             else
-               call abortRun("Error! mpi_transp_theta must be a2av or p2p. Invalid value ='"//trim(mpi_transp_theta)//"'")
+               call abortRun("Error! mpi_transp_theta must be a2av, a2aw or p2p. Invalid value ='"//trim(mpi_transp_theta)//"'")
             end if
          end if
       end if

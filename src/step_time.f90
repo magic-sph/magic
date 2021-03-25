@@ -909,7 +909,7 @@ contains
 
       !-- Output variable
       type(timer_type), intent(inout) :: comm_counter
-
+      
       call comm_counter%start_count()
       PERFON('lm2r')
       if ( l_packed_transp ) then

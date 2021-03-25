@@ -1477,16 +1477,13 @@ contains
       class(type_shtns_buff) :: this
       integer, intent(in) :: max_buff
       
+      integer(mpi_address_kind) :: mem_size, length
+      
       this%max_buff = max_buff
       this%n_sh = 0
       this%n_spat = 0
       
       ! TODO: figure out the largest buffer needed...
-!       allocate(this%spat_ptr(2*max_buff))
-!       allocate(this%sh_ptr(2*max_buff))
-!       allocate(this%operations(2*max_buff))
-!       allocate(this%lcut(2*max_buff))
-!       allocate(this%or2(2*max_buff))
       allocate(this%spat_ptr(2*max_buff))
       allocate(this%sh_ptr(2*max_buff))
       allocate(this%operations(2*max_buff))
