@@ -244,6 +244,38 @@ contains
       ! There might be a way to allocate only when needed
       allocate ( dbdt_CMB_LMdist(1:n_mloMag_loc) )
       bytes_allocated = bytes_allocated+n_mloMag_loc*SIZEOF_DEF_COMPLEX
+      
+      ! HOTFIX 
+      ! If we don't initialize those to zero we get a weird bug for very specific geometries...
+      ! TODO: some of the Rdist are already being set to zero above; the LMdist also needs to 
+      ! be initialized. This is just a hotfix and it is actually setting pointers and pointees
+      ! to zero, so, a bad solution.
+      ! - Lago
+      if (allocated(dflowdt_Rdist_container ))   dflowdt_Rdist_container  = zero
+      if (allocated(dsdt_Rdist_container    ))   dsdt_Rdist_container     = zero
+      if (allocated(dxidt_Rdist_container   ))   dxidt_Rdist_container    = zero
+      if (allocated(dbdt_Rdist_container    ))   dbdt_Rdist_container     = zero
+      if (allocated(dflowdt_LMdist_container))   dflowdt_LMdist_container = zero
+      if (allocated(dsdt_LMdist_container   ))   dsdt_LMdist_container    = zero
+      if (allocated(dxidt_LMdist_container  ))   dxidt_LMdist_container   = zero
+      if (allocated(dbdt_LMdist_container   ))   dbdt_LMdist_container    = zero
+      if (allocated(dbdt_CMB_LMdist         ))   dbdt_CMB_LMdist          = zero
+      if (associated(dwdt_Rdist             ))   dwdt_Rdist               = zero
+      if (associated(dzdt_Rdist             ))   dzdt_Rdist               = zero
+      if (associated(dpdt_Rdist             ))   dpdt_Rdist               = zero
+      if (associated(dsdt_Rdist             ))   dsdt_Rdist               = zero
+      if (associated(dVSrLM_Rdist           ))   dVSrLM_Rdist             = zero
+      if (associated(dxidt_Rdist            ))   dxidt_Rdist              = zero
+      if (associated(dVXirLM_Rdist          ))   dVXirLM_Rdist            = zero
+      if (associated(dVxVhLM_Rdist          ))   dVxVhLM_Rdist            = zero
+      if (associated(djdt_Rdist             ))   djdt_Rdist               = zero
+      if (associated(dVxBhLM_Rdist          ))   dVxBhLM_Rdist            = zero
+      if (associated(dbdt_Rdist             ))   dbdt_Rdist               = zero
+      if (associated(dVSrLM_LMdist          ))   dVSrLM_LMdist            = zero
+      if (associated(dVXirLM_LMdist         ))   dVXirLM_LMdist           = zero
+      if (associated(dVxVhLM_LMdist         ))   dVxVhLM_LMdist           = zero
+      if (associated(dVxBhLM_LMdist         ))   dVxBhLM_LMdist           = zero
+
 
    end subroutine initialize_fieldsLast
 !-------------------------------------------------------------------------------
