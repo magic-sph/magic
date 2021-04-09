@@ -104,10 +104,11 @@ module sht
    
    ! --------------------------------------------------------------------------------------
    type, extends(type_shtns_if) :: type_shtns_loc
-      !
-      !   Author: Rafael Lago (MPCDF) December 2020
-      ! 
    contains
+   !   !
+   !   !   Author: Rafael Lago (MPCDF) December 2020
+   !   ! 
+   !contains
       procedure :: scal_to_spat        => scal_to_spat_loc
       procedure :: scal_to_grad_spat   => scal_to_grad_spat_loc
       procedure :: torpol_to_spat      => torpol_to_spat_loc
@@ -298,12 +299,12 @@ contains
 #ifdef SHT_PADDING
       !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
       if ( n_ranks_theta == 1 ) then
-         layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+         layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
       else
-         layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
+         layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
       end if
 #else
-      layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
+      layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
 #endif
       eps_polar = 1.e-10_cp
 
@@ -585,8 +586,8 @@ contains
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), target, intent(out) :: dvtdp(nlat_padded,n_phi_max)
-      real(cp), target, intent(out) :: dvpdp(nlat_padded,n_phi_max)
+      real(cp), target, intent(out) :: dvtdp(nThetaStart:nThetaStop,n_phi_max)
+      real(cp), target, intent(out) :: dvpdp(nThetaStart:nThetaStop,n_phi_max)
 
       !-- Local variables
       complex(cp) :: Slm(lm_max), Tlm(lm_max)
@@ -767,7 +768,7 @@ contains
    subroutine spat_to_SH_axi_loc(this, f, fLM)
 
       class(type_shtns_loc), intent(inout) :: this
-      real(cp), intent(in) :: f(nlat_padded)
+      real(cp), intent(in) :: f(nThetaStart:nThetaStop)
       real(cp), intent(out) :: fLM(:)
 
       !-- Local arrays
