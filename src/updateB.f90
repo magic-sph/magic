@@ -425,7 +425,7 @@ contains
                         yl0_norm=half*sqrt((2*l1+1)/pi)
 
                         !Prefactor for CMB matching condition
-                        prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp)
+                        prefac = real(2*l1+1,kind=cp)/real((l1+1),kind=cp)
 
 
                         bpeaktop=prefac*fac_loop(l1)*amp_curr*r_cmb/yl0_norm
@@ -442,7 +442,7 @@ contains
                          ! General normalization for degree l and order 0
                          yl0_norm = half*sqrt((2*l1+1)/pi)
                          ! Prefactor for CMB matching condition
-                         prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp)
+                         prefac = real(2*l1+1,kind=cp)/real((l1+1),kind=cp)
 
                         if ( n_imp == 2 ) then
                            !  Chose external field coefficient so that amp_imp is
