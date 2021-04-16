@@ -1786,7 +1786,9 @@ contains
       !-- First assemble IMEX to get an r.h.s. stored in work_Rloc
       call tscheme%assemble_imex(work_Rloc, dwdt)
 
+#ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
+#endif
 
       !-- Now solve to finally get w
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)

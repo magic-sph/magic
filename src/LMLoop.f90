@@ -106,7 +106,9 @@ contains
       if ( l_mag ) lBmat(:) =.false.
       if ( l_chemical_conv ) lXimat(:)=.false.
 
+#ifdef WITH_MPI
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
       call dum_scal%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
       call dummy%initialize(1, lm_max, nRstart, nRstop, tscheme%nold, tscheme%nexp,&
            &                tscheme%nimp, l_allocate_exp=.true.)
@@ -122,7 +124,9 @@ contains
 
       call find_faster_block() ! Find the fastest blocking
 
+#ifdef WITH_MPI
       call MPI_Barrier(MPI_COMM_WORLD, ierr)
+#endif
 
       call dum_scal%finalize()
       call dummy%finalize()
@@ -574,7 +578,9 @@ contains
       integer :: req
       integer :: start_lm, stop_lm, tag, nlm_block, lms_block
 
+#ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
+#endif
 
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
       tag = 0
@@ -586,8 +592,6 @@ contains
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
-
-         !print*, rank, tag, omp_get_thread_num(), start_lm, stop_lm, nlm_block, lms_block, lms_block+nlm_block-1
 
          if ( l_heat ) then
             call sMat_FD%solver_up(s_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
