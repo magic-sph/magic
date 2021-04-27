@@ -20,7 +20,7 @@ module rIter_mod
        &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
-       &            l_temperature_diff
+       &            l_temperature_diff, l_RMS
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -46,10 +46,12 @@ module rIter_mod
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma
+       &             omega_ma, dp_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
+   use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces, &
+       &          transform_to_grid_RMS
    use probe_mod
 
    implicit none
@@ -103,6 +105,12 @@ contains
               &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,  &
               &          duhAS,gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,&
               &          EperpAS,EparAS,EperpaxiAS,EparaxiAS,dtrkc,dthkc)
+      !
+      ! This subroutine handles the main loop over the radial levels. It calls
+      ! the SH transforms, computes the nonlinear terms on the grid and bring back
+      ! the quantities in spectral space. This is the most time consuming part
+      ! of MagIC.
+      !
 
       class(rIter_single_t) :: this
 
@@ -254,8 +262,17 @@ contains
          if ( (.not. l_bound) .or. lMagNlBc .or. lRmsCalc ) then
 
             call nl_counter%start_count()
-            call this%gsa%get_nl(timeStage, tscheme, nR, nBc, lRmsCalc)
+            call this%gsa%get_nl(timeStage, nR, nBc, lRmsCalc)
             call nl_counter%stop_count(l_increment=.false.)
+
+            !-- Get nl loop for r.m.s. computation
+            if ( l_RMS ) then
+               call get_nl_RMS(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,&
+                    &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
+                    &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
+                    &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
+                    &          this%gsa%LFp,tscheme,lRmsCalc)
+            end if
 
             call phy2lm_counter%start_count()
             call this%transform_to_lm_space(nR, lRmsCalc)
@@ -310,13 +327,13 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-               call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
-                    &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
-                    &            this%gsa%sc,this%gsa%pc,this%gsa%xic)
+            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
+                 &            this%gsa%sc,this%gsa%pc,this%gsa%xic)
 #else
-               call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
-                    &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc,&
-                    &        this%gsa%pc,this%gsa%xic)
+            call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+                 &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc,&
+                 &        this%gsa%pc,this%gsa%xic)
 #endif
          end if
 
@@ -420,13 +437,19 @@ contains
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lRmsCalc, lPressNext, dVSrLM(:,nR),  &
-              &                 dVXirLM(:,nR), dVxVhLM(:,nR), dVxBhLM(:,nR),  &
-              &                 dwdt(:,nR), dzdt(:,nR), dpdt(:,nR),           &
-              &                 dsdt(:,nR), dxidt(:,nR), dbdt(:,nR), djdt(:,nR))
+         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
+              &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
+              &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
+              &                 dbdt(:,nR), djdt(:,nR))
          call td_counter%stop_count(l_increment=.false.)
 
-         !PERFOFF
+         !-- Finish computation of r.m.s. forces
+         if ( lRmsCalc ) then
+            call compute_lm_forces(nR, w_Rloc(:,nR), dw_Rloc(:,nR), ddw_Rloc(:,nR), &
+                 &                 z_Rloc(:,nR), s_Rloc(:,nR), xi_Rloc(:,nR),       &
+                 &                 p_Rloc(:,nR), dp_Rloc(:,nR), this%nl_lm%AdvrLM)
+         end if
+
          !-- Finish calculation of TO variables:
          if ( lTOcalc ) then
             call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,             &
@@ -461,6 +484,10 @@ contains
               &                       lPressCalc, lTOCalc, lPowerCalc,           &
               &                       lFluxProfCalc, lPerpParCalc, lHelCalc,     &
               &                       lGeosCalc, l_frame, lDeriv)
+      !
+      ! This subroutine actually handles the spherical harmonic transforms from
+      ! (\ell,m) space to (\theta,\phi) space.
+      !
 
       class(rIter_single_t) :: this
 
@@ -487,8 +514,7 @@ contains
             end if
          end if
 
-         if ( lRmsCalc ) call scal_to_grad_spat(p_Rloc(:,nR), this%gsa%dpdtc, &
-                              &                 this%gsa%dpdpc, l_R(nR))
+         if ( lRmsCalc ) call transform_to_grid_RMS(nR, p_Rloc)
 
          !-- Pressure
          if ( lPressCalc ) call scal_to_spat(p_Rloc(:,nR), this%gsa%pc, l_R(nR))
@@ -590,6 +616,10 @@ contains
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
    subroutine transform_to_lm_space(this, nR, lRmsCalc)
+      !
+      ! This subroutine actually handles the spherical harmonic transforms from
+      ! (\theta,\phi) space to (\ell,m) space.
+      !
 
       class(rIter_single_t) :: this
 
@@ -641,13 +671,6 @@ contains
          call scal_to_SH(this%gsa%Advr, this%nl_lm%AdvrLM, l_R(nR))
          call scal_to_SH(this%gsa%Advt, this%nl_lm%AdvtLM, l_R(nR))
          call scal_to_SH(this%gsa%Advp, this%nl_lm%AdvpLM, l_R(nR))
-
-         if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
-            ! LF treated extra:
-            call scal_to_SH(this%gsa%LFr, this%nl_lm%LFrLM, l_R(nR))
-            call scal_to_SH(this%gsa%LFt, this%nl_lm%LFtLM, l_R(nR))
-            call scal_to_SH(this%gsa%LFp, this%nl_lm%LFpLM, l_R(nR))
-         end if
       end if
       if ( l_heat ) then
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
@@ -679,26 +702,7 @@ contains
          end if
       end if
 
-      if ( lRmsCalc ) then
-         call spat_to_sphertor(this%gsa%dpdtc, this%gsa%dpdpc, this%nl_lm%PFt2LM, &
-              &                this%nl_lm%PFp2LM, l_R(nR))
-         call spat_to_sphertor(this%gsa%CFt2, this%gsa%CFp2, this%nl_lm%CFt2LM, &
-              &                this%nl_lm%CFp2LM, l_R(nR))
-         call spat_to_qst(this%gsa%dtVr, this%gsa%dtVt, this%gsa%dtVp, &
-              &           this%nl_lm%dtVrLM, this%nl_lm%dtVtLM,        &
-              &           this%nl_lm%dtVpLM, l_R(nR))
-         if ( l_conv_nl ) then
-            call spat_to_sphertor(this%gsa%Advt2, this%gsa%Advp2, &
-                 &                this%nl_lm%Advt2LM, this%nl_lm%Advp2LM, l_R(nR))
-         end if
-         if ( l_adv_curl ) then !-- Kinetic pressure : 1/2 d u^2 / dr
-            call scal_to_SH(this%gsa%dpkindrc, this%nl_lm%dpkindrLM, l_R(nR))
-         end if
-         if ( l_mag_nl .and. nR>n_r_LCR ) then
-            call spat_to_sphertor(this%gsa%LFt2, this%gsa%LFp2, this%nl_lm%LFt2LM, &
-                 &                this%nl_lm%LFp2LM, l_R(nR))
-         end if
-      end if
+      if ( lRmsCalc ) call transform_to_lm_RMS(nR, this%gsa%LFr)
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------

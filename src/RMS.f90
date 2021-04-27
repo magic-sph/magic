@@ -7,31 +7,40 @@ module RMS
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use blocking, only: st_map, lo_map, lm2, lm2m, llm, ulm, llmMag, ulmMag
+   use blocking, only: st_map, lo_map, lm2, lm2m, llm, ulm, llmMag, ulmMag, &
+       &               lm2lmA, lm2lmP, lm2l, lm2lmS
    use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB, fd_ratio, fd_stretch
-   use physical_parameters, only: ra, ek, pr, prmag, radratio
+       &                 lm_max_dtB, fd_ratio, fd_stretch, lmP_max, nlat_padded
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, CorFac, n_r_LCR, &
+       &                          BuoFac, ChemFac, ThExpNb, ViscHeatFac
    use radial_data, only: nRstop, nRstart, radial_balance, nRstartMag, nRstopMag
-   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
-   use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF, &
-       &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS, &
-       &            l_parallel_solve, l_mag_par_solve
+   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb, or1, or2, or3, or4, &
+       &                       rho0, rgrav, beta, dLvisc, dbeta, ogrun, alpha0, &
+       &                       temp0, visc, l_R
+   use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF,    &
+       &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS,    &
+       &            l_parallel_solve, l_mag_par_solve, l_adv_curl, l_double_curl,&
+       &            l_anelastic_liquid, l_mag_nl
    use num_param, only: tScale, alph1, alph2
-   use horizontal_data, only: phi, theta_ord
-   use constants, only: zero, one, half, four, third, vol_oc, pi
+   use horizontal_data, only: phi, theta_ord, cosTheta, sinTheta, O_sin_theta_E2,  &
+       &                      cosn_theta_E2, O_sin_theta, dTheta2A, dPhi, dTheta2S,&
+       &                      dLh, hdif_V
+   use constants, only: zero, one, half, four, third, vol_oc, pi, two, three
    use integration, only: rInt_R
    use radial_der, only: get_dr, get_dr_Rloc
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
-   use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM
+   use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM, hIntRms
    use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
    use useful, only: abortRun
    use mean_sd, only: mean_sd_type, mean_sd_2D_type
+   use time_schemes, only: type_tscheme
+   use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat
 
    implicit none
 
@@ -45,22 +54,27 @@ module RMS
    real(cp), allocatable :: rC(:)        ! Cut-off radii
    real(cp), public, allocatable :: dr_facC(:)
 
-   real(cp), public, allocatable :: dtBPol2hInt(:,:)
-   real(cp), public, allocatable :: dtBTor2hInt(:,:)
+   real(cp), public, allocatable :: dtBPol2hInt(:,:), dtBTor2hInt(:,:)
    complex(cp), public, allocatable :: dtBPolLMr(:,:)
 
-   real(cp), public, allocatable :: DifPol2hInt(:,:)
-   real(cp), public, allocatable :: DifTor2hInt(:,:)
+   real(cp), public, allocatable :: DifPol2hInt(:,:), DifTor2hInt(:,:)
    complex(cp), public, allocatable :: DifPolLMr(:,:)
 
-   real(cp), public, allocatable :: Adv2hInt(:,:), Cor2hInt(:,:)
-   real(cp), public, allocatable :: LF2hInt(:,:), Buo_temp2hInt(:,:)
-   real(cp), public, allocatable :: Buo_xi2hInt(:,:)
-   real(cp), public, allocatable :: Pre2hInt(:,:), Geo2hInt(:,:)
-   real(cp), public, allocatable :: Mag2hInt(:,:), Arc2hInt(:,:)
-   real(cp), public, allocatable :: ArcMag2hInt(:,:), CIA2hInt(:,:)
-   real(cp), public, allocatable :: CLF2hInt(:,:), PLF2hInt(:,:)
-   real(cp), public, allocatable :: Iner2hInt(:,:)
+   real(cp), allocatable :: Adv2hInt(:,:), Cor2hInt(:,:), LF2hInt(:,:), Buo_temp2hInt(:,:)
+   real(cp), allocatable :: Buo_xi2hInt(:,:), Pre2hInt(:,:), Geo2hInt(:,:)
+   real(cp), allocatable :: Mag2hInt(:,:), Arc2hInt(:,:), ArcMag2hInt(:,:), CIA2hInt(:,:)
+   real(cp), allocatable :: CLF2hInt(:,:), PLF2hInt(:,:), Iner2hInt(:,:)
+
+   !-- Arrays on the physical grid
+   real(cp), allocatable :: Advt2(:,:), Advp2(:,:), dpdtc(:,:), dpdpc(:,:)
+   real(cp), allocatable :: CFt2(:,:), CFp2(:,:), LFt2(:,:), LFp2(:,:)
+   real(cp), allocatable :: dpkindrc(:,:), dtVr(:,:), dtVt(:,:), dtVp(:,:)
+   real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
+
+   complex(cp), allocatable :: dtVrLM(:), dtVtLM(:), dtVpLM(:)
+   complex(cp), allocatable :: dpkindrLM(:), Advt2LM(:), Advp2LM(:)
+   complex(cp), allocatable :: PFt2LM(:), PFp2LM(:), LFt2LM(:), LFp2LM(:)
+   complex(cp), allocatable :: CFt2LM(:), CFp2LM(:), LFrLM(:)
 
    !-- Time-averaged spectra
    type(mean_sd_type) :: InerRmsL, CorRmsL, LFRmsL, AdvRmsL
@@ -77,13 +91,14 @@ module RMS
    integer :: n_dtvrms_file, n_dtbrms_file
    character(len=72) :: dtvrms_file, dtbrms_file
 
-   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS
+   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, &
+   &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS
 
 contains
 
    subroutine initialize_RMS
       !
-      ! Memory allocation
+      ! Memory allocation of arrays used in the computation of r.m.s. force balance
       !
 
       if ( l_mag_par_solve ) then
@@ -127,6 +142,42 @@ contains
       if ( l_chemical_conv ) then
          allocate( Buo_xi2hInt(0:l_max,n_r_max) )
          bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*SIZEOF_DEF_REAL
+      end if
+
+      !-- RMS Calculations
+      allocate( Advt2(nlat_padded,n_phi_max), Advp2(nlat_padded,n_phi_max) )
+      allocate( dtVr(nlat_padded,n_phi_max), dtVt(nlat_padded,n_phi_max) )
+      allocate( dtVp(nlat_padded,n_phi_max) )
+      allocate( LFt2(nlat_padded,n_phi_max), LFp2(nlat_padded,n_phi_max) )
+      allocate( CFt2(nlat_padded,n_phi_max), CFp2(nlat_padded,n_phi_max) )
+      allocate( dpdtc(nlat_padded,n_phi_max), dpdpc(nlat_padded,n_phi_max) )
+      bytes_allocated=bytes_allocated + 11*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+
+      allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( vp_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( vr_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+      bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*(nRstop-nRstart+1)*&
+      &               SIZEOF_DEF_REAL
+
+      dtVr(:,:)=0.0_cp
+      dtVt(:,:)=0.0_cp
+      dtVp(:,:)=0.0_cp
+      vt_old(:,:,:) =0.0_cp
+      vr_old(:,:,:) =0.0_cp
+      vp_old(:,:,:) =0.0_cp
+
+      if ( l_adv_curl ) then
+         allocate ( dpkindrc(nlat_padded,n_phi_max) )
+         bytes_allocated=bytes_allocated + n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+      end if
+
+      allocate( dtVrLM(lmP_max), dtVtLM(lmP_max), dtVpLM(lmP_max), LFrLM(lmP_max) )
+      allocate( Advt2LM(lmP_max), Advp2LM(lmP_max), LFt2LM(lmP_max), LFp2LM(lmP_max) )
+      allocate( CFt2LM(lmP_max), CFp2LM(lmP_max), PFt2LM(lmP_max), PFp2LM(lmP_max) )
+      bytes_allocated = bytes_allocated + 12*lmP_max*SIZEOF_DEF_COMPLEX
+      if ( l_adv_curl ) then
+         allocate( dpkindrLM(lmP_max) )
+         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
       call InerRmsL%initialize(0,l_max)
@@ -181,20 +232,29 @@ contains
          end if
       end if
 
+      call zeroRms() ! zero's the fields
+
    end subroutine initialize_RMS
 !----------------------------------------------------------------------------
    subroutine finalize_RMS
+      !
+      ! Deallocate arrays used for r.m.s. force balance computation
+      !
 
-      deallocate( rC )
-      deallocate( dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
+      deallocate( rC, dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
       deallocate( DifPol2hInt, DifTor2hInt, DifPolLMr )
-      deallocate( Adv2hInt, Cor2hInt, LF2hInt, Iner2hInt )
-      deallocate( Pre2hInt )
+      deallocate( Adv2hInt, Cor2hInt, LF2hInt, Iner2hInt, Pre2hInt )
       deallocate( Geo2hInt, Mag2hInt, Arc2hInt, CIA2hInt )
       deallocate( CLF2hInt, PLF2hInt, ArcMag2hInt )
 
       if ( l_chemical_conv )  deallocate( Buo_xi2hInt )
       if ( l_heat )  deallocate( Buo_temp2hInt )
+
+      deallocate ( Advt2, Advp2, LFt2, LFp2, CFt2, CFp2, dpdtc, dpdpc )
+      deallocate ( dtVr, dtVt, dtVp, vr_old, vt_old, vp_old )
+      deallocate( Advt2LM, Advp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, PFt2LM, PFp2LM )
+      deallocate( dtVrLM, dtVtLM, dtVpLM, LFrLM )
+      if ( l_adv_curl ) deallocate ( dpkindrLM, dpkindrc )
 
       call InerRmsL%finalize()
       call CorRmsL%finalize()
@@ -262,9 +322,21 @@ contains
       CIA2hInt(:,:)   =0.0_cp
       CLF2hInt(:,:)   =0.0_cp
       PLF2hInt(:,:)   =0.0_cp
-
       if ( l_chemical_conv ) Buo_xi2hInt(:,:)=0.0_cp
       if ( l_heat ) Buo_temp2hInt(:,:)=0.0_cp
+
+      Advt2LM(:)=zero
+      Advp2LM(:)=zero
+      LFp2LM(:) =zero
+      LFt2LM(:) =zero
+      CFt2LM(:) =zero
+      CFp2LM(:) =zero
+      PFt2LM(:) =zero
+      PFp2LM(:) =zero
+      dtVtLM(:) =zero
+      dtVpLM(:) =zero
+      dtVrLM(:) =zero
+      if ( l_adv_curl ) dpkindrLM(:)=zero
 
       DifPolLMr(:,:)=zero
       dtBPolLMr(:,:)=zero
@@ -396,6 +468,419 @@ contains
       end if
 
    end subroutine init_rNB
+!----------------------------------------------------------------------------
+   subroutine get_nl_RMS(nR,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
+              &          cvr,Advt,Advp,LFt,LFp,tscheme,lRmsCalc)
+      !
+      ! This subroutine computes the r.m.s. force balance terms which need to
+      ! be computed on the grid
+      !
+
+      !-- Input variables
+      real(cp),            intent(in) :: vr(:,:), vt(:,:), vp(:,:), cvr(:,:)
+      real(cp),            intent(in) :: dvrdr(:,:), dvrdt(:,:), dvrdp(:,:)
+      real(cp),            intent(in) :: dvtdp(:,:), dvpdp(:,:)
+      real(cp),            intent(in) :: dvtdr(:,:), dvpdr(:,:)
+      real(cp),            intent(in) :: Advt(:,:),Advp(:,:),LFt(:,:),LFp(:,:)
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+      integer,             intent(in) :: nR      ! radial level
+      logical,             intent(in) :: lRmsCalc
+
+      !-- Local variables
+      real(cp) ::  O_dt
+      integer :: nPhi, nPhStart, nPhStop
+
+      !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
+      nPhStart=1; nPhStop=n_phi_max
+      call get_openmp_blocks(nPhStart,nPhStop)
+
+      do nPhi=nPhStart,nPhStop
+
+         if ( lRmsCalc ) then
+            dpdtc(:,nPhi)=dpdtc(:,nPhi)*or1(nR)
+            dpdpc(:,nPhi)=dpdpc(:,nPhi)*or1(nR)
+            CFt2(:,nPhi)=-two*CorFac*cosTheta(:)*vp(:,nPhi)*or1(nR)
+            CFp2(:,nPhi)= two*CorFac*sinTheta(:)* (or1(nR)*cosTheta(:)*&
+            &                  O_sin_theta(:)*vt(:,nPhi)+or2(nR)*sinTheta(:)*vr(:,nPhi) )
+            if ( l_conv_nl ) then
+               Advt2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*Advt(:,nPhi)
+               Advp2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*Advp(:,nPhi)
+            end if
+            if ( l_mag_LF .and. nR > n_r_LCR ) then
+               LFt2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*LFt(:,nPhi)
+               LFp2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*LFp(:,nPhi)
+            end if
+
+            if ( l_adv_curl ) then
+               dpdtc(:,nPhi)=dpdtc(:,nPhi)-or3(nR)*( or2(nR)*  &
+               &             vr(:,nPhi)*dvrdt(:,nPhi) -        &
+               &             vt(:,nPhi)*(dvrdr(:,nPhi)+        &
+               &             dvpdp(:,nPhi)+cosn_theta_E2(:) *  &
+               &             vt(:,nPhi))+ vp(:,nPhi)*(         &
+               &             cvr(:,nPhi)+dvtdp(:,nPhi)-        &
+               &             cosn_theta_E2(:)*vp(:,nPhi)) )
+               dpdpc(:,nPhi)=dpdpc(:,nPhi)- or3(nR)*( or2(nR)*  &
+               &             vr(:,nPhi)*dvrdp(:,nPhi) +         &
+               &             vt(:,nPhi)*dvtdp(:,nPhi) +         &
+               &             vp(:,nPhi)*dvpdp(:,nPhi) )
+               if ( l_conv_nl ) then
+                  Advt2(:,nPhi)=Advt2(:,nPhi)-or3(nR)*( or2(nR)*  &
+                  &             vr(:,nPhi)*dvrdt(:,nPhi) -        &
+                  &             vt(:,nPhi)*(dvrdr(:,nPhi)+        &
+                  &             dvpdp(:,nPhi)+cosn_theta_E2(:) *  &
+                  &             vt(:,nPhi))+vp(:,nPhi)*(          &
+                  &             cvr(:,nPhi)+dvtdp(:,nPhi)-        &
+                  &             cosn_theta_E2(:)*vp(:,nPhi)) )
+                  Advp2(:,nPhi)=Advp2(:,nPhi)-or3(nR)*( or2(nR)* &
+                  &             vr(:,nPhi)*dvrdp(:,nPhi) +       &
+                  &             vt(:,nPhi)*dvtdp(:,nPhi) +       &
+                  &             vp(:,nPhi)*dvpdp(:,nPhi) )
+               end if
+
+               !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
+               dpkindrc(:,nPhi)=or4(nR)*vr(:,nPhi)*(dvrdr(:,nPhi)-           &
+               &                two*or1(nR)*vr(:,nPhi))+or2(nR)*             &
+               &                O_sin_theta_E2(:)*(         vt(:,nPhi)*(     &
+               &                      dvtdr(:,nPhi)-or1(nR)*vt(:,nPhi) ) +   &
+               &                vp(:,nPhi)*(dvpdr(:,nPhi)-or1(nR)*vp(:,nPhi) ) )
+            end if
+         end if
+
+         if ( tscheme%istage == 1 ) then
+            O_dt = 1.0_cp/tscheme%dt(1)
+            dtVr(:,nPhi)=O_dt*or2(nR)*(vr(:,nPhi)-vr_old(:,nPhi,nR))
+            dtVt(:,nPhi)=O_dt*or1(nR)*(vt(:,nPhi)-vt_old(:,nPhi,nR))
+            dtVp(:,nPhi)=O_dt*or1(nR)*(vp(:,nPhi)-vp_old(:,nPhi,nR))
+
+            vr_old(:,nPhi,nR)=vr(:,nPhi)
+            vt_old(:,nPhi,nR)=vt(:,nPhi)
+            vp_old(:,nPhi,nR)=vp(:,nPhi)
+         end if
+
+      end do
+      !$omp end parallel
+
+   end subroutine get_nl_RMS
+!----------------------------------------------------------------------------
+   subroutine transform_to_grid_RMS(nR, p_Rloc)
+      !
+      ! This subroutine is used to transform the arrays used in r.m.s. force
+      ! calculations from the spectral space to the physical grid.
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: nR ! radial level
+      complex(cp), intent(inout) :: p_Rloc(lm_max,nRstart:nRstop) ! pressure in LM space
+
+      call scal_to_grad_spat(p_Rloc(:,nR), dpdtc, dpdpc, l_R(nR))
+
+   end subroutine transform_to_grid_RMS
+!----------------------------------------------------------------------------
+   subroutine transform_to_lm_RMS(nR, LFr)
+      !
+      ! This subroutine is used to transform the arrays used in r.m.s. force
+      ! calculations from the physical grid to spectral space.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR ! radial level
+      real(cp), intent(inout) :: LFr(:,:) ! radial component of the Lorentz force
+
+      Advt2LM(:)=zero
+      Advp2LM(:)=zero
+      LFrLM(:)  =zero
+      LFp2LM(:) =zero
+      LFt2LM(:) =zero
+      CFt2LM(:) =zero
+      CFp2LM(:) =zero
+      PFt2LM(:) =zero
+      PFp2LM(:) =zero
+      dtVtLM(:) =zero
+      dtVpLM(:) =zero
+      dtVrLM(:) =zero
+      if ( l_adv_curl ) dpkindrLM(:)=zero
+
+      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(LFr, LFrLM, l_R(nR))
+      call spat_to_sphertor(dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
+      call spat_to_sphertor(CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
+      call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR))
+      if ( l_conv_nl ) call spat_to_sphertor(Advt2, Advp2, Advt2LM, Advp2LM, l_R(nR))
+      !-- Kinetic pressure : 1/2 d u^2 / dr
+      if ( l_adv_curl ) call scal_to_SH(dpkindrc, dpkindrLM, l_R(nR))
+      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(LFt2, LFp2,  &
+                                            &                LFt2LM, LFp2LM, l_R(nR))
+
+   end subroutine transform_to_lm_RMS
+!----------------------------------------------------------------------------
+   subroutine compute_lm_forces(nR, w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, s_Rloc, &
+              &                 xi_Rloc, p_Rloc, dp_Rloc, AdvrLM)
+      !
+      ! This subroutine finalizes the computation of the r.m.s. spectra once
+      ! the quantities are back in spectral space.
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: nR
+      complex(cp), intent(in) :: w_Rloc(:), dw_Rloc(:), z_Rloc(:)
+      complex(cp), intent(in) :: s_Rloc(:), p_Rloc(:), dp_Rloc(:)
+      complex(cp), intent(in) :: xi_Rloc(:), ddw_Rloc(:)
+      complex(cp), intent(in) :: AdvrLM(:)
+
+      !-- Local variables
+      complex(cp) :: dpdr(lm_max), Buo_temp(lm_max), Buo_xi(lm_max)
+      complex(cp) :: LFPol(lm_max), AdvPol(lm_max), CorPol(lm_max)
+      complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
+      complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
+      complex(cp) :: CorPol_loc, AdvPol_loc
+      integer :: lm, lmA, lmP, lmS, l, m
+
+      !-- l=m=0 spherically-symmetric contributions
+      lm=1
+      lmA=lm2lmA(lm)
+      lmP=lm2lmP(lm)
+
+      if ( l_conv_nl ) then
+         AdvPol(lm)=or2(nR)*AdvrLM(lmP)
+         if ( l_adv_curl ) AdvPol(lm)=AdvPol(lm)-dpkindrLM(lmP)
+      else
+         AdvPol(lm)=zero
+      end if
+
+      if ( l_corr ) then
+         CorPol(lm)=two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA)
+      else
+         CorPol(lm)=zero
+      end if
+
+      if (l_heat) then
+         Buo_temp(lm)=BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm)
+      else
+         Buo_temp(lm)=0.0_cp
+      end if
+
+      if (l_chemical_conv) then
+         Buo_xi(lm)=ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm)
+      else
+         Buo_xi(lm)=0.0_cp
+      end if
+
+      if ( l_mag_LF .and. nR>n_r_LCR ) then
+         LFPol(lm) =or2(nR)*LFrLM(lmP)
+         AdvPol(lm)=AdvPol(lm)-LFPol(lm)
+      end if
+
+      if ( l_double_curl ) then
+         !-- Recalculate the pressure gradient based on the poloidal
+         !-- equation equilibrium
+         dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm)+AdvPol(lm)+CorPol(lm)
+      else
+         dpdr(lm)=dp_Rloc(lm)
+      end if
+
+      !-- Loop over the other (l,m) modes
+      !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+      !$omp private(AdvPol_loc,CorPol_loc)
+      do lm=2,lm_max
+         l   =lm2l(lm)
+         m   =lm2m(lm)
+         lmS =lm2lmS(lm)
+         lmA =lm2lmA(lm)
+         lmP =lm2lmP(lm)
+
+         if ( l_anelastic_liquid ) then
+            if (l_heat) then
+               Buo_temp(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(      &
+               &       rho0(nR)*s_Rloc(lm)-ViscHeatFac*         &
+               &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
+               &     p_Rloc(lm) )
+            else
+               Buo_temp(lm)=zero
+            end if
+
+            if (l_chemical_conv) then
+               Buo_xi(lm)=ChemFac*alpha0(nR)*rgrav(nR)*rho0(nR)*xi_Rloc(lm)
+            else
+               Buo_xi(lm)=zero
+            end if
+         else
+            if (l_heat) then
+               Buo_temp(lm)=BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm)
+            else
+               Buo_temp(lm)=zero
+            end if
+            if (l_chemical_conv) then
+               Buo_xi(lm) =ChemFac*rho0(nR)*rgrav(nR)*xi_Rloc(lm)
+            else
+               Buo_xi(lm)=zero
+            end if
+         end if
+
+         !-- We need to compute the Coriolis term once again
+         if ( l_corr ) then
+            if ( l < l_max .and. l > m ) then
+               CorPol_loc =two*CorFac*or1(nR) * (  &
+               &           dPhi(lm)*dw_Rloc(lm) +  & ! phi-deriv of dw/dr
+               &       dTheta2A(lm)*z_Rloc(lmA) -  & ! sin(theta) dtheta z
+               &       dTheta2S(lm)*z_Rloc(lmS) )
+            else if ( l == l_max ) then
+               CorPol_loc=zero
+            else if ( l == m ) then
+               CorPol_loc = two*CorFac*or1(nR) * (  &
+               &            dPhi(lm)*dw_Rloc(lm)  + &
+               &        dTheta2A(lm)*z_Rloc(lmA) )
+            end if
+         else
+            CorPol_loc=zero
+         end if
+
+         ! We also need to recompute AdvPol_loc here
+         if ( l_conv_nl ) then
+            AdvPol_loc=or2(nR)*AdvrLM(lmP)
+            if ( l_adv_curl ) AdvPol_loc=AdvPol_loc-dpkindrLM(lmP)
+         else
+            AdvPol_loc=zero
+         end if
+
+         if ( l_double_curl ) then
+            !-- Recalculate the pressure gradient based on the poloidal
+            !-- equation equilibrium
+            dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-dtVrLM(lmP)+              &
+            &        dLh(lm)*or2(nR)*hdif_V(l)*visc(nR)*(              &
+            &                                        ddw_Rloc(lm)+     &
+            &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm)-     &
+            &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
+            &         dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
+            &         or1(nR)) )*                      w_Rloc(lm))+    &
+            &        beta(nR)*p_Rloc(lm)+AdvPol_loc+CorPol_loc
+         else
+            dpdr(lm)=dp_Rloc(lm)
+         end if
+
+         if ( l_mag_LF .and. nR>n_r_LCR ) then
+            LFPol(lm) =or2(nR)*LFrLM(lmP)
+            AdvPol(lm)=AdvPol_loc-LFPol(lm)
+         else
+            AdvPol(lm)=AdvPol_loc
+         end if
+         CorPol(lm)=CorPol_loc
+      end do
+
+      !-- Now compute R.M.S spectra
+      if ( l_conv_nl ) then
+         call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map, .false.)
+         call hIntRms(Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map,.true.)
+         call hIntRms(Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map,.true.)
+         do lm=1,lm_max
+            lmP=lm2lmP(lm)
+            !-- Use Geo as work array
+            Geo(lm)=AdvPol(lm)-dtVrLM(lmP)
+         end do
+         call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map, .false.)
+         call hIntRms(Advt2LM-dtVtLM,nR,1,lmP_max,1,Iner2hInt(:,nR),st_map,.true.)
+         call hIntRms(Advp2LM-dtVpLM,nR,1,lmP_max,1,Iner2hInt(:,nR),st_map,.true.)
+      end if
+
+      if ( l_anelastic_liquid ) then
+         call hIntRms(dpdr,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
+      else
+         ! rho* grad(p/rho) = grad(p) - beta*p
+         !-- Geo is used to store the pressure Gradient
+         if ( l_adv_curl ) then
+            do lm=1,lm_max
+               lmP=lm2lmP(lm)
+               !-- Use Geo as work array
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)-dpkindrLM(lmP)
+            end do
+         else
+            do lm=1,lm_max
+               !-- Use Geo as work array
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)
+            end do
+         end if
+         call hIntRms(Geo,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
+      end if
+      call hIntRms(PFt2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
+      call hIntRms(PFp2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
+
+      if ( l_heat ) then
+         call hIntRms(Buo_temp,nR,1,lm_max,0,Buo_temp2hInt(:,nR),st_map,.false.)
+      end if
+      if ( l_chemical_conv ) then
+         call hIntRms(Buo_xi,nR,1,lm_max,0,Buo_xi2hInt(:,nR),st_map,.false.)
+      end if
+      if ( l_corr ) then
+         call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map,.false.)
+         call hIntRms(CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR),st_map,.true.)
+         call hIntRms(CFp2LM,nR,1,lmP_max,1,Cor2hInt(:,nR),st_map,.true.)
+      end if
+      if ( l_mag_LF .and. nR>n_r_LCR ) then
+         call hIntRms(LFPol,nR,1,lm_max,0,LF2hInt(:,nR),st_map,.false.)
+         call hIntRms(LFt2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
+         call hIntRms(LFp2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
+      end if
+
+      do lm=1,lm_max
+         lmP=lm2lmP(lm)
+         Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
+         PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
+         if ( l_adv_curl ) then
+            Geo(lm)=Geo(lm)+dpkindrLM(lmP)
+            PLF(lm)=PLF(lm)+dpkindrLM(lmP)
+         end if
+         CLF(lm)=CorPol(lm)+LFPol(lm)
+         Mag(lm)=Geo(lm)+LFPol(lm)
+         Arc(lm)=Geo(lm)+Buo_temp(lm)+Buo_xi(lm)
+         ArcMag(lm)=Mag(lm)+Buo_temp(lm)+Buo_xi(lm)
+         CIA(lm)=ArcMag(lm)+AdvPol(lm)-dtVrLM(lmP)
+         !CIA(lm)=CorPol(lm)+Buo_temp(lm)+Buo_xi(lm)+AdvPol(lm)
+      end do
+      call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
+      call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
+      call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
+      call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
+      call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
+      call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.false.)
+      call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
+
+      do lm=1,lm_max
+         lmP=lm2lmP(lm)
+         Geo(lm)=-CFt2LM(lmP)-PFt2LM(lmP)
+         CLF(lm)=-CFt2LM(lmP)+LFt2LM(lmP)
+         PLF(lm)=LFt2LM(lmP)-PFt2LM(lmP)
+         Mag(lm)=Geo(lm)+LFt2LM(lmP)
+         Arc(lm)=Geo(lm)
+         ArcMag(lm)=Mag(lm)
+         CIA(lm)=ArcMag(lm)+Advt2LM(lmP)-dtVtLM(lmP)
+         !CIA(lm)=-CFt2LM(lmP)+Advt2LM(lmP)
+      end do
+      call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
+      call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
+      call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
+      call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
+      call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+
+      do lm=1,lm_max
+         lmP=lm2lmP(lm)
+         Geo(lm)=-CFp2LM(lmP)-PFp2LM(lmP)
+         CLF(lm)=-CFp2LM(lmP)+LFp2LM(lmP)
+         PLF(lm)=LFp2LM(lmP)-PFp2LM(lmP)
+         Mag(lm)=Geo(lm)+LFp2LM(lmP)
+         Arc(lm)=Geo(lm)
+         ArcMag(lm)=Mag(lm)
+         CIA(lm)=ArcMag(lm)+Advp2LM(lmP)-dtVpLM(lmP)
+         !CIA(lm)=-CFp2LM(lmP)+Advp2LM(lmP)
+      end do
+      call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
+      call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
+      call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
+      call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
+      call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+
+   end subroutine compute_lm_forces
 !----------------------------------------------------------------------------
    subroutine get_force(Force2hInt,ForceRms,ForceRmsL,ForceRmsLnR,      &
               &         volC,nRMS_sets,timePassed,timeNorm,l_stop_time, &

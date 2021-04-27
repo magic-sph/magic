@@ -59,9 +59,6 @@ module radial_functions
    real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
    real(cp), public, allocatable :: ogrun(:)     ! :math:`1/\Gamma`
 
-   real(cp), public, allocatable :: opressure0(:) ! Inverse background pressure (for centrifugal acceleration)
-
-
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
@@ -135,11 +132,9 @@ contains
       bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
-      allocate( sigma(n_r_max) )
-      allocate( kappa(n_r_max),dLkappa(n_r_max) )
+      allocate( sigma(n_r_max),kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
-      allocate( opressure0(n_r_max) )
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 
       !allocate ( l_R(nRstart:nRstop) )
@@ -204,7 +199,6 @@ contains
       deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
-      deallocate( opressure0 )
 
       if ( .not. l_full_sphere ) then
          deallocate( dr_top_ic )
@@ -692,7 +686,7 @@ contains
                   &         (g0+half*g1-g2)
                   rho0(:) =temp0**polind
 
-                  if (l_centrifuge) opressure0(:) = temp0**(-polind-1)
+                  !if (l_centrifuge) opressure0(:) = temp0**(-polind-1)
 
                   !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
                   beta(:)     =-polind*DissNb*rgrav(:)/temp0(:)
@@ -761,7 +755,7 @@ contains
       else ! Boussinesq
          rho0(:)     =one
          temp0(:)    =one
-         opressure0(:)=one
+         !opressure0(:)=one
          otemp1(:)   =one
          orho1(:)    =one
          orho2(:)    =one

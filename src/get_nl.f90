@@ -22,18 +22,15 @@ module grid_space_arrays_mod
    use truncation, only: n_phi_max, n_theta_max, nlat_padded
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
-       &                       lambda, or4, or1, alpha0, temp0, opressure0
-   use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,    &
-        &                         ThExpNb, ViscHeatFac, oek, po, DissNb, &
-        &                         dilution_fac, ra, opr, polind, strat, radratio
-   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi, &
-       &                      O_sin_theta_E2, cosn_theta_E2, O_sin_theta
+       &                       lambda, or4, or1
+   use physical_parameters, only: LFfac, n_r_LCR, prec_angle,    &
+        &                         oek, po, dilution_fac, ra, opr
+   use horizontal_data, only: sinTheta, cosTheta, phi, O_sin_theta_E2, &
+       &                      cosn_theta_E2, O_sin_theta
    use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
-       &            l_RMS, l_chemical_conv, l_precession,             &
-       &            l_centrifuge, l_adv_curl
-   use time_schemes, only: type_tscheme
+       &            l_chemical_conv, l_precession, l_centrifuge, l_adv_curl
 
    implicit none
 
@@ -49,12 +46,6 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
       real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
-
-      !---- RMS calculations
-      real(cp), allocatable :: Advt2(:,:), Advp2(:,:), LFt2(:,:), LFp2(:,:)
-      real(cp), allocatable :: CFt2(:,:), CFp2(:,:), dpdtc(:,:), dpdpc(:,:)
-      real(cp), allocatable :: dtVr(:,:), dtVp(:,:), dtVt(:,:)
-      real(cp), allocatable :: dpkindrc(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -74,8 +65,6 @@ module grid_space_arrays_mod
       procedure :: get_nl
 
    end type grid_space_arrays_t
-
-   real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
 
 contains
 
@@ -141,35 +130,6 @@ contains
          bytes_allocated=bytes_allocated+2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
-      !-- RMS Calculations
-      if ( l_RMS ) then
-         allocate( this%Advt2(nlat_padded,n_phi_max), this%Advp2(nlat_padded,n_phi_max) )
-         allocate( this%dtVr(nlat_padded,n_phi_max), this%dtVt(nlat_padded,n_phi_max) )
-         allocate( this%dtVp(nlat_padded,n_phi_max) )
-         allocate( this%LFt2(nlat_padded,n_phi_max), this%LFp2(nlat_padded,n_phi_max) )
-         allocate( this%CFt2(nlat_padded,n_phi_max), this%CFp2(nlat_padded,n_phi_max) )
-         allocate( this%dpdtc(nlat_padded,n_phi_max), this%dpdpc(nlat_padded,n_phi_max) )
-         bytes_allocated=bytes_allocated + 11*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
-
-         allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
-         allocate( vp_old(nlat_padded,n_phi_max,nRstart:nRstop) )
-         allocate( vr_old(nlat_padded,n_phi_max,nRstart:nRstop) )
-         bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*(nRstop-nRstart+1)*&
-         &               SIZEOF_DEF_REAL
-
-         this%dtVr(:,:)=0.0_cp
-         this%dtVt(:,:)=0.0_cp
-         this%dtVp(:,:)=0.0_cp
-         vt_old(:,:,:) =0.0_cp
-         vr_old(:,:,:) =0.0_cp
-         vp_old(:,:,:) =0.0_cp
-
-         if ( l_adv_curl ) then
-            allocate ( this%dpkindrc(nlat_padded,n_phi_max) )
-            bytes_allocated=bytes_allocated + n_phi_max*nlat_padded*SIZEOF_DEF_REAL
-         end if
-      end if
-
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -195,18 +155,9 @@ contains
       deallocate( this%sc,this%drSc, this%pc, this%xic )
       deallocate( this%dsdtc, this%dsdpc )
 
-      !-- RMS Calculations
-      if ( l_RMS ) then
-         deallocate ( this%Advt2, this%Advp2, this%LFt2, this%LFp2 )
-         deallocate ( this%CFt2, this%CFp2, this%dpdtc, this%dpdpc )
-         deallocate ( this%dtVr, this%dtVt, this%dtVp )
-         deallocate ( vr_old, vt_old, vp_old )
-         if ( l_adv_curl ) deallocate ( this%dpkindrc )
-      end if
-
    end subroutine finalize
 !----------------------------------------------------------------------------
-   subroutine get_nl(this, time, tscheme, nR, nBc, lRmsCalc)
+   subroutine get_nl(this, time, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level ``nR`` and returns them in arrays
@@ -219,14 +170,13 @@ contains
 
       !-- Input of variables:
       real(cp),            intent(in) :: time    ! instant in time
-      class(type_tscheme), intent(in) :: tscheme ! time scheme
       integer,             intent(in) :: nR      ! radial level
       logical,             intent(in) :: lRmsCalc
       integer,             intent(in) :: nBc
 
       !-- Local variables:
       integer :: nPhi, nPhStart, nPhStop
-      real(cp) :: posnalp, O_dt
+      real(cp) :: posnalp
 
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
 
@@ -409,73 +359,6 @@ contains
             end if ! if l_mag_nl ?
 
          end if  ! Viscous heating and Ohmic losses ?
-
-         if ( lRmsCalc ) then
-            this%dpdtc(:,nPhi)=this%dpdtc(:,nPhi)*or1(nR)
-            this%dpdpc(:,nPhi)=this%dpdpc(:,nPhi)*or1(nR)
-            this%CFt2(:,nPhi)=-two*CorFac*cosTheta(:)*this%vpc(:,nPhi)*or1(nR)
-            this%CFp2(:,nPhi)= two*CorFac*sinTheta(:)* (or1(nR)*cosTheta(:)*&
-            &                             O_sin_theta(:)*this%vtc(:,nPhi) + &
-            &                        or2(nR)*sinTheta(:)*this%vrc(:,nPhi) )
-            if ( l_conv_nl ) then
-               this%Advt2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*this%Advt(:,nPhi)
-               this%Advp2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*this%Advp(:,nPhi)
-            end if
-            if ( l_mag_LF .and. nR > n_r_LCR ) then
-               this%LFt2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*this%LFt(:,nPhi)
-               this%LFp2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*this%LFp(:,nPhi)
-            end if
-
-            if ( l_adv_curl ) then
-               this%dpdtc(:,nPhi)=this%dpdtc(:,nPhi)-or3(nR)*( or2(nR)*   &
-               &            this%vrc(:,nPhi)*this%dvrdtc(:,nPhi) -        &
-               &            this%vtc(:,nPhi)*(this%dvrdrc(:,nPhi)+        &
-               &            this%dvpdpc(:,nPhi)+cosn_theta_E2(:) *        &
-               &            this%vtc(:,nPhi))+ this%vpc(:,nPhi)*(         &
-               &            this%cvrc(:,nPhi)+this%dvtdpc(:,nPhi)-        &
-               &            cosn_theta_E2(:)*this%vpc(:,nPhi)) )
-               this%dpdpc(:,nPhi)=this%dpdpc(:,nPhi)- or3(nR)*( or2(nR)*  &
-               &            this%vrc(:,nPhi)*this%dvrdpc(:,nPhi) +        &
-               &            this%vtc(:,nPhi)*this%dvtdpc(:,nPhi) +        &
-               &            this%vpc(:,nPhi)*this%dvpdpc(:,nPhi) )
-               if ( l_conv_nl ) then
-                  this%Advt2(:,nPhi)=this%Advt2(:,nPhi)-or3(nR)*( or2(nR)*&
-                  &            this%vrc(:,nPhi)*this%dvrdtc(:,nPhi) -     &
-                  &            this%vtc(:,nPhi)*(this%dvrdrc(:,nPhi)+     &
-                  &            this%dvpdpc(:,nPhi)+cosn_theta_E2(:) *     &
-                  &            this%vtc(:,nPhi))+ this%vpc(:,nPhi)*(      &
-                  &            this%cvrc(:,nPhi)+this%dvtdpc(:,nPhi)-     &
-                  &            cosn_theta_E2(:)*this%vpc(:,nPhi)) )
-                  this%Advp2(:,nPhi)=this%Advp2(:,nPhi)-or3(nR)*( or2(nR)*&
-                  &            this%vrc(:,nPhi)*this%dvrdpc(:,nPhi) +     &
-                  &            this%vtc(:,nPhi)*this%dvtdpc(:,nPhi) +     &
-                  &            this%vpc(:,nPhi)*this%dvpdpc(:,nPhi) )
-               end if
-
-               !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
-               this%dpkindrc(:,nPhi)=or4(nR)*this%vrc(:,nPhi)*(         &
-               &                         this%dvrdrc(:,nPhi)-           &
-               &                         two*or1(nR)*this%vrc(:,nPhi)) +&
-               &                         or2(nR)*O_sin_theta_E2(:)*(    &
-               &                                 this%vtc(:,nPhi)*(     &
-               &                         this%dvtdrc(:,nPhi)-           &
-               &                         or1(nR)*this%vtc(:,nPhi) ) +   &
-               &                                 this%vpc(:,nPhi)*(     &
-               &                         this%dvpdrc(:,nPhi)-           &
-               &                         or1(nR)*this%vpc(:,nPhi) ) )
-            end if
-         end if
-
-         if ( l_RMS .and. tscheme%istage == 1 ) then
-            O_dt = 1.0_cp/tscheme%dt(1)
-            this%dtVr(:,nPhi)=O_dt*or2(nR)*(this%vrc(:,nPhi)-vr_old(:,nPhi,nR))
-            this%dtVt(:,nPhi)=O_dt*or1(nR)*(this%vtc(:,nPhi)-vt_old(:,nPhi,nR))
-            this%dtVp(:,nPhi)=O_dt*or1(nR)*(this%vpc(:,nPhi)-vp_old(:,nPhi,nR))
-
-            vr_old(:,nPhi,nR)=this%vrc(:,nPhi)
-            vt_old(:,nPhi,nR)=this%vtc(:,nPhi)
-            vp_old(:,nPhi,nR)=this%vpc(:,nPhi)
-         end if
 
       end do
       !$omp end parallel

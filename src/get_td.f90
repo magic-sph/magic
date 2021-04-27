@@ -10,27 +10,19 @@ module nonlinear_lm_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
-       &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
+       &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
        &             l_adv_curl
-   use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
-       &                       or4, temp0, alpha0, ogrun, orho1, dLvisc, &
-       &                       visc, dbeta
-   use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
-       &                          OhmLossFac, n_r_LCR, epscXi,   &
-       &                          BuoFac, ChemFac, ThExpNb
+   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
+   use physical_parameters, only: CorFac, epsc, ViscHeatFac, OhmLossFac, &
+       &                          n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
-       &               lm2lmS, st_map
+       &               lm2lmS
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
        &                      dTheta3A, dTheta4A, dTheta2S,  hdif_B,   &
        &                      dTheta3S, dTheta4S, hdif_V
-   use RMS, only: Adv2hInt, Pre2hInt, Cor2hInt, LF2hInt, Iner2hInt,    &
-       &          Geo2hInt, Mag2hInt, ArcMag2hInt, CLF2hInt, PLF2hInt, &
-       &          CIA2hInt, Arc2hInt, Buo_temp2hInt, Buo_xi2hint
-   use constants, only: zero, two, four, third, three
-   use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc, s_Rloc, &
-       &             p_Rloc, dp_Rloc, xi_Rloc
-   use RMS_helpers, only: hIntRms
+   use constants, only: zero, two
+   use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc
 
 
    implicit none
@@ -38,24 +30,15 @@ module nonlinear_lm_mod
    type :: nonlinear_lm_t
       !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
-      complex(cp), allocatable :: LFrLM(:),  LFtLM(:),  LFpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
       complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
       complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
-      !----- RMS calculations
-      complex(cp), allocatable :: Advt2LM(:), Advp2LM(:), PFt2LM(:), PFp2LM(:)
-      complex(cp), allocatable :: LFt2LM(:), LFp2LM(:), CFt2LM(:), CFp2LM(:)
-      complex(cp), allocatable :: dtVtLM(:), dtVpLM(:), dtVrLM(:)
-      complex(cp), allocatable :: dpkindrLM(:)
-
    contains
-
       procedure :: initialize
       procedure :: finalize
       procedure :: set_zero
       procedure :: get_td
-
    end type nonlinear_lm_t
 
 contains
@@ -68,16 +51,13 @@ contains
       class(nonlinear_lm_t) :: this
       integer, intent(in) :: lmP_max
 
-      allocate( this%AdvrLM(lmP_max), this%AdvtLM(lmP_max) )
-      allocate( this%AdvpLM(lmP_max), this%LFrLM(lmP_max) )
-      allocate( this%LFtLM(lmP_max), this%LFpLM(lmP_max) )
-      allocate( this%VxBrLM(lmP_max), this%VxBtLM(lmP_max) )
-      allocate( this%VxBpLM(lmP_max))
-      bytes_allocated = bytes_allocated + 12*lmP_max*SIZEOF_DEF_COMPLEX
+      allocate( this%AdvrLM(lmP_max), this%AdvtLM(lmP_max), this%AdvpLM(lmP_max))
+      allocate( this%VxBrLM(lmP_max), this%VxBtLM(lmP_max), this%VxBpLM(lmP_max))
+      bytes_allocated = bytes_allocated + 6*lmP_max*SIZEOF_DEF_COMPLEX
 
       if ( l_anel) then
          allocate( this%ViscHeatLM(lmP_max), this%OhmLossLM(lmP_max) )
-         bytes_allocated = bytes_allocated+14*lmP_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated+2*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_heat ) then
@@ -90,21 +70,6 @@ contains
          bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
-      !-- RMS calculations
-      if ( l_RMS ) then
-         allocate( this%dtVrLM(lmP_max), this%dtVtLM(lmP_max) )
-         allocate( this%dtVpLM(lmP_max) )
-         allocate( this%Advt2LM(lmP_max), this%Advp2LM(lmP_max) )
-         allocate( this%LFt2LM(lmP_max), this%LFp2LM(lmP_max) )
-         allocate( this%CFt2LM(lmP_max), this%CFp2LM(lmP_max) )
-         allocate( this%PFt2LM(lmP_max), this%PFp2LM(lmP_max) )
-         bytes_allocated = bytes_allocated + 11*lmP_max*SIZEOF_DEF_COMPLEX
-         if ( l_adv_curl ) then
-            allocate( this%dpkindrLM(lmP_max) )
-            bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
-         end if
-      end if
-
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -115,22 +80,10 @@ contains
       class(nonlinear_lm_t) :: this
 
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
-      deallocate( this%LFrLM, this%LFtLM, this%LFpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
-
       if ( l_anel ) deallocate( this%ViscHeatLM, this%OhmLossLM )
-
       if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
-
       if ( l_heat ) deallocate( this%VSrLM, this%VStLM, this%VSpLM )
-
-      !-- RMS calculations
-      if ( l_RMS ) then
-         deallocate( this%Advt2LM, this%Advp2LM, this%LFt2LM, this%LFp2LM )
-         deallocate( this%CFt2LM, this%CFp2LM, this%PFt2LM, this%PFp2LM )
-         deallocate( this%dtVrLM, this%dtVtLM, this%dtVpLM )
-         if ( l_adv_curl ) deallocate ( this%dpkindrLM )
-      end if
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -149,49 +102,30 @@ contains
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
          this%AdvpLM(lm)=zero
-         this%LFrLM(lm) =zero
-         this%LFtLM(lm) =zero
-         this%LFpLM(lm) =zero
          this%VxBrLM(lm)=zero
          this%VxBtLM(lm)=zero
          this%VxBpLM(lm)=zero
          if ( l_heat ) then
-            this%VSrLM(lm) =zero
-            this%VStLM(lm) =zero
-            this%VSpLM(lm) =zero
+            this%VSrLM(lm)=zero
+            this%VStLM(lm)=zero
+            this%VSpLM(lm)=zero
          end if
          if ( l_anel ) then
             this%ViscHeatLM(lm)=zero
             this%OhmLossLM(lm) =zero
          end if
-
          if ( l_chemical_conv ) then
             this%VXirLM(lm)=zero
             this%VXitLM(lm)=zero
             this%VXipLM(lm)=zero
-         end if
-
-         if ( l_RMS ) then
-            this%Advt2LM(lm)=zero
-            this%Advp2LM(lm)=zero
-            this%LFp2LM(lm) =zero
-            this%LFt2LM(lm) =zero
-            this%CFt2LM(lm) =zero
-            this%CFp2LM(lm) =zero
-            this%PFt2LM(lm) =zero
-            this%PFp2LM(lm) =zero
-            this%dtVtLM(lm) =zero
-            this%dtVpLM(lm) =zero
-            this%dtVrLM(lm) =zero
-            if ( l_adv_curl ) this%dpkindrLM(lm)=zero
          end if
       end do
       !$omp end parallel do
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,lPressNext,dVSrLM,dVXirLM,    &
-              &      dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
+   subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
+              &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
       !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
@@ -204,7 +138,6 @@ contains
 
       integer, intent(in) :: nR  ! Radial level
       integer, intent(in) :: nBc ! signifies boundary conditions
-      logical, intent(in) :: lRmsCalc
       logical, intent(in) :: lPressNext
 
       !-- Output of variables:
@@ -219,17 +152,8 @@ contains
 
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
-      complex(cp) :: CorPol(lm_max), dpdr(lm_max)
-      complex(cp) :: AdvPol(lm_max), LFPol(lm_max)
-      complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
-      complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
-      complex(cp) :: Buo_temp(lm_max)
-      complex(cp) :: Buo_xi(lm_max)
-      complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
-      complex(cp) :: dsdt_loc
-
-      integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
-
+      complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
+      !integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 
       !write(*,"(I3,A,4ES20.12)") nR,": get_td start: ",SUM(this%AdvrLM)
 
@@ -238,7 +162,7 @@ contains
       !lm_chunksize=4
       !write(*,"(A,I4)") "Using a chunksize of ",lm_chunksize
 
-      if (nBc == 0 .or. lRmsCalc ) then
+      if (nBc == 0 ) then
 
          if ( l_conv ) then  ! Convection
 
@@ -247,7 +171,7 @@ contains
             lmP=1
             lmPA=lmP2lmPA(lmP)
             if ( l_conv_nl ) then
-               AdvPol_loc=      or2(nR)*this%AdvrLM(lm)
+               AdvPol_loc=      or2(nR)*this%AdvrLM(lmP)
                AdvTor_loc=-dTheta1A(lm)*this%AdvpLM(lmPA)
             else
                AdvPol_loc=zero
@@ -270,36 +194,6 @@ contains
             end if
 
             dzdt(lm)=AdvTor_loc+CorTor_loc
-
-            if ( lRmsCalc ) then
-               if (l_heat) then
-                  Buo_temp(lm) =BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm,nR)
-               else
-                  Buo_temp(lm) =0.0_cp
-               end if
-               if (l_chemical_conv) then
-                  Buo_xi(lm) =ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm,nR)
-               else
-                  Buo_xi(lm)=0.0_cp
-               end if
-               if ( l_mag_LF .and. nR>n_r_LCR ) then
-                  LFPol(lm) =      or2(nR)*this%LFrLM(lm)
-                  AdvPol(lm)=AdvPol_loc-LFPol(lm)
-               else
-                  AdvPol(lm)=AdvPol_loc
-               end if
-               CorPol(lm)=CorPol_loc
-
-               if ( l_double_curl ) then
-                  !-- Recalculate the pressure gradient based on the poloidal
-                  !-- equation equilibrium
-                  dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm,nR)+ &
-                  &        AdvPol_loc+CorPol_loc
-               else
-                  dpdr(lm)=dp_Rloc(lm,nR)
-               end if
-
-            end if ! lRmsCalc
 
             !PERFON('td_cv1')
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
@@ -330,7 +224,7 @@ contains
                         &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
                         &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
                      else if ( l == l_max ) then
-                        CorPol_loc =0.0_cp
+                        CorPol_loc=zero
                      else if ( l == m ) then
                         CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                         &                    dPhi(lm)*(                          &
@@ -377,7 +271,7 @@ contains
                         &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
                         &    dTheta2S(lm)*z_Rloc(lmS,nR) )
                      else if ( l == l_max ) then
-                        CorPol_loc=0.0_cp
+                        CorPol_loc=zero
                      else if ( l == m ) then
                         CorPol_loc = two*CorFac*or1(nR) * (  &
                         &         dPhi(lm)*dw_Rloc(lm,nR)  + &
@@ -397,89 +291,6 @@ contains
 
                dwdt(lm)=AdvPol_loc+CorPol_loc
 
-               if ( lRmsCalc ) then ! RMS force balance
-
-                  if ( l_anelastic_liquid ) then
-                     if (l_heat) then
-                        Buo_temp(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(      &
-                        &       rho0(nR)*s_Rloc(lm,nR)-ViscHeatFac*      &
-                        &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
-                        &     p_Rloc(lm,nR) )
-                     else
-                        Buo_temp(lm) =0.0_cp
-                     end if
-                     if (l_chemical_conv) then
-                        Buo_xi(lm) =ChemFac*alpha0(nR)*rgrav(nR)*(       &
-                        &     rho0(nR)*xi_Rloc(lm,nR)-ViscHeatFac*       &
-                        &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
-                        &     p_Rloc(lm,nR) )
-                     else
-                        Buo_xi(lm) =0.0_cp
-                     end if
-                  else
-                     if (l_heat) then
-                        Buo_temp(lm) =BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm,nR)
-                     else
-                        Buo_temp(lm) =0.0_cp
-                     end if
-                     if (l_chemical_conv) then
-                        Buo_xi(lm) =ChemFac*rho0(nR)*rgrav(nR)*xi_Rloc(lm,nR)
-                     else
-                        Buo_xi(lm)=0.0_cp
-                     end if
-                  end if
-
-                  if ( l_double_curl ) then
-                     ! In that case we have to recompute the Coriolis force
-                     ! since we also want the pressure gradient
-                     if ( l_corr .and. nBc /= 2 ) then
-                        if ( l < l_max .and. l > m ) then
-                           CorPol_loc =two*CorFac*or1(nR) * (  &
-                           &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
-                           &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
-                           &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                        else if ( l == l_max ) then
-                           CorPol_loc= 0.0_cp
-                        else if ( l == m ) then
-                           CorPol_loc = two*CorFac*or1(nR) * (  &
-                           &         dPhi(lm)*dw_Rloc(lm,nR)  + &
-                           &     dTheta2A(lm)*z_Rloc(lmA,nR) )
-                        end if
-                     else
-                        CorPol_loc=zero
-                     end if
-
-                     ! We also need to recompute AdvPol_loc here
-                     if ( l_conv_nl ) then
-                        AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
-                     else
-                        AdvPol_loc=zero
-                     endif
-
-                     !-- Recalculate the pressure gradient based on the poloidal
-                     !-- equation equilibrium
-                     dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-this%dtVrLM(lmP)+         &
-                     &        dLh(lm)*or2(nR)*hdif_V(l)*visc(nR)*(              &
-                     &                                        ddw_Rloc(lm,nR)+  &
-                     &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm,nR)-  &
-                     &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
-                     &         dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
-                     &         or1(nR)) )*                      w_Rloc(lm,nR))+ &
-                     &        beta(nR)*p_Rloc(lm,nR)+AdvPol_loc+CorPol_loc
-                  else
-                     dpdr(lm)=dp_Rloc(lm,nR)
-                  end if
-
-                  if ( l_mag_LF .and. nR>n_r_LCR ) then
-                     LFPol(lm) =or2(nR)*this%LFrLM(lmP)
-                     AdvPol(lm)=AdvPol_loc-LFPol(lm)
-                  else
-                     AdvPol(lm)=AdvPol_loc
-                  end if
-                  CorPol(lm)=CorPol_loc
-
-               end if ! lRmsCalc
-
                if ( l_corr ) then
                   if ( l < l_max .and. l > m ) then
                      CorTor_loc=          two*CorFac*or2(nR) * (  &
@@ -489,7 +300,7 @@ contains
                      &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
                      &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
                   else if ( l == l_max ) then
-                     CorTor_loc=0.0_cp
+                     CorTor_loc=zero
                   else if ( l == m ) then
                      CorTor_loc=  two*CorFac*or2(nR) * (  &
                      &         dPhi(lm)*z_Rloc(lm,nR)   + &
@@ -517,139 +328,6 @@ contains
             end do
             !$omp end parallel do
             !PERFOFF
-
-            if ( lRmsCalc ) then
-
-               if ( l_conv_nl ) then
-                  if ( l_adv_curl ) then
-                     do lm=1,lm_max
-                        lmP =lm2lmP(lm)
-                        AdvPol(lm)=AdvPol(lm)-this%dpkindrLM(lmP)
-                     end do
-                  end if
-                  call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map, .false.)
-                  call hIntRms(this%Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
-                       &       .true.)
-                  call hIntRms(this%Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
-                       &       .true.)
-                  do lm=1,lm_max
-                     lmP =lm2lmP(lm)
-                     !-- Use Geo as work array
-                     Geo(lm)=AdvPol(lm)-this%dtVrLM(lmP)
-                  end do
-                  call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map, .false.)
-                  call hIntRms(this%Advt2LM-this%dtVtLM,nR,1,lmP_max,1, &
-                       &       Iner2hInt(:,nR),st_map,.true.)
-                  call hIntRms(this%Advp2LM-this%dtVpLM,nR,1,lmP_max,1, &
-                       &       Iner2hInt(:,nR),st_map,.true.)
-               end if
-
-               if ( l_anelastic_liquid ) then
-                  call hIntRms(dpdr,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
-               else
-                  ! rho* grad(p/rho) = grad(p) - beta*p
-                  !-- Geo is used to store the pressure Gradient
-                  if ( l_adv_curl ) then
-                     do lm=1,lm_max
-                        lmP =lm2lmP(lm)
-                        !-- Use Geo as work array
-                        Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm,nR)- &
-                        &       this%dpkindrLM(lmP)
-                     end do
-                  else
-                     do lm=1,lm_max
-                        !-- Use Geo as work array
-                        Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm,nR)
-                     end do
-                  end if
-                  call hIntRms(Geo,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
-               end if
-               call hIntRms(this%PFt2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
-               call hIntRms(this%PFp2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
-
-               if ( l_heat ) then
-                  call hIntRms(Buo_temp,nR,1,lm_max,0,Buo_temp2hInt(:,nR),&
-                       &       st_map,.false.)
-               end if
-               if ( l_chemical_conv ) then
-                  call hIntRms(Buo_xi,nR,1,lm_max,0,Buo_xi2hInt(:,nR),&
-                       &       st_map,.false.)
-               end if
-               if ( l_corr ) then
-                  call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map,.false.)
-                  call hIntRms(this%CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
-                       &       st_map,.true.)
-                  calL hIntRms(this%CFp2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
-                       &       st_map,.true.)
-               end if
-               if ( l_mag_LF .and. nR>n_r_LCR ) then
-                  call hIntRms(LFPol,nR,1,lm_max,0,LF2hInt(:,nR),st_map,.false.)
-                  call hIntRms(this%LFt2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
-                  call hIntRms(this%LFp2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
-               end if
-
-               do lm=1,lm_max
-                  lmP =lm2lmP(lm)
-                  Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm,nR)
-                  PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm,nR)
-                  if ( l_adv_curl ) then
-                     Geo(lm)=Geo(lm)+this%dpkindrLM(lmP)
-                     PLF(lm)=PLF(lm)+this%dpkindrLM(lmP)
-                  end if
-                  CLF(lm)=CorPol(lm)+LFPol(lm)
-                  Mag(lm)=Geo(lm)+LFPol(lm)
-                  Arc(lm)=Geo(lm)+Buo_temp(lm)+Buo_xi(lm)
-                  ArcMag(lm)=Mag(lm)+Buo_temp(lm)+Buo_xi(lm)
-                  CIA(lm)=ArcMag(lm)+AdvPol(lm)-this%dtVrLM(lmP)
-                  !CIA(lm)=CorPol(lm)+Buo_temp(lm)+Buo_xi(lm)+AdvPol(lm)
-               end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
-               call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.false.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
-
-               do lm=1,lm_max
-                  lmP =lm2lmP(lm)
-                  Geo(lm)=-this%CFt2LM(lmP)-this%PFt2LM(lmP)
-                  CLF(lm)=-this%CFt2LM(lmP)+this%LFt2LM(lmP)
-                  PLF(lm)=this%LFt2LM(lmP)-this%PFt2LM(lmP)
-                  Mag(lm)=Geo(lm)+this%LFt2LM(lmP)
-                  Arc(lm)=Geo(lm)
-                  ArcMag(lm)=Mag(lm)
-                  CIA(lm)=ArcMag(lm)+this%Advt2LM(lmP)-this%dtVtLM(lmP)
-                  !CIA(lm)=-this%CFt2LM(lmP)+this%Advt2LM(lmP)
-               end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
-               call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
-
-               do lm=1,lm_max
-                  lmP =lm2lmP(lm)
-                  Geo(lm)=-this%CFp2LM(lmP)-this%PFp2LM(lmP)
-                  CLF(lm)=-this%CFp2LM(lmP)+this%LFp2LM(lmP)
-                  PLF(lm)=this%LFp2LM(lmP)-this%PFp2LM(lmP)
-                  Mag(lm)=Geo(lm)+this%LFp2LM(lmP)
-                  Arc(lm)=Geo(lm)
-                  ArcMag(lm)=Mag(lm)
-                  CIA(lm)=ArcMag(lm)+this%Advp2LM(lmP)-this%dtVpLM(lmP)
-                  !CIA(lm)=-this%CFp2LM(lmP)+this%Advp2LM(lmP)
-               end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
-               call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
-
-            end if
 
             ! In case double curl is calculated dpdt is useless
             if ( (.not. l_double_curl) .or. lPressNext ) then
@@ -680,7 +358,7 @@ contains
                         &           )
 
                      else if ( l == l_max ) then
-                        CorPol_loc=0.0_cp
+                        CorPol_loc=zero
 
                      else if ( l == m ) then
                         CorPol_loc=                    two*CorFac*or2(nR) *  &

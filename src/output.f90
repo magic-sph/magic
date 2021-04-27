@@ -652,10 +652,8 @@ contains
          !--- Store SV of poloidal magnetic coeffs at cmb
          if ( l_dt_cmb_field ) then
             !nR=8! at CMB dbdt=induction=0, only diffusion !
-            !do lm=max(2,llm),ulm
             do lm=max(2,llm),ulm
                l  =lo_map%lm2l(lm)
-               m  =lo_map%lm2m(lm)
                dL =real(l*l+1,cp)
                dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                                        &
                &         (dL*or2(n_r_cmb)) + opm*hdif_B(l) * ( ddb_LMloc(lm,n_r_cmb) - &
@@ -1082,13 +1080,9 @@ contains
 
       if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMloc,omega_ic)
 
-      if ( l_log ) then
-         timePassedLog=0.0_cp
-      end if
+      if ( l_log ) timePassedLog=0.0_cp
 
-      if ( lRmsCalc ) then
-         call zeroRms
-      end if
+      if ( lRmsCalc ) call zeroRms()
 
    end subroutine output
 !----------------------------------------------------------------------------
