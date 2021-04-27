@@ -34,7 +34,7 @@ def readStack(file):
     out = np.array([])
     for line in f.readlines():
         cut = line.split()
-        dat = np.asarray(cut, dtype='Float64')
+        dat = np.asarray(cut, dtype=np.float64)
         #out.append(dat)
         out = np.append(out, dat)
     return out
@@ -64,11 +64,16 @@ class TestRMSOutputs(unittest.TestCase):
         cleanDir(self.dir)
         for f in glob.glob('%s/*.start' % self.dir):
             os.remove(f)
+        for f in glob.glob('%s/*.continue' % self.dir):
+            os.remove(f)
         os.chdir(self.dir)
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
-        cmd = 'cat dtVrms.start dtBrms.start > e_kin.test'
+        cmd = '%s %s/input_restart.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
+        cmd = 'cat dtVrms.start dtBrms.start dtVrms.continue dtBrms.continue > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):

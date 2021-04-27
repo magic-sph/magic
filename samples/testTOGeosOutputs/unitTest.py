@@ -34,7 +34,7 @@ def readStack(file):
     out = np.array([])
     for line in f.readlines():
         cut = line.split()
-        dat = np.asarray(cut, dtype='Float64')
+        dat = np.asarray(cut, np.float64)
         #out.append(dat)
         out = np.append(out, dat)
     return out
