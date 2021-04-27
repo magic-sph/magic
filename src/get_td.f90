@@ -220,8 +220,7 @@ contains
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
       complex(cp) :: CorPol(lm_max), dpdr(lm_max)
-      complex(cp) :: AdvPol(lm_max),AdvTor(lm_max)
-      complex(cp) :: LFPol(lm_max),LFTor(lm_max)
+      complex(cp) :: AdvPol(lm_max), LFPol(lm_max)
       complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
       complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
       complex(cp) :: Buo_temp(lm_max)
@@ -285,12 +284,9 @@ contains
                end if
                if ( l_mag_LF .and. nR>n_r_LCR ) then
                   LFPol(lm) =      or2(nR)*this%LFrLM(lm)
-                  LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
                   AdvPol(lm)=AdvPol_loc-LFPol(lm)
-                  AdvTor(lm)=AdvTor_loc-LFTor(lm)
                else
                   AdvPol(lm)=AdvPol_loc
-                  AdvTor(lm)=AdvTor_loc
                end if
                CorPol(lm)=CorPol_loc
 
@@ -516,28 +512,7 @@ contains
                else
                   AdvTor_loc=zero
                end if
-
                dzdt(lm)=CorTor_loc+AdvTor_loc
-
-               if ( lRmsCalc ) then
-                  if ( l_mag_LF .and. nR>n_r_LCR ) then
-                     !------ When RMS values are required, the Lorentz force is treated
-                     !       separately:
-
-                     if ( l > m ) then
-                        !------- LFTor= 1/(E*Pm) * curl( curl(B) x B )_r
-                        LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  + &
-                        &          dTheta1S(lm)*this%LFpLM(lmPS) - &
-                        &          dTheta1A(lm)*this%LFpLM(lmPA)
-                     else if ( l == m ) then
-                        LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  - &
-                        &          dTheta1A(lm)*this%LFpLM(lmPA)
-                     end if
-                     AdvTor(lm)=AdvTor_loc-LFTor(lm)
-                  else
-                     AdvTor(lm)=AdvTor_loc
-                  end if
-               end if
 
             end do
             !$omp end parallel do
@@ -744,9 +719,9 @@ contains
 
          else
             do lm=2,lm_max
-               dwdt(lm) =0.0_cp
-               dzdt(lm) =0.0_cp
-               dpdt(lm) =0.0_cp
+               dwdt(lm)=zero
+               dzdt(lm)=zero
+               dpdt(lm)=zero
             end do
          end if ! l_conv ?
 
