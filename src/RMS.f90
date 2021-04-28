@@ -503,12 +503,12 @@ contains
             CFp2(:,nPhi)= two*CorFac*sinTheta(:)* (or1(nR)*cosTheta(:)*&
             &                  O_sin_theta(:)*vt(:,nPhi)+or2(nR)*sinTheta(:)*vr(:,nPhi) )
             if ( l_conv_nl ) then
-               Advt2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*Advt(:,nPhi)
-               Advp2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*Advp(:,nPhi)
+               Advt2(:,nPhi)=r(nR)*Advt(:,nPhi)
+               Advp2(:,nPhi)=r(nR)*Advp(:,nPhi)
             end if
             if ( l_mag_LF .and. nR > n_r_LCR ) then
-               LFt2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*LFt(:,nPhi)
-               LFp2(:,nPhi)=r(nR)*sinTheta(:)*sinTheta(:)*LFp(:,nPhi)
+               LFt2(:,nPhi)=r(nR)*LFt(:,nPhi)
+               LFp2(:,nPhi)=r(nR)*LFp(:,nPhi)
             end if
 
             if ( l_adv_curl ) then

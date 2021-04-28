@@ -668,9 +668,9 @@ contains
          end do
          !$omp end parallel
 
-         call scal_to_SH(this%gsa%Advr, this%nl_lm%AdvrLM, l_R(nR))
-         call scal_to_SH(this%gsa%Advt, this%nl_lm%AdvtLM, l_R(nR))
-         call scal_to_SH(this%gsa%Advp, this%nl_lm%AdvpLM, l_R(nR))
+         call spat_to_qst(this%gsa%Advr, this%gsa%Advt, this%gsa%Advp, &
+              &           this%nl_lm%AdvrLM, this%nl_lm%AdvtLM,        &
+              &           this%nl_lm%AdvpLM, l_R(nR))
       end if
       if ( l_heat ) then
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &

@@ -194,13 +194,13 @@ contains
             &        this%cbpc(:,nPhi)*this%btc(:,nPhi) )
 
             !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
-            this%LFt(:,nPhi)=  LFfac*or4(nR)*O_sin_theta_E2(:) * ( &
-            &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -          &
+            this%LFt(:,nPhi)=  LFfac*or4(nR) * (             &
+            &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -    &
             &        this%cbrc(:,nPhi)*this%bpc(:,nPhi) )
 
             !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
-            this%LFp(:,nPhi)=  LFfac*or4(nR)*O_sin_theta_E2(:) * ( &
-            &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -          &
+            this%LFp(:,nPhi)=  LFfac*or4(nR) * (             &
+            &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -    &
             &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )
          end if      ! Lorentz force required ?
 
@@ -211,11 +211,11 @@ contains
                &        this%cvtc(:,nPhi)*this%vpc(:,nPhi) -  &
                &        this%cvpc(:,nPhi)*this%vtc(:,nPhi) )
 
-               this%Advt(:,nPhi)= -or4(nR)*O_sin_theta_E2(:) * ( &
+               this%Advt(:,nPhi)= -or4(nR)* (                    &
                &        this%cvpc(:,nPhi)*this%vrc(:,nPhi) -     &
                &        this%cvrc(:,nPhi)*this%vpc(:,nPhi) )
 
-               this%Advp(:,nPhi)= -or4(nR)*O_sin_theta_E2(:) * ( &
+               this%Advp(:,nPhi)= -or4(nR)* (                    &
                &        this%cvrc(:,nPhi)*this%vtc(:,nPhi) -     &
                &        this%cvtc(:,nPhi)*this%vrc(:,nPhi) )
             else ! Advection is u\grad u
@@ -232,7 +232,7 @@ contains
                &                     (       this%dvrdpc(:,nPhi) - &
                &                    r(nR)*      this%vpc(:,nPhi) ) ) )
 
-               this%Advt(:,nPhi)=or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
+               this%Advt(:,nPhi)=or4(nR)*orho1(nR) * (                       &
                &                                         -this%vrc(:,nPhi) * &
                &                                   (   this%dvtdrc(:,nPhi) - &
                &                             beta(nR)*this%vtc(:,nPhi) )   + &
@@ -244,7 +244,7 @@ contains
                &                    ( cosn_theta_E2(:)*this%vpc(:,nPhi) -    &
                &                                       this%dvtdpc(:,nPhi) )  )
 
-               this%Advp(:,nPhi)= or4(nR)*O_sin_theta_E2(:)*orho1(nR) * (     &
+               this%Advp(:,nPhi)= or4(nR)*orho1(nR) * (                       &
                &                                          -this%vrc(:,nPhi) * &
                &                                      ( this%dvpdrc(:,nPhi) - &
                &                              beta(nR)*this%vpc(:,nPhi) )   - &
@@ -273,28 +273,28 @@ contains
             this%PCr(:,nPhi)=posnalp*O_sin_theta(:)*r(nR)*(                       &
             &                cos(oek*time+phi(nPhi))*this%vpc(:,nPhi)*cosTheta(:)+&
             &                sin(oek*time+phi(nPhi))*this%vtc(:,nPhi) )
-            this%PCt(:,nPhi)=   -posnalp*O_sin_theta(:)*or2(nR)*(            &
+            this%PCt(:,nPhi)=   -posnalp*sinTheta(:)*or2(nR)*(               &
             &               cos(oek*time+phi(nPhi))*this%vpc(:,nPhi)       + &
             &               sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(:,nPhi) )
-            this%PCp(:,nPhi)= posnalp*O_sin_theta(:)*cos(oek*time+phi(nPhi))*&
+            this%PCp(:,nPhi)= posnalp*sinTheta(:)*cos(oek*time+phi(nPhi))*   &
             &                 or2(nR)*(this%vtc(:,nPhi)-or1(nR)*             &
             &                 this%vrc(:,nPhi)*cosTheta(:))
          end if ! precession term required ?
 
          if ( l_centrifuge .and. nBc ==0 ) then
             !if ( l_anel ) then
-            !   this%CAr(:,nPhi) = dilution_fac*r(nR)*sinTheta(:)*sinTheta(:)* &
+            !   this%CAr(:,nPhi) = dilution_fac*r(nR)*sinTheta(:)**4* &
             !   &       ( -ra*opr*this%sc(:,nPhi) )
             !   !-- neglect pressure contribution
             !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nPhi) )
-            !   this%CAt(:,nPhi) = dilution_fac*r(nR)*sinTheta(:)*cosTheta(:)* &
+            !   this%CAt(:,nPhi) = dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)* &
             !   &       ( -ra*opr*this%sc(:,nPhi) )
             !   !-- neglect pressure contribution
             !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nPhi) )
             !else
-            this%CAr(:,nPhi) = -dilution_fac*r(nR)*sinTheta(:)*sinTheta(:)*ra*opr* &
+            this%CAr(:,nPhi) = -dilution_fac*r(nR)*sinTheta(:)**4*ra*opr* &
             &                       this%sc(:,nPhi)
-            this%CAt(:,nPhi) = -dilution_fac*r(nR)*sinTheta(:)*cosTheta(:)*ra*opr* &
+            this%CAt(:,nPhi) = -dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)*ra*opr* &
             &                       this%sc(:,nPhi)
             !end if
          end if ! centrifuge
