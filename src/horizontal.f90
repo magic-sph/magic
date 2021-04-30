@@ -128,7 +128,6 @@ contains
       !-- Local variables:
       integer :: norm,n_theta,n_phi
       integer :: l,m,lm
-      real(cp) :: ampnu!,q0
       real(cp) :: clm(0:l_max+1,0:l_max+1)
       real(cp) :: colat
       real(cp) :: fac
@@ -265,18 +264,6 @@ contains
                hdif_Xi(l)=(one+difchem*real(l,cp)**ldifexp ) / &
                &          (one+difchem*real(-ldif,cp)**ldifexp )
 
-            end if
-
-         else
-
-            if ( l == l_max .and. .not. l_non_rot ) then
-               !  Chose ampnu so that the viscous force is at least as
-               !  strong as the viscous force for l=l_max:
-               !  We can turn this argument around and state that
-               !  for example for Ek=1e-4 l_max should be 221.
-               ampnu=(r_cmb**2/real(l_max*(l_max+1),cp))*(two/ek)
-               ampnu=max(one,ampnu)
-               hdif_V(l)=ampnu*hdif_V(l)
             end if
 
          end if
