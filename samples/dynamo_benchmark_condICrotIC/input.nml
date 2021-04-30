@@ -30,7 +30,7 @@ n_cheb_ic_max=15,
  kbotb       =3
 /
 &start_field
- l_start_file=.FALSE.,
+ l_start_file=.false.,
  start_file  ="NONE",
  init_b1     =3,
  amp_b1      =5,
@@ -43,8 +43,8 @@ n_cheb_ic_max=15,
  n_rsts      =1,
  n_stores    =0,
  runid       ="Benchmark 2",
- l_movie     =.FALSE.,
- l_RMS       =.FALSE.,
+ l_movie     =.false.,
+ l_RMS       =.false.,
 /
 &mantle 
  nRotMa      =0

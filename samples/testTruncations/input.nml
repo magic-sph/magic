@@ -34,7 +34,7 @@ n_cheb_ic_max=15,
  kbotv       =1,
 /
 &start_field
- l_start_file=.FALSE.,
+ l_start_file=.false.,
  start_file  ="rst_end.CJ3",
  init_b1     =3,
  amp_b1      =5,
@@ -48,9 +48,9 @@ n_cheb_ic_max=15,
  n_rsts      =0,
  n_stores    =0,
  runid       ="Nearly Bouss. bench.",
- l_movie     =.FALSE.,
- l_RMS       =.FALSE.,
- l_AM        =.TRUE.,
+ l_movie     =.false.,
+ l_RMS       =.false.,
+ l_AM        =.true.,
 /
 &mantle 
  nRotMa      =0

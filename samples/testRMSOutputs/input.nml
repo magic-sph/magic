@@ -32,7 +32,6 @@ n_cheb_ic_max=15,
 &start_field
  l_start_file=.true.,
  start_file  ="../boussBenchSat/rst_end.start",
- inform      =5
  init_b1     =0,
  amp_b1      =5,
  init_s1     =0,

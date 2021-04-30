@@ -39,7 +39,7 @@ n_cheb_ic_max=17,
 /
 &output_control
  n_log_step  =10,
- n_graphs    =10,
+ n_graphs    =0,
  n_rsts      =1,
  n_stores    =0,
  runid       ="Pseudo-Vaccuum benchmark",

@@ -25,7 +25,7 @@
  strat       =3.D0,
  polind      =1.5D0,
  radratio    =0.35D0,
- l_isothermal=.TRUE.,
+ l_isothermal=.true.,
  g0          =1.D0,
  g1          =0.D0,
  g2          =0.D0,
@@ -35,7 +35,7 @@
  kbotv       =1,
 /
 &start_field
- l_start_file=.FALSE.,
+ l_start_file=.false.,
  start_file  ="NONE",
  init_b1     =3,
  amp_b1      =5,
@@ -48,8 +48,8 @@
  n_rsts      =1,
  n_stores    =0,
  runid       ="Denise Co=3",
- l_movie     =.FALSE.,
- l_RMS       =.FALSE.,
+ l_movie     =.false.,
+ l_RMS       =.false.,
 /
 &mantle 
  nRotMa      =0

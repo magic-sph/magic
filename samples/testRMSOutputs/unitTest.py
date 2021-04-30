@@ -82,6 +82,8 @@ class TestRMSOutputs(unittest.TestCase):
         cleanDir(self.dir)
         for f in glob.glob('%s/*.start' % self.dir):
             os.remove(f)
+        for f in glob.glob('%s/*.continue' % self.dir):
+            os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
