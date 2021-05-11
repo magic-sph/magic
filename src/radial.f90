@@ -64,7 +64,7 @@ module radial_functions
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
    real(cp), public :: r_cmb                     ! OC radius
    real(cp), public :: r_icb                     ! IC radius
-   real(cp), public :: r_surface                 ! Surface radius for extrapolation
+   real(cp), public :: r_surface                 ! Surface radius for extrapolation in units of (r_cmb-r_icb)
 
    !-- arrays for buoyancy, depend on Ra and Pr:
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
@@ -247,7 +247,6 @@ contains
       !   radratio = (inner core r) / (CMB r) = r_icb/r_cmb
       r_cmb=one/(one-radratio)
       r_icb=r_cmb-one
-      r_surface=2.8209_cp    ! in units of (r_cmb-r_icb)
 
       if ( .not. l_finite_diff ) then
          ratio1=alph1

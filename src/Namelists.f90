@@ -111,7 +111,7 @@ contains
       &    n_r_field_step,n_r_fields,t_r_field,               &
       &    t_r_field_start,t_r_field_stop,dt_r_field,         &
       &    n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
-      &    dt_pot,runid,movie,n_movie_step,                   &
+      &    dt_pot,runid,movie,n_movie_step, r_surface,        &
       &    n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
       &    dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
       &    dt_TO,n_TOmovie_step,n_TOmovie_frames,             &
@@ -695,7 +695,7 @@ contains
          end if
          l_b_nl_cmb=.true.
       end if
- 
+
       !-- Right now it seems Finite differences don't cope very well with rot IC
       !if ( l_finite_diff .and. l_rot_ic .and. (.not. l_SRIC) ) then
       !   call abortRun('! There might be stability issues with rotating IC + FD')
@@ -1110,6 +1110,7 @@ contains
             write(n_out,'(''  movie           = '',a,'','')') movie(n)(1:length)
          end if
       end do
+      write(n_out,'(''  r_surface       ='',ES14.6,'','')') r_surface
       write(n_out,'(''  l_probe         ='',l3,'','')') l_probe
       write(n_out,'(''  n_probe_step    ='',i5,'','')') n_probe_step
       write(n_out,'(''  n_probe_out     ='',i5,'','')') n_probe_out
@@ -1255,7 +1256,7 @@ contains
       anelastic_flavour="None" ! Useless in Boussinesq
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
-      time_scheme   ="CNAB2"   
+      time_scheme   ="CNAB2"
       mpi_transp    ="AUTO"   ! automatic detection of the MPI strategy
       mpi_packing   ="PACKED" ! automatic detection of the MPI packing ('SINGLE','PACKED')
 
@@ -1497,6 +1498,7 @@ contains
       do n=1,n_movies_max
          movie(n)=' '
       end do
+      r_surface     =2.8209_cp    ! in units of (r_cmb-r_icb)
 
       !----- Output from probes:
       l_probe       =.false.
