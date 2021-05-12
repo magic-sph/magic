@@ -661,7 +661,7 @@ class MagicCoeffR(MagicSetup):
         :type scale_b: float
         :param iplot: a logical to toggle the plot (default is True)
         :type iplot: bool
-        :param field: 'B', 'V' or 'T' (magnetic field, velocity field or temperature)
+        :param field: 'B', 'V', 'T' or 'Xi' (magnetic field, velocity field, temperature or composition)
         :type field: str
         :param r: an integer to characterise which file we want to plot
         :type r: int
@@ -726,8 +726,9 @@ class MagicCoeffR(MagicSetup):
         data = np.array(data, dtype=precision)
         self.nstep = data.shape[0]
         self.wlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        self.dwlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        self.zlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
+        if field == 'V' or field == 'B':
+            self.dwlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
+            self.zlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
 
         # Get time
         self.time = np.zeros(self.nstep, dtype=precision)
@@ -741,20 +742,21 @@ class MagicCoeffR(MagicSetup):
                 self.wlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                 k += 2
 
-        # dwlm
-        self.dwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
-        k += self.l_max_r
-        for m in range(self.minc, self.l_max_r+1, self.minc):
-            for l in range(m, self.l_max_r+1):
-                self.dwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
-                k += 2
-        # zlm
-        self.zlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
-        k += self.l_max_r
-        for m in range(self.minc, self.l_max_r+1, self.minc):
-            for l in range(m, self.l_max_r+1):
-                self.zlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
-                k += 2
+        if field == 'V' or field == 'B':
+            # dwlm
+            self.dwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
+            k += self.l_max_r
+            for m in range(self.minc, self.l_max_r+1, self.minc):
+                for l in range(m, self.l_max_r+1):
+                    self.dwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
+                    k += 2
+            # zlm
+            self.zlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
+            k += self.l_max_r
+            for m in range(self.minc, self.l_max_r+1, self.minc):
+                for l in range(m, self.l_max_r+1):
+                    self.zlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
+                    k += 2
 
         # ddw in case B is stored
         if field == 'B':
@@ -770,45 +772,46 @@ class MagicCoeffR(MagicSetup):
         if lCut is not None:
             if lCut < self.l_max_r:
                 self.truncate(lCut, field=field)
+        
+        if field == 'V' or field == 'B':
+            self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+            self.e_tor_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+            self.e_pol_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+            self.e_tor_l = np.zeros((self.nstep, self.l_max_r+1), precision)
 
-        self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
-        self.e_tor_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
-        self.e_pol_l = np.zeros((self.nstep, self.l_max_r+1), precision)
-        self.e_tor_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+            for l in range(1, self.l_max_r+1):
+                self.e_pol_l[:, l] = 0.
+                self.e_tor_l[:, l] = 0.
+                self.e_pol_axi_l[:, l] = 0.
+                self.e_tor_axi_l[:, l] = 0.
+                for m in range(0, l+1, self.minc):
+                    lm = self.idx[l, m]
 
-        for l in range(1, self.l_max_r+1):
-            self.e_pol_l[:, l] = 0.
-            self.e_tor_l[:, l] = 0.
-            self.e_pol_axi_l[:, l] = 0.
-            self.e_tor_axi_l[:, l] = 0.
-            for m in range(0, l+1, self.minc):
-                lm = self.idx[l, m]
+                    if m == 0:
+                        epol = 0.5*self.ell[lm]*(self.ell[lm]+1)*( \
+                               self.ell[lm]*(self.ell[lm]+1)/self.radius**2* \
+                               abs(self.wlm[:,lm])**2+ abs(self.dwlm[:,lm])**2 )
+                        etor = 0.5*self.ell[lm]*(self.ell[lm]+1)*abs(self.zlm[:, lm])**2
 
-                if m == 0:
-                    epol = 0.5*self.ell[lm]*(self.ell[lm]+1)*( \
-                           self.ell[lm]*(self.ell[lm]+1)/self.radius**2* \
-                           abs(self.wlm[:,lm])**2+ abs(self.dwlm[:,lm])**2 )
-                    etor = 0.5*self.ell[lm]*(self.ell[lm]+1)*abs(self.zlm[:, lm])**2
+                        self.e_pol_axi_l[:, l] += epol
+                        self.e_tor_axi_l[:, l] += etor
+                    else:
+                        epol = self.ell[lm]*(self.ell[lm]+1)*( \
+                               self.ell[lm]*(self.ell[lm]+1)/self.radius**2* \
+                               abs(self.wlm[:,lm])**2+ abs(self.dwlm[:,lm])**2 )
+                        etor = self.ell[lm]*(self.ell[lm]+1)*abs(self.zlm[:, lm])**2
 
-                    self.e_pol_axi_l[:, l] += epol
-                    self.e_tor_axi_l[:, l] += etor
-                else:
-                    epol = self.ell[lm]*(self.ell[lm]+1)*( \
-                           self.ell[lm]*(self.ell[lm]+1)/self.radius**2* \
-                           abs(self.wlm[:,lm])**2+ abs(self.dwlm[:,lm])**2 )
-                    etor = self.ell[lm]*(self.ell[lm]+1)*abs(self.zlm[:, lm])**2
-
-                self.e_pol_l[:, l] += epol
-                self.e_tor_l[:, l] += etor
+                    self.e_pol_l[:, l] += epol
+                    self.e_tor_l[:, l] += etor
 
 
-        # Time-averaged energy
-        facT = 1./(self.time[-1]-self.time[0])
+            # Time-averaged energy
+            facT = 1./(self.time[-1]-self.time[0])
 
-        self.e_pol_lM = facT * np.trapz(self.e_pol_l, self.time, axis=0)
-        self.e_tor_lM = facT * np.trapz(self.e_tor_l, self.time, axis=0)
-        self.e_pol_axi_lM = facT * np.trapz(self.e_pol_axi_l, self.time, axis=0)
-        self.e_tor_axi_lM = facT * np.trapz(self.e_tor_axi_l, self.time, axis=0)
+            self.e_pol_lM = facT * np.trapz(self.e_pol_l, self.time, axis=0)
+            self.e_tor_lM = facT * np.trapz(self.e_tor_l, self.time, axis=0)
+            self.e_pol_axi_lM = facT * np.trapz(self.e_pol_axi_l, self.time, axis=0)
+            self.e_tor_axi_lM = facT * np.trapz(self.e_tor_axi_l, self.time, axis=0)
 
     def truncate(self, lCut, field='B'):
         """
@@ -839,20 +842,26 @@ class MagicCoeffR(MagicSetup):
                 k +=1
 
         wlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        dwlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        zlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        if field == 'B':
-            ddwlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
+        if field == 'V' or field == 'B':
+            dwlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
+            zlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
+            if field == 'B':
+                ddwlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
 
-        for l in range(1, self.l_max_r+1):
-            for m in range(0, l+1, self.minc):
-                lm = idx_new[l, m]
-                wlm_new[:, lm] = self.wlm[:, self.idx[l,m]]
-                zlm_new[:, lm] = self.zlm[:, self.idx[l,m]]
-                dwlm_new[:, lm] = self.dwlm[:, self.idx[l,m]]
-                if field == 'B':
-                    ddwlm_new[:, lm] = self.ddwlm[:, self.idx[l,m]]
-
+            for l in range(1, self.l_max_r+1):
+                for m in range(0, l+1, self.minc):
+                    lm = idx_new[l, m]
+                    wlm_new[:, lm] = self.wlm[:, self.idx[l,m]]
+                    zlm_new[:, lm] = self.zlm[:, self.idx[l,m]]
+                    dwlm_new[:, lm] = self.dwlm[:, self.idx[l,m]]
+                    if field == 'B':
+                        ddwlm_new[:, lm] = self.ddwlm[:, self.idx[l,m]]
+        else:            
+            for l in range(1, self.l_max_r+1):
+                for m in range(0, l+1, self.minc):
+                    lm = idx_new[l, m]
+                    wlm_new[:, lm] = self.wlm[:, self.idx[l,m]]
+ 
         #for m in range(self.minc, self.l_max_r+1, self.minc):
             #for l in range(m, self.l_max_r+1):
                 #wlm_new[:, idx_new[l, m]] = self.wlm[:, self.idx[l,m]]
@@ -863,12 +872,13 @@ class MagicCoeffR(MagicSetup):
         self.idx = idx_new
         self.ell = ell_new
         self.ms = ms_new
-
+    
         self.wlm = wlm_new
-        self.dwlm = dwlm_new
-        self.zlm = zlm_new
-        if field == 'B':
-            self.ddwlm = ddwlm_new
+        if field == 'V' or field == 'B':
+            self.dwlm = dwlm_new
+            self.zlm = zlm_new
+            if field == 'B':
+                self.ddwlm = ddwlm_new
 
     def movieRad(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
                  normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,

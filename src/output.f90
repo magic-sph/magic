@@ -14,11 +14,11 @@ module output_mod
    use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: hdif_B, dPl0Eq
-   use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
-       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_SRIC,           &
-       &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
-       &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
-       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
+   use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose,    &
+       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_r_fieldXi,         & 
+       &            l_SRIC, l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,  &
+       &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
+       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
@@ -71,7 +71,7 @@ module output_mod
    !-- Counter for output files/sets:
    integer :: nPotSets, n_spec
    integer :: n_dt_cmb_sets, n_cmb_setsMov
-   integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
+   integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:), n_Xi_r_sets(:)
 
    !--- For averaging:
    real(cp) :: timePassedLog, timeNormLog
@@ -97,11 +97,13 @@ module output_mod
    integer :: n_cmbMov_file, n_dt_cmb_file
    integer, allocatable :: n_v_r_file(:)
    integer, allocatable :: n_t_r_file(:)
+   integer, allocatable :: n_xi_r_file(:)
    integer, allocatable:: n_b_r_file(:)
    character(len=72) :: dtE_file, par_file
    character(len=72) :: cmb_file, dt_cmb_file, cmbMov_file
    character(len=72), allocatable :: v_r_file(:)
    character(len=72), allocatable :: t_r_file(:)
+   character(len=72), allocatable :: xi_r_file(:)
    character(len=72), allocatable :: b_r_file(:)
 
    public :: output, initialize_output, finalize_output
@@ -113,7 +115,7 @@ contains
       integer :: n
       character(len=72) :: string
 
-      if ( l_r_field .or. l_r_fieldT ) then
+      if ( l_r_field .or. l_r_fieldT .or. l_r_fieldXi) then
          allocate ( n_coeff_r(n_coeff_r_max))
          allocate ( n_v_r_file(n_coeff_r_max), v_r_file(n_coeff_r_max) )
          allocate ( n_v_r_sets(n_coeff_r_max) )
@@ -141,6 +143,17 @@ contains
             do n=1,n_coeff_r_max
                write(string,*) n
                t_r_file(n)='T_coeff_r'//trim(adjustl(string))//'.'//tag
+            end do
+         end if
+
+         if ( l_r_fieldXi ) then
+            allocate ( n_xi_r_file(n_coeff_r_max), xi_r_file(n_coeff_r_max) )
+            allocate ( n_xi_r_sets(n_coeff_r_max) )
+            n_Xi_r_sets=0
+
+            do n=1,n_coeff_r_max
+               write(string,*) n
+               xi_r_file(n)='Xi_coeff_r'//trim(adjustl(string))//'.'//tag
             end do
          end if
 
@@ -247,6 +260,12 @@ contains
                &    status='new', form='unformatted')
             end do
          end if
+         if ( l_r_fieldXi ) then
+            do n=1,n_coeff_r_max
+               open(newunit=n_xi_r_file(n), file=xi_r_file(n), &
+               &    status='new', form='unformatted')
+            end do
+         end if
 
       end if
 
@@ -279,10 +298,16 @@ contains
             end do
          end if
 
+         if ( l_r_fieldXi ) then
+            do n=1,n_coeff_r_max
+               close(n_xi_r_file(n))
+            end do
+         end if
+
          if ( l_power ) close(n_dtE_file)
       end if
 
-      if ( l_r_field .or. l_r_fieldT ) then
+      if ( l_r_field .or. l_r_fieldT .or. l_r_fieldXi) then
          deallocate ( n_coeff_r, n_v_r_file, v_r_file, n_v_r_sets )
 
          if ( l_mag ) then
@@ -292,6 +317,11 @@ contains
          if ( l_r_fieldT ) then
             deallocate ( n_t_r_file, t_r_file, n_t_r_sets )
          end if
+
+         if ( l_r_fieldXi ) then
+            deallocate ( n_xi_r_file, xi_r_file, n_xi_r_sets )
+         end if
+
       end if
 
    end subroutine finalize_output
@@ -690,6 +720,11 @@ contains
                     &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
                     &             l_max_r,n_T_r_sets(n),T_r_file(n),       &
                     &             n_t_r_file(n),3)
+            if ( l_r_fieldXi )                                              &
+               call write_coeff_r(timeScaled,xi_LMloc(:,nR),db_LMloc(:,nR), &
+                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),     &
+                    &             l_max_r,n_Xi_r_sets(n),Xi_r_file(n),      &
+                    &             n_xi_r_file(n),3)
          end do
          PERFOFF
       end if

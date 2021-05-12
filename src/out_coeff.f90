@@ -176,7 +176,7 @@ contains
       complex(cp),      intent(in) :: ddw_LMloc(llm:ulm)! dr^2 of Poloidal field potential
       complex(cp),      intent(in) :: z_LMloc(llm:ulm)   ! Toroidal field potential
       character(len=*), intent(in) :: file         ! Name of output file
-      integer,          intent(in) :: nVBS         ! True if output is flow
+      integer,          intent(in) :: nVBS   ! 1 if flow, 2 if magnetic field and 3 if temperature or composition
 
       !-- Output:
       integer, intent(inout) :: n_file      ! Output unit for $file

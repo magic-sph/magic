@@ -38,6 +38,7 @@ module logic
    logical :: l_2D_RMS       ! Switch for storing of time-averaged r-l-spectra of forces
    logical :: l_r_field      ! Switch for radial coefficients
    logical :: l_r_fieldT     ! Switch for radial T coefficients
+   logical :: l_r_fieldXi    ! Switch for radial Xi coefficients
    logical :: l_b_nl_cmb     ! Switch for non-linear magnetic field at OC
    logical :: l_b_nl_icb     ! Switch for non-linear magnetic field at IC
    logical :: l_correct_AMe  ! Switch for correction of equatorial angular mom.

@@ -76,57 +76,57 @@ contains
       &    radial_scheme,polo_flow_eq, time_scheme,         &
       &    mpi_transp,l_adv_curl,mpi_packing
 
-      namelist/phys_param/                                      &
-      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,    &
-      &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
-      &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,     &
-      &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,   &
-      &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,          &
-      &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
-      &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
-      &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
-      &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,    &
+      namelist/phys_param/                                     &
+      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,   &
+      &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,  &
+      &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,    &
+      &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,  &
+      &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,         &
+      &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat,&
+      &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,     &
+      &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
+      &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac
 
-      namelist/B_external/                                    &
-      &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
+      namelist/B_external/                                     &
+      &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
       &    Le, loopRadRatio
 
-      namelist/start_field/                                   &
-      &    l_start_file,start_file,inform,l_reset_t,          &
-      &    scale_s,scale_xi,scale_b,scale_v,tipdipole,        &
-      &    init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,   &
-      &    amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,   &
+      namelist/start_field/                                    &
+      &    l_start_file,start_file,inform,l_reset_t,           &
+      &    scale_s,scale_xi,scale_b,scale_v,tipdipole,         &
+      &    init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,    &
+      &    amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,    &
       &    amp_xi1, amp_xi2
 
-      namelist/output_control/                                &
-      &    n_graph_step,n_graphs,t_graph,                     &
-      &    t_graph_start,t_graph_stop,dt_graph,               &
-      &    n_stores,n_rst_step,n_rsts,t_rst,                  &
-      &    t_rst_start,t_rst_stop,dt_rst,                     &
-      &    n_log_step,n_logs,t_log,t_log_start,t_log_stop,    &
-      &    dt_log,n_spec_step,n_specs,t_spec,t_spec_start,    &
-      &    t_spec_stop,dt_spec,n_cmb_step,n_cmbs,t_cmb,       &
-      &    t_cmb_start,t_cmb_stop,dt_cmb,                     &
-      &    n_r_field_step,n_r_fields,t_r_field,               &
-      &    t_r_field_start,t_r_field_stop,dt_r_field,         &
-      &    n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
-      &    dt_pot,runid,movie,n_movie_step, r_surface,        &
-      &    n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
-      &    dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
-      &    dt_TO,n_TOmovie_step,n_TOmovie_frames,             &
-      &    t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
-      &    dt_TOmovie,l_movie,l_average,l_save_out,           &
-      &    l_cmb_field,l_rMagSpec,l_DTrMagSpec,               &
-      &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
-      &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
-      &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
-      &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
-      &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,         &
-      &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
-      &    r_probe,theta_probe,n_phi_probes,n_probe_step,     &
-      &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS, &
+      namelist/output_control/                                 &
+      &    n_graph_step,n_graphs,t_graph,                      &
+      &    t_graph_start,t_graph_stop,dt_graph,                &
+      &    n_stores,n_rst_step,n_rsts,t_rst,                   &
+      &    t_rst_start,t_rst_stop,dt_rst,                      &
+      &    n_log_step,n_logs,t_log,t_log_start,t_log_stop,     &
+      &    dt_log,n_spec_step,n_specs,t_spec,t_spec_start,     &
+      &    t_spec_stop,dt_spec,n_cmb_step,n_cmbs,t_cmb,        &
+      &    t_cmb_start,t_cmb_stop,dt_cmb,                      &
+      &    n_r_field_step,n_r_fields,t_r_field,                &
+      &    t_r_field_start,t_r_field_stop,dt_r_field,          &
+      &    n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,     &
+      &    dt_pot,runid,movie,n_movie_step, r_surface,         &
+      &    n_movie_frames,t_movie,t_movie_start,t_movie_stop,  &
+      &    dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop, &
+      &    dt_TO,n_TOmovie_step,n_TOmovie_frames,              &
+      &    t_TOmovie,t_TOmovie_start,t_TOmovie_stop,           &
+      &    dt_TOmovie,l_movie,l_average,l_save_out,            &
+      &    l_cmb_field,l_rMagSpec,l_DTrMagSpec,l_dt_cmb_field, &
+      &    l_max_cmb,l_r_field,l_r_fieldT,l_r_fieldXi,         &
+      &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,    &
+      &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,          &
+      &    l_RMS,l_par,l_corrMov,rCut,rDea,                    &
+      &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,          &
+      &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,    &
+      &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
+      &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
+      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS,  &
       &    l_spec_avg
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
@@ -759,7 +759,7 @@ contains
       call initialize_truncation()
 
       !-- Coeffs at radial levels:
-      if ( l_r_fieldT ) l_r_field=.true.
+      if ( l_r_fieldT .or. l_r_fieldXi) l_r_field=.true.
 
       if ( l_r_field ) then
          if ( n_r_step == 0 ) n_r_step=2
@@ -1130,6 +1130,7 @@ contains
       write(n_out,'(''  l_max_cmb       ='',i3,'','')') l_max_cmb
       write(n_out,'(''  l_r_field       ='',l3,'','')') l_r_field
       write(n_out,'(''  l_r_fieldT      ='',l3,'','')') l_r_fieldT
+      write(n_out,'(''  l_r_fieldXi     ='',l3,'','')') l_r_fieldXi
       write(n_out,'(''  l_max_r         ='',i3,'','')') l_max_r
       write(n_out,'(''  n_r_step        ='',i3,'','')') n_r_step
       do n=1,n_coeff_r_max
@@ -1468,6 +1469,7 @@ contains
       !----- Output of magnetic and flow potential af five different radial levels:
       l_r_field     =.false.
       l_r_fieldT    =.false.
+      l_r_fieldXi   =.false.
       l_max_r       =l_max
       n_r_step      =2
       do n=1,size(n_r_array)
