@@ -14,8 +14,7 @@ module nonlinear_lm_mod
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
        &             l_adv_curl
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
-   use physical_parameters, only: CorFac, epsc, ViscHeatFac, OhmLossFac, &
-       &                          n_r_LCR, epscXi
+   use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
@@ -32,7 +31,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
       complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
-      complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
+      complex(cp), allocatable :: heatTermsLM(:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -55,8 +54,8 @@ contains
       bytes_allocated = bytes_allocated + 6*lmP_max*SIZEOF_DEF_COMPLEX
 
       if ( l_anel) then
-         allocate( this%ViscHeatLM(lmP_max), this%OhmLossLM(lmP_max) )
-         bytes_allocated = bytes_allocated+2*lmP_max*SIZEOF_DEF_COMPLEX
+         allocate( this%heatTermsLM(lmP_max) )
+         bytes_allocated = bytes_allocated+lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_heat ) then
@@ -80,7 +79,7 @@ contains
 
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
-      if ( l_anel ) deallocate( this%ViscHeatLM, this%OhmLossLM )
+      if ( l_anel ) deallocate( this%heatTermsLM )
       if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
       if ( l_heat ) deallocate( this%VSrLM, this%VStLM, this%VSpLM )
 
@@ -109,10 +108,7 @@ contains
             this%VStLM(lm)=zero
             this%VSpLM(lm)=zero
          end if
-         if ( l_anel ) then
-            this%ViscHeatLM(lm)=zero
-            this%OhmLossLM(lm) =zero
-         end if
+         if ( l_anel ) this%heatTermsLM(lm)=zero
          if ( l_chemical_conv ) then
             this%VXirLM(lm)=zero
             this%VXitLM(lm)=zero
@@ -373,19 +369,9 @@ contains
             dVSrLM(1)=this%VSrLM(1)
             if ( l_anel ) then
                if ( l_anelastic_liquid ) then
-                  if ( l_mag_nl ) then
-                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(1)+ &
-                     &        OhmLossFac*temp0(nR)*this%OhmLossLM(1)
-                  else
-                     dsdt_loc=dsdt_loc+ViscHeatFac*temp0(nR)*this%ViscHeatLM(1)
-                  end if
+                  dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(1)
                else
-                  if ( l_mag_nl ) then
-                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(1)+ &
-                     &        OhmLossFac*this%OhmLossLM(1)
-                  else
-                     dsdt_loc=dsdt_loc+ViscHeatFac*this%ViscHeatLM(1)
-                  end if
+                  dsdt_loc=dsdt_loc+this%heatTermsLM(1)
                end if
             end if
             dsdt(1)=dsdt_loc
@@ -395,20 +381,12 @@ contains
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
                dVSrLM(lm)=this%VSrLM(lmP)
-               dsdt_loc = dLh(lm)*this%VStLM(lmP)
+               dsdt_loc  =dLh(lm)*this%VStLM(lmP)
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)*temp0(nR)* &
-                     &          this%ViscHeatLM(lmP)
-                     if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l)*temp0(nR)* &
-                        &          this%OhmLossLM(lmP)
-                     end if
+                     dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
                   else
-                     dsdt_loc = dsdt_loc+ViscHeatFac*hdif_V(l)*this%ViscHeatLM(lmP)
-                     if ( l_mag_nl ) then
-                        dsdt_loc = dsdt_loc+OhmLossFac*hdif_B(l)*this%OhmLossLM(lmP)
-                     end if
+                     dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
                   end if
                end if
                dsdt(lm) = dsdt_loc

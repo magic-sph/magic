@@ -23,8 +23,8 @@ module grid_space_arrays_mod
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1
-   use physical_parameters, only: LFfac, n_r_LCR, prec_angle,    &
-        &                         oek, po, dilution_fac, ra, opr
+   use physical_parameters, only: LFfac, n_r_LCR, prec_angle, ViscHeatFac,   &
+        &                         oek, po, dilution_fac, ra, opr, OhmLossFac
    use horizontal_data, only: sinTheta, cosTheta, phi, O_sin_theta_E2, &
        &                      cosn_theta_E2, O_sin_theta
    use parallel_mod, only: get_openmp_blocks
@@ -45,7 +45,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
-      real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
+      real(cp), allocatable :: heatTerms(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -81,9 +81,8 @@ contains
       allocate( this%VxBr(nlat_padded,n_phi_max), this%VxBt(nlat_padded,n_phi_max) )
       allocate( this%VxBp(nlat_padded,n_phi_max), this%VSr(nlat_padded,n_phi_max) )
       allocate( this%VSt(nlat_padded,n_phi_max), this%VSp(nlat_padded,n_phi_max) )
-      allocate( this%ViscHeat(nlat_padded,n_phi_max) )
-      allocate( this%OhmLoss(nlat_padded,n_phi_max) )
-      bytes_allocated=bytes_allocated + 14*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+      allocate( this%heatTerms(nlat_padded,n_phi_max) )
+      bytes_allocated=bytes_allocated + 13*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
 
       if ( l_precession ) then
          allocate( this%PCr(nlat_padded,n_phi_max), this%PCt(nlat_padded,n_phi_max) )
@@ -145,7 +144,7 @@ contains
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
-      deallocate( this%ViscHeat, this%OhmLoss )
+      deallocate( this%heatTerms )
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vrc,this%vtc,this%vpc )
@@ -327,7 +326,7 @@ contains
 
          if ( l_anel .and. nBc == 0 ) then
             !------ Get viscous heating
-            this%ViscHeat(:,nPhi)=      or4(nR)*                  &
+            this%heatTerms(:,nPhi)=ViscHeatFac*or4(nR)*           &
             &                     orho1(nR)*otemp1(nR)*visc(nR)*( &
             &     two*(                     this%dvrdrc(:,nPhi) - & ! (1)
             &     (two*or1(nR)+beta(nR))*this%vrc(:,nPhi) )**2  + &
@@ -352,7 +351,8 @@ contains
 
             if ( l_mag_nl .and. nR>n_r_LCR ) then
                !------ Get ohmic losses
-               this%OhmLoss(:,nPhi)= or2(nR)*otemp1(nR)*lambda(nR)*  &
+               this%heatTerms(:,nPhi)=this%heatTerms(:,nPhi)+        &
+               &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*  &
                &    ( or2(nR)*             this%cbrc(:,nPhi)**2 +    &
                &      O_sin_theta_E2(:)*   this%cbtc(:,nPhi)**2 +    &
                &      O_sin_theta_E2(:)*   this%cbpc(:,nPhi)**2  )

@@ -677,14 +677,8 @@ contains
               &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
               &           this%nl_lm%VSpLM, l_R(nR))
 
-         if ( l_anel ) then ! anelastic stuff
-            if ( l_mag_nl .and. nR>n_r_LCR ) then
-               call scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
-               call scal_to_SH(this%gsa%OhmLoss, this%nl_lm%OhmLossLM, l_R(nR))
-            else
-               call scal_to_SH(this%gsa%ViscHeat, this%nl_lm%ViscHeatLM, l_R(nR))
-            end if
-         end if
+         if ( l_anel ) call scal_to_SH(this%gsa%heatTerms, this%nl_lm%heatTermsLM, &
+                            &          l_R(nR))
       end if
       if ( l_chemical_conv ) then
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
