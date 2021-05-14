@@ -18,7 +18,7 @@ module nonlinear_lm_mod
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
-       &                      hdif_B, dTheta3S, dTheta4S, hdif_V
+       &                      dTheta3S, dTheta4S
    use constants, only: zero, two
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc
 
