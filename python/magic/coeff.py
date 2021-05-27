@@ -134,7 +134,7 @@ class MagicCoeffCmb(MagicSetup):
             if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.{}'.format(tag))
-            # Or the tag is a bit more complicated and we need to find 
+            # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
                 pattern = os.path.join(datadir, '{}'.format(self.name))
@@ -695,7 +695,7 @@ class MagicCoeffR(MagicSetup):
             else:
                 out = f.fort_read('3i4,f8')[0]
             self.l_max_r, self.minc, n_data = out[0]
-            self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
+            self.m_max_r = int((self.l_max_r//self.minc)*self.minc)
             self.radius = out[1]
 
             while 1:
@@ -735,7 +735,10 @@ class MagicCoeffR(MagicSetup):
         self.time = data[:, 0]
 
         # wlm
-        self.wlm[:, 1:self.l_max_r+1] = data[:, 1:self.l_max_r+1]
+        if field == 'T' or field == 'Xi': #T or Xi contains l = m = 0
+            self.wlm[:, 0:self.l_max_r+1] = data[:, 1:self.l_max_r+2]
+        else:
+            self.wlm[:, 1:self.l_max_r+1] = data[:, 1:self.l_max_r+1]
         k = self.l_max_r+1
         for m in range(self.minc, self.l_max_r+1, self.minc):
             for l in range(m, self.l_max_r+1):
@@ -772,7 +775,7 @@ class MagicCoeffR(MagicSetup):
         if lCut is not None:
             if lCut < self.l_max_r:
                 self.truncate(lCut, field=field)
-        
+
         if field == 'V' or field == 'B':
             self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
             self.e_tor_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
@@ -856,12 +859,12 @@ class MagicCoeffR(MagicSetup):
                     dwlm_new[:, lm] = self.dwlm[:, self.idx[l,m]]
                     if field == 'B':
                         ddwlm_new[:, lm] = self.ddwlm[:, self.idx[l,m]]
-        else:            
+        else:
             for l in range(1, self.l_max_r+1):
                 for m in range(0, l+1, self.minc):
                     lm = idx_new[l, m]
                     wlm_new[:, lm] = self.wlm[:, self.idx[l,m]]
- 
+
         #for m in range(self.minc, self.l_max_r+1, self.minc):
             #for l in range(m, self.l_max_r+1):
                 #wlm_new[:, idx_new[l, m]] = self.wlm[:, self.idx[l,m]]
@@ -872,7 +875,7 @@ class MagicCoeffR(MagicSetup):
         self.idx = idx_new
         self.ell = ell_new
         self.ms = ms_new
-    
+
         self.wlm = wlm_new
         if field == 'V' or field == 'B':
             self.dwlm = dwlm_new
