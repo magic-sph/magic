@@ -552,7 +552,7 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
             !$omp end do
