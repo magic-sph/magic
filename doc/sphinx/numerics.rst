@@ -353,12 +353,12 @@ which results into:
 Radial representation
 =====================
 
-In MagIC, the radial dependencies are expanded into complete sets of functions: the 
-Chebyshev polynomials :math:`{\cal C}(x)`.  The polynomial of degree :math:`n` is defined by
+In MagIC, the radial dependencies are either expanded into complete sets of functions, the 
+Chebyshev polynomials :math:`{\cal C}(x)`; or discretized using finite differences. For the former approach, the Chebyshev polynomial of degree :math:`n` is defined by
 
 
 .. math::
-  {\cal C}_n(x)=\cos\left[n\,\arccos(x)\right]\quad -1\leq x \leq 1\,.
+  {\cal C}_n(x)\approx\cos\left[n\,\arccos(x)\right]\quad -1\leq x \leq 1\,.
 
 When truncating at degree :math:`N`, the radial expansion of the poloidal
 magnetic potential reads
@@ -387,22 +387,21 @@ grid-point density.
 When choosing the :math:`N_r` extrema of :math:`{\cal C}_{N_r-1}`  as radial grid points,
 
 .. math::
-   x_k=\cos{\left(\pi \frac{(k-1)}{N_r-1}\right)}\;\;\;,\;\;\; k=1,2,\ldots,N_r ,
+   x_k=\cos{\left[\pi \frac{(k-1)}{N_r-1}\right]}\;\;\;,\;\;\; k=1,2,\ldots,N_r ,
    :label: eqChebGrid
 
 the values of the Chebyshev polynomials at these points are simply given by
 the cosine functions:
 
 .. math::
-  {\cal C}_{nk} = {\cal C}_n(x_k)=\cos{\left(\pi \frac{ n (k-1)}{N_r-1}\right)} .
+  {\cal C}_{nk} = {\cal C}_n(x_k)=\cos{\left[\pi \frac{ n (k-1)}{N_r-1}\right]} .
 
 This particular choice has two advantages.
 For one, the grid points become denser toward the inner and outer
 radius and better resolve potential thermal and viscous boundary layers.
-In addition, FFTs can be employed to switch between
+In addition, type I Discrete Cosine Transforms (DCTs) can be employed to switch between
 grid representation :eq:`eqGridCheb` and Chebyshev representations :eq:`eqSpecCheb`,
 rendering this procedure a fast-Chebyshev transform.
-Choosing :math:`N_r>N` provides radial dealiasing.
 
 .. seealso:: The Chebyshev (Gauss-Lobatto) grid is defined in the module
              :f:mod:`chebyshev_polynoms_mod`. The cosine transforms are computed in the
