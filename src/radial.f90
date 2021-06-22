@@ -606,6 +606,84 @@ contains
 
          !-- Multiply the gravity by alpha0 and temp0
          rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
+      
+
+      else if ( index(interior_model,'3M_ZAMS') /= 0 ) then
+
+         ! radius from 7.84782905e-04 to 0.95
+
+         rrOcmb(:) = r(:)*r_cut_model/r_cmb
+
+         allocate ( coeffAlpha(15), coeffTemp(15), coeffgrav(15) )
+         coeffAlpha = [-1.69669886e+01_cp,  2.25126880e-01_cp,  2.26338090e+00_cp, & 
+                  &     2.35294652e+02_cp, -3.00070387e+03_cp,  2.75895814e+04_cp, &
+                  &    -1.79214950e+05_cp,  7.79563367e+05_cp, -2.28364507e+06_cp, & 
+                  &     4.56873139e+06_cp, -6.25991462e+06_cp,  5.78222220e+06_cp, &
+                  &    -3.44371209e+06_cp,  1.19453762e+06_cp, -1.83388664e+05_cp]
+
+         coeffTemp = [2.39144445e+07_cp,  1.73342477e+04_cp, -4.21781213e+08_cp, &
+                  &   4.46057162e+09_cp, -8.12579710e+10_cp,  7.92147839e+11_cp, &
+                  &  -4.37814578e+12_cp,  1.54066742e+13_cp, -3.66996523e+13_cp, &
+                  &   6.08257767e+13_cp, -7.04544950e+13_cp,  5.60588760e+13_cp, &
+                  &  -2.92454230e+13_cp,  9.01861009e+12_cp, -1.24717377e+12_cp]
+
+         coeffrgrav = [-2.26143532e+02_cp,  1.84668067e+06_cp, -7.46093335e+06_cp, &
+                  &     6.09516538e+07_cp, -2.89932319e+08_cp, -1.28360281e+09_cp, &
+                  &     1.87711700e+10_cp, -8.91090649e+10_cp,  2.44327981e+11_cp, &
+                  &    -4.36254113e+11_cp,  5.26247737e+11_cp, -4.27715620e+11_cp, &
+                  &     2.25236032e+11_cp, -6.95723140e+10_cp,  9.58641020e+09_cp]
+         ! Temperature is only required to estimate ThExpNb
+         alpha0(:)=0.0_cp
+         temp0(:) =0.0_cp
+         rgrav(:)=0.0_cp
+         do i=1,15
+            alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
+            temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
+            rgrav(:)  = rgrav(:) +coeffgrav(i) *rrOcmb(:)**(i-1)
+         end do
+         alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
+         R_s= 1.42109458e9_cp ! the radius of the star (m)
+         c_p= 1.526563e14_cp ! mean value of the specific heat at constant total pressure (J/kg/K)
+         DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*R_s/c_p
+         ! Normalisation ????
+         ThExpNb  =alpha0(1)*temp0(1)
+         alpha0(:)=alpha0(:)/alpha0(1)
+         rgrav(:) =rgrav(:)/rgrav(1)
+         ! Why we don't normalise temp0 also???
+
+         ! d ln(temp0) / dr
+         dtemp0(:)=epsS*dentropy0(:)-DissNb*alpha0(:)*rgrav(:)
+         call getBackground(dtemp0,0.0_cp,temp0)
+         temp0=exp(temp0) ! this was ln(T_0)
+         dtemp0=dtemp0*temp0
+
+         !-- The Grüneisen parameter (assumed to be constant)
+         GrunNb = 0.6491803_cp
+         ! ogrun(:) = one/(0.57_cp-0.17_cp*tanh(50.0_cp*(rrOcmb(:)-0.88_cp)))
+         ! ogrun(:) = ogrun(:)/ogrun(1)
+
+         drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb* &
+         &      alpha0*rgrav
+         call getBackground(drho0,0.0_cp,rho0)
+         rho0=exp(rho0) ! this was ln(rho_0)
+         beta=drho0
+
+         ! The final stuff is always required
+         call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+         call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+         call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+         call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
+         dLtemp0 = dtemp0/temp0
+         ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+
+         !-- Multiply the gravity by alpha0 and temp0
+         rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
+
+         !nVarDiff = 5
+         deallocate(coeffAlpha, coeffTemp, coeffgrav)
+
 
       else  !-- Usual polytropic reference state
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
