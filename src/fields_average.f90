@@ -156,7 +156,6 @@ contains
       !----- Time averaged fields:
       complex(cp) :: dw_ave(llm:ulm,n_r_max)
       complex(cp) :: ds_ave(llm:ulm,n_r_max)
-      complex(cp) :: dxi_ave(llm:ulm,n_r_max)
       complex(cp) :: db_ave(llm:ulm,n_r_max)
       complex(cp) :: db_ic_ave(llm:ulm,n_r_ic_max)
       complex(cp) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
@@ -199,22 +198,18 @@ contains
          !zero=zero
          if ( n_graphs > 0 ) then
             if ( l_conv ) then
-               w_ave=zero
-               z_ave=zero
-               p_ave=zero
+               w_ave(:,:)=zero
+               z_ave(:,:)=zero
+               p_ave(:,:)=zero
             end if
-            if ( l_heat ) then
-               s_ave=zero
-            end if
-            if ( l_chemical_conv ) then
-               xi_ave=zero
-            end if
+            if ( l_heat ) s_ave(:,:)=zero
+            if ( l_chemical_conv ) xi_ave(:,:)=zero
             if ( l_mag ) then
-               b_ave=zero
-               aj_ave=zero
+               b_ave(:,:) =zero
+               aj_ave(:,:)=zero
                if ( l_cond_ic ) then
-                  b_ic_ave=zero
-                  aj_ic_ave=zero
+                  b_ic_ave(:,:) =zero
+                  aj_ic_ave(:,:)=zero
                end if
             end if
          end if
@@ -320,10 +315,6 @@ contains
          end if
          if ( l_heat ) then
             call get_dr(s_ave,ds_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
-                 &      nocopy=.true.)
-         end if
-         if ( l_chemical_conv ) then
-            call get_dr(xi_ave,dxi_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
                  &      nocopy=.true.)
          end if
          if ( l_cond_ic ) then
