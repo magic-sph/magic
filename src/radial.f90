@@ -614,7 +614,7 @@ contains
 
          rrOcmb(:) = r(:)*r_cut_model/r_cmb
 
-         allocate ( coeffAlpha(15), coeffTemp(15), coeffgrav(15), coeffRho(15) )
+         allocate ( coeffAlpha(15), coeffTemp(15), coeffGrav(15), coeffDens(15) )
          coeffAlpha = [-1.69669886e+01_cp,  2.25126880e-01_cp,  2.26338090e+00_cp, & 
                   &     2.35294652e+02_cp, -3.00070387e+03_cp,  2.75895814e+04_cp, &
                   &    -1.79214950e+05_cp,  7.79563367e+05_cp, -2.28364507e+06_cp, & 
@@ -627,13 +627,13 @@ contains
                   &  -6.30545791e+06_cp,  8.53073111e+06_cp, -7.81852047e+06_cp, &
                   &   4.63524426e+06_cp, -1.60410552e+06_cp,  2.46092522e+05_cp]
 
-         coeffrgrav = [-2.26143532e+02_cp,  1.84668067e+06_cp, -7.46093335e+06_cp, &
+         coeffGrav = [-2.26143532e+02_cp,  1.84668067e+06_cp, -7.46093335e+06_cp, &
                   &     6.09516538e+07_cp, -2.89932319e+08_cp, -1.28360281e+09_cp, &
                   &     1.87711700e+10_cp, -8.91090649e+10_cp,  2.44327981e+11_cp, &
                   &    -4.36254113e+11_cp,  5.26247737e+11_cp, -4.27715620e+11_cp, &
                   &     2.25236032e+11_cp, -6.95723140e+10_cp,  9.58641020e+09_cp]
 
-         coeffRho = [3.69064685e+00_cp,  2.86982785e-01_cp, -3.64525914e+01_cp, &
+         coeffDens = [3.69064685e+00_cp,  2.86982785e-01_cp, -3.64525914e+01_cp, &
                   &  3.19434447e+02_cp, -3.87234973e+03_cp,  3.39431874e+04_cp, &
                   & -2.28260951e+05_cp,  1.07943028e+06_cp, -3.45646712e+06_cp, &
                   &  7.49900396e+06_cp, -1.10398174e+07_cp,  1.08737357e+07_cp, &
@@ -648,17 +648,18 @@ contains
          do i=1,15
             alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
             temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
-            rgrav(:)  = rgrav(:) +coeffgrav(i) *rrOcmb(:)**(i-1)
-            rho0(:)   = rho0(:) +coeffRho(i) *rrOcmb(:)**(i-1)
+            rgrav(:)  = rgrav(:) +coeffGrav(i) *rrOcmb(:)**(i-1)
+            rho0(:)   = rho0(:) +coeffDens(i) *rrOcmb(:)**(i-1)
          end do
 
          temp0(:) =exp(temp0(:)) ! Polynomial fit was on ln(temp0)
          alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
          rho0(:)  =exp(rho0(:)) ! Polynomial fit was on ln(rho0)
 
-         R_s= 1.42109458e9_cp ! the radius of the star (m)
-         c_p= 1.526563e12_cp ! mean value of the specific heat at constant total pressure (J/kg/K) (assumed to be constant)
-         DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*R_s/c_p
+         !Rs= 1.4210945e9_cp  the radius of the star (m)
+         !cp= 1.526563e12_cp  mean value of the specific heat at constant total pressure (J/kg/K) (assumed to be constant)
+         DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*1.4210945e9_cp/1.526563e12_cp
+
          !-- The Grüneisen parameter (assumed to be constant)
          GrunNb = 0.6491803_cp
          ogrun(:) = 1/GrunNb
@@ -675,8 +676,8 @@ contains
          dLalpha0(:)=0.0_cp
          do i=2,15
             dLtemp0(:) = dtemp0(:) +coeffTemp(i) *rrOcmb(:)**(i-2)
-            beta(:) = beta(:) +coeffRho(i) *rrOcmb(:)**(i-2)
-            dLalpha0(:) = dalpha0(:) +coeffAlpha(i) *rrOcmb(:)**(i-2)
+            beta(:) = beta(:) +coeffDens(i) *rrOcmb(:)**(i-2)
+            dLalpha0(:) = dLalpha0(:) +coeffAlpha(i) *rrOcmb(:)**(i-2)
          end do
          dtemp0=dLtemp0*temp0
 
@@ -690,7 +691,7 @@ contains
          rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
 
          !nVarDiff = 5
-         deallocate(coeffAlpha, coeffTemp, coeffgrav, coeffRho)
+         deallocate(coeffAlpha, coeffTemp, coeffGrav, coeffDens)
 
 
       else  !-- Usual polytropic reference state
