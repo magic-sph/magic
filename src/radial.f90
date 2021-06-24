@@ -641,6 +641,7 @@ contains
             temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
             rgrav(:)  = rgrav(:) +coeffgrav(i) *rrOcmb(:)**(i-1)
          end do
+         temp0(:)=exp(temp0(:)) ! Polynomial fit was on ln(temp0)
          alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
          R_s= 1.42109458e9_cp ! the radius of the star (m)
          c_p= 1.526563e14_cp ! mean value of the specific heat at constant total pressure (J/kg/K)
