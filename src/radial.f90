@@ -649,7 +649,7 @@ contains
             alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
             temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
             rgrav(:)  = rgrav(:) +coeffGrav(i) *rrOcmb(:)**(i-1)
-            rho0(:)   = rho0(:) +coeffDens(i) *rrOcmb(:)**(i-1)
+            rho0(:)   = rho0(:)  +coeffDens(i) *rrOcmb(:)**(i-1)
          end do
 
          temp0(:) =exp(temp0(:)) ! Polynomial fit was on ln(temp0)
@@ -675,9 +675,9 @@ contains
          beta(:)=0.0_cp ! d Ln(rho0)/dr
          dLalpha0(:)=0.0_cp
          do i=2,15
-            dLtemp0(:) = dLtemp0(:) + (i-1)* coeffTemp(i) *rrOcmb(:)**(i-2)
-            beta(:) = beta(:) + (i-1) *coeffDens(i) *rrOcmb(:)**(i-2)
-            dLalpha0(:) = dLalpha0(:) + (i-1) *coeffAlpha(i) *rrOcmb(:)**(i-2)
+            dLtemp0(:) = dLtemp0(:)   + (i-1) * coeffTemp(i)  *rrOcmb(:)**(i-2)
+            beta(:)    = beta(:)      + (i-1) * coeffDens(i)  *rrOcmb(:)**(i-2)
+            dLalpha0(:) = dLalpha0(:) + (i-1) * coeffAlpha(i) *rrOcmb(:)**(i-2)
          end do
          dtemp0=dLtemp0*temp0
 
@@ -1271,6 +1271,8 @@ contains
       real(cp), allocatable :: coeffBrunt(:)
       real(cp) :: rrOcmb(n_r_max)
 
+      rStrat = 0.0_cp
+
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
          l_non_adia = .false.
@@ -1315,8 +1317,7 @@ contains
          end if
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 5 ) then ! uniform volumic heat without strat
-         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)&
-& *(r_icb/r(:))**2
+         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)*(r_icb/r(:))**2
          l_non_adia = .true.
 
       else if (nVarEntropyGrad == 6) then ! Fit to N2 from MESA profile
