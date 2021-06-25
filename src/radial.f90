@@ -675,7 +675,7 @@ contains
          beta(:)=0.0_cp ! d Ln(rho0)/dr
          dLalpha0(:)=0.0_cp
          do i=2,15
-            dLtemp0(:) = dtemp0(:) + (i-1)* coeffTemp(i) *rrOcmb(:)**(i-2)
+            dLtemp0(:) = dLtemp0(:) + (i-1)* coeffTemp(i) *rrOcmb(:)**(i-2)
             beta(:) = beta(:) + (i-1) *coeffDens(i) *rrOcmb(:)**(i-2)
             dLalpha0(:) = dLalpha0(:) + (i-1) *coeffAlpha(i) *rrOcmb(:)**(i-2)
          end do
