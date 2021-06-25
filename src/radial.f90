@@ -610,7 +610,7 @@ contains
 
       else if ( index(interior_model,'3M_ZAMS') /= 0 ) then
 
-         ! radius from 7.84782905e-04 to 0.95
+         ! fit was done to r=[7.85e-04, 0.95]
 
          rrOcmb(:) = r(:)*r_cut_model/r_cmb
 
@@ -644,24 +644,19 @@ contains
          temp0(:) =0.0_cp
          rgrav(:) =0.0_cp
          rho0(:)  =0.0_cp
-
          do i=1,15
             alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
             temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
             rgrav(:)  = rgrav(:) +coeffGrav(i) *rrOcmb(:)**(i-1)
             rho0(:)   = rho0(:)  +coeffDens(i) *rrOcmb(:)**(i-1)
          end do
-
          temp0(:) =exp(temp0(:)) ! Polynomial fit was on ln(temp0)
          alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
          rho0(:)  =exp(rho0(:)) ! Polynomial fit was on ln(rho0)
 
-         !Rs= 1.4210945e9_cp  the radius of the star (m)
-         !cp= 1.526563e12_cp  mean value of the specific heat at constant total pressure (J/kg/K) (assumed to be constant)
-         DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*1.4210945e9_cp/1.526563e12_cp
-
-         !-- The Grüneisen parameter (assumed to be constant)
-         GrunNb = 0.6491803_cp
+         DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*1.4210945e9_cp &
+         &         /1.526563e12_cp !1.4210945e9 is Rs (m), 1.526563e12 is mena(cp) (J/kg/K)
+         GrunNb = 0.6491803_cp ! Mean value of Grüneisen parameter
          ogrun(:) = 1/GrunNb
 
          ! Normalisation
@@ -671,6 +666,7 @@ contains
          rgrav(:) =rgrav(:)/rgrav(1)
          rho0(:)  =rho0(:)/rho0(1)
 
+         ! First derivative
          dLtemp0(:) =0.0_cp
          beta(:)=0.0_cp ! d Ln(rho0)/dr
          dLalpha0(:)=0.0_cp
@@ -679,18 +675,28 @@ contains
             beta(:)    = beta(:)      + (i-1) * coeffDens(i)  *rrOcmb(:)**(i-2)
             dLalpha0(:) = dLalpha0(:) + (i-1) * coeffAlpha(i) *rrOcmb(:)**(i-2)
          end do
-         dtemp0=dLtemp0*temp0
+         dtemp0 =dLtemp0*temp0
 
-         call get_dr(beta,dbeta,n_r_max,rscheme_oc)
-         call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
-         call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
-         ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+         ! Second derivative
+         ddLtemp0(:) =0.0_cp
+         dbeta(:)=0.0_cp
+         ddLalpha0(:)=0.0_cp
+         do i=3,15
+            ddLtemp0(:) = ddLtemp0(:) + (i-1)*(i-2) *coeffTemp(i) *rrOcmb(:)**(i-3)
+            dbeta(:) = dbeta(:) + (i-1) *(i-2) *coeffDens(i) *rrOcmb(:)**(i-3)
+            ddLalpha0(:) = ddLalpha0(:) + (i-1) *(i-2) *coeffAlpha(i) *rrOcmb(:)**(i-3)
+         end do
+         d2temp0 = dtemp0**2/temp0 + temp0*ddLtemp0
+
+         ! Third derivative
+         ddbeta(:)=0.0_cp
+         do i=4,15
+            ddbeta(:) = ddbeta(:) + (i-1) *(i-2) *(i-3) *coeffDens(i) *rrOcmb(:)**(i-4)
+         end do
 
          !-- Multiply the gravity by alpha0 and temp0
          rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
 
-         !nVarDiff = 5
          deallocate(coeffAlpha, coeffTemp, coeffGrav, coeffDens)
 
 
