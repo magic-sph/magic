@@ -606,7 +606,7 @@ contains
 
          !-- Multiply the gravity by alpha0 and temp0
          rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
-      
+
 
       else if ( index(interior_model,'3M_ZAMS') /= 0 ) then
 
@@ -615,9 +615,9 @@ contains
          rrOcmb(:) = r(:)*r_cut_model/r_cmb
 
          allocate ( coeffAlpha(15), coeffTemp(15), coeffGrav(15), coeffDens(15) )
-         coeffAlpha = [-1.69669886e+01_cp,  2.25126880e-01_cp,  2.26338090e+00_cp, & 
+         coeffAlpha = [-1.69669886e+01_cp,  2.25126880e-01_cp,  2.26338090e+00_cp, &
                   &     2.35294652e+02_cp, -3.00070387e+03_cp,  2.75895814e+04_cp, &
-                  &    -1.79214950e+05_cp,  7.79563367e+05_cp, -2.28364507e+06_cp, & 
+                  &    -1.79214950e+05_cp,  7.79563367e+05_cp, -2.28364507e+06_cp, &
                   &     4.56873139e+06_cp, -6.25991462e+06_cp,  5.78222220e+06_cp, &
                   &    -3.44371209e+06_cp,  1.19453762e+06_cp, -1.83388664e+05_cp]
 
@@ -642,8 +642,8 @@ contains
 
          alpha0(:)=0.0_cp
          temp0(:) =0.0_cp
-         rgrav(:)=0.0_cp
-         rho0(:)=0.0_cp
+         rgrav(:) =0.0_cp
+         rho0(:)  =0.0_cp
 
          do i=1,15
             alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
@@ -1267,7 +1267,9 @@ contains
       ! in case stable stratification is required
       !
 
-      integer :: n_r
+      integer :: n_r, i
+      real(cp), allocatable :: coeffBrunt(:)
+      real(cp) :: rrOcmb(n_r_max)
 
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
@@ -1316,6 +1318,29 @@ contains
          dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)&
 & *(r_icb/r(:))**2
          l_non_adia = .true.
+
+      else if (nVarEntropyGrad == 6) then ! Fit to N2 from MESA profile
+
+         allocate(coeffBrunt(15))
+
+         rrOcmb(:) = r(:)*r_cut_model/r_cmb
+
+         coeffBrunt = [ 3.76177111e-08_cp, -1.20204939e-05_cp,  6.18515759e-04_cp, &
+                     & -1.06002837e-02_cp,  5.43441937e-02_cp,  3.08782835e-01_cp, &
+                     & -5.02559067e+00_cp,  2.75626059e+01_cp, -8.68880616e+01_cp, &
+                     &  1.76580778e+02_cp, -2.39829157e+02_cp,  2.17205801e+02_cp, &
+                     & -1.26248914e+02_cp,  4.26749906e+01_cp, -6.38558383e+00_cp]
+
+         dentropy0(:) = 0.0_cp
+
+         do i=1,15
+            dentropy0(:) = dentropy0(:) + coeffBrunt(i)*rrOcmb**(i-1)
+         end do
+
+         dentropy0(:) = dentropy0(:)/dentropy0(n_r_max)
+
+         l_non_adia = .true.
+
       end if
 
    end subroutine getEntropyGradient
