@@ -17,7 +17,8 @@ module init_fields
        &                      phi, cosTheta, hdif_B
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv,            &
-       &            l_anelastic_liquid, l_non_adia, l_finite_diff
+       &            l_anelastic_liquid, l_non_adia, l_finite_diff,  &
+       &            l_full_sphere
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
        &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
@@ -149,7 +150,7 @@ contains
       integer :: nR,nTheta,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
-      real(cp) :: rDep(n_r_max)
+      real(cp) :: rDep(n_r_max), r_ref
       class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nlat_padded,n_phi_max)
       complex(cp) :: omeLM(lmP_max)
@@ -269,10 +270,17 @@ contains
          !    the 'solid body' rotation set by inner core and mantle rotation.
 
          rExp=4.
-         if ( omega_ic1 /= 0 ) then
-            amp_r=amp_v1*omega_ic1*r_ICB**(rExp+1.)/y10_norm
+
+         if (l_full_sphere) then
+            r_ref = r(n_r_max-6)
          else
-            amp_r=amp_v1*r_ICB**(rExp+1.)/y10_norm
+            r_ref = r_icb
+         end if
+
+         if ( omega_ic1 /= 0 ) then
+            amp_r=amp_v1*omega_ic1*r_ref**(rExp+1.)/y10_norm
+         else
+            amp_r=amp_v1*r_ref**(rExp+1.)/y10_norm
          end if
          do nR=1,n_r_max
             rDep(nR)=amp_r*or1(nR)**(rExp-1.)

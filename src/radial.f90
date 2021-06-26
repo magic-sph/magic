@@ -654,8 +654,8 @@ contains
          alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
          rho0(:)  =exp(rho0(:)) ! Polynomial fit was on ln(rho0)
 
-         DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*1.4210945e9_cp &
-         &         /1.526563e12_cp !1.4210945e9 is Rs (m), 1.526563e12 is mena(cp) (J/kg/K)
+         DissNb   =alpha0(1)*rgrav(1)*1e-2*(rrOcmb(1)-rrOcmb(n_r_max))*1.4210945e9_cp &
+         &         /36485.0_cp !1.4210945e9 is Rs (m), 36485.0_cp is mean(cp) (J/kg/K)
          GrunNb = 0.6491803_cp ! Mean value of Grüneisen parameter
          ogrun(:) = 1/GrunNb
 
@@ -1166,6 +1166,8 @@ contains
          else
             epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
          end if
+      else if ( nVarEps == 4 ) then
+         epscProf = rho0(:)*exp(-r(:))
       end if
 
       !-- Variable viscosity
