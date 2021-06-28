@@ -1204,7 +1204,7 @@ contains
             epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
          end if
       else if ( nVarEps == 4 ) then
-         epscProf = rho0(:)*exp(-r(:))
+         epscProf = rho0(:)*exp(-r(:)/r_cmb)
       end if
 
       !-- Variable viscosity
