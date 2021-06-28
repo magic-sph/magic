@@ -66,6 +66,8 @@ module radial_functions
    real(cp), public :: r_icb                     ! IC radius
    real(cp), public :: r_surface                 ! Surface radius for extrapolation in units of (r_cmb-r_icb)
 
+   logical, public :: T_rho_profiles_from_MESA   ! Use the temperature and density profiles from MESA directly
+
    !-- arrays for buoyancy, depend on Ra and Pr:
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
 
@@ -614,7 +616,7 @@ contains
 
          rrOcmb(:) = r(:)*r_cut_model/r_cmb
 
-         allocate ( coeffAlpha(15), coeffTemp(15), coeffGrav(15), coeffDens(15) )
+         allocate ( coeffAlpha(15), coeffTemp(15), coeffGrav(15) )
          coeffAlpha = [-1.69669886e+01_cp,  2.25126880e-01_cp,  2.26338090e+00_cp, &
                   &     2.35294652e+02_cp, -3.00070387e+03_cp,  2.75895814e+04_cp, &
                   &    -1.79214950e+05_cp,  7.79563367e+05_cp, -2.28364507e+06_cp, &
@@ -627,32 +629,22 @@ contains
                   &  -6.30545791e+06_cp,  8.53073111e+06_cp, -7.81852047e+06_cp, &
                   &   4.63524426e+06_cp, -1.60410552e+06_cp,  2.46092522e+05_cp]
 
-         coeffGrav = [-2.26143532e+02_cp,  1.84668067e+06_cp, -7.46093335e+06_cp, &
+         coeffGrav = [-2.26143532e+02_cp,  1.84668067e+06_cp,  -7.46093335e+06_cp, &
                   &     6.09516538e+07_cp, -2.89932319e+08_cp, -1.28360281e+09_cp, &
                   &     1.87711700e+10_cp, -8.91090649e+10_cp,  2.44327981e+11_cp, &
                   &    -4.36254113e+11_cp,  5.26247737e+11_cp, -4.27715620e+11_cp, &
                   &     2.25236032e+11_cp, -6.95723140e+10_cp,  9.58641020e+09_cp]
 
-         coeffDens = [3.69064685e+00_cp,  2.86982785e-01_cp, -3.64525914e+01_cp, &
-                  &  3.19434447e+02_cp, -3.87234973e+03_cp,  3.39431874e+04_cp, &
-                  & -2.28260951e+05_cp,  1.07943028e+06_cp, -3.45646712e+06_cp, &
-                  &  7.49900396e+06_cp, -1.10398174e+07_cp,  1.08737357e+07_cp, &
-                  & -6.86689596e+06_cp,  2.51576444e+06_cp, -4.06867603e+05_cp]
-
-
          alpha0(:)=0.0_cp
          temp0(:) =0.0_cp
          rgrav(:) =0.0_cp
-         rho0(:)  =0.0_cp
          do i=1,15
             alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
             temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
             rgrav(:)  = rgrav(:) +coeffGrav(i) *rrOcmb(:)**(i-1)
-            rho0(:)   = rho0(:)  +coeffDens(i) *rrOcmb(:)**(i-1)
          end do
          temp0(:) =exp(temp0(:)) ! Polynomial fit was on ln(temp0)
          alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
-         rho0(:)  =exp(rho0(:)) ! Polynomial fit was on ln(rho0)
 
          DissNb   =alpha0(1)*rgrav(1)*1e-2*(rrOcmb(1)-rrOcmb(n_r_max))*1.4210945e9_cp &
          &         /36485.0_cp !1.4210945e9 is Rs (m), 36485.0_cp is mean(cp) (J/kg/K)
@@ -662,42 +654,87 @@ contains
          ! Normalisation
          ThExpNb  =alpha0(1)*temp0(1)
          alpha0(:)=alpha0(:)/alpha0(1)
-         temp0(:) =temp0(:)/temp0(1)
          rgrav(:) =rgrav(:)/rgrav(1)
-         rho0(:)  =rho0(:)/rho0(1)
 
-         ! First derivative
-         dLtemp0(:) =0.0_cp
-         beta(:)=0.0_cp ! d Ln(rho0)/dr
-         dLalpha0(:)=0.0_cp
-         do i=2,15
-            dLtemp0(:) = dLtemp0(:)   + (i-1) * coeffTemp(i)  *rrOcmb(:)**(i-2)
-            beta(:)    = beta(:)      + (i-1) * coeffDens(i)  *rrOcmb(:)**(i-2)
-            dLalpha0(:) = dLalpha0(:) + (i-1) * coeffAlpha(i) *rrOcmb(:)**(i-2)
-         end do
-         dtemp0 =dLtemp0*temp0
+         T_rho_profiles_from_MESA = .true. ! use the temperature and density profiles from MESA directly
 
-         ! Second derivative
-         ddLtemp0(:) =0.0_cp
-         dbeta(:)=0.0_cp
-         ddLalpha0(:)=0.0_cp
-         do i=3,15
-            ddLtemp0(:) = ddLtemp0(:) + (i-1)*(i-2) *coeffTemp(i) *rrOcmb(:)**(i-3)
-            dbeta(:) = dbeta(:) + (i-1) *(i-2) *coeffDens(i) *rrOcmb(:)**(i-3)
-            ddLalpha0(:) = ddLalpha0(:) + (i-1) *(i-2) *coeffAlpha(i) *rrOcmb(:)**(i-3)
-         end do
-         d2temp0 = dtemp0**2/temp0 + temp0*ddLtemp0
+         if ( T_rho_profiles_from_MESA ) then 
+            allocate ( coeffDens(15) )
+            coeffDens = [3.69064685e+00_cp,  2.86982785e-01_cp, -3.64525914e+01_cp, &
+                      &  3.19434447e+02_cp, -3.87234973e+03_cp,  3.39431874e+04_cp, &
+                      & -2.28260951e+05_cp,  1.07943028e+06_cp, -3.45646712e+06_cp, &
+                      &  7.49900396e+06_cp, -1.10398174e+07_cp,  1.08737357e+07_cp, &
+                      & -6.86689596e+06_cp,  2.51576444e+06_cp, -4.06867603e+05_cp]   
+            rho0(:)  = 0.0_cp
+            do i=1,15
+               rho0(:)   = rho0(:)  +coeffDens(i) *rrOcmb(:)**(i-1)
+            end do
+            rho0(:)  =exp(rho0(:)) ! Polynomial fit was on ln(rho0)
 
-         ! Third derivative
-         ddbeta(:)=0.0_cp
-         do i=4,15
-            ddbeta(:) = ddbeta(:) + (i-1) *(i-2) *(i-3) *coeffDens(i) *rrOcmb(:)**(i-4)
-         end do
+            ! Normalisation
+            temp0(:) =temp0(:)/temp0(1)
+            rho0(:)  =rho0(:)/rho0(1)
+
+            ! First derivative
+            dLtemp0(:) =0.0_cp
+            beta(:)=0.0_cp ! d Ln(rho0)/dr
+            dLalpha0(:)=0.0_cp
+            do i=2,15
+               dLtemp0(:) = dLtemp0(:)   + (i-1) * coeffTemp(i)  *rrOcmb(:)**(i-2)
+               beta(:)    = beta(:)      + (i-1) * coeffDens(i)  *rrOcmb(:)**(i-2)
+               dLalpha0(:) = dLalpha0(:) + (i-1) * coeffAlpha(i) *rrOcmb(:)**(i-2)
+            end do
+            dtemp0 =dLtemp0*temp0
+
+            ! Second derivative
+            ddLtemp0(:) =0.0_cp
+            dbeta(:)=0.0_cp
+            ddLalpha0(:)=0.0_cp
+            do i=3,15
+               ddLtemp0(:) = ddLtemp0(:) + (i-1)*(i-2) *coeffTemp(i) *rrOcmb(:)**(i-3)
+               dbeta(:) = dbeta(:) + (i-1) *(i-2) *coeffDens(i) *rrOcmb(:)**(i-3)
+               ddLalpha0(:) = ddLalpha0(:) + (i-1) *(i-2) *coeffAlpha(i) *rrOcmb(:)**(i-3)
+            end do
+            d2temp0 = dtemp0**2/temp0 + temp0*ddLtemp0
+
+            ! Third derivative
+            ddbeta(:)=0.0_cp
+            do i=4,15
+               ddbeta(:) = ddbeta(:) + (i-1) *(i-2) *(i-3) *coeffDens(i) *rrOcmb(:)**(i-4)
+            end do
+
+            deallocate( coeffDens ) 
+
+         else ! temperature and density profiles computed via the thermodynamic relations
+
+            ! d ln(temp0) / dr
+            dtemp0(:)=epsS*dentropy0(:)-DissNb*alpha0(:)*rgrav(:)
+            call getBackground(dtemp0,0.0_cp,temp0)
+            temp0=exp(temp0) ! this was ln(T_0)
+            dtemp0=dtemp0*temp0
+
+            ! d ln(rho0) / dr
+            drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb* &
+            &      alpha0*rgrav
+            call getBackground(drho0,0.0_cp,rho0)
+            rho0=exp(rho0) ! this was ln(rho_0)
+            beta=drho0 
+
+            ! Derivatives
+            call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+            call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+            call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+            call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
+            dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+            call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
+            dLtemp0 = dtemp0/temp0
+            ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+         end if
 
          !-- Multiply the gravity by alpha0 and temp0
          rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
 
-         deallocate(coeffAlpha, coeffTemp, coeffGrav, coeffDens)
+         deallocate(coeffAlpha, coeffTemp, coeffGrav)
 
 
       else  !-- Usual polytropic reference state
