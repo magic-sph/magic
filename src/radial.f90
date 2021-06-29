@@ -658,13 +658,13 @@ contains
 
          T_rho_profiles_from_MESA = .true. ! use the temperature and density profiles from MESA directly
 
-         if ( T_rho_profiles_from_MESA ) then 
+         if ( T_rho_profiles_from_MESA ) then
             allocate ( coeffDens(15) )
             coeffDens = [3.69064685e+00_cp,  2.86982785e-01_cp, -3.64525914e+01_cp, &
                       &  3.19434447e+02_cp, -3.87234973e+03_cp,  3.39431874e+04_cp, &
                       & -2.28260951e+05_cp,  1.07943028e+06_cp, -3.45646712e+06_cp, &
                       &  7.49900396e+06_cp, -1.10398174e+07_cp,  1.08737357e+07_cp, &
-                      & -6.86689596e+06_cp,  2.51576444e+06_cp, -4.06867603e+05_cp]   
+                      & -6.86689596e+06_cp,  2.51576444e+06_cp, -4.06867603e+05_cp]
             rho0(:)  = 0.0_cp
             do i=1,15
                rho0(:)   = rho0(:)  +coeffDens(i) *rrOcmb(:)**(i-1)
@@ -703,7 +703,7 @@ contains
                ddbeta(:) = ddbeta(:) + (i-1) *(i-2) *(i-3) *coeffDens(i) *rrOcmb(:)**(i-4)
             end do
 
-            deallocate( coeffDens ) 
+            deallocate( coeffDens )
 
          else ! temperature and density profiles computed via the thermodynamic relations
 
@@ -718,7 +718,7 @@ contains
             &      alpha0*rgrav
             call getBackground(drho0,0.0_cp,rho0)
             rho0=exp(rho0) ! this was ln(rho_0)
-            beta=drho0 
+            beta=drho0
 
             ! Derivatives
             call get_dr(beta,dbeta,n_r_max,rscheme_oc)
@@ -1312,11 +1312,7 @@ contains
       ! in case stable stratification is required
       !
 
-      integer :: n_r, i
-      real(cp), allocatable :: coeffBrunt(:)
-      real(cp) :: rrOcmb(n_r_max)
-
-      rStrat = 0.0_cp
+      integer :: n_r
 
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
@@ -1363,28 +1359,6 @@ contains
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 5 ) then ! uniform volumic heat without strat
          dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)*(r_icb/r(:))**2
-         l_non_adia = .true.
-
-      else if (nVarEntropyGrad == 6) then ! Fit to N2 from MESA profile
-
-         allocate(coeffBrunt(15))
-
-         rrOcmb(:) = r(:)*r_cut_model/r_cmb
-
-         coeffBrunt = [ 3.76177111e-08_cp, -1.20204939e-05_cp,  6.18515759e-04_cp, &
-                     & -1.06002837e-02_cp,  5.43441937e-02_cp,  3.08782835e-01_cp, &
-                     & -5.02559067e+00_cp,  2.75626059e+01_cp, -8.68880616e+01_cp, &
-                     &  1.76580778e+02_cp, -2.39829157e+02_cp,  2.17205801e+02_cp, &
-                     & -1.26248914e+02_cp,  4.26749906e+01_cp, -6.38558383e+00_cp]
-
-         dentropy0(:) = 0.0_cp
-
-         do i=1,15
-            dentropy0(:) = dentropy0(:) + coeffBrunt(i)*rrOcmb**(i-1)
-         end do
-
-         dentropy0(:) = dentropy0(:)/dentropy0(n_r_max)
-
          l_non_adia = .true.
 
       end if
