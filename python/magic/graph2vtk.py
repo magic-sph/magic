@@ -264,6 +264,7 @@ class Graph2Vtk:
         keyScal['Xi'] = 14
         keyScal['xifluct'] = 15
         keyScal['Xifluct'] = 15
+        keyScal['phase'] = 16
 
         # Change default scalars and vectors in non-magnetic cases
         if hasattr(gr, 'mode'):
@@ -483,6 +484,13 @@ class Graph2Vtk:
                     self.scals[k, :, :, 0:gr.nr] = gr.xi[..., ::-1]
                 self.scals[k, ...] = self.scals[k, ...]-\
                                      self.scals[k, ...].mean(axis=0)
+
+            elif index == 16: # phase field
+                if deminc:
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(gr.phase[..., ::-1],
+                                                              gr.minc)
+                else:
+                    self.scals[k, :, :, 0:gr.nr] = gr.phase[..., ::-1]
 
             if potExtra:
                 if index == 2:

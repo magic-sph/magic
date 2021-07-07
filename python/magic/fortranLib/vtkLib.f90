@@ -396,6 +396,7 @@ subroutine getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
       if ( scalcodes(i) == 13) scalnames(i) = 'Colatitude'
       if ( scalcodes(i) == 14) scalnames(i) = 'Composition'
       if ( scalcodes(i) == 15) scalnames(i) = 'Fluct. composition'
+      if ( scalcodes(i) == 16) scalnames(i) = 'Phase field'
    end do
 
    do i=1,nvecs
