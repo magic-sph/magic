@@ -116,7 +116,7 @@ contains
       call dummy%initialize(1, lm_max, nRstart, nRstop, tscheme%nold, tscheme%nexp,&
            &                tscheme%nimp, l_allocate_exp=.true.)
 
-      if ( l_heat ) call prepareS_FD(tscheme, dummy)
+      if ( l_heat ) call prepareS_FD(tscheme, dummy, phi_Rloc)
       if ( l_chemical_conv ) call prepareXi_FD(tscheme, dummy)
       if ( l_conv ) then
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
@@ -296,9 +296,17 @@ contains
          if ( l_phase_field ) lPhimat(:)=.false.
       end if
 
+      !-- Phase field needs to be computed first on its own to allow a proper
+      !-- advance of temperature afterwards
+      if ( l_phase_field ) then
+         call preparePhase_FD(tscheme, dphidt)
+         call parallel_solve_phase(block_sze)
+         call fill_ghosts_Phi(phi_ghost)
+         call updatePhase_FD(phi_Rloc, dphidt, tscheme)
+      end if
+
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required
-      if ( l_phase_field ) call preparePhase_FD(tscheme, dphidt)
-      if ( l_heat ) call prepareS_FD(tscheme, dsdt)
+      if ( l_heat ) call prepareS_FD(tscheme, dsdt, phi_Rloc)
       if ( l_chemical_conv ) call prepareXi_FD(tscheme, dxidt)
       if ( l_conv ) then
          call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
@@ -580,12 +588,74 @@ contains
 
    end subroutine assemble_stage_Rdist
 !--------------------------------------------------------------------------------
+   subroutine parallel_solve_phase(block_sze)
+      !
+      ! This subroutine handles the parallel solve of the phase field matrices.
+      ! This needs to be updated before the temperature.
+      !
+      integer, intent(in) :: block_sze ! Size ot the LM blocks
+
+      !-- Local variables
+      integer :: req
+      integer :: start_lm, stop_lm, tag, nlm_block, lms_block
+
+#ifdef WITH_MPI
+      array_of_requests(:)=MPI_REQUEST_NULL
+#endif
+      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
+      tag = 0
+      req=1
+      do lms_block=1,lm_max,block_sze
+         nlm_block = lm_max-lms_block+1
+         if ( nlm_block > block_sze ) nlm_block=block_sze
+         start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+         call get_openmp_blocks(start_lm,stop_lm)
+         !$omp barrier
+
+         call phiMat_FD%solver_up(phi_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
+              &                   array_of_requests, req, lms_block, nlm_block)
+         tag = tag+1
+      end do
+
+      do lms_block=1,lm_max,block_sze
+         nlm_block = lm_max-lms_block+1
+         if ( nlm_block > block_sze ) nlm_block=block_sze
+         start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+         call get_openmp_blocks(start_lm,stop_lm)
+         !$omp barrier
+
+         call phiMat_FD%solver_dn(phi_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
+           &                      array_of_requests, req, lms_block, nlm_block)
+         tag = tag+1
+      end do
+
+      !$omp master
+      do lms_block=1,lm_max,block_sze
+         nlm_block = lm_max-lms_block+1
+         if ( nlm_block > block_sze ) nlm_block=block_sze
+
+         call phiMat_FD%solver_finish(phi_ghost, lms_block, nlm_block, nRstart, &
+              &                       nRstop, tag, array_of_requests, req)
+         tag = tag+1
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Waitall(req-1, array_of_requests(1:req-1), MPI_STATUSES_IGNORE, ierr)
+      if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+      !$omp end master
+      !$omp barrier
+
+      !$omp end parallel
+
+   end subroutine parallel_solve_phase
+!--------------------------------------------------------------------------------
    subroutine parallel_solve(block_sze)
       !
       ! This subroutine handles the parallel solve of the time-advance matrices.
       ! This works with R-distributed arrays (finite differences).
       !
-
       integer, intent(in) :: block_sze ! Size ot the LM blocks
 
       !-- Local variables

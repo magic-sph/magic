@@ -1139,7 +1139,7 @@ contains
       end do
       !$omp end do
 
-      !----- Boundary coditions:
+      !----- Boundary conditions:
       !$omp do
       do l=0,l_max
          if ( ktopxi == 1 ) then

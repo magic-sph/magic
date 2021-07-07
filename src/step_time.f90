@@ -970,7 +970,7 @@ contains
                        &             lm_max)
                   call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
                   call fill_ghosts_S(s_ghost)
-                  call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, phi_ghost, &
+                  call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, phi_Rloc, &
                        &                         1, .true.)
                else
                   call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, phi_LMloc, 1, .true.)

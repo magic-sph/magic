@@ -680,9 +680,10 @@ contains
          do lm=llm,ulm
             m = lm2m(lm)
             if ( m == 0 ) then
-               phi(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp)
+               phi(lm,n_r)=cmplx(real(work_LMloc(lm,n_r)),0.0_cp,cp) * &
+               &           6.0_cp/5.0_cp/stef/pr
             else
-               phi(lm,n_r)=work_LMloc(lm,n_r)
+               phi(lm,n_r)=work_LMloc(lm,n_r)*6.0_cp/5.0_cp/stef/pr
             end if
          end do
       end do
@@ -811,9 +812,10 @@ contains
          do lm=start_lm,stop_lm
             m = st_map%lm2m(lm)
             if ( m == 0 ) then
-               phi(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)
+               phi(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)* &
+               &           6.0_cp/5.0_cp/stef/pr
             else
-               phi(lm,n_r)=work_Rloc(lm,n_r)
+               phi(lm,n_r)=work_Rloc(lm,n_r)*6.0_cp/5.0_cp/stef/pr
             end if
          end do
       end do
@@ -1070,7 +1072,7 @@ contains
       end do
       !$omp end do
 
-      !----- Boundary coditions:
+      !----- Boundary conditions:
       !$omp do
       do l=0,l_max
          if ( ktopphi == 1 ) then ! Dirichlet

@@ -216,6 +216,7 @@ contains
       !$omp parallel default(shared)
 
       if ( l_phase_field ) then
+         !-- Add the last remaining term to assemble St*\partial \phi/\partial t
          !$omp do private(nR,lm)
          do nR=1,n_r_max
             do lm=llm,ulm
@@ -380,7 +381,7 @@ contains
 
    end subroutine updateS
 !------------------------------------------------------------------------------
-   subroutine prepareS_FD(tscheme, dsdt)
+   subroutine prepareS_FD(tscheme, dsdt, phi)
       !
       ! This subroutine is used to assemble the r.h.s. of the entropy equation
       ! when parallel F.D solvers are used. Boundary values are set here.
@@ -388,6 +389,7 @@ contains
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
+      complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dsdt
@@ -410,6 +412,15 @@ contains
 
       !-- Now assemble the right hand side
       call tscheme%set_imex_rhs_ghost(s_ghost, dsdt, lm_start, lm_stop, 1)
+
+      if ( l_phase_field ) then
+         !-- Add the last remaining term to assemble St*\partial \phi/\partial t
+         do nR=nRstart,nRstop
+            do lm=lm_start,lm_stop
+               s_ghost(lm,nR)=s_ghost(lm,nR)+stef*phi(lm,nR)
+            end do
+         end do
+      end if
 
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
@@ -516,7 +527,7 @@ contains
 
    end subroutine fill_ghosts_S
 !------------------------------------------------------------------------------
-   subroutine updateS_FD(s, ds, dsdt, phig, tscheme)
+   subroutine updateS_FD(s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is called after the linear solves have been completed.
       ! This is then assembling the linear terms that will be used in the r.h.s.
@@ -525,7 +536,7 @@ contains
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
-      complex(cp),         intent(in) :: phig(lm_max,nRstart-1:nRstop+1) ! Phase field
+      complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop) ! Phase field
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dsdt
@@ -543,10 +554,10 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-         call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, phig, 1, &
+         call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, phi, 1, &
               &                         tscheme%l_imp_calc_rhs(1))
       else
-         call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, phig, tscheme%istage+1, &
+         call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, phi, tscheme%istage+1, &
               &                         tscheme%l_imp_calc_rhs(tscheme%istage+1))
       end if
 
@@ -779,7 +790,7 @@ contains
 
    end subroutine get_entropy_rhs_imp
 !-----------------------------------------------------------------------------
-   subroutine get_entropy_rhs_imp_ghost(sg, ds, dsdt, phig, istage, l_calc_lin)
+   subroutine get_entropy_rhs_imp_ghost(sg, ds, dsdt, phi, istage, l_calc_lin)
       !
       ! This subroutine computes the linear terms that enters the r.h.s.. This is
       ! used with R-distributed
@@ -789,7 +800,7 @@ contains
       integer,     intent(in) :: istage
       logical,     intent(in) :: l_calc_lin
       complex(cp), intent(in) :: sg(lm_max,nRstart-1:nRstop+1)
-      complex(cp), intent(in) :: phig(lm_max,nRstart-1:nRstop+1)
+      complex(cp), intent(in) :: phi(lm_max,nRstart:nRstop)
 
       !-- Output variable
       complex(cp),       intent(out) :: ds(lm_max,nRstart:nRstop)
@@ -821,7 +832,7 @@ contains
             end do
             if ( l_phase_field ) then
                do lm=start_lm,stop_lm
-                  dsdt%old(lm,n_r,istage)=dsdt%old(lm,n_r,istage)-stef*phig(lm,n_r)
+                  dsdt%old(lm,n_r,istage)=dsdt%old(lm,n_r,istage)-stef*phi(lm,n_r)
                end do
             end if
          end do
@@ -858,14 +869,14 @@ contains
 
    end subroutine get_entropy_rhs_imp_ghost
 !-----------------------------------------------------------------------------
-   subroutine assemble_entropy_Rloc(s, ds, dsdt, phig, tscheme)
+   subroutine assemble_entropy_Rloc(s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is used when an IMEX Runge-Kutta time scheme with an assembly
       ! stage is used. This is used when R is distributed.
       !
 
       !-- Input variable
-      complex(cp),         intent(in) :: phig(lm_max,nRstart-1:nRstop+1)
+      complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Output variables
@@ -919,7 +930,7 @@ contains
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration
-      call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, phig, 1, &
+      call get_entropy_rhs_imp_ghost(s_ghost, ds, dsdt, phi, 1, &
            &                         tscheme%l_imp_calc_rhs(1))
 
    end subroutine assemble_entropy_Rloc
