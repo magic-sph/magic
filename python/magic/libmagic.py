@@ -63,6 +63,13 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'xi'
         data_ic = None
+    elif field in ('phase'):
+        data = obj.phase
+        if labTex:
+            label = r'$\Phi$'
+        else:
+            label = 'phi'
+        data_ic = None
     elif field in ('Vr', 'vr', 'Ur', 'ur'):
         data = obj.vr
         if labTex:

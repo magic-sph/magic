@@ -183,9 +183,14 @@ class MagicCheckpoint:
         else:
             self.dt = np.fromfile(file, dtype=np.float64, count=1)[0]
         n_time_step = np.fromfile(file, dtype=np.int32, count=1)[0]
-        self.ra, self.pr, self.raxi, self.sc, self.prmag, self.ek, \
-                 self.radratio, self.sigma_ratio = \
-                 np.fromfile(file, dtype=np.float64, count=8)
+        if version <= 2:
+            self.ra, self.pr, self.raxi, self.sc, self.prmag, self.ek, \
+                     self.radratio, self.sigma_ratio = \
+                     np.fromfile(file, dtype=np.float64, count=8)
+        else:
+            self.ra, self.pr, self.raxi, self.sc, self.prmag, self.ek, \
+                     self.stef, self.radratio, self.sigma_ratio = \
+                     np.fromfile(file, dtype=np.float64, count=9)
 
         # Truncation
         self.n_r_max, self.n_theta_max, self.n_phi_tot, self.minc,\
@@ -222,8 +227,13 @@ class MagicCheckpoint:
         self.omega_ma = om[6]
 
         # Logicals
-        self.l_heat, self.l_chem, self.l_mag, self.l_press, self.l_cond_ic = \
-            np.fromfile(file, dtype=np.int32, count=5)
+        if version <= 2:
+            self.l_heat, self.l_chem, self.l_mag, self.l_press, self.l_cond_ic = \
+                np.fromfile(file, dtype=np.int32, count=5)
+            self.l_phase = False
+        else:
+            self.l_heat, self.l_chem, self.l_phase, self.l_mag, self.l_press, \
+                self.l_cond_ic = np.fromfile(file, dtype=np.int32, count=6)
 
         # Fields
         self.wpol = np.fromfile(file, dtype=np.complex128,
@@ -259,6 +269,13 @@ class MagicCheckpoint:
             self.xi = np.fromfile(file, dtype=np.complex128,
                                   count=self.n_r_max*self.lm_max)
             self.xi = self.xi.reshape((self.n_r_max, self.lm_max))
+            if self.tscheme_family.startswith('MULTISTEP'):
+                tmp = np.fromfile(file, dtype=np.complex128,
+                                  count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))
+        if self.l_phase:
+            self.phase = np.fromfile(file, dtype=np.complex128,
+                                     count=self.n_r_max*self.lm_max)
+            self.phase = self.phase.reshape((self.n_r_max, self.lm_max))
             if self.tscheme_family.startswith('MULTISTEP'):
                 tmp = np.fromfile(file, dtype=np.complex128,
                                   count=self.lm_max*self.n_r_max*(nexp+nimp+nold-3))

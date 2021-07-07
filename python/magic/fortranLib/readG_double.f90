@@ -4,14 +4,14 @@ module greader_single
 
    implicit none
 
-   real(cp) :: ra,ek,pr,prmag,radratio,sigma,raxi,sc
+   real(cp) :: ra,ek,pr,prmag,radratio,sigma,raxi,sc,stef
    real(cp) :: time
    integer :: nr,nt,np,minc,nric
    real(cp), allocatable :: radius(:),colat(:),radius_ic(:)
    real(cp), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
    real(cp), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
    real(cp), allocatable :: Br_ic(:,:,:),Bt_ic(:,:,:),Bp_ic(:,:,:)
-   real(cp), allocatable :: xi(:,:,:)
+   real(cp), allocatable :: xi(:,:,:),phase(:,:,:)
 
 contains
 
@@ -316,6 +316,7 @@ contains
       real(cp) :: rad
       real(cp), allocatable :: dummy(:,:)
       logical :: l_heat, l_mag, l_cond_ic, l_chemical_conv, l_press
+      logical :: l_phase_field
    
       if ( endian == 'B' ) then
          open(unit=10, file=filename, form='unformatted', convert='big_endian', &
@@ -327,9 +328,19 @@ contains
 
       read(10) version
       read(10) runid
-      read(10) time, ra, pr, raxi, sc, ek, prmag, radratio, sigma
+      if ( version > 13 ) then
+         read(10) time, ra, pr, raxi, sc, ek, stef, prmag, radratio, sigma
+      else
+         read(10) time, ra, pr, raxi, sc, ek, prmag, radratio, sigma
+         stef=0.0_cp
+      end if
       read(10) nr, nt, np, minc, nric
-      read(10) l_heat, l_chemical_conv, l_mag, l_press, l_cond_ic
+      if ( version > 13 ) then
+         read(10) l_heat, l_chemical_conv, l_phase_field, l_mag, l_press, l_cond_ic
+      else
+         read(10) l_heat, l_chemical_conv, l_mag, l_press, l_cond_ic
+         l_phase_field=.false.
+      end if
 
       np=np/minc
 
@@ -342,6 +353,7 @@ contains
       if ( l_heat .and. allocated(entropy) ) deallocate(entropy)
       if ( l_press .and. allocated(pre) ) deallocate(pre)
       if ( l_chemical_conv .and. allocated(xi) ) deallocate(xi)
+      if ( l_phase_field .and. allocated(phase) ) deallocate(phase)
       if ( l_mag ) then
         if ( allocated(Br) ) deallocate( Br )
         if ( allocated(Bt) ) deallocate( Bt )
@@ -361,6 +373,7 @@ contains
       if ( l_heat ) allocate( entropy(1:np,1:nt,1:nr) )
       if ( l_press ) allocate( pre(1:np,1:nt,1:nr) )
       if ( l_chemical_conv ) allocate( xi(1:np,1:nt,1:nr) )
+      if ( l_phase_field ) allocate( phase(1:np,1:nt,1:nr) )
       allocate( vr(1:np,1:nt,1:nr) )
       allocate( vt(1:np,1:nt,1:nr) )
       allocate( vp(1:np,1:nt,1:nr) )
@@ -392,6 +405,10 @@ contains
          if ( l_chemical_conv ) then
             read(10) dummy
             xi(:,:,ir)=transpose(dummy)
+         end if
+         if ( l_phase_field ) then
+            read(10) dummy
+            phase(:,:,ir)=transpose(dummy)
          end if
          if ( l_press ) then
             read(10) dummy

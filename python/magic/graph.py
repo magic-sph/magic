@@ -221,15 +221,25 @@ class MagicGraph(MagicSetup):
         runID = np.fromfile(f, fmt, count=1)[0]
         fmt = '{}f{}'.format(prefix, suffix)
         self.time = np.fromfile(f, fmt, count=1)[0]
-        self.ra, self.pr, self.raxi, self.sc, self.ek, self.prmag, self.radratio, \
-            self.sigma = np.fromfile(f, fmt, count=8)
+        if version > 13:
+            self.ra, self.pr, self.raxi, self.sc, self.ek, self.stef, self.prmag, \
+                self.radratio, self.sigma = np.fromfile(f, fmt, count=9)
+        else:
+            self.ra, self.pr, self.raxi, self.sc, self.ek, self.prmag, self.radratio, \
+                self.sigma = np.fromfile(f, fmt, count=8)
+            self.stef = 0.
         fmt = '{}i{}'.format(prefix, suffix)
         self.nr, self.ntheta, self.npI, self.minc, self.n_r_ic_max = \
             np.fromfile(f, fmt, count=5)
         if self.npI == self.ntheta*2:
             self.npI = int(self.npI/self.minc)
         self.nphi = self.npI*self.minc+1
-        l_heat, l_chem, l_mag, l_press, l_cond_ic = np.fromfile(f, fmt, count=5)
+        if version > 13:
+            l_heat, l_chem, l_phase, l_mag, l_press, l_cond_ic = \
+                np.fromfile(f, fmt, count=6)
+        else:
+            l_heat, l_chem, l_mag, l_press, l_cond_ic = np.fromfile(f, fmt, count=5)
+            l_phase = False
         fmt = '{}f{}'.format(prefix, suffix)
         self.colatitude = np.fromfile(f, fmt, count=self.ntheta)
         self.radius = np.fromfile(f, fmt, count=self.nr)
@@ -243,6 +253,8 @@ class MagicGraph(MagicSetup):
             self.entropy = np.zeros_like(self.vr)
         if l_chem > 0:
             self.xi = np.zeros_like(self.vr)
+        if l_phase > 0:
+            self.phase = np.zeros_like(self.vr)
         if l_press > 0:
             self.pre = np.zeros_like(self.vr)
         if l_mag > 0:
@@ -269,6 +281,9 @@ class MagicGraph(MagicSetup):
             if l_chem > 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.xi[:, :, i] = dat.reshape(self.npI, self.ntheta)
+            if l_phase > 0:
+                dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
+                self.phase[:, :, i] = dat.reshape(self.npI, self.ntheta)
             if l_press > 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.pre[:, :, i] = dat.reshape(self.npI, self.ntheta)
