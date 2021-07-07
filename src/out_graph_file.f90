@@ -12,12 +12,12 @@ module graphOut_mod
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
    use radial_data, only: nRstart, n_r_cmb
-   use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, raxi, &
-       &                          sc
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
+       &                          raxi, sc, stef
    use num_param, only: vScale
    use horizontal_data, only: theta_ord, O_sin_theta, n_theta_cal2ord
    use logic, only: l_mag, l_cond_ic, l_PressGraph, l_chemical_conv, l_heat, &
-       &            l_save_out
+       &            l_save_out, l_phase_field
    use output_data, only: runid, n_log_file, log_file, tag
    use sht, only: torpol_to_spat_IC
 
@@ -96,7 +96,7 @@ contains
 
    end subroutine close_graph_file
 !--------------------------------------------------------------------------------
-   subroutine graphOut(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
+   subroutine graphOut(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
       !
       !  Output of components of velocity, magnetic field vector, entropy
       !  and composition for graphic outputs.
@@ -106,7 +106,7 @@ contains
       integer,  intent(in) :: n_r                    ! radial grod point no.
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:)
+      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:),phir(:,:)
 
       !-- Local variables:
       integer :: n_phi, n_theta, n_theta_cal, version
@@ -114,7 +114,7 @@ contains
       real(outp) :: dummy(n_theta_max,n_phi_max)
 
       !-- Write header & colatitudes for n_r=0:
-      version = 13
+      version = 14
 
       !-- Calculate and write radial velocity:
       fac=or2(n_r)*vScale*orho1(n_r)
@@ -160,11 +160,22 @@ contains
       end if
 
       if ( l_chemical_conv ) then
-         !-- Write entropy:
+         !-- Write chemical composition:
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
                n_theta =n_theta_cal2ord(n_theta_cal)
                dummy(n_theta,n_phi)=real(xir(n_theta_cal,n_phi),kind=outp)
+            end do
+         end do
+         write(n_graph_file) dummy(:,:)
+      end if
+
+      if ( l_phase_field ) then
+         !-- Write phase field:
+         do n_phi=1,n_phi_max ! do loop over phis
+            do n_theta_cal=1,n_theta_max
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(phir(n_theta_cal,n_phi),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -225,19 +236,20 @@ contains
       !-- Local variables:
       integer :: n_theta, version
 
-      version = 13
+      version = 14
 
       !-- Write parameters:
       write(n_graph_file) version
       write(n_graph_file) runid
       write(n_graph_file) real(time,outp)
-      write(n_graph_file) real(ra,outp), real(pr,outp), real(raxi,outp),    &
-      &                   real(sc,outp), real(ek,outp), real(prmag,outp),   &
-      &                   real(radratio,outp), real(sigma_ratio,outp)
+      write(n_graph_file) real(ra,outp), real(pr,outp), real(raxi,outp),  &
+      &                   real(sc,outp), real(ek,outp), real(stef,outp),  &
+      &                   real(prmag,outp), real(radratio,outp),          &
+      &                   real(sigma_ratio,outp)
       write(n_graph_file) n_r_max, n_theta_max, n_phi_tot, minc, n_r_ic_max
 
-      write(n_graph_file) l_heat,l_chemical_conv, l_mag, l_PressGraph, &
-      &                   l_cond_ic
+      write(n_graph_file) l_heat,l_chemical_conv, l_phase_field, l_mag, &
+      &                   l_PressGraph, l_cond_ic
 
       !-- Write colatitudes:
       write(n_graph_file) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
@@ -251,7 +263,7 @@ contains
    end subroutine graphOut_header
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir)
+   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
       !
@@ -260,7 +272,7 @@ contains
       integer,  intent(in) :: n_r                      ! radial grid point no.
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:)
+      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:),phir(:,:)
 
       !-- Local variables:
       integer :: n_phi, n_theta, n_theta_cal
@@ -317,6 +329,17 @@ contains
             do n_theta_cal=1,n_theta_max
                n_theta =n_theta_cal2ord(n_theta_cal)
                dummy(n_theta,n_phi)=real(xir(n_theta_cal,n_phi),kind=outp)
+            end do
+         end do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write phase field:
+      if ( l_phase_field ) then
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(phir(n_theta_cal,n_phi),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -383,12 +406,13 @@ contains
       integer :: st(MPI_STATUS_SIZE)
       integer(kind=MPI_OFFSET_kind) :: disp, offset
 
-      version = 13
+      version = 14
       n_fields = 3
       if ( l_mag ) n_fields = n_fields+3
       if ( l_heat ) n_fields = n_fields+1
       if ( l_PressGraph ) n_fields = n_fields+1
       if ( l_chemical_conv ) n_fields = n_fields+1
+      if ( l_phase_field ) n_fields = n_fields+1
 
       if ( rank == 0 ) then
          !-------- Write parameters:
@@ -400,6 +424,7 @@ contains
          call MPI_File_Write(graph_mpi_fh,real(raxi,outp),1,MPI_OUT_REAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,real(sc,outp),1,MPI_OUT_REAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,real(ek,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(graph_mpi_fh,real(stef,outp),1,MPI_OUT_REAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,real(prmag,outp),1,MPI_OUT_REAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,real(radratio,outp),1,MPI_OUT_REAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,real(sigma_ratio,outp),1,MPI_OUT_REAL,st,ierr)
@@ -412,6 +437,7 @@ contains
 
          call MPI_File_Write(graph_mpi_fh,l_heat,1,MPI_LOGICAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,l_chemical_conv,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(graph_mpi_fh,l_phase_field,1,MPI_LOGICAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,l_mag,1,MPI_LOGICAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,l_PressGraph,1,MPI_LOGICAL,st,ierr)
          call MPI_File_Write(graph_mpi_fh,l_cond_ic,1,MPI_LOGICAL,st,ierr)

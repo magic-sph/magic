@@ -42,8 +42,8 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,    &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,      &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,&
-              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
-              &          dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,        &
+              &          dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,      &
+              &          dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,&
               &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,     &
               &          br_vt_lm_icb,br_vp_lm_icb,                       &
               &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,           &
@@ -74,6 +74,7 @@ contains
       complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dphidt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
@@ -118,7 +119,7 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,         &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,           &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,dsdt,&
-              &          dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,       &
+              &          dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
               &          dVSrLM,dVXirLM,lorentz_torque_ic,lorentz_torque_ma,   &
               &          br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,  &
               &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,    &

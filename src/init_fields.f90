@@ -28,16 +28,17 @@ module init_fields
        &                       rscheme_oc, or1, O_r_ic
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
-       &                zero, one, two, three, four, third, half
+       &                zero, one, two, three, four, third, half, sq4pi
    use useful, only: random, abortRun
    use sht, only: scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
-       &                          epsc, ViscHeatFac, ThExpNb,             &
+       &                          epsc, ViscHeatFac, ThExpNb, tmelt,      &
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
-       &                          kbotxi, ktopxi, BuoFac, ktopp, oek
+       &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
+       &                          epsPhase, tmelt
    use algebra, only: prepare_mat, solve_mat
    use cosine_transform_odd
    use dense_matrices
@@ -53,6 +54,7 @@ module init_fields
    integer, public :: init_s1,init_s2
    integer, public :: init_xi1,init_xi2
    integer, public :: init_b1,init_v1
+   integer, public :: init_phi ! An integer to specify phase field initial configuration
 
    !----- Entropy amplitudes for initialisation:
    real(cp), public :: amp_s1,amp_s2,amp_v1,amp_b1,amp_xi1,amp_xi2
@@ -70,6 +72,10 @@ module init_fields
    real(cp), public :: xi_top(4*n_xi_bounds)
    complex(cp), public, allocatable :: topxi(:,:)
    complex(cp), public, allocatable :: botxi(:,:)
+
+   !---- Phase field
+   real(cp), public :: phi_top ! Phase field value at the outer boundary
+   real(cp), public :: phi_bot ! Phase field value at the inner boundary
 
    !----- Peak values for magnetic field:
    real(cp), public :: bpeakbot,bpeaktop
@@ -94,7 +100,7 @@ module init_fields
    real(cp), public :: scale_b
    real(cp), public :: tipdipole       ! adding to symetric field
 
-   public :: initialize_init_fields, initV, initS, initB, ps_cond, &
+   public :: initialize_init_fields, initV, initS, initB, initPhi, ps_cond, &
    &         pt_cond, initXi, xi_cond, finalize_init_fields
 
 contains
@@ -1416,6 +1422,62 @@ contains
       end if
 
    end subroutine initB
+!-----------------------------------------------------------------------
+   subroutine initPhi(s, phi)
+      !
+      ! This subroutine sets the initial phase field distribution. It follows
+      ! a tanh function with a width of size epsPhase
+      !
+
+      !-- Input variable
+      complex(cp), intent(inout) :: s(llm:ulm,n_r_max) ! Entropy/Temperature
+
+      !-- In/out variable
+      complex(cp), intent(inout) :: phi(llm:ulm,n_r_max) ! Phase field
+
+      !-- Local variables:
+      real(cp) :: temp00(n_r_max), rmelt, phi0(n_r_max)
+      integer :: lm00, n_r, n_r_melt, l, lm
+
+      lm00 = lo_map%lm2(0,0) ! spherically-symmetric mode
+
+      if ( init_phi /= 0 ) then
+         !-- The initial phase field is set as a tanh function of width epsPhase
+         !-- centered at the melting temperature
+
+         if ( llm <= lm00 .and. ulm >= lm00 ) then
+            temp00(:)=osq4pi * real(s(lm00,:))
+            do n_r=2,n_r_max
+               if ( temp00(n_r-1) < tmelt .and. temp00(n_r) >= tmelt ) then
+                  n_r_melt=n_r
+               end if
+            end do
+            rmelt=r(n_r_melt)
+            phi_top=1.0_cp
+            phi_bot=0.0_cp
+            phi0=half*(one+(phi_top-phi_bot)*tanh((r(:)-rmelt)/two/sqrt(two)/epsPhase))
+            phi(lm00,:)= sq4pi*cmplx(phi0,0.0_cp,cp)
+            phi_top=sq4pi
+            phi_bot=0.0_cp
+         end if
+      end if
+
+#ifdef WITH_MPI
+      call MPI_Bcast(phi0,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+#endif
+
+      !-- Make sure there is no temperature perturbation in the solid phase
+      if ( init_s1 /= 0 .or. init_s2 /= 0 ) then
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               l = lo_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               s(lm,n_r)=s(lm,n_r)*(one-phi0(n_r))
+            end do
+         end do
+      end if
+
+   end subroutine initPhi
 !-----------------------------------------------------------------------
    subroutine j_cond(lm0, aj0, aj0_ic)
       !

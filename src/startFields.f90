@@ -25,11 +25,11 @@ module start_fields
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
-       &            l_parallel_solve, l_mag_par_solve
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
-       &                  omega_ma1
+       &                  omega_ma1, initPhi, init_phi
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
@@ -50,6 +50,8 @@ module start_fields
        &                  fill_ghosts_S
    use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
        &                   fill_ghosts_Xi
+   use updatePhi_mod, only: get_phase_rhs_imp, get_phase_rhs_imp_ghost, phi_ghost, &
+       &                   fill_ghosts_Phi
    use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, z_ghost, &
        &                  fill_ghosts_Z
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
@@ -203,7 +205,6 @@ contains
          deltaxicond=0.0_cp
       end if
 
-
       !-- Start with setting fields to zero:
       !   Touching the fields with the appropriate processor
       !   for the LM-distribute parallel region (LMLoop) makes
@@ -214,29 +215,30 @@ contains
 
          call t_reader%start_count()
          if ( index(start_file, 'rst_') /= 0 ) then
-            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
-                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,      &
-                 &                    dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,    &
-                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
-                 &                    domega_ic_dt,domega_ma_dt,                &
-                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
+            call readStartFields_old( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,      &
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,phi_LMloc,       &
+                 &                    dphidt,b_LMloc,dbdt,aj_LMloc,djdt,           &
+                 &                    b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,      &
+                 &                    omega_ic,omega_ma,domega_ic_dt,domega_ma_dt, &
+                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,   &
                  &                    time,tscheme,n_time_step )
          else
 #ifdef WITH_MPI
             call readStartFields_mpi( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,   &
-                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,b_LMloc,dbdt, &
-                 &                    aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
-                 &                    aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,    &
-                 &                    domega_ic_dt,domega_ma_dt,                &
-                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,&
-                 &                    time,tscheme,n_time_step )
+                 &                    s_LMloc,dsdt,xi_LMloc,dxidt,phi_LMloc,    &
+                 &                    dphidt,b_LMloc,dbdt,aj_LMloc,djdt,        &
+                 &                    b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,   &
+                 &                    omega_ic,omega_ma,domega_ic_dt,           &
+                 &                    domega_ma_dt,lorentz_torque_ic_dt,        &
+                 &                    lorentz_torque_ma_dt,time,tscheme,        &
+                 &                    n_time_step )
 #else
             call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
-                 &                dsdt,xi_LMloc,dxidt,b_LMloc,dbdt,aj_LMloc,djdt,&
-                 &                b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,        &
-                 &                omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,   &
-                 &                lorentz_torque_ic_dt,lorentz_torque_ma_dt,     &
-                 &                time,tscheme,n_time_step )
+                 &                dsdt,xi_LMloc,dxidt,phi_LMloc,dphidt,b_LMloc,  &
+                 &                dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
+                 &                aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,         &
+                 &                domega_ic_dt,domega_ma_dt,lorentz_torque_ic_dt,&
+                 &                lorentz_torque_ma_dt,time,tscheme,n_time_step )
 #endif
          end if
          call t_reader%stop_count()
@@ -267,6 +269,7 @@ contains
          end if
          if ( l_heat ) s_LMloc(:,:)=zero
          if ( l_chemical_conv ) xi_LMloc(:,:)=zero
+         if ( l_phase_field ) phi_LMloc(:,:)=zero
          if ( l_mag ) then
             b_LMloc(:,:) =zero
             aj_LMloc(:,:)=zero
@@ -308,11 +311,15 @@ contains
       !----- Initialize/add chemical convection:
       if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) call initXi(xi_LMloc)
 
+      !----- Initialize/add phase field:
+      if ( init_phi /= 0 .and. l_phase_field ) call initPhi(s_LMloc, phi_LMloc)
+
       !---- For now fiels initialized in R-distributed arrays: now transpose them if needed
       if ( l_parallel_solve ) then
          call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
          call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
          if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
+         if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_LMloc, phi_Rloc)
          if ( l_heat ) call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
          call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
          if ( l_mag .and. l_mag_par_solve ) then
@@ -333,6 +340,17 @@ contains
          end if
       end if
 
+      if ( l_phase_field ) then
+         if ( l_parallel_solve ) then
+            call bulk_to_ghost(phi_Rloc, phi_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+            call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1)
+            call fill_ghosts_Phi(phi_ghost)
+            call get_phase_rhs_imp_ghost(phi_ghost, dphidt, 1, .true.)
+         else
+            call get_phase_rhs_imp(phi_LMloc, dphidt, 1, .true.)
+         end if
+      end if
+
       if ( l_single_matrix ) then
          call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
               &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
@@ -343,9 +361,10 @@ contains
                call bulk_to_ghost(s_Rloc, s_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
                call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
                call fill_ghosts_S(s_ghost)
-               call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, 1, .true.)
+               call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, phi_ghost, &
+                    &                         1, .true.)
             else
-               call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, 1, .true.)
+               call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, phi_LMloc, 1, .true.)
             end if
          end if
          if ( l_parallel_solve ) then

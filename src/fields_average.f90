@@ -11,7 +11,7 @@ module fields_average_mod
        &                       rscheme_oc, l_R
    use blocking,only: lm2, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
-       &            l_chemical_conv
+       &            l_chemical_conv, l_phase_field
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
@@ -26,7 +26,7 @@ module fields_average_mod
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
-       &                 djdt_ic, domega_ma_dt, domega_ic_dt,                &
+       &                 djdt_ic, domega_ma_dt, domega_ic_dt, dphidt,        &
        &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt
    use storeCheckPoints, only: store
    use time_schemes, only: type_tscheme
@@ -39,6 +39,7 @@ module fields_average_mod
    complex(cp), allocatable :: z_ave(:,:)
    complex(cp), allocatable :: s_ave(:,:)
    complex(cp), allocatable :: xi_ave(:,:)
+   complex(cp), allocatable :: phi_ave(:,:)
    complex(cp), allocatable :: p_ave(:,:)
    complex(cp), allocatable :: b_ave(:,:)
    complex(cp), allocatable :: aj_ave(:,:)
@@ -50,6 +51,7 @@ module fields_average_mod
    complex(cp), allocatable :: w_ave_global(:), dw_ave_global(:)
    complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
    complex(cp), allocatable :: p_ave_global(:), xi_ave_global(:)
+   complex(cp), allocatable :: phi_ave_global(:)
 
    public :: initialize_fields_average_mod, fields_average, &
    &         finalize_fields_average_mod
@@ -77,6 +79,13 @@ contains
          allocate( xi_ave(1,1) )
       end if
 
+      if ( l_phase_field ) then
+         allocate( phi_ave(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate( phi_ave(1,1) )
+      end if
+
       if ( rank == 0 ) then
          allocate( bICB(1:lm_max) )
          allocate( b_ave_global(1:lm_max) )
@@ -92,6 +101,10 @@ contains
             allocate( xi_ave_global(1:lm_max) )
             bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
          end if
+         if ( l_phase_field ) then
+            allocate( phi_ave_global(1:lm_max) )
+            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+         end if
       else
          allocate( bICB(1) )
          allocate( b_ave_global(1) )
@@ -102,9 +115,8 @@ contains
          allocate( z_ave_global(1) )
          allocate( s_ave_global(1) )
          allocate( p_ave_global(1) )
-         if ( l_chemical_conv ) then
-            allocate( xi_ave_global(1) )
-         end if
+         if ( l_chemical_conv ) allocate( xi_ave_global(1) )
+         if ( l_phase_field ) allocate( phi_ave_global(1) )
       end if
 
    end subroutine initialize_fields_average_mod
@@ -117,12 +129,13 @@ contains
       deallocate( b_ave_global, bICB )
 
       if ( l_chemical_conv ) deallocate( xi_ave, xi_ave_global )
+      if ( l_phase_field ) deallocate( phi_ave, phi_ave_global )
 
    end subroutine finalize_fields_average_mod
 !----------------------------------------------------------------------------
    subroutine fields_average(simtime,tscheme,nAve,l_stop_time,        &
       &                      time_passed,time_norm,omega_ic,omega_ma, &
-      &                      w,z,p,s,xi,b,aj,b_ic,aj_ic)
+      &                      w,z,p,s,xi,phi,b,aj,b_ic,aj_ic)
       !
       ! This subroutine averages fields b and v over time.
       !
@@ -140,6 +153,7 @@ contains
       complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
@@ -169,7 +183,7 @@ contains
       real(cp) :: Bp(nlat_padded,n_phi_max),Vr(nlat_padded,n_phi_max)
       real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max) 
       real(cp) :: Sr(nlat_padded,n_phi_max),Prer(nlat_padded,n_phi_max)
-      real(cp) :: Xir(nlat_padded,n_phi_max)
+      real(cp) :: Xir(nlat_padded,n_phi_max),Phir(nlat_padded,n_phi_max)
 
       !----- Energies of time average field:
       real(cp) :: e_kin_p_ave,e_kin_t_ave
@@ -204,6 +218,7 @@ contains
             end if
             if ( l_heat ) s_ave(:,:)=zero
             if ( l_chemical_conv ) xi_ave(:,:)=zero
+            if ( l_phase_field ) phi_ave(:,:)=zero
             if ( l_mag ) then
                b_ave(:,:) =zero
                aj_ave(:,:)=zero
@@ -238,6 +253,13 @@ contains
          do nR=1,n_r_max
             do lm=llm,ulm
                xi_ave(lm,nR)=xi_ave(lm,nR) + time_passed*xi(lm,nR)
+            end do
+         end do
+      end if
+      if ( l_phase_field ) then
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               phi_ave(lm,nR)=phi_ave(lm,nR) + time_passed*phi(lm,nR)
             end do
          end do
       end if
@@ -286,6 +308,13 @@ contains
             do nR=1,n_r_max
                do lm=llm,ulm
                   xi_ave(lm,nR)=dt_norm*xi_ave(lm,nR)
+               end do
+            end do
+         end if
+         if ( l_phase_field ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  phi_ave(lm,nR)=dt_norm*phi_ave(lm,nR)
                end do
             end do
          end if
@@ -433,6 +462,9 @@ contains
             if ( l_chemical_conv ) then
                call gather_from_lo_to_rank0(xi_ave(llm,nR),xi_ave_global)
             end if
+            if ( l_phase_field ) then
+               call gather_from_lo_to_rank0(phi_ave(llm,nR),phi_ave_global)
+            end if
 
             if ( rank == 0 ) then
                if ( l_mag ) then
@@ -446,7 +478,10 @@ contains
                if ( l_chemical_conv ) then
                   call scal_to_spat(xi_ave_global, Xir, l_R(nR))
                end if
-               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir)
+               if ( l_phase_field ) then
+                  call scal_to_spat(phi_ave_global, Phir, l_R(nR))
+               end if
+               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
             end if
          end do
 
@@ -503,11 +538,11 @@ contains
          if ( rank==0 .and. l_save_out ) close(n_log_file)
 
          !--- Store checkpoint file
-         call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,          &
-              &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,   &
-              &     aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,  &
-              &     djdt_ic,domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt, &
-              &     lorentz_torque_ic_dt)
+         call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,        &
+              &     w_ave,z_ave,p_ave,s_ave,xi_ave,phi_ave,b_ave,aj_ave,  &
+              &     b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
+              &     dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
+              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 
          ! now correct the stored average fields by the factor which has been
          ! applied before
@@ -531,6 +566,13 @@ contains
             do nR=1,n_r_max
                do lm=llm,ulm
                   xi_ave(lm,nR)=xi_ave(lm,nR)*time_norm
+               end do
+            end do
+         end if
+         if ( l_chemical_conv ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  phi_ave(lm,nR)=phi_ave(lm,nR)*time_norm
                end do
             end do
          end if

@@ -20,7 +20,7 @@ module rIter_mod
        &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
-       &            l_temperature_diff, l_RMS
+       &            l_temperature_diff, l_RMS, l_phase_field
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -46,7 +46,7 @@ module rIter_mod
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma, dp_Rloc
+       &             omega_ma, dp_Rloc, phi_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
@@ -99,12 +99,13 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,   &
-              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
-              &          dVSrLM,dVXirLM,lorentz_torque_ic,lorentz_torque_ma, &
-              &          br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,&
-              &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,  &
-              &          duhAS,gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,&
-              &          EperpAS,EparAS,EperpaxiAS,EparaxiAS,dtrkc,dthkc)
+              &          dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM, &
+              &          dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,           &
+              &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
+              &          br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,HelnaAS,     &
+              &          Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS,fconvAS, &
+              &          fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,EparAS,       &
+              &          EperpaxiAS,EparaxiAS,dtrkc,dthkc)
       !
       ! This subroutine handles the main loop over the radial levels. It calls
       ! the SH transforms, computes the nonlinear terms on the grid and bring back
@@ -131,6 +132,7 @@ contains
       complex(cp), intent(out) :: dzdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dphidt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
@@ -327,13 +329,15 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
-                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
-                 &            this%gsa%sc,this%gsa%pc,this%gsa%xic)
+            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
+                 &            this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
+                 &            this%gsa%phic)
 #else
-            call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
-                 &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc,&
-                 &        this%gsa%pc,this%gsa%xic)
+            call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
+                 &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
+                 &        this%gsa%sc,this%gsa%pc,this%gsa%xic,          &
+                 &        this%gsa%phic)
 #endif
          end if
 
@@ -440,7 +444,7 @@ contains
          call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
               &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
-              &                 dbdt(:,nR), djdt(:,nR))
+              &                 dphidt(:,nR), dbdt(:,nR), djdt(:,nR))
          call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
@@ -521,6 +525,9 @@ contains
 
          !-- Composition
          if ( l_chemical_conv ) call scal_to_spat(xi_Rloc(:,nR), this%gsa%xic, l_R(nR))
+
+         !-- Phase field
+         if ( l_phase_field ) call scal_to_spat(phi_Rloc(:,nR), this%gsa%phic, l_R(nR))
 
          if ( l_HT .or. lViscBcCalc ) then
             call scal_to_spat(ds_Rloc(:,nR), this%gsa%drsc, l_R(nR))
@@ -672,6 +679,7 @@ contains
               &           this%nl_lm%AdvrLM, this%nl_lm%AdvtLM,        &
               &           this%nl_lm%AdvpLM, l_R(nR))
       end if
+
       if ( l_heat ) then
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
               &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
@@ -685,6 +693,8 @@ contains
               &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
               &           this%nl_lm%VXipLM, l_R(nR))
       end if
+      if( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, this%nl_lm%dphidtLM, &
+                               &          l_R(nR))
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &

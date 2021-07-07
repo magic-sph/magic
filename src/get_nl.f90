@@ -23,14 +23,15 @@ module grid_space_arrays_mod
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1
-   use physical_parameters, only: LFfac, n_r_LCR, prec_angle, ViscHeatFac,   &
-        &                         oek, po, dilution_fac, ra, opr, OhmLossFac
+   use physical_parameters, only: LFfac, n_r_LCR, prec_angle, ViscHeatFac,    &
+        &                         oek, po, dilution_fac, ra, opr, OhmLossFac, &
+        &                         epsPhase, phaseDiffFac, penaltyFac, tmelt
    use horizontal_data, only: sinTheta, cosTheta, phi, O_sin_theta_E2, &
        &                      cosn_theta_E2, O_sin_theta
    use parallel_mod, only: get_openmp_blocks
-   use constants, only: two, third
-   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
-       &            l_chemical_conv, l_precession, l_centrifuge, l_adv_curl
+   use constants, only: two, third, one
+   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
+       &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field
 
    implicit none
 
@@ -45,7 +46,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
-      real(cp), allocatable :: heatTerms(:,:)
+      real(cp), allocatable :: heatTerms(:,:), phiTerms(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -56,7 +57,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: brc(:,:), btc(:,:), bpc(:,:)
       real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
       real(cp), allocatable :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
-      real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:)
+      real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:), phic(:,:)
 
    contains
 
@@ -124,6 +125,13 @@ contains
          allocate( this%xic(1,1) )
       end if
 
+      if ( l_phase_field ) then
+         allocate( this%phic(nlat_padded,n_phi_max),this%phiTerms(nlat_padded,n_phi_max) )
+         bytes_allocated=bytes_allocated + 2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+      else
+         allocate( this%phic(1,1), this%phiTerms(1,1) )
+      end if
+
       if ( l_adv_curl ) then
          allocate( this%cvtc(nlat_padded,n_phi_max), this%cvpc(nlat_padded,n_phi_max) )
          bytes_allocated=bytes_allocated+2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
@@ -144,6 +152,7 @@ contains
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
+      if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
       deallocate( this%heatTerms )
 
       !----- Fields calculated from these help arrays by legtf:
@@ -267,6 +276,19 @@ contains
             this%VXit(:,nPhi)=or2(nR)*this%vtc(:,nPhi)*this%xic(:,nPhi)
             this%VXip(:,nPhi)=or2(nR)*this%vpc(:,nPhi)*this%xic(:,nPhi)
          end if     ! chemical composition equation required ?
+
+         if ( l_phase_field .and. nBc == 0 ) then
+            this%Advr(:,nPhi)=this%Advr(:,nPhi)-this%phic(:,nPhi)*this%vrc(:,nPhi)/ &
+            &                 epsPhase**2/penaltyFac**2
+            this%Advt(:,nPhi)=this%Advt(:,nPhi)-or2(nR)*this%phic(:,nPhi)* &
+            &                 this%vtc(:,nPhi)/epsPhase**2/penaltyFac**2
+            this%Advp(:,nPhi)=this%Advt(:,nPhi)-or2(nR)*this%phic(:,nPhi)* &
+            &                 this%vpc(:,nPhi)/epsPhase**2/penaltyFac**2
+            this%phiTerms(:,nPhi)=-one/epsPhase**2* this%phic(:,nPhi)*       &
+            &                      (one-this%phic(:,nPhi))*(                 &
+            &                      phaseDiffFac*(one-two*this%phic(:,nPhi))+ &
+            &                      this%sc(:,nPhi)-tmelt)
+         end if ! Nonlinear terms for the phase field equation
 
          if ( l_precession .and. nBc == 0 ) then
             this%PCr(:,nPhi)=posnalp*O_sin_theta(:)*r(nR)*(                       &

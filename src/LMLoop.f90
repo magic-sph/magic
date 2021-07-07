@@ -15,7 +15,7 @@ module LMLoop_mod
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag, st_map
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic, l_update_s, l_z10mat,      &
-       &            l_parallel_solve, l_mag_par_solve
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field
    use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use timing, only: timer_type
@@ -25,6 +25,7 @@ module LMLoop_mod
    use updateWPS_mod
    use updateB_mod
    use updateXi_mod
+   use updatePhi_mod
 
    implicit none
 
@@ -61,6 +62,8 @@ contains
       end if
 
       if ( l_chemical_conv ) call initialize_updateXi()
+
+      if ( l_phase_field ) call initialize_updatePhi()
 
       call initialize_updateZ()
       if ( l_mag ) call initialize_updateB()
@@ -151,15 +154,16 @@ contains
       call finalize_updateZ()
 
       if ( l_chemical_conv ) call finalize_updateXi()
+      if ( l_phase_field ) call finalize_updatePhi()
       if ( l_mag ) call finalize_updateB()
       if ( l_parallel_solve ) deallocate(array_of_requests)
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
-              &      dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
-              &      djdt_ic,domega_ma_dt,domega_ic_dt,                &
-              &      lorentz_torque_ma_dt,lorentz_torque_ic_dt,        &
+   subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,     &
+              &      dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dbdt_ic, &
+              &      djdt_ic,domega_ma_dt,domega_ic_dt,                  &
+              &      lorentz_torque_ma_dt,lorentz_torque_ic_dt,          &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping. It calls succesively
@@ -178,7 +182,7 @@ contains
       complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Input from radialLoop:
-      type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt
+      type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt, dphidt
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
@@ -202,11 +206,14 @@ contains
          lZmat(:) =.false.
          if ( l_mag ) lBmat(:) =.false.
          if ( l_chemical_conv ) lXimat(:)=.false.
+         if ( l_phase_field ) lPhimat(:)=.false.
       end if
+
+      if ( l_phase_field ) call updatePhi(phi_LMloc, dphidt, tscheme)
 
       if ( l_heat .and. .not. l_single_matrix ) then
          PERFON('up_S')
-         call updateS( s_LMloc, ds_LMloc, dsdt, tscheme )
+         call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
          PERFOFF
       end if
 
@@ -252,10 +259,10 @@ contains
       PERFOFF
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
-   subroutine LMLoop_Rdist(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,   &
-              &            dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dbdt_ic,      &
-              &            djdt_ic,domega_ma_dt,domega_ic_dt,                &
-              &            lorentz_torque_ma_dt,lorentz_torque_ic_dt,        &
+   subroutine LMLoop_Rdist(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,    &
+              &            dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,&
+              &            djdt_ic,domega_ma_dt,domega_ic_dt,                 &
+              &            lorentz_torque_ma_dt,lorentz_torque_ic_dt,         &
               &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping. It calls succesively
@@ -274,7 +281,7 @@ contains
       complex(cp),         intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
       complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
       !--- Input from radialLoop:
-      type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt
+      type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt, dphidt
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
@@ -286,9 +293,11 @@ contains
          lZmat(:) =.false.
          if ( l_mag ) lBmat(:) =.false.
          if ( l_chemical_conv ) lXimat(:)=.false.
+         if ( l_phase_field ) lPhimat(:)=.false.
       end if
 
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required
+      if ( l_phase_field ) call preparePhase_FD(tscheme, dphidt)
       if ( l_heat ) call prepareS_FD(tscheme, dsdt)
       if ( l_chemical_conv ) call prepareXi_FD(tscheme, dxidt)
       if ( l_conv ) then
@@ -321,7 +330,7 @@ contains
       if ( l_mag_par_solve ) call fill_ghosts_B(b_ghost, aj_ghost)
 
       !-- Finally build the radial derivatives and the arrays for next iteration
-      if ( l_heat ) call updateS_FD(s_Rloc, ds_Rloc, dsdt, tscheme)
+      if ( l_heat ) call updateS_FD(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
       if ( l_chemical_conv ) call updateXi_FD(xi_Rloc, dxidt, tscheme)
 
       call updateZ_FD(time, timeNext, z_Rloc, dz_Rloc, dzdt, omega_ma, omega_ic, &
@@ -470,8 +479,8 @@ contains
    end subroutine finish_explicit_assembly_Rdist
 !--------------------------------------------------------------------------------
    subroutine assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,        &
-              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic,    &
-              &              djdt_ic, domega_ic_dt, domega_ma_dt,                   &
+              &              dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt,     &
+              &              dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,          &
               &              lorentz_torque_ic_dt, lorentz_torque_ma_dt, lPressNext,&
               &              lRmsNext, tscheme)
       !
@@ -491,16 +500,19 @@ contains
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
       if ( l_chemical_conv )  call assemble_comp(xi_LMloc, dxi_LMloc, dxidt, tscheme)
+
+      if ( l_phase_field )  call assemble_phase(phi_LMloc, dphidt, tscheme)
 
       if ( l_single_matrix ) then
          call assemble_single(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
               &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
       else
-         if ( l_heat )  call assemble_entropy(s_LMloc, ds_LMloc, dsdt, tscheme)
+         if ( l_heat )  call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
+                             &                tscheme)
          call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
               &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
               &            lPressNext, lRmsNext)
@@ -517,11 +529,11 @@ contains
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------
-   subroutine assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,  &
-              &              dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt, dbdt_ic,    &
-              &              djdt_ic, domega_ic_dt, domega_ma_dt,                   &
-              &              lorentz_torque_ic_dt, lorentz_torque_ma_dt, lPressNext,&
-              &              lRmsNext, tscheme)
+   subroutine assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,    &
+              &                    dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt,       &
+              &                    djdt, dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,&
+              &                    lorentz_torque_ic_dt, lorentz_torque_ma_dt,        &
+              &                    lPressNext, lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
       ! equations. This is only used for a special subset of IMEX-RK schemes that
@@ -539,11 +551,13 @@ contains
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dsdt, dxidt, dpdt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dsdt, dxidt, dpdt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
+      if ( l_phase_field )  call assemble_phase_Rloc(phi_Rloc, dphidt, tscheme)
       if ( l_chemical_conv )  call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
-      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, tscheme)
+      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_ghost, tscheme)
+
       call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
            &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
            &                 lRmsNext)

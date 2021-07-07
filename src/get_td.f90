@@ -12,7 +12,7 @@ module nonlinear_lm_mod
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
-       &             l_adv_curl
+       &             l_adv_curl, l_phase_field
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
@@ -31,7 +31,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
       complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
-      complex(cp), allocatable :: heatTermsLM(:)
+      complex(cp), allocatable :: heatTermsLM(:), dphidtLM(:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -68,6 +68,11 @@ contains
          bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
+      if ( l_phase_field ) then
+         allocate(this%dphidtLM(lmP_max))
+         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
+      end if
+
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -82,6 +87,7 @@ contains
       if ( l_anel ) deallocate( this%heatTermsLM )
       if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
       if ( l_heat ) deallocate( this%VSrLM, this%VStLM, this%VSpLM )
+      if ( l_phase_field ) deallocate( this%dphidtLM )
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -120,7 +126,7 @@ contains
    end subroutine set_zero
 !----------------------------------------------------------------------------
    subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
-              &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
+              &      dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
       !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
@@ -138,7 +144,7 @@ contains
       !-- Output of variables:
       complex(cp), intent(out) :: dwdt(:),dzdt(:)
       complex(cp), intent(out) :: dpdt(:),dsdt(:)
-      complex(cp), intent(out) :: dxidt(:)
+      complex(cp), intent(out) :: dxidt(:),dphidt(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:)
       complex(cp), intent(out) :: dVxBhLM(:)
       complex(cp), intent(out) :: dVxVhLM(:)
@@ -403,6 +409,15 @@ contains
                lmP=lm2lmP(lm)
                dVXirLM(lm)=this%VXirLM(lmP)
                dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+            end do
+            !$omp end parallel do
+         end if
+
+         if ( l_phase_field ) then
+            !$omp parallel do default(shared) private(lm,lmP)
+            do lm=1,lm_max
+               lmP=lm2lmP(lm)
+               dphidt(lm)=this%dphidtLM(lmP)
             end do
             !$omp end parallel do
          end if

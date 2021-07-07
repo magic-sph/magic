@@ -10,7 +10,8 @@ module fieldsLast
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use blocking, only: llm, ulm, llmMag, ulmMag
    use logic, only: l_chemical_conv, l_heat, l_mag, l_cond_ic, l_double_curl, &
-       &            l_RMS, l_finite_diff, l_parallel_solve, l_mag_par_solve
+       &            l_RMS, l_finite_diff, l_parallel_solve, l_mag_par_solve,  &
+       &            l_phase_field
    use constants, only: zero
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use mem_alloc, only: bytes_allocated
@@ -21,7 +22,7 @@ module fieldsLast
    private
 
    type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
-   type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic
+   type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic, dphidt
    type(type_tscalar), public :: domega_ma_dt, domega_ic_dt
    type(type_tscalar), public :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
@@ -30,6 +31,7 @@ module fieldsLast
    complex(cp), public, allocatable, target  :: dsdt_Rloc_container(:,:,:)
    complex(cp), public, allocatable, target  :: dxidt_Rloc_container(:,:,:)
    complex(cp), public, allocatable, target  :: dbdt_Rloc_container(:,:,:)
+   complex(cp), public, allocatable  :: dphidt_Rloc(:,:)
    complex(cp), public, pointer :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
    complex(cp), public, pointer :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
    complex(cp), public, pointer :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
@@ -86,6 +88,8 @@ contains
          end if
          if ( l_chemical_conv ) call dxidt%initialize(1, lm_max, nRstart,nRstop, nold, &
                                      &                nexp, nimp, l_allocate_exp=.true.)
+         if ( l_phase_field ) call dphidt%initialize(1, lm_max, nRstart,nRstop, nold, &
+                                   &                 nexp, nimp, l_allocate_exp=.true.)
          if ( l_mag .and. l_mag_par_solve ) then
             call dbdt%initialize(1, lm_maxMag, nRstartMag, nRstopMag, nold, nexp, nimp, &
                  &               l_allocate_exp=.true.)
@@ -108,6 +112,8 @@ contains
          end if
          if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, 1, n_r_max, nold, &
                                      &                nexp, nimp)
+         if ( l_phase_field ) call dphidt%initialize(llm, ulm, 1, n_r_max, nold, &
+                                   &                 nexp, nimp, l_allocate_exp=.true.)
       end if
 
       if ( l_cond_ic ) then
@@ -200,6 +206,12 @@ contains
          dVXirLM_Rloc(1:,1:) => dxidt_Rloc_container(1:1,1:1,2)
       end if
 
+      if ( l_phase_field ) then
+         allocate( dphidt_Rloc(lm_max,nRstart:nRstop) )
+      else
+         allocate( dphidt_Rloc(1:1,1:1) )
+      end if
+
       !-- Set the initial values to zero
       if ( l_mag ) then
          if ( .not. l_mag_par_solve ) then
@@ -217,9 +229,10 @@ contains
       dVSrLM_Rloc(:,:)=zero
       if ( l_double_curl ) dVxVhLM_Rloc(:,:)=zero
       if ( l_chemical_conv ) then
-         if (.not. l_parallel_solve ) dxidt_Rloc(:,:)  =zero
+         if (.not. l_parallel_solve ) dxidt_Rloc(:,:)=zero
          dVXirLM_Rloc(:,:)=zero
       end if
+      if ( l_phase_field ) dphidt_Rloc(:,:)=zero
 
       ! The same arrays, but now the LM local part
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -342,6 +355,8 @@ contains
          end if
       end if
 
+      if ( l_phase_field ) deallocate( dphidt_Rloc )
+
       call lorentz_torque_ma_dt%finalize()
       call lorentz_torque_ic_dt%finalize()
       call domega_ma_dt%finalize()
@@ -351,6 +366,7 @@ contains
       call dwdt%finalize()
       if ( l_heat ) call dsdt%finalize()
       if ( l_chemical_conv ) call dxidt%finalize()
+      if ( l_phase_field ) call dphidt%finalize()
       if ( l_mag ) then
          call dbdt%finalize()
          call djdt%finalize()

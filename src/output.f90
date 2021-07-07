@@ -27,9 +27,9 @@ module output_mod
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
        &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-       &             aj_Rloc, bICB
-   use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic,  &
-       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,   &
+       &             aj_Rloc, bICB, phi_Rloc, phi_LMloc
+   use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic, dphidt,&
+       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,         &
        &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
@@ -505,8 +505,8 @@ contains
             PERFON('out_aver')
             call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
-                 &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
-                 &              b_ic_LMloc,aj_ic_LMloc)
+                 &              p_LMloc,s_LMloc,xi_LMloc,phi_LMloc,b_LMloc,    &
+                 &              aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
             if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  averages  on rank ",rank
          end if
@@ -782,15 +782,16 @@ contains
       if ( l_store ) then
 #ifdef WITH_MPI
          call store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
-              &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
-              &         aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,   &
-              &         dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,         &
-              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,phi_Rloc, &
+              &         b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt, &
+              &         dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,          &
+              &         domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,       &
+              &         lorentz_torque_ic_dt)
 #else
          call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
-              &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
-              &     b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,       &
-              &     djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,              &
+              &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,phi_LMloc,b_LMloc,  &
+              &     aj_LMloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,   &
+              &     dphidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
               &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
 #endif
       end if

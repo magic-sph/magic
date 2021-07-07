@@ -17,7 +17,7 @@ module Namelists
    use parallel_mod
    use special
    use movie_data, only: movie,n_movies, n_movies_max
-   use charmanip, only: length_to_blank,capitalize
+   use charmanip, only: length_to_blank, capitalize
    use probe_mod
    use useful, only: abortRun
    use dirk_schemes, only: type_dirk
@@ -86,7 +86,8 @@ contains
       &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,     &
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
-      &    dilution_fac
+      &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
+      &    epsPhase
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -97,7 +98,7 @@ contains
       &    scale_s,scale_xi,scale_b,scale_v,tipdipole,         &
       &    init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,    &
       &    amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,    &
-      &    amp_xi1, amp_xi2
+      &    amp_xi1, amp_xi2, init_phi
 
       namelist/output_control/                                 &
       &    n_graph_step,n_graphs,t_graph,                      &
@@ -541,6 +542,13 @@ contains
          l_centrifuge = .true.
       end if
 
+      !-- Phase field is turned on when Stefan number is /= 0
+      if ( stef == 0.0_cp ) then
+         l_phase_field = .false.
+      else
+         l_phase_field = .true.
+      end if
+
       if ( l_centrifuge .and. .not.  &
       &    (l_anel .and. .not. l_isothermal .and. (index(interior_model, "NONE")/=0)) )  then
          call abortRun("This case is not implemented.")
@@ -900,6 +908,8 @@ contains
       write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
       write(n_out,'(''  po              ='',ES14.6,'','')') po
+      write(n_out,'(''  stef            ='',ES14.6,'','')') stef
+      write(n_out,'(''  tmelt           ='',ES14.6,'','')') tmelt
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
       write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
@@ -1047,6 +1057,7 @@ contains
       write(n_out,'(''  init_b1         ='',i3,'','')') init_b1
       write(n_out,'(''  init_xi1        ='',i7,'','')') init_xi1
       write(n_out,'(''  init_xi2        ='',i3,'','')') init_xi2
+      write(n_out,'(''  init_phi        ='',i3,'','')') init_phi
       write(n_out,'(''  imagcon         ='',i3,'','')') imagcon
       write(n_out,'(''  amp_s1          ='',ES14.6,'','')') amp_s1
       write(n_out,'(''  amp_s2          ='',ES14.6,'','')') amp_s2
@@ -1291,19 +1302,22 @@ contains
       l_adv_curl=.false.
 
       !----- Namelist phys_param:
-      ra         =0.0_cp
-      raxi       =0.0_cp
-      ek         =1.0e-3_cp
-      pr         =one
-      sc         =10.0_cp
-      prmag      =5.0_cp
-      po         =0.0_cp
-      prec_angle =23.5_cp
-      epsc0      =0.0_cp
-      epscxi0    =0.0_cp
-      Bn         =1.0_cp
-      radratio   =0.35_cp
+      ra          =0.0_cp
+      raxi        =0.0_cp
+      ek          =1.0e-3_cp
+      pr          =one
+      sc          =10.0_cp
+      prmag       =5.0_cp
+      po          =0.0_cp
+      prec_angle  =23.5_cp
+      epsc0       =0.0_cp
+      epscxi0     =0.0_cp
+      Bn          =1.0_cp
+      radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
+      tmelt       =0.0_cp    ! Melting temperature
+      stef        =0.0_cp
+
       !----- Anelatic stuff
       DissNb     =0.0_cp     ! Dissipation number
       ThExpNb    =one        ! Thermal expansion * temperature
@@ -1409,6 +1423,7 @@ contains
       init_xi2      =0
       init_b1       =0
       init_v1       =0
+      init_phi      =0
       imagcon       =0
       tmagcon       =0.0_cp
       amp_s1        =one

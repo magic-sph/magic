@@ -17,7 +17,7 @@ module readCheckPoints
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag,    &
        &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,           &
        &            l_double_curl, l_z10Mat, l_single_matrix, l_parallel_solve,&
-       &            l_mag_par_solve
+       &            l_mag_par_solve, l_phase_field
    use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
        &               ulmMag, st_map
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
@@ -67,11 +67,11 @@ module readCheckPoints
 
 contains
 
-   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,     &
-              &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,    &
-              &                   omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,&
-              &                   lorentz_torque_ic_dt,lorentz_torque_ma_dt,  &
-              &                   time,tscheme,n_time_step)
+   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,   &
+              &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,   &
+              &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,     &
+              &                   domega_ma_dt,lorentz_torque_ic_dt,          &
+              &                   lorentz_torque_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the old restart files produced
       ! by MagIC. This is now deprecated with the change of the file format.
@@ -86,11 +86,12 @@ contains
       complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
@@ -353,6 +354,10 @@ contains
          xi(:,:)=zero
       end if
 
+      if ( l_phase_field ) then ! No phase field before
+         phi(:,:)=zero
+      end if
+
       workA(:,:)=zero
       workB(:,:)=zero
       workC(:,:)=zero
@@ -405,7 +410,7 @@ contains
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, 1, .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
@@ -767,11 +772,11 @@ contains
 
    end subroutine readStartFields_old
 !------------------------------------------------------------------------------
-   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
-              &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
-              &               omega_ma,domega_ic_dt,domega_ma_dt,          &
-              &               lorentz_torque_ic_dt,lorentz_torque_ma_dt,   &
-              &               time,tscheme,n_time_step)
+   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,    &
+              &               dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
+              &               djdt_ic,omega_ic,omega_ma,domega_ic_dt,      &
+              &               domega_ma_dt,lorentz_torque_ic_dt,           &
+              &               lorentz_torque_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC.
@@ -786,11 +791,12 @@ contains
       complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
@@ -798,9 +804,10 @@ contains
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,n_r_ic_max_old, io_status,lm,nR
-      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
+      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,stef_old
       real(cp) :: ek_old,radratio_old,sigma_ratio_old,coex
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
+      logical :: l_phase_field_old
       logical :: startfile_does_exist
       integer :: nimp_old, nexp_old, nold_old
       logical :: l_press_store_old
@@ -894,8 +901,15 @@ contains
          end if
 
 
-         read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
-         &                  ek_old,radratio_old,sigma_ratio_old
+         if ( version <= 2 ) then
+            read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
+            &                  ek_old,radratio_old,sigma_ratio_old
+            stef_old=0.0_cp
+         else
+            read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
+            &                  ek_old,stef_old,radratio_old,sigma_ratio_old
+         end if
+
          read(n_start_file) n_r_max_old,n_theta_max_old,n_phi_tot_old,&
          &                  minc_old,nalias_old,n_r_ic_max_old
 
@@ -1011,9 +1025,14 @@ contains
             read(n_start_file) l_heat_old, l_chemical_conv_old, l_mag_old, &
             &                  l_cond_ic_old
             l_press_store_old = .true.
-         else
+            l_phase_field_old = .false.
+         else if ( version == 2 ) then
             read(n_start_file) l_heat_old, l_chemical_conv_old, l_mag_old, &
             &                  l_press_store_old, l_cond_ic_old
+            l_phase_field_old = .false.
+         else
+            read(n_start_file) l_heat_old, l_chemical_conv_old, l_phase_field_old, &
+            &                  l_mag_old, l_press_store_old, l_cond_ic_old
          end if
 
       end if ! rank == 0
@@ -1036,6 +1055,7 @@ contains
       call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(l_press_store_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_phase_field_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
@@ -1140,8 +1160,18 @@ contains
               &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
               &                   xi, dxidt, l_chemical_conv)
       end if
+
+      !-- Read the phase field
+      if ( l_phase_field_old ) then
+         call read_map_one_field( n_start_file, tscheme, workOld, work, one,       &
+              &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
+              &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
+              &                   phi, dphidt, l_phase_field)
+      end if
+
       if ( l_heat .and. .not. l_heat_old ) s(:,:)=zero
       if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
+      if ( l_phase_field .and. .not. l_phase_field_old ) phi(:,:)=zero
       if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and.  l_mag_old ) then
@@ -1360,7 +1390,8 @@ contains
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
+                               &                   1, .true.)
          end if
 
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
@@ -1540,9 +1571,9 @@ contains
    end subroutine read_map_one_field
 !------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,   &
-              &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,  &
-              &                   omega_ic,omega_ma,domega_ic_dt,           &
+   subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi, &
+              &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic, &
+              &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,   &
               &                   domega_ma_dt,lorentz_torque_ic_dt,        &
               &                   lorentz_torque_ma_dt,time,tscheme,        &
               &                   n_time_step)   
@@ -1559,11 +1590,12 @@ contains
       complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
@@ -1572,9 +1604,9 @@ contains
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,lm,nR,n_r_ic_max_old
       real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,coex
-      real(cp) :: ek_old,radratio_old,sigma_ratio_old
+      real(cp) :: ek_old,radratio_old,sigma_ratio_old, stef_old
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
-      logical :: startfile_does_exist
+      logical :: startfile_does_exist, l_phase_field_old
       integer :: n_r_maxL,n_r_ic_maxL,lm_max_old
       integer, allocatable :: lm2lmo(:)
 
@@ -1631,11 +1663,11 @@ contains
             write(output_unit,*) '! I cannot read it with MPI-IO'
             write(output_unit,*) '! I try to fall back on serial reader...'
          end if
-         call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
-              &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
-              &               omega_ma,domega_ic_dt, domega_ma_dt,         &
-              &               lorentz_torque_ic_dt, lorentz_torque_ma_dt,  &
-              &               time,tscheme,n_time_step)
+         call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,    &
+              &               dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
+              &               djdt_ic,omega_ic,omega_ma,domega_ic_dt,      &
+              &               domega_ma_dt,lorentz_torque_ic_dt,           &
+              &               lorentz_torque_ma_dt,time,tscheme,n_time_step)
          return
       end if
       call MPI_File_Read(fh, time, 1, MPI_DEF_REAL, istat, ierr)
@@ -1674,6 +1706,11 @@ contains
       call MPI_File_Read(fh, sc_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, pm_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, ek_old, 1, MPI_DEF_REAL, istat, ierr)
+      if ( version > 2 ) then
+         call MPI_File_Read(fh, stef_old, 1, MPI_DEF_REAL, istat, ierr)
+      else
+         stef_old=0.0_cp
+      end if
       call MPI_File_Read(fh, radratio_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, sigma_ratio_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, n_r_max_old, 1, MPI_INTEGER, istat, ierr)
@@ -1824,6 +1861,11 @@ contains
       !-- Read logical to know how many fields are stored
       call MPI_File_Read(fh, l_heat_old, 1, MPI_LOGICAL, istat, ierr)
       call MPI_File_Read(fh, l_chemical_conv_old, 1, MPI_LOGICAL, istat, ierr)
+      if ( version > 2 ) then
+         call MPI_File_Read(fh, l_phase_field_old, 1, MPI_LOGICAL, istat, ierr)
+      else
+         l_phase_field_old = .false.
+      end if
       call MPI_File_Read(fh, l_mag_old, 1, MPI_LOGICAL, istat, ierr)
       if ( version > 1 ) then
          call MPI_File_Read(fh, l_press_store_old, 1, MPI_LOGICAL, istat, ierr)
@@ -1909,9 +1951,21 @@ contains
               &                      l_chemical_conv, l_transp )
       end if
 
+      !-- Phase field: phi
+      if ( l_phase_field_old ) then
+         call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
+              &                      lm_max_old, n_r_max_old, nRstart_old,   &
+              &                      nRstop_old, radial_balance_old, lm2lmo, &
+              &                      r_old, n_r_maxL, n_r_max, one,          &
+              &                      nexp_old, nimp_old, nold_old,           &
+              &                      tscheme_family_old, phi, dphidt, disp,  &
+              &                      l_phase_field, l_transp )
+      end if
+
       if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
       if ( l_heat .and. (.not. l_heat_old) ) s(:,:)=zero
       if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
+      if ( l_phase_field .and. .not. l_phase_field_old ) phi(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and. l_mag_old ) then
          l_transp = l_mag_par_solve ! Do we need to transpose d?dt arrays
@@ -2144,7 +2198,8 @@ contains
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
+                               &                   1, .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)

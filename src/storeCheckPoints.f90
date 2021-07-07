@@ -14,7 +14,7 @@ module storeCheckPoints
        &                 fd_stretch, fd_ratio
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
-       &                          raxi, sc
+       &                          raxi, sc, stef
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use num_param, only: tScale, alph1, alph2
@@ -23,7 +23,8 @@ module storeCheckPoints
        &                  omega_ma1,omegaOsz_ma1,tOmega_ma1,        &
        &                  omega_ma2,omegaOsz_ma2,tOmega_ma2
    use logic, only: l_heat, l_mag, l_cond_ic, l_chemical_conv, l_save_out, &
-       &            l_double_curl, l_parallel_solve, l_mag_par_solve
+       &            l_double_curl, l_parallel_solve, l_mag_par_solve,      &
+       &            l_phase_field
    use output_data, only: tag, log_file, n_log_file
    use charmanip, only: dble2str
    use time_schemes, only: type_tscheme
@@ -41,9 +42,9 @@ module storeCheckPoints
 
 contains
 
-   subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,    &
-              &     l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,        &
-              &     dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt, &
+   subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,           &
+              &     l_ave_file,w,z,p,s,xi,phi,b,aj,b_ic,aj_ic,dwdt,dzdt,           &
+              &     dpdt,dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt, &
               &     domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
@@ -69,12 +70,13 @@ contains
       complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
-      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
+      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic, dphidt
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
@@ -85,7 +87,7 @@ contains
       integer :: n_rst_file, version, n_o
       character(len=72) :: string,rst_file
 
-      version = 2
+      version = 3
       l_press_store = ( .not. l_double_curl ) 
 
       if ( l_ave_file ) then
@@ -119,7 +121,7 @@ contains
          write(n_rst_file) tscheme%family, tscheme%nexp, tscheme%nimp, tscheme%nold
          write(n_rst_file) tscheme%dt(:)*tScale
          write(n_rst_file) n_time_step
-         write(n_rst_file) ra,pr,raxi,sc,prmag,ek,radratio,sigma_ratio
+         write(n_rst_file) ra,pr,raxi,sc,prmag,ek,stef,radratio,sigma_ratio
          write(n_rst_file) n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
          &                 n_r_ic_max
 
@@ -180,8 +182,8 @@ contains
          &                 omega_ma2,omegaOsz_ma2,tOmega_ma2
 
          !-- Write logical to know how many fields are stored
-         write(n_rst_file) l_heat, l_chemical_conv, l_mag, l_press_store, &
-         &                 l_cond_ic
+         write(n_rst_file) l_heat, l_chemical_conv, l_phase_field, l_mag, &
+         &                 l_press_store, l_cond_ic
       end if
 
       !-- Memory allocation of global arrays to write outputs
@@ -207,6 +209,9 @@ contains
 
       !-- Chemical composition
       if ( l_chemical_conv) call write_one_field(n_rst_file, tscheme, xi, dxidt, work)
+
+      !-- Phase field
+      if ( l_phase_field) call write_one_field(n_rst_file, tscheme, phi, dphidt, work)
 
       !-- Outer core magnetic field
       if ( l_mag ) then
@@ -326,9 +331,10 @@ contains
 !-----------------------------------------------------------------------------------
 #ifdef WITH_MPI
    subroutine store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
-              &         l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,dpdt, &
-              &         dsdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,    &
-              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &         l_ave_file,w,z,p,s,xi,phi,b,aj,b_ic,aj_ic,dwdt,dzdt,  &
+              &         dpdt,dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,     &
+              &         domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,       &
+              &         lorentz_torque_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
@@ -353,12 +359,13 @@ contains
       complex(cp),         intent(in) :: p(lm_max,nRstart:nRstop)
       complex(cp),         intent(in) :: s(lm_max,nRstart:nRstop)
       complex(cp),         intent(in) :: xi(lm_max,nRstart:nRstop)
+      complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
       complex(cp),         intent(in) :: b(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp),         intent(in) :: aj(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
-      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
+      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic, dphidt
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
@@ -371,7 +378,7 @@ contains
       integer :: arr_size(2), arr_loc_size(2), arr_start(2), n_o
       integer(lip) :: disp, offset, size_tmp
 
-      version = 2
+      version = 3
       l_press_store = (.not. l_double_curl)
 
       allocate( work(lm_max,nRstart:nRstop) )
@@ -427,6 +434,7 @@ contains
          call MPI_File_Write(fh, sc, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, prmag, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, ek, 1, MPI_DEF_REAL, istat, ierr)
+         call MPI_File_Write(fh, stef, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, radratio, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, sigma_ratio, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, n_r_max, 1, MPI_INTEGER, istat, ierr)
@@ -523,6 +531,7 @@ contains
          !-- Write logical to know how many fields are stored
          call MPI_File_Write(fh, l_heat, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_chemical_conv, 1, MPI_LOGICAL, istat, ierr)
+         call MPI_File_Write(fh, l_phase_field, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_mag, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_press_store, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_cond_ic, 1, MPI_LOGICAL, istat, ierr)
@@ -581,6 +590,12 @@ contains
       !-- Chemical composition: xi
       if ( l_chemical_conv ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, xi, dxidt, &
+              &                   work, size_tmp,  disp, l_transp)
+      end if
+
+      !-- Phase field: phi
+      if ( l_phase_field ) then
+         call write_one_field_mpi(fh, info, datatype, tscheme, phi, dphidt, &
               &                   work, size_tmp,  disp, l_transp)
       end if
 

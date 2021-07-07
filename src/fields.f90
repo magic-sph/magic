@@ -9,7 +9,7 @@ module fields
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
-       &            l_mag_par_solve
+       &            l_mag_par_solve, l_phase_field
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use parallel_mod, only: rank
@@ -40,6 +40,9 @@ module fields
    complex(cp), public, allocatable, target :: xi_Rloc_container(:,:,:)
    complex(cp), public, pointer :: xi_LMloc(:,:), dxi_LMloc(:,:)
    complex(cp), public, pointer :: xi_Rloc(:,:), dxi_Rloc(:,:)
+
+   !-- Phase field
+   complex(cp), public, allocatable :: phi_LMloc(:,:), phi_Rloc(:,:)
 
    !-- Pressure:
    complex(cp), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
@@ -259,6 +262,18 @@ contains
          dxi_Rloc(1:,1:)  => xi_Rloc_container(1:1,1:1,2)
       end if
 
+      !-- Phase field
+      if ( l_phase_field ) then
+         allocate( phi_LMloc(llm:ulm,1:n_r_max) )
+         bytes_allocated = bytes_allocated + &
+         &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         allocate( phi_Rloc(1:lm_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated + &
+         &                 (nRstop-nRstart+1)*lm_max*SIZEOF_DEF_COMPLEX
+      else ! For debugging
+         allocate( phi_LMloc(1:1,1:1), phi_Rloc(1:1,1:1) )
+      end if
+
 
       !-- Magnetic field potentials in inner core:
       !   NOTE: n_r-dimension may be smaller once CHEBFT is adopted
@@ -310,6 +325,7 @@ contains
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
       deallocate( xi_LMloc_container, xi_Rloc_container )
       deallocate( work_LMloc )
+      deallocate( phi_LMloc, phi_Rloc )
       if ( l_mag_par_solve ) deallocate(ddj_Rloc)
 
    end subroutine finalize_fields

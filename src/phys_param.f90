@@ -48,6 +48,7 @@ module physical_parameters
    real(cp) :: Bn             ! Normalisation of He burning
    real(cp) :: strat          ! number of density scale heights
    real(cp) :: polind         ! polytropic index
+   real(cp) :: stef           ! Stefan number
    real(cp) :: ViscHeatFac    ! Prefactor for viscous heating: :math:`Di\,Pr/Ra`
    real(cp) :: OhmLossFac     ! Prefactor for Ohmic heating: :math:`Di\,Pr/(Ra\,E\,Pm^2)`
    real(cp) :: DissNb         ! Dissipation number
@@ -101,4 +102,9 @@ module physical_parameters
    real(cp) :: po             ! Poincaré number
    real(cp) :: prec_angle     ! Precession angle
    real(cp) :: dilution_fac   ! Omega^2 d/g_top for centrifugal acceleration, named after Chandrasekhar (1987)
+   real(cp) :: epsPhase       ! Cahn number for phase field equatioo
+   real(cp) :: phaseDiffFac   ! Diffusion term of phase field
+   real(cp) :: penaltyFac     ! Factor that enters the penalty method in the NS equations
+   real(cp) :: tmelt          ! Melting temperature
+
 end module physical_parameters
