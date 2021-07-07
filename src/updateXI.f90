@@ -1035,7 +1035,7 @@ contains
 
       dLh=real(l*(l+1),kind=cp)
 
-      !----- Boundary coditions:
+      !----- Boundary conditions:
       if ( ktopxi == 1 ) then
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
       else

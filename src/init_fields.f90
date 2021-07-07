@@ -1453,12 +1453,8 @@ contains
                end if
             end do
             rmelt=r(n_r_melt)
-            phi_top=1.0_cp
-            phi_bot=0.0_cp
-            phi0=half*(one+(phi_top-phi_bot)*tanh((r(:)-rmelt)/two/sqrt(two)/epsPhase))
-            phi(lm00,:)= sq4pi*cmplx(phi0,0.0_cp,cp)
-            phi_top=sq4pi
-            phi_bot=0.0_cp
+            phi0(:)=half*(one+tanh((r(:)-rmelt)/two/sqrt(two)/epsPhase))
+            phi(lm00,:)=sq4pi*cmplx(phi0,0.0_cp,cp)
          end if
       end if
 

@@ -87,7 +87,7 @@ contains
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase
+      &    epsPhase,ktopphi,kbotphi
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -1004,6 +1004,19 @@ contains
          end do
       end if
 
+      if ( l_phase_field ) then
+         if ( ktopphi /= 1 ) then
+            phi_top=0.0_cp ! Neumann
+         else
+            phi_top=sq4pi ! Dirichlet
+         end if
+         phi_bot=0.0_cp
+         write(n_out,'(''  ktopphi         ='',i3,'','')') ktopphi
+         write(n_out,'(''  kbotphi         ='',i3,'','')') kbotphi
+         write(n_out,'(''  phi_top         ='',ES14.6,'','')') phi_top/sq4pi
+         write(n_out,'(''  phi_bot         ='',ES14.6,'','')') phi_bot/sq4pi
+      end if
+
       !----- Conductivity variation:
       write(n_out,'(''  nVarCond        ='',i3,'','')') nVarCond
       write(n_out,'(''  con_DecRate     ='',ES14.6,'','')') con_DecRate
@@ -1369,6 +1382,8 @@ contains
          phiXi(n)  =0.0_cp
          widthXi(n)=0.0_cp
       end do
+      ktopphi    =1
+      kbotphi    =1
 
       !----- Conductivity variation:
       nVarCond       =0

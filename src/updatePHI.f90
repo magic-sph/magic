@@ -11,7 +11,7 @@ module updatePhi_mod
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: or2, rscheme_oc, r, or1
    use num_param, only: dct_counter, solve_counter
-   use physical_parameters, only: pr, phaseDiffFac, stef
+   use physical_parameters, only: pr, phaseDiffFac, stef, ktopphi, kbotphi
    use init_fields, only: phi_top, phi_bot
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use logic, only: l_finite_diff, l_full_sphere, l_parallel_solve
@@ -378,10 +378,13 @@ contains
          nR=n_r_cmb
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-            if ( l == 0 ) then
-               phi_ghost(lm,nR)=phi_top
-            else
-               phi_ghost(lm,nR)=zero
+            if ( ktopphi == 1 ) then ! Dirichlet
+               if ( l == 0 ) then
+                  phi_ghost(lm,nR)=phi_top
+               else
+                  phi_ghost(lm,nR)=zero
+               end if
+            !else ! Neuman
             end if
             phi_ghost(lm,nR-1)=zero ! Set ghost zone to zero
          end do
@@ -397,10 +400,12 @@ contains
                   phi_ghost(lm,nR)=0.0_cp
                end if
             else
-               if ( l == 0 ) then
-                  phi_ghost(lm,nR)=phi_bot
-               else
-                  phi_ghost(lm,nR)=zero
+               if ( kbotphi == 1 ) then
+                  if ( l == 0 ) then
+                     phi_ghost(lm,nR)=phi_bot
+                  else
+                     phi_ghost(lm,nR)=zero
+                  end if
                end if
             end if
             phi_ghost(lm,nR+1)=zero ! Set ghost zone to zero
@@ -433,8 +438,11 @@ contains
       dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then
          do lm=lm_start,lm_stop
-            l = st_map%lm2l(lm)
-            phig(lm,nRstart-1)=two*phig(lm,nRstart)-phig(lm,nRstart+1)
+            if ( ktopphi == 1 ) then
+               phig(lm,nRstart-1)=two*phig(lm,nRstart)-phig(lm,nRstart+1)
+            else
+               phig(lm,nRstart-1)=phig(lm,nRstart+1)
+            end if
          end do
       end if
 
@@ -454,7 +462,11 @@ contains
                   end if
                end if
             else ! Not a full sphere
-               phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
+               if ( kbotphi == 1 ) then
+                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
+               else
+                  phig(lm,nRstop+1)=phig(lm,nRstop-1)
+               end if
             end if
          end do
       end if
@@ -678,43 +690,91 @@ contains
 
       !-- Boundary conditions
       if ( l_full_sphere) then
+         if ( ktopphi == 1 ) then ! Dirichlet
+            !$omp do private(lm,l)
+            do lm=llm,ulm
+               l = lm2l(lm)
+               if ( l == 1 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
+                       &                   zero, phi(lm,:))
+               else
+                  if ( l == 0 ) then
+                     call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
+                          &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
+                          &                   phi(lm,:))
+                  else
+                     call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, &
+                          &                   zero, phi(lm,:))
+                  end if
+               end if
+            end do
+            !$omp end do
+         else ! Neummann
+            !$omp do private(lm,l)
+            do lm=llm,ulm
+               l = lm2l(lm)
+               if ( l == 1 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
+                       &                   zero, phi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, &
+                       &                   zero, phi(lm,:))
+               end if
+            end do
+            !$omp end do
+         end if
 
-         !$omp do private(lm,l,m)
-         do lm=llm,ulm
-            l = lm2l(lm)
-            m = lm2m(lm)
-            if ( l == 1 ) then
-               call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
-                    &                   zero, phi(lm,:))
-            else
+      else ! Spherical shell
+
+         if ( ktopphi==1 .and. kbotphi==1 ) then
+            !-- Boundary conditions: Dirichlet on both sides
+            !$omp do private(lm,l)
+            do lm=llm,ulm
+               l = lm2l(lm)
                if ( l == 0 ) then
                   call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                       &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
+                       &                   0.0_cp, one, cmplx(phi_bot,0.0_cp,cp), &
                        &                   phi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
+                       &                   zero, phi(lm,:))
+               end if
+            end do
+            !$omp end do
+         else if ( ktopphi==1 .and. kbotphi /= 1 ) then
+            !$omp do private(lm,l)
+            do lm=llm,ulm
+               l = lm2l(lm)
+               if ( l == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
+                       &                   one, 0.0_cp, zero, phi(lm,:))
                else
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, &
                        &                   zero, phi(lm,:))
                end if
-            end if
-         end do
-         !$omp end do
-
-      else ! Spherical shell
-
-         !-- Boundary conditions: Dirichlet on both sides
-         !$omp do private(lm,l,m)
-         do lm=llm,ulm
-            l = lm2l(lm)
-            if ( l == 0 ) then
-               call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                    &                   0.0_cp, one, cmplx(phi_bot,0.0_cp,cp), &
-                    &                   phi(lm,:))
-            else
-               call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
-                    &                   zero, phi(lm,:))
-            end if
-         end do
-         !$omp end do
+            end do
+            !$omp end do
+         else if ( ktopphi/=1 .and. kbotphi == 1 ) then
+            !$omp do private(lm,l)
+            do lm=llm,ulm
+               l = lm2l(lm)
+               if ( l == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
+                       &                   cmplx(phi_bot,0.0_cp,cp), phi(lm,:))
+               else
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
+                       &                   zero, phi(lm,:))
+               end if
+            end do
+            !$omp end do
+         else if ( ktopphi/=1 .and. kbotphi /= 1 ) then
+            !-- Boundary conditions: Neuman on both sides
+            !$omp do private(lm)
+            do lm=llm,ulm
+               call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, zero, phi(lm,:))
+            end do
+            !$omp end do
+         end if
 
       end if
       !$omp end parallel
@@ -758,7 +818,7 @@ contains
          end do
       end do
 
-      if ( nRstart==n_r_cmb ) then
+      if ( ktopphi==1 .and. nRstart==n_r_cmb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             if ( l == 0 ) then
@@ -769,7 +829,7 @@ contains
          end do
       end if
 
-      if ( nRstop==n_r_icb ) then
+      if ( kbotphi==1 .and. nRstop==n_r_icb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             if ( l == 0 ) then
@@ -816,14 +876,24 @@ contains
       integer :: info, nR_out, nR
 
       !----- Boundary condition:
-      !--------- Constant phase field at CMB:
-      dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      if ( ktopphi == 1 ) then
+         !--------- Constant phase field at CMB:
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      else
+         !--------- dphi/dr=0 at CMB:
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+      end if
 
       if ( l_full_sphere ) then
          dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
       else
-         !--------- Constant phase field at ICB:
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         if ( kbotphi == 1 ) then
+            !--------- Constant phase field at ICB:
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            !--------- dphi/dr=0 at ICB
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
@@ -896,8 +966,12 @@ contains
 
       dLh=real(l*(l+1),kind=cp)
 
-      !----- Boundary coditions:
-      dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      !----- Boundary conditions:
+      if ( ktopphi == 1 ) then ! Dirichlet
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
+      else ! Neumann
+         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+      end if
 
       if ( l_full_sphere ) then
          !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
@@ -907,7 +981,11 @@ contains
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
          end if
       else
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         if ( kbotphi == 1 ) then ! Dirichlet
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         end if
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
@@ -995,9 +1073,13 @@ contains
       !----- Boundary coditions:
       !$omp do
       do l=0,l_max
-         phiMat%diag(l,1)=one
-         phiMat%up(l,1)  =0.0_cp
-         phiMat%low(l,1) =0.0_cp
+         if ( ktopphi == 1 ) then ! Dirichlet
+            phiMat%diag(l,1)=one
+            phiMat%up(l,1)  =0.0_cp
+            phiMat%low(l,1) =0.0_cp
+         else
+            phiMat%up(l,1)=phiMat%up(l,1)+phiMat%low(l,1)
+         end if
 
          if ( l_full_sphere ) then
             !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
@@ -1010,9 +1092,13 @@ contains
                !fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*phiMat%up(l,n_r_max)
             end if
          else
-            phiMat%diag(l,n_r_max)=one
-            phiMat%up(l,n_r_max)  =0.0_cp
-            phiMat%low(l,n_r_max) =0.0_cp
+            if ( kbotphi == 1 ) then ! Dirichlet
+               phiMat%diag(l,n_r_max)=one
+               phiMat%up(l,n_r_max)  =0.0_cp
+               phiMat%low(l,n_r_max) =0.0_cp
+            else
+               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
+            end if
          end if
       end do
       !$omp end do
