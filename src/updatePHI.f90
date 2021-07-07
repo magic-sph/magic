@@ -580,7 +580,7 @@ contains
                l = lm2l(lm)
                dL = real(l*(l+1),cp)
                dphidt%impl(lm,n_r,istage)=phaseDiffFac*( work_LMloc(lm,n_r) + &
-               &                                two*or1(n_r) * dphi(lm,n_r) -  &
+               &                                two*or1(n_r) * dphi(lm,n_r) - &
                &                                 dL*or2(n_r) *  phi(lm,n_r) )
             end do
          end do

@@ -282,7 +282,7 @@ contains
             &                 epsPhase**2/penaltyFac**2
             this%Advt(:,nPhi)=this%Advt(:,nPhi)-or2(nR)*this%phic(:,nPhi)* &
             &                 this%vtc(:,nPhi)/epsPhase**2/penaltyFac**2
-            this%Advp(:,nPhi)=this%Advt(:,nPhi)-or2(nR)*this%phic(:,nPhi)* &
+            this%Advp(:,nPhi)=this%Advp(:,nPhi)-or2(nR)*this%phic(:,nPhi)* &
             &                 this%vpc(:,nPhi)/epsPhase**2/penaltyFac**2
             this%phiTerms(:,nPhi)=-one/epsPhase**2* this%phic(:,nPhi)*       &
             &                      (one-this%phic(:,nPhi))*(                 &

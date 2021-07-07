@@ -38,7 +38,7 @@ module init_fields
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
-       &                          epsPhase, tmelt
+       &                          epsPhase
    use algebra, only: prepare_mat, solve_mat
    use cosine_transform_odd
    use dense_matrices
