@@ -19,7 +19,7 @@ module nl_special_calc
    private
 
    public :: get_nlBLayers, get_perpPar, get_fluxes, get_helicity, &
-        &    get_visc_heat
+        &    get_visc_heat, get_ekin_solid_liquid
 
 contains
 
@@ -419,8 +419,8 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
       viscAS=0.0_cp
 
-      !$omp parallel do default(shared)                &
-      !$omp& private(nTheta, nThetaNHS, csn2, nPhi)    &
+      !$omp parallel do default(shared)                   &
+      !$omp& private(nTheta,nThetaNHS,csn2,nPhi,vischeat) &
       !$omp& reduction(+:viscAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
@@ -456,5 +456,50 @@ contains
       !$omp end parallel do
 
    end subroutine get_visc_heat
+!------------------------------------------------------------------------------
+   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,ekinS,ekinL,nR)
+      !
+      ! This subroutine computes the kinetic energy content in the solid
+      ! and in the liquid phase when phase field is employed.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),phi(:,:)
+
+      !-- Output variables:
+      real(cp), intent(out) :: ekinS ! Kinetic energy in the solid phase
+      real(cp), intent(out) :: ekinL ! Kinetic energy in the liquid phase
+
+      !-- Local variables:
+      integer :: nTheta,nPhi,nThetaNHS
+      real(cp) :: vischeat,phiNorm,ekin
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      ekinL=0.0_cp
+      ekinS=0.0_cp
+
+      !$omp parallel do default(shared)            &
+      !$omp& private(nTheta, nThetaNHS, nPhi,ekin) &
+      !$omp& reduction(+:ekinS,ekinL)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+
+            ekin = half*orho1(nR)*(                                      &
+            &          or2(nR)*        vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &          osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &          osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            if ( phi(nTheta,nPhi) >= half ) then
+               ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
+            else
+               ekinL=ekinL+phiNorm*gauss(nThetaNHS)*ekin
+            end if
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine get_ekin_solid_liquid
 !------------------------------------------------------------------------------
 end module nl_special_calc

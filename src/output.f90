@@ -19,7 +19,8 @@ module output_mod
        &            l_SRIC, l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,  &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
-       &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg
+       &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
+       &            l_phase_field
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -39,7 +40,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
-   use outMisc_mod, only: outHelicity, outHeat
+   use outMisc_mod, only: outHelicity, outHeat, outPhase
    use geos, only: outGeos
    use outRot, only: write_rot
    use omega, only: outOmega
@@ -333,7 +334,7 @@ contains
               &      dbdt_CMB_LMloc,HelASr,Hel2ASr,HelnaASr,Helna2ASr,    &
               &      HelEAASr,viscASr,uhASr,duhASr,gradsASr,fconvASr,     &
               &      fkinASr,fviscASr,fpoynASr,fresASr,EperpASr,EparASr,  &
-              &      EperpaxiASr,EparaxiASr)
+              &      EperpaxiASr,EparaxiASr,ekinSr,ekinLr)
       !
       !  This subroutine controls most of the output.
       !
@@ -397,6 +398,8 @@ contains
       real(cp),    intent(inout) :: EparASr(nRstart:nRstop)
       real(cp),    intent(inout) :: EperpaxiASr(nRstart:nRstop)
       real(cp),    intent(inout) :: EparaxiASr(nRstart:nRstop)
+      real(cp),    intent(inout) :: ekinSr(nRstart:nRstop)
+      real(cp),    intent(inout) :: ekinLr(nRstart:nRstop)
 
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
 
@@ -577,6 +580,8 @@ contains
          if ( l_hel ) then
             call outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
          end if
+
+         if ( l_phase_field ) call outPhase(timeScaled,ekinSr,ekinLr)
 
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)

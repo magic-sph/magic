@@ -14,12 +14,12 @@ module outMisc_mod
        &                       dLalpha0, beta, orho1, alpha0,    &
        &                       otemp1, ogrun, rscheme_oc
    use physical_parameters, only: ViscHeatFac, ThExpNb
-   use num_param, only: lScale
+   use num_param, only: lScale, eScale
    use blocking, only: llm, ulm
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
-       &            l_temperature_diff, l_chemical_conv
+       &            l_temperature_diff, l_chemical_conv, l_phase_field
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -32,14 +32,19 @@ module outMisc_mod
    private
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR,RhoMeanR
-   integer :: n_heat_file, n_helicity_file, n_calls
-   character(len=72) :: heat_file, helicity_file
+   integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
+   character(len=72) :: heat_file, helicity_file, phase_file
 
-   public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod
+   public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
+   &         outPhase
 
 contains
 
    subroutine initialize_outMisc_mod
+      !
+      ! This subroutine handles the opening the output diagnostic files that
+      ! have to do with heat transfer or helicity.
+      !
 
       if (l_heat .or. l_chemical_conv) then
          call TMeanR%initialize(1,n_r_max)
@@ -61,12 +66,22 @@ contains
          end if
       end if
 
+      if ( l_phase_field ) then
+         phase_file='phase.'//tag
+         if ( rank == 0 .and. (.not. l_save_out) ) then
+            open(newunit=n_phase_file, file=phase_file, status='new')
+         end if
+      end if
+
    end subroutine initialize_outMisc_mod
 !---------------------------------------------------------------------------
    subroutine finalize_outMisc_mod
+      !
+      ! This subroutine handles the closing of the time series of
+      ! heat.TAG, hel.TAG and phase.TAG
+      !
 
       if ( l_heat .or. l_chemical_conv ) then
-         !deallocate( TMeanR, SMeanR, PMeanR, XiMeanR )
          call TMeanR%finalize()
          call SMeanR%finalize()
          call PMeanR%finalize()
@@ -77,6 +92,7 @@ contains
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
+         if ( l_phase_field ) close(n_phase_file)
       end if
 
    end subroutine finalize_outMisc_mod
@@ -422,5 +438,42 @@ contains
       end if ! rank == 0
 
    end subroutine outHeat
+!---------------------------------------------------------------------------
+   subroutine outPhase(time, ekinSr, ekinLr)
+      !
+      ! This subroutine handles the writing of time series related with phase
+      ! field: phase.TAG
+      !
+
+      !-- Input variables
+      real(cp), intent(in) :: time
+      real(cp), intent(in) :: ekinSr(nRstart:nRstop)
+      real(cp), intent(in) :: ekinLr(nRstart:nRstop)
+
+      !-- Local variables
+      real(cp) :: ekinSr_global(n_r_max), ekinLr_global(n_r_max)
+      real(cp) :: ekinL, ekinS
+
+      !-- MPI gather on rank=0
+      call gather_from_Rloc(ekinSr,ekinSr_global,0)
+      call gather_from_Rloc(ekinLr,ekinLr_global,0)
+
+      if ( rank == 0 ) then
+         !-- Integration over radius
+         ekinL=eScale*rInt_R(ekinLr_global,r,rscheme_oc)
+         ekinS=eScale*rInt_R(ekinSr_global,r,rscheme_oc)
+
+         if ( l_save_out ) then
+            open(newunit=n_phase_file, file=phase_file, status='unknown', &
+            &    position='append')
+         end if
+
+         write(n_phase_file,'(1P,ES20.12,3ES16.8)')   &
+         &     time, ekinS, ekinL
+
+         if ( l_save_out ) close(n_phase_file)
+      end if
+
+   end subroutine outPhase
 !---------------------------------------------------------------------------
 end module outMisc_mod

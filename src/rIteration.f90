@@ -42,7 +42,7 @@ module rIteration
               &                HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,               &
               &                duhAS,gradsAS,fconvAS,fkinAS,fviscAS,               &
               &                fpoynAS,fresAS,EperpAS,EparAS,                      &
-              &                EperpaxiAS,EparaxiAS,dtrkc,dthkc)
+              &                EperpaxiAS,EparaxiAS,ekinS,ekinL,dtrkc,dthkc)
          import
          class(rIter_t) :: this
          !--- Input of variables:
@@ -90,6 +90,8 @@ module rIteration
          real(cp),    intent(inout) :: EparAS(nRstart:nRstop)
          real(cp),    intent(inout) :: EperpaxiAS(nRstart:nRstop)
          real(cp),    intent(inout) :: EparaxiAS(nRstart:nRstop)
+         real(cp),    intent(inout) :: ekinS(nRstart:nRstop)
+         real(cp),    intent(inout) :: ekinL(nRstart:nRstop)
 
          !---- inoutput of nonlinear products for nonlinear
          !     magnetic boundary conditions (needed in s_updateB.f):

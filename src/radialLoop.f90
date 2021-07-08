@@ -49,7 +49,7 @@ contains
               &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,           &
               &          viscAS,uhAS,duhAS,gradsAS,fconvAS,fkinAS,        &
               &          fviscAS,fpoynAS,fresAS,EperpAS,EparAS,           &
-              &          EperpaxiAS,EparaxiAS,dtrkc,dthkc)
+              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,dtrkc,dthkc)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -101,7 +101,8 @@ contains
       real(cp),    intent(out) :: EparAS(nRstart:nRstop)
       real(cp),    intent(out) :: EperpaxiAS(nRstart:nRstop)
       real(cp),    intent(out) :: EparaxiAS(nRstart:nRstop)
-
+      real(cp),    intent(out) :: ekinS(nRstart:nRstop)
+      real(cp),    intent(out) :: ekinL(nRstart:nRstop)
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -116,15 +117,16 @@ contains
 
 
       call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,     &
-              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,         &
-              &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,           &
-              &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,dsdt,&
-              &          dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
-              &          dVSrLM,dVXirLM,lorentz_torque_ic,lorentz_torque_ma,   &
-              &          br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,  &
-              &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,    &
-              &          duhAS,gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,  &
-              &          EperpAS,EparAS,EperpaxiAS,EparaxiAS,dtrkc,dthkc)
+           &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,         &
+           &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,           &
+           &             lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,dsdt,&
+           &             dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
+           &             dVSrLM,dVXirLM,lorentz_torque_ic,lorentz_torque_ma,   &
+           &             br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,  &
+           &             HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,    &
+           &             duhAS,gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,  &
+           &             EperpAS,EparAS,EperpaxiAS,EparaxiAS,ekinS,ekinL,      &
+           &             dtrkc,dthkc)
 
    end subroutine radialLoopG
 !----------------------------------------------------------------------------
