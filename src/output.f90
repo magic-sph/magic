@@ -577,11 +577,13 @@ contains
                  &       dxi_LMloc)
          end if
 
-         if ( l_hel ) then
-            call outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
-         end if
+         if ( l_hel ) call outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr, &
+                           &           Helna2ASr,HelEAASr)
 
-         if ( l_phase_field ) call outPhase(timeScaled,ekinSr,ekinLr)
+         if ( l_phase_field ) call outPhase(timeScaled,timePassedLog,       &
+                                   &        timeNormLog,l_stop_time,nLogs,  &
+                                   &        s_LMloc,ds_LMloc,phi_LMloc,     &
+                                   &        ekinSr,ekinLr)
 
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)

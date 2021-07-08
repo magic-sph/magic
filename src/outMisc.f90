@@ -13,15 +13,15 @@ module outMisc_mod
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
        &                       otemp1, ogrun, rscheme_oc
-   use physical_parameters, only: ViscHeatFac, ThExpNb
+   use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef
    use num_param, only: lScale, eScale
-   use blocking, only: llm, ulm
+   use blocking, only: llm, ulm, lo_map
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field
    use output_data, only: tag
-   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
+   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
    use useful, only: cc2real, round_off
@@ -31,9 +31,10 @@ module outMisc_mod
 
    private
 
-   type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR,RhoMeanR
+   type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
    integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
    character(len=72) :: heat_file, helicity_file, phase_file
+   real(cp) :: TPhiOld, Tphi
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase
@@ -53,7 +54,11 @@ contains
          call XiMeanR%initialize(1,n_r_max)
          call RhoMeanR%initialize(1,n_r_max)
       endif
+      if ( l_phase_field ) call PhiMeanR%initialize(1,n_r_max)
       n_calls = 0
+
+      TPhiOld = 0.0_cp
+      TPhi = 0.0_cp
 
       helicity_file='helicity.'//tag
       heat_file    ='heat.'//tag
@@ -88,6 +93,7 @@ contains
          call XiMeanR%finalize()
          call RhoMeanR%finalize()
       end if
+      if ( l_phase_field ) call PhiMeanR%finalize()
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
@@ -439,39 +445,100 @@ contains
 
    end subroutine outHeat
 !---------------------------------------------------------------------------
-   subroutine outPhase(time, ekinSr, ekinLr)
+   subroutine outPhase(time, timePassed, timeNorm, l_stop_time, nLogs, s, ds, &
+              &        phi, ekinSr, ekinLr)
       !
       ! This subroutine handles the writing of time series related with phase
       ! field: phase.TAG
       !
 
       !-- Input variables
-      real(cp), intent(in) :: time
-      real(cp), intent(in) :: ekinSr(nRstart:nRstop)
-      real(cp), intent(in) :: ekinLr(nRstart:nRstop)
+      real(cp),    intent(in) :: time                   ! Time
+      real(cp),    intent(in) :: timePassed             ! Time passed since last call
+      real(cp),    intent(in) :: timeNorm
+      logical,     intent(in) :: l_stop_time            ! Last iteration
+      integer,     intent(in) :: nLogs                  ! Number of log outputs
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)     ! Entropy/Temperature
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)    ! Radial der. of Entropy/Temperature
+      complex(cp), intent(in) :: phi(llm:ulm,n_r_max)   ! Phase field
+      real(cp),    intent(in) :: ekinSr(nRstart:nRstop) ! Kinetic energy in solidus
+      real(cp),    intent(in) :: ekinLr(nRstart:nRstop) ! Kinetic energy in liquidus
 
       !-- Local variables
+      character(len=72) :: filename
+      integer :: lm00, n_r, n_r_phase, filehandle
       real(cp) :: ekinSr_global(n_r_max), ekinLr_global(n_r_max)
-      real(cp) :: ekinL, ekinS
+      real(cp) :: tmp(n_r_max)
+      real(cp) :: ekinL, ekinS, fcmb, ficb, dtTPhi, slope, intersect
+      real(cp) :: rphase, tphase
 
       !-- MPI gather on rank=0
       call gather_from_Rloc(ekinSr,ekinSr_global,0)
       call gather_from_Rloc(ekinLr,ekinLr_global,0)
 
       if ( rank == 0 ) then
-         !-- Integration over radius
+
+         lm00 = lo_map%lm2(0,0) ! l=m=0
+         !-- Mean phase field
+         call PhiMeanR%compute(osq4pi*real(phi(lm00,:)),n_calls,timePassed,timeNorm)
+
+         !-- Integration of kinetic energy over radius
          ekinL=eScale*rInt_R(ekinLr_global,r,rscheme_oc)
          ekinS=eScale*rInt_R(ekinSr_global,r,rscheme_oc)
 
-         if ( l_save_out ) then
-            open(newunit=n_phase_file, file=phase_file, status='unknown', &
-            &    position='append')
+         !-- Fluxes
+         fcmb = -opr * real(ds(lm00,n_r_cmb))*osq4pi*four*pi*r_cmb**2*kappa(n_r_cmb)
+         ficb = -opr * real(ds(lm00,n_r_icb))*osq4pi*four*pi*r_icb**2*kappa(n_r_icb)
+
+         !-- Integration of T-St*Phi
+         tmp(:)=osq4pi*(real(s(lm00,:))-stef*real(phi(lm00,:)))*r(:)*r(:)
+         TPhiOld=TPhi
+         TPhi   =four*pi*rInt_R(tmp,r,rscheme_oc)
+         dtTPhi =(TPhi-TPhiOld)/timePassed
+
+         !-- Determine the radial level where \phi=0.5
+         tmp(:)=osq4pi*real(phi(lm00,:)) ! Reuse tmp as work array
+         n_r_phase=2
+         do n_r=2,n_r_max
+            if ( tmp(n_r) < half .and. tmp(n_r-1) > half ) then
+               n_r_phase=n_r
+            end if
+         end do
+
+         !-- Linear interpolation of melting point
+         slope=(tmp(n_r_phase)-tmp(n_r_phase-1))/(r(n_r_phase)-r(n_r_phase-1))
+         intersect=tmp(n_r_phase)-slope*r(n_r_phase)
+         rphase=(half-intersect)/slope
+         tmp(:)=osq4pi*real(s(lm00,:)) ! Reuse tmp as work array
+         slope=(tmp(n_r_phase)-tmp(n_r_phase-1))/(r(n_r_phase)-r(n_r_phase-1))
+         intersect=tmp(n_r_phase)-slope*r(n_r_phase)
+         tphase=slope*rphase+intersect
+
+         if ( nLogs > 1 ) then
+            if ( l_save_out ) then
+               open(newunit=n_phase_file, file=phase_file, status='unknown', &
+               &    position='append')
+            end if
+
+            write(n_phase_file,'(1P,ES20.12,7ES16.8)')   &
+            &     time, rphase, tphase, ekinS, ekinL, fcmb, ficb, dtTPhi
+
+            if ( l_save_out ) close(n_phase_file)
          end if
 
-         write(n_phase_file,'(1P,ES20.12,3ES16.8)')   &
-         &     time, ekinS, ekinL
+         if ( l_stop_time ) then
+            call PhiMeanR%finalize_SD(timeNorm)
+            filename='phiR.'//tag
+            open(newunit=filehandle, file=filename, status='unknown')
+            do n_r=1,n_r_max
+               write(filehandle, '(ES20.10,ES15.7,ES13.5)' )                     &
+               &     r(n_r),round_off(PhiMeanR%mean(n_r),maxval(PhiMeanR%mean)), &
+               &     round_off(PhiMeanR%SD(n_r),maxval(PhiMeanR%SD))
+            end do
 
-         if ( l_save_out ) close(n_phase_file)
+            close(filehandle)
+         end if
+
       end if
 
    end subroutine outPhase
