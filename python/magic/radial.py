@@ -76,6 +76,8 @@ class MagicRadial(MagicSetup):
             self.name = 'heatR'
         elif field in ('perpParR'):
             self.name = 'perpParR'
+        elif field in ('phiR', 'phaseR'):
+            self.name = 'phiR'
         else:
             print('No corresponding radial profiles... Try again')
 
@@ -147,6 +149,8 @@ class MagicRadial(MagicSetup):
                 else:
                     data = fast_read(filename, skiplines=0)
 
+                if not hasattr(self, 'stop_time'):
+                    self.stop_time = self.start_time
                 radlut = RadLookUpTable(data, self.name, self.start_time,
                                         self.stop_time)
         else:
@@ -480,6 +484,7 @@ class MagicRadial(MagicSetup):
             ax.fill_between(x_axis, self.phase-self.phase_SD,
                             self.phase+self.phase_SD,
                             color='C0', alpha=0.3)
+            ax.set_xlim(x_axis[-1], x_axis[0])
             ax.set_xlabel('Radius')
             ax.set_ylabel('Phase field')
             fig.tight_layout()
