@@ -237,10 +237,10 @@ class Movie:
             elif self.movtype in [8, 9]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
                 self.n_theta_plot = self.n_theta_max
-            elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 109]:
+            elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 109, 112]:
                 shape = (self.n_r_max, self.n_theta_max)
                 self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110]:
+            elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
                 shape = (self.n_r_max, self.n_theta_max)
                 self.n_theta_plot = self.n_theta_max
             # Inner core is not stored here
@@ -311,12 +311,12 @@ class Movie:
                         dat = dat[:self.n_r_max, :].T
                         self.data_ic[ll, k, ...] = datic
                         self.data[ll, k, ...] = dat
-                    elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91, 109]:
+                    elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91, 109, 112]:
                         dat0 = dat[:len(dat)//2].reshape(shape)
                         dat1 = dat[len(dat)//2:].reshape(shape)
                         dat = np.hstack((dat0, dat1))
                         self.data[ll, k, ...] = dat.T
-                    elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110]:
+                    elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
                         dat = dat.reshape(shape)
                         self.data[ll, k, ...] = dat.T
                 else:
