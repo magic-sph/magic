@@ -105,7 +105,7 @@ contains
               &          br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,HelnaAS,     &
               &          Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS,fconvAS, &
               &          fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,EparAS,       &
-              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,dtrkc,dthkc)
+              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,dtrkc,dthkc)
       !
       ! This subroutine handles the main loop over the radial levels. It calls
       ! the SH transforms, computes the nonlinear terms on the grid and bring back
@@ -160,6 +160,7 @@ contains
       real(cp),    intent(inout) :: EparaxiAS(nRstart:nRstop)
       real(cp),    intent(inout) :: ekinS(nRstart:nRstop)
       real(cp),    intent(inout) :: ekinL(nRstart:nRstop)
+      real(cp),    intent(inout) :: volS(nRstart:nRstop)
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -385,7 +386,8 @@ contains
          !-- Kinetic energy in the solid and liquid phases
          if ( l_phase_field ) then
             call get_ekin_solid_liquid(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                     this%gsa%phic,ekinS(nR),ekinL(nR),nR)
+                 &                     this%gsa%phic,ekinS(nR),ekinL(nR),      &
+                 &                     volS(nR),nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis

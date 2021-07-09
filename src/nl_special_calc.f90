@@ -457,7 +457,7 @@ contains
 
    end subroutine get_visc_heat
 !------------------------------------------------------------------------------
-   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,ekinS,ekinL,nR)
+   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,ekinS,ekinL,volS,nR)
       !
       ! This subroutine computes the kinetic energy content in the solid
       ! and in the liquid phase when phase field is employed.
@@ -470,6 +470,7 @@ contains
       !-- Output variables:
       real(cp), intent(out) :: ekinS ! Kinetic energy in the solid phase
       real(cp), intent(out) :: ekinL ! Kinetic energy in the liquid phase
+      real(cp), intent(out) :: volS  ! volume of the solid
 
       !-- Local variables:
       integer :: nTheta,nPhi,nThetaNHS
@@ -478,10 +479,11 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
       ekinL=0.0_cp
       ekinS=0.0_cp
+      volS =0.0_cp
 
       !$omp parallel do default(shared)            &
       !$omp& private(nTheta, nThetaNHS, nPhi,ekin) &
-      !$omp& reduction(+:ekinS,ekinL)
+      !$omp& reduction(+:ekinS,ekinL,volS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
             nThetaNHS=(nTheta+1)/2
@@ -493,6 +495,7 @@ contains
 
             if ( phi(nTheta,nPhi) >= half ) then
                ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
+               volS =volS +phiNorm*gauss(nThetaNHS)*r(nR)*r(nR)
             else
                ekinL=ekinL+phiNorm*gauss(nThetaNHS)*ekin
             end if

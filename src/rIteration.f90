@@ -38,11 +38,10 @@ module rIteration
               &                dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM, &
               &                dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,           &
               &                lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
-              &                br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,             &
-              &                HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,               &
-              &                duhAS,gradsAS,fconvAS,fkinAS,fviscAS,               &
-              &                fpoynAS,fresAS,EperpAS,EparAS,                      &
-              &                EperpaxiAS,EparaxiAS,ekinS,ekinL,dtrkc,dthkc)
+              &                br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,HelnaAS,     &
+              &                Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS,fconvAS, &
+              &                fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,EparAS,       &
+              &                EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,dtrkc,dthkc)
          import
          class(rIter_t) :: this
          !--- Input of variables:
@@ -92,6 +91,7 @@ module rIteration
          real(cp),    intent(inout) :: EparaxiAS(nRstart:nRstop)
          real(cp),    intent(inout) :: ekinS(nRstart:nRstop)
          real(cp),    intent(inout) :: ekinL(nRstart:nRstop)
+         real(cp),    intent(inout) :: volS(nRstart:nRstop)
 
          !---- inoutput of nonlinear products for nonlinear
          !     magnetic boundary conditions (needed in s_updateB.f):

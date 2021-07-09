@@ -446,7 +446,7 @@ contains
    end subroutine outHeat
 !---------------------------------------------------------------------------
    subroutine outPhase(time, timePassed, timeNorm, l_stop_time, nLogs, s, ds, &
-              &        phi, ekinSr, ekinLr)
+              &        phi, ekinSr, ekinLr, volSr)
       !
       ! This subroutine handles the writing of time series related with phase
       ! field: phase.TAG
@@ -463,18 +463,20 @@ contains
       complex(cp), intent(in) :: phi(llm:ulm,n_r_max)   ! Phase field
       real(cp),    intent(in) :: ekinSr(nRstart:nRstop) ! Kinetic energy in solidus
       real(cp),    intent(in) :: ekinLr(nRstart:nRstop) ! Kinetic energy in liquidus
+      real(cp),    intent(in) :: volSr(nRstart:nRstop)  ! Volume of the solid phase
 
       !-- Local variables
       character(len=72) :: filename
       integer :: lm00, n_r, n_r_phase, filehandle
-      real(cp) :: ekinSr_global(n_r_max), ekinLr_global(n_r_max)
+      real(cp) :: ekinSr_global(n_r_max), ekinLr_global(n_r_max), volSr_global(n_r_max)
       real(cp) :: tmp(n_r_max)
-      real(cp) :: ekinL, ekinS, fcmb, ficb, dtTPhi, slope, intersect
+      real(cp) :: ekinL, ekinS, fcmb, ficb, dtTPhi, slope, intersect, volS
       real(cp) :: rphase, tphase
 
       !-- MPI gather on rank=0
       call gather_from_Rloc(ekinSr,ekinSr_global,0)
       call gather_from_Rloc(ekinLr,ekinLr_global,0)
+      call gather_from_Rloc(volSr,volSr_global,0)
 
       if ( rank == 0 ) then
 
@@ -485,6 +487,9 @@ contains
          !-- Integration of kinetic energy over radius
          ekinL=eScale*rInt_R(ekinLr_global,r,rscheme_oc)
          ekinS=eScale*rInt_R(ekinSr_global,r,rscheme_oc)
+
+         !-- Get the volume of the solid phase
+         volS=eScale*rInt_R(volSr_global,r,rscheme_oc)
 
          !-- Fluxes
          fcmb = -opr * real(ds(lm00,n_r_cmb))*osq4pi*four*pi*r_cmb**2*kappa(n_r_cmb)
@@ -520,8 +525,8 @@ contains
                &    position='append')
             end if
 
-            write(n_phase_file,'(1P,ES20.12,7ES16.8)')   &
-            &     time, rphase, tphase, ekinS, ekinL, fcmb, ficb, dtTPhi
+            write(n_phase_file,'(1P,ES20.12,8ES16.8)')   &
+            &     time, rphase, tphase, volS, ekinS, ekinL, fcmb, ficb, dtTPhi
 
             if ( l_save_out ) close(n_phase_file)
          end if

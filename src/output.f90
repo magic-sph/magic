@@ -334,7 +334,7 @@ contains
               &      dbdt_CMB_LMloc,HelASr,Hel2ASr,HelnaASr,Helna2ASr,    &
               &      HelEAASr,viscASr,uhASr,duhASr,gradsASr,fconvASr,     &
               &      fkinASr,fviscASr,fpoynASr,fresASr,EperpASr,EparASr,  &
-              &      EperpaxiASr,EparaxiASr,ekinSr,ekinLr)
+              &      EperpaxiASr,EparaxiASr,ekinSr,ekinLr,volSr)
       !
       !  This subroutine controls most of the output.
       !
@@ -400,6 +400,7 @@ contains
       real(cp),    intent(inout) :: EparaxiASr(nRstart:nRstop)
       real(cp),    intent(inout) :: ekinSr(nRstart:nRstop)
       real(cp),    intent(inout) :: ekinLr(nRstart:nRstop)
+      real(cp),    intent(inout) :: volSr(nRstart:nRstop)
 
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
 
@@ -583,7 +584,7 @@ contains
          if ( l_phase_field ) call outPhase(timeScaled,timePassedLog,       &
                                    &        timeNormLog,l_stop_time,nLogs,  &
                                    &        s_LMloc,ds_LMloc,phi_LMloc,     &
-                                   &        ekinSr,ekinLr)
+                                   &        ekinSr,ekinLr,volSr)
 
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)

@@ -168,6 +168,7 @@ contains
       real(cp) :: EperpASr_Rloc(nRstart:nRstop),EparASr_Rloc(nRstart:nRstop)
       real(cp) :: EperpaxiASr_Rloc(nRstart:nRstop),EparaxiASr_Rloc(nRstart:nRstop)
       real(cp) :: ekinS_Rloc(nRstart:nRstop),ekinL_Rloc(nRstart:nRstop)
+      real(cp) :: volS_Rloc(nRstart:nRstop)
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
       complex(cp) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
@@ -510,8 +511,8 @@ contains
                        &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
                        &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
                        &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
-                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,dtrkc_Rloc,   &
-                       &           dthkc_Rloc)
+                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,    &
+                       &           dtrkc_Rloc,dthkc_Rloc)
                   else
                   call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
                        &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
@@ -532,8 +533,8 @@ contains
                        &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
                        &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
                        &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
-                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,dtrkc_Rloc,   &
-                       &           dthkc_Rloc)
+                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,    &
+                       &           dtrkc_Rloc,dthkc_Rloc)
                   end if
                else
                   call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
@@ -550,8 +551,8 @@ contains
                        &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
                        &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
                        &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
-                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,dtrkc_Rloc,   &
-                       &           dthkc_Rloc)
+                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,    &
+                       &           dtrkc_Rloc,dthkc_Rloc)
                end if
                call rLoop_counter%stop_count()
 
@@ -702,7 +703,8 @@ contains
                     &      HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,     &
                     &      gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,fviscASr_Rloc,&
                     &      fpoynASr_Rloc,fresASr_Rloc,EperpASr_Rloc,EparASr_Rloc, &
-                    &      EperpaxiASr_Rloc,EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc)
+                    &      EperpaxiASr_Rloc,EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,&
+                    &      volS_Rloc)
                call io_counter%stop_count()
                if ( lVerbose ) write(output_unit,*) "! output finished"
 

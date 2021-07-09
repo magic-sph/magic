@@ -49,7 +49,7 @@ contains
               &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,           &
               &          viscAS,uhAS,duhAS,gradsAS,fconvAS,fkinAS,        &
               &          fviscAS,fpoynAS,fresAS,EperpAS,EparAS,           &
-              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,dtrkc,dthkc)
+              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,dtrkc,dthkc)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -103,6 +103,7 @@ contains
       real(cp),    intent(out) :: EparaxiAS(nRstart:nRstop)
       real(cp),    intent(out) :: ekinS(nRstart:nRstop)
       real(cp),    intent(out) :: ekinL(nRstart:nRstop)
+      real(cp),    intent(out) :: volS(nRstart:nRstop)
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -125,7 +126,7 @@ contains
            &             br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,  &
            &             HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,    &
            &             duhAS,gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,  &
-           &             EperpAS,EparAS,EperpaxiAS,EparaxiAS,ekinS,ekinL,      &
+           &             EperpAS,EparAS,EperpaxiAS,EparaxiAS,ekinS,ekinL,volS, &
            &             dtrkc,dthkc)
 
    end subroutine radialLoopG
