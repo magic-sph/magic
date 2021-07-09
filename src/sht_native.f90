@@ -18,7 +18,8 @@ module sht
    &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,            &
    &         torpol_to_dphspat, scal_to_SH, spat_to_sphertor,                   &
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,         &
-   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht
+   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
+   &         axi_to_spat
 
 contains
 
@@ -374,6 +375,18 @@ contains
       call native_spat_to_sph_tor(f, g, fLM, gLM, lcut+1)
 
    end subroutine spat_to_sphertor
+!------------------------------------------------------------------------------
+   subroutine axi_to_spat(fl_ax, f)
+
+      !-- Input field
+      complex(cp), intent(in) :: fl_ax(l_max+1) !-- Axi-sym field
+
+      !-- Output field on grid
+      real(cp), intent(out) :: f(:)
+
+      call native_axi_to_spat(fl_ax, f)
+
+   end subroutine axi_to_spat
 !------------------------------------------------------------------------------
    subroutine toraxi_to_spat(fl_ax, ft, fp)
 

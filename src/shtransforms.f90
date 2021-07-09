@@ -27,7 +27,7 @@ module shtransforms
    public :: initialize_transforms, finalize_transforms, native_qst_to_spat,   &
    &         native_sphtor_to_spat, native_sph_to_spat, native_spat_to_sph,    &
    &         native_spat_to_sph_tor, native_sph_to_grad_spat,                  &
-   &         native_toraxi_to_spat, native_spat_to_SH_axi
+   &         native_toraxi_to_spat, native_spat_to_SH_axi, native_axi_to_spat
 
 contains
 
@@ -374,6 +374,37 @@ contains
       end if
     
    end subroutine native_sphtor_to_spat
+!------------------------------------------------------------------------------
+   subroutine native_axi_to_spat(Slm, sc)
+
+      !-- Input variable
+      complex(cp), intent(in) :: Slm(l_max+1)
+      
+      !-- Output variable
+      real(cp), intent(out) :: sc(n_theta_max)
+
+      !-- Local variables
+      integer :: lm, lmS, nThetaN, nThetaS, nThetaNHS
+      complex(cp) :: sES, sEA
+
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2 ! Loop over theta for northern HS
+         nThetaS  =nThetaN+1     ! same theta but at other HS
+         nThetaNHS=nThetaNHS+1   ! ic-index of northern hemisph. point
+         sES=zero ! One equatorial symmetry
+         sEA=zero ! The other equatorial symmetry
+         lmS=lStop(1)
+         do lm=lStart(1),lmS-1,2
+            sES=sES+Slm(lm)  *Plm(lm,nThetaNHS)
+            sEA=sEA+Slm(lm+1)*Plm(lm+1,nThetaNHS)
+         end do
+         if ( mod(l_max,2) == 0 ) sES=sES+Slm(lmS)*Plm(lmS,nThetaNHS)
+
+         sc(nThetaN)=real(sES+sEA)
+         sc(nThetaS)=real(sES-sEA)
+      end do
+
+   end subroutine native_axi_to_spat
 !------------------------------------------------------------------------------
    subroutine native_toraxi_to_spat(Tlm, btc, bpc)
       !

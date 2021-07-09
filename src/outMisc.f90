@@ -7,7 +7,7 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use communications, only: gather_from_Rloc
-   use truncation, only: l_max, n_r_max, lm_max
+   use truncation, only: l_max, n_r_max, lm_max, nlat_padded, n_theta_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: r_icb, rscheme_oc, kappa,         &
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
@@ -17,15 +17,16 @@ module outMisc_mod
    use num_param, only: lScale, eScale
    use blocking, only: llm, ulm, lo_map
    use mean_sd, only: mean_sd_type
-   use horizontal_data, only: gauss
+   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field
    use output_data, only: tag
-   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half
+   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
    use useful, only: cc2real, round_off
    use integration, only: rInt_R
+   use sht, only: axi_to_spat
 
    implicit none
 
@@ -33,7 +34,8 @@ module outMisc_mod
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
    integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
-   character(len=72) :: heat_file, helicity_file, phase_file
+   integer :: n_rmelt_file
+   character(len=72) :: heat_file, helicity_file, phase_file, rmelt_file
    real(cp) :: TPhiOld, Tphi
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
@@ -73,8 +75,10 @@ contains
 
       if ( l_phase_field ) then
          phase_file='phase.'//tag
+         rmelt_file='rmelt.'//tag
          if ( rank == 0 .and. (.not. l_save_out) ) then
             open(newunit=n_phase_file, file=phase_file, status='new')
+            open(newunit=n_rmelt_file, file=rmelt_file, status='new', form='unformatted')
          end if
       end if
 
@@ -98,7 +102,10 @@ contains
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
-         if ( l_phase_field ) close(n_phase_file)
+         if ( l_phase_field ) then
+            close(n_phase_file)
+            close(n_rmelt_file)
+         end if
       end if
 
    end subroutine finalize_outMisc_mod
@@ -467,9 +474,11 @@ contains
 
       !-- Local variables
       character(len=72) :: filename
-      integer :: lm00, n_r, n_r_phase, filehandle
+      integer :: lm00, n_r, n_r_phase, filehandle, l, m, lm, n_t, n_t_ord
+      complex(cp) :: phi_axi(l_max+1,n_r_max), phi_axi_loc(l_max+1,n_r_max)
+      real(cp) :: phi_axi_g(n_r_max,nlat_padded), rmelt(n_theta_max)
       real(cp) :: ekinSr_global(n_r_max), ekinLr_global(n_r_max), volSr_global(n_r_max)
-      real(cp) :: tmp(n_r_max)
+      real(cp) :: tmp(n_r_max), phi_theta(nlat_padded)
       real(cp) :: ekinL, ekinS, fcmb, ficb, dtTPhi, slope, intersect, volS
       real(cp) :: rphase, tphase
 
@@ -478,7 +487,60 @@ contains
       call gather_from_Rloc(ekinLr,ekinLr_global,0)
       call gather_from_Rloc(volSr,volSr_global,0)
 
+      !-- Re-arange m=0 modes and communicate them to rank=0
+      do n_r=1,n_r_max
+         phi_axi_loc(:,n_r)=zero
+         do lm=llm,ulm
+            l = lo_map%lm2l(lm)
+            m = lo_map%lm2m(lm)
+            if ( m == 0 ) phi_axi_loc(l+1,n_r)=phi(lm,n_r)
+         end do
+
+#ifdef WITH_MPI
+         call MPI_Reduce(phi_axi_loc(:,n_r), phi_axi(:,n_r), l_max+1, &
+              &          MPI_DEF_COMPLEX, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+#else
+         phi_axi(:,n_r)=phi_axi_loc(:,n_r)
+#endif
+      end do
+
       if ( rank == 0 ) then
+
+         !-- Get axisymmetric phase field on the grid
+         do n_r=1,n_r_max
+            call axi_to_spat(phi_axi(:,n_r), phi_theta)
+            phi_axi_g(n_r,:)=phi_theta(:)
+         end do
+
+         !-- Now get the melting points for each colatitude and compute a linear
+         !-- interpolation to get rmelt(theta)
+         do n_t=1,n_theta_max
+            n_r_phase=2
+            do n_r=2,n_r_max
+               if ( phi_axi_g(n_r,n_t) < half .and. phi_axi_g(n_r-1,n_t) > half ) then
+                  n_r_phase=n_r
+                  exit
+               end if
+            end do
+            slope=(phi_axi_g(n_r_phase,n_t)-phi_axi_g(n_r_phase-1,n_t)) / &
+            &     (r(n_r_phase)-r(n_r_phase-1))
+            intersect=phi_axi_g(n_r_phase,n_t)-slope*r(n_r_phase)
+            n_t_ord=n_theta_cal2ord(n_t)
+            rmelt(n_t_ord)=(half-intersect)/slope
+         end do
+
+         !-- Now save the melting line into a binary file
+         if ( l_save_out ) then
+            open(newunit=n_rmelt_file, file=rmelt_file, status='unknown', &
+            &    position='append', form='unformatted')
+         end if
+         !-- Write header when first called
+         if ( nLogs == 1 ) then
+            write(n_rmelt_file) n_theta_max
+            write(n_rmelt_file) real(theta_ord(:),outp)
+         end if
+         write(n_rmelt_file) real(time,outp), real(rmelt(:),outp)
+         if ( l_save_out ) close(n_rmelt_file)
 
          lm00 = lo_map%lm2(0,0) ! l=m=0
          !-- Mean phase field
