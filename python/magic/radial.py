@@ -22,6 +22,7 @@ class MagicRadial(MagicSetup):
         * Variable kinematic viscosity: :ref:`varVisc.TAG <secVarViscFile>`
         * Diagnostic parameters: :ref:`parR.TAG <secPaRfile>`
         * Power budget: :ref:`powerR.TAG <secPowerRfile>`
+        * Phase field: :ref:`phiR.TAG <secPhiRfile>`
         * Heat fluxes: :ref:`fluxesR.TAG <secFluxesRfile>`
         * Mean entropy, temperature and pressure: :ref:`heatR.TAG <secHeatRfile>`
         * Radial profiles used for boundary layers: :ref:`bLayersR.TAG <secBLayersRfile>`
@@ -472,6 +473,16 @@ class MagicRadial(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(x_axis[-1], x_axis[0])
             fig.tight_layout()
+        elif self.name == 'phiR':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(x_axis, self.phase)
+            ax.fill_between(x_axis, self.phase-self.phase_SD,
+                            self.phase+self.phase_SD,
+                            color='C0', alpha=0.3)
+            ax.set_xlabel('Radius')
+            ax.set_ylabel('Phase field')
+            fig.tight_layout()
         elif self.name == 'heatR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -731,6 +742,10 @@ class RadLookUpTable:
                 self.pressure_SD = data[:, 8]
                 self.density_SD = data[:, 9]
                 self.xi_SD = data[:, 10]
+        elif self.name == 'phiR':
+            self.radius = data[:, 0]
+            self.phase = data[:, 1]
+            self.phase_SD = data[:, 2]
         elif self.name == 'perpParR':
             self.radius = data[:, 0]
             self.Eperp = data[:, 1]

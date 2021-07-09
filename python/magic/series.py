@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
 import glob
-from .libmagic import (fast_read, scanDir, avgField,
-                       timeder,secondtimeder, ReadBinaryTimeseries)
+from .libmagic import fast_read, scanDir, avgField
 
 
 class MagicTs(MagicSetup):
@@ -30,6 +29,7 @@ class MagicTs(MagicSetup):
        * Power budget: :ref:`power.TAG <secpowerFile>`
        * Earth-likeness of the CMB field: :ref:`earth_like.TAG <secEarthLikeFile>`
        * Parallel and perpendicular decomposition: :ref:`perpPar.TAG <secperpParFile>`
+       * Phase field: :ref:`phase.TAG <secphaseFile>`
        * RMS force balance: :ref:`dtVrms.TAG <secdtVrmsFile>`
        * RMS induction terms: :ref:`dtBrms.TAG <secdtBrmsFile>`
        * Time-evolution of m-spectra: :ref:`am_[kin|mag]_[pol|tor].TAG <secTimeSpectraFiles>`
@@ -335,7 +335,23 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('z correlations')
             ax.legend(loc='best', frameon=False)
             fig.tight_layout()
+        elif self.field == 'phase':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax1 = ax.twinx()
+            ax.plot(self.time, self.rmelt, label='r melt', color='C0')
+            ax1.plot(self.time, self.trmelt, label='T(r melt)', color='C1')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('r melt')
+            ax1.set_ylabel('T(r melt)')
+            fig.tight_layout()
 
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time, self.ekinS/self.ekinL)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Relative energy fraction in solidus')
+            fig.tight_layout()
         elif self.field == 'earth_like':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -773,6 +789,16 @@ class TsLookUpTable:
             self.eperp_axi = data[:, 3]
             self.epar_axi = data[:, 4]
             self.ekin_tot = self.eperp+self.epar
+        elif self.field == 'phase':
+            self.time = data[:, 0]
+            self.rmelt = data[:, 1]
+            self.trmelt = data[:, 2]
+            self.volS = data[:, 3]
+            self.ekinS = data[:, 4]
+            self.ekinL = data[:, 5]
+            self.flux_cmb = data[:, 6]
+            self.flux_icb = data[:, 7]
+            self.dEnthdt = data[:, 8]
         elif self.field == 'dtVrms':
             self.time = data[:, 0]
             self.InerRms = data[:, 1]
