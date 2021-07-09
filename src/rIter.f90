@@ -405,7 +405,7 @@ contains
             call store_movie_frame(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,      &
                  &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,         &
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
-                 &                 this%gsa%dvrdpc,                                &
+                 &                 this%gsa%phic,this%gsa%dvrdpc,                  &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
                  &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
          end if

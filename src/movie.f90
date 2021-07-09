@@ -288,7 +288,10 @@ contains
       !                   - =112  : axisymm dtB tersm for Br and Bp
       !                   - =114  : Cylindrically radial magnetic field
       !                   - =115  : Composition field
+      !                   - =116  : axisymmetric Vs
       !                   - =117  : axisymmetric Composition field
+      !                   - =118  : axisymmetric phase field
+      !                   - =121  : phase field
       !                     for phi=const.
       !
       !     * n_movie_surface(n_movie) = defines surface
@@ -379,6 +382,8 @@ contains
       !                      - =108: Bs
       !                      - =109: composition field
       !                      - =110: axisymm. composition
+      !                      - =111: axisymm. phase
+      !                      - =112: phase field
       !
       !     * n_movie_field_start(n_field,n_movie) = defines where first
       !       element of a field is stored in ``frames(*)``
@@ -836,7 +841,7 @@ contains
             end if
          else if ( index(string,'VS') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=115
+               n_type=116
                typeStr=' axisym. s-component of velocity '
                file_name='AVS_'
                n_fields=1
@@ -907,6 +912,12 @@ contains
             file_name='AC'
             n_fields=1
             n_field_type(1)=110
+         else if ( index(string,'AX' ) /= 0 .and. ( index(string,'PHASE') /= 0 ) ) then
+            n_type=118
+            typeStr=' axisymmetric phase '
+            file_name='APHI'
+            n_fields=1
+            n_field_type(1)=111
          else if ( index(string,'ENTROPY') /= 0 .or. index(string,'TEM') /= 0 ) then
             ns=index(string,'S')
             if ( ns > 0 ) then
@@ -931,6 +942,18 @@ contains
             file_name='XI_'
             n_fields=1
             n_field_type(1)=109
+         else if ( index(string,'PHASE') /= 0 ) then
+            ns=index(string,'S')
+            if ( ns > 0 ) then
+               if ( string(ns:ns+2) == 'SUR' ) then
+                  call abortRun('! No surface C field available !')
+               end if
+            end if
+            n_type=121
+            typeStr=' phase field '
+            file_name='PHI_'
+            n_fields=1
+            n_field_type(1)=112
          else if ( ( index(string,'CONV' ) /= 0 .and.  &
          &    index(string,'HEAT' ) /= 0 ) .or. index(string,'HEATT') /= 0 ) then
             ns=index(string,'S')
@@ -1501,7 +1524,7 @@ contains
                &    n_field_type == 96 .or. n_field_type == 97 .or. &
                &    n_field_type == 98 .or. n_field_type == 99 .or. &
                &    n_field_type == 19 .or. n_field_type == 8  .or. &
-               &    n_field_type == 110) then
+               &    n_field_type == 110 .or. n_field_type == 111 ) then
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)

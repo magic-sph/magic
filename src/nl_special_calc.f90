@@ -473,7 +473,7 @@ contains
 
       !-- Local variables:
       integer :: nTheta,nPhi,nThetaNHS
-      real(cp) :: vischeat,phiNorm,ekin
+      real(cp) :: phiNorm,ekin
 
       phiNorm=two*pi/real(n_phi_max,cp)
       ekinL=0.0_cp
