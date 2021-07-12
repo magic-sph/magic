@@ -929,6 +929,9 @@ contains
       write(n_out,'(''  nVarEntropyGrad ='',i3,'','')') nVarEntropyGrad
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
+      write(n_out,'(''  phaseDiffFac    ='',ES14.6,'','')') phaseDiffFac
+      write(n_out,'(''  epsPhase        ='',ES14.6,'','')') epsPhase
+      write(n_out,'(''  penaltyFac      ='',ES14.6,'','')') penaltyFac
       length=length_to_blank(interior_model)
       write(n_out,*) " interior_model  = """,interior_model(1:length),""","
       write(n_out,'(''  g0              ='',ES14.6,'','')') g0
@@ -1328,8 +1331,13 @@ contains
       Bn          =1.0_cp
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
+
+      !-- Phase field 
       tmelt       =0.0_cp    ! Melting temperature
-      stef        =0.0_cp
+      stef        =0.0_cp    ! Stefan's number
+      phaseDiffFac=1.0_cp    ! Diffusion coefficient in phase field equation
+      epsPhase    =1.0e-2_cp ! Thickness of the transition
+      penaltyFac  =1.0_cp    ! Penalty factor for velocity
 
       !----- Anelatic stuff
       DissNb     =0.0_cp     ! Dissipation number
