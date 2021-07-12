@@ -168,6 +168,23 @@ The centrifugal acceleration can be computed for a polytropic background
 
   ..
 
+Phase field
+------------
+
+* **stef** (default :f:var:`stef=1.0 <stef>` is a real. This is the Stefan number (used when the phase field is plugged in). It is expressed by the ratio of the latent heat per unit mass associated with the solid-liquid transition and the specific heat:
+
+  .. math::
+     St = \frac{\mathcal{L}}{c_p\Delta T}
+
+* **tmelt** (default :f:var:`tmelt=0.0 <tmelt>`) is a real. This is the dimensionless melting temperature.
+
+* **epsPhase** (default :f:var:`epsPhase=0.01 <epsPhase>`) is a real. This is the dimensionless interface thickness between the solid and the liquid phase (sometimes known as the Cahn number).
+
+* **phaseDiffFac** (default :f:var:`phaseDiffFac=1.0 <phaseDiffFac>`) is a real. This is a coefficient that goes in front of the diffusion term in the phase field equation.
+
+* **penaltyFac** (default :f:var:`penaltyFac=1.0 <penaltyFac>`) is a real. This is coefficient used for the penalisation of the velocity field in the solid phase. The smaller the coefficient, the stronger the penalisation. Since this is a nonlinear term, it is handled explicitly and the time step size should be decreased with the square of :f:var:`penaltyFac`.
+
+
 Transport properties
 --------------------
 
@@ -379,6 +396,20 @@ Boundary conditions for chemical composition
   4. Angular width (input has to be given in degrees), stored in array :f:var:`widthXi(20) <widthxi>`.
 
 
+Boundary conditions for phase field
++++++++++++++++++++++++++++++++++++
+
+.. _secPhaseFieldBcs:
+
+* **ktopphi** (default :f:var:`ktopphi=1 <ktopphi>`) is an  integer to specify the boundary condition of the phase field at the outer boundary.
+
+  +---------------+-------------------------------------------------------------------------------------+
+  | ``ktopphi=1`` | Fixed phase field at outer boundary: :math:`\phi(r_o)=\phi_{top}`                   |
+  +---------------+-------------------------------------------------------------------------------------+
+  | ``ktopphi=2`` | Fixed phase field gradient : :math:`\partial \phi(r_o)/\partial r = 0`              |
+  +---------------+-------------------------------------------------------------------------------------+
+
+* **kbotphi** (default :f:var:`kbotphi=1 <kbotphi>`) is an  integer to specify the boundary condition of the phase field at the inner boundary.
 
 .. _secMechanicalBcs:
 

@@ -124,6 +124,11 @@ The initial perturbation is thus set to zero at both boundaries :math:`r_i` and 
 
 * **amp_xi2** (default :f:var:`amp_xi2=0.0 <amp_xi2>`) is a real used to contol the amplitude of the perturbation defined by ``init_xi2``.
 
+Initialisation of phase field
++++++++++++++++++++++++++++++
+
+* **init_phi** (default :f:var:`init_phi=0 <init_phi>`) is a integer used to specify the initial phase field. If ``init_phi /= 0`` a tanh profile centered around the melting temperature is used.
+
 
 Initialisation of magnetic field
 ++++++++++++++++++++++++++++++++
