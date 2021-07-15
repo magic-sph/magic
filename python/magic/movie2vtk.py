@@ -34,8 +34,10 @@ class Movie2Vtk:
     def __init__(self, file=None, step=1, lastvar=None, nvar='all',
                  fluct=False, normRad=False, precision=np.float32,
                  deminc=True, ifield=0, dir='movie2vts', store_idx=0,
-                 rmin=-1., rmax=-1.):
+                 rmin=-1., rmax=-1., closePoles=False):
         """
+        :param file: the name of the movie file one wants to load
+        :type file: str
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
         :type nvar: int
@@ -63,6 +65,10 @@ class Movie2Vtk:
         :type rmin: float
         :param rmax: maximum radial level
         :type rmax: float
+        :param closePoles: when set to True, the colatitudes are replaced by
+                           a linspace between 0 and pi, this allows to close
+                           the little holes at the poles in paraview
+        :type closePoles: bool
         """
 
         self.rmin = rmin
@@ -145,6 +151,8 @@ class Movie2Vtk:
         # rin = self.radratio/(1.-self.radratio)
         # self.radius = chebgrid(self.n_r_max-1, rout, rin)
         self.theta = infile.fort_read(precision)
+        if closePoles:
+            self.theta = np.linspace(0., np.pi, self.n_theta_max)
         self.phi = infile.fort_read(precision)
 
         # Determine the number of lines by reading the log.TAG file
