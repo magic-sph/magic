@@ -522,11 +522,15 @@ contains
                   exit
                end if
             end do
-            slope=(phi_axi_g(n_r_phase,n_t)-phi_axi_g(n_r_phase-1,n_t)) / &
-            &     (r(n_r_phase)-r(n_r_phase-1))
-            intersect=phi_axi_g(n_r_phase,n_t)-slope*r(n_r_phase)
             n_t_ord=n_theta_cal2ord(n_t)
-            rmelt(n_t_ord)=(half-intersect)/slope
+            if ( n_r_phase /= 2 ) then
+               slope=(phi_axi_g(n_r_phase,n_t)-phi_axi_g(n_r_phase-1,n_t)) / &
+               &     (r(n_r_phase)-r(n_r_phase-1))
+               intersect=phi_axi_g(n_r_phase,n_t)-slope*r(n_r_phase)
+               rmelt(n_t_ord)=(half-intersect)/slope
+            else
+               rmelt(n_t_ord)=r_cmb
+            end if
          end do
 
          !-- Now save the melting line into a binary file
@@ -573,13 +577,18 @@ contains
          end do
 
          !-- Linear interpolation of melting point
-         slope=(tmp(n_r_phase)-tmp(n_r_phase-1))/(r(n_r_phase)-r(n_r_phase-1))
-         intersect=tmp(n_r_phase)-slope*r(n_r_phase)
-         rphase=(half-intersect)/slope
-         tmp(:)=osq4pi*real(s(lm00,:)) ! Reuse tmp as work array
-         slope=(tmp(n_r_phase)-tmp(n_r_phase-1))/(r(n_r_phase)-r(n_r_phase-1))
-         intersect=tmp(n_r_phase)-slope*r(n_r_phase)
-         tphase=slope*rphase+intersect
+         if ( n_r_phase /= 2 ) then
+            slope=(tmp(n_r_phase)-tmp(n_r_phase-1))/(r(n_r_phase)-r(n_r_phase-1))
+            intersect=tmp(n_r_phase)-slope*r(n_r_phase)
+            rphase=(half-intersect)/slope
+            tmp(:)=osq4pi*real(s(lm00,:)) ! Reuse tmp as work array
+            slope=(tmp(n_r_phase)-tmp(n_r_phase-1))/(r(n_r_phase)-r(n_r_phase-1))
+            intersect=tmp(n_r_phase)-slope*r(n_r_phase)
+            tphase=slope*rphase+intersect
+         else
+            rphase=r_cmb
+            tphase=osq4pi*real(s(lm00,n_r_cmb))
+         end if
 
          if ( nLogs > 1 ) then
             if ( l_save_out ) then
