@@ -288,6 +288,16 @@ contains
       !-- Select the kind of time-integrator (multi-step or implicit R-K):
       call select_tscheme(time_scheme, tscheme)
 
+      if ( time_scheme == 'BHR553' .or. time_scheme == 'DBM453' .or.   &
+          & time_scheme == 'ARS343' .or. time_scheme == 'MARS343' .or. &
+          & time_scheme == 'KCS343' .or. time_scheme == 'KCS564' .or.  &
+          & time_scheme == 'KCS674' .or. time_scheme == 'KCS785' .or.  &
+          & time_scheme == 'CB3' ) then
+          if ( radial_scheme == 'CHEB' .and. n_r_max /= n_cheb_max ) then
+            call abortRun('n_r_max should be equal to n_cheb_max for this setup !')
+          end if
+      end if
+
       if ( l_finite_diff ) then
          l_double_curl=.true.
          l_PressGraph =.false.
