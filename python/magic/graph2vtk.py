@@ -266,13 +266,14 @@ class Graph2Vtk:
         keyScal['Xifluct'] = 15
 
         # Change default scalars and vectors in non-magnetic cases
-        if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
-            if 'emag' in keyScal:
-                keyScal.__delitem__('emag')
-            if 'br' in keyScal:
-                keyScal.__delitem__('br')
-            if 'Br' in keyScal:
-                keyScal.__delitem__('Br')
+        if hasattr(gr, 'mode'):
+            if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
+                if 'emag' in keyScal:
+                    keyScal.__delitem__('emag')
+                if 'br' in keyScal:
+                    keyScal.__delitem__('br')
+                if 'Br' in keyScal:
+                    keyScal.__delitem__('Br')
 
         self.scalNames = np.zeros(len(scals), 'i')
         for k, scal in enumerate(scals):
@@ -302,15 +303,16 @@ class Graph2Vtk:
         keyVec['bfluct'] = 4
         keyVec['Bfluct'] = 4
 
-        if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
-            if 'bfluc' in keyVec:
-                keyVec.__delitem__('bfluct')
-            if 'Bfluct' in keyVec:
-                keyVec.__delitem__('Bfluct')
-            if 'b' in keyVec:
-                keyVec.__delitem__('b')
-            if 'B'in keyVec:
-                keyVec.__delitem__('B')
+        if hasattr(gr, 'mode'):
+            if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
+                if 'bfluc' in keyVec:
+                    keyVec.__delitem__('bfluct')
+                if 'Bfluct' in keyVec:
+                    keyVec.__delitem__('Bfluct')
+                if 'b' in keyVec:
+                    keyVec.__delitem__('b')
+                if 'B' in keyVec:
+                    keyVec.__delitem__('B')
 
         self.vecNames = np.zeros(len(vecs), 'i')
         for k, vec in enumerate(vecs):
