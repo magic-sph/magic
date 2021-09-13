@@ -226,7 +226,7 @@ else:
                 nphi, ntheta, nr = input[0].shape
                 file = open(filename, 'wb')
                 pickle.dump([cylRad, phi, output], file) # cylindrical average
-                pickle.dump([radius, phi, input[0][:, ntheta/2, :]], file) # equatorial cut
+                pickle.dump([radius, phi, input[0][:, ntheta//2, :]], file) # equatorial cut
                 file.close()
             return height, cylRad, phi, output
         elif len(input[0].shape) == 2:
@@ -247,7 +247,7 @@ else:
                 for k,out in enumerate(output):
                     pickle.dump(out, file) # cylindrical average
                     ntheta, nr = input[k].shape
-                    pickle.dump(input[k][ntheta/2, :], file) # equatorial cut
+                    pickle.dump(input[k][ntheta//2, :], file) # equatorial cut
                 file.close()
 
             return height, cylRad, output
