@@ -378,7 +378,7 @@ class CompSims:
             label += ' Ra = {:.1e}'.format(gr.ra)
 
             if self.field not in ('vortz'):
-                equator = data[:, gr.ntheta/2,:]
+                equator = data[:, gr.ntheta//2,:]
 
             equator = symmetrize(equator, gr.minc)
 
@@ -387,7 +387,7 @@ class CompSims:
             xx = rr * np.cos(pphi)
             yy = rr * np.sin(pphi)
 
-            ax = plt.subplot(self.nrow,self.ncol,iplot, frameon=False)
+            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
             if self.bw:
                 im = ax.contour(xx, yy, equator, self.levels, colors='k',
                                 linewidths=0.5)

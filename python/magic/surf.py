@@ -122,6 +122,9 @@ class Surf:
         :param normed: when set to True, the colormap is centered around zero.
                        Default is True, except for entropy/temperature plots.
         :type normed: bool
+        :param lines: when set to True, over-plot solid lines to highlight
+                      the limits between two adjacent contour levels
+        :type lines: bool
         """
 
         if proj != 'ortho':
@@ -553,7 +556,7 @@ class Surf:
     def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm,
             normed=True, vmax=None, vmin=None, cbar=True, tit=True,
             pol=False, tor=False, mer=False, merLevels=16, polLevels=16,
-            ic=False):
+            ic=False, lines=False):
         """
         Plot the azimutal average of a given field.
 
@@ -604,6 +607,9 @@ class Surf:
         :param ic: when set to True, also display the contour levels in
                    the inner core
         :type ic: bool
+        :param lines: when set to True, over-plot solid lines to highlight
+                      the limits between two adjacent contour levels
+        :type lines: bool
         """
         if pol:
             if ic:
@@ -1160,7 +1166,7 @@ class Surf:
             normed = False
 
         fig, xx, yy, im = merContour(phiavg, self.gr.radius, label, levels, cm,
-                                     normed, vmax, vmin, cbar, tit)
+                                     normed, vmax, vmin, cbar, tit, lines=lines)
         ax = fig.get_axes()[0]
 
         if ic:

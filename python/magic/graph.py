@@ -192,7 +192,7 @@ class MagicGraph(MagicSetup):
                 self.Bphi_ic = G.bp_ic
         else:
             if access == 'rm':
-                self.read_record_marker(filename, endian)
+                self.read_record_marker(filename, endian, quiet=quiet)
             elif access == 'st':
                 self.read_stream(filename, endian)
 
@@ -308,7 +308,7 @@ class MagicGraph(MagicSetup):
 
         f.close()
 
-    def read_record_marker(self, filename, endian):
+    def read_record_marker(self, filename, endian, quiet=True):
         """
         This function is used to read a Graphic file that contains record markers.
 
@@ -316,6 +316,8 @@ class MagicGraph(MagicSetup):
         :type filename: str
         :param endian: endianness of the file
         :type endian: str
+        :param quiet: when set to True, makes the output silent
+        :type quiet: bool
         """
         # Read data
         inline = npfile(filename, endian=endian)

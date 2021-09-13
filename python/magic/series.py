@@ -685,17 +685,25 @@ class TsLookUpTable:
             self.dlB = data[:, 13]
             self.dmB = data[:, 14]
             self.els_cmb = data[:, 15]
-            self.rolc = data[:, 16]
-            self.dlVc = data[:, 17]
-            self.reEquat = data[:, 18]
-            self.dlPolPeak = np.zeros_like(self.time)
-            if data.shape[-1] == 20:
-                self.dlPolPeak = data[:, 18]
-                self.reEquat = data[:, 19]
+            if data.shape[-1] > 16:
+                self.rolc = data[:, 16]
+                self.dlVc = data[:, 17]
+                self.reEquat = data[:, 18]
+                self.dlPolPeak = np.zeros_like(self.time)
+                if data.shape[-1] == 20:
+                    self.dlPolPeak = data[:, 18]
+                    self.reEquat = data[:, 19]
+            else:
+                self.rolc = np.zeros_like(self.time)
+                self.dlVc = np.zeros_like(self.time)
+                self.reEquat = np.zeros_like(self.time)
+                self.dlPolPeak = np.zeros_like(self.time)
         elif self.field == 'misc':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
             self.topnuss = data[:, 2]
+            self.bottemp = data[:, 3] / np.sqrt(4.*np.pi)
+            self.toptemp = data[:, 4] / np.sqrt(4.*np.pi)
             self.helrms = data[:, 8]
             self.helN = data[:, 5]*self.helrms
             self.helS = data[:, 6]*self.helrms
