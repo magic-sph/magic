@@ -1,6 +1,6 @@
 ![alt tag](https://raw.github.com/magic-sph/magic/master/doc/sphinx/.themes/magic/static/logo.png)
 
-[![Build Status](https://travis-ci.org/magic-sph/magic.svg?branch=master)](https://travis-ci.org/magic-sph/magic)
+[![Build Status](https://app.travis-ci.com/magic-sph/magic.svg?branch=master)](https://app.travis-ci.com/magic-sph/magic)
 [![DOI](https://zenodo.org/badge/22163/magic-sph/magic.svg)](https://zenodo.org/badge/latestdoi/22163/magic-sph/magic)
 [![GPLv3](https://www.gnu.org/graphics/gplv3-88x31.png)](https://www.gnu.org/licenses/gpl.html)
 
