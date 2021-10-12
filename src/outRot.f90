@@ -133,7 +133,7 @@ contains
       real(cp), intent(out) :: eKinIC,eKinMA
 
       !-- Local variables:
-      real(cp), parameter :: tolerance=1e-16
+      real(cp), parameter :: tolerance=10.0_cp*epsilon(0.0_cp)
       real(cp) :: eKinOC
       integer :: n_r1,n_r2,n_r3,nR
       integer :: l1m0,l1m1
