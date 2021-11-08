@@ -573,8 +573,8 @@ contains
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
-                     b_ic(lm,nR)   =b(lm,n_r_CMB)
-                     aj_ic(lm,nR)  =aj(lm,n_r_CMB)
+                     b_ic(lm,nR)   =b(lm,n_r_cmb)
+                     aj_ic(lm,nR)  =aj(lm,n_r_cmb)
                   end do
                end do
             end if
@@ -1319,10 +1319,10 @@ contains
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
-                     b_ic(lm,nR) =b(lm,n_r_CMB)
-                     aj_ic(lm,nR)=aj(lm,n_r_CMB)
-                     !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                     !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                     b_ic(lm,nR) =b(lm,n_r_cmb)
+                     aj_ic(lm,nR)=aj(lm,n_r_cmb)
+                     !dbdt_ic(lm,nR)=dbdt(lm,n_r_cmb)
+                     !djdt_ic(lm,nR)=djdt(lm,n_r_cmb)
                   end do
                end do
 
@@ -2113,10 +2113,10 @@ contains
 
             do lm=llm,ulm
                do nR=1,n_r_ic_max
-                  b_ic(lm,nR)   =b(lm,n_r_CMB)
-                  aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                  !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                  !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                  b_ic(lm,nR)   =b(lm,n_r_cmb)
+                  aj_ic(lm,nR)  =aj(lm,n_r_cmb)
+                  !dbdt_ic(lm,nR)=dbdt(lm,n_r_cmb)
+                  !djdt_ic(lm,nR)=djdt(lm,n_r_cmb)
                end do
             end do
          end if
