@@ -33,7 +33,6 @@ module step_time_mod
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field
    use init_fields, only: omega_ic1, omega_ma1
-   use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
        &                 finish_explicit_assembly_Rdist, LMLoop_Rdist,     &
@@ -845,42 +844,9 @@ contains
       !LIKWID_OFF('tloop')
       PERFOFF
 
-      if ( l_movie ) then
-         if ( rank == 0 ) then
-            if (n_frame > 0) then
-               write(output_unit,'(1p,/,/,A,i10,3(/,A,ES16.6))')          &
-               &     " !  No of stored movie frames: ",n_frame,           &
-               &     " !     starting at time: ",t_movieS(1)*tScale,      &
-               &     " !       ending at time: ",t_movieS(n_frame)*tScale,&
-               &     " !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-               write(n_log_file,'(1p,/,/,A,i10,3(/,A,ES16.6))')           &
-               &     " !  No of stored movie frames: ",n_frame,           &
-               &     " !     starting at time: ",t_movieS(1)*tScale,      &
-               &     " !       ending at time: ",t_movieS(n_frame)*tScale,&
-               &     " !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
-               if ( l_save_out ) close(n_log_file)
-            else
-               write(output_unit,'(1p,/,/,A,i10,3(/,A,ES16.6))')  &
-               &     " !  No of stored movie frames: ",n_frame,   &
-               &     " !     starting at time: ",0.0_cp,          &
-               &     " !       ending at time: ",0.0_cp,          &
-               &     " !      with step width: ",0.0_cp
-               if ( l_save_out ) then
-                  open(newunit=n_log_file, file=log_file, status='unknown', &
-                  &    position='append')
-               end if
-               write(n_log_file,'(1p,/,/,A,i10,3(/,A,ES16.6))') &
-               &     " !  No of stored movie frames: ",n_frame, &
-               &     " !     starting at time: ",0.0_cp,        &
-               &     " !       ending at time: ",0.0_cp,        &
-               &     " !      with step width: ",0.0_cp
-               if ( l_save_out ) close(n_log_file)
-            end if
-         end if
+      if ( l_movie .and. rank==0 ) then
+         write(message,'(A,i10)') " !  No of stored movie frames: ",n_frame
+         call logWrite(message)
       end if
 
       if ( l_cmb_field ) then

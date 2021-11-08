@@ -10,7 +10,7 @@ module out_movie
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
        &                 movieDipColat, movieDipLon, movieDipStrength,      &
-       &                 movieDipStrengthGeo, t_movieS, n_movie_type,       &
+       &                 movieDipStrengthGeo, n_movie_type,                 &
        &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
        &                 movie_file, movie_const
    use radial_data, only: n_r_icb, n_r_cmb
@@ -223,8 +223,6 @@ contains
 
       if ( rank == 0 ) then
 
-         t_movieS(n_frame)=time
-
          do n_movie=1,n_movies
 
             n_type     =n_movie_type(n_movie)
@@ -289,7 +287,7 @@ contains
 
             !------ Write frame number, time and IC and MA rotation rates::
             dumm(1)=real(n_frame,kind=outp)
-            dumm(2)=real(t_movieS(n_frame),kind=outp)
+            dumm(2)=real(time,kind=outp)
             dumm(3)=real(omega_ic,kind=outp)
             dumm(4)=real(omega_ma,kind=outp)
             dumm(5)=real(movieDipColat,kind=outp)
