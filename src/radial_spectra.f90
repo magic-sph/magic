@@ -34,26 +34,26 @@ contains
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
       type(mappings),   intent(in) :: map
-    
+
       !-- Output to file:
       real(cp) :: e_p_AS(6,n_r_tot), e_p_AS_global(6,n_r_tot)
       real(cp) :: e_p(6,n_r_tot), e_p_global(6,n_r_tot)
-    
+
       !-- Local:
       character(len=72) :: specFile
       integer :: n_r,lm,l,m
       real(cp) :: fac,O_r_icb_E_2,rRatio,amp
       real(cp) :: e_p_temp
       logical :: lAS
-    
+
 
       fac=half*eScale/(four*pi)
-    
+
       do n_r=1,n_r_max
          ! setting zero
          e_p(1:6,n_r)   =0.0_cp
          e_p_AS(1:6,n_r)=0.0_cp
-    
+
          do lm=max(2,llm),ulm
             l=map%lm2l(lm)
             if ( l <= 6 ) then
@@ -69,15 +69,15 @@ contains
             end if
          end do    ! do loop over lms in block
       end do    ! radial grid points
-      
+
       !-- Inner core:
       if ( lIC ) then
-    
+
          lAS=.true.
-         if ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .false. 
-    
+         if ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .false.
+
          O_r_icb_E_2=one/r_icb**2
-    
+
          do n_r=2,n_r_ic_max
             rRatio=r_ic(n_r)/r_ic(1)
             do l=1,6
@@ -96,8 +96,8 @@ contains
                         amp=real(PolIC(lm,n_r))
                      else
                         e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
-                        &        dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_ICB),m)
-                        amp=real(Pol(lm,n_r_ICB))
+                        &        dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_icb),m)
+                        amp=real(Pol(lm,n_r_icb))
                      end if
                      if ( m == 0 ) then
                         if ( abs(amp) /= 0.0_cp) then
@@ -120,7 +120,7 @@ contains
 
       call reduce_radial(e_p, e_p_global, 0)
       call reduce_radial(e_p_AS, e_p_AS_global, 0)
-      
+
       if ( rank == 0 ) then
 
          !-- Output into file:
@@ -128,7 +128,7 @@ contains
          specFile=trim(adjustl(fileRoot))//'.'//tag
          open(newunit=fileHandle, file=specFile, form='unformatted', &
          &    status='unknown', position='append')
-       
+
          write(fileHandle) real(time,kind=outp),                                &
          &                (real(e_p_global(1,n_r),kind=outp),n_r=1,n_r_tot-1),  &
          &                (real(e_p_global(2,n_r),kind=outp),n_r=1,n_r_tot-1),  &
@@ -143,11 +143,11 @@ contains
          &                (real(e_p_AS_global(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
          &                (real(e_p_AS_global(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
          &                (real(e_p_AS_global(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-       
+
          close(fileHandle)
 
       end if
-    
+
    end subroutine rBrSpec
 !----------------------------------------------------------------------------
    subroutine rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
@@ -162,20 +162,20 @@ contains
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
       type(mappings),   intent(in) :: map
-    
+
       !-- Output:
       real(cp) :: e_t_AS(6,n_r_tot), e_t_AS_global(6,n_r_tot)
       real(cp) :: e_t(6,n_r_tot), e_t_global(6,n_r_tot)
-    
+
       !-- Local:
       character(len=72) :: specFile
       integer :: n_r,lm,l,m
       real(cp) :: fac,rRatio,amp
       real(cp) :: e_t_temp
       LOGICAl :: lAS
-    
+
       fac=half*eScale/(four*pi)
-    
+
       do n_r=1,n_r_max
          do l=1,6
             e_t(l,n_r)   =0.0_cp
@@ -194,7 +194,7 @@ contains
             end if
          end do    ! do loop over lms in block
       end do    ! radial grid points
-    
+
       !-- Inner core:
       do n_r=2,n_r_ic_max
          do l=1,6
@@ -203,10 +203,10 @@ contains
          end do
       end do
       if ( lIC .and. l_cond_ic ) then
-    
+
          lAS=.true.
-         if ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .false. 
-    
+         if ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .false.
+
          do n_r=2,n_r_ic_max
             rRatio=r_ic(n_r)/r_ic(1)
             do lm=max(2,llm),ulm
@@ -226,20 +226,20 @@ contains
                end if
             end do
          end do
-    
+
       end if
 
       call reduce_radial(e_t, e_t_global, 0)
       call reduce_radial(e_t_AS, e_t_AS_global, 0)
-      
+
       if ( rank == 0 ) then
-    
+
          !-- Output into file:
          !     writing l=0/1/2 magnetic energy
          specFile=trim(adjustl(fileRoot))//'.'//tag
          open(newunit=fileHandle, file=specFile, form='unformatted', &
          &    status='unknown', position='append')
-       
+
          write(fileHandle) real(time,kind=outp),                                  &
          &                (real(e_t_global(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
          &                (real(e_t_global(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
@@ -254,11 +254,11 @@ contains
          &                (real(e_t_AS_global(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
          &                (real(e_t_AS_global(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
          &                (real(e_t_AS_global(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-       
+
          close(fileHandle)
 
       end if
-    
+
    end subroutine rBpSpec
 !----------------------------------------------------------------------------
 end module radial_spectra

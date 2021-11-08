@@ -6,6 +6,7 @@ module communications
 #ifdef WITH_MPI
    use mpimod
 #endif
+   use constants, only: zero
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr
@@ -47,12 +48,19 @@ module communications
    public :: myAllGather
 #endif
 
+   interface send_lm_pair_to_master
+      module procedure send_lm_pair_to_master_arr
+      module procedure send_lm_pair_to_master_scal_cmplx
+      module procedure send_lm_pair_to_master_scal_real
+      module procedure send_scal_lm_to_master
+   end interface
+
    interface reduce_radial
       module procedure reduce_radial_1D
       module procedure reduce_radial_2D
    end interface
 
-   public :: reduce_radial, reduce_scalar
+   public :: reduce_radial, reduce_scalar, send_lm_pair_to_master
 
    ! declaration of the types for the redistribution
    class(type_mpitransp), public, pointer :: lo2r_s, r2lo_s, lo2r_press
@@ -604,6 +612,177 @@ contains
 #endif
 
    end subroutine scatter_from_rank0_to_lo
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_arr(b,l,m,blm0)
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llm:ulm,n_r_max)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      !-- Output variable
+      complex(cp), intent(out) :: blm0(n_r_max)
+
+      !-- Local variables:
+      integer :: lm_pair,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17931
+      lm_pair = lo_map%lm2(l,m)
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         blm0(:) = b(lm_pair,:)
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, n_r_max, MPI_DEF_COMPLEX, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, n_r_max, MPI_DEF_COMPLEX, MPI_ANY_SOURCE,&
+                 &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0(:)=zero
+         end if
+      end if
+
+   end subroutine send_lm_pair_to_master_arr
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_scal_real(b,l,m,blm0)
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llm:ulm)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      !-- Output variable
+      real(cp), intent(out) :: blm0
+
+      !-- Local variables:
+      integer :: lm_pair,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17952
+      lm_pair = lo_map%lm2(l,m)
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         blm0 = real(b(lm_pair))
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_REAL, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, 1, MPI_DEF_REAL, MPI_ANY_SOURCE, &
+                 &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0=0.0_cp
+         end if
+      end if
+
+   end subroutine send_lm_pair_to_master_scal_real
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_scal_cmplx(b,l,m,blm0)
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llm:ulm)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      !-- Output variable
+      complex(cp), intent(out) :: blm0
+
+      !-- Local variables:
+      integer :: lm_pair,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+      sr_tag = 18963
+      lm_pair = lo_map%lm2(l,m)
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         blm0 = b(lm_pair)
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_COMPLEX, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
+                &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0=zero
+         end if
+      end if
+
+   end subroutine send_lm_pair_to_master_scal_cmplx
+!-------------------------------------------------------------------------------
+   subroutine send_scal_lm_to_master(blm0,l,m)
+
+      !-- Input variables
+      real(cp), intent(inout) :: blm0
+      integer,  intent(in) :: l
+      integer,  intent(in) :: m
+
+      !-- Local variables:
+      integer :: sr_tag, lm_pair
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      sr_tag = 17963
+      lm_pair = lo_map%lm2(l,m)
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_REAL, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, 1, MPI_DEF_REAL, MPI_ANY_SOURCE, &
+                 &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0=0.0_cp
+         end if
+      end if
+
+   end subroutine send_scal_lm_to_master
 !-------------------------------------------------------------------------------
    subroutine lm2lo_redist(arr_LMloc,arr_lo)
 

@@ -1,9 +1,12 @@
 module power
+   !
+   ! This module handles the writing of the power budget
+   !
 
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use communications, only: gather_from_Rloc, reduce_radial
+   use communications, only: gather_from_Rloc, reduce_radial, send_lm_pair_to_master
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, l_max, &
        &                 n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
@@ -119,8 +122,7 @@ contains
       real(cp),    intent(out) :: viscDiss,ohmDiss
 
       !-- Local:
-      integer :: n_r,lm,l,m,l1m0
-
+      integer :: n_r,lm,l,m,fileHandle
       real(cp) :: r_ratio
       real(cp) :: viscHeatR_global(n_r_max)
       real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat
@@ -129,19 +131,12 @@ contains
       real(cp) :: buoy_chem_r(n_r_max),buoy_chem_r_global(n_r_max)
       real(cp) :: curlB2_rIC(n_r_ic_max),curlB2_rIC_global(n_r_ic_max)
       real(cp) :: viscous_torque_ic,viscous_torque_ma
-
-      complex(cp) :: laplace,Bh
-
-      character(len=76) :: fileName
       real(cp) :: z10ICB,z10CMB,drz10ICB,drz10CMB
       real(cp) :: powerIC,powerMA
       real(cp) :: powerDiffOld,powerDiffT
+      complex(cp) :: laplace,Bh
+      character(len=76) :: fileName
 
-      logical :: rank_has_l1m0
-      integer :: sr_tag, fileHandle
-#ifdef WITH_MPI
-      integer :: status(MPI_STATUS_SIZE)
-#endif
 
       do n_r=1,n_r_max
 
@@ -262,7 +257,7 @@ contains
       end if  ! conducting inner core ?
 
       !-- Add up and correct:
-      !  A correction is neccesaary when using the integral over
+      !  A correction is necessary when using the integral over
       !  (curl U)**2 to calculate the dippisated energy and inner core
       !  or mantle are allowed to rotate.
       !  The only flow component here is l=1,m=0, i.e. lm=2
@@ -271,56 +266,22 @@ contains
       !  the radial derivatives drz10 are negative (positive) at the
       !  ICB (CMB)! The energy transfer is described by the very
       !  correction terms.
-      l1m0=lo_map%lm2(1,0)
-      rank_has_l1m0=.false. ! set default
-      sr_tag=46378 !arbitray send-recv tag
-      if ( llm <= l1m0 .and. ulm >= l1m0 ) then
-         if ( l_rot_IC ) then
-            z10ICB  =real(z(l1m0,n_r_ICB))
-            drz10ICB=real(dz(l1m0,n_r_ICB))
-         else
-            z10ICB  =0.0_cp
-            drz10ICB=0.0_cp
-         end if
-         if ( l_rot_MA ) then
-            z10CMB  =real(z(l1m0,n_r_CMB))
-            drz10CMB=real(dz(l1m0,n_r_CMB))
-         else
-            z10CMB  =0.0_cp
-            drz10CMB=0.0_cp
-         end if
-
-#ifdef WITH_MPI
-         if ( rank /= 0 ) then
-            ! send data to rank 0
-            call MPI_Send(z10ICB, 1, MPI_DEF_COMPLEX, 0, sr_tag, &
-                 &        MPI_COMM_WORLD, ierr)
-            call MPI_Send(drz10ICB, 1, MPI_DEF_COMPLEX, 0, sr_tag+1, &
-                 &        MPI_COMM_WORLD, ierr)
-            call MPI_Send(z10CMB, 1, MPI_DEF_COMPLEX, 0, sr_tag+2, &
-                 &        MPI_COMM_WORLD, ierr)
-            call MPI_Send(drz10CMB, 1, MPI_DEF_COMPLEX, 0, sr_tag+3, &
-                 &        MPI_COMM_WORLD, ierr)
-         end if
-#endif
-         rank_has_l1m0=.true.
+      if ( l_rot_ic ) then
+         call send_lm_pair_to_master(z(:,n_r_icb),1,0,z10ICB)
+         call send_lm_pair_to_master(dz(:,n_r_icb),1,0,drz10ICB)
+      else
+         z10ICB  =0.0_cp
+         drz10ICB=0.0_cp
+      end if
+      if ( l_rot_ma ) then
+         call send_lm_pair_to_master(z(:,n_r_cmb),1,0,z10CMB)
+         call send_lm_pair_to_master(dz(:,n_r_cmb),1,0,drz10CMB)
+      else
+         z10CMB  =0.0_cp
+         drz10CMB=0.0_cp
       end if
 
-      if ( rank == 0 ) then
-#ifdef WITH_MPI
-         if ( .not. rank_has_l1m0 ) then
-            ! receive data from the source ranks
-            call MPI_Recv(z10ICB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag, MPI_COMM_WORLD, status, ierr)
-            call MPI_Recv(drz10ICB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag+1, MPI_COMM_WORLD, status, ierr)
-            call MPI_Recv(z10CMB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag+2, MPI_COMM_WORLD, status, ierr)
-            call MPI_Recv(drz10CMB, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
-                 &        sr_tag+3, MPI_COMM_WORLD, status, ierr)
-         end if
-#endif
-
+      if ( rank== 0 ) then
          if ( l_conv ) then
             viscDiss= -viscHeat
             !if ( l_rot_IC ) viscDiss=viscDiss - two*z10ICB*drz10ICB

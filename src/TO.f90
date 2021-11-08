@@ -266,7 +266,7 @@ contains
          Vr2Mean=phiNorm*or4(nR)*Vr2Mean
          Vt2Mean=phiNorm*or2(nR)*Osin2*Vt2Mean
          Vp2Mean=phiNorm*or2(nR)*Osin2*Vp2Mean
-         if ( nR == n_r_CMB ) then
+         if ( nR == n_r_cmb ) then
             VrMean =0.0_cp
             Vr2Mean=0.0_cp
             if ( ktopv == 2 ) then
@@ -276,7 +276,7 @@ contains
                Vp2Mean=0.0_cp
             end if
          end if
-         if ( nR == n_r_CMB ) then
+         if ( nR == n_r_cmb ) then
             VrMean =0.0_cp
             Vr2Mean=0.0_cp
             if ( kbotv == 2 ) then

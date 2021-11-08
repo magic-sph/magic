@@ -1,4 +1,8 @@
 module magnetic_energy
+   !
+   ! This module handles the computation and the writing of the diagnostic files
+   ! related to magnetic energy: e_mag_oc.TAG, e_mag_ic.TAG, dipole.TAG, eMagR.TAG
+   !
 
    use parallel_mod
    use precision_mod
@@ -23,7 +27,7 @@ module magnetic_energy
    use useful, only: cc2real,cc22real
    use plms_theta, only: plm_theta
    use communications, only: gather_from_lo_to_rank0, reduce_radial, &
-       &                     reduce_scalar
+       &                     reduce_scalar, send_lm_pair_to_master
 
    implicit none
 
@@ -182,7 +186,7 @@ contains
       real(cp), intent(out) :: elsAnel      ! Radially averaged Elsasser number
 
       !-- local:
-      integer :: nR,lm,l,m,l1m0,l1m1
+      integer :: nR,lm,l,m
       integer :: l_geo
 
       real(cp) :: e_p_r(n_r_max), e_p_r_global(n_r_max)
@@ -231,15 +235,7 @@ contains
       character(len=80) :: filename
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
-      logical :: rank_has_l1m0,rank_has_l1m1
-#ifdef WITH_MPI
-      integer :: status(MPI_STATUS_SIZE)
-#endif
       integer :: fileHandle
-      integer :: sr_tag,request1,request2
-
-      ! some arbitrary send recv tag
-      sr_tag=18654
 
       l_geo=11   ! max degree for geomagnetic field seen on Earth
 
@@ -667,58 +663,15 @@ contains
          end if
       end if
 
-      l1m0=lo_map%lm2(1,0)
-      l1m1=lo_map%lm2(1,1)
-
-      rank_has_l1m0=.false.
-      rank_has_l1m1=.false.
-
-      if ( (l1m0 >= llmMag) .and. (l1m0 <= ulmMag) ) then
-         b10=b(l1m0,n_r_cmb)
-#ifdef WITH_MPI
-         if (rank /= 0) then
-            call MPI_Send(b10,1,MPI_DEF_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
-         end if
-#endif
-         rank_has_l1m0=.true.
-      end if
-      if ( l1m1 > 0 ) then
-         if ( (l1m1 >= llmMag) .and. (l1m1 <= ulmMag) ) then
-            b11=b(l1m1,n_r_cmb)
-#ifdef WITH_MPI
-            if (rank /= 0) then
-               call MPI_Send(b11,1,MPI_DEF_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
-            end if
-#endif
-            rank_has_l1m1=.true.
-         end if
-      else
-         b11=zero
-         rank_has_l1m1=.true.
-      end if
-
+      b10=zero
+      b11=zero
+      call send_lm_pair_to_master(b(:,n_r_cmb),1,0,b10)
+      call send_lm_pair_to_master(b(:,n_r_cmb),1,1,b11)
 
       if ( rank == 0 ) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
-#ifdef WITH_MPI
-         if (.not.rank_has_l1m0) then
-            call MPI_IRecv(b10,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag,MPI_COMM_WORLD,request1, ierr)
-         end if
-         if ( .not. rank_has_l1m1 ) then
-            call MPI_IRecv(b11,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag+1,MPI_COMM_WORLD,request2,ierr)
-         end if
-         if ( .not. rank_has_l1m0 ) then
-            call MPI_Wait(request1,status,ierr)
-         end if
-         if ( .not. rank_has_l1m1 ) then
-            call MPI_Wait(request2,status,ierr)
-         end if
-#endif
 
-         !print*, "------------", b10, b11
          theta_dip= rad*atan2(sqrt(two)*abs(b11),real(b10))
          if ( theta_dip < 0.0_cp ) theta_dip=180.0_cp+theta_dip
          if ( abs(b11) < 1.e-20_cp ) then
@@ -740,10 +693,7 @@ contains
             else
                e_p_e_ratio=e_dipole_e/e_p_e
             end if
-            !write(*,"(A,4ES25.17)") "e_cmb = ",e_cmb,e_es_cmb,e_cmb-e_es_cmb,(e_cmb-e_es_cmb)/e_cmb
-            ! There are still differences in field 17 of the dipole file. These
-            ! differences are due to the summation for e_es_cmb and are only of the order
-            ! of machine accuracy.
+
             write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
             &            time*tScale,                      &! 1
             &            theta_dip,phi_dip,                &! 2,3
