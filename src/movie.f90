@@ -24,7 +24,6 @@ module movie_data
 
    real(cp), public :: movieDipColat,movieDipLon
    real(cp), public :: movieDipStrength,movieDipStrengthGeo
-   real(cp), public :: t_movieS(10000)
 
    !-- Info in movie type and were the frames are stored:
    integer, public, parameter :: n_movies_max=30  ! Max no. of different movies

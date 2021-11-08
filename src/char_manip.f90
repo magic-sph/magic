@@ -16,13 +16,13 @@ contains
 
       !-- Input variables
       character(len=*), intent(inout) :: string
-  
+
       !-- Local variables
       character(len=26), parameter :: LOWER_CASE='abcdefghijklmnopqrstuvwxyz'
       character(len=26), parameter :: UPPER_CASE='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  
+
       integer :: i, n
-  
+
       do i = 1, len(string)
       ! -- Find location of letter in lower case constant string
          n = index( LOWER_CASE, string( i:i ) )
@@ -30,7 +30,7 @@ contains
       !    make it upper case
          if ( n /= 0 ) string( i:i ) = UPPER_CASE( n:n )
       end do
-  
+
    end subroutine capitalize
 !------------------------------------------------------------------------------
    subroutine delete_string(string,string_del,length)
@@ -49,25 +49,25 @@ contains
       integer :: length_del
       integer :: n,i
       integer :: pos
-  
+
       length=len(trim(string))
       length_del=len(string_del)
-  
+
       do n=1,length
-      
+
          pos=index(trim(string),string_del)
-     
+
          if ( pos == 0 ) return
-     
+
          string(pos:length-length_del) = string(pos+length_del:length)
          length=length-length_del
-                    
+
          do i=length+1,length+length_del
             string(i:i)=' '
          end do
-      
+
       end do
-  
+
    end subroutine delete_string
 !------------------------------------------------------------------------------
    subroutine str2dble(string,num)
@@ -84,9 +84,9 @@ contains
 
       !-- Local variable:
       integer :: fileHandle
-  
+
       read(string,*) num
-  
+
       open(newunit=fileHandle, file='.helpfile', status='unknown')
       write(fileHandle,*) num
       close(fileHandle)
@@ -100,10 +100,10 @@ contains
 
       !-- Input variable
       character(len=*), intent(in) :: string
-  
+
       !-- Local variable
       integer :: i
-  
+
       length_to_blank=0
       do i=1,len(string)
          if( string(i:i) == ' ' ) then
@@ -119,11 +119,11 @@ contains
       !-- Input variables:
       character(len=*), intent(in) :: string
       character(len=1), intent(in) :: char
-  
+
       !-- Local variables:
       logical :: isDetected
       integer :: i
-  
+
       isDetected=.false.
       length_to_char=0
       do i=1,len(string)
@@ -133,9 +133,9 @@ contains
             exit
          end if
       end do
-  
+
       if ( .not. isDetected ) length_to_char=-1 ! char not found !
-  
+
    end function length_to_char
 !------------------------------------------------------------------------------
    subroutine dble2str(num, str)
@@ -152,12 +152,12 @@ contains
       !-- Local variables
       character(len=72) :: work
       integer :: i
-  
+
       write(work, '(F20.12)') num
       write(str, '(A8)') trim(adjustl(work))
       i = index(str,'.')
       str(i:i)='_'
-  
+
    end subroutine dble2str
 !------------------------------------------------------------------------
    subroutine write_long_string(prefix, long_string, out_unit)
