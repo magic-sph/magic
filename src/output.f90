@@ -1,5 +1,8 @@
 #include "perflib_preproc.cpp"
 module output_mod
+   !
+   ! This module handles the calls to the different output routines.
+   !
 
    use iso_fortran_env, only: output_unit
    use precision_mod

@@ -1,10 +1,15 @@
 module outRot
+   !
+   ! This module handles the writing of several diagnostic files related
+   ! to the rotation: angular momentum (AM.TAG), drift (drift.TAG), inner
+   ! core and mantle rotations.
+   !
 
    use parallel_mod
    use precision_mod
-   use communications, only: allgather_from_rloc
+   use communications, only: allgather_from_rloc, send_lm_pair_to_master
    use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max, n_theta_max
-   use radial_data, only: n_r_CMB, n_r_ICB, nRstart, nRstop
+   use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: lScale, tScale, vScale
@@ -135,8 +140,7 @@ contains
       !-- Local variables:
       real(cp), parameter :: tolerance=10.0_cp*epsilon(0.0_cp)
       real(cp) :: eKinOC
-      integer :: n_r1,n_r2,n_r3,nR
-      integer :: l1m0,l1m1
+      integer :: n_r1,n_r2,n_r3,l1m0
       real(cp) :: viscous_torque_ic,viscous_torque_ma
       real(cp) :: AMz,eKinAMz
       real(cp) :: angular_moment_oc(3)
@@ -148,22 +152,12 @@ contains
       real(cp), save :: AMzLast=0.0_cp,eKinAMzLast=0.0_cp
 
       integer, pointer :: lm2(:,:)
-      integer :: i,l,m,ilm,lm_vals(21),n_lm_vals
+      integer :: i,l,m,ilm,n_lm_vals
       complex(cp) :: zvals_on_rank0(8,3),bvals_on_rank0(8,3)
       complex(cp) :: vals_on_rank0_1d(21)
 
-      integer :: sr_tag
-#ifdef WITH_MPI
-      integer :: status(MPI_STATUS_SIZE),ierr
-#endif
-      logical :: rank_has_l1m0,rank_has_l1m1
-
-      ! some arbitrary tag for the send and recv
-      sr_tag=12345
-
       lm2(0:,0:) => lo_map%lm2
       l1m0=lm2(1,0)
-
 
       if ( llm <= l1m0 .and. ulm >= l1m0 ) then
          !-- Calculating viscous torques:
@@ -180,30 +174,12 @@ contains
          else
             viscous_torque_ma=0.0_cp
          end if
-         rank_has_l1m0=.true.
-#ifdef WITH_MPI
-         if ( rank /= 0 ) then
-            ! send viscous_torque_ic and viscous_torque_ma to rank 0 for
-            ! output
-            call MPI_Send(viscous_torque_ic,1,MPI_DEF_REAL,0, &
-                 &        sr_tag,MPI_COMM_WORLD,ierr)
-            call MPI_Send(viscous_torque_ma,1,MPI_DEF_REAL,0, &
-                 &        sr_tag+1,MPI_COMM_WORLD,ierr)
-         end if
-#endif
-      else
-         rank_has_l1m0=.false.
       end if
 
+      call send_lm_pair_to_master(viscous_torque_ic,1,0)
+      call send_lm_pair_to_master(viscous_torque_ma,1,0)
+
       if ( rank == 0 ) then
-#ifdef WITH_MPI
-         if ( .not. rank_has_l1m0 ) then
-            call MPI_Recv(viscous_torque_ic,1,MPI_DEF_REAL,MPI_ANY_SOURCE,&
-                 &        sr_tag,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(viscous_torque_ma,1,MPI_DEF_REAL,MPI_ANY_SOURCE,&
-                 &        sr_tag+1,MPI_COMM_WORLD,status,ierr)
-         end if
-#endif
          if ( l_SRIC ) then
             powerLor=lorentz_torque_ic*omega_IC
             powerVis=viscous_torque_ic*omega_IC
@@ -235,16 +211,18 @@ contains
       end if
 
       if ( l_drift ) then
-         do i=1,4
-            lm_vals(i)=lm2(i*minc,i*minc)
-            lm_vals(4+i)=lm2(i*minc+1,i*minc)
-         end do
          n_r1=int(third*(n_r_max-1))
          n_r2=int(two*third*(n_r_max-1))
          n_r3=n_r_max-1
-         call sendvals_to_rank0(z,n_r1,lm_vals(1:8),zvals_on_rank0(:,1))
-         call sendvals_to_rank0(z,n_r2,lm_vals(1:8),zvals_on_rank0(:,2))
-         call sendvals_to_rank0(z,n_r3,lm_vals(1:8),zvals_on_rank0(:,3))
+
+         do i=1,4
+            call send_lm_pair_to_master(z(:,n_r1),i*minc,i*minc,zvals_on_rank0(i,1))
+            call send_lm_pair_to_master(z(:,n_r2),i*minc,i*minc,zvals_on_rank0(i,2))
+            call send_lm_pair_to_master(z(:,n_r3),i*minc,i*minc,zvals_on_rank0(i,3))
+            call send_lm_pair_to_master(z(:,n_r1),i*minc+1,i*minc,zvals_on_rank0(4+i,1))
+            call send_lm_pair_to_master(z(:,n_r2),i*minc+1,i*minc,zvals_on_rank0(4+i,2))
+            call send_lm_pair_to_master(z(:,n_r3),i*minc+1,i*minc,zvals_on_rank0(4+i,3))
+         end do
 
          if ( rank == 0 ) then
             if ( l_save_out ) then
@@ -268,10 +246,18 @@ contains
          end if
 
          if ( l_mag .or. l_mag_LF ) then
-            n_r1=n_r_CMB
-            n_r2=n_r_ICB
-            call sendvals_to_rank0(b,n_r1,lm_vals(1:8),bvals_on_rank0(:,1))
-            call sendvals_to_rank0(b,n_r2,lm_vals(1:8),bvals_on_rank0(:,2))
+            n_r1=n_r_cmb
+            n_r2=n_r_icb
+            do i=1,4
+               call send_lm_pair_to_master(b(:,n_r1),i*minc,i*minc, &
+                    &                      bvals_on_rank0(i,1))
+               call send_lm_pair_to_master(b(:,n_r2),i*minc,i*minc, &
+                    &                      bvals_on_rank0(i,2))
+               call send_lm_pair_to_master(b(:,n_r1),i*minc+1,i*minc,&
+                    &                      bvals_on_rank0(4+i,1))
+               call send_lm_pair_to_master(b(:,n_r2),i*minc+1,i*minc,&
+                    &                      bvals_on_rank0(4+i,2))
+            end do
 
             if ( rank == 0 ) then
                if ( l_save_out ) then
@@ -312,57 +298,10 @@ contains
       end if
 
       if ( l_AM ) then
-         rank_has_l1m0=.false.
-         rank_has_l1m1=.false.
-         l1m0=lo_map%lm2(1,0)
-         l1m1=lo_map%lm2(1,1)
-         if ( (llm <= l1m0) .and. (l1m0 <= ulm) ) then
-            do nR=1,n_r_max
-               z10(nR)=z(l1m0,nR)
-            end do
-            rank_has_l1m0=.true.
-#ifdef WITH_MPI
-            if (rank /= 0) then
-               call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, &
-                    &        MPI_COMM_WORLD,ierr)
-            end if
-#endif
-         end if
+         call send_lm_pair_to_master(z,1,0,z10)
+         call send_lm_pair_to_master(z,1,1,z11)
 
-         if ( l1m1 > 0 ) then
-            if ( (llm <= l1m1) .and. (l1m1 <= ulm) ) then
-               do nR=1,n_r_max
-                  z11(nR)=z(l1m1,nR)
-               end do
-               rank_has_l1m1=.true.
-#ifdef WITH_MPI
-               if ( rank /= 0 ) then
-                  call MPI_Send(z11,n_r_max,MPI_DEF_COMPLEX,0, &
-                       &        sr_tag+1,MPI_COMM_WORLD,ierr)
-               end if
-#endif
-            end if
-         else
-            do nR=1,n_r_max
-               z11(nR)=zero
-            end do
-         end if
-         ! now we have z10 and z11 in the worst case on two different
-         ! ranks, which are also different from rank 0
          if ( rank == 0 ) then
-#ifdef WITH_MPI
-            if ( .not. rank_has_l1m0 ) then
-               call MPI_Recv(z10,n_r_max,MPI_DEF_COMPLEX,MPI_ANY_SOURCE, &
-                    &        sr_tag,MPI_COMM_WORLD,status,ierr)
-            end if
-            if ( l1m1 > 0 ) then
-               if ( .not. rank_has_l1m1 ) then
-                  call MPI_Recv(z11,n_r_max,MPI_DEF_COMPLEX,MPI_ANY_SOURCE, &
-                       &        sr_tag+1,MPI_COMM_WORLD,status,ierr)
-               end if
-            end if
-#endif
-
             call get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
                  &                  angular_moment_ic,angular_moment_ma)
             if ( l_save_out ) then
@@ -410,15 +349,15 @@ contains
 
       if ( l_iner ) then
          ! l_iner can only be .true. for minc=1
-         n_lm_vals=0
+         n_r1=int(half*(n_r_max-1))
+         ilm=0
          do l=1,6
             do m=1,l
-               n_lm_vals = n_lm_vals + 1
-               lm_vals(n_lm_vals)=lm2(l,m)
+               ilm = ilm + 1
+               call send_lm_pair_to_master(w(:,n_r1),l,m,vals_on_rank0_1d(ilm))
             end do
          end do
-         n_r1=int(half*(n_r_max-1))
-         call sendvals_to_rank0(w,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
+         n_lm_vals=ilm
 
          if ( rank == 0 ) then
             if ( l_save_out ) then
@@ -431,7 +370,13 @@ contains
          end if
 
          n_r1=int(half*(n_r_max-1))
-         call sendvals_to_rank0(z,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
+         ilm=0
+         do l=1,6
+            do m=1,l
+               ilm = ilm+1
+               call send_lm_pair_to_master(z(:,n_r1),l,m,vals_on_rank0_1d(ilm))
+            end do
+         end do
 
          if ( rank == 0 ) then
             if ( l_save_out ) then
@@ -649,50 +594,5 @@ contains
       angular_moment_ma(3)=c_moi_ma*omega_ma
 
    end subroutine get_angular_moment_Rloc
-!-----------------------------------------------------------------------
-   subroutine sendvals_to_rank0(field,n_r,lm_vals,vals_on_rank0)
-
-      !-- Input variables:
-      complex(cp), intent(in) :: field(llm:ulm,n_r_max)
-      integer,     intent(in) :: n_r
-      integer,     intent(in) :: lm_vals(:)
-
-      !-- Output variables:
-      complex(cp), intent(out) :: vals_on_rank0(:)
-
-      !-- Local variables:
-      integer :: ilm,lm,tag,n_lm_vals
-#ifdef WITH_MPI
-      integer :: ierr,status(MPI_STATUS_SIZE)
-#endif
-
-      n_lm_vals=size(lm_vals)
-      if ( size(vals_on_rank0) < n_lm_vals ) then
-         write(*,"(2(A,I4))") "write_rot: length of vals_on_rank0=",size(vals_on_rank0),&
-              &" must be >= size(lm_vals)=",n_lm_vals
-         call abortRun('Stop in sendvals_to_rank0')
-      end if
-
-      do ilm=1,n_lm_vals
-         lm=lm_vals(ilm)
-         if ( lm_balance(0)%nStart <= lm .and. lm <= lm_balance(0)%nStop ) then
-            ! the value is already on rank 0
-            if (rank == 0) vals_on_rank0(ilm)=field(lm,n_r)
-         else
-            tag=876+ilm
-            ! on which process is the lm value?
-#ifdef WITH_MPI
-            if (llm <= lm .and. lm <= ulm) then
-               call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,   &
-                    &        0,tag,MPI_COMM_WORLD,ierr)
-            end if
-            if (rank == 0) then
-               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DEF_COMPLEX,        &
-                    &        MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
-            end if
-#endif
-         end if
-      end do
-   end subroutine sendvals_to_rank0
 !-----------------------------------------------------------------------
 end module outRot
