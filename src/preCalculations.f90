@@ -461,6 +461,7 @@ contains
                      write(output_unit,*) '! epsc0>0.                        '
                      call abortRun('Stop run in preCalc')
                   end if
+                  help=tops(0,0)
                   if ( abs(real(tops(0,0))) == sq4pi ) &
                        call logWrite('! You intend to use the CMB flux as buoy. scale??')
                   tops(0,0)=-facIH*epsc*pr/(four*pi*r_cmb**2) + &

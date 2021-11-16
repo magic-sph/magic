@@ -567,6 +567,7 @@ contains
          ogrun(:) =0.0_cp
          dtemp0(:)=0.0_cp
          rho0(:)  =0.0_cp
+         drho0(:) =0.0_cp
 
          do i=1,12
             alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)

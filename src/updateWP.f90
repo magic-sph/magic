@@ -753,8 +753,8 @@ contains
       type(type_tarray), intent(inout) :: dwdt
       complex(cp),       intent(inout) :: w(lm_max,nRstart:nRstop) ! Poloidal potential
       !-- Output: ds
-      complex(cp),       intent(out) :: dw(lm_max,nRstart:nRstop) ! Radial derivative of w
-      complex(cp),       intent(out) :: ddw(lm_max,nRstart:nRstop) ! Radial derivative of w
+      complex(cp),       intent(inout) :: dw(lm_max,nRstart:nRstop) ! Radial derivative of w
+      complex(cp),       intent(out) :: ddw(lm_max,nRstart:nRstop) ! Radial derivative of dw
       complex(cp),       intent(inout) :: p(lm_max,nRstart:nRstop) ! Pressure
       complex(cp),       intent(out) :: dp(lm_max,nRstart:nRstop) ! Radial derivative of p
 
