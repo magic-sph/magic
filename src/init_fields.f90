@@ -7,7 +7,7 @@ module init_fields
    use iso_fortran_env, only: output_unit
    use parallel_mod
    use mpi_ptop_mod, only: type_mpiptop
-   use mpi_transp, only: type_mpitransp
+   use mpi_transp_mod, only: type_mpitransp
    use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max,    &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max, &
        &                 l_axi,minc,n_cheb_ic_max,lm_max, nlat_padded

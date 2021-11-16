@@ -24,7 +24,7 @@ module communications
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
    use charmanip, only: capitalize
    use num_param, only: mpi_transp, mpi_packing
-   use mpi_transp, only: type_mpitransp
+   use mpi_transp_mod, only: type_mpitransp
 
    implicit none
 
