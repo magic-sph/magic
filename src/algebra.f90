@@ -351,7 +351,7 @@ contains
       real(cp), intent(in) :: abd(2*kl+ku+1, n)
 
       !-- Output variable
-      real(cp), intent(out) :: rhs(n)
+      real(cp), intent(inout) :: rhs(n)
 
       !-- Local variables
       real(cp) :: t
@@ -397,7 +397,7 @@ contains
       real(cp), intent(in) :: abd(2*kl+ku+1, n)
 
       !-- Output variable
-      complex(cp), intent(out) :: rhs(n)
+      complex(cp), intent(inout) :: rhs(n)
 
       !-- Local variables
       complex(cp) :: t
