@@ -86,6 +86,24 @@ contains
          allocate( phi_ave(1,1) )
       end if
 
+      !-- Set initial values to zero
+      if ( l_conv ) then
+         w_ave(:,:)=zero
+         z_ave(:,:)=zero
+         p_ave(:,:)=zero
+      end if
+      if ( l_heat ) s_ave(:,:)=zero
+      if ( l_chemical_conv ) xi_ave(:,:)=zero
+      if ( l_phase_field ) phi_ave(:,:)=zero
+      if ( l_mag ) then
+         b_ave(:,:) =zero
+         aj_ave(:,:)=zero
+         if ( l_cond_ic ) then
+            b_ic_ave(:,:) =zero
+            aj_ic_ave(:,:)=zero
+         end if
+      end if
+
       if ( rank == 0 ) then
          allocate( bICB(1:lm_max) )
          allocate( b_ave_global(1:lm_max) )
@@ -205,78 +223,21 @@ contains
       real(cp) :: time
       real(cp) :: dt_norm
 
-      !-- Initialise average for first time step:
-
-      if ( nAve == 1 ) then
-
-         !zero=zero
-         if ( n_graphs > 0 ) then
-            if ( l_conv ) then
-               w_ave(:,:)=zero
-               z_ave(:,:)=zero
-               p_ave(:,:)=zero
-            end if
-            if ( l_heat ) s_ave(:,:)=zero
-            if ( l_chemical_conv ) xi_ave(:,:)=zero
-            if ( l_phase_field ) phi_ave(:,:)=zero
-            if ( l_mag ) then
-               b_ave(:,:) =zero
-               aj_ave(:,:)=zero
-               if ( l_cond_ic ) then
-                  b_ic_ave(:,:) =zero
-                  aj_ic_ave(:,:)=zero
-               end if
-            end if
-         end if
-
-      end if  ! First step
-
       !-- Add new time step:
-
       if ( l_conv ) then
-         do nR=1,n_r_max
-            do lm=llm,ulm
-               w_ave(lm,nR)=w_ave(lm,nR) + time_passed*w(lm,nR)
-               z_ave(lm,nR)=z_ave(lm,nR) + time_passed*z(lm,nR)
-               p_ave(lm,nR)=p_ave(lm,nR) + time_passed*p(lm,nR)
-            end do
-         end do
+         w_ave(:,:)=w_ave(:,:) + time_passed*w(:,:)
+         z_ave(:,:)=z_ave(:,:) + time_passed*z(:,:)
+         p_ave(:,:)=p_ave(:,:) + time_passed*p(:,:)
       end if
-      if ( l_heat ) then
-         do nR=1,n_r_max
-            do lm=llm,ulm
-               s_ave(lm,nR)=s_ave(lm,nR) + time_passed*s(lm,nR)
-            end do
-         end do
-      end if
-      if ( l_chemical_conv ) then
-         do nR=1,n_r_max
-            do lm=llm,ulm
-               xi_ave(lm,nR)=xi_ave(lm,nR) + time_passed*xi(lm,nR)
-            end do
-         end do
-      end if
-      if ( l_phase_field ) then
-         do nR=1,n_r_max
-            do lm=llm,ulm
-               phi_ave(lm,nR)=phi_ave(lm,nR) + time_passed*phi(lm,nR)
-            end do
-         end do
-      end if
+      if ( l_phase_field ) phi_ave(:,:)=phi_ave(:,:) + time_passed*phi(:,:)
+      if ( l_heat ) s_ave(:,:)=s_ave(:,:) + time_passed*s(:,:)
+      if ( l_chemical_conv ) xi_ave(:,:)=xi_ave(:,:) + time_passed*xi(:,:)
       if ( l_mag ) then
-         do nR=1,n_r_max
-            do lm=llm,ulm
-               b_ave(lm,nR) =b_ave(lm,nR)  + time_passed*b(lm,nR)
-               aj_ave(lm,nR)=aj_ave(lm,nR) + time_passed*aj(lm,nR)
-            end do
-         end do
+         b_ave(:,:) =b_ave(:,:)  + time_passed*b(:,:)
+         aj_ave(:,:)=aj_ave(:,:) + time_passed*aj(:,:)
          if ( l_cond_ic ) then
-            do nR=1,n_r_ic_max
-               do lm=llm,ulm
-                  b_ic_ave(lm,nR) =b_ic_ave(lm,nR) + time_passed*b_ic(lm,nR)
-                  aj_ic_ave(lm,nR)=aj_ic_ave(lm,nR)+ time_passed*aj_ic(lm,nR)
-               end do
-            end do
+            b_ic_ave(:,:) =b_ic_ave(:,:) + time_passed*b_ic(:,:)
+            aj_ic_ave(:,:)=aj_ic_ave(:,:)+ time_passed*aj_ic(:,:)
          end if
       end if
 
@@ -289,50 +250,20 @@ contains
          dt_norm=one/time_norm
 
          if ( l_conv ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  w_ave(lm,nR)=dt_norm*w_ave(lm,nR)
-                  z_ave(lm,nR)=dt_norm*z_ave(lm,nR)
-                  p_ave(lm,nR)=dt_norm*p_ave(lm,nR)
-               end do
-            end do
+            w_ave(:,:)=dt_norm*w_ave(:,:)
+            z_ave(:,:)=dt_norm*z_ave(:,:)
+            p_ave(:,:)=dt_norm*p_ave(:,:)
          end if
-         if ( l_heat ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  s_ave(lm,nR)=dt_norm*s_ave(lm,nR)
-               end do
-            end do
-         end if
-         if ( l_chemical_conv ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  xi_ave(lm,nR)=dt_norm*xi_ave(lm,nR)
-               end do
-            end do
-         end if
-         if ( l_phase_field ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  phi_ave(lm,nR)=dt_norm*phi_ave(lm,nR)
-               end do
-            end do
-         end if
+         if ( l_phase_field ) phi_ave(:,:)=dt_norm*phi_ave(:,:)
+         if ( l_heat ) s_ave(:,:)=dt_norm*s_ave(:,:)
+         if ( l_chemical_conv ) xi_ave(:,:)=dt_norm*xi_ave(:,:)
          if ( l_mag ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  b_ave(lm,nR) =dt_norm*b_ave(lm,nR)
-                  aj_ave(lm,nR)=dt_norm*aj_ave(lm,nR)
-               end do
-            end do
-         end if
-         if ( l_cond_ic ) then
-            do nR=1,n_r_ic_max
-               do lm=llm,ulm
-                  b_ic_ave(lm,nR) =dt_norm*b_ic_ave(lm,nR)
-                  aj_ic_ave(lm,nR)=dt_norm*aj_ic_ave(lm,nR)
-               end do
-            end do
+            b_ave(:,:) =dt_norm*b_ave(:,:)
+            aj_ave(:,:)=dt_norm*aj_ave(:,:)
+            if ( l_cond_ic ) then
+               b_ic_ave(:,:) =dt_norm*b_ic_ave(:,:)
+               aj_ic_ave(:,:)=dt_norm*aj_ic_ave(:,:)
+            end if
          end if
 
          !----- Get the radial derivatives:
@@ -547,52 +478,21 @@ contains
          ! now correct the stored average fields by the factor which has been
          ! applied before
          if ( l_conv ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  w_ave(lm,nR)=w_ave(lm,nR)*time_norm
-                  z_ave(lm,nR)=z_ave(lm,nR)*time_norm
-                  p_ave(lm,nR)=p_ave(lm,nR)*time_norm
-               end do
-            end do
+            w_ave(:,:)=w_ave(:,:)*time_norm
+            z_ave(:,:)=z_ave(:,:)*time_norm
+            p_ave(:,:)=p_ave(:,:)*time_norm
          end if
-         if ( l_heat ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  s_ave(lm,nR)=s_ave(lm,nR)*time_norm
-               end do
-            end do
-         end if
-         if ( l_chemical_conv ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  xi_ave(lm,nR)=xi_ave(lm,nR)*time_norm
-               end do
-            end do
-         end if
-         if ( l_chemical_conv ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  phi_ave(lm,nR)=phi_ave(lm,nR)*time_norm
-               end do
-            end do
-         end if
+         if ( l_chemical_conv ) phi_ave(:,:)=phi_ave(:,:)*time_norm
+         if ( l_heat ) s_ave(:,:)=s_ave(:,:)*time_norm
+         if ( l_chemical_conv ) xi_ave(:,:)=xi_ave(:,:)*time_norm
          if ( l_mag ) then
-            do nR=1,n_r_max
-               do lm=llm,ulm
-                  b_ave(lm,nR) =b_ave(lm,nR)*time_norm
-                  aj_ave(lm,nR)=aj_ave(lm,nR)*time_norm
-               end do
-            end do
+            b_ave(:,:) =b_ave(:,:)*time_norm
+            aj_ave(:,:)=aj_ave(:,:)*time_norm
+            if ( l_cond_ic ) then
+               b_ic_ave(:,:) =b_ic_ave(:,:)*time_norm
+               aj_ic_ave(:,:)=aj_ic_ave(:,:)*time_norm
+            end if
          end if
-         if ( l_cond_ic ) then
-            do nR=1,n_r_ic_max
-               do lm=llm,ulm
-                  b_ic_ave(lm,nR) =b_ic_ave(lm,nR)*time_norm
-                  aj_ic_ave(lm,nR)=aj_ic_ave(lm,nR)*time_norm
-               end do
-            end do
-         end if
-
 
       end if ! last time step ?
 
