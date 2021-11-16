@@ -224,13 +224,28 @@ if(USE_LAPACKLIB MATCHES LIBFLAME)
              $ENV{HOME}/local/lib64)
    if ( FLAME MATCHES FLAME-NOTFOUND )
       message(STATUS "LIBFLAME was not found")
-      set(USE_LAPACKLIB "LAPACK")
+      set(USE_LAPACKLIB "LIBSCI")
    else()
       message(STATUS "BLIS: '${BLIS}'")
       message(STATUS "LIBFLAME: '${FLAME}'")
       add_definitions(-DWITH_LIBFLAME)
    endif()
 endif()
+
+# Detect LIBSCI (Cray)
+if(USE_LAPACKLIB MATCHES LIBSCI)
+   find_library(SCI NAME sci_cray
+       PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
+             $ENV{HOME}/local/lib
+             $ENV{HOME}/local/lib64)
+   if ( SCI MATCHES FLAME-NOTFOUND )
+      message(STATUS "LIBSCI was not found")
+      set(USE_LAPACKLIB "LAPCK")
+   else()
+      message(STATUS "LIBSCI: '${SCI}'")
+   endif()
+endif()
+
 
 # Detect LAPACK
 if(USE_LAPACKLIB MATCHES LAPACK)
