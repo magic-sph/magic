@@ -55,6 +55,18 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
    set(FFLAG_FPE       "-ffpe-trap=invalid,zero,overflow")
    set(FFLAG_OPT      "-march=native")
 endif()
+if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
+   set(FFLAG_ARCH      " ")
+   set(FFLAG_STD       "-en")
+   set(FFLAG_NO_STD    " ")
+   set(FFLAG_TRACEBACK " ")
+   set(FFLAG_CONVERT   "-h byteswapio")
+   set(FFLAG_PREPROCESSOR "-e Z")
+   set(FFLAG_WARN_ALL  "-Wno-maybe-unitialized")
+   set(FFLAG_CHECK_ALL "-G 0")
+   set(FFLAG_FPE       " ")
+   set(FFLAG_OPT       " ")
+endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
    set(FFLAG_STD       " ")
@@ -101,13 +113,16 @@ set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort")
 # PGI compiler names
 set(_MPI_PGI_C_COMPILER_NAMES              "mpipgcc|mppgcc")
 set(_MPI_PGI_Fortran_COMPILER_NAMES        "mpipgf|mppgf")
+# Cray compiler names
+set(_MPI_Cray_C_COMPILER_NAMES             "cc")
+set(_MPI_Cray_Fortran_COMPILER_NAMES       "ftn")
 # XLC MPI Compiler names
 set(_MPI_XL_C_COMPILER_NAMES               "mpxlc|mpxlc_r|mpixlc|mpixlc_r")
 set(_MPI_XL_Fortran_COMPILER_NAMES         "mpxlf|mpixlf")
 
 # Find CC, CXX and Fortran MPI wrappers
-string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
-string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
+string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}|${_MPI_Cray_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
+string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}|${_MPI_Cray_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
 
 # Check whether compiler_options() is available
 file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCompOpt.f90"
