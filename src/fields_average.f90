@@ -86,6 +86,7 @@ contains
          allocate( phi_ave(1,1) )
       end if
 
+      !-- Set initial values to zero
       if ( l_conv ) then
          w_ave(:,:)=zero
          z_ave(:,:)=zero
