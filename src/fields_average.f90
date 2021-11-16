@@ -70,6 +70,14 @@ contains
       allocate( aj_ic_ave(llm:ulm,n_r_ic_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_ic_max*SIZEOF_DEF_COMPLEX
 
+      if ( l_chemical_conv ) then
+         allocate( xi_ave(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate( xi_ave(1,1) )
+      end if
+
+      !-- Set initial values to zero
       if ( l_conv ) then
          w_ave(:,:)=zero
          z_ave(:,:)=zero
@@ -84,13 +92,6 @@ contains
             b_ic_ave(:,:) =zero
             aj_ic_ave(:,:)=zero
          end if
-      end if
-
-      if ( l_chemical_conv ) then
-         allocate( xi_ave(llm:ulm,n_r_max) )
-         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      else
-         allocate( xi_ave(1,1) )
       end if
 
       if ( rank == 0 ) then
