@@ -1,5 +1,5 @@
 #define KNL_BIG 0
-module mpi_transp
+module mpi_transp_mod
    !
    ! This is an abstract class that will be used to define MPI transposers
    ! The actual implementation is deferred to either point-to-point (MPI_Isend
@@ -53,7 +53,7 @@ module mpi_transp
 
    end interface
 
-end module mpi_transp
+end module mpi_transp_mod
 
 
 !----------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ module  mpi_alltoall_mod
    use truncation, only: lm_max, n_r_max, l_max, minc, l_axi
    use radial_data, only: nRstart, nRstop
    use blocking, only: lm_balance, lo_map, st_map, llm, ulm
-   use mpi_transp, only: type_mpitransp
+   use mpi_transp_mod, only: type_mpitransp
 
    implicit none
 
@@ -476,7 +476,7 @@ module  mpi_ptop_mod
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop, radial_balance
    use blocking, only: lm_balance, st_map, lo_map, llm, ulm
-   use mpi_transp, only: type_mpitransp
+   use mpi_transp_mod, only: type_mpitransp
 
    implicit none
 
