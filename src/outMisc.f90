@@ -241,7 +241,7 @@ contains
             if ( l_heat ) then
                call TMeanR%compute(osq4pi*real(s(1,:)),n_calls,timePassed,timeNorm)
                tmp(:)   = otemp1(:)*TMeanR%mean(:)-ViscHeatFac*ThExpNb* &
-               &          alpha0(n_r)*orho1(n_r)*PmeanR%mean(n_r)
+               &          alpha0(:)*orho1(:)*PmeanR%mean(:)
                call SMeanR%compute(tmp(:),n_calls,timePassed,timeNorm)
             endif
             if ( l_chemical_conv ) then
