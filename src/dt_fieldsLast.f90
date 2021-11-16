@@ -322,6 +322,8 @@ contains
          dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:)
       end if
 
+      if ( .not. l_phase_field ) allocate(dphidt%expl(1,1,1)) ! for debug
+
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed
       allocate ( dbdt_CMB_LMloc(llmMag:ulmMag) )
