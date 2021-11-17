@@ -66,6 +66,10 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
    set(FFLAG_CHECK_ALL "-G 0")
    set(FFLAG_FPE       "-K trap=fp")
    set(FFLAG_OPT       " ")
+   #set(CMAKE_EXE_LINKER_FLAGS "-h dynamic")
+   # Remove -rdynamic option (workaround for test machine):
+   # https://cmake.org/pipermail/cmake/2014-November/059154.html
+   set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
@@ -79,6 +83,9 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_FPE       "-Ktrap=divz,inv,ovf")
    set(FFLAG_OPT      "-fastsse")
 endif()
+
+message("CMAKE_EXE_LINKER_FLAGS is ${CMAKE_EXE_LINKER_FLAGS}")
+message("CMAKE_Fortran_FLAGS_RELEASE is ${CMAKE_Fortran_FLAGS_RELEASE}")
 
 # Matrix preconditioning
 if (USE_PRECOND MATCHES yes)
