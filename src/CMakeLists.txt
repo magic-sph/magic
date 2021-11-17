@@ -47,7 +47,7 @@ else()
    set(whichsht sht_native.f90)
 endif()
 
-add_executable(magic.exe magic.f90 ${srcfiles} ${fft} ${dct} ${lapack} ${wichsht} c_utils.c)
+add_executable(magic.exe magic.f90 ${srcfiles} ${fft} ${dct} ${lapack} ${wichsht})
 set_property(TARGET ${EXEC} PROPERTY LINKER_LANGUAGE Fortran)
 
 ########
