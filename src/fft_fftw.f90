@@ -3,7 +3,7 @@ module fft
    ! This is the FFTW version of the fft module
    !
 
-   use omp_lib
+   !$ use omp_lib
    use iso_c_binding
    use precision_mod
    use constants, only: zero

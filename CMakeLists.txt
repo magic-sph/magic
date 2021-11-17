@@ -84,9 +84,6 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_OPT      "-fastsse")
 endif()
 
-message("CMAKE_EXE_LINKER_FLAGS is ${CMAKE_EXE_LINKER_FLAGS}")
-message("CMAKE_Fortran_FLAGS_RELEASE is ${CMAKE_Fortran_FLAGS_RELEASE}")
-
 # Matrix preconditioning
 if (USE_PRECOND MATCHES yes)
    add_definitions(-DWITH_PRECOND_S -DWITH_PRECOND_Z -DWITH_PRECOND_BJ
