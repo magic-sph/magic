@@ -1788,7 +1788,7 @@ contains
            &                       tscheme_family_old, lorentz_torque_ma_dt)
 
       call MPI_File_Read(fh, omega_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
-      call MPI_File_Read(fh, omegaOsz_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
+      call MPI_File_Read(fh, omegaOsz_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, tOmega_ic1, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, omega_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, omegaOsz_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
