@@ -5,12 +5,10 @@ module finite_differences
    !
 
    use precision_mod
-   use parallel_mod, only: rank
    use constants, only: zero, one, two, half
-   use useful, only: logWrite
+   use useful, only: logWrite, abortRun
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
-   use useful, only: abortRun
 
    implicit none
 

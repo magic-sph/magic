@@ -352,39 +352,35 @@ contains
       if ( lTONext2 ) then
 
          dzddVpLMr(1,nR)=0.0_cp
-         do l=1,l_max
-            lm=lm2(l,0)
-            dzddVpLMr(l+1,nR)=zASL(l+1)
-         end do
+         dzddVpLMr(1:,nR)=zASL(1:)
 
       else if ( lTOnext ) then
 
-         !$omp parallel do default(shared)                     &
-         !$omp& private(nTheta,nPhi,sinT,cosT,BsF1,BsF2,BpF1,BzF1,BzF2)
-         do nPhi=1,n_phi_maxStr
-            do nTheta=1,n_theta_maxStr
-               sinT =sinTheta(nTheta)
-               cosT =cosTheta(nTheta)
-               BsF1 =sinT*or2(nR)
-               BsF2 =cosT/sinT*or1(nR)
-               BpF1 =or1(nR)/sinT
-               BzF1 =cosT*or2(nR)
-               BzF2 =or1(nR)
+         if ( l_mag ) then
+            !$omp parallel do default(shared)                     &
+            !$omp& private(nTheta,nPhi,sinT,cosT,BsF1,BsF2,BpF1,BzF1,BzF2)
+            do nPhi=1,n_phi_maxStr
+               do nTheta=1,n_theta_maxStr
+                  sinT =sinTheta(nTheta)
+                  cosT =cosTheta(nTheta)
+                  BsF1 =sinT*or2(nR)
+                  BsF2 =cosT/sinT*or1(nR)
+                  BpF1 =or1(nR)/sinT
+                  BzF1 =cosT*or2(nR)
+                  BzF2 =or1(nR)
 
-               BsLast(nTheta,nPhi,nR)=BsF1*br(nTheta,nPhi) + BsF2*bt(nTheta,nPhi)
-               BpLast(nTheta,nPhi,nR)=BpF1*bp(nTheta,nPhi)
-               BzLast(nTheta,nPhi,nR)=BzF1*br(nTheta,nPhi) - BzF2*bt(nTheta,nPhi)
+                  BsLast(nTheta,nPhi,nR)=BsF1*br(nTheta,nPhi) + BsF2*bt(nTheta,nPhi)
+                  BpLast(nTheta,nPhi,nR)=BpF1*bp(nTheta,nPhi)
+                  BzLast(nTheta,nPhi,nR)=BzF1*br(nTheta,nPhi) - BzF2*bt(nTheta,nPhi)
+               end do
             end do
-         end do 
-         !$omp end parallel do
+            !$omp end parallel do
+         end if
 
          dzdVpLMr(1,nR) =0.0_cp
          dzddVpLMr(1,nR)=0.0_cp
-         do l=1,l_max
-            lm=lm2(l,0)
-            dzdVpLMr(l+1,nR) = zASL(l+1)
-            dzddVpLMr(l+1,nR)= ( dzddVpLMr(l+1,nR)-((dtLast+dt)/dt)*zASL(l+1) )/dtLast
-         end do
+         dzdVpLMr(1:,nR) = zASL(1:)
+         dzddVpLMr(1:,nR)= ( dzddVpLMr(1:,nR)-((dtLast+dt)/dt)*zASL(1:) )/dtLast
       end if
 
       if ( lVerbose ) write(output_unit,*) '! End of getTOnext!'
@@ -437,17 +433,17 @@ contains
       end do
 
       !-- Bring back quantity to physical-space (also unscramble theta)
-      call get_PAS(dzStrLMr(:), dzStrAS_Rloc(:,nR), r(nR))
-      call get_PAS(dzRstrLMr(:), dzRstrAS_Rloc(:,nR), r(nR))
-      call get_PAS(dzAstrLMr(:), dzAstrAS_Rloc(:,nR), r(nR))
-      call get_PAS(dzCorLMr(:), dzCorAS_Rloc(:,nR), r(nR))
-      call get_PAS(dzLFLMr(:), dzLFAS_Rloc(:,nR), r(nR))
-      call get_PAS(dzdVpLMr(:,nR), dzdVpAS_Rloc(:,nR), r(nR))
-      call get_PAS(dzddVpLMr(:,nR), dzddVpAS_Rloc(:,nR), r(nR))
+      call get_PAS(dzStrLMr(:), dzStrAS_Rloc(:,nR), nR)
+      call get_PAS(dzRstrLMr(:), dzRstrAS_Rloc(:,nR), nR)
+      call get_PAS(dzAstrLMr(:), dzAstrAS_Rloc(:,nR), nR)
+      call get_PAS(dzCorLMr(:), dzCorAS_Rloc(:,nR), nR)
+      call get_PAS(dzLFLMr(:), dzLFAS_Rloc(:,nR), nR)
+      call get_PAS(dzdVpLMr(:,nR), dzdVpAS_Rloc(:,nR), nR)
+      call get_PAS(dzddVpLMr(:,nR), dzddVpAS_Rloc(:,nR), nR)
 
    end subroutine getTOfinish
 !-----------------------------------------------------------------------------
-   subroutine get_PAS(Tlm,Bp,rT)
+   subroutine get_PAS(Tlm,Bp,nR)
       !
       !  Purpose of this subroutine is to calculate the axisymmetric
       !  component Bp of an axisymmetric toroidal field Tlm
@@ -455,8 +451,8 @@ contains
       !  Unscrambling of theta is also ensured
 
       !-- Input variables
-      real(cp), intent(in) :: rT             ! radius
-      real(cp), intent(in) :: Tlm(:)         ! field in (l,m)-space for rT
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: Tlm(:)    ! field in (l,m)-space for rT
 
       !-- Output variables:
       real(cp), intent(out) :: Bp(:)
@@ -477,7 +473,7 @@ contains
       !-- Unscramble theta
       do nTheta=1,n_theta_maxStr
          nTheta1=n_theta_cal2ord(nTheta)
-         Bp(nTheta1)=O_sin_theta(nTheta)*tmpp(nTheta)/rT
+         Bp(nTheta1)=O_sin_theta(nTheta)*tmpp(nTheta)*or1(nR)
       end do
 
    end subroutine get_PAS

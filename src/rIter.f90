@@ -430,7 +430,7 @@ contains
 
 
          !--------- Torsional oscillation terms:
-         if ( ( lTONext .or. lTONext2 ) .and. l_mag ) then
+         if ( lTONext .or. lTONext2 ) then
             call getTOnext(this%gsa%brc,this%gsa%btc,this%gsa%bpc,lTONext, &
                  &         lTONext2,tscheme%dt(1),dtLast,nR)
          end if

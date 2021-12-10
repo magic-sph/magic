@@ -213,7 +213,7 @@ contains
       real(cp) :: e_mag_os_ave,e_mag_as_os_ave
       real(cp) :: Dip,DipCMB,e_cmb,elsAnel
 
-      integer :: lm, nR
+      integer :: nR
       integer :: n_e_sets,n_spec
 
       character(len=72) :: graph_file

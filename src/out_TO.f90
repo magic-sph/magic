@@ -16,7 +16,7 @@ module outTO_mod
    use radial_data, only: radial_balance, nRstart, nRstop
    use radial_functions, only: r_ICB, r_CMB, r
    use horizontal_data, only: theta_ord, phi
-   use logic, only: l_save_out, l_TOmovie
+   use logic, only: l_save_out, l_TOmovie, l_full_sphere
    use physical_parameters, only: ra, ek, pr,prmag, radratio, LFfac
    use torsional_oscillations, only: dzCorAS_Rloc, dzdVpAS_Rloc, dzddVpAS_Rloc,  &
        &                             dzRstrAS_Rloc, dzAstrAS_Rloc, dzStrAS_Rloc, &
@@ -131,8 +131,12 @@ contains
       end if
 
       !-- Determine the volume of the spherical shell interpolated on the cylindrical grid
-      volcyl_oc = two * pi * (simps(h*cyl, cyl)+simps(h(n_s_otc+1:)*cyl(n_s_otc+1:), &
-      &           cyl(n_s_otc+1:)))
+      if ( .not. l_full_sphere ) then
+         volcyl_oc = two * pi * (simps(h*cyl, cyl)+simps(h(n_s_otc+1:)*cyl(n_s_otc+1:), &
+         &           cyl(n_s_otc+1:)))
+      else
+         volcyl_oc = two * pi * simps(h*cyl, cyl)
+      end if
 
       !-- TO movie related outputs
       if ( l_TOmovie ) then
@@ -451,18 +455,20 @@ contains
 
          !-- Integrate Geostrophic azimuthal flow energy and Taylor measure:
          VgRMS = simps(VpIntN*VpIntN*cyl*h, cyl)
-         VgRMS = VgRMS+simps(VpIntS(n_s_otc+1:n_s_max)*VpIntS(n_s_otc+1:n_s_max)* &
-         &                   cyl(n_s_otc+1:n_s_max)*h(n_s_otc+1:n_s_max),         &
-         &                   cyl(n_s_otc+1:n_s_max))
          TayRMS = simps(abs(TayIntN)*cyl*h, cyl)
-         TayRMS = TayRMS+simps(abs(TayIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)* &
-         &                     h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
          TayRRMS = simps(abs(TayRIntN)*cyl*h, cyl)
-         TayRRMS = TayRRMS+simps(abs(TayRIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)*&
-         &                       h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
          TayVRMS = simps(abs(TayVIntN)*cyl*h, cyl)
-         TayVRMS = TayVRMS+simps(abs(TayVIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)*&
-         &                       h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
+         if ( .not. l_full_sphere ) then
+            VgRMS = VgRMS+simps(VpIntS(n_s_otc+1:n_s_max)*VpIntS(n_s_otc+1:n_s_max)* &
+            &                   cyl(n_s_otc+1:n_s_max)*h(n_s_otc+1:n_s_max),         &
+            &                   cyl(n_s_otc+1:n_s_max))
+            TayRMS = TayRMS+simps(abs(TayIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)* &
+            &                     h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
+            TayRRMS = TayRRMS+simps(abs(TayRIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)*&
+            &                       h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
+            TayVRMS = TayVRMS+simps(abs(TayVIntS(n_s_otc+1:n_s_max))*cyl(n_s_otc+1:n_s_max)*&
+            &                       h(n_s_otc+1:n_s_max), cyl(n_s_otc+1:n_s_max))
+         end if
 
          !-- Normalisation factors
          VgRMS  =sqrt(two*pi*VgRMS/volcyl_oc)

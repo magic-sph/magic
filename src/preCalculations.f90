@@ -461,12 +461,12 @@ contains
                      write(output_unit,*) '! epsc0>0.                        '
                      call abortRun('Stop run in preCalc')
                   end if
-                  help=tops(0,0)
+                  help=real(tops(0,0))
                   if ( abs(real(tops(0,0))) == sq4pi ) &
                        call logWrite('! You intend to use the CMB flux as buoy. scale??')
                   tops(0,0)=-facIH*epsc*pr/(four*pi*r_cmb**2) + &
                             radratio**2*botconduc*bots(0,0)
-                  if ( tops(0,0) /= help ) call logWrite( &
+                  if ( real(tops(0,0)) /= help ) call logWrite( &
                        '!!!! WARNING: CMB heat flux corrected !!!!')
 
                else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) /= 0.0_cp ) then
