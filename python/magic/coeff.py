@@ -889,8 +889,6 @@ class MagicCoeffR(MagicSetup):
         """
         Plotting function (it can also write the png files)
 
-        .. warning:: the python bindings of `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ are mandatory to use this plotting function!
-
         :param levels: number of contour levels
         :type levels: int
         :param cm: name of the colormap
@@ -1071,10 +1069,10 @@ class MagicCoeffR(MagicSetup):
         Fourier transform of the poloidal energy
         """
         w2 = np.fft.fft(self.e_pol_l, axis=0)
-        w2 = abs(w2[1:self.nstep/2+1,1:])
+        w2 = abs(w2[1:self.nstep//2+1,1:])
         dw = 2.*np.pi/(self.time[-1]-self.time[0])
         omega = dw*np.arange(self.nstep)
-        omega = omega[1:self.nstep/2+1]
+        omega = omega[1:self.nstep//2+1]
         ls = np.arange(self.l_max_r+1)
         ls = ls[1:]
 
