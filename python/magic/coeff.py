@@ -928,7 +928,7 @@ class MagicCoeffR(MagicSetup):
             dataCut = self.wlm
 
         nlat = max(int(self.l_max_r*(3./2./2.)*2.),192)
-        nphi = 2*nlat/self.minc
+        nphi = 2*nlat//self.minc
 
         # Define spectral transform setup
         sh = SpectralTransforms(l_max=self.l_max_r, minc=self.minc,
