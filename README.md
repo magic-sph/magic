@@ -1,5 +1,6 @@
 ![alt tag](https://raw.github.com/magic-sph/magic/master/doc/sphinx/.themes/magic/static/logo.png)
 
+[![Build workflow](https://github.com/magic-sph/magic/actions/workflows/main.yml/badge.svg)](https://github.com/magic-sph/magic/actions/workflows/main.yml)
 [![Build Status](https://app.travis-ci.com/magic-sph/magic.svg?branch=master)](https://app.travis-ci.com/magic-sph/magic)
 [![Documentation](https://img.shields.io/badge/documentation-magic.github.io-yellow)](https://magic-sph.github.io/)
 [![DOI](https://zenodo.org/badge/22163/magic-sph/magic.svg)](https://zenodo.org/badge/latestdoi/22163/magic-sph/magic)
