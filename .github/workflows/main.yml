@@ -34,6 +34,9 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: Run a multi-line script
         run: |
+          sudo apt-get -y install gfortran gcc g++ cmake liblapack-dev libgomp1
+          sudo apt-get -y install python-numpy python-matplotlib python-scipy
+          sudo apt-get -y install mpich libmpich-dev
           ulimit -s unlimited
           source sourceme.sh
           export FC=mpif90
