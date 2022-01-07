@@ -128,7 +128,6 @@ program magic
    use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
-   use out_coeff, only: initialize_coeffs, finalize_coeffs
    use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
    use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
@@ -349,7 +348,6 @@ program magic
    call initialize_outMisc_mod()
    call initialize_outRot()
    if ( l_power ) call initialize_output_power()
-   call initialize_coeffs()
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
 
@@ -487,7 +485,6 @@ program magic
    if ( l_par ) call finalize_geos()
    if ( ldtBmem == 1 ) call finalize_dtB_mod
    call finalize_fields_average_mod()
-   call finalize_coeffs()
    if ( l_power ) call finalize_output_power()
    call finalize_outRot()
    call finalize_outMisc_mod()

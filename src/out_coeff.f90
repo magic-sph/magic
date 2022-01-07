@@ -8,7 +8,7 @@ module out_coeff
    use parallel_mod
    use mem_alloc, only: bytes_allocated
    use logic, only: l_r_field, l_cmb_field, l_save_out, l_average, &
-       &            l_cond_ic
+       &            l_cond_ic, l_r_fieldT, l_r_fieldXi, l_mag
    use radial_functions, only: r, rho0
    use radial_data, only: nRstart, nRstop
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
@@ -18,7 +18,7 @@ module out_coeff
    use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
    use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
        &                     gt_IC, gt_OC
-   use output_data, only: tag
+   use output_data, only: tag, n_coeff_r, n_r_array, n_r_step, l_max_r, n_coeff_r_max
    use constants, only: two, half
 
    implicit none
@@ -26,32 +26,144 @@ module out_coeff
    private
 
    integer :: fileHandle
+   integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:)
+   integer, allocatable :: n_T_r_sets(:), n_Xi_r_sets(:)
+   integer, allocatable :: n_v_r_file(:)
+   integer, allocatable :: n_t_r_file(:)
+   integer, allocatable :: n_xi_r_file(:)
+   integer, allocatable:: n_b_r_file(:)
+   character(len=72), allocatable :: v_r_file(:)
+   character(len=72), allocatable :: t_r_file(:)
+   character(len=72), allocatable :: xi_r_file(:)
+   character(len=72), allocatable :: b_r_file(:)
 
-   complex(cp), allocatable :: work(:) ! work array for r_field
 
-   public :: write_Bcmb, write_coeff_r, initialize_coeffs, finalize_coeffs, &
-   &         write_Pot
+   public :: write_Bcmb, write_coeffs, write_Pot, initialize_coeff, finalize_coeff
 #ifdef WITH_MPI
    public :: write_Pot_mpi
 #endif
 
 contains
 
-   subroutine initialize_coeffs()
+   subroutine initialize_coeff
 
-      if ( l_r_field .or. l_cmb_field .or. l_average ) then
-         allocate ( work(lm_max) )
-         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+      integer :: n, nCounts
+      character(len=72) :: string
+
+      !-- Coeffs at radial levels:
+      allocate ( n_coeff_r(n_coeff_r_max))
+      allocate ( n_v_r_file(n_coeff_r_max), v_r_file(n_coeff_r_max) )
+      allocate ( n_v_r_sets(n_coeff_r_max) )
+      n_v_r_sets=0
+
+      if ( l_mag ) then
+         allocate ( n_b_r_file(n_coeff_r_max), b_r_file(n_coeff_r_max) )
+         allocate ( n_b_r_sets(n_coeff_r_max) )
+         n_b_r_sets=0
       end if
 
-   end subroutine initialize_coeffs
-!-------------------------------------------------------------------------------
-   subroutine finalize_coeffs()
+      do n=1,n_coeff_r_max
+         write(string,*) n
+         v_r_file(n)='V_coeff_r'//trim(adjustl(string))//'.'//tag
+         if ( l_mag ) then
+            B_r_file(n)='B_coeff_r'//trim(adjustl(string))//'.'//tag
+         end if
+      end do
 
-      if ( l_r_field .or. l_cmb_field .or. l_average ) deallocate( work )
+      if ( l_r_fieldT ) then
+         allocate ( n_t_r_file(n_coeff_r_max), t_r_file(n_coeff_r_max) )
+         allocate ( n_t_r_sets(n_coeff_r_max) )
+         n_T_r_sets=0
 
-   end subroutine finalize_coeffs
-!-------------------------------------------------------------------------------
+         do n=1,n_coeff_r_max
+            write(string,*) n
+            t_r_file(n)='T_coeff_r'//trim(adjustl(string))//'.'//tag
+         end do
+      end if
+
+      if ( l_r_fieldXi ) then
+         allocate ( n_xi_r_file(n_coeff_r_max), xi_r_file(n_coeff_r_max) )
+         allocate ( n_xi_r_sets(n_coeff_r_max) )
+         n_Xi_r_sets=0
+
+         do n=1,n_coeff_r_max
+            write(string,*) n
+            xi_r_file(n)='Xi_coeff_r'//trim(adjustl(string))//'.'//tag
+         end do
+      end if
+
+      if ( count(n_r_array>0)> 0 ) then
+         n_coeff_r=n_r_array(1:n_coeff_r_max)
+      else
+         n_r_step=max(n_r_step,1)
+         do n=1,n_coeff_r_max
+            n_coeff_r(n)=n*n_r_step  ! used every n_r_step point !
+         end do
+      end if
+
+      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+
+         if ( l_r_field ) then
+            do n=1,n_coeff_r_max
+               open(newunit=n_v_r_file(n), file=v_r_file(n), &
+               &    status='new', form='unformatted')
+               if ( l_mag ) then
+                  open(newunit=n_b_r_file(n), file=b_r_file(n), &
+                  &    status='new', form='unformatted')
+               end if
+            end do
+         end if
+         if ( l_r_fieldT ) then
+            do n=1,n_coeff_r_max
+               open(newunit=n_t_r_file(n), file=t_r_file(n), &
+               &    status='new', form='unformatted')
+            end do
+         end if
+         if ( l_r_fieldXi ) then
+            do n=1,n_coeff_r_max
+               open(newunit=n_xi_r_file(n), file=xi_r_file(n), &
+               &    status='new', form='unformatted')
+            end do
+         end if
+
+      end if   
+
+   end subroutine initialize_coeff
+!----------------------------------------------------------------------
+   subroutine finalize_coeff
+
+      integer :: n
+
+      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+         if ( l_r_field ) then
+            do n=1,n_coeff_r_max
+               close(n_v_r_file(n))
+               if ( l_mag ) then
+                  close(n_b_r_file(n))
+               end if
+            end do
+         end if
+
+         if ( l_r_fieldT ) then
+            do n=1,n_coeff_r_max
+               close(n_t_r_file(n))
+            end do
+         end if
+
+         if ( l_r_fieldXi ) then
+            do n=1,n_coeff_r_max
+               close(n_xi_r_file(n))
+            end do
+         end if
+      end if
+
+      deallocate ( n_coeff_r, n_v_r_file, v_r_file, n_v_r_sets )
+      if ( l_mag ) deallocate ( n_b_r_file, b_r_file, n_b_r_sets )
+      if ( l_r_fieldT ) deallocate ( n_t_r_file, t_r_file, n_t_r_sets )
+      if ( l_r_fieldXi ) deallocate ( n_xi_r_file, xi_r_file, n_xi_r_sets )
+
+   end subroutine finalize_coeff
+!----------------------------------------------------------------------
    subroutine write_Bcmb(time,b_LMloc,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
       !
       ! Each call of this subroutine writes time and the poloidal magnetic
@@ -82,8 +194,8 @@ contains
       integer :: m_max_cmb      ! Max order of output
       integer :: lm_max_cmb     ! Max no of combinations l,m for output
       integer :: n_data         ! No of output data
-      integer :: n_r_cmb        ! Position of cmb-radius on grid
 
+      complex(cp) :: work(lm_max)
       real(cp), allocatable ::  output(:) ! Output array
 
       call gather_from_lo_to_rank0(b_LMloc, work)
@@ -92,9 +204,6 @@ contains
 
          !--- Definition of max degree for output
          if ( l_max < l_max_cmb ) l_max_cmb=l_max
-
-         !--- Define postition of CMB on radial grid:
-         n_r_cmb=1
 
          !--- Calculate no of data for l_max_cmb:
          m_max_cmb=(l_max_cmb/minc)*minc
@@ -110,7 +219,7 @@ contains
 
          !--- Open output file name:
          if ( l_save_out .or. n_cmb_sets == 0 ) then
-            open(newunit=n_cmb_file, file=cmb_file, position='append', &
+            open(unit=n_cmb_file, file=cmb_file, position='append', &
             &    form='unformatted')
          end if
 
@@ -142,15 +251,61 @@ contains
          write(n_cmb_file) time,(output(n),n=1,n_out)
 
          !--- Close cmb_file
-         if ( l_save_out .or. n_cmb_sets == 0 ) then
-            close(n_cmb_file)
-         end if
+         if ( l_save_out .or. n_cmb_sets == 0 ) close(n_cmb_file)
 
          deallocate(output)
 
       end if
 
    end subroutine write_Bcmb
+!----------------------------------------------------------------------
+   subroutine write_coeffs(w_LMloc, dw_LMloc, ddw_LMloc, z_LMLoc, b_LMLoc,  &
+              &            db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, s_LMloc,&
+              &            xi_LMloc, timeScaled)
+      !
+      ! This routine handles the writing of coefficients at a given depth
+      !
+
+      real(cp),    intent(in) :: timeScaled
+      complex(cp), intent(in) :: w_LMloc(:,:)
+      complex(cp), intent(in) :: dw_LMloc(:,:)
+      complex(cp), intent(in) :: ddw_LMloc(:,:)
+      complex(cp), intent(in) :: z_LMloc(:,:)
+      complex(cp), intent(in) :: b_LMloc(:,:)
+      complex(cp), intent(in) :: db_LMloc(:,:)
+      complex(cp), intent(in) :: ddb_LMloc(:,:)
+      complex(cp), intent(in) :: aj_LMloc(:,:)
+      complex(cp), intent(in) :: dj_LMloc(:,:)
+      complex(cp), intent(in) :: s_LMloc(:,:)
+      complex(cp), intent(in) :: xi_LMloc(:,:)
+
+      integer :: n, nR
+
+      !--- Store potential coeffs for velocity fields and magnetic fields
+      do n=1,n_coeff_r_max
+         nR=n_coeff_r(n)
+         call write_coeff_r(timeScaled,w_LMloc(:,nR),dw_LMloc(:,nR),  &
+              &             ddw_LMloc(:,nR),z_LMloc(:,nR),r(nR),      &
+              &             l_max_r,n_v_r_sets(n),v_r_file(n),        &
+              &             n_v_r_file(n),1)
+         if ( l_mag )                                                   &
+            call write_coeff_r(timeScaled,b_LMloc(:,nR),db_LMloc(:,nR), &
+                 &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
+                 &             l_max_r,n_b_r_sets(n),b_r_file(n),       &
+                 &             n_b_r_file(n),2)
+         if ( l_r_fieldT )                                              &
+            call write_coeff_r(timeScaled,s_LMloc(:,nR),db_LMloc(:,nR), &
+                 &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
+                 &             l_max_r,n_T_r_sets(n),T_r_file(n),       &
+                 &             n_t_r_file(n),3)
+         if ( l_r_fieldXi )                                              &
+            call write_coeff_r(timeScaled,xi_LMloc(:,nR),db_LMloc(:,nR), &
+                 &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),     &
+                 &             l_max_r,n_Xi_r_sets(n),Xi_r_file(n),      &
+                 &             n_xi_r_file(n),3)
+      end do
+
+   end subroutine write_coeffs
 !----------------------------------------------------------------------
    subroutine write_coeff_r(time,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,r,  &
               &             l_max_r,n_sets,file,n_file,nVBS)
@@ -192,6 +347,7 @@ contains
       integer :: lm_max_r       ! Max no of combinations l,m for output
       integer :: n_data         ! No of output data
 
+      complex(cp) :: work(lm_max)
       real(cp), allocatable ::  output(:)! Output array
 
       !--- Definition of max degree for output
@@ -344,7 +500,7 @@ contains
 
          !--- Open output file with name $file:
          if ( l_save_out ) then
-            open(newunit=n_file, file=file, form='unformatted', status='unknown', &
+            open(unit=n_file, file=file, form='unformatted', status='unknown', &
             &    position='append')
          end if
 
@@ -353,14 +509,11 @@ contains
             write(n_file) l_max_r,minc,n_data,r
          end if
 
-
          !--- Finally write output array output(*) into file:
          write(n_file) time,(output(n),n=1,n_out)
 
          !--- Close file
-         if ( l_save_out ) then
-            close(n_file)
-         end if
+         if ( l_save_out ) close(n_file)
 
          deallocate(output)
 
