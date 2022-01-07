@@ -53,7 +53,8 @@ module output_mod
    use power, only: get_power
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
        &                     gather_from_lo_to_rank0
-   use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
+   use out_coeff, only: write_Bcmb, write_coeffs, write_Pot, initialize_coeff, &
+       &                finalize_coeff
 #ifdef WITH_MPI
    use out_coeff, only: write_Pot_mpi
 #endif
@@ -75,7 +76,6 @@ module output_mod
    !-- Counter for output files/sets:
    integer :: nPotSets, n_spec
    integer :: n_dt_cmb_sets, n_cmb_setsMov
-   integer, allocatable :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:), n_Xi_r_sets(:)
 
    !--- For averaging:
    real(cp) :: timePassedLog, timeNormLog
@@ -99,16 +99,8 @@ module output_mod
 
    integer :: n_dtE_file, n_par_file, n_cmb_file
    integer :: n_cmbMov_file, n_dt_cmb_file
-   integer, allocatable :: n_v_r_file(:)
-   integer, allocatable :: n_t_r_file(:)
-   integer, allocatable :: n_xi_r_file(:)
-   integer, allocatable:: n_b_r_file(:)
    character(len=72) :: dtE_file, par_file
    character(len=72) :: cmb_file, dt_cmb_file, cmbMov_file
-   character(len=72), allocatable :: v_r_file(:)
-   character(len=72), allocatable :: t_r_file(:)
-   character(len=72), allocatable :: xi_r_file(:)
-   character(len=72), allocatable :: b_r_file(:)
 
    public :: output, initialize_output, finalize_output
 
@@ -116,61 +108,7 @@ contains
 
    subroutine initialize_output
 
-      integer :: n
-      character(len=72) :: string
-
-      if ( l_r_field .or. l_r_fieldT .or. l_r_fieldXi) then
-         allocate ( n_coeff_r(n_coeff_r_max))
-         allocate ( n_v_r_file(n_coeff_r_max), v_r_file(n_coeff_r_max) )
-         allocate ( n_v_r_sets(n_coeff_r_max) )
-         n_v_r_sets=0
-
-         if ( l_mag ) then
-            allocate ( n_b_r_file(n_coeff_r_max), b_r_file(n_coeff_r_max) )
-            allocate ( n_b_r_sets(n_coeff_r_max) )
-            n_b_r_sets=0
-         end if
-
-         do n=1,n_coeff_r_max
-            write(string,*) n
-            v_r_file(n)='V_coeff_r'//trim(adjustl(string))//'.'//tag
-            if ( l_mag ) then
-               B_r_file(n)='B_coeff_r'//trim(adjustl(string))//'.'//tag
-            end if
-         end do
-
-         if ( l_r_fieldT ) then
-            allocate ( n_t_r_file(n_coeff_r_max), t_r_file(n_coeff_r_max) )
-            allocate ( n_t_r_sets(n_coeff_r_max) )
-            n_T_r_sets=0
-
-            do n=1,n_coeff_r_max
-               write(string,*) n
-               t_r_file(n)='T_coeff_r'//trim(adjustl(string))//'.'//tag
-            end do
-         end if
-
-         if ( l_r_fieldXi ) then
-            allocate ( n_xi_r_file(n_coeff_r_max), xi_r_file(n_coeff_r_max) )
-            allocate ( n_xi_r_sets(n_coeff_r_max) )
-            n_Xi_r_sets=0
-
-            do n=1,n_coeff_r_max
-               write(string,*) n
-               xi_r_file(n)='Xi_coeff_r'//trim(adjustl(string))//'.'//tag
-            end do
-         end if
-
-         if ( count(n_r_array>0)> 0 ) then
-            n_coeff_r=n_r_array(1:n_coeff_r_max)
-         else
-            n_r_step=max(n_r_step,1)
-            do n=1,n_coeff_r_max
-               n_coeff_r(n)=n*n_r_step  ! used every n_r_step point !
-            end do
-         end if
-
-      end if
+      if ( l_r_field .or. l_r_fieldT .or. l_r_fieldXi) call initialize_coeff()
 
       n_spec       =0
       n_cmb_setsMov=0
@@ -248,36 +186,11 @@ contains
             open(newunit=n_dtE_file, file=dtE_file, status='new')
          end if
 
-         if ( l_r_field ) then
-            do n=1,n_coeff_r_max
-               open(newunit=n_v_r_file(n), file=v_r_file(n), &
-               &    status='new', form='unformatted')
-               if ( l_mag ) then
-                  open(newunit=n_b_r_file(n), file=b_r_file(n), &
-                  &    status='new', form='unformatted')
-               end if
-            end do
-         end if
-         if ( l_r_fieldT ) then
-            do n=1,n_coeff_r_max
-               open(newunit=n_t_r_file(n), file=t_r_file(n), &
-               &    status='new', form='unformatted')
-            end do
-         end if
-         if ( l_r_fieldXi ) then
-            do n=1,n_coeff_r_max
-               open(newunit=n_xi_r_file(n), file=xi_r_file(n), &
-               &    status='new', form='unformatted')
-            end do
-         end if
-
       end if
 
    end subroutine initialize_output
 !----------------------------------------------------------------------------
    subroutine finalize_output
-
-      integer :: n
 
       if ( rank == 0 .and. ( .not. l_save_out ) ) then
          if ( l_mag .and. l_cmb_field ) then
@@ -287,46 +200,10 @@ contains
          if ( l_mag .and. l_dt_cmb_field ) then
             close(n_dt_cmb_file)
          end if
-         if ( l_r_field ) then
-            do n=1,n_coeff_r_max
-               close(n_v_r_file(n))
-               if ( l_mag ) then
-                  close(n_b_r_file(n))
-               end if
-            end do
-         end if
-
-         if ( l_r_fieldT ) then
-            do n=1,n_coeff_r_max
-               close(n_t_r_file(n))
-            end do
-         end if
-
-         if ( l_r_fieldXi ) then
-            do n=1,n_coeff_r_max
-               close(n_xi_r_file(n))
-            end do
-         end if
-
          if ( l_power ) close(n_dtE_file)
       end if
 
-      if ( l_r_field .or. l_r_fieldT .or. l_r_fieldXi) then
-         deallocate ( n_coeff_r, n_v_r_file, v_r_file, n_v_r_sets )
-
-         if ( l_mag ) then
-            deallocate ( n_b_r_file, b_r_file, n_b_r_sets )
-         end if
-
-         if ( l_r_fieldT ) then
-            deallocate ( n_t_r_file, t_r_file, n_t_r_sets )
-         end if
-
-         if ( l_r_fieldXi ) then
-            deallocate ( n_xi_r_file, xi_r_file, n_xi_r_sets )
-         end if
-
-      end if
+      if ( l_r_field .or. l_r_fieldT .or. l_r_fieldXi) call finalize_coeff()
 
    end subroutine finalize_output
 !----------------------------------------------------------------------------
@@ -416,7 +293,7 @@ contains
       real(cp) :: e_kin,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as
       real(cp) :: eKinIC,eKinMA,dtE
 
-      integer :: nR,lm,n,m,l
+      integer :: lm,m,l
 
       !--- Property parameters:
       complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
@@ -713,32 +590,9 @@ contains
       end if
 
       !--- Store potential coeffs for velocity fields and magnetic fields
-      if ( l_r ) then
-         PERFON('out_r')
-         do n=1,n_coeff_r_max
-            nR=n_coeff_r(n)
-            call write_coeff_r(timeScaled,w_LMloc(:,nR),dw_LMloc(:,nR),  &
-                 &             ddw_LMloc(:,nR),z_LMloc(:,nR),r(nR),      &
-                 &             l_max_r,n_v_r_sets(n),v_r_file(n),        &
-                 &             n_v_r_file(n),1)
-            if ( l_mag )                                                   &
-               call write_coeff_r(timeScaled,b_LMloc(:,nR),db_LMloc(:,nR), &
-                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
-                    &             l_max_r,n_b_r_sets(n),b_r_file(n),       &
-                    &             n_b_r_file(n),2)
-            if ( l_r_fieldT )                                              &
-               call write_coeff_r(timeScaled,s_LMloc(:,nR),db_LMloc(:,nR), &
-                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
-                    &             l_max_r,n_T_r_sets(n),T_r_file(n),       &
-                    &             n_t_r_file(n),3)
-            if ( l_r_fieldXi )                                              &
-               call write_coeff_r(timeScaled,xi_LMloc(:,nR),db_LMloc(:,nR), &
-                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),     &
-                    &             l_max_r,n_Xi_r_sets(n),Xi_r_file(n),      &
-                    &             n_xi_r_file(n),3)
-         end do
-         PERFOFF
-      end if
+      if ( l_r ) call write_coeffs(w_LMloc, dw_LMloc, ddw_LMloc, z_LMLoc, b_LMLoc,  &
+                      &            db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, s_LMloc,&
+                      &            xi_LMloc, timeScaled)
 
       if ( l_pot ) then
 #ifdef WITH_MPI

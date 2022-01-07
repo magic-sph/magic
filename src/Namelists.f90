@@ -16,7 +16,7 @@ module Namelists
    use output_data
    use parallel_mod
    use special
-   use movie_data, only: movie,n_movies, n_movies_max
+   use movie_data, only: movie, n_movies, n_movies_max
    use charmanip, only: length_to_blank, capitalize
    use probe_mod
    use useful, only: abortRun

@@ -342,7 +342,7 @@ contains
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
 
       !-- Local variables:
-      integer :: l,lm,nTheta,nPhi
+      integer :: nTheta,nPhi
 
       real(cp) :: sinT,cosT
       real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
