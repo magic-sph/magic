@@ -551,13 +551,7 @@ contains
       !-- Clear memory from temporary arrays
       deallocate( rcounts, scounts, rdisp, sdisp, rbuff, sbuff )
 #else
-      do n_r=1,n_r_max
-         do n_p=1,n_phi_max
-            do n_t=1,n_theta_max
-               arr_Ploc(n_t,n_r,n_p)=arr_Rloc(n_t,n_p,n_r)
-            end do
-         end do
-      end do
+      arr_Ploc(:,:,:)=arr_Rloc(:,:,:)
 #endif
 
    end subroutine transp_R2Phi

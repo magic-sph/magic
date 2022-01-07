@@ -116,15 +116,12 @@ contains
       complex(cp), intent(in) :: dz(:)
 
       !-- Local variables
-      integer :: l, m, lm
+      integer :: l, lm
 
-      do lm=1,lm_max
-         l=lm2l(lm)
-         m=lm2m(lm)
-         if ( l <= l_max .and. m == 0 ) then
-            zASL(l+1)  =real(z(lm))
-            dzASL(l+1) =real(dz(lm))
-         end if
+      do l=0,l_max
+         lm=lm2(l,0)
+         zASL(l+1)=real(z(lm))
+         dzASL(l+1) =real(dz(lm))
       end do
 
    end subroutine prep_TO_axi
@@ -236,7 +233,7 @@ contains
             &                              beta(nR)*vp(nTheta,nPhi) )
             cVrMean  =cVrMean  +cvr(nTheta,nPhi)
             VrdVpdrMean=VrdVpdrMean  + orho1(nR)*           & ! rho * vr * dvp/dr
-            & vr(nTheta,nPhi)*(dvpdr(nTheta,nPhi) &
+            &           vr(nTheta,nPhi)*(dvpdr(nTheta,nPhi) &
             &                -beta(nR)*vp(nTheta,nPhi))
             VtcVrMean=VtcVrMean    + orho1(nR)*  &  ! rho * vt * cvr
             &         vt(nTheta,nPhi)*cvr(nTheta,nPhi)
@@ -294,7 +291,7 @@ contains
          &                 (or3(nR)*VrMean+or2(nR)*cosOsin2*VtMean)
          if ( l_mag ) then
             !--- This is Lorentz force/ r*sin(theta)
-            dzLFmean(nTheta)      =phiNorm*or4(nR)*Osin2*LFmean
+            dzLFmean(nTheta)       =phiNorm*or4(nR)*Osin2*LFmean
             Bs2AS_Rloc(nTheta1,nR) =phiNorm*Bs2Mean
             BspAS_Rloc(nTheta1,nR) =phiNorm*BspMean
             BpzAS_Rloc(nTheta1,nR) =phiNorm*BpzMean
@@ -306,12 +303,12 @@ contains
          end if
 
          ! dVpdrMean, VtcVrMean and VrdVpdrMean are already divided by rho
-         Rmean(nTheta)=                                  &
+         Rmean(nTheta)=                                       &
          &            phiNorm * or4(nR)*Osin2* (VrdVpdrMean - &
          &                         phiNorm*VrMean*dVpdrMean + &
          &                                        VtcVrMean - &
          &                  orho1(nR)*phiNorm*VtMean*cVrMean )
-         Amean(nTheta)=                                  &
+         Amean(nTheta)=                                       &
          &  phiNorm*or4(nR)*Osin2*phiNorm*(VrMean*dVpdrMean + &
          &                         orho1(nR)*VtMean*cVrMean )
 
@@ -342,45 +339,33 @@ contains
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
 
       !-- Local variables:
-      integer :: nTheta,nPhi
-
-      real(cp) :: sinT,cosT
-      real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
+      integer :: nPhi
 
       if ( lVerbose ) write(output_unit,*) '! Starting getTOnext!',dtLast
 
       if ( lTONext2 ) then
 
-         dzddVpLMr(1,nR)=0.0_cp
+         dzddVpLMr(1,nR) =0.0_cp
          dzddVpLMr(1:,nR)=zASL(1:)
 
       else if ( lTOnext ) then
 
          if ( l_mag ) then
-            !$omp parallel do default(shared)                     &
-            !$omp& private(nTheta,nPhi,sinT,cosT,BsF1,BsF2,BpF1,BzF1,BzF2)
+            !$omp parallel do default(shared)    &
+            !$omp& private(nPhi)
             do nPhi=1,n_phi_maxStr
-               do nTheta=1,n_theta_maxStr
-                  sinT =sinTheta(nTheta)
-                  cosT =cosTheta(nTheta)
-                  BsF1 =sinT*or2(nR)
-                  BsF2 =cosT/sinT*or1(nR)
-                  BpF1 =or1(nR)/sinT
-                  BzF1 =cosT*or2(nR)
-                  BzF2 =or1(nR)
-
-                  BsLast(nTheta,nPhi,nR)=BsF1*br(nTheta,nPhi) + BsF2*bt(nTheta,nPhi)
-                  BpLast(nTheta,nPhi,nR)=BpF1*bp(nTheta,nPhi)
-                  BzLast(nTheta,nPhi,nR)=BzF1*br(nTheta,nPhi) - BzF2*bt(nTheta,nPhi)
-               end do
+               BsLast(:,nPhi,nR)=or2(nR)*sinTheta(:)*br(:,nPhi) + &
+               &                 or1(nR)*cosTheta(:)*O_sin_theta(:)*bt(:,nPhi)
+               BpLast(:,nPhi,nR)=or1(nR)*bp(:,nPhi)*O_sin_theta(:)
+               BzLast(:,nPhi,nR)=cosTheta(:)*or2(nR)*br(:,nPhi) - or1(nR)*bt(:,nPhi)
             end do
             !$omp end parallel do
          end if
 
-         dzdVpLMr(1,nR) =0.0_cp
-         dzddVpLMr(1,nR)=0.0_cp
-         dzdVpLMr(1:,nR) = zASL(1:)
-         dzddVpLMr(1:,nR)= ( dzddVpLMr(1:,nR)-((dtLast+dt)/dt)*zASL(1:) )/dtLast
+         dzdVpLMr(1,nR)  =0.0_cp
+         dzdVpLMr(1:,nR) =zASL(1:)
+         dzddVpLMr(1,nR) =0.0_cp
+         dzddVpLMr(1:,nR)=( dzddVpLMr(1:,nR)-((dtLast+dt)/dt)*zASL(1:) )/dtLast
       end if
 
       if ( lVerbose ) write(output_unit,*) '! End of getTOnext!'
