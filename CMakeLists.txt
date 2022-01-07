@@ -238,7 +238,7 @@ endif()
 
 # Detect LIBSCI (Cray)
 if(USE_LAPACKLIB MATCHES LIBSCI)
-   find_library(SCI NAME sci_cray
+   find_library(SCI NAME sci_cray_mt
        PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
              $ENV{HOME}/local/lib
              $ENV{HOME}/local/lib64)
