@@ -24,7 +24,7 @@ module RMS
    use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF,    &
        &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS,    &
        &            l_parallel_solve, l_mag_par_solve, l_adv_curl, l_double_curl,&
-       &            l_anelastic_liquid, l_mag_nl
+       &            l_anelastic_liquid, l_mag_nl, l_non_rot
    use num_param, only: tScale, alph1, alph2
    use horizontal_data, only: phi, theta_ord, cosTheta, sinTheta, O_sin_theta_E2,  &
        &                      cosn_theta_E2, O_sin_theta, dTheta2A, dPhi, dTheta2S,&
@@ -959,6 +959,7 @@ contains
       integer,  intent(inout) :: nRMS_sets
 
       !-- Output:
+      real(cp) :: CLFRel     =0.0_cp
       real(cp) :: InerRms    =0.0_cp
       real(cp) :: CorRms     =0.0_cp
       real(cp) :: AdvRms     =0.0_cp
@@ -1170,10 +1171,8 @@ contains
          end if
 
          !-- Buoyancy/Pressure/Coriolis balance:
-         if ( l_corr ) then
-            call get_force(Arc2hInt,ArcRms,ArcRmsL,ArcRmsLnR,volC,    &
-                 &         nRMS_sets,timePassed,timeNorm,l_stop_time)
-         end if
+         call get_force(Arc2hInt,ArcRms,ArcRmsL,ArcRmsLnR,volC,    &
+              &         nRMS_sets,timePassed,timeNorm,l_stop_time)
 
          !-- Coriolis/Inertia/Archimedian balance:
          if (l_corr) then
@@ -1198,13 +1197,18 @@ contains
             open(newunit=n_dtvrms_file, file=dtvrms_file, &
             &    form='formatted', status='unknown', position='append')
          end if
+         if ( l_non_rot .and. (.not. l_mag ) ) then
+            CLFrel=0.0_cp
+         else
+            CLFrel=CLFRms/(CorRms+LFRms)
+         end if
          write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
          &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
          &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
          &     MagRms/(CorRms+PreRms+LFRms),                          &
          &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
          &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
-         &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
+         &     CLFrel, PLFRms/(PreRms+LFRms),                         &
          &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
          if ( l_save_out) then
             close(n_dtvrms_file)
