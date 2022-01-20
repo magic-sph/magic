@@ -63,13 +63,13 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
    set(FFLAG_CONVERT   "-h byteswapio")
    set(FFLAG_PREPROCESSOR "-eZ")
    set(FFLAG_WARN_ALL  " ")
-   set(FFLAG_CHECK_ALL "-G 0")
+   set(FFLAG_CHECK_ALL "-G 0 -R b")
    set(FFLAG_FPE       "-K trap=fp")
    set(FFLAG_OPT       " ")
    #set(CMAKE_EXE_LINKER_FLAGS "-h dynamic")
    # Remove -rdynamic option (workaround for test machine):
    # https://cmake.org/pipermail/cmake/2014-November/059154.html
-   set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
+   #set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
@@ -237,19 +237,18 @@ if(USE_LAPACKLIB MATCHES LIBFLAME)
 endif()
 
 # Detect LIBSCI (Cray)
-if(USE_LAPACKLIB MATCHES LIBSCI)
-   find_library(SCI NAME sci_cray_mt
-       PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
-             $ENV{HOME}/local/lib
-             $ENV{HOME}/local/lib64)
-   if ( SCI MATCHES SCI-NOTFOUND )
-      message(STATUS "LIBSCI was not found")
-      set(USE_LAPACKLIB "LAPACK")
-   else()
-      message(STATUS "LIBSCI: '${SCI}'")
-   endif()
-endif()
-
+#if(USE_LAPACKLIB MATCHES LIBSCI)
+   #find_library(SCI NAME sci_cray_mp
+      #PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
+      #      $ENV{HOME}/local/lib
+      #      $ENV{HOME}/local/lib64)
+   #if ( SCI MATCHES SCI-NOTFOUND )
+      #message(STATUS "LIBSCI was not found")
+      #set(USE_LAPACKLIB "LAPACK")
+   #else()
+      #message(STATUS "LIBSCI: '${SCI}'")
+   #endif()
+#endif()
 
 # Detect LAPACK
 if(USE_LAPACKLIB MATCHES LAPACK)

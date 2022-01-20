@@ -90,8 +90,8 @@ endif()
 # Link LIBFLAME and BLIS
 if(USE_LAPACKLIB MATCHES LIBFLAME)
    target_link_libraries (${EXEC} ${FLAME} ${BLIS})
-elseif(USE_LAPACKLIB MATCHES LIBSCI)
-   target_link_libraries (${EXEC} ${SCI})
+#elseif(USE_LAPACKLIB MATCHES LIBSCI)
+   #target_link_libraries (${EXEC} ${SCI})
 endif()
 
 if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
