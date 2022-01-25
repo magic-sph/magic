@@ -49,6 +49,9 @@ module magnetic_energy
    integer :: n_compliance_file
    character(len=72) :: dipole_file, e_mag_ic_file, e_mag_oc_file
    character(len=72) :: earth_compliance_file
+   integer, public :: l_geo ! max degree for geomagnetic field seen on Earth
+
+
 
    public :: initialize_magnetic_energy, get_e_mag, finalize_magnetic_energy
 
@@ -187,7 +190,6 @@ contains
 
       !-- local:
       integer :: nR,lm,l,m
-      integer :: l_geo
 
       real(cp) :: e_p_r(n_r_max), e_p_r_global(n_r_max)
       real(cp) :: e_t_r(n_r_max), e_t_r_global(n_r_max)
@@ -236,8 +238,6 @@ contains
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
       integer :: fileHandle
-
-      l_geo=11   ! max degree for geomagnetic field seen on Earth
 
       e_p      =0.0_cp
       e_t      =0.0_cp

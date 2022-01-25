@@ -23,6 +23,7 @@ module Namelists
    use dirk_schemes, only: type_dirk
    use multistep_schemes, only: type_multistep
    use time_schemes, only: type_tscheme
+   use magnetic_energy, only: l_geo
 
    implicit none
 
@@ -127,8 +128,8 @@ contains
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,    &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
-      &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS,  &
-      &    l_spec_avg
+      &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
+      &    l_2D_RMS, l_spec_avg
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -1175,6 +1176,7 @@ contains
       end do
       write(n_out,'(''  l_earth_likeness='',l3,'','')') l_earth_likeness
       write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
+      write(n_out,'(''  l_geo           ='',i3,'','')') l_geo
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
@@ -1342,7 +1344,7 @@ contains
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
 
-      !-- Phase field 
+      !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature
       stef        =0.0_cp    ! Stefan's number
       phaseDiffFac=1.0_cp    ! Diffusion coefficient in phase field equation
@@ -1532,6 +1534,9 @@ contains
       !----- Compute Earth-likeness (Christensen et al. EPSL 2010)
       l_earth_likeness=.false.
       l_max_comp    =8
+
+      l_geo         =11   ! max degree for geomagnetic field seen on Earth
+
 
       !----- Output of distribution of energies over m's
       l_energy_modes=.false. ! to get emag and ekin for different m
