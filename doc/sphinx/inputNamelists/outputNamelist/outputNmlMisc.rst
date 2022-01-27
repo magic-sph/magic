@@ -70,6 +70,8 @@ Earth-likeness of the CMB field
 
 * **l_max_comp** (default :f:var:`l_max_comp=8 <l_max_comp>`) is an integer. This is the maximum spherical harmonic degree used to calculate the Earth-likeness of the CMB field.
 
+* **l_geo** (default :f:var:`l_geo=11 <l_geo>`) is an integer. This is the maximum spherical harmonic degree used to compute the dipolarity of the magnetic field at the CMB.
+
 .. _varl_drift:
 
 Drift rates
