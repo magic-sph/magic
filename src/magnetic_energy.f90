@@ -20,7 +20,7 @@ module magnetic_energy
        &            l_full_sphere
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
        &                 movieDipStrengthGeo
-   use output_data, only: tag, l_max_comp
+   use output_data, only: tag, l_max_comp, l_geo
    use constants, only: pi, zero, one, two, half, four, osq4pi
    use special, only: n_imp, rrMP
    use integration, only: rInt_R,rIntIC
@@ -49,9 +49,6 @@ module magnetic_energy
    integer :: n_compliance_file
    character(len=72) :: dipole_file, e_mag_ic_file, e_mag_oc_file
    character(len=72) :: earth_compliance_file
-   integer, public :: l_geo ! max degree for geomagnetic field seen on Earth
-
-
 
    public :: initialize_magnetic_energy, get_e_mag, finalize_magnetic_energy
 
