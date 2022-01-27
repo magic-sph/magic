@@ -318,9 +318,7 @@ contains
 
       !----- Outer-core normalized moment of inertia:
       ! _moi_oc=8.0_cp*pi/15.0_cp*(r_cmb**5-r_icb**5) ! rho=cst
-      do n_r=1,n_r_max
-         mom(n_r)=r(n_r)**4 * rho0(n_r)
-      end do
+      mom(:)=r(:)**4 * rho0(:)
       c_moi_oc=8.0_cp*third*pi*rInt_R(mom,r,rscheme_oc)
 
       !----- Mantle normalized moment of inertia:
