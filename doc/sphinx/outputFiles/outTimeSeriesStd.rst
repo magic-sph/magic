@@ -178,7 +178,7 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
 ``dipole.TAG``
 --------------
 
-This file contains several informations about the magnetic dipole. This file is written by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`. The maximum degree used to compute columns 6 and 15 is given by :ref:`l_geo <varl_geo>`.
+This file contains several informations about the magnetic dipole. This file is written by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`. The maximum degree used to compute columns 6 and 15 is given by :ref:`l_geo <varl_earth_like>`.
 
    +---------------+---------------------------------------------------------------------------+
    | No. of column | Contents                                                                  |
