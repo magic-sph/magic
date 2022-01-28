@@ -239,6 +239,7 @@ find_library(FFTW3 NAME fftw3
           $ENV{FFTW_HOME}/lib                 #Hydra
           $ENV{FFTWDIR})                      #GWDG
 
+
 if(USE_OMP)
    find_library(FFTW3_OMP NAME fftw3_omp
        PATHS $ENV{HOME}/local/lib
@@ -269,6 +270,8 @@ message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 if(APPLE)
     include_directories(/usr/local/include)
 endif()
+
+include_directories(/usr/include)  #For Ubuntu-like systems
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)

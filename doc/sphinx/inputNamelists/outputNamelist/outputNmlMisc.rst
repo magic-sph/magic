@@ -17,9 +17,9 @@ the induction equation.
 
 .. _varl_2D_RMS:
 
-* **l_2D_RMS** (default :f:var:`l_2D_RMS=.false. <l_2d_rms>`) is a 
+* **l_2D_RMS** (default :f:var:`l_2D_RMS=.false. <l_2d_rms>`) is a
   logical. When set to ``.true.``, this logical enables the calculation of 2-D
-  force balance in the :math:`(r,\ell)` and parameter space. 
+  force balance in the :math:`(r,\ell)` and parameter space.
   Those data are stored in the files named :ref:`2D_dtVrms_spec.TAG <sec2DRMSSpectra>`.
 
 
@@ -51,7 +51,7 @@ Power budget
 * **l_power** (default :f:var:`l_power.false. <l_power>`) is a logical. When
   set to ``.true.``, this logical enables the calculation of input and output
   power (buoyancy, viscous and ohmic dissipations, torques). The time series
-  are stored in :ref:`power.TAG <secPowerFile>` and :ref:`dtE.TAG <secdtEFile>` 
+  are stored in :ref:`power.TAG <secPowerFile>` and :ref:`dtE.TAG <secdtEFile>`
   and the time-averaged radial profiles in :ref:`powerR.TAG <secPowerRfile>`.
 
 .. _varl_AM:
@@ -70,7 +70,7 @@ Earth-likeness of the CMB field
 
 * **l_max_comp** (default :f:var:`l_max_comp=8 <l_max_comp>`) is an integer. This is the maximum spherical harmonic degree used to calculate the Earth-likeness of the CMB field.
 
-* **l_geo** (default :f:var:`l_geo=11 <l_geo>`) is an integer. This is the maximum spherical harmonic degree used to compute the dipolarity of the magnetic field at the CMB.
+* **l_geo** (default :f:var:`l_geo=11 <l_geo>`) is an integer. This is the maximum spherical harmonic degree used to compute the dipolarity of the magnetic field at the CMB. This is used to compute columns 6 and 15 of the :ref:`dipole.TAG <secDipoleFile>` file.
 
 .. _varl_drift:
 
