@@ -157,7 +157,7 @@ class MagicSpectrum(MagicSetup):
                         self.stop_time = None
             else:
                 if ispec is not None:
-                    pattern = os.path.join(datadir, '{}{}*'.format(self.name, ispec))
+                    pattern = os.path.join(datadir, '{}{}.*'.format(self.name, ispec))
                     files = scanDir(pattern)
                     filename = files[-1]
                 else:

@@ -20,7 +20,7 @@ module magnetic_energy
        &            l_full_sphere
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
        &                 movieDipStrengthGeo
-   use output_data, only: tag, l_max_comp
+   use output_data, only: tag, l_max_comp, l_geo
    use constants, only: pi, zero, one, two, half, four, osq4pi
    use special, only: n_imp, rrMP
    use integration, only: rInt_R,rIntIC
@@ -49,9 +49,6 @@ module magnetic_energy
    integer :: n_compliance_file
    character(len=72) :: dipole_file, e_mag_ic_file, e_mag_oc_file
    character(len=72) :: earth_compliance_file
-   integer, public :: l_geo ! max degree for geomagnetic field seen on Earth
-
-
 
    public :: initialize_magnetic_energy, get_e_mag, finalize_magnetic_energy
 
@@ -389,33 +386,27 @@ contains
          ! NOTE: n_e_sets=0 prevents averaging
          if ( n_e_sets == 1 ) then
             timeTot=one
-            do nR=1,n_r_max
-               e_dipA(nR) =e_dipole_r_global(nR)
-               e_pA(nR)   =e_p_r_global(nR)
-               e_p_asA(nR)=e_p_as_r_global(nR)
-               e_tA(nR)   =e_t_r_global(nR)
-               e_t_asA(nR)=e_t_as_r_global(nR)
-            end do
+            e_dipA(:) =e_dipole_r_global(:)
+            e_pA(:)   =e_p_r_global(:)
+            e_p_asA(:)=e_p_as_r_global(:)
+            e_tA(:)   =e_t_r_global(:)
+            e_t_asA(:)=e_t_as_r_global(:)
          else if ( n_e_sets == 2 ) then
             dt=time-timeLast
             timeTot=two*dt
-            do nR=1,n_r_max
-               e_dipA(nR) =dt*(e_dipA(nR) +e_dipole_r_global(nR))
-               e_pA(nR)   =dt*(e_pA(nR)   +e_p_r_global(nR)     )
-               e_p_asA(nR)=dt*(e_p_asA(nR)+e_p_as_r_global(nR)  )
-               e_tA(nR)   =dt*(e_tA(nR)   +e_t_r_global(nR)     )
-               e_t_asA(nR)=dt*(e_t_asA(nR)+e_t_as_r_global(nR)  )
-            end do
+            e_dipA(:) =dt*(e_dipA(:) +e_dipole_r_global(:))
+            e_pA(:)   =dt*(e_pA(:)   +e_p_r_global(:)     )
+            e_p_asA(:)=dt*(e_p_asA(:)+e_p_as_r_global(:)  )
+            e_tA(:)   =dt*(e_tA(:)   +e_t_r_global(:)     )
+            e_t_asA(:)=dt*(e_t_asA(:)+e_t_as_r_global(:)  )
          else
             dt=time-timeLast
             timeTot=timeTot+dt
-            do nR=1,n_r_max
-               e_dipA(nR) =e_dipA(nR) +dt*e_dipole_r_global(nR)
-               e_pA(nR)   =e_pA(nR)   +dt*e_p_r_global(nR)
-               e_p_asA(nR)=e_p_asA(nR)+dt*e_p_as_r_global(nR)
-               e_tA(nR)   =e_tA(nR)   +dt*e_t_r_global(nR)
-               e_t_asA(nR)=e_t_asA(nR)+dt*e_t_as_r_global(nR)
-            end do
+            e_dipA(:) =e_dipA(:) +dt*e_dipole_r_global(:)
+            e_pA(:)   =e_pA(:)   +dt*e_p_r_global(:)
+            e_p_asA(:)=e_p_asA(:)+dt*e_p_as_r_global(:)
+            e_tA(:)   =e_tA(:)   +dt*e_t_r_global(:)
+            e_t_asA(:)=e_t_asA(:)+dt*e_t_as_r_global(:)
          end if
          if ( ktopb == 1) then
             e_tA(1)   =0.0_cp
@@ -513,12 +504,11 @@ contains
                m=lo_map%lm2m(lm)
                r_dr_b=r_ic(nR)*db_ic(lm,nR)
 
-               e_p_temp=     dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
-               &                real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
-               &                real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
-               &                                      cc2real(r_dr_b,m)            )
-               e_t_temp=  dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *                  &
-               &                                  cc2real(aj_ic(lm,nR),m)
+               e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
+               &           real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
+               &           real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
+               &                              cc2real(r_dr_b,m)            )
+               e_t_temp=dLh(st_map%lm2(l,m))*r_ratio**(2*l+2)*cc2real(aj_ic(lm,nR),m)
 
                if ( m == 0 ) then  ! axisymmetric part
                   e_p_as_ic_r(nR)=e_p_as_ic_r(nR) + e_p_temp
@@ -580,7 +570,6 @@ contains
 
 
       !-- Outside energy:
-      nR=n_r_cmb
       e_p_os   =0.0_cp
       e_p_as_os=0.0_cp
       !do lm=2,lm_max
@@ -588,7 +577,7 @@ contains
          l=lo_map%lm2l(lm)
          m=lo_map%lm2m(lm)
          fac=real( l*l*(l+1),cp)
-         e_p_temp=fac*cc2real(b(lm,nR),m)
+         e_p_temp=fac*cc2real(b(lm,n_r_cmb),m)
          e_p_os  =e_p_os + e_p_temp
          if ( m == 0 ) e_p_as_os=e_p_as_os + e_p_temp
       end do
@@ -612,7 +601,7 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
             fac=real(l*(l+1)**2*(2*l+1),cp)*one/(rrMP**(2*l+1)-one)
-            e_p_temp=fac*cc2real(b(lm,nR),m)
+            e_p_temp=fac*cc2real(b(lm,n_r_cmb),m)
             e_p_e   =e_p_e  + e_p_temp
             if ( m == 0 ) e_p_as_e =e_p_as_e  + e_p_temp
             if ( l == 1 ) e_dipole_e=e_dipole_e+e_p_temp

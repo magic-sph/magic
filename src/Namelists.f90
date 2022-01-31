@@ -23,7 +23,6 @@ module Namelists
    use dirk_schemes, only: type_dirk
    use multistep_schemes, only: type_multistep
    use time_schemes, only: type_tscheme
-   use magnetic_energy, only: l_geo
 
    implicit none
 
@@ -1534,9 +1533,7 @@ contains
       !----- Compute Earth-likeness (Christensen et al. EPSL 2010)
       l_earth_likeness=.false.
       l_max_comp    =8
-
       l_geo         =11   ! max degree for geomagnetic field seen on Earth
-
 
       !----- Output of distribution of energies over m's
       l_energy_modes=.false. ! to get emag and ekin for different m

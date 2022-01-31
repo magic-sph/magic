@@ -15,7 +15,7 @@ This file contains the kinetic energy of the outer core, defined by
    E_k = \frac{1}{2}\int_V \tilde{\rho}u^2\,{\rm d}V & = E_{pol}+E_{tor} \\
    & = \frac{1}{2}\sum_{\ell, m} \ell(\ell+1)\int_{r_i}^{r_o}\frac{1}{\tilde{\rho}}\left[
    \frac{\ell(\ell+1)}{r^2}|W_{\ell m}|^2+\left|\frac{{\rm d} W_{\ell m}}{{\rm d} r}\right|^2
-   \right]\, {\rm d}r \\ 
+   \right]\, {\rm d}r \\
    & +\frac{1}{2}\sum_{\ell, m} \ell(\ell+1)
    \int_{r_i}^{r_o}\frac{1}{\tilde{\rho}}|Z_{\ell m}|^2\,{\rm d} r
    \end{aligned}
@@ -32,7 +32,7 @@ The detailed calculations are done in the subroutine :f:subr:`get_e_kin <kinetic
    +---------------+------------------------------------------------------+
    | 3             | toroidal energy                                      |
    +---------------+------------------------------------------------------+
-   | 4             | axisymmetric poloidal energy                         | 
+   | 4             | axisymmetric poloidal energy                         |
    +---------------+------------------------------------------------------+
    | 5             | axisymmetric toroidal energy                         |
    +---------------+------------------------------------------------------+
@@ -64,7 +64,7 @@ This file contains the magnetic energy of the outer core, defined by
    E_m = \frac{1}{2}\int_V B^2\,{\rm d}V & = E_{pol}+E_{tor} \\
    & = \frac{1}{2}\sum_{\ell, m} \ell(\ell+1)\int_{r_i}^{r_o}\left[
    \frac{\ell(\ell+1)}{r^2}|b_{\ell m}|^2+\left|\frac{{\rm d} b_{\ell m}}{{\rm d} r}\right|^2
-   \right]\, {\rm d}r \\ 
+   \right]\, {\rm d}r \\
    & +\frac{1}{2}\sum_{\ell, m} \ell(\ell+1)
    \int_{r_i}^{r_o}|j_{\ell m}|^2\,{\rm d} r
    \end{aligned}
@@ -178,7 +178,7 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
 ``dipole.TAG``
 --------------
 
-This file contains several informations about the magnetic dipole. This file is written by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.
+This file contains several informations about the magnetic dipole. This file is written by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`. The maximum degree used to compute columns 6 and 15 is given by :ref:`l_geo <varl_earth_like>`.
 
    +---------------+---------------------------------------------------------------------------+
    | No. of column | Contents                                                                  |
@@ -271,25 +271,25 @@ This file is written by the subroutine :f:subr:`output <output_mod/output()>`.
    | 10            | Flow length scale dpV                   |
    +---------------+-----------------------------------------+
    | 11            | Flow length scale dzV                   |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 12            | Dissipation length scale lvDiss         |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 13            | Dissipation length scale lbDiss         |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 14            | Magnetic length scale dlB               |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 15            | Magnetic length scale dmB               |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 16            | Elsasser number at CMB                  |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 17            | Local Rol based on non-ax. flow         |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 18            | Convective flow length scale dlVc       |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 19            | Peak of the poloidal kinetic energy     |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
    | 20            | CMB zonal flow at the equator           |
-   +---------------+-----------------------------------------+ 
+   +---------------+-----------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 
