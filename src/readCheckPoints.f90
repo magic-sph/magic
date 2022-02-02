@@ -117,7 +117,9 @@ contains
       complex(cp), allocatable :: workD(:,:),workE(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
 
+#ifdef WITH_MPI
       if ( l_parallel_solve ) call abortRun('! In readStartFields_old with l_parallel_solve=.true.???')
+#endif
 
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
@@ -810,7 +812,7 @@ contains
       logical :: l_phase_field_old
       logical :: startfile_does_exist
       integer :: nimp_old, nexp_old, nold_old
-      logical :: l_press_store_old
+      logical :: l_press_store_old, l_transp
       integer :: n_r_maxL,n_r_ic_maxL,lm_max_old, n_o
       integer, allocatable :: lm2lmo(:)
       real(cp) :: dom_ic, dom_ma
@@ -825,7 +827,9 @@ contains
       complex(cp), allocatable :: workOld(:,:), work(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
 
+#ifdef WITH_MPI
       if ( l_parallel_solve ) call abortRun('! In readStartFields with l_parallel_solve=.true.???')
+#endif
 
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
@@ -855,8 +859,18 @@ contains
                &    form='unformatted', access='stream')
 
                read(n_start_file, iostat=io_status) version
-               if ( io_status /= 0 ) then
+               if ( io_status /= 0 .or. abs(version) > 100 ) then
+#ifdef WITH_MPI
                   call abortRun('! The restart file has a wrong formatting !')
+#else
+                  write(output_unit,*) '! The binary format is probably little_endian...'
+                  close(n_start_file)
+                  !-- Last attempt, forcing little endian+stream, this is the backup
+                  !-- solution when reading a MPI-IO code using the serial version of MagIC
+                  open(newunit=n_start_file, file=start_file, status='old', &
+                  &    form='unformatted', access='stream', convert='little_endian')
+                  read(n_start_file, iostat=io_status) version
+#endif
                end if
             end if
          else
@@ -1125,24 +1139,26 @@ contains
          allocate( work(1,n_r_max), workOld(1,1), r_old(1), lm2lmo(1) )
       end if
 
+      l_transp = .not. l_parallel_solve
+
       !-- Read the poloidal flow
       call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,    &
            &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
            &                   nexp_old, nimp_old, nold_old, tscheme_family_old, &
-           &                   w, dwdt, .true.)
+           &                   w, dwdt, .true., l_transp)
 
       !-- Read the toroidal flow
       call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,    &
            &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
            &                   nexp_old, nimp_old, nold_old, tscheme_family_old, &
-           &                   z, dzdt, .true.)
+           &                   z, dzdt, .true., l_transp)
 
       !-- Read the pressure
       if ( l_press_store_old ) then
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,   &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
               &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
-              &                   p, dpdt, .not. l_double_curl)
+              &                   p, dpdt, .not. l_double_curl, l_transp)
       end if
 
       !-- Read the entropy
@@ -1150,7 +1166,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_s,    &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
               &                   nexp_old, nimp_old, nold_old,  tscheme_family_old,&
-              &                   s, dsdt, l_heat)
+              &                   s, dsdt, l_heat, l_transp)
       end if
 
       !-- Read the chemical composition
@@ -1158,7 +1174,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_xi,  &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
               &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
-              &                   xi, dxidt, l_chemical_conv)
+              &                   xi, dxidt, l_chemical_conv, l_transp)
       end if
 
       !-- Read the phase field
@@ -1166,7 +1182,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, one,       &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
               &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
-              &                   phi, dphidt, l_phase_field)
+              &                   phi, dphidt, l_phase_field, l_transp)
       end if
 
       if ( l_heat .and. .not. l_heat_old ) s(:,:)=zero
@@ -1180,13 +1196,13 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_b,    &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
               &                   nexp_old, nimp_old, nold_old,  tscheme_family_old,&
-              &                   b, dbdt, .true. )
+              &                   b, dbdt, .true., l_transp )
 
          !-- Read the toroidal magnetic field
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_b,    &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
               &                   nexp_old, nimp_old, nold_old,  tscheme_family_old,&
-              &                   aj, djdt, .true. )
+              &                   aj, djdt, .true., l_transp )
 
          if ( l_cond_ic ) then
 
@@ -1230,7 +1246,7 @@ contains
                      if ( n_o <= tscheme%nexp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%expl(llm:ulm,nR,n_o))
+                                &                        dbdt_ic%expl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1247,7 +1263,7 @@ contains
                      if ( n_o <= tscheme%nimp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%impl(llm:ulm,nR,n_o))
+                                &                        dbdt_ic%impl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1261,11 +1277,10 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%nold .and. &
-                     &   tscheme%family=='MULTISTEP' ) then
+                     if ( n_o <= tscheme%nold .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%old(llm:ulm,nR,n_o))
+                                &                        dbdt_ic%old(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1300,7 +1315,7 @@ contains
                      if ( n_o <= tscheme%nexp  .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%expl(llm:ulm,nR,n_o))
+                                &                        djdt_ic%expl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1317,7 +1332,7 @@ contains
                      if ( n_o <= tscheme%nimp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%impl(llm:ulm,nR,n_o))
+                                &                        djdt_ic%impl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1331,11 +1346,10 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%nold .and. &
-                     &   tscheme%family=='MULTISTEP' ) then
+                     if ( n_o <= tscheme%nold .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%old(llm:ulm,nR,n_o))
+                                &                        djdt_ic%old(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1488,12 +1502,13 @@ contains
    end subroutine read_map_one_scalar
 !------------------------------------------------------------------------------
    subroutine read_map_one_field( fh, tscheme, wOld, work, scale_w, r_old, lm2lmo,&
-              &                   n_r_max_old,  n_r_maxL, dim1, nexp_old,   &
+              &                   n_r_max_old,  n_r_maxL, dim1, nexp_old,         &
               &                   nimp_old, nold_old, tscheme_family_old, w, dwdt,&
-              &                   l_map)
+              &                   l_map, l_transp)
 
       !--- Input variables
       logical,             intent(in) :: l_map
+      logical,             intent(in) :: l_transp ! do we need to transpose to lm-loc
       integer,             intent(in) :: fh, nold_old
       integer,             intent(in) :: nexp_old, nimp_old
       character(len=*),    intent(in) :: tscheme_family_old
@@ -1534,9 +1549,13 @@ contains
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
             if ( n_o <= tscheme%nexp .and. l_map .and. tscheme%family == 'MULTISTEP') then
-               do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
-               end do
+               if ( l_transp ) then
+                  do nR=1,n_r_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
+                  end do
+               else
+                  dwdt%expl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nimp_old
@@ -1547,9 +1566,13 @@ contains
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
             if ( n_o <= tscheme%nimp .and. l_map .and. tscheme%family=='MULTISTEP') then
-               do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%impl(llm:ulm,nR,n_o))
-               end do
+               if ( l_transp ) then
+                  do nR=1,n_r_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dwdt%impl(llm:ulm,nR,n_o))
+                  end do
+               else
+                  dwdt%impl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nold_old
@@ -1559,11 +1582,14 @@ contains
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
-            if ( n_o <= tscheme%nold .and. l_map .and. &
-            &    tscheme%family == 'MULTISTEP' ) then
-               do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
-               end do
+            if ( n_o <= tscheme%nold .and. l_map .and. tscheme%family == 'MULTISTEP' ) then
+               if ( l_transp ) then
+                  do nR=1,n_r_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
+                  end do
+               else
+                  dwdt%old(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
       end if
