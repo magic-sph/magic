@@ -18,7 +18,7 @@ module output_mod
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: hdif_B, dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose,    &
-       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_r_fieldXi,         & 
+       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_r_fieldXi,         &
        &            l_SRIC, l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,  &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
@@ -376,11 +376,11 @@ contains
          end if
 
          if ( l_spec_avg ) then
-            call spectrum(n_spec,time,.true.,nLogs,l_stop_time,timePassedLog,    &
+            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,        &
                  &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
                  &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
             if ( l_heat ) then
-               call spectrum_temp(n_spec,time,.true.,nLogs,l_stop_time,     &
+               call spectrum_temp(-1,time,.true.,nLogs,l_stop_time,   &
                     &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
             end if
          end if

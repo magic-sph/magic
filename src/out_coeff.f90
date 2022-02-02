@@ -126,7 +126,7 @@ contains
             end do
          end if
 
-      end if   
+      end if
 
    end subroutine initialize_coeff
 !----------------------------------------------------------------------
@@ -557,7 +557,7 @@ contains
       lVB=.false.
       if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
-      if ( nPotSets == 0 ) then ! nPotSets=-1 on call
+      if ( nPotSets == 0 ) then
          fileName=head//tag
       else
          write(string, *) nPotSets

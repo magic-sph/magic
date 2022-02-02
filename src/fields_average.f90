@@ -450,7 +450,7 @@ contains
 
          !--- Store potentials of averaged field:
          !    dw_ave and db_ave used as work arrays here.
-         nPotSets=-1
+         nPotSets=0
          call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,      &
               &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
