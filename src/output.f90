@@ -44,9 +44,8 @@ module output_mod
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat, outPhase
-   use geos, only: outGeos
+   use geos, only: outGeos, outOmega
    use outRot, only: write_rot
-   use omega, only: outOmega
    use integration, only: rInt_R
    use outPar_mod, only: outPar, outPerpPar
    use graphOut_mod, only: graphOut_IC
@@ -973,8 +972,6 @@ contains
             end if ! l_stop_time ?
 
          end if ! l_log
-
-
 
          PERFOFF
       end if

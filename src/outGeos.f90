@@ -2,21 +2,25 @@ module geos
    !
    ! This module is used to compute z-integrated diagnostics such as the degree
    ! of geostrophy or the separation of energies between inside and outside the
-   ! tangent cylinder. This makes use of a local Simpson's method.
+   ! tangent cylinder. This makes use of a local Simpson's method. This also
+   ! handles the computation of the z-average profile of rotation when a Couette
+   ! flow setup is used
    !
 
    use precision_mod
    use parallel_mod
-   use constants, only: half, two, pi, one, four, third
+   use blocking, only: lo_map, llm, ulm
+   use constants, only: half, two, pi, one, four, third, zero
    use mem_alloc, only: bytes_allocated
    use radial_data, only: radial_balance, nRstart, nRstop
    use radial_functions, only: or1, or2, r_ICB, r_CMB, r, orho1, orho2, beta
    use output_data, only: sDens, zDens, tag
    use horizontal_data, only: n_theta_cal2ord, O_sin_theta_E2, theta_ord, &
        &                      O_sin_theta, cosTheta, sinTheta
-   use truncation, only: n_phi_max, n_theta_max, n_r_max
+   use truncation, only: n_phi_max, n_theta_max, n_r_max, nlat_padded, l_max
    use integration, only: simps, cylmean_otc, cylmean_itc
    use logic, only: l_save_out
+   use sht, only: toraxi_to_spat
 
    implicit none
 
@@ -37,72 +41,78 @@ module geos
    integer :: n_s_otc ! Index for last point outside TC
    character(len=72) :: geos_file ! file name
 
-   public :: initialize_geos, finalize_geos, calcGeos, outGeos
+   public :: initialize_geos, finalize_geos, calcGeos, outGeos, outOmega
 
 contains
 
-   subroutine initialize_geos()
+   subroutine initialize_geos(l_geos, l_SRIC)
       !
       ! Memory allocation and definition of the cylindrical grid
       !
+      logical, intent(in) :: l_geos ! Do we need the geos outputs
+      logical, intent(in) :: l_SRIC ! Is the inner core rotating
 
       integer :: n_s
       real(cp) :: smin, smax, ds
 
-      !-- R-distributed arrays
-      allocate( us_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
-      allocate( up_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
-      allocate( uz_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
-      allocate( wz_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
-      bytes_allocated=bytes_allocated+4*n_phi_max*n_theta_max*(nRstop-nRstart+1)*&
-      &               SIZEOF_DEF_REAL
+      if ( l_geos ) then
+         !-- R-distributed arrays
+         allocate( us_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( up_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( uz_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( wz_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+         bytes_allocated=bytes_allocated+4*n_phi_max*n_theta_max*(nRstop-nRstart+1)*&
+         &               SIZEOF_DEF_REAL
 
-      !-- Distribute over the ranks
-      allocate(phi_balance(0:n_procs-1))
-      call getBlocks(phi_balance, n_phi_max, n_procs)
-      nPstart = phi_balance(rank)%nStart
-      nPstop = phi_balance(rank)%nStop
+         !-- Distribute over the ranks
+         allocate(phi_balance(0:n_procs-1))
+         call getBlocks(phi_balance, n_phi_max, n_procs)
+         nPstart = phi_balance(rank)%nStart
+         nPstop = phi_balance(rank)%nStop
 
-      !-- Phi-distributed arrays
-      allocate( us_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
-      allocate( up_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
-      allocate( uz_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
-      allocate( wz_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
-      bytes_allocated=bytes_allocated+4*n_r_max*n_theta_max*(nPstop-nPstart+1)*&
-      &               SIZEOF_DEF_REAL
+         !-- Phi-distributed arrays
+         allocate( us_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+         allocate( up_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+         allocate( uz_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+         allocate( wz_Ploc(n_theta_max,n_r_max,nPstart:nPstop) )
+         bytes_allocated=bytes_allocated+4*n_r_max*n_theta_max*(nPstop-nPstart+1)*&
+         &               SIZEOF_DEF_REAL
+      end if
 
-      !-- Cylindrical radius
-      n_s_max = n_r_max+int(r_ICB*n_r_max)
-      n_s_max = int(sDens*n_s_max)
-      allocate( cyl(n_s_max) )
-      bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
+      if ( l_geos .or. l_SRIC ) then
+         !-- Cylindrical radius
+         n_s_max = n_r_max+int(r_ICB*n_r_max)
+         n_s_max = int(sDens*n_s_max)
+         allocate( cyl(n_s_max) )
+         bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 
-      ! Minimum and maximum cylindrical radii
-      smin = r_CMB*sin(theta_ord(1))
-      smax = r_CMB
+         ! Minimum and maximum cylindrical radii
+         smin = r_CMB*sin(theta_ord(1))
+         smax = r_CMB
 
-      !-- Grid spacing
-      ds = (smax-smin)/(n_s_max-1)
+         !-- Grid spacing
+         ds = (smax-smin)/(n_s_max-1)
 
-      !-- Cylindrical grid
-      do n_s=1,n_s_max
-         cyl(n_s)=r_cmb-(n_s-1)*ds
-      end do
+         !-- Cylindrical grid
+         do n_s=1,n_s_max
+            cyl(n_s)=r_cmb-(n_s-1)*ds
+         end do
 
-      !-- Height
-      allocate( h(n_s_max) )
-      bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
-      do n_s=1,n_s_max
-         if ( cyl(n_s) >= r_ICB ) then
-            h(n_s)=two*sqrt(r_CMB**2-cyl(n_s)**2)
-            n_s_otc=n_s ! Last index outside TC
-         else
-            h(n_s)=sqrt(r_CMB**2-cyl(n_s)**2)-sqrt(r_ICB**2-cyl(n_s)**2)
-         end if
-      end do
+         !-- Height
+         allocate( h(n_s_max) )
+         bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
+         do n_s=1,n_s_max
+            if ( cyl(n_s) >= r_ICB ) then
+               h(n_s)=two*sqrt(r_CMB**2-cyl(n_s)**2)
+               n_s_otc=n_s ! Last index outside TC
+            else
+               h(n_s)=sqrt(r_CMB**2-cyl(n_s)**2)-sqrt(r_ICB**2-cyl(n_s)**2)
+            end if
+         end do
+      end if
 
       !-- Open geos.TAG file
-      if ( rank == 0 ) then
+      if ( rank == 0 .and. l_geos ) then
          geos_file='geos.'//tag
          if ( (.not. l_save_out) ) then
             open(newunit=n_geos_file, file=geos_file, status='new')
@@ -110,19 +120,23 @@ contains
       end if
 
       !-- Determine the volume outside the tangent cylinder interpolated on the cylindrical grid
-      vol_otc = two*pi*simps(h(1:n_s_otc)*cyl(1:n_s_otc), cyl(1:n_s_otc))
+      if ( l_geos ) vol_otc = two*pi*simps(h(1:n_s_otc)*cyl(1:n_s_otc), cyl(1:n_s_otc))
 
    end subroutine initialize_geos
 !------------------------------------------------------------------------------------
-   subroutine finalize_geos()
+   subroutine finalize_geos(l_geos, l_SRIC)
       !
       ! Memory deallocation
       !
+      logical, intent(in) :: l_geos ! Do we need the geos outputs
+      logical, intent(in) :: l_SRIC ! Is the inner core rotating?
 
-      if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
-      deallocate( us_Ploc, up_Ploc, uz_Ploc, wz_Ploc )
-      deallocate( us_Rloc, up_Rloc, uz_Rloc, wz_Rloc )
-      deallocate( cyl, h )
+      if ( l_geos ) then
+         if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
+         deallocate( us_Ploc, up_Ploc, uz_Ploc, wz_Ploc )
+         deallocate( us_Rloc, up_Rloc, uz_Rloc, wz_Rloc )
+      end if
+      if ( l_geos .or. l_SRIC ) deallocate( cyl, h )
 
    end subroutine finalize_geos
 !------------------------------------------------------------------------------------
@@ -480,6 +494,69 @@ contains
       end if
 
    end subroutine outGeos
+!------------------------------------------------------------------------------------
+   subroutine outOmega(z, omega_ic)
+      !
+      !   Output of axisymmetric zonal flow omega(s) into field omega.TAG,
+      !   where s is the cylindrical radius. This is done for the southern
+      !   and norther hemispheres at z=+-(r_icb+0.5)
+      !
+
+      !-- Input variables:
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max) ! Toroidal potential
+      real(cp),    intent(in) :: omega_ic ! Rotation rate of the inner core
+
+      !-- Local variables
+      complex(cp) :: dzVpLMr_loc(l_max+1,n_r_max), dzVpLMr(l_max+1,n_r_max)
+      real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded,n_r_max)
+      real(cp) :: OmP(n_theta_max, n_r_max)
+      real(cp) :: Om_OTC(n_s_max), Om_ITC_N(n_s_max), Om_ITC_S(n_s_max)
+      integer :: nR, lm, l, m, nTheta, nTheta1, nS, fileHandle
+
+      !--- Transform to lm-space for all radial grid points:
+      do nR=1,n_r_max
+         dzVpLMr_loc(:,nR)=zero
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            m=lo_map%lm2m(lm)
+            if ( m == 0 ) dzVpLMr_loc(l+1,nR)=orho1(nR)*z(lm,nR)
+         end do
+#ifdef WITH_MPI
+         call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVpLMr(:,nR), l_max+1, &
+              &             MPI_DEF_COMPLEX, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+         dzVpLMr(:,nR)=dzVpLMr_loc(:,nR)
+#endif
+      end do
+
+      if ( rank == 0 ) then
+         !-- Legendre transform and unscramble theta's
+         do nR=1,n_r_max
+            call toraxi_to_spat(dzVpLMr(:, nR), tmpt(:), tmpp(:,nR))
+            do nTheta=1,n_theta_max
+               nTheta1=n_theta_cal2ord(nTheta)
+               OmP(nTheta1,nR)=tmpp(nTheta,nR)/omega_ic
+            end do
+         end do
+
+         !-- z-integration
+         call cylmean_otc(OmP, Om_OTC, n_s_max, n_s_otc, r, cyl, theta_ord, zDens)
+         call cylmean_itc(OmP, Om_ITC_N, Om_ITC_S, n_s_max, n_s_otc, r, cyl, &
+              &           theta_ord, zDens)
+
+         !-- write cylindrical profiles in both hemispheres
+         open(newunit=fileHandle, file='omega.'//tag, status='unknown')
+         do nS=1,n_s_max
+            if ( nS <= n_s_otc ) then
+               write(fileHandle, '(ES20.10, 2ES15.7)') cyl(nS), Om_OTC(nS), Om_OTC(nS)
+            else
+               write(fileHandle, '(ES20.10, 2ES15.7)') cyl(nS), Om_ITC_N(nS), Om_ITC_S(nS)
+            end if
+         end do
+         close(fileHandle)
+      end if
+
+   end subroutine outOmega
 !------------------------------------------------------------------------------------
    subroutine transp_R2Phi(arr_Rloc, arr_Ploc)
       !
