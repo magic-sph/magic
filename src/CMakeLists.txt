@@ -11,6 +11,13 @@ list(REMOVE_ITEM srcfiles "${SRC}/magic.f90")
 
 set_source_files_properties(mpimod.f90 PROPERTIES COMPILE_FLAGS ${FFLAG_NO_STD})
 
+if(USE_MPI MATCHES no)
+   # Dirty hack to make the code switching endianess at reading stage
+   # Allows to read MPI-IO checkpoints when running the serial version of the
+   # code
+   set_source_files_properties(readCheckPoints.f90 PROPERTIES COMPILE_FLAGS ${FFLAG_NO_STD})
+endif()
+
 ##################
 # File selection #
 ##################
