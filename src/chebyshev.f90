@@ -28,7 +28,6 @@ module chebyshev
       procedure :: get_grid => initialize_mapping
       procedure :: costf1_complex_1d
       procedure :: costf1_complex
-      procedure :: costf1_real
       procedure :: costf1_real_1d
       procedure :: robin_bc
    end type type_cheb_odd
@@ -378,22 +377,6 @@ contains
       call this%chebt_oc%costf1(f, work1d)
 
    end subroutine costf1_complex_1d
-!------------------------------------------------------------------------------
-   subroutine costf1_real(this,f,n_f_max,n_f_start,n_f_stop,f2)
-
-      class(type_cheb_odd) :: this
-
-      !-- Input variables:
-      integer,  intent(in) :: n_f_max            ! number of columns in f,f2
-      integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-
-      !-- Output variables:
-      real(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
-      real(cp), intent(out) :: f2(n_f_max,this%nRmax)  ! work array of the same size as f
-
-      call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,f2)
-
-   end subroutine costf1_real
 !------------------------------------------------------------------------------
    subroutine costf1_real_1d(this,f)
 

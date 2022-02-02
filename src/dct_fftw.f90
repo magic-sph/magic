@@ -42,12 +42,10 @@ module cosine_transform_odd
    contains
       procedure :: initialize
       procedure :: finalize
-      procedure, private :: costf1_real
       procedure, private :: costf1_complex
       procedure, private :: costf1_real_1d
       procedure, private :: costf1_complex_1d
-      generic :: costf1 => costf1_real_1d, costf1_complex, costf1_complex_1d, &
-      &                    costf1_real
+      generic :: costf1 => costf1_real_1d, costf1_complex, costf1_complex_1d
    end type costf_odd_t
 
 contains
@@ -251,35 +249,5 @@ contains
       array_in(:)=this%cheb_fac*cmplx(outr(:), outi(:), cp)
 
    end subroutine costf1_complex_1d
-!------------------------------------------------------------------------------
-   subroutine costf1_real(this,array_in,n_f_max,n_f_start,n_f_stop, work_2d)
-      !
-      ! This routine is clearly ugly but right now this is only used in some
-      ! peculiar outputs (like TO or maybe RMS) so performance is not really
-      ! an issue
-      !
-
-      class(costf_odd_t), intent(in) :: this
-
-      !-- Input variables
-      integer, intent(in) :: n_f_start ! Starting index (OMP)
-      integer, intent(in) :: n_f_stop  ! Stopping index (OMP)
-      integer, intent(in) :: n_f_max   ! Number of vectors
-
-      !-- Output variables:
-      real(cp), intent(inout) :: array_in(n_f_max,this%n_r_max) ! Array to be transformed
-      real(cp), intent(inout) :: work_2d(n_f_max,this%n_r_max)  ! Help array (not needed)
-
-      !-- Local variables:
-      integer :: n_f,n_r
-      real(cp) :: tmp(this%n_r_max), work_1d(this%n_r_max)
-
-      do n_f=n_f_start, n_f_stop
-         tmp(:) = array_in(n_f,:)
-         call fftw_execute_r2r(this%plan_1d, tmp, work_1d)
-         array_in(n_f,:) = this%cheb_fac*work_1d(:)
-      end do
-
-   end subroutine costf1_real
 !------------------------------------------------------------------------------
 end module cosine_transform_odd

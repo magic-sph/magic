@@ -21,11 +21,11 @@ module cosine_transform_odd
    contains
       procedure, private :: costf1_complex
       procedure, private :: costf1_complex_1d
-      procedure, private :: costf1_real
       procedure, private :: costf1_real_1d
+      procedure, private :: costf1_real
       procedure :: initialize
       procedure :: finalize
-      generic :: costf1 => costf1_complex,costf1_real,costf1_real_1d,costf1_complex_1d
+      generic :: costf1 => costf1_complex, costf1_real_1d, costf1_complex_1d
    end type costf_odd_t
 
 contains
