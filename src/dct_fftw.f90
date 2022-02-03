@@ -134,7 +134,7 @@ contains
       call fftw_destroy_plan(this%plan_fft_1d)
 #endif
 #ifdef WITHOMP
-      call fftw_cleanup_threads()
+      !call fftw_cleanup_threads()
 #endif
       call fftw_destroy_plan(this%plan_1d)
 
