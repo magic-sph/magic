@@ -217,8 +217,8 @@ contains
 
 #elif (DCT_VERSION==dft_many)
       integer :: n_r, threadid
-      complex(cp) :: tmp_in(n_f_start:n_f_stop,2*this%n_r_max-1)
-      complex(cp) :: tmp_out(n_f_start:n_f_stop,2*this%n_r_max-1)
+      complex(cp) :: tmp_in(n_f_start:n_f_stop,2*this%n_r_max-2)
+      complex(cp) :: tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2)
 
       !-- Prepare array for dft many
       do n_r=1,this%n_r_max
