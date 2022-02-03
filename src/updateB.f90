@@ -1037,7 +1037,7 @@ contains
       lmStart_00 =max(2,llmMag)
 
       !$omp parallel default(shared) private(start_lm,stop_lm)
-      start_lm=lmStart_00; stop_lm=ulmMag
+      start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm, stop_lm)
 
       call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
@@ -1572,7 +1572,7 @@ contains
       lmStart_00 =max(2,llmMag)
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)
-      start_lm=lmStart_00; stop_lm=ulmMag
+      start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm,stop_lm)
 
       !$omp single
