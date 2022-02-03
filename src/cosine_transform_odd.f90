@@ -5,6 +5,7 @@ module cosine_transform_odd
    ! for ``n_r_max-1 = 2**a 3**b 5**c``, with a,b,c integers.
    !
 
+   use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use fft_fac_mod, only: fft_fac_complex, fft_fac_real
@@ -83,10 +84,10 @@ contains
 
       !-- third info stored in i_costf_init:
       if ( ni <= n+2+n_factors ) then
-         write(*,*) '! Message from subroutine init_costf1:'
-         write(*,*) '! Increase dimension of array i_costf_init'
-         write(*,*) '! in calling routine.'
-         write(*,*) '! Should be at least:',n+1+n_factors
+         write(output_unit,*) '! Message from subroutine init_costf1:'
+         write(output_unit,*) '! Increase dimension of array i_costf_init'
+         write(output_unit,*) '! in calling routine.'
+         write(output_unit,*) '! Should be at least:',n+1+n_factors
          call abortRun('Stop in cost_odd')
       end if
       this%i_costf_init(n+2)=n_factors
@@ -264,13 +265,13 @@ contains
          if ( l_f2_data ) then
             !----- fft_fac returns complex transform of f2's on f's:
             call fft_fac_complex(f2(1,1),f2(1,2),f(1,1),f(1,2),    &
-                 &       this%d_costf_init(n+2),n_f_max,n_f_start,      &
+                 &       this%d_costf_init(n+2),n_f_max,n_f_start, &
                  &       n_f_stop,n_O2,fac,fac_tot)
             l_f2_data=.false.
          else
             !----- fft_fac returns complex transform of f's on f2's:
-            call fft_fac_complex(f(1,1),f(1,2),f2(1,1),f2(1,2),   &
-                 &       this%d_costf_init(n+2),n_f_max,n_f_start,     &
+            call fft_fac_complex(f(1,1),f(1,2),f2(1,1),f2(1,2),    &
+                 &       this%d_costf_init(n+2),n_f_max,n_f_start, &
                  &       n_f_stop,n_O2,fac,fac_tot)
             l_f2_data=.true.
          end if
@@ -447,13 +448,13 @@ contains
          fac=this%i_costf_init(n+3+n_fac)
          if ( l_f2_data ) then
             !----- fft_fac returns complex transform of f2's on f's:
-            call fft_fac_real(f2(1,1),f2(1,2),f(1,1),f(1,2),  &
+            call fft_fac_real(f2(1,1),f2(1,2),f(1,1),f(1,2),       &
                  &       this%d_costf_init(n+2),n_f_max,n_f_start, &
                  &       n_f_stop,n_O2,fac,fac_tot)
             l_f2_data=.false.
          else
             !----- fft_fac returns complex transform of f's on f2's:
-            call fft_fac_real(f(1,1),f(1,2),f2(1,1),f2(1,2),  &
+            call fft_fac_real(f(1,1),f(1,2),f2(1,1),f2(1,2),       &
                  &       this%d_costf_init(n+2),n_f_max,n_f_start, &
                  &       n_f_stop,n_O2,fac,fac_tot)
             l_f2_data=.true.

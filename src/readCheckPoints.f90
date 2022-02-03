@@ -2999,7 +2999,6 @@ contains
                end do
             end if
 
-
             call chebt_ic%costf1(dataR,work)
             !----- Rescale :
             cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))

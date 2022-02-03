@@ -17,14 +17,14 @@ contains
               &            n_r_max,n_cheb_max,dr_fac,work1,work2, &
               &            chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial             
-      !  derivative ddf of the input function f.                          
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
-      !  The cheb transforms have to be initialized by calling            
-      !  init_costf1 and init_costf2.                                    
+      !  Returns first rarial derivative df and second radial
+      !  derivative ddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
+      !  The cheb transforms have to be initialized by calling
+      !  init_costf1 and init_costf2.
       !
 
       !-- Input variables:
@@ -64,7 +64,7 @@ contains
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
-      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1,1)
+      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1)
       call chebt_odd%costf1(ddf,n_f_max,n_f_start,n_f_stop,work1)
 
    end subroutine get_ddr_even
@@ -73,14 +73,14 @@ contains
               &             n_r_max,n_cheb_max,dr_fac,work1, &
               &             chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial             
-      !  derivative ddf of the input function f.                          
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
-      !  The cheb transforms have to be initialized by calling            
-      !  init_costf1 and init_costf2.                                    
+      !  Returns first rarial derivative df and second radial
+      !  derivative ddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
+      !  The cheb transforms have to be initialized by calling
+      !  init_costf1 and init_costf2.
       !
 
       !-- Input variables:
@@ -109,7 +109,7 @@ contains
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1,1)
+      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1)
 
 
    end subroutine get_drNS_even
@@ -118,14 +118,14 @@ contains
               &              n_r_max,n_cheb_max,dr_fac,work1,     &
               &              chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial             
-      !  derivative ddf of the input function f.                          
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
-      !  The cheb transforms have to be initialized by calling            
-      !  init_costf1 and init_costf2.                                    
+      !  Returns first rarial derivative df and second radial
+      !  derivative ddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
+      !  The cheb transforms have to be initialized by calling
+      !  init_costf1 and init_costf2.
       !
 
       !-- Input variables:
@@ -156,7 +156,7 @@ contains
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1,1)
+      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1)
       call chebt_odd%costf1(ddf,n_f_max,n_f_start,n_f_stop,work1)
 
    end subroutine get_ddrNS_even
@@ -164,9 +164,9 @@ contains
    subroutine get_dcheb_even(f,df,n_f_max,n_f_start,n_f_stop, &
               &              n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns Chebyshev coefficients of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_f_max,n_r_max).                             
+      !  Returns Chebyshev coefficients of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_f_max,n_r_max).
       !
 
       !-- Input variables:
@@ -216,9 +216,9 @@ contains
    subroutine get_ddcheb_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &               n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns Chebyshev coefficients of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_f_max,n_r_max).                             
+      !  Returns Chebyshev coefficients of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_f_max,n_r_max).
       !
 
       !-- Input variables:
