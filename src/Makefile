@@ -432,7 +432,7 @@ output.o              : truncation.o blocking.o phys_param.o\
                         outRot.o kinetic_energy.o magnetic_energy.o\
                         spectra.o fields_average.o power.o getDlm.o\
                         useful.o out_TO.o outMisc.o out_graph_file.o\
-                        storeCheckPoints.o integration.o outOmega.o parallel.o \
+                        storeCheckPoints.o integration.o parallel.o \
                         communications.o out_coeff.o outPar.o dtB.o\
                         store_movie_IC.o RMS.o
 communications.o      : blocking.o parallel.o truncation.o\
@@ -471,8 +471,6 @@ radial_spectra.o      : truncation.o blocking.o horizontal.o radial.o\
                         char_manip.o radial_data.o LMmapping.o constants.o
 nl_special_calc.o     : truncation.o blocking.o horizontal.o\
                         radial.o radial_data.o phys_param.o constants.o
-outOmega.o            : truncation.o blocking.o logic.o\
-                        output_data.o radial.o $(DCT_OBJS) plms.o
 fft_fac.o             : constants.o precision_mod.o
 cosine_transform_even.o: truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o

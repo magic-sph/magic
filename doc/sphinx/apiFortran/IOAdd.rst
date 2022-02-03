@@ -56,11 +56,6 @@ IO: RMS force balance, torsional oscillations, misc
 .. f:automodule:: geos
 
 
-``outOmega.f90``
-----------------
-
-.. f:automodule:: omega
-
 ``nl_special_calc.f90``
 -----------------------
 
