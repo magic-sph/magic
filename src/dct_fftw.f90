@@ -3,6 +3,7 @@
 #define dft_loop 2
 #define dft_many 3
 #define DCT_VERSION dft_loop
+
 module cosine_transform_odd
    !
    ! This module contains the FFTW wrappers for the discrete Cosine Transforms
@@ -125,7 +126,11 @@ contains
       !$omp parallel private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
-      threadid =omp_get_thread_num()
+#ifdef WITHOMP
+      threadid=omp_get_thread_num()
+#else
+      threadid=0
+#endif
       idx1(threadid)=start_lm
       idx2(threadid)=stop_lm
       !$omp end parallel
@@ -136,8 +141,8 @@ contains
          stop_lm =idx2(iThread)
          idist = 1
          odist = 1
-         inembed(1) = 0
-         onembed(1) = 0
+         inembed = plan_size
+         onembed = plan_size
          howmany = stop_lm-start_lm+1
          istride = stop_lm-start_lm+1
          ostride = stop_lm-start_lm+1
@@ -228,7 +233,11 @@ contains
          tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,2*this%n_r_max-n_r)
       end do
 
+#ifdef WITHOMP
       threadid=omp_get_thread_num()
+#else
+      threadid=0
+#endif
       call fftw_execute_dft(this%plan_fft_many(threadid), tmp_in, tmp_out)
 
       !-- Copy output onto a
