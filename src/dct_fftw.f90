@@ -1,6 +1,7 @@
 #define dct_many 0
 #define dct_loop 1
 #define dft_loop 2
+#define dft_many 3
 #define DCT_VERSION dft_loop
 module cosine_transform_odd
    !
@@ -15,6 +16,7 @@ module cosine_transform_odd
    use iso_c_binding
    use blocking, only: llm, ulm
    use precision_mod
+   use parallel_mod, only: nThreads, get_openmp_blocks
    use mem_alloc, only: bytes_allocated
    use constants, only: half, pi, one, two
 #ifdef WITHOMP
@@ -37,6 +39,9 @@ module cosine_transform_odd
       type(c_ptr) :: plan               ! FFTW many plan
       type(c_ptr) :: plan_1d            ! FFTW single plan for DCT
       type(c_ptr) :: plan_fft_1d        ! FFTW single plan for FFT
+#if (DCT_VERSION==dft_many)
+      type(c_ptr), allocatable :: plan_fft_many(:)   ! FFTW many plan for FFT
+#endif
       complex(cp), pointer :: work(:,:) ! Complex work array
       real(cp), pointer :: work_r(:,:)  ! Real work array
    contains
@@ -73,6 +78,10 @@ contains
       complex(cp) :: array_cplx_1d(2*n_r_max-2), array_cplx_out_1d(2*n_r_max-2)
 #elif (DCT_VERSION==dct_many)
       real(cp) :: array_in(2*(ulm-llm+1),n_r_max), array_out(2*(ulm-llm+1),n_r_max)
+#elif (DCT_VERSION==dft_many)
+      integer :: threadid, start_lm, stop_lm, iThread
+      integer, allocatable :: idx1(:), idx2(:)
+      complex(cp) :: array_in(llm:ulm,2*n_r_max-2), array_out(llm:ulm,2*n_r_max-2)
 #endif
       real(cp) :: array_in_1d(n_r_max), array_out_1d(n_r_max)
 
@@ -109,6 +118,37 @@ contains
       plan_size(1) = 2*n_r_max-2
       this%plan_fft_1d = fftw_plan_dft(1, plan_size, array_cplx_1d, array_cplx_out_1d, &
                          &             1, fft_plan_flag)
+#elif (DCT_VERSION==dft_many)
+      allocate( this%plan_fft_many(0:nThreads-1) )
+      allocate( idx2(0:nThreads-1), idx1(0:nThreads-1) )
+
+      !$omp parallel private(start_lm, stop_lm)
+      start_lm=llm; stop_lm=ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+      threadid =omp_get_thread_num()
+      idx1(threadid)=start_lm
+      idx2(threadid)=stop_lm
+      !$omp end parallel
+
+      plan_size = [2*(n_r_max-1)]
+      do iThread=0,nThreads-1
+         start_lm=idx1(iThread)
+         stop_lm =idx2(iThread)
+         idist = 1
+         odist = 1
+         inembed(1) = 0
+         onembed(1) = 0
+         howmany = stop_lm-start_lm+1
+         istride = stop_lm-start_lm+1
+         ostride = stop_lm-start_lm+1
+         this%plan_fft_many(iThread) = fftw_plan_many_dft(1, plan_size, howmany,        &
+                                       &                  array_in(start_lm:stop_lm,:), &
+                                       &                  inembed, istride, idist,      &
+                                       &                  array_out(start_lm:stop_lm,:),&
+                                       &                  onembed, ostride, odist, 1,   &
+                                       &                  fft_plan_flag)
+      end do
+      deallocate( idx1, idx2 )
 #endif
       
       plan_size(1) = n_r_max
@@ -132,6 +172,13 @@ contains
       call fftw_destroy_plan(this%plan)
 #elif (DCT_VERSION==dft_loop)
       call fftw_destroy_plan(this%plan_fft_1d)
+#elif (DCT_VERSION==dft_many)
+      integer :: iThread
+
+      do iThread=0,nThreads-1
+         call fftw_destroy_plan(this%plan_fft_many(iThread))
+      end do
+      deallocate(this%plan_fft_many)
 #endif
 #ifdef WITHOMP
       !call fftw_cleanup_threads()
@@ -166,6 +213,27 @@ contains
          work_1d(this%n_r_max+1:) = array_in(n_f,this%n_r_max-1:2:-1)
          call fftw_execute_dft(this%plan_fft_1d, work_1d, work_1d_out)
          array_in(n_f,1:this%n_r_max)=this%cheb_fac* work_1d_out(1:this%n_r_max)
+      end do
+
+#elif (DCT_VERSION==dft_many)
+      integer :: n_r, threadid
+      complex(cp) :: tmp_in(n_f_start:n_f_stop,2*this%n_r_max-1)
+      complex(cp) :: tmp_out(n_f_start:n_f_stop,2*this%n_r_max-1)
+
+      !-- Prepare array for dft many
+      do n_r=1,this%n_r_max
+         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,n_r)
+      end do
+      do n_r=this%n_r_max+1,2*this%n_r_max-2
+         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,2*this%n_r_max-n_r)
+      end do
+
+      threadid=omp_get_thread_num()
+      call fftw_execute_dft(this%plan_fft_many(threadid), tmp_in, tmp_out)
+
+      !-- Copy output onto a
+      do n_r=1,this%n_r_max
+         array_in(n_f_start:n_f_stop,n_r)=this%cheb_fac*tmp_out(:,n_r)
       end do
 
 #elif (DCT_VERSION==dct_loop)
