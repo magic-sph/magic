@@ -651,3 +651,36 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
 
    >>> # To stack all the perpPar.TAG files of the current directory
    >>> ts = MagicTs(field='perpPar', all=True)
+
+.. _secphaseFile:
+
+``phase.TAG``
+-------------
+
+This file contains several diagnostic related to phase field whenever this field is used
+by MagIC. This file is calculated by the subroutine
+:f:subr:`outPhase <outmisc_mod/outphase()>`.
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | time                                                            |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | Mean spherically-symmetric radius of the solidus                |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | Mean temperature of the solidification front                    |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | Volume of the solid phase                                       |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | Kinetic energy of the solid phase                               |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | Kinetic energy of the liquid phase                              |
+   +---------------+-----------------------------------------------------------------+
+   | 7             | Heat flux at the inner core boundary                            |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | Time variation of of temperature and phase field:               |
+   |               | :math:`\frac{\partial}{\partial t}(T-St\Phi)`                   |
+   +---------------+-----------------------------------------------------------------+
+
+   >>> # To stack all the phase.TAG files of the current directory
+   >>> ts = MagicTs(field='phase', all=True)
