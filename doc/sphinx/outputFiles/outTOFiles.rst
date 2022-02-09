@@ -11,8 +11,29 @@
 ``Tay.TAG``
 ------------
 
-This file contains the time series of the Taylorisation as well as some measures
-of the relative geostrophic energy.
+This file contains the time series of the Taylorization as well as some measures
+of the relative geostrophic energy. It is written by the subroutine
+:f:subr:`outTO <out_to_mod/outto()>`.
+
+   +---------------+--------------------------------------------------------------+
+   | No. of column | Contents                                                     |
+   +===============+==============================================================+
+   | 1             | time                                                         |
+   +---------------+--------------------------------------------------------------+
+   | 2             | Relative fraction of toroidal axisymmetric energy (squared)  |
+   +---------------+--------------------------------------------------------------+
+   | 3             | Relative fraction of geostrophic energy (squared)            |
+   +---------------+--------------------------------------------------------------+
+   | 4             | Taylorization                                                |
+   +---------------+--------------------------------------------------------------+
+   | 5             | A Taylorization measure based on Reynolds stresses           |
+   +---------------+--------------------------------------------------------------+
+   | 6             | A Taylorization measure based on viscous stresses            |
+   +---------------+--------------------------------------------------------------+
+   | 7             | Total kinetic energy computed on the cylindrical grid        |
+   |               | (to estimate the accuracy of the method)                     |
+   +---------------+--------------------------------------------------------------+
+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with
 the following options:
@@ -28,7 +49,7 @@ Those files correspond to the z-averaging of the axisymmetric phi component of t
 Navier-Stokes equations. It contains the different cylindrical profiles of the
 forces involved the zonal equation as well as some additional measures of the
 Taylorization of the solution. shs corresponds to Southern Hemisphere (inside the
-tangent cylinder), while nhs corresponds to Nothern Hemisphere).
+tangent cylinder), while nhs corresponds to Northern Hemisphere).
 
 Those files can be read using :py:class:`MagicTOHemi <magic.MagicTOHemi>` with
 the following options:
@@ -53,7 +74,7 @@ azimuthal component of Lorentz force, the azimuthal component of Coriolis force
 and the azimuthal component of the time-derivative. The structure of the file
 is similar to a :ref:`movie file <secMovieFile>`, i.e. an unformatted fortran binary
 file with a header that describes the type of the movie file. The detailed calculations
-can be found in the subroutine :f:subr:`outTO <out_to_mod/outto>`.
+can be found in the subroutine :f:subr:`outTO <out_to_mod/outto()>`.
 
 On a whole, the structure of the file looks like follows:
 

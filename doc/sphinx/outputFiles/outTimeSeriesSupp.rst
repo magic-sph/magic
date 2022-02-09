@@ -585,7 +585,7 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
 .. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
 
 This files contains the RMS terms that enter the induction equation. This file is
-written by the subroutine :f:subr:`dtBrms <out_rms/dtbrms()>`.
+written by the subroutine :f:subr:`dtBrms <rms/dtbrms()>`.
 
    +---------------+-------------------------------------------------------+
    | No. of column | Contents                                              |
