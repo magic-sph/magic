@@ -41,7 +41,7 @@ def readStack(file):
 class RadialOutputTest(unittest.TestCase):
 
     def __init__(self, testName, dir, execCmd='mpirun -n 8 ../tmp/magic.exe', 
-                 precision=1e-8):
+                 precision=1e-7):
         super(RadialOutputTest, self).__init__(testName)
         self.dir = dir
         self.precision = precision
