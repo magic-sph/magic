@@ -4,11 +4,9 @@ module start_fields
    ! by reading a starting checkpoint file or by setting some starting conditions. 
    !
 
-#ifdef WITH_MPI
-   use mpimod
-#endif
    use truncation
    use precision_mod
+   use parallel_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use communications, only: lo2r_one
    use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
@@ -36,7 +34,6 @@ module start_fields
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
        &            one, two
    use useful, only: cc2real, logWrite
-   use parallel_mod, only: rank, n_procs
    use radial_der, only: get_dr, exch_ghosts, bulk_to_ghost
    use readCheckPoints, only: readStartFields_old, readStartFields
    use time_schemes, only: type_tscheme
@@ -95,7 +92,7 @@ contains
 
       logical :: lMat
       type(timer_type) :: t_reader
-      integer :: ierr, filehandle
+      integer :: filehandle
 
       call t_reader%initialize()
 

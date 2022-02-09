@@ -197,7 +197,7 @@ contains
       !-- Local variables:
       logical :: l_f2_data
       integer :: n, n_f, n_fac, fac, fac_tot, n_factors
-      integer :: i, j, j1, j2, j3, j4, k1, k2, k3, k4
+      integer :: i, j, j1, j2, j3, j4
       integer :: n_P1, n_P2, n_P3, n_O2, n_O2_P1, n_O2_P2, n_O2_P3
       real(cp) :: fac_norm,facn,wr_j,wi_j,wr_i,wi_i
       complex(cp) :: f_h1, f_h2, f_h3, f_h4 ! help variables

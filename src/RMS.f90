@@ -982,10 +982,12 @@ contains
       real(cp) :: Dif2hInt(n_r_max)
 
       complex(cp) :: workA(llm:ulm,n_r_max), work_Rloc(lm_max,nRstart:nRstop)
+      character(len=80) :: fileName
+#ifdef WITH_MPI
+      integer :: irank,sendcount
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
-      integer :: irank,sendcount
-      character(len=80) :: fileName
+#endif
 
       nRC=nCut+1
 

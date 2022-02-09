@@ -35,7 +35,7 @@ class CompSims:
     """
 
     def __init__(self, file='liste', field='ts', ncol=4, cm='RdYlBu_r', dpi=96,
-                 normed=True, levels=16, type=None,
+                 normed=True, levels=16, type=None, fullPath=False,
                  r=0.9, bw=False, ave=False, cut=1):
         """
         :param file: the input file that contains the list of directories that one
@@ -68,6 +68,8 @@ class CompSims:
         :param normed: when set to True, the colormap is centered around zero.
                        Default is True, except for entropy/temperature plots.
         :type normed: bool
+        :param fullPath: set to True if the full path is specified in the input file
+        :type fullPath: bool
         :param dpi: dot per inch when saving PNGs
         :type dpi: int
         :param bw: when set to True, display grey-scaled contour levels
@@ -77,6 +79,7 @@ class CompSims:
         """
         self.dataliste = []
         self.workdir = os.getcwd()
+        self.fullPath = fullPath
         self.field = field
         self.cm = cm
         self.normed = normed
@@ -92,29 +95,29 @@ class CompSims:
         self.ncol = ncol
         self.nplot = len(self.dataliste)
         if (self.nplot % self.ncol != 0):
-                self.nrow = self.nplot/self.ncol + 1
+                self.nrow = self.nplot//self.ncol + 1
         else:
-            self.nrow = self.nplot/self.ncol
+            self.nrow = self.nplot//self.ncol
 
         plt.ioff()
         if type == 'avg' or type == 'slice':
-            plt.figure(figsize=(self.ncol*1.5, self.nrow*3), dpi=dpi)
+            fig = plt.figure(figsize=(self.ncol*1.5, self.nrow*3), dpi=dpi)
         elif type == 'equat':
-            plt.figure(figsize=(self.ncol*2.5, self.nrow*2.5), dpi=dpi)
+            fig = plt.figure(figsize=(self.ncol*2.5, self.nrow*2.5), dpi=dpi)
         elif type == 'surf':
-            plt.figure(figsize=(self.ncol*3, self.nrow*1.7), dpi=dpi)
+            fig = plt.figure(figsize=(self.ncol*3, self.nrow*1.7), dpi=dpi)
         else:
-            plt.figure(figsize=(self.ncol*3, self.nrow*3), dpi=dpi)
+            fig = plt.figure(figsize=(self.ncol*3, self.nrow*3), dpi=dpi)
         if self.nrow == 1:
             if type == 'surf':
-                plt.subplots_adjust(left=0.05, right=0.98, top=0.85, bottom=0.05)
+                fig.subplots_adjust(left=0.05, right=0.98, top=0.85, bottom=0.05)
             else:
-                plt.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
+                fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
         else:
             if type == 'surf':
-                plt.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
+                fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
             else:
-                plt.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.05)
+                fig.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.05)
 
         if self.field == 'ts':
             self.plotTs()
@@ -133,6 +136,8 @@ class CompSims:
                 self.plotEquat()
             elif type == 'surf':
                 self.plotSurf()
+
+        fig.tight_layout()
         plt.show()
         plt.ion()
 
@@ -144,7 +149,10 @@ class CompSims:
         #myyfmt = ScalarFormatter(useOffset=True)
         #myyfmt.set_powerlimits((1,1))
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             ts = MagicTs(field='e_kin', iplot=False, all=True)
 
@@ -173,7 +181,10 @@ class CompSims:
         #myyfmt = ScalarFormatter(useOffset=True)
         #myyfmt.set_powerlimits((1,1))
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             ts = MagicTs(field='e_mag_oc', iplot=False, all=True)
 
@@ -200,7 +211,10 @@ class CompSims:
         """
         iplot = 1
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             ts = MagicTs(field='misc', iplot=False, all=True)
 
@@ -223,7 +237,10 @@ class CompSims:
         """
         iplot = 1
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             if self.ave:
                 gr = MagicGraph(ivar=1, ave=True)
             else:
@@ -257,7 +274,10 @@ class CompSims:
 
         iplot = 1
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             try:
                 if self.ave:
@@ -334,7 +354,10 @@ class CompSims:
         cmap = plt.get_cmap(self.cm)
         iplot = 1
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             try:
                 if self.ave:
@@ -443,7 +466,10 @@ class CompSims:
 
         iplot = 1
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             try:
                 if self.ave:
@@ -609,7 +635,10 @@ class CompSims:
 
         iplot = 1
         for datadir in self.dataliste:
-            os.chdir(self.workdir + '/' + datadir)
+            if not self.fullPath:
+                os.chdir(self.workdir + '/' + datadir)
+            else:
+                os.chdir(datadir)
             print(datadir)
             try:
                 if self.ave:

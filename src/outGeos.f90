@@ -571,8 +571,8 @@ contains
       real(cp), intent(out) :: arr_Ploc(n_theta_max,n_r_max,nPstart:nPstop)
 
       !-- Local variables
-      integer :: n_r, n_t, n_p
 #ifdef WITH_MPI
+      integer :: n_r, n_t, n_p
       integer, allocatable :: rcounts(:), scounts(:), rdisp(:), sdisp(:)
       real(cp), allocatable :: sbuff(:), rbuff(:)
       integer :: p, ii, my_phi_counts
