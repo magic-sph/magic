@@ -306,15 +306,19 @@ Thermal boundary conditions
 
 * **ktops** (default :f:var:`ktops=1 <ktops>`) is an  integer to specify the outer boundary entropy (or temperature) boundary condition:
 
-  +-------------+-------------------------------------------------------------------------------------+
-  | ``ktops=1`` | Fixed entropy at outer boundary: :math:`s(r_o)=s_{top}`                             |
-  +-------------+-------------------------------------------------------------------------------------+
-  | ``ktops=2`` | Fixed entropy flux at outer boundary: :math:`\partial s(r_o)/\partial r = q_t`      |
-  +-------------+-------------------------------------------------------------------------------------+
-  | ``ktops=3`` | Fixed temperature at outer boundary: :math:`T(r_o)=T_{top}`                         |
-  +-------------+-------------------------------------------------------------------------------------+
-  | ``ktops=4`` | Fixed temperature flux at outer boundary: :math:`\partial T(r_o)/\partial r = q_t`  |
-  +-------------+-------------------------------------------------------------------------------------+
+  +-------------+-----------------------------------------------------------------------+
+  | ``ktops=1`` | Fixed temperature (Boussinesq) or entropy (anelastic)                 |
+  |             | at outer boundary: :math:`s(r_o)=s_{top}`                             |
+  +-------------+-----------------------------------------------------------------------+
+  | ``ktops=2`` | Fixed temperature gradient (Boussinesq) or entropy gradient at outer  |
+  |             | boundary: :math:`\partial s(r_o)/\partial r = q_t`                    |
+  +-------------+-----------------------------------------------------------------------+
+  | ``ktops=3`` | Only use it in anelastic models: fixed temperature at outer boundary: |
+  |             | :math:`T(r_o)=T_{top}`                                                |
+  +-------------+-----------------------------------------------------------------------+
+  | ``ktops=4`` | Only use it in anelastic models: fixed temperature gradient at outer  |
+  |             | boundary: :math:`\partial T(r_o)/\partial r = q_t`                    |
+  +-------------+-----------------------------------------------------------------------+
 
 * **kbots** (default :f:var:`ktops=1 <kbots>`) is an  integer to specify the inner boundary entropy (or temperature) boundary condition.
 
@@ -356,11 +360,12 @@ Boundary conditions for chemical composition
 
 * **ktopxi** (default :f:var:`ktopxi=1 <ktopxi>`) is an  integer to specify the outer boundary chemical composition boundary condition:
 
-  +--------------+-------------------------------------------------------------------------------------+
-  | ``ktopxi=1`` | Fixed composition at outer boundary: :math:`\xi(r_o)=\xi_{top}`                     |
-  +--------------+-------------------------------------------------------------------------------------+
-  | ``ktopxi=2`` | Fixed composition flux at outer boundary: :math:`\partial \xi(r_o)/\partial r = q_t`|
-  +--------------+-------------------------------------------------------------------------------------+
+  +--------------+--------------------------------------------------------------------+
+  | ``ktopxi=1`` | Fixed composition at outer boundary: :math:`\xi(r_o)=\xi_{top}`    |
+  +--------------+--------------------------------------------------------------------+
+  | ``ktopxi=2`` | Fixed composition gradient at outer boundary:                      |
+  |              | :math:`\partial \xi(r_o)/\partial r = q_t`                         |
+  +--------------+--------------------------------------------------------------------+
 
 * **kbotxi** (default :f:var:`ktopxi=1 <kbotxi>`) is an  integer to specify the inner boundary chemical composition boundary condition.
 

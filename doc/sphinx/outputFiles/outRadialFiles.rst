@@ -345,3 +345,24 @@ This file contains several time and horizontally averaged profiles that decompos
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
 
    >>> rad = MagicRadial(field='perpParR')
+
+.. _secPhiRfile:
+
+``phiR.TAG``
+____________
+
+This file contains several time-averaged radial profiles related to phase field.
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | radial level                                                    |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | Time-averaged spherically-symmetric phase field                 |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | Standard deviation of spherically-symmetric phase field         |
+   +---------------+-----------------------------------------------------------------+
+
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='phiR')
