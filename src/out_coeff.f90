@@ -47,7 +47,7 @@ contains
 
    subroutine initialize_coeff
 
-      integer :: n, nCounts
+      integer :: n
       character(len=72) :: string
 
       !-- Coeffs at radial levels:
