@@ -131,7 +131,7 @@ class MagicTs(MagicSetup):
                         tslut += TsLookUpTable(data, self.field)
 
         try:
-            # Copy look-up table arguments into MagicRadial object
+            # Copy look-up table arguments into MagicTs object
             for attr in tslut.__dict__:
                 setattr(self, attr, tslut.__dict__[attr])
 
@@ -1090,7 +1090,7 @@ class AvgField:
                 else:
                     self.nuss = avgField(ts3.time[ind:], nuss[ind:])
                     try:
-                        self.deltaTnuss = avgField(ts3.time[ind:], ts3.deltaTnuss[ind:], std=True)
+                        self.deltaTnuss = avgField(ts3.time[ind:], ts3.deltaTnuss[ind:])
                     except AttributeError:
                         pass
                     self.nubot = avgField(ts3.time[ind:],ts3.botnuss[ind:])
