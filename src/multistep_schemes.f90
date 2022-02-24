@@ -45,14 +45,18 @@ module multistep_schemes
 contains
 
    subroutine initialize(this, time_scheme, courfac_nml, intfac_nml, alffac_nml)
+      !
+      ! This subroutine allocates the arrays involved in the time advance of
+      ! an IMEX multistep scheme.
+      !
 
       class(type_multistep) :: this
 
       !-- Input/output variables
-      real(cp),          intent(in) :: courfac_nml
-      real(cp),          intent(in) :: intfac_nml
-      real(cp),          intent(in) :: alffac_nml
-      character(len=72), intent(inout) :: time_scheme
+      real(cp),          intent(in) :: courfac_nml ! CFL factor for velocity
+      real(cp),          intent(in) :: intfac_nml  ! CFL factor for Coriolis term
+      real(cp),          intent(in) :: alffac_nml  ! CFL factor for Lorentz force
+      character(len=72), intent(inout) :: time_scheme ! Name of time scheme
 
       !-- Local variables
       real(cp) :: courfac_loc, alffac_loc, intfac_loc
@@ -162,6 +166,10 @@ contains
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
+      !
+      ! This subroutine deallocates the arrays involved in the time advance
+      ! of an IMEX multistep scheme.
+      !
 
       class(type_multistep) :: this
 
@@ -171,6 +179,10 @@ contains
    end subroutine finalize
 !------------------------------------------------------------------------------
    subroutine set_weights(this, lMatNext)
+      !
+      ! This subroutine computes the weights involved in the time advance of
+      ! an IMEX multistep scheme.
+      !
 
       class(type_multistep) :: this
       logical, intent(inout) :: lMatNext
@@ -350,9 +362,9 @@ contains
       class(type_multistep) :: this
 
       !-- Input variables
-      real(cp), intent(in) :: dt_new
-      real(cp), intent(in) :: dt_min
-      real(cp), intent(in) :: time
+      real(cp), intent(in) :: dt_new  ! New time step size
+      real(cp), intent(in) :: dt_min  ! Minimum elligible time step before MagIC stops
+      real(cp), intent(in) :: time    ! Time
       integer,  intent(in) :: n_log_file
       integer,  intent(in) :: n_time_step
       logical,  intent(in) :: l_new_dtNext
@@ -460,8 +472,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
       !
-      ! This subroutine assembles the right-hand-side of an IMEX scheme in case
-      ! this is distributed over r
+      ! This subroutine assembles the right-hand-side of an IMEX scheme for
+      ! R-distributed arrays (finite difference with parallel solvers).
       !
 
       class(type_multistep) :: this
@@ -606,6 +618,10 @@ contains
    end subroutine rotate_imex_scalar
 !------------------------------------------------------------------------------
    subroutine bridge_with_cnab2(this)
+      !
+      ! This subroutine is used to run the first bridging steps of an IMEX
+      ! multistep scheme using a CN/AB2 scheme.
+      !
 
       class(type_multistep) :: this
 
@@ -632,6 +648,10 @@ contains
    end subroutine bridge_with_cnab2
 !------------------------------------------------------------------------------
    subroutine start_with_ab1(this)
+      !
+      ! This subroutine is used to compute the first explicit iteration with
+      ! an explicit Euler (AB1) scheme.
+      !
 
       class(type_multistep) :: this
 
