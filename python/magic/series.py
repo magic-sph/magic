@@ -669,7 +669,7 @@ class TsLookUpTable:
             self.tay = data[:, 3]
             self.tayR = data[:, 4]
             self.tayV = data[:, 5]
-            self.ekin = data[:, 6]
+            self.ekin_cyl = data[:, 6]
         elif self.field == 'par':
             self.time = data[:, 0]
             self.rm = data[:, 1]
