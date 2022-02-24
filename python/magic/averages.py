@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+#,-*- coding: utf-8 -*-
 import os
 import json
 from collections import OrderedDict
@@ -83,7 +83,7 @@ class AvgField:
     >>> a = AvgField(tstart=2.11, tag='N0m2[a-c]')
     >>> print(a) # print the formatted output
     >>> # Custom JSON model to select averages
-    >>> json_model = { 'phys_param': ['ek'],
+    >>> json_model = { 'phys_params': ['ek'],
                        'time_series': { 'heat': ['topnuss', 'botnuss'],
                                         'e_kin': ['ekin_pol', 'ekin_tor'],
                                         'par': ['rm'] },

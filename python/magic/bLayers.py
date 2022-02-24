@@ -165,7 +165,6 @@ def getMaxima(field):
     return maxS
 
 json_model = {
-'phys_param': ['ek'],
 'time_series': { 'heat': ['topnuss', 'botnuss'],
                  'e_kin': ['ekin_pol', 'ekin_tor', 'ekin_pol_axi', 'ekin_tor_axi'],
                  'par': ['rm'] },
