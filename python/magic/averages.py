@@ -1,0 +1,299 @@
+#-*- coding: utf-8 -*-
+import os
+import json
+from collections import OrderedDict
+import numpy as np
+from .libmagic import scanDir, avgField
+from .series import MagicTs
+from .log import MagicSetup
+from .spectrum import MagicSpectrum
+from .radial import MagicRadial
+
+if 'MAGIC_HOME' in os.environ:
+    default_model = os.path.join(os.environ['MAGIC_HOME'], 'python/magic/model.json')
+else:
+    default_model = os.path.join(os.environ['HOME'], 'magic/python/magic/model.json')
+
+INDENT = 3
+SPACE = " "
+NEWLINE = "\n"
+def to_json(o, level=0):
+    """
+    This is a manual JSON serializer function that makes the outputs look a little
+    bit better than default.
+    """
+    ret = ""
+    if isinstance(o, dict):
+        ret += "{" + NEWLINE
+        comma = ""
+        for k, v in o.items():
+            ret += comma
+            comma = ",\n"
+            ret += SPACE * INDENT * (level + 1)
+            ret += '"' + str(k) + '":' + SPACE
+            ret += to_json(v, level + 1)
+  
+        ret += NEWLINE + SPACE * INDENT * level + "}"
+    elif isinstance(o, str):
+        ret += '"' + o + '"'
+    elif isinstance(o, list):
+        ret += "[" + ",".join([to_json(e, level + 1) for e in o]) + "]"
+    # Tuples are interpreted as lists
+    elif isinstance(o, tuple):
+        ret += "[" + ",".join(to_json(e, level + 1) for e in o) + "]"
+    elif isinstance(o, bool):
+        ret += "true" if o else "false"
+    elif isinstance(o, int):
+        ret += str(o)
+    elif isinstance(o, float):
+        if abs(o) > 1e2 or abs(o) < 1e-2:
+            ret += '{:.8e}'.format(o)
+        else:
+            ret += '{:.8g}'.format(o)
+    elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.integer):
+        ret += "[" + ','.join(map(str, o.flatten().tolist())) + "]"
+    elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.inexact):
+        ret += "[" + ','.join(map(lambda x: '{:.8e}'.format(x), o.flatten().tolist())) + "]"
+    elif o is None:
+        ret += 'null'
+    else:
+        raise TypeError("Unknown type '{}' for json serialization".format(str(type(o))))
+
+    return ret
+
+
+class AvgField:
+    """
+    This class computes the time-average properties from time series, spectra
+    and radial profiles. It will store the input starting time in a small file
+    named ``tInitAvg``, such that the next time you use it you don't need to
+    provide ``tstart`` again. By default, the outputs are stored in a 
+    fully documented JSON file named avg.json: this is split into several
+    categories, namely numerical parameters, physical parameters, time averaged
+    scalar quantities, time averaged spectra and time-averaged radial profiles.
+    The quantities stored in the JSON file are entirely controlled by an input
+    model file wich enlists the different quantities of interest. 
+    A default example file named ``model.json`` is provided in
+    ``$MAGIC_HOME/python/magic``, and an example of how to build a dedicated one
+    is provided below.
+
+    >>> # Average from t=2.11
+    >>> a = AvgField(tstart=2.11)
+    >>> # Average only the files that match the pattern N0m2[a-c]
+    >>> a = AvgField(tstart=2.11, tag='N0m2[a-c]')
+    >>> print(a) # print the formatted output
+    >>> # Custom JSON model to select averages
+    >>> json_model = { 'phys_param': ['ek'],
+                       'time_series': { 'heat': ['topnuss', 'botnuss'],
+                                        'e_kin': ['ekin_pol', 'ekin_tor'],
+                                        'par': ['rm'] },
+                       'spectra': {},
+                       'radial_profiles': {'powerR': ['viscDiss', 'buoPower']}
+                     }
+    >>> # Compute the selected averages in the dirctory mydir                 
+    >>> a = AvgField(datadir='mydir', model=json_model)
+    """
+
+    def __init__(self, tag=None, tstart=None, model=default_model,
+                 datadir='.', std=False, write=True):
+        """
+        :param tag: if you specify an input tag (generic regExp pattern),
+                    the averaging process will only happen on the time series
+                    that match this input pattern
+        :type tag: str
+        :param tstart: the starting time for averaging
+        :type tstart: float
+        :param datadir: working directory
+        :type datadir: str
+        :param std: compute the standard deviation when set to True
+        :type std: bool
+        :param write: write the outputs in a JSON file
+        :type write: bool
+        :param model: this is the path of a JSON file which defines which fields will be
+                      handled in the time-averaging process. This can be any
+                      python attributes wich is defined in MagicTs, MagicSpectrum
+                      or MagicRadial.
+        :type model: str
+        """
+
+        if not os.path.exists(datadir):
+            print('Directory "{}" has not been found'.format(datadir))
+            return
+
+        tInitFile = os.path.join(datadir, 'tInitAvg')
+        if os.path.exists(tInitFile) and tstart is None:
+            with open(tInitFile, 'r') as f:
+                st = f.readline().strip('\n')
+                tstart = float(st)
+        elif tstart is not None:
+            with open(tInitFile, 'w') as f:
+                f.write('{}'.format(tstart))
+
+        if type(model) == str:
+            with open(model, 'r') as f:
+                params = json.load(f)
+        else: # This is directly a json dict
+            params = model
+
+        pattern = os.path.join(datadir, 'log.*')
+        logs = scanDir(pattern)
+
+        self.lut = OrderedDict()
+        if 'phys_params' in params:
+            self.lut['phys_params'] = {}
+        if 'num_params' in params:
+            self.lut['num_params'] = {}
+
+        # First grab the requested control parameters
+        if len(logs) > 0:
+            stp = MagicSetup(nml=logs[-1], quiet=True)
+            if 'phys_params' in self.lut:
+                for p in params['phys_params']:
+                    if hasattr(stp, p):
+                        self.lut['phys_params'][p] = getattr(stp, p)
+                        setattr(self, p, getattr(stp, p))
+            if 'num_params' in self.lut:
+                for p in params['num_params']:
+                    if hasattr(stp, p):
+                        self.lut['num_params'][p] = getattr(stp, p)
+                        setattr(self, p, getattr(stp, p))
+
+        # Handle time series
+        self.lut['time_series'] = {}
+        for k, key in enumerate(params['time_series'].keys()):
+            ts = MagicTs(field=key, datadir=datadir, all=True, tag=tag, iplot=False)
+            if hasattr(ts, 'time'): # Manage to read file
+                mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
+                ind = np.nonzero(mask)[0][0]
+
+                if k == 0:
+                    self.lut['time_series']['tavg'] = ts.time[-1]-ts.time[ind]
+                    self.lut['time_series']['total_time'] = ts.time[-1]-ts.time[0]
+                    self.tavg = ts.time[-1]-ts.time[ind]
+                    self.trun = ts.time[-1]-ts.time[0]
+
+                for field in params['time_series'][key]:
+                    if hasattr(ts, field):
+                        if std and field != 'dt':
+                            xmean, xstd = avgField(ts.time[ind:],
+                                                   ts.__dict__[field][ind:],
+                                                   std=True)
+                            self.lut['time_series'][field+'_av'] = xmean
+                            self.lut['time_series'][field+'_sd'] = xstd
+                            setattr(self, field+'_av', xmean)
+                            setattr(self, field+'_sd', xstd)
+                        else:
+                            xmean = avgField(ts.time[ind:], ts.__dict__[field][ind:])
+                            self.lut['time_series'][field+'_av'] = xmean
+                            setattr(self, field+'_av', xmean)
+
+        # Get tags involved in averaging for spectra and radial profiles
+        tags = self.get_tags(tstart)
+
+        # Handle spectra
+        self.lut['spectra'] = {}
+        for key in params['spectra'].keys():
+            sp = MagicSpectrum(field=key, datadir=datadir, iplot=False, tags=tags,
+                               quiet=True)
+            if hasattr(sp, 'index'): # Manage to read file
+                self.lut['spectra']['index'] = sp.index
+                for field in params['spectra'][key]:
+                    if hasattr(sp, field):
+                        self.lut['spectra'][field+'_av'] = sp.__dict__[field]
+                        if std and hasattr(sp, field + '_SD'):
+                            self.lut['spectra'][field+'_sd'] = \
+                                sp.__dict__[field + '_SD']
+
+        # Handle radial profiles
+        self.lut['radial_profiles'] = {}
+        for key in params['radial_profiles'].keys():
+            rr = MagicRadial(field=key, datadir=datadir, iplot=False, tags=tags,
+                             quiet=True)
+            if hasattr(rr, 'radius'): # Manage to read file
+                self.lut['radial_profiles']['radius'] = rr.radius
+                for field in params['radial_profiles'][key]:
+                    if hasattr(rr, field):
+                        self.lut['radial_profiles'][field+'_av'] = rr.__dict__[field]
+                        setattr(self, field+'R_av', rr.__dict__[field])
+                        if std and hasattr(rr, field + '_SD'):
+                            self.lut['radial_profiles'][field+'_sd'] = \
+                                rr.__dict__[field + '_SD']
+                            setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
+
+        # Write a json file
+        if write:
+            self.write_json(datadir)
+
+    def write_header(self):
+        """
+        Write header in case an ascii output is requested
+        """
+        st = '#'
+
+        if 'phys_params' in self.lut:
+            for key in self.lut['phys_params']:
+                st += key.rjust(max(10, len(key)+1))
+        for key in self.lut['time_series']:
+            st += key.rjust(max(16, len(key)+1))
+        if 'num_params' in self.lut:
+            for key in self.lut['num_params']:
+                par = self.lut['num_params'][key]
+                if type(par) != str and type(par) != bool:
+                    st += key.rjust(len(key)+1)
+
+        return st
+
+    def __str__(self):
+        """
+        Formatted output
+        """
+        st = ' '
+
+        if 'phys_params' in self.lut:
+            for par in self.lut['phys_params'].values():
+                st += '{:10.3e}'.format(par)
+        for par in self.lut['time_series'].values():
+            st += '{:16.8e}'.format(par)
+        if 'num_params' in self.lut:
+            for par in self.lut['num_params'].values():
+                if type(par) != str and type(par) != bool:
+                    st += ' {:g}'.format(par)
+
+        return st
+
+    def get_tags(self, tstart):
+        """
+        This routine returns a list of tags which have been generated after tstart
+
+        :param tstart: starting averaging time
+        :type tstart: float
+        :returns: a list of tags
+        :rtype: list
+        """
+        logFiles = scanDir('log.*')
+        tags = []
+        for lg in logFiles:
+            nml = MagicSetup(nml=lg, quiet=True)
+            if nml.start_time > tstart:
+                tags.append(nml.tag)
+
+        return tags
+
+    def write_json(self, datadir='.'):
+        """
+        This function writes the averages as a simple JSON file stored in the
+        directory 'avg.json'
+
+        :param datadir: working directory
+        :type datadir: str
+        """
+        with open(os.path.join(datadir, 'avg.json'), 'w') as f:
+            st = to_json(self.lut)
+            f.write(st)
+
+
+if __name__ == '__main__':
+    a = Avg(std=True)
+    st = a.write_header()
+    print(st)
+    print(a)

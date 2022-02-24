@@ -150,7 +150,7 @@ class MagicCheckpoint:
     >>> chk.xshells2magic('st0', 161, rscheme='cheb', cond_state='deltaT')
     """
 
-    def __init__(self, l_read=True, filename=None):
+    def __init__(self, l_read=True, filename=None, endian='l'):
         """
         :param l_read: a boolean to decide whether one reads a checkpoint or not
         :type l_read: bool
@@ -161,19 +161,26 @@ class MagicCheckpoint:
             if filename is None:
                 chks = scanDir('checkpoint*')
                 filename = chks[-1]
-            self.read(filename)
+            self.read(filename, endian=endian)
 
-    def read(self, filename):
+    def read(self, filename, endian='l'):
         """
         This routine is used to read a checkpoint file. 
 
         :param filename: name of the checkpoint file
         :type filename: str
         """
+        if endian == 'B':
+            prefix = '>'
+        else:
+            prefix = ''
         file = open(filename, 'rb')
 
-        self.version = np.fromfile(file, dtype=np.int32, count=1)[0]
-        self.time = np.fromfile(file, dtype=np.float64, count=1)[0]
+        fmt = '{}i4'.format(prefix)
+        self.version = np.fromfile(file, fmt, count=1)[0]
+        fmt = '{}f8'.format(prefix)
+        self.time = np.fromfile(file, fmt, count=1)[0]
+        print(self.version, self.time)
         
         # Time scheme
         self.tscheme_family = file.read(10).decode()
@@ -608,9 +615,9 @@ class MagicCheckpoint:
 
         self.n_r_max = gr.n_r_max
         self.n_theta_max = gr.n_theta_max
-        self.n_phi_tot = gr.n_phi_tot
         self.minc = gr.minc
-        self.n_r_ic_max = gr.nr_ic+2
+        self.n_phi_tot = gr.n_phi_max*gr.minc+1
+        self.n_r_ic_max = gr.n_r_ic_max+1
         self.nalias = 20
 
         # Spectral truncation
@@ -623,7 +630,7 @@ class MagicCheckpoint:
         ri = self.radius[-1]
         ro = self.radius[0]
         self.radratio = ri/ro
-        if gr.radial_scheme == 'CHEB':
+        if not hasattr(gr, 'radial_scheme') or gr.radial_scheme == 'CHEB':
             self.rscheme_version = 'cheb'+'{:>68s}'.format('')
             self.n_cheb_max = self.n_r_max-2
             if gr.l_newmap == 'F':
@@ -642,10 +649,13 @@ class MagicCheckpoint:
             self.l_heat = False
         else:
             self.l_heat = True
-        if gr.raxi > 0. or gr.raxi < 0.:
-            self.l_chem = True
-        else:
+        if not hasattr(gr, 'raxi'):
             self.l_chem = False
+        else:
+            if gr.raxi > 0. or gr.raxi < 0.:
+                self.l_chem = True
+            else:
+                self.l_chem = False
         if gr.mode in [0, 2, 3, 6, 8, 9]:
             self.l_mag = True
         else:

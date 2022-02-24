@@ -26,7 +26,7 @@ class MagicSpectrum(MagicSetup):
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
-                 ave=False, normalize=False, tag=None, quiet=False):
+                 ave=False, normalize=False, tag=None, tags=None, quiet=False):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -38,6 +38,8 @@ class MagicSpectrum(MagicSetup):
         :param tag: file suffix (tag), if not specified the most recent one in
                     the current directory is chosen
         :type tag: str
+        :param tags: a list of tags to be considered
+        :type tags: list
         :param ave: plot a time-averaged spectrum when set to True
         :type ave: bool
         :param datadir: current working directory
@@ -47,6 +49,8 @@ class MagicSpectrum(MagicSetup):
         """
         self.normalize = normalize
         self.ave = ave
+        if tags is not None:
+            self.ave = True
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR', 'kin'):
             if self.ave:
                 self.name = 'kin_spec_ave'
@@ -71,67 +75,86 @@ class MagicSpectrum(MagicSetup):
 
         if self.ave: # Time-averaged spectra
 
-            if tag is not None:
-                pattern = os.path.join(datadir, '{}.{}'.format(self.name, tag))
-                files = scanDir(pattern)
-                # Either the log.tag directly exists and the setup is easy to
-                # obtain
-                if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
-                    MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                        nml='log.{}'.format(tag))
-                # Or the tag is a bit more complicated and we need to find
-                # the corresponding log file
-                else:
-                    mask = re.compile(r'{}\/{}\.(.*)'.format(datadir, self.name))
-                    if mask.match(files[-1]):
-                        ending = mask.search(files[-1]).groups(0)[0]
-                        pattern = os.path.join(datadir, 'log.{}'.format(ending))
-                        if os.path.exists(pattern):
-                            MagicSetup.__init__(self, datadir=datadir,
-                                                quiet=True, nml='log.{}'.format(ending))
+            if tags is None:
+                if tag is not None:
+                    pattern = os.path.join(datadir, '{}.{}'.format(self.name, tag))
+                    files = scanDir(pattern)
+                    # Either the log.tag directly exists and the setup is easy to
+                    # obtain
+                    if os.path.exists(os.path.join(datadir, 'log.{}'.format(tag))):
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.{}'.format(tag))
+                    # Or the tag is a bit more complicated and we need to find
+                    # the corresponding log file
+                    else:
+                        mask = re.compile(r'{}\/{}\.(.*)'.format(datadir, self.name))
+                        if mask.match(files[-1]):
+                            ending = mask.search(files[-1]).groups(0)[0]
+                            pattern = os.path.join(datadir, 'log.{}'.format(ending))
+                            if os.path.exists(pattern):
+                                MagicSetup.__init__(self, datadir=datadir,
+                                                    quiet=True, nml='log.{}'.format(ending))
 
-                # Sum the files that correspond to the tag
-                mask = re.compile(r'{}\.(.*)'.format(self.name))
-                for k, file in enumerate(files):
+                    # Sum the files that correspond to the tag
+                    mask = re.compile(r'{}\.(.*)'.format(self.name))
+                    for k, file in enumerate(files):
+                        if not quiet:
+                            print('reading {}'.format(file))
+
+                        tag = mask.search(file).groups(0)[0]
+                        nml = MagicSetup(nml='log.{}'.format(tag), datadir=datadir,
+                                         quiet=True)
+                        filename = file
+                        data = fast_read(filename)
+
+                        if k == 0:
+                            speclut = SpecLookUpTable(data, self.name, nml.start_time,
+                                                      nml.stop_time)
+                        else:
+                            speclut += SpecLookUpTable(data, self.name, nml.start_time,
+                                                        nml.stop_time)
+                else: # Tag is None: take the most recent one
+                    pattern = os.path.join(datadir, '{}.*'.format(self.name))
+                    files = scanDir(pattern)
+                    filename = files[-1]
                     if not quiet:
-                        print('reading {}'.format(file))
+                        print('reading {}'.format(filename))
+                    # Determine the setup
+                    mask = re.compile(r'{}\.(.*)'.format(self.name))
+                    ending = mask.search(files[-1]).groups(0)[0]
+                    if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
+                        try:
+                            MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                                nml='log.{}'.format(ending))
+                        except AttributeError:
+                            self.start_time = None
+                            self.stop_time = None
+                            pass
 
-                    tag = mask.search(file).groups(0)[0]
-                    nml = MagicSetup(nml='log.{}'.format(tag), datadir=datadir,
-                                     quiet=True)
-                    filename = file
+                    if not hasattr(self, 'stop_time'):
+                        self.stop_time = None
                     data = fast_read(filename)
+                    speclut = SpecLookUpTable(data, self.name, self.start_time,
+                                              self.stop_time)
+            else: # A list of tags is provided
+                if os.path.exists(os.path.join(datadir, 'log.{}'.format(tags[-1]))):
+                    MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                        nml='log.{}'.format(tags[-1]))
 
+                for k, tagg in enumerate(tags):
+                    nml = MagicSetup(nml='log.{}'.format(tagg), datadir=datadir,
+                                     quiet=True)
+                    file = '{}.{}'.format(self.name, tagg)
+                    filename = os.path.join(datadir, file)
+                    data = fast_read(filename)
+                    if not quiet:
+                        print('reading {}'.format(filename))
                     if k == 0:
                         speclut = SpecLookUpTable(data, self.name, nml.start_time,
                                                   nml.stop_time)
                     else:
                         speclut += SpecLookUpTable(data, self.name, nml.start_time,
                                                     nml.stop_time)
-
-            else: # Tag is None: take the most recent one
-                pattern = os.path.join(datadir, '{}.*'.format(self.name))
-                files = scanDir(pattern)
-                filename = files[-1]
-                if not quiet:
-                    print('reading {}'.format(filename))
-                # Determine the setup
-                mask = re.compile(r'{}\.(.*)'.format(self.name))
-                ending = mask.search(files[-1]).groups(0)[0]
-                if os.path.exists('log.{}'.format(ending)):
-                    try:
-                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                            nml='log.{}'.format(ending))
-                    except AttributeError:
-                        self.start_time = None
-                        self.stop_time = None
-                        pass
-
-                if not hasattr(self, 'stop_time'):
-                    self.stop_time = None
-                data = fast_read(filename)
-                speclut = SpecLookUpTable(data, self.name, self.start_time,
-                                          self.stop_time)
 
         else: # Snapshot spectra
 

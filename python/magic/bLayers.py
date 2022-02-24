@@ -164,6 +164,17 @@ def getMaxima(field):
                 maxS.append(k)
     return maxS
 
+json_model = {
+'phys_param': ['ek'],
+'time_series': { 'heat': ['topnuss', 'botnuss'],
+                 'e_kin': ['ekin_pol', 'ekin_tor', 'ekin_pol_axi', 'ekin_tor_axi'],
+                 'par': ['rm'] },
+'spectra': {},
+'radial_profiles': {'powerR': ['viscDiss', 'buoPower'],
+                    'eKinR': ['ekin_pol', 'ekin_tor', 'ekin_pol_axi', 'ekin_tor_axi'],
+                    'parR': ['dlVc']}
+}
+
 class BLayers(MagicSetup):
     """
     This class allows to determine the viscous and thermal boundary layers
@@ -222,10 +233,10 @@ class BLayers(MagicSetup):
                 tags = None
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
-            a = AvgField()
-            self.nuss = a.nuss
-            self.reynolds = a.reynolds
-            e2fluct = a.ekin_pol_avg+a.ekin_tor_avg-a.ekin_pola_avg-a.ekin_tora_avg
+            a = AvgField(model=json_model, write=False)
+            self.nuss = 0.5 * (a.topnuss_av+a.botnuss_av)
+            self.reynolds = a.rm_av
+            e2fluct = a.ekin_pol_av+a.ekin_tor_av-a.ekin_pol_axi_av-a.ekin_tor_axi_av
         else:
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
@@ -343,9 +354,8 @@ class BLayers(MagicSetup):
             print('slopes bl, bulk', self.slopeEpsTbl/self.epsT,
                   self.slopeEpsTbulk/self.epsT)
 
-        pow = MagicRadial(field='powerR', iplot=False, tags=tags)
-        self.vi = pow.viscDiss
-        self.buo = pow.buoPower
+        self.vi = a.viscDissR_av
+        self.buo = a.buoPowerR_av
 
         self.epsV = -intcheb(self.vi, len(self.rad)-1, self.ro, self.ri)
         ind = getMaxima(-abs(self.vi-self.epsV))
@@ -446,15 +456,14 @@ class BLayers(MagicSetup):
         print('uh bl, bulk', self.uhEpsVbl/self.epsV, self.uhEpsVbulk/self.epsV)
 
         # Convective Rol in the thermal boundary Layer
-        par = MagicRadial(field='parR', iplot=False, tags=tags)
-        kin = MagicRadial(field='eKinR', iplot=False, tags=tags)
-        ekinNas = kin.ekin_pol+kin.ekin_tor-kin.ekin_pol_axi-kin.ekin_tor_axi
-        ReR = np.sqrt(2.*abs(ekinNas)/par.radius**2/(4.*np.pi))
-        RolC = ReR*par.ek/par.dlVc
+        ekinNas = a.ekin_polR_av+a.ekin_torR_av-a.ekin_pol_axiR_av-a.ekin_tor_axiR_av
+        ReR = np.sqrt(2.*abs(ekinNas)/self.rad**2/(4.*np.pi))
 
-        self.dl = par.dlVc
-        y = RolC[par.radius >= self.ro-self.bcTopSlope]
-        x = par.radius[par.radius >= self.ro-self.bcTopSlope]
+        self.dl = a.dlVcR_av
+        RolC = ReR*self.ek / self.dl
+
+        y = RolC[self.rad >= self.ro-self.bcTopSlope]
+        x = self.rad[self.rad >= self.ro-self.bcTopSlope]
         try:
             self.rolTop = simps(3.*y*x**2, x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
         except IndexError:
@@ -476,17 +485,17 @@ class BLayers(MagicSetup):
                                      self.ri, self.ro, self.bcBotduh, self.bcTopduh,
                                      normed=True)
 
-        y = RolC[par.radius <= self.ri+self.bcBotSlope]
-        x = par.radius[par.radius <= self.ri+self.bcBotSlope]
+        y = RolC[self.rad <= self.ri+self.bcBotSlope]
+        x = self.rad[self.rad <= self.ri+self.bcBotSlope]
         self.rolBot = simps(3.*y*x**2, x)/((self.ri+self.bcBotSlope)**3-self.ri**3)
         print('reynols bc, reynolds bulk', self.rebl, self.rebulk)
         print('reh bc, reh bulk', self.rehbl, self.rehbulk)
         print('rolbc, rolbulk, roltop, rolbot', self.rolbl, self.rolbulk,
               self.rolBot, self.rolTop)
 
-        par.dlVc[0] = 0.
-        par.dlVc[-1] = 0.
-        self.lBot, self.lTop = integBotTop(self.rad, 4.*np.pi*self.rad**2*par.dlVc,
+        self.dl[0] = 0.
+        self.dl[-1] = 0.
+        self.lBot, self.lTop = integBotTop(self.rad, 4.*np.pi*self.rad**2*self.dl,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
         uhbm, utbm = integBotTop(self.rad, 4.*np.pi*self.uh,
@@ -625,8 +634,8 @@ class BLayers(MagicSetup):
         else:
             ek = self.ek
         if self.mode == 0:
-            st ='{:9.3e}{:9.2e:}{:9.2e}{:9.2e}{:5.2f}'.format(self.ra, ek, self.pr,
-                                                              self.prmag, self.strat)
+            st ='{:9.3e}{:9.2e}{:9.2e}{:9.2e}{:5.2f}'.format(self.ra, ek, self.pr,
+                                                             self.prmag, self.strat)
         else:
             st = '{:.3e}{:12.5e}{:5.2f}{:6.2f}{:6.2f}'.format(self.ra, ek, self.strat,
                                                               self.pr, self.radratio)
