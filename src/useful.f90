@@ -14,7 +14,7 @@ module useful
 
    private
 
-   public :: l_correct_step, random, factorise, cc2real, cc22real, round_off, &
+   public :: l_correct_step, factorise, cc2real, cc22real, round_off, &
    &         logWrite, polynomial_interpolation, abortRun
 
 contains
@@ -89,48 +89,6 @@ contains
       end if
 
    end function l_correct_step
-!----------------------------------------------------------------------------
-   real(cp) function random(r)
-      !
-      ! Random number generator:
-      !
-      !    * if ( r == 0 ) random(r) = next random number (between 0. and 1.)
-      !    * if ( r < 0 ) random(r) = previous random number
-      !    * if ( r > 0 ) random(r) = a new sequence of random numbers is started
-      !      with seed r mod 1
-      !
-
-      !-- Input variables:
-      real(cp), intent(in) :: r
-
-      !-- Local variables:
-      integer :: ia1, ia0, ia1ma0, ic
-      integer :: iy0, iy1
-      integer, save :: ix1, ix0
-
-      ia1   =1536
-      ia0   =1029
-      ia1ma0=507
-      ic    =1731
-
-      if ( r == 0.0_cp ) then
-         iy0 = ia0*ix0
-         iy1 = ia1*ix1 + ia1ma0*(ix0-ix1) + iy0
-         iy0 = iy0 + ic
-
-         ix0 = mod(iy0,2048)
-         iy1 = iy1 + (iy0-ix0)/2048
-         ix1 = mod(iy1,2048)
-      else if ( r > 0.0_cp ) then
-         ix1 = int(mod(r,one)*4194304.0_cp + half)
-         ix0 = mod(ix1,2048)
-         ix1 = (ix1-ix0)/2048
-      end if
-
-      random = ix1*2048 + ix0
-      random = random / 4194304.0_cp
-
-   end function random
 !----------------------------------------------------------------------------
    subroutine factorise(n,n_facs,fac,n_factors,factor)
       !

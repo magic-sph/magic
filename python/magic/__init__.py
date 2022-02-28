@@ -1,6 +1,7 @@
 from .setup import buildSo
 from .log import *
-from .series import MagicTs, AvgField
+from .series import MagicTs
+from .averages import AvgField
 from .radial import MagicRadial
 from .graph import *
 from .surf import *

@@ -68,7 +68,7 @@ class Movie:
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False,
                  std=False, dpi=80, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0):
+                 deminc=True, ifield=0, centeredCm=True):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -92,6 +92,9 @@ class Movie:
         :type normed: bool
         :param avg: if avg=True, time-average is displayed
         :type avg: bool
+        :param centeredCm: when set to True, the colormap is centered between
+                           -vmax and vmax
+        :type centeredCm: bool
         :param std: if std=True, standard deviation is displayed
         :type std: bool
         :param dpi: dot per inch when saving PNGs
@@ -335,11 +338,11 @@ class Movie:
 
         if iplot:
             cmap = plt.get_cmap(cm)
-            self.plot(ifield, cut, levels, cmap, png, step, normed, dpi,
+            self.plot(ifield, cut, centeredCm, levels, cmap, png, step, normed, dpi,
                       bgcolor, deminc)
         if avg or std:
             cmap = plt.get_cmap(cm)
-            self.avgStd(ifield, std, cut, levels, cmap)
+            self.avgStd(ifield, std, cut, centeredCm, levels, cmap)
 
     def __add__(self, new):
         """
@@ -363,8 +366,8 @@ class Movie:
             out.var2 = out.nvar
         return out
 
-    def avgStd(self, ifield=0, std=False, cut=0.5, levels=12, cmap='RdYlBu_r',
-               ic=False):
+    def avgStd(self, ifield=0, std=False, cut=0.5, centeredCm=True,
+               levels=12, cmap='RdYlBu_r', ic=False):
         """
         Plot time-average or standard deviation
 
@@ -380,6 +383,9 @@ class Movie:
         :type cmap: str
         :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
+        :param centeredCm: when set to True, the colormap is centered between
+                           -vmax and vmax
+        :type centeredCm: bool
         """
         if std:
             avg = self.data[ifield, ...].std(axis=0)
@@ -389,9 +395,13 @@ class Movie:
             avg = self.data[ifield, ...].mean(axis=0)
             if ic:
                 avg_ic = self.data_ic[ifield, ...].mean(axis=0)
-        vmin = - max(abs(avg.max()), abs(avg.min()))
-        vmin = cut * vmin
-        vmax = -vmin
+        if centeredCm:
+            vmin = - max(abs(avg.max()), abs(avg.min()))
+            vmin = cut * vmin
+            vmax = -vmin
+        else:
+            vmax = cut * avg.max()
+            vmin = cut * avg.min()
         cs = np.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
@@ -454,9 +464,9 @@ class Movie:
         ax.plot(xxin, yyin, 'k-', lw=1.5)
         ax.axis('off')
 
-    def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False,
-             step=1, normed=False, dpi=80, bgcolor=None, deminc=True,
-             ic=False):
+    def plot(self, ifield=0, cut=0.5, centeredCm=True, levels=12,
+             cmap='RdYlBu_r', png=False, step=1, normed=False, dpi=80,
+             bgcolor=None, deminc=True, ic=False):
         """
         Plotting function (it can also write the png files)
 
@@ -484,6 +494,9 @@ class Movie:
         :param deminc: a logical to indicate if one wants do get rid of the
                        possible azimuthal symmetry
         :type deminc: bool
+        :param centeredCm: when set to True, the colormap is centered between
+                           -vmax and vmax
+        :type centeredCm: bool
         """
 
         if png:
@@ -494,10 +507,14 @@ class Movie:
             plt.ion()
 
         if not normed:
-            vmin = - max(abs(self.data[ifield, ...].max()),
-                         abs(self.data[ifield, ...].min()))
-            vmin = cut * vmin
-            vmax = -vmin
+            if centeredCm:
+                vmin = - max(abs(self.data[ifield, ...].max()),
+                             abs(self.data[ifield, ...].min()))
+                vmin = cut * vmin
+                vmax = -vmin
+            else:
+                vmax = cut * self.data[ifield, ...].max()
+                vmin = cut * self.data[ifield, ...].min()
             # vmin, vmax = self.data.min(), self.data.max()
             cs = np.linspace(vmin, vmax, levels)
 
@@ -608,10 +625,14 @@ class Movie:
                     print(k+self.var2-self.nvar)
                 plt.cla()
                 if normed:
-                    vmin = - max(abs(self.data[ifield, k, ...].max()),
-                                 abs(self.data[ifield, k, ...].min()))
-                    vmin = cut * vmin
-                    vmax = -vmin
+                    if centeredCm:
+                        vmin = - max(abs(self.data[ifield, k, ...].max()),
+                                     abs(self.data[ifield, k, ...].min()))
+                        vmin = cut * vmin
+                        vmax = -vmin
+                    else:
+                        vmax = cut * self.data[ifield, k, ...].max()
+                        vmin = cut * self.data[ifield, k, ...].min()
                     cs = np.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:

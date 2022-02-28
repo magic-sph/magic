@@ -18,6 +18,8 @@ if buildSo:
 else:
     readingMode = 'python'
 
+print(readingMode)
+
 
 def getGraphEndianness(filename):
     """

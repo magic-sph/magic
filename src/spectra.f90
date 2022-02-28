@@ -557,7 +557,6 @@ contains
                write(string, *) n_spec
                mag_spec_file='mag_spec_'//trim(adjustl(string))//'.'//tag
                open(newunit=n_mag_spec_file, file=mag_spec_file, status='unknown')
-               print*, 'here', n_spec, mag_spec_file
                if ( n_spec == 0 ) then
                   write(n_mag_spec_file,'(1x, &
                   &           ''Magnetic energy spectra of time averaged field:'')')

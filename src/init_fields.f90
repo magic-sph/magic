@@ -29,7 +29,7 @@ module init_fields
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half, sq4pi
-   use useful, only: random, abortRun
+   use useful, only: abortRun
    use sht, only: scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
@@ -287,8 +287,10 @@ contains
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                if ( l /= 0 ) then
-                  ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
-                  ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
+                  call random_number(ra1)
+                  call random_number(ra2)
+                  ra1=(-one+two*ra1)/(real(l,cp))**(init_v1-1)
+                  ra2=(-one+two*ra2)/(real(l,cp))**(init_v1-1)
                   c_r=ra1*rDep(nR)
                   c_i=ra2*rDep(nR)
                   if ( m == 0 ) then  ! non axisymmetric modes
@@ -317,13 +319,17 @@ contains
             do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(-init_v1-1)
-               ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(-init_v1-1)
-               c_r=ra1*rDep(nR)
-               c_i=ra2*rDep(nR)
-               if ( m > 0 ) then  ! no axisymmetric modes
-                  w(lm,nR)=w(lm,nR)+cmplx(c_r,c_i,kind=cp)
-                  z(lm,nR)=z(lm,nR)+cmplx(c_r,c_i,kind=cp)
+               if ( l /= 0 ) then
+                  call random_number(ra1)
+                  call random_number(ra2)
+                  ra1=(-one+two*ra1)/(real(l,cp))**(-init_v1-1)
+                  ra2=(-one+two*ra2)/(real(l,cp))**(-init_v1-1)
+                  c_r=ra1*rDep(nR)
+                  c_i=ra2*rDep(nR)
+                  if ( m > 0 ) then  ! no axisymmetric modes
+                     w(lm,nR)=w(lm,nR)+cmplx(c_r,c_i,kind=cp)
+                     z(lm,nR)=z(lm,nR)+cmplx(c_r,c_i,kind=cp)
+                  end if
                end if
             end do
          end do
@@ -410,7 +416,7 @@ contains
 
       !-- Local variables:
       integer :: n_r,lm,l,m,lm00
-      real(cp) :: x,rr,c_r,c_i,s_r,s_i
+      real(cp) :: x,c_r,c_i,s_r,s_i
       real(cp) :: ra1,ra2
       real(cp) :: s0(n_r_max),p0(n_r_max),s1(n_r_max)
 
@@ -423,9 +429,8 @@ contains
       real(cp) :: zS(n_impS_max),sFac(n_impS_max)
       real(cp) :: sCMB(nlat_padded,n_phi_max)
       complex(cp) :: sLM(lmP_max)
-      integer :: info,i,j,l1,m1,filehandle
+      integer :: info,i,j,filehandle
       logical :: rank_has_l0m0
-
 
       lm00=lo_map%lm2(0,0)
       rank_has_l0m0=.false.
@@ -481,16 +486,17 @@ contains
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
 
-         rr=random(one)
          do lm=max(llm,2),ulm
-            m1 = lo_map%lm2m(lm)
-            l1 = lo_map%lm2l(lm)
-            ra1=(-one+two*random(0.0_cp))*amp_s1/(real(l1,cp))**(init_s1-1)
-            ra2=(-one+two*random(0.0_cp))*amp_s1/(real(l1,cp))**(init_s1-1)
+            l = lo_map%lm2l(lm)
+            m = lo_map%lm2m(lm)
+            call random_number(ra1)
+            call random_number(ra2)
+            ra1=(-one+two*ra1)*amp_s1/(real(l,cp))**(init_s1-1)
+            ra2=(-one+two*ra2)*amp_s1/(real(l,cp))**(init_s1-1)
             do n_r=1,n_r_max
                c_r=ra1*s1(n_r)
                c_i=ra2*s1(n_r)
-               if ( m1 > 0 ) then  ! non axisymmetric modes
+               if ( m > 0 ) then  ! non axisymmetric modes
                   s(lm,n_r)=s(lm,n_r)+cmplx(c_r,c_i,kind=cp)
                else
                   s(lm,n_r)=s(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
@@ -565,15 +571,11 @@ contains
 
       end if
 
-      if ( impS == 0 ) then
-         return
-      end if
+      if ( impS == 0 ) return
 
       !-- Now care for the prescribed boundary condition:
 
-      if ( minc /= 1 ) then
-         call abortRun('! impS doesnt work for minc /= 1')
-      end if
+      if ( minc /= 1 ) call abortRun('! impS doesnt work for minc /= 1')
 
       if ( abs(impS) == 1 ) then
          n_impS=2
@@ -720,7 +722,7 @@ contains
 
       !-- Local variables:
       integer :: n_r,lm,l,m,lm00
-      real(cp) :: x,rr,c_r,c_i,xi_r,xi_i
+      real(cp) :: x,c_r,c_i,xi_r,xi_i
       real(cp) :: ra1,ra2
       real(cp) :: xi0(n_r_max),xi1(n_r_max)
 
@@ -733,8 +735,7 @@ contains
       real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
       real(cp) :: xiCMB(nlat_padded,n_phi_max)
       complex(cp) :: xiLM(lmP_max)
-      integer :: info,i,j,l1,m1,fileHandle
-
+      integer :: info,i,j,fileHandle
 
       lm00=lo_map%lm2(0,0)
 
@@ -762,16 +763,17 @@ contains
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
 
-         rr=random(one)
          do lm=max(llm,2),ulm
-            m1 = lo_map%lm2m(lm)
-            l1 = lo_map%lm2l(lm)
-            ra1=(-one+two*random(0.0_cp))*amp_xi1/(real(l1,cp))**(init_xi1-1)
-            ra2=(-one+two*random(0.0_cp))*amp_xi1/(real(l1,cp))**(init_xi1-1)
+            l = lo_map%lm2l(lm)
+            m = lo_map%lm2m(lm)
+            call random_number(ra1)
+            call random_number(ra2)
+            ra1=(-one+two*ra1)*amp_xi1/(real(l,cp))**(init_xi1-1)
+            ra2=(-one+two*ra2)*amp_xi1/(real(l,cp))**(init_xi1-1)
             do n_r=1,n_r_max
                c_r=ra1*xi1(n_r)
                c_i=ra2*xi1(n_r)
-               if ( m1 > 0 ) then  ! non axisymmetric modes
+               if ( m > 0 ) then  ! non axisymmetric modes
                   xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,c_i,kind=cp)
                else
                   xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
@@ -847,14 +849,10 @@ contains
 
       end if
 
-      if ( impXi == 0 ) then
-         return
-      end if
+      if ( impXi == 0 ) return
 
       !-- Now care for the prescribed boundary condition:
-      if ( minc /= 1 ) then
-         call abortRun('! impXi doesnt work for minc /= 1')
-      end if
+      if ( minc /= 1 ) call abortRun('! impXi doesnt work for minc /= 1')
 
       if ( abs(impXi) == 1 ) then
          n_impXi=2
@@ -984,7 +982,7 @@ contains
       complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
 
       !-- Local variables:
-      integer :: lm,lm0,l1,m1
+      integer :: lm,lm0,l,m
       integer :: n_r
       real(cp) :: b_pol,b_tor
       complex(cp) :: aj0(n_r_max+1)
@@ -993,7 +991,7 @@ contains
 
       real(cp) :: b1(n_r_max)
       real(cp) :: b1_ic(n_r_ic_max)
-      real(cp) :: bR,bI,rr
+      real(cp) :: bR,bI
       real(cp) :: aVarCon,bVarCon
       integer :: bExp
 
@@ -1330,18 +1328,19 @@ contains
          end if
 
          !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
-         rr=random(one)
          do lm=llm,ulm
-            l1=lo_map%lm2l(lm)
-            m1=lo_map%lm2m(lm)
-            if ( l1 > 0 ) then
-               bR=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
-               bI=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
+            l=lo_map%lm2l(lm)
+            m=lo_map%lm2m(lm)
+            if ( l > 0 ) then
+               call random_number(bR)
+               call random_number(bI)
+               bR=(-one+two*bR)*amp_b1/(real(l,cp))**(bExp-1)
+               bI=(-one+two*bI)*amp_b1/(real(l,cp))**(bExp-1)
             else
                bR=0.0_cp
                bI=0.0_cp
             end if
-            if ( m1 == 0 ) bI=0.0_cp
+            if ( m == 0 ) bI=0.0_cp
             do n_r=1,n_r_max
                b(lm,n_r)=b(lm,n_r) + cmplx(bR*b1(n_r),bI*b1(n_r),kind=cp)
             end do
@@ -1509,10 +1508,10 @@ contains
       do n_r_out=1,rscheme_oc%n_max
          do n_r=2,n_r_max-1
             jMat(n_r,n_r_out)= rscheme_oc%rnorm *                   &
-              &            hdif_B(l)*dL*opm*lambda(n_r)*or2(n_r) *  &
-              &       (            rscheme_oc%d2rMat(n_r,n_r_out) + &
-              &       dLlambda(n_r)*rscheme_oc%drMat(n_r,n_r_out) - &
-              &          dL*or2(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
+            &              hdif_B(l)*dL*opm*lambda(n_r)*or2(n_r) *  &
+            &         (            rscheme_oc%d2rMat(n_r,n_r_out) + &
+            &         dLlambda(n_r)*rscheme_oc%drMat(n_r,n_r_out) - &
+            &            dL*or2(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
          end do
       end do
 
@@ -1638,8 +1637,7 @@ contains
          call chebt_ic%costf1(aj0_ic,work_l_ic)
       end if
 
-      deallocate( jMat )
-      deallocate( jPivot )
+      deallocate( jMat, jPivot )
 
    end subroutine j_cond
 !--------------------------------------------------------------------------------
@@ -1955,12 +1953,12 @@ contains
                pt0Mat(n_r_max+1,n_cheb) =0.0_cp
                do n_cheb_in=1,rscheme_oc%n_max
                   if (mod(n_cheb+n_cheb_in-2,2)==0) then
-                     pt0Mat(n_r_max+1,nCheb_p)=pt0Mat(n_r_max+1,nCheb_p)+ &
-                     &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
+                     pt0Mat(n_r_max+1,nCheb_p)=pt0Mat(n_r_max+1,nCheb_p)+              &
+                     &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+  &
                      &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
                      &                       work(n_cheb_in)*half*rscheme_oc%rnorm
-                     pt0Mat(n_r_max+1,n_cheb)=pt0Mat(n_r_max+1,n_cheb)+ &
-                     &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
+                     pt0Mat(n_r_max+1,n_cheb)=pt0Mat(n_r_max+1,n_cheb)+                &
+                     &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+  &
                      &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
                      &                       work2(n_cheb_in)*half*rscheme_oc%rnorm
                   end if
@@ -2033,9 +2031,7 @@ contains
 
       !-- Prepare matrix:
       call prepare_mat(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,info)
-      if ( info /= 0 ) then
-         call abortRun('! Singular Matrix pt0Mat in pt_cond!')
-      end if
+      if ( info /= 0 ) call abortRun('! Singular Matrix pt0Mat in pt_cond!')
 
       !-- Set source terms in RHS:
       do n_r=1,n_r_max
@@ -2243,12 +2239,12 @@ contains
                ps0Mat(n_r_max+1,n_cheb)=0.0_cp
                do n_cheb_in=1,rscheme_oc%n_max
                   if (mod(n_cheb+n_cheb_in-2,2)==0) then
-                  ps0Mat(n_r_max+1,nCheb_p)=ps0Mat(n_r_max+1,nCheb_p)+ &
-                  &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
+                  ps0Mat(n_r_max+1,nCheb_p)=ps0Mat(n_r_max+1,nCheb_p)+              &
+                  &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+  &
                   &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
                   &                       work(n_cheb_in)*half*rscheme_oc%rnorm
-                  ps0Mat(n_r_max+1,n_cheb)=ps0Mat(n_r_max+1,n_cheb)+ &
-                  &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
+                  ps0Mat(n_r_max+1,n_cheb)=ps0Mat(n_r_max+1,n_cheb)+                &
+                  &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+  &
                   &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
                   &                       work2(n_cheb_in)*half*rscheme_oc%rnorm
                   end if

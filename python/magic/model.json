@@ -1,0 +1,20 @@
+{
+"num_params": ["n_r_max", "n_theta_max", "n_phi_tot", "l_max", "minc", "lm_max", "radial_scheme", "time_scheme"],
+"phys_params": ["ra", "ek", "pr", "prmag", "radratio"],
+"time_series":
+  {
+    "e_kin": ["ekin_pol", "ekin_tor", "ekin_pol_axi", "ekin_tor_axi", "ekin_tot"],
+    "e_mag_oc": ["emagoc_pol", "emagoc_tor", "emagoc_pol_axi", "emagoc_tor_axi", "emag_tot"],
+    "heat": ["topnuss", "botnuss", "deltaTnuss"],
+    "par": ["rm", "elssaser", "els_cmb", "rossby_l", "dip_cmb", "dlPolPeak", "dlV", "dlVc", "lvDiss", "lbDiss"],
+    "dipole": ["dip_l11", "dipTot_l11"],
+    "power": ["buoPower", "viscDiss", "ohmDiss", "fohm"],
+    "timestep": ["dt"]
+  },
+"spectra":
+  {
+  },
+"radial_profiles":
+  {
+  }
+}
