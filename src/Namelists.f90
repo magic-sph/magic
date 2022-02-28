@@ -17,7 +17,7 @@ module Namelists
    use parallel_mod
    use special
    use movie_data, only: movie, n_movies, n_movies_max
-   use charmanip, only: length_to_blank, capitalize
+   use charmanip, only: capitalize
    use probe_mod
    use useful, only: abortRun
    use dirk_schemes, only: type_dirk
@@ -267,7 +267,7 @@ contains
             write(output_unit,*) '! The log-file exists already !'
             write(output_unit,*) '! I add _BIS to the tag and create new files!'
          end if
-         length=length_to_blank(tag)
+         length=len_trim(tag)
          tag=tag(1:length)//'_BIS'
       end if
 
@@ -863,7 +863,7 @@ contains
 
       write(n_out,*) "&control"
       write(n_out,'(''  mode            ='',i3,'','')') mode
-      length=length_to_blank(tag)
+      length=len_trim(tag)
       write(n_out,*) " tag             = """,tag(1:length),""","
       write(n_out,'(''  n_time_steps    ='',i8,'','')') n_time_steps
       write(n_out,'(''  n_tScale        ='',i3,'','')') n_tScale
@@ -875,7 +875,7 @@ contains
       write(n_out,'(''  l_update_s      ='',l3,'','')') l_update_s
       write(n_out,'(''  l_update_xi     ='',l3,'','')') l_update_xi
       write(n_out,'(''  l_newmap        ='',l3,'','')') l_newmap
-      length=length_to_blank(map_function)
+      length=len_trim(map_function)
       write(n_out,*) " map_function    = """,map_function(1:length),""","
       write(n_out,'(''  alph1           ='',ES14.6,'','')') alph1
       write(n_out,'(''  alph2           ='',ES14.6,'','')') alph2
@@ -896,17 +896,17 @@ contains
       write(n_out,'(''  runMinutes      ='',i4,'','')') runMinutes
       write(n_out,'(''  runSeconds      ='',i4,'','')') runSeconds
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
-      length=length_to_blank(radial_scheme)
+      length=len_trim(radial_scheme)
       write(n_out,*) " radial_scheme   = """,radial_scheme(1:length),""","
-      length=length_to_blank(time_scheme)
+      length=len_trim(time_scheme)
       write(n_out,*) " time_scheme     = """,time_scheme(1:length),""","
-      length=length_to_blank(polo_flow_eq)
+      length=len_trim(polo_flow_eq)
       write(n_out,*) " polo_flow_eq    = """,polo_flow_eq(1:length),""","
-      length=length_to_blank(anelastic_flavour)
+      length=len_trim(anelastic_flavour)
       write(n_out,*) "anelastic_flavour= """,anelastic_flavour(1:length),""","
-      length=length_to_blank(mpi_transp)
+      length=len_trim(mpi_transp)
       write(n_out,*) " mpi_transp      = """,mpi_transp(1:length),""","
-      length=length_to_blank(mpi_packing)
+      length=len_trim(mpi_packing)
       write(n_out,*) " mpi_packing     = """,mpi_packing(1:length),""","
       write(n_out,*) "/"
 
@@ -942,7 +942,7 @@ contains
       write(n_out,'(''  phaseDiffFac    ='',ES14.6,'','')') phaseDiffFac
       write(n_out,'(''  epsPhase        ='',ES14.6,'','')') epsPhase
       write(n_out,'(''  penaltyFac      ='',ES14.6,'','')') penaltyFac
-      length=length_to_blank(interior_model)
+      length=len_trim(interior_model)
       write(n_out,*) " interior_model  = """,interior_model(1:length),""","
       write(n_out,'(''  g0              ='',ES14.6,'','')') g0
       write(n_out,'(''  g1              ='',ES14.6,'','')') g1
@@ -1068,7 +1068,7 @@ contains
 
       write(n_out,*) "&start_field"
       write(n_out,'(''  l_start_file    ='',l3,'','')') l_start_file
-      length=length_to_blank(start_file)
+      length=len_trim(start_file)
       write(n_out,*) " start_file      = """,start_file(1:length),""","
       write(n_out,'(''  inform          ='',i3,'','')') inform
       write(n_out,'(''  l_reset_t       ='',l3,'','')') l_reset_t
@@ -1142,7 +1142,7 @@ contains
       write(n_out,'(''  t_movie_stop    ='',ES14.6,'','')') t_movie_stop
       write(n_out,'(''  dt_movie        ='',ES14.6,'','')') dt_movie
       do n=1,n_movies_max
-         length=len(trim(movie(n)))
+         length=len_trim(movie(n))
          if ( length > 0 ) then
             write(n_out,'(''  movie           = '',a,'','')') movie(n)(1:length)
          end if

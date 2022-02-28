@@ -12,8 +12,7 @@ module movie_data
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
-   use charmanip, only: capitalize, delete_string, str2dble, length_to_blank, &
-       &                dble2str
+   use charmanip, only: capitalize, delete_string, dble2str
    use useful, only: logWrite, abortRun
    use constants, only: pi, one
    use mem_alloc, only: bytes_allocated
@@ -84,9 +83,6 @@ contains
          bytes_allocated = bytes_allocated+n_frame_work*SIZEOF_DEF_REAL
 
          if ( rank == 0 ) then
-            do n=1,n_movies_max
-               n_movie_file(n)=70+n
-            end do
             !----- Open movie files on first processor only:
             if ( .not. l_save_out ) then
                do n=1,n_movies
@@ -103,7 +99,6 @@ contains
       !
       ! Close movie files
       !
-
       integer :: n
 
       if ( rank == 0 .and. l_movie ) then
@@ -394,29 +389,18 @@ contains
       !
 
       !--- Local variables:
-      logical :: lEquator
-      integer :: length,length_fn,lengthC
-      character(len=200) :: message
-      character(len=80) :: string,word,stringC
-      character(len=80) :: file_name
-      character(len=50) :: typeStr
-      integer :: n_theta,n_phi
+      character(len=80) :: word
+      character(len=:), allocatable :: message, string, stringC
+      character(len=:), allocatable :: file_name, typeStr
       real(cp) :: r_movie,theta_movie,phi_movie
-      real(cp) :: phi_max
-      real(cp) :: rad
-      real(cp) :: const
-      integer :: i,n,n_ic
-      integer :: ns
-      integer :: n_type
-      integer :: n_surface
-      integer :: n_const
+      real(cp) :: phi_max, rad, const
+      integer :: n_theta, n_phi, length
+      integer :: i, n, n_ic, ns
+      integer :: n_type, n_surface, n_const
       integer :: n_fields,n_fields_oc,n_fields_ic
-      integer :: n_field_size
-      integer :: n_field_size_ic
-      integer :: n_field_start
+      integer :: n_field_size, n_field_size_ic, n_field_start
       integer :: n_field_type(n_movie_fields_max)
-
-      logical :: lStore,lIC,foundGridPoint
+      logical :: lStore, lIC, foundGridPoint, lEquator
 
       !--- Initialize first storage index:
       n_field_start=1
@@ -438,7 +422,7 @@ contains
 
          string=movie(i)
 
-         if ( len(trim(string))  ==  0 ) cycle !blank string
+         if ( len_trim(string)  ==  0 ) cycle !blank string
 
          !--- Delete blanks, they are not interpreted
          call delete_string(string,' ',length)
@@ -1003,7 +987,6 @@ contains
 
          !--- Identify surface type:
 
-         length_fn=len(trim(file_name))
          if ( n_type == 103 ) then
             n_surface=1 !
             n_const=1   !
@@ -1024,27 +1007,27 @@ contains
          else if ( index(string,'3D') /= 0 ) then
             n_surface=0  ! 3d
             n_const=0    ! Not needed
-            file_name=file_name(1:length_fn)//'3D_'
+            file_name=file_name//'3D_'
             n_field_size=n_r_max*n_theta_max*n_phi_max
             n_field_size_ic=n_r_ic_max*n_theta_max*n_phi_max
          else if ( index(string,'CMB') /= 0 ) then
             n_surface=1 ! R=const. at CMB
             n_const=1
-            file_name=file_name(1:length_fn)//'CMB_'
+            file_name=file_name//'CMB_'
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
             const=r_cmb
          else if ( index(string,'ICB') /= 0 ) then
             n_surface=1 ! R=const. at ICB
             n_const=n_r_max
-            file_name=file_name(1:length_fn)//'ICB_'
+            file_name=file_name//'ICB_'
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
             const=r_icb
          else if ( index(string,'SUR') /= 0 ) then
             n_surface=-1
             n_const=1
-            file_name=file_name(1:length_fn)//'SUR_'
+            file_name=file_name//'SUR_'
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
             const=one
@@ -1062,7 +1045,7 @@ contains
             else if ( index(string,'RADIUS=') /= 0 ) then
                word=string(index(string,'RADIUS=')+7:length)
             end if
-            call str2dble(word,r_movie)
+            read(word,*) r_movie
 
             !------ Choose closest radial grid point:
             if ( r_movie == 0 ) then
@@ -1085,14 +1068,13 @@ contains
 
             call dble2str(r_movie,word)
             stringC='R='//trim(word)//'_'
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+            file_name=file_name//stringC
 
          else if ( index(string,'EQ') /= 0 .or. lEquator ) then
 
             n_surface=2    ! Equator
             n_const=n_theta_max
-            file_name=file_name(1:length_fn)//'EQU_'
+            file_name=file_name//'EQU_'
             n_field_size=n_r_max*n_phi_max
             n_field_size_ic=n_r_ic_max*n_phi_max
             const=rad*theta(n_const)
@@ -1109,7 +1091,7 @@ contains
             else if ( index(string,'THETA=') /= 0 ) then
                word=string(index(string,'THETA=')+6:length)
             end if
-            call str2dble(word,theta_movie)
+            read(word,*) theta_movie
             theta_movie=abs(theta_movie)
             theta_movie=theta_movie/rad
 
@@ -1147,8 +1129,7 @@ contains
 
             call dble2str(theta_movie,word)
             stringC='T='//trim(word)//'_'
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+            file_name=file_name//stringC
 
          else if ( index(string,'MER' ) /= 0 .or.  &
               index(string,'P='  ) /= 0  .or. index(string,'PHI=') /= 0 ) then
@@ -1163,7 +1144,7 @@ contains
             else if ( index(string,'PHI=') /=0 ) then
                word=string(index(string,'PHI=')+4:length)
             end if
-            call str2dble(word,phi_movie)
+            read(word,*) phi_movie
             if ( phi_movie < 0.0_cp ) phi_movie=360.0_cp-phi_movie
             phi_max=360.0_cp/minc
             if ( minc > 1 ) then
@@ -1201,8 +1182,7 @@ contains
 
             call dble2str(phi_movie,word)
             stringC='P='//trim(word)//'_'
-            lengthC=length_to_blank(stringC)
-            file_name=file_name(1:length_fn)//stringC(1:lengthC)
+            file_name=file_name//stringC
 
          else
             message = 'Couldnt interpret movie surface from string:'//string
@@ -1281,8 +1261,7 @@ contains
          if ( n_fields_ic > 0 ) l_movie_ic= .true.
 
          !------ Store name of movie file:
-         length_fn=len(trim(file_name))
-         file_name=file_name(1:length_fn)//'mov.'//tag
+         file_name=file_name//'mov.'//tag
          call delete_string(file_name,' ',length)
          movie_file(n_movies)=file_name(1:length)
 

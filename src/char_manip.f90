@@ -18,17 +18,12 @@ contains
       character(len=*), intent(inout) :: string
 
       !-- Local variables
-      character(len=26), parameter :: LOWER_CASE='abcdefghijklmnopqrstuvwxyz'
-      character(len=26), parameter :: UPPER_CASE='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
-      integer :: i, n
+      character :: a
+      integer ::  i
 
       do i = 1, len(string)
-      ! -- Find location of letter in lower case constant string
-         n = index( LOWER_CASE, string( i:i ) )
-      ! -- If current substring is a lower case letter,
-      !    make it upper case
-         if ( n /= 0 ) string( i:i ) = UPPER_CASE( n:n )
+         a = string(i:i)
+         if ( a >= 'a' .and. a <= 'z' ) string(i:i) = char(ichar(a)-32)
       end do
 
    end subroutine capitalize
@@ -50,7 +45,7 @@ contains
       integer :: n,i
       integer :: pos
 
-      length=len(trim(string))
+      length=len_trim(string)
       length_del=len(string_del)
 
       do n=1,length
@@ -69,74 +64,6 @@ contains
       end do
 
    end subroutine delete_string
-!------------------------------------------------------------------------------
-   subroutine str2dble(string,num)
-      !
-      !   interprets next word in string as an dble real number
-      !   deletes leading blanks and next_word from string
-      !
-
-      !-- Input variable:
-      character(len=*), intent(in) :: string  ! input
-
-      !-- Output variable:
-      real(cp), intent(out) :: num     ! output
-
-      !-- Local variable:
-      integer :: fileHandle
-
-      read(string,*) num
-
-      open(newunit=fileHandle, file='.helpfile', status='unknown')
-      write(fileHandle,*) num
-      close(fileHandle)
-
-   end subroutine str2dble
-!------------------------------------------------------------------------------
-   integer function length_to_blank(string)
-      !
-      !   determines number of characters before first blank in string
-      !
-
-      !-- Input variable
-      character(len=*), intent(in) :: string
-
-      !-- Local variable
-      integer :: i
-
-      length_to_blank=0
-      do i=1,len(string)
-         if( string(i:i) == ' ' ) then
-            length_to_blank=i-1
-            exit
-         end if
-      end do
-
-   end function length_to_blank
-!------------------------------------------------------------------------------
-   integer function length_to_char(string,char)
-
-      !-- Input variables:
-      character(len=*), intent(in) :: string
-      character(len=1), intent(in) :: char
-
-      !-- Local variables:
-      logical :: isDetected
-      integer :: i
-
-      isDetected=.false.
-      length_to_char=0
-      do i=1,len(string)
-         if( string(i:i) == char ) then
-            length_to_char=i-1
-            isDetected=.true.
-            exit
-         end if
-      end do
-
-      if ( .not. isDetected ) length_to_char=-1 ! char not found !
-
-   end function length_to_char
 !------------------------------------------------------------------------------
    subroutine dble2str(num, str)
       !

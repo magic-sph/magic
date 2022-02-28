@@ -50,7 +50,7 @@ contains
          open(newunit=n_sig_file, file=trim(message), status='old')
          read(n_sig_file,*) SIG
          close(n_sig_file)
-         if ( len(trim(SIG)) > 0 ) then ! Non blank string ?
+         if ( len_trim(SIG) > 0 ) then ! Non blank string ?
 
             call capitalize(SIG)
 
