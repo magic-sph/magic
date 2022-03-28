@@ -252,7 +252,7 @@ points is expressed by
 where the Gauss-Lobatto collocation points are
 
 .. math::
-   r_{cheb}&=\textrm{cos}\left( \frac{\pi(k-1)}{N_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
+   r_{cheb}=\textrm{cos}\left( \frac{\pi(k-1)}{N_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
 
 and :math:`r\!\in\![r_i,r_o]`, :math:`r_{cheb}\!\in\![-1.0,1.0]`. The parameters to calculate :math:`r` are
 
