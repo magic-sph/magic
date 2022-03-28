@@ -228,7 +228,6 @@ contains
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
       integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
-      logical :: l10
       integer :: nLMB
 
       integer, pointer :: nLMBs2(:),lm2l(:)
@@ -281,7 +280,6 @@ contains
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-      l10=.false.
       !$omp single
       do nLMB2=1,nLMBs2(nLMB)
          !$omp task default(shared) &
@@ -324,7 +322,6 @@ contains
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
-               if ( lm1 == l1m0 ) l10= .true.
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
                   !----- Special treatment of z10 component if ic or mantle
