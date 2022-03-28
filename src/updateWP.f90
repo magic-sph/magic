@@ -885,8 +885,6 @@ contains
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-
                if ( l1 /= 0 ) then
                   lmB=lmB+1
                   rhs0(1,2*lmB-1,threadid)        =0.0_cp
