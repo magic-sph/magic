@@ -1,0 +1,59 @@
+&grid
+ n_r_max     =128,
+ n_phi_tot   =192,
+ n_r_ic_max  =17,
+n_cheb_ic_max=17,
+ nalias      =20,
+ minc        =4,
+/
+&control
+ mode        =1,
+ tag         ="continue",
+ n_time_steps=50,
+ courfac     =2.5D0,
+ alffac      =1.0D0,
+ dtmax       =1.0D-4,
+ alpha       =0.6D0,
+ runHours    =12,
+ runMinutes  =00,
+ l_adv_curl  =.true.,
+ radial_scheme='FD',
+/
+&phys_param
+ ra          =2.0D5,
+ ek          =1.0D-3,
+ pr          =1.0D0,
+ radratio    =0.35D0,
+ stef        =1.0d0,
+ tmelt       =0.0d0,
+ phaseDiffFac=1.0d0,
+ penaltyFac  =0.5d0,
+ epsPhase    =0.03d0,
+ ktops       =1,
+ kbots       =1,
+ ktopv       =2,
+ kbotv       =2,
+ ktopphi     =1,
+ kbotphi     =1,
+/
+&start_field
+ l_start_file=.true.,
+ start_file  ="checkpoint_end.start",
+ init_s1     =0,
+ amp_s1      =0.1d0,
+ init_phi    =0,
+/
+&output_control
+ n_log_step  =10,
+ n_graphs    =1,
+ n_rsts      =1,
+ n_stores    =0,
+ runid       ="Benchmark 1",
+/
+&mantle 
+ nRotMa      =0
+/
+&inner_core 
+ sigma_ratio =0.d0,
+ nRotIC      =0,
+/

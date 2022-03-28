@@ -17,6 +17,7 @@ import varProps.unitTest
 import finite_differences.unitTest
 import time_schemes.unitTest
 import doubleDiffusion.unitTest
+import phase_field.unitTest
 import testRestart.unitTest
 import testMapping.unitTest
 import testTruncations.unitTest
@@ -250,6 +251,12 @@ def getSuite(startdir, cmd, precision, args):
         # Double Diffusion
         suite.addTest(doubleDiffusion.unitTest.DoubleDiffusion('outputFileDiff',
                                                   '%s/doubleDiffusion'\
+                                                  % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
+        # Phase Field
+        suite.addTest(phase_field.unitTest.PhaseField('outputFileDiff',
+                                                  '%s/phase_field'\
                                                   % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
