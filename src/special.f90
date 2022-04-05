@@ -4,7 +4,6 @@ module special
    ! an imposed external magnetic field and a special boundary forcing to excite
    ! inertial modes
 
-   use truncation, only: n_r_maxMag
    use precision_mod
 
    implicit none
@@ -15,9 +14,6 @@ module special
    !   This is calculated only once and is constant in time.
    logical, public :: lGrenoble
    real(cp), public :: BIC
-   real(cp), public, allocatable :: b0(:)
-   real(cp), public, allocatable :: db0(:)
-   real(cp), public, allocatable :: ddb0(:)
 
    !-- Control parameters for the external magnetic field:
    integer, public :: n_imp       ! Controls external field model
@@ -41,22 +37,4 @@ module special
    real(cp), public :: amp_RiMa, omega_RiMa  !Amplitude and frequency of forcing at the outer boundary
    integer, public :: RiSymmMa, RiSymmIc     !Symmetry of forcing: 1 (0) for eq symm (antisymm)
 
-   public :: initialize_Grenoble, finalize_Grenoble
-
-contains
-
-   subroutine initialize_Grenoble
-
-      allocate( b0(n_r_maxMag) )
-      allocate( db0(n_r_maxMag) )
-      allocate( ddb0(n_r_maxMag) )
-
-   end subroutine initialize_Grenoble
-!------------------------------------------------------------------------------
-   subroutine finalize_Grenoble
-
-      deallocate( b0, db0, ddb0 )
-
-   end subroutine finalize_Grenoble
-!------------------------------------------------------------------------------
 end module special

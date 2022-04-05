@@ -27,7 +27,8 @@ module updateB_mod
        &            l_full_sphere, l_mag_par_solve
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
-   use special
+   use special, only: n_imp, l_imp, amp_imp, expo_imp, bmax_imp, rrMP, l_curr, &
+       &              amp_curr, fac_loop
    use parallel_mod, only:  rank, chunksize, n_procs, get_openmp_blocks
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
