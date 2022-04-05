@@ -98,7 +98,6 @@ program magic
    use num_param
    use torsional_oscillations
    use init_fields
-   use special, only: initialize_Grenoble, finalize_Grenoble
    use blocking, only: initialize_blocking, finalize_blocking, llm, ulm
    use timing, only: timer_type
    use horizontal_data
@@ -326,7 +325,6 @@ program magic
 
    call initialize_num_param()
    call initialize_init_fields()
-   call initialize_Grenoble()
 
    local_bytes_used=bytes_allocated
    call initialize_fields()
@@ -500,7 +498,6 @@ program magic
    call finalize_fieldsLast()
    call finalize_fields()
 
-   call finalize_Grenoble()
    call finalize_init_fields()
    call finalize_num_param()
    call finalize_LMLoop(tscheme)
