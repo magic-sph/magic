@@ -255,14 +255,23 @@ def avgField(time, field, tstart=None, std=False):
         ind = np.nonzero(mask)[0][0]
     else: # the whole input array is taken!
         ind = 0
-    fac = 1./(time[-1]-time[ind])
-    avgField = fac*np.trapz(field[ind:], time[ind:])
 
-    if std:
-        stdField = np.sqrt(fac*np.trapz((field[ind:]-avgField)**2, time[ind:]))
-        return avgField, stdField
+    if time[ind:].shape[0] == 1: # Only one entry in the array
+        avgField = field[ind]
+        if std:
+            stdField = 0.
+            return avgField, stdField
+        else:
+            return avgField
     else:
-        return avgField
+        fac = 1./(time[-1]-time[ind])
+        avgField = fac*np.trapz(field[ind:], time[ind:])
+
+        if std:
+            stdField = np.sqrt(fac*np.trapz((field[ind:]-avgField)**2, time[ind:]))
+            return avgField, stdField
+        else:
+            return avgField
 
 def writeVpEq(par, tstart):
     """
