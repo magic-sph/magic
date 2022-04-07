@@ -62,6 +62,8 @@ class ThetaHeat(MagicSetup):
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
+        tags = tags[:-1]
+
         if not os.path.exists(pickleName):
             # reading ATmov
             k = 0
@@ -124,7 +126,7 @@ class ThetaHeat(MagicSetup):
         self.ro = 1./(1.-self.radratio)
 
         self.ntheta, self.nr = self.tempmean.shape
-        if self.radial_scheme == 'CHEB': # Redefine to get double precision
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB': # Redefine to get double precision
             self.radius = chebgrid(self.nr-1, self.ro, self.ri)
         else:
             self.radius = m.radius
@@ -137,7 +139,7 @@ class ThetaHeat(MagicSetup):
         self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), th2D, axis=0)
         self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), th2D, axis=0)
         sinTh = np.sin(self.colat)
-        if self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
             d1 = matder(self.nr-1, self.ro, self.ri)
 
         # Conducting temperature profile (Boussinesq only!)
@@ -166,7 +168,7 @@ class ThetaHeat(MagicSetup):
         self.tempEqstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
 
 
-        if self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
             dtempEq = np.dot(d1, self.tempEqmean)
         else:
             dtempEq = np.diff(self.tempEqmean)/np.diff(self.radius)
@@ -201,7 +203,7 @@ class ThetaHeat(MagicSetup):
         self.nussBot45 = 0.5*(nussBot45NH+nussBot45SH)
         self.temp45 = 0.5*(temp45NH+temp45SH)
 
-        if self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
             dtemp45 = np.dot(d1, self.temp45)
         else:
             dtemp45 = np.diff(self.temp45)/np.diff(self.radius)
@@ -243,7 +245,7 @@ class ThetaHeat(MagicSetup):
         self.tempPolmean = 0.5*(tempPolNHmean+tempPolSHmean)
         self.tempPolstd= 0.5*(tempPolNHstd+tempPolSHstd)
 
-        if self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
             dtempPol = np.dot(d1, self.tempPolmean)
         else:
             dtempPol = np.diff(self.tempPolmean) / np.diff(self.radius)
