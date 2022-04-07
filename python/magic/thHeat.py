@@ -15,9 +15,6 @@ class ThetaHeat(MagicSetup):
     As it's a bit time-consuming, the calculations are stored in a
     python.pickle file to quicken future usage of the data.
 
-    This function can **only** be used when
-    :ref:`bLayersR.TAG <secBLayersRfile>` exist in the working directory.
-
     Since this function is supposed to use time-averaged quantities, the usual
     procedure is first to define the initial averaging time using
     :py:class:`AvgField <magic.AvgField>`: (this needs to be done only once)
@@ -53,7 +50,7 @@ class ThetaHeat(MagicSetup):
             for lg in logFiles:
                 nml = MagicSetup(quiet=True, nml=lg)
                 if nml.start_time >  tstart:
-                    if os.path.exists('bLayersR.{}'.format(nml.tag)):
+                    if os.path.exists('ATmov.{}'.format(nml.tag)):
                         tags.append(nml.tag)
             if len(tags) == 0:
                 tags = [nml.tag]
@@ -61,11 +58,10 @@ class ThetaHeat(MagicSetup):
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
             a = AvgField()
-            self.nuss = a.nuss
+            self.nuss = 0.5 * (a.topnuss_av+a.botnuss_av)
         else:
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
-
 
         if not os.path.exists(pickleName):
             # reading ATmov
@@ -129,7 +125,10 @@ class ThetaHeat(MagicSetup):
         self.ro = 1./(1.-self.radratio)
 
         self.ntheta, self.nr = self.tempmean.shape
-        self.radius = chebgrid(self.nr-1, self.ro, self.ri)
+        if self.radial_scheme == 'CHEB': # Redefine to get double precision
+            self.radius = chebgrid(self.nr-1, self.ro, self.ri)
+        else:
+            self.radius = m.radius
         th2D = np.zeros((self.ntheta, self.nr), dtype=self.radius.dtype)
         #self.colat = np.linspace(0., np.pi, self.ntheta)
 
@@ -139,7 +138,8 @@ class ThetaHeat(MagicSetup):
         self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), th2D, axis=0)
         self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), th2D, axis=0)
         sinTh = np.sin(self.colat)
-        d1 = matder(self.nr-1, self.ro, self.ri)
+        if self.radial_scheme == 'CHEB':
+            d1 = matder(self.nr-1, self.ro, self.ri)
 
         # Conducting temperature profile (Boussinesq only!)
         self.tcond = self.ri*self.ro/self.radius-self.ri+self.temprmmean[0]
@@ -166,8 +166,12 @@ class ThetaHeat(MagicSetup):
         tempC[~mask2D] = 0.
         self.tempEqstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
 
-        dtempEq = np.dot(d1, self.tempEqmean)
-        self.betaEq = dtempEq[self.nr/2]
+
+        if self.radial_scheme == 'CHEB':
+            dtempEq = np.dot(d1, self.tempEqmean)
+        else:
+            dtempEq = np.diff(self.tempEqmean)/np.diff(self.radius)
+        self.betaEq = dtempEq[len(dtempEq)//2]
 
         # 45\deg inclination
         mask2D = (th2D>=np.pi/4.-angle/2.)*(th2D<=np.pi/4+angle/2.)
@@ -198,8 +202,11 @@ class ThetaHeat(MagicSetup):
         self.nussBot45 = 0.5*(nussBot45NH+nussBot45SH)
         self.temp45 = 0.5*(temp45NH+temp45SH)
 
-        dtemp45 = np.dot(d1, self.temp45)
-        self.beta45 = dtemp45[self.nr/2]
+        if self.radial_scheme == 'CHEB':
+            dtemp45 = np.dot(d1, self.temp45)
+        else:
+            dtemp45 = np.diff(self.temp45)/np.diff(self.radius)
+        self.beta45 = dtemp45[len(dtemp45)//2]
 
         # Polar regions
         mask2D = (th2D<=angle/2.)
@@ -237,8 +244,11 @@ class ThetaHeat(MagicSetup):
         self.tempPolmean = 0.5*(tempPolNHmean+tempPolSHmean)
         self.tempPolstd= 0.5*(tempPolNHstd+tempPolSHstd)
 
-        dtempPol = np.dot(d1, self.tempPolmean)
-        self.betaPol = dtempPol[self.nr/2]
+        if self.radial_scheme == 'CHEB':
+            dtempPol = np.dot(d1, self.tempPolmean)
+        else:
+            dtempPol = np.diff(self.tempPolmean) / np.diff(self.radius)
+        self.betaPol = dtempPol[len(dtempPol)//2]
 
 
         # Inside and outside TC
