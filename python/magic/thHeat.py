@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
 import numpy as np
 from magic import scanDir, MagicSetup, Movie, matder, chebgrid, rderavg, AvgField
 import os, pickle
@@ -110,7 +109,7 @@ class ThetaHeat(MagicSetup):
                          self.fluxmean, self.fluxstd], f)
             f.close()
         else:
-            f = open(pickleName, 'r')
+            f = open(pickleName, 'rb')
             dat = pickle.load(f)
             if len(dat) == 5:
                 self.colat, self.tempmean, self.tempstd, \
@@ -312,21 +311,24 @@ class ThetaHeat(MagicSetup):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.radius, self.tcond-self.tcond[0], 'k--', label='Cond. temp.')
-        xs, ys = mlab.poly_between(self.radius, self.temprmmean-self.temprmstd-self.temprmmean[0],\
-                                   self.temprmmean+self.temprmstd-self.temprmmean[0])
-        ax.fill(xs, ys, facecolor='#aec7e8', edgecolor='None')
-        ax.plot(self.radius, self.temprmmean-self.temprmmean[0], ls='-', c='#1f77b4',\
+        ax.fill_between(self.radius,
+                        self.temprmmean-self.temprmstd-self.temprmmean[0],
+                        self.temprmmean+self.temprmstd-self.temprmmean[0],
+                        alpha=0.2)
+        ax.plot(self.radius, self.temprmmean-self.temprmmean[0], ls='-', c='C0',
                 lw=2, label='Mean temp.')
-        xs, ys = mlab.poly_between(self.radius, self.tempEqmean-self.tempEqstd-self.temprmmean[0],\
-                                   self.tempEqmean+self.tempEqstd-self.temprmmean[0])
-        ax.fill(xs, ys, facecolor='#ffbb78', edgecolor='None')
+        ax.fill_between(self.radius,
+                        self.tempEqmean-self.tempEqstd-self.temprmmean[0],
+                        self.tempEqmean+self.tempEqstd-self.temprmmean[0],
+                        alpha=0.2)
         ax.plot(self.radius, self.tempEqmean-self.temprmmean[0],
-                ls='-.', c='#ff7f0e', lw=2, label='Temp. equat')
-        xs, ys = mlab.poly_between(self.radius, self.tempPolmean-self.tempPolstd-self.temprmmean[0],\
-                                   self.tempPolmean+self.tempPolstd-self.temprmmean[0])
-        ax.fill(xs, ys, facecolor='#98df8a', edgecolor='None')
+                ls='-.', c='C1', lw=2, label='Temp. equat')
+        ax.fill_between(self.radius,
+                        self.tempPolmean-self.tempPolstd-self.temprmmean[0],
+                        self.tempPolmean+self.tempPolstd-self.temprmmean[0],
+                        alpha=0.2)
         ax.plot(self.radius, self.tempPolmean-self.temprmmean[0],
-                ls='--', c='#2ca02c', lw=2, label='Temp. Pol')
+                ls='--', c='C2', lw=2, label='Temp. Pol')
         ax.set_xlim(self.ri, self.ro)
         ax.set_ylim(0., 1.)
         ax.set_ylabel('T')
@@ -335,16 +337,14 @@ class ThetaHeat(MagicSetup):
 
         fig1 = plt.figure()
         ax1 = fig1.add_subplot(111)
-        xs, ys = mlab.poly_between(self.colat*180./np.pi, self.nusstopmean-self.nusstopstd,\
-                                   self.nusstopmean+self.nusstopstd)
-        ax1.fill(xs, ys, facecolor='#aec7e8', edgecolor='None')
-        ax1.plot(self.colat*180./np.pi, self.nusstopmean, ls='-', color='#1f77b4',\
+        ax.fill_between(self.colat*180./np.pi, self.nusstopmean-self.nusstopstd,
+                        self.nusstopmean+self.nusstopstd, alpha=0.2)
+        ax1.plot(self.colat*180./np.pi, self.nusstopmean, ls='-', color='C0',
                  lw=2, label='Top Nu')
 
-        xs, ys = mlab.poly_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,\
-                                   self.nussbotmean+self.nussbotstd)
-        ax1.fill(xs, ys, facecolor='#ffbb78', edgecolor='None')
-        ax1.plot(self.colat*180./np.pi, self.nussbotmean, ls='--', c='#ff7f0e',\
+        ax.fill_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,
+                        self.nussbotmean+self.nussbotstd, alpha=0.2)
+        ax1.plot(self.colat*180./np.pi, self.nussbotmean, ls='--', c='C1',
                  lw=2, label='Bot Nu')
         ax1.set_xlim(0., 180.)
         ax1.set_ylabel('Nu')
