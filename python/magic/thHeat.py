@@ -5,6 +5,11 @@ from magic import scanDir, MagicSetup, Movie, matder, chebgrid, rderavg, AvgFiel
 import os, pickle
 from scipy.integrate import simps, trapz
 
+json_model = {'phys_params': [],
+              'time_series': { 'heat': ['topnuss', 'botnuss']},
+              'spectra': {},
+              'radial_profiles': {}}
+
 
 class ThetaHeat(MagicSetup):
     """
@@ -29,13 +34,16 @@ class ThetaHeat(MagicSetup):
     >>> print(th)
     """
 
-    def __init__(self, iplot=False, angle=10, pickleName='thHeat.pickle'):
+    def __init__(self, iplot=False, angle=10, pickleName='thHeat.pickle',
+                 quiet=False):
         """
         :param iplot: a boolean to toggle the plots on/off
         :type iplot: bool
         :param angle: the integration angle in degrees
         :type angle: float
         :pickleName: calculations a
+        :param quiet: a boolean to switch on/off verbose outputs
+        :type quiet: bool
         """
 
         angle = angle * np.pi / 180
@@ -53,16 +61,15 @@ class ThetaHeat(MagicSetup):
                         tags.append(nml.tag)
             if len(tags) == 0:
                 tags = [nml.tag]
-                print('Only 1 tag: {}'.format(tags))
+                if not quiet:
+                    print('Only 1 tag: {}'.format(tags))
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
-            a = AvgField()
+            a = AvgField(model=json_model, write=False)
             self.nuss = 0.5 * (a.topnuss_av+a.botnuss_av)
         else:
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
-
-        tags = tags[:-1]
 
         if not os.path.exists(pickleName):
             # reading ATmov
@@ -274,7 +281,8 @@ class ThetaHeat(MagicSetup):
         if iplot:
             self.plot()
 
-        print(self)
+        if not quiet:
+            print(self)
 
 
     def __str__(self):
