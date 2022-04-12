@@ -1,7 +1,7 @@
 from .setup import buildSo
 from .log import *
 from .series import MagicTs
-from .averages import AvgField
+from .averages import AvgField, AvgStack
 from .radial import MagicRadial
 from .graph import *
 from .surf import *

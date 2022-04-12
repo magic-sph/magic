@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
 import numpy as np
 from magic import scanDir, MagicSetup, Movie, matder, chebgrid, rderavg, AvgField
 import os, pickle
 from scipy.integrate import simps, trapz
+
+json_model = {'phys_params': [],
+              'time_series': { 'heat': ['topnuss', 'botnuss']},
+              'spectra': {},
+              'radial_profiles': {}}
 
 
 class ThetaHeat(MagicSetup):
@@ -14,9 +18,6 @@ class ThetaHeat(MagicSetup):
     :ref:`ATmov.TAG <secMovieFile>` and :ref:`AHF_mov.TAG <secMovieFile>`.
     As it's a bit time-consuming, the calculations are stored in a
     python.pickle file to quicken future usage of the data.
-
-    This function can **only** be used when
-    :ref:`bLayersR.TAG <secBLayersRfile>` exist in the working directory.
 
     Since this function is supposed to use time-averaged quantities, the usual
     procedure is first to define the initial averaging time using
@@ -33,13 +34,16 @@ class ThetaHeat(MagicSetup):
     >>> print(th)
     """
 
-    def __init__(self, iplot=False, angle=10, pickleName='thHeat.pickle'):
+    def __init__(self, iplot=False, angle=10, pickleName='thHeat.pickle',
+                 quiet=False):
         """
         :param iplot: a boolean to toggle the plots on/off
         :type iplot: bool
         :param angle: the integration angle in degrees
         :type angle: float
         :pickleName: calculations a
+        :param quiet: a boolean to switch on/off verbose outputs
+        :type quiet: bool
         """
 
         angle = angle * np.pi / 180
@@ -53,19 +57,19 @@ class ThetaHeat(MagicSetup):
             for lg in logFiles:
                 nml = MagicSetup(quiet=True, nml=lg)
                 if nml.start_time >  tstart:
-                    if os.path.exists('bLayersR.{}'.format(nml.tag)):
+                    if os.path.exists('ATmov.{}'.format(nml.tag)):
                         tags.append(nml.tag)
             if len(tags) == 0:
                 tags = [nml.tag]
-                print('Only 1 tag: {}'.format(tags))
+                if not quiet:
+                    print('Only 1 tag: {}'.format(tags))
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
-            a = AvgField()
-            self.nuss = a.nuss
+            a = AvgField(model=json_model, write=False)
+            self.nuss = 0.5 * (a.topnuss_av+a.botnuss_av)
         else:
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
-
 
         if not os.path.exists(pickleName):
             # reading ATmov
@@ -114,7 +118,7 @@ class ThetaHeat(MagicSetup):
                          self.fluxmean, self.fluxstd], f)
             f.close()
         else:
-            f = open(pickleName, 'r')
+            f = open(pickleName, 'rb')
             dat = pickle.load(f)
             if len(dat) == 5:
                 self.colat, self.tempmean, self.tempstd, \
@@ -129,7 +133,10 @@ class ThetaHeat(MagicSetup):
         self.ro = 1./(1.-self.radratio)
 
         self.ntheta, self.nr = self.tempmean.shape
-        self.radius = chebgrid(self.nr-1, self.ro, self.ri)
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB': # Redefine to get double precision
+            self.radius = chebgrid(self.nr-1, self.ro, self.ri)
+        else:
+            self.radius = m.radius
         th2D = np.zeros((self.ntheta, self.nr), dtype=self.radius.dtype)
         #self.colat = np.linspace(0., np.pi, self.ntheta)
 
@@ -139,7 +146,8 @@ class ThetaHeat(MagicSetup):
         self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), th2D, axis=0)
         self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), th2D, axis=0)
         sinTh = np.sin(self.colat)
-        d1 = matder(self.nr-1, self.ro, self.ri)
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+            d1 = matder(self.nr-1, self.ro, self.ri)
 
         # Conducting temperature profile (Boussinesq only!)
         self.tcond = self.ri*self.ro/self.radius-self.ri+self.temprmmean[0]
@@ -166,8 +174,12 @@ class ThetaHeat(MagicSetup):
         tempC[~mask2D] = 0.
         self.tempEqstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
 
-        dtempEq = np.dot(d1, self.tempEqmean)
-        self.betaEq = dtempEq[self.nr/2]
+
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+            dtempEq = np.dot(d1, self.tempEqmean)
+        else:
+            dtempEq = np.diff(self.tempEqmean)/np.diff(self.radius)
+        self.betaEq = dtempEq[len(dtempEq)//2]
 
         # 45\deg inclination
         mask2D = (th2D>=np.pi/4.-angle/2.)*(th2D<=np.pi/4+angle/2.)
@@ -198,8 +210,11 @@ class ThetaHeat(MagicSetup):
         self.nussBot45 = 0.5*(nussBot45NH+nussBot45SH)
         self.temp45 = 0.5*(temp45NH+temp45SH)
 
-        dtemp45 = np.dot(d1, self.temp45)
-        self.beta45 = dtemp45[self.nr/2]
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+            dtemp45 = np.dot(d1, self.temp45)
+        else:
+            dtemp45 = np.diff(self.temp45)/np.diff(self.radius)
+        self.beta45 = dtemp45[len(dtemp45)//2]
 
         # Polar regions
         mask2D = (th2D<=angle/2.)
@@ -237,8 +252,11 @@ class ThetaHeat(MagicSetup):
         self.tempPolmean = 0.5*(tempPolNHmean+tempPolSHmean)
         self.tempPolstd= 0.5*(tempPolNHstd+tempPolSHstd)
 
-        dtempPol = np.dot(d1, self.tempPolmean)
-        self.betaPol = dtempPol[self.nr/2]
+        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+            dtempPol = np.dot(d1, self.tempPolmean)
+        else:
+            dtempPol = np.diff(self.tempPolmean) / np.diff(self.radius)
+        self.betaPol = dtempPol[len(dtempPol)//2]
 
 
         # Inside and outside TC
@@ -263,7 +281,8 @@ class ThetaHeat(MagicSetup):
         if iplot:
             self.plot()
 
-        print(self)
+        if not quiet:
+            print(self)
 
 
     def __str__(self):
@@ -302,21 +321,24 @@ class ThetaHeat(MagicSetup):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.radius, self.tcond-self.tcond[0], 'k--', label='Cond. temp.')
-        xs, ys = mlab.poly_between(self.radius, self.temprmmean-self.temprmstd-self.temprmmean[0],\
-                                   self.temprmmean+self.temprmstd-self.temprmmean[0])
-        ax.fill(xs, ys, facecolor='#aec7e8', edgecolor='None')
-        ax.plot(self.radius, self.temprmmean-self.temprmmean[0], ls='-', c='#1f77b4',\
+        ax.fill_between(self.radius,
+                        self.temprmmean-self.temprmstd-self.temprmmean[0],
+                        self.temprmmean+self.temprmstd-self.temprmmean[0],
+                        alpha=0.2)
+        ax.plot(self.radius, self.temprmmean-self.temprmmean[0], ls='-', c='C0',
                 lw=2, label='Mean temp.')
-        xs, ys = mlab.poly_between(self.radius, self.tempEqmean-self.tempEqstd-self.temprmmean[0],\
-                                   self.tempEqmean+self.tempEqstd-self.temprmmean[0])
-        ax.fill(xs, ys, facecolor='#ffbb78', edgecolor='None')
+        ax.fill_between(self.radius,
+                        self.tempEqmean-self.tempEqstd-self.temprmmean[0],
+                        self.tempEqmean+self.tempEqstd-self.temprmmean[0],
+                        alpha=0.2)
         ax.plot(self.radius, self.tempEqmean-self.temprmmean[0],
-                ls='-.', c='#ff7f0e', lw=2, label='Temp. equat')
-        xs, ys = mlab.poly_between(self.radius, self.tempPolmean-self.tempPolstd-self.temprmmean[0],\
-                                   self.tempPolmean+self.tempPolstd-self.temprmmean[0])
-        ax.fill(xs, ys, facecolor='#98df8a', edgecolor='None')
+                ls='-.', c='C1', lw=2, label='Temp. equat')
+        ax.fill_between(self.radius,
+                        self.tempPolmean-self.tempPolstd-self.temprmmean[0],
+                        self.tempPolmean+self.tempPolstd-self.temprmmean[0],
+                        alpha=0.2)
         ax.plot(self.radius, self.tempPolmean-self.temprmmean[0],
-                ls='--', c='#2ca02c', lw=2, label='Temp. Pol')
+                ls='--', c='C2', lw=2, label='Temp. Pol')
         ax.set_xlim(self.ri, self.ro)
         ax.set_ylim(0., 1.)
         ax.set_ylabel('T')
@@ -325,16 +347,14 @@ class ThetaHeat(MagicSetup):
 
         fig1 = plt.figure()
         ax1 = fig1.add_subplot(111)
-        xs, ys = mlab.poly_between(self.colat*180./np.pi, self.nusstopmean-self.nusstopstd,\
-                                   self.nusstopmean+self.nusstopstd)
-        ax1.fill(xs, ys, facecolor='#aec7e8', edgecolor='None')
-        ax1.plot(self.colat*180./np.pi, self.nusstopmean, ls='-', color='#1f77b4',\
+        ax.fill_between(self.colat*180./np.pi, self.nusstopmean-self.nusstopstd,
+                        self.nusstopmean+self.nusstopstd, alpha=0.2)
+        ax1.plot(self.colat*180./np.pi, self.nusstopmean, ls='-', color='C0',
                  lw=2, label='Top Nu')
 
-        xs, ys = mlab.poly_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,\
-                                   self.nussbotmean+self.nussbotstd)
-        ax1.fill(xs, ys, facecolor='#ffbb78', edgecolor='None')
-        ax1.plot(self.colat*180./np.pi, self.nussbotmean, ls='--', c='#ff7f0e',\
+        ax.fill_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,
+                        self.nussbotmean+self.nussbotstd, alpha=0.2)
+        ax1.plot(self.colat*180./np.pi, self.nussbotmean, ls='--', c='C1',
                  lw=2, label='Bot Nu')
         ax1.set_xlim(0., 180.)
         ax1.set_ylabel('Nu')
