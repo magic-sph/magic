@@ -1,6 +1,7 @@
 #,-*- coding: utf-8 -*-
 import os
 import json
+from types import SimpleNamespace
 from collections import OrderedDict
 import numpy as np
 from .libmagic import scanDir, avgField
@@ -52,6 +53,8 @@ def to_json(o, level=0):
             ret += '{:.8g}'.format(o)
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.integer):
         ret += "[" + ','.join(map(str, o.flatten().tolist())) + "]"
+    elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.str):
+        ret += "[" + ','.join(map(lambda x: '"{}"'.format(x), o.flatten().tolist())) + "]"
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.inexact):
         ret += "[" + ','.join(map(lambda x: '{:.8e}'.format(x), o.flatten().tolist())) + "]"
     elif o is None:
@@ -290,6 +293,115 @@ class AvgField:
         with open(os.path.join(datadir, 'avg.json'), 'w') as f:
             st = to_json(self.lut)
             f.write(st)
+
+
+class AvgStack:
+    """
+    This class is made to go through a list of directories and gather all the local
+    avg files to compute a global output which summarises all the outputs in one
+    single file
+
+    >>> # Simply go through the directories listed in "runs.txt" and produce a 
+    >>> # local file named "my_results.json"
+    >>> st = AvgStack(dirList="runs.txt", filename="my_results.json")
+    >>> # Now also recompute each individual avg.json file in each directory
+    >>> st = AvgStack(dirList="runs.txt", filename="my_results.json",
+                      recompute=True, module="path_to_model.json", std=True)
+    """
+
+    def __init__(self, dirList='runs.txt', filename='avg.json', datadir='.',
+                 recompute=False, model=default_model, std=False, readonly=False):
+        """
+        :param dirList: the filename of the list of directories, lines starting with
+                        a hash are omitted by the reader
+        :type dirList: str
+        :param filename: 
+        :param recompute: recompute each individual average file in each single 
+                          directory when set to True
+        :type recompute: bool
+        :param datadir: working directory
+        :type datadir: str
+        :param std: compute the standard deviation when set to True
+        :type std: bool
+        :param model: this is the path of a JSON file which defines which fields will be
+                      handled in the time-averaging process. This can be any
+                      python attributes wich is defined in MagicTs, MagicSpectrum
+                      or MagicRadial.
+        :type model: str
+        :param readonly: when set to True, simply read the summary json file
+        :param readonly: bool
+        """
+
+        if readonly: # Only read the json file
+            with open(os.path.join(datadir, filename), 'r') as f:
+                #self.lut = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+                self.lut = json.load(f)
+        else:
+            with open(os.path.join(datadir, dirList), 'r') as f:
+                dirs = f.readlines()
+
+            startdir = os.getcwd()
+            for k, dir in enumerate(dirs):
+                if not dir.startswith('#'):
+                    print("In dir {}".format(dir.rstrip('\n')))
+                    os.chdir(os.path.join(datadir, dir.rstrip('\n')))
+                    if recompute:
+                        a = AvgField(model=model, std=std)
+                    if not hasattr(self, 'lut'):
+                        self.lut = self.load()
+                    else:
+                        lut = self.load()
+                        self.merge(lut)
+
+                    os.chdir(startdir)
+
+            with open(os.path.join(datadir, filename), 'w') as f:
+                st = to_json(self.lut)
+                f.write(st)
+
+        self.simple_namespace()
+
+    def simple_namespace(self):
+        """
+        This routine creates a simpler namespace from the lookup table
+        """
+
+        keys = ['phys_params', 'num_params', 'time_series']
+
+        for key in keys:
+            if key in self.lut.keys():
+                for key1 in self.lut[key].keys():
+                    setattr(self, key1, np.atleast_1d(self.lut[key][key1]))
+
+
+    def merge(self, newlut):
+        """
+        This routine is used to merge two lookup tables.
+
+        :param newlut: the lookup table which needs to be added
+        :type newlut: dict
+        """
+        keys = ['phys_params', 'num_params', 'time_series']
+        for key in keys:
+            if key in newlut.keys() and key in self.lut.keys():
+                for key1 in self.lut[key].keys():
+                    if key1 in newlut[key].keys():
+                        arr = np.atleast_1d(self.lut[key][key1])
+                        arr1 = np.atleast_1d(newlut[key][key1])
+                        self.lut[key][key1] = np.concatenate((arr, arr1))
+
+    def load(self):
+        """
+        This routine reads the avg.json file stored in one local directory which
+        contains a numerical simulation. It returns the corresponding lookup table.
+
+        :returns: a lookup table
+        :rtype: dict
+        """
+        with open('avg.json', 'r') as f:
+            lut = json.load(f)
+
+        return lut
 
 
 if __name__ == '__main__':
