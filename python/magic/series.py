@@ -592,15 +592,15 @@ class TsLookUpTable:
             self.ekin_tor = data[:, 2]
             self.ekin_pol_axi = data[:, 3]
             self.ekin_tor_axi = data[:, 4]
-            self.ekin_pol_symeq = data[:, 5]
-            self.ekin_tor_symeq = data[:, 6]
-            self.ekin_pol_asymeq = data[:, 7]
-            self.ekin_tor_asymeq = data[:, 8]
+            self.ekin_pol_es = data[:, 5]
+            self.ekin_tor_es = data[:, 6]
+            self.ekin_pol_es_axi = data[:, 7]
+            self.ekin_tor_es_axi = data[:, 8]
             self.ekin_tot = self.ekin_pol + self.ekin_tor
-            self.ekin_es = self.ekin_pol_symeq + self.ekin_tor_symeq
-            self.ekin_eas = self.ekin_pol_asymeq + self.ekin_tor_asymeq
-            self.ekin_pol_naxi=self.ekin_pol-self.ekin_pol_axi
-            self.ekin_tor_naxi=self.ekin_tor-self.ekin_tor_axi
+            self.ekin_es = self.ekin_pol_es + self.ekin_tor_es
+            self.ekin_es_axi = self.ekin_pol_es_axi + self.ekin_tor_es_axi
+            self.ekin_pol_naxi = self.ekin_pol-self.ekin_pol_axi
+            self.ekin_tor_naxi = self.ekin_tor-self.ekin_tor_axi
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]
