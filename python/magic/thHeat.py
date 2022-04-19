@@ -347,13 +347,13 @@ class ThetaHeat(MagicSetup):
 
         fig1 = plt.figure()
         ax1 = fig1.add_subplot(111)
-        ax.fill_between(self.colat*180./np.pi, self.nusstopmean-self.nusstopstd,
-                        self.nusstopmean+self.nusstopstd, alpha=0.2)
+        ax1.fill_between(self.colat*180./np.pi, self.nusstopmean-self.nusstopstd,
+                         self.nusstopmean+self.nusstopstd, alpha=0.2)
         ax1.plot(self.colat*180./np.pi, self.nusstopmean, ls='-', color='C0',
                  lw=2, label='Top Nu')
 
-        ax.fill_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,
-                        self.nussbotmean+self.nussbotstd, alpha=0.2)
+        ax1.fill_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,
+                         self.nussbotmean+self.nussbotstd, alpha=0.2)
         ax1.plot(self.colat*180./np.pi, self.nussbotmean, ls='--', c='C1',
                  lw=2, label='Bot Nu')
         ax1.set_xlim(0., 180.)

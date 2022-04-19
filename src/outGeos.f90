@@ -571,8 +571,8 @@ contains
       real(cp), intent(out) :: arr_Ploc(n_theta_max,n_r_max,nPstart:nPstop)
 
       !-- Local variables
-#ifdef WITH_MPI
       integer :: n_r, n_t, n_p
+#ifdef WITH_MPI
       integer, allocatable :: rcounts(:), scounts(:), rdisp(:), sdisp(:)
       real(cp), allocatable :: sbuff(:), rbuff(:)
       integer :: p, ii, my_phi_counts
@@ -628,7 +628,13 @@ contains
       !-- Clear memory from temporary arrays
       deallocate( rcounts, scounts, rdisp, sdisp, rbuff, sbuff )
 #else
-      arr_Ploc(:,:,:)=arr_Rloc(:,:,:)
+      do n_p=1,n_phi_max
+         do n_r=1,n_r_max
+            do n_t=1,n_theta_max
+               arr_Ploc(n_t,n_r,n_p)=arr_Rloc(n_t,n_p,n_r)
+            end do
+         end do
+      end do
 #endif
 
    end subroutine transp_R2Phi
