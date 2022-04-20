@@ -611,11 +611,11 @@ class TsLookUpTable:
             self.ext_nrj_pol_axi = data[:, 6]
             self.emagoc_pol_es = data[:, 7]
             self.emagoc_tor_es = data[:, 8]
-            self.emagoc_pol_eas = data[:, 9]
-            self.emagoc_tor_eas = data[:, 10]
+            self.emagoc_pol_es_axi = data[:, 9]
+            self.emagoc_tor_es_axi = data[:, 10]
             self.emag_tot = self.emagoc_pol + self.emagoc_tor
             self.emag_es = self.emagoc_pol_es + self.emagoc_tor_es
-            self.emag_eas = self.emagoc_pol_eas + self.emagoc_tor_eas
+            self.emag_es_axi = self.emagoc_pol_es_axi + self.emagoc_tor_es_axi
         elif self.field == 'e_mag_ic':
             self.time = data[:, 0]
             self.emagic_pol = data[:, 1]
