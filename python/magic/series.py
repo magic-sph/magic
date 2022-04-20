@@ -641,8 +641,11 @@ class TsLookUpTable:
             self.e_dip_ax = data[:, 12]
             self.ecmb = data[:, 13]
             self.egeo = data[:, 14]
-            self.ratio = data[:, 17] # (e_cmb-e_as_cmb)/e_cmb
-            self.epol_axi_cmb = (-self.ratio*self.ecmb+self.ecmb)
+            self.ratio_cmb_as = data[:, 16] # (e_cmb-e_es_cmb)/e_cmb
+            self.ratio_cmb_naxi = data[:, 17] # (e_cmb-e_axi_cmb)/e_cmb
+            self.ratio_l11_cmb_as = data[:, 18] # (e_geo-e_es_geo)/e_geo
+            self.ratio_l11_cmb_naxi = data[:, 19] # (e_geo-e_axi_geo)/e_geo
+            self.epol_axi_cmb = (-self.ratio_cmb_naxi*self.ecmb+self.ecmb)
             self.dip3 = self.epol_axi_cmb/self.ecmb
             self.e_tot = self.e_dip/self.dipTot
         elif self.field == 'AM':
