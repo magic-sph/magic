@@ -15,6 +15,7 @@ module probe_mod
    use precision_mod
    use parallel_mod, only: rank
    use truncation, only: n_r_max, n_phi_max, n_theta_max
+   use grid_blocking, only: radlatlon2spat
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: r_cmb, orho1, or1, or2, r
    use num_param, only: vScale
@@ -80,14 +81,15 @@ contains
 
       real(cp), intent(in) :: time ! Time
       integer,  intent(in) :: n_r ! radial grod point no.
-      real(cp), intent(in) :: vp(:,:), br(:,:), bt(:,:)
+      real(cp), intent(in) :: vp(*), br(*), bt(*)
 
       !-- Local variables:
       integer  :: n_theta       ! counter for colatitude
       integer  :: probe_phi_step
-      integer  :: n_theta_probe
+      integer  :: n_theta_probe, k, n_phi, nelem1, nelem2
       logical  :: theta_found
       real(cp) :: fac,fac_r
+      real(cp) :: dat(2*n_phi_probes)
       character(len=10) :: fmtstr !format string
 
       if ( n_r /= rad_usr ) return
@@ -120,22 +122,46 @@ contains
 
          !-- Vp
          fac_r=or1(n_r)*vScale*orho1(n_r)
-         fac=fac_r*O_sin_theta(n_theta)
-         write(n_probeVp,'(ES20.12,'//trim(fmtstr)//'ES16.8)')     &
-         & time,fac*vp(n_theta_probe,1:n_phi_max:probe_phi_step),  &
-         &      fac*vp(n_theta_probe+1,1:n_phi_max:probe_phi_step)
+         k=1
+         do n_phi=1,n_phi_max,probe_phi_step
+            nelem1 = radlatlon2spat(n_theta_probe,n_phi,n_r)
+            nelem2 = radlatlon2spat(n_theta_probe+1,n_phi,n_r)
+
+            fac=fac_r*O_sin_theta(n_theta_probe)
+            dat(k)  =fac*vp(nelem1)
+            fac=fac_r*O_sin_theta(n_theta_probe+1)
+            dat(k+1)=fac*vp(nelem2)
+            k=k+2
+         end do
+         write(n_probeVp,'(ES20.12,'//trim(fmtstr)//'ES16.8)') time,dat
 
          !-- Br
          fac=or2(n_r)
-         write(n_probeBr,'(ES20.12,'//trim(fmtstr)//'ES16.8)')     &
-         & time,fac*br(n_theta_probe,1:n_phi_max:probe_phi_step),  &
-         &      fac*br(n_theta_probe+1,1:n_phi_max:probe_phi_step)
+         k=1
+         do n_phi=1,n_phi_max,probe_phi_step
+            nelem1 = radlatlon2spat(n_theta_probe,n_phi,n_r)
+            nelem2 = radlatlon2spat(n_theta_probe+1,n_phi,n_r)
+
+            dat(k)  =fac*br(nelem1)
+            dat(k+1)=fac*br(nelem2)
+            k=k+2
+         end do
+         write(n_probeBr,'(ES20.12,'//trim(fmtstr)//'ES16.8)') time,dat
 
          !-- Btheta
-         fac=or1(n_r)*O_sin_theta(n_theta)
-         write(n_probeBt,'(ES20.12,'//trim(fmtstr)//'ES16.8)')     &
-         & time,fac*bt(n_theta_probe,1:n_phi_max:probe_phi_step),  &
-         &      fac*bt(n_theta_probe+1,1:n_phi_max:probe_phi_step)
+         fac=or2(n_r)
+         k=1
+         do n_phi=1,n_phi_max,probe_phi_step
+            nelem1 = radlatlon2spat(n_theta_probe,n_phi,n_r)
+            nelem2 = radlatlon2spat(n_theta_probe+1,n_phi,n_r)
+
+            fac=or1(n_r)*O_sin_theta(n_theta_probe)
+            dat(k)  =fac*bt(nelem1)
+            fac=or1(n_r)*O_sin_theta(n_theta_probe+1)
+            dat(k+1)=fac*bt(nelem2)
+            k=k+2
+         end do
+         write(n_probeBt,'(ES20.12,'//trim(fmtstr)//'ES16.8)') time,dat
 
          if ( l_save_out ) then
             close(n_probeVp)
