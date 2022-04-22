@@ -10,6 +10,7 @@ module geos
    use precision_mod
    use parallel_mod
    use blocking, only: lo_map, llm, ulm
+   use grid_blocking, only: radlatlon2spat
    use constants, only: half, two, pi, one, four, third, zero
    use mem_alloc, only: bytes_allocated
    use radial_data, only: radial_balance, nRstart, nRstop
@@ -148,34 +149,34 @@ contains
 
       !-- Input variables
       integer,  intent(in) :: nR ! Radial grid point
-      real(cp), intent(in) :: vr(:,:), vt(:,:), vp(:,:)
-      real(cp), intent(in) :: cvr(:,:), dvrdp(:,:), dvpdr(:,:)
+      real(cp), intent(in) :: vr(*), vt(*), vp(*)
+      real(cp), intent(in) :: cvr(*), dvrdp(*), dvpdr(*)
 
       !-- Local variables
-      integer :: nPhi, nTheta, nTheta1
+      integer :: nPhi, nTheta, nTheta1, nelem
 
-      !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1)
+      !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1,nelem)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
             nTheta1=n_theta_cal2ord(nTheta)
             !- us=ur*sin(theta)+ut*cos(theta)
-            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nTheta,nPhi) &
-            &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*               &
-            &                        O_sin_theta(nTheta)*vt(nTheta,nPhi)
+            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nelem) &
+            &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*         &
+            &                         O_sin_theta(nTheta)*vt(nelem)
 
             !- uz=ur*cos(theta)-ut*sin(theta)
-            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi) &
-            &                        -or1(nR)*orho1(nR)*vt(nTheta,nPhi)
+            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nelem) &
+            &                        -or1(nR)*orho1(nR)*vt(nelem)
 
             !- uphi
-            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)* &
-            &                        vp(nTheta,nPhi)
+            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nelem)
 
             !-- z-vorticity
-            wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(                 &
-            &                cosTheta(nTheta)*or1(nR)*cvr(nTheta,nPhi) - &
-            &            or2(nR)*dvrdp(nTheta,nPhi)+dvpdr(nTheta,nPhi) - &
-            &                       beta(nR)*vp(nTheta,nPhi)   )
+            wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(           &
+            &                cosTheta(nTheta)*or1(nR)*cvr(nelem) - &
+            &                  or2(nR)*dvrdp(nelem)+dvpdr(nelem) - &
+            &                       beta(nR)*vp(nelem)   )
          end do
       end do
       !$omp end parallel do
