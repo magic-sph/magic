@@ -9,6 +9,7 @@ module outRot
    use precision_mod
    use communications, only: allgather_from_rloc, send_lm_pair_to_master
    use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max, n_theta_max
+   use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
    use physical_parameters, only: kbotv, ktopv, LFfac
@@ -437,15 +438,15 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: br(:,:)    ! array containing :math:`r^2 B_r`
-      real(cp), intent(in) :: bp(:,:)    ! array containing :math:`r\sin\theta B_\phi`
+      real(cp), intent(in) :: br(*)    ! array containing :math:`r^2 B_r`
+      real(cp), intent(in) :: bp(*)    ! array containing :math:`r\sin\theta B_\phi`
       integer,  intent(in) :: nR         ! radial level
 
       real(cp), intent(inout) :: lorentz_torque ! Lorentz torque
 
 
       !-- Local variables:
-      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nTheta,nPhi,nThetaNHS,nelem
       real(cp) :: fac,b0r
 
       ! to avoid rounding errors for different theta blocking, we do not
@@ -457,10 +458,12 @@ contains
       fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
       !$omp parallel do default(shared) &
-      !$omp& private(nTheta, nPhi, nThetaNHS, b0r) &
+      !$omp& private(nTheta, nPhi, nThetaNHS, b0r, nelem) &
       !$omp& reduction(+: lorentz_torque)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
             nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
             if ( lGrenoble ) then
                if ( r(nR) == r_icb ) then
@@ -472,8 +475,8 @@ contains
                b0r=0.0_cp
             end if
 
-            lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
-            &              (br(nTheta,nPhi)-b0r)*bp(nTheta,nPhi)
+            lorentz_torque=lorentz_torque + fac*gauss(nThetaNHS)* &
+            &              (br(nelem)-b0r)*bp(nelem)
          end do
       end do
       !$omp end parallel do
