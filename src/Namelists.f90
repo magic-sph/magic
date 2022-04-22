@@ -61,7 +61,7 @@ contains
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
-      &     l_var_l
+      &     l_var_l,l_batched_shts
 
       namelist/control/                                     &
       &    mode,tag,n_time_steps,n_cour_step,               &
@@ -285,6 +285,15 @@ contains
       else
          l_finite_diff = .false.
       end if
+
+#ifndef WITH_SHTNS
+      l_batched_shts=.false.
+      if ( rank == 0 ) then
+         write(output_unit,*)
+         write(output_unit,*) '! Batched SHTs not available with native transforms '
+         write(output_unit,*) '! Please use SHTns if you need batched transforms'
+      end if
+#endif
 
       !-- Select the kind of time-integrator (multi-step or implicit R-K):
       call select_tscheme(time_scheme, tscheme)
@@ -859,6 +868,7 @@ contains
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
       write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
       write(n_out,'(''  l_var_l         ='',l3,'','')') l_var_l
+      write(n_out,'(''  l_batched_shts  ='',l3,'','')') l_batched_shts
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -1271,7 +1281,7 @@ contains
       !   20 <= nalias <= 30
       nalias        =20
       l_axi         =.false.
-      l_var_l       =.false. ! l is a function of radius
+      l_batched_shts=.false. ! batched SHTs
 
       !-- Finite differences
       fd_order      =2
