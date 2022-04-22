@@ -11,6 +11,7 @@ module dtB_mod
        &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,  &
        &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi,     &
        &                 n_theta_max, nlat_padded
+   use grid_blocking, only: radlatlon2spat
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use mpi_transp_mod, only: type_mpitransp
    use mpi_ptop_mod, only: type_mpiptop
@@ -24,7 +25,7 @@ module dtB_mod
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, llmMag, ulmMag, llm, ulm
    use radial_spectra ! rBrSpec, rBpSpec
-   use sht, only: scal_to_SH
+   use sht, only: scal_to_SH, sht_lP_single
    use constants, only: two
    use radial_der, only: get_dr
 
@@ -194,7 +195,6 @@ contains
    subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
                &         BtVpLM,BpVtLM,BrVZLM,BtVZLM,BtVpCotLM,BpVtCotLM,  &
                &         BtVZcotLM,BtVpSn2LM,BpVtSn2LM,BtVZsn2LM)
-
       !
       !  This subroutine calculates non-linear products in grid-space for radial
       !  level nR.
@@ -202,8 +202,8 @@ contains
 
       !-- Input variables:
       integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
 
       !-- Output variables:
       complex(cp), intent(out) :: BtVrLM(:),BpVrLM(:)
@@ -215,7 +215,7 @@ contains
       complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
-      integer :: n_theta,n_phi,n_theta_nhs
+      integer :: n_theta,n_phi,n_theta_nhs,lm,l,nelem
       real(cp) :: fac,facCot
       real(cp) :: BtVr(nlat_padded,n_phi_max),BpVr(nlat_padded,n_phi_max)
       real(cp) :: BrVt(nlat_padded,n_phi_max),BrVp(nlat_padded,n_phi_max)
@@ -226,33 +226,32 @@ contains
       real(cp) :: BtVZcot(nlat_padded,n_phi_max),BtVZsn2(nlat_padded,n_phi_max)
       real(cp) :: vpAS(n_theta_max)
 
-      integer :: lm,l
-
       vpAS(:)=0.0_cp
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs) &
+      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs,nelem) &
       !$omp& reduction(+:vpAS)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
+            nelem=radlatlon2spat(n_theta,n_phi,nR)
             n_theta_nhs=(n_theta+1)/2
             fac=osn2(n_theta_nhs)
             facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
             if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
 
-            BtVr(n_theta,n_phi)= fac*orho1(nR)*bt(n_theta,n_phi)*vr(n_theta,n_phi)
-            BpVr(n_theta,n_phi)= fac*orho1(nR)*bp(n_theta,n_phi)*vr(n_theta,n_phi)
+            BtVr(n_theta,n_phi)= fac*orho1(nR)*bt(nelem)*vr(nelem)
+            BpVr(n_theta,n_phi)= fac*orho1(nR)*bp(nelem)*vr(nelem)
 
-            BrVt(n_theta,n_phi)= fac*orho1(nR)*vt(n_theta,n_phi)*br(n_theta,n_phi)
-            BrVp(n_theta,n_phi)= fac*orho1(nR)*vp(n_theta,n_phi)*br(n_theta,n_phi)
+            BrVt(n_theta,n_phi)= fac*orho1(nR)*vt(nelem)*br(nelem)
+            BrVp(n_theta,n_phi)= fac*orho1(nR)*vp(nelem)*br(nelem)
 
-            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
-            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
+            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(nelem)*vp(nelem)
+            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(nelem)*vt(nelem)
 
-            BpVtCot(n_theta,n_phi)=facCot*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
-            BtVpCot(n_theta,n_phi)=facCot*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
-            BpVtSn2(n_theta,n_phi)=fac*fac*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
-            BtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
-            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(n_theta,n_phi)
+            BpVtCot(n_theta,n_phi)=facCot*orho1(nR)*bp(nelem)*vt(nelem)
+            BtVpCot(n_theta,n_phi)=facCot*orho1(nR)*bt(nelem)*vp(nelem)
+            BpVtSn2(n_theta,n_phi)=fac*fac*orho1(nR)*bp(nelem)*vt(nelem)
+            BtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*bt(nelem)*vp(nelem)
+            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(nelem)
          end do
       end do
       !$omp end parallel do
@@ -260,39 +259,40 @@ contains
 
       !---- For omega effect:
       !$omp parallel do default(shared) &
-      !$omp private(n_phi,n_theta,n_theta_nhs,fac,facCot)
+      !$omp private(n_phi,n_theta,n_theta_nhs,fac,facCot,nelem)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
+            nelem=radlatlon2spat(n_theta,n_phi,nR)
             n_theta_nhs=(n_theta+1)/2
             fac=osn2(n_theta_nhs)
             facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
             if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
-            BrVZ(n_theta,n_phi)=fac*br(n_theta,n_phi)*vpAS(n_theta)
-            BtVZ(n_theta,n_phi)=fac*bt(n_theta,n_phi)*vpAS(n_theta)
-            BtVZcot(n_theta,n_phi)=facCot*bt(n_theta,n_phi)*vpAS(n_theta)
-            BtVZsn2(n_theta,n_phi)=fac*fac*bt(n_theta,n_phi)*vpAS(n_theta)
+            BrVZ(n_theta,n_phi)=fac*br(nelem)*vpAS(n_theta)
+            BtVZ(n_theta,n_phi)=fac*bt(nelem)*vpAS(n_theta)
+            BtVZcot(n_theta,n_phi)=facCot*bt(nelem)*vpAS(n_theta)
+            BtVZsn2(n_theta,n_phi)=fac*fac*bt(nelem)*vpAS(n_theta)
          end do
       end do
       !$omp end parallel do
 
-      call scal_to_SH(BtVr, BtVrLM, l_max)
-      call scal_to_SH(BpVr, BpVrLM, l_max)
-      call scal_to_SH(BrVt, BrVtLM, l_max)
+      call scal_to_SH(sht_lP_single, BtVr, BtVrLM, l_max)
+      call scal_to_SH(sht_lP_single, BpVr, BpVrLM, l_max)
+      call scal_to_SH(sht_lP_single, BrVt, BrVtLM, l_max)
 
-      call scal_to_SH(BrVp, BrVpLM, l_max)
-      call scal_to_SH(BtVp, BtVpLM, l_max)
-      call scal_to_SH(BpVt, BpVtLM, l_max)
+      call scal_to_SH(sht_lP_single, BrVp, BrVpLM, l_max)
+      call scal_to_SH(sht_lP_single, BtVp, BtVpLM, l_max)
+      call scal_to_SH(sht_lP_single, BpVt, BpVtLM, l_max)
 
-      call scal_to_SH(BtVpCot, BtVpCotLM, l_max)
-      call scal_to_SH(BpVtCot, BpVtCotLM, l_max)
-      call scal_to_SH(BtVZCot, BtVZCotLM, l_max)
+      call scal_to_SH(sht_lP_single, BtVpCot, BtVpCotLM, l_max)
+      call scal_to_SH(sht_lP_single, BpVtCot, BpVtCotLM, l_max)
+      call scal_to_SH(sht_lP_single, BtVZCot, BtVZCotLM, l_max)
 
-      call scal_to_SH(BrVZ, BrVZLM, l_max)
-      call scal_to_SH(BtVZ, BtVZLM, l_max)
-      call scal_to_SH(BtVZsn2, BtVZsn2LM, l_max)
+      call scal_to_SH(sht_lP_single, BrVZ, BrVZLM, l_max)
+      call scal_to_SH(sht_lP_single, BtVZ, BtVZLM, l_max)
+      call scal_to_SH(sht_lP_single, BtVZsn2, BtVZsn2LM, l_max)
 
-      call scal_to_SH(BtVpSn2, BtVpSn2LM, l_max)
-      call scal_to_SH(BpVtsn2, BpVtsn2LM, l_max)
+      call scal_to_SH(sht_lP_single, BtVpSn2, BtVpSn2LM, l_max)
+      call scal_to_SH(sht_lP_single, BpVtsn2, BpVtsn2LM, l_max)
 
       do l=0,l_max
          lm=l2lmAS(l)
@@ -507,7 +507,6 @@ contains
       real(cp) :: dL
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max)
       integer :: l,m,lm
-
 
       !-- Bring some array from rLoc to LMloc
       call r2lo_dtB%transp_r2lm(dtB_Rloc_container, dtB_LMloc_container)

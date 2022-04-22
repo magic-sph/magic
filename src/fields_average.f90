@@ -17,7 +17,7 @@ module fields_average_mod
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
-   use sht, only: torpol_to_spat, scal_to_spat
+   use sht, only: torpol_to_spat, scal_to_spat, sht_l_single
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
@@ -387,17 +387,17 @@ contains
 
          !----- Outer core:
          do nR=nRstart,nRstop
-            call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
+            call torpol_to_spat(sht_l_single, b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
                  &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
-            call torpol_to_spat(w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
+            call torpol_to_spat(sht_l_single, w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
                  &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
-            call scal_to_spat(p_ave_Rloc(:,nR), Prer, l_R(nR))
-            call scal_to_spat(s_ave_Rloc(:,nR), Sr, l_R(nR))
+            call scal_to_spat(sht_l_single, p_ave_Rloc(:,nR), Prer, l_R(nR))
+            call scal_to_spat(sht_l_single, s_ave_Rloc(:,nR), Sr, l_R(nR))
             if ( l_chemical_conv ) then
-               call scal_to_spat(xi_ave_Rloc(:,nR), Xir, l_R(nR))
+               call scal_to_spat(sht_l_single, xi_ave_Rloc(:,nR), Xir, l_R(nR))
             end if
             if ( l_phase_field ) then
-               call scal_to_spat(phi_ave_Rloc(:,nR), Phir, l_R(nR))
+               call scal_to_spat(sht_l_single, phi_ave_Rloc(:,nR), Phir, l_R(nR))
             end if
 #ifdef WITH_MPI
             call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)

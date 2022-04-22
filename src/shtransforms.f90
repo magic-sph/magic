@@ -111,16 +111,16 @@ contains
       !
       
       !-- Input variables:
-      complex(cp), intent(in) :: Qlm(lm_max) ! Poloidal
-      complex(cp), intent(in) :: Slm(lm_max) ! Spheroidal
-      complex(cp), intent(in) :: Tlm(lm_max) ! Toroidal
+      complex(cp), intent(in) :: Qlm(*) ! Poloidal
+      complex(cp), intent(in) :: Slm(*) ! Spheroidal
+      complex(cp), intent(in) :: Tlm(*) ! Toroidal
       integer,     intent(in) :: lcut
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
-      real(cp), intent(out) :: brc(n_theta_max,n_phi_max)
-      real(cp), intent(out) :: btc(n_theta_max,n_phi_max)
-      real(cp), intent(out) :: bpc(n_theta_max,n_phi_max)
+      real(cp), intent(out) :: brc(*)
+      real(cp), intent(out) :: btc(*)
+      real(cp), intent(out) :: bpc(*)
     
       !------ Legendre Polynomials 
       real(cp) :: PlmG(lm_max),PlmC(lm_max)
@@ -241,9 +241,9 @@ contains
          call ifft_many(tmpt,btc)
          call ifft_many(tmpp,bpc)
       else
-         brc(:,1)=real(tmpr(:,1))
-         btc(:,1)=real(tmpt(:,1))
-         bpc(:,1)=real(tmpp(:,1))
+         brc(1:n_theta_max)=real(tmpr(:,1))
+         btc(1:n_theta_max)=real(tmpt(:,1))
+         bpc(1:n_theta_max)=real(tmpp(:,1))
       end if
     
    end subroutine native_qst_to_spat
@@ -255,14 +255,14 @@ contains
       !
       
       !-- Input variables:
-      complex(cp), intent(in) :: Slm(lm_max)
-      complex(cp), intent(in) :: Tlm(lm_max)
+      complex(cp), intent(in) :: Slm(*)
+      complex(cp), intent(in) :: Tlm(*)
       integer,     intent(in) :: lcut
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
-      real(cp), intent(out) :: btc(n_theta_max,n_phi_max)
-      real(cp), intent(out) :: bpc(n_theta_max,n_phi_max)
+      real(cp), intent(out) :: btc(*)
+      real(cp), intent(out) :: bpc(*)
     
       !------ Legendre Polynomials 
       real(cp) :: PlmG(lm_max),PlmC(lm_max)
@@ -369,8 +369,8 @@ contains
          call ifft_many(tmpt,btc)
          call ifft_many(tmpp,bpc)
       else
-         btc(:,1)=real(tmpt(:,1))
-         bpc(:,1)=real(tmpp(:,1))
+         btc(1:n_theta_max)=real(tmpt(:,1))
+         bpc(1:n_theta_max)=real(tmpp(:,1))
       end if
     
    end subroutine native_sphtor_to_spat
@@ -494,11 +494,11 @@ contains
       !
 
       !-- Input variable
-      complex(cp), intent(in) :: Slm(lm_max)
+      complex(cp), intent(in) :: Slm(*)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: sc(n_theta_max,n_phi_max)
+      real(cp), intent(out) :: sc(*)
 
       !-- Local variables
       complex(cp) :: tmp(n_theta_max,n_phi_max/2+1)
@@ -553,7 +553,7 @@ contains
       if ( .not. l_axi ) then
          call ifft_many(tmp,sc)
       else
-         sc(:,1)=real(tmp(:,1))
+         sc(1:n_theta_max)=real(tmp(:,1))
       end if
 
    end subroutine native_sph_to_spat
@@ -564,12 +564,12 @@ contains
       !
 
       !-- Input variable
-      complex(cp), intent(in) :: Slm(lm_max)
+      complex(cp), intent(in) :: Slm(*)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(n_theta_max,n_phi_max)
-      real(cp), intent(out) :: gradpc(n_theta_max,n_phi_max)
+      real(cp), intent(out) :: gradtc(*)
+      real(cp), intent(out) :: gradpc(*)
 
       !-- Local variables
       complex(cp) :: tmpt(n_theta_max,n_phi_max/2+1),tmpp(n_theta_max,n_phi_max/2+1)
@@ -637,8 +637,8 @@ contains
          call ifft_many(tmpt,gradtc)
          call ifft_many(tmpp,gradpc)
       else
-         gradtc(:,1)=real(tmpt(:,1))
-         gradpc(:,1)=real(tmpp(:,1))
+         gradtc(1:n_theta_max)=real(tmpt(:,1))
+         gradpc(1:n_theta_max)=real(tmpp(:,1))
       end if
 
    end subroutine native_sph_to_grad_spat
@@ -649,11 +649,11 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(inout) :: scal(:,:)
+      real(cp), intent(inout) :: scal(*)
       integer,  intent(in) :: lcut
 
       !-- Output variable:
-      complex(cp), intent(out) :: f1LM(lmP_max)
+      complex(cp), intent(out) :: f1LM(*)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -672,10 +672,10 @@ contains
       if ( .not. l_axi ) then
          call fft_many(scal,f1TM)
       else
-         f1TM(1:n_theta_max,1) = cmplx(scal(1:n_theta_max,1), 0.0_cp, kind=cp)
+         f1TM(1:n_theta_max,1) = cmplx(scal(1:n_theta_max), 0.0_cp, kind=cp)
       end if
 
-      f1LM(:)=zero
+      f1LM(1:lmP_max)=zero
 
       !$omp parallel default(shared) &
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
@@ -733,12 +733,12 @@ contains
       !  and ``Toroidal(n_r,l,m)``
 
       !-- Input variables:
-      real(cp), intent(inout) :: vt(:,:)
-      real(cp), intent(inout) :: vp(:,:)
+      real(cp), intent(inout) :: vt(*)
+      real(cp), intent(inout) :: vp(*)
       integer,  intent(in) :: lcut
 
       !-- Output variables:
-      complex(cp), intent(out) :: f1LM(lmP_max),f2LM(lmP_max)
+      complex(cp), intent(out) :: f1LM(*),f2LM(*)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -764,12 +764,12 @@ contains
          call fft_many(vt,f2TM)
          call fft_many(vp,f1TM)
       else
-         f1TM(:,1) = cmplx(vp(1:n_theta_max,1), 0.0_cp, kind=cp)
-         f2TM(:,1) = cmplx(vt(1:n_theta_max,1), 0.0_cp, kind=cp)
+         f1TM(:,1) = cmplx(vp(1:n_theta_max), 0.0_cp, kind=cp)
+         f2TM(:,1) = cmplx(vt(1:n_theta_max), 0.0_cp, kind=cp)
       end if
 
-      f1LM(:)=zero
-      f2LM(:)=zero
+      f1LM(1:lmP_max)=zero
+      f2LM(1:lmP_max)=zero
 
       !$omp parallel default(shared) &
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &

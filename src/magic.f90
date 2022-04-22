@@ -109,6 +109,7 @@ program magic
    use RMS, only: initialize_RMS, finalize_RMS
    use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
    use radial_data, only: initialize_radial_data, finalize_radial_data
+   use grid_blocking, only: initialize_grid_blocking, finalize_grid_blocking
    use radialLoop, only: initialize_radialLoop, finalize_radialLoop
    use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop, test_LMLoop
    use preCalculations
@@ -308,9 +309,10 @@ program magic
 
    !-- Blocking/radial/horizontal
    call initialize_blocking()
-   call initialize_sht()
-   local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
+   call initialize_sht(l_batched_shts)
+   local_bytes_used=bytes_allocated
+   call initialize_grid_blocking(l_batched_shts)
    call initialize_radial_functions()
    call initialize_horizontal_data()
    local_bytes_used=bytes_allocated-local_bytes_used
@@ -508,6 +510,7 @@ program magic
 
    call finalize_horizontal_data()
    call finalize_radial_functions()
+   call finalize_grid_blocking()
    call finalize_blocking()
    call finalize_radial_data()
 

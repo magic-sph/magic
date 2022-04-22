@@ -167,7 +167,7 @@ contains
       !
 
       !-- Input variable
-      real(cp), intent(in) :: g(:,:)
+      real(cp), intent(in) :: g(*)
 
       !-- Output variable
       complex(cp), intent(out) :: f(nlat_padded,n_phi_max/2+1)
@@ -184,7 +184,8 @@ contains
       !-- Copy in a larger array with the two trailing zeroes
       do np=1,n_phi_max
          do nt=1,nThLoc
-            tmp(nt,np) =g(nt+nThStart-1,np)
+            !tmp(nt,np) =g(nt+nThStart-1,np)
+            tmp(nt,np) =g((nt+nThStart-1)+(np-1)*nlat_padded)
          end do
       end do
       do np=n_phi_max+1,n_phi_max+2
@@ -214,7 +215,7 @@ contains
       !
 
       !-- Input variable
-      complex(cp), intent(in) :: f(:,:)
+      complex(cp), intent(in) :: f(*)
 
       !-- Output variable
       real(cp), intent(out) :: g(nlat_padded,n_phi_max)
@@ -231,8 +232,10 @@ contains
       !-- Complex to real
       do np=1,n_phi_max/2+1
          do nt=1,nThLoc
-            tmp(nt,2*np-1)=real (f(nt+nThStart-1,np))
-            tmp(nt,2*np)  =aimag(f(nt+nThStart-1,np))
+            !tmp(nt,2*np-1)=real (f(nt+nThStart-1,np))
+            !tmp(nt,2*np)  =aimag(f(nt+nThStart-1,np))
+            tmp(nt,2*np-1)=real (f((nt+nThStart-1)+(np-1)*nlat_padded))
+            tmp(nt,2*np)  =aimag(f((nt+nThStart-1)+(np-1)*nlat_padded))
          end do
       end do
 

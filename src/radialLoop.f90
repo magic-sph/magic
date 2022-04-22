@@ -1,12 +1,14 @@
 module radialLoop
 
    use precision_mod
+   use logic, only: l_batched_shts
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use radial_data,only: nRstart, nRstop, nRstartMag, nRstopMag
    use time_schemes, only: type_tscheme
    use rIteration, only: rIter_t
    use rIter_mod, only: rIter_single_t
+   use rIter_batched_mod, only: rIter_batched_t
 
    implicit none
 
@@ -23,7 +25,11 @@ contains
       integer(lip) :: local_bytes_used
 
       local_bytes_used = bytes_allocated
-      allocate( rIter_single_t :: rIter )
+      if ( .not. l_batched_shts ) then
+         allocate( rIter_single_t :: rIter )
+      else
+         allocate( rIter_batched_t :: rIter )
+      end if
       call rIter%initialize()
       local_bytes_used = bytes_allocated-local_bytes_used
 

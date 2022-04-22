@@ -30,7 +30,7 @@ module init_fields
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half, sq4pi
    use useful, only: abortRun
-   use sht, only: scal_to_SH
+   use sht, only: scal_to_SH, sht_lP_single
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -186,7 +186,7 @@ contains
                   end if
                end do
             end do
-            call scal_to_SH(ome, omeLM, l_max)
+            call scal_to_SH(sht_lP_single, ome, omeLM, l_max)
 
             !------- ome now in spherical harmonic space,
             !        apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -234,7 +234,7 @@ contains
                   ome(nTheta,nPhi)=amp_v1/sqrt(one+ss**4)
                end do
             end do
-            call scal_to_SH(ome, omeLM, l_max)
+            call scal_to_SH(sht_lP_single, ome, omeLM, l_max)
 
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -611,7 +611,7 @@ contains
                end if
             end do
          end do
-         call scal_to_SH(sCMB, sLM, l_max)
+         call scal_to_SH(sht_lP_single, sCMB, sLM, l_max)
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
@@ -675,7 +675,7 @@ contains
          end do
       end do
 
-      call scal_to_SH(sCMB, sLM, l_max)
+      call scal_to_SH(sht_lP_single, sCMB, sLM, l_max)
 
       !--- Finally store the boundary condition and care for
       !    the fact that peakS provides the relative amplitudes
@@ -888,7 +888,7 @@ contains
                end if
             end do
          end do
-         call scal_to_SH(xiCMB, xiLM, l_max)
+         call scal_to_SH(sht_lP_single, xiCMB, xiLM, l_max)
 
       !--- xiFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
@@ -951,7 +951,7 @@ contains
          end do
       end do
 
-      call scal_to_SH(xiCMB, xiLM, l_max)
+      call scal_to_SH(sht_lP_single, xiCMB, xiLM, l_max)
 
       !--- Finally store the boundary condition and care for
       !    the fact that peakS provides the relative amplitudes

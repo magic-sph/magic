@@ -3,15 +3,16 @@ module nonlinear_bcs
    use iso_fortran_env, only: output_unit
    use precision_mod
    use truncation, only: lmP_max, n_phi_max, l_axi, l_max, n_theta_max, nlat_padded
+   use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: r_cmb, r_icb, rho0
+   use radial_functions, only: r_cmb, r_icb, rho0, orho1, or2
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta_E2, &
        &                      dLh, sn2, cosTheta
    use constants, only: two
    use useful, only: abortRun
-   use sht, only: scal_to_SH
+   use sht, only: scal_to_SH, sht_lP_single
 
    implicit none
 
@@ -21,7 +22,7 @@ module nonlinear_bcs
 
 contains
 
-   subroutine get_br_v_bcs(br,vt,vp,omega,O_r_E_2,O_rho,br_vt_lm,br_vp_lm)
+   subroutine get_br_v_bcs(nR,br,vt,vp,omega,br_vt_lm,br_vp_lm)
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
       !  of the magnetic boundary condition for a conducting mantle or
@@ -40,12 +41,11 @@ contains
       !
 
       !-- input:
-      real(cp), intent(in) :: br(:,:)      ! :math:`r^2 B_r`
-      real(cp), intent(in) :: vt(:,:)      ! :math:`r \sin\theta u_\theta`
-      real(cp), intent(in) :: vp(:,:)      ! :math:`r \sin\theta u_\phi`
-      real(cp), intent(in) :: omega        ! rotation rate of mantle or IC
-      real(cp), intent(in) :: O_r_E_2      ! :math:`1/r^2`
-      real(cp), intent(in) :: O_rho        ! :math:`1/\tilde{\rho}` (anelastic)
+      real(cp), intent(in) :: br(*)      ! :math:`r^2 B_r`
+      real(cp), intent(in) :: vt(*)      ! :math:`r \sin\theta u_\theta`
+      real(cp), intent(in) :: vp(*)      ! :math:`r \sin\theta u_\phi`
+      real(cp), intent(in) :: omega      ! rotation rate of mantle or IC
+      integer,  intent(in) :: nR
 
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
@@ -56,22 +56,24 @@ contains
       !-- Local variables:
       integer :: n_theta     ! number of theta position
       integer :: n_phi       ! number of longitude
+      integer :: nelem
       real(cp) :: br_vt(nlat_padded,n_phi_max), br_vp(nlat_padded,n_phi_max)
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
 
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta,n_phi,fac)
+      !$omp& private(n_theta,n_phi,fac,nelem)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max
-            fac=O_sin_theta_E2(n_theta)*O_r_E_2*O_rho
-            br_vt(n_theta,n_phi)= fac*br(n_theta,n_phi)*vt(n_theta,n_phi)
-            br_vp(n_theta,n_phi)= br(n_theta,n_phi)* ( fac*vp(n_theta,n_phi)-omega )
+            nelem = radlatlon2spat(n_theta,n_phi,nR)
+            fac=O_sin_theta_E2(n_theta)*or2(nR)*orho1(nR)
+            br_vt(n_theta,n_phi)= fac*br(nelem)*vt(nelem)
+            br_vp(n_theta,n_phi)= br(nelem)* ( fac*vp(nelem)-omega )
          end do
       end do
       !$omp end parallel do
 
-      call scal_to_SH(br_vt, br_vt_lm, l_max)
-      call scal_to_SH(br_vp, br_vp_lm, l_max)
+      call scal_to_SH(sht_lP_single, br_vt, br_vt_lm, l_max)
+      call scal_to_SH(sht_lP_single, br_vp, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------
@@ -174,15 +176,14 @@ contains
       real(cp), intent(in) :: omega         ! boundary rotation rate
 
       !-- output:
-      real(cp), intent(out) :: vrr(:,:), vpr(:,:), vtr(:,:)
-      real(cp), intent(out) :: cvrr(:,:), dvrdtr(:,:), dvrdpr(:,:)
-      real(cp), intent(out) :: dvtdpr(:,:), dvpdpr(:,:)
+      real(cp), intent(out) :: vrr(*), vpr(*), vtr(*)
+      real(cp), intent(out) :: cvrr(*), dvrdtr(*), dvrdpr(*)
+      real(cp), intent(out) :: dvtdpr(*), dvpdpr(*)
 
       !-- Local variables:
       real(cp) :: r2
       integer :: nTheta,nThetaNHS
-      integer :: nPhi
-
+      integer :: nPhi, nelem
 
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
@@ -195,19 +196,20 @@ contains
          return
       end if
 
-      !$omp parallel do default(shared) private(nPhi,nTheta,nThetaNHS)
+      !$omp parallel do default(shared) private(nPhi,nTheta,nThetaNHS,nelem)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
             nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
-            vrr(nTheta,nPhi)=0.0_cp
-            vtr(nTheta,nPhi)=0.0_cp
-            vpr(nTheta,nPhi)=r2*rho0(nR)*sn2(nThetaNHS)*omega
+            vrr(nelem)=0.0_cp
+            vtr(nelem)=0.0_cp
+            vpr(nelem)=r2*rho0(nR)*sn2(nThetaNHS)*omega
             if ( lDeriv ) then
-               cvrr(nTheta,nPhi)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
-               dvrdtr(nTheta,nPhi)=0.0_cp
-               dvrdpr(nTheta,nPhi)=0.0_cp
-               dvtdpr(nTheta,nPhi)=0.0_cp
-               dvpdpr(nTheta,nPhi)=0.0_cp
+               cvrr(nelem)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
+               dvrdtr(nelem)=0.0_cp
+               dvrdpr(nelem)=0.0_cp
+               dvtdpr(nelem)=0.0_cp
+               dvpdpr(nelem)=0.0_cp
             end if
          end do
       end do

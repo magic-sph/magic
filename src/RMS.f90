@@ -15,6 +15,8 @@ module RMS
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
        &                 lm_max_dtB, fd_ratio, fd_stretch, lmP_max, nlat_padded
+   use grid_blocking, only: n_phys_space, spat2lat, spat2rad, spat2lon, &
+       &                    n_spec_space_lmP
    use physical_parameters, only: ra, ek, pr, prmag, radratio, CorFac, n_r_LCR, &
        &                          BuoFac, ChemFac, ThExpNb, ViscHeatFac
    use radial_data, only: nRstop, nRstart, radial_balance, nRstartMag, nRstopMag
@@ -24,7 +26,7 @@ module RMS
    use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF,    &
        &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS,    &
        &            l_parallel_solve, l_mag_par_solve, l_adv_curl, l_double_curl,&
-       &            l_anelastic_liquid, l_mag_nl, l_non_rot
+       &            l_anelastic_liquid, l_mag_nl, l_non_rot, l_batched_shts
    use num_param, only: tScale, alph1, alph2
    use horizontal_data, only: phi, theta_ord, cosTheta, sinTheta, O_sin_theta_E2,  &
        &                      cosn_theta_E2, O_sin_theta, dTheta2A, dPhi, dTheta2S,&
@@ -40,7 +42,8 @@ module RMS
    use useful, only: abortRun
    use mean_sd, only: mean_sd_type, mean_sd_2D_type
    use time_schemes, only: type_tscheme
-   use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat
+   use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat, &
+       &          sht_lP
 
    implicit none
 
@@ -66,15 +69,15 @@ module RMS
    real(cp), allocatable :: CLF2hInt(:,:), PLF2hInt(:,:), Iner2hInt(:,:)
 
    !-- Arrays on the physical grid
-   real(cp), allocatable :: Advt2(:,:), Advp2(:,:), dpdtc(:,:), dpdpc(:,:)
-   real(cp), allocatable :: CFt2(:,:), CFp2(:,:), LFt2(:,:), LFp2(:,:)
-   real(cp), allocatable :: dpkindrc(:,:), dtVr(:,:), dtVt(:,:), dtVp(:,:)
+   real(cp), allocatable :: Advt2(:), Advp2(:), dpdtc(:), dpdpc(:)
+   real(cp), allocatable :: CFt2(:), CFp2(:), LFt2(:), LFp2(:)
+   real(cp), allocatable :: dpkindrc(:), dtVr(:), dtVt(:), dtVp(:)
    real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
 
-   complex(cp), allocatable :: dtVrLM(:), dtVtLM(:), dtVpLM(:)
-   complex(cp), allocatable :: dpkindrLM(:), Advt2LM(:), Advp2LM(:)
-   complex(cp), allocatable :: PFt2LM(:), PFp2LM(:), LFt2LM(:), LFp2LM(:)
-   complex(cp), allocatable :: CFt2LM(:), CFp2LM(:), LFrLM(:)
+   complex(cp), public, allocatable :: dtVrLM(:), dtVtLM(:), dtVpLM(:)
+   complex(cp), public, allocatable :: dpkindrLM(:), Advt2LM(:), Advp2LM(:)
+   complex(cp), public, allocatable :: PFt2LM(:), PFp2LM(:), LFt2LM(:), LFp2LM(:)
+   complex(cp), public, allocatable :: CFt2LM(:), CFp2LM(:), LFrLM(:)
 
    !-- Time-averaged spectra
    type(mean_sd_type) :: InerRmsL, CorRmsL, LFRmsL, AdvRmsL
@@ -145,13 +148,13 @@ contains
       end if
 
       !-- RMS Calculations
-      allocate( Advt2(nlat_padded,n_phi_max), Advp2(nlat_padded,n_phi_max) )
-      allocate( dtVr(nlat_padded,n_phi_max), dtVt(nlat_padded,n_phi_max) )
-      allocate( dtVp(nlat_padded,n_phi_max) )
-      allocate( LFt2(nlat_padded,n_phi_max), LFp2(nlat_padded,n_phi_max) )
-      allocate( CFt2(nlat_padded,n_phi_max), CFp2(nlat_padded,n_phi_max) )
-      allocate( dpdtc(nlat_padded,n_phi_max), dpdpc(nlat_padded,n_phi_max) )
-      bytes_allocated=bytes_allocated + 11*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+      allocate( Advt2(n_phys_space), Advp2(n_phys_space) )
+      allocate( dtVr(n_phys_space), dtVt(n_phys_space) )
+      allocate( dtVp(n_phys_space) )
+      allocate( LFt2(n_phys_space), LFp2(n_phys_space) )
+      allocate( CFt2(n_phys_space), CFp2(n_phys_space) )
+      allocate( dpdtc(n_phys_space), dpdpc(n_phys_space) )
+      bytes_allocated=bytes_allocated + 11*n_phys_space*SIZEOF_DEF_REAL
 
       allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
       allocate( vp_old(nlat_padded,n_phi_max,nRstart:nRstop) )
@@ -159,25 +162,28 @@ contains
       bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*(nRstop-nRstart+1)*&
       &               SIZEOF_DEF_REAL
 
-      dtVr(:,:)=0.0_cp
-      dtVt(:,:)=0.0_cp
-      dtVp(:,:)=0.0_cp
+      dtVr(:)=0.0_cp
+      dtVt(:)=0.0_cp
+      dtVp(:)=0.0_cp
       vt_old(:,:,:) =0.0_cp
       vr_old(:,:,:) =0.0_cp
       vp_old(:,:,:) =0.0_cp
 
       if ( l_adv_curl ) then
-         allocate ( dpkindrc(nlat_padded,n_phi_max) )
-         bytes_allocated=bytes_allocated + n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+         allocate ( dpkindrc(n_phys_space) )
+         bytes_allocated=bytes_allocated + n_phys_space*SIZEOF_DEF_REAL
       end if
 
-      allocate( dtVrLM(lmP_max), dtVtLM(lmP_max), dtVpLM(lmP_max), LFrLM(lmP_max) )
-      allocate( Advt2LM(lmP_max), Advp2LM(lmP_max), LFt2LM(lmP_max), LFp2LM(lmP_max) )
-      allocate( CFt2LM(lmP_max), CFp2LM(lmP_max), PFt2LM(lmP_max), PFp2LM(lmP_max) )
-      bytes_allocated = bytes_allocated + 12*lmP_max*SIZEOF_DEF_COMPLEX
+      allocate( dtVrLM(n_spec_space_lmP), dtVtLM(n_spec_space_lmP) )
+      allocate( dtVpLM(n_spec_space_lmP), LFrLM(n_spec_space_lmP) )
+      allocate( Advt2LM(n_spec_space_lmP), Advp2LM(n_spec_space_lmP) )
+      allocate( LFt2LM(n_spec_space_lmP), LFp2LM(n_spec_space_lmP) )
+      allocate( CFt2LM(n_spec_space_lmP), CFp2LM(n_spec_space_lmP) )
+      allocate( PFt2LM(n_spec_space_lmP), PFp2LM(n_spec_space_lmP) )
+      bytes_allocated = bytes_allocated + 12*n_spec_space_lmP*SIZEOF_DEF_COMPLEX
       if ( l_adv_curl ) then
-         allocate( dpkindrLM(lmP_max) )
-         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
+         allocate( dpkindrLM(n_spec_space_lmP) )
+         bytes_allocated = bytes_allocated + n_spec_space_lmP*SIZEOF_DEF_COMPLEX
       end if
 
       call InerRmsL%initialize(0,l_max)
@@ -469,7 +475,7 @@ contains
 
    end subroutine init_rNB
 !----------------------------------------------------------------------------
-   subroutine get_nl_RMS(nR,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
+   subroutine get_nl_RMS(nR0,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
               &          cvr,Advt,Advp,LFt,LFp,tscheme,lRmsCalc)
       !
       ! This subroutine computes the r.m.s. force balance terms which need to
@@ -477,87 +483,90 @@ contains
       !
 
       !-- Input variables
-      real(cp),            intent(in) :: vr(:,:), vt(:,:), vp(:,:), cvr(:,:)
-      real(cp),            intent(in) :: dvrdr(:,:), dvrdt(:,:), dvrdp(:,:)
-      real(cp),            intent(in) :: dvtdp(:,:), dvpdp(:,:)
-      real(cp),            intent(in) :: dvtdr(:,:), dvpdr(:,:)
-      real(cp),            intent(in) :: Advt(:,:),Advp(:,:),LFt(:,:),LFp(:,:)
+      real(cp),            intent(in) :: vr(*), vt(*), vp(*), cvr(*)
+      real(cp),            intent(in) :: dvrdr(*), dvrdt(*), dvrdp(*)
+      real(cp),            intent(in) :: dvtdp(*), dvpdp(*)
+      real(cp),            intent(in) :: dvtdr(*), dvpdr(*)
+      real(cp),            intent(in) :: Advt(*),Advp(*),LFt(*),LFp(*)
       class(type_tscheme), intent(in) :: tscheme ! time scheme
-      integer,             intent(in) :: nR      ! radial level
+      integer,             intent(in) :: nR0      ! radial level
       logical,             intent(in) :: lRmsCalc
 
       !-- Local variables
       real(cp) ::  O_dt
-      integer :: nPhi, nPhStart, nPhStop
+      integer :: nPhi, nT, nelem,nR
 
-      !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
-      nPhStart=1; nPhStop=n_phi_max
-      call get_openmp_blocks(nPhStart,nPhStop)
-
-      do nPhi=nPhStart,nPhStop
+      !$omp parallel default(shared) private(nT,nPhi,nR)
+      nR=nR0
+      !$omp do
+      do nelem=1,n_phys_space
+         nT = spat2lat(nelem)
+         if ( l_batched_shts ) nR = spat2rad(nelem)
+         nPhi = spat2lon(nelem)
 
          if ( lRmsCalc ) then
-            dpdtc(:,nPhi)=dpdtc(:,nPhi)*or1(nR)
-            dpdpc(:,nPhi)=dpdpc(:,nPhi)*or1(nR)
-            CFt2(:,nPhi)=-two*CorFac*cosTheta(:)*vp(:,nPhi)*or1(nR)
-            CFp2(:,nPhi)= two*CorFac*sinTheta(:)* (or1(nR)*cosTheta(:)*&
-            &                  O_sin_theta(:)*vt(:,nPhi)+or2(nR)*sinTheta(:)*vr(:,nPhi) )
+            dpdtc(nelem)=dpdtc(nelem)*or1(nR)
+            dpdpc(nelem)=dpdpc(nelem)*or1(nR)
+            CFt2(nelem)=-two*CorFac*cosTheta(nT)*vp(nelem)*or1(nR)
+            CFp2(nelem)= two*CorFac*sinTheta(nT)* (or1(nR)*cosTheta(nT)*&
+            &            O_sin_theta(nT)*vt(nelem)+or2(nR)*sinTheta(nT)*vr(nelem) )
             if ( l_conv_nl ) then
-               Advt2(:,nPhi)=r(nR)*Advt(:,nPhi)
-               Advp2(:,nPhi)=r(nR)*Advp(:,nPhi)
+               Advt2(nelem)=r(nR)*Advt(nelem)
+               Advp2(nelem)=r(nR)*Advp(nelem)
             end if
             if ( l_mag_LF .and. nR > n_r_LCR ) then
-               LFt2(:,nPhi)=r(nR)*LFt(:,nPhi)
-               LFp2(:,nPhi)=r(nR)*LFp(:,nPhi)
+               LFt2(nelem)=r(nR)*LFt(nelem)
+               LFp2(nelem)=r(nR)*LFp(nelem)
             end if
 
             if ( l_adv_curl ) then
-               dpdtc(:,nPhi)=dpdtc(:,nPhi)-or3(nR)*( or2(nR)*  &
-               &             vr(:,nPhi)*dvrdt(:,nPhi) -        &
-               &             vt(:,nPhi)*(dvrdr(:,nPhi)+        &
-               &             dvpdp(:,nPhi)+cosn_theta_E2(:) *  &
-               &             vt(:,nPhi))+ vp(:,nPhi)*(         &
-               &             cvr(:,nPhi)+dvtdp(:,nPhi)-        &
-               &             cosn_theta_E2(:)*vp(:,nPhi)) )
-               dpdpc(:,nPhi)=dpdpc(:,nPhi)- or3(nR)*( or2(nR)*  &
-               &             vr(:,nPhi)*dvrdp(:,nPhi) +         &
-               &             vt(:,nPhi)*dvtdp(:,nPhi) +         &
-               &             vp(:,nPhi)*dvpdp(:,nPhi) )
+               dpdtc(nelem)=dpdtc(nelem)-or3(nR)*( or2(nR)*    &
+               &             vr(nelem)*dvrdt(nelem) -          &
+               &             vt(nelem)*(dvrdr(nelem)+          &
+               &             dvpdp(nelem)+cosn_theta_E2(nT) *  &
+               &             vt(nelem))+ vp(nelem)*(           &
+               &             cvr(nelem)+dvtdp(nelem)-          &
+               &             cosn_theta_E2(nT)*vp(nelem)) )
+               dpdpc(nelem)=dpdpc(nelem)- or3(nR)*( or2(nR)*  &
+               &             vr(nelem)*dvrdp(nelem) +         &
+               &             vt(nelem)*dvtdp(nelem) +         &
+               &             vp(nelem)*dvpdp(nelem) )
                if ( l_conv_nl ) then
-                  Advt2(:,nPhi)=Advt2(:,nPhi)-or3(nR)*( or2(nR)*  &
-                  &             vr(:,nPhi)*dvrdt(:,nPhi) -        &
-                  &             vt(:,nPhi)*(dvrdr(:,nPhi)+        &
-                  &             dvpdp(:,nPhi)+cosn_theta_E2(:) *  &
-                  &             vt(:,nPhi))+vp(:,nPhi)*(          &
-                  &             cvr(:,nPhi)+dvtdp(:,nPhi)-        &
-                  &             cosn_theta_E2(:)*vp(:,nPhi)) )
-                  Advp2(:,nPhi)=Advp2(:,nPhi)-or3(nR)*( or2(nR)* &
-                  &             vr(:,nPhi)*dvrdp(:,nPhi) +       &
-                  &             vt(:,nPhi)*dvtdp(:,nPhi) +       &
-                  &             vp(:,nPhi)*dvpdp(:,nPhi) )
+                  Advt2(nelem)=Advt2(nelem)-or3(nR)*( or2(nR)*   &
+                  &             vr(nelem)*dvrdt(nelem) -         &
+                  &             vt(nelem)*(dvrdr(nelem)+         &
+                  &             dvpdp(nelem)+cosn_theta_E2(nT) * &
+                  &             vt(nelem))+vp(nelem)*(           &
+                  &             cvr(nelem)+dvtdp(nelem)-         &
+                  &             cosn_theta_E2(nT)*vp(nelem)) )
+                  Advp2(nelem)=Advp2(nelem)-or3(nR)*( or2(nR)* &
+                  &             vr(nelem)*dvrdp(nelem) +       &
+                  &             vt(nelem)*dvtdp(nelem) +       &
+                  &             vp(nelem)*dvpdp(nelem) )
                end if
 
                !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
-               dpkindrc(:,nPhi)=or4(nR)*vr(:,nPhi)*(dvrdr(:,nPhi)-           &
-               &                two*or1(nR)*vr(:,nPhi))+or2(nR)*             &
-               &                O_sin_theta_E2(:)*(         vt(:,nPhi)*(     &
-               &                      dvtdr(:,nPhi)-or1(nR)*vt(:,nPhi) ) +   &
-               &                vp(:,nPhi)*(dvpdr(:,nPhi)-or1(nR)*vp(:,nPhi) ) )
+               dpkindrc(nelem)=or4(nR)*vr(nelem)*(dvrdr(nelem)-             &
+               &                two*or1(nR)*vr(nelem))+or2(nR)*             &
+               &                O_sin_theta_E2(nT)*(         vt(nelem)*(    &
+               &                      dvtdr(nelem)-or1(nR)*vt(nelem) ) +    &
+               &                vp(nelem)*(dvpdr(nelem)-or1(nR)*vp(nelem) ) )
             end if
          end if
 
          if ( tscheme%istage == 1 ) then
             O_dt = 1.0_cp/tscheme%dt(1)
-            dtVr(:,nPhi)=O_dt*or2(nR)*(vr(:,nPhi)-vr_old(:,nPhi,nR))
-            dtVt(:,nPhi)=O_dt*or1(nR)*(vt(:,nPhi)-vt_old(:,nPhi,nR))
-            dtVp(:,nPhi)=O_dt*or1(nR)*(vp(:,nPhi)-vp_old(:,nPhi,nR))
+            dtVr(nelem)=O_dt*or2(nR)*(vr(nelem)-vr_old(nT,nPhi,nR))
+            dtVt(nelem)=O_dt*or1(nR)*(vt(nelem)-vt_old(nT,nPhi,nR))
+            dtVp(nelem)=O_dt*or1(nR)*(vp(nelem)-vp_old(nT,nPhi,nR))
 
-            vr_old(:,nPhi,nR)=vr(:,nPhi)
-            vt_old(:,nPhi,nR)=vt(:,nPhi)
-            vp_old(:,nPhi,nR)=vp(:,nPhi)
+            vr_old(nT,nPhi,nR)=vr(nelem)
+            vt_old(nT,nPhi,nR)=vt(nelem)
+            vp_old(nT,nPhi,nR)=vp(nelem)
          end if
 
       end do
+      !$omp end do
       !$omp end parallel
 
    end subroutine get_nl_RMS
@@ -570,9 +579,9 @@ contains
 
       !-- Input variables
       integer,     intent(in) :: nR ! radial level
-      complex(cp), intent(inout) :: p_Rloc(lm_max,nRstart:nRstop) ! pressure in LM space
+      complex(cp), intent(inout) :: p_Rloc(*) ! pressure in LM space
 
-      call scal_to_grad_spat(p_Rloc(:,nR), dpdtc, dpdpc, l_R(nR))
+      call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
 
    end subroutine transform_to_grid_RMS
 !----------------------------------------------------------------------------
@@ -584,7 +593,7 @@ contains
 
       !-- Input variables
       integer,  intent(in) :: nR ! radial level
-      real(cp), intent(inout) :: LFr(:,:) ! radial component of the Lorentz force
+      real(cp), intent(inout) :: LFr(*) ! radial component of the Lorentz force
 
       Advt2LM(:)=zero
       Advp2LM(:)=zero
@@ -600,20 +609,22 @@ contains
       dtVrLM(:) =zero
       if ( l_adv_curl ) dpkindrLM(:)=zero
 
-      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(LFr, LFrLM, l_R(nR))
+      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP, LFr, LFrLM, l_R(nR))
       call spat_to_sphertor(dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
       call spat_to_sphertor(CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
       call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR))
       if ( l_conv_nl ) call spat_to_sphertor(Advt2, Advp2, Advt2LM, Advp2LM, l_R(nR))
       !-- Kinetic pressure : 1/2 d u^2 / dr
-      if ( l_adv_curl ) call scal_to_SH(dpkindrc, dpkindrLM, l_R(nR))
+      if ( l_adv_curl ) call scal_to_SH(sht_lP, dpkindrc, dpkindrLM, l_R(nR))
       if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(LFt2, LFp2,  &
                                             &                LFt2LM, LFp2LM, l_R(nR))
 
    end subroutine transform_to_lm_RMS
 !----------------------------------------------------------------------------
-   subroutine compute_lm_forces(nR, w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, s_Rloc, &
-              &                 xi_Rloc, p_Rloc, dp_Rloc, AdvrLM)
+   subroutine compute_lm_forces(nR, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, &
+              &                 Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM, &
+              &                 CFt2LM, CFp2LM, w_Rloc, dw_Rloc, ddw_Rloc,      &
+              &                 z_Rloc, s_Rloc, xi_Rloc, p_Rloc, dp_Rloc, AdvrLM)
       !
       ! This subroutine finalizes the computation of the r.m.s. spectra once
       ! the quantities are back in spectral space.
@@ -621,6 +632,10 @@ contains
 
       !-- Input variables
       integer,     intent(in) :: nR
+      complex(cp), intent(in) :: dtVrLM(:), dtVtLM(:), dtVpLM(:)
+      complex(cp), intent(in) :: dpkindrLM(:), Advt2LM(:), Advp2LM(:)
+      complex(cp), intent(in) :: PFt2LM(:), PFp2LM(:), LFt2LM(:), LFp2LM(:)
+      complex(cp), intent(in) :: CFt2LM(:), CFp2LM(:), LFrLM(:)
       complex(cp), intent(in) :: w_Rloc(:), dw_Rloc(:), z_Rloc(:)
       complex(cp), intent(in) :: s_Rloc(:), p_Rloc(:), dp_Rloc(:)
       complex(cp), intent(in) :: xi_Rloc(:), ddw_Rloc(:)

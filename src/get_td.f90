@@ -9,6 +9,7 @@ module nonlinear_lm_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
+   use grid_blocking, only: n_spec_space_lmP
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
@@ -30,7 +31,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
-      complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
+      complex(cp), allocatable :: VXirLM(:),  VXitLM(:), VXipLM(:)
       complex(cp), allocatable :: heatTermsLM(:), dphidtLM(:)
    contains
       procedure :: initialize
@@ -41,36 +42,49 @@ module nonlinear_lm_mod
 
 contains
 
-   subroutine initialize(this,lmP_max)
+   subroutine initialize(this,sizeLM)
       !
       ! Memory allocation of ``get_td`` arrays
       !
 
       class(nonlinear_lm_t) :: this
-      integer, intent(in) :: lmP_max
+      integer, intent(in) :: sizeLM
 
-      allocate( this%AdvrLM(lmP_max), this%AdvtLM(lmP_max), this%AdvpLM(lmP_max))
-      allocate( this%VxBrLM(lmP_max), this%VxBtLM(lmP_max), this%VxBpLM(lmP_max))
-      bytes_allocated = bytes_allocated + 6*lmP_max*SIZEOF_DEF_COMPLEX
+      allocate( this%AdvrLM(sizeLM), this%AdvtLM(sizeLM), this%AdvpLM(sizeLM))
+      bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+      if ( l_mag ) then
+         allocate( this%VxBrLM(sizeLM), this%VxBtLM(sizeLM), this%VxBpLM(sizeLM))
+         bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+      else
+         allocate( this%VxBrLM(1), this%VxBtLM(1), this%VxBpLM(1))
+      end if
 
       if ( l_anel) then
-         allocate( this%heatTermsLM(lmP_max) )
-         bytes_allocated = bytes_allocated+lmP_max*SIZEOF_DEF_COMPLEX
+         allocate( this%heatTermsLM(sizeLM) )
+         bytes_allocated = bytes_allocated+sizeLM*SIZEOF_DEF_COMPLEX
+      else
+         allocate( this%heatTermsLM(1) )
       end if
 
       if ( l_heat ) then
-         allocate(this%VSrLM(lmP_max),this%VStLM(lmP_max),this%VSpLM(lmP_max))
-         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         allocate(this%VSrLM(sizeLM),this%VStLM(sizeLM),this%VSpLM(sizeLM))
+         bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+      else
+         allocate( this%VSrLM(1), this%VStLM(1),this%VSpLM(1) )
       end if
 
       if ( l_chemical_conv ) then
-         allocate(this%VXirLM(lmP_max),this%VXitLM(lmP_max),this%VXipLM(lmP_max))
-         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         allocate(this%VXirLM(sizeLM),this%VXitLM(sizeLM),this%VXipLM(sizeLM))
+         bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+      else
+         allocate(this%VXirLM(1),this%VXitLM(1),this%VXipLM(1))
       end if
 
       if ( l_phase_field ) then
-         allocate(this%dphidtLM(lmP_max))
-         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
+         allocate(this%dphidtLM(sizeLM))
+         bytes_allocated = bytes_allocated + sizeLM*SIZEOF_DEF_COMPLEX
+      else
+         allocate(this%dphidtLM(1))
       end if
 
    end subroutine initialize
@@ -84,10 +98,8 @@ contains
 
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
-      if ( l_anel ) deallocate( this%heatTermsLM )
-      if ( l_chemical_conv ) deallocate( this%VXirLM, this%VXitLM, this%VXipLM )
-      if ( l_heat ) deallocate( this%VSrLM, this%VStLM, this%VSpLM )
-      if ( l_phase_field ) deallocate( this%dphidtLM )
+      deallocate( this%heatTermsLM, this%VXirLM, this%VXitLM, this%VXipLM )
+      deallocate( this%VSrLM, this%VStLM, this%VSpLM, this%dphidtLM )
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -102,7 +114,7 @@ contains
       integer :: lm
 
       !$omp parallel do private(lm)
-      do lm=1,lmP_max
+      do lm=1,n_spec_space_lmP
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
          this%AdvpLM(lm)=zero
@@ -125,8 +137,10 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
-              &      dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,dbdt,djdt)
+   subroutine get_td(this,nR,nBc,lPressNext,AdvrLM,AdvtLM,AdvpLM,VSrLM,VStLM,    &
+              &      VXirLM,VXitLM,VxBrLM,VxBtLM,VxBpLM,heatTermsLM,             &
+              &      dphidtLM,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,     &
+              &      dsdt,dxidt,dphidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
       !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
@@ -136,6 +150,12 @@ contains
 
       !-- Input of variables:
       class(nonlinear_lm_t) :: this
+
+      complex(cp), intent(in) :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
+      complex(cp), intent(in) :: VSrLM(:), VStLM(:)
+      complex(cp), intent(in) :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
+      complex(cp), intent(in) :: VXirLM(:),  VXitLM(:)
+      complex(cp), intent(in) :: heatTermsLM(:), dphidtLM(:)
 
       integer, intent(in) :: nR  ! Radial level
       integer, intent(in) :: nBc ! signifies boundary conditions
@@ -172,8 +192,8 @@ contains
             lmP=1
             lmPA=lmP2lmPA(lmP)
             if ( l_conv_nl ) then
-               AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
-               AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmPA)
+               AdvPol_loc=or2(nR)*AdvrLM(lmP)
+               AdvTor_loc=zero!-dTheta1A(lm)*AdvpLM(lmPA)
             else
                AdvPol_loc=zero
                AdvTor_loc=zero
@@ -241,8 +261,8 @@ contains
                   end if
 
                   if ( l_conv_nl ) then
-                     AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lmP)
-                     dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lmP)
+                     AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*AdvrLM(lmP)
+                     dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*AdvtLM(lmP)
                   else
                      AdvPol_loc =zero
                      dVxVhLM(lm)=zero
@@ -268,7 +288,7 @@ contains
                   end if
 
                   if ( l_conv_nl ) then
-                     AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
+                     AdvPol_loc=or2(nR)*AdvrLM(lmP)
                   else
                      AdvPol_loc=zero
                   endif
@@ -298,7 +318,7 @@ contains
                end if
 
                if ( l_conv_nl ) then
-                  AdvTor_loc=dLh(lm)*this%AdvpLM(lmP)
+                  AdvTor_loc=dLh(lm)*AdvpLM(lmP)
                else
                   AdvTor_loc=zero
                end if
@@ -348,7 +368,7 @@ contains
                      CorPol_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     AdvPol_loc=-dLh(lm)*this%AdvtLM(lmP)
+                     AdvPol_loc=-dLh(lm)*AdvtLM(lmP)
                   else
                      AdvPol_loc=zero
                   end if
@@ -372,12 +392,12 @@ contains
 
          if ( l_heat ) then
             dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
-            dVSrLM(1)=this%VSrLM(1)
+            dVSrLM(1)=VSrLM(1)
             if ( l_anel ) then
                if ( l_anelastic_liquid ) then
-                  dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(1)
+                  dsdt_loc=dsdt_loc+temp0(nR)*heatTermsLM(1)
                else
-                  dsdt_loc=dsdt_loc+this%heatTermsLM(1)
+                  dsdt_loc=dsdt_loc+heatTermsLM(1)
                end if
             end if
             dsdt(1)=dsdt_loc
@@ -386,13 +406,13 @@ contains
             do lm=2,lm_max
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
-               dVSrLM(lm)=this%VSrLM(lmP)
-               dsdt_loc  =dLh(lm)*this%VStLM(lmP)
+               dVSrLM(lm)=VSrLM(lmP)
+               dsdt_loc  =dLh(lm)*VStLM(lmP)
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
+                     dsdt_loc = dsdt_loc+temp0(nR)*heatTermsLM(lmP)
                   else
-                     dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
+                     dsdt_loc = dsdt_loc+heatTermsLM(lmP)
                   end if
                end if
                dsdt(lm) = dsdt_loc
@@ -401,14 +421,14 @@ contains
          end if
 
          if ( l_chemical_conv ) then
-            dVXirLM(1)=this%VXirLM(1)
+            dVXirLM(1)=VXirLM(1)
             dxidt(1)  =epscXi
 
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=2,lm_max
                lmP=lm2lmP(lm)
-               dVXirLM(lm)=this%VXirLM(lmP)
-               dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+               dVXirLM(lm)=VXirLM(lmP)
+               dxidt(lm)  =dLh(lm)*VXitLM(lmP)
             end do
             !$omp end parallel do
          end if
@@ -417,7 +437,7 @@ contains
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=1,lm_max
                lmP=lm2lmP(lm)
-               dphidt(lm)=this%dphidtLM(lmP)
+               dphidt(lm)=dphidtLM(lmP)
             end do
             !$omp end parallel do
          end if
@@ -426,9 +446,9 @@ contains
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=1,lm_max
                lmP =lm2lmP(lm)
-               dbdt(lm)   = dLh(lm)*this%VxBpLM(lmP)
-               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
-               djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lmP)
+               dbdt(lm)   = dLh(lm)*VxBpLM(lmP)
+               dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
+               djdt(lm)   = dLh(lm)*or4(nR)*VxBrLM(lmP)
             end do
             !$omp end parallel do
          else
@@ -448,7 +468,7 @@ contains
             !$omp parallel do default(shared) private(lm,lmP)
             do lm=2,lm_max
                lmP =lm2lmP(lm)
-               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
+               dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
                dVSrLM(lm) =zero
             end do
             !$omp end parallel do

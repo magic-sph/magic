@@ -6,6 +6,7 @@ module out_movie
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, l_axi, nlat_padded
+   use grid_blocking, only: radlatlon2spat
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
@@ -23,7 +24,7 @@ module out_movie
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
        &                      osn1, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
-   use sht, only: torpol_to_spat, toraxi_to_spat
+   use sht, only: torpol_to_spat, toraxi_to_spat, sht_l_single
    use logic, only: l_save_out, l_cond_ic, l_mag
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
@@ -47,14 +48,14 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: n_r                ! radial grid point no.
-      real(cp),    intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp),    intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp),    intent(in) :: sr(:,:),drSr(:,:)
-      real(cp),    intent(in) :: xir(:,:),phir(:,:)
-      real(cp),    intent(in) :: dvrdp(:,:),dvpdr(:,:)
-      real(cp),    intent(in) :: dvtdr(:,:),dvrdt(:,:)
-      real(cp),    intent(in) :: cvr(:,:)
-      real(cp),    intent(in) :: cbr(:,:),cbt(:,:)
+      real(cp),    intent(in) :: vr(*),vt(*),vp(*)
+      real(cp),    intent(in) :: br(*),bt(*),bp(*)
+      real(cp),    intent(in) :: sr(*),drSr(*)
+      real(cp),    intent(in) :: xir(*),phir(*)
+      real(cp),    intent(in) :: dvrdp(*),dvpdr(*)
+      real(cp),    intent(in) :: dvtdr(*),dvrdt(*)
+      real(cp),    intent(in) :: cvr(*)
+      real(cp),    intent(in) :: cbr(*),cbt(*)
 
       !-- Local variables:
       integer :: n_movie        ! No. of movie
@@ -389,20 +390,20 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),drSr(:,:)
-      real(cp), intent(in) :: xir(:,:),phir(:,:)
-      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
-      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
-      real(cp), intent(in) :: cvr(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: sr(*),drSr(*)
+      real(cp), intent(in) :: xir(*),phir(*)
+      real(cp), intent(in) :: dvrdp(*),dvpdr(*)
+      real(cp), intent(in) :: dvtdr(*),dvrdt(*)
+      real(cp), intent(in) :: cvr(*)
 
       integer,  intent(in) :: n_r
       integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
       integer,  intent(in) :: n_field_type     ! Defines field type
 
       !-- Local variables:
-      integer :: n_theta, n_theta_cal, n_phi, n_o
+      integer :: n_theta, n_theta_cal, n_phi, n_o, nelem
       real(cp) ::  fac, fac_r, fac_t
 
 
@@ -414,9 +415,10 @@ contains
          fac=or2(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*br(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*br(nelem)
             end do
          end do
 
@@ -424,10 +426,11 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*bt(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*bt(nelem)
             end do
          end do
 
@@ -435,10 +438,11 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*bp(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*bp(nelem)
             end do
          end do
 
@@ -447,9 +451,10 @@ contains
          fac=or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*vr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vr(nelem)
             end do
          end do
 
@@ -458,10 +463,11 @@ contains
          fac_r=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*vt(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vt(nelem)
             end do
          end do
 
@@ -470,10 +476,11 @@ contains
          fac_r=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*vp(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vp(nelem)
             end do
          end do
 
@@ -481,9 +488,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=sr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=sr(nelem)
             end do
          end do
 
@@ -491,9 +499,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=xir(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=xir(nelem)
             end do
          end do
 
@@ -501,9 +510,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=phir(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=phir(nelem)
             end do
          end do
 
@@ -512,13 +522,14 @@ contains
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac * (                                    &
-               &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi) - &
-               &                        or2(n_r)*dvrdp(n_theta_cal,n_phi) + &
-               &                                 dvpdr(n_theta_cal,n_phi) - &
-               &                          beta(n_r)*vp(n_theta_cal,n_phi)   )
+               frames(n_phi+n_o)=fac * (                        &
+               &    cosTheta(n_theta_cal)*or1(n_r)*cvr(nelem) - &
+               &                        or2(n_r)*dvrdp(nelem) + &
+               &                                 dvpdr(nelem) - &
+               &                          beta(n_r)*vp(nelem)   )
             end do
          end do
 
@@ -527,9 +538,10 @@ contains
          fac=-or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac * vr(n_theta_cal,n_phi)*drSr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac * vr(nelem)*drSr(nelem)
             end do
          end do
 
@@ -537,9 +549,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=drSr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=drSr(nelem)
             end do
          end do
 
@@ -548,20 +561,15 @@ contains
          !--- Helicity:
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=                                        &
-               &    or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi) *          &
-               &                       cvr(n_theta_cal,n_phi) +          &
-               &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
-               &                                 vt(n_theta_cal,n_phi) * &
-               &                   ( or2(n_r)*dvrdp(n_theta_cal,n_phi) - &
-               &                              dvpdr(n_theta_cal,n_phi) + &
-               &                    beta(n_r)*vp(n_theta_cal,n_phi)  ) + &
-               &                                 vp(n_theta_cal,n_phi) * &
-               &                   (          dvtdr(n_theta_cal,n_phi) - &
-               &                    beta(n_r)*vt(n_theta_cal,n_phi)    - &
-               &                  or2(n_r)*dvrdt(n_theta_cal,n_phi) ) )
+               frames(n_phi+n_o)=or4(n_r)*orho2(n_r)*vr(nelem) * cvr(nelem) +  &
+               &          or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
+               &          vt(nelem) * ( or2(n_r)*dvrdp(nelem) - dvpdr(nelem) + &
+               &                        beta(n_r)*vp(nelem)  ) +               &
+               &          vp(nelem) * ( dvtdr(nelem) - beta(n_r)*vt(nelem)   - &
+               &                        or2(n_r)*dvrdt(nelem) ) )
             end do
          end do
 
@@ -571,9 +579,10 @@ contains
          fac=or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*cvr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*cvr(nelem)
             end do
          end do
 
@@ -583,11 +592,12 @@ contains
          fac_r = or2(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
                fac_t=or1(n_r)*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac_r*br(n_theta_cal,n_phi)*sinTheta(n_theta_cal)+ &
-               &                 fac_t*bt(n_theta_cal,n_phi)*cosTheta(n_theta_cal)
+               frames(n_phi+n_o)=fac_r*br(nelem)*sinTheta(n_theta_cal)+ &
+               &                 fac_t*bt(nelem)*cosTheta(n_theta_cal)
             end do
          end do
 
@@ -604,14 +614,14 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),drSr(:,:)
-      real(cp), intent(in) :: xir(:,:),phir(:,:)
-      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
-      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
-      real(cp), intent(in) :: cvr(:,:)
-      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: sr(*),drSr(*)
+      real(cp), intent(in) :: xir(*),phir(*)
+      real(cp), intent(in) :: dvrdp(*),dvpdr(*)
+      real(cp), intent(in) :: dvtdr(*),dvrdt(*)
+      real(cp), intent(in) :: cvr(*)
+      real(cp), intent(in) :: cbr(*),cbt(*)
       integer,  intent(in) :: n_r              ! No. of radial point
       integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
       integer,  intent(in) :: n_field_type     ! Defines field type
@@ -620,7 +630,7 @@ contains
 
       !-- Local variables:
       integer :: n_phi_0,n_phi_180,n_theta,n_theta2
-      integer :: n_theta_cal,n_phi,n_0,n_180
+      integer :: n_theta_cal,n_phi,n_0,n_180,nelem0,nelem180
       real(cp) ::  phi_norm,fac,fac_r
 
       real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
@@ -640,30 +650,34 @@ contains
 
          fac=or2(n_r)
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*br(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=fac*br(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)  =fac*br(nelem0)
+            frames(n_180+n_theta)=fac*br(nelem180)
          end do
 
       else if ( n_field_type == 2 ) then
 
          fac=or1(n_r)
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*bt(n_theta_cal,n_phi_0)*   &
-            &                     O_sin_theta(n_theta_cal)
-            frames(n_180+n_theta)=fac*bt(n_theta_cal,n_phi_180)* &
-            &                     O_sin_theta(n_theta_cal)
+            frames(n_0+n_theta)  =fac*bt(nelem0)*O_sin_theta(n_theta_cal)
+            frames(n_180+n_theta)=fac*bt(nelem180)*O_sin_theta(n_theta_cal)
          end do
 
       else if ( n_field_type == 3 ) then
 
          fac=or1(n_r)
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*bp(n_theta_cal,n_phi_0)*   &
+            frames(n_0+n_theta)  =fac*bp(nelem0)*   &
             &                     O_sin_theta(n_theta_cal)
-            frames(n_180+n_theta)=fac*bp(n_theta_cal,n_phi_180)* &
+            frames(n_180+n_theta)=fac*bp(nelem180)* &
             &                     O_sin_theta(n_theta_cal)
          end do
 
@@ -671,19 +685,23 @@ contains
 
          fac=or2(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)=fac*vr(nelem0)
+            frames(n_180+n_theta)=fac*vr(nelem180)
          end do
 
       else if ( n_field_type == 5 ) then
 
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*vt(n_theta_cal,n_phi_0)*   &
+            frames(n_0+n_theta)  =fac*vt(nelem0)*   &
             &                     O_sin_theta(n_theta_cal)
-            frames(n_180+n_theta)=fac*vt(n_theta_cal,n_phi_180)* &
+            frames(n_180+n_theta)=fac*vt(nelem180)* &
             &                     O_sin_theta(n_theta_cal)
          end do
 
@@ -691,35 +709,43 @@ contains
 
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*vp(n_theta_cal,n_phi_0)*   &
+            frames(n_0+n_theta)  =fac*vp(nelem0)*   &
             &                     O_sin_theta(n_theta_cal)
-            frames(n_180+n_theta)=fac*vp(n_theta_cal,n_phi_180)* &
+            frames(n_180+n_theta)=fac*vp(nelem180)* &
             &                     O_sin_theta(n_theta_cal)
          end do
 
       else if ( n_field_type == 7 ) then
 
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=sr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=sr(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)=sr(nelem0)
+            frames(n_180+n_theta)=sr(nelem180)
          end do
 
       else if ( n_field_type == 109 ) then
 
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =xir(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=xir(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)  =xir(nelem0)
+            frames(n_180+n_theta)=xir(nelem180)
          end do
 
       else if ( n_field_type == 112 ) then
 
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =phir(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=phir(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)  =phir(nelem0)
+            frames(n_180+n_theta)=phir(nelem180)
          end do
 
       else if ( n_field_type == 8 ) then
@@ -742,7 +768,8 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+bp(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+bp(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*or1(n_r)*O_sin_theta(n_theta_cal)
          end do
@@ -766,7 +793,8 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+orho1(n_r)*vp(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+orho1(n_r)*vp(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*or1(n_r)*O_sin_theta(n_theta_cal)
          end do
@@ -778,7 +806,8 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+sr(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+sr(nelem0)
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
@@ -790,7 +819,8 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+xir(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+xir(nelem0)
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
@@ -802,7 +832,8 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+phir(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+phir(nelem0)
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
@@ -814,7 +845,8 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+drSr(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+drSr(nelem0)
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
@@ -826,9 +858,9 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+sinTheta(n_theta_cal)*or1(n_r)*  vr(n_theta_cal,n_phi)+ &
-               &     cosTheta(n_theta_cal)*O_sin_theta(n_theta_cal)*               &
-               &                                            vt(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+sinTheta(n_theta_cal)*or1(n_r)*  vr(nelem0)+ &
+               &     cosTheta(n_theta_cal)*O_sin_theta(n_theta_cal)*vt(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*orho1(n_r)*or1(n_r)
          end do
@@ -840,9 +872,10 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+or1(n_r)*  vr(n_theta_cal,n_phi)*vp(n_theta_cal,n_phi) + &
-               &     cosTheta(n_theta_cal)*O_sin_theta_E2(n_theta_cal)*             &
-               &                      vt(n_theta_cal,n_phi)*vp(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+or1(n_r)*  vr(nelem0)*vp(nelem0) +           &
+               &     cosTheta(n_theta_cal)*O_sin_theta_E2(n_theta_cal)* &
+               &     vt(nelem0)*vp(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
@@ -854,8 +887,8 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
-               fl(1)=fl(1)+cosTheta(n_theta_cal)*or1(n_r)*  vr(n_theta_cal,n_phi)- &
-               &                                            vt(n_theta_cal,n_phi)
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1)+cosTheta(n_theta_cal)*or1(n_r)*vr(nelem0)-vt(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*orho1(n_r)*or1(n_r)
          end do
@@ -867,9 +900,10 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
                fl(1)=fl(1)+or1(n_r)*cosTheta(n_theta_cal)*O_sin_theta(n_theta_cal)*&
-               &                      vr(n_theta_cal,n_phi)*vp(n_theta_cal,n_phi) -&
-               & O_sin_theta(n_theta_cal)*vt(n_theta_cal,n_phi)*vp(n_theta_cal,n_phi)
+               &     vr(nelem0)*vp(nelem0) - O_sin_theta(n_theta_cal)*             &
+               &     vt(nelem0)*vp(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
@@ -881,13 +915,12 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
                fl(1)=fl(1)+sinTheta(n_theta_cal)*sinTheta(n_theta_cal)*or2(n_r)* &
-               &                    vr(n_theta_cal,n_phi)*vr(n_theta_cal,n_phi)+ &
-               &                    cosTheta(n_theta_cal)*cosTheta(n_theta_cal)* &
-               &                                    O_sin_theta_E2(n_theta_cal)* &
-               &                    vt(n_theta_cal,n_phi)*vt(n_theta_cal,n_phi)+ &
-               &                             two*cosTheta(n_theta_cal)*or1(n_r)* &
-               &                        vr(n_theta_cal,n_phi)*vt(n_theta_cal,n_phi)
+               &     vr(nelem0)*vr(nelem0) + cosTheta(n_theta_cal)*              &
+               &     cosTheta(n_theta_cal)* O_sin_theta_E2(n_theta_cal)*         &
+               &     vt(nelem0)*vt(nelem0) + two*cosTheta(n_theta_cal)*or1(n_r)* &
+               &     vr(nelem0)*vt(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
@@ -900,11 +933,10 @@ contains
             n_theta =n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
                fl(1)=fl(1)+cosTheta(n_theta_cal)*cosTheta(n_theta_cal)*or2(n_r)*  &
-               &                    vr(n_theta_cal,n_phi)*vr(n_theta_cal,n_phi)+  &
-               &                    vt(n_theta_cal,n_phi)*vt(n_theta_cal,n_phi)-  &
-               &                             two*cosTheta(n_theta_cal)*or1(n_r)*  &
-               &                        vr(n_theta_cal,n_phi)*vt(n_theta_cal,n_phi)
+               &     vr(nelem0)*vr(nelem0) + vt(nelem0)*vt(nelem0)-               &
+               &     two*cosTheta(n_theta_cal)*or1(n_r)*vr(nelem0)*vt(nelem0)
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
@@ -914,66 +946,57 @@ contains
 
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac * (                                    &
-            &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi_0) - &
-            &                        or2(n_r)*dvrdp(n_theta_cal,n_phi_0) + &
-            &                                 dvpdr(n_theta_cal,n_phi_0) - &
-            &                          beta(n_r)*vp(n_theta_cal,n_phi_0)  )
-            frames(n_180+n_theta)=fac * (                                    &
-            &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi_180) - &
-            &                        or2(n_r)*dvrdp(n_theta_cal,n_phi_180) + &
-            &                                 dvpdr(n_theta_cal,n_phi_180) - &
-            &                          beta(n_r)*vp(n_theta_cal,n_phi_180)  )
+            frames(n_0+n_theta)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*cvr(nelem0) - &
+            &                           or2(n_r)*dvrdp(nelem0) + dvpdr(nelem0) -     &
+            &                           beta(n_r)*vp(nelem0)  )
+            frames(n_180+n_theta)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*            &
+            &                             cvr(nelem180) - or2(n_r)*dvrdp(nelem180) + &
+            &                             dvpdr(nelem180) - beta(n_r)*vp(nelem180)  )
          end do
 
       else if ( n_field_type == 17 ) then
 
          fac=-or2(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*drSr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
-            &                     drSr(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)  =fac*vr(nelem0)*drSr(nelem0)
+            frames(n_180+n_theta)=fac*vr(nelem180) * drSr(nelem180)
          end do
 
       else if ( n_field_type == 91 ) then
 
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=drSr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=drSr(n_theta_cal,n_phi_180)
+            frames(n_0+n_theta)=drSr(nelem0)
+            frames(n_180+n_theta)=drSr(nelem180)
          end do
 
       else if ( n_field_type == 18 ) then
 
          !--- Helicity:
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=                                      &
-            &           or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi_0) * &
-            &                              cvr(n_theta_cal,n_phi_0) + &
-            &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
-            &                               vt(n_theta_cal,n_phi_0) * &
-            &                 ( or2(n_r)*dvrdp(n_theta_cal,n_phi_0) - &
-            &                            dvpdr(n_theta_cal,n_phi_0) + &
-            &                beta(n_r)*   vp(n_theta_cal,n_phi_0) ) + &
-            &                               vp(n_theta_cal,n_phi_0) * &
-            &                 (          dvtdr(n_theta_cal,n_phi_0) - &
-            &                  beta(n_r)*   vt(n_theta_cal,n_phi_0) - &
-            &                   or2(n_r)*dvrdt(n_theta_cal,n_phi_0) ) )
-            frames(n_180+n_theta)=                                    &
-            &         or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi_180) * &
-            &                            cvr(n_theta_cal,n_phi_180) + &
-            &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
-            &                             vt(n_theta_cal,n_phi_180) * &
-            &               ( or2(n_r)*dvrdp(n_theta_cal,n_phi_180) - &
-            &                          dvpdr(n_theta_cal,n_phi_180) + &
-            &              beta(n_r)*   vp(n_theta_cal,n_phi_180) ) + &
-            &                             vp(n_theta_cal,n_phi_180) * &
-            &               (          dvtdr(n_theta_cal,n_phi_180) - &
-            &                 beta(n_r)*  vt(n_theta_cal,n_phi_180) - &
-            &                 or2(n_r)*dvrdt(n_theta_cal,n_phi_180) ) )
+            frames(n_0+n_theta)=or4(n_r)*orho2(n_r)*vr(nelem0) * cvr(nelem0) +    &
+            &             or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (      &
+            &             vt(nelem0) * ( or2(n_r)*dvrdp(nelem0) - dvpdr(nelem0) + &
+            &                            beta(n_r)*vp(nelem0) ) +                 &
+            &             vp(nelem0) * ( dvtdr(nelem0) - beta(n_r)*vt(nelem0) -   &
+            &                            or2(n_r)*dvrdt(nelem0) ) )
+            frames(n_180+n_theta)=or4(n_r)*orho2(n_r)*vr(nelem180) * cvr(nelem180) +    &
+            &             or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (            &
+            &             vt(nelem180) * ( or2(n_r)*dvrdp(nelem180) - dvpdr(nelem180) + &
+            &                              beta(n_r)* vp(nelem180) ) +                  &
+            &             vp(nelem180) * (dvtdr(nelem180) - beta(n_r)*vt(nelem180) -    &
+            &                             or2(n_r)*dvrdt(nelem180) ) )
          end do
 
       else if ( n_field_type == 19 ) then
@@ -983,18 +1006,13 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             fl(1)=0.0_cp
             do n_phi=1,n_phi_max
-               fl(1)=fl(1) +                                            &
-               &            or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi) * &
-               &                               cvr(n_theta_cal,n_phi) + &
-               &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)*(   &
-               &                                vt(n_theta_cal,n_phi) * &
-               &                  ( or2(n_r)*dvrdp(n_theta_cal,n_phi) - &
-               &                             dvpdr(n_theta_cal,n_phi) + &
-               &                 beta(n_r)*   vp(n_theta_cal,n_phi) ) + &
-               &                                vp(n_theta_cal,n_phi) * &
-               &                    (        dvtdr(n_theta_cal,n_phi) - &
-               &                   beta(n_r)*   vt(n_theta_cal,n_phi) - &
-               &                    or2(n_r)*dvrdt(n_theta_cal,n_phi) ) )
+               nelem0 = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               fl(1)=fl(1) + or4(n_r)*orho2(n_r)*vr(nelem0) * cvr(nelem0) +   &
+               &      or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)*(       &
+               &      vt(nelem0) * ( or2(n_r)*dvrdp(nelem0) - dvpdr(nelem0) + &
+               &                     beta(n_r)* vp(nelem0) ) +                &
+               &      vp(nelem0) * ( dvtdr(nelem0) - beta(n_r)*vt(nelem0) -   &
+               &                     or2(n_r)*dvrdt(nelem0) ) )
             end do
             frames(n_0+n_theta)=phi_norm*fl(1)
          end do
@@ -1005,17 +1023,15 @@ contains
          !--- Phi component of vorticity:
          fac=vScale*orho1(n_r)*or1(n_r)
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=                         &
-            &            fac*O_sin_theta(n_theta_cal)*   &
-            &    (          dvtdr(n_theta_cal,n_phi_0) - &
-            &     beta(n_r)*   vt(n_theta_cal,n_phi_0) - &
-            &      or2(n_r)*dvrdt(n_theta_cal,n_phi_0) )
-            frames(n_180+n_theta)=                         &
-            &              fac*O_sin_theta(n_theta_cal)*   &
-            &    (          dvtdr(n_theta_cal,n_phi_180) - &
-            &     beta(n_r)*   vt(n_theta_cal,n_phi_180) - &
-            &      or2(n_r)*dvrdt(n_theta_cal,n_phi_180) )
+            frames(n_0+n_theta)=fac*O_sin_theta(n_theta_cal)*             &
+            &                   ( dvtdr(nelem0) - beta(n_r)* vt(nelem0) - &
+            &                     or2(n_r)*dvrdt(nelem0) )
+            frames(n_180+n_theta)=fac*O_sin_theta(n_theta_cal)*                &
+            &                     ( dvtdr(nelem180) - beta(n_r)*vt(nelem180) - &
+            &                       or2(n_r)*dvrdt(nelem180) )
          end do
 
          !--- Phi component of Lorentz-Force:
@@ -1024,14 +1040,14 @@ contains
 
          fac_r=LFfac*or3(n_r)
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
             fac=fac_r*O_sin_theta(n_theta_cal)
-            frames(n_0+n_theta)= fac *                                &
-            &    ( cbr(n_theta_cal,n_phi_0)*bt(n_theta_cal,n_phi_0) - &
-            &      cbt(n_theta_cal,n_phi_0)*br(n_theta_cal,n_phi_0) )
-            frames(n_180+n_theta)= fac *                                  &
-            &    ( cbr(n_theta_cal,n_phi_180)*bt(n_theta_cal,n_phi_180) - &
-            &      cbt(n_theta_cal,n_phi_180)*br(n_theta_cal,n_phi_180) )
+            frames(n_0+n_theta)= fac * ( cbr(nelem0)*bt(nelem0) - &
+            &                            cbt(nelem0)*br(nelem0) )
+            frames(n_180+n_theta)= fac * ( cbr(nelem180)*bt(nelem180) - &
+            &                              cbt(nelem180)*br(nelem180) )
          end do
 
       end if
@@ -1047,20 +1063,20 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),drSr(:,:)
-      real(cp), intent(in) :: xir(:,:),phir(:,:)
-      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
-      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
-      real(cp), intent(in) :: cvr(:,:),cbt(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: sr(*),drSr(*)
+      real(cp), intent(in) :: xir(*),phir(*)
+      real(cp), intent(in) :: dvrdp(*),dvpdr(*)
+      real(cp), intent(in) :: dvtdr(*),dvrdt(*)
+      real(cp), intent(in) :: cvr(*),cbt(*)
       integer,  intent(in) :: n_r              ! No. of radial grid point
       integer,  intent(in) :: n_store_last     ! Position in frame(*)-1
       integer,  intent(in) :: n_field_type     ! Defines field
       integer,  intent(in) :: n_theta          ! No. of theta in block
 
       !-- Local variables:
-      integer :: n_phi, n_o
+      integer :: n_phi, n_o, nelem
       real(cp) ::  fac
 
 
@@ -1070,124 +1086,132 @@ contains
 
          fac=or2(n_r)
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*br(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*br(nelem)
          end do
 
       else if ( n_field_type == 2 ) then
 
          fac=or1(n_r)*O_sin_theta(n_theta)
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*bt(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*bt(nelem)
          end do
 
       else if ( n_field_type == 3 ) then
 
          fac=or1(n_r)*O_sin_theta(n_theta)
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*bp(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*bp(nelem)
          end do
 
       else if ( n_field_type == 4 ) then
 
          fac=or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*vr(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*vr(nelem)
          end do
 
       else if ( n_field_type == 5 ) then
 
          fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*vt(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*vt(nelem)
          end do
 
       else if ( n_field_type == 6 ) then
 
          fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*vp(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*vp(nelem)
          end do
 
       else if ( n_field_type == 7 ) then
 
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=sr(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=sr(nelem)
          end do
 
       else if ( n_field_type == 109 ) then
 
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=xir(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=xir(nelem)
          end do
 
       else if ( n_field_type == 112 ) then
 
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=phir(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=phir(nelem)
          end do
 
       else if ( n_field_type == 13 ) then
 
          fac=-or1(n_r)*O_sin_theta(n_theta)
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*bt(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*bt(nelem)
          end do
 
       else if ( n_field_type == 14 ) then
 
          fac=-or1(n_r)*O_sin_theta(n_theta)
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*cbt(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*cbt(nelem)
          end do
 
       else if ( n_field_type == 15 ) then
 
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac* ( cosTheta(n_theta)*or1(n_r)* &
-            &                  vr(n_theta,n_phi) - vt(n_theta,n_phi) )
+            &                        vr(nelem) - vt(nelem) )
          end do
 
       else if ( n_field_type == 16 ) then
 
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
-            frames(n_phi+n_o)=fac * (                                  &
-            &          cosTheta(n_theta)*or1(n_r)*cvr(n_theta,n_phi) - &
-            &                          or2(n_r)*dvrdp(n_theta,n_phi) + &
-            &                                   dvpdr(n_theta,n_phi) - &
-            &                         beta(n_r)*   vp(n_theta,n_phi) )
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_phi+n_o)=fac * ( cosTheta(n_theta)*or1(n_r)*cvr(nelem) - &
+            &                         or2(n_r)*dvrdp(nelem) + dvpdr(nelem) -  &
+            &                         beta(n_r)*   vp(nelem) )
          end do
 
       else if ( n_field_type == 17 ) then
 
          fac=-or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*vr(n_theta,n_phi)*drSr(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=fac*vr(nelem)*drSr(nelem)
          end do
 
       else if ( n_field_type == 91 ) then
 
          fac=vScale
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=drSr(n_theta,n_phi)
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)=drSr(nelem)
          end do
 
       else if ( n_field_type == 18 ) then
 
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=                                       &
-            &                or4(n_r)*orho2(n_r)*vr(n_theta,n_phi) * &
-            &                                   cvr(n_theta,n_phi) + &
-            &          or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta)*( &
-            &                                    vt(n_theta,n_phi) * &
-            &                      ( or2(n_r)*dvrdp(n_theta,n_phi) - &
-            &                                 dvpdr(n_theta,n_phi) + &
-            &                     beta(n_r)*   vp(n_theta,n_phi) ) + &
-            &                                    vp(n_theta,n_phi) * &
-            &                      (          dvtdr(n_theta,n_phi) - &
-            &                       beta(n_r)*   vt(n_theta,n_phi) - &
-            &                        or2(n_r)*dvrdt(n_theta,n_phi) ) )
+            nelem = radlatlon2spat(n_theta,n_phi,n_r)
+            frames(n_o+n_phi)= or4(n_r)*orho2(n_r)*vr(nelem) * cvr(nelem) +         &
+            &                  or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta)*(        &
+            &                  vt(nelem) * ( or2(n_r)*dvrdp(nelem) - dvpdr(nelem) + &
+            &                                beta(n_r)*vp(nelem) ) +                &
+            &                  vp(nelem) * ( dvtdr(nelem) - beta(n_r)*vt(nelem) -   &
+            &                                or2(n_r)*dvrdt(nelem) ) )
          end do
 
       end if
@@ -1203,21 +1227,21 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),drSr(:,:)
-      real(cp), intent(in) :: xir(:,:),phir(:,:)
-      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
-      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
-      real(cp), intent(in) :: cvr(:,:)
-      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: sr(*),drSr(*)
+      real(cp), intent(in) :: xir(*),phir(*)
+      real(cp), intent(in) :: dvrdp(*),dvpdr(*)
+      real(cp), intent(in) :: dvtdr(*),dvrdt(*)
+      real(cp), intent(in) :: cvr(*)
+      real(cp), intent(in) :: cbr(*),cbt(*)
 
       integer,  intent(in) :: n_r              ! No. of radial grid point
       integer,  intent(in) :: n_store_last     ! Position in frame(*)-1
       integer,  intent(in) :: n_field_type     ! Defines field
 
       !-- Local variables:
-      integer :: n_phi,n_theta,n_theta_cal,n_o,n_or
+      integer :: n_phi,n_theta,n_theta_cal,n_o,n_or,nelem
       real(cp) ::  fac,fac_r
 
 
@@ -1228,9 +1252,10 @@ contains
          fac=or2(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*br(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*br(nelem)
             end do
          end do
 
@@ -1239,10 +1264,11 @@ contains
          fac_r=or1(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*bt(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*bt(nelem)
             end do
          end do
 
@@ -1251,10 +1277,11 @@ contains
          fac_r=or1(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*bp(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*bp(nelem)
             end do
          end do
 
@@ -1263,9 +1290,10 @@ contains
          fac=or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*vr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vr(nelem)
             end do
          end do
 
@@ -1274,10 +1302,11 @@ contains
          fac_r=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*vt(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vt(nelem)
             end do
          end do
 
@@ -1286,10 +1315,11 @@ contains
          fac_r=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=fac*vp(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vp(nelem)
             end do
          end do
 
@@ -1297,9 +1327,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=sr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=sr(nelem)
             end do
          end do
 
@@ -1307,9 +1338,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=xir(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=xir(nelem)
             end do
          end do
 
@@ -1317,9 +1349,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=phir(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=phir(nelem)
             end do
          end do
 
@@ -1328,11 +1361,11 @@ contains
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac * (                                   &
-               &    cosTheta(n_theta_cal)*or1(n_r)*vr(n_theta_cal,n_phi) - &
-               &    vt(n_theta_cal,n_phi) )
+               frames(n_phi+n_o)=fac * (                       &
+               &    cosTheta(n_theta_cal)*or1(n_r)*vr(nelem) - vt(nelem) )
             end do
          end do
 
@@ -1342,13 +1375,12 @@ contains
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac * (                                    &
-               &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi) - &
-               &                        or2(n_r)*dvrdp(n_theta_cal,n_phi) + &
-               &                                 dvpdr(n_theta_cal,n_phi) - &
-               &                       beta(n_r)*   vp(n_theta_cal,n_phi) )
+               frames(n_phi+n_o)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*cvr(nelem) - &
+               &                         or2(n_r)*dvrdp(nelem) + dvpdr(nelem) -      &
+               &                         beta(n_r)*  vp(nelem) )
             end do
          end do
 
@@ -1357,9 +1389,10 @@ contains
          fac=-or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*vr(n_theta_cal,n_phi)*drSr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vr(nelem)*drSr(nelem)
             end do
          end do
 
@@ -1367,9 +1400,10 @@ contains
 
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=drSr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=drSr(nelem)
             end do
          end do
 
@@ -1379,20 +1413,15 @@ contains
          fac=vScale*vScale*or2(n_r)*orho2(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac * (                   &
-               &          or2(n_r)*vr(n_theta_cal,n_phi) * &
-               &                  cvr(n_theta_cal,n_phi) + &
-               &          O_sin_theta_E2(n_theta_cal)* (   &
-               &                   vt(n_theta_cal,n_phi) * &
-               &     ( or2(n_r)*dvrdp(n_theta_cal,n_phi) - &
-               &                dvpdr(n_theta_cal,n_phi) + &
-               &    beta(n_r)*   vp(n_theta_cal,n_phi) ) + &
-               &                   vp(n_theta_cal,n_phi) * &
-               &     (          dvtdr(n_theta_cal,n_phi) - &
-               &      beta(n_r)*   vt(n_theta_cal,n_phi) - &
-               &       or2(n_r)*dvrdt(n_theta_cal,n_phi) ) ) )
+               frames(n_phi+n_o)=fac * ( or2(n_r)*vr(nelem) * cvr(nelem) + &
+               &          O_sin_theta_E2(n_theta_cal)* (       vt(nelem) * &
+               &          ( or2(n_r)*dvrdp(nelem) - dvpdr(nelem) +         &
+               &            beta(n_r)*vp(nelem) ) + vp(nelem) *            &
+               &          ( dvtdr(nelem) - beta(n_r)*vt(nelem) -           &
+               &            or2(n_r)*dvrdt(nelem) ) ) )
             end do
          end do
 
@@ -1402,13 +1431,12 @@ contains
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac *                               &
-               &    O_sin_theta(n_theta_cal)*vp(n_theta_cal,n_phi) * &
-               &               (          dvtdr(n_theta_cal,n_phi) - &
-               &                beta(n_r)*   vt(n_theta_cal,n_phi) - &
-               &                 or2(n_r)*dvrdt(n_theta_cal,n_phi) )
+               frames(n_phi+n_o)=fac * O_sin_theta(n_theta_cal)*vp(nelem) * &
+               &               ( dvtdr(nelem) - beta(n_r)*vt(nelem) -       &
+               &                 or2(n_r)*dvrdt(nelem) )
             end do
          end do
 
@@ -1418,9 +1446,10 @@ contains
          fac=or2(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*cvr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*cvr(nelem)
             end do
          end do
 
@@ -1430,12 +1459,13 @@ contains
          fac_r=or3(n_r)*orho1(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)=         fac*br(n_theta_cal,n_phi) * &
-               &                         ( dvpdr(n_theta_cal,n_phi) - &
-               &    (beta(n_r)+two*or1(n_r))*vp(n_theta_cal,n_phi) )
+               frames(n_phi+n_o)=         fac*br(nelem) * &
+               &                         ( dvpdr(nelem) - &
+               &    (beta(n_r)+two*or1(n_r))*vp(nelem) )
             end do
          end do
 
@@ -1446,12 +1476,12 @@ contains
          fac_r=LFfac*or3(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
                fac=fac_r*O_sin_theta(n_theta_cal)
-               frames(n_phi+n_o)= fac *                              &
-               &    ( cbr(n_theta_cal,n_phi)*bt(n_theta_cal,n_phi) - &
-               &      cbt(n_theta_cal,n_phi)*br(n_theta_cal,n_phi) )
+               frames(n_phi+n_o)= fac * ( cbr(nelem)*bt(nelem) - &
+               &                          cbt(nelem)*br(nelem) )
             end do
          end do
 
@@ -1617,7 +1647,7 @@ contains
       end do
 
       zerosc(:)=zero
-      call torpol_to_spat(cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
+      call torpol_to_spat(sht_l_single, cs1, cs2, zerosc, b_r, b_t, b_p, l_max)
 
    end subroutine get_B_surface
 !----------------------------------------------------------------------------

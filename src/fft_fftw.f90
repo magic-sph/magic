@@ -3,7 +3,7 @@ module fft
    ! This is the FFTW version of the fft module
    !
 
-   !$ use omp_lib
+   use omp_lib
    use iso_c_binding
    use precision_mod
    use constants, only: zero
@@ -111,7 +111,7 @@ contains
       !
 
       !-- Input variable:
-      real(cp),    intent(inout)  :: f(:,:)
+      real(cp),    intent(inout)  :: f(*)
 
       !-- Output variable:
       complex(cp), intent(out) :: g(nlat_padded,(n_phi_max/2+1))
@@ -127,7 +127,7 @@ contains
       !
 
       !-- Input variable:
-      complex(cp), intent(inout)  :: g(:,:)
+      complex(cp), intent(inout)  :: g(*)
 
       !-- Output variable:
       real(cp),    intent(out) :: f(nlat_padded,n_phi_max)
