@@ -932,8 +932,8 @@ contains
          fac=-or2(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*vr(n_phi_0,n_theta)*drSr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=fac*vr(n_phi_180,n_theta) * &
+            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*drSr(n_theta_cal,n_phi_0)
+            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
             &                     drSr(n_theta_cal,n_phi_180)
          end do
 

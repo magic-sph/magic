@@ -339,7 +339,7 @@ contains
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
 
       !-- Local variables:
-      integer :: nPhi
+      integer :: nPhi, nTh
 
       if ( lVerbose ) write(output_unit,*) '! Starting getTOnext!',dtLast
 
@@ -352,12 +352,15 @@ contains
 
          if ( l_mag ) then
             !$omp parallel do default(shared)    &
-            !$omp& private(nPhi)
+            !$omp& private(nPhi, nTh)
             do nPhi=1,n_phi_maxStr
-               BsLast(:,nPhi,nR)=or2(nR)*sinTheta(:)*br(:,nPhi) + &
-               &                 or1(nR)*cosTheta(:)*O_sin_theta(:)*bt(:,nPhi)
-               BpLast(:,nPhi,nR)=or1(nR)*bp(:,nPhi)*O_sin_theta(:)
-               BzLast(:,nPhi,nR)=cosTheta(:)*or2(nR)*br(:,nPhi) - or1(nR)*bt(:,nPhi)
+               do nTh=1,n_theta_maxStr
+                  BsLast(nTh,nPhi,nR)=or2(nR)*sinTheta(nTh)*br(nTh,nPhi) + &
+                  &                   or1(nR)*cosTheta(nTh)*O_sin_theta(nTh)*bt(nTh,nPhi)
+                  BpLast(nTh,nPhi,nR)=or1(nR)*bp(nTh,nPhi)*O_sin_theta(nTh)
+                  BzLast(nTh,nPhi,nR)=cosTheta(nTh)*or2(nR)*br(nTh,nPhi) - &
+                  &                   or1(nR)*bt(nTh,nPhi)
+               end do
             end do
             !$omp end parallel do
          end if
