@@ -559,7 +559,7 @@ contains
          endif
          if ( nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
-            call torpol_to_spat(sht_l, w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
 
             !-- Advection is treated as u \times \curl u
@@ -574,8 +574,8 @@ contains
                if ( lViscBcCalc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
                &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or. lGeosCalc  &
                &    .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-                  call torpol_to_spat(sht_l, dw_Rloc(:,nR), ddw_Rloc(:,nR),  &
-                       &              dz_Rloc(:,nR), this%gsa%dvrdrc,        &
+                  call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR),    &
+                       &              dz_Rloc(:,nR), this%gsa%dvrdrc,   &
                        &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
                   call pol_to_grad_spat(w_Rloc(:,nR), this%gsa%dvrdtc, &
                        &                this%gsa%dvrdpc, l_R(nR))
@@ -585,9 +585,9 @@ contains
 
             else ! Advection is treated as u\grad u
 
-               call torpol_to_spat(sht_l, dw_Rloc(:,nR), ddw_Rloc(:,nR),            &
-                    &              dz_Rloc(:,nR), this%gsa%dvrdrc, this%gsa%dvtdrc, &
-                 &                 this%gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,             &
+                    &              this%gsa%dvpdrc, l_R(nR))
 
                call pol_to_curlr_spat(z_Rloc(:,nR), this%gsa%cvrc, l_R(nR))
 
@@ -599,14 +599,14 @@ contains
 
          else if ( nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
-            call torpol_to_spat(sht_l, w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
             this%gsa%vrc(:,:)=0.0_cp
             if ( lDeriv ) then
                this%gsa%dvrdtc(:,:)=0.0_cp
                this%gsa%dvrdpc(:,:)=0.0_cp
-               call torpol_to_spat(sht_l, dw_Rloc(:,nR), ddw_Rloc(:,nR),            &
-                    &              dz_Rloc(:,nR), this%gsa%dvrdrc, this%gsa%dvtdrc, &
+               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,             &
                     &              this%gsa%dvpdrc, l_R(nR))
                call pol_to_curlr_spat(z_Rloc(:,nR), this%gsa%cvrc, l_R(nR))
                call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
@@ -626,15 +626,15 @@ contains
                     &                this%gsa%dvpdpc)
             end if
             if ( lDeriv ) then
-               call torpol_to_spat(sht_l, dw_Rloc(:,nR), ddw_Rloc(:,nR), &
-                    &              dz_Rloc(:,nR), this%gsa%dvrdrc,       &
-                    &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
+               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,             &
+                    &              this%gsa%dvpdrc, l_R(nR))
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat(sht_l, b_Rloc(:,nR), db_Rloc(:,nR),  aj_Rloc(:,nR), &
+         call torpol_to_spat(b_Rloc(:,nR), db_Rloc(:,nR),  aj_Rloc(:,nR), &
               &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(nR))
 
          if ( lDeriv ) then

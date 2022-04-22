@@ -554,7 +554,7 @@ contains
       logical, intent(in) :: lGeosCalc
 
       !-- Local variables
-      integer :: nR, n_r_cmb
+      integer :: nR
 
       nR = 0
 
@@ -589,7 +589,7 @@ contains
          endif
 
          !-- pol, sph, tor > ur,ut,up
-         call torpol_to_spat(sht_l, w_Rloc, dw_Rloc,  z_Rloc, &
+         call torpol_to_spat(w_Rloc, dw_Rloc,  z_Rloc, &
               &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(1))
 
          !-- Advection is treated as u \times \curl u
@@ -603,7 +603,7 @@ contains
             if ( lViscBcCalc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
             &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or. lGeosCalc  &
             &    .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-               call torpol_to_spat(sht_l, dw_Rloc, ddw_Rloc, dz_Rloc, &
+               call torpol_to_spat(dw_Rloc, ddw_Rloc, dz_Rloc,        &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,  &
                     &              this%gsa%dvpdrc, l_R(1))
                call pol_to_grad_spat(w_Rloc, this%gsa%dvrdtc, &
@@ -614,9 +614,9 @@ contains
 
          else ! Advection is treated as u\grad u
 
-            call torpol_to_spat(sht_l, dw_Rloc, ddw_Rloc, dz_Rloc,  &
-              &                 this%gsa%dvrdrc, this%gsa%dvtdrc,   &
-              &                 this%gsa%dvpdrc, l_R(1))
+            call torpol_to_spat(dw_Rloc, ddw_Rloc, dz_Rloc,  &
+                 &              this%gsa%dvrdrc, this%gsa%dvtdrc,   &
+                 &              this%gsa%dvpdrc, l_R(1))
 
             call pol_to_curlr_spat(z_Rloc, this%gsa%cvrc, l_R(1))
 
@@ -626,12 +626,12 @@ contains
                  &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(1))
          end if
 
-         if ( nRstart == n_r_cmb .and. ktopv==2 .and. omega_ma/=0.0_cp ) then
+         if ( nRstart == n_r_cmb .and. ktopv==2 ) then
             call v_rigid_boundary(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                  &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                  &                this%gsa%dvtdpc,this%gsa%dvpdpc)
-         else if ( nRstop == n_r_icb .and. kbotv==2 .and. omega_ic/=0.0_cp ) then
+         else if ( nRstop == n_r_icb .and. kbotv==2 ) then
             call v_rigid_boundary(n_r_icb, omega_ic, .true., this%gsa%vrc, &
                  &                this%gsa%vtc, this%gsa%vpc,              &
                  &                this%gsa%cvrc, this%gsa%dvrdtc,          &
@@ -676,7 +676,7 @@ contains
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat(sht_l, b_Rloc, db_Rloc,  aj_Rloc,    &
+         call torpol_to_spat(b_Rloc, db_Rloc,  aj_Rloc,    &
               &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(1))
 
          call torpol_to_curl_spat(or2, b_Rloc, ddb_Rloc,        &
