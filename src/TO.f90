@@ -8,6 +8,7 @@ module torsional_oscillations
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, lm_max, &
        &                 nlat_padded
+   use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, nRstart, nRstop
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
@@ -150,19 +151,19 @@ contains
       !
 
       !-- Input of variables
-      real(cp), intent(in) :: dtLast              ! last time step
-      integer,  intent(in) :: nR                 ! radial grid point
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: cvr(:,:),dvpdr(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
+      real(cp), intent(in) :: dtLast      ! last time step
+      integer,  intent(in) :: nR          ! radial grid point
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: cvr(*),dvpdr(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: cbr(*),cbt(*)
 
       !-- Output of arrays needing further treatment in s_getTOfinish.f:
       real(cp), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
       real(cp), intent(out) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
       !-- Local variables:
-      integer :: nTheta,nPhi,nTheta1
+      integer :: nTheta,nPhi,nTheta1,nelem
       real(cp) :: VrMean,VtMean,VpMean,Vr2Mean,Vt2Mean,Vp2Mean
       real(cp) :: LFmean,cvrMean,dvpdrMean,VrdVpdrMean,VtcVrMean
       real(cp) :: Bs2Mean,BszMean,BspMean,BpzMean,BspdMean,BpsdMean
@@ -223,36 +224,33 @@ contains
          BzpdMean   =0.0_cp
          BpzdMean   =0.0_cp
          do nPhi=1,n_phi_maxStr
-            VrMean =VrMean +vr(nTheta,nPhi)
-            VtMean =VtMean +vt(nTheta,nPhi)
-            VpMean =VpMean +vp(nTheta,nPhi)
-            Vr2Mean=Vr2Mean+vr(nTheta,nPhi)*vr(nTheta,nPhi)
-            Vt2Mean=Vt2Mean+vt(nTheta,nPhi)*vt(nTheta,nPhi)
-            Vp2Mean=Vp2Mean+vp(nTheta,nPhi)*vp(nTheta,nPhi)
-            dVpdrMean=dVpdrMean    + orho1(nR)*( dvpdr(nTheta,nPhi) - &
-            &                              beta(nR)*vp(nTheta,nPhi) )
-            cVrMean  =cVrMean  +cvr(nTheta,nPhi)
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            VrMean =VrMean +vr(nelem)
+            VtMean =VtMean +vt(nelem)
+            VpMean =VpMean +vp(nelem)
+            Vr2Mean=Vr2Mean+vr(nelem)*vr(nelem)
+            Vt2Mean=Vt2Mean+vt(nelem)*vt(nelem)
+            Vp2Mean=Vp2Mean+vp(nelem)*vp(nelem)
+            dVpdrMean=dVpdrMean + orho1(nR)*( dvpdr(nelem)-beta(nR)*vp(nelem) )
+            cVrMean  =cVrMean+cvr(nelem)
             VrdVpdrMean=VrdVpdrMean  + orho1(nR)*           & ! rho * vr * dvp/dr
-            &           vr(nTheta,nPhi)*(dvpdr(nTheta,nPhi) &
-            &                -beta(nR)*vp(nTheta,nPhi))
-            VtcVrMean=VtcVrMean    + orho1(nR)*  &  ! rho * vt * cvr
-            &         vt(nTheta,nPhi)*cvr(nTheta,nPhi)
+            &           vr(nelem)*(dvpdr(nelem)-beta(nR)*vp(nelem))
+            VtcVrMean=VtcVrMean + orho1(nR)*vt(nelem)*cvr(nelem)! rho * vt * cvr
             if ( l_mag ) then
-               LFmean=LFmean + cbr(nTheta,nPhi)*bt(nTheta,nPhi) - &
-               &               cbt(nTheta,nPhi)*br(nTheta,nPhi)
-               Bs2Mean=Bs2Mean + Bs2F1*br(nTheta,nPhi)*br(nTheta,nPhi) + &
-               &                 Bs2F2*bt(nTheta,nPhi)*bt(nTheta,nPhi) + &
-               &                 Bs2F3*br(nTheta,nPhi)*bt(nTheta,nPhi)
-               BspMean=BspMean + BspF1*br(nTheta,nPhi)*bp(nTheta,nPhi) + &
-               &                 BspF2*bt(nTheta,nPhi)*bp(nTheta,nPhi)
-               BpzMean=BpzMean + BpzF1*br(nTheta,nPhi)*bp(nTheta,nPhi) - &
-               &                 BpzF2*bt(nTheta,nPhi)*bp(nTheta,nPhi)
-               BszMean=BszMean + BszF1*br(nTheta,nPhi)*br(nTheta,nPhi) + &
-               &                 BszF2*br(nTheta,nPhi)*bt(nTheta,nPhi) - &
-               &                 BszF3*bt(nTheta,nPhi)*bt(nTheta,nPhi)
-               BsL=BsF1*br(nTheta,nPhi) + BsF2*bt(nTheta,nPhi)
-               BpL=BpF1*bp(nTheta,nPhi)
-               BzL=BzF1*br(nTheta,nPhi) - BzF2*bt(nTheta,nPhi)
+               LFmean=LFmean + cbr(nelem)*bt(nelem) - cbt(nelem)*br(nelem)
+               Bs2Mean=Bs2Mean + Bs2F1*br(nelem)*br(nelem) + &
+               &                 Bs2F2*bt(nelem)*bt(nelem) + &
+               &                 Bs2F3*br(nelem)*bt(nelem)
+               BspMean=BspMean + BspF1*br(nelem)*bp(nelem) + &
+               &                 BspF2*bt(nelem)*bp(nelem)
+               BpzMean=BpzMean + BpzF1*br(nelem)*bp(nelem) - &
+               &                 BpzF2*bt(nelem)*bp(nelem)
+               BszMean=BszMean + BszF1*br(nelem)*br(nelem) + &
+               &                 BszF2*br(nelem)*bt(nelem) - &
+               &                 BszF3*bt(nelem)*bt(nelem)
+               BsL=BsF1*br(nelem) + BsF2*bt(nelem)
+               BpL=BpF1*bp(nelem)
+               BzL=BzF1*br(nelem) - BzF2*bt(nelem)
                BspdMean=BspdMean+BsL*(BpL-BpLast(nTheta,nPhi,nR))
                BpsdMean=BpsdMean+BpL*(BsL-BsLast(nTheta,nPhi,nR))
                BzpdMean=BzpdMean+BzL*(BpL-BpLast(nTheta,nPhi,nR))
@@ -336,10 +334,10 @@ contains
       real(cp), intent(in) :: dt,dtLast
       integer,  intent(in) :: nR
       logical,  intent(in) :: lTONext,lTONext2
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
 
       !-- Local variables:
-      integer :: nPhi, nTh
+      integer :: nPhi,nTh,nelem
 
       if ( lVerbose ) write(output_unit,*) '! Starting getTOnext!',dtLast
 
@@ -352,14 +350,14 @@ contains
 
          if ( l_mag ) then
             !$omp parallel do default(shared)    &
-            !$omp& private(nPhi, nTh)
+            !$omp& private(nPhi,nTh)
             do nPhi=1,n_phi_maxStr
                do nTh=1,n_theta_maxStr
-                  BsLast(nTh,nPhi,nR)=or2(nR)*sinTheta(nTh)*br(nTh,nPhi) + &
-                  &                   or1(nR)*cosTheta(nTh)*O_sin_theta(nTh)*bt(nTh,nPhi)
-                  BpLast(nTh,nPhi,nR)=or1(nR)*bp(nTh,nPhi)*O_sin_theta(nTh)
-                  BzLast(nTh,nPhi,nR)=cosTheta(nTh)*or2(nR)*br(nTh,nPhi) - &
-                  &                   or1(nR)*bt(nTh,nPhi)
+                  nelem = radlatlon2spat(nTh,nPhi,nR)
+                  BsLast(nTh,nPhi,nR)=or2(nR)*sinTheta(nTh)*br(nelem) + &
+                  &                 or1(nR)*cosTheta(nTh)*O_sin_theta(nTh)*bt(nelem)
+                  BpLast(nTh,nPhi,nR)=or1(nR)*bp(nelem)*O_sin_theta(nTh)
+                  BzLast(nTh,nPhi,nR)=cosTheta(nTh)*or2(nR)*br(nelem)-or1(nR)*bt(nelem)
                end do
             end do
             !$omp end parallel do
