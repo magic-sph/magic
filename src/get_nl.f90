@@ -406,7 +406,7 @@ module grid_space_arrays_3d_mod
    use constants, only: two, third, one
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
        &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field,   &
-       &            l_mag
+       &            l_mag, l_parallel_solve, l_temperature_diff, l_single_matrix
 
    implicit none
 
@@ -605,14 +605,29 @@ contains
       real(cp), intent(in) :: time    ! instant in time
 
       !-- Local variables:
-      integer :: nPhi, nR
+      integer :: nPhi, nR, nBc
       real(cp) :: posnalp
 
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
 
-      !$omp parallel do default(shared) private(nR)
+      !$omp parallel do default(shared) private(nR,nBc)
       do nPhi=1,n_phi_max
          do nR=nRl, nRu
+
+            !-- If the computation of nBc does not work well here, we could
+            !-- also set the appropriate boundary values to zero after the loop
+            nBc = 0
+            if ( nR == n_r_cmb ) then
+               nBc = ktopv
+            else if ( nR == n_r_icb ) then
+               nBc = kbotv
+            end if
+            if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
+               ! We will need the nonlinear terms on ricb for the pressure l=m=0
+               ! equation
+               nBc=0
+            end if
+
             if ( l_mag_LF .and. nR>n_r_LCR ) then
                !------ Get the Lorentz force:
                !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
@@ -683,20 +698,20 @@ contains
 
             end if  ! Navier-Stokes nonlinear advection term ?
 
-            if ( l_heat_nl ) then
+            if ( l_heat_nl .and. nBc == 0  ) then
                !------ Get V S, the divergence of it is entropy advection:
                this%VSr(:,nR,nPhi)=this%vrc(:,nR,nPhi)*this%sc(:,nR,nPhi)
                this%VSt(:,nR,nPhi)=or2(nR)*this%vtc(:,nR,nPhi)*this%sc(:,nR,nPhi)
                this%VSp(:,nR,nPhi)=or2(nR)*this%vpc(:,nR,nPhi)*this%sc(:,nR,nPhi)
             end if     ! heat equation required ?
 
-            if ( l_chemical_conv ) then
+            if ( l_chemical_conv .and. nBc == 0  ) then
                this%VXir(:,nR,nPhi)=this%vrc(:,nR,nPhi)*this%xic(:,nR,nPhi)
                this%VXit(:,nR,nPhi)=or2(nR)*this%vtc(:,nR,nPhi)*this%xic(:,nR,nPhi)
                this%VXip(:,nR,nPhi)=or2(nR)*this%vpc(:,nR,nPhi)*this%xic(:,nR,nPhi)
             end if     ! chemical composition equation required ?
 
-            if ( l_phase_field ) then
+            if ( l_phase_field .and. nBc == 0  ) then
                this%Advr(:,nR,nPhi)=this%Advr(:,nR,nPhi)-this%phic(:,nR,nPhi)* &
                &                    this%vrc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
                this%Advt(:,nR,nPhi)=this%Advt(:,nR,nPhi)-or2(nR)*this%phic(:,nR,nPhi)* &
@@ -709,7 +724,7 @@ contains
                &                         this%sc(:,nR,nPhi)-tmelt)
             end if ! Nonlinear terms for the phase field equation
 
-            if ( l_precession ) then
+            if ( l_precession .and. nBc == 0  ) then
                this%PCr(:,nR,nPhi)=posnalp*O_sin_theta(:)*r(nR)*(                   &
                &            cos(oek*time+phi(nPhi))*this%vpc(:,nR,nPhi)*cosTheta(:)+&
                &            sin(oek*time+phi(nPhi))*this%vtc(:,nR,nPhi) )
@@ -721,7 +736,7 @@ contains
                &            this%vrc(:,nR,nPhi)*cosTheta(:))
             end if ! precession term required ?
 
-            if ( l_centrifuge ) then
+            if ( l_centrifuge .and. nBc == 0  ) then
                !if ( l_anel ) then
                !   this%CAr(:,nR,nPhi) = dilution_fac*r(nR)*sinTheta(:)**4* &
                !   &       ( -ra*opr*this%sc(:,nR,nPhi) )
@@ -741,7 +756,7 @@ contains
 
             if ( l_mag_nl ) then
 
-               if ( nR>n_r_LCR ) then
+               if (  nBc == 0 .and. nR>n_r_LCR ) then
                   !------ Get (V x B) , the curl of this is the dynamo term:
                   this%VxBr(:,nR,nPhi)=  orho1(nR)*O_sin_theta_E2(:) * (  &
                   &           this%vtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -   &
@@ -754,14 +769,12 @@ contains
                   this%VxBp(:,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
                   &           this%vrc(:,nR,nPhi)*this%btc(:,nR,nPhi) - &
                   &           this%vtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )
-               else if ( (ktopv==1 .and. nR==n_r_cmb) .or. &
-               &         (kbotv==1 .and. nR==n_r_icb) .or. nR<=n_r_LCR ) then ! stress free boundary
+               else if ( nBc == 1  .or. nR<=n_r_LCR ) then ! stress free boundary
                   this%VxBt(:,nR,nPhi)= or4(nR)*orho1(nR)*this%vpc(:,nR,nPhi)* &
                   &                                       this%brc(:,nR,nPhi)
                   this%VxBp(:,nR,nPhi)=-or4(nR)*orho1(nR)*this%vtc(:,nR,nPhi)* &
                   &                                       this%brc(:,nR,nPhi)
-               else if ( (ktopv==2 .and. nR==n_r_cmb) .or. &
-               &         (kbotv==2 .and. nR==n_r_icb) ) then ! rigid boundary
+               else if ( nBc == 2 ) then ! rigid boundary
                !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
                   this%VxBt(:,nR,nPhi)=or4(nR)*orho1(nR)*this%vpc(:,nR,nPhi)* &
                   &                                      this%brc(:,nR,nPhi)
@@ -770,7 +783,7 @@ contains
 
             end if ! l_mag_nl ?
 
-            if ( l_anel ) then
+            if ( l_anel .and. nBc == 0  ) then
                !------ Get viscous heating
                this%heatTerms(:,nR,nPhi)=ViscHeatFac*or4(nR)*           &
                &                     orho1(nR)*otemp1(nR)*visc(nR)*(    &

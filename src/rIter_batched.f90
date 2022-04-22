@@ -179,7 +179,7 @@ contains
 
       integer :: nR, nBc, idx1, idx2, idxh1, idxh2, idxm1, idxm2, idxa1, idxa2
       integer :: idxc1, idxc2, idxp1, idxp2
-      logical :: lMagNlBc, l_bound, lDeriv
+      logical :: lMagNlBc
 
       if ( l_graph ) then
 #ifdef WITH_MPI
@@ -263,28 +263,17 @@ contains
       call phy2lm_counter%stop_count(l_increment=.false.)
 
       do nR=nRstart,nRstop
-         l_Bound = ( nR == n_r_icb ) .or. ( nR == n_r_cmb )
-
          nBc = 0
-         lDeriv = .true.
          if ( nR == n_r_cmb ) then
             nBc = ktopv
-            lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc   &
-            &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-            &       lPowerCalc .or. lGeosCalc
          else if ( nR == n_r_icb ) then
             nBc = kbotv
-            lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
-            &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-            &       lPowerCalc .or. lGeosCalc
          end if
 
          if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
             ! We will need the nonlinear terms on ricb for the pressure l=m=0
             ! equation
-            lDeriv=.true.
             nBc=0
-            !l_Bound=.false.
          end if
 
 
@@ -296,14 +285,6 @@ contains
 
          lorentz_torque_ma = 0.0_cp
          lorentz_torque_ic = 0.0_cp
-
-         !--------- Calculation of nonlinear products in grid space:
-         !if ( (.not. l_bound) .or. lMagNlBc .or. lRmsCalc ) then
-!
-!         else if ( l_mag ) then
-!            !this%nl_lm%VxBtLM(:)=zero
-!            !this%nl_lm%VxBpLM(:)=zero
-!         end if
 
          !---- Calculation of nonlinear products needed for conducting mantle or
          !     conducting inner core if free stress BCs are applied:
