@@ -9,6 +9,7 @@ module graphOut_mod
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
        &                 n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
        &                 n_phi_max, n_r_ic_max, l_axi, nlat_padded
+   use grid_blocking, only: radlatlon2spat
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
    use radial_data, only: nRstart, n_r_cmb
@@ -27,7 +28,7 @@ module graphOut_mod
 
    integer :: n_graph = 0
    integer :: info
-   integer, public :: n_graph_file
+   integer :: n_graph_file
 #ifdef WITH_MPI
    integer :: graph_mpi_fh
    integer(kind=MPI_OFFSET_KIND) :: size_of_header, n_fields
@@ -109,12 +110,12 @@ contains
 
       !-- Input variables
       integer,  intent(in) :: n_r                    ! radial grod point no.
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:),phir(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: sr(*),prer(*),xir(*),phir(*)
 
       !-- Local variables:
-      integer :: n_phi, n_theta, n_theta_cal, version
+      integer :: n_phi, n_theta, n_theta_cal, version, nelem
       real(cp) :: fac, fac_r
       real(outp) :: dummy(n_theta_max,n_phi_max)
 
@@ -125,8 +126,9 @@ contains
       fac=or2(n_r)*vScale*orho1(n_r)
       do n_phi=1,n_phi_max ! do loop over phis
          do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
             n_theta =n_theta_cal2ord(n_theta_cal)
-            dummy(n_theta,n_phi)=real(fac*vr(n_theta_cal,n_phi),kind=outp)
+            dummy(n_theta,n_phi)=real(fac*vr(nelem),kind=outp)
          end do
       end do
       write(n_graph_file) dummy(:,:)
@@ -135,9 +137,10 @@ contains
       fac_r=or1(n_r)*vScale*orho1(n_r)
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
             fac=fac_r*O_sin_theta(n_theta_cal)
             n_theta =n_theta_cal2ord(n_theta_cal)
-            dummy(n_theta,n_phi)=real(fac*vt(n_theta_cal,n_phi),kind=outp)
+            dummy(n_theta,n_phi)=real(fac*vt(nelem),kind=outp)
          end do
       end do
       write(n_graph_file) dummy(:,:)
@@ -146,9 +149,10 @@ contains
       fac_r=or1(n_r)*vScale*orho1(n_r)
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
             fac=fac_r*O_sin_theta(n_theta_cal)
             n_theta =n_theta_cal2ord(n_theta_cal)
-            dummy(n_theta,n_phi)=real(fac*vp(n_theta_cal,n_phi),kind=outp)
+            dummy(n_theta,n_phi)=real(fac*vp(nelem),kind=outp)
          end do
       end do
       write(n_graph_file) dummy(:,:)
@@ -157,8 +161,9 @@ contains
          !-- Write entropy:
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(sr(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(sr(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -168,8 +173,9 @@ contains
          !-- Write chemical composition:
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(xir(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(xir(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -179,8 +185,9 @@ contains
          !-- Write phase field:
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(phir(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(phir(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -190,8 +197,9 @@ contains
          !-- Write entropy:
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(prer(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(prer(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -202,8 +210,9 @@ contains
          fac=or2(n_r)*vScale*orho1(n_r)
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(fac*br(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(fac*br(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -212,9 +221,10 @@ contains
          fac_r=or1(n_r)*vScale*orho1(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                fac=fac_r*O_sin_theta(n_theta_cal)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(fac*bt(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(fac*bt(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -223,9 +233,10 @@ contains
          fac_r=or1(n_r)*vScale*orho1(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                fac=fac_r*O_sin_theta(n_theta_cal)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(fac*bp(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(fac*bp(nelem),kind=outp)
             end do
          end do
          write(n_graph_file) dummy(:,:)
@@ -275,12 +286,12 @@ contains
 
       !-- Input variables:
       integer,  intent(in) :: n_r                      ! radial grid point no.
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
-      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:),phir(:,:)
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: br(*),bt(*),bp(*)
+      real(cp), intent(in) :: sr(*),prer(*),xir(*),phir(*)
 
       !-- Local variables:
-      integer :: n_phi, n_theta, n_theta_cal
+      integer :: n_phi, n_theta, n_theta_cal, nelem
       real(cp) :: fac, fac_r
       real(outp) :: dummy(n_theta_max,n_phi_max)
 
@@ -289,8 +300,9 @@ contains
       fac=or2(n_r)*vScale*orho1(n_r)
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
             n_theta =n_theta_cal2ord(n_theta_cal)
-            dummy(n_theta,n_phi)=real(fac*vr(n_theta_cal,n_phi),kind=outp)
+            dummy(n_theta,n_phi)=real(fac*vr(nelem),kind=outp)
          end do
       end do
       call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -299,9 +311,10 @@ contains
       fac_r=or1(n_r)*vScale*orho1(n_r)
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
             n_theta =n_theta_cal2ord(n_theta_cal)
             fac=fac_r*O_sin_theta(n_theta_cal)
-            dummy(n_theta,n_phi)=real(fac*vt(n_theta_cal,n_phi),kind=outp)
+            dummy(n_theta,n_phi)=real(fac*vt(nelem),kind=outp)
          end do
       end do
       call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -310,9 +323,10 @@ contains
       fac_r=or1(n_r)*vScale*orho1(n_r)
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
             n_theta =n_theta_cal2ord(n_theta_cal)
             fac=fac_r*O_sin_theta(n_theta_cal)
-            dummy(n_theta,n_phi)=real(fac*vp(n_theta_cal,n_phi),kind=outp)
+            dummy(n_theta,n_phi)=real(fac*vp(nelem),kind=outp)
          end do
       end do
       call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -321,8 +335,9 @@ contains
       if ( l_heat ) then
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(sr(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(sr(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -332,8 +347,9 @@ contains
       if ( l_chemical_conv ) then
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(xir(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(xir(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -343,8 +359,9 @@ contains
       if ( l_phase_field ) then
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(phir(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(phir(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -354,8 +371,9 @@ contains
       if ( l_PressGraph ) then
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(prer(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(prer(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -367,8 +385,9 @@ contains
          fac=or2(n_r)
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
-               dummy(n_theta,n_phi)=real(fac*br(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(fac*br(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -376,9 +395,10 @@ contains
          !-- Calculate and write latitudinal magnetic field:
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
-               dummy(n_theta,n_phi)=real(fac*bt(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(fac*bt(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
@@ -386,9 +406,10 @@ contains
          !-- Calculate and write longitudinal magnetic field:
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
                n_theta =n_theta_cal2ord(n_theta_cal)
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
-               dummy(n_theta,n_phi)=real(fac*bp(n_theta_cal,n_phi),kind=outp)
+               dummy(n_theta,n_phi)=real(fac*bp(nelem),kind=outp)
             end do
          end do
          call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
