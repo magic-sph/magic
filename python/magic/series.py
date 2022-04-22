@@ -611,11 +611,11 @@ class TsLookUpTable:
             self.ext_nrj_pol_axi = data[:, 6]
             self.emagoc_pol_es = data[:, 7]
             self.emagoc_tor_es = data[:, 8]
-            self.emagoc_pol_eas = data[:, 9]
-            self.emagoc_tor_eas = data[:, 10]
+            self.emagoc_pol_es_axi = data[:, 9]
+            self.emagoc_tor_es_axi = data[:, 10]
             self.emag_tot = self.emagoc_pol + self.emagoc_tor
             self.emag_es = self.emagoc_pol_es + self.emagoc_tor_es
-            self.emag_eas = self.emagoc_pol_eas + self.emagoc_tor_eas
+            self.emag_es_axi = self.emagoc_pol_es_axi + self.emagoc_tor_es_axi
         elif self.field == 'e_mag_ic':
             self.time = data[:, 0]
             self.emagic_pol = data[:, 1]
@@ -641,8 +641,11 @@ class TsLookUpTable:
             self.e_dip_ax = data[:, 12]
             self.ecmb = data[:, 13]
             self.egeo = data[:, 14]
-            self.ratio = data[:, 17] # (e_cmb-e_as_cmb)/e_cmb
-            self.epol_axi_cmb = (-self.ratio*self.ecmb+self.ecmb)
+            self.ratio_cmb_as = data[:, 16] # (e_cmb-e_es_cmb)/e_cmb
+            self.ratio_cmb_naxi = data[:, 17] # (e_cmb-e_axi_cmb)/e_cmb
+            self.ratio_l11_cmb_as = data[:, 18] # (e_geo-e_es_geo)/e_geo
+            self.ratio_l11_cmb_naxi = data[:, 19] # (e_geo-e_axi_geo)/e_geo
+            self.epol_axi_cmb = (-self.ratio_cmb_naxi*self.ecmb+self.ecmb)
             self.dip3 = self.epol_axi_cmb/self.ecmb
             self.e_tot = self.e_dip/self.dipTot
         elif self.field == 'AM':

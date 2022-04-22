@@ -6,7 +6,8 @@ module fields_average_mod
    use truncation
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use radial_data, only: n_r_cmb, n_r_icb
+   use communications, only: lo2r_one
+   use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc, l_R
    use blocking,only: lm2, llm, ulm, llmMag, ulmMag
@@ -20,84 +21,102 @@ module fields_average_mod
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
-   use out_coeff, only: write_Bcmb, write_Pot
+   use out_coeff, only: write_Bcmb
+#ifdef WITH_MPI
+   use out_coeff, only: write_Pot_mpi
+#else
+   use out_coeff, only: write_Pot
+#endif
    use spectra, only: spectrum, spectrum_temp
-   use graphOut_mod, only: graphOut, graphOut_IC, n_graph_file, graphOut_header
+   use graphOut_mod, only: graphOut_IC, open_graph_file, close_graph_file
+#ifdef WITH_MPI
+   use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
+#else
+   use graphOut_mod, only: graphOut, graphOut_header
+#endif
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
        &                 djdt_ic, domega_ma_dt, domega_ic_dt, dphidt,        &
        &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt
-   use storeCheckPoints, only: store
+   use storeCheckPoints
    use time_schemes, only: type_tscheme
 
    implicit none
 
    private
 
-   complex(cp), allocatable :: w_ave(:,:)
-   complex(cp), allocatable :: z_ave(:,:)
-   complex(cp), allocatable :: s_ave(:,:)
-   complex(cp), allocatable :: xi_ave(:,:)
-   complex(cp), allocatable :: phi_ave(:,:)
-   complex(cp), allocatable :: p_ave(:,:)
-   complex(cp), allocatable :: b_ave(:,:)
-   complex(cp), allocatable :: aj_ave(:,:)
+   complex(cp), allocatable :: w_ave_LMloc(:,:), w_ave_Rloc(:,:)
+   complex(cp), allocatable :: z_ave_LMloc(:,:), z_ave_Rloc(:,:)
+   complex(cp), allocatable :: s_ave_LMloc(:,:), s_ave_Rloc(:,:)
+   complex(cp), allocatable :: xi_ave_LMloc(:,:), xi_ave_Rloc(:,:)
+   complex(cp), allocatable :: phi_ave_LMloc(:,:), phi_ave_Rloc(:,:)
+   complex(cp), allocatable :: p_ave_LMloc(:,:), p_ave_Rloc(:,:)
+   complex(cp), allocatable :: b_ave_LMloc(:,:), b_ave_Rloc(:,:)
+   complex(cp), allocatable :: aj_ave_LMloc(:,:), aj_ave_Rloc(:,:)
    complex(cp), allocatable :: b_ic_ave(:,:)
    complex(cp), allocatable :: aj_ic_ave(:,:)
    ! on rank 0 we also allocate the following fields
-   complex(cp), allocatable :: b_ave_global(:), bICB(:)
-   complex(cp), allocatable :: db_ave_global(:), aj_ave_global(:)
-   complex(cp), allocatable :: w_ave_global(:), dw_ave_global(:)
-   complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
-   complex(cp), allocatable :: p_ave_global(:), xi_ave_global(:)
-   complex(cp), allocatable :: phi_ave_global(:)
+   complex(cp), allocatable :: bICB(:)
 
    public :: initialize_fields_average_mod, fields_average, &
    &         finalize_fields_average_mod
-
 
 contains
 
    subroutine initialize_fields_average_mod
 
-      allocate( w_ave(llm:ulm,n_r_max) )
-      allocate( z_ave(llm:ulm,n_r_max) )
-      allocate( s_ave(llm:ulm,n_r_max) )
-      allocate( p_ave(llm:ulm,n_r_max) )
-      allocate( b_ave(llm:ulm,n_r_max) )
-      allocate( aj_ave(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated+6*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      allocate( b_ic_ave(llm:ulm,n_r_ic_max) )
-      allocate( aj_ic_ave(llm:ulm,n_r_ic_max) )
-      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_ic_max*SIZEOF_DEF_COMPLEX
+      allocate( w_ave_LMloc(llm:ulm,n_r_max), z_ave_LMloc(llm:ulm,n_r_max) )
+      allocate( s_ave_LMloc(llm:ulm,n_r_max), p_ave_LMloc(llm:ulm,n_r_max) )
+      bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      allocate( w_ave_Rloc(lm_max,nRstart:nRstop), z_ave_Rloc(lm_max,nRstart:nRstop) )
+      allocate( s_ave_Rloc(lm_max,nRstart:nRstop), p_ave_Rloc(lm_max,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      if ( l_mag ) then
+         allocate( b_ave_LMloc(llm:ulm,n_r_max), aj_ave_LMloc(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      allocate( b_ave_Rloc(lm_max,nRstart:nRstop), aj_ave_Rloc(lm_max,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+         allocate( b_ic_ave(llm:ulm,n_r_ic_max), aj_ic_ave(llm:ulm,n_r_ic_max) )
+         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_ic_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate( b_ave_LMloc(1,1), aj_ave_LMloc(1,1) )
+         allocate( b_ave_Rloc(1,1), aj_ave_Rloc(1,1) )
+         allocate( b_ic_ave(1,1), aj_ic_ave(1,1) )
+      end if
 
       if ( l_chemical_conv ) then
-         allocate( xi_ave(llm:ulm,n_r_max) )
+         allocate( xi_ave_LMloc(llm:ulm,n_r_max) )
          bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         allocate( xi_ave_Rloc(lm_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
-         allocate( xi_ave(1,1) )
+         allocate( xi_ave_LMloc(1,1) )
+         allocate( xi_ave_Rloc(1,1) )
       end if
 
       if ( l_phase_field ) then
-         allocate( phi_ave(llm:ulm,n_r_max) )
+         allocate( phi_ave_LMloc(llm:ulm,n_r_max) )
          bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         allocate( phi_ave_Rloc(lm_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
-         allocate( phi_ave(1,1) )
+         allocate( phi_ave_LMloc(1,1) )
+         allocate( phi_ave_Rloc(1,1) )
       end if
 
       !-- Set initial values to zero
       if ( l_conv ) then
-         w_ave(:,:)=zero
-         z_ave(:,:)=zero
-         p_ave(:,:)=zero
+         w_ave_LMloc(:,:)=zero
+         z_ave_LMloc(:,:)=zero
+         p_ave_LMloc(:,:)=zero
       end if
-      if ( l_heat ) s_ave(:,:)=zero
-      if ( l_chemical_conv ) xi_ave(:,:)=zero
-      if ( l_phase_field ) phi_ave(:,:)=zero
+      if ( l_heat ) s_ave_LMloc(:,:)=zero
+      if ( l_chemical_conv ) xi_ave_LMloc(:,:)=zero
+      if ( l_phase_field ) phi_ave_LMloc(:,:)=zero
       if ( l_mag ) then
-         b_ave(:,:) =zero
-         aj_ave(:,:)=zero
+         b_ave_LMloc(:,:) =zero
+         aj_ave_LMloc(:,:)=zero
          if ( l_cond_ic ) then
             b_ic_ave(:,:) =zero
             aj_ic_ave(:,:)=zero
@@ -106,48 +125,20 @@ contains
 
       if ( rank == 0 ) then
          allocate( bICB(1:lm_max) )
-         allocate( b_ave_global(1:lm_max) )
-         allocate( db_ave_global(1:lm_max) )
-         allocate( aj_ave_global(1:lm_max) )
-         allocate( w_ave_global(1:lm_max) )
-         allocate( dw_ave_global(1:lm_max) )
-         allocate( z_ave_global(1:lm_max) )
-         allocate( s_ave_global(1:lm_max) )
-         allocate( p_ave_global(1:lm_max) )
-         bytes_allocated = bytes_allocated+9*lm_max*SIZEOF_DEF_COMPLEX
-         if ( l_chemical_conv ) then
-            allocate( xi_ave_global(1:lm_max) )
-            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-         end if
-         if ( l_phase_field ) then
-            allocate( phi_ave_global(1:lm_max) )
-            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-         end if
+         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
       else
          allocate( bICB(1) )
-         allocate( b_ave_global(1) )
-         allocate( db_ave_global(1) )
-         allocate( aj_ave_global(1) )
-         allocate( w_ave_global(1) )
-         allocate( dw_ave_global(1) )
-         allocate( z_ave_global(1) )
-         allocate( s_ave_global(1) )
-         allocate( p_ave_global(1) )
-         if ( l_chemical_conv ) allocate( xi_ave_global(1) )
-         if ( l_phase_field ) allocate( phi_ave_global(1) )
       end if
 
    end subroutine initialize_fields_average_mod
 !----------------------------------------------------------------------------
    subroutine finalize_fields_average_mod
 
-      deallocate( w_ave, z_ave, s_ave, p_ave, b_ave, aj_ave, b_ic_ave )
-      deallocate( aj_ic_ave, db_ave_global, aj_ave_global, w_ave_global )
-      deallocate( dw_ave_global, z_ave_global, s_ave_global, p_ave_global )
-      deallocate( b_ave_global, bICB )
-
-      if ( l_chemical_conv ) deallocate( xi_ave, xi_ave_global )
-      if ( l_phase_field ) deallocate( phi_ave, phi_ave_global )
+      deallocate( w_ave_LMloc, z_ave_LMloc, s_ave_LMloc, p_ave_LMloc )
+      deallocate( w_ave_Rloc, z_ave_Rloc, s_ave_Rloc, p_ave_Rloc )
+      deallocate( b_ave_LMloc, aj_ave_LMloc, b_ic_ave )
+      deallocate( b_ave_Rloc, aj_ave_Rloc, xi_ave_Rloc )
+      deallocate( aj_ic_ave, bICB, xi_ave_LMloc, phi_ave_LMloc, phi_ave_Rloc )
 
    end subroutine finalize_fields_average_mod
 !----------------------------------------------------------------------------
@@ -186,9 +177,11 @@ contains
       complex(cp) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
 
       !----- Time averaged fields:
-      complex(cp) :: dw_ave(llm:ulm,n_r_max)
-      complex(cp) :: ds_ave(llm:ulm,n_r_max)
-      complex(cp) :: db_ave(llm:ulm,n_r_max)
+      complex(cp) :: dw_ave_LMloc(llm:ulm,n_r_max)
+      complex(cp) :: dw_ave_Rloc(lm_max,nRstart:nRstop)
+      complex(cp) :: ds_ave_LMloc(llm:ulm,n_r_max)
+      complex(cp) :: db_ave_LMloc(llm:ulm,n_r_maxMag)
+      complex(cp) :: db_ave_Rloc(lm_maxMag,nRstart:nRstop)
       complex(cp) :: db_ic_ave(llm:ulm,n_r_ic_max)
       complex(cp) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
       complex(cp) :: dj_ic_ave(llm:ulm,n_r_ic_max)
@@ -216,7 +209,6 @@ contains
       integer :: nR
       integer :: n_e_sets,n_spec
 
-      character(len=72) :: graph_file
       character(len=80) :: outFile
       integer :: nOut,n_cmb_sets,nPotSets
 
@@ -225,16 +217,18 @@ contains
 
       !-- Add new time step:
       if ( l_conv ) then
-         w_ave(:,:)=w_ave(:,:) + time_passed*w(:,:)
-         z_ave(:,:)=z_ave(:,:) + time_passed*z(:,:)
-         p_ave(:,:)=p_ave(:,:) + time_passed*p(:,:)
+         w_ave_LMloc(:,:)=w_ave_LMloc(:,:) + time_passed*w(:,:)
+         z_ave_LMloc(:,:)=z_ave_LMloc(:,:) + time_passed*z(:,:)
+         p_ave_LMloc(:,:)=p_ave_LMloc(:,:) + time_passed*p(:,:)
       end if
-      if ( l_phase_field ) phi_ave(:,:)=phi_ave(:,:) + time_passed*phi(:,:)
-      if ( l_heat ) s_ave(:,:)=s_ave(:,:) + time_passed*s(:,:)
-      if ( l_chemical_conv ) xi_ave(:,:)=xi_ave(:,:) + time_passed*xi(:,:)
+      if ( l_phase_field ) phi_ave_LMloc(:,:)=phi_ave_LMloc(:,:) + &
+      &                                       time_passed*phi(:,:)
+      if ( l_heat ) s_ave_LMloc(:,:)=s_ave_LMloc(:,:) + time_passed*s(:,:)
+      if ( l_chemical_conv ) xi_ave_LMloc(:,:)=xi_ave_LMloc(:,:) + &
+      &                                        time_passed*xi(:,:)
       if ( l_mag ) then
-         b_ave(:,:) =b_ave(:,:)  + time_passed*b(:,:)
-         aj_ave(:,:)=aj_ave(:,:) + time_passed*aj(:,:)
+         b_ave_LMloc(:,:) =b_ave_LMloc(:,:)  + time_passed*b(:,:)
+         aj_ave_LMloc(:,:)=aj_ave_LMloc(:,:) + time_passed*aj(:,:)
          if ( l_cond_ic ) then
             b_ic_ave(:,:) =b_ic_ave(:,:) + time_passed*b_ic(:,:)
             aj_ic_ave(:,:)=aj_ic_ave(:,:)+ time_passed*aj_ic(:,:)
@@ -245,21 +239,20 @@ contains
       !    will be overwritten.
       if ( l_stop_time .or. mod(nAve,10) == 0 ) then
 
-         !write(*,"(A,2ES22.15)") "w_ave = ",get_global_sum( w_ave )
          time   =-one  ! This signifies averaging in output files!
          dt_norm=one/time_norm
 
          if ( l_conv ) then
-            w_ave(:,:)=dt_norm*w_ave(:,:)
-            z_ave(:,:)=dt_norm*z_ave(:,:)
-            p_ave(:,:)=dt_norm*p_ave(:,:)
+            w_ave_LMloc(:,:)=dt_norm*w_ave_LMloc(:,:)
+            z_ave_LMloc(:,:)=dt_norm*z_ave_LMloc(:,:)
+            p_ave_LMloc(:,:)=dt_norm*p_ave_LMloc(:,:)
          end if
-         if ( l_phase_field ) phi_ave(:,:)=dt_norm*phi_ave(:,:)
-         if ( l_heat ) s_ave(:,:)=dt_norm*s_ave(:,:)
-         if ( l_chemical_conv ) xi_ave(:,:)=dt_norm*xi_ave(:,:)
+         if ( l_phase_field ) phi_ave_LMloc(:,:)=dt_norm*phi_ave_LMloc(:,:)
+         if ( l_heat ) s_ave_LMloc(:,:)=dt_norm*s_ave_LMloc(:,:)
+         if ( l_chemical_conv ) xi_ave_LMloc(:,:)=dt_norm*xi_ave_LMloc(:,:)
          if ( l_mag ) then
-            b_ave(:,:) =dt_norm*b_ave(:,:)
-            aj_ave(:,:)=dt_norm*aj_ave(:,:)
+            b_ave_LMloc(:,:) =dt_norm*b_ave_LMloc(:,:)
+            aj_ave_LMloc(:,:)=dt_norm*aj_ave_LMloc(:,:)
             if ( l_cond_ic ) then
                b_ic_ave(:,:) =dt_norm*b_ic_ave(:,:)
                aj_ic_ave(:,:)=dt_norm*aj_ic_ave(:,:)
@@ -267,15 +260,15 @@ contains
          end if
 
          !----- Get the radial derivatives:
-         call get_dr(w_ave,dw_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
-              &      nocopy=.true.)
+         call get_dr(w_ave_LMloc,dw_ave_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max, &
+              &      rscheme_oc,nocopy=.true.)
          if ( l_mag ) then
-            call get_dr(b_ave,db_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
-                 &      nocopy=.true.)
+            call get_dr(b_ave_LMloc,db_ave_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max, &
+                 &      rscheme_oc,nocopy=.true.)
          end if
          if ( l_heat ) then
-            call get_dr(s_ave,ds_ave,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
-                 &      nocopy=.true.)
+            call get_dr(s_ave_LMloc,ds_ave_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max, &
+                 &      rscheme_oc,nocopy=.true.)
          end if
          if ( l_cond_ic ) then
             call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,ulm-llm+1,1,     &
@@ -290,12 +283,13 @@ contains
          !      Note: average spectra will be in file no 0
          n_spec=0
          call spectrum(n_spec,time,.false.,nAve,l_stop_time,time_passed, &
-              &        time_norm,w_ave,dw_ave,z_ave,b_ave,db_ave,        &
-              &        aj_ave,b_ic_ave,db_ic_ave,aj_ic_ave)
+              &        time_norm,w_ave_LMloc,dw_ave_LMloc,z_ave_LMloc,   &
+              &        b_ave_LMloc,db_ave_LMloc,aj_ave_LMloc,b_ic_ave,   &
+              &        db_ic_ave,aj_ic_ave)
 
          if ( l_heat ) then
             call spectrum_temp(n_spec,time,.false.,0,l_stop_time,     &
-                 &             0.0_cp,0.0_cp,s_ave,ds_ave)
+                 &             0.0_cp,0.0_cp,s_ave_LMloc,ds_ave_LMloc)
          end if
          if ( rank==0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
@@ -306,13 +300,13 @@ contains
          if ( l_stop_time ) then
             !----- Calculate energies of averaged field:
             n_e_sets=1
-            call get_e_kin(time,.false.,.true.,n_e_sets, &
-                 &         w_ave,dw_ave,z_ave,           &
-                 &         e_kin_p_ave,e_kin_t_ave,      &
+            call get_e_kin(time,.false.,.true.,n_e_sets,         &
+                 &         w_ave_LMloc,dw_ave_LMloc,z_ave_LMloc, &
+                 &         e_kin_p_ave,e_kin_t_ave,              &
                  &         e_kin_p_as_ave,e_kin_t_as_ave)
 
             call get_e_mag(time,.false.,.true.,n_e_sets,                  &
-                 &         b_ave,db_ave,aj_ave,                           &
+                 &         b_ave_LMloc,db_ave_LMloc,aj_ave_LMloc,         &
                  &         b_ic_ave,db_ic_ave,aj_ic_ave,                  &
                  &         e_mag_p_ave,e_mag_t_ave,                       &
                  &         e_mag_p_as_ave,e_mag_t_as_ave,                 &
@@ -362,58 +356,54 @@ contains
          ! For the graphic file of the average fields, we gather them
          ! on rank 0 and use the old serial output routine.
 
-         if ( rank == 0 ) then
-            graph_file='G_ave.'//tag
-            open(newunit=n_graph_file, file=graph_file, status='unknown', &
-            &    form='unformatted', access='stream')
-
-            !----- Write header into graphic file:
-            call graphOut_header(time)
-         end if
+         call open_graph_file(0, time, l_ave=.true.)
+         !----- Write header into graphic file:
+#ifdef WITH_MPI
+         call graphOut_mpi_header(time)
+#else
+         call graphOut_header(time)
+#endif
 
          !-- This will be needed for the inner core
          if ( l_mag ) then
-            call gather_from_lo_to_rank0(b_ave(llm,n_r_icb),bICB)
+            call gather_from_lo_to_rank0(b_ave_LMloc(llm,n_r_icb),bICB)
          end if
 
+         !-- MPI transposes from LMloc to Rloc
+         call lo2r_one%transp_lm2r(z_ave_LMloc, z_ave_Rloc)
+         call lo2r_one%transp_lm2r(w_ave_LMloc, w_ave_Rloc)
+         call lo2r_one%transp_lm2r(dw_ave_LMloc, dw_ave_Rloc)
+         call lo2r_one%transp_lm2r(s_ave_LMloc, s_ave_Rloc)
+         call lo2r_one%transp_lm2r(p_ave_LMloc, p_ave_Rloc)
+
+         if ( l_mag ) then
+            call lo2r_one%transp_lm2r(aj_ave_LMloc, aj_ave_Rloc)
+            call lo2r_one%transp_lm2r(aj_ave_LMloc, b_ave_Rloc)
+            call lo2r_one%transp_lm2r(db_ave_LMloc, db_ave_Rloc)
+         end if
+
+         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_ave_LMloc, xi_ave_Rloc)
+         if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_ave_LMloc, phi_ave_Rloc)
+
          !----- Outer core:
-         do nR=1,n_r_max
-            if ( l_mag ) then
-               call gather_from_lo_to_rank0(b_ave(llm,nR),b_ave_global)
-               call gather_from_lo_to_rank0(db_ave(llm,nR),db_ave_global)
-               call gather_from_lo_to_rank0(aj_ave(llm,nR),aj_ave_global)
-            end if
-            call gather_from_lo_to_rank0(w_ave(llm,nR),w_ave_global)
-            call gather_from_lo_to_rank0(dw_ave(llm,nR),dw_ave_global)
-            call gather_from_lo_to_rank0(z_ave(llm,nR),z_ave_global)
-            call gather_from_lo_to_rank0(p_ave(llm,nR),p_ave_global)
-            if ( l_heat ) then
-               call gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
-            end if
+         do nR=nRstart,nRstop
+            call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
+                 &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
+            call torpol_to_spat(w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
+                 &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
+            call scal_to_spat(p_ave_Rloc(:,nR), Prer, l_R(nR))
+            call scal_to_spat(s_ave_Rloc(:,nR), Sr, l_R(nR))
             if ( l_chemical_conv ) then
-               call gather_from_lo_to_rank0(xi_ave(llm,nR),xi_ave_global)
+               call scal_to_spat(xi_ave_Rloc(:,nR), Xir, l_R(nR))
             end if
             if ( l_phase_field ) then
-               call gather_from_lo_to_rank0(phi_ave(llm,nR),phi_ave_global)
+               call scal_to_spat(phi_ave_Rloc(:,nR), Phir, l_R(nR))
             end if
-
-            if ( rank == 0 ) then
-               if ( l_mag ) then
-                  call torpol_to_spat(b_ave_global, db_ave_global, &
-                       &              aj_ave_global, Br, Bt, Bp, l_R(nR))
-               end if
-               call torpol_to_spat(w_ave_global, dw_ave_global, &
-                    &              z_ave_global, Vr, Vt, Vp, l_R(nR))
-               call scal_to_spat(p_ave_global, Prer, l_R(nR))
-               call scal_to_spat(s_ave_global, Sr, l_R(nR))
-               if ( l_chemical_conv ) then
-                  call scal_to_spat(xi_ave_global, Xir, l_R(nR))
-               end if
-               if ( l_phase_field ) then
-                  call scal_to_spat(phi_ave_global, Phir, l_R(nR))
-               end if
-               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
-            end if
+#ifdef WITH_MPI
+            call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+#else
+            call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+#endif
          end do
 
          !----- Inner core: Transform is included in graphOut_IC!
@@ -424,18 +414,15 @@ contains
             call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
             call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
 
-            if ( rank == 0 ) then
-               call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
-                    &           aj_ic_ave_global,bICB,l_avg=.true.)
-            end if
+            call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
+                 &           aj_ic_ave_global,bICB)
          end if
 
-         if ( rank == 0 ) close(n_graph_file)  ! close graphic output file !
+         call close_graph_file()
 
          !----- Write info about graph-file into STDOUT and log-file:
-         if ( l_stop_time ) then
-            if ( rank == 0 )  &
-            &  write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
+         if ( l_stop_time .and. rank == 0 ) then
+            write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
          end if
 
          !--- Store time averaged poloidal magnetic coeffs at cmb
@@ -445,49 +432,77 @@ contains
             n_cmb_sets=-1
             !call write_Bcmb(time,b(1,n_r_cmb),lm_max,l_max,           &
             !     &           l_max_cmb,minc,lm2,n_cmb_sets,outFile,nOut)
-            call write_Bcmb(time,b_ave(:,n_r_cmb),l_max_cmb,n_cmb_sets,outFile,nOut)
+            call write_Bcmb(time,b_ave_LMloc(:,n_r_cmb),l_max_cmb, &
+                 &          n_cmb_sets,outFile,nOut)
          end if
 
          !--- Store potentials of averaged field:
-         !    dw_ave and db_ave used as work arrays here.
+         !    dw_ave_LMloc and db_ave_LMloc used as work arrays here.
          nPotSets=0
-         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,      &
+#ifdef WITH_MPI	
+         call write_Pot_mpi(time,w_ave_Rloc,z_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets,  &
+              &             'V_lmr_ave.',omega_ma,omega_ic)
+         if ( l_mag) then
+            call write_Pot_mpi(time,b_ave_Rloc,aj_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets,&
+                 &             'B_lmr_ave.',omega_ma,omega_ic)
+         end if
+         if ( l_heat ) then
+            call write_Pot_mpi(time,s_ave_Rloc,z_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets, &
+                 &             'T_lmr_ave.',omega_ma,omega_ic)
+         end if
+         if ( l_chemical_conv ) then
+            call write_Pot_mpi(time,xi_ave_Rloc,z_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets,&
+                 &             'Xi_lmr_ave.',omega_ma,omega_ic)
+         end if
+#else
+         call write_Pot(time,w_ave_LMloc,z_ave_LMloc,b_ic_ave,aj_ic_ave,nPotSets,      &
               &        'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
-            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
+            call write_Pot(time,b_ave_LMloc,aj_ave_LMloc,b_ic_ave,aj_ic_ave,nPotSets,  &
                  &        'B_lmr_ave.',omega_ma,omega_ic)
          end if
          if ( l_heat ) then
-            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,   &
+            call write_Pot(time,s_ave_LMloc,z_ave_LMloc,b_ic_ave,aj_ic_ave,nPotSets,   &
                  &        'T_lmr_ave.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-            call write_Pot(time,xi_ave,z_ave,b_ic_ave,aj_ic_ave,nPotSets,  &
+            call write_Pot(time,xi_ave_LMloc,z_ave_LMloc,b_ic_ave,aj_ic_ave,nPotSets,  &
                  &        'Xi_lmr_ave.',omega_ma,omega_ic)
          end if
+#endif
 
          if ( rank==0 .and. l_save_out ) close(n_log_file)
 
          !--- Store checkpoint file
+#ifdef WITH_MPI
+         call store_mpi(simtime,tscheme,-1,l_stop_time,.false.,.true.,        &
+              &         w_ave_Rloc,z_ave_Rloc,p_ave_Rloc,s_ave_Rloc,          &
+              &         xi_ave_Rloc,phi_ave_Rloc,b_ave_Rloc,aj_ave_Rloc,      &
+              &         b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
+              &         dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
+              &         lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+#else
          call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,        &
-              &     w_ave,z_ave,p_ave,s_ave,xi_ave,phi_ave,b_ave,aj_ave,  &
+              &     w_ave_LMloc,z_ave_LMloc,p_ave_LMloc,s_ave_LMloc,      &
+              &     xi_ave_LMloc,phi_ave_LMloc,b_ave_LMloc,aj_ave_LMloc,  &
               &     b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
               &     dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
               &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+#endif
 
          ! now correct the stored average fields by the factor which has been
          ! applied before
          if ( l_conv ) then
-            w_ave(:,:)=w_ave(:,:)*time_norm
-            z_ave(:,:)=z_ave(:,:)*time_norm
-            p_ave(:,:)=p_ave(:,:)*time_norm
+            w_ave_LMloc(:,:)=w_ave_LMloc(:,:)*time_norm
+            z_ave_LMloc(:,:)=z_ave_LMloc(:,:)*time_norm
+            p_ave_LMloc(:,:)=p_ave_LMloc(:,:)*time_norm
          end if
-         if ( l_chemical_conv ) phi_ave(:,:)=phi_ave(:,:)*time_norm
-         if ( l_heat ) s_ave(:,:)=s_ave(:,:)*time_norm
-         if ( l_chemical_conv ) xi_ave(:,:)=xi_ave(:,:)*time_norm
+         if ( l_chemical_conv ) phi_ave_LMloc(:,:)=phi_ave_LMloc(:,:)*time_norm
+         if ( l_heat ) s_ave_LMloc(:,:)=s_ave_LMloc(:,:)*time_norm
+         if ( l_chemical_conv ) xi_ave_LMloc(:,:)=xi_ave_LMloc(:,:)*time_norm
          if ( l_mag ) then
-            b_ave(:,:) =b_ave(:,:)*time_norm
-            aj_ave(:,:)=aj_ave(:,:)*time_norm
+            b_ave_LMloc(:,:) =b_ave_LMloc(:,:)*time_norm
+            aj_ave_LMloc(:,:)=aj_ave_LMloc(:,:)*time_norm
             if ( l_cond_ic ) then
                b_ic_ave(:,:) =b_ic_ave(:,:)*time_norm
                aj_ic_ave(:,:)=aj_ic_ave(:,:)*time_norm

@@ -65,7 +65,6 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_e_kin(time,l_write,l_stop_time,n_e_sets, &
               &         w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
-
       !
       !  Calculates kinetic energy  = 1/2 Integral (v^2 dV).
       !  Integration in theta,phi is handled by summation of spherical harmonics

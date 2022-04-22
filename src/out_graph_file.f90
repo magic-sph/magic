@@ -40,36 +40,41 @@ module graphOut_mod
 
 contains
 
-   subroutine open_graph_file(n_time_step, timeScaled)
+   subroutine open_graph_file(n_time_step, timeScaled, l_ave)
 
       !-- Input variables
       integer,  intent(in) :: n_time_step
       real(cp), intent(in) :: timeScaled
+      logical,  intent(in) :: l_ave
 
       !-- Local variables
       character(len=72) :: graph_file
       character(len=20) :: string
 
-      n_graph = n_graph+1
-      write(string, *) n_graph
-      graph_file='G_'//trim(adjustl(string))//'.'//tag
+      if ( .not. l_ave ) then
+         n_graph = n_graph+1
+         write(string, *) n_graph
+         graph_file='G_'//trim(adjustl(string))//'.'//tag
 
-      if ( rank == 0 ) then
-         write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
-         &    " ! Storing graphic file:",             &
-         &    "             at time=",timeScaled,     &
-         &    "            step no.=",n_time_step,    &
-         &    "           into file=",graph_file
-         if ( l_save_out ) then
-            open(newunit=n_log_file, file=log_file, status='unknown', &
-            &    position='append')
+         if ( rank == 0 ) then
+            write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
+            &    " ! Storing graphic file:",             &
+            &    "             at time=",timeScaled,     &
+            &    "            step no.=",n_time_step,    &
+            &    "           into file=",graph_file
+            if ( l_save_out ) then
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_log_file,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
+            &    " ! Storing graphic file:",                       &
+            &    "             at time=",timeScaled,               &
+            &    "            step no.=",n_time_step,              &
+            &    "           into file=",graph_file
+            if ( l_save_out ) close(n_log_file)
          end if
-         write(n_log_file,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
-         &    " ! Storing graphic file:",                       &
-         &    "             at time=",timeScaled,               &
-         &    "            step no.=",n_time_step,              &
-         &    "           into file=",graph_file
-         if ( l_save_out ) close(n_log_file)
+      else
+         graph_file='G_ave.'//tag
       end if
 
       !-- Setup MPI/IO
@@ -495,7 +500,7 @@ contains
    end subroutine write_one_field
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_IC(b_ic,db_ic,aj_ic,bICB,l_avg)
+   subroutine graphOut_IC(b_ic,db_ic,aj_ic,bICB)
       !
       !  Purpose of this subroutine is to write inner core magnetic
       !  field onto graphic output file. If the inner core is
@@ -508,10 +513,8 @@ contains
       !-- Input variables:
       complex(cp), intent(in) :: b_ic(:,:), db_ic(:,:), aj_ic(:,:)
       complex(cp), intent(in) :: bICB(:)
-      logical, optional, intent(in) :: l_avg
 
       !-- Local variables:
-      logical :: l_avg_loc
       integer :: nR, nPhi, nTheta, nTheta_cal
 
       real(cp) :: BrB(nlat_padded,n_phi_max), BtB(nlat_padded,n_phi_max)
@@ -524,20 +527,12 @@ contains
       integer(kind=MPI_OFFSET_KIND) :: disp
 #endif
 
-      if ( present(l_avg) ) then
-         l_avg_loc = l_avg
-      else
-         l_avg_loc = .false.
-      end if
-
 #ifdef WITH_MPI
       !-- One has to bring rank=0 to the end of the file
-      if ( .not. l_avg_loc ) then
-         disp = size_of_header+n_fields*n_r_max*n_phi_max*n_theta_max* &
-         &      SIZEOF_OUT_REAL
-         call MPI_File_Set_View(graph_mpi_fh, disp, MPI_OUT_REAL, MPI_OUT_REAL, &
-              &                 "native", info, ierr)
-      end if
+      disp = size_of_header+n_fields*n_r_max*n_phi_max*n_theta_max* &
+      &      SIZEOF_OUT_REAL
+      call MPI_File_Set_View(graph_mpi_fh, disp, MPI_OUT_REAL, MPI_OUT_REAL, &
+           &                 "native", info, ierr)
 #endif
 
       if ( rank == 0 ) then
@@ -565,33 +560,21 @@ contains
 
             !-- Write radial magnetic field:
 #ifdef WITH_MPI
-            if ( .not. l_avg_loc ) then
-               call write_one_field(Br, graph_mpi_fh, n_phi_max, n_theta_max)
-            else
-               write(n_graph_file) Br(:,:)
-            end if
+            call write_one_field(Br, graph_mpi_fh, n_phi_max, n_theta_max)
 #else
             write(n_graph_file) Br(:,:)
 #endif
 
             !-- Write latitudinal magnetic field:
 #ifdef WITH_MPI
-            if ( .not. l_avg_loc ) then
-               call write_one_field(Bt, graph_mpi_fh, n_phi_max, n_theta_max)
-            else
-               write(n_graph_file) Bt(:,:)
-            end if
+            call write_one_field(Bt, graph_mpi_fh, n_phi_max, n_theta_max)
 #else
             write(n_graph_file) Bt(:,:)
 #endif
 
             !-- Write longitudinal magnetic field:
 #ifdef WITH_MPI
-            if ( .not. l_avg_loc ) then
-               call write_one_field(Bp, graph_mpi_fh, n_phi_max, n_theta_max)
-            else
-               write(n_graph_file) Bp(:,:)
-            end if
+            call write_one_field(Bp, graph_mpi_fh, n_phi_max, n_theta_max)
 #else
             write(n_graph_file) Bp(:,:)
 #endif

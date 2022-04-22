@@ -444,7 +444,7 @@ contains
          &            .or. lFluxProfCalc
          lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
 
-         if ( l_graph ) call open_graph_file(n_time_step, time)
+         if ( l_graph ) call open_graph_file(n_time_step, time, l_ave=.false.)
 
          tscheme%istage = 1
 
