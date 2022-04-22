@@ -177,7 +177,8 @@ contains
       !-- Courant citeria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-      integer :: nR, nBc, idx1, idx2
+      integer :: nR, nBc, idx1, idx2, idxh1, idxh2, idxm1, idxm2, idxa1, idxa2
+      integer :: idxc1, idxc2, idxp1, idxp2
       logical :: lMagNlBc, l_bound, lDeriv
 
       if ( l_graph ) then
@@ -187,6 +188,9 @@ contains
          call graphOut_header(time)
 #endif
       end if
+
+      idxh1=1; idxh2=1; idxm1=1; idxm2=1; idxa1=1; idxa2=1
+      idxc1=1; idxc2=1; idxp1=1; idxp2=1
 
       if ( rank == 0 ) then
          dtrkc(n_r_cmb)=1.e10_cp
@@ -460,15 +464,30 @@ contains
          call td_counter%start_count()
          idx1 = (nR-nRstart)*(lmP_max)+1
          idx2 = idx1+lmP_max-1
-         !print*, nR, idx1, idx2, lmP_max*(nRstop-nRstart+1)
+         if ( l_heat ) then
+            idxh1 = idx1; idxh2 = idx2
+         end if
+         if ( l_chemical_conv ) then
+            idxc1 = idx1; idxc2 = idx2
+         end if
+         if ( l_mag ) then
+            idxm1 = idx1; idxm2 = idx2
+         end if
+         if ( l_anel ) then
+            idxa1 = idx1; idxa2 = idx2
+         end if
+         if ( l_phase_field ) then
+            idxp1 = idx1; idxp2 = idx2
+         end if
          call this%nl_lm%get_td(nR, nBc, lPressNext, this%nl_lm%AdvrLM(idx1:idx2), &
               &                 this%nl_lm%AdvtLM(idx1:idx2), this%nl_lm%AdvpLM(idx1:idx2),              &
-              &                 this%nl_lm%VSrLM(idx1:idx2), this%nl_lm%VStLM(idx1:idx2),                &
-              &                 this%nl_lm%VXirLM(idx1:idx2),              &
-              &                 this%nl_lm%VXitLM(idx1:idx2),       &
-              &                 this%nl_lm%VxBrLM(idx1:idx2), this%nl_lm%VxBtLM(idx1:idx2),              &
-              &                 this%nl_lm%VxBpLM(idx1:idx2), this%nl_lm%heatTermsLM(idx1:idx2),         &
-              &                 this%nl_lm%dphidtLM(idx1:idx2), dVSrLM(:,nR), dVXirLM(:,nR),  &
+              &                 this%nl_lm%VSrLM(idxh1:idxh2),  &
+              &                 this%nl_lm%VStLM(idxh1:idxh2),                &
+              &                 this%nl_lm%VXirLM(idxc1:idxc2),              &
+              &                 this%nl_lm%VXitLM(idxc1:idxc2),       &
+              &                 this%nl_lm%VxBrLM(idxm1:idxm2), this%nl_lm%VxBtLM(idxm1:idxm2),              &
+              &                 this%nl_lm%VxBpLM(idxm1:idxm2), this%nl_lm%heatTermsLM(idxa1:idxa2),         &
+              &                 this%nl_lm%dphidtLM(idxp1:idxp2), dVSrLM(:,nR), dVXirLM(:,nR),  &
               &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),          &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),   &
               &                 dphidt(:,nR), dbdt(:,nR), djdt(:,nR))
