@@ -118,9 +118,11 @@ contains
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
          this%AdvpLM(lm)=zero
-         this%VxBrLM(lm)=zero
-         this%VxBtLM(lm)=zero
-         this%VxBpLM(lm)=zero
+         if ( l_mag ) then
+            this%VxBrLM(lm)=zero
+            this%VxBtLM(lm)=zero
+            this%VxBpLM(lm)=zero
+         end if
          if ( l_heat ) then
             this%VSrLM(lm)=zero
             this%VStLM(lm)=zero
