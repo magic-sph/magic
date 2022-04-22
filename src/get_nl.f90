@@ -27,7 +27,6 @@ module grid_space_arrays_mod
         &                         epsPhase, phaseDiffFac, penaltyFac, tmelt
    use horizontal_data, only: sinTheta, cosTheta, phi, O_sin_theta_E2, &
        &                      cosn_theta_E2, O_sin_theta
-   use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third, one
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
        &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field
@@ -47,7 +46,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
       real(cp), allocatable :: heatTerms(:,:), phiTerms(:,:)
 
-      !----- Fields calculated from these help arrays by legtf:
+      !----- Fields calculated from Legendre transforms
       real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
       real(cp), allocatable :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
       real(cp), allocatable :: cvrc(:,:), sc(:,:), drSc(:,:)
@@ -101,7 +100,7 @@ contains
          bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
-      !----- Fields calculated from these help arrays by legtf:
+      !----- Fields calculated from Legendre transforms
       allocate( this%vrc(nlat_padded,n_phi_max),this%vtc(nlat_padded,n_phi_max) )
       allocate( this%vpc(nlat_padded,n_phi_max), this%dvrdrc(nlat_padded,n_phi_max) )
       allocate(this%dvtdrc(nlat_padded,n_phi_max), this%dvpdrc(nlat_padded,n_phi_max))
@@ -154,7 +153,7 @@ contains
       if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
       deallocate( this%heatTerms )
 
-      !----- Fields calculated from these help arrays by legtf:
+      !----- Fields calculated from Spherical Harmonic Transforms
       deallocate( this%vrc,this%vtc,this%vpc )
       deallocate( this%dvrdrc,this%dvtdrc,this%dvpdrc,this%cvrc )
       deallocate( this%dvrdtc,this%dvrdpc,this%dvtdpc,this%dvpdpc )
@@ -182,16 +181,13 @@ contains
       integer,             intent(in) :: nBc
 
       !-- Local variables:
-      integer :: nPhi, nPhStart, nPhStop
+      integer :: nPhi
       real(cp) :: posnalp
 
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
 
-      !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
-      nPhStart=1; nPhStop=n_phi_max
-      call get_openmp_blocks(nPhStart,nPhStop)
-
-      do nPhi=nPhStart,nPhStop
+      !$omp parallel do default(shared)
+      do nPhi=1,n_phi_max
 
          if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
             !------ Get the Lorentz force:
@@ -382,8 +378,438 @@ contains
          end if  ! Viscous heating and Ohmic losses ?
 
       end do
-      !$omp end parallel
+      !$omp end parallel do
 
    end subroutine get_nl
 !----------------------------------------------------------------------------
 end module grid_space_arrays_mod
+!----------------------------------------------------------------------------
+module grid_space_arrays_3d_mod
+   !
+   ! This module is used to compute the nonlinear products in physical space
+   ! :math:`(\theta,r,\phi)`.
+   !
+
+   use general_arrays_mod
+   use precision_mod
+   use mem_alloc, only: bytes_allocated
+   use truncation, only: n_phi_max, nlat_padded
+   use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
+       &                       lambda, or4, or1
+   use radial_data, only: n_r_icb, n_r_cmb
+   use physical_parameters, only: LFfac, n_r_LCR, prec_angle, ViscHeatFac,    &
+        &                         oek, po, dilution_fac, ra, opr, OhmLossFac, &
+        &                         epsPhase, phaseDiffFac, penaltyFac, tmelt,  &
+        &                         kbotv, ktopv
+   use horizontal_data, only: sinTheta, cosTheta, phi, O_sin_theta_E2, &
+       &                      cosn_theta_E2, O_sin_theta
+   use constants, only: two, third, one
+   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
+       &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field,   &
+       &            l_mag
+
+   implicit none
+
+   private
+
+   type, public, extends(general_arrays_t) :: grid_space_arrays_3d_t
+      !----- Nonlinear terms in phi/theta space:
+      real(cp), allocatable :: Advr(:,:,:), Advt(:,:,:), Advp(:,:,:)
+      real(cp), allocatable :: LFr(:,:,:), LFt(:,:,:), LFp(:,:,:)
+      real(cp), allocatable :: PCr(:,:,:), PCt(:,:,:), PCp(:,:,:)
+      real(cp), allocatable :: CAr(:,:,:), CAt(:,:,:)
+      real(cp), allocatable :: VxBr(:,:,:), VxBt(:,:,:), VxBp(:,:,:)
+      real(cp), allocatable :: VSr(:,:,:), VSt(:,:,:), VSp(:,:,:)
+      real(cp), allocatable :: VXir(:,:,:), VXit(:,:,:), VXip(:,:,:)
+      real(cp), allocatable :: heatTerms(:,:,:), phiTerms(:,:,:)
+
+      !----- Fields calculated from SHTs
+      real(cp), allocatable :: vrc(:,:,:), vtc(:,:,:), vpc(:,:,:)
+      real(cp), allocatable :: dvrdrc(:,:,:), dvtdrc(:,:,:), dvpdrc(:,:,:)
+      real(cp), allocatable :: cvrc(:,:,:), sc(:,:,:), drSc(:,:,:)
+      real(cp), allocatable :: dvrdtc(:,:,:), dvrdpc(:,:,:)
+      real(cp), allocatable :: dvtdpc(:,:,:), dvpdpc(:,:,:)
+      real(cp), allocatable :: brc(:,:,:), btc(:,:,:), bpc(:,:,:)
+      real(cp), allocatable :: cbrc(:,:,:), cbtc(:,:,:), cbpc(:,:,:)
+      real(cp), allocatable :: pc(:,:,:), xic(:,:,:), cvtc(:,:,:), cvpc(:,:,:)
+      real(cp), allocatable :: dsdtc(:,:,:), dsdpc(:,:,:), phic(:,:,:)
+
+   contains
+
+      procedure :: initialize
+      procedure :: finalize
+      procedure :: get_nl
+
+   end type grid_space_arrays_3d_t
+
+contains
+
+   subroutine initialize(this, nRl, nRu)
+      !
+      ! Memory allocation of arrays in grid space
+      !
+      class(grid_space_arrays_3d_t) :: this
+
+      !-- Input variables
+      integer, intent(in) :: nRl ! lower bound of radial chunk
+      integer, intent(in) :: nRu ! upper bound of radial chunk
+
+      !-- Local variables:
+      integer(lip) :: size_of_phys
+
+      size_of_phys = nlat_padded*(nRu-nRl+1)*n_phi_max
+
+      allocate( this%Advr(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%Advt(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%Advp(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%VSr(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%VSt(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%VSp(nlat_padded,nRl:nRu,n_phi_max) )
+      bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
+      if ( l_anel ) then
+         allocate( this%heatTerms(nlat_padded,nRl:nRu,n_phi_max) )
+      bytes_allocated=bytes_allocated + size_of_phys*SIZEOF_DEF_REAL
+      else
+         allocate( this%heatTerms(1,1,1) )
+      end if
+
+      if ( l_mag ) then
+         allocate( this%LFr(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%LFt(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%LFp(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%VxBr(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%VxBt(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%VxBp(nlat_padded,nRl:nRu,n_phi_max) ) 
+         bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
+      else
+         allocate( this%LFr(1,1,1), this%LFt(1,1,1), this%LFp(1,1,1) )
+         allocate( this%VxBr(1,1,1), this%VxBt(1,1,1), this%VxBp(1,1,1) )
+      end if
+
+      if ( l_precession ) then
+         allocate( this%PCr(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%PCt(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%PCp(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated + 3*size_of_phys*SIZEOF_DEF_REAL
+      end if
+
+      if ( l_centrifuge ) then
+         allocate( this%CAr(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%CAt(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated + 2*size_of_phys*SIZEOF_DEF_REAL
+      end if
+
+      if ( l_chemical_conv ) then
+         allocate( this%VXir(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%VXit(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%VXip(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated + 3*size_of_phys*SIZEOF_DEF_REAL
+      end if
+
+      allocate( this%vrc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%vtc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%vpc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvrdrc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvtdrc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvpdrc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%cvrc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvrdtc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvrdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvtdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dvpdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%sc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%drSc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%pc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dsdtc(nlat_padded,nRl:nRu,n_phi_max) )
+      allocate( this%dsdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      bytes_allocated=bytes_allocated + 16*size_of_phys*SIZEOF_DEF_REAL
+      
+      if ( l_mag ) then
+         allocate( this%brc(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%btc(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%bpc(nlat_padded,nRl:nRu,n_phi_max) )
+         this%btc=1.0e50_cp
+         this%bpc=1.0e50_cp
+         allocate( this%cbrc(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%cbtc(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%cbpc(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
+      else
+         allocate( this%brc(1,1,1), this%btc(1,1,1), this%bpc(1,1,1) )
+         allocate( this%cbrc(1,1,1), this%cbtc(1,1,1), this%cbpc(1,1,1) )
+      end if
+
+      if ( l_chemical_conv ) then
+         allocate( this%xic(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated + size_of_phys*SIZEOF_DEF_REAL
+      else
+         allocate( this%xic(1,1,1) )
+      end if
+
+      if ( l_phase_field ) then
+         allocate( this%phic(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%phiTerms(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated + 2*size_of_phys*SIZEOF_DEF_REAL
+      else
+         allocate( this%phic(1,1,1), this%phiTerms(1,1,1) )
+      end if
+
+      if ( l_adv_curl ) then
+         allocate( this%cvtc(nlat_padded,nRl:nRu,n_phi_max) )
+         allocate( this%cvpc(nlat_padded,nRl:nRu,n_phi_max) )
+         bytes_allocated=bytes_allocated+2*size_of_phys*SIZEOF_DEF_REAL
+      end if
+
+   end subroutine initialize
+!----------------------------------------------------------------------------
+   subroutine finalize(this)
+      !
+      ! Memory deallocation of arrays in grid space
+      !
+
+      class(grid_space_arrays_3d_t) :: this
+
+      deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
+      deallocate( this%VxBr, this%VxBt, this%VxBp, this%VSr, this%VSt, this%VSp )
+      if ( l_chemical_conv ) deallocate( this%VXir, this%VXit, this%VXip )
+      if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
+      if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
+      if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
+      if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
+      deallocate( this%heatTerms )
+
+      !----- Fields calculated from SHTs
+      deallocate( this%vrc,this%vtc,this%vpc )
+      deallocate( this%dvrdrc,this%dvtdrc,this%dvpdrc,this%cvrc )
+      deallocate( this%dvrdtc,this%dvrdpc,this%dvtdpc,this%dvpdpc )
+      deallocate( this%brc,this%btc,this%bpc,this%cbrc,this%cbtc,this%cbpc )
+      deallocate( this%sc,this%drSc, this%pc, this%xic )
+      deallocate( this%dsdtc, this%dsdpc )
+
+   end subroutine finalize
+!----------------------------------------------------------------------------
+   subroutine get_nl(this, nRl, nRu, time)
+      !
+      !  calculates non-linear products in grid-space for radial
+      !  level ``nR`` and returns them in arrays
+      !
+      !  if ``nBc>0`` velocities are zero only the :math:`(\vec{u}\times\vec{B})`
+      !  contributions need to be calculated
+      !
+
+      class(grid_space_arrays_3d_t) :: this
+
+      !-- Input of variables:
+      integer,  intent(in) :: nRl     ! Lower index for chunk of radial level
+      integer,  intent(in) :: nRu     ! Upper index for chunk of radial level
+      real(cp), intent(in) :: time    ! instant in time
+
+      !-- Local variables:
+      integer :: nPhi, nR
+      real(cp) :: posnalp
+
+      if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
+
+      !$omp parallel do default(shared) private(nR)
+      do nPhi=1,n_phi_max
+         do nR=nRl, nRu
+            if ( l_mag_LF .and. nR>n_r_LCR ) then
+               !------ Get the Lorentz force:
+               !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
+               this%LFr(:,nR,nPhi)=  LFfac*O_sin_theta_E2(:) * (      &
+               &        this%cbtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -    &
+               &        this%cbpc(:,nR,nPhi)*this%btc(:,nR,nPhi) )
+
+               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               this%LFt(:,nR,nPhi)=  LFfac*or4(nR) * (                &
+               &        this%cbpc(:,nR,nPhi)*this%brc(:,nR,nPhi) -    &
+               &        this%cbrc(:,nR,nPhi)*this%bpc(:,nR,nPhi) )
+
+               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               this%LFp(:,nR,nPhi)=  LFfac*or4(nR) * (                &
+               &        this%cbrc(:,nR,nPhi)*this%btc(:,nR,nPhi) -    &
+               &        this%cbtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )
+            end if      ! Lorentz force required ?
+
+            if ( l_conv_nl ) then
+
+               if ( l_adv_curl ) then ! Advection is \curl{u} \times u
+                  this%Advr(:,nR,nPhi)=  - O_sin_theta_E2(:) * (       &
+                  &        this%cvtc(:,nR,nPhi)*this%vpc(:,nR,nPhi) -  &
+                  &        this%cvpc(:,nR,nPhi)*this%vtc(:,nR,nPhi) )
+
+                  this%Advt(:,nR,nPhi)= -or4(nR)* (                    &
+                  &        this%cvpc(:,nR,nPhi)*this%vrc(:,nR,nPhi) -  &
+                  &        this%cvrc(:,nR,nPhi)*this%vpc(:,nR,nPhi) )
+
+                  this%Advp(:,nR,nPhi)= -or4(nR)* (                    &
+                  &        this%cvrc(:,nR,nPhi)*this%vtc(:,nR,nPhi) -  &
+                  &        this%cvtc(:,nR,nPhi)*this%vrc(:,nR,nPhi) )
+               else ! Advection is u\grad u
+                  !------ Get Advection:
+                  this%Advr(:,nR,nPhi)=          -or2(nR)*orho1(nR) * (  &
+                  &                                this%vrc(:,nR,nPhi) * &
+                  &                     (       this%dvrdrc(:,nR,nPhi) - &
+                  &    ( two*or1(nR)+beta(nR) )*this%vrc(:,nR,nPhi) ) +  &
+                  &                      O_sin_theta_E2(:) * (           &
+                  &                                this%vtc(:,nR,nPhi) * &
+                  &                     (       this%dvrdtc(:,nR,nPhi) - &
+                  &                  r(nR)*      this%vtc(:,nR,nPhi) ) + &
+                  &                                this%vpc(:,nR,nPhi) * &
+                  &                     (       this%dvrdpc(:,nR,nPhi) - &
+                  &                    r(nR)*      this%vpc(:,nR,nPhi) ) ) )
+
+                  this%Advt(:,nR,nPhi)=or4(nR)*orho1(nR) * (                       &
+                  &                                         -this%vrc(:,nR,nPhi) * &
+                  &                                   (   this%dvtdrc(:,nR,nPhi) - &
+                  &                             beta(nR)*this%vtc(:,nR,nPhi) )   + &
+                  &                                          this%vtc(:,nR,nPhi) * &
+                  &                    ( cosn_theta_E2(:)*this%vtc(:,nR,nPhi) +    &
+                  &                                       this%dvpdpc(:,nR,nPhi) + &
+                  &                                   this%dvrdrc(:,nR,nPhi) )   + &
+                  &                                          this%vpc(:,nR,nPhi) * &
+                  &                    ( cosn_theta_E2(:)*this%vpc(:,nR,nPhi) -    &
+                  &                                       this%dvtdpc(:,nR,nPhi) )  )
+
+                  this%Advp(:,nR,nPhi)= or4(nR)*orho1(nR) * (                       &
+                  &                                          -this%vrc(:,nR,nPhi) * &
+                  &                                      ( this%dvpdrc(:,nR,nPhi) - &
+                  &                              beta(nR)*this%vpc(:,nR,nPhi) )   - &
+                  &                                           this%vtc(:,nR,nPhi) * &
+                  &                                      ( this%dvtdpc(:,nR,nPhi) + &
+                  &                                      this%cvrc(:,nR,nPhi) )   - &
+                  &                     this%vpc(:,nR,nPhi) * this%dvpdpc(:,nR,nPhi) )
+               end if
+
+            end if  ! Navier-Stokes nonlinear advection term ?
+
+            if ( l_heat_nl ) then
+               !------ Get V S, the divergence of it is entropy advection:
+               this%VSr(:,nR,nPhi)=this%vrc(:,nR,nPhi)*this%sc(:,nR,nPhi)
+               this%VSt(:,nR,nPhi)=or2(nR)*this%vtc(:,nR,nPhi)*this%sc(:,nR,nPhi)
+               this%VSp(:,nR,nPhi)=or2(nR)*this%vpc(:,nR,nPhi)*this%sc(:,nR,nPhi)
+            end if     ! heat equation required ?
+
+            if ( l_chemical_conv ) then
+               this%VXir(:,nR,nPhi)=this%vrc(:,nR,nPhi)*this%xic(:,nR,nPhi)
+               this%VXit(:,nR,nPhi)=or2(nR)*this%vtc(:,nR,nPhi)*this%xic(:,nR,nPhi)
+               this%VXip(:,nR,nPhi)=or2(nR)*this%vpc(:,nR,nPhi)*this%xic(:,nR,nPhi)
+            end if     ! chemical composition equation required ?
+
+            if ( l_phase_field ) then
+               this%Advr(:,nR,nPhi)=this%Advr(:,nR,nPhi)-this%phic(:,nR,nPhi)* &
+               &                    this%vrc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
+               this%Advt(:,nR,nPhi)=this%Advt(:,nR,nPhi)-or2(nR)*this%phic(:,nR,nPhi)* &
+               &                    this%vtc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
+               this%Advp(:,nR,nPhi)=this%Advp(:,nR,nPhi)-or2(nR)*this%phic(:,nR,nPhi)* &
+               &                    this%vpc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
+               this%phiTerms(:,nR,nPhi)=-one/epsPhase**2* this%phic(:,nR,nPhi)*       &
+               &                         (one-this%phic(:,nR,nPhi))*(                 &
+               &                         phaseDiffFac*(one-two*this%phic(:,nR,nPhi))+ &
+               &                         this%sc(:,nR,nPhi)-tmelt)
+            end if ! Nonlinear terms for the phase field equation
+
+            if ( l_precession ) then
+               this%PCr(:,nR,nPhi)=posnalp*O_sin_theta(:)*r(nR)*(                   &
+               &            cos(oek*time+phi(nPhi))*this%vpc(:,nR,nPhi)*cosTheta(:)+&
+               &            sin(oek*time+phi(nPhi))*this%vtc(:,nR,nPhi) )
+               this%PCt(:,nR,nPhi)=   -posnalp*sinTheta(:)*or2(nR)*(            &
+               &            cos(oek*time+phi(nPhi))*this%vpc(:,nR,nPhi)       + &
+               &            sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(:,nR,nPhi) )
+               this%PCp(:,nR,nPhi)= posnalp*sinTheta(:)*cos(oek*time+phi(nPhi))*   &
+               &            or2(nR)*(this%vtc(:,nR,nPhi)-or1(nR)*                  &
+               &            this%vrc(:,nR,nPhi)*cosTheta(:))
+            end if ! precession term required ?
+
+            if ( l_centrifuge ) then
+               !if ( l_anel ) then
+               !   this%CAr(:,nR,nPhi) = dilution_fac*r(nR)*sinTheta(:)**4* &
+               !   &       ( -ra*opr*this%sc(:,nR,nPhi) )
+               !   !-- neglect pressure contribution
+               !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nR,nPhi) )
+               !   this%CAt(:,nR,nPhi) = dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)* &
+               !   &       ( -ra*opr*this%sc(:,nR,nPhi) )
+               !   !-- neglect pressure contribution
+               !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nR,nPhi) )
+               !else
+               this%CAr(:,nR,nPhi)=-dilution_fac*r(nR)*sinTheta(:)**4*ra*opr* &
+               &                    this%sc(:,nR,nPhi)
+               this%CAt(:,nR,nPhi)=-dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)*ra*opr* &
+               &                    this%sc(:,nR,nPhi)
+               !end if
+            end if ! centrifuge
+
+            if ( l_mag_nl ) then
+
+               if ( nR>n_r_LCR ) then
+                  !------ Get (V x B) , the curl of this is the dynamo term:
+                  this%VxBr(:,nR,nPhi)=  orho1(nR)*O_sin_theta_E2(:) * (  &
+                  &           this%vtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -   &
+                  &           this%vpc(:,nR,nPhi)*this%btc(:,nR,nPhi) )
+
+                  this%VxBt(:,nR,nPhi)=  orho1(nR)*or4(nR) * (          &
+                  &           this%vpc(:,nR,nPhi)*this%brc(:,nR,nPhi) - &
+                  &           this%vrc(:,nR,nPhi)*this%bpc(:,nR,nPhi) )
+
+                  this%VxBp(:,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
+                  &           this%vrc(:,nR,nPhi)*this%btc(:,nR,nPhi) - &
+                  &           this%vtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )
+               else if ( (ktopv==1 .and. nR==n_r_cmb) .or. &
+               &         (kbotv==1 .and. nR==n_r_icb) .or. nR<=n_r_LCR ) then ! stress free boundary
+                  this%VxBt(:,nR,nPhi)= or4(nR)*orho1(nR)*this%vpc(:,nR,nPhi)* &
+                  &                                       this%brc(:,nR,nPhi)
+                  this%VxBp(:,nR,nPhi)=-or4(nR)*orho1(nR)*this%vtc(:,nR,nPhi)* &
+                  &                                       this%brc(:,nR,nPhi)
+               else if ( (ktopv==2 .and. nR==n_r_cmb) .or. &
+               &         (kbotv==2 .and. nR==n_r_icb) ) then ! rigid boundary
+               !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+                  this%VxBt(:,nR,nPhi)=or4(nR)*orho1(nR)*this%vpc(:,nR,nPhi)* &
+                  &                                      this%brc(:,nR,nPhi)
+                  this%VxBp(:,nR,nPhi)= 0.0_cp
+               end if  ! boundary ?
+
+            end if ! l_mag_nl ?
+
+            if ( l_anel ) then
+               !------ Get viscous heating
+               this%heatTerms(:,nR,nPhi)=ViscHeatFac*or4(nR)*           &
+               &                     orho1(nR)*otemp1(nR)*visc(nR)*(    &
+               &     two*(                     this%dvrdrc(:,nR,nPhi) - & ! (1)
+               &     (two*or1(nR)+beta(nR))*this%vrc(:,nR,nPhi) )**2  + &
+               &     two*( cosn_theta_E2(:)*   this%vtc(:,nR,nPhi) +    &
+               &                               this%dvpdpc(:,nR,nPhi) + &
+               &                               this%dvrdrc(:,nR,nPhi) - & ! (2)
+               &     or1(nR)*               this%vrc(:,nR,nPhi) )**2  + &
+               &     two*(                     this%dvpdpc(:,nR,nPhi) + &
+               &           cosn_theta_E2(:)*   this%vtc(:,nR,nPhi) +    & ! (3)
+               &     or1(nR)*               this%vrc(:,nR,nPhi) )**2  + &
+               &          ( two*               this%dvtdpc(:,nR,nPhi) + &
+               &                                 this%cvrc(:,nR,nPhi) - & ! (6)
+               &    two*cosn_theta_E2(:)*this%vpc(:,nR,nPhi) )**2  +    &
+               &                        O_sin_theta_E2(:) * (           &
+               &         ( r(nR)*              this%dvtdrc(:,nR,nPhi) - &
+               &           (two+beta(nR)*r(nR))*  this%vtc(:,nR,nPhi) + & ! (4)
+               &     or1(nR)*            this%dvrdtc(:,nR,nPhi) )**2  + &
+               &         ( r(nR)*              this%dvpdrc(:,nR,nPhi) - &
+               &           (two+beta(nR)*r(nR))*  this%vpc(:,nR,nPhi) + & ! (5)
+               &     or1(nR)*            this%dvrdpc(:,nR,nPhi) )**2 )- &
+               &    two*third*(  beta(nR)*        this%vrc(:,nR,nPhi) )**2 )
+
+               if ( l_mag_nl .and. nR>n_r_LCR ) then
+                  !------ Get ohmic losses
+                  this%heatTerms(:,nR,nPhi)=this%heatTerms(:,nR,nPhi)+     &
+                  &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*     &
+                  &    ( or2(nR)*             this%cbrc(:,nR,nPhi)**2 +    &
+                  &      O_sin_theta_E2(:)*   this%cbtc(:,nR,nPhi)**2 +    &
+                  &      O_sin_theta_E2(:)*   this%cbpc(:,nR,nPhi)**2  )
+               end if ! if l_mag_nl ?
+
+            end if  ! Viscous heating and Ohmic losses ?
+         end do
+
+      end do
+      !$omp end parallel do
+
+   end subroutine get_nl
+!----------------------------------------------------------------------------
+end module grid_space_arrays_3d_mod
