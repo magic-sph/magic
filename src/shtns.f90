@@ -63,8 +63,13 @@ contains
 
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 #ifdef SHT_PADDING
-      !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
-      layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+      if ( .not. l_batched_sh ) then
+         !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+         layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+      else
+         !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
+         layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
+      end if
 #else
       !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
       layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
@@ -77,10 +82,14 @@ contains
 
       call c_f_pointer(cptr=sht_l, fptr=sht_info)
 #ifdef SHT_PADDING
-      nlat_padded = sht_info%nlat_padded/howmany
-      if ( nlat_padded /= n_theta_max .and. rank == 0 ) then
-         write(output_unit,*) '! SHTns uses theta padding with nlat_padded=', &
-         &                    nlat_padded
+      if ( .not. l_batched_sh ) then
+         nlat_padded = sht_info%nlat_padded
+         if ( nlat_padded /= n_theta_max .and. rank == 0 ) then
+            write(output_unit,*) '! SHTns uses theta padding with nlat_padded=', &
+            &                    nlat_padded
+         end if
+      else
+         nlat_padded = n_theta_max
       end if
 #else
       nlat_padded = n_theta_max
