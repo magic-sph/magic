@@ -387,12 +387,16 @@ contains
 
          !----- Outer core:
          do nR=nRstart,nRstop
-            call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
-                 &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
+            if ( l_mag ) then
+               call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
+                    &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
+            end if
             call torpol_to_spat(w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
                  &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
             call scal_to_spat(p_ave_Rloc(:,nR), Prer, l_R(nR))
-            call scal_to_spat(s_ave_Rloc(:,nR), Sr, l_R(nR))
+            if ( l_heat ) then
+               call scal_to_spat(s_ave_Rloc(:,nR), Sr, l_R(nR))
+            end if
             if ( l_chemical_conv ) then
                call scal_to_spat(xi_ave_Rloc(:,nR), Xir, l_R(nR))
             end if
