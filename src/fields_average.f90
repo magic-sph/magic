@@ -10,14 +10,15 @@ module fields_average_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc, l_R
+   use grid_blocking, only: n_phys_space
    use blocking,only: lm2, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
-       &            l_chemical_conv, l_phase_field
+       &            l_chemical_conv, l_phase_field, l_batched_shts
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
-   use sht, only: torpol_to_spat, scal_to_spat, sht_l_single
+   use sht, only: torpol_to_spat, scal_to_spat, sht_l
    use constants, only: zero, vol_oc, vol_ic, one
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
@@ -190,11 +191,11 @@ contains
       complex(cp) :: workA_LMloc(llm:ulm,n_r_max)
 
       !----- Fields in grid space:
-      real(cp) :: Br(nlat_padded,n_phi_max),Bt(nlat_padded,n_phi_max)
-      real(cp) :: Bp(nlat_padded,n_phi_max),Vr(nlat_padded,n_phi_max)
-      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max) 
-      real(cp) :: Sr(nlat_padded,n_phi_max),Prer(nlat_padded,n_phi_max)
-      real(cp) :: Xir(nlat_padded,n_phi_max),Phir(nlat_padded,n_phi_max)
+      real(cp) :: Br(n_phys_space),Bt(n_phys_space)
+      real(cp) :: Bp(n_phys_space),Vr(n_phys_space)
+      real(cp) :: Vt(n_phys_space),Vp(n_phys_space)
+      real(cp) :: Sr(n_phys_space),Prer(n_phys_space)
+      real(cp) :: Xir(n_phys_space),Phir(n_phys_space)
 
       !----- Energies of time average field:
       real(cp) :: e_kin_p_ave,e_kin_t_ave
@@ -386,25 +387,56 @@ contains
          if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_ave_LMloc, phi_ave_Rloc)
 
          !----- Outer core:
-         do nR=nRstart,nRstop
-            call torpol_to_spat(sht_l_single, b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
-                 &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
-            call torpol_to_spat(sht_l_single, w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
-                 &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
-            call scal_to_spat(sht_l_single, p_ave_Rloc(:,nR), Prer, l_R(nR))
-            call scal_to_spat(sht_l_single, s_ave_Rloc(:,nR), Sr, l_R(nR))
+         if ( .not. l_batched_shts ) then
+            do nR=nRstart,nRstop
+               if ( l_mag ) then
+                  call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
+                       &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
+               end if
+               call torpol_to_spat(w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
+                    &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
+               call scal_to_spat(sht_l, p_ave_Rloc(:,nR), Prer, l_R(nR))
+               if ( l_heat ) then
+                  call scal_to_spat(sht_l, s_ave_Rloc(:,nR), Sr, l_R(nR))
+               end if
+               if ( l_chemical_conv ) then
+                  call scal_to_spat(sht_l, xi_ave_Rloc(:,nR), Xir, l_R(nR))
+               end if
+               if ( l_phase_field ) then
+                  call scal_to_spat(sht_l, phi_ave_Rloc(:,nR), Phir, l_R(nR))
+               end if
+#ifdef WITH_MPI
+               call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+#else
+               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+#endif
+            end do
+         else
+            if ( l_mag ) then
+               call torpol_to_spat(b_ave_Rloc, db_ave_Rloc, &
+                    &              aj_ave_Rloc, Br, Bt, Bp, l_R(1))
+            end if
+            call torpol_to_spat(w_ave_Rloc, dw_ave_Rloc, &
+                 &              z_ave_Rloc, Vr, Vt, Vp, l_R(1))
+            call scal_to_spat(sht_l, p_ave_Rloc, Prer, l_R(1))
+            if ( l_heat ) then
+               call scal_to_spat(sht_l, s_ave_Rloc, Sr, l_R(1))
+            end if
             if ( l_chemical_conv ) then
-               call scal_to_spat(sht_l_single, xi_ave_Rloc(:,nR), Xir, l_R(nR))
+               call scal_to_spat(sht_l, xi_ave_Rloc, Xir, l_R(1))
             end if
             if ( l_phase_field ) then
-               call scal_to_spat(sht_l_single, phi_ave_Rloc(:,nR), Phir, l_R(nR))
+               call scal_to_spat(sht_l, phi_ave_Rloc, Phir, l_R(1))
             end if
+            do nR=nRstart,nRstop
 #ifdef WITH_MPI
-            call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+               call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
 #else
-            call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
 #endif
-         end do
+            end do
+
+         end if
 
          !----- Inner core: Transform is included in graphOut_IC!
          if ( l_mag .and. n_r_ic_max > 0 ) then

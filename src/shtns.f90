@@ -26,7 +26,7 @@ module sht
    &         torpol_to_dphspat, scal_to_SH, spat_to_sphertor,                   &
    &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,         &
    &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
-   &         axi_to_spat
+   &         axi_to_spat, torpol_to_spat_single
 
    type(c_ptr), public :: sht_l, sht_lP, sht_l_single, sht_lP_single
 
@@ -188,10 +188,9 @@ contains
 
    end subroutine pol_to_grad_spat
 !------------------------------------------------------------------------------
-   subroutine torpol_to_spat(sh, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+   subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      type(c_ptr), intent(in) :: sh
       complex(cp), intent(in) :: Wlm(*)
       complex(cp), intent(inout) :: dWlm(*), Zlm(*)
       integer,     intent(in) :: lcut
@@ -217,9 +216,40 @@ contains
       end do
       !$omp end parallel do
 
-      call SHqst_to_spat_l(sh, Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+      call SHqst_to_spat_l(sht_l, Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
    end subroutine torpol_to_spat
+!------------------------------------------------------------------------------
+   subroutine torpol_to_spat_single(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+
+      !-- Input variables
+      complex(cp), intent(in) :: Wlm(*)
+      complex(cp), intent(inout) :: dWlm(*), Zlm(*)
+      integer,     intent(in) :: lcut
+
+      !-- Output variables
+      real(cp), intent(out) :: vrc(*)
+      real(cp), intent(out) :: vtc(*)
+      real(cp), intent(out) :: vpc(*)
+
+      !-- Local variables
+      complex(cp) :: Qlm(lm_max)
+      integer :: lm, l
+
+      !$omp parallel do default(shared) private(l)
+      do lm = 1, lm_max
+         l = st_map%lm2l(lm)
+         if ( l <= lcut ) then
+            Qlm(lm) = dLh(lm) * Wlm(lm)
+         else
+            Qlm(lm) = zero
+         end if
+      end do
+      !$omp end parallel do
+
+      call SHqst_to_spat_l(sht_l_single, Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+
+   end subroutine torpol_to_spat_single
 !------------------------------------------------------------------------------
    subroutine sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
 
