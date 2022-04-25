@@ -465,10 +465,17 @@ contains
       allocate( this%VSr(nlat_padded,nRl:nRu,n_phi_max) )
       allocate( this%VSt(nlat_padded,nRl:nRu,n_phi_max) )
       allocate( this%VSp(nlat_padded,nRl:nRu,n_phi_max) )
+      this%Advr(:,:,:)=0.0_cp
+      this%Advt(:,:,:)=0.0_cp
+      this%Advp(:,:,:)=0.0_cp
+      this%VSr(:,:,:)=0.0_cp
+      this%VSt(:,:,:)=0.0_cp
+      this%VSp(:,:,:)=0.0_cp
       bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
       if ( l_anel ) then
          allocate( this%heatTerms(nlat_padded,nRl:nRu,n_phi_max) )
-      bytes_allocated=bytes_allocated + size_of_phys*SIZEOF_DEF_REAL
+         bytes_allocated=bytes_allocated + size_of_phys*SIZEOF_DEF_REAL
+         this%heatTerms(:,:,:)=0.0_cp
       else
          allocate( this%heatTerms(1,1,1) )
       end if
@@ -481,6 +488,12 @@ contains
          allocate( this%VxBt(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%VxBp(nlat_padded,nRl:nRu,n_phi_max) ) 
          bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
+         this%LFr(:,:,:)=0.0_cp
+         this%LFt(:,:,:)=0.0_cp
+         this%LFp(:,:,:)=0.0_cp
+         this%VxBr(:,:,:)=0.0_cp
+         this%VxBt(:,:,:)=0.0_cp
+         this%VxBp(:,:,:)=0.0_cp
       else
          allocate( this%LFr(1,1,1), this%LFt(1,1,1), this%LFp(1,1,1) )
          allocate( this%VxBr(1,1,1), this%VxBt(1,1,1), this%VxBp(1,1,1) )
@@ -490,12 +503,17 @@ contains
          allocate( this%PCr(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%PCt(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%PCp(nlat_padded,nRl:nRu,n_phi_max) )
+         this%PCr(:,:,:)=0.0_cp
+         this%PCt(:,:,:)=0.0_cp
+         this%PCp(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 3*size_of_phys*SIZEOF_DEF_REAL
       end if
 
       if ( l_centrifuge ) then
          allocate( this%CAr(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%CAt(nlat_padded,nRl:nRu,n_phi_max) )
+         this%CAr(:,:,:)=0.0_cp
+         this%CAt(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 2*size_of_phys*SIZEOF_DEF_REAL
       end if
 
@@ -503,6 +521,9 @@ contains
          allocate( this%VXir(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%VXit(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%VXip(nlat_padded,nRl:nRu,n_phi_max) )
+         this%VXir(:,:,:)=0.0_cp
+         this%VXit(:,:,:)=0.0_cp
+         this%VXip(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 3*size_of_phys*SIZEOF_DEF_REAL
       end if
 
