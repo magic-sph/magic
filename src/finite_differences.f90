@@ -509,6 +509,7 @@ contains
             this%drMat(i,j) =0.0_cp
             this%d2rMat(i,j)=0.0_cp
             this%d3rMat(i,j)=0.0_cp
+            this%d4rMat(i,j)=0.0_cp
             this%rMat(i,j)  =0.0_cp
          end do
          this%rMat(j,j)=1.0_cp
