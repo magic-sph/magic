@@ -217,9 +217,6 @@ contains
       real(cp), intent(inout) :: array_in(:) ! data to be transformed
       real(cp), intent(out) :: work_1d(:)    ! work array (not used)
 
-      !-- Local variables:
-      integer :: n_r
-
       call fftw_execute_r2r(this%plan_1d, array_in, work_1d)
       array_in(:)=this%cheb_fac*work_1d(:)
 
