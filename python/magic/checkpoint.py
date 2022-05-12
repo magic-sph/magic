@@ -180,7 +180,6 @@ class MagicCheckpoint:
         self.version = np.fromfile(file, fmt, count=1)[0]
         fmt = '{}f8'.format(prefix)
         self.time = np.fromfile(file, fmt, count=1)[0]
-        print(self.version, self.time)
         
         # Time scheme
         self.tscheme_family = file.read(10).decode()
@@ -420,8 +419,6 @@ class MagicCheckpoint:
         :param fd_ratio: ratio of smallest to largest grid spacing
         :type fd_ratio: float
         """
-        self.fd_ratio = 0.1
-        self.fd_stretch = 0.3
         self.rscheme_version = 'fd'+'{:>70s}'.format('')
         self.fd_stretch = fd_stretch
         self.fd_ratio = fd_ratio

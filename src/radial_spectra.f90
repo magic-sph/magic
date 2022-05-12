@@ -3,7 +3,7 @@ module radial_spectra
    use precision_mod
    use parallel_mod
    use communications, only: reduce_radial
-   use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_tot
+   use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_ic_max
    use radial_data, only: n_r_icb
    use radial_functions, only: or2, r_icb, r_ic
    use num_param, only: eScale
@@ -36,18 +36,19 @@ contains
       type(mappings),   intent(in) :: map
 
       !-- Output to file:
-      real(cp) :: e_p_AS(6,n_r_tot), e_p_AS_global(6,n_r_tot)
-      real(cp) :: e_p(6,n_r_tot), e_p_global(6,n_r_tot)
+      real(cp) :: e_p_AS(6,n_r_max+n_r_ic_max), e_p_AS_global(6,n_r_max+n_r_ic_max)
+      real(cp) :: e_p(6,n_r_max+n_r_ic_max), e_p_global(6,n_r_max+n_r_ic_max)
 
       !-- Local:
       character(len=72) :: specFile
-      integer :: n_r,lm,l,m
+      integer :: n_r,lm,l,m,n_r_tot
       real(cp) :: fac,O_r_icb_E_2,rRatio,amp
       real(cp) :: e_p_temp
       logical :: lAS
 
 
       fac=half*eScale/(four*pi)
+      n_r_tot=n_r_ic_max+n_r_max
 
       do n_r=1,n_r_max
          ! setting zero
@@ -96,7 +97,7 @@ contains
                         amp=real(PolIC(lm,n_r))
                      else
                         e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
-                        &        dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_icb),m)
+                        &        dLh(st_map%lm2(l,m))*cc2real(Pol(lm,n_r_icb),m)
                         amp=real(Pol(lm,n_r_icb))
                      end if
                      if ( m == 0 ) then
@@ -164,17 +165,18 @@ contains
       type(mappings),   intent(in) :: map
 
       !-- Output:
-      real(cp) :: e_t_AS(6,n_r_tot), e_t_AS_global(6,n_r_tot)
-      real(cp) :: e_t(6,n_r_tot), e_t_global(6,n_r_tot)
+      real(cp) :: e_t_AS(6,n_r_max+n_r_ic_max), e_t_AS_global(6,n_r_max+n_r_ic_max)
+      real(cp) :: e_t(6,n_r_max+n_r_ic_max), e_t_global(6,n_r_max+n_r_ic_max)
 
       !-- Local:
       character(len=72) :: specFile
-      integer :: n_r,lm,l,m
+      integer :: n_r,lm,l,m,n_r_tot
       real(cp) :: fac,rRatio,amp
       real(cp) :: e_t_temp
       LOGICAl :: lAS
 
       fac=half*eScale/(four*pi)
+      n_r_tot=n_r_max+n_r_ic_max
 
       do n_r=1,n_r_max
          do l=1,6

@@ -290,8 +290,8 @@ contains
       this%l_imp_calc_rhs(:) = .true.
       bytes_allocated=bytes_allocated+2*this%nstages*SIZEOF_LOGICAL
 
-      allocate( this%butcher_c(sizet) )
-      bytes_allocated=bytes_allocated+sizet*SIZEOF_LOGICAL
+      allocate( this%butcher_c(sizet-1) )
+      bytes_allocated=bytes_allocated+(sizet-1)*SIZEOF_LOGICAL
 
    end subroutine initialize
 !------------------------------------------------------------------------------
