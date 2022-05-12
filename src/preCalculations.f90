@@ -276,8 +276,8 @@ contains
 
       if ( l_LCR ) then ! Determine which ranks carries the radius with n_r_LCR
          do p=0,n_procs-1
-            if ( radial_balance(n)%nStart <= n_r_LCR .and. &
-            &    radial_balance(n)%nStop >= n_r_LCR ) then
+            if ( radial_balance(p)%nStart <= n_r_LCR .and. &
+            &    radial_balance(p)%nStop >= n_r_LCR ) then
                rank_with_r_LCR=p
                exit
             end if
