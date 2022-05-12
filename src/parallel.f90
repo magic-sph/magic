@@ -14,6 +14,7 @@ module parallel_mod
    integer :: rank,n_procs
    integer :: nR_per_rank
    integer :: rank_with_l1m0
+   integer :: rank_with_r_LCR
    integer :: chunksize
    integer :: ierr
 

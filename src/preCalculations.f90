@@ -11,13 +11,14 @@ module preCalculations
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
        &                  n_xi_bounds
-   use parallel_mod, only: rank
+   use parallel_mod, only: rank, n_procs, rank_with_r_LCR
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,     &
        &            l_anel, l_heat, l_anelastic_liquid,                  &
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
        &            l_precession, l_finite_diff, l_full_sphere
+   use radial_data, only: radial_balance
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -62,7 +63,7 @@ contains
       real(cp) :: xir_top,xii_top,xir_bot,xii_bot
       real(cp) :: topconduc, botconduc
       integer :: n,n_r,l,m,l_bot,m_bot,l_top,m_top
-      integer :: fileHandle
+      integer :: fileHandle, p
       character(len=76) :: fileName
       character(len=80) :: message
       real(cp) :: mom(n_r_max)
@@ -271,6 +272,16 @@ contains
       if ( n_r_LCR == 1 ) then
          l_LCR=.false.
          n_r_LCR=0
+      end if
+
+      if ( l_LCR ) then ! Determine which ranks carries the radius with n_r_LCR
+         do p=0,n_procs-1
+            if ( radial_balance(n)%nStart <= n_r_LCR .and. &
+            &    radial_balance(n)%nStop >= n_r_LCR ) then
+               rank_with_r_LCR=p
+               exit
+            end if
+         end do
       end if
 
       !-- Compute some constants:

@@ -8,6 +8,7 @@ module updateB_mod
 
    use omp_lib
    use precision_mod
+   use parallel_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max,             &
        &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
@@ -29,7 +30,6 @@ module updateB_mod
    use constants, only: pi, zero, one, two, three, half
    use special, only: n_imp, l_imp, amp_imp, expo_imp, bmax_imp, rrMP, l_curr, &
        &              amp_curr, fac_loop
-   use parallel_mod, only:  rank, chunksize, n_procs, get_openmp_blocks
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
@@ -1691,9 +1691,20 @@ contains
       complex(cp),       intent(out) :: ddj(lm_max,nRstartMag:nRstopMag)
 
       !-- Local variables
+      complex(cp) :: b_r_LCR(lm_max)
       real(cp) :: dL
       integer :: l, lm, start_lm, stop_lm, n_r
       integer, pointer :: lm2l(:),lm2m(:)
+
+      if ( l_LCR ) then
+         if ( nRstartMag <= n_r_LCR .and. nRstopMag >= n_r_LCR ) then
+            b_r_LCR(:)=bg(:,n_r_LCR)
+         end if
+#ifdef WITH_MPI
+         call MPI_Bcast(b_r_LCR, lm_max, MPI_DEF_COMPLEX, rank_with_r_LCR, &
+              &         MPI_COMM_WORLD, ierr)
+#endif
+      end if
 
       lm2l(1:lm_max) => st_map%lm2l
       lm2m(1:lm_max) => st_map%lm2m
@@ -1720,11 +1731,11 @@ contains
                   l=lm2l(lm)
                   if ( l == 0 ) cycle
 
-                  bg(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)*bg(lm,n_r_LCR)
+                  bg(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)*b_r_LCR(lm)
                   db(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/  &
-                  &          (r(n_r))**(real(l,cp)+1)*bg(lm,n_r_LCR)
+                  &          (r(n_r))**(real(l,cp)+1)*b_r_LCR(lm)
                   ddb(lm,n_r)=real(l,cp)*real(l+1,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                  &           (r(n_r))**(real(l,cp)+2)*bg(lm,n_r_LCR)
+                  &           (r(n_r))**(real(l,cp)+2)*b_r_LCR(lm)
                   ajg(lm,n_r)=zero
                   dj(lm,n_r) =zero
                   ddj(lm,n_r)=zero
