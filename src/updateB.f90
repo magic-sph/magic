@@ -750,14 +750,16 @@ contains
       call tscheme%set_imex_rhs_ghost(aj_ghost, djdt, lm_start, lm_stop, 1)
 
       !-- Set to zero in case of low conductivity region
-      do nR=nRstartMag,nRstopMag
-         do lm=lm_start,lm_stop
-            if ( nR<=n_r_LCR ) then
-               b_ghost(lm,nR) =zero
-               aj_ghost(lm,nR)=zero
-            end if
+      if ( l_LCR ) then
+         do nR=nRstartMag,nRstopMag
+            do lm=lm_start,lm_stop
+               if ( nR<=n_r_LCR ) then
+                  b_ghost(lm,nR) =zero
+                  aj_ghost(lm,nR)=zero
+               end if
+            end do
          end do
-      end do
+      end if
 
       !-- Set boundary values
       if ( nRstartMag == n_r_cmb ) then
