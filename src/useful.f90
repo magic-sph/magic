@@ -292,18 +292,21 @@ contains
       !-- Local variables:
       integer :: code
 
-      code = 32
 
-      write(output_unit,*)
-      write(output_unit,*)
-      write(output_unit,*)
-      write(output_unit,*) '! Something went wrong, MagIC will stop now'
-      write(output_unit,*) '! See below the error message:'
-      write(output_unit,*)
-      write(output_unit,*) message
-      write(output_unit,*)
+      if ( rank == 0 ) then
+         write(output_unit,*)
+         write(output_unit,*)
+         write(output_unit,*)
+         write(output_unit,*) '! Something went wrong, MagIC will stop now'
+         write(output_unit,*) '! See below the error message:'
+         write(output_unit,*)
+         write(output_unit,*) message
+         write(output_unit,*)
+         code = 32
+      end if
 
 #ifdef WITH_MPI
+      call MPI_BCast(code, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
       call MPI_Abort(MPI_COMM_WORLD, code, ierr)
 #else
       stop
