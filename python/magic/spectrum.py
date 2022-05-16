@@ -158,6 +158,8 @@ class MagicSpectrum(MagicSetup):
 
         else: # Snapshot spectra
 
+            skipLines = 1
+
             if tag is not None:
                 if ispec is not None:
                     file = '{}{}.{}'.format(self.name, ispec, tag)
@@ -200,11 +202,16 @@ class MagicSpectrum(MagicSetup):
                         self.stop_time = None
                         pass
 
+            if filename.split('.')[-2][-3:] == 'ave':
+                self.ave = True
+                self.name += 'ave'
+                skipLines = 0
+
             if not quiet:
                 print('reading {}'.format(filename))
             if not hasattr(self, 'stop_time'):
                 self.stop_time = None
-            data = fast_read(filename, skiplines=1)
+            data = fast_read(filename, skiplines=skipLines)
             speclut = SpecLookUpTable(data, self.name, self.start_time,
                                       self.stop_time)
 
@@ -711,7 +718,7 @@ class MagicSpectrum2D(MagicSetup):
     """
 
     def __init__(self, datadir='.', field='e_mag', iplot=False, ispec=None,
-                 tag=None, cm='jet', levels=33, precision=np.float64,
+                 tag=None, cm='magma', levels=33, precision=np.float64,
                  ave=False):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
@@ -1014,6 +1021,7 @@ class MagicSpectrum2D(MagicSetup):
             ax1.set_yscale('log')
             ax1.set_title('E tor')
 
+            """
             fig2 = plt.figure()
             ax2 = fig2.add_subplot(111)
             vmax = np.log10(self.e_pol_m).max()
@@ -1049,3 +1057,4 @@ class MagicSpectrum2D(MagicSetup):
                 ax3.set_xlabel('Radius')
             ax3.set_yscale('log')
             ax3.set_title('E tor')
+            """
