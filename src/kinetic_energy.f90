@@ -1,7 +1,12 @@
 module kinetic_energy
+   !
+   ! This module handles the computation of kinetic energy and the time-averaged
+   ! radial profiles.
+   !
 
    use parallel_mod
    use precision_mod
+   use ieee_arithmetic, only: ieee_is_nan
    use mem_alloc, only: bytes_allocated
    use communications, only: reduce_radial
    use truncation, only: n_r_max, l_max
@@ -9,14 +14,12 @@ module kinetic_energy
        &                       orho1, orho2, sigma
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh
+   use blocking, only: lo_map, llm, ulm
    use logic, only: l_save_out, l_non_rot, l_anel
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
-   use communications, only: get_global_sum
    use integration, only: rInt_R
-   use useful, only: cc2real
+   use useful, only: cc2real, abortRun
 
    implicit none
 
@@ -118,9 +121,6 @@ contains
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
 
-      !write(*,"(A,6ES22.14)") "ekin: w,dw,z = ",get_global_sum( w(llm:ulm,:) ),&
-      !     & get_global_sum( dw(llm:ulm,:) ), get_global_sum( z(llm:ulm,:) )
-
       do nR=1,n_r_max
          e_p_r(nR)    =0.0_cp
          e_t_r(nR)    =0.0_cp
@@ -136,11 +136,10 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
 
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
-            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            e_p_temp= O_rho*real(l*(l+1),cp) * (                     &
+            &           real(l*(l+1),cp)*or2(nR)*cc2real(w(lm,nR),m) &
             &           + cc2real(dw(lm,nR),m) )
-            e_t_temp= O_rho*dLh(st_map%lm2(l,m)) * cc2real(z(lm,nR),m)
-            !write(*,"(A,3I4,ES22.14)") "e_p_temp = ",nR,l,m,e_p_temp
+            e_t_temp= O_rho*real(l*(l+1),cp) * cc2real(z(lm,nR),m)
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR) = e_p_as_r(nR) + e_p_temp
                e_t_as_r(nR) = e_t_as_r(nR) + e_t_temp
@@ -159,12 +158,9 @@ contains
                e_t_es_r(nR)=e_t_es_r(nR)+e_t_temp
             end if
 
-            !write(*,"(8X,A,4I4,ES22.14)") "e_p_r: ",lm,l,m,nR,e_p_r(nR)
-
          end do    ! do loop over lms in block
          e_p_r(nR)=e_p_r(nR)+e_p_as_r(nR)
          e_t_r(nR)=e_t_r(nR)+e_t_as_r(nR)
-         !write(*,"(4X,A,I4,2ES22.14)") "e_p_r: ",nR,e_p_r(nR),e_p_as_r(nR)
       end do    ! radial grid points
 
       ! reduce over the ranks
@@ -179,9 +175,6 @@ contains
       call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
       if ( rank == 0 ) then
-         !do nR=1,n_r_max
-         !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
-         !end do
          !-- Radial Integrals:
          e_p    =rInt_R(e_p_r_global,r,rscheme_oc)
          e_t    =rInt_R(e_t_r_global,r,rscheme_oc)
@@ -242,7 +235,6 @@ contains
             e_t_asA=e_t_asA + dt*e_t_as_r_global
          end if
 
-         !write(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
          if ( l_stop_time .and. (n_e_sets > 1) ) then
             fac=half*eScale
             filename='eKinR.'//tag
@@ -276,6 +268,10 @@ contains
          call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       end if
 #endif
+
+      if ( ieee_is_nan(e_p) .or. ieee_is_nan(e_t) ) then
+         call abortRun('! Time series of e_kin contains NaNs, run will stop now')
+      end if
 
    end subroutine get_e_kin
 !-----------------------------------------------------------------------------
@@ -335,14 +331,11 @@ contains
          do lm=max(2,llm),ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-            !do lm=2,lm_max
-            !  l=lm2l(lm)
-            !  m=lm2m(lm)
 
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
-            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            e_p_temp= O_rho*real(l*(l+1),cp) * (                     &
+            &           real(l*(l+1),cp)*or2(nR)*cc2real(w(lm,nR),m) &
             &           + cc2real(dw(lm,nR),m) )
-            e_t_temp= O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+            e_t_temp= O_rho*real(l*(l+1),cp)*cc2real(z(lm,nR),m)
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR)+ e_p_temp
                e_t_as_r(nR)=e_t_as_r(nR)+ e_t_temp
