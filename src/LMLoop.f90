@@ -260,8 +260,8 @@ contains
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
    subroutine LMLoop_Rdist(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,    &
-              &            dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,&
-              &            djdt_ic,domega_ma_dt,domega_ic_dt,                 &
+              &            lP00Next,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,    &
+              &            djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,    &
               &            lorentz_torque_ma_dt,lorentz_torque_ic_dt,         &
               &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
@@ -277,6 +277,7 @@ contains
       logical,             intent(in) :: lMat
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lP00Next ! Do wee need p00 pressure on next log
       complex(cp),         intent(in) :: b_nl_cmb(lm_max)   ! nonlinear bc for b at CMB
       complex(cp),         intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
       complex(cp),         intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
@@ -285,6 +286,11 @@ contains
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
+
+      !-- Local variable
+      logical :: lPress
+
+      lPress = lPressNext .or. lP00Next
 
       if ( lMat ) then ! update matrices:
          lZ10mat=.false.
@@ -312,8 +318,8 @@ contains
          call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
               &           domega_ic_dt)
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
-         call prepareW_FD(tscheme, dwdt, lPressNext)
-         if ( lPressNext ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
+         call prepareW_FD(tscheme, dwdt, lPress)
+         if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
       if ( l_mag_par_solve ) call prepareB_FD(time, tscheme, dbdt, djdt)
 
@@ -333,7 +339,7 @@ contains
       if ( l_chemical_conv ) call fill_ghosts_Xi(xi_ghost)
       if ( l_conv ) then
          call fill_ghosts_Z(z_ghost)
-         call fill_ghosts_W(w_ghost, p0_ghost, lPressNext)
+         call fill_ghosts_W(w_ghost, p0_ghost, lPress)
       end if
       if ( l_mag_par_solve ) call fill_ghosts_B(b_ghost, aj_ghost)
 
@@ -345,7 +351,8 @@ contains
            &          domega_ma_dt, domega_ic_dt, lorentz_torque_ma_dt,          &
            &          lorentz_torque_ic_dt, tscheme, lRmsNext)
       call updateW_FD(w_Rloc, dw_Rloc, ddw_Rloc, dwdt, p_Rloc, dp_Rloc, dpdt, tscheme, &
-           &          lRmsNext, lPressNext)
+           &          lRmsNext, lPressNext, lP00Next)
+
       if ( l_mag_par_solve ) then
          call updateB_FD(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc, ddj_Rloc, dbdt, &
               &          djdt, tscheme, lRmsNext)

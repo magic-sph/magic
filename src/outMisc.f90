@@ -16,6 +16,7 @@ module outMisc_mod
    use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef
    use num_param, only: lScale, eScale
    use blocking, only: llm, ulm, lo_map
+   use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
@@ -203,7 +204,7 @@ contains
 
    end subroutine outHelicity
 !---------------------------------------------------------------------------
-   subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,dp,xi,dxi)
+   subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,xi,dxi)
       !
       ! This subroutine is used to store informations about heat transfer
       ! (i.e. Nusselt number, temperature, entropy, ...)
@@ -219,12 +220,11 @@ contains
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
       complex(cp), intent(in) :: p(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dp(llm:ulm,n_r_max)
       complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dxi(llm:ulm,n_r_max)
 
       !-- Local stuff:
-      real(cp) :: tmp(n_r_max)
+      real(cp) :: tmp(n_r_max), dp(n_r_max)
       real(cp) :: topnuss,botnuss,deltanuss
       real(cp) :: topsherwood,botsherwood,deltasherwood
       real(cp) :: toptemp,bottemp
@@ -236,6 +236,8 @@ contains
       integer :: n_r, filehandle
 
       if ( rank == 0 ) then
+         tmp(:) = real(p(1,:))
+         call get_dr(tmp, dp, n_r_max, rscheme_oc)
          n_calls = n_calls + 1
          if ( l_anelastic_liquid ) then
             if ( l_heat ) then
@@ -302,12 +304,12 @@ contains
                   &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb))) -          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*( &
                   &         ( dLalpha0(n_r_icb)-beta(n_r_icb) )*                &
-                  &        real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
+                  &        real(p(1,n_r_icb)) + dp(n_r_icb) ) ) / lScale
                   topnuss=-osq4pi/topcond*(otemp1(n_r_cmb)*( -dLtemp0(n_r_cmb)* &
                   &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb))) -          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*( &
                   &         ( dLalpha0(n_r_cmb)-beta(n_r_cmb) )*                &
-                  &        real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
+                  &        real(p(1,n_r_cmb)) + dp(n_r_cmb) ) ) / lScale
 
                   botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
                   &       botnuss*botcond*lScale*temp0(n_r_icb)
@@ -336,12 +338,12 @@ contains
                   &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb)) +          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*(&
                   &     ( dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb) )*  &
-                  &        real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
+                  &        real(p(1,n_r_icb)) + dp(n_r_icb) ) ) / lScale
                   topnuss=-osq4pi/topcond*temp0(n_r_cmb)*( dLtemp0(n_r_cmb)*   &
                   &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb)) +          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*(&
                   &     ( dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb) )*  &
-                  &        real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
+                  &        real(p(1,n_r_cmb)) + dp(n_r_cmb) ) ) / lScale
 
                   botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
                   &       botnuss*botcond*lScale
