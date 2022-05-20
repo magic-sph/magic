@@ -66,7 +66,6 @@ module fields
    complex(cp), public, allocatable :: ddb_ic(:,:)
    complex(cp), public, allocatable :: aj_ic(:,:)
    complex(cp), public, allocatable :: dj_ic(:,:)
-   complex(cp), public, allocatable :: ddj_ic(:,:)
    complex(cp), public, allocatable :: b_ic_LMloc(:,:)
    complex(cp), public, allocatable :: db_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddb_ic_LMloc(:,:)
@@ -99,9 +98,8 @@ contains
          allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( aj_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( dj_ic(lm_maxMag,n_r_ic_maxMag) )
-         allocate( ddj_ic(lm_maxMag,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + &
-         &                 6*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         &                 5*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
       else
          allocate( bICB(1) )
@@ -111,8 +109,7 @@ contains
          allocate( ddb_ic(1,n_r_ic_maxMag) )
          allocate( aj_ic(1,n_r_ic_maxMag) )
          allocate( dj_ic(1,n_r_ic_maxMag) )
-         allocate( ddj_ic(1,n_r_ic_maxMag) )
-         bytes_allocated = bytes_allocated + 6*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -298,7 +295,7 @@ contains
       ! This subroutine deallocates the field arrays used in MagIC
       !
 
-      deallocate( bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic )
+      deallocate( bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic )
       deallocate( press_LMloc_container, press_Rloc_container )
       if ( l_parallel_solve ) then
          deallocate( w_LMloc, z_LMloc, s_LMloc, w_RLoc, z_Rloc, s_Rloc )

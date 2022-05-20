@@ -25,11 +25,11 @@ module output_mod
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
        &            l_phase_field
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
-       &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
+       &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
        &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,     &
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
-       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,          &
+       &             dj_ic_LMloc, ddj_ic_LMloc, xi_LMloc,                    &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
        &             aj_Rloc, bICB, phi_Rloc, phi_LMloc
    use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic, dphidt,&
@@ -42,7 +42,7 @@ module output_mod
    use outTO_mod, only: outTO
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
-   use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
+   use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHelicity, outHeat, outPhase
    use geos, only: outGeos, outOmega
    use outRot, only: write_rot
@@ -453,7 +453,7 @@ contains
 
          if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
-                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,xi_LMloc,       &
+                 &       s_LMloc,ds_LMloc,p_LMloc,xi_LMloc,                &
                  &       dxi_LMloc)
          end if
 
@@ -540,7 +540,6 @@ contains
               &               db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,        &
               &               dj_ic_LMloc,ddj_ic_LMloc,l_frame)
       end if
-
 
       if ( l_RMS ) then
          if ( n_time_step == 1 ) then
@@ -678,7 +677,15 @@ contains
 
             call gather_all_from_lo_to_rank0(gt_IC,aj_ic_LMloc,aj_ic)
             call gather_all_from_lo_to_rank0(gt_IC,dj_ic_LMloc,dj_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,ddj_ic_LMloc,ddj_ic)
+         else if ( l_mag ) then ! Set to zero (compat with Leg TF)
+            if ( rank == 0 ) then
+               db_ic(:,1)=zero
+               aj_ic(:,1)=zero
+               if ( l_frame ) then
+                  ddb_ic(:,1)=zero
+                  dj_ic(:,1) =zero
+               end if
+            end if
          end if
 
          ! for writing a restart file, we also need the d?dtLast arrays,

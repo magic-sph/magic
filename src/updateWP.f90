@@ -280,7 +280,6 @@ contains
       !-- Local variables:
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm,lmB     ! position of (l,m) in array
-      integer :: lmStart_00     ! excluding l=0,m=0
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
@@ -305,7 +304,6 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       nLMB       =1+rank
-      lmStart_00 =max(2,llm)
 
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
@@ -516,6 +514,7 @@ contains
                if ( l1 == 0 ) then
                   do n_r_out=1,rscheme_oc%n_max
                      p(lm1,n_r_out)=rhs(n_r_out)
+                     w(lm1,n_r_out)=zero
                   end do
                else
                   lmB=lmB+1
@@ -741,12 +740,14 @@ contains
 
    end subroutine fill_ghosts_W
 !------------------------------------------------------------------------------
-   subroutine updateW_FD(w, dw, ddw, dwdt, p, dp, dpdt, tscheme, lRmsNext, lPressNext)
+   subroutine updateW_FD(w, dw, ddw, dwdt, p, dp, dpdt, tscheme, lRmsNext, &
+              &          lPressNext, lP00Next)
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
+      logical,             intent(in) :: lP00Next
       type(type_tarray),   intent(in) :: dpdt
 
       !-- Input/output of scalar fields:
@@ -798,7 +799,10 @@ contains
       do nR=nRstart,nRstop
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
+            if ( l == 0 ) then
+               if ( lPressNext .or. lP00Next ) p(lm,nR)=p0_ghost(nR)
+               cycle
+            end if
             w(lm,nR)=w_ghost(lm,nR)
          end do
       end do
@@ -821,7 +825,6 @@ contains
       !-- Local variables:
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm,lmB     ! position of (l,m) in array
-      integer :: lmStart_00     ! excluding l=0,m=0
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
@@ -845,7 +848,6 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       nLMB       =1+rank
-      lmStart_00 =max(2,llm)
 
       !-- Compute the right hand side
       !$omp parallel default(shared)
@@ -1373,10 +1375,6 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l=st_map%lm2l(lm)
-               if ( l == 0 ) then
-                  if ( lPressNext ) p(lm,n_r)=p0_ghost(n_r)
-                  cycle
-               end if
                dL=real(l*(l+1),cp)
 
                if ( l /= 0 .and. lPressNext ) then
