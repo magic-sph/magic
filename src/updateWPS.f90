@@ -294,6 +294,7 @@ contains
                   do n_r_out=1,rscheme_oc%n_max
                      s(lm1,n_r_out)=rhs(n_r_out)
                      p(lm1,n_r_out)=rhs(n_r_out+n_r_max)
+                     w(lm1,n_r_out)=zero
                   end do
                else
                   lmB=lmB+1

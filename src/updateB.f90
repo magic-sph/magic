@@ -265,11 +265,10 @@ contains
       complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables:
-      real(cp) :: yl0_norm,prefac!External magnetic field of general l
+      real(cp) :: yl0_norm,prefac    ! External magnetic field of general l
 
       integer :: l1,m1               ! degree and order
       integer :: lm1,lm,lmB          ! position of (l,m) in array
-      integer :: lmStart_00          ! excluding l=0,m=0
       integer :: nLMB2, nLMB
       integer :: n_r_out             ! No of cheb polynome (degree+1)
       integer :: nR                  ! No of radial grid point
@@ -298,7 +297,6 @@ contains
       l1m0 = lm2(1,0)
 
       nLMB=1+rank
-      lmStart_00=max(2,llmMag)
 
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dbdt)
@@ -519,7 +517,7 @@ contains
                   end if
 
                   do nR=2,n_r_max-1
-                     if ( nR<=n_r_LCR ) then
+                     if ( l_LCR .and. nR<=n_r_LCR ) then
                         rhs1(nR,2*lmB-1,threadid)=0.0_cp
                         rhs1(nR,2*lmB,threadid)  =0.0_cp
                         rhs2(nR,2*lmB-1,threadid)=0.0_cp
@@ -604,6 +602,7 @@ contains
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
+               l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 > 0 ) then
@@ -642,7 +641,17 @@ contains
                         end do
                      end if
                   end if
-
+               else ! set l=0 to zero!
+                  do n_r_out=1,rscheme_oc%n_max  ! outer core
+                     b(lm1,n_r_out) =zero
+                     aj(lm1,n_r_out)=zero
+                  end do
+                  if ( l_cond_ic ) then
+                     do n_r_out=1,n_cheb_ic_max
+                        b_ic(lm1,n_r_out) =zero
+                        aj_ic(lm1,n_r_out)=zero
+                     end do
+                  end if
                end if
             end do
             !$omp end task
@@ -660,7 +669,7 @@ contains
       !   for inner core modes > 2*n_cheb_ic_max = 0
       !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-         do lm1=lmStart_00,ulmMag
+         do lm1=llmMag,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
@@ -670,7 +679,7 @@ contains
       if ( l_cond_ic ) then
          !$omp do private(n_r_out, lm1) collapse(2)
          do n_r_out=n_cheb_ic_max+1,n_r_ic_max
-            do lm1=lmStart_00,ulmMag
+            do lm1=llmMag,ulmMag
                b_ic(lm1,n_r_out) =zero
                aj_ic(lm1,n_r_out)=zero
             end do
@@ -1590,7 +1599,7 @@ contains
       lmStart_00 =max(2,llmMag)
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)
-      start_lm=lmStart_00; stop_lm=ulmMag
+      start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm,stop_lm)
 
       !$omp single

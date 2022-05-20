@@ -280,7 +280,6 @@ contains
       !-- Local variables:
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm,lmB     ! position of (l,m) in array
-      integer :: lmStart_00     ! excluding l=0,m=0
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
@@ -305,7 +304,6 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       nLMB       =1+rank
-      lmStart_00 =max(2,llm)
 
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
@@ -516,6 +514,7 @@ contains
                if ( l1 == 0 ) then
                   do n_r_out=1,rscheme_oc%n_max
                      p(lm1,n_r_out)=rhs(n_r_out)
+                     w(lm1,n_r_out)=zero
                   end do
                else
                   lmB=lmB+1
@@ -821,7 +820,6 @@ contains
       !-- Local variables:
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm,lmB     ! position of (l,m) in array
-      integer :: lmStart_00     ! excluding l=0,m=0
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
@@ -845,7 +843,6 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       nLMB       =1+rank
-      lmStart_00 =max(2,llm)
 
       !-- Compute the right hand side
       !$omp parallel default(shared)

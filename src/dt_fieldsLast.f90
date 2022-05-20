@@ -241,6 +241,8 @@ contains
                allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
                dbdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
                djdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
+               dbdt%expl(:,:,:)=zero
+               djdt%expl(:,:,:)=zero
                bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
             end if
@@ -252,16 +254,22 @@ contains
             dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
             dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
             dsdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
+            dwdt%expl(:,:,:)=zero
+            dzdt%expl(:,:,:)=zero
+            dsdt%expl(:,:,:)=zero
             bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
             if ( l_mag ) then
                dbdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:nexp)
                djdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,5,1:nexp)
+               dbdt%expl(:,:,:)=zero
+               djdt%expl(:,:,:)=zero
                bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
             end if
             if ( ((.not. l_double_curl) .or. l_RMS) ) then
                allocate( dpdt%expl(llm:ulm,n_r_max,nexp) )
+               dpdt%expl(:,:,:)=zero
                bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
             else
@@ -274,6 +282,9 @@ contains
             dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
             dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
             dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
+            dwdt%expl(:,:,:)=zero
+            dzdt%expl(:,:,:)=zero
+            dpdt%expl(:,:,:)=zero
             dVxVhLM_LMloc(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:nexp)
             bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
@@ -282,6 +293,9 @@ contains
             dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
             dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
             dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
+            dwdt%expl(:,:,:)=zero
+            dzdt%expl(:,:,:)=zero
+            dpdt%expl(:,:,:)=zero
             allocate( dVxVhLM_LMloc(1:1,1:1,1:1) )
             bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
@@ -290,6 +304,7 @@ contains
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
          if ( .not. l_parallel_solve ) then
             dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+            dsdt%expl(:,:,:)=zero
          end if
          dVSrLM_LMloc(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
@@ -298,6 +313,8 @@ contains
          allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3,1:nexp))
          dbdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1,1:nexp)
          djdt%expl(llmMag:,1:,1:) => dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2,1:nexp)
+         dbdt%expl(:,:,:)=zero
+         djdt%expl(:,:,:)=zero
          dVxBhLM_LMloc(llmMag:,1:,1:) => &
          &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3,1:nexp)
          bytes_allocated = bytes_allocated+ &
@@ -308,6 +325,7 @@ contains
          if ( .not. l_parallel_solve ) then
             allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
             dxidt%expl(llm:,1:,1:)   => dxidt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
+            dxidt%expl(:,:,:)=zero
             dVXirLM_LMloc(llm:,1:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
             bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
