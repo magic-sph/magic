@@ -125,7 +125,7 @@ contains
       logical :: lTOframeNext,lTOframeNext2
       logical :: l_logNext, l_pot
       logical :: lRmsCalc,lRmsNext, l_pure, l_mat_time
-      logical :: lPressCalc,lPressNext
+      logical :: lPressCalc,lPressNext,lP00Next,lP00Transp
       logical :: lMat, lMatNext   ! update matrices
       logical :: l_probe_out      ! Sensor output
 
@@ -443,6 +443,9 @@ contains
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
          &            .or. lFluxProfCalc
          lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
+         lP00Next=( l_RMS .or. l_FluxProfs .or. l_heat .or. l_chemical_conv) &
+         &          .and. l_logNext
+         lP00Transp= (l_heat .or. l_chemical_conv) .and. l_log
 
          if ( l_graph ) call open_graph_file(n_time_step, time, l_ave=.false.)
 
@@ -470,6 +473,7 @@ contains
             lPowerCalc    = lPowerCalc    .and. (tscheme%istage==1)
             lRmsCalc      = lRmsCalc      .and. (tscheme%istage==1)
             lPressCalc    = lPressCalc    .and. (tscheme%istage==1)
+            lP00Transp    = lP00Transp    .and. (tscheme%istage==1)
             lViscBcCalc   = lViscBcCalc   .and. (tscheme%istage==1)
             lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1)
             lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1)
@@ -691,7 +695,7 @@ contains
                call io_counter%start_count()
                if ( l_parallel_solve .and. (l_log .or. l_spectrum .or. lTOCalc .or. &
                &    l_dtB .or. l_cmb .or. l_r .or. l_pot .or. l_store .or. l_frame) ) then
-                  call transp_Rloc_to_LMloc_IO(lPressCalc)
+                  call transp_Rloc_to_LMloc_IO(lPressCalc .or. lP00Transp)
                end if
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,      &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
@@ -762,8 +766,8 @@ contains
                call lmLoop_counter%start_count()
                if ( l_parallel_solve ) then
                   call LMLoop_Rdist(timeStage,time,tscheme,lMat,lRmsNext,lPressNext, &
-                       &            dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,      &
-                       &            dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,       &
+                       &            lP00Next,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,  &
+                       &            djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
                        &            lorentz_torque_ma_dt,lorentz_torque_ic_dt,       &
                        &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
                else

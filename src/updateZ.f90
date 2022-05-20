@@ -220,7 +220,6 @@ contains
       !-- local variables:
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
-      integer :: lmStart_00         ! excluding l=0,m=0
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
@@ -253,7 +252,6 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
 
       nLMB = 1+rank
-      lmStart_00 =max(2,llm)
       l1m0       =lm2(1,0)
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
@@ -430,6 +428,10 @@ contains
                if ( l_z10mat .and. lm1 == l1m0 ) then
                   do n_r_out=1,rscheme_oc%n_max
                      z(lm1,n_r_out)=real(rhs(n_r_out))
+                  end do
+               else if ( l1 == 0 ) then
+                  do n_r_out=1,rscheme_oc%n_max
+                     z(lm1,n_r_out)=zero
                   end do
                else if ( l1 /= 0 ) then
                   lmB=lmB+1

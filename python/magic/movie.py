@@ -120,15 +120,36 @@ class Movie:
             iplot = False
         if file is None:
             dat = glob.glob('*[Mm]ov.*')
+            # Get prefix for movie type
+            prefix = []
+            for entry in dat:
+                prefix.append(entry.split('.')[0])
+            prefix = set(prefix)
+            # First sort: alpha: return to a list (set are unsortable when looping)
+            #dat.sort()
+            prefix = list(prefix)
+            prefix.sort()
+            # Then sort with os time for each type of movie
+            datSorted = []
+            for pre in prefix:
+                pattern = re.compile(r"{}.*".format(pre))
+                shortList = []
+                for entry in dat:
+                    if pattern.match(entry):
+                        shortList.append(entry)
+                dat1 = [(os.stat(i).st_mtime, i) for i in shortList]
+                dat1.sort()
+                datSorted.extend([i[1] for i in dat1])
+
             str1 = 'Which movie do you want ?\n'
-            for k, movie in enumerate(dat):
+            for k, movie in enumerate(datSorted):
                 str1 += ' {}) {}\n'.format(k+1, movie)
             index = int(input(str1))
             try:
-                filename = dat[index-1]
+                filename = datSorted[index-1]
             except IndexError:
-                print('Non valid index: {} has been chosen instead'.format(dat[0]))
-                filename = dat[0]
+                print('Non valid index: {} has been chosen instead'.format(datSorted[0]))
+                filename = datSorted[0]
 
         else:
             filename = file

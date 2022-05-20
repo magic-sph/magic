@@ -1952,7 +1952,8 @@ contains
               &                      r_old, n_r_maxL, n_r_max, scale_v,      &
               &                      nexp_old, nimp_old, nold_old,           &
               &                      tscheme_family_old, p, dpdt, disp,      &
-              &                      .not. l_double_curl, l_transp )
+              &                      .not. l_double_curl, l_transp,          &
+              &                      l_press_store_old )
       end if
 
       !-- Entropy: s
@@ -2333,10 +2334,12 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo,   &
               &                      r_old, n_r_maxL, dim1, scale_w, nexp_old, &
               &                      nimp_old, nold_old, tscheme_family_old,   &
-              &                      w, dwdt, disp, l_map, l_transp )
+              &                      w, dwdt, disp, l_map, l_transp,           &
+              &                      l_read_field_only )
 
       !--- Input variables
       logical,             intent(in) :: l_map
+      logical, optional,   intent(in) :: l_read_field_only
       integer,             intent(in) :: nexp_old, nimp_old
       integer,             intent(in) :: nold_old
       character(len=*),    intent(in) :: tscheme_family_old
@@ -2357,10 +2360,17 @@ contains
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variables:
+      logical :: l_field
       complex(cp) :: work(llm:ulm, n_r_max)
       integer(lip) :: size_old
       integer :: istat(MPI_STATUS_SIZE)
       integer :: n_o, nR_per_rank_old
+
+      if ( present(l_read_field_only) ) then
+         l_field=l_read_field_only
+      else
+         l_field=.false.
+      end if
 
       nR_per_rank_old = nRstop_old-nRstart_old+1
 
@@ -2373,7 +2383,7 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
-      if ( l_map ) then
+      if ( l_map .or. l_field ) then
          call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
               &                nRstop_old, radial_balance_old, lm2lmo,     &
               &                r_old, n_r_maxL, n_r_max, .false., .false., &
