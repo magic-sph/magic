@@ -593,6 +593,8 @@ contains
          rdisp(p)=rdisp(p-1)+rcounts(p-1)
       end do
       allocate( sbuff(sum(scounts)), rbuff(sum(rcounts)) )
+      sbuff(:)=0.0_cp
+      rbuff(:)=0.0_cp
 
       !-- Prepare buffer
       do p=0,n_procs-1
