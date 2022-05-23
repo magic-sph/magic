@@ -624,7 +624,7 @@ contains
          if ( rank == 0 ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
-            allocate ( work(1,1) )
+            allocate ( work(1,n_r_ic_max) )
          end if
 
          do n_r=1,n_r_ic_max
