@@ -2605,6 +2605,8 @@ contains
       max_recv = sum(rcounts)
 
       allocate( sbuff(1:max_send), rbuff(1:max_recv) )
+      sbuff(:)=zero
+      rbuff(:)=zero
 
       !$omp barrier
       !$omp parallel do default(shared) &
