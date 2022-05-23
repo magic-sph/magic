@@ -534,6 +534,9 @@ contains
       allocate( this%vrc(nlat_padded,nRl:nRu,n_phi_max) )
       allocate( this%vtc(nlat_padded,nRl:nRu,n_phi_max) )
       allocate( this%vpc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%vrc(:,:,:)=0.0_cp
+      this%vtc(:,:,:)=0.0_cp
+      this%vpc(:,:,:)=0.0_cp
       allocate( this%dvrdrc(nlat_padded,nRl:nRu,n_phi_max) )
       allocate( this%dvtdrc(nlat_padded,nRl:nRu,n_phi_max) )
       allocate( this%dvpdrc(nlat_padded,nRl:nRu,n_phi_max) )
@@ -553,8 +556,9 @@ contains
          allocate( this%brc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%btc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%bpc(nlat_padded,nRl:nRu,n_phi_max) )
-         this%btc=1.0e50_cp
-         this%bpc=1.0e50_cp
+         this%brc(:,:,:)=0.0_cp
+         this%btc(:,:,:)=1.0e50_cp
+         this%bpc(:,:,:)=1.0e50_cp
          allocate( this%cbrc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%cbtc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%cbpc(nlat_padded,nRl:nRu,n_phi_max) )
