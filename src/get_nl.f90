@@ -103,13 +103,17 @@ contains
       !----- Fields calculated from Legendre transforms
       allocate( this%vrc(nlat_padded,n_phi_max),this%vtc(nlat_padded,n_phi_max) )
       allocate( this%vpc(nlat_padded,n_phi_max), this%dvrdrc(nlat_padded,n_phi_max) )
+      this%vrc(:,:)=0.0_cp
+      this%vtc(:,:)=0.0_cp
+      this%vpc(:,:)=0.0_cp
       allocate(this%dvtdrc(nlat_padded,n_phi_max), this%dvpdrc(nlat_padded,n_phi_max))
       allocate( this%cvrc(nlat_padded,n_phi_max), this%dvrdtc(nlat_padded,n_phi_max) )
       allocate( this%dvrdpc(nlat_padded,n_phi_max), this%dvtdpc(nlat_padded,n_phi_max) )
       allocate( this%dvpdpc(nlat_padded,n_phi_max), this%brc(nlat_padded,n_phi_max) )
       allocate( this%btc(nlat_padded,n_phi_max),this%bpc(nlat_padded,n_phi_max) )
-      this%btc=1.0e50_cp
-      this%bpc=1.0e50_cp
+      this%brc(:,:)=0.0_cp
+      this%btc(:,:)=1.0e50_cp
+      this%bpc(:,:)=1.0e50_cp
       allocate( this%cbrc(nlat_padded,n_phi_max),this%cbtc(nlat_padded,n_phi_max) )
       allocate( this%cbpc(nlat_padded,n_phi_max), this%sc(nlat_padded,n_phi_max) )
       allocate( this%drSc(nlat_padded,n_phi_max), this%pc(nlat_padded,n_phi_max) )
