@@ -70,6 +70,7 @@ module  mpi_alltoall_mod
    use radial_data, only: nRstart, nRstop
    use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp_mod, only: type_mpitransp
+   use constants, only: zero
 
    implicit none
 
@@ -80,13 +81,27 @@ module  mpi_alltoall_mod
       integer, allocatable :: scounts(:)
       integer, allocatable :: rdisp(:)
       integer, allocatable :: sdisp(:)
-      integer :: max_send, max_recv
+      complex(cp), allocatable :: sbuff(:)
+      complex(cp), allocatable :: rbuff(:)
    contains
       procedure :: create_comm => create_comm_alltoallv
       procedure :: destroy_comm => destroy_comm_alltoallv
       procedure :: transp_lm2r => transp_lm2r_alltoallv
       procedure :: transp_r2lm => transp_r2lm_alltoallv
    end type type_mpiatoav
+
+   type, public, extends(type_mpitransp) :: type_mpiatoap
+      integer :: rcounts
+      integer :: scounts
+      integer :: n_r_loc
+      integer :: lm_loc
+      complex(cp), allocatable :: buff(:)
+   contains
+      procedure :: create_comm => create_comm_alltoallp
+      procedure :: destroy_comm => destroy_comm_alltoallp
+      procedure :: transp_lm2r => transp_lm2r_alltoallp
+      procedure :: transp_r2lm => transp_r2lm_alltoallp
+   end type type_mpiatoap
 
    type, public, extends(type_mpitransp) :: type_mpiatoaw
       integer, allocatable :: rtype(:)
@@ -130,10 +145,32 @@ contains
          this%rdisp(p)=this%rdisp(p-1)+this%rcounts(p-1)
       end do
 
-      this%max_send = sum(this%scounts)
-      this%max_recv = sum(this%rcounts)
+      allocate( this%rbuff(sum(this%rcounts)), this%sbuff(sum(this%scounts)) )
+      this%rbuff(:)=zero
+      this%sbuff(:)=zero
+      bytes_allocated=bytes_allocated+(sum(this%rcounts)+sum(this%scounts))* &
+      &               SIZEOF_DEF_COMPLEX
 
    end subroutine create_comm_alltoallv
+!----------------------------------------------------------------------------------
+   subroutine create_comm_alltoallp(this, n_fields)
+
+      class(type_mpiatoap) :: this
+      integer, intent(in) :: n_fields
+
+      this%n_r_loc = maxval(radial_balance(:)%n_per_rank)
+      this%lm_loc = maxval(lm_balance(:)%n_per_rank)
+
+      this%n_fields = n_fields
+      this%scounts  = this%n_r_loc*this%lm_loc*this%n_fields
+      this%rcounts  = this%n_r_loc*this%lm_loc*this%n_fields
+
+      allocate( this%buff(n_procs*this%lm_loc*this%n_r_loc*this%n_fields) )
+      this%buff(:)=zero
+      bytes_allocated=bytes_allocated+n_procs*this%lm_loc*this%n_r_loc*this%n_fields*&
+      &               SIZEOF_DEF_COMPLEX
+
+   end subroutine create_comm_alltoallp
 !----------------------------------------------------------------------------------
    subroutine create_comm_alltoallw(this, n_fields)
 
@@ -141,9 +178,35 @@ contains
       integer, intent(in) :: n_fields
 
       !-- Local variables
-      integer :: arr_size(3), arr_loc_size(3), arr_start(3)
+      integer (kind=mpi_address_kind) :: lb, extend, bytesCMPLX
+      integer :: arr_size(2), arr_loc_size(2), arr_start(2)
       integer :: p, my_lm_counts, nlm_per_rank
+      integer :: k, col_type, ext_type, lm, l, m
+      integer, allocatable :: indices(:), blocklengths(:)
 
+      integer :: lm2l_balance(lm_max, 0:n_procs-1), tmp(lm_max)
+      integer :: lm2m_balance(lm_max, 0:n_procs-1)
+
+      tmp(:)=-1
+      tmp(llm:ulm)=lo_map%lm2l(llm:ulm)
+#ifdef WITH_MPI
+      call MPI_Allgather(tmp, lm_max, MPI_INTEGER, lm2l_balance, lm_max, MPI_INTEGER, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+      tmp(:)=-1
+      tmp(llm:ulm)=lo_map%lm2m(llm:ulm)
+#ifdef WITH_MPI
+      call MPI_Allgather(tmp, lm_max, MPI_INTEGER, lm2m_balance, lm_max, MPI_INTEGER, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+#ifdef WITH_MPI
+      call MPI_Type_Get_Extent(MPI_DEF_COMPLEX, lb, bytesCMPLX, ierr)
+#endif
+
+      allocate(indices(maxval(lm_balance(:)%n_per_rank)))
+      allocate(blocklengths(max(maxval(lm_balance(:)%n_per_rank),ulm-llm+1)))
+      blocklengths(:)=1
       this%n_fields = n_fields
 
       allocate ( this%counts(0:n_procs-1), this%disp(0:n_procs-1) )
@@ -154,41 +217,50 @@ contains
          my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
 
-         this%counts(p)=1
+         this%counts(p)=this%n_fields
          this%disp(p)  =0
 
-         arr_size(1)=lm_max
-         arr_size(2)=nR_per_rank
-         arr_size(3)=this%n_fields
-         arr_loc_size(1)=my_lm_counts
-         arr_loc_size(2)=nR_per_rank
-         arr_loc_size(3)=this%n_fields
-         arr_start(1)=lm_balance(p)%nStart-1
-         arr_start(2)=0
-         arr_start(3)=0
+         k = 0
+         indices(:)=-1
+         do lm=lm_balance(p)%nStart, lm_balance(p)%nStop
+            l = lm2l_balance(lm,p)
+            m = lm2m_balance(lm,p)
+            if ( l >= 0 .and. m >= 0 ) then
+               k = k+1
+               indices(k) = st_map%lm2(l,m)-1
+            end if
+         end do
+
 #ifdef WITH_MPI
-         call MPI_Type_Create_Subarray(3, arr_size, arr_loc_size, arr_start, &
-              &                        MPI_ORDER_FORTRAN, MPI_DEF_COMPLEX,   &
-              &                        this%stype(p), ierr)
-         call MPI_Type_Commit(this%stype(p), ierr)
+         if ( k > 0 ) then
+            call MPI_Type_Indexed(k, blocklengths(1:k), indices(1:k), MPI_DEF_COMPLEX, &
+                 &                col_type, ierr)
+            extend = int(lm_max*bytesCMPLX, kind=mpi_address_kind)
+            call MPI_Type_create_resized(col_type, lb, extend, ext_type, ierr)
+            call MPI_Type_contiguous(nRstop-nRstart+1, ext_type, &
+                 &                   this%stype(p), ierr)
+
+            call MPI_Type_commit(this%stype(p), ierr)
+            call MPI_Type_free(col_type, ierr)
+            call MPI_Type_free(ext_type, ierr)
+         end if
 #endif
 
          arr_size(1)=nlm_per_rank
          arr_size(2)=n_r_max
-         arr_size(3)=this%n_fields
          arr_loc_size(1)=nlm_per_rank
          arr_loc_size(2)=radial_balance(p)%n_per_rank
-         arr_loc_size(3)=this%n_fields
          arr_start(1)=0
          arr_start(2)=radial_balance(p)%nStart-1
-         arr_start(3)=0
 #ifdef WITH_MPI
-         call MPI_Type_Create_Subarray(3, arr_size, arr_loc_size, arr_start, &
+         call MPI_Type_Create_Subarray(2, arr_size, arr_loc_size, arr_start, &
               &                        MPI_ORDER_FORTRAN, MPI_DEF_COMPLEX,   &
               &                        this%rtype(p), ierr)
          call MPI_Type_Commit(this%rtype(p), ierr)
 #endif
       end do
+
+      deallocate(indices, blocklengths)
 
    end subroutine create_comm_alltoallw
 !----------------------------------------------------------------------------------
@@ -196,9 +268,18 @@ contains
 
       class(type_mpiatoav) :: this
 
+      deallocate( this%rbuff, this%sbuff )
       deallocate( this%sdisp, this%rdisp, this%scounts, this%rcounts )
 
    end subroutine destroy_comm_alltoallv
+!----------------------------------------------------------------------------------
+   subroutine destroy_comm_alltoallp(this)
+
+      class(type_mpiatoap) :: this
+
+      deallocate( this%buff )
+
+   end subroutine destroy_comm_alltoallp
 !----------------------------------------------------------------------------------
    subroutine destroy_comm_alltoallw(this)
 
@@ -210,6 +291,7 @@ contains
 
       do p = 0, n_procs-1
          call MPI_Type_Free(this%rtype(p), ierr)
+         call MPI_Type_Free(this%stype(p), ierr)
       end do
 #endif
       deallocate( this%counts, this%disp, this%rtype, this%stype )
@@ -227,11 +309,8 @@ contains
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
       !-- Local variables
-      complex(cp) :: sbuff(1:this%max_send)
-      complex(cp) :: rbuff(1:this%max_recv)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
-      !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
       do p = 0, n_procs-1
@@ -239,7 +318,7 @@ contains
          do n_f=1,this%n_fields
             do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
                do lm=llm,ulm
-                  rbuff(ii)=arr_LMloc(lm,n_r,n_f)
+                  this%rbuff(ii)=arr_LMloc(lm,n_r,n_f)
                   ii = ii+1
                end do
             end do
@@ -248,12 +327,11 @@ contains
       !$omp end parallel do
 
 #ifdef WITH_MPI
-      call MPI_Alltoallv(rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
-           &             sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
+           &             this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
 #endif
 
-      !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
       do p = 0, n_procs-1
@@ -264,7 +342,7 @@ contains
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
-                  arr_Rloc(lm_st,n_r,n_f)=sbuff(ii)
+                  arr_Rloc(lm_st,n_r,n_f)=this%sbuff(ii)
                   ii=ii+1
                end do
             end do
@@ -274,48 +352,86 @@ contains
 
    end subroutine transp_lm2r_alltoallv
 !----------------------------------------------------------------------------------
+   subroutine transp_lm2r_alltoallp(this, arr_LMloc, arr_Rloc)
+      !
+      ! This subroutine transposes a LM-distributed container of arrays into
+      ! a r-distributed container of arrays
+      !
+
+      class(type_mpiatoap) :: this
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+
+      !-- Local variables
+      integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm)
+      !ii=1
+      do p = 0, n_procs-1
+         ii = p*this%rcounts+1
+         do n_f=1,this%n_fields
+            do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+               do lm=llm,ulm
+                  this%buff(ii)=arr_LMloc(lm,n_r,n_f)
+                  ii = ii+1
+               end do
+               !-- Padding happens here
+               do lm = ulm-llm+1,this%lm_loc-1
+                  ii = ii+1
+               end do
+            end do 
+            !-- Padding happens here
+            do n_r=radial_balance(p)%n_per_rank,this%n_r_loc-1
+               ii=ii+1
+            end do
+         end do
+      end do
+      !$omp end parallel do
+
+#ifdef WITH_MPI
+      call MPI_Alltoall(MPI_IN_PLACE, this%rcounts, MPI_DEF_COMPLEX, this%buff, &
+           &            this%scounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+#endif
+
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
+      !ii=1
+      do p = 0, n_procs-1
+         ii = p*this%scounts+1
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
+                  l = lo_map%lm2l(lm)
+                  m = lo_map%lm2m(lm)
+                  lm_st = st_map%lm2(l,m)
+                  arr_Rloc(lm_st,n_r,n_f)=this%buff(ii)
+                  ii=ii+1
+               end do
+               do lm = lm_balance(p)%n_per_rank,this%lm_loc-1
+                  ii = ii+1
+               end do
+            end do
+            do n_r=nR_per_rank,this%n_r_loc-1
+               ii=ii+1
+            end do
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine transp_lm2r_alltoallp
+!----------------------------------------------------------------------------------
    subroutine transp_lm2r_alltoallw(this, arr_LMloc, arr_Rloc)
 
       class(type_mpiatoaw) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
-      !-- Local variables
-      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
-
 #ifdef WITH_MPI
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
-           &             temp_Rloc, this%counts, this%disp, this%stype, &
+           &             arr_Rloc, this%counts, this%disp, this%stype,  &
            &             MPI_COMM_WORLD, ierr)
 #endif
-
-      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
-      start_lm=1; stop_lm=lm_max
-      call get_openmp_blocks(start_lm,stop_lm)
-
-
-      if ( .not. l_axi ) then
-         do n_f=1,this%n_fields
-            do n_r=nRstart,nRstop
-               do lm=start_lm,stop_lm
-                  l = st_map%lm2l(lm)
-                  m = st_map%lm2m(lm)
-                  arr_Rloc(lm,n_r,n_f)=temp_Rloc(lo_map%lm2(l,m),n_r,n_f)
-               end do
-            end do
-         end do
-      else
-         do n_f=1,this%n_fields
-            do n_r=nRstart,nRstop
-               do l=0,l_max
-                  arr_Rloc(st_map%lm2(l,0),n_r,n_f) = &
-                  &      temp_Rloc(lo_map%lm2(l,0),n_r,n_f)
-               end do
-            end do
-         end do
-      end if
-      !$omp end parallel
 
    end subroutine transp_lm2r_alltoallw
 !----------------------------------------------------------------------------------
@@ -330,12 +446,10 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
       !-- Local variables
-      complex(cp) :: sbuff(1:this%max_send), rbuff(1:this%max_recv)
 #if (KNL_BIG==1)
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: p, ii, n_r, lm, l, m, n_f
 
-      !$omp barrier
       !$omp parallel default(shared) private(p,ii,n_f,n_r,lm,l,m)
       !$omp do collapse(3)
       do n_f=1,this%n_fields
@@ -355,7 +469,7 @@ contains
          do n_f=1,this%n_fields
             do n_r=nRstart,nRstop
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
-                  sbuff(ii)=temp_Rloc(lm,n_r,n_f)
+                  this%sbuff(ii)=temp_Rloc(lm,n_r,n_f)
                   ii = ii +1
                end do
             end do
@@ -364,12 +478,9 @@ contains
       !$omp end do
       !$omp end parallel
 
-
-
 #elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
-      !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
       do p = 0, n_procs-1
@@ -380,7 +491,7 @@ contains
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
-                  sbuff(ii)=arr_Rloc(lm_st,n_r,n_f)
+                  this%sbuff(ii)=arr_Rloc(lm_st,n_r,n_f)
                   ii = ii +1
                end do
             end do
@@ -390,12 +501,11 @@ contains
 #endif
 
 #ifdef WITH_MPI
-      call MPI_Alltoallv(sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
-           &             rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
+      call MPI_Alltoallv(this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
+           &             this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
 #endif
 
-      !$omp barrier
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
       do p = 0, n_procs-1
@@ -403,7 +513,7 @@ contains
          do n_f=1,this%n_fields
             do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
                do lm=llm,ulm
-                  arr_LMloc(lm,n_r,n_f)=rbuff(ii)
+                  arr_LMloc(lm,n_r,n_f)=this%rbuff(ii)
                   ii=ii+1
                end do
             end do
@@ -413,44 +523,83 @@ contains
 
    end subroutine transp_r2lm_alltoallv
 !----------------------------------------------------------------------------------
+   subroutine transp_r2lm_alltoallp(this, arr_Rloc, arr_LMloc)
+      !
+      ! This subroutine transposes a r-distributed container of arrays into
+      ! a LM-distributed container of arrays
+      !
+
+      class(type_mpiatoap) :: this
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+
+      !-- Local variables
+      integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+
+      !ii = 1
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
+      do p = 0, n_procs-1
+         ii = p*this%scounts+1
+         do n_f=1,this%n_fields
+            do n_r=nRstart,nRstop
+               do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
+                  l = lo_map%lm2l(lm)
+                  m = lo_map%lm2m(lm)
+                  lm_st = st_map%lm2(l,m)
+
+                  this%buff(ii)=arr_Rloc(lm_st,n_r,n_f)
+                  ii = ii +1
+               end do
+               !-- padding happens here
+               do lm = lm_balance(p)%n_per_rank, this%lm_loc-1
+                  ii = ii+1
+               end do
+            end do
+            !-- padding happens here
+            do n_r=nR_per_rank,this%n_r_loc-1
+               ii=ii+1
+            end do
+         end do
+      end do
+      !$omp end parallel do
+
+#ifdef WITH_MPI
+      call MPI_Alltoall(MPI_IN_PLACE, this%scounts, MPI_DEF_COMPLEX, this%buff, &
+           &            this%rcounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+#endif
+
+      !$omp parallel do default(shared) &
+      !$omp private(p,ii,n_f,n_r,lm)
+      do p = 0, n_procs-1
+         ii = p*this%rcounts+1
+         do n_f=1,this%n_fields
+            do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+               do lm=llm,ulm
+                  arr_LMloc(lm,n_r,n_f)=this%buff(ii)
+                  ii=ii+1
+               end do
+               do lm = ulm-llm+1, this%lm_loc-1
+                  ii = ii+1
+               end do
+            end do
+            do n_r=radial_balance(p)%n_per_rank,this%n_r_loc-1
+               ii=ii+1
+            end do
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine transp_r2lm_alltoallp
+!----------------------------------------------------------------------------------
    subroutine transp_r2lm_alltoallw(this, arr_Rloc, arr_LMloc)
 
       class(type_mpiatoaw) :: this
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
 
-      !-- Local variables
-      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: n_r, l, m, n_f, lm, start_lm, stop_lm
-
-      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,n_f,lm,l,m)
-      start_lm=1; stop_lm=lm_max
-      call get_openmp_blocks(start_lm,stop_lm)
-
-      if ( .not. l_axi ) then
-         do n_f=1,this%n_fields
-            do n_r=nRstart,nRstop
-               do lm=start_lm,stop_lm
-                  l = lo_map%lm2l(lm)
-                  m = lo_map%lm2m(lm)
-                  temp_Rloc(lm,n_r,n_f)=arr_Rloc(st_map%lm2(l,m),n_r,n_f)
-               end do
-            end do
-         end do
-      else
-         do n_f=1,this%n_fields
-            do n_r=nRstart,nRstop
-               do l=0,l_max
-                  temp_Rloc(lo_map%lm2(l,0),n_r,n_f) = &
-                  &                arr_Rloc(st_map%lm2(l,0),n_r,n_f)
-               end do
-            end do
-         end do
-      end if
-      !$omp end parallel
-
 #ifdef WITH_MPI
-      call MPI_Alltoallw(temp_Rloc, this%counts, this%disp, this%stype, &
+      call MPI_Alltoallw(arr_Rloc, this%counts, this%disp, this%stype,  &
            &             arr_LMloc, this%counts, this%disp, this%rtype, &
            &             MPI_COMM_WORLD, ierr)
 #endif

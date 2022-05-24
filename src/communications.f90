@@ -21,7 +21,7 @@ module communications
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
    use mpi_ptop_mod, only: type_mpiptop
-   use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
+   use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw, type_mpiatoap
    use charmanip, only: capitalize
    use num_param, only: mpi_transp, mpi_packing
    use mpi_transp_mod, only: type_mpitransp
@@ -123,6 +123,11 @@ contains
          &         index(mpi_transp, 'ALL2ALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLW') /= 0 ) then
             idx = 3
+         else if ( index(mpi_transp, 'ATOAP') /= 0 .or. index(mpi_transp, 'A2AP') /=0&
+         &         .or. index(mpi_transp, 'ALLTOALLP') /= 0 .or. &
+         &         index(mpi_transp, 'ALL2ALLP') /= 0 .or. &
+         &         index(mpi_transp, 'ALL-TO-ALLP') /= 0 ) then
+            idx = 4
          end if
       end if
 
@@ -148,6 +153,8 @@ contains
                write(n_out,*) '! -> I choose alltoallv'
             else if ( idx == 3 ) then
                write(n_out,*) '! -> I choose alltoallw'
+            else if ( idx == 4 ) then
+               write(n_out,*) '! -> I choose padded alltoall'
             end if
             write(n_out,*)
             if ( n==1 .and. l_save_out ) close(n_log_file)
@@ -181,8 +188,8 @@ contains
          allocate( type_mpiatoav :: r2lo_xi )
          allocate( type_mpiatoav :: lo2r_press )
       else if ( idx == 3 ) then
-         allocate( type_mpiatoav :: lo2r_one )
-         allocate( type_mpiatoav :: r2lo_one )
+         allocate( type_mpiatoaw :: lo2r_one )
+         allocate( type_mpiatoaw :: r2lo_one )
          allocate( type_mpiatoaw :: lo2r_s )
          allocate( type_mpiatoaw :: r2lo_s )
          allocate( type_mpiatoaw :: lo2r_flow )
@@ -192,6 +199,18 @@ contains
          allocate( type_mpiatoaw :: lo2r_xi )
          allocate( type_mpiatoaw :: r2lo_xi )
          allocate( type_mpiatoaw :: lo2r_press )
+      else if ( idx == 4 ) then
+         allocate( type_mpiatoap :: lo2r_one )
+         allocate( type_mpiatoap :: r2lo_one )
+         allocate( type_mpiatoap :: lo2r_s )
+         allocate( type_mpiatoap :: r2lo_s )
+         allocate( type_mpiatoap :: lo2r_flow )
+         allocate( type_mpiatoap :: r2lo_flow )
+         allocate( type_mpiatoap :: lo2r_field )
+         allocate( type_mpiatoap :: r2lo_field )
+         allocate( type_mpiatoap :: lo2r_xi )
+         allocate( type_mpiatoap :: r2lo_xi )
+         allocate( type_mpiatoap :: lo2r_press )
       end if
 
       if ( l_packed_transp ) then
@@ -989,6 +1008,8 @@ contains
          allocate( type_mpiatoav :: lo2r_test )
       else if ( idx_type == 3 ) then
          allocate( type_mpiatoaw :: lo2r_test )
+      else if ( idx_type == 4 ) then
+         allocate( type_mpiatoap :: lo2r_test )
       end if
       do iblock=1,size(block_size)
 
@@ -1098,7 +1119,7 @@ contains
       complex(cp) :: arr_Rloc(lm_max,nRstart:nRstop,n_fields)
       complex(cp) :: arr_LMloc(llm:ulm,n_r_max,n_fields)
       real(cp) :: tStart, tStop, tAlltoAllv, tPointtoPoint, tAlltoAllw
-      real(cp) :: rdm_real, rdm_imag, timers(3)
+      real(cp) :: rdm_real, rdm_imag, timers(4), tAlltoAllp
       integer :: n_f, n_r, lm, n_t, n, n_out, ind(1)
       integer, parameter :: n_transp=10
       character(len=80) :: message
@@ -1162,12 +1183,30 @@ contains
       call lo2r_test%destroy_comm()
       deallocate( lo2r_test)
 
+      !-- Try the padded all-to-all strategy (10 back and forth transposes)
+      allocate( type_mpiatoap :: lo2r_test )
+      call lo2r_test%create_comm(n_fields)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      tStart = MPI_Wtime()
+      do n_t=1,n_transp
+         call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      end do
+      tStop = MPI_Wtime()
+      tAlltoAllp = tStop-tStart
+      call lo2r_test%destroy_comm()
+      deallocate( lo2r_test)
+
       !-- Now determine the average over the ranks and send it to rank=0
       call MPI_Reduce(tPointtoPoint, timers(1), 1, MPI_DEF_REAL, MPI_SUM, 0, &
            &          MPI_COMM_WORLD, ierr)
       call MPI_Reduce(tAlltoAllv, timers(2), 1, MPI_DEF_REAL, MPI_SUM, 0, &
            &          MPI_COMM_WORLD, ierr)
       call MPI_Reduce(tAlltoAllw, timers(3), 1, MPI_DEF_REAL, MPI_SUM, 0, &
+           &          MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(tAlltoAllp, timers(4), 1, MPI_DEF_REAL, MPI_SUM, 0, &
            &          MPI_COMM_WORLD, ierr)
 
       if ( rank == 0 ) then
@@ -1204,6 +1243,9 @@ contains
             write(n_out,'(A80)') message
             write(message,'('' ! alltoallw communicator          ='', &
             &               ES10.3, '' s'')') timers(3)
+            write(n_out,'(A80)') message
+            write(message,'('' ! padded alltoall communicator    ='', &
+            &               ES10.3, '' s'')') timers(4)
             write(n_out,'(A80)') message
 
             if ( n==1 .and. l_save_out ) close(n_log_file)
