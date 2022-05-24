@@ -589,7 +589,7 @@ contains
 
       !--- Store potential coeffs for velocity fields and magnetic fields
       if ( l_r ) call write_coeffs(w_LMloc, dw_LMloc, ddw_LMloc, z_LMLoc, b_LMLoc,  &
-                      &            db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, s_LMloc,&
+                      &            db_LMloc, ddb_LMloc, aj_LMloc, s_LMloc,          &
                       &            xi_LMloc, timeScaled)
 
       if ( l_pot ) then

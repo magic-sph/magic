@@ -260,7 +260,7 @@ contains
    end subroutine write_Bcmb
 !----------------------------------------------------------------------
    subroutine write_coeffs(w_LMloc, dw_LMloc, ddw_LMloc, z_LMLoc, b_LMLoc,  &
-              &            db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, s_LMloc,&
+              &            db_LMloc, ddb_LMloc, aj_LMloc, s_LMloc,          &
               &            xi_LMloc, timeScaled)
       !
       ! This routine handles the writing of coefficients at a given depth
@@ -275,7 +275,6 @@ contains
       complex(cp), intent(in) :: db_LMloc(:,:)
       complex(cp), intent(in) :: ddb_LMloc(:,:)
       complex(cp), intent(in) :: aj_LMloc(:,:)
-      complex(cp), intent(in) :: dj_LMloc(:,:)
       complex(cp), intent(in) :: s_LMloc(:,:)
       complex(cp), intent(in) :: xi_LMloc(:,:)
 
