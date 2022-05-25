@@ -23,7 +23,7 @@ module output_mod
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
-       &            l_phase_field
+       &            l_phase_field, l_hemi
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -43,7 +43,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
-   use outMisc_mod, only: outHelicity, outHeat, outPhase
+   use outMisc_mod, only: outHelicity, outHeat, outPhase, outHemi
    use geos, only: outGeos, outOmega
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -213,7 +213,8 @@ contains
               &      dbdt_CMB_LMloc,HelASr,Hel2ASr,HelnaASr,Helna2ASr,    &
               &      HelEAASr,viscASr,uhASr,duhASr,gradsASr,fconvASr,     &
               &      fkinASr,fviscASr,fpoynASr,fresASr,EperpASr,EparASr,  &
-              &      EperpaxiASr,EparaxiASr,ekinSr,ekinLr,volSr)
+              &      EperpaxiASr,EparaxiASr,ekinSr,ekinLr,volSr,hemi_ekin,&
+              &      hemi_vrabs,hemi_emag,hemi_brabs)
       !
       !  This subroutine controls most of the output.
       !
@@ -280,6 +281,10 @@ contains
       real(cp),    intent(inout) :: ekinSr(nRstart:nRstop)
       real(cp),    intent(inout) :: ekinLr(nRstart:nRstop)
       real(cp),    intent(inout) :: volSr(nRstart:nRstop)
+      real(cp),    intent(in) :: hemi_ekin(2,nRstart:nRstop)
+      real(cp),    intent(in) :: hemi_vrabs(2,nRstart:nRstop)
+      real(cp),    intent(in) :: hemi_emag(2,nRstartMag:nRstopMag)
+      real(cp),    intent(in) :: hemi_brabs(2,nRstartMag:nRstopMag)
 
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
 
@@ -459,6 +464,9 @@ contains
 
          if ( l_hel ) call outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr, &
                            &           Helna2ASr,HelEAASr)
+
+         if ( l_hemi ) call outHemi(timeScaled,hemi_ekin,hemi_vrabs,hemi_emag, &
+                            &       hemi_brabs)
 
          if ( l_phase_field ) call outPhase(timeScaled,timePassedLog,       &
                                    &        timeNormLog,l_stop_time,nLogs,  &

@@ -19,7 +19,7 @@ module nl_special_calc
    private
 
    public :: get_nlBLayers, get_perpPar, get_fluxes, get_helicity, &
-        &    get_visc_heat, get_ekin_solid_liquid
+        &    get_visc_heat, get_ekin_solid_liquid, get_hemi
 
 contains
 
@@ -504,5 +504,59 @@ contains
       !$omp end parallel do
 
    end subroutine get_ekin_solid_liquid
+!------------------------------------------------------------------------------
+   subroutine get_hemi(vr,vt,vp,enAS,vrabsAS,nR,field)
+      !
+      !   This subroutine is used to compute kinetic or magnetic energy
+      !   in Northern or Southern hemipshere.
+      !
+
+      !-- Input of variables
+      integer,          intent(in) :: nR ! radial level
+      real(cp),         intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      character(len=1), intent(in) :: field
+
+      !-- Output variables:
+      real(cp), intent(out) :: enAS(2) ! energy in North/South hemi at radius nR
+      real(cp), intent(out) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
+
+      !-- Local variables:
+      integer :: nTheta, nPhi, nThetaNHS
+      real(cp) :: en, vrabs, phiNorm, fac
+
+      enAS(:)   =0.0_cp
+      vrabsAS(:)=0.0_cp
+      phiNorm=two*pi/real(n_phi_max,cp)
+      if ( field == 'V' ) then
+         fac = orho1(nR)
+      else if ( field == 'B' ) then
+         fac = one
+      end if
+      !--- Helicity:
+      !$omp parallel do default(shared)           &
+      !$omp& private(nTheta,nThetaNHS,vrabs,en)   &
+      !$omp& reduction(+:enAS,vrabsAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+
+            vrabs=fac*abs(vr(nTheta,nPhi))
+            en   =half*fac*(                                         &
+            &              or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &      osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &      osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+               enAS(1)   =enAS(1) +phiNorm*gauss(nThetaNHS)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nThetaNHS)*vrabs
+            else
+               enAS(2)   =enAS(2) +phiNorm*gauss(nThetaNHS)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nThetaNHS)*vrabs
+            end if
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine get_hemi
 !------------------------------------------------------------------------------
 end module nl_special_calc

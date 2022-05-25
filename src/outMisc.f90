@@ -7,20 +7,21 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use communications, only: gather_from_Rloc
-   use truncation, only: l_max, n_r_max, lm_max, nlat_padded, n_theta_max
-   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
+   use truncation, only: l_max, n_r_max, lm_max, nlat_padded, n_theta_max, &
+       &                 n_r_maxMag
+   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, nRstartMag, nRstopMag
    use radial_functions, only: r_icb, rscheme_oc, kappa,         &
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
        &                       otemp1, ogrun, rscheme_oc
-   use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef
-   use num_param, only: lScale, eScale
+   use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef, LFfac
+   use num_param, only: lScale, eScale, vScale
    use blocking, only: llm, ulm, lo_map
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord
-   use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
-       &            l_temperature_diff, l_chemical_conv, l_phase_field
+   use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
+       &            l_temperature_diff, l_chemical_conv, l_phase_field, l_mag
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -35,12 +36,13 @@ module outMisc_mod
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
    integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
-   integer :: n_rmelt_file
+   integer :: n_rmelt_file, n_hemi_file
    character(len=72) :: heat_file, helicity_file, phase_file, rmelt_file
+   character(len=72) :: hemi_file
    real(cp) :: TPhiOld, Tphi
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
-   &         outPhase
+   &         outPhase, outHemi
 
 contains
 
@@ -64,11 +66,11 @@ contains
       TPhi = 0.0_cp
 
       helicity_file='helicity.'//tag
+      hemi_file    ='hemi.'//tag
       heat_file    ='heat.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
-         if ( l_hel ) then
-            open(newunit=n_helicity_file, file=helicity_file, status='new')
-         end if
+         if ( l_hel ) open(newunit=n_helicity_file, file=helicity_file, status='new')
+         if ( l_hemi ) open(newunit=n_hemi_file, file=hemi_file, status='new')
          if ( l_heat .or. l_chemical_conv ) then
             open(newunit=n_heat_file, file=heat_file, status='new')
          end if
@@ -102,6 +104,7 @@ contains
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
+         if ( l_hemi ) close(n_hemi_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
          if ( l_phase_field ) then
             close(n_phase_file)
@@ -110,6 +113,90 @@ contains
       end if
 
    end subroutine finalize_outMisc_mod
+!---------------------------------------------------------------------------
+   subroutine outHemi(timeScaled,hemi_ekin_r,hemi_vrabs_r,hemi_emag_r, &
+              &       hemi_brabs_r)
+      !
+      ! This subroutine handles the computation of North/South hemisphericity
+      !
+
+      !-- Input of variables:
+      real(cp), intent(in) :: timeScaled
+      real(cp), intent(in) :: hemi_ekin_r(2,nRstart:nRstop)
+      real(cp), intent(in) :: hemi_vrabs_r(2,nRstart:nRstop)
+      real(cp), intent(in) :: hemi_emag_r(2,nRstartMag:nRstopMag)
+      real(cp), intent(in) :: hemi_brabs_r(2,nRstartMag:nRstopMag)
+
+      !-- Local variables:
+      real(cp) :: hemi_ekin_r_N(n_r_max), hemi_ekin_r_S(n_r_max)
+      real(cp) :: hemi_vrabs_r_N(n_r_max), hemi_vrabs_r_S(n_r_max)
+      real(cp) :: hemi_emag_r_N(n_r_maxMag), hemi_emag_r_S(n_r_maxMag)
+      real(cp) :: hemi_brabs_r_N(n_r_maxMag), hemi_brabs_r_S(n_r_maxMag)
+      real(cp) :: ekinN, ekinS, vrabsN, vrabsS, hemi_ekin, hemi_vr
+      real(cp) :: emagN, emagS, brabsN, brabsS, hemi_emag, hemi_br, hemi_cmb
+
+      call gather_from_Rloc(hemi_ekin_r(1,:), hemi_ekin_r_N, 0)
+      call gather_from_Rloc(hemi_ekin_r(2,:), hemi_ekin_r_S, 0)
+      call gather_from_Rloc(hemi_vrabs_r(1,:), hemi_vrabs_r_N, 0)
+      call gather_from_Rloc(hemi_vrabs_r(2,:), hemi_vrabs_r_S, 0)
+      if ( l_mag ) then
+         call gather_from_Rloc(hemi_emag_r(1,:), hemi_emag_r_N, 0)
+         call gather_from_Rloc(hemi_emag_r(2,:), hemi_emag_r_S, 0)
+         call gather_from_Rloc(hemi_brabs_r(1,:), hemi_brabs_r_N, 0)
+         call gather_from_Rloc(hemi_brabs_r(2,:), hemi_brabs_r_S, 0)
+      end if
+
+      if ( rank == 0 ) then
+         !------ Integration over r
+         ekinN =eScale*rInt_R(hemi_ekin_r_N,r,rscheme_oc)
+         ekinS =eScale*rInt_R(hemi_ekin_r_S,r,rscheme_oc)
+         vrabsN=vScale*rInt_R(hemi_vrabs_r_N,r,rscheme_oc)
+         vrabsS=vScale*rInt_R(hemi_vrabs_r_S,r,rscheme_oc)
+         if ( l_mag ) then
+            emagN =LFfac*eScale*rInt_R(hemi_emag_r_N,r,rscheme_oc)
+            emagS =LFfac*eScale*rInt_R(hemi_emag_r_S,r,rscheme_oc)
+            brabsN=rInt_R(hemi_brabs_r_N,r,rscheme_oc)
+            brabsS=rInt_R(hemi_brabs_r_S,r,rscheme_oc)
+            if ( emagN+emagS > 0.0_cp ) then
+               hemi_emag=abs(emagN-emagS)/(emagN+emagS)
+               hemi_br  =abs(brabsN-brabsS)/(brabsN+brabsS)
+               hemi_cmb =abs(hemi_brabs_r_N(n_r_cmb)-hemi_brabs_r_S(n_r_cmb)) / &
+               &         (hemi_brabs_r_N(n_r_cmb)+hemi_brabs_r_S(n_r_cmb))
+            else
+               hemi_emag=0.0_cp
+               hemi_br  =0.0_cp
+               hemi_cmb =0.0_cp
+            end if
+         else
+            hemi_emag=0.0_cp
+            hemi_br  =0.0_cp
+            hemi_cmb =0.0_cp
+         end if
+
+         if ( ekinN+ekinS > 0.0_cp ) then
+            hemi_ekin=abs(ekinN-ekinS)/(ekinN+ekinS)
+            hemi_vr  =abs(vrabsN-vrabsS)/(vrabsN+vrabsS)
+         else
+            hemi_ekin=0.0_cp
+            hemi_vr  =0.0_cp
+         end if
+
+         if ( l_save_out ) then
+            open(newunit=n_hemi_file, file=hemi_file,   &
+            &    status='unknown', position='append')
+         end if
+
+         write(n_hemi_file,'(1P,ES20.12,7ES16.8)')                &
+         &     timeScaled, round_off(hemi_vr,one),                &
+         &     round_off(hemi_ekin,one), round_off(hemi_br,one),  &
+         &     round_off(hemi_emag,one), round_off(hemi_cmb,one), &
+         &     ekinN+ekinS, emagN+emagS
+
+         if ( l_save_out ) close(n_hemi_file)
+
+      end if
+
+   end subroutine outHemi
 !---------------------------------------------------------------------------
    subroutine outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
       !

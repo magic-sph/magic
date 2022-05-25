@@ -27,7 +27,7 @@ module step_time_mod
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
        &            l_HT, l_dtBmovie, l_heat, l_conv, l_movie,         &
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
-       &            l_dt_cmb_field, l_chemical_conv, l_mag_kin,        &
+       &            l_dt_cmb_field, l_chemical_conv, l_mag_kin, l_hemi,&
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
@@ -115,6 +115,7 @@ contains
       logical :: l_cmb            ! Store set of b at CMB
       logical :: l_r              ! Store coeff at various depths
       logical :: lHelCalc         ! Calculate helicity for output
+      logical :: lHemiCalc        ! Calculate hemisphericity for output
       logical :: lPowerCalc       ! Calculate viscous heating in the physical space
       logical :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
       logical :: lFluxProfCalc    ! Calculate radial flux components
@@ -168,6 +169,9 @@ contains
       real(cp) :: EperpaxiASr_Rloc(nRstart:nRstop),EparaxiASr_Rloc(nRstart:nRstop)
       real(cp) :: ekinS_Rloc(nRstart:nRstop),ekinL_Rloc(nRstart:nRstop)
       real(cp) :: volS_Rloc(nRstart:nRstop)
+      real(cp) :: hemi_ekin_Rloc(2,nRstart:nRstop),hemi_vrabs_Rloc(2,nRstart:nRstop)
+      real(cp) :: hemi_emag_Rloc(2,nRstartMag:nRstopMag)
+      real(cp) :: hemi_brabs_Rloc(2,nRstartMag:nRstopMag)
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
       complex(cp) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
@@ -433,6 +437,7 @@ contains
          end if
 
          lHelCalc     =l_hel        .and. l_log
+         lHemiCalc    =l_hemi       .and. l_log
          lPowerCalc   =l_power      .and. l_log
          lPerpParCalc =l_perpPar    .and. l_log
          lGeosCalc    =l_par        .and. l_log
@@ -470,6 +475,7 @@ contains
             lTONext       = lTONext       .and. (tscheme%istage==1)
             lTONext2      = lTONext2      .and. (tscheme%istage==1)
             lHelCalc      = lHelCalc      .and. (tscheme%istage==1)
+            lHemiCalc     = lHemiCalc     .and. (tscheme%istage==1)
             lPowerCalc    = lPowerCalc    .and. (tscheme%istage==1)
             lRmsCalc      = lRmsCalc      .and. (tscheme%istage==1)
             lPressCalc    = lPressCalc    .and. (tscheme%istage==1)
@@ -498,7 +504,7 @@ contains
                        &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
                        &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
                        &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
-                       &           l_probe_out,dsdt%expl(:,:,tscheme%istage),          &
+                       &           lHemiCalc,l_probe_out,dsdt%expl(:,:,tscheme%istage),&
                        &           dwdt%expl(:,:,tscheme%istage),                      &
                        &           dzdt%expl(:,:,tscheme%istage),                      &
                        &           dpdt%expl(:,:,tscheme%istage),                      &
@@ -515,13 +521,14 @@ contains
                        &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
                        &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
                        &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,    &
-                       &           dtrkc_Rloc,dthkc_Rloc)
+                       &           hemi_ekin_Rloc,hemi_vrabs_Rloc,hemi_emag_Rloc,      &
+                       &           hemi_brabs_Rloc,dtrkc_Rloc,dthkc_Rloc)
                   else
                   call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
                        &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
                        &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
                        &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
-                       &           l_probe_out,dsdt%expl(:,:,tscheme%istage),          &
+                       &           lHemiCalc,l_probe_out,dsdt%expl(:,:,tscheme%istage),&
                        &           dwdt%expl(:,:,tscheme%istage),                      &
                        &           dzdt%expl(:,:,tscheme%istage),                      &
                        &           dpdt%expl(:,:,tscheme%istage),                      &
@@ -537,25 +544,27 @@ contains
                        &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
                        &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
                        &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,    &
-                       &           dtrkc_Rloc,dthkc_Rloc)
+                       &           hemi_ekin_Rloc,hemi_vrabs_Rloc,hemi_emag_Rloc,      &
+                       &           hemi_brabs_Rloc,dtrkc_Rloc,dthkc_Rloc)
                   end if
                else
-                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
-                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
-                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
-                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
-                       &           l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,&
-                       &           dxidt_Rloc,dphidt_Rloc,dbdt_Rloc,djdt_Rloc,         &
-                       &           dVxVhLM_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc, &
-                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
-                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc, &
-                       &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,          &
-                       &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,  &
-                       &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,           &
-                       &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,           &
-                       &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,        &
-                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,    &
-                       &           dtrkc_Rloc,dthkc_Rloc)
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,             &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,            &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,           &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,    &
+                       &           lHemiCalc,l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc, &
+                       &           dpdt_Rloc,dxidt_Rloc,dphidt_Rloc,dbdt_Rloc,djdt_Rloc,&
+                       &           dVxVhLM_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,  &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelASr_Rloc,  &
+                       &           Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,           &
+                       &           HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,   &
+                       &           gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,            &
+                       &           fviscASr_Rloc,fpoynASr_Rloc,fresASr_Rloc,            &
+                       &           EperpASr_Rloc,EparASr_Rloc,EperpaxiASr_Rloc,         &
+                       &           EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,volS_Rloc,     &
+                       &           hemi_ekin_Rloc,hemi_vrabs_Rloc,hemi_emag_Rloc,       &
+                       &           hemi_brabs_Rloc,dtrkc_Rloc,dthkc_Rloc)
                end if
                call rLoop_counter%stop_count()
 
@@ -697,17 +706,18 @@ contains
                &    l_dtB .or. l_cmb .or. l_r .or. l_pot .or. l_store .or. l_frame) ) then
                   call transp_Rloc_to_LMloc_IO(lPressCalc .or. lP00Transp)
                end if
-               call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,      &
-                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,               &
-                    &      l_spectrum,lTOCalc,lTOframe,                           &
-                    &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                  &
-                    &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,    &
-                    &      HelASr_Rloc,Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc, &
-                    &      HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,     &
-                    &      gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,fviscASr_Rloc,&
-                    &      fpoynASr_Rloc,fresASr_Rloc,EperpASr_Rloc,EparASr_Rloc, &
-                    &      EperpaxiASr_Rloc,EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc,&
-                    &      volS_Rloc)
+               call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,       &
+                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,                &
+                    &      l_spectrum,lTOCalc,lTOframe,                            &
+                    &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                   &
+                    &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,     &
+                    &      HelASr_Rloc,Hel2ASr_Rloc,HelnaASr_Rloc,Helna2ASr_Rloc,  &
+                    &      HelEAASr_Rloc,viscASr_Rloc,uhASr_Rloc,duhASr_Rloc,      &
+                    &      gradsASr_Rloc,fconvASr_Rloc,fkinASr_Rloc,fviscASr_Rloc, &
+                    &      fpoynASr_Rloc,fresASr_Rloc,EperpASr_Rloc,EparASr_Rloc,  &
+                    &      EperpaxiASr_Rloc,EparaxiASr_Rloc,ekinS_Rloc,ekinL_Rloc, &
+                    &      volS_Rloc,hemi_ekin_Rloc,hemi_vrabs_Rloc,hemi_emag_Rloc,&
+                    &      hemi_brabs_Rloc)
                call io_counter%stop_count()
                if ( lVerbose ) write(output_unit,*) "! output finished"
 

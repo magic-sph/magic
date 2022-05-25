@@ -34,20 +34,21 @@ module rIteration
       subroutine radialLoop_if(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
               &                lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
               &                lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
-              &                lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,   &
-              &                dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM, &
-              &                dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,           &
-              &                lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,        &
-              &                br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,HelnaAS,     &
-              &                Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS,fconvAS, &
-              &                fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,EparAS,       &
-              &                EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,dtrkc,dthkc)
+              &                lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,     &
+              &                l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,  &
+              &                djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                &
+              &                lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
+              &                br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,&
+              &                HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS, &
+              &                fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,      &
+              &                EparAS,EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,       &
+              &                hemi_ekin,hemi_vrabs,hemi_emag,hemi_brabs,dtrkc,dthkc)
          import
          class(rIter_t) :: this
          !--- Input of variables:
          logical,             intent(in) :: l_graph,l_frame
          logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
-         logical,             intent(in) :: lPowerCalc
+         logical,             intent(in) :: lPowerCalc,lHemiCalc
          logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
          logical,             intent(in) :: lRmsCalc,lGeosCalc
          logical,             intent(in) :: l_probe_out
@@ -92,6 +93,10 @@ module rIteration
          real(cp),    intent(inout) :: ekinS(nRstart:nRstop)
          real(cp),    intent(inout) :: ekinL(nRstart:nRstop)
          real(cp),    intent(inout) :: volS(nRstart:nRstop)
+         real(cp),    intent(inout) :: hemi_ekin(2,nRstart:nRstop)
+         real(cp),    intent(inout) :: hemi_vrabs(2,nRstart:nRstop)
+         real(cp),    intent(inout) :: hemi_emag(2,nRstartMag:nRstopMag)
+         real(cp),    intent(inout) :: hemi_brabs(2,nRstartMag:nRstopMag)
 
          !---- inoutput of nonlinear products for nonlinear
          !     magnetic boundary conditions (needed in s_updateB.f):
