@@ -8,17 +8,17 @@ module power
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc, reduce_radial, send_lm_pair_to_master
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, l_max, &
-       &                 n_r_maxMag
+       &                 n_r_maxMag, n_phi_max, n_theta_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
-       &                       or2, O_r_ic2, lambda, temp0,           &
+       &                       or2, O_r_ic2, lambda, temp0, or1,      &
        &                       O_r_ic, rgrav, r_ic, dr_fac_ic,        &
        &                       alpha0, orho1, otemp1, beta, visc
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
-   use horizontal_data, only: dLh, gauss
+   use horizontal_data, only: dLh, gauss, cosn2, osn2
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag,               &
        &            l_chemical_conv, l_anelastic_liquid
@@ -27,7 +27,7 @@ module power
    use useful, only: cc2real, cc22real, round_off
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
-   use constants, only: one, two, half
+   use constants, only: one, two, half, pi, third
 
    implicit none
 
@@ -35,11 +35,12 @@ module power
 
    type(mean_sd_type) :: buo_ave, buo_chem_ave, visc_ave, ohm_ave
    real(cp) :: powerDiff, eDiffInt
+   real(cp), allocatable :: viscASr(:)
    integer :: n_power_file, n_calls
    character(len=72) :: power_file
 
-
-   public :: initialize_output_power, get_power, finalize_output_power
+   public :: initialize_output_power, get_power, finalize_output_power, &
+   &         get_visc_heat
 
 contains
 
@@ -52,6 +53,9 @@ contains
       call buo_chem_ave%initialize(1,n_r_max)
       call visc_ave%initialize(1,n_r_max)
       call ohm_ave%initialize(1,n_r_max)
+      allocate( viscASr(nRstart:nRstop) )
+      viscASr(:)=0.0_cp
+      bytes_allocated=bytes_allocated+(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 
       n_calls = 0
       powerDiff=0.0_cp
@@ -81,7 +85,7 @@ contains
               &         omega_IC,omega_MA,lorentz_torque_IC,  &
               &         lorentz_torque_MA,w,z,dz,s,           &
               &         xi,b,ddb,aj,dj,db_ic,ddb_ic,aj_ic,    &
-              &         dj_ic,viscASr,viscDiss,ohmDiss)
+              &         dj_ic,viscDiss,ohmDiss)
       !
       !  This subroutine calculates power and dissipation of
       !  the core/mantle system.
@@ -116,7 +120,6 @@ contains
       complex(cp), intent(in) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      real(cp),    intent(in) :: viscASr(nRstart:nRstop)
 
       !-- Output:
       real(cp),    intent(out) :: viscDiss,ohmDiss
@@ -377,5 +380,66 @@ contains
       end if
 
   end subroutine get_power
+!----------------------------------------------------------------------------
+   subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
+              &             dvtdp,dvpdr,dvpdp,nR)
+      !
+      !   Calculates axisymmetric contributions of the viscous heating
+      !
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),cvr(:,:)
+      real(cp), intent(in) :: dvrdr(:,:),dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvtdp(:,:)
+      real(cp), intent(in) :: dvpdr(:,:),dvpdp(:,:)
+
+      !-- Local variables:
+      integer :: nTheta,nPhi,nThetaNHS
+      real(cp) :: vischeat,csn2,phiNorm,viscAS
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      viscAS=0.0_cp
+
+      !$omp parallel do default(shared)                   &
+      !$omp& private(nTheta,nThetaNHS,csn2,nPhi,vischeat) &
+      !$omp& reduction(+:viscAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+            csn2     =cosn2(nThetaNHS)
+            if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+
+            vischeat=       or2(nR)*orho1(nR)*visc(nR)*(        &
+            &     two*(                    dvrdr(nTheta,nPhi) - & ! (1)
+            &    (two*or1(nR)+beta(nR))*vr(nTheta,nPhi) )**2  + &
+            &     two*( csn2*                 vt(nTheta,nPhi) + &
+            &                              dvpdp(nTheta,nPhi) + &
+            &                              dvrdr(nTheta,nPhi) - & ! (2)
+            &     or1(nR)*              vr(nTheta,nPhi) )**2  + &
+            &     two*(                    dvpdp(nTheta,nPhi) + &
+            &           csn2*                 vt(nTheta,nPhi) + & ! (3)
+            &     or1(nR)*              vr(nTheta,nPhi) )**2  + &
+            &          ( two*              dvtdp(nTheta,nPhi) + &
+            &                                cvr(nTheta,nPhi) - & ! (6)
+            &      two*csn2*            vp(nTheta,nPhi) )**2  + &
+            &                               osn2(nThetaNHS) * ( &
+            &         ( r(nR)*             dvtdr(nTheta,nPhi) - &
+            &          (two+beta(nR)*r(nR))*  vt(nTheta,nPhi) + & ! (4)
+            &     or1(nR)*           dvrdt(nTheta,nPhi) )**2  + &
+            &         ( r(nR)*             dvpdr(nTheta,nPhi) - &
+            &          (two+beta(nR)*r(nR))*  vp(nTheta,nPhi) + & ! (5)
+            &    or1(nR)*            dvrdp(nTheta,nPhi) )**2 )- &
+            &    two*third*(  beta(nR)*     vr(nTheta,nPhi) )**2 )
+
+            viscAS=viscAS+phiNorm*gauss(nThetaNHS)*viscHeat
+         end do
+      end do
+      !$omp end parallel do
+
+      viscASr(nR)=viscAS
+
+   end subroutine get_visc_heat
 !----------------------------------------------------------------------------
 end module power

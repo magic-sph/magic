@@ -410,7 +410,7 @@ chebyshev_polynoms.o  : constants.o logic.o precision_mod.o num_param.o
 rIteration.o          : precision_mod.o time_schemes.o truncation.o radial_data.o
 rIter.o               : precision_mod.o parallel.o truncation.o logic.o radial_data.o\
                         radial.o constants.o get_nl.o get_td.o TO.o dtB.o\
-                        out_graph_file.o nl_special_calc.o nonlinear_bcs.o\
+                        out_graph_file.o nonlinear_bcs.o\
                         courant.o outRot.o fields.o time_schemes.o phys_param.o\
                         ${SHT_OBJS} outGeos.o
 radialLoop.o          : truncation.o time_schemes.o precision_mod.o mem_alloc.o\
@@ -469,8 +469,6 @@ store_movie_IC.o      : truncation.o blocking.o logic.o radial_data.o\
 radial_spectra.o      : truncation.o blocking.o horizontal.o radial.o\
                         num_param.o output_data.o logic.o useful.o\
                         char_manip.o radial_data.o LMmapping.o constants.o
-nl_special_calc.o     : truncation.o blocking.o horizontal.o\
-                        radial.o radial_data.o phys_param.o constants.o
 fft_fac.o             : constants.o precision_mod.o
 cosine_transform_even.o: truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o

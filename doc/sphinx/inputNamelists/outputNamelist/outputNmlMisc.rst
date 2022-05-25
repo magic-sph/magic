@@ -43,6 +43,13 @@ Helicity
 
 * **l_hel** (default :f:var:`l_hel=.false. <l_hel>`) is a logical. When set to ``.true.``, this logical enables the calculation of helicity (RMS, northern and southern hemisphere, etc.). The outputs are stored in the columns 6-9 of the :ref:`helicity.TAG <secHelicityFile>` file.
 
+Hemisphericity
+++++++++++++++
+
+.. _varl_hemi:
+
+* **l_hemi** (default :f:var:`l_hemi=.false. <l_hemi>`) is a logical. When set to ``.true.``, this logical enables the calculation of relative hemisphericity of kinetic and magnetic energies between Northern and Southern hemispheres. The outputs are stored in the :ref:`hemi.TAG <secHemiFile>` file.
+
 .. _varl_power:
 
 Power budget
