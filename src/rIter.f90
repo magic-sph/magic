@@ -40,7 +40,9 @@ module rIter_mod
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
-   use nl_special_calc
+   use power, only: get_visc_heat
+   use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
+   use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
    use geos, only: calcGeos
    use sht
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
@@ -102,11 +104,7 @@ contains
               &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,   &
               &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                 &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
-              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS, &
-              &          HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS,  &
-              &          fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,EparAS,&
-              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,hemi_ekin,     &
-              &          hemi_vrabs,hemi_emag,hemi_brabs,dtrkc,dthkc)
+              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
       !
       ! This subroutine handles the main loop over the radial levels. It calls
       ! the SH transforms, computes the nonlinear terms on the grid and bring back
@@ -141,31 +139,6 @@ contains
       complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: HelAS(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: Hel2AS(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: HelnaAS(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: Helna2AS(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: HelEAAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: uhAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: duhAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: viscAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: gradsAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: fkinAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: fconvAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: fviscAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: fresAS(nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: fpoynAS(nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: EperpAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: EparAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: EperpaxiAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: EparaxiAS(nRstart:nRstop)
-      real(cp),    intent(inout) :: ekinS(nRstart:nRstop)
-      real(cp),    intent(inout) :: ekinL(nRstart:nRstop)
-      real(cp),    intent(inout) :: volS(nRstart:nRstop)
-      real(cp),    intent(inout) :: hemi_ekin(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: hemi_vrabs(2,nRstart:nRstop)
-      real(cp),    intent(inout) :: hemi_emag(2,nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: hemi_brabs(2,nRstartMag:nRstopMag)
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -356,19 +329,13 @@ contains
          if ( lHelCalc ) then
             call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
                  &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
-                 &            this%gsa%dvtdrc,this%gsa%dvpdrc,HelAS(:,nR),    &
-                 &            Hel2AS(:,nR),HelnaAS(:,nR),Helna2AS(:,nR),      &
-                 &            HelEAAS(nR),nR )
+                 &            this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
          end if
 
          !-- North/South hemisphere differences
          if ( lHemiCalc ) then
-            call get_hemi(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,   &
-                 &        hemi_ekin(:,nR), hemi_vrabs(:,nR), nR, 'V')
-            if ( l_mag ) then
-               call get_hemi(this%gsa%brc,this%gsa%btc,this%gsa%bpc,   &
-                    &        hemi_emag(:,nR), hemi_brabs(:,nR), nR, 'B')
-            end if
+            call get_hemi(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR,'V')
+            if ( l_mag ) call get_hemi(this%gsa%brc,this%gsa%btc,this%gsa%bpc,nR,'B')
          end if
 
          !-- Viscous heating:
@@ -376,16 +343,14 @@ contains
             call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
                  &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
                  &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
-                 &             this%gsa%dvpdrc,this%gsa%dvpdpc,viscAS(nR),      &
-                 &             nR)
+                 &             this%gsa%dvpdrc,this%gsa%dvpdpc,nR)
          end if
 
          !-- horizontal velocity :
          if ( lViscBcCalc ) then
             call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
                  &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
-                 &             this%gsa%dsdpc,uhAS(nR),duhAS(nR),gradsAS(nR),&
-                 &             nR )
+                 &             this%gsa%dsdpc,nR )
          end if
 
          !-- Radial flux profiles
@@ -394,21 +359,18 @@ contains
                  &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
                  &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
                  &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
-                 &          this%gsa%cbtc,this%gsa%cbpc,fconvAS(nR),fkinAS(nR),&
-                 &          fviscAS(nR),fpoynAS(nR),fresAS(nR),nR )
+                 &          this%gsa%cbtc,this%gsa%cbpc,nR)
          end if
 
          !-- Kinetic energy in the solid and liquid phases
          if ( l_phase_field ) then
             call get_ekin_solid_liquid(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                     this%gsa%phic,ekinS(nR),ekinL(nR),      &
-                 &                     volS(nR),nR)
+                 &                     this%gsa%phic,nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis
          if ( lPerpParCalc ) then
-            call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,EperpAS(nR), &
-                 &           EparAS(nR),EperpaxiAS(nR),EparaxiAS(nR),nR)
+            call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR)
          end if
 
          !-- Geostrophic/non-geostrophic flow components

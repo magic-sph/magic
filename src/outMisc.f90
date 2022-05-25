@@ -1,25 +1,27 @@
 module outMisc_mod
    !
    ! This module contains several subroutines that can compute and store
-   ! various informations: helicity, heat transfer.
+   ! various informations: helicity (helicity.TAG), heat transfer (heat.TAG),
+   ! phase field (phase.TAG) and North/South hemisphericity of energies (hemi.TAG)
    !
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc
-   use truncation, only: l_max, n_r_max, lm_max, nlat_padded, n_theta_max, &
-       &                 n_r_maxMag
+   use truncation, only: l_max, n_r_max, nlat_padded, n_theta_max, n_r_maxMag, &
+       &                 n_phi_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, nRstartMag, nRstopMag
-   use radial_functions, only: r_icb, rscheme_oc, kappa,         &
-       &                       r_cmb,temp0, r, rho0, dLtemp0,    &
-       &                       dLalpha0, beta, orho1, alpha0,    &
-       &                       otemp1, ogrun, rscheme_oc
+   use radial_functions, only: r_icb, rscheme_oc, kappa, r_cmb,temp0, r, rho0, &
+       &                       dLtemp0, dLalpha0, beta, orho1, alpha0, otemp1, &
+       &                       ogrun, rscheme_oc, or2, orho2, or4
    use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef, LFfac
    use num_param, only: lScale, eScale, vScale
    use blocking, only: llm, ulm, lo_map
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
-   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord
+   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, osn2, &
+       &                      O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field, l_mag
    use output_data, only: tag
@@ -40,16 +42,22 @@ module outMisc_mod
    character(len=72) :: heat_file, helicity_file, phase_file, rmelt_file
    character(len=72) :: hemi_file
    real(cp) :: TPhiOld, Tphi
+   real(cp), allocatable :: ekinSr(:), ekinLr(:), volSr(:)
+   real(cp), allocatable :: hemi_ekin_r(:,:), hemi_vrabs_r(:,:)
+   real(cp), allocatable :: hemi_emag_r(:,:), hemi_brabs_r(:,:)
+   real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
+   real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
+   real(cp), allocatable :: HelEAASr(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
-   &         outPhase, outHemi
+   &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi
 
 contains
 
-   subroutine initialize_outMisc_mod
+   subroutine initialize_outMisc_mod()
       !
-      ! This subroutine handles the opening the output diagnostic files that
-      ! have to do with heat transfer or helicity.
+      ! This subroutine handles the opening of some output diagnostic files that
+      ! have to do with heat transfer, helicity, phase field or hemisphericity
       !
 
       if (l_heat .or. l_chemical_conv) then
@@ -65,8 +73,34 @@ contains
       TPhiOld = 0.0_cp
       TPhi = 0.0_cp
 
-      helicity_file='helicity.'//tag
-      hemi_file    ='hemi.'//tag
+      if ( l_hel ) then
+         helicity_file='helicity.'//tag
+         allocate( HelASr(2,nRstart:nRstop), Hel2ASr(2,nRstart:nRstop) )
+         allocate( HelnaASr(2,nRstart:nRstop), Helna2ASr(2,nRstart:nRstop) )
+         allocate( HelEAASr(nRstart:nRstop) )
+         HelASr(:,:)   =0.0_cp
+         Hel2ASr(:,:)  =0.0_cp
+         HelnaASr(:,:) =0.0_cp
+         Helna2ASr(:,:)=0.0_cp
+         HelEAASr(:)   =0.0_cp
+         bytes_allocated=bytes_allocated+9*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+      end if
+
+      if ( l_hemi ) then
+         hemi_file    ='hemi.'//tag
+         allocate( hemi_ekin_r(2,nRstart:nRstop), hemi_vrabs_r(2,nRstart:nRstop) )
+         hemi_ekin_r(:,:) =0.0_cp
+         hemi_vrabs_r(:,:)=0.0_cp
+         bytes_allocated=bytes_allocated+(nRstop-nRstart+1)*4*SIZEOF_DEF_REAL
+
+         if ( l_mag ) then
+            allocate( hemi_emag_r(2,nRstart:nRstop), hemi_brabs_r(2,nRstart:nRstop) )
+            hemi_emag_r(:,:) =0.0_cp
+            hemi_brabs_r(:,:)=0.0_cp
+            bytes_allocated=bytes_allocated+(nRstop-nRstart+1)*4*SIZEOF_DEF_REAL
+         end if
+      end if
+
       heat_file    ='heat.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) open(newunit=n_helicity_file, file=helicity_file, status='new')
@@ -79,6 +113,11 @@ contains
       if ( l_phase_field ) then
          phase_file='phase.'//tag
          rmelt_file='rmelt.'//tag
+         allocate( ekinSr(nRstart:nRstop), ekinLr(nRstart:nRstop), volSr(nRstart:nRstop) )
+         ekinSr(:)=0.0_cp
+         ekinLr(:)=0.0_cp
+         volSr(:) =0.0_cp
+         bytes_allocated=bytes_allocated+3*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
          if ( rank == 0 .and. (.not. l_save_out) ) then
             open(newunit=n_phase_file, file=phase_file, status='new')
             open(newunit=n_rmelt_file, file=rmelt_file, status='new', form='unformatted')
@@ -86,11 +125,11 @@ contains
       end if
 
    end subroutine initialize_outMisc_mod
-!---------------------------------------------------------------------------
-   subroutine finalize_outMisc_mod
+!----------------------------------------------------------------------------------
+   subroutine finalize_outMisc_mod()
       !
       ! This subroutine handles the closing of the time series of
-      ! heat.TAG, hel.TAG and phase.TAG
+      ! heat.TAG, hel.TAG, hemi.TAG and phase.TAG
       !
 
       if ( l_heat .or. l_chemical_conv ) then
@@ -100,7 +139,16 @@ contains
          call XiMeanR%finalize()
          call RhoMeanR%finalize()
       end if
-      if ( l_phase_field ) call PhiMeanR%finalize()
+      if ( l_hemi ) then 
+         deallocate( hemi_ekin_r, hemi_vrabs_r )
+         if ( l_mag ) deallocate( hemi_emag_r, hemi_brabs_r )
+      end if
+      if ( l_hel ) deallocate( HelASr, Hel2ASr, HelnaASr, Helna2ASr, HelEAASr )
+      
+      if ( l_phase_field ) then
+         deallocate( ekinSr, ekinLr, volSr )
+         call PhiMeanR%finalize()
+      end if
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) close(n_helicity_file)
@@ -113,19 +161,17 @@ contains
       end if
 
    end subroutine finalize_outMisc_mod
-!---------------------------------------------------------------------------
-   subroutine outHemi(timeScaled,hemi_ekin_r,hemi_vrabs_r,hemi_emag_r, &
-              &       hemi_brabs_r)
+!----------------------------------------------------------------------------------
+   subroutine outHemi(timeScaled)
       !
-      ! This subroutine handles the computation of North/South hemisphericity
+      ! This function handles the writing of outputs related to hemisphericity of 
+      ! the kinetic and magnetic energy between Northern and Southern hemispheres.
+      ! This is based on Wieland Dietrich's work (see Dietrich & Wicht, 2013).
+      ! Outputs are stored in the time series hemi.TAG
       !
 
       !-- Input of variables:
       real(cp), intent(in) :: timeScaled
-      real(cp), intent(in) :: hemi_ekin_r(2,nRstart:nRstop)
-      real(cp), intent(in) :: hemi_vrabs_r(2,nRstart:nRstop)
-      real(cp), intent(in) :: hemi_emag_r(2,nRstartMag:nRstopMag)
-      real(cp), intent(in) :: hemi_brabs_r(2,nRstartMag:nRstopMag)
 
       !-- Local variables:
       real(cp) :: hemi_ekin_r_N(n_r_max), hemi_ekin_r_S(n_r_max)
@@ -197,20 +243,15 @@ contains
       end if
 
    end subroutine outHemi
-!---------------------------------------------------------------------------
-   subroutine outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+!----------------------------------------------------------------------------------
+   subroutine outHelicity(timeScaled)
       !
       ! This subroutine is used to store informations about kinetic
-      ! helicity
+      ! helicity. Outputs are stored in the time series helicity.TAG
       !
 
       !-- Input of variables:
       real(cp), intent(in) :: timeScaled
-      real(cp), intent(in) :: HelASr(2,nRstart:nRstop)
-      real(cp), intent(in) :: Hel2ASr(2,nRstart:nRstop)
-      real(cp), intent(in) :: HelnaASr(2,nRstart:nRstop)
-      real(cp), intent(in) :: Helna2ASr(2,nRstart:nRstop)
-      real(cp), intent(in) :: HelEAASr(nRstart:nRstop)
 
       !-- Local stuff:
       real(cp) :: HelNr_global(n_r_max), HelSr_global(n_r_max)
@@ -236,7 +277,6 @@ contains
       call gather_from_Rloc(HelnaASr(2,:), HelnaSr_global, 0)
 
       if ( rank == 0 ) then
-         !------ Integration over r without the boundaries and normalization:
          HelN  =rInt_R(HelNr_global*r*r,r,rscheme_oc)
          HelS  =rInt_R(HelSr_global*r*r,r,rscheme_oc)
          HelnaN=rInt_R(HelnaNr_global*r*r,r,rscheme_oc)
@@ -290,7 +330,7 @@ contains
       end if
 
    end subroutine outHelicity
-!---------------------------------------------------------------------------
+!----------------------------------------------------------------------------------
    subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,xi,dxi)
       !
       ! This subroutine is used to store informations about heat transfer
@@ -540,9 +580,8 @@ contains
       end if ! rank == 0
 
    end subroutine outHeat
-!---------------------------------------------------------------------------
-   subroutine outPhase(time, timePassed, timeNorm, l_stop_time, nLogs, s, ds, &
-              &        phi, ekinSr, ekinLr, volSr)
+!----------------------------------------------------------------------------------
+   subroutine outPhase(time, timePassed, timeNorm, l_stop_time, nLogs, s, ds, phi)
       !
       ! This subroutine handles the writing of time series related with phase
       ! field: phase.TAG
@@ -557,9 +596,6 @@ contains
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)     ! Entropy/Temperature
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)    ! Radial der. of Entropy/Temperature
       complex(cp), intent(in) :: phi(llm:ulm,n_r_max)   ! Phase field
-      real(cp),    intent(in) :: ekinSr(nRstart:nRstop) ! Kinetic energy in solidus
-      real(cp),    intent(in) :: ekinLr(nRstart:nRstop) ! Kinetic energy in liquidus
-      real(cp),    intent(in) :: volSr(nRstart:nRstop)  ! Volume of the solid phase
 
       !-- Local variables
       character(len=72) :: filename
@@ -707,5 +743,236 @@ contains
       end if
 
    end subroutine outPhase
-!---------------------------------------------------------------------------
+!----------------------------------------------------------------------------------
+   subroutine get_hemi(vr,vt,vp,nR,field)
+      !
+      !   This subroutine is used to compute kinetic or magnetic energy
+      !   in Northern or Southern hemipshere.
+      !
+
+      !-- Input of variables
+      integer,          intent(in) :: nR ! radial level
+      real(cp),         intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      character(len=1), intent(in) :: field
+
+      !-- Output variables:
+
+      !-- Local variables:
+      real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
+      real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
+      real(cp) :: en, vrabs, phiNorm, fac
+      integer :: nTheta, nPhi, nThetaNHS
+
+      enAS(:)   =0.0_cp
+      vrabsAS(:)=0.0_cp
+      phiNorm=two*pi/real(n_phi_max,cp)
+      if ( field == 'V' ) then
+         fac = orho1(nR)
+      else if ( field == 'B' ) then
+         fac = one
+      end if
+      !--- Helicity:
+      !$omp parallel do default(shared)           &
+      !$omp& private(nTheta,nThetaNHS,vrabs,en)   &
+      !$omp& reduction(+:enAS,vrabsAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+
+            vrabs=fac*abs(vr(nTheta,nPhi))
+            en   =half*fac*(                                         &
+            &              or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &      osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &      osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+               enAS(1)   =enAS(1) +phiNorm*gauss(nThetaNHS)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nThetaNHS)*vrabs
+            else
+               enAS(2)   =enAS(2) +phiNorm*gauss(nThetaNHS)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nThetaNHS)*vrabs
+            end if
+         end do
+      end do
+      !$omp end parallel do
+
+      if ( field == 'V' ) then
+         hemi_ekin_r(:,nR) =enAS(:)
+         hemi_vrabs_r(:,nR)=vrabsAS(:)
+      else if ( field == 'B' ) then
+         hemi_emag_r(:,nR) =enAS(:)
+         hemi_brabs_r(:,nR)=vrabsAS(:)
+      end if
+
+   end subroutine get_hemi
+!----------------------------------------------------------------------------------
+   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
+      !
+      ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
+      ! kinetic helicity and squared helicity.
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: cvr(:,:),dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
+
+      !-- Local variables:
+      integer :: nTheta,nThetaNHS,nPhi
+      real(cp) :: Helna,Hel,phiNorm
+      real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
+      real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max)
+      real(cp) :: cvras(n_theta_max),dvrdtas(n_theta_max),dvrdpas(n_theta_max)
+      real(cp) :: dvtdras(n_theta_max),dvpdras(n_theta_max)
+
+      !-- Remark: 2pi not used the normalization below
+      !-- this is why we have a 2pi factor after radial integration
+      !-- in the subroutine outHelicity()
+      phiNorm=one/real(n_phi_max,cp)
+      HelAS(:)   =0.0_cp
+      Hel2AS(:)  =0.0_cp
+      HelnaAS(:) =0.0_cp
+      Helna2AS(:)=0.0_cp
+      HelEAAS    =0.0_cp
+
+      vras(:)   =0.0_cp
+      cvras(:)  =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+      dvrdpas(:)=0.0_cp
+      dvpdras(:)=0.0_cp
+      dvtdras(:)=0.0_cp
+      dvrdtas(:)=0.0_cp
+      do nPhi=1,n_phi_max
+         vras(:)   =vras(:)   +   vr(1:n_theta_max,nPhi)
+         cvras(:)  =cvras(:)  +  cvr(1:n_theta_max,nPhi)
+         vtas(:)   =vtas(:)   +   vt(1:n_theta_max,nPhi)
+         vpas(:)   =vpas(:)   +   vp(1:n_theta_max,nPhi)
+         dvrdpas(:)=dvrdpas(:)+dvrdp(1:n_theta_max,nPhi)
+         dvpdras(:)=dvpdras(:)+dvpdr(1:n_theta_max,nPhi)
+         dvtdras(:)=dvtdras(:)+dvtdr(1:n_theta_max,nPhi)
+         dvrdtas(:)=dvrdtas(:)+dvrdt(1:n_theta_max,nPhi)
+      end do
+      vras(:)   =vras(:)   *phiNorm
+      cvras(:)  =cvras(:)  *phiNorm
+      vtas(:)   =vtas(:)   *phiNorm
+      vpas(:)   =vpas(:)   *phiNorm
+      dvrdpas(:)=dvrdpas(:)*phiNorm
+      dvpdras(:)=dvpdras(:)*phiNorm
+      dvtdras(:)=dvtdras(:)*phiNorm
+      dvrdtas(:)=dvrdtas(:)*phiNorm
+
+      !--- Helicity:
+      !$omp parallel do default(shared)                     &
+      !$omp& private(nTheta, nThetaNHS, nPhi, Hel, Helna)   &
+      !$omp& private(vrna, cvrna, vtna, vpna)               &
+      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
+      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS = (nTheta+1)/2
+            vrna   =   vr(nTheta,nPhi)-vras(nTheta)
+            cvrna  =  cvr(nTheta,nPhi)-cvras(nTheta)
+            vtna   =   vt(nTheta,nPhi)-vtas(nTheta)
+            vpna   =   vp(nTheta,nPhi)-vpas(nTheta)
+            dvrdpna=dvrdp(nTheta,nPhi)-dvrdpas(nTheta)
+            dvpdrna=dvpdr(nTheta,nPhi)-beta(nR)*vp(nTheta,nPhi) &
+            &       -dvpdras(nTheta)+beta(nR)*vpas(nTheta)
+            dvtdrna=dvtdr(nTheta,nPhi)-beta(nR)*vt(nTheta,nPhi) &
+            &       -dvtdras(nTheta)+beta(nR)*vtas(nTheta)
+            dvrdtna=dvrdt(nTheta,nPhi)-dvrdtas(nTheta)
+            Hel=or4(nR)*orho2(nR)*vr(nTheta,nPhi)*cvr(nTheta,nPhi) +  &
+            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                                       vt(nTheta,nPhi) * &
+            &                          ( or2(nR)*dvrdp(nTheta,nPhi) - &
+            &                                    dvpdr(nTheta,nPhi) + &
+            &                         beta(nR)*   vp(nTheta,nPhi) ) + &
+            &                                       vp(nTheta,nPhi) * &
+            &                          (         dvtdr(nTheta,nPhi) - &
+            &                           beta(nR)*   vt(nTheta,nPhi) - &
+            &                            or2(nR)*dvrdt(nTheta,nPhi) ) )
+            Helna=                      or4(nR)*orho2(nR)*vrna*cvrna + &
+            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
+            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
+
+            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nThetaNHS)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nThetaNHS)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nThetaNHS)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nThetaNHS)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nThetaNHS)*Hel
+            else
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nThetaNHS)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nThetaNHS)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nThetaNHS)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nThetaNHS)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nThetaNHS)*Hel
+            end if
+         end do
+      end do
+      !$omp end parallel do
+
+      HelASr(:,nR)   =HelAS(:)
+      Hel2ASr(:,nR)  =Hel2AS(:)
+      HelnaASr(:,nR) =HelnaAS(:)
+      Helna2ASr(:,nR)=Helna2AS(:)
+      HelEAASr(nR)   =HelEAAS
+
+   end subroutine get_helicity
+!----------------------------------------------------------------------------------
+   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,nR)
+      !
+      ! This subroutine computes the kinetic energy content in the solid
+      ! and in the liquid phase when phase field is employed.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),phi(:,:)
+
+      !-- Output variables:
+
+      !-- Local variables:
+      real(cp) :: phiNorm, ekin
+      real(cp) :: ekinS ! Kinetic energy in the solid phase
+      real(cp) :: ekinL ! Kinetic energy in the liquid phase
+      real(cp) :: volS  ! volume of the solid
+      integer :: nTheta,nPhi,nThetaNHS
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      ekinL=0.0_cp
+      ekinS=0.0_cp
+      volS =0.0_cp
+
+      !$omp parallel do default(shared)            &
+      !$omp& private(nTheta, nThetaNHS, nPhi,ekin) &
+      !$omp& reduction(+:ekinS,ekinL,volS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nThetaNHS=(nTheta+1)/2
+
+            ekin = half*orho1(nR)*(                                      &
+            &          or2(nR)*        vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &          osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &          osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            if ( phi(nTheta,nPhi) >= half ) then
+               ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
+               volS =volS +phiNorm*gauss(nThetaNHS)*r(nR)*r(nR)
+            else
+               ekinL=ekinL+phiNorm*gauss(nThetaNHS)*ekin
+            end if
+         end do
+      end do
+      !$omp end parallel do
+
+      ekinSr(nR)=ekinS
+      ekinLr(nR)=ekinL
+      volSr(nR) =volS
+
+   end subroutine get_ekin_solid_liquid
+!----------------------------------------------------------------------------------
 end module outMisc_mod

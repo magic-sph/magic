@@ -45,12 +45,7 @@ contains
               &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,&
               &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,              &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb, &
-              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,           &
-              &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,            &
-              &          viscAS,uhAS,duhAS,gradsAS,fconvAS,fkinAS,         &
-              &          fviscAS,fpoynAS,fresAS,EperpAS,EparAS,            &
-              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,hemi_ekin,  &
-              &          hemi_vrabs,hemi_emag,hemi_brabs,dtrkc,dthkc)
+              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -83,33 +78,6 @@ contains
       complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
 
-      !---- Output for axisymmetric helicity:
-      real(cp),    intent(out) :: HelAS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: Hel2AS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: HelnaAS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: Helna2AS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: HelEAAS(nRstart:nRstop)
-      real(cp),    intent(out) :: uhAS(nRstart:nRstop)
-      real(cp),    intent(out) :: duhAS(nRstart:nRstop)
-      real(cp),    intent(out) :: viscAS(nRstart:nRstop)
-      real(cp),    intent(out) :: gradsAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fkinAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fconvAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fviscAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fresAS(nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: fpoynAS(nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: EperpAS(nRstart:nRstop)
-      real(cp),    intent(out) :: EparAS(nRstart:nRstop)
-      real(cp),    intent(out) :: EperpaxiAS(nRstart:nRstop)
-      real(cp),    intent(out) :: EparaxiAS(nRstart:nRstop)
-      real(cp),    intent(out) :: ekinS(nRstart:nRstop)
-      real(cp),    intent(out) :: ekinL(nRstart:nRstop)
-      real(cp),    intent(out) :: volS(nRstart:nRstop)
-      real(cp),    intent(out) :: hemi_ekin(2,nRstart:nRstop)
-      real(cp),    intent(out) :: hemi_vrabs(2,nRstart:nRstop)
-      real(cp),    intent(out) :: hemi_emag(2,nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: hemi_brabs(2,nRstartMag:nRstopMag)
-
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
       complex(cp), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
@@ -121,7 +89,6 @@ contains
       !---- Output for Courant criteria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-
       call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,      &
            &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,          &
            &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,            &
@@ -129,11 +96,7 @@ contains
            &             l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,&
            &             dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,      &
            &             lorentz_torque_ma, br_vt_lm_cmb,br_vp_lm_cmb,          &
-           &             br_vt_lm_icb,br_vp_lm_icb,HelAS,Hel2AS,HelnaAS,        &
-           &             Helna2AS,HelEAAS,viscAS,uhAS,duhAS,gradsAS,fconvAS,    &
-           &             fkinAS,fviscAS,fpoynAS,fresAS,EperpAS,EparAS,          &
-           &             EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,hemi_ekin,       &
-           &             hemi_vrabs,hemi_emag,hemi_brabs,dtrkc,dthkc)
+           &             br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
 
    end subroutine radialLoopG
 !----------------------------------------------------------------------------

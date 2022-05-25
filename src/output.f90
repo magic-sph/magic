@@ -43,7 +43,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
-   use outMisc_mod, only: outHelicity, outHeat, outPhase, outHemi
+   use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase
    use geos, only: outGeos, outOmega
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -210,11 +210,7 @@ contains
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,             &
               &      l_spectrum,lTOCalc,lTOframe,l_frame,n_frame,l_cmb,   &
               &      n_cmb_sets,l_r,lorentz_torque_ic,lorentz_torque_ma,  &
-              &      dbdt_CMB_LMloc,HelASr,Hel2ASr,HelnaASr,Helna2ASr,    &
-              &      HelEAASr,viscASr,uhASr,duhASr,gradsASr,fconvASr,     &
-              &      fkinASr,fviscASr,fpoynASr,fresASr,EperpASr,EparASr,  &
-              &      EperpaxiASr,EparaxiASr,ekinSr,ekinLr,volSr,hemi_ekin,&
-              &      hemi_vrabs,hemi_emag,hemi_brabs)
+              &      dbdt_CMB_LMloc)
       !
       !  This subroutine controls most of the output.
       !
@@ -260,32 +256,6 @@ contains
       !    for calculating axisymmetric helicity.
       !    Parallelization note: These fields are R-distribute on input
       !    and must also be collected on the processor performing this routine.
-      real(cp),    intent(in) :: HelASr(2,nRstart:nRstop)
-      real(cp),    intent(in) :: Hel2ASr(2,nRstart:nRstop)
-      real(cp),    intent(in) :: HelnaASr(2,nRstart:nRstop)
-      real(cp),    intent(in) :: Helna2ASr(2,nRstart:nRstop)
-      real(cp),    intent(in) :: HelEAASr(nRstart:nRstop)
-      real(cp),    intent(in) :: viscASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: uhASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: gradsASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: duhASr(nRstart:nRstop)
-      real(cp),    intent(in) :: fconvASr(nRstart:nRstop)
-      real(cp),    intent(in) :: fkinASr(nRstart:nRstop)
-      real(cp),    intent(in) :: fviscASr(nRstart:nRstop)
-      real(cp),    intent(in) :: fpoynASr(nRstartMag:nRstopMag)
-      real(cp),    intent(in) :: fresASr(nRstartMag:nRstopMag)
-      real(cp),    intent(inout) :: EperpASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: EparASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: EperpaxiASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: EparaxiASr(nRstart:nRstop)
-      real(cp),    intent(inout) :: ekinSr(nRstart:nRstop)
-      real(cp),    intent(inout) :: ekinLr(nRstart:nRstop)
-      real(cp),    intent(inout) :: volSr(nRstart:nRstop)
-      real(cp),    intent(in) :: hemi_ekin(2,nRstart:nRstop)
-      real(cp),    intent(in) :: hemi_vrabs(2,nRstart:nRstop)
-      real(cp),    intent(in) :: hemi_emag(2,nRstartMag:nRstopMag)
-      real(cp),    intent(in) :: hemi_brabs(2,nRstartMag:nRstopMag)
-
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
 
       !--- Local stuff:
@@ -426,7 +396,7 @@ contains
                  &          lorentz_torque_ma,w_LMloc,z_LMloc,               &
                  &          dz_LMloc,s_LMloc,xi_LMloc,                       &
                  &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
-                 &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscASr,    &
+                 &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,            &
                  &          visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  power  on rank ",rank
@@ -445,14 +415,10 @@ contains
 
          !-- Out radial profiles of parameters
          call outPar(timePassedLog,timeNormLog,l_stop_time,ekinR,RolRu2,   &
-              &      dlVR,dlVRc,dlPolPeakR,uhASr,duhASr,gradsASr,fconvASr, &
-              &      fkinASr,fviscASr,fpoynASr,fresASr,RmR)
+              &      dlVR,dlVRc,dlPolPeakR,RmR)
 
          !-- Perpendicular/parallel
-         if ( l_perpPar ) then
-            call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time, &
-                 &          EperpASr,EparASr,EperpaxiASr,EparaxiASr)
-         end if
+         if ( l_perpPar ) call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time)
 
          if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  outPar  on rank ",rank
 
@@ -462,16 +428,13 @@ contains
                  &       dxi_LMloc)
          end if
 
-         if ( l_hel ) call outHelicity(timeScaled,HelASr,Hel2ASr,HelnaASr, &
-                           &           Helna2ASr,HelEAASr)
+         if ( l_hel ) call outHelicity(timeScaled)
 
-         if ( l_hemi ) call outHemi(timeScaled,hemi_ekin,hemi_vrabs,hemi_emag, &
-                            &       hemi_brabs)
+         if ( l_hemi ) call outHemi(timeScaled)
 
          if ( l_phase_field ) call outPhase(timeScaled,timePassedLog,       &
                                    &        timeNormLog,l_stop_time,nLogs,  &
-                                   &        s_LMloc,ds_LMloc,phi_LMloc,     &
-                                   &        ekinSr,ekinLr,volSr)
+                                   &        s_LMloc,ds_LMloc,phi_LMloc)
 
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)
