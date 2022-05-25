@@ -684,3 +684,35 @@ by MagIC. This file is calculated by the subroutine
 
    >>> # To stack all the phase.TAG files of the current directory
    >>> ts = MagicTs(field='phase', all=True)
+
+.. _secHemiFile:
+
+``hemi.TAG``
+-------------
+
+This file contains diagnostics related to North/South hemisphericity in kinetic and
+magnetic energies. This is based on Dietrich and Wicht (2013) work. The file is
+calculated by the subroutine :f:subr:`outHemi <outmisc_mod/outhemi()>`.
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | time                                                            |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | relative hemisphericity of :math:`|u_r|`                        |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | relative hemisphericity of kinetic energy                       |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | relative hemisphericity of :math:`|B_r|`                        |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | relative hemisphericity of magnetic energy                      |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | relative hemisphericity of :math:`|B_r|` at the CMB             |
+   +---------------+-----------------------------------------------------------------+
+   | 7             | total kinetic energy (to assess method accuracy)                |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | total magnetic energy (to assess method accuracy)               |
+   +---------------+-----------------------------------------------------------------+
+
+   >>> # To stack all the hemi.TAG files of the current directory
+   >>> ts = MagicTs(field='hemi', all=True)
