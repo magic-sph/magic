@@ -179,7 +179,7 @@ contains
 
       !-- Local variables
       integer (kind=mpi_address_kind) :: lb, extend, bytesCMPLX
-      integer :: arr_size(2), arr_loc_size(2), arr_start(2)
+      integer :: arr_size(3), arr_loc_size(3), arr_start(3)
       integer :: p, my_lm_counts, nlm_per_rank
       integer :: k, col_type, ext_type, lm, l, m
       integer, allocatable :: indices(:), blocklengths(:)
@@ -205,7 +205,7 @@ contains
 #endif
 
       allocate(indices(maxval(lm_balance(:)%n_per_rank)))
-      allocate(blocklengths(max(maxval(lm_balance(:)%n_per_rank),ulm-llm+1)))
+      allocate(blocklengths(maxval(lm_balance(:)%n_per_rank)))
       blocklengths(:)=1
       this%n_fields = n_fields
 
@@ -217,7 +217,7 @@ contains
          my_lm_counts = lm_balance(p)%n_per_rank
          nlm_per_rank = ulm-llm+1
 
-         this%counts(p)=this%n_fields
+         this%counts(p)=1
          this%disp(p)  =0
 
          k = 0
@@ -237,10 +237,11 @@ contains
                  &                col_type, ierr)
             extend = int(lm_max*bytesCMPLX, kind=mpi_address_kind)
             call MPI_Type_create_resized(col_type, lb, extend, ext_type, ierr)
-            call MPI_Type_contiguous(nRstop-nRstart+1, ext_type, &
+            call MPI_Type_contiguous((nRstop-nRstart+1)*this%n_fields, ext_type, &
                  &                   this%stype(p), ierr)
 
             call MPI_Type_commit(this%stype(p), ierr)
+
             call MPI_Type_free(col_type, ierr)
             call MPI_Type_free(ext_type, ierr)
          end if
@@ -248,12 +249,15 @@ contains
 
          arr_size(1)=nlm_per_rank
          arr_size(2)=n_r_max
+         arr_size(3)=this%n_fields
          arr_loc_size(1)=nlm_per_rank
          arr_loc_size(2)=radial_balance(p)%n_per_rank
+         arr_loc_size(3)=this%n_fields
          arr_start(1)=0
          arr_start(2)=radial_balance(p)%nStart-1
+         arr_start(3)=0
 #ifdef WITH_MPI
-         call MPI_Type_Create_Subarray(2, arr_size, arr_loc_size, arr_start, &
+         call MPI_Type_Create_Subarray(3, arr_size, arr_loc_size, arr_start, &
               &                        MPI_ORDER_FORTRAN, MPI_DEF_COMPLEX,   &
               &                        this%rtype(p), ierr)
          call MPI_Type_Commit(this%rtype(p), ierr)
