@@ -44,18 +44,14 @@ contains
 
    end subroutine finalize_radialLoop
 !----------------------------------------------------------------------------
-   subroutine radialLoopG(l_graph,l_frame,time,timeStage,tscheme,dtLast,  &
-              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,    &
-              &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,      &
-              &          lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,&
-              &          dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,      &
-              &          dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,&
-              &          lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,     &
-              &          br_vt_lm_icb,br_vp_lm_icb,                       &
-              &          HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,           &
-              &          viscAS,uhAS,duhAS,gradsAS,fconvAS,fkinAS,        &
-              &          fviscAS,fpoynAS,fresAS,EperpAS,EparAS,           &
-              &          EperpaxiAS,EparaxiAS,ekinS,ekinL,volS,dtrkc,dthkc)
+   subroutine radialLoopG(l_graph,l_frame,time,timeStage,tscheme,dtLast,   &
+              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,     &
+              &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,       &
+              &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,   &
+              &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,&
+              &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,              &
+              &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb, &
+              &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -65,7 +61,7 @@ contains
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,             intent(in) :: lPowerCalc,lGeosCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,             intent(in) :: lRmsCalc
+      logical,             intent(in) :: lRmsCalc,lHemiCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
       logical,             intent(in) :: lPressNext
@@ -88,29 +84,6 @@ contains
       complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
 
-      !---- Output for axisymmetric helicity:
-      real(cp),    intent(out) :: HelAS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: Hel2AS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: HelnaAS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: Helna2AS(2,nRstart:nRstop)
-      real(cp),    intent(out) :: HelEAAS(nRstart:nRstop)
-      real(cp),    intent(out) :: uhAS(nRstart:nRstop)
-      real(cp),    intent(out) :: duhAS(nRstart:nRstop)
-      real(cp),    intent(out) :: viscAS(nRstart:nRstop)
-      real(cp),    intent(out) :: gradsAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fkinAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fconvAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fviscAS(nRstart:nRstop)
-      real(cp),    intent(out) :: fresAS(nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: fpoynAS(nRstartMag:nRstopMag)
-      real(cp),    intent(out) :: EperpAS(nRstart:nRstop)
-      real(cp),    intent(out) :: EparAS(nRstart:nRstop)
-      real(cp),    intent(out) :: EperpaxiAS(nRstart:nRstop)
-      real(cp),    intent(out) :: EparaxiAS(nRstart:nRstop)
-      real(cp),    intent(out) :: ekinS(nRstart:nRstop)
-      real(cp),    intent(out) :: ekinL(nRstart:nRstop)
-      real(cp),    intent(out) :: volS(nRstart:nRstop)
-
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
       complex(cp), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
@@ -122,18 +95,14 @@ contains
       !---- Output for Courant criteria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-
-      call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,     &
-           &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,         &
-           &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,           &
-           &             lFluxProfCalc,lPerpParCalc,lGeosCalc,l_probe_out,dsdt,&
-           &             dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,&
-           &             dVSrLM,dVXirLM,lorentz_torque_ic,lorentz_torque_ma,   &
-           &             br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,  &
-           &             HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS,viscAS,uhAS,    &
-           &             duhAS,gradsAS,fconvAS,fkinAS,fviscAS,fpoynAS,fresAS,  &
-           &             EperpAS,EparAS,EperpaxiAS,EparaxiAS,ekinS,ekinL,volS, &
-           &             dtrkc,dthkc)
+      call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,      &
+           &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,          &
+           &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,            &
+           &             lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,        &
+           &             l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,&
+           &             dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,      &
+           &             lorentz_torque_ma, br_vt_lm_cmb,br_vp_lm_cmb,          &
+           &             br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
 
    end subroutine radialLoopG
 !----------------------------------------------------------------------------

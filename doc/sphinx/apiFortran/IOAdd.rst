@@ -56,11 +56,6 @@ IO: RMS force balance, torsional oscillations, misc
 .. f:automodule:: geos
 
 
-``nl_special_calc.f90``
------------------------
-
-.. f:automodule:: nl_special_calc
-
 ``probes.f90``
 --------------
 

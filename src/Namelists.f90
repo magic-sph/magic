@@ -122,7 +122,7 @@ contains
       &    l_max_cmb,l_r_field,l_r_fieldT,l_r_fieldXi,         &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,    &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,          &
-      &    l_RMS,l_par,l_corrMov,rCut,rDea,                    &
+      &    l_RMS,l_par,l_corrMov,rCut,rDea,l_hemi,             &
       &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,          &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,    &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
@@ -1187,6 +1187,7 @@ contains
       write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
       write(n_out,'(''  l_geo           ='',i3,'','')') l_geo
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
+      write(n_out,'(''  l_hemi          ='',l3,'','')') l_hemi
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
@@ -1622,6 +1623,7 @@ contains
 
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
+      l_hemi        =.false. ! Hemisphericity in hemi.TAG
       l_AM          =.false. ! Angular moment in AM.TAG
       l_power       =.false. ! power budget in power.TAG and dtE.TAG
       l_viscBcCalc  =.false. ! dissipation layer for stress-free BCs

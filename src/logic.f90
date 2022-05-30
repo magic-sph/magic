@@ -98,5 +98,6 @@ module logic
    logical :: l_parallel_solve ! Use R-distributed parallel solver (work only for F.D.)
    logical :: l_mag_par_solve ! Can be remove once inner core has also been ported
    logical :: l_batched_shts ! Use batched spherical harmonic transforms
+   logical :: l_hemi ! Compute North/South asymmetry of energies
 
 end module logic

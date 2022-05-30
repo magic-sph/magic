@@ -30,6 +30,7 @@ class MagicTs(MagicSetup):
        * Earth-likeness of the CMB field: :ref:`earth_like.TAG <secEarthLikeFile>`
        * Parallel and perpendicular decomposition: :ref:`perpPar.TAG <secperpParFile>`
        * Phase field: :ref:`phase.TAG <secphaseFile>`
+       * Hemisphericity: :ref:`hemi.TAG <secHemiFile>`
        * RMS force balance: :ref:`dtVrms.TAG <secdtVrmsFile>`
        * RMS induction terms: :ref:`dtBrms.TAG <secdtBrmsFile>`
        * Time-evolution of m-spectra: :ref:`am_[kin|mag]_[pol|tor].TAG <secTimeSpectraFiles>`
@@ -351,6 +352,16 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time, self.ekinS/self.ekinL)
             ax.set_xlabel('Time')
             ax.set_ylabel('Relative energy fraction in solidus')
+            fig.tight_layout()
+        elif self.field == 'hemi':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.hemi_emag, label='Emag')
+            ax.plot(self.time, self.hemi_emag, label='|Br| volume')
+            ax.plot(self.time, self.hemi_cmb, label='|Br| CMB')
+            ax.set_xlabel('Time')
+            #ax.set_xlim(self.time[0], self.time[-1])
+            ax.legend(loc='best', frameon=False)
             fig.tight_layout()
         elif self.field == 'earth_like':
             fig = plt.figure()
@@ -810,6 +821,15 @@ class TsLookUpTable:
             self.flux_cmb = data[:, 6]
             self.flux_icb = data[:, 7]
             self.dEnthdt = data[:, 8]
+        elif self.field == 'hemi':
+            self.time = data[:, 0]
+            self.hemi_vr = data[:, 1]
+            self.hemi_ekin = data[:, 2]
+            self.hemi_br = data[:, 3]
+            self.hemi_emag = data[:, 4]
+            self.hemi_cmb = data[:, 5]
+            self.ekin = data[:, 6]
+            self.emag = data[:, 7]
         elif self.field == 'dtVrms':
             self.time = data[:, 0]
             self.InerRms = data[:, 1]
