@@ -1078,7 +1078,9 @@ contains
       real(cp), intent(in) :: tlast
       real(cp), intent(out) :: tstage
 
-      tstage = tlast+this%dt(1)*this%butcher_c(this%istage)
+      if ( (.not. this%l_assembly) .or. (this%istage /= this%nstages) ) then
+         tstage = tlast+this%dt(1)*this%butcher_c(this%istage)
+      end if
 
    end subroutine get_time_stage
 !------------------------------------------------------------------------------
