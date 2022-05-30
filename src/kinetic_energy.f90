@@ -15,7 +15,7 @@ module kinetic_energy
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, llm, ulm
-   use logic, only: l_save_out, l_non_rot, l_anel
+   use logic, only: l_save_out, l_non_rot, l_anel, l_mag
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
    use integration, only: rInt_R
@@ -437,7 +437,11 @@ contains
             else
                RolR(nR)=RoR(nR)
             end if
-            RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            if ( l_mag ) then
+               RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            else
+               RmR(nR)=ReR(nR)*r(nR)*r(nR)
+            end if
          end do
 
          !-- Magnetic reynolds number

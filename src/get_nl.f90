@@ -76,53 +76,91 @@ contains
       class(grid_space_arrays_t) :: this
 
       allocate( this%Advr(nlat_padded,n_phi_max), this%Advt(nlat_padded,n_phi_max) )
+      this%Advr(:,:)=0.0_cp
+      this%Advt(:,:)=0.0_cp
       allocate( this%Advp(nlat_padded,n_phi_max), this%LFr(nlat_padded,n_phi_max) )
+      this%Advp(:,:)=0.0_cp
+      this%LFr(:,:) =0.0_cp
       allocate( this%LFt(nlat_padded,n_phi_max), this%LFp(nlat_padded,n_phi_max) )
+      this%LFt(:,:) =0.0_cp
+      this%LFp(:,:) =0.0_cp
       allocate( this%VxBr(nlat_padded,n_phi_max), this%VxBt(nlat_padded,n_phi_max) )
+      this%VxBr(:,:)=0.0_cp
+      this%VxBt(:,:)=0.0_cp
       allocate( this%VxBp(nlat_padded,n_phi_max), this%VSr(nlat_padded,n_phi_max) )
+      this%VxBp(:,:)=0.0_cp
+      this%VSr(:,:) =0.0_cp
       allocate( this%VSt(nlat_padded,n_phi_max), this%VSp(nlat_padded,n_phi_max) )
+      this%VSt(:,:) =0.0_cp
+      this%VSp(:,:) =0.0_cp
       allocate( this%heatTerms(nlat_padded,n_phi_max) )
+      this%heatTerms(:,:)=0.0_cp
       bytes_allocated=bytes_allocated + 13*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
 
       if ( l_precession ) then
          allocate( this%PCr(nlat_padded,n_phi_max), this%PCt(nlat_padded,n_phi_max) )
+         this%PCr(:,:)=0.0_cp
+         this%PCt(:,:)=0.0_cp
          allocate( this%PCp(nlat_padded,n_phi_max) )
+         this%PCp(:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
       if ( l_centrifuge ) then
          allocate( this%CAr(nlat_padded,n_phi_max), this%CAt(nlat_padded,n_phi_max) )
+         this%CAr(:,:)=0.0_cp
+         this%CAt(:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
       if ( l_chemical_conv ) then
          allocate(this%VXir(nlat_padded,n_phi_max), this%VXit(nlat_padded,n_phi_max))
+         this%VXir(:,:)=0.0_cp
+         this%VXit(:,:)=0.0_cp
          allocate( this%VXip(nlat_padded,n_phi_max) )
+         this%VXip(:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nlat_padded,n_phi_max),this%vtc(nlat_padded,n_phi_max) )
+      this%vrc(:,:)   =0.0_cp
+      this%vtc(:,:)   =0.0_cp
       allocate( this%vpc(nlat_padded,n_phi_max), this%dvrdrc(nlat_padded,n_phi_max) )
-      this%vrc(:,:)=0.0_cp
-      this%vtc(:,:)=0.0_cp
-      this%vpc(:,:)=0.0_cp
+      this%vpc(:,:)   =0.0_cp
+      this%dvrdrc(:,:)=0.0_cp
       allocate(this%dvtdrc(nlat_padded,n_phi_max), this%dvpdrc(nlat_padded,n_phi_max))
+      this%dvtdrc(:,:)=0.0_cp
+      this%dvpdrc(:,:)=0.0_cp
       allocate( this%cvrc(nlat_padded,n_phi_max), this%dvrdtc(nlat_padded,n_phi_max) )
+      this%cvrc(:,:)  =0.0_cp
+      this%dvrdtc(:,:)=0.0_cp
       allocate( this%dvrdpc(nlat_padded,n_phi_max), this%dvtdpc(nlat_padded,n_phi_max) )
+      this%dvrdpc(:,:)=0.0_cp
+      this%dvtdpc(:,:)=0.0_cp
       allocate( this%dvpdpc(nlat_padded,n_phi_max), this%brc(nlat_padded,n_phi_max) )
+      this%dvpdpc(:,:)=0.0_cp
+      this%brc(:,:)   =0.0_cp
       allocate( this%btc(nlat_padded,n_phi_max),this%bpc(nlat_padded,n_phi_max) )
-      this%brc(:,:)=0.0_cp
-      this%btc(:,:)=1.0e50_cp
-      this%bpc(:,:)=1.0e50_cp
+      this%btc(:,:)   =1.0e50_cp
+      this%bpc(:,:)   =1.0e50_cp
       allocate( this%cbrc(nlat_padded,n_phi_max),this%cbtc(nlat_padded,n_phi_max) )
+      this%cbrc(:,:)  =0.0e0_cp
+      this%cbtc(:,:)  =0.0e0_cp
       allocate( this%cbpc(nlat_padded,n_phi_max), this%sc(nlat_padded,n_phi_max) )
+      this%cbpc(:,:)  =0.0e0_cp
+      this%sc(:,:)    =0.0e0_cp
       allocate( this%drSc(nlat_padded,n_phi_max), this%pc(nlat_padded,n_phi_max) )
+      this%drSc(:,:)  =0.0e0_cp
+      this%pc(:,:)    =0.0e0_cp
       allocate( this%dsdtc(nlat_padded,n_phi_max),this%dsdpc(nlat_padded,n_phi_max) )
+      this%dsdtc(:,:) =0.0_cp
+      this%dsdpc(:,:) =0.0_cp
       bytes_allocated=bytes_allocated + 22*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
 
       if ( l_chemical_conv ) then
          allocate( this%xic(nlat_padded,n_phi_max) )
+         this%xic(:,:)=0.0_cp
          bytes_allocated=bytes_allocated + n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       else
          allocate( this%xic(1,1) )
@@ -130,6 +168,8 @@ contains
 
       if ( l_phase_field ) then
          allocate( this%phic(nlat_padded,n_phi_max),this%phiTerms(nlat_padded,n_phi_max) )
+         this%phic(:,:)    =0.0_cp
+         this%phiTerms(:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       else
          allocate( this%phic(1,1), this%phiTerms(1,1) )
@@ -137,6 +177,8 @@ contains
 
       if ( l_adv_curl ) then
          allocate( this%cvtc(nlat_padded,n_phi_max), this%cvpc(nlat_padded,n_phi_max) )
+         this%cvtc(:,:)=0.0_cp
+         this%cvpc(:,:)=0.0_cp
          bytes_allocated=bytes_allocated+2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 

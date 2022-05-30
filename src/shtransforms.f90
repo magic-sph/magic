@@ -678,7 +678,7 @@ contains
       f1LM(:)=zero
 
       !$omp parallel default(shared) &
-      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
+      !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc, m) &
       !$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
       !$omp private(nTh1Start, nTh1Stop, f1ES, f1EA,l_Odd)                 &
       !$omp reduction(+:f1LM)
@@ -775,7 +775,7 @@ contains
       !$omp private(nThStart, nThStop, nThetaNHS, nThetaN, nThetaS, mc)    &
       !$omp private(lm, lmS, nTheta1, nTheta2, f1ES1, f1ES2, f1EA1, f1EA2) &
       !$omp private(f2ES1, f2ES2, f2EA1, f2EA2, f1ES, f1EA, f2ES, f2EA)    &
-      !$omp private(nTh1Start, nTh1Stop,l_Odd)                             &
+      !$omp private(nTh1Start, nTh1Stop, l_Odd, m, dm)                     &
       !$omp reduction(+:f1LM,f2LM)
       nThStart=1; nThStop=n_theta_max/4
       call get_openmp_blocks(nThStart,nThStop)
