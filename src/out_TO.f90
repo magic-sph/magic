@@ -361,6 +361,13 @@ contains
                   dTauBN(n_s) =dTauBN(n_s) -(BpzdB(1)+BzpdB(1) +              &
                   &                         cyl(n_s)/zMax*(BspdB(1)+BpsdB(1)))
                   dTTauBN(n_s)=dTTauBN(n_s)-(BszB(1)+cyl(n_s)/zMax*Bs2B(1))
+               else ! n_s=1
+                  TauBS(n_s)  =0.0_cp
+                  dTauBS(n_s) =0.0_cp
+                  dTTauBS(n_s)=0.0_cp
+                  TauBN(n_s)  =0.0_cp
+                  dTauBN(n_s) =0.0_cp
+                  dTTauBN(n_s)=0.0_cp
                end if
             else
                zMax = sqrt(r_CMB*r_CMB-cyl(n_s)*cyl(n_s))
@@ -382,6 +389,13 @@ contains
                   TauBN(n_s)  =TauBS(n_s)
                   dTauBN(n_s) =dTauBS(n_s)
                   dTTauBN(n_s)=dTTauBS(n_s)
+               else ! n_s=1
+                  TauBS(n_s)  =0.0_cp
+                  dTauBS(n_s) =0.0_cp
+                  dTTauBS(n_s)=0.0_cp
+                  TauBN(n_s)  =0.0_cp
+                  dTauBN(n_s) =0.0_cp
+                  dTTauBN(n_s)=0.0_cp
                end if
             end if
 
