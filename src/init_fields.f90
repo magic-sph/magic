@@ -109,6 +109,8 @@ contains
       !
       ! Memory allocation
       !
+      tOmega_ic1=0.0_cp
+      tOmega_ic2=0.0_cp
 
       allocate( tops(0:l_max,0:m_max), bots(0:l_max,0:m_max) )
       tops(:,:)=zero

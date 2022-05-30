@@ -868,6 +868,7 @@ contains
       &    ulm >= l1m0 ) then
 
          z10(:)=z(l1m0,:)
+         z11(:)=zero
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
               &                  angular_moment_oc,angular_moment_ic,&
               &                  angular_moment_ma)
@@ -913,6 +914,7 @@ contains
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
       &    lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
 
+         z10(:)=zero
          z11(:)=z(l1m1,:)
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
               &                  angular_moment_oc,angular_moment_ic,&
