@@ -6,6 +6,7 @@ module fields
    !
    use precision_mod
    use mem_alloc, only: bytes_allocated
+   use constants, only: zero
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
@@ -111,16 +112,28 @@ contains
          allocate( dj_ic(1,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
+      bICB(:)    =zero
+      b_ic(:,:)  =zero
+      db_ic(:,:) =zero
+      ddb_ic(:,:)=zero
+      aj_ic(:,:) =zero
+      dj_ic(:,:) =zero
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          if ( l_parallel_solve ) then
             allocate(w_LMloc(llm:ulm,n_r_max), z_LMloc(llm:ulm,n_r_max))
             allocate(s_LMloc(llm:ulm,n_r_max))
+            w_LMloc(:,:)=zero
+            z_LMloc(:,:)=zero
+            s_LMloc(:,:)=zero
             if ( l_mag ) then
                if ( l_mag_par_solve ) then
                   allocate(aj_LMloc(llm:ulm,n_r_max), b_LMloc(llm:ulm,n_r_max))
+                  aj_LMloc(:,:)=zero
+                  b_LMloc(:,:) =zero
                else
                   allocate( flow_LMloc_container(llm:ulm,n_r_max,1:2) )
+                  flow_LMloc_container(:,:,:)=zero
                   b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
                   aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
                end if
@@ -131,6 +144,7 @@ contains
             n_fields = 3
             if ( l_mag ) n_fields = n_fields+2
             allocate( flow_LMloc_container(llm:ulm,n_r_max,1:n_fields) )
+            flow_LMloc_container(:,:,:)=zero
             w_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
             z_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
             s_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,3)
@@ -140,20 +154,34 @@ contains
             end if
          end if
          allocate(dw_LMloc(llm:ulm,n_r_max), ddw_LMloc(llm:ulm,n_r_max))
+         dw_LMloc(:,:) =zero
+         ddw_LMloc(:,:)=zero
          allocate(dz_LMloc(llm:ulm,n_r_max), ds_LMloc(llm:ulm,n_r_max))
+         dz_LMloc(:,:) =zero
+         ds_LMloc(:,:) =zero
          allocate(db_LMloc(llmMag:ulmMag,n_r_maxMag))
+         db_LMloc(:,:) =zero
          allocate(ddb_LMloc(llmMag:ulmMag,n_r_maxMag))
+         ddb_LMloc(:,:)=zero
          allocate(dj_LMloc(llmMag:ulmMag,n_r_maxMag))
+         dj_LMloc(:,:) =zero
          allocate(ddj_LMloc(llmMag:ulmMag,n_r_maxMag))
+         ddj_LMloc(:,:)=zero
 
          if ( l_parallel_solve ) then
             allocate(w_Rloc(lm_max,nRstart:nRstop), z_Rloc(lm_max,nRstart:nRstop))
             allocate(s_Rloc(lm_max,nRstart:nRstop))
+            w_Rloc(:,:)=zero
+            z_Rloc(:,:)=zero
+            s_Rloc(:,:)=zero
             if ( l_mag ) then
                if( l_mag_par_solve ) then
                   allocate(b_Rloc(lm_max,nRstart:nRstop), aj_Rloc(lm_max,nRstart:nRstop))
+                  b_Rloc(:,:) =zero
+                  aj_Rloc(:,:)=zero
                else
                   allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:2) )
+                  flow_Rloc_container(:,:,:)=zero
                   b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
                   aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
                end if
@@ -162,6 +190,7 @@ contains
             end if
          else
             allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:n_fields) )
+            flow_Rloc_container(:,:,:)=zero
             w_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
             z_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
             s_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
@@ -171,12 +200,20 @@ contains
             end if
          end if
          allocate(dw_Rloc(lm_max,nRstart:nRstop), ddw_Rloc(lm_max,nRstart:nRstop))
+         dw_Rloc(:,:) =zero
+         ddw_Rloc(:,:)=zero
          allocate(dz_Rloc(lm_max,nRstart:nRstop), ds_Rloc(lm_max,nRstart:nRstop))
+         dz_Rloc(:,:) =zero
+         ds_Rloc(:,:) =zero
          allocate(db_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+         db_Rloc(:,:) =zero
          allocate(ddb_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+         ddb_Rloc(:,:)=zero
          allocate(dj_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+         dj_Rloc(:,:) =zero
       else
          allocate( flow_LMloc_container(llm:ulm,n_r_max,1:5) )
+         flow_LMloc_container(:,:,:)=zero
          w_LMloc(llm:,1:)   => flow_LMloc_container(llm:ulm,1:n_r_max,1)
          dw_LMloc(llm:,1:)  => flow_LMloc_container(llm:ulm,1:n_r_max,2)
          ddw_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,3)
@@ -184,6 +221,7 @@ contains
          dz_LMloc(llm:,1:)  => flow_LMloc_container(llm:ulm,1:n_r_max,5)
 
          allocate( flow_Rloc_container(lm_max,nRstart:nRstop,1:5) )
+         flow_Rloc_container(:,:,:)=zero
          w_Rloc(1:,nRstart:)   => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
          dw_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
          ddw_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
@@ -192,14 +230,17 @@ contains
 
          !-- Entropy:
          allocate( s_LMloc_container(llm:ulm,n_r_max,1:2) )
+         s_LMloc_container(:,:,:)=zero
          s_LMloc(llm:,1:)  => s_LMloc_container(llm:ulm,1:n_r_max,1)
          ds_LMloc(llm:,1:) => s_LMloc_container(llm:ulm,1:n_r_max,2)
          allocate( s_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+         s_Rloc_container(:,:,:)=zero
          s_Rloc(1:,nRstart:)  => s_Rloc_container(1:lm_max,nRstart:nRstop,1)
          ds_Rloc(1:,nRstart:) => s_Rloc_container(1:lm_max,nRstart:nRstop,2)
 
          !-- Magnetic field potentials:
          allocate( field_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:6) )
+         field_LMloc_container(:,:,:)=zero
          b_LMloc(llmMag:,1:)   => field_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,1)
          db_LMloc(llmMag:,1:)  => field_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,2)
          ddb_LMloc(llmMag:,1:) => field_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3)
@@ -208,6 +249,7 @@ contains
          ddj_LMloc(llmMag:,1:) => field_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,6)
 
          allocate( field_Rloc_container(lm_maxMag,nRstart:nRstop,1:5) )
+         field_Rloc_container(:,:,:)=zero
          b_Rloc(1:,nRstart:)   => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,1)
          db_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,2)
          ddb_Rloc(1:,nRstart:) => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,3)
@@ -217,15 +259,18 @@ contains
 
       if ( l_mag_par_solve ) then
          allocate(ddj_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+         ddj_Rloc(:,:)=zero
          bytes_allocated = bytes_allocated+(nRstopMag-nRstartMag+1)*lm_maxMag* &
          &                 SIZEOF_DEF_COMPLEX
       end if
 
       allocate( press_LMloc_container(llm:ulm,n_r_max,1:2) )
+      press_LMloc_container(:,:,:)=zero
       p_LMloc(llm:,1:)   => press_LMloc_container(llm:ulm,1:n_r_max,1)
       dp_LMloc(llm:,1:)  => press_LMloc_container(llm:ulm,1:n_r_max,2)
 
       allocate( press_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+      press_Rloc_container(:,:,:)=zero
       p_Rloc(1:,nRstart:)   => press_Rloc_container(1:lm_max,nRstart:nRstop,1)
       dp_Rloc(1:,nRstart:)  => press_Rloc_container(1:lm_max,nRstart:nRstop,2)
 
@@ -241,9 +286,11 @@ contains
       !-- Chemical composition:
       if ( l_chemical_conv ) then
          allocate( xi_LMloc_container(llm:ulm,n_r_max,1:2) )
+         xi_LMloc_container(:,:,:)=zero
          xi_LMloc(llm:,1:)  => xi_LMloc_container(llm:ulm,1:n_r_max,1)
          dxi_LMloc(llm:,1:) => xi_LMloc_container(llm:ulm,1:n_r_max,2)
          allocate( xi_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+         xi_Rloc_container(:,:,:)=zero
          xi_Rloc(1:,nRstart:)  => xi_Rloc_container(1:lm_max,nRstart:nRstop,1)
          dxi_Rloc(1:,nRstart:) => xi_Rloc_container(1:lm_max,nRstart:nRstop,2)
          bytes_allocated = bytes_allocated + &
@@ -262,9 +309,11 @@ contains
       !-- Phase field
       if ( l_phase_field ) then
          allocate( phi_LMloc(llm:ulm,1:n_r_max) )
+         phi_LMloc(:,:)=zero
          bytes_allocated = bytes_allocated + &
          &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          allocate( phi_Rloc(1:lm_max,nRstart:nRstop) )
+         phi_Rloc(:,:)=zero
          bytes_allocated = bytes_allocated + &
          &                 (nRstop-nRstart+1)*lm_max*SIZEOF_DEF_COMPLEX
       else ! For debugging
@@ -281,11 +330,18 @@ contains
       allocate( aj_ic_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
       allocate( dj_ic_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
       allocate( ddj_ic_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
+      b_ic_LMloc(:,:)  =zero
+      db_ic_LMloc(:,:) =zero
+      ddb_ic_LMloc(:,:)=zero
+      aj_ic_LMloc(:,:) =zero
+      dj_ic_LMloc(:,:) =zero
+      ddj_ic_LMloc(:,:)=zero
 
       bytes_allocated = bytes_allocated + &
       &                 6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
       allocate( work_LMloc(llm:ulm,1:n_r_max) )
+      work_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_fields
