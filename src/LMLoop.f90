@@ -63,7 +63,11 @@ contains
 
       if ( l_chemical_conv ) call initialize_updateXi()
 
-      if ( l_phase_field ) call initialize_updatePhi()
+      if ( l_phase_field ) then
+         call initialize_updatePhi()
+      else
+         allocate( phi_ghost(1,1) ) ! For debugging only
+      end if
 
       call initialize_updateZ()
       if ( l_mag ) call initialize_updateB()
@@ -154,7 +158,11 @@ contains
       call finalize_updateZ()
 
       if ( l_chemical_conv ) call finalize_updateXi()
-      if ( l_phase_field ) call finalize_updatePhi()
+      if ( l_phase_field ) then
+         call finalize_updatePhi()
+      else
+         deallocate( phi_ghost )
+      end if
       if ( l_mag ) call finalize_updateB()
       if ( l_parallel_solve ) deallocate(array_of_requests)
 
