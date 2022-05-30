@@ -27,6 +27,10 @@ contains
 
       allocate( this%dzRstrLM(l_max+2),this%dzAstrLM(l_max+2) )
       allocate( this%dzCorLM(l_max+2),this%dzLFLM(l_max+2) )
+      this%dzRstrLM(:)=0.0_cp
+      this%dzAstrLM(:)=0.0_cp
+      this%dzCorLM(:) =0.0_cp
+      this%dzLFLM(:)  =0.0_cp
       bytes_allocated = bytes_allocated+4*(l_max+2)*SIZEOF_DEF_REAL
 
    end subroutine initialize

@@ -48,7 +48,9 @@ contains
       allocate( this%dr(this%n_max,0:order) )
       allocate( this%ddr(this%n_max,0:order) )
       allocate( this%dddr(this%n_max,0:order+2) )
+      this%dddr(:,:) =0.0_cp
       allocate( this%ddddr(this%n_max,0:order+2) )
+      this%ddddr(:,:)=0.0_cp
       allocate( this%dr_top(order/2,0:order_boundary) )
       allocate( this%dr_bot(order/2,0:order_boundary) )
       allocate( this%ddr_top(order/2,0:order_boundary+1) )

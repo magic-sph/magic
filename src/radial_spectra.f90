@@ -49,12 +49,10 @@ contains
 
       fac=half*eScale/(four*pi)
       n_r_tot=n_r_ic_max+n_r_max
+      e_p(:,:)   =0.0_cp
+      e_p_AS(:,:)=0.0_cp
 
       do n_r=1,n_r_max
-         ! setting zero
-         e_p(1:6,n_r)   =0.0_cp
-         e_p_AS(1:6,n_r)=0.0_cp
-
          do lm=max(2,llm),ulm
             l=map%lm2l(lm)
             if ( l <= 6 ) then
@@ -177,12 +175,10 @@ contains
 
       fac=half*eScale/(four*pi)
       n_r_tot=n_r_max+n_r_ic_max
+      e_t(:,:)   =0.0_cp
+      e_t_AS(:,:)=0.0_cp
 
       do n_r=1,n_r_max
-         do l=1,6
-            e_t(l,n_r)   =0.0_cp
-            e_t_AS(l,n_r)=0.0_cp
-         end do
          do lm=max(2,llm),ulm
             l=map%lm2l(lm)
             if ( l <= 6 ) then
