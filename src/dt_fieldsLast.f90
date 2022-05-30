@@ -273,7 +273,7 @@ contains
                bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
             else
-               allocate( dpdt%expl(1,1,1) ) ! To avoid debug
+               allocate( dpdt%expl(1,1,nexp) ) ! To avoid debug
             end if
          end if
       else ! This is either high-order F.D. or Cheb
@@ -296,7 +296,7 @@ contains
             dwdt%expl(:,:,:)=zero
             dzdt%expl(:,:,:)=zero
             dpdt%expl(:,:,:)=zero
-            allocate( dVxVhLM_LMloc(1:1,1:1,1:1) )
+            allocate( dVxVhLM_LMloc(1,1,nexp) )
             bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
          end if
@@ -335,12 +335,12 @@ contains
             dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:)
          end if
       else
-         allocate(dxidt_LMloc_container(1,1,1:2,1))
-         dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:)
-         dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:)
+         allocate(dxidt_LMloc_container(1,1,1:2,1:nexp))
+         dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:nexp)
+         dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:nexp)
       end if
 
-      if ( .not. l_phase_field ) allocate(dphidt%expl(1,1,1)) ! for debug
+      if ( .not. l_phase_field ) allocate(dphidt%expl(1,1,1:nexp)) ! for debug
 
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed
