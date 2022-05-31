@@ -550,46 +550,58 @@ contains
       real(cp), intent(inout) :: rhs(:,:)
 
       !-- Local variables:
-      integer :: nStart, n_bands_A1, info, k
+      real(cp) :: tmp1(lenA1,nRHSs), tmp2(n_boundaries,nRHSs)
+      integer :: nStart, n_bands_A1, info, k, nrhs
 
       nStart = lenA1+1
       n_bands_A1 = 2*kl+ku+1
 
+      !-- Copy to avoid temporary array creation in LAPACK's calls
+      do nrhs=1,nRHSs
+         tmp1(:,nrhs)=rhs(1:lenA1,nrhs)
+         tmp2(:,nrhs)=rhs(nStart:,nrhs)
+      end do
+
 #if (DEFAULT_PRECISION==sngl)
       !-- Solve A1*w = rhs1
       call sgbtrs('N', lenA1, kl, ku, nRHSs, A1, n_bands_A1, pivotA1, &
-           &      rhs(1:lenA1,:), lenA1, info)
+           &      tmp1, lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
       do k=1,lenA1
-         rhs(nStart,:)=rhs(nStart,:)-A3(k)*rhs(k,:)
+         tmp2(1,:)=tmp2(1,:)-A3(k)*tmp1(k,:)
       end do
 
       !-- Solve A4*y = rhs2
       call sgetrs('N', n_boundaries, nRHSs, A4, n_boundaries, pivotA4, &
-           &      rhs(nStart:,:), n_boundaries, info)
+           &      tmp2, n_boundaries, info)
 
       !-- Assemble rhs1 <- rhs1-A2*rhs2
       call sgemm('N', 'N', lenA1, nRHSs, n_boundaries, -one, A2, lenA1, &
-           &      rhs(nStart:,:), n_boundaries, one, rhs(1:lenA1,:), lenA1)
+           &      tmp2, n_boundaries, one, tmp1, lenA1)
 #elif (DEFAULT_PRECISION==dble)
       !-- Solve A1*w = rhs1
       call dgbtrs('N', lenA1, kl, ku, nRHSs, A1, n_bands_A1, pivotA1, &
-           &      rhs(1:lenA1,:), lenA1, info)
+           &      tmp1, lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
       do k=1,lenA1
-         rhs(nStart,:)=rhs(nStart,:)-A3(k)*rhs(k,:)
+         tmp2(1,:)=tmp2(1,:)-A3(k)*tmp1(k,:)
       end do
 
       !-- Solve A4*y = rhs2
       call dgetrs('N', n_boundaries, nRHSs, A4, n_boundaries, pivotA4, &
-           &      rhs(nStart:,:), n_boundaries, info)
+           &      tmp2, n_boundaries, info)
 
       !-- Assemble rhs1 <- rhs1-A2*rhs2
       call dgemm('N', 'N', lenA1, nRHSs, n_boundaries, -one, A2, lenA1, &
-           &      rhs(nStart:,:), n_boundaries, one, rhs(1:lenA1,:), lenA1)
+           &     tmp2, n_boundaries, one, tmp1, lenA1)
 #endif
+
+      do nrhs=1,nRHSs
+         rhs(1:lenA1,nrhs)=tmp1(:,nrhs)
+         rhs(nStart:,nrhs)=tmp2(:,nrhs)
+      end do
 
    end subroutine solve_bordered_real_rhs_multi
 !-----------------------------------------------------------------------------

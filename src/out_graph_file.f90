@@ -428,7 +428,7 @@ contains
       real(cp), intent(in) :: time
 
       !-- Local variables:
-      integer :: n_theta, version
+      integer :: n_theta, version, n_r
       integer :: st(MPI_STATUS_SIZE)
       integer(kind=MPI_OFFSET_kind) :: disp, offset
 
@@ -475,10 +475,14 @@ contains
          end do
 
          !-------- Write radius:
-         call MPI_File_Write(graph_mpi_fh,real(r,outp),n_r_max,MPI_OUT_REAL,st,ierr)
+         do n_r=1,n_r_max
+            call MPI_File_Write(graph_mpi_fh,real(r(n_r),outp),1,MPI_OUT_REAL,st,ierr)
+         end do
          if ( l_mag .and. n_r_ic_max > 1 ) then
-            call MPI_File_Write(graph_mpi_fh,real(r_ic,outp),n_r_ic_max,MPI_OUT_REAL, &
-                 &              st,ierr)
+            do n_r=1,n_r_ic_max
+               call MPI_File_Write(graph_mpi_fh,real(r_ic(n_r),outp),1,MPI_OUT_REAL, &
+                    &              st,ierr)
+            end do
          end if
 
          !-- master gets the displacement

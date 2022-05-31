@@ -1488,7 +1488,7 @@ contains
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dL)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dL, n_r, r2)
       start_lm=1; stop_lm=lm_maxMag
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier

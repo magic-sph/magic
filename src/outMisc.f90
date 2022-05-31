@@ -76,8 +76,8 @@ contains
 
       if ( l_hel ) then
          helicity_file='helicity.'//tag
-         allocate( HelASr(2,nRstart:nRstop), Hel2ASr(2,nRstart:nRstop) )
-         allocate( HelnaASr(2,nRstart:nRstop), Helna2ASr(2,nRstart:nRstop) )
+         allocate( HelASr(nRstart:nRstop,2), Hel2ASr(nRstart:nRstop,2) )
+         allocate( HelnaASr(nRstart:nRstop,2), Helna2ASr(nRstart:nRstop,2) )
          allocate( HelEAASr(nRstart:nRstop) )
          HelASr(:,:)   =0.0_cp
          Hel2ASr(:,:)  =0.0_cp
@@ -89,13 +89,13 @@ contains
 
       if ( l_hemi ) then
          hemi_file    ='hemi.'//tag
-         allocate( hemi_ekin_r(2,nRstart:nRstop), hemi_vrabs_r(2,nRstart:nRstop) )
+         allocate( hemi_ekin_r(nRstart:nRstop,2), hemi_vrabs_r(nRstart:nRstop,2) )
          hemi_ekin_r(:,:) =0.0_cp
          hemi_vrabs_r(:,:)=0.0_cp
          bytes_allocated=bytes_allocated+(nRstop-nRstart+1)*4*SIZEOF_DEF_REAL
 
          if ( l_mag ) then
-            allocate( hemi_emag_r(2,nRstart:nRstop), hemi_brabs_r(2,nRstart:nRstop) )
+            allocate( hemi_emag_r(nRstart:nRstop,2), hemi_brabs_r(nRstart:nRstop,2) )
             hemi_emag_r(:,:) =0.0_cp
             hemi_brabs_r(:,:)=0.0_cp
             bytes_allocated=bytes_allocated+(nRstop-nRstart+1)*4*SIZEOF_DEF_REAL
@@ -182,15 +182,15 @@ contains
       real(cp) :: ekinN, ekinS, vrabsN, vrabsS, hemi_ekin, hemi_vr
       real(cp) :: emagN, emagS, brabsN, brabsS, hemi_emag, hemi_br, hemi_cmb
 
-      call gather_from_Rloc(hemi_ekin_r(1,:), hemi_ekin_r_N, 0)
-      call gather_from_Rloc(hemi_ekin_r(2,:), hemi_ekin_r_S, 0)
-      call gather_from_Rloc(hemi_vrabs_r(1,:), hemi_vrabs_r_N, 0)
-      call gather_from_Rloc(hemi_vrabs_r(2,:), hemi_vrabs_r_S, 0)
+      call gather_from_Rloc(hemi_ekin_r(:,1), hemi_ekin_r_N, 0)
+      call gather_from_Rloc(hemi_ekin_r(:,2), hemi_ekin_r_S, 0)
+      call gather_from_Rloc(hemi_vrabs_r(:,1), hemi_vrabs_r_N, 0)
+      call gather_from_Rloc(hemi_vrabs_r(:,2), hemi_vrabs_r_S, 0)
       if ( l_mag ) then
-         call gather_from_Rloc(hemi_emag_r(1,:), hemi_emag_r_N, 0)
-         call gather_from_Rloc(hemi_emag_r(2,:), hemi_emag_r_S, 0)
-         call gather_from_Rloc(hemi_brabs_r(1,:), hemi_brabs_r_N, 0)
-         call gather_from_Rloc(hemi_brabs_r(2,:), hemi_brabs_r_S, 0)
+         call gather_from_Rloc(hemi_emag_r(:,1), hemi_emag_r_N, 0)
+         call gather_from_Rloc(hemi_emag_r(:,2), hemi_emag_r_S, 0)
+         call gather_from_Rloc(hemi_brabs_r(:,1), hemi_brabs_r_N, 0)
+         call gather_from_Rloc(hemi_brabs_r(:,1), hemi_brabs_r_S, 0)
       end if
 
       if ( rank == 0 ) then
@@ -215,6 +215,8 @@ contains
                hemi_cmb =0.0_cp
             end if
          else
+            emagN    =0.0_cp
+            emagS    =0.0_cp
             hemi_emag=0.0_cp
             hemi_br  =0.0_cp
             hemi_cmb =0.0_cp
@@ -267,15 +269,15 @@ contains
       ! the arrays: Hel2Nr,Helna2Nr,HelEAr,HelNr,HelnaNr
       ! Hel2Sr,Helna2Sr,HelSr,HelnaSr
 
-      call gather_from_Rloc(Hel2Asr(1,:), Hel2Nr_global, 0)
-      call gather_from_Rloc(Helna2ASr(1,:), Helna2Nr_global, 0)
+      call gather_from_Rloc(Hel2Asr(:,1), Hel2Nr_global, 0)
+      call gather_from_Rloc(Helna2ASr(:,1), Helna2Nr_global, 0)
       call gather_from_Rloc(HelEAASr, HelEAr_global, 0)
-      call gather_from_Rloc(HelASr(1,:), HelNr_global, 0)
-      call gather_from_Rloc(HelnaASr(1,:), HelnaNr_global, 0)
-      call gather_from_Rloc(HelASr(2,:), HelSr_global, 0)
-      call gather_from_Rloc(Helna2ASr(2,:), Helna2Sr_global, 0)
-      call gather_from_Rloc(Hel2ASr(2,:), Hel2Sr_global, 0)
-      call gather_from_Rloc(HelnaASr(2,:), HelnaSr_global, 0)
+      call gather_from_Rloc(HelASr(:,1), HelNr_global, 0)
+      call gather_from_Rloc(HelnaASr(:,1), HelnaNr_global, 0)
+      call gather_from_Rloc(HelASr(:,2), HelSr_global, 0)
+      call gather_from_Rloc(Helna2ASr(:,2), Helna2Sr_global, 0)
+      call gather_from_Rloc(Hel2ASr(:,2), Hel2Sr_global, 0)
+      call gather_from_Rloc(HelnaASr(:,2), HelnaSr_global, 0)
 
       if ( rank == 0 ) then
          HelN  =rInt_R(HelNr_global*r*r,r,rscheme_oc)
@@ -796,11 +798,11 @@ contains
       !$omp end parallel do
 
       if ( field == 'V' ) then
-         hemi_ekin_r(:,nR) =enAS(:)
-         hemi_vrabs_r(:,nR)=vrabsAS(:)
+         hemi_ekin_r(nR,:) =enAS(:)
+         hemi_vrabs_r(nR,:)=vrabsAS(:)
       else if ( field == 'B' ) then
-         hemi_emag_r(:,nR) =enAS(:)
-         hemi_brabs_r(:,nR)=vrabsAS(:)
+         hemi_emag_r(nR,:) =enAS(:)
+         hemi_brabs_r(nR,:)=vrabsAS(:)
       end if
 
    end subroutine get_hemi
@@ -915,10 +917,10 @@ contains
       end do
       !$omp end parallel do
 
-      HelASr(:,nR)   =HelAS(:)
-      Hel2ASr(:,nR)  =Hel2AS(:)
-      HelnaASr(:,nR) =HelnaAS(:)
-      Helna2ASr(:,nR)=Helna2AS(:)
+      HelASr(nR,:)   =HelAS(:)
+      Hel2ASr(nR,:)  =Hel2AS(:)
+      HelnaASr(nR,:) =HelnaAS(:)
+      Helna2ASr(nR,:)=Helna2AS(:)
       HelEAASr(nR)   =HelEAAS
 
    end subroutine get_helicity

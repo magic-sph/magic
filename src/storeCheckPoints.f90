@@ -370,6 +370,7 @@ contains
       type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !-- Local variables
+      real(cp) :: dtscale(size(tscheme%dt))
       complex(cp), allocatable :: work(:,:), tmp(:)
       logical :: l_press_store, l_transp
       integer :: version, info, fh, datatype, n_r
@@ -425,7 +426,8 @@ contains
          call MPI_File_Write(fh, tscheme%nexp, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%nimp, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%nold, 1, MPI_INTEGER, istat, ierr)
-         call MPI_File_Write(fh, tscheme%dt*tScale, size(tscheme%dt), MPI_DEF_REAL, &
+         dtscale(:)=tscheme%dt*tScale
+         call MPI_File_Write(fh, dtscale, size(tscheme%dt), MPI_DEF_REAL, &
               &              istat, ierr)
          call MPI_File_Write(fh, n_time_step, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, ra, 1, MPI_DEF_REAL, istat, ierr)

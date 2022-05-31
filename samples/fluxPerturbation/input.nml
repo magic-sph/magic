@@ -11,23 +11,23 @@ n_cheb_ic_max=11,
  mode        =1,
  tag         ="test",
  n_time_steps=150,
- dtmax       =1.0E-3,
+ dtmax       =1.0d-3,
  runHours    =0,
  runMinutes  =50,
  time_scheme ='PC2',
 /
 &phys_param
- ra          =1.D6,
- ek          =1.D-3,
- pr          =1.D0,
- prmag       =1.D0,
- radratio    =0.35,
+ ra          =1.0d6,
+ ek          =1.0d-3,
+ pr          =1.0d0,
+ prmag       =1.0d0,
+ radratio    =0.35d0,
  ktops       =2,
  kbots       =2,
  ktopv       =2,
  kbotv       =2,
- s_top       = 0 0 -1.0 0.0 1 0 0.577 0.0,
- s_bot       = 0 0 0.0 0.0, 
+ s_top       = 0 0 -1.0d0 0.0d0 1 0 0.577d0 0.0d0,
+ s_bot       = 0 0 0.0d0 0.0d0, 
 /
 &start_field
  l_start_file=.false.,
@@ -40,11 +40,12 @@ n_cheb_ic_max=11,
  n_graphs    =3,
  n_rsts      =3,
  runid       ="Inhomogeneous heat flux",
+ l_hemi      =.true.,
 /
 &mantle 
  nRotMa      =0,
 /
 &inner_core 
- sigma_ratio =0.D0,
+ sigma_ratio =0.0d0,
  nRotIc      =0,
 /
