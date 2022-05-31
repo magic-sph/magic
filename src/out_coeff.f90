@@ -539,6 +539,7 @@ contains
       !-- Local variables
       complex(outp), allocatable :: tmp(:,:)
       complex(cp), allocatable :: work(:,:)
+      real(outp) :: tmpr(n_r_max)
       integer :: info, fh, version, istat(MPI_STATUS_SIZE), datatype
       integer :: arr_size(2), arr_loc_size(2), arr_start(2)
       integer(lip) :: disp, offset, size_tmp
@@ -602,10 +603,10 @@ contains
          call MPI_File_Write(fh, real(omega_ma,outp), 1, MPI_OUT_REAL, &
               &              istat, ierr)
 
-         call MPI_File_Write(fh, real(r,outp), n_r_max, MPI_OUT_REAL, &
-              &              istat, ierr)
-         call MPI_File_Write(fh, real(rho0,outp), n_r_max, MPI_OUT_REAL, &
-              &              istat, ierr)
+         tmpr(:)=real(r,outp)
+         call MPI_File_Write(fh, tmpr, n_r_max, MPI_OUT_REAL, istat, ierr)
+         tmpr(:)=real(rho0,outp)
+         call MPI_File_Write(fh, tmpr, n_r_max, MPI_OUT_REAL, istat, ierr)
 
          !-- Rank 0 gets the displacement
          call MPI_File_get_position(fh, offset, ierr)

@@ -964,7 +964,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,Dif,l1,dL)
+         !$omp do private(n_r,lm,Dif,l1,m1,dL)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
@@ -1176,7 +1176,7 @@ contains
          end do
       end if ! l=1,m=1 contained in lm-block ?
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m)
+      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
@@ -1472,7 +1472,7 @@ contains
          end if
       end if
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh, n_r, r2)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier

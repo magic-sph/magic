@@ -776,8 +776,18 @@ contains
             Geo(lm)=AdvPol(lm)-dtVrLM(lmP)
          end do
          call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map, .false.)
-         call hIntRms(Advt2LM-dtVtLM,nR,1,lmP_max,1,Iner2hInt(:,nR),st_map,.true.)
-         call hIntRms(Advp2LM-dtVpLM,nR,1,lmP_max,1,Iner2hInt(:,nR),st_map,.true.)
+         do lm=1,lm_max
+            lmP=lm2lmP(lm)
+            !-- Use Geo as work array
+            Geo(lm)=Advt2LM(lmP)-dtVtLM(lmP)
+         end do
+         call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map,.true.)
+         do lm=1,lm_max
+            lmP=lm2lmP(lm)
+            !-- Use Geo as work array
+            Geo(lm)=Advp2LM(lmP)-dtVpLM(lmP)
+         end do
+         call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map,.true.)
       end if
 
       if ( l_anelastic_liquid ) then
