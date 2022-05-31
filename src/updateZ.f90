@@ -1472,7 +1472,7 @@ contains
          end if
       end if
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh, n_r, r2)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
