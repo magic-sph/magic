@@ -580,18 +580,31 @@ contains
       this%vtc(:,:,:)=0.0_cp
       this%vpc(:,:,:)=0.0_cp
       allocate( this%dvrdrc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvrdrc(:,:,:)=0.0_cp
       allocate( this%dvtdrc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvtdrc(:,:,:)=0.0_cp
       allocate( this%dvpdrc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvpdrc(:,:,:)=0.0_cp
       allocate( this%cvrc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%cvrc(:,:,:)=0.0_cp
       allocate( this%dvrdtc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvrdtc(:,:,:)=0.0_cp
       allocate( this%dvrdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvrdpc(:,:,:)=0.0_cp
       allocate( this%dvtdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvtdpc(:,:,:)=0.0_cp
       allocate( this%dvpdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dvpdpc(:,:,:)=0.0_cp
       allocate( this%sc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%sc(:,:,:)=0.0_cp
       allocate( this%drSc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%drSc(:,:,:)=0.0_cp
       allocate( this%pc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%pc(:,:,:)=0.0_cp
       allocate( this%dsdtc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dsdtc(:,:,:)=0.0_cp
       allocate( this%dsdpc(nlat_padded,nRl:nRu,n_phi_max) )
+      this%dsdpc(:,:,:)=0.0_cp
       bytes_allocated=bytes_allocated + 16*size_of_phys*SIZEOF_DEF_REAL
       
       if ( l_mag ) then
@@ -604,6 +617,9 @@ contains
          allocate( this%cbrc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%cbtc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%cbpc(nlat_padded,nRl:nRu,n_phi_max) )
+         this%cbrc(:,:,:)=0.0_cp
+         this%cbtc(:,:,:)=0.0_cp
+         this%cbpc(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
       else
          allocate( this%brc(1,1,1), this%btc(1,1,1), this%bpc(1,1,1) )
@@ -612,6 +628,7 @@ contains
 
       if ( l_chemical_conv ) then
          allocate( this%xic(nlat_padded,nRl:nRu,n_phi_max) )
+         this%xic(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + size_of_phys*SIZEOF_DEF_REAL
       else
          allocate( this%xic(1,1,1) )
@@ -620,6 +637,8 @@ contains
       if ( l_phase_field ) then
          allocate( this%phic(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%phiTerms(nlat_padded,nRl:nRu,n_phi_max) )
+         this%phic(:,:,:)=0.0_cp
+         this%phiTerms(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 2*size_of_phys*SIZEOF_DEF_REAL
       else
          allocate( this%phic(1,1,1), this%phiTerms(1,1,1) )
@@ -628,6 +647,8 @@ contains
       if ( l_adv_curl ) then
          allocate( this%cvtc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%cvpc(nlat_padded,nRl:nRu,n_phi_max) )
+         this%cvtc(:,:,:)=0.0_cp
+         this%cvpc(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated+2*size_of_phys*SIZEOF_DEF_REAL
       end if
 
