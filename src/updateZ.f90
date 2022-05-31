@@ -964,7 +964,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,Dif,l1,dL)
+         !$omp do private(n_r,lm,Dif,l1,m1,dL)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
