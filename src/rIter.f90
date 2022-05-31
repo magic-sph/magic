@@ -219,7 +219,7 @@ contains
             ! equation
             lDeriv=.true.
             nBc=0
-            !l_Bound=.false.
+            l_Bound=.false.
          end if
 
          dtrkc(nR)=1e10_cp
