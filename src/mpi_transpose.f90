@@ -178,7 +178,9 @@ contains
       integer, intent(in) :: n_fields
 
       !-- Local variables
+#ifdef WITH_MPI
       integer (kind=mpi_address_kind) :: lb, extend, bytesCMPLX
+#endif
       integer :: arr_size(3), arr_loc_size(3), arr_start(3)
       integer :: p, my_lm_counts, nlm_per_rank
       integer :: k, col_type, ext_type, lm, l, m

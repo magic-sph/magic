@@ -47,7 +47,7 @@ class Movie:
     >>> # and lets you decide which one you want to read
 
     >>> # Reads and display AV_mov.test
-    >>> m = Movie(filed='AV_mov.test')
+    >>> m = Movie(file='AV_mov.test')
     >>> print(m.data) # access to the data
 
     >>> # Read three movie files (no display)
