@@ -35,9 +35,15 @@ def getPotEndianness(filename):
             if abs(i[0]) > 100:
                 raise TypeError
             endian = 'l'
+            f.close()
         except TypeError:
+            f.close()
+            f = npfile(filename, endian='B')
+            i = f.fort_read('i4')
+            if abs(i[0]) > 100:
+                raise TypeError
             endian = 'B'
-        f.close()
+            f.close()
         record_marker = True
     except ValueError:
         f = open(filename, 'rb')

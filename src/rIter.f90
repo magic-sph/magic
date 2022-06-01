@@ -222,6 +222,8 @@ contains
             l_Bound=.false.
          end if
 
+         if ( lRmsCalc ) nBc=0 ! One also needs to compute the boundaries in that case
+
          dtrkc(nR)=1e10_cp
          dthkc(nR)=1e10_cp
 
