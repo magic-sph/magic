@@ -154,6 +154,8 @@ contains
       allocate( LFt2(n_phys_space), LFp2(n_phys_space) )
       allocate( CFt2(n_phys_space), CFp2(n_phys_space) )
       allocate( dpdtc(n_phys_space), dpdpc(n_phys_space) )
+      Advt2(:)=0.0_cp ; Advp2(:)=0.0_cp ; LFt2(:)=0.0_cp ; LFp2(:)=0.0_cp
+      CFt2(:)=0.0_cp ; CFp2(:)=0.0_cp ; dpdtc(:)=0.0_cp ; dpdpc(:)=0.0_cp
       bytes_allocated=bytes_allocated + 11*n_phys_space*SIZEOF_DEF_REAL
 
       allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
@@ -171,6 +173,7 @@ contains
 
       if ( l_adv_curl ) then
          allocate ( dpkindrc(n_phys_space) )
+         dpkindrc(:)=0.0_cp
          bytes_allocated=bytes_allocated + n_phys_space*SIZEOF_DEF_REAL
       end if
 
@@ -594,20 +597,6 @@ contains
       !-- Input variables
       integer,  intent(in) :: nR ! radial level
       real(cp), intent(inout) :: LFr(*) ! radial component of the Lorentz force
-
-      Advt2LM(:)=zero
-      Advp2LM(:)=zero
-      LFrLM(:)  =zero
-      LFp2LM(:) =zero
-      LFt2LM(:) =zero
-      CFt2LM(:) =zero
-      CFp2LM(:) =zero
-      PFt2LM(:) =zero
-      PFp2LM(:) =zero
-      dtVtLM(:) =zero
-      dtVpLM(:) =zero
-      dtVrLM(:) =zero
-      if ( l_adv_curl ) dpkindrLM(:)=zero
 
       if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP, LFr, LFrLM, l_R(nR))
       call spat_to_sphertor(dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))

@@ -218,7 +218,7 @@ contains
 
       !-- Get nl loop for r.m.s. computation
       if ( l_RMS ) then
-         call get_nl_RMS(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,&
+         call get_nl_RMS(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
               &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
               &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
               &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
