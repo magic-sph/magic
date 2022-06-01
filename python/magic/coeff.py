@@ -295,8 +295,8 @@ class MagicCoeffCmb(MagicSetup):
         """
         self.l_max_cmb = lCut
         self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
-        self.lm_max_cmb = self.m_max_cmb*(self.l_max_cmb+1)/self.minc - \
-                        self.m_max_cmb*(self.m_max_cmb-self.minc)/(2*self.minc) + \
+        self.lm_max_cmb = self.m_max_cmb*(self.l_max_cmb+1)//self.minc - \
+                        self.m_max_cmb*(self.m_max_cmb-self.minc)//(2*self.minc) + \
                         self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
