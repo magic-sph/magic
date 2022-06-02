@@ -53,6 +53,8 @@ def to_json(o, level=0):
             ret += '{:.8g}'.format(o)
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.integer):
         ret += "[" + ','.join(map(str, o.flatten().tolist())) + "]"
+    elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.bool_):
+        ret += "[" + ','.join(map(lambda x: '"{}"'.format(x), o.flatten().tolist())) + "]"
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.str):
         ret += "[" + ','.join(map(lambda x: '"{}"'.format(x), o.flatten().tolist())) + "]"
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.inexact):
@@ -189,6 +191,14 @@ class AvgField:
                             xmean = avgField(ts.time[ind:], ts.__dict__[field][ind:])
                             self.lut['time_series'][field+'_av'] = xmean
                             setattr(self, field+'_av', xmean)
+            else:  # If parameters is absent then put it to -1
+                for field in params['time_series'][key]:
+                    self.lut['time_series'][field+'_av'] = -1
+                    setattr(self, field+'_av', -1)
+                    if std:
+                        self.lut['time_series'][field+'_std'] = -1
+                        setattr(self, field+'_sd', -1)
+
 
         # Get tags involved in averaging for spectra and radial profiles
         tags = self.get_tags(tstart)
