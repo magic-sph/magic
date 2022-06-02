@@ -196,7 +196,7 @@ class AvgField:
                     self.lut['time_series'][field+'_av'] = -1
                     setattr(self, field+'_av', -1)
                     if std:
-                        self.lut['time_series'][field+'_std'] = -1
+                        self.lut['time_series'][field+'_sd'] = -1
                         setattr(self, field+'_sd', -1)
 
 
