@@ -189,7 +189,7 @@ contains
          call gather_from_Rloc(hemi_emag_r(:,1), hemi_emag_r_N, 0)
          call gather_from_Rloc(hemi_emag_r(:,2), hemi_emag_r_S, 0)
          call gather_from_Rloc(hemi_brabs_r(:,1), hemi_brabs_r_N, 0)
-         call gather_from_Rloc(hemi_brabs_r(:,1), hemi_brabs_r_S, 0)
+         call gather_from_Rloc(hemi_brabs_r(:,2), hemi_brabs_r_S, 0)
       end if
 
       if ( rank == 0 ) then
