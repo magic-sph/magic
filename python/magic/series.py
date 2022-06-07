@@ -357,7 +357,7 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.hemi_emag, label='Emag')
-            ax.plot(self.time, self.hemi_emag, label='|Br| volume')
+            ax.plot(self.time, self.hemi_br, label='|Br| volume')
             ax.plot(self.time, self.hemi_cmb, label='|Br| CMB')
             ax.set_xlabel('Time')
             #ax.set_xlim(self.time[0], self.time[-1])
