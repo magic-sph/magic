@@ -15,7 +15,7 @@ module nonlinear_lm_mod
        &             l_adv_curl, l_phase_field
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
+   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, &
        &               lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
@@ -152,7 +152,7 @@ contains
       complex(cp), intent(out) :: dVXirLM(:)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
+      integer :: l,m,lm,lmS,lmA,lmP
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
       !integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 
@@ -170,7 +170,7 @@ contains
             lm =1   ! This is l=0,m=0
             lmA=lm2lmA(lm)
             lmP=1
-            lmPA=lmP2lmPA(lmP)
+            !lmPA=lmP2lmPA(lmP)
             if ( l_conv_nl ) then
                AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
                AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmPA)
@@ -197,15 +197,13 @@ contains
             dzdt(lm)=AdvTor_loc+CorTor_loc
 
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
-            !$omp private(lmPS,lmPA,AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
+            !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
                lmA =lm2lmA(lm)
                lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)
-               lmPA=lmP2lmPA(lmP)
 
                if ( l_double_curl ) then ! Pressure is not needed
 
@@ -311,15 +309,13 @@ contains
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
-               !$omp private(lmPS,AdvPol_loc,CorPol_loc)
+               !$omp private(AdvPol_loc,CorPol_loc)
                do lm=2,lm_max
                   l   =lm2l(lm)
                   m   =lm2m(lm)
                   lmS =lm2lmS(lm)
                   lmA =lm2lmA(lm)
                   lmP =lm2lmP(lm)
-                  lmPS=lmP2lmPS(lmP)
-                  lmPA=lmP2lmPA(lmP)
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
