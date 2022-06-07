@@ -488,6 +488,10 @@ class SpecLookUpTable:
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
             self.ekin_torm = data[:, 4]
+            if data.shape[1] == 7:
+                self.ekin_nearsurf_poll = data[:, 5]
+                self.ekin_nearsurf_polm = data[:, 6]
+
         elif self.name == 'kin_spec_ave':
             self.ekin_poll = data[:, 1]
             self.ekin_polm = data[:, 2]
