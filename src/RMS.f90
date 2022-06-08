@@ -599,13 +599,14 @@ contains
       real(cp), intent(inout) :: LFr(*) ! radial component of the Lorentz force
 
       if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP, LFr, LFrLM, l_R(nR))
-      call spat_to_sphertor(dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
-      call spat_to_sphertor(CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
+      call spat_to_sphertor(sht_lP, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
+      call spat_to_sphertor(sht_lP, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
       call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR))
-      if ( l_conv_nl ) call spat_to_sphertor(Advt2, Advp2, Advt2LM, Advp2LM, l_R(nR))
+      if ( l_conv_nl ) call spat_to_sphertor(sht_lP, Advt2, Advp2, &
+                            &               Advt2LM, Advp2LM, l_R(nR))
       !-- Kinetic pressure : 1/2 d u^2 / dr
       if ( l_adv_curl ) call scal_to_SH(sht_lP, dpkindrc, dpkindrLM, l_R(nR))
-      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(LFt2, LFp2,  &
+      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_lP, LFt2, LFp2,  &
                                             &                LFt2LM, LFp2LM, l_R(nR))
 
    end subroutine transform_to_lm_RMS

@@ -522,18 +522,19 @@ contains
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
-   subroutine spat_to_sphertor(f, g, fLM, gLM, lcut)
+   subroutine spat_to_sphertor(sh, f, g, fLM, gLM, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f(*)
-      real(cp), intent(inout) :: g(*)
-      integer,  intent(in) :: lcut
+      type(c_ptr), intent(in) :: sh
+      real(cp),    intent(inout) :: f(*)
+      real(cp),    intent(inout) :: g(*)
+      integer,     intent(in) :: lcut
 
       !-- Output variables
       complex(cp), intent(out) :: fLM(*)
       complex(cp), intent(out) :: gLM(*)
 
-      call spat_to_SHsphtor_l(sht_lP, f, g, fLM, gLM, lcut+1)
+      call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut+1)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------

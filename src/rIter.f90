@@ -399,15 +399,14 @@ contains
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
-            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
-                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,               &
-                 &         this%dtB_arrays%BtVrLM,                               &
-                 &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
-                 &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
-                 &         this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,        &
-                 &         this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM,     &
-                 &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,  &
-                 &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,  &
+            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
+                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
+                 &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
+                 &         this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,   &
+                 &         this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,   &
+                 &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,   &
+                 &         this%dtB_arrays%BpVtBtVpCotLM,                   &
+                 &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
                  &         this%dtB_arrays%BtVZsn2LM)
          end if
 
@@ -465,12 +464,12 @@ contains
          !--- Form partial horizontal derivaties of magnetic production and
          !    advection terms:
          if ( l_dtB ) then
-            call get_dH_dtBLM(nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,     &
-                 &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,        &
-                 &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,        &
-                 &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,        &
-                 &            this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,  &
-                 &            this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM)
+            call get_dH_dtBLM(nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM, &
+                 &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,    &
+                 &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,    &
+                 &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,    &
+                 &            this%dtB_arrays%BpVtBtVpCotLM,                    &
+                 &            this%dtB_arrays%BpVtBtVpSn2LM)
          end if
 
       end do
@@ -704,8 +703,8 @@ contains
                  &           this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,        &
                  &           this%nl_lm%VxBpLM, l_R(nR))
          else
-            call spat_to_sphertor(this%gsa%VxBt, this%gsa%VxBp, this%nl_lm%VxBtLM, &
-                 &                this%nl_lm%VxBpLM, l_R(nR))
+            call spat_to_sphertor(sht_lP_single, this%gsa%VxBt, this%gsa%VxBp, &
+                 &                this%nl_lm%VxBtLM, this%nl_lm%VxBpLM, l_R(nR))
          end if
       end if
 

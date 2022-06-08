@@ -6,13 +6,12 @@ module nonlinear_bcs
    use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0, orho1, or2
-   use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA
+   use blocking, only: lm2lmP
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
-   use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta_E2, &
-       &                      dLh, sn2, cosTheta
+   use horizontal_data, only: sn2, cosTheta
    use constants, only: two
    use useful, only: abortRun
-   use sht, only: scal_to_SH, sht_lP_single
+   use sht, only: spat_to_sphertor, sht_lP_single
 
    implicit none
 
@@ -54,26 +53,24 @@ contains
       complex(cp), intent(inout) :: br_vp_lm(lmP_max)
 
       !-- Local variables:
-      integer :: n_theta     ! number of theta position
-      integer :: n_phi       ! number of longitude
-      integer :: nelem
+      integer :: n_theta, nThetaNHS, n_phi, nelem
       real(cp) :: br_vt(nlat_padded,n_phi_max), br_vp(nlat_padded,n_phi_max)
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
 
+      fac=or2(nR)*orho1(nR)
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta,n_phi,fac,nelem)
+      !$omp& private(n_theta,n_phi,nThetaNHS,nelem)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max
+            nThetaNHS=(n_theta+1)/2
             nelem = radlatlon2spat(n_theta,n_phi,nR)
-            fac=O_sin_theta_E2(n_theta)*or2(nR)*orho1(nR)
             br_vt(n_theta,n_phi)= fac*br(nelem)*vt(nelem)
-            br_vp(n_theta,n_phi)= br(nelem)* ( fac*vp(nelem)-omega )
+            br_vp(n_theta,n_phi)= br(nelem)* ( fac*vp(nelem)-omega*sn2(nThetaNHS) )
          end do
       end do
       !$omp end parallel do
 
-      call scal_to_SH(sht_lP_single, br_vt, br_vt_lm, l_max)
-      call scal_to_SH(sht_lP_single, br_vp, br_vp_lm, l_max)
+      call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------
@@ -101,56 +98,30 @@ contains
       complex(cp), intent(out) :: aj_nl_bc(lm_min_b:lm_max_b) ! nonlinear bc for aj
 
       !-- Local variables:
-      integer :: l,m       ! degree and order
       integer :: lm        ! position of degree and order
       integer :: lmP       ! same as lm but for l running to l_max+1
-      integer :: lmPS,lmPA ! lmP for l-1 and l+1
       real(cp) :: fac
 
       if ( bc == 'CMB' ) then
 
          fac=conductance_ma*prmag
-
+         !$omp parallel do default(shared) private(lmP)
          do lm=lm_min_b,lm_max_b
-            l   =lm2l(lm)
-            m   =lm2m(lm)
             lmP =lm2lmP(lm)
-            lmPS=lmP2lmPS(lmP)
-            lmPA=lmP2lmPA(lmP)
-            if ( l > m ) then
-               b_nl_bc(lm)= fac/dLh(lm) * (  dTheta1S(lm)*br_vt_lm(lmPS)  &
-               &                           - dTheta1A(lm)*br_vt_lm(lmPA)  &
-               &                           +     dPhi(lm)*br_vp_lm(lmP)   )
-               aj_nl_bc(lm)=-fac/dLh(lm) * ( dTheta1S(lm)*br_vp_lm(lmPS)  &
-               &                           - dTheta1A(lm)*br_vp_lm(lmPA)  &
-               &                           -     dPhi(lm)*br_vt_lm(lmP)    )
-            else if ( l == m ) then
-               b_nl_bc(lm)= fac/dLh(lm) * ( - dTheta1A(lm)*br_vt_lm(lmPA)  &
-               &                                + dPhi(lm)*br_vp_lm(lmP)   )
-               aj_nl_bc(lm)=-fac/dLh(lm) * ( - dTheta1A(lm)*br_vp_lm(lmPA) &
-               &                                 - dPhi(lm)*br_vt_lm(lmP)   )
-            end if
+            b_nl_bc(lm) =-fac * br_vt_lm(lmP)
+            aj_nl_bc(lm)=-fac * br_vp_lm(lmP)
          end do
+         !$omp end parallel do
 
       else if ( bc == 'ICB' ) then
 
          fac=sigma_ratio*prmag
-
+         !$omp parallel do default(shared) private(lmP)
          do lm=lm_min_b,lm_max_b
-            l   =lm2l(lm)
-            m   =lm2m(lm)
             lmP =lm2lmP(lm)
-            lmPS=lmP2lmPS(lmP)
-            lmPA=lmP2lmPA(lmP)
-            if ( l > m ) then
-               aj_nl_bc(lm)=-fac/dLh(lm) * ( dTheta1S(lm)*br_vp_lm(lmPS)   &
-               &                           - dTheta1A(lm)*br_vp_lm(lmPA)   &
-               &                           -     dPhi(lm)*br_vt_lm(lmP)    )
-            else if ( l == m ) then
-               aj_nl_bc(lm)=-fac/dLh(lm) * (- dTheta1A(lm)*br_vp_lm(lmPA) &
-               &                                - dPhi(lm)*br_vt_lm(lmP)    )
-            end if
+            aj_nl_bc(lm)=-fac * br_vp_lm(lmP)
          end do
+         !$omp end parallel do
 
       else
          call abortRun('Wrong input of bc into get_b_nl_bcs')

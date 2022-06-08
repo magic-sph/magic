@@ -359,10 +359,10 @@ contains
 !------------------------------------------------------------------------------
    subroutine scal_to_SH(sh, f, fLM, lcut)
 
-      type(c_ptr),  intent(in) :: sh ! Dummy, only here for API compatibility
-      real(cp),     intent(inout) :: f(*)
-      integer,      intent(in) :: lcut
-      complex(cp),  intent(out) :: fLM(*)
+      type(c_ptr), intent(in) :: sh ! Dummy, only here for API compatibility
+      real(cp),    intent(inout) :: f(*)
+      integer,     intent(in) :: lcut
+      complex(cp), intent(out) :: fLM(*)
 
       call native_spat_to_sph(f, fLM, lcut+1)
 
@@ -386,12 +386,13 @@ contains
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
-   subroutine spat_to_sphertor(f, g, fLM, gLM, lcut)
+   subroutine spat_to_sphertor(sh, f, g, fLM, gLM, lcut)
 
       !-- Input variables
-      real(cp), intent(inout) :: f(*)
-      real(cp), intent(inout) :: g(*)
-      integer,  intent(in) :: lcut
+      type(c_ptr), intent(in) :: sh ! Dummy, only here for API compatibility
+      real(cp),    intent(inout) :: f(*)
+      real(cp),    intent(inout) :: g(*)
+      integer,     intent(in) :: lcut
 
       !-- Output variables
       complex(cp), intent(out) :: fLM(*)
