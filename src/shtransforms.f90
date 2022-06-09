@@ -653,7 +653,7 @@ contains
       integer,  intent(in) :: lcut
 
       !-- Output variable:
-      complex(cp), intent(out) :: f1LM(*)
+      complex(cp), intent(out) :: f1LM(lmP_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -738,7 +738,7 @@ contains
       integer,  intent(in) :: lcut
 
       !-- Output variables:
-      complex(cp), intent(out) :: f1LM(*),f2LM(*)
+      complex(cp), intent(out) :: f1LM(lmP_max),f2LM(lmP_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
