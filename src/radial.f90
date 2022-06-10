@@ -13,7 +13,8 @@ module radial_functions
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia, l_centrifuge,&
        &            l_temperature_diff, l_single_matrix, l_var_l,  &
-       &            l_finite_diff, l_newmap, l_full_sphere
+       &            l_finite_diff, l_newmap, l_full_sphere,        &
+       &            l_chemical_conv
    use radial_data, only: nRstart, nRstop
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
@@ -48,6 +49,7 @@ module radial_functions
    real(cp), public, allocatable :: ddLtemp0(:)  ! :math:`d/dr(1/T dT/dr)`
    real(cp), private, allocatable :: d2temp0(:)  ! Second rad. derivative of background temperature
    real(cp), public, allocatable :: dentropy0(:) ! Radial gradient of background entropy
+   real(cp), public, allocatable :: dxicond(:)   ! Radial gradient of chemical composition
    real(cp), public, allocatable :: orho1(:)     ! :math:`1/\tilde{\rho}`
    real(cp), public, allocatable :: orho2(:)     ! :math:`1/\tilde{\rho}^2`
    real(cp), public, allocatable :: beta(:)      ! Inverse of density scale height drho0/rho0
@@ -131,6 +133,12 @@ contains
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
       bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
+      if ( l_chemical_conv ) then
+         allocate( dxicond(n_r_max) )
+         dxicond(:)=0.0_cp
+         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+      end if
+
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
       allocate( sigma(n_r_max),kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
@@ -199,6 +207,8 @@ contains
       deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
+
+      if ( l_chemical_conv ) deallocate(dxicond)
 
       if ( .not. l_full_sphere ) then
          deallocate( dr_top_ic )
