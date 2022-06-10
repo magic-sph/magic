@@ -105,7 +105,7 @@ contains
             do nTheta=1,n_theta_max_comp
                theta = pi*(nTheta-half)/real(n_theta_max_comp,cp)
                !-- Schmidt normalisation --!
-               call plm_theta(theta, l_max_comp, l_max_comp, minc, &
+               call plm_theta(theta, l_max_comp, 0, l_max_comp, minc, &
                     &         plma, dtheta_plma, lm_max_comp, 1)
                lm = 1
                do m=0,l_max_comp,minc

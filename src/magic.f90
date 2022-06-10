@@ -308,7 +308,7 @@ program magic
 
    !-- Blocking/radial/horizontal
    call initialize_blocking()
-   call initialize_sht()
+   if (.not. l_onset ) call initialize_sht()
    local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
    call initialize_radial_functions()
@@ -503,7 +503,7 @@ program magic
    call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
-   call finalize_sht()
+   if (.not. l_onset ) call finalize_sht()
    call finalize_der_arrays()
 
    call finalize_horizontal_data()

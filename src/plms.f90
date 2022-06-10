@@ -12,7 +12,7 @@ module plms_theta
 
 contains
 
-   subroutine plm_theta(theta,max_degree,max_order,m0, &
+   subroutine plm_theta(theta,max_degree,min_order,max_order,m0, &
               &          plma,dtheta_plma,ndim_plma,norm)
       !
       !  This produces the :math:`P_{\ell}^m` for all degrees :math:`\ell` and
@@ -30,6 +30,7 @@ contains
       !-- Input variables:
       real(cp), intent(in) :: theta      ! angle in radians
       integer,  intent(in) :: max_degree ! required max degree of plm
+      integer,  intent(in) :: min_order  ! required min order of plm
       integer,  intent(in) :: max_order  ! required max order of plm
       integer,  intent(in) :: m0         ! basic wave number
       integer,  intent(in) :: ndim_plma  ! dimension of plma and dtheta_plma
@@ -51,7 +52,7 @@ contains
       !-- calculate plms with recurrence relation, starting with
       !   the known plm(l=m):
       pos=0
-      do m=0,max_order,m0
+      do m=min_order,max_order,m0
 
          fac=one
          do j=3,2*m+1,2
@@ -123,7 +124,7 @@ contains
 
       pos=0
 
-      do m=0,max_order,m0
+      do m=min_order,max_order,m0
 
          !-------- l=m contribution:
          l=m

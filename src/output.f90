@@ -23,7 +23,7 @@ module output_mod
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
-       &            l_phase_field, l_hemi
+       &            l_phase_field, l_hemi, l_onset
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -43,7 +43,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
-   use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase
+   use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset
    use geos, only: outGeos, outOmega
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -511,6 +511,8 @@ contains
               &               db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,        &
               &               dj_ic_LMloc,ddj_ic_LMloc,l_frame)
       end if
+
+      if ( l_onset ) call get_onset(time, w_Rloc, tscheme%dt(1), l_log)
 
       if ( l_RMS ) then
          if ( n_time_step == 1 ) then

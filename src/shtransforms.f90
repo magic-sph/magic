@@ -3,7 +3,7 @@ module shtransforms
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_m_max, l_max, l_axi, n_theta_max, minc, &
-       &                 n_phi_max, lmP_max, m_max
+       &                 n_phi_max, lmP_max, m_max, m_min
    use blocking, only: lmP2l, lmP2lm
    use horizontal_data, only: gauleg, O_sin_theta_E2
    use plms_theta, only: plm_theta
@@ -65,7 +65,7 @@ contains
          !----- plmtheta calculates plms and their derivatives
          !      up to degree and order l_max+1 and m_max at
          !      the points cos(theta_ord(n_theta)):
-         call plm_theta(colat,l_max+1,m_max,minc,plma,dtheta_plma,lmP_max,norm)
+         call plm_theta(colat,l_max+1,m_min,m_max,minc,plma,dtheta_plma,lmP_max,norm)
          do lmP=1,lmP_max
             l=lmP2l(lmP)
             if ( l <= l_max ) then
