@@ -418,6 +418,10 @@ contains
          l_SRMA  =.true.
       end if
 
+      if ( m_min > 0 .and. (l_rot_ma .or. l_rot_ic .or. l_SRIC .or. l_SRMA) ) then
+         call abortRun('! Rotating mantle or inner core incompatible with m_min > 0')
+      end if
+
       if ( raxi > 0.0_cp .or. raxi < 0.0_cp ) then
          l_chemical_conv = .true.
       else
