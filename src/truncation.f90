@@ -120,28 +120,13 @@ contains
       end if
 
       ! number of l/m combinations
-      lm_max=(m_max-m_min)*(l_max+1)/minc - &
-      &      m_max*(m_max-minc)/(2*minc) +  &
-      &      m_min*(m_min-minc)/(2*minc) +  &
-      &      (l_max+1-m_min-m_max+m_min)
-      print*, 'lm_max MagIC', lm_max
-      lm_max=(m_max-m_min)*(l_max+1)/minc                              &
-             -(((m_max*(m_max-minc))        &
-               -(m_min*(m_min-minc)))/(2*minc)) &
-                              + l_max - delta                      &
-                              - (m_max-m_min) + 1
-      print*, 'lm_max Parody', lm_max
-
       lm_max=0
       do m=m_min,m_max,minc
          do l=m,l_max
             lm_max = lm_max+1
          end do
       end do
-      print*, 'lm_max Loop', lm_max
 
-
-      !&      l_max+2-delta-m_max+m_min
       ! number of l/m combination if l runs to l_max+1
       lmP_max=lm_max+(m_max/minc-m_min/minc+1)
 
