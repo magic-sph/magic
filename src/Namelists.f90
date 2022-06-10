@@ -61,7 +61,7 @@ contains
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
-      &     l_var_l
+      &     l_var_l,m_min,m_max,l_max
 
       namelist/control/                                     &
       &    mode,tag,n_time_steps,n_cour_step,               &
@@ -327,6 +327,7 @@ contains
       l_SRMA   =.false.
       l_AB1    =.false.
       l_bridge_step=.true.
+      l_onset  =.false.
 
       if ( mode == 1 ) then
          !-- Only convection:
@@ -365,6 +366,7 @@ contains
          l_mag_LF =.false.
          l_rot_ic =.false.
          l_rot_ma =.false.
+         l_onset  =.true.
       else if ( mode == 6 ) then
          !-- Self-consistent dynamo, but no Lorentz Force
          l_mag_LF=.false.
@@ -847,11 +849,18 @@ contains
       write(n_out,*) "&grid"
       write(n_out,'(''  n_r_max         ='',i5,'','')') n_r_max
       write(n_out,'(''  n_cheb_max      ='',i5,'','')') n_cheb_max
-      write(n_out,'(''  n_phi_tot       ='',i5,'','')') n_phi_tot
-      write(n_out,'(''  n_theta_axi     ='',i5,'','')') n_theta_axi
+      if ( l_max == 0 ) then
+         write(n_out,'(''  n_phi_tot       ='',i5,'','')') n_phi_tot
+         write(n_out,'(''  n_theta_axi     ='',i5,'','')') n_theta_axi
+      end if
       write(n_out,'(''  n_r_ic_max      ='',i5,'','')') n_r_ic_max
       write(n_out,'(''  n_cheb_ic_max   ='',i5,'','')') n_cheb_ic_max
       write(n_out,'(''  minc            ='',i5,'','')') minc
+      if ( l_onset .or. (l_max > 0 ) ) then
+         write(n_out,'(''  m_min           ='',i5,'','')') m_min
+         write(n_out,'(''  m_max           ='',i5,'','')') m_max
+         write(n_out,'(''  l_max           ='',i5,'','')') l_max
+      end if
       write(n_out,'(''  nalias          ='',i5,'','')') nalias
       write(n_out,'(''  l_axi           ='',l3,'','')') l_axi
       write(n_out,'(''  fd_stretch      ='',ES14.6,'','')') fd_stretch
@@ -959,14 +968,14 @@ contains
       write(n_out,'(''  ktops           ='',i3,'','')') ktops
       write(n_out,'(''  kbots           ='',i3,'','')') kbots
       write(n_out,'("  Bottom boundary l,m,S:")')
-      do m=0,m_max,minc
+      do m=m_min,m_max,minc
           do l=m,l_max
               if ( bots(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
               &    l,m,real(bots(l,m))/sq4pi,aimag(bots(l,m))/sq4pi
           end do
       end do
       write(n_out,'("  Top boundary l,m,S:")')
-      do m=0,m_max,minc
+      do m=m_min,m_max,minc
           do l=m,l_max
               if ( tops(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
               &    l,m,real(tops(l,m))/sq4pi,aimag(tops(l,m))/sq4pi
@@ -990,14 +999,14 @@ contains
          write(n_out,'(''  ktopxi          ='',i3,'','')') ktopxi
          write(n_out,'(''  kbotxi          ='',i3,'','')') kbotxi
          write(n_out,'("  Bottom boundary l,m,Xi:")')
-         do m=0,m_max,minc
+         do m=m_min,m_max,minc
              do l=m,l_max
                  if ( botxi(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
                  &    l,m,real(botxi(l,m))/sq4pi,aimag(botxi(l,m))/sq4pi
              end do
          end do
          write(n_out,'("  Top boundary l,m,Xi:")')
-         do m=0,m_max,minc
+         do m=m_min,m_max,minc
              do l=m,l_max
                  if ( topxi(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
                  &    l,m,real(topxi(l,m))/sq4pi,aimag(topxi(l,m))/sq4pi
@@ -1267,6 +1276,8 @@ contains
       n_cheb_ic_max =15
       ! basic wavenumber, longitude symmetry
       minc          =1
+      m_min         =0
+      m_max         =0
       ! controls dealiasing in latitude and
       ! longitude direction, no aliasing for nalias=20
       !   20 <= nalias <= 30
