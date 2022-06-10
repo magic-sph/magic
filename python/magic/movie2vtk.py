@@ -171,7 +171,7 @@ class Movie2Vtk:
         if nlines == 0:
             nlines = getNlines(filename, endian='B', precision=precision)
             nlines -= 8  # Remove 8 lines of header
-            nlines /= (self.n_fields+1)
+            nlines = nlines // (self.n_fields+1)
 
         if lastvar is None:
             self.var2 = nlines
