@@ -105,6 +105,7 @@ contains
 #endif
 
       n_points=nStop-nStart+1
+      if ( n_points == 1) return ! No need to split one point among threads
       n_glob_start=nStart
 
 #ifdef WITHOMP
