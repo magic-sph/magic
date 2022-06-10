@@ -12,11 +12,11 @@ module nonlinear_lm_mod
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
-       &             l_adv_curl, l_phase_field
-   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
+       &             l_adv_curl, l_phase_field, l_onset
+   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, &
+       &                       dentropy0, dxicond
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, &
-       &               lm2lmS
+   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -378,35 +378,53 @@ contains
             end if
             dsdt(1)=dsdt_loc
 
-            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
-            do lm=2,lm_max
-               l   =lm2l(lm)
-               lmP =lm2lmP(lm)
-               dVSrLM(lm)=this%VSrLM(lmP)
-               dsdt_loc  =dLh(lm)*this%VStLM(lmP)
-               if ( l_anel ) then
-                  if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
-                  else
-                     dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
+            if ( .not. l_onset ) then
+               !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
+               do lm=2,lm_max
+                  l   =lm2l(lm)
+                  lmP =lm2lmP(lm)
+                  dVSrLM(lm)=this%VSrLM(lmP)
+                  dsdt_loc  =dLh(lm)*this%VStLM(lmP)
+                  if ( l_anel ) then
+                     if ( l_anelastic_liquid ) then
+                        dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
+                     else
+                        dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
+                     end if
                   end if
+                  dsdt(lm) = dsdt_loc
+               end do
+               !$omp end parallel do
+            else ! This is used to compute the onset of convection !
+               if ( .not. l_single_matrix ) then
+                  !$omp parallel do default(shared) private(lm)
+                  do lm=2,lm_max
+                     dsdt(lm)=-dLh(lm)*or2(nR)*orho1(nR)*w_Rloc(lm,nR)*dentropy0(nR)
+                  end do
+                  !$omp end parallel do
                end if
-               dsdt(lm) = dsdt_loc
-            end do
-            !$omp end parallel do
+            end if
          end if
 
          if ( l_chemical_conv ) then
             dVXirLM(1)=this%VXirLM(1)
             dxidt(1)  =epscXi
 
-            !$omp parallel do default(shared) private(lm,lmP)
-            do lm=2,lm_max
-               lmP=lm2lmP(lm)
-               dVXirLM(lm)=this%VXirLM(lmP)
-               dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
-            end do
-            !$omp end parallel do
+            if ( .not. l_onset ) then
+               !$omp parallel do default(shared) private(lm,lmP)
+               do lm=2,lm_max
+                  lmP=lm2lmP(lm)
+                  dVXirLM(lm)=this%VXirLM(lmP)
+                  dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+               end do
+               !$omp end parallel do
+            else
+               !$omp parallel do default(shared) private(lm)
+               do lm=2,lm_max
+                  dxidt(lm)=-dLh(lm)*or2(nR)*orho1(nR)*w_Rloc(lm, nR)*dxicond(nR)
+               end do
+               !$omp end parallel do
+            end if
          end if
 
          if ( l_phase_field ) then

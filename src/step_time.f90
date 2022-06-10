@@ -31,7 +31,8 @@ module step_time_mod
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
-       &            l_parallel_solve, l_mag_par_solve, l_phase_field
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
+       &            l_onset
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -436,7 +437,7 @@ contains
          &          .and. l_logNext
          lP00Transp= (l_heat .or. l_chemical_conv) .and. l_log
 
-         if ( l_graph ) call open_graph_file(n_time_step, time, l_ave=.false.)
+         if ( l_graph .and. (.not. l_onset) ) call open_graph_file(n_time_step, time, l_ave=.false.)
 
          tscheme%istage = 1
 
@@ -453,22 +454,22 @@ contains
             !-- Storage or special calculatons computed in radial loop need to be
             !-- only done on the first sub-stage
             !------------------------
-            l_graph       = l_graph       .and. (tscheme%istage==1)
-            l_frame       = l_frame       .and. (tscheme%istage==1)
-            lTOCalc       = lTOCalc       .and. (tscheme%istage==1)
-            lTONext       = lTONext       .and. (tscheme%istage==1)
-            lTONext2      = lTONext2      .and. (tscheme%istage==1)
-            lHelCalc      = lHelCalc      .and. (tscheme%istage==1)
-            lHemiCalc     = lHemiCalc     .and. (tscheme%istage==1)
-            lPowerCalc    = lPowerCalc    .and. (tscheme%istage==1)
-            lRmsCalc      = lRmsCalc      .and. (tscheme%istage==1)
-            lPressCalc    = lPressCalc    .and. (tscheme%istage==1)
-            lP00Transp    = lP00Transp    .and. (tscheme%istage==1)
-            lViscBcCalc   = lViscBcCalc   .and. (tscheme%istage==1)
-            lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1)
-            lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1)
-            lGeosCalc     = lGeosCalc     .and. (tscheme%istage==1)
-            l_probe_out   = l_probe_out   .and. (tscheme%istage==1)
+            l_graph       = l_graph       .and. (tscheme%istage==1) .and. (.not. l_onset)
+            l_frame       = l_frame       .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lTOCalc       = lTOCalc       .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lTONext       = lTONext       .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lTONext2      = lTONext2      .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lHelCalc      = lHelCalc      .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lHemiCalc     = lHemiCalc     .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lPowerCalc    = lPowerCalc    .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lRmsCalc      = lRmsCalc      .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lPressCalc    = lPressCalc    .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lP00Transp    = lP00Transp    .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lViscBcCalc   = lViscBcCalc   .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lGeosCalc     = lGeosCalc     .and. (tscheme%istage==1) .and. (.not. l_onset)
+            l_probe_out   = l_probe_out   .and. (tscheme%istage==1) .and. (.not. l_onset)
 
             if ( tscheme%l_exp_calc(n_stage) ) then
 
@@ -551,7 +552,7 @@ contains
                !---------------
                ! Finish assembing the explicit terms
                !---------------
-               if ( l_finish_exp_early ) then
+               if ( l_finish_exp_early .and. (.not. l_onset) ) then
                   call f_exp_counter%start_count()
                   if ( l_parallel_solve ) then
                      if ( l_mag_par_solve ) then
@@ -635,7 +636,7 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
-               if ( .not. l_finish_exp_early ) then
+               if ( (.not. l_finish_exp_early) .and. (.not. l_onset) ) then
                   call f_exp_counter%start_count()
                   call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
                        &                        aj_ic_LMloc,                         &
@@ -687,8 +688,13 @@ contains
                !---------------------
                !-- Checking Courant criteria, l_new_dt and dt_new are output
                !---------------------
-               call dt_courant(l_new_dt,tscheme%dt(1),dt_new,dtMax,dtrkc_Rloc, &
-                    &          dthkc_Rloc,time)
+               if ( .not. l_onset ) then
+                  call dt_courant(l_new_dt,tscheme%dt(1),dt_new,dtMax,dtrkc_Rloc, &
+                       &          dthkc_Rloc,time)
+               else
+                  l_new_dt=.false.
+                  dt_new  =dtMax
+               end if
 
                !--------------------
                !-- Set weight arrays
