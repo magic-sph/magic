@@ -11,7 +11,7 @@ module storeCheckPoints
        &                     gather_all_from_lo_to_rank0, lo2r_one
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
        &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
-       &                 fd_stretch, fd_ratio
+       &                 fd_stretch, fd_ratio, m_min
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc, stef
@@ -102,12 +102,14 @@ contains
       end if
 
 #ifdef WITH_MPI
-      if ( l_parallel_solve ) then
-         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,n_procs-1,MPI_COMM_WORLD,ierr)
-      else
-         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+      if ( m_min == 0 ) then
+         if ( l_parallel_solve ) then
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,n_procs-1,MPI_COMM_WORLD,ierr)
+         else
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         end if
       end if
 #endif
 
@@ -396,12 +398,14 @@ contains
       end if
 
 #ifdef WITH_MPI
-      if ( l_parallel_solve ) then
-         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,n_procs-1,MPI_COMM_WORLD,ierr)
-      else
-         call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+      if ( m_min == 0 ) then
+         if ( l_parallel_solve ) then
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,n_procs-1,MPI_COMM_WORLD,ierr)
+         else
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         end if
       end if
 #endif
 
