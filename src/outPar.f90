@@ -533,6 +533,8 @@ contains
                &                       or2(nR)*dvrdp(nelem)           &
                &                              +dvpdr(nelem)           &
                &       -(two*or1(nR)+beta(nR))*vp(nelem) )
+            else
+               fvisc=0.0_cp
             end if
 
             fkinAS = fkinAS+phiNorm*gauss(nThetaNHS)*fkin
