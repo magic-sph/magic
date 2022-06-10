@@ -32,7 +32,7 @@
  l_start_file=.false.,
  start_file  ="None",
  init_s1     =0404,
- amp_s1      =0.1,
+ amp_s1      =1.0d-3,
 /
 &output_control
  n_log_step  =100,
