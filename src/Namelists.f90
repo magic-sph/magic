@@ -853,18 +853,11 @@ contains
       write(n_out,*) "&grid"
       write(n_out,'(''  n_r_max         ='',i5,'','')') n_r_max
       write(n_out,'(''  n_cheb_max      ='',i5,'','')') n_cheb_max
-      if ( l_max == 0 ) then
-         write(n_out,'(''  n_phi_tot       ='',i5,'','')') n_phi_tot
-         write(n_out,'(''  n_theta_axi     ='',i5,'','')') n_theta_axi
-      end if
+      write(n_out,'(''  n_phi_tot       ='',i5,'','')') n_phi_tot
+      write(n_out,'(''  n_theta_axi     ='',i5,'','')') n_theta_axi
       write(n_out,'(''  n_r_ic_max      ='',i5,'','')') n_r_ic_max
       write(n_out,'(''  n_cheb_ic_max   ='',i5,'','')') n_cheb_ic_max
       write(n_out,'(''  minc            ='',i5,'','')') minc
-      if ( l_onset .or. (l_max > 0 ) ) then
-         write(n_out,'(''  m_min           ='',i5,'','')') m_min
-         write(n_out,'(''  m_max           ='',i5,'','')') m_max
-         write(n_out,'(''  l_max           ='',i5,'','')') l_max
-      end if
       write(n_out,'(''  nalias          ='',i5,'','')') nalias
       write(n_out,'(''  l_axi           ='',l3,'','')') l_axi
       write(n_out,'(''  fd_stretch      ='',ES14.6,'','')') fd_stretch
