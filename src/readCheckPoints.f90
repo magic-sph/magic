@@ -11,9 +11,9 @@ module readCheckPoints
    use fields, only: dw_LMloc, ddw_LMloc, ds_LMloc, dp_LMloc, dz_LMloc,   &
        &             dxi_LMloc, db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc, &
        &             db_ic_LMloc, ddb_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc
-   use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
-       &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
-       &                 minc,lMagMem,fd_stretch,fd_ratio
+   use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, n_r_ic_max, &
+       &                 n_r_ic_maxMag, nalias, n_phi_tot, l_max, m_max,     &
+       &                 minc, lMagMem, fd_stretch, fd_ratio, m_min
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag,    &
        &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,           &
        &            l_double_curl, l_z10Mat, l_single_matrix, l_parallel_solve,&
@@ -110,7 +110,7 @@ contains
 
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old, dom_ic, dom_ma, coex
-      integer :: n_in, n_in_2, l1m0
+      integer :: n_in, n_in_2, l1m0, m_max_old, m_min_old
 
       complex(cp), allocatable :: wo(:,:),zo(:,:),po(:,:),so(:,:),xio(:,:)
       complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
@@ -196,6 +196,8 @@ contains
             l_max_old=nalias_old*n_phi_tot_old/60
             l_axi_old=.false.
          end if
+         m_max_old = 0
+         m_min_old = 0
          l_mag_old=.false.
          if ( pm_old /= 0.0_cp ) l_mag_old= .true.
 
@@ -261,8 +263,8 @@ contains
 
          allocate( lm2lmo(lm_max) )
 
-         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max, &
-              &         minc,minc_old,lm_max,lm_max_old,lm2lmo)
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old, &
+              &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
 
          ! allocation of local arrays.
          ! if this becomes a performance bottleneck, one can make a module
@@ -811,7 +813,7 @@ contains
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
       logical :: l_phase_field_old
       logical :: startfile_does_exist
-      integer :: nimp_old, nexp_old, nold_old
+      integer :: nimp_old, nexp_old, nold_old, m_max_old, m_min_old
       logical :: l_press_store_old, l_transp
       integer :: n_r_maxL,n_r_ic_maxL,lm_max_old, n_o
       integer, allocatable :: lm2lmo(:)
@@ -927,12 +929,19 @@ contains
          read(n_start_file) n_r_max_old,n_theta_max_old,n_phi_tot_old,&
          &                  minc_old,nalias_old,n_r_ic_max_old
 
-         if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
-            l_max_old=nalias_old*n_theta_max_old/30
-            l_axi_old=.true.
+         if ( version > 3 ) then
+            read(n_start_file) l_max_old, m_min_old, m_max_old
+            if ( n_phi_tot_old == 1 ) l_axi_old=.true.
          else
-            l_max_old=nalias_old*n_phi_tot_old/60
-            l_axi_old=.false.
+            m_max_old = 0 ! To be defined later
+            m_min_old = 0
+            if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+               l_max_old=nalias_old*n_theta_max_old/30
+               l_axi_old=.true.
+            else
+               l_max_old=nalias_old*n_phi_tot_old/60
+               l_axi_old=.false.
+            end if
          end if
 
          !---- Compare parameters:
@@ -968,8 +977,8 @@ contains
 
          !-- Determine the old mapping
          allocate( lm2lmo(lm_max) )
-         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
-              &         minc_old,lm_max,lm_max_old,lm2lmo)
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old, &
+              &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
          n_r_maxL = max(n_r_max,n_r_max_old)
 
          !-- Read Lorentz torques and rotation rates:
@@ -1629,6 +1638,7 @@ contains
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,lm,nR,n_r_ic_max_old
+      integer :: m_max_old, m_min_old
       real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,coex
       real(cp) :: ek_old,radratio_old,sigma_ratio_old, stef_old
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
@@ -1745,13 +1755,21 @@ contains
       call MPI_File_Read(fh, minc_old, 1, MPI_INTEGER, istat, ierr)
       call MPI_File_Read(fh, nalias_old, 1, MPI_INTEGER, istat, ierr)
       call MPI_File_Read(fh, n_r_ic_max_old, 1, MPI_INTEGER, istat, ierr)
-
-      if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
-         l_max_old=nalias_old*n_theta_max_old/30
-         l_axi_old=.true.
+      if ( version > 3 ) then
+         call MPI_File_Read(fh, l_max_old, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Read(fh, m_min_old, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Read(fh, m_max_old, 1, MPI_INTEGER, istat, ierr)
+         if ( n_phi_tot_old == 1 ) l_axi_old=.true.
       else
-         l_max_old=nalias_old*n_phi_tot_old/60
-         l_axi_old=.false.
+         m_max_old = 0 ! Those will be defined later
+         m_min_old = 0
+         if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+            l_max_old=nalias_old*n_theta_max_old/30
+            l_axi_old=.true.
+         else
+            l_max_old=nalias_old*n_phi_tot_old/60
+            l_axi_old=.false.
+         end if
       end if
 
       !---- Compare parameters:
@@ -1794,8 +1812,8 @@ contains
 
       !-- Determine the old mapping
       allocate( lm2lmo(lm_max) )
-      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
-           &         minc_old,lm_max,lm_max_old,lm2lmo)
+      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old,&
+           &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
       n_r_maxL = max(n_r_max,n_r_max_old)
 
       !-- Read Lorentz-torques and rotation rates:
@@ -2452,29 +2470,32 @@ contains
    end subroutine read_map_one_field_mpi
 #endif
 !------------------------------------------------------------------------------
-   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
-              &         minc_old,lm_max,lm_max_old,lm2lmo)
+   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old, &
+              &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
 
       !--- Input variables
-      integer, intent(in) :: n_r_max,l_max,m_max,minc
-      integer, intent(in) :: n_r_max_old,l_max_old,minc_old
+      integer, intent(in) :: n_r_max,l_max,m_max,minc,m_min
+      integer, intent(in) :: n_r_max_old,l_max_old,minc_old,m_min_old
       integer, intent(in) :: lm_max
+      integer, intent(inout) :: m_max_old
 
       !--- Output variables
-      integer,intent(out) :: lm2lmo(lm_max)
-      integer,intent(out) :: lm_max_old
+      integer, intent(out) :: lm2lmo(lm_max)
+      integer, intent(out) :: lm_max_old
 
       !--- Local variables
-      integer :: m_max_old,l,m,lm,lmo,lo,mo
+      integer :: l,m,lm,lmo,lo,mo
 
-      if ( .not. l_axi_old ) then
-         m_max_old=(l_max_old/minc_old)*minc_old
-      else
-         m_max_old=0
+      if ( m_max_old == 0 ) then
+         if ( .not. l_axi_old ) then
+            m_max_old=(l_max_old/minc_old)*minc_old
+         else
+            m_max_old=0
+         end if
       end if
 
       if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old &
-      &    .and. m_max==m_max_old ) then
+      &    .and. m_max==m_max_old .and. m_min==m_min_old ) then
 
          !----- Direct reading of fields, grid not changed:
          if (rank == 0 ) write(output_unit,'(/,'' ! Reading fields directly.'')')
@@ -2488,9 +2509,12 @@ contains
          if ( mod(minc_old,minc) /= 0 .and. rank == 0)                &
          &     write(output_unit,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
-         lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
-         &          m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
-         &          l_max_old-m_max_old+1
+         lm_max_old=0
+         do m=m_min_old,m_max_old,minc_old
+            do l=m,l_max_old
+               lm_max_old=lm_max_old+1
+            end do
+         end do
 
          !-- Write info to STdoUT:
          if ( rank == 0 ) then
@@ -2510,7 +2534,7 @@ contains
             m=lm2m(lm)
             lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
             lmo=0
-            do mo=0,l_max_old,minc_old
+            do mo=m_min_old,m_max_old,minc_old
                do lo=mo,l_max_old
                   lmo=lmo+1
                   if ( lo==l .and. mo==m ) then
