@@ -564,7 +564,7 @@ contains
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
-      !!$omp barrier
+      !$omp barrier
 
       !-- Array copy from s_ghost to s
       !!$omp parallel do simd collapse(2) schedule(simd:static)

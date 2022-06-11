@@ -700,8 +700,6 @@ contains
       dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then ! Rank with n_r_mcb
          do lm=lm_start,lm_stop
-            l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
             if ( ktopv == 1 ) then  ! Stress-free
                wg(lm,nRstart-1)=-(one-half*(two*or1(1)+beta(1))*dr)/ &
                &                 (one+half*(two*or1(1)+beta(1))*dr) * wg(lm,nRstart+1)
@@ -716,8 +714,6 @@ contains
       dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
-            l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
             if ( l_full_sphere ) then
                if ( l == 1 ) then
                   wg(lm,nRstop+1)=wg(lm,nRstop-1) ! dw=0
