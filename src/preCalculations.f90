@@ -1027,8 +1027,8 @@ contains
             write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
          end if
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
-         write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
          write(n_out,'(''  m_min        ='',i6, '' = min oder of Plm'')') m_min
+         write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
          if ( lm_max < 1000000 ) then
             write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max
          else
