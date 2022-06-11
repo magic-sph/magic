@@ -9,9 +9,9 @@ module storeCheckPoints
    use parallel_mod
    use communications, only: gt_OC, gt_IC, gather_from_lo_to_rank0, &
        &                     gather_all_from_lo_to_rank0, lo2r_one
-   use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
-       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
-       &                 fd_stretch, fd_ratio, m_min
+   use truncation, only: n_r_max, n_r_ic_max, minc, nalias, n_theta_max,  &
+       &                 n_phi_tot, lm_max, lm_maxMag, n_r_maxMag, m_max, &
+       &                 n_r_ic_maxMag, l_max, fd_stretch, fd_ratio, m_min
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc, stef
@@ -87,7 +87,7 @@ contains
       integer :: n_rst_file, version, n_o
       character(len=72) :: string,rst_file
 
-      version = 3
+      version = 4
       l_press_store = ( .not. l_double_curl ) 
 
       if ( l_ave_file ) then
@@ -126,6 +126,7 @@ contains
          write(n_rst_file) ra,pr,raxi,sc,prmag,ek,stef,radratio,sigma_ratio
          write(n_rst_file) n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
          &                 n_r_ic_max
+         write(n_rst_file) l_max, m_min, m_max
 
          !-- Store radius and scheme version (FD or CHEB)
          if ( rscheme_oc%version == 'cheb' ) then
@@ -381,7 +382,7 @@ contains
       integer :: arr_size(2), arr_loc_size(2), arr_start(2), n_o
       integer(lip) :: disp, offset, size_tmp
 
-      version = 3
+      version = 4
       l_press_store = (.not. l_double_curl)
 
       allocate( work(lm_max,nRstart:nRstop) )
@@ -449,6 +450,9 @@ contains
          call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, nalias, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, n_r_ic_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
 
          !-- Store radius and scheme version (FD or CHEB)
          call MPI_File_Write(fh, rscheme_oc%version, len(rscheme_oc%version), &
