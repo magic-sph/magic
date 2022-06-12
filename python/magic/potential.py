@@ -190,17 +190,18 @@ class MagicPotential(MagicSetup):
         self.m   = self.sh.m
 
         if self.m_min > 0:
+            mask = self.m >= self.m_min
+
             pol = np.zeros([int(self.lm_max),int(self.n_r_max)],
                             dtype=np.dtype(self.pol[0,0]))
-            tor = np.zeros([int(self.lm_max),int(self.n_r_max)],
-                            dtype=np.dtype(self.pol[0,0]))
-
-            mask = self.m >= self.m_min
             pol[mask,:] = self.pol
-            tor[mask,:] = self.tor
-
             self.pol = pol
-            self.tor = tor
+
+            if (field != 'T' and field != 'Xi'):
+                tor = np.zeros([int(self.lm_max),int(self.n_r_max)],
+                                dtype=np.dtype(self.pol[0,0]))
+                tor[mask,:] = self.tor
+                self.tor = tor
 
             if ic: # Repeat for ic
                 pol_ic = np.zeros([int(self.lm_max),int(self.n_r_ic_max)],
