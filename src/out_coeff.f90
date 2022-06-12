@@ -15,7 +15,8 @@ module out_coeff
        &                          raxi, sc
    use num_param, only: tScale
    use blocking, only: lm2, llm, ulm
-   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
+   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc,&
+       &                 m_min, m_max
    use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
        &                     gt_IC, gt_OC
    use output_data, only: tag, n_coeff_r, n_r_array, n_r_step, l_max_r, n_coeff_r_max
@@ -550,6 +551,7 @@ contains
 
       version = 1 ! file version
 
+      if ( m_min > 0 .or. ( m_max > 0 .and. m_max < l_max)  ) version = 2 ! To store m_min and m_max in the header
 
       allocate( tmp(lm_max,nRstart:nRstop) )
 
@@ -597,6 +599,11 @@ contains
          call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, lm_max, 1, MPI_INTEGER, istat, ierr)
+
+         if ( version == 2 ) then
+            call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
+            call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
+         end if
 
          call MPI_File_Write(fh, real(omega_ic,outp), 1, MPI_OUT_REAL, &
               &              istat, ierr)
@@ -726,6 +733,8 @@ contains
 
       version = 1
 
+      if ( m_min > 0 .or. ( m_max > 0 .and. m_max < l_max)  ) version = 2 ! To store m_min and m_max in the header
+
       head = trim(adjustl(root))
       lVB=.false.
       if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
@@ -766,6 +775,8 @@ contains
          &                 real(sigma_ratio,kind=outp)
 
          write(fileHandle) n_r_max,n_r_ic_max,l_max,minc,lm_max
+
+         if ( version == 2 ) write(fileHandle) m_min, m_max
 
          write(fileHandle) real(omega_ic,kind=outp), real(omega_ma,kind=outp)
 
