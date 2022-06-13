@@ -549,9 +549,7 @@ contains
       character(80) :: fileName
       logical :: lVB
 
-      version = 1 ! file version
-
-      if ( m_min > 0 .or. ( m_max > 0 .and. m_max < l_max)  ) version = 2 ! To store m_min and m_max in the header
+      version = 2 ! file version
 
       allocate( tmp(lm_max,nRstart:nRstop) )
 
@@ -599,12 +597,8 @@ contains
          call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, lm_max, 1, MPI_INTEGER, istat, ierr)
-
-         if ( version == 2 ) then
-            call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
-            call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
-         end if
-
+         call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, real(omega_ic,outp), 1, MPI_OUT_REAL, &
               &              istat, ierr)
          call MPI_File_Write(fh, real(omega_ma,outp), 1, MPI_OUT_REAL, &
@@ -731,9 +725,7 @@ contains
       character(80) :: fileName
       logical :: lVB
 
-      version = 1
-
-      if ( m_min > 0 .or. ( m_max > 0 .and. m_max < l_max)  ) version = 2 ! To store m_min and m_max in the header
+      version = 2 ! file version 2 stores m_min and m_max in the header
 
       head = trim(adjustl(root))
       lVB=.false.
@@ -776,7 +768,7 @@ contains
 
          write(fileHandle) n_r_max,n_r_ic_max,l_max,minc,lm_max
 
-         if ( version == 2 ) write(fileHandle) m_min, m_max
+         write(fileHandle) m_min, m_max
 
          write(fileHandle) real(omega_ic,kind=outp), real(omega_ma,kind=outp)
 
