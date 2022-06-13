@@ -189,7 +189,7 @@ class MagicPotential(MagicSetup):
         self.ell = self.sh.ell
         self.m   = self.sh.m
 
-        if self.m_min > 0:
+        if self.version == 2 and self.m_min > 0:
             mask = self.m >= self.m_min
 
             pol = np.zeros([int(self.lm_max),int(self.n_r_max)],
