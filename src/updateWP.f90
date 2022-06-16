@@ -700,8 +700,6 @@ contains
       dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then ! Rank with n_r_mcb
          do lm=lm_start,lm_stop
-            l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
             if ( ktopv == 1 ) then  ! Stress-free
                wg(lm,nRstart-1)=-(one-half*(two*or1(1)+beta(1))*dr)/ &
                &                 (one+half*(two*or1(1)+beta(1))*dr) * wg(lm,nRstart+1)
@@ -716,8 +714,6 @@ contains
       dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
-            l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
             if ( l_full_sphere ) then
                if ( l == 1 ) then
                   wg(lm,nRstop+1)=wg(lm,nRstop-1) ! dw=0
@@ -1462,9 +1458,10 @@ contains
          call tscheme%assemble_imex(ddw, dpdt) ! Use ddw as a work array
       end if
 
-      !$omp parallel default(shared)  private(start_lm, stop_lm)
-      start_lm=llm; stop_lm=ulm
+      !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l1, dL, m1)
+      start_lm=lmStart_00; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
 
       if ( l_double_curl) then
 
@@ -1482,9 +1479,8 @@ contains
          call dct_counter%stop_count()
          !$omp end single
 
-         !$omp do private(n_r,lm,l1,dL)
          do n_r=2,n_r_max-1
-            do lm=lmStart_00,ulm
+            do lm=start_lm,stop_lm
                l1 = lm2l(lm)
                dL = real(l1*(l1+1),cp)
                dwdt%old(lm,n_r,1)=-dL*or2(n_r)*orho1(n_r)*(         &
@@ -1492,7 +1488,6 @@ contains
                &                         dL*or2(n_r)* w(lm,n_r) )
             end do
          end do
-         !$omp end do
 
          if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
             if ( lRmsNext ) then
@@ -1503,9 +1498,8 @@ contains
                n_r_bot=n_r_icb-1
             end if
 
-            !$omp do private(n_r,lm,l1,Dif,Buo,dL)
             do n_r=n_r_top,n_r_bot
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
@@ -1565,12 +1559,12 @@ contains
                   end if
                end do
                if ( lRmsNext ) then
+                  !$omp barrier
                   call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
                        &        DifPolLMr(llm:ulm,n_r),         &
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
-            !$omp end do
 
          end if
 
@@ -1585,9 +1579,8 @@ contains
       else
 
          !-- Now get the poloidal from the assembly
-         !$omp do private(n_r,lm,l1,dL,m1)
          do n_r=2,n_r_max-1
-            do lm=lmStart_00,ulm
+            do lm=start_lm,stop_lm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                dL = real(l1*(l1+1),cp)
@@ -1600,22 +1593,18 @@ contains
                end if
             end do
          end do
-         !$omp end do
 
          !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
-         !$omp do private(lm)
-         do lm=lmStart_00,ulm
+         do lm=start_lm,stop_lm
             w(lm,1)      =zero
             w(lm,n_r_max)=zero
          end do
-         !$omp end do
 
          !-- Other boundary condition: stress-free or rigid
          if ( l_full_sphere ) then
             if ( ktopv == 1 ) then ! Stress-free
                fac_top=-two*or1(1)-beta(1)
-               !$omp do private(lm,l1)
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   l1 = lm2l(lm)
                   if ( l1 == 1 ) then
                      call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
@@ -1623,10 +1612,8 @@ contains
                      call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
                   end if
                end do
-               !$omp end do
             else
-               !$omp do private(lm,l1)
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   l1 = lm2l(lm)
                   if ( l1 == 1 ) then
                      dw(lm,1)      =zero
@@ -1635,39 +1622,31 @@ contains
                      call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
                   end if
                end do
-               !$omp end do
             end if
          else ! Spherical shell
             if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
-               !$omp do private(lm)
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   dw(lm,1)      =zero
                   dw(lm,n_r_max)=zero
                end do
-               !$omp end do
             else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
                fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-               !$omp do private(lm)
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
                end do
-               !$omp end do
             else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
                fac_top=-two*or1(1)-beta(1)
-               !$omp do private(lm)
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
                end do
-               !$omp end do
             else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
                fac_bot=-two*or1(n_r_max)-beta(n_r_max)
                fac_top=-two*or1(1)-beta(1)
-               !$omp do private(lm)
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
                end do
-               !$omp end do
             end if
+
          end if
 
          !$omp single
@@ -1680,16 +1659,14 @@ contains
          call dct_counter%stop_count()
          !$omp end single
 
-         !$omp do private(n_r,lm,l1,dL)
          do n_r=2,n_r_max-1
-            do lm=lmStart_00,ulm
+            do lm=start_lm,stop_lm
                l1 = lm2l(lm)
                dL = real(l1*(l1+1),cp)
                dwdt%old(lm,n_r,1)= dL*or2(n_r)*w(lm,n_r)
                dpdt%old(lm,n_r,1)=-dL*or2(n_r)*dw(lm,n_r)
             end do
          end do
-         !$omp end do
 
          if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
             if ( lRmsNext ) then
@@ -1700,9 +1677,8 @@ contains
                n_r_bot=n_r_icb-1
             end if
 
-            !$omp do private(n_r,lm,l1,dL)
             do n_r=n_r_top,n_r_bot
-               do lm=lmStart_00,ulm
+               do lm=start_lm,stop_lm
                   l1=lm2l(lm)
                   dL=real(l1*(l1+1),cp)
 
@@ -1731,11 +1707,11 @@ contains
                end do
 
                if ( lRmsNext ) then
+                  !$omp barrier
                   call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm,DifPolLMr(llm:ulm,n_r), &
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
-            !$omp end do
          end if
 
       end if
@@ -1790,6 +1766,7 @@ contains
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, lm, n_r)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
 
       !-- Non-penetration boundary condition
       if ( nRstart==n_r_cmb ) then
@@ -1854,6 +1831,7 @@ contains
 
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
+      !$omp barrier
       do n_r=nRstart-1,nRstop+1
          do lm=start_lm,stop_lm
             w_ghost(lm,n_r)=work_ghost(lm,n_r)
