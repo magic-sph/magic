@@ -594,10 +594,9 @@ contains
       !-- Local variables
       real(cp) :: dL
       integer :: n_r, lm, start_lm, stop_lm, l1
-      integer, pointer :: lm2l(:),lm2m(:)
+      integer, pointer :: lm2l(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
-      lm2m(1:lm_max) => lo_map%lm2m
 
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
