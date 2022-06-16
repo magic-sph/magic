@@ -400,6 +400,10 @@ contains
          l_heat       =.false.
       end if
 
+      if ( m_min > 0 .and. mode /= 5 ) then
+         call abortRun('! m_min>0 is for now only compatible with onset mode=5')
+      end if
+
       if ( nRotIc > 0 ) then
          l_rot_ic=.true.
       else if ( nRotIc == 0 ) then
