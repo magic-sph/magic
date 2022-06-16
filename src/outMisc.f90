@@ -1054,7 +1054,7 @@ contains
             if ( l_save_out ) then
                open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
                &    position='append')
-               open(newunit=n_growth_asym_file, file=sym_file, status='unknown',   &
+               open(newunit=n_growth_asym_file, file=asym_file, status='unknown',   &
                &    position='append')
                open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
                &    position='append')
