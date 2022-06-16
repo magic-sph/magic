@@ -42,7 +42,7 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
     :type ell: numpy.ndarray
     :param scale_b: magnetic field unit (default is 1)
     :type scale_b: float
-    :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
+    :param ratio_cmb_surface: ratio of CMB to surface radius (default is 1)
     :type ratio_cmb_surface: float
     :param rcmb: radius of the outer boundary
     :type rcmb: float
@@ -97,7 +97,7 @@ class MagicCoeffCmb(MagicSetup):
 
         :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
-        :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
+        :param ratio_cmb_surface: ratio of CMB to surface radius (default is 1)
         :type ratio_cmb_surface: float
         :param scale_b: magnetic field unit (default is 1)
         :type scale_b: float
