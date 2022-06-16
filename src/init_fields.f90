@@ -489,7 +489,9 @@ contains
       if ( l_onset ) then
          !-- same amplitude on all modes
          do n_r=1,n_r_max
-            do lm=max(llm,2),ulm ! all modes except l=m=0 carry the same function
+            do lm=llm,ulm ! all modes except l=m=0 carry the same function
+               l = lo_map%lm2l(lm)
+               if ( l == 0 ) cycle
                s(lm,n_r)=amp_s1*s1(n_r)
             end do
          end do
@@ -498,8 +500,9 @@ contains
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
 
-         do lm=max(llm,2),ulm
+         do lm=llm,ulm
             l = lo_map%lm2l(lm)
+            if ( l == 0 ) cycle
             m = lo_map%lm2m(lm)
             call random_number(ra1)
             call random_number(ra2)
@@ -774,7 +777,9 @@ contains
       if ( l_onset ) then
          !-- same amplitude on all modes
          do n_r=1,n_r_max
-            do lm=max(llm,2),ulm ! all modes except l=m=0 carry the same function
+            do lm=llm,ulm ! all modes except l=m=0 carry the same function
+               l = lo_map%lm2l(lm)
+               if ( l == 0 ) cycle
                xi(lm,n_r)=amp_xi1*xi1(n_r)
             end do
          end do
@@ -783,8 +788,9 @@ contains
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
 
-         do lm=max(llm,2),ulm
+         do lm=llm,ulm
             l = lo_map%lm2l(lm)
+            if ( l == 0 ) cycle
             m = lo_map%lm2m(lm)
             call random_number(ra1)
             call random_number(ra2)
