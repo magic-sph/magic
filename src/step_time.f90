@@ -437,7 +437,8 @@ contains
          &          .and. l_logNext
          lP00Transp= (l_heat .or. l_chemical_conv) .and. l_log
 
-         if ( l_graph .and. (.not. l_onset) ) call open_graph_file(n_time_step, time, l_ave=.false.)
+         if ( l_graph .and. (.not. l_onset) ) &
+         &        call open_graph_file(n_time_step, time, l_ave=.false.)
 
          tscheme%istage = 1
 
@@ -552,7 +553,7 @@ contains
                !---------------
                ! Finish assembing the explicit terms
                !---------------
-               if ( l_finish_exp_early .and. (.not. l_onset) ) then
+               if ( l_finish_exp_early ) then
                   call f_exp_counter%start_count()
                   if ( l_parallel_solve ) then
                      if ( l_mag_par_solve ) then
@@ -636,7 +637,7 @@ contains
                ! Finish assembing the explicit terms
                !---------------
                call lmLoop_counter%start_count()
-               if ( (.not. l_finish_exp_early) .and. (.not. l_onset) ) then
+               if ( (.not. l_finish_exp_early) ) then
                   call f_exp_counter%start_count()
                   call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
                        &                        aj_ic_LMloc,                         &
