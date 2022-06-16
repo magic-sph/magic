@@ -7,7 +7,7 @@ module updateWP_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max
+   use truncation, only: lm_max, n_r_max, l_max, m_min
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun,      &
@@ -1071,7 +1071,11 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -1449,7 +1453,11 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
 
       call tscheme%assemble_imex(work_LMloc, dwdt)
       if ( l_double_curl) then

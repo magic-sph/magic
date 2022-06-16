@@ -10,7 +10,7 @@ module updateZ_mod
    use precision_mod
    use communications, only: allgather_from_Rloc
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, l_max
+   use truncation, only: n_r_max, lm_max, l_max, m_min
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
@@ -838,7 +838,11 @@ contains
       lm2(0:, 0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -1283,7 +1287,11 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
       lm2(0:,0:) => lo_map%lm2
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
       l1m0       =lm2(1,0)
 
       if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
@@ -1585,9 +1593,8 @@ contains
       !-- Local variables
       real(cp) :: z10(n_r_max)
       logical :: l_in_loc
-      integer :: l1m0, lmStart_00
+      integer :: l1m0
 
-      lmStart_00 =max(2,llm)
       l1m0=lo_map%lm2(1,0)
       if ( present(l_in_cheb_space) ) then
          l_in_loc=l_in_cheb_space
