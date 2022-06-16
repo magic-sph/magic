@@ -6,7 +6,7 @@ module preCalculations
    use output_data
    use precision_mod
    use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
-       &                 n_cheb_ic_max, m_max, n_cheb_max,         &
+       &                 n_cheb_ic_max, m_max, n_cheb_max, m_min,  &
        &                 lm_max, n_phi_max, n_theta_max
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
@@ -1027,6 +1027,7 @@ contains
             write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
          end if
          write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
+         write(n_out,'(''  m_min        ='',i6, '' = min oder of Plm'')') m_min
          write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
          if ( lm_max < 1000000 ) then
             write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max

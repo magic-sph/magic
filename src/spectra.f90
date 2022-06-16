@@ -290,9 +290,9 @@ contains
          end do
 
          !do lm=2,lm_max
-         do lm=max(llm,2),ulm
-
+         do lm=llm,ulm
             l  =lo_map%lm2l(lm)
+            if ( l == 0 ) cycle
             m  =lo_map%lm2m(lm)
             mc=m+1
 
@@ -498,8 +498,9 @@ contains
                e_mag_t_ic_r_l(n_r,l)=0.0_cp
             end do
             !do lm=2,lm_max
-            do lm=max(llm,2),ulm
+            do lm=llm,ulm
                l =lo_map%lm2l(lm)
+               if ( l == 0 ) cycle
                m =lo_map%lm2m(lm)
                mc=m+1
                r_dr_b=r_ic(n_r)*db_ic(lm,n_r)
@@ -996,9 +997,9 @@ contains
             e_kin_t_r_m(n_r,m)=0.0_cp
          end do
 
-         do lm=max(llm,2),ulm
-
+         do lm=llm,ulm
             l  =lo_map%lm2l(lm)
+            if ( l == 0 ) cycle
             m  =lo_map%lm2m(lm)
 
             if ( l_mag ) then

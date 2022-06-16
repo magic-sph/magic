@@ -7,7 +7,7 @@ module updateWP_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max
+   use truncation, only: lm_max, n_r_max, l_max, m_min
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun,      &
@@ -614,7 +614,7 @@ contains
          lWPmat(:)=.true.
       end if
 
-      if ( lPressNext ) then
+      if ( lPressNext .and. (m_min==0) ) then
          lm00=st_map%lm2(0,0)
          do nR=nRstart,nRstop
             p0_ghost(nR)=dwdt%expl(lm00,nR,tscheme%istage)
@@ -637,9 +637,11 @@ contains
       call tscheme%set_imex_rhs_ghost(w_ghost, dwdt, lm_start, lm_stop, 2)
 
       !-- Ensure that l=m=0 is zero
-      do nR=nRstart,nRstop
-         w_ghost(1,nR)=zero
-      end do
+      if ( m_min == 0 ) then
+         do nR=nRstart,nRstop
+            w_ghost(1,nR)=zero
+         end do
+      end if
 
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
@@ -1071,7 +1073,11 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
 
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -1449,7 +1455,11 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
 
       call tscheme%assemble_imex(work_LMloc, dwdt)
       if ( l_double_curl) then

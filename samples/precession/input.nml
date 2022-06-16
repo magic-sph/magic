@@ -1,7 +1,8 @@
 &grid
  n_r_max     =49,
  n_cheb_max  =49,
- n_phi_tot   =128,
+ l_max       =42,
+ m_max       =5,
  n_r_ic_max  =17,
 n_cheb_ic_max=15,
  minc        =1,
@@ -41,6 +42,7 @@ n_cheb_ic_max=15,
  n_log_step  =10,
  n_graphs    =0,
  n_rsts      =1,
+ n_specs     =1,
  n_stores    =0,
  runid       ="Precession",
 /

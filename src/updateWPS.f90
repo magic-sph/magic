@@ -10,7 +10,7 @@ module updateWPS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max
+   use truncation, only: lm_max, n_r_max, l_max, m_min
    use radial_data, only: n_r_cmb,n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
@@ -449,7 +449,11 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
-      lmStart_00 =max(2,llm)
+      if ( m_min == 0 ) then
+         lmStart_00=max(2,llm)
+      else
+         lmStart_00=llm
+      end if
 
       if ( l_temperature_diff ) then
          call abortRun('Temperature diff + assembly stage not supported!')

@@ -9,13 +9,14 @@ module updateXi_mod
    use precision_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
-   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r
+   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r, dxicond
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: topxi, botxi
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_Xi
-   use logic, only: l_update_xi, l_finite_diff, l_full_sphere, l_parallel_solve
+   use logic, only: l_update_xi, l_finite_diff, l_full_sphere, l_parallel_solve, &
+       &            l_onset
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, exch_ghosts,&
        &                 bulk_to_ghost
@@ -538,7 +539,7 @@ contains
 
    end subroutine updateXi_FD
 !------------------------------------------------------------------------------
-   subroutine finish_exp_comp(dVXirLM, dxi_exp_last)
+   subroutine finish_exp_comp(w, dVXirLM, dxi_exp_last)
       !
       ! This subroutine completes the computation of the advection term which
       ! enters the composition equation by taking the radial derivative. This is
@@ -546,13 +547,15 @@ contains
       !
 
       !-- Input variables
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: dxi_exp_last(llm:ulm,n_r_max)
 
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm
+      real(cp) :: dLh
+      integer :: n_r, start_lm, stop_lm, l, lm
 
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -567,11 +570,23 @@ contains
          &                         or2(n_r)*work_LMloc(:,n_r) )
       end do
       !$omp end do
+
+      if ( l_onset ) then
+         !$omp do private(lm, l, dLh)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               l = lo_map%lm2l(lm)
+               dLh = real(l*(l+1),cp)
+               dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
+            end do
+         end do
+         !$omp end do
+      end if
       !$omp end parallel
 
    end subroutine finish_exp_comp
 !------------------------------------------------------------------------------
-   subroutine finish_exp_comp_Rdist(dVXirLM, dxi_exp_last)
+   subroutine finish_exp_comp_Rdist(w, dVXirLM, dxi_exp_last)
       !
       ! This subroutine completes the computation of the advection term which
       ! enters the composition equation by taking the radial derivative. This is
@@ -579,6 +594,7 @@ contains
       !
 
       !-- Input variables
+      complex(cp), intent(in) :: w(lm_max,nRstart:nRstop)
       complex(cp), intent(inout) :: dVXirLM(lm_max,nRstart:nRstop)
 
       !-- Output variables
@@ -586,12 +602,13 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
-      integer :: n_r, lm, start_lm, stop_lm
+      real(cp) :: dLh
+      integer :: n_r, lm, start_lm, stop_lm, l
 
       call get_dr_Rloc(dVXirLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm, l, dLh)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
@@ -601,6 +618,16 @@ contains
             &                           or2(n_r)*work_Rloc(lm,n_r) )
          end do
       end do
+
+      if ( l_onset ) then
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               l = st_map%lm2l(lm)
+               dLh = real(l*(l+1),cp)
+               dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
+            end do
+         end do
+      end if
       !$omp end parallel
 
    end subroutine finish_exp_comp_Rdist

@@ -17,13 +17,14 @@ module legendre
 
 contains
 
-   subroutine init(l_max_in,minc_in,lm_max_in,n_theta_max_in)
+   subroutine init(l_max_in,minc_in,lm_max_in,n_theta_max_in,m_max_in)
 
       !-- Input variables
       integer, intent(in) :: l_max_in ! Spherical harmonic order
       integer, intent(in) :: minc_in  ! Azimuthal symmetry
       integer, intent(in) :: n_theta_max_in ! Number of latitudinal grid point
       integer, intent(in) :: lm_max_in ! lm max
+      integer, intent(in), optional :: m_max_in
 
       !-- Local variables:
       integer ::  lm, lmP, l, m, lmP_max
@@ -39,7 +40,11 @@ contains
       lm_max = lm_max_in
       n_theta_max = n_theta_max_in
       n_phi_max = n_theta_max*2/minc
-      m_max = (l_max/minc)*minc
+      if ( present(m_max_in) ) then
+         m_max = m_max_in
+      else
+         m_max = (l_max/minc)*minc
+      end if
       n_m_max = m_max/minc+1
       lmP_max = lm_max+n_m_max
 
@@ -137,7 +142,7 @@ contains
    end subroutine gauleg
 !------------------------------------------------------------------------------
    subroutine plm_theta(theta,max_degree,max_order,m0,plma,dtheta_plma,ndim_plma)
-        
+
       !-- Input variables
       real(kind=8), intent(in) :: theta
       integer,      intent(in) :: max_degree
@@ -152,13 +157,13 @@ contains
       !-- Local variables
       real(kind=8) :: sq2,dnorm,fac,plm0,plm1,plm2
       integer :: l,m,j,pos
-       
+
       sq2=sqrt(2.d0)
       dnorm = 1.d0/sqrt(16.d0*atan(1.0d0))
 
       pos=0
       do m=0,max_order,m0
-          
+
          fac=1.d0
          do j=3,2*m+1,2
             fac=fac*real(j,kind=8)/real(j-1,kind=8)
@@ -170,13 +175,13 @@ contains
          elseif( m /= 0 ) then
             plm0=0.d0
          endif
-          
+
          l=m
          pos=pos+1
          plma(pos) = dnorm*plm0
-          
+
          plm1=0.d0
-          
+
          do l=m+1,max_degree
             plm2=plm1
             plm1=plm0
@@ -184,10 +189,10 @@ contains
             &                      real( (l-m)*(l+m), kind=8 )  ) * plm1 -   &
             &                sqrt( real( (2*l+1)*(l+m-1)*(l-m-1), kind=8 ) / &
             &                      real( (2*l-3)*(l-m)*(l+m), kind=8 ) ) * plm2
-             
+
             pos=pos+1
             plma(pos) = dnorm*plm0
-              
+
          end do
 
          l=max_degree+1
@@ -199,7 +204,7 @@ contains
          &                      real( (2*l-3)*(l-m)*(l+m), kind=8 ) ) * plm2
          dtheta_plma(pos)=dnorm*plm0
       end do    ! loop over order !
-       
+
       pos=0
       do m=0,max_order,m0
          l=m
@@ -209,7 +214,7 @@ contains
          else
             dtheta_plma(pos)= l/sqrt(real(2*l+3,kind=8)) * dtheta_plma(pos)
          end if
-              
+
          do l=m+1,max_degree-1
             pos=pos+1
             dtheta_plma(pos)= l*sqrt( real((l+m+1)*(l-m+1),kind=8) / &
@@ -231,7 +236,7 @@ contains
             &                           ) * plma(pos-1)
          end if
       end do ! loop over order
-        
+
    end subroutine plm_theta
 !------------------------------------------------------------------------------
    subroutine specspat_scal(inputLM, br, n_th, n_ph)

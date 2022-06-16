@@ -15,7 +15,7 @@ module LMLoop_mod
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag, st_map
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
        &            l_chemical_conv, l_cond_ic, l_update_s, l_z10mat,      &
-       &            l_parallel_solve, l_mag_par_solve, l_phase_field
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field, l_onset
    use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use timing, only: timer_type
@@ -409,7 +409,7 @@ contains
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       if ( l_chemical_conv ) then
-         call finish_exp_comp(dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
+         call finish_exp_comp(w, dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
       end if
 
       if ( l_single_matrix ) then
@@ -423,11 +423,13 @@ contains
          end if
       end if
 
-      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
-           &              domega_ma_dt%expl(tscheme%istage),        &
-           &              domega_ic_dt%expl(tscheme%istage),        &
-           &              lorentz_torque_ma_dt%expl(tscheme%istage),&
-           &              lorentz_torque_ic_dt%expl(tscheme%istage))
+      if ( .not. l_onset ) then
+         call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
+              &              domega_ma_dt%expl(tscheme%istage),        &
+              &              domega_ic_dt%expl(tscheme%istage),        &
+              &              lorentz_torque_ma_dt%expl(tscheme%istage),&
+              &              lorentz_torque_ic_dt%expl(tscheme%istage))
+      end if
 
       if ( l_mag ) then
          call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
@@ -476,7 +478,7 @@ contains
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
-      if ( l_chemical_conv ) call finish_exp_comp_Rdist(dVXir_Rloc, dxidt_Rloc)
+      if ( l_chemical_conv ) call finish_exp_comp_Rdist(w, dVXir_Rloc, dxidt_Rloc)
 
       if ( l_single_matrix ) then
          call finish_exp_smat_Rdist(dVSr_Rloc, dsdt_Rloc)
@@ -485,11 +487,13 @@ contains
          if ( l_double_curl ) call finish_exp_pol_Rdist(dVxVh_Rloc, dwdt_Rloc)
       end if
 
-      call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
-           &              domega_ma_dt%expl(tscheme%istage),        &
-           &              domega_ic_dt%expl(tscheme%istage),        &
-           &              lorentz_torque_ma_dt%expl(tscheme%istage),&
-           &              lorentz_torque_ic_dt%expl(tscheme%istage))
+      if ( .not. l_onset ) then
+         call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
+              &              domega_ma_dt%expl(tscheme%istage),        &
+              &              domega_ic_dt%expl(tscheme%istage),        &
+              &              lorentz_torque_ma_dt%expl(tscheme%istage),&
+              &              lorentz_torque_ic_dt%expl(tscheme%istage))
+      end if
 
       if ( l_mag ) call finish_exp_mag_Rdist(dVxBh_Rloc, djdt_Rloc)
 

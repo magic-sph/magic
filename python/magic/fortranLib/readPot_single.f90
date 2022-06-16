@@ -6,6 +6,7 @@ module potreader_single
    real(kind=4) :: raxi, sc
    real(kind=4) :: time
    integer :: n_r_max, l_max, n_r_ic_max, lm_max, minc, version
+   integer :: m_min, m_max
    real(kind=4), allocatable :: radius(:), rho0(:)
    complex(kind=4), allocatable :: pol(:,:), tor(:,:)
    complex(kind=4), allocatable :: pol_ic(:,:), tor_ic(:,:)
@@ -52,6 +53,7 @@ contains
          read(10) time
          read(10) ra, pr, raxi, sc, prmag, ek, radratio, sigma_ratio
          read(10) n_r_max, n_r_ic_max, l_max, minc, lm_max
+         if (version == 2) read(10) m_min, m_max
          read(10) omega_ic, omega_ma
 
       end if

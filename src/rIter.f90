@@ -20,7 +20,7 @@ module rIter_mod
        &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
-       &            l_temperature_diff, l_RMS, l_phase_field
+       &            l_temperature_diff, l_RMS, l_phase_field, l_onset
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -235,15 +235,17 @@ contains
 
          call this%nl_lm%set_zero()
 
-         call lm2phy_counter%start_count()
-         call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
-              &                            lPressCalc, lTOCalc, lPowerCalc,      &
-              &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
-              &                            lGeosCalc, lHemiCalc, l_frame, lDeriv)
-         call lm2phy_counter%stop_count(l_increment=.false.)
+         if ( .not. l_onset ) then
+            call lm2phy_counter%start_count()
+            call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
+                 &                            lPressCalc, lTOCalc, lPowerCalc,      &
+                 &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
+                 &                            lGeosCalc, lHemiCalc, l_frame, lDeriv)
+            call lm2phy_counter%stop_count(l_increment=.false.)
+         end if
 
          !--------- Calculation of nonlinear products in grid space:
-         if ( (.not. l_bound) .or. lMagNlBc .or. lRmsCalc ) then
+         if ( (.not. l_onset ) .and. ((.not. l_bound) .or. lMagNlBc .or. lRmsCalc) ) then
 
             call nl_counter%start_count()
             call this%gsa%get_nl(timeStage, nR, nBc, lRmsCalc)
@@ -301,7 +303,7 @@ contains
          end if
 
          !--------- Calculate courant condition parameters:
-         if ( .not. l_full_sphere .or. nR /= n_r_icb ) then
+         if ( (.not. l_full_sphere .or. nR /= n_r_icb) .and. (.not. l_onset) ) then
             call courant(nR, dtrkc(nR), dthkc(nR), this%gsa%vrc,              &
                  &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
                  &       this%gsa%bpc, tscheme%courfac, tscheme%alffac)

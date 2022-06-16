@@ -11,7 +11,7 @@ module start_fields
    use communications, only: lo2r_one
    use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &
-       &                       otemp1, ogrun
+       &                       otemp1, ogrun, dentropy0, dxicond
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
@@ -23,7 +23,8 @@ module start_fields
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat,             &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
-       &            l_parallel_solve, l_mag_par_solve, l_phase_field
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field,    &
+       &            l_onset
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
@@ -182,6 +183,8 @@ contains
 
          end if
 
+         if ( l_onset ) dentropy0(:) = ds0(:) * osq4pi
+
          if ( rank == 0 ) close(filehandle)
 
       else
@@ -196,11 +199,13 @@ contains
          topxicond=-osq4pi*ds0(1)
          botxicond=-osq4pi*ds0(n_r_max)
          deltaxicond=osq4pi*(s0(n_r_max)-s0(1))
+         if ( l_onset ) dxicond(:)=ds0(:) * osq4pi
       else
          topxicond  =0.0_cp
          botxicond  =0.0_cp
          deltaxicond=0.0_cp
       end if
+
 
       !-- Start with setting fields to zero:
       !   Touching the fields with the appropriate processor
@@ -420,7 +425,7 @@ contains
       sEA=0.0_cp
       sAA=0.0_cp
       if ( .not. l_axi ) then
-         do m=0,l_max,minc
+         do m=m_min,m_max,minc
             do l=m,l_max
                if ( l > 0 ) then
                   if ( mod(l+m,2) == 0 ) then
@@ -461,7 +466,7 @@ contains
          xiEA=0.0_cp
          xiAA=0.0_cp
          if ( .not. l_axi ) then
-            do m=0,l_max,minc
+            do m=m_min,m_max,minc
                do l=m,l_max
                   if ( l > 0 ) then
                      if ( mod(l+m,2) == 0 ) then
