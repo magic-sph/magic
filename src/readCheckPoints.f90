@@ -2887,7 +2887,7 @@ contains
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
-         lmStart=max(2,lmStart)
+         !lmStart=max(2,lmStart)
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then

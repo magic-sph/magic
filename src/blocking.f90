@@ -463,7 +463,7 @@ contains
       lm =0
       lmP=0
       if ( .not. l_axi ) then
-         do l=0,map%l_max
+         do l=map%m_min,map%l_max
             do m=map%m_min,min(map%m_max,l),minc
                lm         =lm+1
                map%lm2l(lm)   =l
@@ -480,7 +480,7 @@ contains
             end do
          end do
       else
-         do l=0,map%l_max
+         do l=map%m_min,map%l_max
 
             lm         =lm+1
             map%lm2l(lm)   =l
@@ -553,10 +553,10 @@ contains
       ! Local variables
       integer :: l,proc,lm,m,i_l,lmP
       logical :: Ascending
-      integer :: l_list(0:n_procs-1,map%l_max+1)
+      integer :: l_list(0:n_procs-1,map%l_max+1-map%m_min)
       integer :: l_counter(0:n_procs-1)
       integer :: temp_l_counter,l0proc,pc,src_proc,temp
-      integer :: temp_l_list(map%l_max+1)
+      integer :: temp_l_list(map%l_max+1-map%m_min)
 
       logical, parameter :: DEBUG_OUTPUT=.false.
 
@@ -574,8 +574,9 @@ contains
       ! new l value to the next process in a snake like fashion.
       proc=0
       Ascending=.true.
-      l_counter=1
-      do l=map%l_max,0,-1
+      l_counter(:)=1
+      l0Proc=0
+      do l=map%l_max,map%m_min,-1
          ! this l block is distributed to the actual proc
          l_list(proc,l_counter(proc))=l
          !write(output_unit,"(A,3I3)") "l,l_list,l_counter=",l,l_list(proc,l_counter(proc)),l_counter(proc)
@@ -660,50 +661,48 @@ contains
          end do
       end if
 
-      lm=1
-      lmP=1
+      lm=0
+      lmP=0
       if ( .not. l_axi ) then
          do proc=0,n_procs-1
-            lm_balance(proc)%nStart=lm
+            lm_balance(proc)%nStart=lm+1
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
                !write(output_unit,"(3I3)") i_l,proc,l
                do m=map%m_min,min(map%m_max,l),minc
+                  lm = lm+1
                   map%lm2(l,m)=lm
                   map%lm2l(lm)=l
                   map%lm2m(lm)=m
 
+                  lmP = lmP+1
                   map%lmP2(l,m)=lmP
                   map%lmP2l(lmP)=l
                   map%lmP2m(lmP)= m
                   map%lm2lmP(lm)=lmP
                   map%lmP2lm(lmP)=lm
-
-                  lm = lm+1
-                  lmP = lmP+1
                end do
             end do
-            lm_balance(proc)%nStop=lm-1
+            lm_balance(proc)%nStop=lm
          end do
       else
          do proc=0,n_procs-1
-            lm_balance(proc)%nStart=lm
+            lm_balance(proc)%nStart=lm+1
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
+               lm = lm+1
                map%lm2(l,0)=lm
                map%lm2l(lm)=l
                map%lm2m(lm)=0
 
+               lmP = lmP+1
                map%lmP2(l,0)=lmP
                map%lmP2l(lmP)=l
                map%lmP2m(lmP)= m
                map%lm2lmP(lm)=lmP
                map%lmP2lm(lmP)=lm
-
-               lm = lm+1
-               lmP = lmP+1
             end do
-            lm_balance(proc)%nStop=lm-1
+            lm_balance(proc)%nStop=lm
          end do
 
       end if
@@ -713,7 +712,7 @@ contains
          lm_balance(proc)%n_per_rank=lm_balance(proc)%nStop-lm_balance(proc)%nStart+1
       end do
 
-      if ( lm-1 /= map%lm_max ) then
+      if ( lm /= map%lm_max ) then
          write(output_unit,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
               & " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
@@ -721,14 +720,14 @@ contains
 
       l=map%l_max+1    ! Extra l for lmP
       do m=map%m_min,map%m_max,minc
+         lmP=lmP+1
          map%lmP2l(lmP) =l
          map%lmP2m(lmP) = m
          map%lmP2(l,m)  =lmP
          map%lmP2lm(lmP)=-1
-         lmP=lmP+1
       end do
 
-      if ( lmP-1 /= map%lmP_max ) then
+      if ( lmP /= map%lmP_max ) then
          call abortRun('Wrong lmP!')
       end if
 
