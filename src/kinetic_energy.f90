@@ -132,7 +132,7 @@ contains
          e_t_eas_r(nR)=0.0_cp
          O_rho        =orho1(nR)
          !do lm=2,lm_max
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
 
@@ -302,8 +302,8 @@ contains
       real(cp) :: e_t_r(n_r_max),e_t_r_global(n_r_max)
       real(cp) :: e_p_as_r(n_r_max),e_p_as_r_global(n_r_max)
       real(cp) :: e_t_as_r(n_r_max),e_t_as_r_global(n_r_max)
-      real(cp) :: e_lr(n_r_max,l_max), e_lr_global(n_r_max,l_max)
-      real(cp) :: e_lr_c(n_r_max,l_max), e_lr_c_global(n_r_max,l_max)
+      real(cp) :: e_lr(n_r_max,0:l_max), e_lr_global(n_r_max,0:l_max)
+      real(cp) :: e_lr_c(n_r_max,0:l_max), e_lr_c_global(n_r_max,0:l_max)
       real(cp) :: ER(n_r_max),ELR(n_r_max),ReR(n_r_max),RoR(n_r_max)
       real(cp) :: ekinR(n_r_max)
       real(cp) :: RmR(n_r_max),dlR(n_r_max)
@@ -323,12 +323,12 @@ contains
          e_p_as_r(nR)=0.0_cp
          e_t_as_r(nR)=0.0_cp
          O_rho       =orho2(nR) ! divided by rho**2
-         do l=1,l_max
+         do l=0,l_max
             e_lr(nR,l)  =0.0_cp
             e_lr_c(nR,l)=0.0_cp
          end do
 
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
 
