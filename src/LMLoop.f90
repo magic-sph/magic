@@ -617,7 +617,7 @@ contains
 #ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
 #endif
-      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
+      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, nlm_block, lms_block)
       tag = 0
       req=1
       do lms_block=1,lm_max,block_sze
@@ -681,7 +681,7 @@ contains
       array_of_requests(:)=MPI_REQUEST_NULL
 #endif
 
-      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm)
+      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, nlm_block, lms_block)
       tag = 0
       req=1
 
