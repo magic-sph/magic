@@ -721,7 +721,7 @@ calculated by the subroutine :f:subr:`outHemi <outmisc_mod/outhemi()>`.
 ``growth_sym.TAG`` and ``growth_asym.TAG``
 ------------------------------------------
 
-Those files contain the time series of growth rate of different azimuthal wavenumbers ranging from :f:bar:`m_min <m_min>` to :f:var:`m_max <_m_max>`. This file is produced when MagIC is used to compute the onset of convection, i.e. when :f:var:`mode=5 <mode>`. `growth_sym` corresponds to equatorially-symmetric mode, `growth_asym` to equatorially-asymmetric modes. Those files are produced by the routine :f:subr:`get_onset <outmisc_mod/get_onset()>`.
+Those files contain the time series of growth rate of different azimuthal wavenumbers ranging from :f:var:`m_min <m_min>` to :f:var:`m_max <_m_max>`. This file is produced when MagIC is used to compute the onset of convection, i.e. when :f:var:`mode=5 <mode>`. `growth_sym` corresponds to equatorially-symmetric mode, `growth_asym` to equatorially-asymmetric modes. Those files are produced by the routine :f:subr:`get_onset <outmisc_mod/get_onset()>`.
 
    +---------------+---------------------------------------------------------+
    | No. of column | Contents                                                |
@@ -740,7 +740,7 @@ Those files contain the time series of growth rate of different azimuthal wavenu
 ``drift_sym.TAG`` and ``drift_asym.TAG``
 ----------------------------------------
 
-Those files contain the time series of drift frequency of different azimuthal wavenumbers ranging from :f:bar:`m_min <m_min>` to :f:var:`m_max <_m_max>`. This file is produced when MagIC is used to compute the onset of convection, i.e. when :f:var:`mode=5 <mode>`. `drift_sym` corresponds to equatorially-symmetric modes, `drift_asym` to equatorially-asymmetric modes. Those files are produced by the routine :f:subr:`get_onset <outmisc_mod/get_onset()>`.
+Those files contain the time series of drift frequency of different azimuthal wavenumbers ranging from :f:var:`m_min <m_min>` to :f:var:`m_max <_m_max>`. This file is produced when MagIC is used to compute the onset of convection, i.e. when :f:var:`mode=5 <mode>`. `drift_sym` corresponds to equatorially-symmetric modes, `drift_asym` to equatorially-asymmetric modes. Those files are produced by the routine :f:subr:`get_onset <outmisc_mod/get_onset()>`.
 
    +---------------+-------------------------------------------------------------+
    | No. of column | Contents                                                    |

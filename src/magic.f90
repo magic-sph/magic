@@ -248,12 +248,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____     __   ___       '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____|   / /  / _ \      '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |       / /_ | | | |     '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |  _ \| | | |     '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____  | (_) | |_| |     '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____|  \___(_)___/      '
+      write(n_log_file,*) '!      __  __             _____ _____     __  __         '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____|   / / /_ |        '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |       / /_  | |        '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |  _ \ | |        '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____  | (_) || |        '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____|  \___(_)_|        '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
