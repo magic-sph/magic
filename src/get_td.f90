@@ -444,7 +444,7 @@ contains
                   djdt(lm)   =zero
                   dVxBhLM(lm)=zero
                end do
-               !$omp end parallel
+               !$omp end parallel do
             end if
          end if
 
