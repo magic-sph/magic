@@ -614,7 +614,7 @@ contains
          lWPmat(:)=.true.
       end if
 
-      if ( lPressNext ) then
+      if ( lPressNext .and. (m_min==0) ) then
          lm00=st_map%lm2(0,0)
          do nR=nRstart,nRstop
             p0_ghost(nR)=dwdt%expl(lm00,nR,tscheme%istage)
@@ -637,9 +637,11 @@ contains
       call tscheme%set_imex_rhs_ghost(w_ghost, dwdt, lm_start, lm_stop, 2)
 
       !-- Ensure that l=m=0 is zero
-      do nR=nRstart,nRstop
-         w_ghost(1,nR)=zero
-      end do
+      if ( m_min == 0 ) then
+         do nR=nRstart,nRstop
+            w_ghost(1,nR)=zero
+         end do
+      end if
 
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
