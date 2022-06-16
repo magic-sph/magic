@@ -134,11 +134,11 @@ contains
       if ( rank == 0 ) then
          do n=1,2
             if ( n==1 ) then
-               n_out = n_log_file
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &
                   &    position='append')
                end if
+               n_out = n_log_file
             else
                n_out = output_unit
             end if

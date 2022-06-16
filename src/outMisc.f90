@@ -1052,18 +1052,18 @@ contains
 
          if ( l_log ) then
             if ( l_save_out ) then
-               open(n_growth_sym_file, file=sym_file, status='unknown',    &
+               open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
                &    position='append')
-               open(n_growth_asym_file, file=sym_file, status='unknown',   &
+               open(newunit=n_growth_asym_file, file=sym_file, status='unknown',   &
                &    position='append')
-               open(n_drift_sym_file, file=drift_sym_file, status='unknown',   &
+               open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
                &    position='append')
-               open(n_drift_asym_file, file=drift_asym_file, status='unknown', &
+               open(newunit=n_drift_asym_file, file=drift_asym_file, status='unknown', &
                &    position='append')
             end if
             ad='no'
             do m=m_min,m_max,minc
-               if ( m == m_max ) ad='yes'
+               if ( m == m_max .and. (.not. l_save_out)) ad='yes'
                l =max(m,1)
                lm=lm2(l,m)
                if ( m == m_min ) then
