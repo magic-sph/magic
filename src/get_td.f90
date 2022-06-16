@@ -8,13 +8,12 @@ module nonlinear_lm_mod
    use, intrinsic :: iso_c_binding
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
+   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, m_min
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
-       &             l_adv_curl, l_phase_field, l_onset
-   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, &
-       &                       dentropy0, dxicond
+       &             l_adv_curl, l_phase_field
+   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
@@ -22,10 +21,11 @@ module nonlinear_lm_mod
    use constants, only: zero, two
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc
 
-
    implicit none
 
-   type :: nonlinear_lm_t
+   private
+
+   type, public :: nonlinear_lm_t
       !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
@@ -38,6 +38,8 @@ module nonlinear_lm_mod
       procedure :: set_zero
       procedure :: get_td
    end type nonlinear_lm_t
+
+   integer :: lm_min
 
 contains
 
@@ -71,6 +73,12 @@ contains
       if ( l_phase_field ) then
          allocate(this%dphidtLM(lmP_max))
          bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
+      end if
+
+      if ( m_min == 0 ) then
+         lm_min = 2
+      else
+         lm_min = 1
       end if
 
    end subroutine initialize
@@ -115,6 +123,7 @@ contains
             this%VSpLM(lm)=zero
          end if
          if ( l_anel ) this%heatTermsLM(lm)=zero
+         if ( l_phase_field ) this%dphidtLM(lm)=zero
          if ( l_chemical_conv ) then
             this%VXirLM(lm)=zero
             this%VXitLM(lm)=zero
@@ -198,7 +207,7 @@ contains
 
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
@@ -310,7 +319,7 @@ contains
             !if ( .true. ) then
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(AdvPol_loc,CorPol_loc)
-               do lm=2,lm_max
+               do lm=lm_min,lm_max
                   l   =lm2l(lm)
                   m   =lm2m(lm)
                   lmS =lm2lmS(lm)
@@ -355,7 +364,7 @@ contains
             end if
 
          else
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                dwdt(lm)=zero
                dzdt(lm)=zero
                dpdt(lm)=zero
@@ -378,53 +387,35 @@ contains
             end if
             dsdt(1)=dsdt_loc
 
-            if ( .not. l_onset ) then
-               !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
-               do lm=2,lm_max
-                  l   =lm2l(lm)
-                  lmP =lm2lmP(lm)
-                  dVSrLM(lm)=this%VSrLM(lmP)
-                  dsdt_loc  =dLh(lm)*this%VStLM(lmP)
-                  if ( l_anel ) then
-                     if ( l_anelastic_liquid ) then
-                        dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
-                     else
-                        dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
-                     end if
+            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
+            do lm=lm_min,lm_max
+               l   =lm2l(lm)
+               lmP =lm2lmP(lm)
+               dVSrLM(lm)=this%VSrLM(lmP)
+               dsdt_loc  =dLh(lm)*this%VStLM(lmP)
+               if ( l_anel ) then
+                  if ( l_anelastic_liquid ) then
+                     dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
+                  else
+                     dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
                   end if
-                  dsdt(lm) = dsdt_loc
-               end do
-               !$omp end parallel do
-            else ! This is used to compute the onset of convection !
-               if ( .not. l_single_matrix ) then
-                  !$omp parallel do default(shared) private(lm)
-                  do lm=2,lm_max
-                     dsdt(lm)=-dLh(lm)*or2(nR)*orho1(nR)*w_Rloc(lm,nR)*dentropy0(nR)
-                  end do
-                  !$omp end parallel do
                end if
-            end if
+               dsdt(lm) = dsdt_loc
+            end do
+            !$omp end parallel do
          end if
 
          if ( l_chemical_conv ) then
             dVXirLM(1)=this%VXirLM(1)
             dxidt(1)  =epscXi
 
-            if ( .not. l_onset ) then
-               !$omp parallel do default(shared) private(lm,lmP)
-               do lm=2,lm_max
-                  lmP=lm2lmP(lm)
-                  dVXirLM(lm)=this%VXirLM(lmP)
-                  dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
-               end do
-               !$omp end parallel do
-            else
-               !$omp parallel do default(shared) private(lm)
-               do lm=2,lm_max
-                  dxidt(lm)=-dLh(lm)*or2(nR)*orho1(nR)*w_Rloc(lm, nR)*dxicond(nR)
-               end do
-               !$omp end parallel do
-            end if
+            !$omp parallel do default(shared) private(lm,lmP)
+            do lm=lm_min,lm_max
+               lmP=lm2lmP(lm)
+               dVXirLM(lm)=this%VXirLM(lmP)
+               dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+            end do
+            !$omp end parallel do
          end if
 
          if ( l_phase_field ) then
@@ -447,11 +438,13 @@ contains
             !$omp end parallel do
          else
             if ( l_mag ) then
+               !$omp parallel do
                do lm=1,lm_max
                   dbdt(lm)   =zero
                   djdt(lm)   =zero
                   dVxBhLM(lm)=zero
                end do
+               !$omp end parallel
             end if
          end if
 
@@ -460,27 +453,32 @@ contains
             dVxBhLM(1)=zero
             dVSrLM(1) =zero
             !$omp parallel do default(shared) private(lm,lmP)
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                lmP =lm2lmP(lm)
                dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
                dVSrLM(lm) =zero
             end do
             !$omp end parallel do
          else
+            !$omp parallel do
             do lm=1,lm_max
                if ( l_mag ) dVxBhLM(lm)=zero
                dVSrLM(lm) =zero
             end do
+            !$omp end parallel do
          end if
          if ( l_double_curl ) then
+            !$omp parallel do
             do lm=1,lm_max
                dVxVhLM(lm)=zero
             end do
          end if
          if ( l_chemical_conv ) then
+            !$omp parallel do
             do lm=1,lm_max
                dVXirLM(lm)=zero
             end do
+            !$omp end parallel do
          end if
       end if  ! boundary ? lvelo ?
 
