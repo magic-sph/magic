@@ -24,7 +24,7 @@ module start_fields
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,    &
-       &            l_onset
+       &            l_onset, l_non_adia
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
@@ -183,7 +183,7 @@ contains
 
          end if
 
-         if ( l_onset ) dentropy0(:) = ds0(:) * osq4pi
+         if ( l_onset .and. ( .not. l_non_adia ) ) dentropy0(:) = ds0(:) * osq4pi
 
          if ( rank == 0 ) close(filehandle)
 
