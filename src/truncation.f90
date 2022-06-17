@@ -29,6 +29,7 @@ module truncation
    integer :: nlat_padded ! number of theta grid-points with padding included
    integer :: n_theta_axi ! number of theta grid-points (axisymmetric models)
    integer :: l_max       ! max degree of Plms
+   integer :: m_min       ! min order of Plms
    integer :: m_max       ! max order of Plms
    integer :: n_m_max     ! max number of ms (different oders)
    integer :: lm_max      ! number of l/m combinations
@@ -64,26 +65,47 @@ contains
 
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
       integer :: lm_max_dL,lmP_max_dL,n_r_max_dL,n_r_ic_max_dL
-      integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL
+      integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL, delta, l, m
 
       if ( .not. l_axi ) then
-         ! absolute number of phi grid-points
-         n_phi_max=n_phi_tot/minc
+         if ( l_max == 0 ) then
+            ! absolute number of phi grid-points
+            n_phi_max=n_phi_tot/minc
 
-         ! number of theta grid-points
-         n_theta_max=n_phi_tot/2
+            ! number of theta grid-points
+            n_theta_max=n_phi_tot/2
 
-         ! max degree and order of Plms
-         l_max=(nalias*n_theta_max)/30 
-         m_max=(l_max/minc)*minc
+            ! max degree and order of Plms
+            l_max=(nalias*n_theta_max)/30
+         else
+            n_theta_max=(30*l_max)/nalias
+            n_phi_tot  =2*n_theta_max
+
+            !-- Try to get a better prime decomposition
+            call prime_decomposition(n_phi_tot)
+            n_phi_max  =n_phi_tot/minc
+            n_theta_max=n_phi_tot/2
+         end if
+
+         if ( m_max == 0 ) then
+            m_max=(l_max/minc)*minc
+         end if
       else
-         n_theta_max=n_theta_axi
+         minc       =1
          n_phi_max  =1
          n_phi_tot  =1
-         minc       =1
-         l_max      =(nalias*n_theta_max)/30 
-         m_max      =0
+         if ( l_max == 0 ) then
+            n_theta_max=n_theta_axi
+            l_max      =(nalias*n_theta_max)/30
+         else
+            n_theta_max=(30*l_max)/nalias
+            n_theta_axi=n_theta_max
+         end if
+         m_min=0
+         m_max=0
       end if
+
+      if ( m_max > l_max ) m_max=l_max
 
       ! this will be possibly overwritten when SHTns is used
       nlat_padded=n_theta_max
@@ -91,10 +113,22 @@ contains
       ! max number of ms (different oders)
       n_m_max=m_max/minc+1
 
+      if ( m_min == 0 ) then
+         delta = 0
+      else
+         delta = m_min
+      end if
+
       ! number of l/m combinations
-      lm_max=m_max*(l_max+1)/minc - m_max*(m_max-minc)/(2*minc)+(l_max+1-m_max)
+      lm_max=0
+      do m=m_min,m_max,minc
+         do l=m,l_max
+            lm_max = lm_max+1
+         end do
+      end do
+
       ! number of l/m combination if l runs to l_max+1
-      lmP_max=lm_max+n_m_max
+      lmP_max=lm_max+(m_max/minc-m_min/minc+1)
 
       ! total number of radial grid points
       n_r_tot = n_r_max
@@ -168,5 +202,37 @@ contains
       end if
 
    end subroutine checkTruncation
+!-----------------------------------------------------------------------------
+   subroutine prime_decomposition(nlon)
+      !
+      ! This subroutine tries to find the closest nlon which allow a
+      ! prime decomposition of the form 2**i * 3**j * 4**k
+      !
+
+      integer, intent(inout) :: nlon
+
+      !-- Local variables
+      real(cp) :: dist, res, dist_min
+      integer :: i, j, k, i0, j0, k0
+
+      dist_min = 100.0_cp
+      do i=0,12
+         do j=0,6
+            do k=0,6
+               res = real(2**i * 3**j * 5**k, cp)
+               dist = real(res-nlon, cp)
+               if ( dist >= 0 .and. dist < dist_min ) then
+                  i0 = i
+                  j0 = j
+                  k0 = k
+                  dist_min=dist
+               end if
+            end do
+         end do
+      end do
+
+      nlon = 2**i0 * 3**j0 * 5**k0
+
+   end subroutine prime_decomposition
 !-----------------------------------------------------------------------------
 end module truncation

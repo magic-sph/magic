@@ -249,12 +249,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____     __   ___       '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____|   / /  / _ \      '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |       / /_ | | | |     '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |  _ \| | | |     '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____  | (_) | |_| |     '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____|  \___(_)___/      '
+      write(n_log_file,*) '!      __  __             _____ _____     __  __         '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____|   / / /_ |        '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |       / /_  | |        '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |  _ \ | |        '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____  | (_) || |        '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____|  \___(_)_|        '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -310,7 +310,7 @@ program magic
    !-- Blocking/radial/horizontal
    call initialize_blocking()
    call initialize_radial_data(n_r_max)
-   call initialize_sht(l_batched_shts)
+   if (.not. l_onset ) call initialize_sht(l_batched_shts)
    local_bytes_used=bytes_allocated
    call initialize_grid_blocking(l_batched_shts)
    call initialize_radial_functions()
@@ -505,7 +505,7 @@ program magic
    call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
-   call finalize_sht()
+   if (.not. l_onset ) call finalize_sht()
    call finalize_der_arrays()
 
    call finalize_horizontal_data()

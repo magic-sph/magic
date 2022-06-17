@@ -16,6 +16,14 @@ Outer Core
 
 * **n_cheb_max** (default :f:var:`n_cheb_max=31 <n_cheb_max>`) is an integer which is the number of terms in the Chebyshev polynomial expansion to be used in the radial direction - the highest degree of Chebyshev polynomial used being ``n_cheb_max-1``. Note that ``n_cheb_max <= n_r_max``. This quantity will not be used if finite differences are used.
 
+.. note:: The horizontal resolution can be either specified in the physical space using `n_phi_tot`, the total number of azimuhtal grid points or by defining `l_max` and `m_max`. The different options are described below.
+
+* **l_max** (default :f:var:`l_max=0 <l_max>`) is an integer which gives the maximum spherical harmonic degree. When `l_max /= 0`, the value of `n_phi_tot` in the input namelist is ignored and recomputed at the initialisation stage.
+
+* **m_max** (default :f:var:`m_max=0 <m_max>`) is an integer which gives the maximum spherical harmonic order. It can be different from `l_max`.
+
+* **m_min** (default :f:var:`m_min=0 <m_min>`) is an integer which gives the minimum spherical harmonic order. By default this is set to zero, if specified in combination with `m_max`, it implies that only azimuthal wavenumbers comprised between `m_min` and `m_max` will be considered. This is particularly useful when computing the onset of convection.
+
 * **n_phi_tot** (default :f:var:`n_phi_tot=192 <n_phi_tot>`) is an integer which gives the number of longitudinal/azimuthal grid points. It has the following constraints:
  
   - :f:var:`n_phi_tot` must be a multiple of :f:var:`minc` (see below)

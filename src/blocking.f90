@@ -8,7 +8,7 @@ module blocking
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: nThreads, rank, n_procs, rank_with_l1m0, load, getBlocks
    use truncation, only: lmP_max, lm_max, l_max, n_theta_max, &
-       &                 minc, n_r_max, m_max, l_axi
+       &                 minc, n_r_max, m_max, l_axi, m_min
    use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
@@ -34,7 +34,6 @@ module blocking
    !integer :: nThreadsMax
    ! nthreads > 1
    integer, public, pointer :: lm2(:,:),lm2l(:),lm2m(:)
-   integer, public, pointer :: lm2mc(:),l2lmAS(:)
    integer, public, pointer :: lm2lmS(:),lm2lmA(:)
 
    integer, public, pointer :: lmP2(:,:),lmP2l(:)
@@ -102,8 +101,8 @@ contains
       integer :: lm,l,m,sizeLMB
 
       local_bytes_used = bytes_allocated
-      call allocate_mappings(st_map,l_max,lm_max,lmP_max)
-      call allocate_mappings(lo_map,l_max,lm_max,lmP_max)
+      call allocate_mappings(st_map,l_max,m_min,m_max,lm_max,lmP_max)
+      call allocate_mappings(lo_map,l_max,m_min,m_max,lm_max,lmP_max)
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
 
       if ( rank == 0 ) then
@@ -168,6 +167,8 @@ contains
          end if
       end do
 
+      if ( m_min > 0 ) rank_with_l1m0=-1
+
       if (DEBUG_OUTPUT) then
          ! output the lm -> l,m mapping
          if (rank == 0) then
@@ -183,8 +184,6 @@ contains
       lm2(0:,0:) => st_map%lm2
       lm2l(1:lm_max) => st_map%lm2l
       lm2m(1:lm_max) => st_map%lm2m
-      lm2mc(1:lm_max)=> st_map%lm2mc
-      l2lmAS(0:l_max)=> st_map%l2lmAS
       lm2lmS(1:lm_max) => st_map%lm2lmS
       lm2lmA(1:lm_max) => st_map%lm2lmA
       lmP2(0:,0:) => st_map%lmP2
@@ -194,8 +193,10 @@ contains
       lm2lmP(1:lm_max) => st_map%lm2lmP
       lmP2lm(1:lmP_max) => st_map%lmP2lm
 
-      call allocate_subblocks_mappings(st_sub_map,st_map,n_procs,l_max,lm_balance)
-      call allocate_subblocks_mappings(lo_sub_map,lo_map,n_procs,l_max,lm_balance)
+      call allocate_subblocks_mappings(st_sub_map,st_map,n_procs,l_max, &
+           &                           m_min,m_max,lm_balance)
+      call allocate_subblocks_mappings(lo_sub_map,lo_map,n_procs,l_max, &
+           &                           m_min,m_max,lm_balance)
 
       !--- Getting lm sub-blocks:
       call get_subblocks(st_map, st_sub_map) 
@@ -347,7 +348,7 @@ contains
          call abortRun('Stop run in blocking')
       end if
 
-      do m=0,m_max,minc
+      do m=m_min,m_max,minc
          do l=m,l_max
             if ( check(l,m) == 0 ) then
                write(output_unit,*) 'Warning, forgotten l,m:',l,m,map%lm2(l,m)
@@ -366,7 +367,7 @@ contains
       integer,        intent(in) :: minc
 
       ! Local variables
-      integer :: m,l,lm,lmP,mc
+      integer :: m,l,lm,lmP
 
       do m=0,map%l_max
          do l=m,map%l_max
@@ -380,17 +381,12 @@ contains
 
       lm =0
       lmP=0
-      mc =0
-      do m=0,map%m_max,minc
-         mc=mc+1
-         !m2mc(m)=mc
+      do m=map%m_min,map%m_max,minc
          do l=m,map%l_max
             lm         =lm+1
             map%lm2l(lm)   =l
             map%lm2m(lm)   =m
-            map%lm2mc(lm)  =mc
             map%lm2(l,m)   =lm
-            if ( m == 0 ) map%l2lmAS(l)=lm
             lmP        =lmP+1
             map%lmP2l(lmP) = l
             map%lmP2m(lmP) = m
@@ -452,7 +448,7 @@ contains
       integer,        intent(in) :: minc
 
       ! Local variables
-      integer :: m,l,lm,lmP,mc
+      integer :: m,l,lm,lmP
 
       do m=0,map%l_max
          do l=m,map%l_max
@@ -467,17 +463,11 @@ contains
       lm =0
       lmP=0
       if ( .not. l_axi ) then
-         do l=0,map%l_max
-            mc =0
-            ! set l2lmAS for m==0
-            map%l2lmAS(l)=lm
-            do m=0,l,minc
-               mc=mc+1
-
+         do l=map%m_min,map%l_max
+            do m=map%m_min,min(map%m_max,l),minc
                lm         =lm+1
                map%lm2l(lm)   =l
                map%lm2m(lm)   =m
-               map%lm2mc(lm)  =mc
                map%lm2(l,m)   =lm
 
                lmP        =lmP+1
@@ -490,14 +480,11 @@ contains
             end do
          end do
       else
-         do l=0,map%l_max
-            ! set l2lmAS for m==0
-            map%l2lmAS(l)=lm
+         do l=map%m_min,map%l_max
 
             lm         =lm+1
             map%lm2l(lm)   =l
             map%lm2m(lm)   =0
-            map%lm2mc(lm)  =1
             map%lm2(l,0)   =lm
 
             lmP        =lmP+1
@@ -510,10 +497,7 @@ contains
          end do
       end if
       l=map%l_max+1    ! Extra l for lmP
-      mc =0
-      do m=0,map%m_max,minc
-         mc=mc+1
-
+      do m=map%m_min,map%m_max,minc
          lmP=lmP+1
          map%lmP2l(lmP) =l
          map%lmP2m(lmP) = m
@@ -567,12 +551,12 @@ contains
       integer,        intent(in) :: minc
 
       ! Local variables
-      integer :: l,proc,lm,m,i_l,lmP,mc
+      integer :: l,proc,lm,m,i_l,lmP
       logical :: Ascending
-      integer :: l_list(0:n_procs-1,map%l_max+1)
+      integer :: l_list(0:n_procs-1,map%l_max+1-map%m_min)
       integer :: l_counter(0:n_procs-1)
       integer :: temp_l_counter,l0proc,pc,src_proc,temp
-      integer :: temp_l_list(map%l_max+1)
+      integer :: temp_l_list(map%l_max+1-map%m_min)
 
       logical, parameter :: DEBUG_OUTPUT=.false.
 
@@ -590,8 +574,9 @@ contains
       ! new l value to the next process in a snake like fashion.
       proc=0
       Ascending=.true.
-      l_counter=1
-      do l=map%l_max,0,-1
+      l_counter(:)=1
+      l0Proc=0
+      do l=map%l_max,map%m_min,-1
          ! this l block is distributed to the actual proc
          l_list(proc,l_counter(proc))=l
          !write(output_unit,"(A,3I3)") "l,l_list,l_counter=",l,l_list(proc,l_counter(proc)),l_counter(proc)
@@ -676,54 +661,48 @@ contains
          end do
       end if
 
-      lm=1
-      lmP=1
+      lm=0
+      lmP=0
       if ( .not. l_axi ) then
          do proc=0,n_procs-1
-            lm_balance(proc)%nStart=lm
+            lm_balance(proc)%nStart=lm+1
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
-               mc = 0
                !write(output_unit,"(3I3)") i_l,proc,l
-               do m=0,l,minc
-                  mc = mc+1
+               do m=map%m_min,min(map%m_max,l),minc
+                  lm = lm+1
                   map%lm2(l,m)=lm
                   map%lm2l(lm)=l
                   map%lm2m(lm)=m
-                  map%lm2mc(lm)=mc
 
+                  lmP = lmP+1
                   map%lmP2(l,m)=lmP
                   map%lmP2l(lmP)=l
                   map%lmP2m(lmP)= m
                   map%lm2lmP(lm)=lmP
                   map%lmP2lm(lmP)=lm
-
-                  lm = lm+1
-                  lmP = lmP+1
                end do
             end do
-            lm_balance(proc)%nStop=lm-1
+            lm_balance(proc)%nStop=lm
          end do
       else
          do proc=0,n_procs-1
-            lm_balance(proc)%nStart=lm
+            lm_balance(proc)%nStart=lm+1
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
+               lm = lm+1
                map%lm2(l,0)=lm
                map%lm2l(lm)=l
                map%lm2m(lm)=0
-               map%lm2mc(lm)=0
 
+               lmP = lmP+1
                map%lmP2(l,0)=lmP
                map%lmP2l(lmP)=l
                map%lmP2m(lmP)= m
                map%lm2lmP(lm)=lmP
                map%lmP2lm(lmP)=lm
-
-               lm = lm+1
-               lmP = lmP+1
             end do
-            lm_balance(proc)%nStop=lm-1
+            lm_balance(proc)%nStop=lm
          end do
 
       end if
@@ -733,25 +712,22 @@ contains
          lm_balance(proc)%n_per_rank=lm_balance(proc)%nStop-lm_balance(proc)%nStart+1
       end do
 
-      if ( lm-1 /= map%lm_max ) then
+      if ( lm /= map%lm_max ) then
          write(output_unit,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
               & " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
       end if
 
       l=map%l_max+1    ! Extra l for lmP
-      mc =0
-      do m=0,map%m_max,minc
-         mc=mc+1
-
+      do m=map%m_min,map%m_max,minc
+         lmP=lmP+1
          map%lmP2l(lmP) =l
          map%lmP2m(lmP) = m
          map%lmP2(l,m)  =lmP
          map%lmP2lm(lmP)=-1
-         lmP=lmP+1
       end do
 
-      if ( lmP-1 /= map%lmP_max ) then
+      if ( lmP /= map%lmP_max ) then
          call abortRun('Wrong lmP!')
       end if
 

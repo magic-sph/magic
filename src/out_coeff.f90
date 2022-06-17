@@ -15,7 +15,8 @@ module out_coeff
        &                          raxi, sc
    use num_param, only: tScale
    use blocking, only: lm2, llm, ulm
-   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
+   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc,&
+       &                 m_min, m_max
    use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
        &                     gt_IC, gt_OC
    use output_data, only: tag, n_coeff_r, n_r_array, n_r_step, l_max_r, n_coeff_r_max
@@ -548,8 +549,7 @@ contains
       character(80) :: fileName
       logical :: lVB
 
-      version = 1 ! file version
-
+      version = 2 ! file version
 
       allocate( tmp(lm_max,nRstart:nRstop) )
 
@@ -597,7 +597,8 @@ contains
          call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, lm_max, 1, MPI_INTEGER, istat, ierr)
-
+         call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, real(omega_ic,outp), 1, MPI_OUT_REAL, &
               &              istat, ierr)
          call MPI_File_Write(fh, real(omega_ma,outp), 1, MPI_OUT_REAL, &
@@ -724,7 +725,7 @@ contains
       character(80) :: fileName
       logical :: lVB
 
-      version = 1
+      version = 2 ! file version 2 stores m_min and m_max in the header
 
       head = trim(adjustl(root))
       lVB=.false.
@@ -766,6 +767,8 @@ contains
          &                 real(sigma_ratio,kind=outp)
 
          write(fileHandle) n_r_max,n_r_ic_max,l_max,minc,lm_max
+
+         write(fileHandle) m_min, m_max
 
          write(fileHandle) real(omega_ic,kind=outp), real(omega_ma,kind=outp)
 

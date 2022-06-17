@@ -716,3 +716,42 @@ calculated by the subroutine :f:subr:`outHemi <outmisc_mod/outhemi()>`.
 
    >>> # To stack all the hemi.TAG files of the current directory
    >>> ts = MagicTs(field='hemi', all=True)
+
+
+``growth_sym.TAG`` and ``growth_asym.TAG``
+------------------------------------------
+
+Those files contain the time series of growth rate of different azimuthal wavenumbers ranging from :f:var:`m_min <m_min>` to :f:var:`m_max <_m_max>`. This file is produced when MagIC is used to compute the onset of convection, i.e. when :f:var:`mode=5 <mode>`. `growth_sym` corresponds to equatorially-symmetric mode, `growth_asym` to equatorially-asymmetric modes. Those files are produced by the routine :f:subr:`get_onset <outmisc_mod/get_onset()>`.
+
+   +---------------+---------------------------------------------------------+
+   | No. of column | Contents                                                |
+   +===============+=========================================================+
+   | 1             | time                                                    |
+   +---------------+---------------------------------------------------------+
+   | 2             | growth rate of the azimuthal wave number `m_min`        |
+   +---------------+---------------------------------------------------------+
+   | 3             | growth rate of the azimuthal wave number `m_min+1`      |
+   +---------------+---------------------------------------------------------+
+   | 4             | growth rate of the azimuthal wave number `m_min+2`      |
+   +---------------+---------------------------------------------------------+
+   | ...           | growth rate of the azimuthal wave number `m_max`        |
+   +---------------+---------------------------------------------------------+
+
+``drift_sym.TAG`` and ``drift_asym.TAG``
+----------------------------------------
+
+Those files contain the time series of drift frequency of different azimuthal wavenumbers ranging from :f:var:`m_min <m_min>` to :f:var:`m_max <_m_max>`. This file is produced when MagIC is used to compute the onset of convection, i.e. when :f:var:`mode=5 <mode>`. `drift_sym` corresponds to equatorially-symmetric modes, `drift_asym` to equatorially-asymmetric modes. Those files are produced by the routine :f:subr:`get_onset <outmisc_mod/get_onset()>`.
+
+   +---------------+-------------------------------------------------------------+
+   | No. of column | Contents                                                    |
+   +===============+=============================================================+
+   | 1             | time                                                        |
+   +---------------+-------------------------------------------------------------+
+   | 2             | drift frequency of the azimuthal wave number `m_min`        |
+   +---------------+-------------------------------------------------------------+
+   | 3             | drift frequency of the azimuthal wave number `m_min+1`      |
+   +---------------+-------------------------------------------------------------+
+   | 4             | drift frequency of the azimuthal wave number `m_min+2`      |
+   +---------------+-------------------------------------------------------------+
+   | ...           | drift frequency of the azimuthal wave number `m_max`        |
+   +---------------+-------------------------------------------------------------+

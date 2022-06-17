@@ -65,7 +65,7 @@ contains
          PolAsRms_r(n_r)=0.0_cp
          TorAsRms_r(n_r)=0.0_cp
 
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=map%lm2l(lm)
             dLh = real(l*(l+1),cp)
             m=map%lm2m(lm)

@@ -11,20 +11,21 @@ module outMisc_mod
    use grid_blocking, only: radlatlon2spat
    use communications, only: gather_from_Rloc
    use truncation, only: l_max, n_r_max, nlat_padded, n_theta_max, n_r_maxMag, &
-       &                 n_phi_max
+       &                 n_phi_max, lm_max, m_min, m_max, minc
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, nRstartMag, nRstopMag
    use radial_functions, only: r_icb, rscheme_oc, kappa, r_cmb,temp0, r, rho0, &
        &                       dLtemp0, dLalpha0, beta, orho1, alpha0, otemp1, &
        &                       ogrun, rscheme_oc, or2, orho2, or4
    use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef, LFfac
    use num_param, only: lScale, eScale, vScale
-   use blocking, only: llm, ulm, lo_map
+   use blocking, only: llm, ulm, lo_map, lm2
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, osn2, &
        &                      O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
-       &            l_temperature_diff, l_chemical_conv, l_phase_field, l_mag
+       &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
+       &            l_mag, l_onset
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -39,9 +40,11 @@ module outMisc_mod
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
    integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
-   integer :: n_rmelt_file, n_hemi_file
+   integer :: n_rmelt_file, n_hemi_file, n_growth_sym_file, n_growth_asym_file
+   integer :: n_drift_sym_file, n_drift_asym_file
    character(len=72) :: heat_file, helicity_file, phase_file, rmelt_file
-   character(len=72) :: hemi_file
+   character(len=72) :: hemi_file, sym_file, asym_file, drift_sym_file
+   character(len=72) :: drift_asym_file
    real(cp) :: TPhiOld, Tphi
    real(cp), allocatable :: ekinSr(:), ekinLr(:), volSr(:)
    real(cp), allocatable :: hemi_ekin_r(:,:), hemi_vrabs_r(:,:)
@@ -49,9 +52,11 @@ module outMisc_mod
    real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
+   complex(cp), allocatable :: pol_old(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
-   &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi
+   &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
+   &         get_onset
 
 contains
 
@@ -60,6 +65,8 @@ contains
       ! This subroutine handles the opening of some output diagnostic files that
       ! have to do with heat transfer, helicity, phase field or hemisphericity
       !
+
+      integer :: n_r_mid
 
       if (l_heat .or. l_chemical_conv) then
          call TMeanR%initialize(1,n_r_max)
@@ -125,6 +132,27 @@ contains
          end if
       end if
 
+      if ( l_onset ) then
+         n_r_mid = int(n_r_max/2)
+         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid ) then
+            allocate(pol_old(lm_max) )
+            bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+            pol_old(:)=zero
+         else
+            allocate(pol_old(1) )
+         end if
+         sym_file       ='growth_sym.'//tag
+         asym_file      ='growth_asym.'//tag
+         drift_sym_file ='drift_sym.'//tag
+         drift_asym_file='drift_asym.'//tag
+         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid .and. (.not. l_save_out)) then
+            open(newunit=n_growth_sym_file, file=sym_file, status='new')
+            open(newunit=n_growth_asym_file, file=asym_file, status='new')
+            open(newunit=n_drift_sym_file, file=drift_sym_file, status='new')
+            open(newunit=n_drift_asym_file, file=drift_asym_file, status='new')
+         end if
+      end if
+
    end subroutine initialize_outMisc_mod
 !----------------------------------------------------------------------------------
    subroutine finalize_outMisc_mod()
@@ -133,12 +161,24 @@ contains
       ! heat.TAG, hel.TAG, hemi.TAG and phase.TAG
       !
 
+      integer :: n_r_mid
+
       if ( l_heat .or. l_chemical_conv ) then
          call TMeanR%finalize()
          call SMeanR%finalize()
          call PMeanR%finalize()
          call XiMeanR%finalize()
          call RhoMeanR%finalize()
+      end if
+      if ( l_onset ) then
+         n_r_mid = int(n_r_max/2)
+         deallocate( pol_old )
+         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid .and. (.not. l_save_out) ) then
+            close(n_growth_sym_file)
+            close(n_growth_asym_file)
+            close(n_drift_sym_file)
+            close(n_drift_asym_file)
+         end if
       end if
       if ( l_hemi ) then 
          deallocate( hemi_ekin_r, hemi_vrabs_r )
@@ -977,5 +1017,88 @@ contains
       volSr(nR) =volS
 
    end subroutine get_ekin_solid_liquid
+!----------------------------------------------------------------------------------
+   subroutine get_onset(time, w, dt, l_log)
+      !
+      ! This subroutine is used to estimate the growth rate and the drifting
+      ! frequencies of a series of m modes for both equatiorlly-symmetric
+      ! and equatorially-antisymmetric modes. This is used to compute the critical
+      ! Rayleigh number.
+      !
+
+      real(cp),    intent(in) :: time  ! Time
+      real(cp),    intent(in) :: dt    ! Timestep size
+      logical,     intent(in) :: l_log ! Do we need to store outputs
+      complex(cp), intent(in) :: w(lm_max, nRstart:nRstop) ! Poloidal potential
+
+      !-- Local variables
+      character(len=3) :: ad
+      complex(cp) :: drift(lm_max)
+      real(cp) :: growth(lm_max)
+      integer :: n_r_mid, lm, l, m
+
+      n_r_mid = int(n_r_max/2)
+
+      if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid ) then
+         do lm=1,lm_max
+            if ( abs(w(lm,n_r_mid)) > 0.0_cp ) then
+               growth(lm)=(abs(w(lm,n_r_mid))-abs(pol_old(lm))) / &
+               &           abs(w(lm,n_r_mid)) /dt
+               drift(lm) =(w(lm,n_r_mid)-pol_old(lm)) / w(lm,n_r_mid) / dt
+            else
+               growth(lm)=0.0_cp
+               drift(lm) =0.0_cp
+            end if
+         end do
+
+         if ( l_log ) then
+            if ( l_save_out ) then
+               open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
+               &    position='append')
+               open(newunit=n_growth_asym_file, file=asym_file, status='unknown',   &
+               &    position='append')
+               open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
+               &    position='append')
+               open(newunit=n_drift_asym_file, file=drift_asym_file, status='unknown', &
+               &    position='append')
+            end if
+            ad='no'
+            do m=m_min,m_max,minc
+               if ( m == m_max .and. (.not. l_save_out)) ad='yes'
+               l =max(m,1)
+               lm=lm2(l,m)
+               if ( m == m_min ) then
+                  write(n_growth_sym_file, '(es16.8,es14.6)', advance=ad) &
+                  &     time, growth(lm)
+                  write(n_drift_sym_file, '(es16.8,es14.6)', advance=ad) &
+                  &     time, aimag(drift(lm))
+               else
+                  write(n_growth_sym_file, '(es14.6)', advance=ad) growth(lm)
+                  write(n_drift_sym_file, '(es14.6)', advance=ad) aimag(drift(lm))
+               end if
+               lm=lm2(l+1,m)
+               if ( m == m_min ) then
+                  write(n_growth_asym_file, '(es16.8,es14.6)', advance=ad) &
+                  &     time, growth(lm)
+                  write(n_drift_asym_file, '(es16.8,es14.6)', advance=ad) &
+                  &     time, aimag(drift(lm))
+               else
+                  write(n_growth_asym_file, '(es14.6)', advance=ad) growth(lm)
+                  write(n_drift_asym_file, '(es14.6)', advance=ad) aimag(drift(lm))
+               end if
+
+            end do
+            if ( l_save_out ) then
+               close(n_growth_sym_file)
+               close(n_growth_asym_file)
+               close(n_drift_sym_file)
+               close(n_drift_asym_file)
+            end if
+         end if
+
+         pol_old(:)=w(:,n_r_mid)
+      end if
+
+   end subroutine get_onset
 !----------------------------------------------------------------------------------
 end module outMisc_mod

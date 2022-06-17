@@ -17,7 +17,7 @@ class SpectralTransforms(object):
     >>> T = sh.spec_spat(Tlm) # T[n_phi_max, n_theta_max]
     """
 
-    def __init__(self, l_max=32, minc=1, lm_max=561, n_theta_max=64,
+    def __init__(self, l_max=32, minc=1, lm_max=561, n_theta_max=64, m_max = None,
                  verbose=True):
         """
         :param l_max: maximum spherical harmonic degree
@@ -32,13 +32,19 @@ class SpectralTransforms(object):
         :type verbose: bool
         """
         self._legF90 = leg.legendre
-        self._legF90.init(l_max, minc, lm_max, n_theta_max)
+        if m_max is None:
+            self._legF90.init(l_max, minc, lm_max, n_theta_max)
+        else:
+            self._legF90.init(l_max, minc, lm_max, n_theta_max, m_max)
         self.l_max = self._legF90.l_max
         self.minc = self._legF90.minc
         self.lm_max = self._legF90.lm_max
         self.n_theta_max = self._legF90.n_theta_max
         self.n_phi_max = self._legF90.n_phi_max
-        self.m_max = int((self.l_max/self.minc) * self.minc)
+        if m_max is None:
+            self.m_max = int((self.l_max/self.minc) * self.minc)
+        else:
+            self.m_max = int(m_max)
 
         if verbose:
             print('Spectral transform setup:')
@@ -51,14 +57,16 @@ class SpectralTransforms(object):
 
         self.idx = np.zeros((self.l_max+1, self.m_max+1), 'i')
         self.ell = np.zeros((self.lm_max), 'i')
+        self.m = np.zeros((self.lm_max), 'i')
 
         self.idx[0:self.l_max+2, 0] = np.arange(self.l_max+1)
         self.ell[0:self.l_max+2] = np.arange(self.l_max+2)
         k = self.l_max+1
-        for m in range(self.minc, self.l_max+1, self.minc):
+        for m in range(self.minc, self.m_max+1, self.minc):
             for l in range(m, self.l_max+1):
                 self.idx[l, m] = k
                 self.ell[self.idx[l,m]] = l
+                self.m[self.idx[l,m]] = m
                 k +=1
 
     def spec_spat(self, *args, **kwargs):

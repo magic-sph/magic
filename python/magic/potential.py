@@ -166,13 +166,18 @@ class MagicPotential(MagicSetup):
         if verbose:
             print('Time to read {}: {:.2e}'.format(filename, t2-t1))
 
-        self.n_theta_max = int(3*self.l_max/2)
-        if self.n_theta_max % 2:  # odd number
-            self.n_theta_max += 1
+        self.n_theta_max = max(int(3*self.l_max/2),128)
+        self.n_theta_max += self.n_theta_max%2
         self.n_phi_max = int(2*self.n_theta_max/self.minc)
+        lm_max = ( self.m_max*(self.l_max+1)/self.minc
+                  -self.m_max*(self.m_max-self.minc)/(2*self.minc)
+                  +(self.l_max+1-self.m_max) )
+        self.lm_max = max(self.lm_max,lm_max)
         t1 = time.time()
+
         self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
                                      lm_max=self.lm_max,
+                                     m_max=self.m_max,
                                      n_theta_max=self.n_theta_max,
                                      verbose=verbose)
         t2 = time.time()
@@ -182,6 +187,34 @@ class MagicPotential(MagicSetup):
 
         self.idx = self.sh.idx
         self.ell = self.sh.ell
+        self.m   = self.sh.m
+
+        if self.version == 2 and self.m_min > 0:
+            mask = self.m >= self.m_min
+
+            pol = np.zeros([int(self.lm_max),int(self.n_r_max)],
+                            dtype=np.dtype(self.pol[0,0]))
+            pol[mask,:] = self.pol
+            self.pol = pol
+
+            if (field != 'T' and field != 'Xi'):
+                tor = np.zeros([int(self.lm_max),int(self.n_r_max)],
+                                dtype=np.dtype(self.pol[0,0]))
+                tor[mask,:] = self.tor
+                self.tor = tor
+
+            if ic: # Repeat for ic
+                pol_ic = np.zeros([int(self.lm_max),int(self.n_r_ic_max)],
+                                    dtype=np.dtype(self.pol_ic[0,0]))
+                tor_ic = np.zeros([int(self.lm_max),int(self.n_r_ic_max)],
+                                    dtype=np.dtype(self.pol_ic[0,0]))
+
+                pol_ic[mask,:] = self.pol_ic
+                tor_ic[mask,:] = self.tor_ic
+
+                self.pol_ic = pol_ic
+                self.tor_ic = tor_ic
+
 
     def read(self, filename, field, endian, record_marker, ic=False,
              precision=np.float32):
@@ -263,20 +296,15 @@ class MagicPotential(MagicSetup):
                 dt = np.dtype('{}5i4'.format(prefix))
                 self.n_r_max, self.n_r_ic_max, self.l_max, self.minc, \
                     self.lm_max = np.fromfile(f, dtype=dt, count=1)[0]
+                if self.version == 2:
+                    dt = np.dtype('{}2i4'.format(prefix))
+                    self.m_min, self.m_max = np.fromfile(f, dtype=dt, count=1)[0]
                 dt = np.dtype('{}2f4'.format(prefix))
                 self.omega_ic, self.omega_ma = \
                     np.fromfile(f, dtype=dt, count=1)[0]
                 dt = np.dtype("{}{}f4".format(prefix, self.n_r_max))
                 self.radius = np.fromfile(f, dtype=dt, count=1)[0]
                 self.rho0 = np.fromfile(f, dtype=dt, count=1)[0]
-
-                dt = np.dtype("{}({},{})c8".format(prefix, self.n_r_max,
-                                                   self.lm_max))
-                self.pol = np.fromfile(f, dtype=dt, count=1)[0]
-                self.pol = self.pol.T
-                if (field != 'T' and field != 'Xi'):
-                    self.tor = np.fromfile(f, dtype=dt, count=1)[0]
-                    self.tor = self.tor.T
 
                 dt = np.dtype("{}({},{})c8".format(prefix, self.n_r_max,
                                                    self.lm_max))
@@ -322,6 +350,9 @@ class MagicPotential(MagicSetup):
             self.sigma_ratio = Prd.sigma_ratio
             self.prmag = Prd.prmag
             self.pr = Prd.pr
+            if self.version == 2:
+                self.m_min = Prd.m_min
+                self.m_max = Prd.m_max
             self.omega_ic = Prd.omega_ic
             self.omega_ma = Prd.omega_ma
             self.radius = Prd.radius

@@ -24,7 +24,7 @@ def get_truncation(n_theta_max, nalias, minc):
 
     return lmax, mmax, lm_max
 
-def get_map(lm_max, lmax, mmax, minc):
+def get_map(lm_max, lmax, mmin, mmax, minc):
     """
     This routine determines the look-up tables to convert the indices
     (l, m) to the single index lm.
@@ -33,6 +33,8 @@ def get_map(lm_max, lmax, mmax, minc):
     :type lm_max: int
     :param lmax: maximum spherical harmonic degree
     :type lmax: int
+    :param mmin: minimum spherical harmonic order
+    :type mmin: int
     :param mmax: maximum spherical harmonic order
     :type mmax: int
     :param minc: azimuthal symmetry
@@ -43,11 +45,8 @@ def get_map(lm_max, lmax, mmax, minc):
     idx = np.zeros((lmax+1, mmax+1), np.int8)
     lm2l = np.zeros(lm_max, np.int8)
     lm2m = np.zeros(lm_max, np.int8)
-    idx[0:lmax+2, 0] = np.arange(lmax+1)
-    lm2l[0:lmax+1] = np.arange(lmax+1)
-    lm2m[0:lmax+2] = 0
-    k = lmax+1
-    for m in range(minc, lmax+1, minc):
+    k = 0
+    for m in range(mmin, mmax+1, minc):
         for l in range(m, lmax+1):
             idx[l, m] = k
             lm2l[k] = l
@@ -202,11 +201,20 @@ class MagicCheckpoint:
         self.n_r_max, self.n_theta_max, self.n_phi_tot, self.minc,\
                       self.nalias, self.n_r_ic_max = \
                       np.fromfile(file, dtype=np.int32, count=6)
-        self.l_max, self.m_max, self.lm_max = get_truncation(self.n_theta_max,
-                                                             self.nalias, self.minc)
+        if self.version > 3:
+            self.l_max, self.m_min, self.m_max = np.fromfile(file, dtype=np.int32,
+                                                             count=3)
+            self.lm_max = 0
+            for m in range(self.m_min, self.m_max+1, self.minc):
+                for l in range(m, self.l_max+1):
+                    self.lm_max += 1
+        else:
+            self.l_max, self.m_max, self.lm_max = get_truncation(self.n_theta_max,
+                                                                 self.nalias, self.minc)
+            self.m_min = 0
         # Define maps
         self.idx, self.lm2l, self.lm2m = get_map(self.lm_max, self.l_max,
-                                                 self.m_max, self.minc)
+                                                 self.m_min, self.m_max, self.minc)
 
         # Radial scheme
         self.rscheme_version = file.read(72).decode()
@@ -622,7 +630,7 @@ class MagicCheckpoint:
                                                              self.nalias, self.minc)
         # Define maps
         self.idx, self.lm2l, self.lm2m = get_map(self.lm_max, self.l_max,
-                                                 self.m_max, self.minc)
+                                                 0, self.m_max, self.minc)
         self.radius = gr.radius.astype(np.float64)
         ri = self.radius[-1]
         ro = self.radius[0]

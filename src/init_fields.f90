@@ -8,15 +8,15 @@ module init_fields
    use parallel_mod
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_transp_mod, only: type_mpitransp
-   use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max,    &
-       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max, &
+   use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max, m_min, &
+       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,     &
        &                 l_axi,minc,n_cheb_ic_max,lm_max, nlat_padded
    use mem_alloc, only: bytes_allocated
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
        &                      phi, cosTheta, hdif_B
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
-       &            l_temperature_diff, l_chemical_conv,            &
+       &            l_temperature_diff, l_chemical_conv, l_onset,   &
        &            l_anelastic_liquid, l_non_adia, l_finite_diff
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
@@ -376,8 +376,10 @@ contains
          end if
 
 #ifdef WITH_MPI
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         if ( m_min == 0 ) then
+            call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         end if
 #endif
       else
          if ( nRotIc == 2 ) omega_ic=omega_ic1 
@@ -484,12 +486,23 @@ contains
          s1(n_r)=one-three*x**2+three*x**4-x**6
       end do
 
-      if ( init_s1 < 100 .and. init_s1 > 0 ) then
+      if ( l_onset ) then
+         !-- same amplitude on all modes
+         do n_r=1,n_r_max
+            do lm=llm,ulm ! all modes except l=m=0 carry the same function
+               l = lo_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               s(lm,n_r)=amp_s1*s1(n_r)
+            end do
+         end do
+
+      else if ( init_s1 < 100 .and. init_s1 > 0 ) then
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
 
-         do lm=max(llm,2),ulm
+         do lm=llm,ulm
             l = lo_map%lm2l(lm)
+            if ( l == 0 ) cycle
             m = lo_map%lm2m(lm)
             call random_number(ra1)
             call random_number(ra2)
@@ -761,12 +774,23 @@ contains
          xi1(n_r)=one-three*x**2+three*x**4-x**6
       end do
 
-      if ( init_xi1 < 100 .and. init_xi1 > 0 ) then
+      if ( l_onset ) then
+         !-- same amplitude on all modes
+         do n_r=1,n_r_max
+            do lm=llm,ulm ! all modes except l=m=0 carry the same function
+               l = lo_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               xi(lm,n_r)=amp_xi1*xi1(n_r)
+            end do
+         end do
+
+      else if ( init_xi1 < 100 .and. init_xi1 > 0 ) then
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
 
-         do lm=max(llm,2),ulm
+         do lm=llm,ulm
             l = lo_map%lm2l(lm)
+            if ( l == 0 ) cycle
             m = lo_map%lm2m(lm)
             call random_number(ra1)
             call random_number(ra2)

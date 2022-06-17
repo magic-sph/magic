@@ -11,7 +11,7 @@ module communications
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi, &
-       &                 fd_order, fd_order_bound
+       &                 fd_order, fd_order_bound, m_max, m_min
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
@@ -134,11 +134,11 @@ contains
       if ( rank == 0 ) then
          do n=1,2
             if ( n==1 ) then
-               n_out = n_log_file
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &
                   &    position='append')
                end if
+               n_out = n_log_file
             else
                n_out = output_unit
             end if
@@ -454,7 +454,7 @@ contains
          if ( .not. l_axi ) then
             do nR=1,self%dim2
                do l=0,l_max
-                  do m=0,l,minc
+                  do m=m_min,min(l,m_max),minc
                      arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
                   end do
                end do
@@ -472,7 +472,7 @@ contains
       if ( .not. l_axi ) then
          do nR=1,self%dim2
             do l=0,l_max
-               do m=0,l,minc
+               do m=m_min,min(l,m_max),minc
                   arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
                end do
             end do
@@ -556,7 +556,7 @@ contains
          ! reorder
          if ( .not. l_axi ) then
             do l=0,l_max
-               do m=0,l,minc
+               do m=m_min,min(l,m_max),minc
                   arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
                end do
             end do
@@ -569,7 +569,7 @@ contains
 #else
       if ( .not. l_axi ) then
          do l=0,l_max
-            do m=0,l,minc
+            do m=m_min,min(l,m_max),minc
                arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
             end do
          end do
@@ -602,7 +602,7 @@ contains
          ! reorder
          if ( .not. l_axi ) then
             do l=0,l_max
-               do m=0,l,minc
+               do m=m_min,min(l,m_max),minc
                   temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
                end do
             end do
@@ -619,7 +619,7 @@ contains
 #else
       if ( .not. l_axi ) then
          do l=0,l_max
-            do m=0,l,minc
+            do m=m_min,min(l,m_max),minc
                arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
             end do
          end do
@@ -818,7 +818,7 @@ contains
       if ( .not. l_axi ) then
          do nR=1,n_r_max
             do l=0,l_max
-               do m=0,l,minc
+               do m=m_min,min(l,m_max),minc
                   arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
                end do
             end do
@@ -848,7 +848,7 @@ contains
       if ( .not. l_axi ) then
          do nR=1,n_r_max
             do l=0,l_max
-               do m=0,l,minc
+               do m=m_min,min(l,m_max),minc
                   arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
                end do
             end do

@@ -17,6 +17,7 @@ import varProps.unitTest
 import finite_differences.unitTest
 import time_schemes.unitTest
 import doubleDiffusion.unitTest
+import onset.unitTest
 import phase_field.unitTest
 import testRestart.unitTest
 import testMapping.unitTest
@@ -278,6 +279,11 @@ def getSuite(startdir, cmd, precision, args):
                                                   % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
+        # Onset of convection
+        suite.addTest(onset.unitTest.OnsetTest('outputFileDiff',
+                                               '%s/onset' % startdir, 
+                                               execCmd=cmd,
+                                               precision=precision))
     if args.test_level in [-1, 1]:
         # Test restart file capabilities
         suite.addTest(testRestart.unitTest.TestRestart('outputFileDiff',

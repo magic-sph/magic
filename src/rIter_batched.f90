@@ -22,7 +22,7 @@ module rIter_batched_mod
        &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
-       &            l_temperature_diff, l_RMS, l_phase_field
+       &            l_temperature_diff, l_RMS, l_phase_field, l_onset
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -204,41 +204,43 @@ contains
       call this%nl_lm%set_zero()
 
       !-- Transform arrays to grid space
-      call lm2phy_counter%start_count()
-      call this%transform_to_grid_space(lViscBcCalc, lRmsCalc,                &
-           &                            lPressCalc, lTOCalc, lPowerCalc,      &
-           &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
-           &                            lHemiCalc, lGeosCalc, l_frame)
-      call lm2phy_counter%stop_count(l_increment=.false.)
+      if ( .not. l_onset ) then
+         call lm2phy_counter%start_count()
+         call this%transform_to_grid_space(lViscBcCalc, lRmsCalc,                &
+              &                            lPressCalc, lTOCalc, lPowerCalc,      &
+              &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
+              &                            lHemiCalc, lGeosCalc, l_frame)
+         call lm2phy_counter%stop_count(l_increment=.false.)
 
-      !-- Compute nonlinear terms on grid
-      call nl_counter%start_count()
-      call this%gsa%get_nl(nRstart, nRstop, timeStage)
-      call nl_counter%stop_count(l_increment=.false.)
+         !-- Compute nonlinear terms on grid
+         call nl_counter%start_count()
+         call this%gsa%get_nl(nRstart, nRstop, timeStage)
+         call nl_counter%stop_count(l_increment=.false.)
 
-      !-- Get nl loop for r.m.s. computation
-      if ( l_RMS ) then
-         call get_nl_RMS(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
-              &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
-              &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
-              &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
-              &          this%gsa%LFp,tscheme,lRmsCalc)
+         !-- Get nl loop for r.m.s. computation
+         if ( l_RMS ) then
+            call get_nl_RMS(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
+                 &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
+                 &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
+                 &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
+                 &          this%gsa%LFp,tscheme,lRmsCalc)
+         end if
+
+         !--------- Calculate courant condition parameters:
+         !if ( .not. l_full_sphere .or. nR /= n_r_icb ) then
+         dtrkc(:)=1e10_cp
+         dthkc(:)=1e10_cp
+         call courant_batch(nRstart, nRstop, dtrkc(nRstart:nRstop),              &
+              &             dthkc(nRstart:nRstop), this%gsa%vrc,                 &
+              &             this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
+              &             this%gsa%bpc, tscheme%courfac, tscheme%alffac)
+         !end if
+
+         !-- Transform back to LM space
+         call phy2lm_counter%start_count()
+         call this%transform_to_lm_space(nRstart, nRstop, lRmsCalc)
+         call phy2lm_counter%stop_count(l_increment=.false.)
       end if
-
-      !--------- Calculate courant condition parameters:
-      !if ( .not. l_full_sphere .or. nR /= n_r_icb ) then
-      dtrkc(:)=1e10_cp
-      dthkc(:)=1e10_cp
-      call courant_batch(nRstart, nRstop, dtrkc(nRstart:nRstop),              &
-           &             dthkc(nRstart:nRstop), this%gsa%vrc,                 &
-           &             this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-           &             this%gsa%bpc, tscheme%courfac, tscheme%alffac)
-      !end if
-
-      !-- Transform back to LM space
-      call phy2lm_counter%start_count()
-      call this%transform_to_lm_space(nRstart, nRstop, lRmsCalc)
-      call phy2lm_counter%stop_count(l_increment=.false.)
 
       do nR=nRstart,nRstop
          nBc = 0
@@ -253,7 +255,6 @@ contains
             ! equation
             nBc=0
          end if
-
 
          if ( lTOCalc ) call this%TO_arrays%set_zero()
 

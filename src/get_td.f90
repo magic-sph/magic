@@ -8,7 +8,7 @@ module nonlinear_lm_mod
    use, intrinsic :: iso_c_binding
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
+   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, m_min
    use grid_blocking, only: n_spec_space_lmP
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
@@ -16,17 +16,17 @@ module nonlinear_lm_mod
        &             l_adv_curl, l_phase_field
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, &
-       &               lm2lmS
+   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc
 
-
    implicit none
 
-   type :: nonlinear_lm_t
+   private
+
+   type, public :: nonlinear_lm_t
       !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
@@ -39,6 +39,8 @@ module nonlinear_lm_mod
       procedure :: set_zero
       procedure :: get_td
    end type nonlinear_lm_t
+
+   integer :: lm_min
 
 contains
 
@@ -87,6 +89,12 @@ contains
          allocate(this%dphidtLM(1))
       end if
 
+      if ( m_min == 0 ) then
+         lm_min = 2
+      else
+         lm_min = 1
+      end if
+
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -129,6 +137,7 @@ contains
             this%VSpLM(lm)=zero
          end if
          if ( l_anel ) this%heatTermsLM(lm)=zero
+         if ( l_phase_field ) this%dphidtLM(lm)=zero
          if ( l_chemical_conv ) then
             this%VXirLM(lm)=zero
             this%VXitLM(lm)=zero
@@ -220,7 +229,7 @@ contains
 
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
@@ -332,7 +341,7 @@ contains
             !if ( .true. ) then
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(AdvPol_loc,CorPol_loc)
-               do lm=2,lm_max
+               do lm=lm_min,lm_max
                   l   =lm2l(lm)
                   m   =lm2m(lm)
                   lmS =lm2lmS(lm)
@@ -377,7 +386,7 @@ contains
             end if
 
          else
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                dwdt(lm)=zero
                dzdt(lm)=zero
                dpdt(lm)=zero
@@ -401,7 +410,7 @@ contains
             dsdt(1)=dsdt_loc
 
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
                dVSrLM(lm)=VSrLM(lmP)
@@ -423,7 +432,7 @@ contains
             dxidt(1)  =epscXi
 
             !$omp parallel do default(shared) private(lm,lmP)
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                lmP=lm2lmP(lm)
                dVXirLM(lm)=VXirLM(lmP)
                dxidt(lm)  =dLh(lm)*VXitLM(lmP)
@@ -451,11 +460,13 @@ contains
             !$omp end parallel do
          else
             if ( l_mag ) then
+               !$omp parallel do
                do lm=1,lm_max
                   dbdt(lm)   =zero
                   djdt(lm)   =zero
                   dVxBhLM(lm)=zero
                end do
+               !$omp end parallel do
             end if
          end if
 
@@ -464,27 +475,32 @@ contains
             dVxBhLM(1)=zero
             dVSrLM(1) =zero
             !$omp parallel do default(shared) private(lm,lmP)
-            do lm=2,lm_max
+            do lm=lm_min,lm_max
                lmP =lm2lmP(lm)
                dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
                dVSrLM(lm) =zero
             end do
             !$omp end parallel do
          else
+            !$omp parallel do
             do lm=1,lm_max
                if ( l_mag ) dVxBhLM(lm)=zero
                dVSrLM(lm) =zero
             end do
+            !$omp end parallel do
          end if
          if ( l_double_curl ) then
+            !$omp parallel do
             do lm=1,lm_max
                dVxVhLM(lm)=zero
             end do
          end if
          if ( l_chemical_conv ) then
+            !$omp parallel do
             do lm=1,lm_max
                dVXirLM(lm)=zero
             end do
+            !$omp end parallel do
          end if
       end if  ! boundary ? lvelo ?
 

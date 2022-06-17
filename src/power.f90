@@ -8,7 +8,7 @@ module power
    use mem_alloc, only: bytes_allocated
    use grid_blocking, only: radlatlon2spat
    use communications, only: gather_from_Rloc, reduce_radial, send_lm_pair_to_master
-   use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, l_max, &
+   use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, &
        &                 n_r_maxMag, n_phi_max, n_theta_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
@@ -147,7 +147,7 @@ contains
          !if ( l_conv ) then
          !   curlU2_r(n_r)=0.0_cp
          !   !do lm=2,lm_max
-         !   do lm=max(2,llm),ulm
+         !   do lm=llm,ulm
          !      l=lo_map%lm2l(lm)
          !      m=lo_map%lm2m(lm)
          !      laplace=dLh(st_map%lm2(l,m))*or2(n_r)*w(lm,n_r)-ddw(lm,n_r)
@@ -160,7 +160,7 @@ contains
 
          if ( l_mag ) then
             curlB2_r(n_r)=0.0_cp
-            do lm=max(2,llm),ulm
+            do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                laplace=dLh(st_map%lm2(l,m))*or2(n_r)*b(lm,n_r)-ddb(lm,n_r)
@@ -174,7 +174,7 @@ contains
 
          if ( l_heat ) then
             buoy_r(n_r)=0.0_cp
-            do lm=max(2,llm),ulm
+            do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                buoy_r(n_r)=buoy_r(n_r) + eScale*                 &
@@ -184,7 +184,7 @@ contains
          end if
          if ( l_chemical_conv ) then
             buoy_chem_r(n_r)=0.0_cp
-            do lm=max(2,llm),ulm
+            do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                buoy_chem_r(n_r)=buoy_chem_r(n_r) + eScale*              &
@@ -236,7 +236,7 @@ contains
          do n_r=1,n_r_ic_max
             r_ratio=r_ic(n_r)/r_ic(1)
             curlB2_rIC(n_r)=0.0_cp
-            do lm=max(2,llm),ulm
+            do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                Bh=(l+one)*O_r_ic(n_r)*aj_ic(lm,n_r)+dj_ic(lm,n_r)

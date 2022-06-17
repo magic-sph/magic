@@ -5,7 +5,7 @@ module horizontal_data
    !
 
    use truncation, only: l_max, lmP_max, n_theta_max, n_phi_max, nlat_padded, &
-       &                 lm_max, n_m_max, minc, m_max, l_axi
+       &                 lm_max, n_m_max, minc, m_min, m_max, l_axi
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
@@ -151,7 +151,7 @@ contains
 
          ! Get dP for all degrees and order m=0 at the equator only
          ! Usefull to estimate the flow velocity at the equator
-         call plm_theta(half*pi,l_max,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
+         call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
          !-- More functions stored to obscure the code:
          sn2(n_theta)               =sin(colat)**2
@@ -193,7 +193,7 @@ contains
 
       !-- Build arrays depending on degree l and order m
       !   and hyperdiffusion factors:
-      do m=0,m_max,minc  ! Build auxiliary array clm
+      do m=m_min,m_max,minc  ! Build auxiliary array clm
          do l=m,l_max+1
             clm(l,m)=sqrt( real((l+m)*(l-m),cp) / real((2*l-1)*(2*l+1),cp) )
          end do

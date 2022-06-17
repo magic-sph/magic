@@ -799,7 +799,7 @@ contains
       real(cp), intent(in) :: dt_new
       real(cp), intent(in) :: dt_min
       real(cp), intent(in) :: time
-      integer,  intent(in) :: n_log_file
+      integer,  intent(inout) :: n_log_file
       integer,  intent(in) :: n_time_step
       logical,  intent(in) :: l_new_dtNext
 
@@ -818,7 +818,7 @@ contains
             &    " ! Time step too small, dt=",dt_new, &
             &    " ! I thus stop the run !"
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', &
+               open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
             write(n_log_file,'(1p,/,A,ES14.4,/,A)')    &
@@ -838,7 +838,7 @@ contains
             &    "                      last dt=",dt_old,                       &
             &    "                       new dt=",dt_new
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', &
+               open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
             write(n_log_file,                                         &

@@ -187,6 +187,8 @@ contains
       if ( l_adv_curl ) then
          allocate( dpkindrLM(n_spec_space_lmP) )
          bytes_allocated = bytes_allocated + n_spec_space_lmP*SIZEOF_DEF_COMPLEX
+      else
+         allocate( dpkindrLM(1) ) ! for debug
       end if
 
       call InerRmsL%initialize(0,l_max)

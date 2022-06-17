@@ -82,7 +82,7 @@ module time_schemes
          real(cp), intent(in) :: dt_new
          real(cp), intent(in) :: dt_min
          real(cp), intent(in) :: time
-         integer,  intent(in) :: n_log_file
+         integer,  intent(inout) :: n_log_file
          integer,  intent(in) :: n_time_step
          logical,  intent(in) :: l_new_dtNext
       end subroutine set_dt_array_if
@@ -166,7 +166,7 @@ contains
       class(type_tscheme) :: this
 
       !-- Input variable
-      integer, intent(in) :: n_log_file ! File unit of the log.TAG file
+      integer, intent(inout) :: n_log_file ! File unit of the log.TAG file
 
       !-- Local variables
       integer :: n, n_out
@@ -175,8 +175,9 @@ contains
          if ( n == 1 ) n_out=output_unit
          if ( n == 2 ) n_out=n_log_file
          if ( n == 2 .and. l_save_out ) then
-            open(n_log_file, file=log_file, status='unknown', &
+            open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
+            n_out=n_log_file
          end if
          write(n_out,*) ''
          write(n_out, '('' ! Time integrator   :'',1p,A10)') this%time_scheme

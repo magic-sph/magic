@@ -215,7 +215,7 @@ contains
       complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
-      integer :: n_theta,n_phi,n_theta_nhs,lm,l,nelem
+      integer :: n_theta,n_phi,n_theta_nhs,nelem
       real(cp) :: fac,facCot
       real(cp) :: BtVr(nlat_padded,n_phi_max),BpVr(nlat_padded,n_phi_max)
       real(cp) :: BrVt(nlat_padded,n_phi_max),BrVp(nlat_padded,n_phi_max)
