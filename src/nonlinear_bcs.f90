@@ -2,7 +2,7 @@ module nonlinear_bcs
 
    use iso_fortran_env, only: output_unit
    use precision_mod
-   use truncation, only: lmP_max, n_phi_max, l_axi, l_max, n_theta_max, nlat_padded
+   use truncation, only: lmP_max, n_phi_max, l_max, n_theta_max, nlat_padded
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0
    use blocking, only: lm2lmP
