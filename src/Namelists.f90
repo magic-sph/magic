@@ -87,7 +87,7 @@ contains
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase,ktopphi,kbotphi
+      &    epsPhase,ktopphi,kbotphi, ampForce
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -396,7 +396,7 @@ contains
       if ( mode == 7 .or. mode == 8 .or. mode == 9 .or. mode == 10 ) then
          !kbotv=2
          !ktopv=2
-         l_correct_AMz=.false.
+!         l_correct_AMz=.false.
          l_heat       =.false.
       end if
 
@@ -1059,6 +1059,8 @@ contains
       !----- Internal heating form:
       write(n_out,'(''  nVarEps         ='',i3,'','')') nVarEps
 
+      write(n_out,'(''  ampForce        ='',ES14.6,'','')') ampForce
+
       write(n_out,*) "/"
 
       !----- External field
@@ -1452,6 +1454,7 @@ contains
 
       Le             =0.0_cp  !Current loop switched off
       loopRadRatio   =1.46_cp/1.89_cp ! 3m value
+      ampForce       =0.0_cp
 
       !----- Namelist start_field:
       l_start_file  =.false.

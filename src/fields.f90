@@ -29,6 +29,7 @@ module fields
 
    complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
    complex(cp), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
+   complex(cp), public, allocatable :: zForce(:,:)
 
    !-- Entropy:
    complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
@@ -256,6 +257,9 @@ contains
          aj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,4)
          dj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,5)
       end if
+
+      allocate(zForce(llm:ulm,n_r_max))
+      zForce(:,:) = zero
 
       if ( l_mag_par_solve ) then
          allocate(ddj_Rloc(lm_maxMag,nRstartMag:nRstopMag))

@@ -28,7 +28,8 @@ module init_fields
        &                       rscheme_oc, or1, O_r_ic
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
-       &                zero, one, two, three, four, third, half, sq4pi
+       &                zero, one, two, three, four, third, half, sq4pi,&
+       &                a_force, b_force
    use useful, only: abortRun
    use sht, only: scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
@@ -38,7 +39,7 @@ module init_fields
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
-       &                          epsPhase
+       &                          epsPhase, ampForce
    use algebra, only: prepare_mat, solve_mat
    use cosine_transform_odd
    use dense_matrices
@@ -100,7 +101,7 @@ module init_fields
    real(cp), public :: scale_b
    real(cp), public :: tipdipole       ! adding to symetric field
 
-   public :: initialize_init_fields, initV, initS, initB, initPhi, ps_cond, &
+   public :: initialize_init_fields, initV, initS, initB, initPhi, initF, ps_cond, &
    &         pt_cond, initXi, xi_cond, finalize_init_fields
 
 contains
@@ -382,8 +383,8 @@ contains
          end if
 #endif
       else
-         if ( nRotIc == 2 ) omega_ic=omega_ic1 
-         if ( nRotMa == 2 ) omega_ma=omega_ma1 
+         if ( nRotIc == 2 ) omega_ic=omega_ic1
+         if ( nRotMa == 2 ) omega_ma=omega_ma1
       end if
 
    end subroutine initV
@@ -1499,6 +1500,49 @@ contains
       end if
 
    end subroutine initPhi
+
+   subroutine initF(zForce)
+
+      complex(cp), intent(inout) :: zForce(llm:ulm,n_r_max)
+      complex(cp) :: zForce_Rloc(lm_max,nRstart:nRstop)
+      integer :: lm,l,m,st_lmP
+      integer :: nR,nTheta,nPhi
+      class(type_mpitransp), pointer :: r2lo_initf, lo2r_initf
+      real(cp) :: zForce_spat(nlat_padded,n_phi_max)
+      complex(cp) :: zFLM(lmP_max)
+
+      allocate( type_mpiptop :: r2lo_initf )
+      allocate( type_mpiptop :: lo2r_initf )
+
+      call r2lo_initf%create_comm(1)
+      call lo2r_initf%create_comm(1)
+
+      call lo2r_initf%transp_lm2r(zForce, zForce_Rloc)
+
+      do nR = nRstart,nRstop
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               ! This is \hat{r}.curl(F) for toroidal equation
+               ! where F = -a * s + b * s**2
+               zForce_spat(nTheta,nPhi) = ampForce * (-2.0_cp * a_force*cosTheta(nTheta) &
+               &                          + 3.0_cp * b_force * r(nR)*cosTheta(nTheta) &
+               &                          * sinTheta(nTheta))
+            end do
+         end do
+
+         call scal_to_SH(zForce_spat,zFLM,l_max)
+
+         zForce_Rloc(:,nR) = zFLM(:)
+
+      end do ! close loop over radial points
+
+      call r2lo_initf%transp_r2lm(zForce_Rloc,zForce)
+
+      call r2lo_initf%destroy_comm()
+      call lo2r_initf%destroy_comm()
+
+   end subroutine initF
+
 !-----------------------------------------------------------------------
    subroutine j_cond(lm0, aj0, aj0_ic)
       !

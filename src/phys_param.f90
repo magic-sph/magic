@@ -108,4 +108,6 @@ module physical_parameters
    real(cp) :: penaltyFac     ! Factor that enters the penalty method in the NS equations
    real(cp) :: tmelt          ! Melting temperature
 
+   real(cp) :: ampForce
+
 end module physical_parameters

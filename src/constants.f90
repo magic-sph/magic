@@ -22,6 +22,7 @@ module constants
    real(cp) :: c_moi_ma ! Moment of inertia of the mantle
    real(cp) :: mass ! Mass of the outer core
    real(cp) :: y10_norm,y11_norm
+   real(cp) :: a_force, b_force, eta_fac
 
    real(cp), parameter :: one  =1.0_cp ! 1
    real(cp), parameter :: two  =2.0_cp ! 2
