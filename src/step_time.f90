@@ -693,8 +693,12 @@ contains
                   call dt_courant(l_new_dt,tscheme%dt(1),dt_new,dtMax,dtrkc_Rloc, &
                        &          dthkc_Rloc,time)
                else
-                  l_new_dt=.false.
-                  dt_new  =dtMax
+                  dt_new=dtMax
+                  if ( dt_new /= tscheme%dt(1) ) then
+                     l_new_dt = .true.
+                  else
+                     l_new_dt = .false.
+                  end if
                end if
 
                !--------------------
