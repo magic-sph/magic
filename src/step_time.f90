@@ -125,7 +125,7 @@ contains
       logical :: lTOCalc          ! Calculate TO stuff
       logical :: lTONext,lTONext2 ! TO stuff for next steps
       logical :: lTOframeNext,lTOframeNext2
-      logical :: l_logNext, l_pot
+      logical :: l_logNext, l_pot, lOnsetCalc
       logical :: lRmsCalc,lRmsNext, l_pure, l_mat_time
       logical :: lPressCalc,lPressNext,lP00Next,lP00Transp
       logical :: lMat, lMatNext   ! update matrices
@@ -428,6 +428,7 @@ contains
          lGeosCalc    =l_par        .and. l_log
          lFluxProfCalc=l_FluxProfs  .and. l_log
          lViscBcCalc  =l_ViscBcCalc .and. l_log
+         lOnsetCalc   =l_onset      .and. (l_log .or. l_logNext)
 
          l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
@@ -467,6 +468,7 @@ contains
             lPressCalc    = lPressCalc    .and. (tscheme%istage==1) .and. (.not. l_onset)
             lP00Transp    = lP00Transp    .and. (tscheme%istage==1) .and. (.not. l_onset)
             lViscBcCalc   = lViscBcCalc   .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lOnsetCalc    = lOnsetCalc    .and. (tscheme%istage==1)
             lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1) .and. (.not. l_onset)
             lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1) .and. (.not. l_onset)
             lGeosCalc     = lGeosCalc     .and. (tscheme%istage==1) .and. (.not. l_onset)
@@ -668,11 +670,12 @@ contains
                if ( lVerbose ) write(output_unit,*) "! start real output"
                call io_counter%start_count()
                if ( l_parallel_solve .and. (l_log .or. l_spectrum .or. lTOCalc .or. &
-               &    l_dtB .or. l_cmb .or. l_r .or. l_pot .or. l_store .or. l_frame) ) then
+               &    l_dtB .or. l_cmb .or. l_r .or. lOnsetCalc .or. l_pot .or.       &
+               &    l_store .or. l_frame) ) then
                   call transp_Rloc_to_LMloc_IO(lPressCalc .or. lP00Transp)
                end if
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,       &
-                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,                &
+                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,lOnsetCalc,     &
                     &      l_spectrum,lTOCalc,lTOframe,                            &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                   &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc)
@@ -693,8 +696,12 @@ contains
                   call dt_courant(l_new_dt,tscheme%dt(1),dt_new,dtMax,dtrkc_Rloc, &
                        &          dthkc_Rloc,time)
                else
-                  l_new_dt=.false.
-                  dt_new  =dtMax
+                  dt_new=dtMax
+                  if ( dt_new /= tscheme%dt(1) ) then
+                     l_new_dt = .true.
+                  else
+                     l_new_dt = .false.
+                  end if
                end if
 
                !--------------------

@@ -8,7 +8,7 @@ module graphOut_mod
    use constants, only: one
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
        &                 n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
-       &                 n_phi_max, n_r_ic_max, l_axi, nlat_padded
+       &                 n_phi_max, n_r_ic_max, nlat_padded
    use grid_blocking, only: radlatlon2spat
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2

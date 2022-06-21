@@ -12,7 +12,7 @@ module fields_average_mod
        &                       rscheme_oc, l_R
    use grid_blocking, only: n_phys_space
    use blocking,only: lm2, llm, ulm, llmMag, ulmMag
-   use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
+   use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, l_onset, &
        &            l_chemical_conv, l_phase_field, l_batched_shts
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
@@ -356,105 +356,106 @@ contains
          !----- Construct name of graphic file and open it:
          ! For the graphic file of the average fields, we gather them
          ! on rank 0 and use the old serial output routine.
-
-         call open_graph_file(0, time, l_ave=.true.)
-         !----- Write header into graphic file:
+         if ( .not. l_onset ) then
+            call open_graph_file(0, time, l_ave=.true.)
+            !----- Write header into graphic file:
 #ifdef WITH_MPI
-         call graphOut_mpi_header(time)
+            call graphOut_mpi_header(time)
 #else
-         call graphOut_header(time)
+            call graphOut_header(time)
 #endif
 
-         !-- This will be needed for the inner core
-         if ( l_mag ) then
-            call gather_from_lo_to_rank0(b_ave_LMloc(llm,n_r_icb),bICB)
-         end if
+            !-- This will be needed for the inner core
+            if ( l_mag ) then
+               call gather_from_lo_to_rank0(b_ave_LMloc(llm,n_r_icb),bICB)
+            end if
 
-         !-- MPI transposes from LMloc to Rloc
-         call lo2r_one%transp_lm2r(z_ave_LMloc, z_ave_Rloc)
-         call lo2r_one%transp_lm2r(w_ave_LMloc, w_ave_Rloc)
-         call lo2r_one%transp_lm2r(dw_ave_LMloc, dw_ave_Rloc)
-         call lo2r_one%transp_lm2r(s_ave_LMloc, s_ave_Rloc)
-         call lo2r_one%transp_lm2r(p_ave_LMloc, p_ave_Rloc)
+            !-- MPI transposes from LMloc to Rloc
+            call lo2r_one%transp_lm2r(z_ave_LMloc, z_ave_Rloc)
+            call lo2r_one%transp_lm2r(w_ave_LMloc, w_ave_Rloc)
+            call lo2r_one%transp_lm2r(dw_ave_LMloc, dw_ave_Rloc)
+            call lo2r_one%transp_lm2r(s_ave_LMloc, s_ave_Rloc)
+            call lo2r_one%transp_lm2r(p_ave_LMloc, p_ave_Rloc)
 
-         if ( l_mag ) then
-            call lo2r_one%transp_lm2r(aj_ave_LMloc, aj_ave_Rloc)
-            call lo2r_one%transp_lm2r(aj_ave_LMloc, b_ave_Rloc)
-            call lo2r_one%transp_lm2r(db_ave_LMloc, db_ave_Rloc)
-         end if
+            if ( l_mag ) then
+               call lo2r_one%transp_lm2r(aj_ave_LMloc, aj_ave_Rloc)
+               call lo2r_one%transp_lm2r(aj_ave_LMloc, b_ave_Rloc)
+               call lo2r_one%transp_lm2r(db_ave_LMloc, db_ave_Rloc)
+            end if
 
-         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_ave_LMloc, xi_ave_Rloc)
-         if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_ave_LMloc, phi_ave_Rloc)
+            if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_ave_LMloc, xi_ave_Rloc)
+            if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_ave_LMloc, phi_ave_Rloc)
 
-         !----- Outer core:
-         if ( .not. l_batched_shts ) then
-            do nR=nRstart,nRstop
+            !----- Outer core:
+            if ( .not. l_batched_shts ) then
+               do nR=nRstart,nRstop
+                  if ( l_mag ) then
+                     call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
+                          &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
+                  end if
+                  call torpol_to_spat(w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
+                       &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
+                  call scal_to_spat(sht_l, p_ave_Rloc(:,nR), Prer, l_R(nR))
+                  if ( l_heat ) then
+                     call scal_to_spat(sht_l, s_ave_Rloc(:,nR), Sr, l_R(nR))
+                  end if
+                  if ( l_chemical_conv ) then
+                     call scal_to_spat(sht_l, xi_ave_Rloc(:,nR), Xir, l_R(nR))
+                  end if
+                  if ( l_phase_field ) then
+                     call scal_to_spat(sht_l, phi_ave_Rloc(:,nR), Phir, l_R(nR))
+                  end if
+#ifdef WITH_MPI
+                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+#else
+                  call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+#endif
+               end do
+            else
                if ( l_mag ) then
-                  call torpol_to_spat(b_ave_Rloc(:,nR), db_ave_Rloc(:,nR), &
-                       &              aj_ave_Rloc(:,nR), Br, Bt, Bp, l_R(nR))
+                  call torpol_to_spat(b_ave_Rloc, db_ave_Rloc, &
+                       &              aj_ave_Rloc, Br, Bt, Bp, l_R(1))
                end if
-               call torpol_to_spat(w_ave_Rloc(:,nR), dw_ave_Rloc(:,nR), &
-                    &              z_ave_Rloc(:,nR), Vr, Vt, Vp, l_R(nR))
-               call scal_to_spat(sht_l, p_ave_Rloc(:,nR), Prer, l_R(nR))
+               call torpol_to_spat(w_ave_Rloc, dw_ave_Rloc, &
+                    &              z_ave_Rloc, Vr, Vt, Vp, l_R(1))
+               call scal_to_spat(sht_l, p_ave_Rloc, Prer, l_R(1))
                if ( l_heat ) then
-                  call scal_to_spat(sht_l, s_ave_Rloc(:,nR), Sr, l_R(nR))
+                  call scal_to_spat(sht_l, s_ave_Rloc, Sr, l_R(1))
                end if
                if ( l_chemical_conv ) then
-                  call scal_to_spat(sht_l, xi_ave_Rloc(:,nR), Xir, l_R(nR))
+                  call scal_to_spat(sht_l, xi_ave_Rloc, Xir, l_R(1))
                end if
                if ( l_phase_field ) then
-                  call scal_to_spat(sht_l, phi_ave_Rloc(:,nR), Phir, l_R(nR))
+                  call scal_to_spat(sht_l, phi_ave_Rloc, Phir, l_R(1))
                end if
+               do nR=nRstart,nRstop
 #ifdef WITH_MPI
-               call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
 #else
-               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+                  call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
 #endif
-            end do
-         else
-            if ( l_mag ) then
-               call torpol_to_spat(b_ave_Rloc, db_ave_Rloc, &
-                    &              aj_ave_Rloc, Br, Bt, Bp, l_R(1))
+               end do
+
             end if
-            call torpol_to_spat(w_ave_Rloc, dw_ave_Rloc, &
-                 &              z_ave_Rloc, Vr, Vt, Vp, l_R(1))
-            call scal_to_spat(sht_l, p_ave_Rloc, Prer, l_R(1))
-            if ( l_heat ) then
-               call scal_to_spat(sht_l, s_ave_Rloc, Sr, l_R(1))
+
+            !----- Inner core: Transform is included in graphOut_IC!
+            if ( l_mag .and. n_r_ic_max > 0 ) then
+               call gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
+               call gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
+               call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_ave,ddb_ic_ave_global)
+               call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
+               call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
+
+               call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
+                    &           aj_ic_ave_global,bICB)
             end if
-            if ( l_chemical_conv ) then
-               call scal_to_spat(sht_l, xi_ave_Rloc, Xir, l_R(1))
+
+            call close_graph_file()
+
+            !----- Write info about graph-file into STDOUT and log-file:
+            if ( l_stop_time .and. rank == 0 ) then
+               write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
             end if
-            if ( l_phase_field ) then
-               call scal_to_spat(sht_l, phi_ave_Rloc, Phir, l_R(1))
-            end if
-            do nR=nRstart,nRstop
-#ifdef WITH_MPI
-               call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
-#else
-               call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
-#endif
-            end do
-
-         end if
-
-         !----- Inner core: Transform is included in graphOut_IC!
-         if ( l_mag .and. n_r_ic_max > 0 ) then
-            call gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
-            call gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
-            call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_ave,ddb_ic_ave_global)
-            call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
-            call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
-
-            call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
-                 &           aj_ic_ave_global,bICB)
-         end if
-
-         call close_graph_file()
-
-         !----- Write info about graph-file into STDOUT and log-file:
-         if ( l_stop_time .and. rank == 0 ) then
-            write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
          end if
 
          !--- Store time averaged poloidal magnetic coeffs at cmb

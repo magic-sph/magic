@@ -10,7 +10,7 @@ module init_fields
    use mpi_transp_mod, only: type_mpitransp
    use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max, m_min, &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,     &
-       &                 l_axi,minc,n_cheb_ic_max,lm_max, nlat_padded
+       &                 minc,n_cheb_ic_max,lm_max, nlat_padded
    use mem_alloc, only: bytes_allocated
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &

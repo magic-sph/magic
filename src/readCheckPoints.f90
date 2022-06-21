@@ -2528,37 +2528,21 @@ contains
 
       end if
 
-      if ( .not. l_axi_old ) then
-         do lm=1,lm_max
-            l=lm2l(lm)
-            m=lm2m(lm)
-            lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
-            lmo=0
-            do mo=m_min_old,m_max_old,minc_old
-               do lo=mo,l_max_old
-                  lmo=lmo+1
-                  if ( lo==l .and. mo==m ) then
-                     lm2lmo(lm)=lmo ! data found in startfile
-                     cycle
-                  end if
-               end do
-            end do
-         end do
-      else
-         do lm=1,lm_max
-            l=lm2l(lm)
-            m=lm2m(lm)
-            lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
-            lmo=0
-            do lo=0,l_max_old
+      do lm=1,lm_max
+         l=lm2l(lm)
+         m=lm2m(lm)
+         lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
+         lmo=0
+         do mo=m_min_old,m_max_old,minc_old
+            do lo=mo,l_max_old
                lmo=lmo+1
-               if ( lo==l .and. m==0 ) then
+               if ( lo==l .and. mo==m ) then
                   lm2lmo(lm)=lmo ! data found in startfile
                   cycle
                end if
             end do
          end do
-      end if
+      end do
 
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------

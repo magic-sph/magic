@@ -9,7 +9,7 @@ module dtB_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB,   &
        &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,  &
-       &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi,     &
+       &                 n_r_ic_max, l_max, n_phi_max, ldtBmem,            &
        &                 n_theta_max, nlat_padded
    use grid_blocking, only: radlatlon2spat
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
