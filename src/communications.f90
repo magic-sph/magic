@@ -10,7 +10,7 @@ module communications
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr
-   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi, &
+   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, &
        &                 fd_order, fd_order_bound, m_max, m_min
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
@@ -451,39 +451,23 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         if ( .not. l_axi ) then
-            do nR=1,self%dim2
-               do l=0,l_max
-                  do m=m_min,min(l,m_max),minc
-                     arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
-                  end do
-               end do
-            end do
-         else
-            do nR=1,self%dim2
-               do l=0,l_max
-                  arr_full(st_map%lm2(l,0),nR) = temp_lo(lo_map%lm2(l,0),nR)
-               end do
-            end do
-         end if
-         deallocate(temp_lo)
-      end if
-#else
-      if ( .not. l_axi ) then
          do nR=1,self%dim2
             do l=0,l_max
                do m=m_min,min(l,m_max),minc
-                  arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
+                  arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
                end do
             end do
          end do
-      else
-         do nR=1,self%dim2
-            do l=0,l_max
-               arr_full(st_map%lm2(l,0),nR) = arr_lo(lo_map%lm2(l,0),nR)
+         deallocate(temp_lo)
+      end if
+#else
+      do nR=1,self%dim2
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
             end do
          end do
-      end if
+      end do
 #endif
 
    end subroutine gather_all_from_lo_to_rank0
@@ -554,30 +538,18 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         if ( .not. l_axi ) then
-            do l=0,l_max
-               do m=m_min,min(l,m_max),minc
-                  arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
-               end do
-            end do
-         else
-            do l=0,l_max
-               arr_full(st_map%lm2(l,0)) = temp_gather_lo(lo_map%lm2(l,0))
-            end do
-         end if
-      end if
-#else
-      if ( .not. l_axi ) then
          do l=0,l_max
             do m=m_min,min(l,m_max),minc
-               arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
+               arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
             end do
          end do
-      else
-         do l=0,l_max
-            arr_full(st_map%lm2(l,0)) = arr_lo(lo_map%lm2(l,0))
-         end do
       end if
+#else
+      do l=0,l_max
+         do m=m_min,min(l,m_max),minc
+            arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
+         end do
+      end do
 #endif
 
    end subroutine gather_from_lo_to_rank0
@@ -600,34 +572,22 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         if ( .not. l_axi ) then
-            do l=0,l_max
-               do m=m_min,min(l,m_max),minc
-                  temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
-               end do
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
             end do
-         else
-            do l=0,l_max
-               temp_gather_lo(lo_map%lm2(l,0)) = arr_full(st_map%lm2(l,0))
-            end do
-         end if
+         end do
       end if
 
       call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DEF_COMPLEX,&
            &            arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,0,       &
            &            MPI_COMM_WORLD,ierr)
 #else
-      if ( .not. l_axi ) then
-         do l=0,l_max
-            do m=m_min,min(l,m_max),minc
-               arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
-            end do
+      do l=0,l_max
+         do m=m_min,min(l,m_max),minc
+            arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
          end do
-      else
-         do l=0,l_max
-            arr_lo(lo_map%lm2(l,0)) = arr_full(st_map%lm2(l,0))
-         end do
-      end if
+      end do
 #endif
 
    end subroutine scatter_from_rank0_to_lo
@@ -815,21 +775,13 @@ contains
          call abortRun('lm2lo not yet parallelized')
       end if
 
-      if ( .not. l_axi ) then
-         do nR=1,n_r_max
-            do l=0,l_max
-               do m=m_min,min(l,m_max),minc
-                  arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
-               end do
+      do nR=1,n_r_max
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
             end do
          end do
-      else
-         do nR=1,n_r_max
-            do l=0,l_max
-               arr_lo(lo_map%lm2(l,0),nR) = arr_LMloc(st_map%lm2(l,0),nR)
-            end do
-         end do
-      end if
+      end do
 
    end subroutine lm2lo_redist
 !-------------------------------------------------------------------------------
@@ -845,21 +797,13 @@ contains
          call abortRun('lo2lm not yet parallelized')
       end if
 
-      if ( .not. l_axi ) then
-         do nR=1,n_r_max
-            do l=0,l_max
-               do m=m_min,min(l,m_max),minc
-                  arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
-               end do
+      do nR=1,n_r_max
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
             end do
          end do
-      else
-         do nR=1,n_r_max
-            do l=0,l_max
-               arr_LMloc(st_map%lm2(l,0),nR) = arr_lo(lo_map%lm2(l,0),nR)
-            end do
-         end do
-      end if
+      end do
 
    end subroutine lo2lm_redist
 !-------------------------------------------------------------------------------
