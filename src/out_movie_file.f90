@@ -5,7 +5,7 @@ module out_movie
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
-       &                 n_r_ic_max, n_r_max, l_axi, nlat_padded
+       &                 n_r_ic_max, n_r_max, nlat_padded
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &

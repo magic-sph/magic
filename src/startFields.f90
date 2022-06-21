@@ -24,7 +24,7 @@ module start_fields
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,    &
-       &            l_onset
+       &            l_onset, l_non_adia
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
@@ -183,7 +183,7 @@ contains
 
          end if
 
-         if ( l_onset ) dentropy0(:) = ds0(:) * osq4pi
+         if ( l_onset .and. ( .not. l_non_adia ) ) dentropy0(:) = ds0(:) * osq4pi
 
          if ( rank == 0 ) close(filehandle)
 
@@ -424,30 +424,18 @@ contains
       sES=0.0_cp
       sEA=0.0_cp
       sAA=0.0_cp
-      if ( .not. l_axi ) then
-         do m=m_min,m_max,minc
-            do l=m,l_max
-               if ( l > 0 ) then
-                  if ( mod(l+m,2) == 0 ) then
-                     sES=sES+cc2real(tops(l,m),m)
-                  else
-                     sEA=sEA+cc2real(tops(l,m),m)
-                  end if
-                  if ( m /= 0 ) sAA=sAA+cc2real(tops(l,m),m)
-               end if
-            end do
-         end do
-      else
-         do l=0,l_max
+      do m=m_min,m_max,minc
+         do l=m,l_max
             if ( l > 0 ) then
-               if ( mod(l,2) == 0 ) then
-                  sES=sES+cc2real(tops(l,0),0)
+               if ( mod(l+m,2) == 0 ) then
+                  sES=sES+cc2real(tops(l,m),m)
                else
-                  sEA=sEA+cc2real(tops(l,0),0)
+                  sEA=sEA+cc2real(tops(l,m),m)
                end if
+               if ( m /= 0 ) sAA=sAA+cc2real(tops(l,m),m)
             end if
          end do
-      end if
+      end do
       if ( sEA+sES == 0 ) then
          write(message,'(''! Only l=m=0 comp. in tops:'')')
          call logWrite(message)
@@ -465,30 +453,18 @@ contains
          xiES=0.0_cp
          xiEA=0.0_cp
          xiAA=0.0_cp
-         if ( .not. l_axi ) then
-            do m=m_min,m_max,minc
-               do l=m,l_max
-                  if ( l > 0 ) then
-                     if ( mod(l+m,2) == 0 ) then
-                        xiES=xiES+cc2real(topxi(l,m),m)
-                     else
-                        xiEA=xiEA+cc2real(topxi(l,m),m)
-                     end if
-                     if ( m /= 0 ) xiAA=xiAA+cc2real(topxi(l,m),m)
-                  end if
-               end do
-            end do
-         else
-            do l=0,l_max
+         do m=m_min,m_max,minc
+            do l=m,l_max
                if ( l > 0 ) then
-                  if ( mod(l,2) == 0 ) then
-                     xiES=xiES+cc2real(topxi(l,0),0)
+                  if ( mod(l+m,2) == 0 ) then
+                     xiES=xiES+cc2real(topxi(l,m),m)
                   else
-                     xiEA=xiEA+cc2real(topxi(l,0),0)
+                     xiEA=xiEA+cc2real(topxi(l,m),m)
                   end if
+                  if ( m /= 0 ) xiAA=xiAA+cc2real(topxi(l,m),m)
                end if
             end do
-         end if
+         end do
          if ( xiEA+xiES == 0 ) then
             write(message,'(''! Only l=m=0 comp. in topxi:'')')
             call logWrite(message)

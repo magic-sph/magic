@@ -8,7 +8,7 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use communications, only: gather_from_Rloc
+   use communications, only: gather_from_Rloc, gather_from_lo_to_rank0
    use truncation, only: l_max, n_r_max, nlat_padded, n_theta_max, n_r_maxMag, &
        &                 n_phi_max, lm_max, m_min, m_max, minc
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, nRstartMag, nRstopMag
@@ -51,7 +51,7 @@ module outMisc_mod
    real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
-   complex(cp), allocatable :: pol_old(:)
+   complex(cp), allocatable :: coeff_old(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
@@ -64,8 +64,6 @@ contains
       ! This subroutine handles the opening of some output diagnostic files that
       ! have to do with heat transfer, helicity, phase field or hemisphericity
       !
-
-      integer :: n_r_mid
 
       if (l_heat .or. l_chemical_conv) then
          call TMeanR%initialize(1,n_r_max)
@@ -132,19 +130,14 @@ contains
       end if
 
       if ( l_onset ) then
-         n_r_mid = int(n_r_max/2)
-         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid ) then
-            allocate(pol_old(lm_max) )
-            bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-            pol_old(:)=zero
-         else
-            allocate(pol_old(1) )
-         end if
+         allocate(coeff_old(llm:ulm) )
+         bytes_allocated=bytes_allocated+(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+         coeff_old(:)=zero
          sym_file       ='growth_sym.'//tag
          asym_file      ='growth_asym.'//tag
          drift_sym_file ='drift_sym.'//tag
          drift_asym_file='drift_asym.'//tag
-         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid .and. (.not. l_save_out)) then
+         if ( rank == 0 .and. (.not. l_save_out)) then
             open(newunit=n_growth_sym_file, file=sym_file, status='new')
             open(newunit=n_growth_asym_file, file=asym_file, status='new')
             open(newunit=n_drift_sym_file, file=drift_sym_file, status='new')
@@ -160,8 +153,6 @@ contains
       ! heat.TAG, hel.TAG, hemi.TAG and phase.TAG
       !
 
-      integer :: n_r_mid
-
       if ( l_heat .or. l_chemical_conv ) then
          call TMeanR%finalize()
          call SMeanR%finalize()
@@ -170,9 +161,8 @@ contains
          call RhoMeanR%finalize()
       end if
       if ( l_onset ) then
-         n_r_mid = int(n_r_max/2)
-         deallocate( pol_old )
-         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid .and. (.not. l_save_out) ) then
+         deallocate( coeff_old )
+         if ( rank == 0 .and. (.not. l_save_out) ) then
             close(n_growth_sym_file)
             close(n_growth_asym_file)
             close(n_drift_sym_file)
@@ -1017,86 +1007,99 @@ contains
 
    end subroutine get_ekin_solid_liquid
 !----------------------------------------------------------------------------------
-   subroutine get_onset(time, w, dt, l_log)
+   subroutine get_onset(time, w, dt, l_log, nLogs)
       !
       ! This subroutine is used to estimate the growth rate and the drifting
-      ! frequencies of a series of m modes for both equatiorlly-symmetric
+      ! frequencies of a series of m modes for both equatorially-symmetric
       ! and equatorially-antisymmetric modes. This is used to compute the critical
-      ! Rayleigh number.
+      ! Rayleigh number. This makes uses of the radial integration of the poloidal
+      ! potential at different (l,m) tuples.
       !
 
       real(cp),    intent(in) :: time  ! Time
       real(cp),    intent(in) :: dt    ! Timestep size
       logical,     intent(in) :: l_log ! Do we need to store outputs
-      complex(cp), intent(in) :: w(lm_max, nRstart:nRstop) ! Poloidal potential
+      integer,     intent(in) :: nLogs ! Do not write at the first time step
+      complex(cp), intent(in) :: w(llm:ulm, n_r_max) ! Poloidal potential
 
       !-- Local variables
       character(len=3) :: ad
-      complex(cp) :: drift(lm_max)
-      real(cp) :: growth(lm_max)
-      integer :: n_r_mid, lm, l, m
+      complex(cp) :: coeff, tau(llm:ulm)
+      real(cp) :: tmpr(n_r_max), tmpi(n_r_max)
+      real(cp) :: facR, facI
+      complex(cp), allocatable :: tau_glob(:)
+      integer :: lm, l, m
 
-      n_r_mid = int(n_r_max/2)
-
-      if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid ) then
-         do lm=1,lm_max
-            if ( abs(w(lm,n_r_mid)) > 0.0_cp ) then
-               growth(lm)=(abs(w(lm,n_r_mid))-abs(pol_old(lm))) / &
-               &           abs(w(lm,n_r_mid)) /dt
-               drift(lm) =(w(lm,n_r_mid)-pol_old(lm)) / w(lm,n_r_mid) / dt
-            else
-               growth(lm)=0.0_cp
-               drift(lm) =0.0_cp
-            end if
-         end do
-
-         if ( l_log ) then
-            if ( l_save_out ) then
-               open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
-               &    position='append')
-               open(newunit=n_growth_asym_file, file=asym_file, status='unknown',   &
-               &    position='append')
-               open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
-               &    position='append')
-               open(newunit=n_drift_asym_file, file=drift_asym_file, status='unknown', &
-               &    position='append')
-            end if
-            ad='no'
-            do m=m_min,m_max,minc
-               if ( m == m_max .and. (.not. l_save_out)) ad='yes'
-               l =max(m,1)
-               lm=lm2(l,m)
-               if ( m == m_min ) then
-                  write(n_growth_sym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, growth(lm)
-                  write(n_drift_sym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, aimag(drift(lm))
-               else
-                  write(n_growth_sym_file, '(es14.6)', advance=ad) growth(lm)
-                  write(n_drift_sym_file, '(es14.6)', advance=ad) aimag(drift(lm))
-               end if
-               lm=lm2(l+1,m)
-               if ( m == m_min ) then
-                  write(n_growth_asym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, growth(lm)
-                  write(n_drift_asym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, aimag(drift(lm))
-               else
-                  write(n_growth_asym_file, '(es14.6)', advance=ad) growth(lm)
-                  write(n_drift_asym_file, '(es14.6)', advance=ad) aimag(drift(lm))
-               end if
-
-            end do
-            if ( l_save_out ) then
-               close(n_growth_sym_file)
-               close(n_growth_asym_file)
-               close(n_drift_sym_file)
-               close(n_drift_asym_file)
-            end if
+      do lm=llm,ulm
+         tmpr(:) = real(w(lm,:)) * r * r
+         tmpi(:) = aimag(w(lm,:)) * r * r
+         facR = rInt_R(tmpr, r, rscheme_oc)
+         facI = rInt_R(tmpi, r, rscheme_oc)
+         coeff = cmplx(facR, facI, kind=cp)
+         if ( abs(coeff) > 0.0_cp .and. abs(coeff_old(lm)) > 0.0_cp ) then
+            tau(lm) = cmplx((abs(coeff) - abs(coeff_old(lm)))/abs(coeff), &
+            &               aimag((coeff - coeff_old(lm))/coeff), kind=cp)/dt
+         else
+            tau(lm) = zero
          end if
+         coeff_old(lm) = coeff
+      end do
 
-         pol_old(:)=w(:,n_r_mid)
+      if ( l_log ) then
+         if ( rank == 0 ) then
+            allocate( tau_glob(lm_max) )
+         else
+            allocate( tau_glob(1) )
+         end if
+         call gather_from_lo_to_rank0(tau, tau_glob)
       end if
+
+      if ( rank == 0 .and. l_log .and. nLogs > 1 ) then
+         if ( l_save_out ) then
+            open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
+            &    position='append')
+            open(newunit=n_growth_asym_file, file=asym_file, status='unknown',   &
+            &    position='append')
+            open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
+            &    position='append')
+            open(newunit=n_drift_asym_file, file=drift_asym_file, status='unknown', &
+            &    position='append')
+         end if
+         ad='no'
+         do m=m_min,m_max,minc
+            if ( m == m_max .and. (.not. l_save_out)) ad='yes'
+            l =max(m,1)
+            lm=lm2(l,m)
+            if ( m == m_min ) then
+               write(n_growth_sym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, real(tau_glob(lm))
+               write(n_drift_sym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, aimag(tau_glob(lm))
+            else
+               write(n_growth_sym_file, '(es14.6)', advance=ad) real(tau_glob(lm))
+               write(n_drift_sym_file, '(es14.6)', advance=ad) aimag(tau_glob(lm))
+            end if
+            lm=lm2(l+1,m)
+            if ( m == m_min ) then
+               write(n_growth_asym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, real(tau_glob(lm))
+               write(n_drift_asym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, aimag(tau_glob(lm))
+            else
+               write(n_growth_asym_file, '(es14.6)', advance=ad) real(tau_glob(lm))
+               write(n_drift_asym_file, '(es14.6)', advance=ad) aimag(tau_glob(lm))
+            end if
+
+         end do
+         if ( l_save_out ) then
+            close(n_growth_sym_file)
+            close(n_growth_asym_file)
+            close(n_drift_sym_file)
+            close(n_drift_asym_file)
+         end if
+      end if
+
+      if ( l_log ) deallocate(tau_glob)
 
    end subroutine get_onset
 !----------------------------------------------------------------------------------

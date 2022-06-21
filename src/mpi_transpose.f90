@@ -66,7 +66,7 @@ module  mpi_alltoall_mod
    use parallel_mod
    use mem_alloc
    use radial_data, only: radial_balance
-   use truncation, only: lm_max, n_r_max, l_max, minc, l_axi
+   use truncation, only: lm_max, n_r_max, l_max, minc
    use radial_data, only: nRstart, nRstop
    use blocking, only: lm_balance, lo_map, st_map, llm, ulm
    use mpi_transp_mod, only: type_mpitransp
@@ -626,7 +626,7 @@ module  mpi_ptop_mod
    use precision_mod
    use mem_alloc
    use parallel_mod
-   use truncation, only: l_max, minc, l_axi
+   use truncation, only: l_max, minc
    use logic, only: l_finite_diff
    use truncation, only: lm_max, n_r_max
    use radial_data, only: nRstart, nRstop, radial_balance
@@ -924,25 +924,15 @@ contains
       call get_openmp_blocks(start_lm,stop_lm)
       ! now in this%temp_Rloc we do have the lo_ordered r-local part
       ! now reorder to the original ordering
-      if ( .not. l_axi ) then
-         do i=1,this%n_fields
-            do nR=nRstart,nRstop
-               do lm=start_lm,stop_lm
-                  l = st_map%lm2l(lm)
-                  m = st_map%lm2m(lm)
-                  arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
-               end do
+      do i=1,this%n_fields
+         do nR=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               l = st_map%lm2l(lm)
+               m = st_map%lm2m(lm)
+               arr_Rloc(lm,nR,i)=this%temp_Rloc(lo_map%lm2(l,m),nR,i)
             end do
          end do
-      else
-         do i=1,this%n_fields
-            do nR=nRstart,nRstop
-               do l=0,l_max
-                  arr_Rloc(st_map%lm2(l,0),nR,i)=this%temp_Rloc(lo_map%lm2(l,0),nR,i)
-               end do
-            end do
-         end do
-      end if
+      end do
       !$omp end parallel
 
       !PERFOFF
@@ -964,25 +954,15 @@ contains
 
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
-      if ( .not. l_axi ) then
-         do i=1,this%n_fields
-            do nR=nRstart,nRstop
-               do lm=start_lm,stop_lm
-                  l=lo_map%lm2l(lm)
-                  m=lo_map%lm2m(lm)
-                  this%temp_Rloc(lm,nR,i)=arr_Rloc(st_map%lm2(l,m),nR,i)
-               end do
+      do i=1,this%n_fields
+         do nR=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               this%temp_Rloc(lm,nR,i)=arr_Rloc(st_map%lm2(l,m),nR,i)
             end do
          end do
-      else
-         do i=1,this%n_fields
-            do nR=nRstart,nRstop
-               do l=0,l_max
-                  this%temp_Rloc(lo_map%lm2(l,0),nR,i)=arr_Rloc(st_map%lm2(l,0),nR,i)
-               end do
-            end do
-         end do
-      end if
+      end do
       !$omp end parallel
 
       call r2lm_redist_start(this,this%temp_Rloc,arr_lo)
