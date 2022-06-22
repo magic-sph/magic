@@ -12,7 +12,7 @@ module courant_mod
    use radial_functions, only: orho1, orho2, or4, or2
    use physical_parameters, only: LFfac, opm
    use num_param, only: delxr2, delxh2
-   use horizontal_data, only: osn2
+   use horizontal_data, only: O_sin_theta_E2
    use logic, only: l_mag, l_mag_LF, l_mag_kin, l_cour_alf_damp
    use useful, only: logWrite
    use constants, only: half, one, two
@@ -87,7 +87,6 @@ contains
 
       !-- Local  variables:
       integer :: n_theta       ! absolut no of theta
-      integer :: n_theta_nhs   ! no of theta in NHS
       integer :: n_phi         ! no of longitude
 
       real(cp) :: valri2,valhi2,valh2,valh2m
@@ -113,13 +112,11 @@ contains
          af2=alffac*alffac
 
          !$omp parallel do default(shared) &
-         !$omp private(n_theta,n_theta_nhs,n_phi) &
+         !$omp private(n_theta,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vflr2max,valr2max,vflh2max,valh2max)
          do n_phi=1,n_phi_max
             do n_theta=1,n_theta_max
-               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-
                vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
                valr =br(n_theta,n_phi)*br(n_theta,n_phi) * &
                &     LFfac*orho1(n_r)
@@ -130,10 +127,10 @@ contains
 
                vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
                &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
-               &        osn2(n_theta_nhs)*orho2(n_r)
+               &        O_sin_theta_E2(n_theta)*orho2(n_r)
                valh2= ( bt(n_theta,n_phi)*bt(n_theta,n_phi) +  &
                &        bp(n_theta,n_phi)*bp(n_theta,n_phi) )* &
-               &        LFfac*osn2(n_theta_nhs)*orho1(n_r)
+               &        LFfac*O_sin_theta_E2(n_theta)*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
                vflh2max=max(vflh2max,O_r_E_2*cf2*vflh2)
                valh2max=max(valh2max,O_r_E_2*af2*valh2)
@@ -175,18 +172,16 @@ contains
       else   ! Magnetic field ?
 
          !$omp parallel do default(shared) &
-         !$omp private(n_theta,n_theta_nhs,n_phi,vflr2,vflh2) &
+         !$omp private(n_theta,n_phi,vflr2,vflh2) &
          !$omp reduction(max:vflr2max,vflh2max)
          do n_phi=1,n_phi_max
             do n_theta=1,n_theta_max
-               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-
                vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
                vflr2max=max(vflr2max,cf2*O_r_E_4*vflr2)
 
                vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
                &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
-               &        osn2(n_theta_nhs)*orho2(n_r)
+               &        O_sin_theta_E2(n_theta)*orho2(n_r)
                vflh2max=max(vflh2max,cf2*O_r_E_2*vflh2)
             end do
          end do
@@ -231,13 +226,11 @@ contains
          af2=alffac*alffac
 
          !$omp parallel do default(shared) &
-         !$omp private(n_theta,n_theta_nhs,n_phi) &
+         !$omp private(n_theta,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vr2max,vh2max)
          do n_phi=1,n_phi_max
             do n_theta=1,n_theta_max
-               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-
                vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
                valr =br(n_theta,n_phi)*br(n_theta,n_phi)*LFfac*orho1(n_r)
                valr2=valr*valr/(valr+valri2)
@@ -245,10 +238,10 @@ contains
 
                vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
                &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
-               &        osn2(n_theta_nhs)*orho2(n_r)
+               &        O_sin_theta_E2(n_theta)*orho2(n_r)
                valh2= ( bt(n_theta,n_phi)*bt(n_theta,n_phi) +  &
                &        bp(n_theta,n_phi)*bp(n_theta,n_phi) )* &
-               &        LFfac*osn2(n_theta_nhs)*orho1(n_r)
+               &        LFfac*O_sin_theta_E2(n_theta)*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
                vh2max=max(vh2max,O_r_E_2*(cf2*vflh2+af2*valh2m))
 
@@ -259,22 +252,18 @@ contains
       else   ! Magnetic field ?
 
          !$omp parallel do default(shared) &
-         !$omp private(n_theta,n_theta_nhs,n_phi,vflr2,vflh2) &
+         !$omp private(n_theta,n_phi,vflr2,vflh2) &
          !$omp reduction(max:vr2max,vh2max)
          do n_phi=1,n_phi_max
             do n_theta=1,n_theta_max
-               n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
-
                vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
                vr2max=max(vr2max,cf2*O_r_E_4*vflr2)
 
                vflh2= ( vt(n_theta,n_phi)*vt(n_theta,n_phi) +  &
                &        vp(n_theta,n_phi)*vp(n_theta,n_phi) )* &
-               &        osn2(n_theta_nhs)*orho2(n_r)
+               &        O_sin_theta_E2(n_theta)*orho2(n_r)
                vh2max=max(vh2max,cf2*O_r_E_2*vflh2)
-
             end do
-
          end do
          !$omp end parallel do
       end if   ! Magnetic field ?
