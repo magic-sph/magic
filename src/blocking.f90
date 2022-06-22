@@ -52,7 +52,7 @@ module blocking
    integer, public, pointer :: lm22l(:,:,:)
    integer, public, pointer :: lm22m(:,:,:)
 
-   type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map,sn_sub_map
+   type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
 
 
    !------------------------------------------------------------------------
