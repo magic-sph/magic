@@ -5,8 +5,8 @@ module out_dtB_frame
    use radial_functions, only: r, or1, chebt_ic, r_ic, rscheme_oc, r_icb, &
        &                       dr_fac_ic, chebt_ic_even
    use blocking, only: lm2m, lm2l, lm2
-   use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, osn1, &
-       &                      dLh
+   use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, &
+       &                      dLh, O_sin_theta
    use dtB_mod, only: PstrLM, PadvLM, PdifLM, TstrLM, TadvLM, TdifLM, &
        &              PadvLMIC, PdifLMIC, TadvLMIC, TomeLM, TdifLMIC
    use movie_data, only: n_movie_type, n_movie_fields, n_movie_fields_ic, &
@@ -489,7 +489,6 @@ contains
     
       !-- Local variables:
       integer :: n_theta         ! No. of theta
-      integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
       real(cp) :: r_ratio          ! r/r_ICB
       real(cp) :: O_r              ! 1/r
@@ -523,11 +522,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do n_theta=1,n_theta_max,2 ! loop over thetas in Northern HS
-         n_theta_nhs=(1+n_theta)/2
-         O_sint=osn1(n_theta_nhs)
-         dtB(n_theta)  =O_sint*tmpp(n_theta)
-         dtB(n_theta+1)=O_sint*tmpp(n_theta+1)
+      do n_theta=1,n_theta_max
+         dtB(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)
       end do
 
    end subroutine get_dtB
