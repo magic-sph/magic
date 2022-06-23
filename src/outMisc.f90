@@ -793,7 +793,7 @@ contains
       real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
       real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
       real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nPhi, nThetaNHS
+      integer :: nTheta, nPhi
 
       enAS(:)   =0.0_cp
       vrabsAS(:)=0.0_cp
@@ -804,13 +804,11 @@ contains
          fac = one
       end if
       !--- Helicity:
-      !$omp parallel do default(shared)           &
-      !$omp& private(nTheta,nThetaNHS,vrabs,en)   &
+      !$omp parallel do default(shared) &
+      !$omp& private(nTheta,vrabs,en)   &
       !$omp& reduction(+:enAS,vrabsAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
-
             vrabs=fac*abs(vr(nTheta,nPhi))
             en   =half*fac*(                                                &
             &                     or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
@@ -818,11 +816,11 @@ contains
             &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
             if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
-               enAS(1)   =enAS(1) +phiNorm*gauss(nThetaNHS)*en
-               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nThetaNHS)*vrabs
+               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
             else
-               enAS(2)   =enAS(2) +phiNorm*gauss(nThetaNHS)*en
-               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nThetaNHS)*vrabs
+               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
             end if
          end do
       end do
@@ -851,7 +849,7 @@ contains
       real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
 
       !-- Local variables:
-      integer :: nTheta,nThetaNHS,nPhi
+      integer :: nTheta,nPhi
       real(cp) :: Helna,Hel,phiNorm
       real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
@@ -898,13 +896,12 @@ contains
 
       !--- Helicity:
       !$omp parallel do default(shared)                     &
-      !$omp& private(nTheta, nThetaNHS, nPhi, Hel, Helna)   &
+      !$omp& private(nTheta, nPhi, Hel, Helna)              &
       !$omp& private(vrna, cvrna, vtna, vpna)               &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS = (nTheta+1)/2
             vrna   =   vr(nTheta,nPhi)-vras(nTheta)
             cvrna  =  cvr(nTheta,nPhi)-cvras(nTheta)
             vtna   =   vt(nTheta,nPhi)-vtas(nTheta)
@@ -931,17 +928,17 @@ contains
             &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
             if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
-               HelAS(1)   =HelAS(1) +phiNorm*gauss(nThetaNHS)*Hel
-               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nThetaNHS)*Hel*Hel
-               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nThetaNHS)*Helna
-               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nThetaNHS)*Helna*Helna
-               HelEAAS    =HelEAAS +phiNorm*gauss(nThetaNHS)*Hel
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
             else
-               HelAS(2)   =HelAS(2) +phiNorm*gauss(nThetaNHS)*Hel
-               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nThetaNHS)*Hel*Hel
-               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nThetaNHS)*Helna
-               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nThetaNHS)*Helna*Helna
-               HelEAAS    =HelEAAS -phiNorm*gauss(nThetaNHS)*Hel
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
             end if
          end do
       end do
@@ -972,30 +969,28 @@ contains
       real(cp) :: ekinS ! Kinetic energy in the solid phase
       real(cp) :: ekinL ! Kinetic energy in the liquid phase
       real(cp) :: volS  ! volume of the solid
-      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nTheta,nPhi
 
       phiNorm=two*pi/real(n_phi_max,cp)
       ekinL=0.0_cp
       ekinS=0.0_cp
       volS =0.0_cp
 
-      !$omp parallel do default(shared)            &
-      !$omp& private(nTheta, nThetaNHS, nPhi,ekin) &
+      !$omp parallel do default(shared) &
+      !$omp& private(nTheta,nPhi,ekin)  &
       !$omp& reduction(+:ekinS,ekinL,volS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
-
             ekin = half*orho1(nR)*(                                         &
             &          or2(nR)*           vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
             &      O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
             &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
             if ( phi(nTheta,nPhi) >= half ) then
-               ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
-               volS =volS +phiNorm*gauss(nThetaNHS)*r(nR)*r(nR)
+               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
+               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
             else
-               ekinL=ekinL+phiNorm*gauss(nThetaNHS)*ekin
+               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
             end if
          end do
       end do

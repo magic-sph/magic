@@ -123,7 +123,7 @@ contains
       !-- Local variables:
       integer :: norm,n_theta,n_phi
       integer :: l,m,lm
-      real(cp) :: clm(0:l_max+1,0:l_max+1), Pl0Eq(l_max+1)
+      real(cp) :: clm(0:l_max+1,0:l_max+1), Pl0Eq(l_max+1), tmp_gauss(n_theta_max)
       real(cp) :: colat, fac
 
       norm=2 ! norm chosen so that a surface integral over
@@ -131,7 +131,7 @@ contains
 
       !-- Calculate grid points and weights for the
       !   Gauss-Legendre integration of the plms:
-      call gauleg(-one,one,theta_ord,gauss,n_theta_max)
+      call gauleg(-one,one,theta_ord,tmp_gauss,n_theta_max)
 
       !-- Legendre polynomials and cos(theta) derivative:
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
@@ -142,7 +142,6 @@ contains
          ! Usefull to estimate the flow velocity at the equator
          call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
-         !-- More functions stored to obscure the code:
          O_sin_theta(2*n_theta-1)   =one/sin(colat)
          O_sin_theta(2*n_theta  )   =one/sin(colat)
          O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
@@ -165,6 +164,8 @@ contains
          n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
          theta(2*n_theta-1)          =theta_ord(n_theta)
          theta(2*n_theta)            =theta_ord(n_theta_max-n_theta+1)
+         gauss(2*n_theta-1)          =tmp_gauss(n_theta)
+         gauss(2*n_theta)            =tmp_gauss(n_theta_max-n_theta+1)
       end do
 
 
