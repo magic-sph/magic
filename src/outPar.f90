@@ -13,7 +13,8 @@ module outPar_mod
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
        &            l_anelastic_liquid, l_mag
-   use horizontal_data, only: gauss, gauss, O_sin_theta_E2, cosTheta, sn2
+   use horizontal_data, only: gauss, gauss, O_sin_theta_E2, cosTheta, &
+       &                      sinTheta_E2
    use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
        &                          opr, kbots, ktops, ThExpNb, ekScaled
@@ -689,25 +690,25 @@ contains
          do nTheta=1,n_theta_max
             nThetaNHS=(nTheta+1)/2
 
-            Eperp=half*or2(nR)*orho2(nR)*(                                         &
-            &       or2(nR)*sn2(nThetaNHS)*      vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            Eperp=half*or2(nR)*orho2(nR)*(        or2(nR)*sinTheta_E2(nTheta)*     &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
             &       (O_sin_theta_E2(nTheta)-one)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
             &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) + &
             &       O_sin_theta_E2(nTheta)*      vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            Epar =half*or2(nR)*orho2(nR)*(                                         &
-            &       or2(nR)*(one-sn2(nThetaNHS))*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            Epar =half*or2(nR)*orho2(nR)*(   or2(nR)*(one-sinTheta_E2(nTheta))*    &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
             &                                    vt(nTheta,nPhi)*vt(nTheta,nPhi) - &
             &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) )
 
-            Eperpaxi=half*or2(nR)*orho2(nR)*(                                  &
-            &         or2(nR)*sn2(nThetaNHS)*      vras(nTheta)*vras(nTheta) + &
+            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
+            &                                      vras(nTheta)*vras(nTheta) + &
             &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
             &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
             &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
 
-            Eparaxi =half*or2(nR)*orho2(nR)*(                                  &
-            &         or2(nR)*(one-sn2(nThetaNHS))*vras(nTheta)*vras(nTheta) + &
+            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
+            &                                      vras(nTheta)*vras(nTheta) + &
             &                                      vtas(nTheta)*vtas(nTheta) - &
             &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
 

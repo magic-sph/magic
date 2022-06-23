@@ -25,10 +25,7 @@ module horizontal_data
    integer, public, allocatable :: n_theta_cal2ord(:)
    real(cp), public, allocatable :: theta(:)           ! Gauss points (scrambled)
    real(cp), public, allocatable :: theta_ord(:)       ! Gauss points (unscrambled)
-   real(cp), public, allocatable :: sn2(:)
-   real(cp), public, allocatable :: osn2(:)
-   real(cp), public, allocatable :: cosn2(:)
-   real(cp), public, allocatable :: osn1(:)
+   real(cp), public, allocatable :: sinTheta_E2(:)     ! :math:`\sin^2\theta`
    real(cp), public, allocatable :: O_sin_theta(:)     ! :math:`1/\sin\theta`
    real(cp), public, allocatable :: O_sin_theta_E2(:)  ! :math:`1/\sin^2\theta`
    real(cp), public, allocatable :: cosn_theta_E2(:)   ! :math:`\cos\theta/\sin^2\theta`
@@ -64,22 +61,20 @@ contains
       allocate( n_theta_cal2ord(n_theta_max) )
       allocate( theta(n_theta_max) )
       allocate( theta_ord(n_theta_max) )
-      allocate( sn2(n_theta_max/2) )
-      allocate( osn2(n_theta_max/2) )
-      allocate( cosn2(n_theta_max/2) )
-      allocate( osn1(n_theta_max/2) )
+      allocate( sinTheta_E2(nlat_padded) )
       allocate( O_sin_theta(nlat_padded) )
       allocate( O_sin_theta_E2(nlat_padded) )
       allocate( sinTheta(nlat_padded) )
       allocate( cosn_theta_E2(nlat_padded) )
       allocate( cosTheta(nlat_padded) )
       bytes_allocated = bytes_allocated+n_theta_max*SIZEOF_INTEGER+&
-      &                 (4*n_theta_max+5*nlat_padded)*SIZEOF_DEF_REAL
+      &                 (2*n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
       O_sin_theta(:)   =0.0_cp
       O_sin_theta_E2(:)=0.0_cp
       sinTheta(:)      =0.0_cp
       cosn_theta_E2(:) =0.0_cp
       cosTheta(:)      =0.0_cp
+      sinTheta_E2(:)   =0.0_cp
 
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
@@ -108,7 +103,7 @@ contains
       !
 
       deallocate( cosn_theta_E2, sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
-      deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
+      deallocate( sinTheta_E2, O_sin_theta, O_sin_theta_E2, phi )
       deallocate( gauss, dPl0Eq )
       deallocate( dPhi, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
@@ -128,10 +123,8 @@ contains
       !-- Local variables:
       integer :: norm,n_theta,n_phi
       integer :: l,m,lm
-      real(cp) :: clm(0:l_max+1,0:l_max+1)
-      real(cp) :: colat
-      real(cp) :: fac
-      real(cp) :: Pl0Eq(l_max+1)
+      real(cp) :: clm(0:l_max+1,0:l_max+1), Pl0Eq(l_max+1)
+      real(cp) :: colat, fac
 
       norm=2 ! norm chosen so that a surface integral over
              ! any ylm**2 is 1.
@@ -141,10 +134,6 @@ contains
       call gauleg(-one,one,theta_ord,gauss,n_theta_max)
 
       !-- Legendre polynomials and cos(theta) derivative:
-      !   Note: the following functions are only stored for the northern hemisphere
-      !         southern hemisphere values differ from the northern hemisphere
-      !         values by a sign that depends on the symmetry of the function.
-      !         The only asymmetric function (sign=-1) stored here is cosn2 !
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
 
          colat=theta_ord(n_theta)
@@ -154,16 +143,14 @@ contains
          call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
          !-- More functions stored to obscure the code:
-         sn2(n_theta)               =sin(colat)**2
-         osn1(n_theta)              =one/sin(colat)
-         osn2(n_theta)              =osn1(n_theta)*osn1(n_theta)
-         cosn2(n_theta)             =cos(colat)*osn2(n_theta)
          O_sin_theta(2*n_theta-1)   =one/sin(colat)
          O_sin_theta(2*n_theta  )   =one/sin(colat)
          O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
          O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
          sinTheta(2*n_theta-1)      =sin(colat)
          sinTheta(2*n_theta  )      =sin(colat)
+         sinTheta_E2(2*n_theta-1)   =sin(colat)**2
+         sinTheta_E2(2*n_theta  )   =sin(colat)**2
          cosTheta(2*n_theta-1)      =cos(colat)
          cosTheta(2*n_theta  )      =-cos(colat)
          cosn_theta_E2(2*n_theta-1) =cos(colat)/sin(colat)/sin(colat)

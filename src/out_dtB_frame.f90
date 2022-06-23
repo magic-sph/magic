@@ -492,7 +492,6 @@ contains
       integer :: l,lm            ! Degree, counter for degree/order combinations
       real(cp) :: r_ratio          ! r/r_ICB
       real(cp) :: O_r              ! 1/r
-      real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
