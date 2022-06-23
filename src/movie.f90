@@ -2,15 +2,12 @@ module movie_data
 
    use parallel_mod
    use precision_mod
-   use truncation, only: n_r_max, n_theta_max, n_phi_max,      &
-       &                 ldtBMem, minc, n_r_ic_max, lMovieMem, &
-       &                 n_r_tot
-   use logic, only:  l_store_frame, l_save_out, l_movie, &
-       &             l_movie_oc, l_movie_ic, l_HTmovie,  &
-       &             l_dtBmovie, l_store_frame, l_save_out
+   use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max, n_r_tot
+   use logic, only: l_store_frame, l_save_out, l_movie, l_movie_oc, &
+       &            l_movie_ic, l_HTmovie, l_dtBmovie, l_store_frame, l_save_out
    use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
-   use horizontal_data, only: theta, phi
+   use horizontal_data, only: theta_ord, phi, n_theta_ord2cal
    use output_data, only: n_log_file, log_file, tag
    use charmanip, only: capitalize, delete_string, dble2str
    use useful, only: logWrite, abortRun
@@ -394,13 +391,13 @@ contains
       character(len=:), allocatable :: file_name, typeStr
       real(cp) :: r_movie,theta_movie,phi_movie
       real(cp) :: phi_max, rad, const
-      integer :: n_theta, n_phi, length
+      integer :: length
       integer :: i, n, n_ic, ns
       integer :: n_type, n_surface, n_const
       integer :: n_fields,n_fields_oc,n_fields_ic
       integer :: n_field_size, n_field_size_ic, n_field_start
       integer :: n_field_type(n_movie_fields_max)
-      logical :: lStore, lIC, foundGridPoint, lEquator
+      logical :: lStore, lIC
 
       !--- Initialize first storage index:
       n_field_start=1
@@ -429,8 +426,6 @@ contains
 
          !--- Convert to capitals:
          call capitalize(string)
-
-         lEquator=.false.
 
          !--- Identify movie type (fields to be stored):
 
@@ -1070,14 +1065,15 @@ contains
             stringC='R='//trim(word)//'_'
             file_name=file_name//stringC
 
-         else if ( index(string,'EQ') /= 0 .or. lEquator ) then
+         else if ( index(string,'EQ') /= 0 ) then
 
             n_surface=2    ! Equator
-            n_const=n_theta_max
+            n_const=n_theta_max/2
             file_name=file_name//'EQU_'
             n_field_size=n_r_max*n_phi_max
             n_field_size_ic=n_r_ic_max*n_phi_max
-            const=rad*theta(n_const)
+            const=rad*theta_ord(n_const)
+            n_const=n_theta_ord2cal(n_const) ! Scrambling if needed
 
          else if ( index(string,'T=') /= 0 .or. index(string,'THETA=') /= 0 ) then
 
@@ -1096,43 +1092,16 @@ contains
             theta_movie=theta_movie/rad
 
             !------ Choose closest colatitude grid point:
-            foundGridPoint=.false.
-            do n_theta=1,n_theta_max-1
-               if ( theta(n_theta)  <= theta_movie .and. &
-               &    theta(n_theta+1) >= theta_movie ) then
-                  if ( theta(n_theta+1)-theta_movie < &
-                  &    theta_movie-theta(n_theta) ) then
-                     n_const=n_theta+1
-                  else
-                     n_const=n_theta
-                  end if
-                  foundGridPoint=.true.
-                  exit
-               end if
-            end do
-            if ( .not. foundGridPoint ) then
-               if ( theta_movie-theta(n_theta_max) <= &
-               &    theta(1)+180.0_cp/rad-theta_movie ) then
-                  n_const=n_theta_max
-               else
-                  n_const=1
-               end if
-            end if
-            const=rad*theta(n_const)
-
-            !---------- Now switch to north/south order of thetas:
-            if ( n_const < n_theta_max/2 ) then
-               n_const=2*n_const-1
-            else
-               n_const=2*(n_theta_max-n_const+1)
-            end if
+            n_const=minloc(abs(theta_ord - theta_movie),1)
+            const=rad*theta_ord(n_const)
+            n_const=n_theta_ord2cal(n_const)
 
             call dble2str(theta_movie,word)
             stringC='T='//trim(word)//'_'
             file_name=file_name//stringC
 
          else if ( index(string,'MER' ) /= 0 .or.  &
-              index(string,'P='  ) /= 0  .or. index(string,'PHI=') /= 0 ) then
+         &    index(string,'P='  ) /= 0  .or. index(string,'PHI=') /= 0 ) then
 
             n_surface=3  ! PHI=const.
             n_field_size=2*n_r_max*n_theta_max
@@ -1158,26 +1127,7 @@ contains
             phi_movie=phi_movie/rad
 
             !------ Choose closest longitude grid point:
-            foundGridPoint=.false.
-            do n_phi=1,n_phi_max-1
-               if ( phi(n_phi)  <= phi_movie .and. phi(n_phi+1) >= phi_movie ) then
-                  if ( phi(n_phi+1)-phi_movie < phi_movie-phi(n_phi) ) then
-                     n_const=n_phi+1
-                  else
-                     n_const=n_phi
-                  end if
-                  foundGridPoint=.true.
-                  exit
-               end if
-            end do
-            if ( .not. foundGridPoint ) then
-               if ( phi_movie-phi(n_phi_max) <= phi(1)+phi_max-phi_movie ) then
-                  n_const=n_phi_max
-               else
-                  n_const=1
-               end if
-            end if
-
+            n_const=minloc(abs(phi - phi_movie),1)
             const=rad*phi(n_const)
 
             call dble2str(phi_movie,word)
@@ -1327,7 +1277,7 @@ contains
             else if ( n_surface == 1 .and. n_const < 0 ) then
                write(n_log_file,'('' !    at r='',f10.6)') r_ic(n_const)
             else if ( n_surface == 2 ) then
-               write(n_log_file,'('' !    at theta='',f12.6)') rad*theta(n_const)
+               write(n_log_file,'('' !    at theta='',f12.6)') const
             else if ( n_surface == 3 ) then
                write(n_log_file,'('' !    at phi='',f12.6)') rad*phi(n_const)
             end if
@@ -1341,7 +1291,7 @@ contains
 
    end subroutine get_movie_type
 !----------------------------------------------------------------------------
-   subroutine movie_gather_frames_to_rank0
+   subroutine movie_gather_frames_to_rank0()
       !
       ! MPI communicators for movie files
       !

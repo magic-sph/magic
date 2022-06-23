@@ -18,8 +18,8 @@ module dtB_mod
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
        &                       or1, orho1, or3
    use radial_data,only: nRstart,nRstop
-   use horizontal_data, only: dPhi, dLh, hdif_B, osn2, cosn2, osn1, &
-       &                      dTheta1S, dTheta1A
+   use horizontal_data, only: dPhi, dLh, hdif_B, O_sin_theta_E2, &
+       &                      dTheta1S, dTheta1A, O_sin_theta, cosn_theta_E2
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use blocking, only: lo_map, st_map, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, llmMag, ulmMag, llm, ulm
@@ -214,7 +214,7 @@ contains
       complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
-      integer :: n_theta,n_phi,n_theta_nhs
+      integer :: n_theta,n_phi
       real(cp) :: fac,facCot
       real(cp) :: BtVr(nlat_padded,n_phi_max),BpVr(nlat_padded,n_phi_max)
       real(cp) :: BrVt(nlat_padded,n_phi_max),BrVp(nlat_padded,n_phi_max)
@@ -227,14 +227,12 @@ contains
 
       vpAS(:)=0.0_cp
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta, n_phi, fac, facCot, n_theta_nhs) &
+      !$omp& private(n_theta, n_phi, fac, facCot) &
       !$omp& reduction(+:vpAS)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            n_theta_nhs=(n_theta+1)/2
-            fac=osn2(n_theta_nhs)
-            facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
-            if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
+            fac=O_sin_theta_E2(n_theta)
+            facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
 
             BtVr(n_theta,n_phi)= orho1(nR)*bt(n_theta,n_phi)*vr(n_theta,n_phi)
             BpVr(n_theta,n_phi)= orho1(nR)*bp(n_theta,n_phi)*vr(n_theta,n_phi)
@@ -259,13 +257,12 @@ contains
 
       !---- For omega effect:
       !$omp parallel do default(shared) &
-      !$omp private(n_phi,n_theta,n_theta_nhs,fac,facCot)
+      !$omp private(n_phi,n_theta,fac,facCot)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            n_theta_nhs=(n_theta+1)/2
-            fac=osn2(n_theta_nhs)
-            facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
-            if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
+            fac=O_sin_theta_E2(n_theta)
+            facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
+
             BrVZ(n_theta,n_phi)=fac*br(n_theta,n_phi)*vpAS(n_theta)
             BtVZ(n_theta,n_phi)=fac*bt(n_theta,n_phi)*vpAS(n_theta)
             BtVZsn2(n_theta,n_phi)=fac*fac*bt(n_theta,n_phi)*vpAS(n_theta)

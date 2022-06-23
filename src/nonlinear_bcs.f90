@@ -7,7 +7,7 @@ module nonlinear_bcs
    use radial_functions, only: r_cmb, r_icb, rho0
    use blocking, only: lm2lmP
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
-   use horizontal_data, only: sn2, cosTheta
+   use horizontal_data, only: cosTheta, sinTheta_E2
    use constants, only: two
    use useful, only: abortRun
    use sht, only: spat_to_sphertor
@@ -53,19 +53,18 @@ contains
       complex(cp), intent(inout) :: br_vp_lm(lmP_max)
 
       !-- Local variables:
-      integer :: n_theta, nThetaNHS, n_phi
+      integer :: n_theta, n_phi
       real(cp) :: br_vt(nlat_padded,n_phi_max), br_vp(nlat_padded,n_phi_max)
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
 
       fac=O_r_E_2*O_rho
       !$omp parallel do default(shared) &
-      !$omp& private(n_theta,n_phi,nThetaNHS)
+      !$omp& private(n_theta,n_phi)
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max
-            nThetaNHS=(n_theta+1)/2
             br_vt(n_theta,n_phi)= fac*br(n_theta,n_phi)*vt(n_theta,n_phi)
             br_vp(n_theta,n_phi)= br(n_theta,n_phi)* ( fac*vp(n_theta,n_phi)- &
-            &                                          omega*sn2(nThetaNHS) )
+            &                                          omega*sinTheta_E2(n_theta) )
          end do
       end do
       !$omp end parallel do
@@ -153,9 +152,7 @@ contains
 
       !-- Local variables:
       real(cp) :: r2
-      integer :: nTheta,nThetaNHS
-      integer :: nPhi
-
+      integer :: nTheta,nPhi
 
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
@@ -168,13 +165,12 @@ contains
          return
       end if
 
-      !$omp parallel do default(shared) private(nPhi,nTheta,nThetaNHS)
+      !$omp parallel do default(shared) private(nPhi,nTheta)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS =(nTheta+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
             vrr(nTheta,nPhi)=0.0_cp
             vtr(nTheta,nPhi)=0.0_cp
-            vpr(nTheta,nPhi)=r2*rho0(nR)*sn2(nThetaNHS)*omega
+            vpr(nTheta,nPhi)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
             if ( lDeriv ) then
                cvrr(nTheta,nPhi)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
                dvrdtr(nTheta,nPhi)=0.0_cp
