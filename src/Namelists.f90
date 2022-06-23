@@ -323,7 +323,6 @@ contains
       lMagMem  =1
       ldtBMem  =0
       lStressMem=0
-      lMovieMem=0
       l_conv   =.true.
       l_conv_nl=.true.
       l_mag    =.true.
@@ -746,7 +745,6 @@ contains
       !-- Check whether memory has been reserved:
       if ( l_TO ) lStressMem=1
       if ( l_RMS .or. l_DTrMagSpec ) ldtBMem=1
-      if ( l_movie .or. l_TOmovie ) lMovieMem=1
 
       !-- Output of angular moment?
       l_AM=l_AM .or. l_correct_AMe .or. l_correct_AMz

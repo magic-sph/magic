@@ -442,11 +442,11 @@ contains
       real(cp), intent(in) :: bp(*)    ! array containing :math:`r\sin\theta B_\phi`
       integer,  intent(in) :: nR         ! radial level
 
+      !-- Output variable:
       real(cp), intent(inout) :: lorentz_torque ! Lorentz torque
 
-
       !-- Local variables:
-      integer :: nTheta,nPhi,nThetaNHS,nelem
+      integer :: nTheta,nPhi,nelem
       real(cp) :: fac,b0r
 
       ! to avoid rounding errors for different theta blocking, we do not
@@ -458,13 +458,12 @@ contains
       fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
       !$omp parallel do default(shared) &
-      !$omp& private(nTheta, nPhi, nThetaNHS, b0r, nelem) &
+      !$omp& private(nTheta, nPhi, b0r, nelem) &
       !$omp& reduction(+: lorentz_torque)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
             nelem = radlatlon2spat(nTheta,nPhi,nR)
 
-            nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
             if ( lGrenoble ) then
                if ( r(nR) == r_icb ) then
                   b0r=two*BIC*r_icb**2*cosTheta(nTheta)
@@ -475,7 +474,7 @@ contains
                b0r=0.0_cp
             end if
 
-            lorentz_torque=lorentz_torque + fac*gauss(nThetaNHS)* &
+            lorentz_torque=lorentz_torque + fac*gauss(nTheta)* &
             &              (br(nelem)-b0r)*bp(nelem)
          end do
       end do

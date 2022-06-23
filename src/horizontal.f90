@@ -23,12 +23,9 @@ module horizontal_data
 
    !-- Arrays depending on theta (colatitude):
    integer, public, allocatable :: n_theta_cal2ord(:)
-   real(cp), public, allocatable :: theta(:)           ! Gauss points (scrambled)
+   integer, public, allocatable :: n_theta_ord2cal(:)
    real(cp), public, allocatable :: theta_ord(:)       ! Gauss points (unscrambled)
-   real(cp), public, allocatable :: sn2(:)
-   real(cp), public, allocatable :: osn2(:)
-   real(cp), public, allocatable :: cosn2(:)
-   real(cp), public, allocatable :: osn1(:)
+   real(cp), public, allocatable :: sinTheta_E2(:)     ! :math:`\sin^2\theta`
    real(cp), public, allocatable :: O_sin_theta(:)     ! :math:`1/\sin\theta`
    real(cp), public, allocatable :: O_sin_theta_E2(:)  ! :math:`1/\sin^2\theta`
    real(cp), public, allocatable :: cosn_theta_E2(:)   ! :math:`\cos\theta/\sin^2\theta`
@@ -50,36 +47,36 @@ module horizontal_data
    real(cp), public, allocatable :: dTheta3S(:),dTheta3A(:)
    real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
+   logical :: l_scramble_theta
 
    public :: initialize_horizontal_data, horizontal, finalize_horizontal_data, &
    &         gauleg
 
 contains
 
-   subroutine initialize_horizontal_data
+   subroutine initialize_horizontal_data()
       !
       ! Memory allocation of horizontal functions
       !
+      l_scramble_theta = .true.
 
       allocate( n_theta_cal2ord(n_theta_max) )
-      allocate( theta(n_theta_max) )
+      allocate( n_theta_ord2cal(n_theta_max) )
       allocate( theta_ord(n_theta_max) )
-      allocate( sn2(n_theta_max/2) )
-      allocate( osn2(n_theta_max/2) )
-      allocate( cosn2(n_theta_max/2) )
-      allocate( osn1(n_theta_max/2) )
+      allocate( sinTheta_E2(nlat_padded) )
       allocate( O_sin_theta(nlat_padded) )
       allocate( O_sin_theta_E2(nlat_padded) )
       allocate( sinTheta(nlat_padded) )
       allocate( cosn_theta_E2(nlat_padded) )
       allocate( cosTheta(nlat_padded) )
-      bytes_allocated = bytes_allocated+n_theta_max*SIZEOF_INTEGER+&
-      &                 (4*n_theta_max+5*nlat_padded)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+2*n_theta_max*SIZEOF_INTEGER+&
+      &                 (n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
       O_sin_theta(:)   =0.0_cp
       O_sin_theta_E2(:)=0.0_cp
       sinTheta(:)      =0.0_cp
       cosn_theta_E2(:) =0.0_cp
       cosTheta(:)      =0.0_cp
+      sinTheta_E2(:)   =0.0_cp
 
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
@@ -107,9 +104,9 @@ contains
       ! Memory deallocation of horizontal functions
       !
 
-      deallocate( cosn_theta_E2, sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
-      deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
-      deallocate( gauss, dPl0Eq )
+      deallocate( cosn_theta_E2, sinTheta, cosTheta, theta_ord, n_theta_cal2ord )
+      deallocate( sinTheta_E2, O_sin_theta, O_sin_theta_E2, phi )
+      deallocate( gauss, dPl0Eq, n_theta_ord2cal )
       deallocate( dPhi, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( hdif_B, hdif_V, hdif_S, hdif_Xi )
@@ -118,7 +115,7 @@ contains
 
    end subroutine finalize_horizontal_data
 !------------------------------------------------------------------------------
-   subroutine horizontal
+   subroutine horizontal()
       !
       !  Calculates functions of :math:`\theta` and :math:`\phi`, for example
       !  the Legendre functions,  and functions of degree :math:`\ell` and
@@ -128,23 +125,17 @@ contains
       !-- Local variables:
       integer :: norm,n_theta,n_phi
       integer :: l,m,lm
-      real(cp) :: clm(0:l_max+1,0:l_max+1)
-      real(cp) :: colat
-      real(cp) :: fac
-      real(cp) :: Pl0Eq(l_max+1)
+      real(cp) :: clm(0:l_max+1,0:l_max+1), Pl0Eq(l_max+1), tmp_gauss(n_theta_max)
+      real(cp) :: colat, fac
 
       norm=2 ! norm chosen so that a surface integral over
              ! any ylm**2 is 1.
 
       !-- Calculate grid points and weights for the
       !   Gauss-Legendre integration of the plms:
-      call gauleg(-one,one,theta_ord,gauss,n_theta_max)
+      call gauleg(-one,one,theta_ord,tmp_gauss,n_theta_max)
 
       !-- Legendre polynomials and cos(theta) derivative:
-      !   Note: the following functions are only stored for the northern hemisphere
-      !         southern hemisphere values differ from the northern hemisphere
-      !         values by a sign that depends on the symmetry of the function.
-      !         The only asymmetric function (sign=-1) stored here is cosn2 !
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
 
          colat=theta_ord(n_theta)
@@ -153,40 +144,59 @@ contains
          ! Usefull to estimate the flow velocity at the equator
          call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
-         !-- More functions stored to obscure the code:
-         sn2(n_theta)               =sin(colat)**2
-         osn1(n_theta)              =one/sin(colat)
-         osn2(n_theta)              =osn1(n_theta)*osn1(n_theta)
-         cosn2(n_theta)             =cos(colat)*osn2(n_theta)
-         O_sin_theta(2*n_theta-1)   =one/sin(colat)
-         O_sin_theta(2*n_theta  )   =one/sin(colat)
-         O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
-         O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
-         sinTheta(2*n_theta-1)      =sin(colat)
-         sinTheta(2*n_theta  )      =sin(colat)
-         cosTheta(2*n_theta-1)      =cos(colat)
-         cosTheta(2*n_theta  )      =-cos(colat)
-         cosn_theta_E2(2*n_theta-1) =cos(colat)/sin(colat)/sin(colat)
-         cosn_theta_E2(2*n_theta)   =-cos(colat)/sin(colat)/sin(colat)
+         if ( l_scramble_theta ) then
+            O_sin_theta(2*n_theta-1)   =one/sin(colat)
+            O_sin_theta(2*n_theta  )   =one/sin(colat)
+            O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
+            O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
+            sinTheta(2*n_theta-1)      =sin(colat)
+            sinTheta(2*n_theta  )      =sin(colat)
+            sinTheta_E2(2*n_theta-1)   =sin(colat)**2
+            sinTheta_E2(2*n_theta  )   =sin(colat)**2
+            cosTheta(2*n_theta-1)      =cos(colat)
+            cosTheta(2*n_theta  )      =-cos(colat)
+            cosn_theta_E2(2*n_theta-1) =cos(colat)/sin(colat)/sin(colat)
+            cosn_theta_E2(2*n_theta)   =-cos(colat)/sin(colat)/sin(colat)
+         else
+            O_sin_theta(n_theta)                 =one/sin(colat)
+            O_sin_theta(n_theta_max-n_theta+1)   =one/sin(colat)
+            O_sin_theta_E2(n_theta)              =one/(sin(colat)*sin(colat))
+            O_sin_theta_E2(n_theta_max-n_theta+1)=one/(sin(colat)*sin(colat))
+            sinTheta(n_theta)                    =sin(colat)
+            sinTheta(n_theta_max-n_theta+1)      =sin(colat)
+            sinTheta_E2(n_theta)                 =sin(colat)**2
+            sinTheta_E2(n_theta_max-n_theta+1)   =sin(colat)**2
+            cosTheta(n_theta)                    =cos(colat)
+            cosTheta(n_theta_max-n_theta+1)      =-cos(colat)
+            cosn_theta_E2(n_theta)               =cos(colat)/sin(colat)/sin(colat)
+            cosn_theta_E2(n_theta_max-n_theta+1) =-cos(colat)/sin(colat)/sin(colat)
+         end if
       end do
-
 
       !-- Resort thetas in the alternating north/south order they
       !   are used for the calculations:
-      do n_theta=1,n_theta_max/2
-         n_theta_cal2ord(2*n_theta-1)=n_theta
-         n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
-         theta(2*n_theta-1)          =theta_ord(n_theta)
-         theta(2*n_theta)            =theta_ord(n_theta_max-n_theta+1)
-      end do
-
+      if ( l_scramble_theta ) then
+         do n_theta=1,n_theta_max/2
+            n_theta_ord2cal(n_theta)              =2*n_theta-1
+            n_theta_ord2cal(n_theta_max-n_theta+1)=2*n_theta
+            n_theta_cal2ord(2*n_theta-1)=n_theta
+            n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
+            gauss(2*n_theta-1)          =tmp_gauss(n_theta)
+            gauss(2*n_theta)            =tmp_gauss(n_theta_max-n_theta+1)
+         end do
+      else
+         do n_theta=1,n_theta_max
+            n_theta_ord2cal(n_theta)=n_theta
+            n_theta_cal2ord(n_theta)=n_theta
+            gauss(n_theta)          =tmp_gauss(n_theta)
+         end do
+      end if
 
       !----- Same for longitude output grid:
       fac=two*pi/real(n_phi_max*minc,cp)
       do n_phi=1,n_phi_max
          phi(n_phi)=fac*real(n_phi-1,cp)
       end do
-
 
       !-- Initialize fast fourier transform for phis:
       if ( .not. l_axi ) call init_fft(n_phi_max)
@@ -199,11 +209,10 @@ contains
          end do
       end do
 
+      !---- Operators for derivatives:
       do lm=1,lm_max
          l=lm2l(lm)
          m=lm2m(lm)
-
-         !---- Operators for derivatives:
 
          !-- Phi derivative:
          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
@@ -221,7 +230,6 @@ contains
          !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
          dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
          dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
-
       end do ! lm
 
       !-- Hyperdiffusion

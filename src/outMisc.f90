@@ -21,7 +21,7 @@ module outMisc_mod
    use blocking, only: llm, ulm, lo_map, lm2
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
-   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, osn2, &
+   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord,  &
        &                      O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
@@ -792,7 +792,7 @@ contains
       real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
       real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
       real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nPhi, nThetaNHS, nelem
+      integer :: nTheta, nTh, nPhi, nelem
 
       enAS(:)   =0.0_cp
       vrabsAS(:)=0.0_cp
@@ -803,25 +803,25 @@ contains
          fac = one
       end if
       !--- Helicity:
-      !$omp parallel do default(shared)                 &
-      !$omp& private(nTheta,nThetaNHS,vrabs,en,nelem)   &
+      !$omp parallel do default(shared)           &
+      !$omp& private(nTheta,nTh,vrabs,en,nelem)   &
       !$omp& reduction(+:enAS,vrabsAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
             nelem=radlatlon2spat(nTheta,nPhi,nR)
-            nThetaNHS=(nTheta+1)/2
 
             vrabs=fac*abs(vr(nelem))
-            en   =half*fac*( or2(nR)*vr(nelem)*vr(nelem) + &
-            &        osn2(nThetaNHS)*vt(nelem)*vt(nelem) + &
-            &        osn2(nThetaNHS)*vp(nelem)*vp(nelem) )
+            en   =half*fac*(        or2(nR)*vr(nelem)*vr(nelem) + &
+            &        O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
+            &        O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
 
-            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
-               enAS(1)   =enAS(1) +phiNorm*gauss(nThetaNHS)*en
-               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nThetaNHS)*vrabs
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
             else
-               enAS(2)   =enAS(2) +phiNorm*gauss(nThetaNHS)*en
-               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nThetaNHS)*vrabs
+               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
             end if
          end do
       end do
@@ -850,7 +850,7 @@ contains
       real(cp), intent(in) :: dvtdr(*),dvpdr(*)
 
       !-- Local variables:
-      integer :: nTheta,nThetaNHS,nPhi,nelem
+      integer :: nTheta,nTh,nPhi,nelem
       real(cp) :: Helna,Hel,phiNorm
       real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
@@ -901,14 +901,14 @@ contains
       !--- Helicity:
       !--- Helicity:
       !$omp parallel do default(shared)                     &
-      !$omp& private(nTheta, nThetaNHS, nPhi, Hel, Helna)   &
+      !$omp& private(nTheta, nTh, nPhi, Hel, Helna)         &
       !$omp& private(vrna, cvrna, vtna, vpna, nelem)        &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
             nelem=radlatlon2spat(nTheta,nPhi,nR)
-            nThetaNHS = (nTheta+1)/2
+            nTh=n_theta_cal2ord(nTheta)
             vrna   =   vr(nelem)-vras(nTheta)
             cvrna  =  cvr(nelem)-cvras(nTheta)
             vtna   =   vt(nelem)-vtas(nTheta)
@@ -930,18 +930,18 @@ contains
             &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
             &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
-            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
-               HelAS(1)   =HelAS(1) +phiNorm*gauss(nThetaNHS)*Hel
-               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nThetaNHS)*Hel*Hel
-               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nThetaNHS)*Helna
-               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nThetaNHS)*Helna*Helna
-               HelEAAS    =HelEAAS +phiNorm*gauss(nThetaNHS)*Hel
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
             else
-               HelAS(2)   =HelAS(2) +phiNorm*gauss(nThetaNHS)*Hel
-               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nThetaNHS)*Hel*Hel
-               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nThetaNHS)*Helna
-               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nThetaNHS)*Helna*Helna
-               HelEAAS    =HelEAAS -phiNorm*gauss(nThetaNHS)*Hel
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
             end if
          end do
       end do
@@ -972,31 +972,30 @@ contains
       real(cp) :: ekinS ! Kinetic energy in the solid phase
       real(cp) :: ekinL ! Kinetic energy in the liquid phase
       real(cp) :: volS  ! volume of the solid
-      integer :: nTheta,nPhi,nThetaNHS,nelem
+      integer :: nTheta,nPhi,nelem
 
       phiNorm=two*pi/real(n_phi_max,cp)
       ekinL=0.0_cp
       ekinS=0.0_cp
       volS =0.0_cp
 
-      !$omp parallel do default(shared)                 &
-      !$omp& private(nTheta,nelem,nThetaNHS,nPhi,ekin)  &
+      !$omp parallel do default(shared)       &
+      !$omp& private(nTheta,nelem,nPhi,ekin)  &
       !$omp& reduction(+:ekinS,ekinL,volS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
             nelem = radlatlon2spat(nTheta,nPhi,nR)
 
-            ekin = half*orho1(nR)*(                          &
-            &          or2(nR)*        vr(nelem)*vr(nelem) + &
-            &          osn2(nThetaNHS)*vt(nelem)*vt(nelem) + &
-            &          osn2(nThetaNHS)*vp(nelem)*vp(nelem) )
+            ekin = half*orho1(nR)*(                                 &
+            &                 or2(nR)*        vr(nelem)*vr(nelem) + &
+            &          O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
+            &          O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
 
             if ( phi(nelem) >= half ) then
-               ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
-               volS =volS +phiNorm*gauss(nThetaNHS)*r(nR)*r(nR)
+               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
+               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
             else
-               ekinL=ekinL+phiNorm*gauss(nThetaNHS)*ekin
+               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
             end if
          end do
       end do

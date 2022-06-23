@@ -22,7 +22,7 @@ module out_movie
    use blocking, only: lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
-       &                      osn1, phi, theta_ord
+       &                      phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
    use sht, only: torpol_to_spat_single, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag
@@ -1506,11 +1506,9 @@ contains
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
-      integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
       real(cp) :: O_r              ! 1/r
-      real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
 
@@ -1525,11 +1523,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do n_theta=1,n_theta_max,2 ! loop over thetas in Northern HS
-         n_theta_nhs=(n_theta+1)/2
-         O_sint=osn1(n_theta_nhs)
-         sl(n_theta)  =O_sint*tmpp(n_theta)
-         sl(n_theta+1)=O_sint*tmpp(n_theta+1)
+      do n_theta=1,n_theta_max
+         sl(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)
       end do
 
    end subroutine get_sl
@@ -1555,12 +1550,10 @@ contains
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
-      integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
       real(cp) :: r_ratio          ! r/r_ICB
       real(cp) :: O_r              ! 1/r
-      real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
@@ -1591,11 +1584,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do n_theta=1,n_theta_max,2 ! loop over thetas in Northern HS
-         n_theta_nhs=(n_theta+1)/2
-         O_sint=osn1(n_theta_nhs)
-         fl(n_theta)  =O_sint*tmpp(n_theta)
-         fl(n_theta+1)=O_sint*tmpp(n_theta+1)
+      do n_theta=1,n_theta_max
+         fl(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)
       end do
 
    end subroutine get_fl
