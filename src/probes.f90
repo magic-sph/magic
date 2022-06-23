@@ -18,7 +18,7 @@ module probe_mod
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: r_cmb, orho1, or1, or2, r
    use num_param, only: vScale
-   use horizontal_data, only: O_sin_theta, theta
+   use horizontal_data, only: O_sin_theta, theta_ord, n_theta_ord2cal
    use output_data, only: tag
    use constants, only: pi, one
    use logic, only: l_save_out
@@ -62,7 +62,8 @@ contains
          rad_rank = rank
       end if
 
-      n_theta_usr = minloc(abs(theta_probe*deg2rad - theta),1)
+      n_theta_usr = minloc(abs(theta_probe*deg2rad - theta_ord),1)
+      n_theta_usr = n_theta_ord2cal(n_theta_usr)
 
    end subroutine initialize_probes
 !-------------------------------------------------------------------------------

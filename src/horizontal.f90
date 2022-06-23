@@ -23,7 +23,7 @@ module horizontal_data
 
    !-- Arrays depending on theta (colatitude):
    integer, public, allocatable :: n_theta_cal2ord(:)
-   real(cp), public, allocatable :: theta(:)           ! Gauss points (scrambled)
+   integer, public, allocatable :: n_theta_ord2cal(:)
    real(cp), public, allocatable :: theta_ord(:)       ! Gauss points (unscrambled)
    real(cp), public, allocatable :: sinTheta_E2(:)     ! :math:`\sin^2\theta`
    real(cp), public, allocatable :: O_sin_theta(:)     ! :math:`1/\sin\theta`
@@ -53,13 +53,13 @@ module horizontal_data
 
 contains
 
-   subroutine initialize_horizontal_data
+   subroutine initialize_horizontal_data()
       !
       ! Memory allocation of horizontal functions
       !
 
       allocate( n_theta_cal2ord(n_theta_max) )
-      allocate( theta(n_theta_max) )
+      allocate( n_theta_ord2cal(n_theta_max) )
       allocate( theta_ord(n_theta_max) )
       allocate( sinTheta_E2(nlat_padded) )
       allocate( O_sin_theta(nlat_padded) )
@@ -67,8 +67,8 @@ contains
       allocate( sinTheta(nlat_padded) )
       allocate( cosn_theta_E2(nlat_padded) )
       allocate( cosTheta(nlat_padded) )
-      bytes_allocated = bytes_allocated+n_theta_max*SIZEOF_INTEGER+&
-      &                 (2*n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+2*n_theta_max*SIZEOF_INTEGER+&
+      &                 (n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
       O_sin_theta(:)   =0.0_cp
       O_sin_theta_E2(:)=0.0_cp
       sinTheta(:)      =0.0_cp
@@ -102,9 +102,9 @@ contains
       ! Memory deallocation of horizontal functions
       !
 
-      deallocate( cosn_theta_E2, sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
+      deallocate( cosn_theta_E2, sinTheta, cosTheta, theta_ord, n_theta_cal2ord )
       deallocate( sinTheta_E2, O_sin_theta, O_sin_theta_E2, phi )
-      deallocate( gauss, dPl0Eq )
+      deallocate( gauss, dPl0Eq, n_theta_ord2cal )
       deallocate( dPhi, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( hdif_B, hdif_V, hdif_S, hdif_Xi )
@@ -113,7 +113,7 @@ contains
 
    end subroutine finalize_horizontal_data
 !------------------------------------------------------------------------------
-   subroutine horizontal
+   subroutine horizontal()
       !
       !  Calculates functions of :math:`\theta` and :math:`\phi`, for example
       !  the Legendre functions,  and functions of degree :math:`\ell` and
@@ -156,25 +156,22 @@ contains
          cosn_theta_E2(2*n_theta)   =-cos(colat)/sin(colat)/sin(colat)
       end do
 
-
       !-- Resort thetas in the alternating north/south order they
       !   are used for the calculations:
       do n_theta=1,n_theta_max/2
+         n_theta_ord2cal(n_theta)              =2*n_theta-1
+         n_theta_ord2cal(n_theta_max-n_theta+1)=2*n_theta
          n_theta_cal2ord(2*n_theta-1)=n_theta
          n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
-         theta(2*n_theta-1)          =theta_ord(n_theta)
-         theta(2*n_theta)            =theta_ord(n_theta_max-n_theta+1)
          gauss(2*n_theta-1)          =tmp_gauss(n_theta)
          gauss(2*n_theta)            =tmp_gauss(n_theta_max-n_theta+1)
       end do
-
 
       !----- Same for longitude output grid:
       fac=two*pi/real(n_phi_max*minc,cp)
       do n_phi=1,n_phi_max
          phi(n_phi)=fac*real(n_phi-1,cp)
       end do
-
 
       !-- Initialize fast fourier transform for phis:
       if ( .not. l_axi ) call init_fft(n_phi_max)
@@ -187,11 +184,10 @@ contains
          end do
       end do
 
+      !---- Operators for derivatives:
       do lm=1,lm_max
          l=lm2l(lm)
          m=lm2m(lm)
-
-         !---- Operators for derivatives:
 
          !-- Phi derivative:
          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
@@ -209,7 +205,6 @@ contains
          !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
          dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
          dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
-
       end do ! lm
 
       !-- Hyperdiffusion
