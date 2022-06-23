@@ -793,7 +793,7 @@ contains
       real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
       real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
       real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nPhi
+      integer :: nTheta, nPhi, nTh
 
       enAS(:)   =0.0_cp
       vrabsAS(:)=0.0_cp
@@ -804,18 +804,19 @@ contains
          fac = one
       end if
       !--- Helicity:
-      !$omp parallel do default(shared) &
-      !$omp& private(nTheta,vrabs,en)   &
+      !$omp parallel do default(shared)   &
+      !$omp& private(nTheta,vrabs,en,nTh) &
       !$omp& reduction(+:enAS,vrabsAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
             vrabs=fac*abs(vr(nTheta,nPhi))
             en   =half*fac*(                                                &
             &                     or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
             &      O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
             &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
                enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
                vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
             else
@@ -849,7 +850,7 @@ contains
       real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
 
       !-- Local variables:
-      integer :: nTheta,nPhi
+      integer :: nTheta,nPhi,nTh
       real(cp) :: Helna,Hel,phiNorm
       real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
@@ -896,12 +897,13 @@ contains
 
       !--- Helicity:
       !$omp parallel do default(shared)                     &
-      !$omp& private(nTheta, nPhi, Hel, Helna)              &
+      !$omp& private(nTheta, nPhi, nTh, Hel, Helna)         &
       !$omp& private(vrna, cvrna, vtna, vpna)               &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
             vrna   =   vr(nTheta,nPhi)-vras(nTheta)
             cvrna  =  cvr(nTheta,nPhi)-cvras(nTheta)
             vtna   =   vt(nTheta,nPhi)-vtas(nTheta)
@@ -927,7 +929,7 @@ contains
             &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
             &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
-            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
                HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
                Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
                HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
