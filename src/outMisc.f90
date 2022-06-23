@@ -20,7 +20,7 @@ module outMisc_mod
    use blocking, only: llm, ulm, lo_map, lm2
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
-   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, osn2, &
+   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord,  &
        &                      O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
@@ -812,10 +812,10 @@ contains
             nThetaNHS=(nTheta+1)/2
 
             vrabs=fac*abs(vr(nTheta,nPhi))
-            en   =half*fac*(                                         &
-            &              or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
-            &      osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
-            &      osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+            en   =half*fac*(                                                &
+            &                     or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
             if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
                enAS(1)   =enAS(1) +phiNorm*gauss(nThetaNHS)*en
@@ -986,10 +986,10 @@ contains
          do nTheta=1,n_theta_max
             nThetaNHS=(nTheta+1)/2
 
-            ekin = half*orho1(nR)*(                                      &
-            &          or2(nR)*        vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
-            &          osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
-            &          osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+            ekin = half*orho1(nR)*(                                         &
+            &          or2(nR)*           vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
             if ( phi(nTheta,nPhi) >= half ) then
                ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
