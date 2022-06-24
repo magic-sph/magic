@@ -308,7 +308,7 @@ program magic
 
    !-- Blocking/radial/horizontal
    call initialize_blocking()
-   if (.not. l_onset ) call initialize_sht()
+   if (.not. l_onset ) call initialize_sht(l_scramble_theta)
    local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
    call initialize_radial_functions()

@@ -30,11 +30,17 @@ module sht
 
 contains
 
-   subroutine initialize_sht()
+   subroutine initialize_sht(l_scrambled_theta)
 
+      !-- Output variable
+      logical, intent(out) :: l_scrambled_theta
+
+      !-- Local variables
       integer :: norm, layout
       real(cp) :: eps_polar
       type(shtns_info), pointer :: sht_info
+      complex(cp) :: tmp(l_max+1)
+      real(cp), allocatable :: tmpr(:)
 
       if ( rank == 0 ) then
          write(output_unit,*) ''
@@ -65,6 +71,7 @@ contains
 #else
       nlat_padded = n_theta_max
 #endif
+      call shtns_robert_form(sht_l, 1) ! Use Robert's form
 
       if ( rank == 0 ) then
          call shtns_verbose(0)
@@ -73,7 +80,20 @@ contains
 
       sht_lP = shtns_create(l_max+1, m_max/minc, minc, norm)
       call shtns_set_grid(sht_lP, layout, eps_polar, n_theta_max, n_phi_max)
+      call shtns_robert_form(sht_lP, 1) ! Use Robert's form
 
+      !-- Set a l=1, m=0 mode to determine whether scrambling is there or not
+      allocate( tmpr(nlat_padded) )
+      tmp(:)=zero
+      tmp(2)=(1.0_cp, 0.0_cp)
+      call axi_to_spat(tmp, tmpr)
+      if ( abs(tmpr(2)+tmpr(1)) <= 10.0_cp * epsilon(1.0_cp) ) then
+         l_scrambled_theta=.true.
+      else
+         l_scrambled_theta=.false.
+      end if
+
+      deallocate( tmpr )
 
    end subroutine initialize_sht
 !------------------------------------------------------------------------------

@@ -99,5 +99,6 @@ module logic
    logical :: l_mag_par_solve ! Can be remove once inner core has also been ported
    logical :: l_hemi ! Compute North/South asymmetry of energies
    logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
+   logical :: l_scramble_theta ! A flag to set theta scrambling
 
 end module logic

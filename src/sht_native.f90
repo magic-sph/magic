@@ -23,8 +23,12 @@ module sht
 
 contains
 
-   subroutine initialize_sht()
+   subroutine initialize_sht(l_scrambled_theta)
 
+      !-- Output variable
+      logical, intent(out) :: l_scrambled_theta
+
+      l_scrambled_theta=.true.
       call initialize_transforms()
 
    end subroutine initialize_sht
