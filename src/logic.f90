@@ -100,5 +100,6 @@ module logic
    logical :: l_batched_shts ! Use batched spherical harmonic transforms
    logical :: l_hemi ! Compute North/South asymmetry of energies
    logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
+   logical :: l_scramble_theta ! A flag to set theta scrambling
 
 end module logic

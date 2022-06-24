@@ -10,7 +10,7 @@ module horizontal_data
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
    use blocking, only: lmP2l, lmP2lm, lm2l, lm2m, lo_map
-   use logic, only: l_non_rot
+   use logic, only: l_non_rot, l_scramble_theta
    use plms_theta, only: plm_theta
    use fft
    use constants, only: pi, zero, one, two, half
@@ -47,7 +47,6 @@ module horizontal_data
    real(cp), public, allocatable :: dTheta3S(:),dTheta3A(:)
    real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
    real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
-   logical :: l_scramble_theta
 
    public :: initialize_horizontal_data, horizontal, finalize_horizontal_data, &
    &         gauleg
@@ -58,7 +57,6 @@ contains
       !
       ! Memory allocation of horizontal functions
       !
-      l_scramble_theta = .true.
 
       allocate( n_theta_cal2ord(n_theta_max) )
       allocate( n_theta_ord2cal(n_theta_max) )

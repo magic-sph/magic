@@ -27,10 +27,15 @@ module sht
 
 contains
 
-   subroutine initialize_sht(l_batched_shts)
+   subroutine initialize_sht(l_scrambled_theta,l_batched_shts)
 
+      !-- Input variable
       logical, intent(in) :: l_batched_shts ! Dummy, only for API compatibility
 
+      !-- Output variable
+      logical, intent(out) :: l_scrambled_theta
+
+      l_scrambled_theta=.true.
       call initialize_transforms()
 
    end subroutine initialize_sht
