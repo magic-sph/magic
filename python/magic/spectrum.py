@@ -73,6 +73,8 @@ class MagicSpectrum(MagicSetup):
         elif field in ('T','temperature','S','entropy'):
             self.name = 'T_spec_'
 
+        speclut = None #  Set to None by default
+
         if self.ave: # Time-averaged spectra
 
             if tags is None:
@@ -146,15 +148,16 @@ class MagicSpectrum(MagicSetup):
                                      quiet=True)
                     file = '{}.{}'.format(self.name, tagg)
                     filename = os.path.join(datadir, file)
-                    data = fast_read(filename)
-                    if not quiet:
-                        print('reading {}'.format(filename))
-                    if k == 0:
-                        speclut = SpecLookUpTable(data, self.name, nml.start_time,
-                                                  nml.stop_time)
-                    else:
-                        speclut += SpecLookUpTable(data, self.name, nml.start_time,
-                                                    nml.stop_time)
+                    if os.path.exists(filename):
+                        data = fast_read(filename)
+                        if not quiet:
+                            print('reading {}'.format(filename))
+                        if k == 0:
+                            speclut = SpecLookUpTable(data, self.name, nml.start_time,
+                                                      nml.stop_time)
+                        else:
+                            speclut += SpecLookUpTable(data, self.name, nml.start_time,
+                                                        nml.stop_time)
 
         else: # Snapshot spectra
 
@@ -216,8 +219,9 @@ class MagicSpectrum(MagicSetup):
                                       self.stop_time)
 
         # Copy look-up table arguments into MagicSpectrum object
-        for attr in speclut.__dict__:
-            setattr(self, attr, speclut.__dict__[attr])
+        if speclut is not None:
+            for attr in speclut.__dict__:
+                setattr(self, attr, speclut.__dict__[attr])
 
         if iplot:
             self.plot()
