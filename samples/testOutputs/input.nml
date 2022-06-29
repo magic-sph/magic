@@ -47,6 +47,8 @@
  l_movie     =.false.,
  l_RMS       =.true.,
  l_power     =.true.,
+ l_hemi      =.true.,
+ l_hel       =.true.,
 /
 &mantle
  nRotMa      =0
