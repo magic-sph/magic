@@ -743,7 +743,6 @@ contains
          ! We also need to recompute AdvPol_loc here
          if ( l_conv_nl ) then
             AdvPol_loc=or2(nR)*AdvrLM(lmP)
-            if ( l_adv_curl ) AdvPol_loc=AdvPol_loc-dpkindrLM(lmP)
          else
             AdvPol_loc=zero
          end if
@@ -762,6 +761,10 @@ contains
          else
             dpdr(lm)=dp_Rloc(lm)
          end if
+
+         ! We need to correct from kinetic pressure
+         ! after computation of dpdr in case FD (l_double_curl) is used
+         if ( l_conv_nl .and. l_adv_curl ) AdvPol_loc=AdvPol_loc-dpkindrLM(lmP)
 
          if ( l_mag_LF .and. nR>n_r_LCR ) then
             LFPol(lm) =or2(nR)*LFrLM(lmP)
