@@ -1,6 +1,5 @@
 &grid
- n_r_max     =33,
- n_cheb_max  =31,
+ n_r_max     =96,
  n_phi_tot   =192,
  n_r_ic_max  =17,
 n_cheb_ic_max=15,
@@ -8,8 +7,8 @@ n_cheb_ic_max=15,
 /
 &control
  mode        =0,
- tag         ="continue",
- n_time_steps=50,
+ tag         ="FD",
+ n_time_steps=20,
  courfac     =1.0D0,
  alffac      =0.4D0,
  dtmax       =1.0D-4,
@@ -17,6 +16,7 @@ n_cheb_ic_max=15,
  runMinutes  =00,
  l_adv_curl  =.true.,
  time_scheme ='BPR353',
+ radial_scheme='FD',
 /
 &phys_param
  ra          =1.1D5,
@@ -32,7 +32,7 @@ n_cheb_ic_max=15,
 /
 &start_field
  l_start_file=.true.,
- start_file  ="checkpoint_end.start",
+ start_file  ="checkpoint_end.continue",
  init_b1     =0,
  amp_b1      =5,
  init_s1     =0,
@@ -41,7 +41,7 @@ n_cheb_ic_max=15,
 &output_control
  n_log_step  =10,
  n_graphs    =0,
- n_rsts      =1,
+ n_rsts      =0,
  n_stores    =0,
  runid       ="Benchmark 2",
  l_RMS       =.true.,
