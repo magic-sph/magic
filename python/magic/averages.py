@@ -213,17 +213,17 @@ class AvgField:
                     self.lut['spectra']['index'] = sp.index
                     for field in params['spectra'][key]:
                         if hasattr(sp, field):
-                            self.lut['spectra'][field+'_av'] = sp.__dict__[field]
+                            self.lut['spectra'][field+'_spec_av'] = sp.__dict__[field]
                             if std and hasattr(sp, field + '_SD'):
-                                self.lut['spectra'][field+'_sd'] = \
+                                self.lut['spectra'][field+'_spec_sd'] = \
                                     sp.__dict__[field + '_SD']
         else:  # Set parameters to -1
             for key in params['spectra'].keys():
                 self.lut['spectra']['index'] = -1 * np.ones(32)
                 for field in params['spectra'][key]:
-                    self.lut['spectra'][field+'_av'] = -1 * np.ones(32)
+                    self.lut['spectra'][field+'_spec_av'] = -1 * np.ones(32)
                     if std:
-                        self.lut['spectra'][field+'_sd'] = -1 * np.ones(32)
+                        self.lut['spectra'][field+'_spec_sd'] = -1 * np.ones(32)
 
         # Handle radial profiles
         self.lut['radial_profiles'] = {}
