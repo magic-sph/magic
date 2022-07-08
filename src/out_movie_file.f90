@@ -728,6 +728,19 @@ contains
             frames(n_180+n_theta)=sr(nelem180)
          end do
 
+      else if ( n_field_type == 15 ) then ! vz
+
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac* ( cosTheta(n_theta_cal)*or1(n_r)* &
+            &                          vr(n_theta_cal,n_phi_0) -       &
+            &                          vt(n_theta_cal,n_phi_0) )
+            frames(n_180+n_theta)=fac* ( cosTheta(n_theta_cal)*or1(n_r)* &
+            &                            vr(n_theta_cal,n_phi_180) -     &
+            &                            vt(n_theta_cal,n_phi_180) )
+         end do
+
       else if ( n_field_type == 109 ) then
 
          do n_theta_cal=1,n_theta_max
