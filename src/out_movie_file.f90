@@ -732,13 +732,13 @@ contains
 
          fac=or1(n_r)*orho1(n_r)*vScale
          do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)=fac* ( cosTheta(n_theta_cal)*or1(n_r)* &
-            &                          vr(n_theta_cal,n_phi_0) -       &
-            &                          vt(n_theta_cal,n_phi_0) )
+            &                          vr(nelem0) - vt(nelem0) )
             frames(n_180+n_theta)=fac* ( cosTheta(n_theta_cal)*or1(n_r)* &
-            &                            vr(n_theta_cal,n_phi_180) -     &
-            &                            vt(n_theta_cal,n_phi_180) )
+            &                            vr(nelem180) - vt(nelem180) )
          end do
 
       else if ( n_field_type == 109 ) then
