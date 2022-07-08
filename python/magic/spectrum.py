@@ -143,7 +143,8 @@ class MagicSpectrum(MagicSetup):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                         nml='log.{}'.format(tags[-1]))
 
-                for k, tagg in enumerate(tags):
+                k = 0
+                for tagg in tags:
                     nml = MagicSetup(nml='log.{}'.format(tagg), datadir=datadir,
                                      quiet=True)
                     file = '{}.{}'.format(self.name, tagg)
@@ -157,7 +158,9 @@ class MagicSpectrum(MagicSetup):
                                                       nml.stop_time)
                         else:
                             speclut += SpecLookUpTable(data, self.name, nml.start_time,
-                                                        nml.stop_time)
+                                                       nml.stop_time)
+                        k += 1
+
 
         else: # Snapshot spectra
 
