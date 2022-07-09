@@ -663,7 +663,7 @@ contains
          end do
       end do
 
-      call sphtor_to_spat(zeros, cs1, Bt, Bp, l_max)
+      call sphtor_to_spat(sht_l_single, zeros, cs1, Bt, Bp, l_max)
             
    end subroutine get_Btor
 !-------------------------------------------------------------------------------------

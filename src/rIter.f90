@@ -14,6 +14,8 @@ module rIter_mod
    use parallel_mod
    use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag
    use grid_blocking, only: n_phys_space
+   use blocking, only: st_map
+   use horizontal_data, only: dLh, O_sin_theta_E2
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -25,7 +27,7 @@ module rIter_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
-   use constants, only: zero
+   use constants, only: zero, ci
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
@@ -504,6 +506,14 @@ contains
       logical, intent(in) :: lFluxProfCalc, lPerpParCalc, lHelCalc, l_frame
       logical, intent(in) :: lDeriv, lGeosCalc, lHemiCalc
 
+      !-- Local variables
+      integer :: nPhi
+      complex(cp) :: dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max)
+      complex(cp) :: dmdw(lm_max), dmz(lm_max)
+
+      call legPrep_qst(nR, w_Rloc(:,nR), ddw_Rloc(:,nR), z_Rloc(:,nR), dLw, dLddw, dLz)
+      call legPrep_flow(nR, dw_Rloc(:,nR), z_Rloc(:,nR), dLdw, dmdw, dmz)
+
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
             call scal_to_spat(sht_l, s_Rloc(:,nR), this%gsa%sc, l_R(nR))
@@ -539,59 +549,76 @@ contains
          endif
          if ( nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
-            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+            call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
 
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
-               call torpol_to_curl_spat(or2, w_Rloc(:,nR), ddw_Rloc(:,nR),     &
-                    &                   z_Rloc(:,nR), dz_Rloc(:,nR),           &
-                    &                   this%gsa%cvrc, this%gsa%cvtc,          &
-                    &                   this%gsa%cvpc, l_R(nR), nR)
+               call torpol_to_spat(dLz, dz_Rloc(:,nR), dLddw,     &
+                    &              this%gsa%cvrc, this%gsa%cvtc,  &
+                    &              this%gsa%cvpc, l_R(nR))
 
                !-- For some outputs one still need the other terms
                if ( lViscBcCalc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
                &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or. lGeosCalc  &
                &    .or. lHemiCalc                                               &
                &    .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-                  call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR),    &
+                  call torpol_to_spat(dLdw, ddw_Rloc(:,nR),             &
                        &              dz_Rloc(:,nR), this%gsa%dvrdrc,   &
                        &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
-                  call pol_to_grad_spat(w_Rloc(:,nR), this%gsa%dvrdtc, &
-                       &                this%gsa%dvrdpc, l_R(nR))
-                  call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                       &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
+                  call scal_to_grad_spat(dLw, this%gsa%dvrdtc, &
+                       &                 this%gsa%dvrdpc, l_R(nR))
+                  call sphtor_to_spat(sht_l, dmdw,  dmz, this%gsa%dvtdpc, &
+                       &              this%gsa%dvpdpc, l_R(nR))
+                  !$omp parallel do default(shared)
+                  do nPhi=1,n_phi_max
+                     this%gsa%dvtdpc(:,nPhi)=this%gsa%dvtdpc(:,nPhi)*O_sin_theta_E2(:)
+                     this%gsa%dvpdpc(:,nPhi)=this%gsa%dvpdpc(:,nPhi)*O_sin_theta_E2(:)
+                  end do
+                  !$omp end parallel do
                end if
 
             else ! Advection is treated as u\grad u
 
-               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,             &
+               call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR))
 
-               call pol_to_curlr_spat(z_Rloc(:,nR), this%gsa%cvrc, l_R(nR))
+               call scal_to_spat(sht_l, dLz, this%gsa%cvrc, l_R(nR))
 
-               call pol_to_grad_spat(w_Rloc(:,nR), this%gsa%dvrdtc, this%gsa%dvrdpc,&
-                    &                l_R(nR))
-               call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                    &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
+               call scal_to_grad_spat(dLw, this%gsa%dvrdtc, this%gsa%dvrdpc,&
+                    &                 l_R(nR))
+               call sphtor_to_spat(sht_l, dmdw, dmz, this%gsa%dvtdpc, &
+                    &              this%gsa%dvpdpc, l_R(nR))
+               !$omp parallel do default(shared)
+               do nPhi=1,n_phi_max
+                  this%gsa%dvtdpc(:,nPhi)=this%gsa%dvtdpc(:,nPhi)*O_sin_theta_E2(:)
+                  this%gsa%dvpdpc(:,nPhi)=this%gsa%dvpdpc(:,nPhi)*O_sin_theta_E2(:)
+               end do
+               !$omp end parallel do
             end if
 
          else if ( nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
-            call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+            call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
             this%gsa%vrc(:,:)=0.0_cp
             if ( lDeriv ) then
                this%gsa%dvrdtc(:,:)=0.0_cp
                this%gsa%dvrdpc(:,:)=0.0_cp
-               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,             &
+               call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR))
-               call pol_to_curlr_spat(z_Rloc(:,nR), this%gsa%cvrc, l_R(nR))
-               call torpol_to_dphspat(dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                    &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
+               call scal_to_spat(sht_l, dLz, this%gsa%cvrc, l_R(nR))
+               call sphtor_to_spat(sht_l, dmdw, dmz, this%gsa%dvtdpc, &
+                    &              this%gsa%dvpdpc, l_R(nR))
+               !$omp parallel do default(shared)
+               do nPhi=1,n_phi_max
+                  this%gsa%dvtdpc(:,nPhi)=this%gsa%dvtdpc(:,nPhi)*O_sin_theta_E2(:)
+                  this%gsa%dvpdpc(:,nPhi)=this%gsa%dvpdpc(:,nPhi)*O_sin_theta_E2(:)
+               end do
+               !$omp end parallel do
             end if
          else if ( nBc == 2 ) then
             if ( nR == n_r_cmb ) then
@@ -607,22 +634,23 @@ contains
                     &                this%gsa%dvpdpc)
             end if
             if ( lDeriv ) then
-               call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
-                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,             &
+               call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR))
             end if
          end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-         call torpol_to_spat(b_Rloc(:,nR), db_Rloc(:,nR),  aj_Rloc(:,nR), &
+         call legPrep_qst(nR, b_Rloc(:,nR), ddb_Rloc(:,nR), aj_Rloc(:,nR), &
+             &           dLw, dLddw, dLz)
+         call torpol_to_spat(dLw, db_Rloc(:,nR), aj_Rloc(:,nR), &
               &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(nR))
 
          if ( lDeriv ) then
-            call torpol_to_curl_spat(or2, b_Rloc(:,nR), ddb_Rloc(:,nR),     &
-                 &                   aj_Rloc(:,nR), dj_Rloc(:,nR),          &
-                 &                   this%gsa%cbrc, this%gsa%cbtc,          &
-                 &                   this%gsa%cbpc, l_R(nR), nR)
+            call torpol_to_spat(dLz, dj_Rloc(:,nR), dLddw,      &
+                 &              this%gsa%cbrc, this%gsa%cbtc,   &
+                 &              this%gsa%cbpc, l_R(nR))
          end if
       end if
 
@@ -713,5 +741,80 @@ contains
       if ( lRmsCalc ) call transform_to_lm_RMS(nR, this%gsa%LFr)
 
    end subroutine transform_to_lm_space
+!-------------------------------------------------------------------------------
+   subroutine legPrep_flow(nR, dw, z, dLdw, dmdw, dmz)
+      !
+      ! This routine is used to compute temporary arrays required before
+      ! computing the Legendre transforms. This routine is specific to
+      ! flow components.
+      !
+
+      !-- Input variable
+      integer,     intent(in) :: nR ! Radial level
+      complex(cp), intent(in) :: dw(lm_max) ! radial derivative of wlm
+      complex(cp), intent(in) :: z(lm_max)  ! zlm
+
+      !-- Output variable
+      complex(cp), intent(out) :: dLdw(lm_max) ! l(l+1) * dw
+      complex(cp), intent(out) :: dmdw(lm_max) ! i * m * dw
+      complex(cp), intent(out) :: dmz(lm_max)  ! i * m * z
+
+      !-- Local variables
+      integer :: lm, l, m
+
+      !$omp parallel do default(shared) private(l, m)
+      do lm = 1, lm_max
+         l = st_map%lm2l(lm)
+         m = st_map%lm2m(lm)
+         if ( l <= l_R(nR) ) then
+            dLdw(lm) = dLh(lm) * dw(lm)
+            dmdw(lm) = ci * m * dw(lm)
+            dmz(lm)  = ci * m * z(lm)
+         else
+            dLdw(lm) = zero
+            dmdw(lm) = zero
+            dmz(lm)  = zero
+         end if
+      end do
+      !$omp end parallel do
+
+   end subroutine legPrep_flow
+!-------------------------------------------------------------------------------
+   subroutine legPrep_qst(nR, w, ddw, z, dLw, dLddw, dLz)
+      !
+      ! This routine is used to compute temporary arrays required before
+      ! computing the Legendre transforms.
+      !
+
+      !-- Input variable
+      integer,     intent(in) :: nR    ! Radial level
+      complex(cp), intent(in) :: w(lm_max) ! Poloidal potential wlm
+      complex(cp), intent(in) :: ddw(lm_max) ! Second radial derivative of wlm
+      complex(cp), intent(in) :: z(lm_max) ! Toroidal potential zlm
+
+      !-- Output variable
+      complex(cp), intent(out) :: dLw(lm_max) ! l(l+1) * wlm
+      complex(cp), intent(out) :: dLddw(lm_max) ! l(l+1)/r^2 * wlm-ddwlm
+      complex(cp), intent(out) :: dLz(lm_max) ! l(l+1) * zlm
+
+      !-- Local variables
+      integer :: lm, l
+
+      !$omp parallel do default(shared) private(l)
+      do lm = 1, lm_max
+         l = st_map%lm2l(lm)
+         if ( l <= l_R(nR) ) then
+            dLw(lm)   = dLh(lm) *  w(lm)
+            dLz(lm)   = dLh(lm) *  z(lm)
+            dLddw(lm) = or2(nR) * dLh(lm) * w(lm) - ddw(lm)
+         else
+            dLw(lm)   = zero
+            dLddw(lm) = zero
+            dLz(lm)   = zero
+         end if
+      end do
+      !$omp end parallel do
+
+   end subroutine legPrep_qst
 !-------------------------------------------------------------------------------
 end module rIter_mod

@@ -4,11 +4,9 @@ module sht
    use iso_c_binding, only: c_ptr
    use precision_mod, only: cp
    use blocking, only: st_map
-   use constants, only: ci, one, zero
-   use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-       &                 minc, lm_max, lmP_max
-   use grid_blocking, only: n_phys_space, spat2lat
-   use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
+   use constants, only: one, zero
+   use truncation, only: m_max, l_max, n_theta_max, minc, lm_max
+   use horizontal_data, only: dLh
    use parallel_mod
    use shtransforms
 
@@ -16,11 +14,10 @@ module sht
 
    private
 
-   public :: initialize_sht, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
-   &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,            &
-   &         torpol_to_dphspat, scal_to_SH, spat_to_sphertor,                   &
-   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,         &
-   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
+   public :: initialize_sht, scal_to_spat, scal_to_grad_spat,             &
+   &         torpol_to_spat, scal_to_SH, spat_to_sphertor,                &
+   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,   &
+   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,   &
    &         axi_to_spat, torpol_to_spat_single
 
    type(c_ptr), public :: sht_l, sht_lP, sht_l_single, sht_lP_single
@@ -77,36 +74,22 @@ contains
 
    end subroutine scal_to_grad_spat
 !------------------------------------------------------------------------------
-   subroutine pol_to_grad_spat(Slm, gradtc, gradpc, lcut)
+   subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Slm(*)
+      complex(cp), intent(in) :: Wlm(*), dWlm(*), Zlm(*)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: gradtc(*)
-      real(cp), intent(out) :: gradpc(*)
+      real(cp), intent(out) :: vrc(*)
+      real(cp), intent(out) :: vtc(*)
+      real(cp), intent(out) :: vpc(*)
 
-      !-- Local variables
-      complex(cp) :: Qlm(lm_max)
-      integer :: lm, l
+      call native_qst_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
-      !$omp parallel do default(shared) private(lm, l)
-      do lm = 1, lm_max
-         l = st_map%lm2l(lm)
-         if ( l <= lcut ) then
-            Qlm(lm) = dLh(lm) * Slm(lm)
-         else
-            Qlm(lm) = zero
-         end if
-      end do
-      !$omp end parallel do
-
-      call native_sph_to_grad_spat(Qlm, gradtc, gradpc, lcut)
-
-   end subroutine pol_to_grad_spat
+   end subroutine torpol_to_spat
 !------------------------------------------------------------------------------
-   subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+   subroutine torpol_to_spat_single(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
       complex(cp), intent(in) :: Wlm(*), dWlm(*), Zlm(*)
@@ -134,32 +117,18 @@ contains
 
       call native_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
-   end subroutine torpol_to_spat
-!------------------------------------------------------------------------------
-   subroutine torpol_to_spat_single(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
-
-      !-- Input variables
-      complex(cp), intent(in) :: Wlm(*), dWlm(*), Zlm(*)
-      integer,     intent(in) :: lcut
-
-      !-- Output variables
-      real(cp), intent(out) :: vrc(*)
-      real(cp), intent(out) :: vtc(*)
-      real(cp), intent(out) :: vpc(*)
-
-      call torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
-
    end subroutine torpol_to_spat_single
 !------------------------------------------------------------------------------
-   subroutine sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
+   subroutine sphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: dWlm(:), Zlm(:)
+      type(c_ptr), intent(in) :: sh ! Dummy: only for API compatibility with SHTns
+      complex(cp), intent(in) :: dWlm(*), Zlm(*)
       integer,     intent(in) :: lcut
 
       !-- Output variables
-      real(cp), intent(out) :: vtc(:,:)
-      real(cp), intent(out) :: vpc(:,:)
+      real(cp), intent(out) :: vtc(*)
+      real(cp), intent(out) :: vpc(*)
 
       call native_sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
 
@@ -252,115 +221,6 @@ contains
       call native_qst_to_spat(Qlm, Slm, Tlm, Br, Bt, Bp, l_max)
 
    end subroutine torpol_to_spat_IC
-!------------------------------------------------------------------------------
-   subroutine torpol_to_dphspat(dWlm, Zlm, dvtdp, dvpdp, lcut)
-      !
-      ! Computes horizontal phi derivative of a toroidal/poloidal field
-      !
-
-      !-- Input variables
-      complex(cp), intent(in) :: dWlm(*), Zlm(*)
-      integer,     intent(in) :: lcut
-
-      !-- Output variables
-      real(cp), intent(out) :: dvtdp(*)
-      real(cp), intent(out) :: dvpdp(*)
-
-      !-- Local variables
-      complex(cp) :: Slm(lm_max), Tlm(lm_max)
-      integer :: lm, ip, l, nelem, nt
-      real(cp) :: m
-
-      !$omp parallel do default(shared) private(lm, m, l)
-      do lm = 1, lm_max
-         l = st_map%lm2l(lm)
-         m = st_map%lm2m(lm)
-         if ( l <= lcut ) then
-            Slm(lm) = ci*m*dWlm(lm)
-            Tlm(lm) = ci*m*Zlm(lm)
-         else
-            Slm(lm) = 0.0_cp
-            Tlm(lm) = 0.0_cp
-         end if
-      end do
-      !$omp end parallel do
-
-      call native_sphtor_to_spat(Slm, Tlm, dvtdp, dvpdp, lcut)
-
-      !$omp parallel do default(shared) private(nt)
-      do nelem=1, n_phys_space
-         nt = spat2lat(nelem)
-         dvtdp(nelem) = dvtdp(nelem) * O_sin_theta_E2(nt)
-         dvpdp(nelem) = dvpdp(nelem) * O_sin_theta_E2(nt)
-      end do
-      !$omp end parallel do      
-
-   end subroutine torpol_to_dphspat
-!------------------------------------------------------------------------------
-   subroutine pol_to_curlr_spat(Qlm, cvrc, lcut)
-
-      !-- Input variables
-      complex(cp), intent(in) :: Qlm(*)
-      integer,     intent(in) :: lcut
-
-      !-- Output variable
-      real(cp), intent(out) :: cvrc(*)
-
-      !-- Local variables
-      complex(cp) :: dQlm(lm_max)
-      integer :: lm, l
-
-      !$omp parallel do default(shared) private(lm, l)
-      do lm = 1, lm_max
-         l = st_map%lm2l(lm)
-         if ( l <= lcut ) then
-            dQlm(lm) = dLh(lm) * Qlm(lm)
-         else
-            dQlm(lm) = zero
-         end if
-      end do
-      !$omp end parallel do
-
-      call native_sph_to_spat(dQlm, cvrc, lcut)
-
-   end subroutine pol_to_curlr_spat
-!------------------------------------------------------------------------------
-   subroutine torpol_to_curl_spat(or2, Blm, ddBlm, Jlm, dJlm, cvrc, cvtc, cvpc, &
-              &                   lcut, nR)
-
-      !-- Input variables
-      complex(cp), intent(in) :: Blm(*), ddBlm(*)
-      complex(cp), intent(in) :: Jlm(*), dJlm(*)
-      real(cp),    intent(in) :: or2(*)
-      integer,     intent(in) :: nR
-      integer,     intent(in) :: lcut
-
-      !-- Output variables
-      real(cp), intent(out) :: cvrc(*)
-      real(cp), intent(out) :: cvtc(*)
-      real(cp), intent(out) :: cvpc(*)
-
-      !-- Local variables
-      complex(cp) :: Qlm(lm_max), Tlm(lm_max)
-      integer :: lm, l
-
-      !$omp parallel do default(shared) private(lm, l)
-      do lm = 1, lm_max
-         l = st_map%lm2l(lm)
-         if ( l <= lcut ) then
-            Qlm(lm) = dLh(lm) * Jlm(lm)
-            Tlm(lm) = or2(nR) * dLh(lm) * Blm(lm) - ddBlm(lm)
-         else
-            Qlm(lm) = zero
-            Tlm(lm) = zero
-         end if
-      end do
-      !
-      !$omp end parallel do
-
-      call native_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
-
-   end subroutine torpol_to_curl_spat
 !------------------------------------------------------------------------------
    subroutine scal_to_SH(sh, f, fLM, lcut)
 
