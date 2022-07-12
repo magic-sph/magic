@@ -1,3 +1,4 @@
+#define QUICK_TEST
 module sht
    !
    ! This module contains is a wrapper of the SHTns routines used in MagIC
@@ -17,6 +18,9 @@ module sht
    implicit none
 
    include "shtns.f03"
+#ifdef WITH_OMP_GPU
+   include "shtns_cuda.f03"
+#endif
 
    private
 
@@ -25,7 +29,12 @@ module sht
    &         torpol_to_curl_spat_IC, spat_to_SH_axi, spat_to_qst,             &
    &         sphtor_to_spat, toraxi_to_spat, finalize_sht, torpol_to_spat_single
 
+#ifdef WITH_OMP_GPU
+   type(c_ptr), public :: sht_l, sht_lP, sht_l_single, sht_lP_single, &
+   &                      sht_l_gpu, sht_lP_gpu, sht_lP_single_gpu
+#else
    type(c_ptr), public :: sht_l, sht_lP, sht_l_single, sht_lP_single
+#endif
 
    logical :: l_batched_sh
 
@@ -41,6 +50,9 @@ contains
 
       !-- Local variables
       integer :: norm, layout
+#ifdef WITH_OMP_GPU
+      integer :: layout_gpu
+#endif
       real(cp) :: eps_polar
       type(shtns_info), pointer :: sht_info
       complex(cp) :: tmp(l_max+1)
@@ -66,6 +78,25 @@ contains
 
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 #ifdef SHT_PADDING
+#ifdef WITH_OMP_GPU
+#ifdef QUICK_TEST
+      if ( .not. l_batched_sh ) then
+         layout     = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+         layout_gpu = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING + SHT_ALLOW_GPU
+      else
+         layout     = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
+         layout_gpu = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
+      end if
+#else
+      if ( .not. l_batched_sh ) then
+         layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
+         layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING + SHT_ALLOW_GPU
+      else
+         layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS
+         layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
+      end if
+#endif
+#else
       if ( .not. l_batched_sh ) then
          !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
          layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
@@ -73,15 +104,32 @@ contains
          !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
          layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
       end if
+#endif
+#else
+#ifdef WITH_OMP_GPU
+#ifdef QUICK_TEST
+      layout     = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
+      layout_gpu = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
+#else
+      layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS
+      layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
+#endif
 #else
       !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
       layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
 #endif
+#endif
+
       eps_polar = 1.e-10_cp
 
       sht_l = shtns_create(l_max, m_max/minc, minc, norm)
       if ( l_batched_sh ) call shtns_set_batch(sht_l, howmany, dist)
       call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
+#ifdef WITH_OMP_GPU
+      sht_l_gpu = shtns_create(l_max, m_max/minc, minc, norm)
+      if ( l_batched_sh ) call shtns_set_batch(sht_l_gpu, howmany, dist)
+      call shtns_set_grid(sht_l_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
+#endif
 
       call c_f_pointer(cptr=sht_l, fptr=sht_info)
 #ifdef SHT_PADDING
@@ -97,7 +145,11 @@ contains
 #else
       nlat_padded = n_theta_max
 #endif
+
       call shtns_robert_form(sht_l, 1) ! Use Robert's form
+#ifdef WITH_OMP_GPU
+      call shtns_robert_form(sht_l_gpu, 1) ! Use Robert's form
+#endif
 
       if ( rank == 0 ) then
          call shtns_verbose(0)
@@ -117,14 +169,27 @@ contains
       if ( l_batched_sh ) call shtns_set_batch(sht_lP, howmany, dist)
       call shtns_set_grid(sht_lP, layout, eps_polar, n_theta_max, n_phi_max)
       call shtns_robert_form(sht_lP, 1) ! Use Robert's form
-
+#ifdef WITH_OMP_GPU
+      sht_lP_gpu = shtns_create(l_max+1, m_max/minc, minc, norm)
+      if ( l_batched_sh ) call shtns_set_batch(sht_lP_gpu, howmany, dist)
+      call shtns_set_grid(sht_lP_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
+      call shtns_robert_form(sht_lP_gpu, 1) ! Use Robert's form
+#endif
 
       if ( l_batched_sh ) then
          sht_lP_single = shtns_create(l_max+1, m_max/minc, minc, norm)
          call shtns_set_grid(sht_lP_single, layout, eps_polar, n_theta_max, n_phi_max)
          call shtns_robert_form(sht_lP_single, 1) ! Use Robert's form
+#ifdef WITH_OMP_GPU
+         sht_lP_single_gpu = shtns_create(l_max+1, m_max/minc, minc, norm)
+         call shtns_set_grid(sht_lP_single_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
+         call shtns_robert_form(sht_lP_single_gpu, 1) ! Use Robert's form
+#endif
       else
          sht_lP_single = sht_lP
+#ifdef WITH_OMP_GPU
+         sht_lP_single_gpu = sht_lP_gpu
+#endif
       end if
 
       !-- Set a l=1, m=0 mode to determine whether scrambling is there or not
@@ -153,52 +218,126 @@ contains
          call shtns_unset_grid(sht_lP_single)
          call shtns_destroy(sht_lP_single)
       end if
+#ifdef WITH_OMP_GPU
+      call shtns_unset_grid(sht_l_gpu)
+      call shtns_destroy(sht_l_gpu)
+      call shtns_unset_grid(sht_lP_gpu)
+      call shtns_destroy(sht_lP_gpu)
+      if ( l_batched_sh ) then
+         call shtns_unset_grid(sht_lP_single_gpu)
+         call shtns_destroy(sht_lP_single_gpu)
+      end if
+#endif
 
    end subroutine finalize_sht
 !------------------------------------------------------------------------------
-   subroutine scal_to_spat(sh, Slm, fieldc, lcut)
+   subroutine scal_to_spat(sh, Slm, fieldc, lcut, use_gpu)
       ! transform a spherical harmonic field into grid space
 
       !-- Input variables
       type(c_ptr), intent(in) :: sh
       complex(cp), intent(inout) :: Slm(*)
       integer,     intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       real(cp), intent(out) :: fieldc(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(Slm, fieldc)
+         call cu_SH_to_spat(sh, Slm, fieldc, lcut)
+         !$omp end target data
+      else
+         call SH_to_spat_l(sh, Slm, fieldc, lcut)
+      end if
+#else
       call SH_to_spat_l(sh, Slm, fieldc, lcut)
+#endif
+
 
    end subroutine scal_to_spat
 !------------------------------------------------------------------------------
-   subroutine scal_to_grad_spat(Slm, gradtc, gradpc, lcut)
+   subroutine scal_to_grad_spat(Slm, gradtc, gradpc, lcut, use_gpu)
       ! transform a scalar spherical harmonic field into it's gradient
       ! on the grid
 
       !-- Input variables
       complex(cp), intent(inout) :: Slm(*)
       integer,     intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables
       real(cp), intent(out) :: gradtc(*)
       real(cp), intent(out) :: gradpc(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(Slm, gradtc, gradpc)
+         call cu_SHsph_to_spat(sht_l_gpu, Slm, gradtc, gradpc, lcut)
+         !$omp end target data
+      else
+         call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
+      endif
+#else
       call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
+#endif
 
    end subroutine scal_to_grad_spat
 !------------------------------------------------------------------------------
-   subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+   subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut, use_gpu)
 
       !-- Input variables
       complex(cp), intent(inout) :: Wlm(*), dWlm(*), Zlm(*)
       integer,     intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables
       real(cp), intent(out) :: vrc(*)
       real(cp), intent(out) :: vtc(*)
       real(cp), intent(out) :: vpc(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(Wlm, dWlm, Zlm, vrc, vtc, vpc)
+         call cu_SHqst_to_spat(sht_l_gpu, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+         !$omp end target data
+      else
+         call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+      end if
+#else
       call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+#endif
 
    end subroutine torpol_to_spat
 !------------------------------------------------------------------------------
@@ -233,18 +372,39 @@ contains
 
    end subroutine torpol_to_spat_single
 !------------------------------------------------------------------------------
-   subroutine sphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut)
+   subroutine sphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut, use_gpu)
 
       !-- Input variables
       type(c_ptr), intent(in) :: sh
       complex(cp), intent(inout) :: dWlm(*), Zlm(*)
       integer,     intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables
       real(cp), intent(out) :: vtc(*)
       real(cp), intent(out) :: vpc(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(dWlm, Zlm, vtc, vpc)
+         call cu_SHsphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut)
+         !$omp end target data
+      else
+         call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
+      end if
+#else
       call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
+#endif
 
    end subroutine sphtor_to_spat
 !------------------------------------------------------------------------------
@@ -336,50 +496,114 @@ contains
 
    end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
-   subroutine scal_to_SH(sh, f, fLM, lcut)
+   subroutine scal_to_SH(sh, f, fLM, lcut, use_gpu)
 
       !-- Input variables
       type(c_ptr), intent(in) :: sh
       real(cp),    intent(inout) :: f(*)
       integer,     intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: fLM(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(f, fLM)
+         call cu_spat_to_SH(sh, f, fLM, lcut+1)
+         !$omp end target data
+      else
+         call spat_to_SH_l(sh, f, fLM, lcut+1)
+      end if
+#else
       call spat_to_SH_l(sh, f, fLM, lcut+1)
+#endif
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
-   subroutine spat_to_qst(f, g, h, qLM, sLM, tLM, lcut)
+   subroutine spat_to_qst(f, g, h, qLM, sLM, tLM, lcut, use_gpu)
 
       !-- Input variables
       real(cp), intent(inout) :: f(*)
       real(cp), intent(inout) :: g(*)
       real(cp), intent(inout) :: h(*)
       integer,  intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables
       complex(cp), intent(out) :: qLM(*)
       complex(cp), intent(out) :: sLM(*)
       complex(cp), intent(out) :: tLM(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(f, g, h, qLM, sLM, tLM)
+         call cu_spat_to_SHqst(sht_lP_gpu, f, g, h, qLM, sLM, tLM, lcut+1)
+         !$omp end target data
+      else
+         call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
+      end if
+#else
       call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
+#endif
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
-   subroutine spat_to_sphertor(sh, f, g, fLM, gLM, lcut)
+   subroutine spat_to_sphertor(sh, f, g, fLM, gLM, lcut, use_gpu)
 
       !-- Input variables
       type(c_ptr), intent(in) :: sh
       real(cp),    intent(inout) :: f(*)
       real(cp),    intent(inout) :: g(*)
       integer,     intent(in) :: lcut
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables
       complex(cp), intent(out) :: fLM(*)
       complex(cp), intent(out) :: gLM(*)
 
+#ifdef WITH_OMP_GPU
+      logical :: loc_use_gpu
+
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      else
+         loc_use_gpu = .false.
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(loc_use_gpu) then
+         !$omp target data use_device_addr(f, g, fLM, gLM)
+         call cu_spat_to_SHsphtor(sh, f, g, fLM, gLM, lcut+1)
+         !$omp end target data
+      else
+         call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut+1)
+      end if
+#else
       call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut+1)
+#endif
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------
