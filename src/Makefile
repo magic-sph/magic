@@ -21,6 +21,8 @@ USE_DCTLIB=JW
 USE_LAPACKLIB=MKL
 #Use shtns for Legendre/Fourier transforms
 USE_SHTNS=no
+#Use OpenMP GPU offloading
+USE_GPU=yes
 
 USE_PERFLIB=none
 
@@ -35,6 +37,9 @@ else
 	FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
 endif
 
+ifeq($(USE_GPU),yes)
+	PREPROC +=	-DWITH_OMP_GPU
+endif	
 
 # In case MKL is not found, switch back to built-in libraries
 ifndef MKLROOT

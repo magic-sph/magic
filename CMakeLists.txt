@@ -69,7 +69,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
    #set(CMAKE_EXE_LINKER_FLAGS "-h dynamic")
    # Remove -rdynamic option (workaround for test machine):
    # https://cmake.org/pipermail/cmake/2014-November/059154.html
-   #set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
+   set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
@@ -318,11 +318,15 @@ include_directories(/usr/include)  #For Ubuntu-like systems
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)
-   if(USE_OMP)
-      find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
+   if(USE_GPU)
+      find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib)
    else()
-      find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
-   endif(USE_OMP)
+      if(USE_OMP)
+         find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
+      else()
+         find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
+      endif(USE_OMP)
+   endif(USE_GPU)
    if(NOT SHTNS MATCHES SHTNS-NOTFOUND)
       add_definitions(-DWITH_SHTNS)
       include_directories($ENV{HOME}/local/include)
@@ -358,11 +362,16 @@ if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
    endif()
 endif()
 
+#Check if use GPU for OpenMP offloading
+if(USE_GPU MATCHES yes)
+   add_definitions(-DWITH_OMP_GPU)
+endif()
+
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_ARCH} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")
 
-set(CMAKE_Fortran_FLAGS_DEBUG  "-O0 ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
-set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 ${FFLAG_OPT}")
+set(CMAKE_Fortran_FLAGS_DEBUG  "-h keepfiles -hmsgs -hlist=a -O0 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+set(CMAKE_Fortran_FLAGS_RELEASE  "-h keepfiles -hmsgs -hlist=a -O3 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_OPT}")
 
 # Default to Release build type
 if(NOT CMAKE_BUILD_TYPE)

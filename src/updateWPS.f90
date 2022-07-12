@@ -166,16 +166,151 @@ contains
       call tscheme%set_imex_rhs(dp, dpdt)
       call tscheme%set_imex_rhs(ds, dsdt)
 
+#ifdef WITH_OMP_GPU
+      !$omp single
+      call solve_counter%start_count()
+      !$omp end single
+
+      !-- MPI Level
+      do nLMB2=1,nLMBs2(nLMB)
+         lmB=0
+
+         !-- LU factorisation (big loop but hardly any work because of lWPSmat)
+         !-- No openMP GPU (hipSolver)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            if ( .not. lWPSmat(l1) ) then
+               if ( l1 == 0 ) then
+                  call get_ps0Mat(tscheme,ps0Mat,ps0Pivot,ps0Mat_fac)
+               else
+                  call get_wpsMat(tscheme, l1, hdif_V(l1), hdif_S(l1), &
+                       &          wpsMat(:,:,nLMB2),                   &
+                       &          wpsPivot(:,nLMB2), wpsMat_fac(:,:,nLMB2))
+               end if
+               lWPSmat(l1)=.true.
+            end if
+         end do
+
+         !-- Assemble RHS (amenable to OpenMP GPU)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            m1=lm22m(lm,nLMB2,nLMB)
+
+            if ( l1 == 0 ) then
+
+               do nR=1,n_r_max
+                  rhs(nR)        =real(ds(lm1,nR))
+                  rhs(nR+n_r_max)=real(dwdt%expl(lm1,nR,tscheme%istage))+&
+                  &               Cor00_fac*CorFac*or1(nR)*z10(nR)
+               end do
+               rhs(1)        =real(tops(0,0))
+               rhs(n_r_max)  =real(bots(0,0))
+               rhs(n_r_max+1)=0.0_cp
+
+               do nR=1,2*n_r_max
+                  rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
+               end do
+
+
+            else ! l1 /= 0
+
+               lmB=lmB+1
+               rhs1(1,2*lmB-1,0)          =0.0_cp
+               rhs1(1,2*lmB,0)            =0.0_cp
+               rhs1(n_r_max,2*lmB-1,0)    =0.0_cp
+               rhs1(n_r_max,2*lmB,0)      =0.0_cp
+               rhs1(n_r_max+1,2*lmB-1,0)  =0.0_cp
+               rhs1(n_r_max+1,2*lmB,0)    =0.0_cp
+               rhs1(2*n_r_max,2*lmB-1,0)  =0.0_cp
+               rhs1(2*n_r_max,2*lmB,0)    =0.0_cp
+               rhs1(2*n_r_max+1,2*lmB-1,0)= real(tops(l1,m1))
+               rhs1(2*n_r_max+1,2*lmB,0)  =aimag(tops(l1,m1))
+               rhs1(3*n_r_max,2*lmB-1,0)  = real(bots(l1,m1))
+               rhs1(3*n_r_max,2*lmB,0)    =aimag(bots(l1,m1))
+               do nR=2,n_r_max-1
+                  !-- dp and ds used as work arrays here
+                  rhs1(nR,2*lmB-1,0)          = real(work_LMloc(lm1,nR))
+                  rhs1(nR,2*lmB,0)            =aimag(work_LMloc(lm1,nR))
+                  rhs1(nR+n_r_max,2*lmB-1,0)  = real(dp(lm1,nR))
+                  rhs1(nR+n_r_max,2*lmB,0)    =aimag(dp(lm1,nR))
+                  rhs1(nR+2*n_r_max,2*lmB-1,0)= real(ds(lm1,nR))
+                  rhs1(nR+2*n_r_max,2*lmB,0)  =aimag(ds(lm1,nR))
+               end do
+
+               rhs1(:,2*lmB-1,0)=rhs1(:,2*lmB-1,0)*wpsMat_fac(:,1,nLMB2)
+               rhs1(:,2*lmB,0)  =rhs1(:,2*lmB,0)*wpsMat_fac(:,1,nLMB2)
+            end if
+         end do
+
+         !-- Solve matrices with batched RHS (hipsolver)
+         if ( lmB == 0 ) then
+            call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+         else
+            call solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max, &
+                 &         wpsPivot(:,nLMB2),rhs1(:,:,0),2*lmB)
+         end if
+
+         lmB=0
+         !-- Loop to reassemble fields (OpenMP GPU possible)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            m1=lm22m(lm,nLMB2,nLMB)
+            if ( l1 == 0 ) then
+               !-- Rescale solution
+               rhs(:)=rhs(:)*ps0Mat_fac(:,2)
+
+               do n_r_out=1,rscheme_oc%n_max
+                  s(lm1,n_r_out)=rhs(n_r_out)
+                  p(lm1,n_r_out)=rhs(n_r_out+n_r_max)
+                  w(lm1,n_r_out)=zero
+               end do
+            else
+               lmB=lmB+1
+               ! rescale the solution with mat_fac(:,2)
+               rhs1(:,2*lmB-1,0)=rhs1(:,2*lmB-1,0)*wpsMat_fac(:,2,nLMB2)
+               rhs1(:,2*lmB,0)  =rhs1(:,2*lmB,0)*wpsMat_fac(:,2,nLMB2)
+
+               if ( m1 > 0 ) then
+                  do n_r_out=1,rscheme_oc%n_max
+                     w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                     &                    rhs1(n_r_out,2*lmB,0),cp)
+                     p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,0),&
+                     &                    rhs1(n_r_max+n_r_out,2*lmB,0),cp)
+                     s(lm1,n_r_out)=cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,  &
+                     &                    0),rhs1(2*n_r_max+n_r_out,&
+                     &                    2*lmB,0),cp)
+                  end do
+               else
+                  do n_r_out=1,rscheme_oc%n_max
+                     w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                                    &      0.0_cp,kind=cp)
+                     p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,0), &
+                                    &      0.0_cp,kind=cp)
+                     s(lm1,n_r_out)= cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,0), &
+                                    &      0.0_cp,kind=cp)
+                  end do
+               end if
+            end if
+         end do
+
+      end do   ! end of loop over l1 subblocks
+
+      !$omp single
+      call solve_counter%stop_count()
+      !$omp end single
+#else
       !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
       !$omp end single
+
       !PERFON('upWP_ssol')
       !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
-
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
          !$omp private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid)
@@ -212,6 +347,7 @@ contains
 #else
             threadid = 0
 #endif
+
             lmB0=(iChunk-1)*chunksize
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -329,12 +465,17 @@ contains
       !$omp end single
       !$omp taskwait
       !PERFOFF
+
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
+#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+#ifdef WITH_OMP_GPU
+#else
       !$omp do private(n_r_out,lm1) collapse(2)
+#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             w(lm1,n_r_out)=zero
@@ -342,9 +483,11 @@ contains
             s(lm1,n_r_out)=zero
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
-
       !$omp end parallel
+#endif
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dwdt)
@@ -374,21 +517,28 @@ contains
       !-- Local variables
       integer :: n_r, start_lm, stop_lm
 
+#ifdef WITH_OMP_GPU
+      start_lm=llm; stop_lm=ulm
+      call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
+           &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
+#else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
       call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
-
       !$omp do
+#endif
       do n_r=1,n_r_max
          ds_exp_last(:,n_r)=orho1(n_r)*(ds_exp_last(:,n_r)-   &
          &                      or2(n_r)*work_LMloc(:,n_r))
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
-
       !$omp end parallel
+#endif
 
    end subroutine finish_exp_smat
 !------------------------------------------------------------------------------
@@ -406,18 +556,24 @@ contains
       call get_dr_Rloc(dVSrLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_max
+#else
       !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
-
+#endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r) - &
             &                        or2(n_r)*work_Rloc(lm,n_r))
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine finish_exp_smat_Rdist
 !------------------------------------------------------------------------------
@@ -464,12 +620,19 @@ contains
       call tscheme%assemble_imex(work_LMloc, dpdt)
       call tscheme%assemble_imex(ds, dsdt)
 
+#ifdef WITH_OMP_GPU
+      start_lm=llm; stop_lm=ulm
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
+#endif
 
       !-- Now get the fields from the assembly
+#ifdef WITH_OMP_GPU
+#else
       !$omp do private(n_r,lm,l1,m1,dL)
+#endif
       do n_r=2,n_r_max-1
          do lm=llm,ulm
             l1 = lm2l(lm)
@@ -490,12 +653,18 @@ contains
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       !-- Get the entropy boundary points using Canuto (1986) approach
       if ( l_full_sphere) then
          if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,m1)
+#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -507,9 +676,15 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else ! Fixed flux at the outer boundary
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,m1)
+#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -521,63 +696,99 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          end if
       else ! Spherical shell
          !-- Boundary conditions
          if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,m1)
+#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,m1)
+#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,m1)
+#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,m1)
+#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          end if
       end if
 
       !-- Boundary conditions for the poloidal
       !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
+#ifdef WITH_OMP_GPU
+#else
       !$omp do
+#endif
       do lm=lmStart_00,ulm
          w(lm,1)      =zero
          w(lm,n_r_max)=zero
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       !-- Other boundary condition: stress-free or rigid
       if ( l_full_sphere ) then
          if ( ktopv == 1 ) then ! Stress-free
             fac_top=-two*or1(1)-beta(1)
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1)
+#endif
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                if ( l1 == 1 ) then
@@ -586,9 +797,15 @@ contains
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
                end if
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1)
+#endif
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                if ( l1 == 1 ) then
@@ -598,41 +815,76 @@ contains
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
                end if
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          end if
       else ! Spherical shell
          if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
+#ifdef WITH_OMP_GPU
+#else
             !$omp do
+#endif
             do lm=lmStart_00,ulm
                dw(lm,1)      =zero
                dw(lm,n_r_max)=zero
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
             fac_bot=-two*or1(n_r_max)-beta(n_r_max)
+#ifdef WITH_OMP_GPU
+#else
             !$omp do
+#endif
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
             fac_top=-two*or1(1)-beta(1)
+#ifdef WITH_OMP_GPU
+#else
             !$omp do
+#endif
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
             fac_bot=-two*or1(n_r_max)-beta(n_r_max)
             fac_top=-two*or1(1)-beta(1)
+#ifdef WITH_OMP_GPU
+#else
             !$omp do
+#endif
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          end if
       end if
 
+#ifdef WITH_OMP_GPU
+      call dct_counter%start_count()
+      call get_ddr(s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+           &       n_r_max, rscheme_oc)
+      call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+           &         stop_lm-llm+1, n_r_max, rscheme_oc)
+      call dct_counter%stop_count()
+#else
       !$omp single
       call dct_counter%start_count()
       !$omp end single
@@ -644,8 +896,12 @@ contains
       !$omp single
       call dct_counter%stop_count()
       !$omp end single
+#endif
 
+#ifdef WITH_OMP_GPU
+#else
       !$omp do private(n_r,lm,l1,dL)
+#endif
       do n_r=2,n_r_max-1
          do lm=llm,ulm
             l1 = lm2l(lm)
@@ -655,7 +911,10 @@ contains
             dpdt%old(lm,n_r,1)=-dL*or2(n_r)*dw(lm,n_r)
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
 
@@ -667,7 +926,10 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+#endif
          do n_r=n_r_top,n_r_bot
             do lm=llm,ulm
                l1=lm2l(lm)
@@ -701,10 +963,15 @@ contains
                     &        DifPol2hInt(:,n_r),lo_map)
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
    end subroutine assemble_single
 !------------------------------------------------------------------------------
@@ -747,6 +1014,10 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
+#ifdef WITH_OMP_GPU
+      start_lm=llm; stop_lm=ulm
+      call dct_counter%start_count()
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
@@ -754,6 +1025,8 @@ contains
       !$omp single
       call dct_counter%start_count()
       !$omp end single
+#endif
+
       call get_ddr( s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
@@ -767,13 +1040,20 @@ contains
            &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
                             &                 stop_lm-llm+1)
+#ifdef WITH_OMP_GPU
+      call dct_counter%stop_count()
+#else
       !$omp barrier
       !$omp single
       call dct_counter%stop_count()
       !$omp end single
+#endif
 
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,dL)
+#endif
          do n_r=2,n_r_max-1
             do lm=llm,ulm
                l1 = lm2l(lm)
@@ -783,7 +1063,10 @@ contains
                dpdt%old(lm,n_r,istage)=-dL*or2(n_r)*dw(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
@@ -798,7 +1081,10 @@ contains
 
          !-- Calculate explicit time step part:
          if ( l_temperature_diff ) then
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+#endif
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
@@ -843,11 +1129,17 @@ contains
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
 
          else ! entropy diffusion
 
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+#endif
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
@@ -883,12 +1175,17 @@ contains
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          end if
 
       end if
 
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
    end subroutine get_single_rhs_imp
 !------------------------------------------------------------------------------
@@ -918,6 +1215,9 @@ contains
       !-- Now mode l>0
 
       !----- Boundary conditions, see above:
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
          nR_out_s=nR_out+2*n_r_max
@@ -1019,8 +1319,14 @@ contains
 
 
       end do   !  loop over nR_out
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
             nR_out_s=nR_out+2*n_r_max
@@ -1043,10 +1349,16 @@ contains
             wpsMat(2*n_r_max+1,nR_out_s)=0.0_cp
             wpsMat(3*n_r_max,nR_out_s)  =0.0_cp
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       if ( l_temperature_diff ) then ! temperature diffusion
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=1,n_r_max
             nR_out_p=nR_out+n_r_max
             nR_out_s=nR_out+2*n_r_max
@@ -1120,9 +1432,15 @@ contains
 
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       else ! entropy diffusion
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=1,n_r_max
             nR_out_p=nR_out+n_r_max
             nR_out_s=nR_out+2*n_r_max
@@ -1184,9 +1502,15 @@ contains
 
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       !----- Factor for highest and lowest cheb:
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,n_r_max
          nR_p=nR+n_r_max
          nR_s=nR+2*n_r_max
@@ -1209,24 +1533,52 @@ contains
          wpsMat(nR_s,2*n_r_max+1)=rscheme_oc%boundary_fac*wpsMat(nR_s,2*n_r_max+1)
          wpsMat(nR_s,3*n_r_max)  =rscheme_oc%boundary_fac*wpsMat(nR_s,3*n_r_max)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       ! compute the linesum of each line
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,3*n_r_max
          wpsMat_fac(nR,1)=one/maxval(abs(wpsMat(nR,:)))
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
+
       ! now divide each line by the linesum to regularize the matrix
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nr=1,3*n_r_max
          wpsMat(nR,:) = wpsMat(nR,:)*wpsMat_fac(nR,1)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       ! also compute the rowsum of each column
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,3*n_r_max
          wpsMat_fac(nR,2)=one/maxval(abs(wpsMat(:,nR)))
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       ! now divide each row by the rowsum
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,3*n_r_max
          wpsMat(:,nR) = wpsMat(:,nR)*wpsMat_fac(nR,2)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       call prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
       if ( info /= 0 ) then
@@ -1251,6 +1603,9 @@ contains
 
       if ( l_temperature_diff ) then ! temperature diffusion
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=1,n_r_max
             nR_out_p=nR_out+n_r_max
             do nR=1,n_r_max
@@ -1283,9 +1638,15 @@ contains
                &                     beta(nR)*rscheme_oc%rMat(nR,nR_out) )
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       else ! entropy diffusion
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=1,n_r_max
            nR_out_p=nR_out+n_r_max
             do nR=1,n_r_max
@@ -1305,11 +1666,17 @@ contains
                &                               beta(nR)*rscheme_oc%rMat(nR,nR_out) )
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       end if
 
 
       !----- Boundary condition:
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
 
@@ -1370,6 +1737,9 @@ contains
          end if
 
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
@@ -1389,6 +1759,9 @@ contains
 
          if ( rscheme_oc%version == 'cheb' ) then
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
             do nCheb=1,rscheme_oc%n_max
                nR_out_p=nCheb+n_r_max
                psMat(n_r_max+1,nR_out_p)=0.0_cp
@@ -1406,16 +1779,25 @@ contains
                   end if
                end do
             end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
          else
 
             !-- In the finite differences case, we restrict the integral boundary
             !-- condition to a trapezoidal rule of integration
+#ifdef WITH_OMP_GPU
+#else
+#endif
             do nR_out=2,rscheme_oc%n_max-1
                nR_out_p=nR_out+n_r_max
                psMat(n_r_max+1,nR_out)  =half*work2(nR_out)*( r(nR_out+1)-r(nR_out-1) )
                psMat(n_r_max+1,nR_out_p)=half* work(nR_out)*( r(nR_out+1)-r(nR_out-1) )
             end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
             psMat(n_r_max+1,1)        =half*work2(1)*( r(2)-r(1) )
             psMat(n_r_max+1,n_r_max+1)=half* work(1)*( r(2)-r(1) )
             psMat(n_r_max+1,n_r_max)  =half*work2(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
@@ -1425,15 +1807,24 @@ contains
 
       else
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=1,rscheme_oc%n_max
             nR_out_p=nR_out+n_r_max
             psMat(n_r_max+1,nR_out)  =0.0_cp
             psMat(n_r_max+1,nR_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
             psMat(1,nR_out)          =0.0_cp
@@ -1444,9 +1835,15 @@ contains
             psMat(n_r_max,nR_out_p)  =0.0_cp
             psMat(n_r_max+1,nR_out_p)=0.0_cp
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       !----- Factors for highest and lowest cheb mode:
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,n_r_max
          nR_p=nR+n_r_max
          psMat(nR,1)          =rscheme_oc%boundary_fac*psMat(nR,1)
@@ -1458,25 +1855,51 @@ contains
          psMat(nR_p,n_r_max+1)=rscheme_oc%boundary_fac*psMat(nR_p,n_r_max+1)
          psMat(nR_p,2*n_r_max)=rscheme_oc%boundary_fac*psMat(nR_p,2*n_r_max)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       ! compute the linesum of each line
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,2*n_r_max
          psMat_fac(nR,1)=one/maxval(abs(psMat(nR,:)))
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       ! now divide each line by the linesum to regularize the matrix
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nr=1,2*n_r_max
          psMat(nR,:) = psMat(nR,:)*psMat_fac(nR,1)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       ! also compute the rowsum of each column
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,2*n_r_max
          psMat_fac(nR,2)=one/maxval(abs(psMat(:,nR)))
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       ! now divide each row by the rowsum
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,2*n_r_max
          psMat(:,nR) = psMat(:,nR)*psMat_fac(nR,2)
       end do
-
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       !---- LU decomposition:
       call prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info)

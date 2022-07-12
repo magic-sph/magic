@@ -265,7 +265,7 @@ contains
       complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables:
-      real(cp) :: yl0_norm,prefac    ! External magnetic field of general l
+      real(cp) :: yl0_norm,prefac    !External magnetic field of general l
 
       integer :: l1,m1               ! degree and order
       integer :: lm1,lm,lmB          ! position of (l,m) in array
@@ -312,6 +312,324 @@ contains
          call abortRun('l_imp /= 1 not implemented for this imposed field setup!')
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp single
+      call solve_counter%start_count()
+      !$omp end single
+      ! This is a loop over all l values which should be treated on
+      ! the actual MPI rank
+      do nLMB2=1,nLMBs2(nLMB)
+         lmB=0
+
+         !-- LU factorisation (big loop but hardly any work because of lBmat
+         !-- No openMP GPU (hipSolver)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            if ( .not. lBmat(l1) .and. l1 > 0 ) then
+#ifdef WITH_PRECOND_BJ
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2), &
+                    &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
+#else
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2),jMat(nLMB2))
+#endif
+               lBmat(l1)=.true.
+            end if
+         end do
+
+         !-- Assemble RHS (amenable to OpenMP GPU)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            m1=lm22m(lm,nLMB2,nLMB)
+
+            if ( l1 > 0 ) then
+               lmB=lmB+1
+               !-------- Magnetic boundary conditions, outer core:
+               !         Note: the CMB condition is not correct if we assume free slip
+               !         and a conducting mantle (conductance_ma>0).
+               if ( l_b_nl_cmb ) then ! finitely conducting mantle
+                  rhs1(1,2*lmB-1,0) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs1(1,2*lmB,0)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs2(1,2*lmB-1,0) =  real(aj_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs2(1,2*lmB,0)   = aimag(aj_nl_cmb(st_map%lm2(l1,m1)))
+               else
+                  rhs1(1,2*lmB-1,0) = 0.0_cp
+                  rhs1(1,2*lmB,0)   = 0.0_cp
+                  rhs2(1,2*lmB-1,0) = 0.0_cp
+                  rhs2(1,2*lmB,0)   = 0.0_cp
+               end if
+
+               !-------- inner core
+               rhs1(n_r_max,2*lmB-1,0)=0.0_cp
+               rhs1(n_r_max,2*lmB,0)  =0.0_cp
+               rhs2(n_r_max,2*lmB-1,0)=0.0_cp
+               rhs2(n_r_max,2*lmB,0)  =0.0_cp
+
+               if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
+                  if ( imagcon /= 0 .and. tmagcon <= time ) then
+                     if ( l_LCR ) then
+                        call abortRun('LCR not compatible with imposed field!')
+                     end if
+                     if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                        rhs2(1,2*lmB-1,0)      =bpeaktop
+                        rhs2(1,2*lmB,0)        =0.0_cp
+                        rhs2(n_r_max,2*lmB-1,0)=bpeakbot
+                        rhs2(n_r_max,2*lmB,0)  =0.0_cp
+                     else if( l1 == 1 .and. imagcon == 12 ) then
+                        rhs2(1,2*lmB-1,0)      =bpeaktop
+                        rhs2(1,2*lmB,0)        =0.0_cp
+                        rhs2(n_r_max,2*lmB-1,0)=bpeakbot
+                        rhs2(n_r_max,2*lmB,0)  =0.0_cp
+                     else if( l1 == 1 .and. imagcon == -1) then
+                        rhs1(n_r_max,2*lmB-1,0)=bpeakbot
+                        rhs1(n_r_max,2*lmB,0)  =0.0_cp
+                     else if( l1 == 1 .and. imagcon == -2) then
+                        rhs1(1,2*lmB-1,0)      =bpeaktop
+                        rhs1(1,2*lmB,0)        =0.0_cp
+                     else if( l1 == 3 .and. imagcon == -10 ) then
+                        rhs2(1,2*lmB-1,0)      =bpeaktop
+                        rhs2(1,2*lmB,0)        =0.0_cp
+                        rhs2(n_r_max,2*lmB-1,0)=bpeakbot
+                        rhs2(n_r_max,2*lmB,0)  =0.0_cp
+                     end if
+                  end if
+
+                 if (l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
+
+                     if ( l_LCR ) then
+                        call abortRun('LCR not compatible with imposed field!')
+                     end if
+
+                     !General normalization for spherical harmonics of degree l and order 0
+                     yl0_norm=half*sqrt((2*l1+1)/pi)
+
+                     !Prefactor for CMB matching condition
+                     prefac = real(2*l1+1,kind=cp)/real((l1+1),kind=cp)
+
+
+                     bpeaktop=prefac*fac_loop(l1)*amp_curr*r_cmb/yl0_norm
+
+                     rhs1(1,2*lmB-1,0)=bpeaktop
+                     rhs1(1,2*lmB,0)  =0.0_cp
+
+                  end if
+
+                  if ( n_imp > 1 .and. l1 == l_imp ) then
+                      if ( l_LCR ) then
+                         call abortRun('LCR not compatible with imposed field!')
+                      end if
+                      ! General normalization for degree l and order 0
+                      yl0_norm = half*sqrt((2*l1+1)/pi)
+                      ! Prefactor for CMB matching condition
+                      prefac = real(2*l1+1,kind=cp)/real((l1+1),kind=cp)
+
+                     if ( n_imp == 2 ) then
+                        !  Chose external field coefficient so that amp_imp is
+                        !  the amplitude of the external field:
+                        bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
+                        rhs1(1,2*lmB-1,0)=bpeaktop
+                        rhs1(1,2*lmB,0)  =0.0_cp
+                     else if ( n_imp == 3 ) then
+                        !  Chose external field coefficient so that amp_imp is
+                        !  the amplitude of the external field:
+                        bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
+                        if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
+                        &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
+                        rhs1(1,2*lmB-1,0)=bpeaktop
+                        rhs1(1,2*lmB,0)  =0.0_cp
+                        rhs1(1,2*lmB-1,0)=bpeaktop*direction
+                        rhs1(1,2*lmB,0)  =0.0_cp
+                     else if ( n_imp == 4 ) then
+                        !  I have forgotten what this was supposed to do:
+                        bpeaktop=three/r_cmb*amp_imp*real(b(l1m0,n_r_cmb))**2
+                        rhs1(1,2*lmB-1,0)=bpeaktop/real(b(l1m0,n_r_cmb))
+                        rhs1(1,2*lmB,0)  =0.0_cp
+
+                     else
+
+                        ! Special Heyner feedback functions:
+                        ! We don't provide an actual external field strength but rather its
+                        ! dependence on the internal dipole via a feedback function ff:
+                        !              b10_external=ff(b10_internal)
+                        ! where b10_external is the external axial dipole field coeff. and
+                        ! b10_internal=b(l1m0,n_r_cmb) is the internal axial dipole field coeff.
+                        ! Then rhs1 is always given by:
+                        !              rhs1 = (2*l+1)/r_cmb * ff
+                        ! because of the special formulation of the CMB matching condition!
+                        ! Note that
+                        !  B_r_internal(r_cmb) = l*(l+1)/r_cmb**2 * b10_internal*y10_norm*cos(theta)
+                        !  B_r_external(r)     = l*(l+1)/r_cmb**2 * b10_external*y10_norm*cos(theta)
+                        ! This determines the units of ff=b10_external.
+                        ! B itself is given in units sqrt(rho*omega/sigma) so that B**2 is
+                        ! the Elsasser number. ff is thus given in units L**2*sqrt(rho*omega/sigma)
+                        ! with L=(r_cmb-r_icb). Note that the external dipole field does not depend
+                        ! on the radius.
+                        ! Here amp_imp provides the relative amplitude so that the maximum of
+                        ! the external field is   max(b10_external/b10_internal)=amp_imp
+
+                        ff=0.0_cp
+                        if ( n_imp == 7 ) then
+                           ! Using a feedback function of the form
+                           !    ff= aimp * b10_internal**expo_imp / (cimp+b10_internal**expo_imp)
+                           ! Here expo_imp is an input parameter and aimp and cimp are determined
+                           ! such that the maximum of b10_external/b10_internal is amp_imp
+                           ! and is located at b10_internal=bmax_imp.
+                           ! amp_imp and bmax_imp are two more input parameters.
+                           ! Note that bmax_imp on input hat the dimensionless unit of the magnetic
+                           ! field B and we convert is to dimensionless units for dipole
+                           ! coefficients b10 first by multiplying with r_cmb**2
+                           ! Other factors like  l*(l+1)*y10_norm*mean(cos(theta)) may also be
+                           ! considered, but like r_cmb**2 they are all of order one here.
+                           ! Since amp_imp is dimensionless aimp and thus ff has the dimension of
+                           ! b10 as required.
+                           b10max=bmax_imp*r_cmb**2
+                           cimp=b10max**expo_imp / (expo_imp-1)
+                           aimp=amp_imp*cimp*expo_imp / &
+                           &    (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
+                           ff=  aimp*real(b(l1m0,n_r_cmb))**expo_imp/ &
+                           &    (cimp+real(b(l1m0,n_r_cmb))**expo_imp)
+                        end if
+                        rhs1(1,2*lmB-1,0)=(2*l1+1)/r_cmb*ff
+                        rhs1(1,2*lmB,0)  =0.0_cp
+
+                     end if
+                  end if
+               end if
+
+               do nR=2,n_r_max-1
+                  if ( l_LCR .and. nR<=n_r_LCR ) then
+                     rhs1(nR,2*lmB-1,0)=0.0_cp
+                     rhs1(nR,2*lmB,0)  =0.0_cp
+                     rhs2(nR,2*lmB-1,0)=0.0_cp
+                     rhs2(nR,2*lmB,0)  =0.0_cp
+                  else
+                     rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
+                     rhs2(nR,2*lmB-1,0)= real(ddb(lm1,nR)) ! ddb is used as a work array here
+                     rhs2(nR,2*lmB,0)  =aimag(ddb(lm1,nR))
+                  end if
+               end do
+
+               !-- Overwrite RHS when perfect conductor
+               if ( ktopb == 2 ) then
+                  rhs1(2,2*lmB-1,0) = 0.0_cp
+                  rhs1(2,2*lmB,0)   = 0.0_cp
+               end if
+               if ( kbotb == 2 ) then
+                  rhs1(n_r_max-1,2*lmB-1,0) = 0.0_cp
+                  rhs1(n_r_max-1,2*lmB,0)   = 0.0_cp
+               end if
+
+               !-- Magnetic boundary conditions, inner core for radial derivatives
+               !         of poloidal and toroidal magnetic potentials:
+               if ( l_cond_ic ) then    ! inner core
+                  rhs1(n_r_max+1,2*lmB-1,0)=0.0_cp
+                  rhs1(n_r_max+1,2*lmB,0)  =0.0_cp
+                  if ( l_b_nl_icb ) then
+                     rhs2(n_r_max+1,2*lmB-1,0)=real(aj_nl_icb(st_map%lm2(l1,m1)) )
+                     rhs2(n_r_max+1,2*lmB,0)  =aimag(aj_nl_icb(st_map%lm2(l1,m1)) )
+                  else
+                     rhs2(n_r_max+1,2*lmB-1,0)=0.0_cp
+                     rhs2(n_r_max+1,2*lmB,0)  =0.0_cp
+                  end if
+
+                  do nR=2,n_r_ic_max
+                     rhs1(n_r_max+nR,2*lmB-1,0)= real(ddb_ic(lm1,nR)) ! ddb_ic as work array
+                     rhs1(n_r_max+nR,2*lmB,0)  =aimag(ddb_ic(lm1,nR))
+                     rhs2(n_r_max+nR,2*lmB-1,0)= real(ddj_ic(lm1,nR))
+                     rhs2(n_r_max+nR,2*lmB,0)  =aimag(ddj_ic(lm1,nR))
+                  end do
+               end if
+
+#ifdef WITH_PRECOND_BJ
+               do nR=1,n_r_tot
+                  rhs1(nR,2*lmB-1,0)=rhs1(nR,2*lmB-1,0)*bMat_fac(nR,nLMB2)
+                  rhs1(nR,2*lmB,0)  =rhs1(nR,2*lmB,0)*bMat_fac(nR,nLMB2)
+                  rhs2(nR,2*lmB-1,0)=rhs2(nR,2*lmB-1,0)*jMat_fac(nR,nLMB2)
+                  rhs2(nR,2*lmB,0)  =rhs2(nR,2*lmB,0)*jMat_fac(nR,nLMB2)
+               end do
+#endif
+            end if ! l>0
+         end do    ! loop over lm in block
+
+         !-- Solve matrices with batched RHS (hipsolver)
+         if ( lmB > 0 ) then
+            call bMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+            call jMat(nLMB2)%solve(rhs2(:,:,0),2*lmB)
+         end if
+
+         if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
+            do nR=1,n_r_max
+               do lm=1,sizeLMB2(nLMB2,nLMB)
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  workA(lm1,nR)= b(lm1,nR)
+                  workB(lm1,nR)=aj(lm1,nR)
+               end do
+            end do
+         end if
+
+         !----- Update magnetic field in cheb space:
+         lmB=0
+                  !-- Loop to reassemble fields (OpenMP GPU possible)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            m1=lm22m(lm,nLMB2,nLMB)
+
+            if ( l1 > 0 ) then
+               lmB=lmB+1
+
+               if ( m1 > 0 ) then
+                  do n_r_out=1,rscheme_oc%n_max  ! outer core
+                     b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                     &                     rhs1(n_r_out,2*lmB,0),cp)
+                     aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lmB-1,0), &
+                     &                     rhs2(n_r_out,2*lmB,0),cp)
+                  end do
+                  if ( l_cond_ic ) then   ! inner core
+                     do n_r_out=1,n_cheb_ic_max
+                        b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,0), &
+                        &                        rhs1(n_r_max+n_r_out,2*lmB,0),cp)
+                        aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,0), &
+                        &                        rhs2(n_r_max+n_r_out,2*lmB,0),cp)
+                     end do
+                  end if
+               else
+                  do n_r_out=1,rscheme_oc%n_max   ! outer core
+                     b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                     &                      0.0_cp,kind=cp)
+                     aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lmB-1,0), &
+                     &                      0.0_cp,kind=cp)
+                  end do
+                  if ( l_cond_ic ) then    ! inner core
+                     do n_r_out=1,n_cheb_ic_max
+                        b_ic(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,0), &
+                        &                        0.0_cp,kind=cp)
+                        aj_ic(lm1,n_r_out)= cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,0),&
+                        &                         0.0_cp,kind=cp)
+                     end do
+                  end if
+               end if
+
+            else ! set l=0 to zero!
+               do n_r_out=1,rscheme_oc%n_max  ! outer core
+                  b(lm1,n_r_out) =zero
+                  aj(lm1,n_r_out)=zero
+               end do
+               if ( l_cond_ic ) then
+                  do n_r_out=1,n_cheb_ic_max
+                     b_ic(lm1,n_r_out) =zero
+                     aj_ic(lm1,n_r_out)=zero
+                  end do
+               end if
+
+            end if
+         end do
+      end do      ! end of do loop over lm1
+      !$omp single
+      call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
+#else
       !$omp parallel default(shared)
 
       !$omp single
@@ -325,7 +643,6 @@ contains
          !$omp firstprivate(nLMB2) &
          !$omp private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
          !$omp private(bpeaktop,ff,cimp,aimp,threadid)
-
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
          ! chunksize is given
@@ -358,9 +675,7 @@ contains
             lmB0=(iChunk-1)*chunksize
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
                if ( l1 > 0 ) then
                   lmB=lmB+1
@@ -641,6 +956,7 @@ contains
                         end do
                      end if
                   end if
+
                else ! set l=0 to zero!
                   do n_r_out=1,rscheme_oc%n_max  ! outer core
                      b(lm1,n_r_out) =zero
@@ -652,6 +968,7 @@ contains
                         aj_ic(lm1,n_r_out)=zero
                      end do
                   end if
+
                end if
             end do
             !$omp end task
@@ -664,29 +981,45 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
+#ifdef WITH_OMP_GPU
+#else
       !$omp do private(n_r_out,lm1) collapse(2)
+#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llmMag,ulmMag
             b(lm1,n_r_out) =zero
             aj(lm1,n_r_out)=zero
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r_out, lm1) collapse(2)
+#endif
          do n_r_out=n_cheb_ic_max+1,n_r_ic_max
             do lm1=llmMag,ulmMag
                b_ic(lm1,n_r_out) =zero
                aj_ic(lm1,n_r_out)=zero
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dbdt)
@@ -749,10 +1082,14 @@ contains
          lBmat(:)=.true.
       end if
 
+#ifdef WITH_OMP_GPU
+      lm_start=1; lm_stop=lm_max
+#else
       !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
+#endif
 
       !-- Now assemble the right hand side
       call tscheme%set_imex_rhs_ghost(b_ghost, dbdt, lm_start, lm_stop, 1)
@@ -836,7 +1173,10 @@ contains
             b_ghost(lm,nR+1) =zero
          end do
       end if
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine prepareB_FD
 !-----------------------------------------------------------------------------
@@ -856,9 +1196,13 @@ contains
 
       if ( .not. l_update_b ) return
 
+#ifdef WITH_OMP_GPU
+      lm_start=1; lm_stop=lm_max
+#else
       !$omp parallel default(shared) private(lm_start, lm_stop, lm, l)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
+#endif
 
       !-- Upper boundary
       if ( nRstartMag == n_r_cmb ) then
@@ -922,7 +1266,10 @@ contains
             end if
          end do
       end if
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine fill_ghosts_B
 !-----------------------------------------------------------------------------
@@ -952,14 +1299,20 @@ contains
       if ( .not. l_update_b ) return
 
       if ( lRmsNext .and. tscheme%istage == 1) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp parallel do collapse(2)
+#endif
          do nR=nRstartMag,nRstopMag
             do lm=1,lm_max
                workA(lm,nR)= b(lm,nR)
                workB(lm,nR)=aj(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end parallel do
+#endif
       end if
 
       !-- Roll the arrays before filling again the first block
@@ -976,23 +1329,27 @@ contains
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
 
+      !-- Array copy from b_ghost to b and aj_ghost to aj
+#ifdef WITH_OMP_GPU
+      lm_start=1; lm_stop=lm_max
+#else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm,l)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
-      !!$omp barrier
-
-      !-- Array copy from b_ghost to b and aj_ghost to aj
-      !!$omp parallel do simd collapse(2) schedule(simd:static)
+#endif
       do nR=nRstartMag,nRstopMag
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            b(lm,nR) = b_ghost(lm,nR)
-            aj(lm,nR)=aj_ghost(lm,nR)
+            if ( l /= 0 ) then
+               b(lm,nR) = b_ghost(lm,nR)
+               aj(lm,nR)=aj_ghost(lm,nR)
+            end if
          end do
       end do
-      !!$omp end parallel do simd
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine updateB_FD
 !-----------------------------------------------------------------------------
@@ -1020,7 +1377,10 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp parallel do default(shared) private(lm,n_r,fac,l1,m1) collapse(2)
+#endif
          do n_r=2,n_r_ic_max
             do lm=llmMag,ulmMag
                l1=lm2l(lm)
@@ -1032,16 +1392,25 @@ contains
                dj_exp_last(lm,n_r)=fac*aj_ic(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end parallel do
+#endif
       else
+#ifdef WITH_OMP_GPU
+#else
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
+#endif
          do n_r=2,n_r_ic_max
             do lm=llmMag,ulmMag
                db_exp_last(lm,n_r)=zero
                dj_exp_last(lm,n_r)=zero
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end parallel do
+#endif
       end if
 
    end subroutine finish_exp_mag_ic
@@ -1063,6 +1432,11 @@ contains
 
       lmStart_00 =max(2,llmMag)
 
+#ifdef WITH_OMP_GPU
+      start_lm=llmMag; stop_lm=ulmMag
+      call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
+#else
       !$omp parallel default(shared) private(start_lm,stop_lm)
       start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm, stop_lm)
@@ -1072,13 +1446,17 @@ contains
       !$omp barrier
 
       !$omp do private(n_r,lm)
+#endif
       do n_r=1,n_r_max
          do lm=lmStart_00,ulmMag
             dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
       !$omp end parallel
+#endif
 
    end subroutine finish_exp_mag
 !-----------------------------------------------------------------------------
@@ -1101,16 +1479,23 @@ contains
       call get_dr_Rloc(dVxBhLM, work_Rloc, lm_max, nRstartMag, nRstopMag, n_r_max, &
            &           rscheme_oc)
 
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_maxMag
+#else
       !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_maxMag
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
+#endif
       do n_r=nRstartMag,nRstopMag
          do lm=start_lm,stop_lm
             dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine finish_exp_mag_Rdist
 !-----------------------------------------------------------------------------
@@ -1155,6 +1540,10 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llmMag)
 
+#ifdef WITH_OMP_GPU
+      start_lm=llmMag; stop_lm=ulmMag
+      call dct_counter%start_count()
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm,stop_lm)
@@ -1162,27 +1551,40 @@ contains
       !$omp single
       call dct_counter%start_count()
       !$omp end single
+#endif
+
       if ( l_in_cheb ) call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, &
                             &                start_lm-llmMag+1,     &
                             &                stop_lm-llmMag+1, work_LMloc)
+
       call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
            &             start_lm-llmMag+1,stop_lm-llmMag+1, &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
            &             work_ic_LMloc,tmp, chebt_ic, chebt_ic_even )
+
       if ( l_in_cheb ) call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, &
                             &                start_lm-llmMag+1,      &
                             &                stop_lm-llmMag+1, work_LMloc)
+
       call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
            &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
            &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
            &             work_ic_LMloc,tmp, chebt_ic, chebt_ic_even )
+
+#ifdef WITH_OMP_GPU
+      call dct_counter%stop_count(l_increment=.false.)
+#else
       !$omp barrier
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,dL) collapse(2)
+#endif
          do n_r=1,n_r_ic_max
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
@@ -1191,11 +1593,17 @@ contains
                djdt_ic%old(lm,n_r,istage)=dL*or2(n_r_max)*aj_ic(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
       if ( l_calc_lin ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,dL) collapse(2)
+#endif
          do n_r=2,n_r_ic_max-1
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
@@ -1208,9 +1616,15 @@ contains
                &         two*real(l1+1,cp)*O_r_ic(n_r)*dj_ic(lm,n_r) )
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
          n_r=n_r_ic_max
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(lm,l1,dL)
+#endif
          do lm=lmStart_00,ulmMag
             l1=lm2l(lm)
             dL = real(l1*(l1+1),cp)
@@ -1219,10 +1633,15 @@ contains
             djdt_ic%impl(lm,n_r,istage)=opm*O_sr*dL* or2(n_r_max) *  &
             &                           (one+two*real(l1+1,cp))*ddj_ic(lm,n_r)
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
    end subroutine get_mag_ic_rhs_imp
 !-----------------------------------------------------------------------------
@@ -1277,8 +1696,11 @@ contains
       end if
 
       !-- Now get the toroidal potential from the assembly
+#ifdef WITH_OMP_GPU
+#else
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,l1,m1,dL)
+#endif
       do n_r=2,n_r_max-1
          do lm=lmStart_00,ulmMag
             l1 = lm2l(lm)
@@ -1293,11 +1715,16 @@ contains
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
-
+#endif
 
       if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,m1,dL)
+#endif
          do n_r=2,n_r_ic_max
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
@@ -1312,7 +1739,10 @@ contains
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
       !-- Now handle boundary conditions !
@@ -1322,7 +1752,10 @@ contains
       !-- If conducting inner core then the solution at ICB should already be fine
       if ( l_full_sphere ) then
          if ( ktopb == 1 ) then
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm,l1,fac_top)
+#endif
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
                fac_top=real(l1,cp)*or1(1)
@@ -1330,22 +1763,34 @@ contains
                aj(lm,1)      =zero
                aj(lm,n_r_max)=zero
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if (ktopb == 4 ) then
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm)
+#endif
             do lm=lmStart_00,ulmMag
                call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, zero, b(lm,:))
                aj(lm,1)      =zero
                aj(lm,n_r_max)=zero
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else
             call abortRun('Not implemented yet!')
          end if
       else ! spherical shell
          if ( kbotb == 3 ) then ! Conducting inner core
             if ( ktopb==1 ) then ! Vacuum outside + cond. I. C.
+#ifdef WITH_OMP_GPU
+#else
                !$omp do private(lm,l1,fac_top,fac_bot,val_bot)
+#endif
                do lm=lmStart_00,ulmMag
                   l1 = lm2l(lm)
                   fac_top=real(l1,cp)*or1(1)
@@ -1366,9 +1811,15 @@ contains
                        &                   val_bot, aj(lm,:))
                   aj_ic(lm,1)=aj(lm,n_r_max)
                end do
+#ifdef WITH_OMP_GPU
+#else
                !$omp end do
+#endif
             else if ( ktopb == 4 ) then ! Pseudo-Vacuum outside + cond. I. C.
+#ifdef WITH_OMP_GPU
+#else
                !$omp do private(lm,l1,fac_bot,val_bot)
+#endif
                do lm=lmStart_00,ulmMag
                   l1 = lm2l(lm)
                   fac_bot=-dr_top_ic(1)+real(l1+1,cp)*or1(n_r_max)
@@ -1388,13 +1839,19 @@ contains
                        &                   val_bot, aj(lm,:))
                   aj_ic(lm,1)=aj(lm,n_r_max)
                end do
+#ifdef WITH_OMP_GPU
+#else
                !$omp end do
+#endif
             else
                call abortRun('Not implemented yet!')
             end if
          else if ( kbotb == 4 ) then
             if ( ktopb==1 ) then
+#ifdef WITH_OMP_GPU
+#else
                !$omp do private(lm,l1,fac_top)
+#endif
                do lm=lmStart_00,ulmMag
                   l1 = lm2l(lm)
                   fac_top=real(l1,cp)*or1(1)
@@ -1402,21 +1859,33 @@ contains
                   aj(lm,1)      =zero
                   aj(lm,n_r_max)=zero
                end do
+#ifdef WITH_OMP_GPU
+#else
                !$omp end do
+#endif
             else if ( ktopb == 4 ) then
+#ifdef WITH_OMP_GPU
+#else
                !$omp do private(lm)
+#endif
                do lm=lmStart_00,ulmMag
                   call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, zero, b(lm,:))
                   aj(lm,1)      =zero
                   aj(lm,n_r_max)=zero
                end do
+#ifdef WITH_OMP_GPU
+#else
                !$omp end do
+#endif
             else
                call abortRun('Not implemented yet!')
             end if
          else if ( kbotb == 1 ) then ! Insulating inner core
             if ( ktopb==1 ) then ! Vacuum on both sides
+#ifdef WITH_OMP_GPU
+#else
                !$omp do private(lm,l1,fac_bot,fac_top)
+#endif
                do lm=lmStart_00,ulmMag
                   l1=lm2l(lm)
                   fac_bot=-real(l1+1,cp)*or1(n_r_max)
@@ -1425,9 +1894,15 @@ contains
                   aj(lm,1)      =zero
                   aj(lm,n_r_max)=zero
                end do
+#ifdef WITH_OMP_GPU
+#else
                !$omp end do
+#endif
             else if ( ktopb == 4 ) then ! Pseudo-vacuum on the outer boundary
+#ifdef WITH_OMP_GPU
+#else
                !$omp do private(lm,l1,fac_bot)
+#endif
                do lm=lmStart_00,ulmMag
                   l1=lm2l(lm)
                   fac_bot=-real(l1+1,cp)*or1(n_r_max)
@@ -1435,13 +1910,19 @@ contains
                   aj(lm,1)      =zero
                   aj(lm,n_r_max)=zero
                end do
+#ifdef WITH_OMP_GPU
+#else
                !$omp end do
+#endif
             end if
          else
             call abortRun('Combination not implemented yet!')
          end if
       end if
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
       !-- Finally compute the required implicit stage if needed
       call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
@@ -1488,64 +1969,90 @@ contains
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dL, n_r, r2)
+
+      !-- Now get the poloidal and toroidal potentials from the assembly
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_maxMag
+#else
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dL)
       start_lm=1; stop_lm=lm_maxMag
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
-
-      !-- Now get the poloidal and toroidal potentials from the assembly
+#endif
       do n_r=nRstartMag,nRstopMag
          r2 = r(n_r)*r(n_r)
          do lm=start_lm, stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m = st_map%lm2m(lm)
-            dL = real(l*(l+1),cp)
-            if ( m == 0 ) then
-               b(lm,n_r) =r2/dL*cmplx(real(ddb(lm,n_r)),0.0_cp,cp)
-               aj(lm,n_r)=r2/dL*cmplx(real(ddj(lm,n_r)),0.0_cp,cp)
-            else
-               b(lm,n_r) =r2/dL*ddb(lm,n_r)
-               aj(lm,n_r)=r2/dL*ddj(lm,n_r)
+            if ( l /= 0 ) then
+               m = st_map%lm2m(lm)
+               dL = real(l*(l+1),cp)
+               if ( m == 0 ) then
+                  b(lm,n_r) =r2/dL*cmplx(real(ddb(lm,n_r)),0.0_cp,cp)
+                  aj(lm,n_r)=r2/dL*cmplx(real(ddj(lm,n_r)),0.0_cp,cp)
+               else
+                  b(lm,n_r) =r2/dL*ddb(lm,n_r)
+                  aj(lm,n_r)=r2/dL*ddj(lm,n_r)
+               end if
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       !-- Boundary points if needed
       if ( nRstartMag == n_r_cmb) then
          n_r = n_r_cmb
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            if ( ktopb == 1 .or. ktopb == 4) then
-               aj(lm,n_r)=zero
-            else if ( ktopb == 2 ) then ! Perfect conductor, poloidal vanishes
-               b(lm,n_r) =zero
+            if ( l /= 0 ) then
+               if ( ktopb == 1 .or. ktopb == 4) then
+                  aj(lm,n_r)=zero
+               else if ( ktopb == 2 ) then ! Perfect conductor, poloidal vanishes
+                  b(lm,n_r) =zero
+               end if
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       if ( nRstopMag == n_r_icb) then
          n_r = n_r_icb
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            if ( l_full_sphere ) then
-               aj(lm,n_r)=zero
-               b(lm,n_r) =zero
-            else
-               if ( kbotb==1 .or. kbotb==4 ) then
+            if ( l /= 0 ) then
+               if ( l_full_sphere ) then
                   aj(lm,n_r)=zero
-               else if ( kbotb == 2 ) then ! Perfect conductor, poloidal vanishes
-                  b(lm,n_r)=zero
+                  b(lm,n_r) =zero
+               else
+                  if ( kbotb==1 .or. kbotb==4 ) then
+                     aj(lm,n_r)=zero
+                  else if ( kbotb == 2 ) then ! Perfect conductor, poloidal vanishes
+                     b(lm,n_r)=zero
+                  end if
                end if
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       call bulk_to_ghost(b, b_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm)
       call bulk_to_ghost(aj, aj_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm)
+
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
       call exch_ghosts(b_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
       call exch_ghosts(aj_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
@@ -1598,6 +2105,10 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llmMag)
 
+#ifdef WITH_OMP_GPU
+      start_lm=llmMag; stop_lm=ulmMag
+      call dct_counter%start_count()
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llmMag; stop_lm=ulmMag
       call get_openmp_blocks(start_lm,stop_lm)
@@ -1605,6 +2116,8 @@ contains
       !$omp single
       call dct_counter%start_count()
       !$omp end single
+#endif
+
       call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc,        &
            &       l_dct_in=.not. l_in_cheb)
@@ -1615,13 +2128,21 @@ contains
            &       l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) call rscheme_oc%costf1(aj,ulmMag-llmMag+1,start_lm-llmMag+1,&
                             &                 stop_lm-llmMag+1)
+
+#ifdef WITH_OMP_GPU
+      call dct_counter%stop_count(l_increment=.false.)
+#else
       !$omp barrier
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 
       if ( l_LCR ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1)
+#endif
          do n_r=n_r_cmb,n_r_icb-1
             if ( n_r<=n_r_LCR ) then
                do lm=lmStart_00,ulmMag
@@ -1638,11 +2159,17 @@ contains
                end do
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,dL)
+#endif
          do n_r=1,n_r_max
             do lm=lmStart_00,ulmMag
                l1 = lm2l(lm)
@@ -1651,7 +2178,10 @@ contains
                djdt%old(lm,n_r,istage)=dL*or2(n_r)*aj(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
@@ -1663,7 +2193,10 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,dtP,dtT,dL)
+#endif
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulmMag
                l1=lm2l(lm)
@@ -1686,10 +2219,15 @@ contains
                     &          dtBTor2hInt(llmMag:ulmMag,n_r),lo_map)
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
 
       end if
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
    end subroutine get_mag_rhs_imp
 !-----------------------------------------------------------------------------
@@ -1747,6 +2285,10 @@ contains
 
       lm2l(1:lm_max) => st_map%lm2l
 
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_max
+      call dct_counter%start_count()
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
@@ -1754,35 +2296,51 @@ contains
       !$omp single
       call dct_counter%start_count()
       !$omp end single
+#endif
+
       call get_ddr_ghost(bg, db, ddb, lm_max, start_lm, stop_lm,  nRstartMag, nRstopMag, &
            &             rscheme_oc)
       call get_ddr_ghost(ajg, dj, ddj, lm_max, start_lm, stop_lm,  nRstartMag, nRstopMag,&
            &             rscheme_oc)
+
+#ifdef WITH_OMP_GPU
+      call dct_counter%stop_count(l_increment=.false.)
+#else
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 
       if ( l_LCR ) then
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do n_r=nRstartMag,nRstopMag
             if ( n_r<=n_r_LCR ) then
                do lm=start_lm,stop_lm
-                  l=lm2l(lm)
-                  if ( l == 0 ) cycle
-
-                  bg(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)*b_r_LCR(lm)
-                  db(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/  &
-                  &          (r(n_r))**(real(l,cp)+1)*b_r_LCR(lm)
-                  ddb(lm,n_r)=real(l,cp)*real(l+1,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                  &           (r(n_r))**(real(l,cp)+2)*b_r_LCR(lm)
-                  ajg(lm,n_r)=zero
-                  dj(lm,n_r) =zero
-                  ddj(lm,n_r)=zero
+                  l=lm2l(lm) 
+                  if ( l /= 0 ) then
+                     bg(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)*b_r_LCR(lm)
+                     db(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/  &
+                     &          (r(n_r))**(real(l,cp)+1)*b_r_LCR(lm)
+                     ddb(lm,n_r)=real(l,cp)*real(l+1,cp)*(r(n_r_LCR))**real(l,cp)/ &
+                     &           (r(n_r))**(real(l,cp)+2)*b_r_LCR(lm)
+                     ajg(lm,n_r)=zero
+                     dj(lm,n_r) =zero
+                     ddj(lm,n_r)=zero
+                  end if
                end do
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do n_r=nRstartMag,nRstopMag
             do lm=start_lm,stop_lm
                l = lm2l(lm)
@@ -1791,10 +2349,16 @@ contains
                djdt%old(lm,n_r,istage)=dL*or2(n_r)*ajg(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do n_r=nRstartMag,nRstopMag
             do lm=start_lm,stop_lm
                l=lm2l(lm)
@@ -1817,9 +2381,15 @@ contains
                     &          st_map)
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       end if
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine get_mag_rhs_imp_ghost
 !-----------------------------------------------------------------------------
@@ -1863,6 +2433,9 @@ contains
 
       l_P_1=real(l+1,kind=cp)
 
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             datBmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
@@ -1879,8 +2452,14 @@ contains
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       if  ( l_LCR ) then
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR=2,n_r_max-1
             if ( nR<=n_r_LCR ) then
                do nR_out=1,n_r_max
@@ -1892,6 +2471,9 @@ contains
                end do
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       end if
 
       !----- boundary conditions for outer core field:
@@ -1992,6 +2574,9 @@ contains
       end if
 
       !----- fill up with zeros:
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR_out=rscheme_oc%n_max+1,n_r_max
          datBmat(1,nR_out)=0.0_cp
          datJmat(1,nR_out)=0.0_cp
@@ -2015,14 +2600,23 @@ contains
             datJmat(n_r_max+1,nR_out)=0.0_cp
          end if
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       !----- normalization for highest and lowest Cheb mode:
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,n_r_max
          datBmat(nR,1)      =rscheme_oc%boundary_fac*datBmat(nR,1)
          datBmat(nR,n_r_max)=rscheme_oc%boundary_fac*datBmat(nR,n_r_max)
          datJmat(nR,1)      =rscheme_oc%boundary_fac*datJmat(nR,1)
          datJmat(nR,n_r_max)=rscheme_oc%boundary_fac*datJmat(nR,n_r_max)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
       if ( kbotb == 3 ) then
          datBmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datBmat(n_r_max+1,1)
          datBmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
@@ -2036,6 +2630,9 @@ contains
       if ( l_cond_ic ) then
          !----- inner core implicit time step matrices for the grid
          !      points n_r=n_r_max+1,...,n_r_max+n_r_ic
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nCheb=1,n_r_ic_max ! counts even IC cheb modes
             do nR=2,n_r_ic_max-1 ! counts IC radial grid points
                ! n_r=1 represents ICB
@@ -2064,8 +2661,14 @@ contains
 
             datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
          !-------- boundary condition at r_icb:
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nCheb=1,n_cheb_ic_max
             datBmat(n_r_max,n_r_max+nCheb)=-cheb_norm_ic*cheb_ic(nCheb,1)
             datBmat(n_r_max+1,n_r_max+nCheb)=              &
@@ -2074,49 +2677,86 @@ contains
             datJmat(n_r_max,n_r_max+nCheb)  =datBmat(n_r_max,n_r_max+nCheb)
             datJmat(n_r_max+1,n_r_max+nCheb)=datBmat(n_r_max+1,n_r_max+nCheb)
          end do ! cheb modes
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
          !-------- fill with zeros:
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nCheb=n_cheb_ic_max+1,n_r_ic_max
             datBmat(n_r_max,n_r_max+nCheb)  =0.0_cp
             datBmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
             datJmat(n_r_max,n_r_max+nCheb)  =0.0_cp
             datJmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
          !-------- normalization for lowest Cheb mode:
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nR=n_r_max,n_r_tot
             datBmat(nR,n_r_max+1)=half*datBmat(nR,n_r_max+1)
             datJmat(nR,n_r_max+1)=half*datJmat(nR,n_r_max+1)
             datBmat(nR,n_r_tot)  =half*datBmat(nR,n_r_tot)
             datJmat(nR,n_r_tot)  =half*datJmat(nR,n_r_tot)
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
          !-------- fill matrices up with zeros:
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nCheb=n_r_max+1,n_r_tot
             do nR=1,n_r_max-1
                datBmat(nR,nCheb)=0.0_cp
                datJmat(nR,nCheb)=0.0_cp
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
          do nCheb=1,n_r_max
             do nR=n_r_max+2,n_r_tot
                datBmat(nR,nCheb)=0.0_cp
                datJmat(nR,nCheb)=0.0_cp
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 
       end if  ! conducting inner core ?
 
 #ifdef WITH_PRECOND_BJ
       ! compute the linesum of each line
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,nRall
          bMat_fac(nR)=one/maxval(abs(datBmat(nR,1:nRall)))
          datBmat(nR,:) = datBmat(nR,:)*bMat_fac(nR)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
+
+#ifdef WITH_OMP_GPU
+#else
+#endif
       do nR=1,nRall
          jMat_fac(nR)=one/maxval(abs(datJmat(nR,1:nRall)))
          datJmat(nR,:) = datJmat(nR,:)*jMat_fac(nR)
       end do
+#ifdef WITH_OMP_GPU
+#else
+#endif
 #endif
 
 #undef MATRIX_CHECK
@@ -2225,8 +2865,11 @@ contains
       integer :: nR,l
       real(cp) :: dLh, dr
 
+#ifdef WITH_OMP_GPU
+#else
       !$omp parallel default(shared) private(nR,l,dLh,dr)
       !$omp do
+#endif
       do nR=1,n_r_max
          do l=1,l_maxMag
             dLh=real(l*(l+1),kind=cp)
@@ -2248,10 +2891,16 @@ contains
             &      or2(nR)*(rscheme_oc%ddr(nR,2)+dLlambda(nR)*rscheme_oc%dr(nR,2))
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       if  ( l_LCR ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do
+#endif
          do nR=2,n_r_max-1
             if ( nR<=n_r_LCR ) then
                do l=1,l_maxMag
@@ -2265,11 +2914,19 @@ contains
                end do
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
+#ifdef WITH_OMP_GPU
+#else
+      !$omp end parallel
+#endif
+
       !----- boundary conditions for outer core field:
-      !$omp do
+      !$omp parallel do default(shared) private(l,dr)
       do l=1,l_maxMag ! Don't fill the matrix for l=0
          dr = r(2)-r(1)
          if ( ktopb == 1 ) then
@@ -2370,8 +3027,10 @@ contains
 
          end if
       end do
-      !$omp end do
-      !$omp end parallel
+      !$omp end parallel do
+
+#ifdef WITH_OMP_GPU
+#endif
 
       !----- LU decomposition:
       call bMat%prepare_mat()

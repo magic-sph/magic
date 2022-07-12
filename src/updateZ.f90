@@ -47,6 +47,7 @@ module updateZ_mod
 
    !-- Input of recycled work arrays:
    real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
+
    complex(cp), allocatable :: Dif(:)
    class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
@@ -151,6 +152,7 @@ contains
 
          !-- Create matrix
          call z10Mat_FD%initialize(1,n_r_max,1,1)
+
       end if
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
@@ -181,6 +183,7 @@ contains
 #ifdef WITH_PRECOND_Z
          deallocate( zMat_fac )
 #endif
+
          deallocate( rhs1 )
       else
          deallocate( z_ghost, z10_ghost )
@@ -223,7 +226,8 @@ contains
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
-      complex(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
+      complex(cp), allocatable :: rhs(:)   ! RHS of matrix multiplication
+
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
       integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
@@ -234,6 +238,8 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+
+      allocate(rhs(n_r_max))
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -273,11 +279,189 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
 
+#ifdef WITH_OMP_GPU
+      !$omp single
+      call solve_counter%start_count()
+      !$omp end single
+
+      !-- MPI Level
+      do nLMB2=1,nLMBs2(nLMB)
+         lmB= 0
+
+         !-- LU factorisation (big loop but hardly any work because of lZmat)
+         !-- TODO: OpenMP CPU (parallel do)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+
+            if ( l_z10mat .and. lm1 == l1m0 ) then
+               !----- Special treatment of z10 component if ic or mantle
+               !      are allowed to rotate about z-axis (l_z10mat=.true.) and
+               !      we use no slip boundary condition (ktopv=2,kbotv=2):
+               !      Lorentz torque is the explicit part of this time integration
+               !      at the boundaries!
+               !      Note: no angular momentum correction necessary for this case !
+               if ( .not. lZ10mat ) then
+#ifdef WITH_PRECOND_Z10
+                  call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
+#else
+                  call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
+#endif
+                  lZ10mat=.true.
+               end if
+            end if
+
+            if ( l1 /= 0 ) then
+               if ( .not. lZmat(l1) ) then
+#ifdef WITH_PRECOND_Z
+                  call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2),zMat_fac(:,nLMB2))
+#else
+                  call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2))
+#endif
+                  lZmat(l1)=.true.
+               end if
+            end if
+         end do
+
+         !-- Assemble RHS (amenable to OpenMP GPU)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            l1=lm22l(lm,nLMB2,nLMB)
+            m1 =lm22m(lm,nLMB2,nLMB)
+
+            if ( l_z10mat .and. lm1 == l1m0 ) then
+               if ( l_SRMA ) then
+                  tOmega_ma1=time+tShift_ma1
+                  tOmega_ma2=time+tShift_ma2
+                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                  rhs(1)=omega_ma
+               else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
+                  rhs(1)=dom_ma
+               else
+                  rhs(1)=0.0_cp
+               end if
+
+               if ( l_SRIC ) then
+                  tOmega_ic1=time+tShift_ic1
+                  tOmega_ic2=time+tShift_ic2
+                  omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                  &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                  rhs(n_r_max)=omega_ic
+               else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+                  rhs(n_r_max)=dom_ic
+               else
+                  rhs(n_r_max)=0.0_cp
+               end if
+
+               !----- This is the normal RHS for the other radial grid points:
+               do nR=2,n_r_max-1
+                  rhs(nR)=work_LMloc(lm1,nR)
+               end do
+
+#ifdef WITH_PRECOND_Z10
+               rhs(:) = z10Mat_fac(:)*rhs(:)
+#endif
+
+            else if ( l1 /= 0 ) then
+
+               lmB=lmB+1
+
+               rhs1(1,2*lmB-1,0)      =0.0_cp
+               rhs1(1,2*lmB,0)        =0.0_cp
+               rhs1(n_r_max,2*lmB-1,0)=0.0_cp
+               rhs1(n_r_max,2*lmB,0)  =0.0_cp
+
+               if (amp_RiIc /= 0.0_cp) then
+                  if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
+                     rhs1(n_r_max,2*lmB-1,0)=amp_RiIc*cos(omega_RiIc*time)
+                     rhs1(n_r_max,2*lmB,0)  =amp_RiIc*sin(omega_RiIc*time)
+                  end if
+               end if
+
+               if (amp_RiMa /= 0.0_cp) then
+                  if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
+                     rhs1(1,2*lmB-1,0)=amp_RiMa*cos(omega_RiMa*time)
+                     rhs1(1,2*lmB,0)  =amp_RiMa*sin(omega_RiMa*time)
+                  end if
+               end if
+
+               do nR=2,n_r_max-1
+                  rhs1(nR,2*lmB-1,0)=real(work_LMloc(lm1,nR))
+                  rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
+                  if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
+                     rhs1(nR,2*lmB-1,0)=rhs1(nR,2*lmB-1,0)+               &
+                     &                         tscheme%wimp_lin(1)*       &
+                     &                         prec_fac*sin(oek*time)
+                     rhs1(nR,2*lmB,0)=rhs1(nR,2*lmB,0)-                   &
+                     &                       tscheme%wimp_lin(1)*prec_fac*&
+                     &                       cos(oek*time)
+                  end if
+               end do
+
+#ifdef WITH_PRECOND_Z
+               rhs1(:,2*lmB-1,0)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
+               rhs1(:,2*lmB,0)  =zMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
+#endif
+            end if
+         end do
+
+         !-- Solve matrices with batched RHS (hipsolver)
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            if ( l_z10mat .and. lm1 == l1m0 ) then
+               !-- Small solve for l=1, m=0 in case this is needed
+               call z10Mat%solve(rhs)
+            end if
+         end do
+
+         if ( lmB > 0 ) then
+            !-- Big solve for other modes
+            call zMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+         end if
+
+         lmB=0
+         !-- Loop to reassemble fields
+         do lm=1,sizeLMB2(nLMB2,nLMB)
+            lm1=lm22lm(lm,nLMB2,nLMB)
+            m1 =lm22m(lm,nLMB2,nLMB)
+
+            if ( l_z10mat .and. lm1 == l1m0 ) then
+               do n_r_out=1,rscheme_oc%n_max
+                  z(lm1,n_r_out)=real(rhs(n_r_out))
+               end do
+            else if ( l1 == 0 ) then
+               do n_r_out=1,rscheme_oc%n_max
+                  z(lm1,n_r_out)=zero
+               end do
+            else if ( l1 /= 0 ) then
+               lmB=lmB+1
+               if ( m1 > 0 ) then
+                  do n_r_out=1,rscheme_oc%n_max
+                     z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                     &                    rhs1(n_r_out,2*lmB,0),kind=cp)
+                  end do
+               else
+                  do n_r_out=1,rscheme_oc%n_max
+                     z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                     &                    0.0_cp,kind=cp)
+                  end do
+               end if
+            end if
+         end do
+
+      end do
+
+      !$omp single
+      call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
+#else
       !$omp parallel default(shared)
 
       !$omp single
       call solve_counter%start_count()
       !$omp end single
+
       !$omp single
       do nLMB2=1,nLMBs2(nLMB)
          !$omp task default(shared) &
@@ -286,6 +470,7 @@ contains
          !$omp private(nChunks,size_of_last_chunk,iChunk) &
          !$omp private(tOmega_ma1,tOmega_ma2,threadid) &
          !$omp private(tOmega_ic1,tOmega_ic2)
+
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -308,6 +493,7 @@ contains
             !$omp firstprivate(iChunk) &
             !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out,threadid) &
             !$omp private(tOmega_ma1,tOmega_ma2,tOmega_ic1,tOmega_ic2)
+
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
 #else
@@ -453,21 +639,31 @@ contains
          !$omp taskwait
          !$omp end task
       end do       ! end of loop over lm blocks
+
+      call solve_counter%stop_count(l_increment=.false.)
+
       !$omp end single
       !$omp taskwait
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+#ifdef WITH_OMP_GPU
+#else
       !$omp do private(n_r_out,lm1) collapse(2)
+#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=llm,ulm
             z(lm1,n_r_out)=zero
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
       !$omp end parallel
+#endif
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dzdt)
@@ -497,6 +693,13 @@ contains
               &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
               &               tscheme%istage+1), lRmsNext, l_in_cheb_space=.true.)
       end if
+
+#ifdef WITH_OMP_GPU
+#ifdef WITH_HIPFORT
+#else
+#endif
+#endif
+      deallocate(rhs)
 
    end subroutine updateZ
 !------------------------------------------------------------------------------
@@ -548,11 +751,14 @@ contains
          end if
       end if
 
-
+#ifdef WITH_OMP_GPU
+      lm_start=1; lm_stop=lm_max
+#else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR, l, m, lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
+#endif
 
       !-- Assemble the r.h.s.
       call tscheme%set_imex_rhs_ghost(z_ghost, dzdt, lm_start, lm_stop, 1)
@@ -561,9 +767,13 @@ contains
       if ( l_z10mat ) then
          l1m0=st_map%lm2(1,0)
          if ( l1m0 >= lm_start .and. l1m0 <= lm_stop ) then
+#ifdef WITH_OMP_GPU
+#endif
             do nR=nRstart,nRstop
                z10_ghost(nR)=real(z_ghost(l1m0,nR))
             end do
+#ifdef WITH_OMP_GPU
+#endif
          end if
       end if
 
@@ -571,84 +781,100 @@ contains
       if ( l_precession ) then
          l1m1=st_map%lm2(1,1)
          if ( l1m1 >= lm_start .and. l1m1 <= lm_stop ) then
+#ifdef WITH_OMP_GPU
+#endif
             do nR=nRstart,nRstop
                z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+tscheme%wimp_lin(1)*prec_fac* &
                &                cmplx(sin(oek*time),cos(oek*time),cp)
             end do
+#ifdef WITH_OMP_GPU
+#endif
          end if
       end if
 
       !-- Boundary conditions
       if ( nRstart==n_r_cmb ) then
          nR = n_r_cmb
+#ifdef WITH_OMP_GPU
+#endif
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m = st_map%lm2m(lm)
-            if ( l==1 .and. m==0 .and. l_z10mat ) then
-               if ( l_SRMA ) then
-                  tOmega_ma1=time+tShift_ma1
-                  tOmega_ma2=time+tShift_ma2
-                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-                  z10_ghost(nR)=omega_ma
-               else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
-                  z10_ghost(nR)=dom_ma!/c_dt_z10_ma
-               else
-                  if ( ktopv == 2 ) z10_ghost(nR)=zero
+            if ( l /= 0 ) then
+               m = st_map%lm2m(lm)
+               if ( l==1 .and. m==0 .and. l_z10mat ) then
+                  if ( l_SRMA ) then
+                     tOmega_ma1=time+tShift_ma1
+                     tOmega_ma2=time+tShift_ma2
+                     omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                     &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                     z10_ghost(nR)=omega_ma
+                  else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
+                     z10_ghost(nR)=dom_ma!/c_dt_z10_ma
+                  else
+                     if ( ktopv == 2 ) z10_ghost(nR)=zero
+                  end if
+                  z10_ghost(nR-1)=zero ! Set ghost zone to zero
                end if
-               z10_ghost(nR-1)=zero ! Set ghost zone to zero
-            end if
-            if ( ktopv==2 ) z_ghost(lm,nR)=zero
+               if ( ktopv==2 ) z_ghost(lm,nR)=zero
 
-            if (amp_RiMa /= 0.0_cp .and. l==(m_RiMa+RiSymmMa) .and. m==m_RiMa) then
-               z_ghost(lm,nR)=cmplx(amp_RiMa*cos(omega_RiMa*time), &
-               &                    amp_RiMa*sin(omega_RiMa*time),cp)
-            end if
+               if (amp_RiMa /= 0.0_cp .and. l==(m_RiMa+RiSymmMa) .and. m==m_RiMa) then
+                  z_ghost(lm,nR)=cmplx(amp_RiMa*cos(omega_RiMa*time), &
+                  &                    amp_RiMa*sin(omega_RiMa*time),cp)
+               end if
 
-            z_ghost(lm,nR-1)=zero ! Set ghost zone to zero
+               z_ghost(lm,nR-1)=zero ! Set ghost zone to zero
+            end if
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
 
       if ( nRstop == n_r_icb ) then
          nR=n_r_icb
+#ifdef WITH_OMP_GPU
+#endif
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m = st_map%lm2m(lm)
-            if ( l==1 .and. m==0 .and. l_z10mat ) then
-               z10_ghost(nR+1)=zero ! Set ghost zone to zero
-               if ( l_full_sphere ) then
-                  z10_ghost(nR)=zero
-               else
-                  if ( l_SRIC ) then
-                     tOmega_ic1=time+tShift_ic1
-                     tOmega_ic2=time+tShift_ic2
-                     omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-                     z10_ghost(nR)=omega_ic
-                  else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-                     z10_ghost(nR)=dom_ic!/c_dt_z10_ic
+            if ( l /= 0 ) then
+               m = st_map%lm2m(lm)
+               if ( l==1 .and. m==0 .and. l_z10mat ) then
+                  z10_ghost(nR+1)=zero ! Set ghost zone to zero
+                  if ( l_full_sphere ) then
+                     z10_ghost(nR)=zero
                   else
-                     if ( kbotv == 2 ) z10_ghost(nR)=zero
+                     if ( l_SRIC ) then
+                        tOmega_ic1=time+tShift_ic1
+                        tOmega_ic2=time+tShift_ic2
+                        omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                        &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                        z10_ghost(nR)=omega_ic
+                     else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+                        z10_ghost(nR)=dom_ic!/c_dt_z10_ic
+                     else
+                        if ( kbotv == 2 ) z10_ghost(nR)=zero
+                     end if
                   end if
                end if
-            end if
-            if ( l_full_sphere ) then
-               z_ghost(lm,nR)=zero
-            else
-               if ( kbotv==2 ) z_ghost(lm,nR)=zero
-            end if
+               if ( l_full_sphere ) then
+                  z_ghost(lm,nR)=zero
+               else
+                  if ( kbotv==2 ) z_ghost(lm,nR)=zero
+               end if
 
-            if (amp_RiIc /= 0.0_cp .and. l==(m_RiIc+RiSymmIc) .and. m==m_RiIc) then
-               z_ghost(lm,nR)=cmplx(amp_RiIc*cos(omega_RiIc*time),  &
-               &                    amp_RiIc*sin(omega_RiIc*time),cp)
-            end if
+               if (amp_RiIc /= 0.0_cp .and. l==(m_RiIc+RiSymmIc) .and. m==m_RiIc) then
+                  z_ghost(lm,nR)=cmplx(amp_RiIc*cos(omega_RiIc*time),  &
+                  &                    amp_RiIc*sin(omega_RiIc*time),cp)
+               end if
 
-            z_ghost(lm,nR+1)=zero ! Set ghost zone to zero
+               z_ghost(lm,nR+1)=zero ! Set ghost zone to zero
+            end if
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
    end subroutine prepareZ_FD
 !------------------------------------------------------------------------------
@@ -668,26 +894,42 @@ contains
 
       if ( .not. l_update_v ) return
 
+#ifdef WITH_OMP_GPU
+      lm_start=1; lm_stop=lm_max
+#else
       !$omp parallel default(shared) private(lm_start, lm_stop, lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
+#endif
 
       !-- Handle upper boundary
       if ( nRstart == n_r_cmb ) then
          dr = r(2)-r(1)
-         do lm=lm_start,lm_stop
-            if ( ktopv == 2 ) then
+         if ( ktopv == 2 ) then
+#ifdef WITH_OMP_GPU
+#endif
+            do lm=lm_start,lm_stop
                zg(lm,nRstart-1)=two*zg(lm,nRstart)-zg(lm,nRstart+1)
-            else
+            end do
+#ifdef WITH_OMP_GPU
+#endif
+         else
+#ifdef WITH_OMP_GPU
+#endif
+         do lm=lm_start,lm_stop
                zg(lm,nRstart-1)=zg(lm,nRstart+1)-two*dr*(two*or1(1)+beta(1))* &
                &                zg(lm,nRstart)
-            end if
          end do
+#ifdef WITH_OMP_GPU
+#endif
+         end if
       end if
 
       !-- Handle Lower boundary
       if ( nRstop == n_r_icb ) then
          dr = r(n_r_max)-r(n_r_max-1)
+#ifdef WITH_OMP_GPU
+#endif
          do lm=lm_start,lm_stop
             if ( l_full_sphere ) then
                zg(lm,nRstop+1)=two*zg(lm,nRstop)-zg(lm,nRstop-1)
@@ -700,8 +942,12 @@ contains
                end if
             end if
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
    end subroutine fill_ghosts_Z
 !------------------------------------------------------------------------------
@@ -768,20 +1014,27 @@ contains
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
 
+#ifdef WITH_OMP_GPU
+      lm_start=1; lm_stop=lm_max
+#else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,l,lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
-
+#endif
       !-- Array copy from z_ghost to z
       do nR=nRstart,nRstop
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
-            if ( l==0 ) cycle
-            z(lm,nR)=z_ghost(lm,nR)
+            if ( l/=0 ) then
+               z(lm,nR)=z_ghost(lm,nR)
+            end if
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end parallel
+#endif
 
    end subroutine updateZ_FD
 !------------------------------------------------------------------------------
@@ -844,6 +1097,18 @@ contains
          lmStart_00=llm
       end if
 
+#ifdef WITH_OMP_GPU
+      start_lm=llm; stop_lm=ulm
+
+      call dct_counter%start_count()
+
+      call get_ddr( z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+           &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1)
+
+      call dct_counter%stop_count(l_increment=.false.)
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
@@ -859,6 +1124,7 @@ contains
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 
       l1m0=lm2(1,0)
       l1m1=lm2(1,1)
@@ -867,7 +1133,9 @@ contains
       !--- We correct so that the angular moment about axis in the equatorial plane
       !    vanish and the angular moment about the (planetary) rotation axis
       !    is kept constant.
+#ifndef WITH_OMP_GPU
       !$omp single
+#endif
       if ( l_correct_AMz .and.  l1m0 > 0 .and. lmStart_00 <= l1m0 .and. &
       &    ulm >= l1m0 ) then
 
@@ -895,6 +1163,8 @@ contains
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
             z(l1m0,n_r)  =z(l1m0,n_r)  - rho0(n_r)*r_E_2*corr_l1m0
@@ -905,6 +1175,8 @@ contains
             &                dbeta(n_r)*r_E_2 +                   &
             &              beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m0
          end do
+#ifdef WITH_OMP_GPU
+#endif
 
          if ( ktopv == 2 .and. l_rot_ma ) &
          &    omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
@@ -932,6 +1204,8 @@ contains
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
             z(l1m1,n_r)  =z(l1m1,n_r)  -  rho0(n_r)*r_E_2*corr_l1m1
@@ -942,12 +1216,18 @@ contains
             &                          dbeta(n_r)*r_E_2 +            &
             &                beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m1
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if ! l=1,m=1 contained in lm-block ?
+#ifndef WITH_OMP_GPU
       !$omp end single
-
+#endif
 
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp do private(n_r,lm,l1,dL)
+#endif
          do n_r=1,n_r_max
             do lm=llm,ulm
                l1 = lm2l(lm)
@@ -955,7 +1235,10 @@ contains
                dzdt%old(lm,n_r,istage)=dL*or2(n_r)*z(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
       end if
 
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
@@ -968,7 +1251,10 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,Dif,l1,m1,dL)
+#ifdef WITH_OMP_GPU
+#else
+         !$omp do private(n_r,lm,Dif,l1,dL)
+#endif
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
@@ -991,11 +1277,16 @@ contains
                     &        DifTor2hInt(:,n_r),lo_map)
             end if
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end do
+#endif
 
       end if
 
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
       if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
@@ -1016,7 +1307,10 @@ contains
       !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
       if ( l_TO ) then
+#ifdef WITH_OMP_GPU
+#else
          !$omp parallel do default(shared) private(n_r,lm,l1,m1)
+#endif
          do n_r=1,n_r_max
             ddzASL_loc(:,n_r)=0.0_cp
             do lm=lmStart_00,ulm
@@ -1025,7 +1319,10 @@ contains
                if ( m1 == 0 ) ddzASL_loc(l1+1,n_r)=real(work_LMloc(lm,n_r))
             end do
          end do
+#ifdef WITH_OMP_GPU
+#else
          !$omp end parallel do
+#endif
 
          do n_r=1,n_r_max
 #ifdef WITH_MPI
@@ -1079,6 +1376,16 @@ contains
          prec_fac = 0.0_cp
       end if
 
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_max
+
+      call dct_counter%start_count()
+
+      call get_ddr_ghost(zg, dz, work_Rloc, lm_max,start_lm, stop_lm,  nRstart, nRstop, &
+           &             rscheme_oc)
+
+      call dct_counter%stop_count(l_increment=.false.)
+#else
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, m)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
@@ -1093,6 +1400,7 @@ contains
       !$omp end single
       !$omp barrier
       !$omp end parallel
+#endif
 
       l1m0=st_map%lm2(1,0)
       l1m1=st_map%lm2(1,1)
@@ -1133,6 +1441,8 @@ contains
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
             zg(l1m0,n_r)=zg(l1m0,n_r)  - rho0(n_r)*r_E_2*corr_l1m0
@@ -1143,6 +1453,8 @@ contains
             &                dbeta(n_r)*r_E_2 +                 &
             &              beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m0
          end do
+#ifdef WITH_OMP_GPU
+#endif
 
          if ( ktopv == 2 .and. l_rot_ma .and. nRstart==n_r_cmb ) &
          &    omega_ma=c_z10_omega_ma*real(zg(l1m0,n_r_cmb))
@@ -1168,6 +1480,8 @@ contains
 
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
             zg(l1m1,n_r)=zg(l1m1,n_r) - rho0(n_r)*r_E_2*corr_l1m1
@@ -1178,13 +1492,22 @@ contains
             &                          dbeta(n_r)*r_E_2 +            &
             &                beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m1
          end do
+#ifdef WITH_OMP_GPU
+#endif
+
       end if ! l=1,m=1 contained in lm-block ?
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL)
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_max
+#else
+      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
+#endif
 
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
@@ -1192,36 +1515,42 @@ contains
                dzdt%old(lm,n_r,istage)=dL*or2(n_r)*zg(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
 
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
-
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l == 0 ) cycle
-               m = st_map%lm2m(lm)
-               dL = real(l*(l+1),cp)
-               Dif(lm)=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
-               &         (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
-               &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-               &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-               &                                                   zg(lm,n_r) )
+               if ( l /= 0 ) then
+                  m = st_map%lm2m(lm)
+                  dL = real(l*(l+1),cp)
+                  Dif(lm)=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+                  &         (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+                  &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+                  &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+                  &                                                   zg(lm,n_r) )
 
-               dzdt%impl(lm,n_r,istage)=Dif(lm)
-               if ( l_precession .and. l==1 .and. m==1 ) then
-                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                  &                        sin(oek*time),-cos(oek*time),kind=cp)
-               end if
+                  dzdt%impl(lm,n_r,istage)=Dif(lm)
+                  if ( l_precession .and. l==1 .and. m==1 ) then
+                     dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
+                     &                        sin(oek*time),-cos(oek*time),kind=cp)
+                  end if
+                end if
             end do
             if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                call hInt2Tor(Dif,1,lm_max,n_r,start_lm,stop_lm,DifTor2hInt(:,n_r),st_map)
             end if
          end do
-
+#ifdef WITH_OMP_GPU
+#endif
       end if
+#ifndef WITH_OMP_GPU
       !$omp end parallel
-
+#endif
 
       if ( l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
@@ -1242,11 +1571,15 @@ contains
       !--- Note: from ddz=work_Rloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
       if ( l_TO ) then
+#ifdef WITH_OMP_GPU
+#endif
          do n_r=nRstart,nRstop
             do l=0,l_max
                ddzASL(l+1,n_r)=real(work_Rloc(l+1,n_r))
             end do
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
 
    end subroutine get_tor_rhs_imp_ghost
@@ -1318,8 +1651,11 @@ contains
       call tscheme%assemble_imex(work_LMloc, dzdt)
 
       !-- Now get the toroidal potential from the assembly
+#ifdef WITH_OMP_GPU
+#else
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,l1,m1,dL)
+#endif
       do n_r=2,n_r_max-1
          do lm=lmStart_00,ulm
             l1 = lm2l(lm)
@@ -1332,9 +1668,15 @@ contains
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
+#ifdef WITH_OMP_GPU
+#else
       !$omp do private(lm)
+#endif
       do lm=llm,ulm
          if ( lm==l1m0 ) then
             if ( l_SRMA ) then
@@ -1365,17 +1707,26 @@ contains
             bot_val(lm)=zero
          end if
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       !-- Boundary conditions
       if ( l_full_sphere ) then
          if ( ktopv /= 1 ) then ! Rigid outer
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm)
+#endif
             do lm=lmStart_00,ulm
                z(lm,1)      =top_val(lm)
                z(lm,n_r_max)=bot_val(lm)
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else
             fac_top=-two*or1(1)-beta(1)
             !$omp do private(lm)
@@ -1386,12 +1737,18 @@ contains
          end if
       else
          if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
+#ifdef WITH_OMP_GPU
+#else
             !$omp do private(lm)
+#endif
             do lm=lmStart_00,ulm
                z(lm,1)      =top_val(lm)
                z(lm,n_r_max)=bot_val(lm)
             end do
+#ifdef WITH_OMP_GPU
+#else
             !$omp end do
+#endif
          else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Stress-free top and rigid bottom
             fac_top=-two*or1(1)-beta(1)
             !$omp do private(lm)
@@ -1416,7 +1773,9 @@ contains
             !$omp end do
          end if
       end if
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
       call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
            &                lorentz_torque_ic_dt, omega_ma,           &
@@ -1480,81 +1839,102 @@ contains
          end if
       end if
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh, n_r, r2)
+#ifdef WITH_OMP_GPU
+      start_lm=1; stop_lm=lm_max
+#else
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
+#endif
 
+#ifdef WITH_OMP_GPU
+#endif
       do n_r=nRstart,nRstop
-         r2=r(n_r)*r(n_r)
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m = st_map%lm2m(lm)
-            dLh=real(l*(l+1),cp)
-            if ( m == 0 ) then
-               z(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)*r2/dLh
-            else
-               z(lm,n_r)=work_Rloc(lm,n_r)*r2/dLh
+            if ( l /= 0 ) then
+               m = st_map%lm2m(lm)
+               dLh=real(l*(l+1),cp)
+               if ( m == 0 ) then
+                  z(lm,n_r)=cmplx(real(work_Rloc(lm,n_r)),0.0_cp,cp)*r(n_r)*r(n_r)/dLh
+               else
+                  z(lm,n_r)=work_Rloc(lm,n_r)*r(n_r)*r(n_r)/dLh
+               end if
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
       !-- Boundary points
       if ( nRstart == n_r_cmb ) then
          n_r=n_r_cmb
+#ifdef WITH_OMP_GPU
+#endif
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m=st_map%lm2m(lm)
-            if ( l == 1 .and. m == 0 ) then
-               if ( l_SRMA ) then
-                  tOmega_ma1=time+tShift_ma1
-                  tOmega_ma2=time+tShift_ma2
-                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-                  z(lm,n_r)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
-               else if ( ktopv == 2 .and. l_rot_ma ) then
-                  z(lm,n_r)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
+            if ( l /= 0 ) then
+               m=st_map%lm2m(lm)
+               if ( l == 1 .and. m == 0 ) then
+                  if ( l_SRMA ) then
+                     tOmega_ma1=time+tShift_ma1
+                     tOmega_ma2=time+tShift_ma2
+                     omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                     &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                     z(lm,n_r)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+                  else if ( ktopv == 2 .and. l_rot_ma ) then
+                     z(lm,n_r)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
+                  else
+                     if ( ktopv == 2 ) z(lm,n_r)=zero
+                  end if
                else
                   if ( ktopv == 2 ) z(lm,n_r)=zero
                end if
-            else
-               if ( ktopv == 2 ) z(lm,n_r)=zero
             end if
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
 
       if ( nRstop == n_r_icb ) then
          n_r=n_r_icb
+#ifdef WITH_OMP_GPU
+#endif
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m=st_map%lm2m(lm)
-            if ( l_full_sphere ) then
-               z(lm,n_r)=zero
-            else
-               if ( l == 1 .and. m == 0 ) then
-                  if ( l_SRIC ) then
-                     tOmega_ic1=time+tShift_ic1
-                     tOmega_ic2=time+tShift_ic2
-                     omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-                     z(lm,n_r)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
-                  else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-                     z(lm,n_r)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
+            if ( l /= 0 ) then
+               m=st_map%lm2m(lm)
+               if ( l_full_sphere ) then
+                  z(lm,n_r)=zero
+               else
+                  if ( l == 1 .and. m == 0 ) then
+                     if ( l_SRIC ) then
+                        tOmega_ic1=time+tShift_ic1
+                        tOmega_ic2=time+tShift_ic2
+                        omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                        &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                        z(lm,n_r)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+                     else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+                        z(lm,n_r)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
+                     else
+                        if ( kbotv == 2 ) z(lm,n_r)=zero
+                     end if
                   else
                      if ( kbotv == 2 ) z(lm,n_r)=zero
                   end if
-               else
-                  if ( kbotv == 2 ) z(lm,n_r)=zero
                end if
             end if
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
 
       call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
+
+#ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
 
       call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
       call fill_ghosts_Z(z_ghost)
@@ -1603,7 +1983,9 @@ contains
       end if
 
       !--- Update of inner core and mantle rotation:
+#ifndef WITH_OMP_GPU
       !$omp single
+#endif
       if ( llm <= l1m0 .and. ulm >= l1m0 )then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
@@ -1628,7 +2010,9 @@ contains
             omega_ic1=omega_ic
          end if
       end if  ! l=1,m=0 contained in block ?
+#ifndef WITH_OMP_GPU
       !$omp end single
+#endif
 
    end subroutine update_rot_rates
 !------------------------------------------------------------------------------
@@ -1653,7 +2037,9 @@ contains
       l1m0=st_map%lm2(1,0)
 
       !--- Update of inner core and mantle rotation:
+#ifndef WITH_OMP_GPU
       !$omp single
+#endif
       if ( l_rot_ma .and. .not. l_SRMA .and. (nRstart==n_r_cmb) ) then
          if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
             omega_ma=lo_ma
@@ -1672,7 +2058,9 @@ contains
          end if
          omega_ic1=omega_ic
       end if
+#ifndef WITH_OMP_GPU
       !$omp end single
+#endif
 
    end subroutine update_rot_rates_Rloc
 !------------------------------------------------------------------------------
@@ -1740,6 +2128,10 @@ contains
       integer :: nR,nR_out,info
       real(cp) :: dLh
       real(cp) :: dat(n_r_max,n_r_max)
+      real(cp) :: wimp_lin
+
+      !-- Copie into local variable
+      wimp_lin = tscheme%wimp_lin(1)
 
       dLh=real(l*(l+1),kind=cp)
 
@@ -1793,18 +2185,27 @@ contains
          end if
       end if
 
+#ifdef WITH_OMP_GPU
+#endif
+
       !-- Fill up with zeros:
+#ifdef WITH_OMP_GPU
+#endif
       do nR_out=rscheme_oc%n_max+1,n_r_max
          dat(1,nR_out)      =0.0_cp
          dat(n_r_max,nR_out)=0.0_cp
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
       !----- Other points: (same as zMat)
+#ifdef WITH_OMP_GPU
+#endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             dat(nR,nR_out)=rscheme_oc%rnorm * (                         &
             &             dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
-            &         tscheme%wimp_lin(1)*hdif*dLh*visc(nR)*or2(nR) * ( &
+            &         wimp_lin*hdif*dLh*visc(nR)*or2(nR) * ( &
             &                            rscheme_oc%d2rMat(nR,nR_out) + &
             &    (dLvisc(nR)- beta(nR))*  rscheme_oc%drMat(nR,nR_out) - &
             &    ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)  +        &
@@ -1812,19 +2213,32 @@ contains
                                            rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
       !-- Normalisation
+#ifdef WITH_OMP_GPU
+#endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
 #ifdef WITH_PRECOND_Z10
       ! compute the linesum of each line
+#ifdef WITH_OMP_GPU
+#endif
       do nR=1,n_r_max
          zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
          dat(nR,:) = dat(nR,:)*zMat_fac(nR)
       end do
+#ifdef WITH_OMP_GPU
+#endif
+#endif
+
+#ifdef WITH_OMP_GPU
 #endif
 
       !-- Array copy
@@ -1865,6 +2279,10 @@ contains
       real(cp) :: dat(n_r_max,n_r_max)
       character(len=80) :: message
       character(len=14) :: str, str_1
+      real(cp) :: wimp_lin
+
+      !-- Copie into local variable
+      wimp_lin = tscheme%wimp_lin(1)
 
       dLh=real(l*(l+1),kind=cp)
 
@@ -1890,19 +2308,33 @@ contains
          end if
       end if
 
+#ifndef MATRIX_CHECK
+#ifdef WITH_OMP_GPU
+#endif
+#else
+#ifdef WITH_OMP_GPU
+#endif
+#endif
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+#ifdef WITH_OMP_GPU
+#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
+#ifdef WITH_OMP_GPU
+#endif
       end if
 
       !----- Bulk points:
+#ifdef WITH_OMP_GPU
+#endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             dat(nR,nR_out)=rscheme_oc%rnorm * (                          &
             &               dLh*or2(nR)* rscheme_oc%rMat(nR,nR_out)      &
-            &   -tscheme%wimp_lin(1)*hdif*dLh*visc(nR)*or2(nR) * (       &
+            &   -wimp_lin*hdif*dLh*visc(nR)*or2(nR) * (       &
             &                               rscheme_oc%d2rMat(nR,nR_out) &
             &   + (dLvisc(nR)- beta(nR)) *   rscheme_oc%drMat(nR,nR_out) &
             &      - ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)        &
@@ -1910,19 +2342,29 @@ contains
             &                             ) * rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
       !----- Factor for highest and lowest cheb:
+#ifdef WITH_OMP_GPU
+#endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
 #ifdef WITH_PRECOND_Z
       ! compute the linesum of each line
+#ifdef WITH_OMP_GPU
+#endif
       do nR=1,n_r_max
          zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
          dat(nR,:)   =dat(nR,:)*zMat_fac(nR)
       end do
+#ifdef WITH_OMP_GPU
+#endif
 #endif
 
 #ifdef MATRIX_CHECK
@@ -1936,6 +2378,9 @@ contains
       integer, save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
+
+#ifdef WITH_OMP_GPU
+#endif
 
       ! copy the zMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "zMat_",l,"_",counter,".dat"
@@ -1966,6 +2411,11 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of zMat for l=",l," is ",rcond
 
       end block
+#endif
+
+#ifndef MATRIX_CHECK
+#ifdef WITH_OMP_GPU
+#endif
 #endif
 
       !-- Array copy
@@ -1999,24 +2449,32 @@ contains
       !-- Local variables:
       integer :: nR, l
       real(cp) :: dLh, dr
+      real(cp) :: wimp_lin
+
+      !-- Copie into local variable
+      wimp_lin = tscheme%wimp_lin(1)
 
       l=1 ! This is a matrix for l=1,m=0 only
       dLh=real(l*(l+1),kind=cp)
 
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
+#ifdef WITH_OMP_GPU
+#endif
       do nR=1,n_r_max
-         zMat%diag(l,nR)=dLh*or2(nR)-tscheme%wimp_lin(1)*hdif(l)*dLh* &
+         zMat%diag(l,nR)=dLh*or2(nR)-wimp_lin*hdif(l)*dLh* &
          &     visc(nR)*or2(nR) * (              rscheme_oc%ddr(nR,1) &
          &   + (dLvisc(nR)- beta(nR)) *           rscheme_oc%dr(nR,1) &
          &      - ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)        &
          &          +dLh*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR)       &
          &                             ) )
-         zMat%low(l,nR)=-tscheme%wimp_lin(1)*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
+         zMat%low(l,nR)=-wimp_lin*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
          &      rscheme_oc%ddr(nR,0)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,0) )
-         zMat%up(l,nR) =-tscheme%wimp_lin(1)*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
+         zMat%up(l,nR) =-wimp_lin*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
          &      rscheme_oc%ddr(nR,2)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,2) )
       end do
+#ifdef WITH_OMP_GPU
+#endif
 
       !-- Boundary conditions:
       !----- CMB condition:
@@ -2081,6 +2539,9 @@ contains
          end if
       end if
 
+#ifdef WITH_OMP_GPU
+#endif
+
       !-- LU-decomposition of z10mat:
       call zMat%prepare_mat()
 
@@ -2102,31 +2563,43 @@ contains
       !-- local variables:
       integer :: nR, l
       real(cp) :: dLh
+      real(cp) :: wimp_lin
 
+      !-- Copie into local variable
+      wimp_lin = tscheme%wimp_lin(1)
 
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
+#ifdef WITH_OMP_GPU
+#else
       !$omp parallel default(shared) private(nR,l,dLh)
       !$omp do
+#endif
       do nR=1,n_r_max
          do l=1,l_max
             dLh=real(l*(l+1),kind=cp)
-            zMat%diag(l,nR)=dLh*or2(nR)-tscheme%wimp_lin(1)*hdif(l)*dLh* &
+            zMat%diag(l,nR)=dLh*or2(nR)-wimp_lin*hdif(l)*dLh* &
             &     visc(nR)*or2(nR) * (              rscheme_oc%ddr(nR,1) &
             &   + (dLvisc(nR)- beta(nR)) *           rscheme_oc%dr(nR,1) &
             &      - ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)        &
             &          +dLh*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR)       &
             &                             ) )
-            zMat%low(l,nR)=-tscheme%wimp_lin(1)*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
+            zMat%low(l,nR)=-wimp_lin*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
             &      rscheme_oc%ddr(nR,0)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,0) )
-            zMat%up(l,nR) =-tscheme%wimp_lin(1)*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
+            zMat%up(l,nR) =-wimp_lin*hdif(l)*dLh*visc(nR)*or2(nR) * ( &
             &      rscheme_oc%ddr(nR,2)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,2) )
          end do
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
+#endif
 
       !----- Boundary conditions, see above:
+#ifdef WITH_OMP_GPU
+#else
       !$omp do
+#endif
       do l=1,l_max
          if ( ktopv == 1 ) then  ! free slip !
             zMat%up(l,1)  =zMat%up(l,1)+zMat%low(l,1)
@@ -2154,9 +2627,11 @@ contains
             end if
          end if
       end do
+#ifdef WITH_OMP_GPU
+#else
       !$omp end do
       !$omp end parallel
-
+#endif
       !-- LU decomposition:
       call zMat%prepare_mat()
 

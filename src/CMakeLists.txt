@@ -94,6 +94,11 @@ if(USE_LAPACKLIB MATCHES LAPACK)
    target_link_libraries(${EXEC} ${LAPACK_LIBRARIES})
 endif()
 
+# Link hipfft
+if(USE_GPU MATCHES yes)
+   target_link_libraries(${EXEC} -lhipfft)
+endif()
+
 # Link LIBFLAME and BLIS
 if(USE_LAPACKLIB MATCHES LIBFLAME)
    target_link_libraries (${EXEC} ${FLAME} ${BLIS})
