@@ -181,6 +181,11 @@ contains
          bytes_allocated=bytes_allocated+2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc:this)
+      !$omp target update to(this)
+#endif
+
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -189,6 +194,10 @@ contains
       !
 
       class(grid_space_arrays_t) :: this
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release:this)
+#endif
 
       deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
       deallocate( this%VxBr, this%VxBt, this%VxBp, this%VSr, this%VSt, this%VSp )
@@ -652,6 +661,11 @@ contains
          bytes_allocated=bytes_allocated+2*size_of_phys*SIZEOF_DEF_REAL
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc:this)
+      !$omp target update to(this)
+#endif
+
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -660,6 +674,10 @@ contains
       !
 
       class(grid_space_arrays_3d_t) :: this
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release:this)
+#endif
 
       deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
       deallocate( this%VxBr, this%VxBt, this%VxBp, this%VSr, this%VSt, this%VSp )

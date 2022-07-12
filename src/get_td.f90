@@ -95,6 +95,10 @@ contains
          lm_min = 1
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: this)
+#endif
+
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -103,6 +107,10 @@ contains
       !
 
       class(nonlinear_lm_t) :: this
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#endif
 
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
@@ -145,6 +153,10 @@ contains
          end if
       end do
       !$omp end parallel do
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(this)
+#endif
 
    end subroutine set_zero
 !----------------------------------------------------------------------------

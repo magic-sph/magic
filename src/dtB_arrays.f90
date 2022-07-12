@@ -35,11 +35,19 @@ contains
       allocate( this%BtVZsn2LM(lmP_max_dtB) )
       bytes_allocated = bytes_allocated+ 11*lmP_max_dtB*SIZEOF_DEF_COMPLEX
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: this)
+#endif
+
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 
       class(dtB_arrays_t) :: this
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#endif
 
       deallocate( this%BtVrLM, this%BpVrLM, this%BrVtLM )
       deallocate( this%BrVpLM, this%BtVpLM, this%BpVtLM )
@@ -63,6 +71,10 @@ contains
       this%BpVtBtVpCotLM(:) = zero
       this%BpVtBtVpSn2LM(:) = zero
       this%BtVZsn2LM(:) = zero
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(this)
+#endif
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
