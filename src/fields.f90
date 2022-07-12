@@ -174,6 +174,10 @@ contains
             w_Rloc(:,:)=zero
             z_Rloc(:,:)=zero
             s_Rloc(:,:)=zero
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: w_Rloc, z_Rloc, s_Rloc)
+            !$omp target update to(w_Rloc, z_Rloc, s_Rloc)
+#endif
             if ( l_mag ) then
                if( l_mag_par_solve ) then
                   allocate(b_Rloc(lm_max,nRstart:nRstop), aj_Rloc(lm_max,nRstart:nRstop))
@@ -188,20 +192,36 @@ contains
             else
                allocate ( b_Rloc(1,1), aj_Rloc(1,1) )
             end if
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: aj_Rloc, b_Rloc)
+            !$omp target update to(aj_Rloc, b_Rloc)
+#endif
          else
             allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:n_fields) )
             flow_Rloc_container(:,:,:)=zero
             w_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,1)
             z_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
             s_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: w_Rloc, z_Rloc, s_Rloc)
+            !$omp target update to(w_Rloc, z_Rloc, s_Rloc)
+#endif
             if ( l_mag ) then
                b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,4)
                aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: aj_Rloc, b_Rloc)
+               !$omp target update to(aj_Rloc, b_Rloc)
+#endif
             end if
          end if
          allocate(dw_Rloc(lm_max,nRstart:nRstop), ddw_Rloc(lm_max,nRstart:nRstop))
          dw_Rloc(:,:) =zero
          ddw_Rloc(:,:)=zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dw_Rloc, ddw_Rloc)
+         !$omp target update to(dw_Rloc, ddw_Rloc)
+#endif
          allocate(dz_Rloc(lm_max,nRstart:nRstop), ds_Rloc(lm_max,nRstart:nRstop))
          dz_Rloc(:,:) =zero
          ds_Rloc(:,:) =zero
@@ -211,6 +231,10 @@ contains
          ddb_Rloc(:,:)=zero
          allocate(dj_Rloc(lm_maxMag,nRstartMag:nRstopMag))
          dj_Rloc(:,:) =zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc)
+         !$omp target update to(dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc)
+#endif
       else
          allocate( flow_LMloc_container(llm:ulm,n_r_max,1:5) )
          flow_LMloc_container(:,:,:)=zero
@@ -255,6 +279,16 @@ contains
          ddb_Rloc(1:,nRstart:) => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,3)
          aj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,4)
          dj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,5)
+
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: w_Rloc, z_Rloc, s_Rloc, &
+         !$omp&                             dw_Rloc, ddw_Rloc)
+         !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
+         !$omp&                 dw_Rloc, ddw_Rloc)
+         !$omp target enter data map(alloc: dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, aj_Rloc)
+         !$omp target update to(dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, aj_Rloc, b_Rloc)
+#endif
+
       end if
 
       if ( l_mag_par_solve ) then
@@ -272,6 +306,10 @@ contains
       allocate( press_Rloc_container(lm_max,nRstart:nRstop,1:2) )
       press_Rloc_container(:,:,:)=zero
       p_Rloc(1:,nRstart:)   => press_Rloc_container(1:lm_max,nRstart:nRstop,1)
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: p_Rloc)
+      !$omp target update to(p_Rloc)
+#endif
       dp_Rloc(1:,nRstart:)  => press_Rloc_container(1:lm_max,nRstart:nRstop,2)
 
       bytes_allocated = bytes_allocated + &
@@ -292,6 +330,10 @@ contains
          allocate( xi_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          xi_Rloc_container(:,:,:)=zero
          xi_Rloc(1:,nRstart:)  => xi_Rloc_container(1:lm_max,nRstart:nRstop,1)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: xi_Rloc)
+         !$omp target update to(xi_Rloc)
+#endif
          dxi_Rloc(1:,nRstart:) => xi_Rloc_container(1:lm_max,nRstart:nRstop,2)
          bytes_allocated = bytes_allocated + &
          &                 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -318,8 +360,12 @@ contains
          &                 (nRstop-nRstart+1)*lm_max*SIZEOF_DEF_COMPLEX
       else ! For debugging
          allocate( phi_LMloc(1:1,1:1), phi_Rloc(1:1,1:1) )
+         phi_Rloc(:,:)=zero
       end if
-
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: phi_Rloc)
+      !$omp target update to(phi_Rloc)
+#endif
 
       !-- Magnetic field potentials in inner core:
       !   NOTE: n_r-dimension may be smaller once CHEBFT is adopted
@@ -350,6 +396,14 @@ contains
       !
       ! This subroutine deallocates the field arrays used in MagIC
       !
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: w_Rloc, z_Rloc, s_Rloc, &
+      !$omp&                             aj_Rloc, b_Rloc, &
+      !$omp&                             dw_Rloc, ddw_Rloc, &
+      !$omp&                             dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+      !$omp&                             p_Rloc, xi_Rloc, phi_Rloc)
+#endif
 
       deallocate( bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic )
       deallocate( press_LMloc_container, press_Rloc_container )

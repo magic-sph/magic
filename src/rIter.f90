@@ -12,7 +12,7 @@ module rIter_mod
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
    use parallel_mod
-   use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag
+   use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag, nlat_padded
    use grid_blocking, only: n_phys_space
    use blocking, only: st_map
    use horizontal_data, only: dLh, O_sin_theta_E2
@@ -508,62 +508,167 @@ contains
 
       !-- Local variables
       integer :: nPhi
+#ifdef WITH_OMP_GPU
+      integer :: nLat
+#endif
       complex(cp) :: dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max)
       complex(cp) :: dmdw(lm_max), dmz(lm_max)
+
+      dLw=zero; dLz=zero; dLdw=zero; dLddw=zero; dmdw=zero; dmz=zero
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+      !$omp target update to(dLw, dLz, dLdw, dLddw, dmdw, dmz)
+      !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
+      !$omp&                 aj_Rloc, b_Rloc, &
+      !$omp&                 dw_Rloc, ddw_Rloc, &
+      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+      !$omp target update to(this%gsa)
+#endif
 
       call legPrep_qst(nR, w_Rloc(:,nR), ddw_Rloc(:,nR), z_Rloc(:,nR), dLw, dLddw, dLz)
       call legPrep_flow(nR, dw_Rloc(:,nR), z_Rloc(:,nR), dLdw, dmdw, dmz)
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+            call scal_to_spat(sht_l_gpu, s_Rloc(:,nR), this%gsa%sc, l_R(nR), .true.)
+#else
             call scal_to_spat(sht_l, s_Rloc(:,nR), this%gsa%sc, l_R(nR))
+#endif
             if ( lViscBcCalc ) then
+#ifdef WITH_OMP_GPU
+               call scal_to_grad_spat(s_Rloc(:,nR), this%gsa%dsdtc, this%gsa%dsdpc, &
+                    &                 l_R(nR), .true.)
+#else
                call scal_to_grad_spat(s_Rloc(:,nR), this%gsa%dsdtc, this%gsa%dsdpc, &
                     &                 l_R(nR))
+#endif
                if ( nR == n_r_cmb .and. ktops==1) then
+#ifdef WITH_OMP_GPU
+                  !$omp target teams distribute parallel do collapse(2)
+                  do nLat=1,nlat_padded
+                     do nPhi=1,n_phi_max
+                        this%gsa%dsdtc(nLat,nPhi)=0.0_cp
+                        this%gsa%dsdpc(nLat,nPhi)=0.0_cp
+                     end do
+                  end do
+                  !$omp end target teams distribute parallel do
+#else
                   this%gsa%dsdtc(:,:)=0.0_cp
                   this%gsa%dsdpc(:,:)=0.0_cp
+#endif
                end if
                if ( nR == n_r_icb .and. kbots==1) then
+#ifdef WITH_OMP_GPU
+                  !$omp target teams distribute parallel do collapse(2)
+                  do nLat=1,nlat_padded
+                     do nPhi=1,n_phi_max
+                        this%gsa%dsdtc(nLat,nPhi)=0.0_cp
+                        this%gsa%dsdpc(nLat,nPhi)=0.0_cp
+                     end do
+                  end do
+                  !$omp end target teams distribute parallel do
+#else
                   this%gsa%dsdtc(:,:)=0.0_cp
                   this%gsa%dsdpc(:,:)=0.0_cp
+#endif
                end if
             end if
          end if
 
-         if ( lRmsCalc ) call transform_to_grid_RMS(nR, p_Rloc(:,nR))
+         if ( lRmsCalc ) then
+            call transform_to_grid_RMS(nR, p_Rloc(:,nR)) !--TODO: offload (& remove update of p_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(p_Rloc)
+#endif
+         end if
 
          !-- Pressure
-         if ( lPressCalc ) call scal_to_spat(sht_l, p_Rloc(:,nR), this%gsa%pc, l_R(nR))
+         if ( lPressCalc ) then
+#ifdef WITH_OMP_GPU
+            call scal_to_spat(sht_l_gpu, p_Rloc(:,nR), this%gsa%pc, l_R(nR), .true.)
+#else
+            call scal_to_spat(sht_l, p_Rloc(:,nR), this%gsa%pc, l_R(nR))
+#endif
+         end if
 
          !-- Composition
-         if ( l_chemical_conv ) call scal_to_spat(sht_l, xi_Rloc(:,nR), this%gsa%xic, &
+         if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            call scal_to_spat(sht_l_gpu, xi_Rloc(:,nR), this%gsa%xic, &
+                                     &            l_R(nR), .true.)
+#else
+            call scal_to_spat(sht_l, xi_Rloc(:,nR), this%gsa%xic, &
                                      &            l_R(nR))
+#endif
+         end if
 
          !-- Phase field
-         if ( l_phase_field ) call scal_to_spat(sht_l, phi_Rloc(:,nR), this%gsa%phic, &
+         if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+            call scal_to_spat(sht_l_gpu, phi_Rloc(:,nR), this%gsa%phic, &
+                                   &            l_R(nR), .true.)
+#else
+            call scal_to_spat(sht_l, phi_Rloc(:,nR), this%gsa%phic, &
                                    &            l_R(nR))
+#endif
+         end if
 
          if ( l_HT .or. lViscBcCalc ) then
+#ifdef WITH_OMP_GPU
+            call scal_to_spat(sht_l_gpu, ds_Rloc(:,nR), this%gsa%drsc, l_R(nR), .true.)
+#else
             call scal_to_spat(sht_l, ds_Rloc(:,nR), this%gsa%drsc, l_R(nR))
-         endif
+#endif
+         end if
+
          if ( nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
+#ifdef WITH_OMP_GPU
+            call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                 &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR), .true.)
+#else
             call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+#endif
 
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
+#ifdef WITH_OMP_GPU
+               call torpol_to_spat(dLz, dz_Rloc(:,nR), dLddw,     &
+                    &              this%gsa%cvrc, this%gsa%cvtc,  &
+                    &              this%gsa%cvpc, l_R(nR), .true.)
+#else
                call torpol_to_spat(dLz, dz_Rloc(:,nR), dLddw,     &
                     &              this%gsa%cvrc, this%gsa%cvtc,  &
                     &              this%gsa%cvpc, l_R(nR))
+#endif
 
                !-- For some outputs one still need the other terms
                if ( lViscBcCalc .or. lPowerCalc .or. lRmsCalc .or. lFluxProfCalc &
                &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or. lGeosCalc  &
                &    .or. lHemiCalc                                               &
                &    .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
+#ifdef WITH_OMP_GPU
+                  call torpol_to_spat(dLdw, ddw_Rloc(:,nR),             &
+                       &              dz_Rloc(:,nR), this%gsa%dvrdrc,   &
+                       &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR), .true.)
+                  call scal_to_grad_spat(dLw, this%gsa%dvrdtc, &
+                       &                 this%gsa%dvrdpc, l_R(nR), .true.)
+                  call sphtor_to_spat(sht_l_gpu, dmdw,  dmz, this%gsa%dvtdpc, &
+                       &              this%gsa%dvpdpc, l_R(nR), .true.)
+                  !$omp target teams distribute parallel do collapse(2)
+                  do nLat=1,nlat_padded
+                     do nPhi=1,n_phi_max
+                        this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
+                        this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
+                     end do
+                  end do
+                  !$omp end target teams distribute parallel do
+#else
                   call torpol_to_spat(dLdw, ddw_Rloc(:,nR),             &
                        &              dz_Rloc(:,nR), this%gsa%dvrdrc,   &
                        &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR))
@@ -577,10 +682,31 @@ contains
                      this%gsa%dvpdpc(:,nPhi)=this%gsa%dvpdpc(:,nPhi)*O_sin_theta_E2(:)
                   end do
                   !$omp end parallel do
+#endif
                end if
 
             else ! Advection is treated as u\grad u
 
+#ifdef WITH_OMP_GPU
+               call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
+                    &              this%gsa%dvpdrc, l_R(nR), .true.)
+
+               call scal_to_spat(sht_l_gpu, dLz, this%gsa%cvrc, l_R(nR), .true.)
+
+               call scal_to_grad_spat(dLw, this%gsa%dvrdtc, this%gsa%dvrdpc,&
+                    &                 l_R(nR), .true.)
+               call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
+                    &              this%gsa%dvpdpc, l_R(nR), .true.)
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
+                     this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
+                  end do
+               end do
+               !$omp end target teams distribute parallel do
+#else
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR))
@@ -597,14 +723,51 @@ contains
                   this%gsa%dvpdpc(:,nPhi)=this%gsa%dvpdpc(:,nPhi)*O_sin_theta_E2(:)
                end do
                !$omp end parallel do
+#endif
             end if
 
          else if ( nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
+#ifdef WITH_OMP_GPU
+            call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                 &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR), .true.)
+            !$omp target teams distribute parallel do collapse(2)
+            do nLat=1,nlat_padded
+               do nPhi=1,n_phi_max
+                  this%gsa%vrc(nLat,nPhi)=0.0_cp
+               end do
+            end do
+            !$omp end target teams distribute parallel do
+#else
             call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
             this%gsa%vrc(:,:)=0.0_cp
+#endif
             if ( lDeriv ) then
+#ifdef WITH_OMP_GPU
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%dvrdtc(nLat,nPhi)=0.0_cp
+                     this%gsa%dvrdpc(nLat,nPhi)=0.0_cp
+                  end do
+               end do
+               !$omp end target teams distribute parallel do
+               call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
+                    &              this%gsa%dvpdrc, l_R(nR), .true.)
+               call scal_to_spat(sht_l_gpu, dLz, this%gsa%cvrc, l_R(nR), .true.)
+               call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
+                    &              this%gsa%dvpdpc, l_R(nR), .true.)
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
+                     this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
+                  end do
+               end do
+               !$omp end target teams distribute parallel do
+#else
                this%gsa%dvrdtc(:,:)=0.0_cp
                this%gsa%dvrdpc(:,:)=0.0_cp
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
@@ -619,8 +782,12 @@ contains
                   this%gsa%dvpdpc(:,nPhi)=this%gsa%dvpdpc(:,nPhi)*O_sin_theta_E2(:)
                end do
                !$omp end parallel do
+#endif
             end if
          else if ( nBc == 2 ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(this%gsa)
+#endif
             if ( nR == n_r_cmb ) then
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
@@ -633,10 +800,19 @@ contains
                     &                this%gsa%dvrdpc, this%gsa%dvtdpc,        &
                     &                this%gsa%dvpdpc)
             end if
+#ifdef WITH_OMP_GPU
+            !$omp target update to(this%gsa)
+#endif
             if ( lDeriv ) then
+#ifdef WITH_OMP_GPU
+               call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
+                    &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
+                    &              this%gsa%dvpdrc, l_R(nR), .true.)
+#else
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR))
+#endif
             end if
          end if
       end if
@@ -644,15 +820,36 @@ contains
       if ( l_mag .or. l_mag_LF ) then
          call legPrep_qst(nR, b_Rloc(:,nR), ddb_Rloc(:,nR), aj_Rloc(:,nR), &
              &           dLw, dLddw, dLz)
+#ifdef WITH_OMP_GPU
+         call torpol_to_spat(dLw, db_Rloc(:,nR), aj_Rloc(:,nR), &
+              &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(nR), .true.)
+#else
          call torpol_to_spat(dLw, db_Rloc(:,nR), aj_Rloc(:,nR), &
               &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(nR))
+#endif
 
          if ( lDeriv ) then
+#ifdef WITH_OMP_GPU
+            call torpol_to_spat(dLz, dj_Rloc(:,nR), dLddw,      &
+                 &              this%gsa%cbrc, this%gsa%cbtc,   &
+                 &              this%gsa%cbpc, l_R(nR), .true.)
+#else
             call torpol_to_spat(dLz, dj_Rloc(:,nR), dLddw,      &
                  &              this%gsa%cbrc, this%gsa%cbtc,   &
                  &              this%gsa%cbpc, l_R(nR))
+#endif
          end if
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+      !$omp target update from(w_Rloc, z_Rloc, s_Rloc, &
+      !$omp&                 aj_Rloc, b_Rloc, &
+      !$omp&                 dw_Rloc, ddw_Rloc, &
+      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+      !$omp target update from(this%gsa)
+#endif
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
@@ -762,7 +959,11 @@ contains
       !-- Local variables
       integer :: lm, l, m
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#else
       !$omp parallel do default(shared) private(l, m)
+#endif
       do lm = 1, lm_max
          l = st_map%lm2l(lm)
          m = st_map%lm2m(lm)
@@ -776,7 +977,11 @@ contains
             dmz(lm)  = zero
          end if
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
    end subroutine legPrep_flow
 !-------------------------------------------------------------------------------
@@ -800,7 +1005,11 @@ contains
       !-- Local variables
       integer :: lm, l
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#else
       !$omp parallel do default(shared) private(l)
+#endif
       do lm = 1, lm_max
          l = st_map%lm2l(lm)
          if ( l <= l_R(nR) ) then
@@ -813,7 +1022,11 @@ contains
             dLz(lm)   = zero
          end if
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
    end subroutine legPrep_qst
 !-------------------------------------------------------------------------------
