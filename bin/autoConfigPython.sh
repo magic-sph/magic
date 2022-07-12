@@ -89,7 +89,8 @@ hasf2py3 () {
 }
 
 whichPython () {
-  local cmd=`python -c 'import sys; print(sys.version_info[0])'`
+  local cmd=`python3 -c 'import sys; print(sys.version_info[0])'`
+  #local cmd=`python -c 'import sys; print(sys.version_info[0])'`
   local pythonVersion=$cmd;
   echo $pythonVersion
 }

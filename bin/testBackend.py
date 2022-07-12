@@ -22,11 +22,11 @@ def getMyMatplotlibEnv():
             except ImportError:
                 return ''
         else:
-            # GTKAgg is the default one
+            # GTK3Agg is the default one
             try:
                 try:
-                    plt.switch_backend('GTKAgg')
-                    return 'GTKAgg'
+                    plt.switch_backend('GTK3Agg')
+                    return 'GTK3Agg'
                 except Warning:
                     pass
             except ImportError:
