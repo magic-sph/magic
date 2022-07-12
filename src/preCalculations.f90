@@ -40,6 +40,11 @@ module preCalculations
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
    use time_schemes, only: type_tscheme
 
+#ifdef WITH_OMP_GPU
+   use blocking, only: st_map
+#endif
+
+
    implicit none
 
    private
@@ -763,6 +768,10 @@ contains
 
       end if
 
+#ifdef WITH_OMP_GPU
+      !-- From blocking module
+      !$omp target update to(st_map)
+#end
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------

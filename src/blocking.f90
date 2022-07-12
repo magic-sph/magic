@@ -214,9 +214,17 @@ contains
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc : st_map)
+#endif
+
    end subroutine initialize_blocking
 !------------------------------------------------------------------------
    subroutine finalize_blocking
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release : st_map)
+#endif
 
       call deallocate_mappings(st_map)
       call deallocate_mappings(lo_map)
