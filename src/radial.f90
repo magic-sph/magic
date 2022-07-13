@@ -132,6 +132,9 @@ contains
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
       bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: or2, rho0, orho1)
+#endif
 
       if ( l_chemical_conv ) then
          allocate( dxicond(n_r_max) )
@@ -148,6 +151,10 @@ contains
       !allocate ( l_R(nRstart:nRstop) )
       !bytes_allocated = bytes_allocated +(nRstop-nRstart+1)*SIZEOF_INTEGER
       allocate ( l_R(1:n_r_max) )
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: l_R)
+#endif
+
       bytes_allocated = bytes_allocated +n_r_max*SIZEOF_INTEGER
 
       if ( .not. l_full_sphere ) then
@@ -199,6 +206,10 @@ contains
       !
       ! Memory deallocation of radial functions
       !
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: or2, l_R, rho0, orho1)
+#endif
 
       deallocate( l_R )
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )

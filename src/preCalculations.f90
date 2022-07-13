@@ -19,12 +19,16 @@ module preCalculations
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
        &            l_precession, l_finite_diff, l_full_sphere
    use radial_data, only: radial_balance
+#ifdef WITH_OMP_GPU
+   use radial_functions
+#else
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
        &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
        &                       dLvisc, dLlambda, divKtemp0, radial,        &
        &                       transportProperties, l_R
+#endif
    use physical_parameters, only: nVarEps, pr, prmag, ra, rascaled, ek,    &
        &                          ekscaled, opr, opm, o_sr, radratio,      &
        &                          sigma_ratio, CorFac, LFfac, BuoFac,      &
@@ -34,7 +38,11 @@ module preCalculations
        &                          n_r_LCR, mode, tmagcon, oek, Bn,         &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
        &                          ChemFac, raxi, Po, prec_angle
+#ifdef WITH_OMP_GPU
+   use horizontal_data
+#else
    use horizontal_data, only: horizontal
+#endif
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
@@ -771,7 +779,13 @@ contains
 #ifdef WITH_OMP_GPU
       !-- From blocking module
       !$omp target update to(st_map)
-#end
+
+      !-- From radial_functions
+      !$omp target update to(or2, l_R, rho0, orho1)
+
+      !-- FRom horizontal_data
+      !$omp target update to(O_sin_theta_E2, dLh, cosTheta, sinTheta_E2)
+#endif
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------
