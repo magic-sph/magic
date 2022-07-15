@@ -42,8 +42,13 @@ module RMS
    use useful, only: abortRun
    use mean_sd, only: mean_sd_type, mean_sd_2D_type
    use time_schemes, only: type_tscheme
+#ifdef WITH_OMP_GPU
+   use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat, &
+       &          sht_lP, sht_lP_gpu
+#else
    use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat, &
        &          sht_lP
+#endif
 
    implicit none
 
@@ -94,8 +99,14 @@ module RMS
    integer :: n_dtvrms_file, n_dtbrms_file
    character(len=72) :: dtvrms_file, dtbrms_file
 
+#ifdef WITH_OMP_GPU
+   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, &
+   &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS, &
+   &         transform_to_grid_RMS_batch
+#else
    public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, &
    &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS
+#endif
 
 contains
 
@@ -157,6 +168,12 @@ contains
       Advt2(:)=0.0_cp ; Advp2(:)=0.0_cp ; LFt2(:)=0.0_cp ; LFp2(:)=0.0_cp
       CFt2(:)=0.0_cp ; CFp2(:)=0.0_cp ; dpdtc(:)=0.0_cp ; dpdpc(:)=0.0_cp
       bytes_allocated=bytes_allocated + 11*n_phys_space*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$omp&                             LFp2, CFt2, CFp2, dpdtc, dpdpc)
+      !$omp target update to(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$omp&                 LFp2, CFt2, CFp2, dpdtc, dpdpc)
+#endif
 
       allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
       allocate( vp_old(nlat_padded,n_phi_max,nRstart:nRstop) )
@@ -175,6 +192,10 @@ contains
          allocate ( dpkindrc(n_phys_space) )
          dpkindrc(:)=0.0_cp
          bytes_allocated=bytes_allocated + n_phys_space*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dpkindrc)
+      !$omp target update to(dpkindrc)
+#endif
       end if
 
       allocate( dtVrLM(n_spec_space_lmP), dtVtLM(n_spec_space_lmP) )
@@ -190,6 +211,10 @@ contains
       else
          allocate( dpkindrLM(1) ) ! for debug
       end if
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$omp&                             PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+#endif
 
       call InerRmsL%initialize(0,l_max)
       call CorRmsL%initialize(0,l_max)
@@ -261,11 +286,24 @@ contains
       if ( l_chemical_conv )  deallocate( Buo_xi2hInt )
       if ( l_heat )  deallocate( Buo_temp2hInt )
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$omp&                             LFp2, CFt2, CFp2, dpdtc, dpdpc)
+#endif
       deallocate ( Advt2, Advp2, LFt2, LFp2, CFt2, CFp2, dpdtc, dpdpc )
       deallocate ( dtVr, dtVt, dtVp, vr_old, vt_old, vp_old )
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$omp&                             PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+#endif
       deallocate( Advt2LM, Advp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, PFt2LM, PFp2LM )
       deallocate( dtVrLM, dtVtLM, dtVpLM, LFrLM )
-      if ( l_adv_curl ) deallocate ( dpkindrLM, dpkindrc )
+      if ( l_adv_curl ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dpkindrc)
+#endif
+         deallocate ( dpkindrLM, dpkindrc )
+      end if
 
       call InerRmsL%finalize()
       call CorRmsL%finalize()
@@ -576,6 +614,39 @@ contains
 
    end subroutine get_nl_RMS
 !----------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   subroutine transform_to_grid_RMS(nR, p_Rloc)
+      !
+      ! This subroutine is used to transform the arrays used in r.m.s. force
+      ! calculations from the spectral space to the physical grid.
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: nR ! radial level
+      complex(cp), intent(inout) :: p_Rloc(:) ! pressure in LM space
+
+      !$omp target update to(dpdtc, dpdpc)
+      call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR), .true.)
+      !$omp target update from(dpdtc, dpdpc)
+
+   end subroutine transform_to_grid_RMS
+
+   subroutine transform_to_grid_RMS_batch(nR, p_Rloc)
+      !
+      ! This subroutine is used to transform the arrays used in r.m.s. force
+      ! calculations from the spectral space to the physical grid.
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: nR ! radial level
+      complex(cp), intent(inout) :: p_Rloc(:,:) ! pressure in LM space
+
+      !$omp target update to(dpdtc, dpdpc)
+      call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR), .true.)
+      !$omp target update from(dpdtc, dpdpc)
+
+   end subroutine transform_to_grid_RMS_batch
+#else
    subroutine transform_to_grid_RMS(nR, p_Rloc)
       !
       ! This subroutine is used to transform the arrays used in r.m.s. force
@@ -589,6 +660,7 @@ contains
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
 
    end subroutine transform_to_grid_RMS
+#endif
 !----------------------------------------------------------------------------
    subroutine transform_to_lm_RMS(nR, LFr)
       !
@@ -600,6 +672,34 @@ contains
       integer,  intent(in) :: nR ! radial level
       real(cp), intent(inout) :: LFr(*) ! radial component of the Lorentz force
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$omp&                 LFp2, CFt2, CFp2, dpdtc, dpdpc, &
+      !$omp&                 dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$omp&                 PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+      if ( l_adv_curl ) then
+         !$omp target update to(dpkindrc)
+      end if
+
+      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP_gpu, LFr, LFrLM, l_R(nR), .true.)
+      call spat_to_sphertor(sht_lP_gpu, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR), .true.)
+      call spat_to_sphertor(sht_lP_gpu, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR), .true.)
+      call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR), .true.)
+      if ( l_conv_nl ) call spat_to_sphertor(sht_lP_gpu, Advt2, Advp2, &
+                            &               Advt2LM, Advp2LM, l_R(nR), .true.)
+      !-- Kinetic pressure : 1/2 d u^2 / dr
+      if ( l_adv_curl ) call scal_to_SH(sht_lP_gpu, dpkindrc, dpkindrLM, l_R(nR), .true.)
+      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_lP_gpu, LFt2, LFp2,  &
+                                            &                LFt2LM, LFp2LM, l_R(nR), .true.)
+
+      !$omp target update from(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$omp&                 LFp2, CFt2, CFp2, dpdtc, dpdpc, &
+      !$omp&                 dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$omp&                 PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+      if ( l_adv_curl ) then
+         !$omp target update from(dpkindrc)
+      end if
+#else
       if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP, LFr, LFrLM, l_R(nR))
       call spat_to_sphertor(sht_lP, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
       call spat_to_sphertor(sht_lP, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
@@ -610,6 +710,7 @@ contains
       if ( l_adv_curl ) call scal_to_SH(sht_lP, dpkindrc, dpkindrLM, l_R(nR))
       if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_lP, LFt2, LFp2,  &
                                             &                LFt2LM, LFp2LM, l_R(nR))
+#endif
 
    end subroutine transform_to_lm_RMS
 !----------------------------------------------------------------------------
