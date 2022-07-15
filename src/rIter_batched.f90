@@ -43,7 +43,11 @@ module rIter_batched_mod
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant_batch
+#ifdef WITH_OMP_GPU
+   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary, v_rigid_boundary_batch
+#else
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
+#endif
    use power, only: get_visc_heat
    use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
@@ -56,10 +60,17 @@ module rIter_batched_mod
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
+#ifdef WITH_OMP_GPU
+   use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces,       &
+       &          transform_to_grid_RMS_batch, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
+       &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
+       &          CFt2LM, CFp2LM
+#else
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces,       &
        &          transform_to_grid_RMS, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
+#endif
    use probe_mod
 
    implicit none
@@ -390,6 +401,9 @@ contains
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(this%dtB_arrays)
+#endif
             call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
                  &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
                  &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
@@ -399,6 +413,9 @@ contains
                  &         this%dtB_arrays%BpVtBtVpCotLM,                   &
                  &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
                  &         this%dtB_arrays%BtVZsn2LM)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(this%dtB_arrays)
+#endif
          end if
 
 
@@ -540,7 +557,11 @@ contains
             end if
          end if
 
+#ifdef WITH_OMP_GPU
+         if ( lRmsCalc ) call transform_to_grid_RMS_batch(1, p_Rloc) ! 1 for l_R(nR)
+#else
          if ( lRmsCalc ) call transform_to_grid_RMS(1, p_Rloc) ! 1 for l_R(nR)
+#endif
 
          !-- Pressure
          if ( lPressCalc ) call scal_to_spat(sht_l, p_Rloc, this%gsa%pc, l_R(1))
@@ -610,6 +631,20 @@ contains
             !$omp end parallel do
          end if
 
+#ifdef WITH_OMP_GPU
+         if ( nRstart == n_r_cmb .and. ktopv==2 ) then
+            call v_rigid_boundary_batch(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
+                 &                      this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
+                 &                      this%gsa%dvrdtc, this%gsa%dvrdpc,          &
+                 &                      this%gsa%dvtdpc,this%gsa%dvpdpc)
+         else if ( nRstop == n_r_icb .and. kbotv==2 ) then
+            call v_rigid_boundary_batch(n_r_icb, omega_ic, .true., this%gsa%vrc, &
+                 &                      this%gsa%vtc, this%gsa%vpc,              &
+                 &                      this%gsa%cvrc, this%gsa%dvrdtc,          &
+                 &                      this%gsa%dvrdpc, this%gsa%dvtdpc,        &
+                 &                      this%gsa%dvpdpc)
+         end if
+#else
          if ( nRstart == n_r_cmb .and. ktopv==2 ) then
             call v_rigid_boundary(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
@@ -622,6 +657,7 @@ contains
                  &                this%gsa%dvrdpc, this%gsa%dvtdpc,        &
                  &                this%gsa%dvpdpc)
          end if
+#endif
 
          !else if ( nBc == 1 ) then ! Stress free
          !    ! TODO don't compute vrc as it is set to 0 afterward
