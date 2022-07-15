@@ -17,7 +17,11 @@ module nonlinear_bcs
 
    private
 
+#ifdef WITH_OMP_GPU
+   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary, v_rigid_boundary_batch
+#else
    public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary
+#endif
 
 contains
 
@@ -129,6 +133,121 @@ contains
 
    end subroutine get_b_nl_bcs
 !-------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
+              &                dvrdpr,dvtdpr,dvpdpr)
+      !
+      !  Purpose of this subroutine is to set the velocities and their
+      !  derivatives at a fixed boundary.
+      !  While ``vt`` is zero, since we only allow for rotation about the
+      !  :math:`z`-axis, ``vp= r \sin(theta) v_phi = r**2 sin(theta)**2 omega``
+      !  and ``cvr= r**2 * radial component of (\curl v) = r**2  2 cos(theta) omega``
+      !
+
+      !-- Input of variables:
+      integer,  intent(in) :: nR            ! no of radial grid point
+      logical,  intent(in) :: lDeriv        ! derivatives required ?
+
+      !-- Input of boundary rotation rate
+      real(cp), intent(in) :: omega         ! boundary rotation rate
+
+      !-- output:
+      real(cp), intent(out) :: vrr(:,:), vpr(:,:), vtr(:,:)
+      real(cp), intent(out) :: cvrr(:,:), dvrdtr(:,:), dvrdpr(:,:)
+      real(cp), intent(out) :: dvtdpr(:,:), dvpdpr(:,:)
+
+      !-- Local variables:
+      real(cp) :: r2
+      integer :: nTheta, nPhi, nelem
+
+      if ( nR == n_r_cmb ) then
+         r2=r_cmb*r_cmb
+      else if ( nR == n_r_icb ) then
+         r2=r_icb*r_icb
+      else
+         write(output_unit,*)
+         write(output_unit,*) '! v_rigid boundary called for grid'
+         write(output_unit,*) '! point which is not a boundary !  '
+         return
+      end if
+
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            vrr(nelem)=0.0_cp
+            vtr(nelem)=0.0_cp
+            vpr(nelem)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
+            if ( lDeriv ) then
+               cvrr(nelem)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
+               dvrdtr(nelem)=0.0_cp
+               dvrdpr(nelem)=0.0_cp
+               dvtdpr(nelem)=0.0_cp
+               dvpdpr(nelem)=0.0_cp
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine v_rigid_boundary
+
+   subroutine v_rigid_boundary_batch(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
+              &                dvrdpr,dvtdpr,dvpdpr)
+      !
+      !  Purpose of this subroutine is to set the velocities and their
+      !  derivatives at a fixed boundary.
+      !  While ``vt`` is zero, since we only allow for rotation about the
+      !  :math:`z`-axis, ``vp= r \sin(theta) v_phi = r**2 sin(theta)**2 omega``
+      !  and ``cvr= r**2 * radial component of (\curl v) = r**2  2 cos(theta) omega``
+      !
+
+      !-- Input of variables:
+      integer,  intent(in) :: nR            ! no of radial grid point
+      logical,  intent(in) :: lDeriv        ! derivatives required ?
+
+      !-- Input of boundary rotation rate
+      real(cp), intent(in) :: omega         ! boundary rotation rate
+
+      !-- output:
+      real(cp), intent(out) :: vrr(:,:,:), vpr(:,:,:), vtr(:,:,:)
+      real(cp), intent(out) :: cvrr(:,:,:), dvrdtr(:,:,:), dvrdpr(:,:,:)
+      real(cp), intent(out) :: dvtdpr(:,:,:), dvpdpr(:,:,:)
+
+      !-- Local variables:
+      real(cp) :: r2
+      integer :: nTheta, nPhi, nelem
+
+      if ( nR == n_r_cmb ) then
+         r2=r_cmb*r_cmb
+      else if ( nR == n_r_icb ) then
+         r2=r_icb*r_icb
+      else
+         write(output_unit,*)
+         write(output_unit,*) '! v_rigid boundary called for grid'
+         write(output_unit,*) '! point which is not a boundary !  '
+         return
+      end if
+
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            vrr(nelem)=0.0_cp
+            vtr(nelem)=0.0_cp
+            vpr(nelem)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
+            if ( lDeriv ) then
+               cvrr(nelem)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
+               dvrdtr(nelem)=0.0_cp
+               dvrdpr(nelem)=0.0_cp
+               dvtdpr(nelem)=0.0_cp
+               dvpdpr(nelem)=0.0_cp
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine v_rigid_boundary_batch
+#else
    subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
               &                dvrdpr,dvtdpr,dvpdpr)
       !
@@ -185,5 +304,6 @@ contains
       !$omp end parallel do
 
    end subroutine v_rigid_boundary
+#endif
 !-------------------------------------------------------------------------
 end module nonlinear_bcs
